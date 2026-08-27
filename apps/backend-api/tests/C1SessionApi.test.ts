@@ -163,16 +163,16 @@ afterAll(async () => {
 });
 
 describe('versioned C1 foundation', () => {
-  it('uses exactly migrations 001 through 020 and reruns the ledger cleanly', async () => {
+  it('uses exactly migrations 001 through 021 and reruns the ledger cleanly', async () => {
     const migrations = await loadMigrations();
-    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']);
+    expect(migrations.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021']);
     const ledger = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020']);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021']);
     expect(ledger.rows.every(({ checksum }) => /^[0-9a-f]{64}$/.test(checksum))).toBe(true);
     await expect(migrate(installerPool)).resolves.toEqual({
-      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
+      applied: [], alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021'],
     });
   });
 });
@@ -367,6 +367,142 @@ describe('server-authoritative GET /v1/session', () => {
     await sessionRequest(await accessToken(jwks));
     await sessionRequest(await accessToken(jwks, { subject: c1Ids.unknownSubject }));
     expect(await tableCounts()).toEqual(before);
+  });
+});
+
+describe('server-authoritative GET /v2/session', () => {
+  it('keeps v1 exact while v2 reports all current Administrator section authorities', async () => {
+    const token = await accessToken(jwks, { subject: c1Ids.administratorSubject });
+    expect(JSON.parse((await sessionRequest(token)).text)).toEqual({
+      userId: c1Ids.administratorA,
+      membershipId: c1Ids.administratorAMembership,
+      organizationId: c1Ids.organizationA,
+      role: 'administrator',
+    });
+    const response = await administrationSessionRequest(token);
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.text)).toEqual({
+      userId: c1Ids.administratorA,
+      membershipId: c1Ids.administratorAMembership,
+      organizationId: c1Ids.organizationA,
+      locationsEnabled: false,
+      availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
+      managementScope: { kind: 'organization' },
+    });
+    expect(response.text).not.toContain('role');
+  });
+
+  it('removes both employee-management section and scope when the same grant is revoked', async () => {
+    const locationId = '91000000-0000-4000-8000-000000000201';
+    const grantId = '92000000-0000-4000-8000-000000000201';
+    const commandId = '93000000-0000-4000-8000-000000000201';
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `SELECT set_config('app.user_id', $1, true),
+                set_config('app.organization_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true),
+                set_config('app.correlation_id', $4, true)`,
+        [c1Ids.administratorA, c1Ids.organizationA,
+          c1Ids.administratorAMembership, commandId],
+      );
+      await client.query('SET LOCAL ROLE taptime_membership_manager');
+      const changed = await client.query<{ result_status: string }>(
+        `SELECT result_status FROM ${B3_SCHEMA}.manage_membership_v1(
+           $1, $2, 1, 'change_role', 'standortleitung'
+         )`,
+        [commandId, c1Ids.employeeAMembership],
+      );
+      expect(changed.rows).toEqual([{ result_status: 'succeeded' }]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.locations (id, organization_id, display_name)
+       VALUES ($1, $2, 'Berlin')`,
+      [locationId, c1Ids.organizationA],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.membership_home_location_assignments
+         (id, organization_id, membership_id, location_id)
+       SELECT gen_random_uuid(), membership.organization_id, membership.id, $2
+       FROM ${B3_SCHEMA}.memberships AS membership
+       WHERE membership.organization_id = $1 AND membership.revoked_at IS NULL`,
+      [c1Ids.organizationA, locationId],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.work_target_location_assignments
+         (id, organization_id, target_type, target_id, location_id)
+       SELECT gen_random_uuid(), target.organization_id, target.target_type, target.target_id, $2
+       FROM ${B3_SCHEMA}.work_targets AS target
+       WHERE target.organization_id = $1 AND target.active`,
+      [c1Ids.organizationA, locationId],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.membership_management_location_grants
+         (id, organization_id, membership_id, location_id)
+       VALUES ($1, $2, $3, $4)`,
+      [grantId, c1Ids.organizationA, c1Ids.employeeAMembership, locationId],
+    );
+    const activation = await installerPool.connect();
+    try {
+      await activation.query('BEGIN');
+      await activation.query(
+        `SELECT set_config('app.user_id', $1, true),
+                set_config('app.organization_id', $2, true),
+                set_config('app.membership_id', $3, true),
+                set_config('app.membership_role', 'administrator', true),
+                set_config('app.correlation_id', $4, true)`,
+        [c1Ids.administratorA, c1Ids.organizationA,
+          c1Ids.administratorAMembership, '93000000-0000-4000-8000-000000000202'],
+      );
+      await activation.query('SET LOCAL ROLE taptime_admin_setup');
+      await activation.query(
+        `SELECT ${B3_SCHEMA}.set_organization_locations_enabled_v1($1, true)`,
+        [c1Ids.organizationA],
+      );
+      await activation.query('COMMIT');
+    } catch (error) {
+      await activation.query('ROLLBACK');
+      throw error;
+    } finally {
+      activation.release();
+    }
+    const token = await accessToken(jwks);
+    const before = await administrationSessionRequest(token);
+    expect(JSON.parse(before.text)).toEqual({
+      userId: c1Ids.employeeA,
+      membershipId: c1Ids.employeeAMembership,
+      organizationId: c1Ids.organizationA,
+      locationsEnabled: true,
+      availableSections: ['employees'],
+      managementScope: {
+        kind: 'locations',
+        locations: [{ id: locationId, name: 'Berlin' }],
+      },
+    });
+
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.membership_management_location_grants
+       SET revoked_at = transaction_timestamp()
+       WHERE id = $1`,
+      [grantId],
+    );
+    const after = await administrationSessionRequest(token);
+    expect(JSON.parse(after.text)).toEqual({
+      userId: c1Ids.employeeA,
+      membershipId: c1Ids.employeeAMembership,
+      organizationId: c1Ids.organizationA,
+      locationsEnabled: true,
+      availableSections: [],
+      managementScope: { kind: 'locations', locations: [] },
+    });
   });
 });
 
@@ -705,6 +841,14 @@ async function sessionRequest(token: string): Promise<HttpResult> {
   return rawRequest(apiOrigin, {
     method: 'GET',
     path: '/v1/session',
+    headers: { authorization: `Bearer ${token}` },
+  });
+}
+
+async function administrationSessionRequest(token: string): Promise<HttpResult> {
+  return rawRequest(apiOrigin, {
+    method: 'GET',
+    path: '/v2/session',
     headers: { authorization: `Bearer ${token}` },
   });
 }

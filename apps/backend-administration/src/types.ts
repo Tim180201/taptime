@@ -39,6 +39,10 @@ export interface EmployeeMembershipSummary {
   readonly rowVersion: number;
 }
 
+export interface LocatedEmployeeMembershipSummary extends EmployeeMembershipSummary {
+  readonly location: { readonly id: string; readonly name: string } | null;
+}
+
 export interface CreateEmployeeMembershipInvitationCommand {
   readonly accessToken: string;
   readonly expectedMembershipId: MembershipId;
@@ -59,6 +63,11 @@ export interface ReadEmployeeMembershipsProjectionCommand {
   readonly expectedMembershipId: MembershipId;
   readonly cursor: string | null;
   readonly limit: number;
+}
+
+export interface ReadEmployeeMembershipsProjectionV2Command
+extends ReadEmployeeMembershipsProjectionCommand {
+  readonly locationId: string | null;
 }
 
 export interface RevokeMembershipCommand {
@@ -114,6 +123,17 @@ export type ReadEmployeeMembershipsProjectionResult =
       readonly nextCursor: string | null;
     }
   | AdminAuthorityRejection
+  | { readonly status: 'invalid_request' };
+
+export type ReadEmployeeMembershipsProjectionV2Result =
+  | {
+      readonly status: 'succeeded';
+      readonly organization: AdminOrganizationSummary;
+      readonly employeeMemberships: readonly LocatedEmployeeMembershipSummary[];
+      readonly nextCursor: string | null;
+    }
+  | AdminAuthorityRejection
+  | { readonly status: 'location_scope_forbidden' }
   | { readonly status: 'invalid_request' };
 
 export type MembershipMutationResult =

@@ -160,6 +160,66 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
     });
   });
 
+  it('versions the located projection and exposes a distinct foreign-Location rejection', async () => {
+    const locationId = '21000000-0000-4000-8000-000000000001';
+    const readEmployeeMembershipsProjectionV2 = vi.fn<
+      NonNullable<EmployeeMembershipEnrollmentCoordinator['readEmployeeMembershipsProjectionV2']>
+    >(async () => ({
+      status: 'succeeded',
+      organization: { id: organizationId, name: 'Synthetic Organization A' },
+      employeeMemberships: [{
+        id: MembershipId('22000000-0000-4000-8000-000000000001'),
+        displayName: 'Employee Alpha',
+        role: 'employee',
+        active: true,
+        rowVersion: 3,
+        location: { id: locationId, name: 'Berlin' },
+      }],
+      nextCursor: null,
+    }));
+    const apiOrigin = await origin(coordinator({ readEmployeeMembershipsProjectionV2 }));
+    const response = await post(apiOrigin,
+      '/v2/administration/employee-memberships-projection', {
+        expectedMembershipId: membershipId,
+        cursor: null,
+        limit: 20,
+        locationId,
+      });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      status: 'succeeded',
+      organization: { id: organizationId, name: 'Synthetic Organization A' },
+      employeeMemberships: [{
+        id: '22000000-0000-4000-8000-000000000001',
+        displayName: 'Employee Alpha',
+        role: 'employee',
+        active: true,
+        rowVersion: 3,
+        location: { id: locationId, name: 'Berlin' },
+      }],
+      nextCursor: null,
+    });
+    expect(readEmployeeMembershipsProjectionV2).toHaveBeenCalledWith(
+      { accessToken, expectedMembershipId: membershipId, cursor: null, limit: 20, locationId },
+      { deadlineEpochMilliseconds: expect.any(Number) },
+    );
+
+    readEmployeeMembershipsProjectionV2.mockResolvedValueOnce({
+      status: 'location_scope_forbidden',
+    });
+    const rejected = await post(apiOrigin,
+      '/v2/administration/employee-memberships-projection', {
+        expectedMembershipId: membershipId,
+        cursor: null,
+        limit: 20,
+        locationId: '21000000-0000-4000-8000-000000000002',
+      });
+    expect(rejected.status).toBe(403);
+    await expect(rejected.json()).resolves.toEqual({
+      error: { code: 'location_scope_forbidden' },
+    });
+  });
+
   it('exposes membership revocation with optimistic concurrency and exact success data', async () => {
     const targetMembershipId = MembershipId('22000000-0000-4000-8000-000000000001');
     const revokeMembership = vi.fn<EmployeeMembershipEnrollmentCoordinator['revokeMembership']>(
@@ -415,6 +475,7 @@ function coordinator(
     async createInvitation() { return { status: 'unauthorized' }; },
     async redeemInvitation() { return { status: 'unauthorized' }; },
     async readEmployeeMembershipsProjection() { return { status: 'unauthorized' }; },
+    async readEmployeeMembershipsProjectionV2() { return { status: 'unauthorized' }; },
     async revokeMembership() { return { status: 'unauthorized' }; },
     async changeMembershipRole() { return { status: 'unauthorized' }; },
     async recordPasswordReset() { return { status: 'unauthorized' }; },

@@ -51,7 +51,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021'],
     alreadyApplied: [],
   });
   await ensureC3E1RuntimeLogins(installerPool, invitationPassword, enrollmentPassword);
@@ -110,11 +110,11 @@ afterAll(async () => {
 describe('migration 008 Employee invitation and enrollment boundary', () => {
   it('records migration 008 and keeps creator and redeemer capabilities separated', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021'],
     });
     expect(await postgresErrorCode(
       invitationPool.query('SET ROLE taptime_employee_enrollment_redeemer'),
@@ -446,6 +446,99 @@ describe('migration 008 Employee invitation and enrollment boundary', () => {
       { displayName: 'Employee Alpha', role: 'employee', active: true, rowVersion: 1 },
       { displayName: 'Employee Beta', role: 'employee', active: true, rowVersion: 1 },
     ]));
+  });
+
+  it('hides prepared Locations while off, then projects and filters them through v2', async () => {
+    const locationA = '91000000-0000-4000-8000-000000000301';
+    const locationB = '91000000-0000-4000-8000-000000000302';
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.locations (id, organization_id, display_name)
+       VALUES ($1, $3, 'Berlin'), ($2, $4, 'Hamburg')`,
+      [locationA, locationB, ids.organizationA, ids.organizationB],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.membership_home_location_assignments
+         (id, organization_id, membership_id, location_id)
+       VALUES (gen_random_uuid(), $1, $2, $3)`,
+      [ids.organizationA, membershipIds.employeeA, locationA],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.membership_home_location_assignments
+         (id, organization_id, membership_id, location_id)
+       SELECT gen_random_uuid(), membership.organization_id, membership.id, $3
+       FROM ${B3_SCHEMA}.memberships AS membership
+       WHERE membership.organization_id = $1
+         AND membership.id <> $2
+         AND membership.revoked_at IS NULL`,
+      [ids.organizationA, membershipIds.employeeA, locationA],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.work_target_location_assignments
+         (id, organization_id, target_type, target_id, location_id)
+       SELECT gen_random_uuid(), target.organization_id, target.target_type, target.target_id, $2
+       FROM ${B3_SCHEMA}.work_targets AS target
+       WHERE target.organization_id = $1 AND target.active`,
+      [ids.organizationA, locationA],
+    );
+
+    const currentProjection = await coordinator.readEmployeeMembershipsProjection({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      cursor: null,
+      limit: 20,
+    });
+    expect(currentProjection.status).toBe('succeeded');
+    if (currentProjection.status !== 'succeeded') throw new Error('Current projection failed');
+
+    const featureOffProjection = await coordinator.readEmployeeMembershipsProjectionV2({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      cursor: null,
+      limit: 20,
+      locationId: null,
+    });
+    expect(featureOffProjection.status).toBe('succeeded');
+    if (featureOffProjection.status !== 'succeeded') throw new Error('Projection failed');
+    expect(featureOffProjection.employeeMemberships.map(({ id }) => id)).toEqual(
+      currentProjection.employeeMemberships.map(({ id }) => id),
+    );
+    expect(featureOffProjection.employeeMemberships.every(
+      (projectedMembership) => projectedMembership.location === null,
+    )).toBe(true);
+
+    await expect(coordinator.readEmployeeMembershipsProjectionV2({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      cursor: null,
+      limit: 20,
+      locationId: locationA,
+    })).resolves.toEqual({ status: 'location_scope_forbidden' });
+
+    await enableLocationsForOrganizationA();
+
+    const locatedProjection = await coordinator.readEmployeeMembershipsProjectionV2({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      cursor: null,
+      limit: 20,
+      locationId: locationA,
+    });
+    expect(locatedProjection.status).toBe('succeeded');
+    if (locatedProjection.status !== 'succeeded') throw new Error('Located projection failed');
+    expect(locatedProjection.employeeMemberships.map(({ id }) => id)).toEqual(
+      currentProjection.employeeMemberships.map(({ id }) => id),
+    );
+    expect(locatedProjection.employeeMemberships.every(({ location }) => (
+      location?.id === locationA && location.name === 'Berlin'
+    ))).toBe(true);
+
+    await expect(coordinator.readEmployeeMembershipsProjectionV2({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      cursor: null,
+      limit: 20,
+      locationId: locationB,
+    })).resolves.toEqual({ status: 'location_scope_forbidden' });
   });
 
   it('invites a second Administrator who resolves the same management capability', async () => {
@@ -1147,6 +1240,10 @@ async function prepareLocationManagerModel(locationId: string): Promise<void> {
     [ids.organizationA, membershipIds.employeeA, locationId],
   );
 
+  await enableLocationsForOrganizationA();
+}
+
+async function enableLocationsForOrganizationA(): Promise<void> {
   const client = await installerPool.connect();
   try {
     await client.query('BEGIN');

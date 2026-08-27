@@ -24,7 +24,10 @@ import { TenantReadSessionCoordinator } from '@taptime/backend-read-model';
 import { TimeEntryExportCoordinator } from '@taptime/backend-time-export';
 import { TimeReviewCoordinator } from '@taptime/backend-time-review';
 import { Pool } from 'pg';
-import { B4SessionAuthorityResolver } from './B4SessionAuthorityResolver.js';
+import {
+  B4AdministrationSessionAuthorityResolver,
+  B4SessionAuthorityResolver,
+} from './B4SessionAuthorityResolver.js';
 import { B5ScanContextResolver } from './B5ScanContextResolver.js';
 import {
   createBackendHttpServer,
@@ -174,6 +177,7 @@ export function createBackendApiRuntime(
         verifier,
         mobileOwnTimeCursorHmacKey,
       );
+  const sessionMembershipResolver = new PostgresIdentityMembershipResolver(sessionPool);
   const server = createBackendHttpServer(
     {
       healthCheck: async () => {
@@ -181,7 +185,12 @@ export function createBackendApiRuntime(
       },
       sessionAuthority: new B4SessionAuthorityResolver(
         verifier,
-        new PostgresIdentityMembershipResolver(sessionPool),
+        sessionMembershipResolver,
+      ),
+      administrationSessionAuthority: new B4AdministrationSessionAuthorityResolver(
+        verifier,
+        sessionMembershipResolver,
+        sessionMembershipResolver,
       ),
       scanContextResolver: new B5ScanContextResolver(
         new TenantReadSessionCoordinator(readModelPool, verifier),

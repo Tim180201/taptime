@@ -1,9 +1,15 @@
 import type {
   AccessTokenVerifier,
+  AdministrationSessionProjectionResolver,
   IdentityMembershipResolver,
 } from '@taptime/backend-identity';
 import { isMembershipRole } from '@taptime/core';
-import type { SessionAuthorityResolution, SessionAuthorityResolver } from './types.js';
+import type {
+  AdministrationSessionAuthorityResolution,
+  AdministrationSessionAuthorityResolver,
+  SessionAuthorityResolution,
+  SessionAuthorityResolver,
+} from './types.js';
 
 /**
  * The C1 endpoint deliberately composes B4 verification and Membership resolution directly: it
@@ -36,6 +42,35 @@ export class B4SessionAuthorityResolver implements SessionAuthorityResolver {
         membershipId: resolution.membership.membershipId,
         organizationId: resolution.membership.organizationId,
         role: resolution.membership.role,
+      }),
+    };
+  }
+}
+
+export class B4AdministrationSessionAuthorityResolver
+implements AdministrationSessionAuthorityResolver {
+  constructor(
+    private readonly verifier: AccessTokenVerifier,
+    private readonly membershipResolver: IdentityMembershipResolver,
+    private readonly projectionResolver: AdministrationSessionProjectionResolver,
+  ) {}
+
+  async resolve(accessToken: string): Promise<AdministrationSessionAuthorityResolution> {
+    const verification = await this.verifier.verify(accessToken);
+    if (verification.status === 'rejected') return { status: 'rejected' };
+    const resolution = await this.membershipResolver.resolve(verification.identity);
+    if (resolution.status === 'not_resolved') return { status: 'rejected' };
+    const projected = await this.projectionResolver.resolveAdministrationSession(
+      resolution.membership,
+    );
+    if (projected.status === 'not_resolved') return { status: 'rejected' };
+    return {
+      status: 'resolved',
+      session: Object.freeze({
+        userId: resolution.membership.userId,
+        membershipId: resolution.membership.membershipId,
+        organizationId: resolution.membership.organizationId,
+        ...projected.projection,
       }),
     };
   }

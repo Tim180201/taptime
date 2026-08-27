@@ -34,6 +34,8 @@ import type {
   ReassignNfcTagResult,
   ReadEmployeeMembershipsProjectionCommand,
   ReadEmployeeMembershipsProjectionResult,
+  ReadEmployeeMembershipsProjectionV2Command,
+  ReadEmployeeMembershipsProjectionV2Result,
   ReadSetupProjectionCommand,
   ReadSetupProjectionResult,
   RevokeMembershipCommand,
@@ -68,6 +70,34 @@ export type SessionAuthorityResolution =
 
 export interface SessionAuthorityResolver {
   resolve(accessToken: string): Promise<SessionAuthorityResolution>;
+}
+
+export interface ResolvedAdministrationSession {
+  readonly userId: UserId;
+  readonly membershipId: MembershipId;
+  readonly organizationId: OrganizationId;
+  readonly locationsEnabled: boolean;
+  readonly availableSections: readonly (
+    | 'setup'
+    | 'employees'
+    | 'time_records'
+    | 'time_export'
+    | 'review_items'
+  )[];
+  readonly managementScope:
+    | { readonly kind: 'organization' }
+    | {
+        readonly kind: 'locations';
+        readonly locations: readonly { readonly id: string; readonly name: string }[];
+      };
+}
+
+export type AdministrationSessionAuthorityResolution =
+  | { readonly status: 'resolved'; readonly session: ResolvedAdministrationSession }
+  | { readonly status: 'rejected' };
+
+export interface AdministrationSessionAuthorityResolver {
+  resolve(accessToken: string): Promise<AdministrationSessionAuthorityResolution>;
 }
 
 export interface ResolvedScanContext {
@@ -149,6 +179,11 @@ export interface EmployeeMembershipEnrollmentCoordinator {
     controls?: EmployeeEnrollmentCoordinatorControls,
   ): Promise<ReadEmployeeMembershipsProjectionResult>;
 
+  readEmployeeMembershipsProjectionV2?(
+    command: ReadEmployeeMembershipsProjectionV2Command,
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<ReadEmployeeMembershipsProjectionV2Result>;
+
   revokeMembership(
     command: RevokeMembershipCommand,
     controls?: EmployeeEnrollmentCoordinatorControls,
@@ -175,6 +210,7 @@ export interface NfcTagReassignmentPort {
 export interface BackendApiDependencies {
   readonly healthCheck?: () => Promise<void>;
   readonly sessionAuthority: SessionAuthorityResolver;
+  readonly administrationSessionAuthority?: AdministrationSessionAuthorityResolver;
   readonly scanContextResolver: ScanContextResolver;
   readonly lifecycleIngestor: LifecycleIngestor;
   readonly deferredLifecycleIngestor: DeferredLifecycleIngestor;
@@ -196,6 +232,7 @@ export type BackendApiRoute =
   | 'admin_create_customer'
   | 'admin_create_employee_invitation'
   | 'admin_employee_memberships_projection'
+  | 'admin_employee_memberships_projection_v2'
   | 'admin_revoke_membership'
   | 'admin_change_membership_role'
   | 'auth_password_reset_audit'
@@ -235,7 +272,8 @@ export type BackendApiRoute =
   | 'offline_review_state'
   | 'scan_context'
   | 'scan_context_v2'
-  | 'session';
+  | 'session'
+  | 'session_v2';
 
 export interface BackendApiDiagnostic {
   readonly code:

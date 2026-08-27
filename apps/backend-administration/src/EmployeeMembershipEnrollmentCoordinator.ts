@@ -17,9 +17,12 @@ import type {
   ChangeMembershipRoleCommand,
   EmployeeEnrollmentCoordinatorControls,
   EmployeeMembershipSummary,
+  LocatedEmployeeMembershipSummary,
   MembershipMutationResult,
   ReadEmployeeMembershipsProjectionCommand,
   ReadEmployeeMembershipsProjectionResult,
+  ReadEmployeeMembershipsProjectionV2Command,
+  ReadEmployeeMembershipsProjectionV2Result,
   RecordPasswordResetCommand,
   RecordPasswordResetResult,
   RevokeMembershipCommand,
@@ -65,6 +68,12 @@ interface EmployeeProjectionRow extends QueryResultRow {
   readonly membership_role: string | null;
   readonly membership_active: boolean | null;
   readonly membership_row_version: string | null;
+}
+
+interface EmployeeProjectionV2Row extends EmployeeProjectionRow {
+  readonly result_status: 'forbidden' | 'location_scope_forbidden' | 'succeeded';
+  readonly location_id: string | null;
+  readonly location_name: string | null;
 }
 
 interface RedemptionRow extends QueryResultRow {
@@ -251,6 +260,121 @@ export class EmployeeMembershipEnrollmentCoordinator {
         const last = page.at(-1);
         return Object.freeze({
           status: 'succeeded',
+          organization: Object.freeze({
+            id: OrganizationId(first.organization_id),
+            name: first.organization_name,
+          }),
+          employeeMemberships: Object.freeze(employeeMemberships),
+          nextCursor: hasMore && last !== undefined ? `v1:m:${last.membership_id}` : null,
+        });
+      },
+    );
+  }
+
+  async readEmployeeMembershipsProjectionV2(
+    command: ReadEmployeeMembershipsProjectionV2Command,
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<ReadEmployeeMembershipsProjectionV2Result> {
+    const cursor = parseCursor(command.cursor);
+    if (
+      !validAccessToken(command.accessToken)
+      || !isCanonicalUuid(command.expectedMembershipId)
+      || (command.locationId !== null && !isCanonicalUuid(command.locationId))
+      || cursor === undefined
+      || !Number.isSafeInteger(command.limit)
+      || command.limit < 1
+      || command.limit > 20
+    ) {
+      return { status: 'invalid_request' };
+    }
+
+    return this.withMembershipManagementAuthority(
+      command.accessToken,
+      command.expectedMembershipId,
+      randomUUID(),
+      controls,
+      async (client) => {
+        const result = await client.query<EmployeeProjectionV2Row>(
+          `SELECT result_status, organization_id, organization_name,
+                  membership_id, membership_display_name,
+                  membership_role, membership_active, membership_row_version,
+                  location_id, location_name
+           FROM taptime_server.read_managed_memberships_v2($1, $2, $3)`,
+          [command.locationId, cursor, command.limit],
+        );
+        if (result.rows.length === 0) throw new Error('Employee projection omitted its status');
+        const first = result.rows[0]!;
+        if (first.result_status !== 'succeeded') return { status: first.result_status } as const;
+        const normalizedOrganization = normalizeOrganizationNameV1(first.organization_name);
+        if (
+          !isCanonicalUuid(first.organization_id)
+          || normalizedOrganization.status === 'invalid'
+          || normalizedOrganization.canonicalName !== first.organization_name
+        ) {
+          throw new Error('Employee projection returned an invalid Organization');
+        }
+        const projected = result.rows.filter(
+          (row): row is EmployeeProjectionV2Row & {
+            membership_id: string;
+            membership_display_name: string;
+            membership_role: string;
+            membership_active: boolean;
+            membership_row_version: string;
+          } => {
+            if (
+              row.organization_id !== first.organization_id
+              || row.result_status !== 'succeeded'
+              || row.organization_name !== first.organization_name
+              || (row.membership_id === null) !== (row.membership_display_name === null)
+              || (row.membership_id === null) !== (row.membership_role === null)
+              || (row.membership_id === null) !== (row.membership_active === null)
+              || (row.membership_id === null) !== (row.membership_row_version === null)
+              || (row.location_id === null) !== (row.location_name === null)
+            ) {
+              throw new Error('Employee projection page is not Organization-consistent');
+            }
+            return row.membership_id !== null;
+          },
+        );
+        const hasMore = projected.length > command.limit;
+        const page = projected.slice(0, command.limit);
+        const seen = new Set<string>();
+        const employeeMemberships: LocatedEmployeeMembershipSummary[] = page.map((row) => {
+          const normalizedName = normalizeCustomerNameV1(row.membership_display_name);
+          const normalizedLocation = row.location_name === null
+            ? null
+            : normalizeCustomerNameV1(row.location_name);
+          if (
+            !isCanonicalUuid(row.membership_id)
+            || seen.has(row.membership_id)
+            || !isMembershipRole(row.membership_role)
+            || !Number.isSafeInteger(Number(row.membership_row_version))
+            || Number(row.membership_row_version) < 1
+            || normalizedName.status === 'invalid'
+            || normalizedName.canonicalName !== row.membership_display_name
+            || (row.location_id !== null && !isCanonicalUuid(row.location_id))
+            || (row.location_name !== null && (
+              normalizedLocation?.status !== 'valid'
+              || normalizedLocation.canonicalName !== row.location_name
+            ))
+          ) {
+            throw new Error('Employee projection returned an invalid Membership');
+          }
+          seen.add(row.membership_id);
+          return Object.freeze({
+            id: MembershipId(row.membership_id),
+            displayName: row.membership_display_name,
+            role: row.membership_role,
+            active: row.membership_active,
+            rowVersion: Number(row.membership_row_version),
+            location: row.location_id === null || row.location_name === null
+              ? null
+              : Object.freeze({ id: row.location_id, name: row.location_name }),
+          });
+        });
+        const last = page.at(-1);
+        return Object.freeze({
+          status: 'succeeded' as const,
           organization: Object.freeze({
             id: OrganizationId(first.organization_id),
             name: first.organization_name,

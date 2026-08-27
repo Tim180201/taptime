@@ -532,13 +532,13 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly seventeen sorted versioned migrations', async () => {
+  it('applies exactly twenty-one sorted versioned migrations', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -547,7 +547,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021',
       ],
     });
   });
@@ -894,6 +894,88 @@ describe('B3 deterministic migration system', () => {
 });
 
 describe('B3 least-privilege roles and request context', () => {
+  it('pins the T-015c SECURITY DEFINER owners and exposes each projection only to its caller', async () => {
+    const routines = await installerPool.query<{
+      name: string;
+      owner: string;
+      security_definer: boolean;
+      configuration: string[];
+    }>(`
+      SELECT procedure.proname AS name, owner.rolname AS owner,
+             procedure.prosecdef AS security_definer,
+             array_to_json(procedure.proconfig) AS configuration
+      FROM pg_catalog.pg_proc AS procedure
+      JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+      JOIN pg_catalog.pg_roles AS owner ON owner.oid = procedure.proowner
+      WHERE namespace.nspname = '${B3_SCHEMA}'
+        AND procedure.proname IN (
+          'read_administration_session_v2', 'read_managed_memberships_v2'
+        )
+      ORDER BY procedure.proname
+    `);
+    expect(routines.rows).toEqual([
+      {
+        name: 'read_administration_session_v2',
+        owner: 'taptime_membership_management_function_owner',
+        security_definer: true,
+        configuration: ['search_path=pg_catalog, taptime_server'],
+      },
+      {
+        name: 'read_managed_memberships_v2',
+        owner: 'taptime_membership_management_function_owner',
+        security_definer: true,
+        configuration: ['search_path=pg_catalog, taptime_server'],
+      },
+    ]);
+
+    const callableProjections = await installerPool.query<{
+      role_name: string;
+      signature: string;
+    }>(`
+      SELECT role_name, signature
+      FROM unnest(ARRAY[
+        'taptime_identity_resolver',
+        'taptime_membership_manager',
+        'taptime_administrator',
+        'taptime_employee'
+      ]) AS runtime(role_name)
+      CROSS JOIN unnest(ARRAY[
+        'taptime_server.read_administration_session_v2(uuid,uuid,uuid)',
+        'taptime_server.read_managed_memberships_v2(uuid,uuid,integer)'
+      ]) AS projection(signature)
+      WHERE has_function_privilege(role_name, signature, 'EXECUTE')
+      ORDER BY role_name, signature
+    `);
+    expect(callableProjections.rows).toEqual([
+      {
+        role_name: 'taptime_identity_resolver',
+        signature: 'taptime_server.read_administration_session_v2(uuid,uuid,uuid)',
+      },
+      {
+        role_name: 'taptime_membership_manager',
+        signature: 'taptime_server.read_managed_memberships_v2(uuid,uuid,integer)',
+      },
+    ]);
+
+    const directlyCallableAuthorities = await installerPool.query<{ count: string }>(`
+      SELECT count(*)
+      FROM unnest(ARRAY[
+        'taptime_identity_resolver',
+        'taptime_membership_manager',
+        'taptime_administrator',
+        'taptime_employee'
+      ]) AS runtime(role_name)
+      CROSS JOIN unnest(ARRAY[
+        'taptime_server.has_current_admin_setup_authority(uuid)',
+        'taptime_server.has_membership_management_authority_v1(uuid,uuid,uuid,text,uuid,text,uuid)',
+        'taptime_server.has_current_time_review_administrator_v1(uuid,uuid,uuid)',
+        'taptime_server.has_current_time_export_authority(uuid)'
+      ]) AS authority(signature)
+      WHERE has_function_privilege(role_name, signature, 'EXECUTE')
+    `);
+    expect(directlyCallableAuthorities.rows[0]?.count).toBe('0');
+  });
+
   it('pins the T-009 role graph, function ownership and capability ACLs', async () => {
     const roleNames = [
       'taptime_membership_enrollment_redeemer',

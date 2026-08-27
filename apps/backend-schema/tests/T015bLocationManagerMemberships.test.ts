@@ -236,6 +236,50 @@ describe('T-015b Location Manager Membership scope', () => {
       membership_id: membership.foreignLocationEmployee,
     });
 
+    const locatedManagerProjection = await withRole(
+      'taptime_membership_manager',
+      context.manager,
+      '92000000-0000-4000-8000-000000000102',
+      (client) => client.query<{
+        result_status: string;
+        membership_id: string | null;
+        location_id: string | null;
+        location_name: string | null;
+      }>(
+        `SELECT result_status, membership_id, location_id, location_name
+         FROM ${B3_SCHEMA}.read_managed_memberships_v2(NULL, NULL, 20)`,
+      ),
+    );
+    expect(locatedManagerProjection.rows.map((row) => row.membership_id).sort()).toEqual([
+      membership.admin,
+      membership.manager,
+      membership.managedEmployee,
+    ].sort());
+    expect(locatedManagerProjection.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        result_status: 'succeeded',
+        location_id: location.managed,
+        location_name: 'Verwaltet',
+      }),
+    ]));
+    expect(locatedManagerProjection.rows.every((row) => (
+      row.result_status === 'succeeded' && row.location_id === location.managed
+    ))).toBe(true);
+
+    const forbiddenLocationFilter = await withRole(
+      'taptime_membership_manager',
+      context.manager,
+      '92000000-0000-4000-8000-000000000103',
+      (client) => client.query<{ result_status: string }>(
+        `SELECT result_status
+         FROM ${B3_SCHEMA}.read_managed_memberships_v2($1, NULL, 20)`,
+        [location.other],
+      ),
+    );
+    expect(forbiddenLocationFilter.rows).toEqual([{
+      result_status: 'location_scope_forbidden',
+    }]);
+
     const adminProjection = await withRole(
       'taptime_membership_manager',
       context.admin,

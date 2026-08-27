@@ -69,6 +69,7 @@ import {
 } from './RequestRateLimiter.js';
 
 const SESSION_PATH = '/v1/session';
+const SESSION_V2_PATH = '/v2/session';
 const HEALTH_PATH = '/health';
 const SCAN_CONTEXT_PATH = '/v1/scan-context/resolve';
 const SCAN_CONTEXT_V2_PATH = '/v2/scan-context/resolve';
@@ -91,6 +92,7 @@ const ADMIN_NFC_REASSIGN_PATH = '/v1/administration/nfc-tags/reassign';
 const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
 const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
 const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
+const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_V2_PATH = '/v2/administration/employee-memberships-projection';
 const ADMIN_REVOKE_MEMBERSHIP_PATH = '/v1/administration/memberships/revoke';
 const ADMIN_CHANGE_MEMBERSHIP_ROLE_PATH = '/v1/administration/memberships/change-role';
 const PASSWORD_RESET_AUDIT_PATH = '/v1/auth/password-reset/audit';
@@ -149,6 +151,7 @@ type ErrorCode =
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
   | 'last_administrator'
+  | 'location_scope_forbidden'
   | 'self_revocation_forbidden'
   | 'target_unavailable'
   | 'tag_payload_already_registered'
@@ -272,7 +275,9 @@ async function handleRequest(
   }
   options = optionsWithDiagnosticRoute(options, route);
 
-  const expectedMethod = route === 'health' || route === 'session' ? 'GET' : 'POST';
+  const expectedMethod = route === 'health' || route === 'session' || route === 'session_v2'
+    ? 'GET'
+    : 'POST';
   if (request.method !== expectedMethod) {
     request.resume();
     response.setHeader('Allow', expectedMethod);
@@ -302,12 +307,14 @@ async function handleRequest(
     return;
   }
 
-  if ((route === 'health' || route === 'session') && requestHasBody(request)) {
+  if ((route === 'health' || route === 'session' || route === 'session_v2')
+    && requestHasBody(request)) {
     request.resume();
     respondError(response, 400, 'invalid_request');
     return;
   }
-  if (route !== 'health' && route !== 'session' && !hasValidJsonBodyHeaders(request)) {
+  if (route !== 'health' && route !== 'session' && route !== 'session_v2'
+    && !hasValidJsonBodyHeaders(request)) {
     response.setHeader('Connection', 'close');
     request.resume();
     respondError(response, 400, 'invalid_request');
@@ -328,6 +335,17 @@ async function handleRequest(
 
   if (route === 'session') {
     await handleSession(
+      response,
+      accessToken,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'session_v2') {
+    await handleAdministrationSession(
       response,
       accessToken,
       dependencies,
@@ -420,6 +438,18 @@ async function handleRequest(
   }
   if (route === 'admin_employee_memberships_projection') {
     await handleEmployeeMembershipsProjection(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'admin_employee_memberships_projection_v2') {
+    await handleEmployeeMembershipsProjectionV2(
       response,
       accessToken,
       body,
@@ -758,6 +788,36 @@ async function handleSession(
   try {
     const resolution = await withTimeout(
       dependencies.sessionAuthority.resolve(accessToken),
+      timeoutMilliseconds,
+    );
+    if (resolution.status === 'rejected') {
+      respondError(response, 401, 'unauthorized');
+      return;
+    }
+    respondJson(response, 200, resolution.session);
+  } catch {
+    emitDiagnostic(options.onDiagnostic, {
+      code: 'session_resolution_failed',
+      correlationId,
+    });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleAdministrationSession(
+  response: ServerResponse,
+  accessToken: string,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  try {
+    if (dependencies.administrationSessionAuthority === undefined) {
+      throw new Error('Administration session authority is unavailable');
+    }
+    const resolution = await withTimeout(
+      dependencies.administrationSessionAuthority.resolve(accessToken),
       timeoutMilliseconds,
     );
     if (resolution.status === 'rejected') {
@@ -1568,6 +1628,43 @@ async function handleEmployeeMembershipsProjection(
   );
 }
 
+async function handleEmployeeMembershipsProjectionV2(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseEmployeeMembershipsProjectionV2Body(body);
+  if (command === null) {
+    respondError(response, 400, 'invalid_request');
+    return;
+  }
+  await handleAdministrationOperation(
+    response,
+    options,
+    correlationId,
+    timeoutMilliseconds,
+    async (deadlineEpochMilliseconds) => {
+      const operation = dependencies.employeeEnrollment.readEmployeeMembershipsProjectionV2;
+      if (operation === undefined) throw new Error('Employee projection v2 is unavailable');
+      return operation.call(
+        dependencies.employeeEnrollment,
+        { accessToken, ...command },
+        { deadlineEpochMilliseconds },
+      );
+    },
+    (result) => ({
+      status: 'succeeded',
+      organization: result.organization,
+      employeeMemberships: result.employeeMemberships,
+      nextCursor: result.nextCursor,
+    }),
+  );
+}
+
 async function handleEmployeeEnrollmentRedemption(
   response: ServerResponse,
   accessToken: string,
@@ -1708,6 +1805,9 @@ async function handleAdministrationOperation<Result extends { readonly status: s
         return;
       case 'forbidden':
         respondError(response, 403, 'forbidden');
+        return;
+      case 'location_scope_forbidden':
+        respondError(response, 403, 'location_scope_forbidden');
         return;
       case 'assignment_target_unavailable':
         respondError(response, 404, 'assignment_target_unavailable');
@@ -2176,6 +2276,9 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH) {
     return 'admin_employee_memberships_projection';
   }
+  if (url === ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_V2_PATH) {
+    return 'admin_employee_memberships_projection_v2';
+  }
   if (url === ADMIN_REVOKE_MEMBERSHIP_PATH) return 'admin_revoke_membership';
   if (url === ADMIN_CHANGE_MEMBERSHIP_ROLE_PATH) return 'admin_change_membership_role';
   if (url === PASSWORD_RESET_AUDIT_PATH) return 'auth_password_reset_audit';
@@ -2198,6 +2301,7 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === SESSION_PATH) {
     return 'session';
   }
+  if (url === SESSION_V2_PATH) return 'session_v2';
   if (url === SCAN_CONTEXT_PATH) {
     return 'scan_context';
   }
@@ -2244,6 +2348,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_create_customer':
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':
+    case 'admin_employee_memberships_projection_v2':
     case 'admin_revoke_membership':
     case 'admin_change_membership_role':
     case 'auth_password_reset_audit':
@@ -2269,6 +2374,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'employee_enrollment_redeem':
       return 'employee_enrollment_failed';
     case 'session':
+    case 'session_v2':
       return 'session_resolution_failed';
     case 'scan_context':
     case 'scan_context_v2':
@@ -2304,6 +2410,7 @@ function isAdministrationRoute(route: Route): boolean {
   return route === 'admin_create_customer'
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'
+    || route === 'admin_employee_memberships_projection_v2'
     || route === 'admin_revoke_membership'
     || route === 'admin_change_membership_role'
     || route === 'auth_password_reset_audit'
@@ -2779,6 +2886,33 @@ function parseEmployeeMembershipsProjectionBody(body: unknown): {
     expectedMembershipId: MembershipId(body.expectedMembershipId),
     cursor: body.cursor as string | null,
     limit: body.limit as number,
+  };
+}
+
+function parseEmployeeMembershipsProjectionV2Body(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly cursor: string | null;
+  readonly limit: number;
+  readonly locationId: string | null;
+} | null {
+  if (
+    !isRecord(body)
+    || !hasExactKeys(body, ['cursor', 'expectedMembershipId', 'limit', 'locationId'])
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || (body.cursor !== null && typeof body.cursor !== 'string')
+    || (typeof body.cursor === 'string' && Buffer.byteLength(body.cursor, 'utf8') > 256)
+    || !Number.isSafeInteger(body.limit)
+    || (body.limit as number) < 1
+    || (body.limit as number) > 20
+    || (body.locationId !== null && !isCanonicalUuid(body.locationId))
+  ) {
+    return null;
+  }
+  return {
+    expectedMembershipId: MembershipId(body.expectedMembershipId),
+    cursor: body.cursor as string | null,
+    limit: body.limit as number,
+    locationId: body.locationId as string | null,
   };
 }
 

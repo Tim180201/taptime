@@ -703,3 +703,16 @@ ohne aufrufbare Autorität ist ein **Befund**, keine Einladung, eine zu erfinden
 
 **Warum:** Eine Liste, die einen Bereich als offen ausweist, ohne dessen echte Autorität gefragt
 zu haben, ist eine zweite Wahrheit — genau das, was D-023 verhindern sollte.
+
+---
+
+## D-028 — Die Übersicht ist eine Zusammensetzung, kein Bereich
+**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Grundlage:** Befund aus T-015c, D-027
+
+Die Übersicht bekommt **kein** eigenes Merkmal in der Sitzung. Sie ist keine Ressource mit
+eigener Autorität, sondern aus anderen Bereichen zusammengesetzt. Ein `overview_available` wäre
+die von D-027 ausgeschlossene zweite Berechtigungswahrheit.
+
+**Die Regel, allgemein:** Der Server benennt **Bereiche**. Zusammengesetzte Ansichten leiten sich
+daraus ab und erfinden kein eigenes Recht. Eine Kachel wird nur gezeichnet, wenn ihr Bereich offensteht.
+**Folge für T-015d:** Das Admin-Web lädt heute alle vier Projektionen ungefragt und zeichnet Abweisungen als Kachel mit `0` und Wiederholen-Knopf. T-015d lädt nur offene Bereiche und zeichnet nur geladene Daten.
