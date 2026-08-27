@@ -4,93 +4,111 @@
 
 ---
 
-## T-025 · Grenztests messen statt raten
+## T-015b · Die Standortleitung darf verwalten
 
-**Für:** Codex · **Risiko:** kein Produktcode, aber die Verlässlichkeit jeder künftigen Prüfung
-**Zeitbox:** eine Arbeitssitzung · **Grundlage:** drei Vorfälle, zuletzt bei T-015a
+**Für:** Codex · **Risiko:** Berechtigungsdimension, Mandantengrenze → **unabhängiges Review verpflichtend**
+**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** ADR-0022, ADR-0020 (DA6-L03, L04, L05, L08), D-013, D-022
 
-### Der Befund, und was er wirklich sagt
+### Zuerst lesen
 
-Derselbe Test, zweimal, dieselbe Version:
+- **`ADR-0022`** — sie ist kurz und enthält die Abnahmekriterien wörtlich
+- **`ADR-0020`**, Abschnitte DA6-L03 (Rolle, Heimat, Zuweisungen), DA6-L04 (was allein dem
+  Administrator bleibt), DA6-L05 (die geschlossene Fähigkeitsmatrix), DA6-L08 (serverseitige
+  Prüfung und zugeschnittene Ergebnisse)
+- **`ADR-0025`** und **`D-022`** — ein Standort wird nie rückwirkend vergeben
 
-| | Erster Lauf | Wiederholung |
-|---|---:|---:|
-| Payroll-v3, 8 MiB | **30 163 ms** (Zeitüberschreitung) | **8 926 ms** |
-| Gesamte Exportstrecke | **294,19 s** | **34,75 s** |
+### Warum diese Aufgabe existiert
 
-Faktor 3,4 beim Test, **Faktor 8,5 auf der ganzen Strecke.** Das ist kein knappes Budget und
-kein Zufall an der Kante. Der Läufer hatte zeitweise fast seine gesamte Leistung verloren.
-
-Daraus folgt etwas Unbequemes: **Eine feste Millisekundenschranke auf dieser CI misst nicht die
-Software, sondern das Wetter.** Ein Budget von 30 Sekunden auf einer Maschine, die um den Faktor
-8,5 schwanken kann, ist ein Münzwurf mit gutem Gewissen. Es hat dreimal ausgelöst, und dreimal
-war die Software in Ordnung — dreimal haben wir Zeit mit der Frage verbracht, ob etwas kaputt
-ist.
-
-Ein Test, der bei Überlast **fremde** Prüfungen mit Datenbank-Zeitüberschreitungen umwirft,
-macht darüber hinaus die gesamte CI unzuverlässig. Das ist der eigentliche Schaden.
+D-008 nennt den Grund wörtlich: *„damit die Verwaltung der Mitarbeiter nicht nur auf den Admin
+fällt"*. Heute fällt sie das. In einem Nachhilfebetrieb liefe zu Semesterbeginn **jede** neue
+Lehrkraft über eine einzige Person. Standorte ohne delegierte Verwaltung wären eine Gliederung
+ohne Nutzen.
 
 ### Ziel
 
-**Ein rotes CI-Ergebnis bedeutet wieder: die Software ist kaputt.** Nicht: der Läufer hatte
-einen schlechten Tag.
+**Eine Standortleitung lädt an ihrem Standort Beschäftigte ein und sperrt sie dort aus — und
+sonst nirgends und sonst nichts.**
 
-### Schritte
+### Die eine Stelle
 
-**1. Die Schranke relativ machen, nicht abschaffen**
+`T-009` hat vorgearbeitet: Die Zuständigkeit sitzt an **einer** Stelle,
+`has_membership_management_authority_v1` in Migration 016. Sie leitet die Berechtigung aus der
+Zugehörigkeit ab, nicht aus der Rolle allein; ein Kommentar markiert die Stelle für den
+Standortbezug.
 
-Miss im **selben** Lauf eine Bezugsgröße — eine einfache, stabile Operation bekannter Größe —
-und drücke das Budget als **Vielfaches** davon aus. Ein langsamer Läufer verlangsamt beides,
-und die Aussage bleibt gültig.
+**Diese Aufgabe ändert den Körper dieser einen Funktion.** Route, Coordinator und die vier
+Aufrufstellen bleiben unberührt. Wenn du feststellst, dass das nicht reicht, ist das ein Befund
+und wird gemeldet, bevor du die Aufrufstellen anfasst.
 
-Die absolute Zahl darf als Warnung im Protokoll stehen. Sie darf den Lauf nicht mehr rot machen.
+### Was dazukommt
 
-Wenn du einen besseren Weg siehst, der dasselbe leistet — etwa eine Messung ohne Uhr, über
-Zeilen, Abfragen oder Speicher — schlag ihn vor, bevor du baust. Die Uhr ist das Mittel, nicht
-das Ziel.
+**Die dritte Rolle.** `standortleitung` neben `administrator` und `employee`. Der `CHECK` auf
+`role` wird erweitert; die betroffenen Migrationen und Abstimmtabellen ziehen nach.
 
-**2. Den Grenztest von den anderen trennen**
+**Verwaltungszuweisung ≠ Rolle.** Eine Standortleitung **ohne** aktive Verwaltungszuweisung hat
+keinerlei delegierte Befugnis. Eine Verwaltungszuweisung allein gibt kein Recht, dort selbst zu
+arbeiten. Die vier Begriffe aus T-015a bleiben getrennt.
 
-Er darf keine fremde Prüfung mehr mitreißen. Eigene Datenbank, eigener Lauf, eigener
-Ressourcenrahmen — was in dieser CI dafür zur Verfügung steht, entscheidest du und begründest es.
+### Die Grenzen — sie sind der eigentliche Inhalt
 
-**3. Den bekannten C3E1-Fall gleich mitnehmen**
+Aus ADR-0022, unverhandelbar:
 
-Der Paginationstest erzeugt Mitgliedschafts-UUIDs zufällig, erwartet aber eine feste
-Rollenreihenfolge. Er steht seit T-012 als P2 in `STATUS.md` und ist heute erneut aufgetreten.
-Eine nichtdeterministische Erwartung ist kein Flackerer, sondern ein falscher Test. Repariere
-die Erwartung, nicht den Zufall.
+1. **Keine Rollenvergabe.** Die Standortleitung macht niemanden zur Standortleitung oder zum
+   Administrator. Keine Rechteausweitung, auf keinem Weg
+2. **Kein fremder Standort.** Weder einladen noch aussperren
+3. **Keine Veränderung der eigenen Zugehörigkeit** und keiner Administrator-Zugehörigkeit
+4. **Niemals die eigene Arbeitszeit korrigieren, niemals die eigene Prüfung entscheiden**
 
-**4. `STATUS.md` aufräumen**
+Punkt 4 ist die wichtigste Zeile in ADR-0020 und bleibt unverändert bestehen.
 
-Die drei Vorfallseinträge zu Grenztests werden durch **einen** Eintrag ersetzt, der den Befund
-und die Lösung beschreibt. Kein Korrektur-Abschnitt angehängt — die Datei wird editiert.
+Die Organisation bleibt die harte Mandantengrenze. Die Berechtigung prüft **zuerst** die
+Organisation, **danach** den Standort. Eine fehlende, veraltete, mehrdeutige oder
+organisationsfremde Standortbindung schlägt fehl — **nicht** durchlässig.
+
+### Ausgeschaltet bleibt ausgeschaltet
+
+Solange die Standort-Funktion aus ist, existiert keine Standortleitung und keine delegierte
+Befugnis. Die bestehende Testsuite muss das weiterhin belegen.
 
 ### Vision-Check
 
-Kein Produktcode. Aber jede künftige Aufgabe hängt daran, dass ein rotes Ergebnis etwas bedeutet.
+**One Tap. One Decision.** Für den Beschäftigten ändert sich nichts. Für den Betrieb hört die
+Verwaltung auf, an einer Person zu hängen.
 
 ### Nicht anfassen
 
-- Der Payroll-Export selbst. Seine Logik ist nicht der Befund
-- `packages/core`, Migrationen, Produktionsbetrieb
-- Die inhaltlichen Erwartungen des Grenztests. Er prüft weiterhin dasselbe
+- `BusinessEngine` und die Entscheidungsreihenfolge
+- Die vier Aufrufstellen von `has_membership_management_authority_v1`
+- `apps/admin-web` und `apps/mobile` — der Zuschnitt der Oberfläche ist **T-015c**
+- Alles aus DA6-L04, was dem Administrator vorbehalten bleibt: Standorte anlegen und ändern,
+  Zuweisungen vergeben, die Funktion ein- und ausschalten, Organisationseinstellungen
+- Rückwirkende Standortvergabe — siehe D-022
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Der Grenztest läuft **dreimal hintereinander** grün; die gemessenen Zeiten stehen im Bericht
-- Ein künstlich verlangsamter Lauf macht den Test **nicht** rot, erzeugt aber die Warnung
-- Eine künstlich eingebaute echte Verschlechterung wird weiterhin **erkannt** — sonst haben wir
-  den Test nur stumm geschaltet. Dieser Nachweis ist der wichtigste der Aufgabe
-- Der C3E1-Test ist unabhängig von der Erzeugungsreihenfolge der UUIDs
-- Kein anderer Test wird durch den Grenztest beeinflusst
+Die ersten sechs stehen wörtlich in ADR-0022:
+
+- Eine Standortleitung lädt an ihrem Standort ein und sperrt dort aus — nachgewiesen
+- Derselbe Versuch an einem **fremden** Standort wird abgewiesen
+- Der Versuch, eine Rolle zu vergeben, wird abgewiesen
+- Der Versuch, eine Administrator-Zugehörigkeit zu verändern, wird abgewiesen
+- Die Berechtigungsprüfung liegt weiterhin an genau **einer** Stelle
+- Eine Standortleitung einer fremden **Organisation** sieht nichts davon
+
+dazu:
+
+- Eine Standortleitung **ohne** Verwaltungszuweisung darf nichts
+- Eine Standortleitung mit **Arbeits**zuweisung an einem Standort darf dort **nicht** verwalten
+- Eine Standortleitung kann ihre eigene Zugehörigkeit nicht verändern
+- Bei **ausgeschalteter** Funktion existiert keine delegierte Befugnis
+- Der Grenzlauf aus T-025 bleibt grün; das gemessene Verhältnis steht im Bericht
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Kann dieser Test nach der Änderung noch irgendetwas melden, das eine echte Verschlechterung
-> wäre? Oder haben wir eine Prüfung durch eine Beruhigung ersetzt? Beantworte es mit einem
-> Versuch, nicht mit einer Meinung.
+> Gibt es **irgendeinen** Weg, auf dem eine Standortleitung mehr erreicht als die Matrix in
+> DA6-L05 erlaubt — über eine Einladung, über einen Rollenwechsel, über eine zweite
+> Zugehörigkeit, über eine Zuweisung an sich selbst? Suche danach, statt es auszuschließen.
 
 ### Abschluss
 
@@ -101,5 +119,5 @@ Vier Punkte melden. Entfernte oder umgeschriebene Tests **einzeln** benennen.
 
 ## Danach
 
-`T-015b` Standortleitung als Rolle und Berechtigung (ADR-0022) · `T-015c` Oberfläche ·
-`T-020` Freigabekette · siehe `ADO/PLAN.md`.
+`T-015c` Zuschnitt der Oberfläche · `T-020` Freigabekette (D-014) · `T-016` Löschkonzept ·
+siehe `ADO/PLAN.md`.

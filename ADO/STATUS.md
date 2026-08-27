@@ -99,13 +99,16 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-025 — Grenztests messen statt raten.** Siehe `ADO/TASK.md`. Kein Produktcode, aber die
-Verlässlichkeit jeder künftigen Prüfung hängt daran. Vorgezogen vor T-015b.
+**T-015b — Die Standortleitung darf verwalten.** Siehe `ADO/TASK.md`. Berechtigungsdimension
+und Mandantengrenze, daher mit verpflichtendem unabhängigem Review. Grundlage ADR-0022.
 
-**Zuletzt abgeschlossen:** T-015a (Standorte als Datenmodell, ausgeschaltet), Commit `d6e7b21`,
-CI grün. Fünf neue Tabellen, RLS 32/32 → 37/37, 1.697 Tests grün, **kein Verhaltenstest
-geändert**. Die Standort-Funktion ist gebaut und ausgeschaltet; sie beeinflusst kein Verhalten.
-Regeln dazu: **D-022** und **ADR-0025** — ein Standort wird nie rückwirkend vergeben.
+**Zuletzt abgeschlossen:** T-025 (Grenztests messen statt raten), Head `28b1d34`, CI mit zwölf
+Jobs grün. Die drei Grenztests laufen isoliert mit eigenem PostgreSQL-Dienst und messen
+**relativ** gegen eine Bezugsgröße, die denselben zeilenweisen Pfad nachbildet. Budget `1,20×`;
+erster CI-Messpunkt `0,66×`. Belegt: eine echte Verschlechterung von 500 ms wird mit `1,83×`
+rot, dreifache Drosselung bleibt bei `1,01×` grün. **Ein rotes CI-Ergebnis bedeutet damit wieder
+„die Software ist kaputt".** Offen: nach zehn CI-Läufen die Verteilung der Verhältnisse
+auswerten und das Budget mit Daten nachziehen.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
