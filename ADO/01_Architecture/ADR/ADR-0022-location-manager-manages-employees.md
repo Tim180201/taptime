@@ -50,8 +50,25 @@ Migration 016. Die Zuständigkeit wird dort aus der Zugehörigkeit abgeleitet, n
 allein; der Kommentar im Quelltext markiert die Stelle, an der die Standortzuständigkeit
 einzusetzen ist.
 
-`T-015` ändert damit den Körper dieser einen Funktion. Route, Coordinator und die vier
-Aufrufstellen bleiben unberührt.
+**Korrigiert am 26.08.2026 (D-023).** Die ursprüngliche Fassung behauptete, `T-015` ändere
+allein den Körper dieser Funktion und Route, Coordinator und Aufrufstellen blieben unberührt.
+**Das war falsch** — geschlossen aus einem Quelltextkommentar statt aus dem Aufrufweg. Vier
+Stellen tragen die Delegation mit:
+
+1. Der geschützte Coordinator verwirft eine unbekannte Rolle vor dem SQL-Aufruf
+2. Einladungen kennen keinen Standort; der Berechtigungsaufruf erhält `NULL`
+3. **Die Leseprojektion prüft einmal boolesch und liefert danach alle Zugehörigkeiten des
+   Betriebs.** Ein Wahrheitswert kann ein Ergebnis nicht zuschneiden — eine Standortleitung sähe
+   die Beschäftigten aller Standorte. DA6-L08 in ADR-0020 verlangt ausdrücklich *scoped result
+   truth*; dieses ADR war enger als das Dokument, das es ändert
+4. `/v1/session`, das Core-Rollenmodell und der Lese-Coordinator lehnen eine dritte Rolle ab —
+   deren Ausweichlogik würde einen neuen Nicht-`employee`-Wert sogar als **Administrator**
+   abbilden. Das wäre die Rechteausweitung, die dieses ADR verbietet
+
+**Die fachliche Entscheidung bleibt an einer Stelle.** Aber die Funktion antwortet nicht mehr
+wahr oder falsch, sondern liefert den erlaubten **Umfang** — mit einem ausdrücklichen
+`scope_kind` (`organization` oder `location`), damit `NULL` nie versehentlich als betriebsweite
+Freigabe gilt.
 
 ## Abnahmekriterien für T-015
 
@@ -61,6 +78,11 @@ Aufrufstellen bleiben unberührt.
 - Der Versuch, eine Administrator-Zugehörigkeit zu verändern, wird abgewiesen
 - Die Berechtigungsprüfung liegt weiterhin an genau **einer** Stelle
 - Eine Standortleitung einer fremden Organisation sieht nichts davon
+- Eine Standortleitung sieht in der Leseprojektion **ausschließlich** Beschäftigte ihrer
+  Verwaltungsstandorte — nicht die des Betriebs
+- Keine dritte Rolle wird auf irgendeinem Pfad als Administrator ausgelegt
+- Eine Einlösung erzeugt bei eingeschalteter Funktion in **derselben** Transaktion eine gültige
+  Heimatstandort-Zuweisung
 
 ## Konsequenzen
 

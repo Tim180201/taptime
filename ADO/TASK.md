@@ -7,7 +7,7 @@
 ## T-015b · Die Standortleitung darf verwalten
 
 **Für:** Codex · **Risiko:** Berechtigungsdimension, Mandantengrenze → **unabhängiges Review verpflichtend**
-**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** ADR-0022, ADR-0020 (DA6-L03, L04, L05, L08), D-013, D-022
+**Zeitbox:** fünf Arbeitssitzungen · **Grundlage:** ADR-0022 (korrigiert), ADR-0020 (DA6-L03, L04, L05, L08), D-013, D-022, **D-023**
 
 ### Zuerst lesen
 
@@ -36,9 +36,23 @@ sonst nirgends und sonst nichts.**
 Zugehörigkeit ab, nicht aus der Rolle allein; ein Kommentar markiert die Stelle für den
 Standortbezug.
 
-**Diese Aufgabe ändert den Körper dieser einen Funktion.** Route, Coordinator und die vier
-Aufrufstellen bleiben unberührt. Wenn du feststellst, dass das nicht reicht, ist das ein Befund
-und wird gemeldet, bevor du die Aufrufstellen anfasst.
+**Die fachliche Entscheidung bleibt an dieser einen Stelle** — aber die Funktion antwortet
+nicht mehr wahr oder falsch. Sie liefert den erlaubten **Umfang** mit ausdrücklichem
+`scope_kind` (`organization` oder `location`), damit `NULL` nie als betriebsweite Freigabe
+durchgeht (**D-023**).
+
+Vier Stellen tragen die Delegation mit und sind ausdrücklich im Umfang:
+
+1. **Coordinator** — Rollenvalidierung, damit `standortleitung` nicht vor dem SQL-Aufruf
+   verworfen wird
+2. **Einladung und Einlösung** — der Standort wird ausdrücklich übergeben, im Einladungsdatensatz
+   **und im Idempotenz-Digest** gespeichert, bei der Einlösung erneut autorisiert und in
+   derselben Transaktion als Heimatstandort angelegt
+3. **Leseprojektion** — filtert mit dem gelieferten Umfang statt alle Zugehörigkeiten des
+   Betriebs zu liefern
+4. **`/v1/session`, Core-Rollenmodell, `TenantReadSessionCoordinator`** — deren Ausweichlogik
+   würde einen neuen Nicht-`employee`-Wert als **Administrator** auslegen. Das ist genau die
+   Rechteausweitung, die ADR-0022 verbietet, und muss vor allem anderen geschlossen werden.
 
 ### Was dazukommt
 
@@ -78,7 +92,6 @@ Verwaltung auf, an einer Person zu hängen.
 ### Nicht anfassen
 
 - `BusinessEngine` und die Entscheidungsreihenfolge
-- Die vier Aufrufstellen von `has_membership_management_authority_v1`
 - `apps/admin-web` und `apps/mobile` — der Zuschnitt der Oberfläche ist **T-015c**
 - Alles aus DA6-L04, was dem Administrator vorbehalten bleibt: Standorte anlegen und ändern,
   Zuweisungen vergeben, die Funktion ein- und ausschalten, Organisationseinstellungen
@@ -94,6 +107,14 @@ Die ersten sechs stehen wörtlich in ADR-0022:
 - Der Versuch, eine Administrator-Zugehörigkeit zu verändern, wird abgewiesen
 - Die Berechtigungsprüfung liegt weiterhin an genau **einer** Stelle
 - Eine Standortleitung einer fremden **Organisation** sieht nichts davon
+- **Eine Standortleitung sieht in der Leseprojektion ausschließlich Beschäftigte ihrer
+  Verwaltungsstandorte.** Der wichtigste Nachweis dieser Aufgabe
+- Keine dritte Rolle wird auf **irgendeinem** Pfad als Administrator ausgelegt — insbesondere
+  nicht über eine Ausweichlogik
+- Eine Einlösung erzeugt bei eingeschalteter Funktion in derselben Transaktion eine gültige
+  Heimatstandort-Zuweisung; der Constraint-Trigger aus Migration 019 löst nicht aus
+- Zwei Einladungen mit gleichem Befehlskennzeichen, aber unterschiedlichem Standort werden
+  **nicht** stillschweigend zusammengefasst
 
 dazu:
 

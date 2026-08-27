@@ -584,3 +584,69 @@ Standort" ist falsch und sieht wie ein Messwert aus — dieselbe Linie wie D-014
 
 **Folgen:** Ergänzt ADR-0020 DA6-L01, schärft DA6-L06. T-015a vergibt an keinen Bestands- oder
 Wiederherstellungsdatensatz einen Standort; die Regel wird in T-015b umgesetzt.
+
+---
+
+## D-023 — Berechtigung liefert einen Umfang, keinen Wahrheitswert
+
+**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Korrigiert:** ADR-0022
+
+`has_membership_management_authority_v1` antwortet künftig mit dem erlaubten **Umfang** statt mit
+wahr oder falsch — mit ausdrücklichem `scope_kind` (`organization` oder `location`), damit `NULL`
+nie als betriebsweite Freigabe durchgeht. Die fachliche Entscheidung bleibt an einer Stelle; die
+Leseprojektion filtert mit dem gelieferten Umfang.
+
+Einladungen tragen den Standort im Datensatz **und** im Idempotenz-Digest, werden bei der
+Einlösung erneut autorisiert und legen in derselben Transaktion den Heimatstandort an.
+
+**Warum:** ADR-0022 behauptete, nur der Körper einer Funktion sei zu ändern. Falsch — aus einem
+Kommentar geschlossen statt aus dem Aufrufweg gelesen. Ein Wahrheitswert kann ein Ergebnis nicht
+zuschneiden; eine Standortleitung hätte die Beschäftigten **aller** Standorte gesehen. ADR-0020
+DA6-L08 verlangte *scoped result truth* von Anfang an.
+
+**Folgen:** T-015b wächst von drei auf fünf Arbeitssitzungen und umfasst Coordinator,
+Einladung, Einlösung und Leseprojektion. Wird nicht geteilt — eine halb gebaute Berechtigung
+ist schlimmer als eine große Aufgabe.
+
+---
+
+## D-024 — Befund: Unser NFC-Modell gibt es, aber Jibble hat es nicht
+
+**Datum:** 26.08.2026 · **Recherchiert vom Technical Lead** · **Kein Beschluss, ein Befund**
+
+**TimeTac** und **TimO** bieten unser Modell seit Jahren an: Tag am Objekt, Scan mit dem eigenen
+Smartphone, Tag trägt eine Aufgabe. TimO kostet 4,49–4,99 € je Nutzer und Monat. Dazu ein ganzer
+Schwarm Branchenlösungen für Gebäudereinigung. **Das NFC-Verfahren ist kein Alleinstellungsmerkmal.**
+
+**Jibble arbeitet anders:** Der Tag ist die Karte des Beschäftigten, gescannt wird an einem
+geteilten Kiosk-Gerät. Wer zum Kunden fährt, kann damit nicht stempeln — er trägt nach.
+
+**Folge für die Positionierung:** Nicht „wir haben NFC", sondern **„bei uns muss niemand
+nachtragen"**. Zu prüfen im Pilotgespräch: *„Wie stempeln Ihre Lehrkräfte, wenn sie beim Schüler
+zu Hause sind?"* Bestätigt D-009 und D-020.
+
+Quellen: `play.google.com` (studio.cocreation.taptime), `timetac.com/de/nfc-tags-und-timetac`,
+`timo24.de/nfc-zeiterfassung`, `jibble.io/help/how-to-use-jibbles-nfc-time-tracking-kiosk`.
+
+---
+
+## D-025 — Befund: Der Hebel ist Enge und Vertrieb, nicht Funktionsumfang
+
+**Datum:** 26.08.2026 · **Technical Lead auf Frage des Product Owners** · **Kein Beschluss, ein Befund**
+
+Zu Urlaubsanträgen, Controlling und Abrechnung: **Funktionen anzubauen ist der schwächste
+Hebel.** Wettbewerber haben sie; auf Breite verliert ein Einzelgründer sicher.
+
+- **Urlaub:** später, kein Verkaufsargument, aber ein Fass (Abwesenheitsarten, Resturlaub, Teilzeit)
+- **Abrechnung: niemals selbst bauen.** Reguliert und haftungsbehaftet. Gebraucht wird der
+  **Export**, der beim Steuerberater ohne Nacharbeit durchläuft — DATEV, Lexware
+- **Controlling:** einziges der drei mit echter Zahlungsbereitschaft, aber erst nach dem Pilot
+
+**Die drei wirklichen Hebel:** enger werden statt breiter (mobile Dienstleister mit wechselnden
+Einsatzorten) · den **Monatsabschluss** zur Hauptsache machen, denn dort hängt Geld (D-020) ·
+**Vertrieb ist der Engpass**, nicht Entwicklung — ein empfehlender Steuerberater ist mehr wert
+als jede Funktion.
+
+**Der unbequeme Teil:** Es gibt noch keinen zahlenden Kunden. Der wertvollste nächste Schritt
+ist, den Pilotkunden nach dem Testmonat zahlen zu lassen — auch nur 20 € — weil sich ab dann
+ändert, was wir über das Produkt lernen.
