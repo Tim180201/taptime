@@ -5,11 +5,15 @@ readonly IMAGE_REPOSITORY='ghcr.io/tim180201/taptime-backend-api'
 readonly COMPOSE_FILE="${TAPTIME_DEPLOY_COMPOSE_FILE:-/opt/taptime/source/infrastructure/docker-compose.server.yml}"
 readonly BACKUP_CONFIG="${TAPTIME_DEPLOY_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly VERSION_STATE_FILE="${TAPTIME_DEPLOY_VERSION_STATE_FILE:-/var/lib/taptime-deploy/current-version}"
+readonly OPERATIONS_VERSION_STATE_FILE="${TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE:-/var/lib/taptime-deploy/operations-version}"
 readonly KNOWN_VERSIONS_FILE="${TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE:-/var/lib/taptime-deploy/known-versions}"
 readonly PROTECTED_VERSIONS_FILE="${TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE:-/opt/taptime/admin-web/status/ghcr-protected-versions.json}"
 readonly HEALTH_URL="${TAPTIME_DEPLOY_HEALTH_URL:-https://api.tb-infra.de/health}"
 readonly ADMIN_WEB_VERSION_URL="${TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL:-https://admin.tb-infra.de/version.txt}"
 readonly ADMIN_WEB_ROOT="${TAPTIME_DEPLOY_ADMIN_WEB_ROOT:-/opt/taptime/admin-web}"
+readonly OPERATIONS_ROOT="${TAPTIME_DEPLOY_OPERATIONS_ROOT:-/opt/taptime/operations}"
+readonly OPERATIONS_TARGET_ROOT="${TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT:-}"
+readonly OPERATIONS_RUNTIME_ROOT="${TAPTIME_DEPLOY_OPERATIONS_RUNTIME_ROOT:-/run/taptime-operations}"
 readonly RESTORE_STATUS_FILE_DEFAULT='/var/lib/taptime-monitor/restore-status.json'
 readonly RESTORE_VERIFY_COMMAND="${TAPTIME_DEPLOY_RESTORE_VERIFY_COMMAND:-/usr/local/sbin/taptime-restore-verify}"
 
@@ -17,6 +21,7 @@ DESIRED_VERSION=''
 PREVIOUS_VERSION=''
 NEW_IMAGE_STARTED=0
 MIGRATION_VERSION=''
+OPERATIONS_VERSION=''
 
 say() {
   printf '%s\n' "$*"
@@ -47,6 +52,25 @@ admin_web_image_for_version() {
   printf '%s:admin-web-%s\n' "$IMAGE_REPOSITORY" "$1"
 }
 
+operations_image_for_version() {
+  printf '%s:operations-%s\n' "$IMAGE_REPOSITORY" "$1"
+}
+
+select_operations_version() {
+  local desired="$1"
+  local current_application="$2"
+  local current_operations="$3"
+
+  if [[ "$desired" == "$current_application" ]] || {
+    [[ -f "$KNOWN_VERSIONS_FILE" ]] &&
+      grep --fixed-strings --line-regexp --quiet "$desired" "$KNOWN_VERSIONS_FILE"
+  }; then
+    printf '%s\n' "$current_operations"
+  else
+    printf '%s\n' "$desired"
+  fi
+}
+
 compose() {
   TAPTIME_VERSION="$1" docker compose --file "$COMPOSE_FILE" "${@:2}"
 }
@@ -56,6 +80,14 @@ status_fingerprint() {
     stat --format='%y:%s' "$1"
   else
     printf 'missing\n'
+  fi
+}
+
+file_mode() {
+  if stat --format='%a' "$1" >/dev/null 2>&1; then
+    stat --format='%a' "$1"
+  else
+    stat -f '%Lp' "$1"
   fi
 }
 
@@ -80,10 +112,398 @@ pull_image() {
   docker image inspect "$image" >/dev/null
   version="${image##*:}"
   version="${version#admin-web-}"
+  version="${version#operations-}"
   validate_version "$version"
   revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")"
   [[ "$revision" == "$version"* ]] ||
     fail "Image revision label does not match requested version $version."
+}
+
+operations_paths() {
+  printf '%s\n' \
+    'usr/local/sbin/taptime-backup' \
+    'usr/local/sbin/taptime-restore-verify' \
+    'usr/local/sbin/taptime-immediate-monitor' \
+    'usr/local/sbin/taptime-daily-monitor' \
+    'etc/systemd/system/taptime-backup.service' \
+    'etc/systemd/system/taptime-backup.timer' \
+    'etc/systemd/system/taptime-restore-verify.service' \
+    'etc/systemd/system/taptime-restore-verify.timer' \
+    'etc/systemd/system/taptime-immediate-monitor.service' \
+    'etc/systemd/system/taptime-immediate-monitor.timer' \
+    'etc/systemd/system/taptime-daily-monitor.service' \
+    'etc/systemd/system/taptime-daily-monitor.timer' \
+    'etc/systemd/journald.conf.d/60-taptime.conf' \
+    'opt/taptime/source/infrastructure/docker-compose.server.yml' \
+    'opt/taptime/source/infrastructure/caddy/Caddyfile' \
+    'var/lib/taptime-deploy/operations-version' \
+    'opt/taptime/source/apps/backend-schema/migrations'
+}
+
+operations_static_file_paths() {
+  operations_paths | grep --fixed-strings --invert-match \
+    'opt/taptime/source/apps/backend-schema/migrations'
+}
+
+is_operations_directory_path() {
+  [[ "$1" == 'opt/taptime/source/apps/backend-schema/migrations' ]]
+}
+
+operations_target() {
+  local relative="$1"
+  if [[ -n "$OPERATIONS_TARGET_ROOT" ]]; then
+    printf '%s/%s\n' "${OPERATIONS_TARGET_ROOT%/}" "$relative"
+  else
+    printf '/%s\n' "$relative"
+  fi
+}
+
+read_operations_release_version() {
+  local release="$1"
+  local actual
+
+  require_file "$release/version.txt"
+  actual="$(tr -d '\r\n' < "$release/version.txt")"
+  validate_version "$actual"
+  printf '%s\n' "$actual"
+}
+
+validate_caddy_candidate() (
+  set -euo pipefail
+
+  local candidate="$1"
+  local holder=''
+
+  require_file "$candidate"
+  docker image inspect caddy:2.10.2-alpine >/dev/null 2>&1 || docker pull caddy:2.10.2-alpine
+  holder="$(docker create caddy:2.10.2-alpine \
+    caddy validate --config /tmp/T028-Caddyfile --adapter caddyfile)"
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2317,SC2329
+  cleanup_caddy_validation() {
+    [[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true
+  }
+  trap cleanup_caddy_validation EXIT
+  docker cp "$candidate" "$holder:/tmp/T028-Caddyfile"
+  docker start --attach "$holder"
+)
+
+validate_compose_candidate() {
+  local candidate="$1"
+  local version="$2"
+
+  TAPTIME_VERSION="$version" docker compose --file "$candidate" config --quiet
+}
+
+validate_systemd_candidates() (
+  set -euo pipefail
+
+  local release="$1"
+  local validation_directory
+
+  grep --fixed-strings --line-regexp --quiet \
+    'ExecStart=/usr/local/sbin/taptime-backup' \
+    "$release/etc/systemd/system/taptime-backup.service"
+  grep --fixed-strings --line-regexp --quiet \
+    'ExecStart=/usr/local/sbin/taptime-restore-verify' \
+    "$release/etc/systemd/system/taptime-restore-verify.service"
+  grep --fixed-strings --line-regexp --quiet \
+    'ExecStart=/usr/local/sbin/taptime-immediate-monitor' \
+    "$release/etc/systemd/system/taptime-immediate-monitor.service"
+  grep --fixed-strings --line-regexp --quiet \
+    'ExecStart=/usr/local/sbin/taptime-daily-monitor' \
+    "$release/etc/systemd/system/taptime-daily-monitor.service"
+
+  validation_directory="$(mktemp -d)"
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2317,SC2329
+  cleanup_systemd_validation() {
+    rm -rf -- "$validation_directory"
+  }
+  trap cleanup_systemd_validation EXIT
+  cp "$release"/etc/systemd/system/*.service "$validation_directory/"
+  cp "$release"/etc/systemd/system/*.timer "$validation_directory/"
+  sed -i 's#^ExecStart=/usr/local/sbin/.*#ExecStart=/bin/true#' \
+    "$validation_directory"/*.service
+
+  systemd-analyze verify \
+    "$validation_directory"/*.service \
+    "$validation_directory"/*.timer
+)
+
+validate_operations_scripts() {
+  local release="$1"
+  local script
+
+  for script in \
+    taptime-backup \
+    taptime-restore-verify \
+    taptime-immediate-monitor \
+    taptime-daily-monitor; do
+    bash -n "$release/usr/local/sbin/$script" || return
+  done
+}
+
+validate_operations_release() {
+  local release="$1"
+  local version="$2"
+  local expected actual relative mode migration_directory migration_file
+
+  [[ "$(read_operations_release_version "$release")" == "$version" ]] ||
+    fail "Operations release does not contain version $version."
+  if find "$release" -mindepth 1 -type l -print -quit | grep --quiet .; then
+    fail 'Operations release contains a symbolic link.'
+    return 1
+  fi
+  expected="$(operations_static_file_paths; printf 'version.txt\n')"
+  actual="$(cd "$release" && find . -type f \
+    ! -path './opt/taptime/source/apps/backend-schema/migrations/*' \
+    -print | sed 's#^\./##' | sort)"
+  [[ "$actual" == "$(printf '%s\n' "$expected" | sort)" ]] || {
+    fail 'Operations release file inventory is incomplete or contains an unexpected file.'
+    return 1
+  }
+  migration_directory="$release/opt/taptime/source/apps/backend-schema/migrations"
+  require_file "$migration_directory/001_foundation.sql"
+  if find "$migration_directory" -mindepth 1 ! -type f -print -quit | grep --quiet .; then
+    fail 'Operations release migrations contain an unexpected entry.'
+    return 1
+  fi
+  while IFS= read -r migration_file; do
+    [[ "${migration_file##*/}" =~ ^[0-9]{3}_[a-z0-9_]+\.sql$ ]] || {
+      fail "Operations release contains an invalid migration filename: ${migration_file##*/}"
+      return 1
+    }
+  done < <(find "$migration_directory" -mindepth 1 -maxdepth 1 -type f -print | sort)
+  [[ "$(tr -d '\r\n' < "$release/var/lib/taptime-deploy/operations-version")" == "$version" ]] || {
+    fail 'Operations release state file does not match its version.'
+    return 1
+  }
+
+  while IFS=' ' read -r mode relative; do
+    [[ "$(file_mode "$release/$relative")" == "$mode" ]] || {
+      fail "Operations release has the wrong mode for $relative."
+      return 1
+    }
+  done <<'EOF_OPERATIONS_MODES'
+700 usr/local/sbin/taptime-backup
+700 usr/local/sbin/taptime-restore-verify
+755 usr/local/sbin/taptime-immediate-monitor
+755 usr/local/sbin/taptime-daily-monitor
+EOF_OPERATIONS_MODES
+
+  validate_operations_scripts "$release"
+  validate_systemd_candidates "$release"
+  validate_compose_candidate \
+    "$release/opt/taptime/source/infrastructure/docker-compose.server.yml" "$version"
+  validate_caddy_candidate "$release/opt/taptime/source/infrastructure/caddy/Caddyfile"
+}
+
+prepare_operations_release() (
+  set -euo pipefail
+
+  local image="$1"
+  local version="$2"
+  local releases_directory release staged holder=''
+
+  releases_directory="$OPERATIONS_ROOT/releases"
+  release="$releases_directory/$version"
+  install -d -m 0755 "$OPERATIONS_ROOT" "$releases_directory"
+  if [[ -d "$release" ]]; then
+    validate_operations_release "$release" "$version"
+    say "[Vorbereitung] Betriebsdateien $version liegen bereits unveränderlich bereit."
+    return 0
+  fi
+
+  staged="$(mktemp -d "$releases_directory/.deploy-operations.XXXXXX")"
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2317,SC2329
+  cleanup_operations_stage() {
+    [[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true
+    if [[ "$staged" == "$releases_directory"/.deploy-operations.* && -d "$staged" ]]; then
+      rm -rf -- "$staged"
+    fi
+  }
+  trap cleanup_operations_stage EXIT
+
+  holder="$(docker create "$image")"
+  docker cp "$holder:/operations/." "$staged"
+  validate_operations_release "$staged" "$version"
+  mv "$staged" "$release"
+  staged=''
+  say "[Vorbereitung] Betriebsdateien $version sind vollständig validiert."
+)
+
+operations_targets_are_linked() {
+  local relative target expected
+
+  while IFS= read -r relative; do
+    target="$(operations_target "$relative")"
+    expected="$OPERATIONS_ROOT/current/$relative"
+    [[ -L "$target" && "$(readlink "$target")" == "$expected" ]] || return 1
+  done < <(operations_paths)
+}
+
+operations_target_matches_release() {
+  local release="$1"
+  local relative="$2"
+  local target
+
+  target="$(operations_target "$relative")"
+  if is_operations_directory_path "$relative"; then
+    diff --recursive --brief "$release/$relative" "$target" >/dev/null
+  else
+    cmp --silent "$release/$relative" "$target"
+  fi
+}
+
+reload_operations_runtime() {
+  local units_changed="$1"
+  local journald_changed="$2"
+  local timer
+
+  if (( units_changed == 1 )); then
+    systemctl daemon-reload
+    for timer in \
+      taptime-backup.timer \
+      taptime-restore-verify.timer \
+      taptime-immediate-monitor.timer \
+      taptime-daily-monitor.timer; do
+      if systemctl is-active --quiet "$timer"; then
+        systemctl restart "$timer"
+      fi
+    done
+  fi
+  if (( journald_changed == 1 )); then
+    systemctl restart systemd-journald.service
+  fi
+}
+
+install_operations_release() (
+  set -euo pipefail
+
+  local version="$1"
+  local release="$OPERATIONS_ROOT/releases/$version"
+  local previous_current='' current_existed=0 current_switched=0 committed=0
+  local backup_directory switch_directory relative target candidate temporary
+  local units_changed=0 journald_changed=0 index=0
+  local -a targets=() backups=() existed=()
+
+  validate_operations_release "$release" "$version"
+  if [[ "$(readlink "$OPERATIONS_ROOT/current" 2>/dev/null || true)" == "releases/$version" ]] &&
+    operations_targets_are_linked; then
+    say "[Vorbereitung] Installierte Betriebsdateien belegen bereits Version $version."
+    return 0
+  fi
+
+  while IFS= read -r relative; do
+    target="$(operations_target "$relative")"
+    candidate="$release/$relative"
+    if [[ "$relative" == etc/systemd/system/* ]] && ! cmp --silent "$candidate" "$target" 2>/dev/null; then
+      units_changed=1
+    fi
+    if [[ "$relative" == 'etc/systemd/journald.conf.d/60-taptime.conf' ]] &&
+      ! cmp --silent "$candidate" "$target" 2>/dev/null; then
+      journald_changed=1
+    fi
+    if [[ -d "$target" && ! -L "$target" ]] && ! is_operations_directory_path "$relative"; then
+      fail "Operations target is unexpectedly a directory: $target"
+      return 1
+    fi
+    install -d -m 0755 "$(dirname "$target")"
+  done < <(operations_paths)
+
+  install -d -m 0700 "$OPERATIONS_RUNTIME_ROOT"
+  backup_directory="$(mktemp -d "$OPERATIONS_RUNTIME_ROOT/rollback.XXXXXX")"
+
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2317,SC2329
+  finish_operations_install() {
+    local status=$?
+    local rollback_index rollback_target rollback_temporary
+    trap - EXIT
+    if (( status != 0 && committed == 0 )); then
+      for (( rollback_index=${#targets[@]} - 1; rollback_index >= 0; rollback_index-- )); do
+        rollback_target="${targets[$rollback_index]}"
+        if [[ "${existed[$rollback_index]}" == 'directory' ]]; then
+          rm -f -- "$rollback_target"
+          mv "${backups[$rollback_index]}" "$rollback_target"
+        elif [[ "${existed[$rollback_index]}" == '1' ]]; then
+          rollback_temporary="${rollback_target}.taptime-rollback.$$"
+          cp -a --no-dereference "${backups[$rollback_index]}" "$rollback_temporary"
+          mv -Tf "$rollback_temporary" "$rollback_target"
+        else
+          rm -f -- "$rollback_target"
+        fi
+      done
+      if (( current_switched == 1 )); then
+        if (( current_existed == 1 )); then
+          switch_directory="$(mktemp -d "$OPERATIONS_ROOT/.rollback-current.XXXXXX")"
+          ln -s "$previous_current" "$switch_directory/current"
+          mv -Tf "$switch_directory/current" "$OPERATIONS_ROOT/current"
+          rmdir "$switch_directory"
+        else
+          rm -f -- "$OPERATIONS_ROOT/current"
+        fi
+      fi
+      reload_operations_runtime "$units_changed" "$journald_changed" >/dev/null 2>&1 || true
+    fi
+    rm -rf -- "$backup_directory"
+    exit "$status"
+  }
+  trap finish_operations_install EXIT
+
+  if [[ -L "$OPERATIONS_ROOT/current" ]]; then
+    current_existed=1
+    previous_current="$(readlink "$OPERATIONS_ROOT/current")"
+  elif [[ -e "$OPERATIONS_ROOT/current" ]]; then
+    fail "$OPERATIONS_ROOT/current is not a symbolic link."
+    return 1
+  fi
+
+  switch_directory="$(mktemp -d "$OPERATIONS_ROOT/.deploy-current.XXXXXX")"
+  ln -s "releases/$version" "$switch_directory/current"
+  mv -Tf "$switch_directory/current" "$OPERATIONS_ROOT/current"
+  rmdir "$switch_directory"
+  current_switched=1
+
+  while IFS= read -r relative; do
+    target="$(operations_target "$relative")"
+    targets+=("$target")
+    backups+=("$backup_directory/$index")
+    if [[ -d "$target" && ! -L "$target" ]]; then
+      existed+=(directory)
+      mv "$target" "$backup_directory/$index"
+    elif [[ -e "$target" || -L "$target" ]]; then
+      cp -a --no-dereference "$target" "$backup_directory/$index"
+      existed+=(1)
+    else
+      existed+=(0)
+    fi
+    temporary="${target}.taptime-operations.$$"
+    ln -s "$OPERATIONS_ROOT/current/$relative" "$temporary"
+    mv -Tf "$temporary" "$target"
+    index=$((index + 1))
+  done < <(operations_paths)
+
+  reload_operations_runtime "$units_changed" "$journald_changed"
+  operations_targets_are_linked || fail 'Not every operations target points to the selected release.'
+  while IFS= read -r relative; do
+    operations_target_matches_release "$release" "$relative" || {
+      fail "Installed operations file differs from release: $relative"
+      return 1
+    }
+  done < <(operations_paths)
+
+  committed=1
+  say "[Vorbereitung] Betriebsskripte, Einheiten, Compose und Caddy belegen Version $version."
+)
+
+deploy_operations_release() {
+  local image="$1"
+  local version="$2"
+
+  prepare_operations_release "$image" "$version" && install_operations_release "$version"
 }
 
 read_admin_web_release_version() {
@@ -301,10 +721,18 @@ sync_migration_sources() (
   # shellcheck disable=SC1090
   source "$BACKUP_CONFIG"
   : "${MIGRATIONS_DIRECTORY:?MIGRATIONS_DIRECTORY must be configured}"
-  [[ "$MIGRATIONS_DIRECTORY" == /opt/taptime/*/migrations ]] ||
+  [[ "$MIGRATIONS_DIRECTORY" == /opt/taptime/*/migrations ||
+    "$MIGRATIONS_DIRECTORY" == \
+      "$(operations_target opt/taptime/source/apps/backend-schema/migrations)" ]] ||
     fail "Unsafe migration directory: $MIGRATIONS_DIRECTORY"
   parent="$(dirname "$MIGRATIONS_DIRECTORY")"
   require_file "$MIGRATIONS_DIRECTORY/001_foundation.sql"
+  if [[ -L "$MIGRATIONS_DIRECTORY" &&
+    "$(readlink "$MIGRATIONS_DIRECTORY")" == \
+      "$OPERATIONS_ROOT/current/opt/taptime/source/apps/backend-schema/migrations" ]]; then
+    say '[3/7] Die versionierten Migrationsquellen sind bereits mit dem Betriebsstand installiert.'
+    return 0
+  fi
 
   # Invoked by the EXIT trap below.
   # shellcheck disable=SC2317,SC2329
@@ -403,10 +831,12 @@ mark_known_version() {
 publish_protected_versions() {
   local current="$1"
   local previous="$2"
+  local operations="$3"
   local directory temporary version first=1
 
   validate_version "$current"
   validate_version "$previous"
+  validate_version "$operations"
   require_file "$KNOWN_VERSIONS_FILE"
   while IFS= read -r version; do
     [[ -n "$version" ]] || continue
@@ -417,8 +847,8 @@ publish_protected_versions() {
   install -d -m 0755 "$directory"
   temporary="$(mktemp "$directory/ghcr-protected-versions.XXXXXX")"
   {
-    printf '{"schema_version":1,"current_version":"%s","previous_version":"%s","known_versions":[' \
-      "$current" "$previous"
+    printf '{"schema_version":1,"current_version":"%s","previous_version":"%s","operations_version":"%s","known_versions":[' \
+      "$current" "$previous" "$operations"
     while IFS= read -r version; do
       [[ -n "$version" ]] || continue
       if (( first == 0 )); then
@@ -470,13 +900,13 @@ main() {
   require_root
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
-  require_file "$COMPOSE_FILE"
-  step_status=$?
-  if (( step_status != 0 )); then return "$step_status"; fi
   require_file "$BACKUP_CONFIG"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   require_file "$VERSION_STATE_FILE"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  require_file "$OPERATIONS_VERSION_STATE_FILE"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
 
@@ -484,17 +914,24 @@ main() {
   validate_version "$PREVIOUS_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
+  OPERATIONS_VERSION="$(tr -d '[:space:]' < "$OPERATIONS_VERSION_STATE_FILE")"
+  validate_version "$OPERATIONS_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  OPERATIONS_VERSION="$(select_operations_version \
+    "$DESIRED_VERSION" "$PREVIOUS_VERSION" "$OPERATIONS_VERSION")"
 
   acquire_deploy_lock
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
 
-  local desired_image previous_image desired_admin_web_image previous_admin_web_image
+  local desired_image previous_image desired_admin_web_image previous_admin_web_image desired_operations_image
   local migration_image rehearsal_image
   desired_image="$(image_for_version "$DESIRED_VERSION")"
   previous_image="$(image_for_version "$PREVIOUS_VERSION")"
   desired_admin_web_image="$(admin_web_image_for_version "$DESIRED_VERSION")"
   previous_admin_web_image="$(admin_web_image_for_version "$PREVIOUS_VERSION")"
+  desired_operations_image="$(operations_image_for_version "$OPERATIONS_VERSION")"
 
   pull_image "$desired_image"
   step_status=$?
@@ -508,10 +945,19 @@ main() {
   pull_image "$previous_admin_web_image"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
+  pull_image "$desired_operations_image"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
   prepare_admin_web_release "$desired_admin_web_image" "$DESIRED_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   prepare_admin_web_release "$previous_admin_web_image" "$PREVIOUS_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  deploy_operations_release "$desired_operations_image" "$OPERATIONS_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  require_file "$COMPOSE_FILE"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   MIGRATION_VERSION="$(select_migration_version "$desired_image" "$previous_image")"
@@ -580,7 +1026,7 @@ main() {
   mark_known_version "$DESIRED_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
-  publish_protected_versions "$DESIRED_VERSION" "$PREVIOUS_VERSION"
+  publish_protected_versions "$DESIRED_VERSION" "$PREVIOUS_VERSION" "$OPERATIONS_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   write_current_version "$DESIRED_VERSION"

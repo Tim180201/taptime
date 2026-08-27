@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const VERSION_PATTERN = /^[0-9a-f]{7}$/;
 const ADMIN_WEB_TAG_PREFIX = 'admin-web-';
+const OPERATIONS_TAG_PREFIX = 'operations-';
 
 function fail(message) {
   throw new Error(message);
@@ -26,6 +27,10 @@ function validateProtectedVersions(value) {
   if (!VERSION_PATTERN.test(value.previous_version ?? '')) {
     fail('Protected-version snapshot has no valid previous version.');
   }
+  if (value.operations_version !== undefined &&
+      !VERSION_PATTERN.test(value.operations_version ?? '')) {
+    fail('Protected-version snapshot has an invalid operations version.');
+  }
   if (!Array.isArray(value.known_versions) || value.known_versions.length === 0) {
     fail('Protected-version snapshot has no known versions.');
   }
@@ -38,14 +43,17 @@ function validateProtectedVersions(value) {
   if (!protectedVersions.has(value.current_version) || !protectedVersions.has(value.previous_version)) {
     fail('Current and previous versions must both be present in known_versions.');
   }
-  return protectedVersions;
+  return {
+    applicationVersions: protectedVersions,
+    operationsVersion: value.operations_version,
+  };
 }
 
 export function selectGhcrDeletions(snapshot, response, keepNewest) {
   if (!Number.isSafeInteger(keepNewest) || keepNewest < 0 || keepNewest > 20) {
     fail('keepNewest must be an integer from zero through twenty.');
   }
-  const protectedVersions = validateProtectedVersions(snapshot);
+  const { applicationVersions, operationsVersion } = validateProtectedVersions(snapshot);
   const versions = flattenVersions(response);
   const seenIds = new Set();
   for (const version of versions) {
@@ -73,9 +81,11 @@ export function selectGhcrDeletions(snapshot, response, keepNewest) {
     if (!Array.isArray(tags)) {
       fail(`GHCR package version ${String(version.id)} has no container tag list.`);
     }
-    return !tags.some((tag) => protectedVersions.has(tag) || (
+    return !tags.some((tag) => applicationVersions.has(tag) || (
       tag.startsWith(ADMIN_WEB_TAG_PREFIX) &&
-      protectedVersions.has(tag.slice(ADMIN_WEB_TAG_PREFIX.length))
+      applicationVersions.has(tag.slice(ADMIN_WEB_TAG_PREFIX.length))
+    ) || (
+      operationsVersion !== undefined && tag === `${OPERATIONS_TAG_PREFIX}${operationsVersion}`
     ));
   });
 }

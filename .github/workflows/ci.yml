@@ -42,15 +42,19 @@ jobs:
           shellcheck -e SC1091 \
             infrastructure/deploy \
             infrastructure/tests/taptime-deploy.test \
+            infrastructure/tests/taptime-operations-install.test \
             infrastructure/monitoring/taptime-immediate-monitor \
             infrastructure/monitoring/taptime-daily-monitor \
+            infrastructure/backup/taptime-backup \
             infrastructure/backup/taptime-restore-verify \
             infrastructure/caddy/tests/taptime-caddy-forwarding.test
           bash -n infrastructure/monitoring/taptime-immediate-monitor
           bash -n infrastructure/monitoring/taptime-daily-monitor
+          bash -n infrastructure/backup/taptime-backup
           bash -n infrastructure/backup/taptime-restore-verify
           bash -n infrastructure/deploy
           bash infrastructure/tests/taptime-deploy.test
+          bash infrastructure/tests/taptime-operations-install.test
           bash infrastructure/monitoring/tests/taptime-monitor.test
 
       - name: Verify GHCR retention protects deployed versions

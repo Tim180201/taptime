@@ -1,0 +1,158 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+
+export TAPTIME_DEPLOY_OPERATIONS_ROOT="$TEST_ROOT/releases-root"
+export TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT="$TEST_ROOT/server-root"
+export TAPTIME_DEPLOY_OPERATIONS_RUNTIME_ROOT="$TEST_ROOT/runtime"
+export TAPTIME_DEPLOY_BACKUP_CONFIG="$TEST_ROOT/backup-config"
+printf "MIGRATIONS_DIRECTORY='%s'\n" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/opt/taptime/source/apps/backend-schema/migrations" \
+  > "$TAPTIME_DEPLOY_BACKUP_CONFIG"
+
+# shellcheck source=../deploy
+source infrastructure/deploy
+
+RUNTIME_LOG="$TEST_ROOT/runtime.log"
+readonly RUNTIME_LOG
+
+validate_systemd_candidates() { :; }
+validate_compose_candidate() { :; }
+validate_caddy_candidate() { :; }
+reload_operations_runtime() {
+  printf 'reload units=%s journald=%s\n' "$1" "$2" >> "$RUNTIME_LOG"
+  [[ "${FAIL_RUNTIME_RELOAD:-0}" != '1' ]]
+}
+
+copy_release_file() {
+  local release="$1"
+  local source="$2"
+  local relative="$3"
+  local mode="$4"
+
+  mkdir -p "$release/$(dirname "$relative")"
+  cp "$source" "$release/$relative"
+  chmod "$mode" "$release/$relative"
+}
+
+make_release() {
+  local version="$1"
+  local marker="$2"
+  local release="$OPERATIONS_ROOT/releases/$version"
+  local source relative mode
+
+  mkdir -p "$release"
+  printf '%s\n' "$version" > "$release/version.txt"
+  while IFS='|' read -r source relative mode; do
+    copy_release_file "$release" "$source" "$relative" "$mode"
+  done <<'EOF_RELEASE_FILES'
+infrastructure/backup/taptime-backup|usr/local/sbin/taptime-backup|700
+infrastructure/backup/taptime-restore-verify|usr/local/sbin/taptime-restore-verify|700
+infrastructure/monitoring/taptime-immediate-monitor|usr/local/sbin/taptime-immediate-monitor|755
+infrastructure/monitoring/taptime-daily-monitor|usr/local/sbin/taptime-daily-monitor|755
+infrastructure/backup/taptime-backup.service|etc/systemd/system/taptime-backup.service|644
+infrastructure/backup/taptime-backup.timer|etc/systemd/system/taptime-backup.timer|644
+infrastructure/backup/taptime-restore-verify.service|etc/systemd/system/taptime-restore-verify.service|644
+infrastructure/backup/taptime-restore-verify.timer|etc/systemd/system/taptime-restore-verify.timer|644
+infrastructure/monitoring/taptime-immediate-monitor.service|etc/systemd/system/taptime-immediate-monitor.service|644
+infrastructure/monitoring/taptime-immediate-monitor.timer|etc/systemd/system/taptime-immediate-monitor.timer|644
+infrastructure/monitoring/taptime-daily-monitor.service|etc/systemd/system/taptime-daily-monitor.service|644
+infrastructure/monitoring/taptime-daily-monitor.timer|etc/systemd/system/taptime-daily-monitor.timer|644
+infrastructure/logging/taptime-journald.conf|etc/systemd/journald.conf.d/60-taptime.conf|644
+infrastructure/docker-compose.server.yml|opt/taptime/source/infrastructure/docker-compose.server.yml|644
+infrastructure/caddy/Caddyfile|opt/taptime/source/infrastructure/caddy/Caddyfile|644
+EOF_RELEASE_FILES
+  mkdir -p \
+    "$release/var/lib/taptime-deploy" \
+    "$release/opt/taptime/source/apps/backend-schema/migrations"
+  printf '%s\n' "$version" > "$release/var/lib/taptime-deploy/operations-version"
+  printf '%s\n' "-- migration release-marker: $marker" \
+    > "$release/opt/taptime/source/apps/backend-schema/migrations/001_foundation.sql"
+  printf '\n# release-marker: %s\n' "$marker" >> "$release/usr/local/sbin/taptime-backup"
+}
+
+make_release bbbbbbb selected
+make_release ccccccc rejected
+printf '\n# changed unit\n' \
+  >> "$OPERATIONS_ROOT/releases/ccccccc/etc/systemd/system/taptime-daily-monitor.timer"
+printf '\n# changed journald policy\n' \
+  >> "$OPERATIONS_ROOT/releases/ccccccc/etc/systemd/journald.conf.d/60-taptime.conf"
+
+while IFS= read -r relative; do
+  target="$(operations_target "$relative")"
+  if is_operations_directory_path "$relative"; then
+    mkdir -p "$target"
+    printf '%s\n' '-- legacy migration' > "$target/001_foundation.sql"
+  else
+    mkdir -p "$(dirname "$target")"
+    printf 'legacy %s\n' "$relative" > "$target"
+  fi
+done < <(operations_paths)
+
+mkdir -p \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/opt/taptime"
+printf 'production backup configuration\n' \
+  > "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup/config"
+printf 'production passphrase\n' \
+  > "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup/borg-passphrase"
+printf 'production environment\n' \
+  > "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/opt/taptime/.env"
+printf 'production ntfy configuration\n' \
+  > "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/ntfy.curl"
+printf 'production healthchecks configuration\n' \
+  > "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/healthchecks.curl"
+secret_state_before="$(cksum \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup/config" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup/borg-passphrase" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/opt/taptime/.env" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/ntfy.curl" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/healthchecks.curl")"
+
+install_operations_release bbbbbbb
+test "$(tail -n 1 "$RUNTIME_LOG")" = 'reload units=1 journald=1'
+test "$(readlink "$OPERATIONS_ROOT/current")" = 'releases/bbbbbbb'
+operations_targets_are_linked
+grep --quiet 'release-marker: selected' \
+  "$(operations_target usr/local/sbin/taptime-backup)"
+grep --quiet 'release-marker: selected' \
+  "$(operations_target opt/taptime/source/apps/backend-schema/migrations)/001_foundation.sql"
+sync_migration_sources unused-image > "$TEST_ROOT/migration-sync.output"
+grep --quiet 'bereits mit dem Betriebsstand installiert' "$TEST_ROOT/migration-sync.output"
+operations_targets_are_linked
+test "$secret_state_before" = "$(cksum \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup/config" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup/borg-passphrase" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/opt/taptime/.env" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/ntfy.curl" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/healthchecks.curl")"
+printf 'Operations install evidence: selected release linked; production configuration unchanged.\n'
+
+runtime_lines_before="$(wc -l < "$RUNTIME_LOG" | tr -d ' ')"
+set +e
+FAIL_RUNTIME_RELOAD=1 install_operations_release ccccccc > "$TEST_ROOT/rejected.output" 2>&1
+rejected_status=$?
+set -e
+if (( rejected_status == 0 )); then
+  printf 'The injected runtime-reload failure was accepted.\n' >&2
+  exit 1
+fi
+test "$(sed -n "$((runtime_lines_before + 1))p" "$RUNTIME_LOG")" = \
+  'reload units=1 journald=1'
+test "$(readlink "$OPERATIONS_ROOT/current")" = 'releases/bbbbbbb'
+operations_targets_are_linked
+grep --quiet 'release-marker: selected' \
+  "$(operations_target usr/local/sbin/taptime-backup)"
+grep --quiet 'release-marker: selected' \
+  "$(operations_target opt/taptime/source/apps/backend-schema/migrations)/001_foundation.sql"
+test "$secret_state_before" = "$(cksum \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup/config" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-backup/borg-passphrase" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/opt/taptime/.env" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/ntfy.curl" \
+  "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/healthchecks.curl")"
+printf 'Operations rollback evidence: failed runtime reload restored every target and configuration.\n'

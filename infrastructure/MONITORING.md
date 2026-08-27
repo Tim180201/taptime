@@ -10,8 +10,9 @@ Organisationskennungen sind nicht Teil des Diagnosevertrags.
 journalctl CONTAINER_TAG=taptime-backend-api --since today --output=cat
 ```
 
-`infrastructure/logging/taptime-journald.conf` begrenzt alle Journale auf 14 Tage und 256 MiB
-bei mindestens 1 GiB freiem Plattenplatz. Der API-Container muss den Docker-Logging-Treiber
+Die aus `infrastructure/logging/taptime-journald.conf` versioniert installierte Datei
+`/etc/systemd/journald.conf.d/60-taptime.conf` begrenzt alle Journale auf 14 Tage und 256 MiB bei
+mindestens 1 GiB freiem Plattenplatz. Der API-Container muss den Docker-Logging-Treiber
 `journald` und den Tag `taptime-backend-api` verwenden.
 
 ## Genau vier Meldungen
@@ -62,12 +63,18 @@ Verantwortung.
 
 ## Installation und Prüfung
 
-Die beiden Skripte kommen nach `/usr/local/sbin`, die Services und Timer nach
-`/etc/systemd/system`. Danach `systemctl daemon-reload` und beide Timer aktivieren. Der
-Restore-Dienst schreibt seinen dauerhaften Status nach
-`/var/lib/taptime-monitor/restore-status.json`; das Verzeichnis ist root-only.
+Die beiden Skripte unter `/usr/local/sbin`, ihre Services und Timer unter
+`/etc/systemd/system` sowie die journald-Konfiguration kommen aus dem Operations-Abbild der
+ausgelieferten Version. Der Deploy validiert sie vor Generalprobe und Sicherung, wechselt sie
+gemeinsam und liest geänderte Einheiten neu ein. Nur die geheimen Dateien
+`/etc/taptime-monitor/ntfy.curl` und `/etc/taptime-monitor/healthchecks.curl` werden getrennt
+eingerichtet und vom Deploy nicht verändert. Der Restore-Dienst schreibt seinen dauerhaften
+Status nach `/var/lib/taptime-monitor/restore-status.json`; das Verzeichnis ist root-only.
+Auf dem bestehenden Produktionsserver sind alle vier Timer bereits aktiviert. Auf einem
+Ersatzserver werden sie nach dem ersten erfolgreichen Deploy einmalig aktiviert:
 
 ```sh
+systemctl enable --now taptime-backup.timer taptime-restore-verify.timer
 systemctl enable --now taptime-immediate-monitor.timer taptime-daily-monitor.timer
 systemctl list-timers 'taptime-*'
 systemctl start taptime-immediate-monitor.service

@@ -10,6 +10,7 @@ trap 'rm -rf -- "$TEST_ROOT"' EXIT
 export TAPTIME_DEPLOY_COMPOSE_FILE="$TEST_ROOT/docker-compose.yml"
 export TAPTIME_DEPLOY_BACKUP_CONFIG="$TEST_ROOT/backup.conf"
 export TAPTIME_DEPLOY_VERSION_STATE_FILE="$TEST_ROOT/current-version"
+export TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE="$TEST_ROOT/operations-version"
 export TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE="$TEST_ROOT/known-versions"
 export TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE="$TEST_ROOT/ghcr-protected-versions.json"
 export TAPTIME_DEPLOY_HEALTH_URL='https://health.invalid/health'
@@ -18,9 +19,18 @@ export TAPTIME_DEPLOY_ADMIN_WEB_ROOT="$TEST_ROOT/admin-web"
 printf 'services: {}\n' > "$TAPTIME_DEPLOY_COMPOSE_FILE"
 printf '# synthetic deployment test configuration\n' > "$TAPTIME_DEPLOY_BACKUP_CONFIG"
 printf 'aaaaaaa\n' > "$TAPTIME_DEPLOY_VERSION_STATE_FILE"
+printf 'ddddddd\n' > "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE"
 
 # shellcheck source=../deploy
 source "$(dirname "$0")/../deploy"
+
+BROKEN_OPERATIONS_RELEASE="$TEST_ROOT/broken-operations"
+readonly BROKEN_OPERATIONS_RELEASE
+mkdir -p "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin"
+printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-backup"
+printf '#!/usr/bin/env bash\nif (\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-restore-verify"
+printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-immediate-monitor"
+printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-daily-monitor"
 
 mkdir -p "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/status" \
   "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/assets" \
@@ -57,12 +67,17 @@ activate_admin_web_release aaaaaaa >/dev/null
 test "$(readlink "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/current")" = 'releases/aaaaaaa'
 
 printf 'aaaaaaa\nccccccc\n' > "$TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE"
+test "$(select_operations_version bbbbbbb aaaaaaa ddddddd)" = bbbbbbb
+test "$(select_operations_version ccccccc aaaaaaa ddddddd)" = ddddddd
+test "$(select_operations_version aaaaaaa aaaaaaa ddddddd)" = ddddddd
+printf 'Operations selection evidence: new app uses its release; known rollback keeps current operations.\n'
 # The production definition is loaded by the source command above.
 # shellcheck disable=SC2218
-publish_protected_versions bbbbbbb aaaaaaa
+publish_protected_versions bbbbbbb aaaaaaa ddddddd
 node -e '
   const snapshot = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
   if (snapshot.current_version !== "bbbbbbb" || snapshot.previous_version !== "aaaaaaa") process.exit(1);
+  if (snapshot.operations_version !== "ddddddd") process.exit(1);
   if (snapshot.known_versions.join(",") !== "aaaaaaa,bbbbbbb,ccccccc") process.exit(1);
 ' "$TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE"
 
@@ -74,6 +89,15 @@ require_root() { :; }
 acquire_deploy_lock() { :; }
 pull_image() { record "pull $1"; }
 prepare_admin_web_release() { record "prepare-web $1 $2"; }
+deploy_operations_release() {
+  record "install-operations $1 $2"
+  if [[ "${INSTALL_MISSING_COMPOSE:-0}" == '1' ]]; then
+    printf 'services: {}\n' > "$COMPOSE_FILE"
+  fi
+  if [[ "${FAIL_OPERATIONS:-0}" == '1' ]]; then
+    validate_operations_scripts "$BROKEN_OPERATIONS_RELEASE"
+  fi
+}
 verify_local_rehearsal_image() { record "verify-local $1 $2"; }
 select_migration_version() { printf '%s\n' "$DESIRED_VERSION"; }
 run_restore_verification() {
@@ -96,7 +120,7 @@ wait_for_health() {
 }
 write_current_version() { record "write-version $1"; }
 mark_known_version() { :; }
-publish_protected_versions() { record "publish-protected $1 $2"; }
+publish_protected_versions() { record "publish-protected $1 $2 $3"; }
 
 expect_status() {
   local expected="$1"
@@ -162,14 +186,32 @@ expect_status 1 main latest
 grep --quiet 'Version must be exactly one seven-character lowercase commit hash' "$OUTPUT_FILE"
 
 : > "$LOG_FILE"
+rm -f "$TAPTIME_DEPLOY_COMPOSE_FILE"
+INSTALL_MISSING_COMPOSE=1 FAIL_OPERATIONS=1 expect_status 2 main bbbbbbb
+grep --quiet 'unexpected end of file' "$OUTPUT_FILE"
+test -f "$TAPTIME_DEPLOY_COMPOSE_FILE"
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb"
+printf 'Broken operations script evidence: rejected before rehearsal, backup, and migration.\n'
+printf 'Fresh-server evidence: operations installation supplied the initially missing Compose file.\n'
+
+: > "$LOG_FILE"
 TAPTIME_DEPLOY_TEST_REHEARSAL_IMAGE=local-bad expect_status 1 main bbbbbbb
 grep --quiet 'rehearsal image override requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1' "$OUTPUT_FILE"
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
-prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa"
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb"
 
 : > "$LOG_FILE"
 TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
@@ -179,8 +221,10 @@ assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 verify-local local-bad bbbbbbb
 restore-and-rehearsal local-bad"
 
@@ -190,9 +234,24 @@ assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb"
+
+: > "$LOG_FILE"
+FAIL_REHEARSAL=1 expect_status 1 main ccccccc
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:ccccccc
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-ccccccc
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-ddddddd
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-ccccccc ccccccc
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+install-operations ghcr.io/tim180201/taptime-backend-api:operations-ddddddd ddddddd
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:ccccccc"
+printf 'Known rollback evidence: application ccccccc kept operations ddddddd.\n'
 
 : > "$LOG_FILE"
 FAIL_HEALTH_VERSION=bbbbbbb expect_status 1 main bbbbbbb
@@ -200,8 +259,10 @@ assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 backup
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
@@ -221,8 +282,10 @@ assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 backup
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
@@ -231,7 +294,7 @@ activate-web bbbbbbb
 start bbbbbbb
 restart-caddy bbbbbbb
 health bbbbbbb
-publish-protected bbbbbbb aaaaaaa
+publish-protected bbbbbbb aaaaaaa bbbbbbb
 write-version bbbbbbb"
 
 : > "$LOG_FILE"
@@ -242,8 +305,10 @@ assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 backup
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
@@ -277,6 +342,7 @@ expect_status 137 env \
     acquire_deploy_lock() { :; }
     pull_image() { record "pull $1"; }
     prepare_admin_web_release() { record "prepare-web $1 $2"; }
+    deploy_operations_release() { record "install-operations $1 $2"; }
     verify_local_rehearsal_image() { record "verify-local $1 $2"; }
     select_migration_version() { printf "%s\n" "$DESIRED_VERSION"; }
     run_restore_verification() { record "restore-and-rehearsal $1"; }
@@ -289,7 +355,7 @@ expect_status 137 env \
     wait_for_health() { record "health $1"; }
     write_current_version() { record "write-version $1"; }
     mark_known_version() { :; }
-    publish_protected_versions() { record "publish-protected $1 $2"; }
+    publish_protected_versions() { record "publish-protected $1 $2 $3"; }
     main bbbbbbb
   ' bash "$(dirname "$0")/../deploy" "$LOG_FILE"
 grep --quiet '^migrate-production$' "$LOG_FILE"

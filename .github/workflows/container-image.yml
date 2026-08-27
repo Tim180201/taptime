@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Build and publish immutable backend and Admin Web images
+    name: Build and publish immutable backend, Admin Web, and operations images
     if: >-
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
@@ -159,6 +159,38 @@ jobs:
           printf 'publish=false\n' >> "$GITHUB_OUTPUT"
           printf 'Immutable Admin Web image already exists; it will not be rebuilt.\n'
 
+      - name: Refuse a conflicting mutable operations tag
+        id: operations_existing
+        shell: bash
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}:operations-${{ steps.image.outputs.short_sha }}
+          EXPECTED_REVISION: ${{ steps.image.outputs.full_sha }}
+        run: |
+          set -euo pipefail
+          set +e
+          pull_output="$(docker pull "$IMAGE" 2>&1)"
+          pull_status=$?
+          set -e
+          if (( pull_status != 0 )); then
+            if ! grep --extended-regexp --quiet 'manifest unknown|not found' <<<"$pull_output"; then
+              printf '%s\n' "$pull_output" >&2
+              printf 'Could not prove that immutable tag %s is absent.\n' "$IMAGE" >&2
+              exit 1
+            fi
+            printf 'publish=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          actual_revision="$(docker image inspect \
+            --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' \
+            "$IMAGE")"
+          if [[ "$actual_revision" != "$EXPECTED_REVISION" ]]; then
+            printf 'Tag %s already names revision %s, expected %s.\n' \
+              "$IMAGE" "$actual_revision" "$EXPECTED_REVISION" >&2
+            exit 1
+          fi
+          printf 'publish=false\n' >> "$GITHUB_OUTPUT"
+          printf 'Immutable operations image already exists; it will not be rebuilt.\n'
+
       - name: Fetch the production rollback protection set
         shell: bash
         run: |
@@ -175,6 +207,7 @@ jobs:
           PACKAGE_OWNER: ${{ github.repository_owner }}
           PUBLISH_BACKEND_IMAGE: ${{ steps.backend_existing.outputs.publish }}
           PUBLISH_ADMIN_WEB_IMAGE: ${{ steps.admin_web_existing.outputs.publish }}
+          PUBLISH_OPERATIONS_IMAGE: ${{ steps.operations_existing.outputs.publish }}
         run: |
           set -euo pipefail
           package='taptime-backend-api'
@@ -187,6 +220,9 @@ jobs:
             new_image_count=$((new_image_count + 1))
           fi
           if [[ "$PUBLISH_ADMIN_WEB_IMAGE" == 'true' ]]; then
+            new_image_count=$((new_image_count + 1))
+          fi
+          if [[ "$PUBLISH_OPERATIONS_IMAGE" == 'true' ]]; then
             new_image_count=$((new_image_count + 1))
           fi
 
@@ -237,6 +273,24 @@ jobs:
           file: control/infrastructure/admin-web/Dockerfile
           push: true
           tags: ${{ steps.image.outputs.name }}:admin-web-${{ steps.image.outputs.short_sha }}
+          build-args: |
+            TAPTIME_VERSION=${{ steps.image.outputs.short_sha }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.image.outputs.full_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Build and publish the operations image once
+        if: steps.operations_existing.outputs.publish == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: source
+          file: control/infrastructure/operations/Dockerfile
+          push: true
+          tags: ${{ steps.image.outputs.name }}:operations-${{ steps.image.outputs.short_sha }}
           build-args: |
             TAPTIME_VERSION=${{ steps.image.outputs.short_sha }}
           labels: |

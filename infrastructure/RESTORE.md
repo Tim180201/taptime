@@ -6,9 +6,12 @@ Storage-Box-Zugangsdaten. Der Borg-Schlüssel und die Borg-Passphrase liegen bei
 getrennt verwahrt. Die laufende `/opt/taptime/.env` muss der Product Owner zusätzlich in seinem
 Passwortmanager hinterlegen; ohne diese Kopie kann ein Ersatzserver nicht starten.
 
-Die Sicherungen enthalten auch nicht die statische Oberfläche. Sie wird nicht gesichert, sondern
-aus dem unveränderlichen Admin-Web-Abbild derselben siebenstelligen Version wiederhergestellt.
-Ein Ersatzserver baut sie niemals aus Git und übernimmt keinen handkopierten Verzeichnisstand.
+Die Sicherungen enthalten auch nicht die statische Oberfläche oder die Betriebsskripte. Sie
+werden nicht gesichert, sondern aus unveränderlichen Admin-Web- und Operations-Abbildern
+wiederhergestellt. Backend und Admin-Web tragen die gewählte Anwendungsversion; das
+Operations-Abbild trägt die separat belegte Betriebsfassung. Bei einem neuen Release sind beide
+gleich markiert, nach einer Anwendungsrücknahme darf die Betriebsfassung neuer bleiben. Ein
+Ersatzserver baut sie niemals aus Git und übernimmt keinen handkopierten Verzeichnisstand.
 
 Der letzte erfolgreiche Lauf ist ohne SSH sichtbar: Seine nicht erratbare URL steht nur beim
 Product Owner im Passwortmanager, nicht in Git oder Chat. Ein Zeitpunkt, der älter als eine
@@ -76,34 +79,61 @@ kopieren.
    verlorene Storage-Box-Privatschlüssel wird **nicht** wiederbeschafft: Erzeuge auf dem
    Ersatzserver ein neues ED25519-Schlüsselpaar. Der Product Owner meldet dessen öffentlichen
    Teil einmalig mit dem Storage-Box-Passwort über `install-ssh-key` auf Port 23 an.
-3. Stelle `/etc/taptime-backup/config`, die Borg-Passphrase-Datei, die verwahrte `.env` und die
-   hier versionierten Skripte und systemd-Dateien wieder her. Die Produktion bleibt bis zum
-   erfolgreichen Restore abgeschaltet.
+3. Stelle ausschließlich `/etc/taptime-backup/config`, die Borg-Passphrase-Datei, die verwahrte
+   `.env` und die geheimen Monitoring-Curl-Dateien aus der getrennten Verwahrung wieder her. Die
+   Produktion bleibt bis zum erfolgreichen Restore abgeschaltet. Skripte, Einheiten, Compose und
+   Caddy werden nicht von Hand aus einem Checkout kopiert.
 4. Richte `taptime-deploy`, dessen `authorized_keys`, die begrenzte sudoers-Regel und erst nach
    dem Konsolen- und SSH-Nachweis die Root-SSH-Sperre exakt nach *Einmalige Einrichtung* in
-   `DEPLOY.md` ein. Ohne diese vier Schritte ist der Ersatzserver nicht betriebsbereit.
-5. Installiere `docker-compose.server.yml` und `caddy/Caddyfile` aus demselben geprüften Git-Stand
-   wie das Deploy-Skript. Lege `/opt/taptime/admin-web/status` an. Ermittle die ausdrücklich
-   wiederherzustellende siebenstellige Anwendungsversion aus dem letzten Betriebsnachweis und
-   prüfe, dass Backend- und Admin-Web-Abbild mit diesem Tag in GHCR vorhanden sind.
+   `DEPLOY.md` ein. Das Deploy-Skript kommt dabei über den dort beschriebenen einmaligen
+   Bootstrap aus dem unveränderlichen Operations-Abbild; auf dem frischen Server wird dabei die
+   in `DEPLOY.md` bezeichnete Variante ohne Sicherung eines nicht vorhandenen Alt-Controllers
+   verwendet.
+5. Lege `/opt/taptime/admin-web/status` an. Ermittle die ausdrücklich wiederherzustellende
+   siebenstellige Anwendungsversion aus dem letzten Betriebsnachweis und prüfe, dass Backend und
+   Admin-Web mit diesem Tag in GHCR vorhanden sind. Die Operations-Version steht nach dem
+   Bootstrap separat in `/var/lib/taptime-deploy/operations-version`; prüfe auch ihr Abbild.
 
 ## Server ist weg
 
-1. Stelle den Anwendungscode aus Git und `/opt/taptime/.env` aus der getrennten Verwahrung
-   wieder her. Baue die Container und die Oberfläche nicht auf dem Server und fahre den Stack
-   noch nicht mit einer leeren Datenbank hoch.
-2. Führe `systemctl start taptime-restore-verify.service` aus. Der Dienst prüft das Archiv, spielt das
-   neueste Archiv isoliert in einen Wegwerf-PostgreSQL-Container ein und vergleicht
+1. Stelle `/opt/taptime/.env` aus der getrennten Verwahrung wieder her. Baue die Container und
+   die Oberfläche nicht auf dem Server und fahre den Stack noch nicht mit einer leeren Datenbank
+   hoch.
+2. Extrahiere `taptime-restore-verify` für diese eine Prüfung aus dem Operations-Abbild der in
+   `/var/lib/taptime-deploy/operations-version` belegten Betriebsfassung in ein temporäres
+   Verzeichnis unter `/run`. Extrahiere aus demselben Abbild auch die versionierten Migrationen
+   und verlinke den in `/etc/taptime-backup/config` belegten Pfad vorübergehend dorthin; installiere
+   beides nicht dauerhaft. Mit `abcdef0` gleich der belegten Operations-Version lauten die
+   Befehle:
+
+   ```sh
+   docker create --name taptime-restore-bootstrap ghcr.io/tim180201/taptime-backend-api:operations-abcdef0
+   install -d -m 0700 /run/taptime-restore-bootstrap
+   install -d -m 0755 /opt/taptime/source/apps/backend-schema
+   docker cp taptime-restore-bootstrap:/operations/usr/local/sbin/taptime-restore-verify /run/taptime-restore-bootstrap/taptime-restore-verify
+   docker cp taptime-restore-bootstrap:/operations/opt/taptime/source/apps/backend-schema/migrations /run/taptime-restore-bootstrap/migrations
+   chmod 0700 /run/taptime-restore-bootstrap/taptime-restore-verify
+   ln -s /run/taptime-restore-bootstrap/migrations /opt/taptime/source/apps/backend-schema/migrations
+   /run/taptime-restore-bootstrap/taptime-restore-verify
+   docker rm taptime-restore-bootstrap
+   ```
+
+   Führe die Prüfung als `root` aus. Sie spielt
+   das neueste Archiv isoliert in einen Wegwerf-PostgreSQL-Container ein und vergleicht
    Migrations-Checksums, sieben tragende Tabellen, alle TapTim.e-Rollen und `37/37` aktivierte
    und erzwungene RLS-Tabellen.
 3. Ist die Prüfung grün, spiele dasselbe Archiv mit den dort verwendeten Schritten in die neue
    Produktdatenbank ein. Schreibe die gewählte, tatsächlich zum Datenstand kompatible Version
    nach `/var/lib/taptime-deploy/current-version` und rufe
-   `/usr/local/sbin/taptime-deploy <version>` auf. Der Lauf extrahiert das Admin-Web-Abbild nach
+   `/usr/local/sbin/taptime-deploy <version>` auf. Der Lauf installiert zuerst die vollständigen
+   Betriebsdateien aus dem Operations-Abbild, extrahiert dann das Admin-Web-Abbild nach
    `/opt/taptime/admin-web/releases/<version>`, schaltet `current` atomar um und prüft Backend
    sowie öffentliche `/version.txt`. Bei Fehlern nicht improvisieren: ein älteres Archiv und
    eine dazu kompatible, vollständig vorhandene Abbildversion auswählen und den Restore erneut
    vollständig prüfen.
+
+   Nach dem erfolgreichen Deploy zeigt der Migrationspfad auf den versionierten Operations-Stand;
+   dann kann `/run/taptime-restore-bootstrap` entfernt werden.
 
 Für die aktuelle Datenmenge dauert Dump, Upload und isolierte Prüfung wenige Minuten. Die
 gemessene Dauer steht im Journal von `taptime-restore-verify.service` und ist nach jedem Lauf

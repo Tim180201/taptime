@@ -95,6 +95,27 @@ grep --fixed-strings --ignore-case --quiet \
 printf '%s\n' \
   'admin_index_cache=no-store release_cache=max-age=31536000,immutable legacy_cache=max-age=300,must-revalidate'
 
+printf ':8080 {\n  this-directive-does-not-exist\n}\n' > "$test_directory/invalid.Caddyfile"
+# shellcheck source=../../deploy
+source infrastructure/deploy
+set +e
+validate_caddy_candidate "$test_directory/invalid.Caddyfile" \
+  > "$test_directory/invalid-caddy.output" 2>&1
+invalid_caddy_status=$?
+set -e
+if (( invalid_caddy_status == 0 )); then
+  printf 'The intentionally invalid Caddyfile was accepted.\n' >&2
+  exit 1
+fi
+curl --fail --silent --show-error \
+  --dump-header "$test_directory/after-invalid.headers" \
+  --output "$test_directory/after-invalid.body" \
+  "http://127.0.0.1:${cache_port}/"
+grep --fixed-strings --ignore-case --quiet 'Cache-Control: no-store' \
+  "$test_directory/after-invalid.headers"
+grep --fixed-strings --quiet 'T-026 cache proof' "$test_directory/after-invalid.body"
+printf 'invalid_caddy=rejected existing_address=still_serving\n'
+
 docker network create "$network_name" >/dev/null
 docker run --detach --name "$backend_name" --network "$network_name" \
   --network-alias echo-backend \

@@ -1,11 +1,16 @@
 # Wiederholbar ausliefern
 
-Backend und Admin-Web werden nach grüner `CI` einmal von `Release container images` gebaut.
-Beide unveränderlichen Abbilder tragen denselben siebenstelligen Commit-Kurzschlüssel, zum
-Beispiel `ghcr.io/tim180201/taptime-backend-api:abcdef0` und
-`ghcr.io/tim180201/taptime-backend-api:admin-web-abcdef0`. Beide liegen als getrennte Abbilder
-im selben öffentlichen GHCR-Paket; so bleiben sie ohne Registry-Geheimnis anonym lesbar. Es gibt
-bewusst kein `latest` und keinen Build auf dem Server.
+Backend, Admin-Web und Betriebsdateien werden nach grüner `CI` einmal von
+`Release container images` gebaut. Jeder geprüfte Stand erzeugt drei unveränderliche Abbilder,
+zum Beispiel
+`ghcr.io/tim180201/taptime-backend-api:abcdef0`,
+`ghcr.io/tim180201/taptime-backend-api:admin-web-abcdef0` und
+`ghcr.io/tim180201/taptime-backend-api:operations-abcdef0`. Sie liegen getrennt im selben
+öffentlichen GHCR-Paket und bleiben ohne Registry-Geheimnis anonym lesbar. Es gibt bewusst kein
+`latest` und keinen Build auf dem Server. Backend und Admin-Web werden immer gemeinsam auf die
+gewünschte Anwendungsversion geschaltet. Ein neuer Anwendungsstand nimmt automatisch sein
+gleich markiertes Operations-Abbild mit; eine Rücknahme auf eine bereits bekannte Anwendung
+behält dagegen den zuletzt installierten, neueren Betriebsstand.
 
 ## Zugang und Berechtigung
 
@@ -23,9 +28,6 @@ des Root-SSH-Logins praktisch geprüft.
 
 ## Einmalige Einrichtung
 
-Installiere `infrastructure/deploy` als root-ausführbares Skript sowie
-`infrastructure/docker-compose.server.yml` und `infrastructure/caddy/Caddyfile` unter
-`/opt/taptime/source/infrastructure/`.
 Schreibe den tatsächlich laufenden Commit-Kurzschlüssel nach
 `/var/lib/taptime-deploy/current-version`. Diese Datei ist die Rücknahme-Referenz und darf nicht
 geraten werden. Das öffentliche Repository erzeugt über GitHub Actions ein öffentliches,
@@ -47,10 +49,49 @@ printf '%s\n' \
   > /etc/sudoers.d/taptime-deploy
 chmod 0440 /etc/sudoers.d/taptime-deploy
 visudo -cf /etc/sudoers.d/taptime-deploy
-install -o root -g root -m 0755 \
-  /opt/taptime/source/infrastructure/deploy /usr/local/sbin/taptime-deploy
 install -d -o root -g root -m 0755 /opt/taptime/admin-web/status
 ```
+
+### Einmaliger Wechsel auf den versionierten Betriebsweg
+
+Das Deploy-Skript kann sich nicht selbst ersetzen. Nach Freigabe des T-028-Commits muss der
+Product Owner deshalb genau einmal die Hetzner Console öffnen und dort als `root` die folgenden
+Befehle ausführen. `abcdef0` ist der freigegebene T-028-Commit, **nicht** die anschließend
+auszuliefernde Anwendungsversion:
+
+```sh
+docker pull ghcr.io/tim180201/taptime-backend-api:operations-abcdef0
+docker create --name taptime-ops-bootstrap ghcr.io/tim180201/taptime-backend-api:operations-abcdef0
+install -d -m 0755 /var/lib/taptime-deploy
+docker cp taptime-ops-bootstrap:/bootstrap/taptime-deploy /usr/local/sbin/taptime-deploy.new
+docker cp taptime-ops-bootstrap:/bootstrap/version.txt /var/lib/taptime-deploy/operations-version.new
+chmod 0755 /usr/local/sbin/taptime-deploy.new
+bash -n /usr/local/sbin/taptime-deploy.new
+grep -Fx abcdef0 /var/lib/taptime-deploy/operations-version.new
+mv /var/lib/taptime-deploy/operations-version.new /var/lib/taptime-deploy/operations-version
+cp -a /usr/local/sbin/taptime-deploy /usr/local/sbin/taptime-deploy.previous
+mv /usr/local/sbin/taptime-deploy.new /usr/local/sbin/taptime-deploy
+grep -F operations- /usr/local/sbin/taptime-deploy
+docker rm taptime-ops-bootstrap
+```
+
+`bash -n` bleibt bei Erfolg ohne Ausgabe. Der erste `grep` muss genau `abcdef0` ausgeben, der
+zweite mehrere Zeilen mit `operations-`. Scheitert ein Befehl vor dem Verschieben des
+Deploy-Skripts, bleibt das bisherige Skript aktiv: stoppen und die Ausgabe sichern. Bleibt der
+zweite Nachweis nach dem Wechsel leer oder fehlerhaft, sofort zurücksetzen und die Ausgabe melden:
+
+```sh
+mv /usr/local/sbin/taptime-deploy.previous /usr/local/sbin/taptime-deploy
+```
+
+Die Konsole bleibt offen, bis der erste SSH-Deploy mit dem neuen Skript begonnen hat. Die Datei
+`taptime-deploy.previous` wird erst nach einem vollständig erfolgreichen Deploy entfernt.
+
+Auf einem Ersatzserver ohne vorhandenes Deploy-Skript gelten dieselben Befehle, aber die Zeile
+mit `cp -a ... taptime-deploy.previous` wird ausgelassen. Nach dem ersten `grep` werden
+Operations-Version und Controller wie oben mit `mv` aktiviert; der zweite `grep` ist derselbe
+Erfolgsnachweis. Scheitert er, bleibt der Server abgeschaltet und die Konsole offen, bis der
+Bootstrap mit einem neu gebauten, freigegebenen Operations-Abbild wiederholt werden kann.
 
 Vor jeder SSH-Härtung muss in einer **zweiten** Sitzung sowohl der neue Zugang als auch dessen
 einzige sudo-Regel funktionieren. Nach Schlüsselverlust ist die neu erzeugte Identität
@@ -82,19 +123,24 @@ Aufruf als `taptime-deploy` weiter funktioniert. Bei einem Fehler nichts weiter 
 offene Hetzner Console verwenden.
 
 Jede erfolgreiche Auslieferung veröffentlicht `current`, `previous` und die vollständige Datei
-`known-versions` atomar als nicht sensitiven Schutzsatz unter
+`known-versions` sowie die ausgewählte Operations-Version atomar als nicht sensitiven
+Schutzsatz unter
 `/opt/taptime/admin-web/status/ghcr-protected-versions.json`. Die Veröffentlichungs-Workflow
-lädt und validiert diesen Satz fail-closed. Sie wendet denselben Schutz unabhängig auf Backend-
-und Admin-Web-Tag an. Vor einem neuen Push behält sie die neuesten vollständigen Paare bis zu
-insgesamt zwanzig Abbildern. Jedes Backend- und Admin-Web-Abbild aus dem Schutzsatz bleibt
-zusätzlich erhalten; insbesondere können laufende und vorherige Version nie durch die
-Aufräumung gelöscht werden.
+lädt und validiert diesen Satz fail-closed. Sie schützt Backend und Admin-Web für alle bekannten
+Anwendungsversionen sowie genau das ausgewählte Operations-Abbild. Vor einem neuen Push behält
+sie die neuesten Abbilder bis zu insgesamt zwanzig Paketversionen. Laufende Anwendung,
+Rücknahmeversion und Betriebsfassung können dadurch nie von der Aufräumung gelöscht werden.
 
-Vor der ersten T-026-Auslieferung muss auch für die bisher laufende Version ein Admin-Web-Abbild
-existieren, damit eine Rücknahme nicht auf den handkopierten Altstand angewiesen ist. Starte dazu
-`Release container images` einmal manuell mit `source_ref` gleich dem Inhalt von
-`current-version`. Ein bereits vorhandenes Backend-Abbild wird dabei geprüft und nicht neu
-gebaut; nur das fehlende Admin-Web-Abbild wird ergänzt.
+Vor dem ersten T-028-Deploy müssen Backend und Admin-Web für Ziel und Rücknahme sowie die
+Operations-Abbilder des freigegebenen T-028-Controllers und der Zielanwendung vorhanden sein.
+Starte `Release container images` bei Bedarf manuell mit `source_ref` gleich dem vollständigen
+Commit der gewünschten Version. Bereits vorhandene unveränderliche Abbilder werden geprüft und
+nicht neu gebaut; fehlende Backend-, Admin-Web- oder Operations-Abbilder werden ergänzt. Ein
+Operations-Abbild einer alten Rücknahmeversion wird zwar vollständig reproduzierbar gebaut, vom
+Deploy aber nicht ausgewählt. Für den noch ausstehenden Deploy ist die Anwendungsversion
+`3893611`; die Rücknahmeversion steht in
+`/var/lib/taptime-deploy/current-version`, die Betriebsfassung in
+`/var/lib/taptime-deploy/operations-version`. Keine davon darf geraten werden.
 
 ## Ausliefern
 
@@ -112,9 +158,34 @@ ssh -i ~/.ssh/taptime-deploy taptime-deploy@46.225.58.30 \
   'sudo /usr/local/sbin/taptime-deploy abcdef0'
 ```
 
-Ohne genau einen siebenstelligen Commit-Kurzschlüssel bricht das Skript ab. Es lädt die beiden
-genannten Abbilder und legt die vollständigen Admin-Web-Releases für Ziel und Rücknahme zunächst
-daneben. Dann lässt es die unveränderte T-007-Wiederherstellungsprüfung laufen. Unmittelbar vor
+Ohne genau einen siebenstelligen Commit-Kurzschlüssel bricht das Skript ab. Es lädt Backend und
+Admin-Web für Ziel und Rücknahme. Unterscheidet sich das Ziel vom laufenden Stand und ist noch
+nicht als ausgeliefert bekannt, wählt es dessen gleich markiertes Operations-Abbild. Beim
+erneuten Deploy des laufenden Stands oder einer bekannten Rücknahme behält es den Stand aus
+`operations-version`. Noch vor der Generalprobe extrahiert es dieses Abbild nach
+`/opt/taptime/operations/releases/<operations-version>` und prüft Dateibestand,
+Dateimodi, Shell-Syntax, systemd-Einheiten, Compose und Caddy. Ein ungültiger Caddyfile wird in
+einem getrennten Wegwerf-Container abgewiesen; der laufende Caddy wird dabei weder neu geladen
+noch ersetzt. Erst nach vollständig grüner Prüfung wechselt
+`/opt/taptime/operations/current` atomar und diese Ziele verweisen auf den ausgewählten Stand:
+
+- `/usr/local/sbin/taptime-backup` und `taptime-restore-verify`
+- `/usr/local/sbin/taptime-immediate-monitor` und `taptime-daily-monitor`
+- alle acht zugehörigen Dateien unter `/etc/systemd/system/`
+- `/etc/systemd/journald.conf.d/60-taptime.conf`
+- `/opt/taptime/source/infrastructure/docker-compose.server.yml`
+- `/opt/taptime/source/infrastructure/caddy/Caddyfile`
+- `/opt/taptime/source/apps/backend-schema/migrations`
+- `/var/lib/taptime-deploy/operations-version`
+
+Geänderte systemd-Einheiten werden mit `daemon-reload` eingelesen und aktive Timer neu gestartet;
+eine geänderte journald-Konfiguration startet journald neu. Scheitert Installation oder Reload,
+stellt das Skript sämtliche bisherigen Ziele einschließlich Migrationsquellen und Versionsstand
+sowie den bisherigen Operations-Zeiger wieder her.
+Das geschieht vollständig **vor** Generalprobe, Sicherung und Migration.
+
+Danach legt das Skript die vollständigen Admin-Web-Releases für Ziel und Rücknahme daneben und
+lässt die unveränderte T-007-Wiederherstellungsprüfung laufen. Unmittelbar vor
 deren Cleanup spielt ein begrenzter Hook die ausstehenden Migrationen in **denselben**
 Wegwerf-Container ein. Danach wartet das Skript auf eine frische Sicherung, migriert die
 Produktion und aktiviert Backend und Oberfläche. Die Oberfläche wechselt durch genau eine
@@ -163,16 +234,17 @@ erfolgreich antworten. Der Ledger-Nachweis steht bereits in der gesicherten Depl
 angewendet oder vorhanden ausweisen. Fehlt einer dieser vier Belege, ist die Auslieferung nicht
 erfolgreich nachgewiesen.
 
-Schlägt die Probe fehl, wurden weder Sicherung noch Produktionsdatenbank noch Anwendung
-angefasst. Ausgabe sichern, Migration korrigieren, ein neues Abbild mit neuem Commit bauen und
-den Befehl mit dessen Version wiederholen. Niemals eine bereits veröffentlichte Migration
-umschreiben.
+Schlägt die Operations-Prüfung oder die Generalprobe fehl, wurden weder Sicherung noch
+Produktionsdatenbank noch Anwendung angefasst. Ausgabe sichern, Ursache korrigieren, ein neues
+Abbild mit neuem Commit bauen und den Befehl mit dessen Version wiederholen. Niemals eine bereits
+veröffentlichte Migration umschreiben.
 
 ## Rücknahme und Unterbrechung
 
-Rücknahme ist derselbe Befehl mit der ausdrücklich gewünschten früheren Version. Sie aktiviert
-deren Backend- und Admin-Web-Abbild gemeinsam. Schlägt Start oder Gesundheit fehl, setzt das
-Skript automatisch beide Hälften auf die vorherige Version zurück und belegt erneut Backend und
+Rücknahme ist derselbe Befehl mit der ausdrücklich gewünschten früheren Anwendungsversion. Sie
+behält die separat freigegebene Betriebsfassung und aktiviert Backend und Admin-Web der älteren
+Anwendung gemeinsam. Schlägt Start oder Gesundheit fehl, setzt das Skript automatisch Backend
+und Oberfläche auf die vorherige Anwendungsversion zurück und belegt erneut Backend und
 öffentliche `/version.txt`. Das Schema wird nie zurückgedreht; Migrationen müssen deshalb zur
 vorherigen Anwendung kompatibel bleiben.
 
@@ -194,11 +266,11 @@ werden.
 | Bestandteil | Wie er heute auf den Server kommt | Folge eines veralteten Stands |
 |---|---|---|
 | `/opt/taptime/.env` und Dateien unter `/opt/taptime/secrets` | getrennte Verwahrung und bewusste Installation durch den Product Owner | Anwendung startet mit alten Zugangsdaten oder nach einer Rotation gar nicht; eine automatische Verteilung wäre selbst ein Geheimnisweg |
-| `docker-compose.server.yml`, `Caddyfile` und `/usr/local/sbin/taptime-deploy` | aus dem ausdrücklich geprüften Git-Stand bei einer Betriebsänderung als `root` installiert; der Deploy erzeugt Caddy danach neu | neue Dienste, Routen oder Auslieferungsregeln kommen nicht an; T-026 setzt deshalb vor seinem ersten Lauf die neue Caddy- und Deploy-Fassung voraus |
-| Backup-Skripte, `/etc/taptime-backup/config`, Services und Timer | einmalig als `root` aus `infrastructure/backup/` installiert; Konfiguration separat | Sicherung oder Wiederherstellungsprobe kann hinter dem dokumentierten Verfahren zurückbleiben |
-| Monitoring-Skripte, Services, Timer und journald-Konfiguration | einmalig als `root` nach `MONITORING.md` installiert | neue Alarme oder Aufbewahrungsgrenzen wirken nicht; ein Ausfall kann ungemeldet bleiben |
+| `/usr/local/sbin/taptime-deploy` | einmaliger, ausdrücklich belegter Konsolenschritt aus dem Operations-Abbild | der Controller kann sich nicht sicher selbst ersetzen; die von ihm verwalteten Betriebsdateien und deren Versionsstand laufen danach ohne weitere Handkopie durch den normalen Deploy |
+| `/etc/taptime-backup/config`, Borg-Schlüssel und Passphrase-Datei | getrennte Verwahrung und bewusste Installation durch den Product Owner | Sicherung oder Restore können ohne betriebliche Zugangswerte nicht laufen; ein Operations-Abbild darf sie nicht enthalten |
+| `/etc/taptime-monitor/*.curl` | getrennte geheime Einrichtung nach `MONITORING.md` | Alarmziele fehlen oder zeigen auf alte Endpunkte; sie dürfen nicht in Git oder einem öffentlichen Abbild stehen |
 | SSH-Härtung, Deploy-Schlüssel und sudoers-Regel | bewusster Konsolen-/Root-Schritt nach dieser Anleitung | verlorene oder zu breite Zugänge bleiben bestehen; ein automatisches Deploy darf diese Rückwege nicht selbst verändern |
 
-Diese Grenze ist ausdrücklich inventarisiert; sie ist kein behaupteter Vollautomatismus. Das
-eigentliche Release-Paar aus Backend und Admin-Web kommt dagegen ausschließlich über die beiden
+Diese Grenze ist ausdrücklich inventarisiert. Backend, Admin-Web, Backup- und Monitoring-Skripte,
+deren Einheiten, journald-Grenzen, Compose und Caddy kommen dagegen ausschließlich über die drei
 gleich markierten Abbilder.
