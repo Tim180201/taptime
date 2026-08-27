@@ -296,6 +296,13 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   CI-Verhältnisse: `0,66` · `0,64` · `0,91` · `0,57`. **Jede abgeschlossene Aufgabe trägt ihren Wert hier ein.**
   Bei zehn Werten wird die Verteilung ausgewertet und das Budget mit Daten nachgezogen — nicht
   geschätzt.
+- **P2:** Der Monitoring-Test ist auf dem Entwicklungsrechner (macOS) nicht lauffähig — er
+  braucht GNU-`stat -c`. Ein Test, der nur in der CI läuft, wird beim Entwickeln nicht bemerkt.
+  Unverändert übernommen aus T-026.
+- **Aufräumen, terminiert:** Der Caddy-Zweig `/assets/*` trägt den unversionierten T-006-Altbestand
+  mit fünf Minuten Gültigkeit. Er darf entfernt werden, sobald T-026 mindestens fünf Minuten
+  produktiv gelaufen ist — dann kann keine vor der Umschaltung geöffnete Seite ihn mehr brauchen.
+  Unversionierte Dateinamen sind ein Übergang, kein Dauerzustand.
 - Geparkte Idee: **`ADO/RESULT.md`** — Codex schreibt seinen Abschlussbericht ins Repo statt nur
   in den Chat. Spart dem Product Owner bei jeder Aufgabe einen Handgriff.
 
