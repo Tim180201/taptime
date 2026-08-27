@@ -41,6 +41,8 @@ printf 'old\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/assets/old.js"
 printf 'new\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/bbbbbbb/assets/new.js"
 status_before="$(cksum "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/status/proof.txt")"
 legacy_asset_before="$(cksum "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/assets/t006.js")"
+# The production definition is loaded by the source command above.
+# shellcheck disable=SC2218
 activate_admin_web_release bbbbbbb >/dev/null
 test "$(readlink "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/current")" = 'releases/bbbbbbb'
 grep --quiet '/assets/t006.js' "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/index.html"
@@ -49,6 +51,8 @@ test -f "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/assets/old.js"
 grep --quiet '/releases/aaaaaaa/assets/old.js' \
   "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/index.html"
 test "$(cksum "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/status/proof.txt")" = "$status_before"
+# The production definition is loaded by the source command above.
+# shellcheck disable=SC2218
 activate_admin_web_release aaaaaaa >/dev/null
 test "$(readlink "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/current")" = 'releases/aaaaaaa'
 
