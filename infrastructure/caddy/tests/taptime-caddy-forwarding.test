@@ -6,17 +6,37 @@ test_directory="$(mktemp -d "/tmp/${test_id}.XXXXXX")"
 network_name="${test_id}-network"
 backend_name="${test_id}-backend"
 caddy_name="${test_id}-caddy"
+validation_name="${test_id}-validation"
+cache_name="${test_id}-cache"
 expected_secret='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
 if ! grep -Fq $'\thandle /v3/* {' infrastructure/caddy/Caddyfile; then
   echo 'production Caddyfile does not proxy /v3/*' >&2
   exit 1
 fi
+if ! grep -Fq $'\t\troot * /srv/admin-web/current' infrastructure/caddy/Caddyfile; then
+  echo 'production Caddyfile does not serve the atomically selected Admin Web release' >&2
+  exit 1
+fi
+if ! grep -Fq $'\thandle /releases/* {' infrastructure/caddy/Caddyfile; then
+  echo 'production Caddyfile does not keep versioned Admin Web assets reachable' >&2
+  exit 1
+fi
+if ! grep -Fq $'\thandle /assets/* {' infrastructure/caddy/Caddyfile; then
+  echo 'production Caddyfile does not preserve assets loaded before the first T-026 switch' >&2
+  exit 1
+fi
+if ! grep -Fq $'\thandle /status/* {' infrastructure/caddy/Caddyfile ||
+  ! grep -Fq $'\t\troot * /srv/admin-web' infrastructure/caddy/Caddyfile; then
+  echo 'production Caddyfile does not preserve the persistent status directory' >&2
+  exit 1
+fi
 
 cleanup() {
   status=$?
   trap - EXIT
-  docker rm --force "$caddy_name" "$backend_name" >/dev/null 2>&1 || true
+  docker rm --force "$caddy_name" "$backend_name" "$validation_name" >/dev/null 2>&1 || true
+  docker rm --force "$cache_name" >/dev/null 2>&1 || true
   docker network rm "$network_name" >/dev/null 2>&1 || true
   rm -rf "$test_directory"
   exit "$status"
@@ -25,6 +45,55 @@ trap cleanup EXIT
 
 umask 077
 printf '%s' "$expected_secret" > "$test_directory/taptime_proxy_shared_secret"
+mkdir -p "$test_directory/admin-web/current" \
+  "$test_directory/admin-web/assets" \
+  "$test_directory/admin-web/releases/abcdef0/assets"
+printf '<!doctype html><title>T-026 cache proof</title>\n' \
+  > "$test_directory/admin-web/current/index.html"
+printf 'abcdef0\n' > "$test_directory/admin-web/current/version.txt"
+printf 'legacy\n' > "$test_directory/admin-web/assets/legacy.js"
+printf 'release\n' > "$test_directory/admin-web/releases/abcdef0/assets/release.js"
+
+docker create --name "$validation_name" caddy:2.10.2-alpine \
+  caddy validate --config /tmp/T026-Caddyfile --adapter caddyfile >/dev/null
+docker cp infrastructure/caddy/Caddyfile "$validation_name:/tmp/T026-Caddyfile"
+docker start --attach "$validation_name"
+
+docker create --name "$cache_name" \
+  --publish 127.0.0.1:0:8080 \
+  caddy:2.10.2-alpine caddy run --config /tmp/admin-web-cache.caddyfile --adapter caddyfile \
+  >/dev/null
+docker cp infrastructure/caddy/tests/admin-web-cache.caddyfile \
+  "$cache_name:/tmp/admin-web-cache.caddyfile"
+docker cp "$test_directory/admin-web" "$cache_name:/tmp/admin-web"
+docker start "$cache_name" >/dev/null
+
+cache_port="$(docker inspect --format '{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}' "$cache_name")"
+for _attempt in $(seq 1 30); do
+  if curl --fail --silent --show-error \
+    --dump-header "$test_directory/index.headers" \
+    --output "$test_directory/index.body" \
+    "http://127.0.0.1:${cache_port}/" 2>/dev/null; then
+    break
+  fi
+  sleep 0.2
+done
+grep --fixed-strings --ignore-case --quiet 'Cache-Control: no-store' \
+  "$test_directory/index.headers"
+curl --fail --silent --show-error \
+  --dump-header "$test_directory/release.headers" \
+  --output "$test_directory/release.body" \
+  "http://127.0.0.1:${cache_port}/releases/abcdef0/assets/release.js"
+grep --fixed-strings --ignore-case --quiet \
+  'Cache-Control: public, max-age=31536000, immutable' "$test_directory/release.headers"
+curl --fail --silent --show-error \
+  --dump-header "$test_directory/legacy.headers" \
+  --output "$test_directory/legacy.body" \
+  "http://127.0.0.1:${cache_port}/assets/legacy.js"
+grep --fixed-strings --ignore-case --quiet \
+  'Cache-Control: public, max-age=300, must-revalidate' "$test_directory/legacy.headers"
+printf '%s\n' \
+  'admin_index_cache=no-store release_cache=max-age=31536000,immutable legacy_cache=max-age=300,must-revalidate'
 
 docker network create "$network_name" >/dev/null
 docker run --detach --name "$backend_name" --network "$network_name" \

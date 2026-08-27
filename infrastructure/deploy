@@ -8,6 +8,8 @@ readonly VERSION_STATE_FILE="${TAPTIME_DEPLOY_VERSION_STATE_FILE:-/var/lib/tapti
 readonly KNOWN_VERSIONS_FILE="${TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE:-/var/lib/taptime-deploy/known-versions}"
 readonly PROTECTED_VERSIONS_FILE="${TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE:-/opt/taptime/admin-web/status/ghcr-protected-versions.json}"
 readonly HEALTH_URL="${TAPTIME_DEPLOY_HEALTH_URL:-https://api.tb-infra.de/health}"
+readonly ADMIN_WEB_VERSION_URL="${TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL:-https://admin.tb-infra.de/version.txt}"
+readonly ADMIN_WEB_ROOT="${TAPTIME_DEPLOY_ADMIN_WEB_ROOT:-/opt/taptime/admin-web}"
 readonly RESTORE_STATUS_FILE_DEFAULT='/var/lib/taptime-monitor/restore-status.json'
 readonly RESTORE_VERIFY_COMMAND="${TAPTIME_DEPLOY_RESTORE_VERIFY_COMMAND:-/usr/local/sbin/taptime-restore-verify}"
 
@@ -39,6 +41,10 @@ validate_version() {
 
 image_for_version() {
   printf '%s:%s\n' "$IMAGE_REPOSITORY" "$1"
+}
+
+admin_web_image_for_version() {
+  printf '%s:admin-web-%s\n' "$IMAGE_REPOSITORY" "$1"
 }
 
 compose() {
@@ -73,9 +79,87 @@ pull_image() {
   docker pull "$image"
   docker image inspect "$image" >/dev/null
   version="${image##*:}"
+  version="${version#admin-web-}"
+  validate_version "$version"
   revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")"
   [[ "$revision" == "$version"* ]] ||
     fail "Image revision label does not match requested version $version."
+}
+
+read_admin_web_release_version() {
+  local version_file="$1/version.txt"
+  local actual
+
+  require_file "$version_file"
+  actual="$(tr -d '\r\n' < "$version_file")"
+  validate_version "$actual"
+  printf '%s\n' "$actual"
+}
+
+prepare_admin_web_release() (
+  set -euo pipefail
+
+  local image="$1"
+  local version="$2"
+  local releases_directory release_directory staged holder=''
+
+  releases_directory="$ADMIN_WEB_ROOT/releases"
+  release_directory="$releases_directory/$version"
+  install -d -m 0755 "$ADMIN_WEB_ROOT" "$releases_directory"
+
+  if [[ -d "$release_directory" ]]; then
+    [[ "$(read_admin_web_release_version "$release_directory")" == "$version" ]] ||
+      fail "Prepared Admin Web release $release_directory has the wrong version."
+    require_file "$release_directory/index.html"
+    say "[Vorbereitung] Admin-Web $version liegt bereits unveränderlich bereit."
+    return 0
+  fi
+
+  staged="$(mktemp -d "$releases_directory/.deploy-admin-web.XXXXXX")"
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2317,SC2329
+  cleanup_admin_web_stage() {
+    [[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true
+    if [[ "$staged" == "$releases_directory"/.deploy-admin-web.* && -d "$staged" ]]; then
+      rm -rf -- "$staged"
+    fi
+  }
+  trap cleanup_admin_web_stage EXIT
+
+  holder="$(docker create "$image")"
+  docker cp "$holder:/admin-web/." "$staged"
+  require_file "$staged/index.html"
+  [[ "$(read_admin_web_release_version "$staged")" == "$version" ]] ||
+    fail "Admin Web image $image does not contain version $version."
+  chmod -R u=rwX,go=rX "$staged"
+  chmod -R a-w "$staged"
+  mv "$staged" "$release_directory"
+  staged=''
+  say "[Vorbereitung] Admin-Web $version liegt vollständig und unveränderlich bereit."
+)
+
+activate_admin_web_release() {
+  local version="$1"
+  local release_directory switch_directory moved=0
+
+  release_directory="$ADMIN_WEB_ROOT/releases/$version"
+  [[ -d "$ADMIN_WEB_ROOT/status" ]] || fail "Admin Web status directory is missing: $ADMIN_WEB_ROOT/status"
+  [[ "$(read_admin_web_release_version "$release_directory")" == "$version" ]] ||
+    fail "Admin Web release $version is not prepared correctly."
+
+  switch_directory="$(mktemp -d "$ADMIN_WEB_ROOT/.deploy-switch.XXXXXX")"
+  ln -s "releases/$version" "$switch_directory/current"
+  if mv --help 2>&1 | grep --quiet -- '--no-target-directory'; then
+    if mv -Tf "$switch_directory/current" "$ADMIN_WEB_ROOT/current"; then moved=1; fi
+  else
+    if mv -fh "$switch_directory/current" "$ADMIN_WEB_ROOT/current"; then moved=1; fi
+  fi
+  if (( moved == 0 )) || [[ "$(readlink "$ADMIN_WEB_ROOT/current" 2>/dev/null || true)" != "releases/$version" ]]; then
+    rm -rf -- "$switch_directory"
+    fail "Could not activate Admin Web release $version."
+  fi
+  rmdir "$switch_directory"
+  say "[5/7] Admin-Web $version wurde in einem Zug aktiviert."
 }
 
 verify_local_rehearsal_image() {
@@ -260,18 +344,31 @@ start_backend() {
   compose "$version" up --detach --no-deps backend-api
 }
 
+restart_caddy() {
+  local version="$1"
+  compose "$version" up --detach --no-deps --force-recreate caddy
+}
+
 wait_for_health() {
   local version="$1"
-  local container health
+  local container health running_image admin_web_version
 
-  say "[6/7] Prüfe Container- und externe Gesundheit für Version $version."
+  say "[6/7] Prüfe Backend und ausgeliefertes Admin-Web für Version $version."
   container="$(compose "$version" ps --quiet backend-api)"
   [[ -n "$container" ]] || fail 'Backend container is not running.'
+  running_image="$(docker inspect --format '{{.Config.Image}}' "$container")"
+  [[ "$running_image" == "$(image_for_version "$version")" ]] ||
+    fail "Running backend image $running_image does not match version $version."
 
   for _ in $(seq 1 30); do
     health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container")"
-    if [[ "$health" == 'healthy' ]] && curl --fail --silent --show-error --max-time 5 "$HEALTH_URL" >/dev/null; then
-      say "[6/7] Version $version ist intern und extern gesund."
+    admin_web_version=''
+    if [[ "$health" == 'healthy' ]] &&
+      curl --fail --silent --show-error --max-time 5 "$HEALTH_URL" >/dev/null &&
+      admin_web_version="$(curl --fail --silent --show-error --max-time 5 \
+        --header 'Cache-Control: no-cache' "$ADMIN_WEB_VERSION_URL")" &&
+      [[ "$admin_web_version" == "$version" ]]; then
+      say "[6/7] Backend und Admin-Web belegen gemeinsam Version $version."
       return 0
     fi
     [[ "$health" == 'unhealthy' || "$health" == 'exited' || "$health" == 'dead' ]] && break
@@ -346,9 +443,11 @@ rollback_started_image() {
 
   trap - EXIT INT TERM
   if (( NEW_IMAGE_STARTED == 1 )); then
-    say "[7/7] Neuer Stand fehlgeschlagen; setze das Abbild auf $PREVIOUS_VERSION zurück." >&2
-    if start_backend "$PREVIOUS_VERSION" && wait_for_health "$PREVIOUS_VERSION"; then
-      say "[7/7] Rücknahme erfolgreich; Version $PREVIOUS_VERSION ist gesund." >&2
+    say "[7/7] Neuer Stand fehlgeschlagen; setze Backend und Admin-Web auf $PREVIOUS_VERSION zurück." >&2
+    if activate_admin_web_release "$PREVIOUS_VERSION" &&
+      start_backend "$PREVIOUS_VERSION" && restart_caddy "$PREVIOUS_VERSION" &&
+      wait_for_health "$PREVIOUS_VERSION"; then
+      say "[7/7] Rücknahme erfolgreich; Backend und Admin-Web belegen Version $PREVIOUS_VERSION." >&2
     else
       say "ERROR: Automatic image rollback to $PREVIOUS_VERSION also failed." >&2
     fi
@@ -357,7 +456,7 @@ rollback_started_image() {
 }
 
 main() {
-  local step_status
+  local step_status admin_web_version_to_activate
 
   if (( $# != 1 )); then
     printf 'Usage: %s <seven-character-commit-hash>\n' "${0##*/}" >&2
@@ -390,14 +489,29 @@ main() {
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
 
-  local desired_image previous_image migration_image rehearsal_image
+  local desired_image previous_image desired_admin_web_image previous_admin_web_image
+  local migration_image rehearsal_image
   desired_image="$(image_for_version "$DESIRED_VERSION")"
   previous_image="$(image_for_version "$PREVIOUS_VERSION")"
+  desired_admin_web_image="$(admin_web_image_for_version "$DESIRED_VERSION")"
+  previous_admin_web_image="$(admin_web_image_for_version "$PREVIOUS_VERSION")"
 
   pull_image "$desired_image"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   pull_image "$previous_image"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  pull_image "$desired_admin_web_image"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  pull_image "$previous_admin_web_image"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  prepare_admin_web_release "$desired_admin_web_image" "$DESIRED_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  prepare_admin_web_release "$previous_admin_web_image" "$PREVIOUS_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   MIGRATION_VERSION="$(select_migration_version "$desired_image" "$previous_image")"
@@ -438,12 +552,26 @@ main() {
     kill -KILL "$$"
   fi
 
-  say "[5/7] Starte ausdrücklich Version $DESIRED_VERSION."
+  admin_web_version_to_activate="$DESIRED_VERSION"
+  if [[ "${TAPTIME_DEPLOY_TEST_WRONG_ADMIN_WEB_VERSION:-0}" == '1' ]]; then
+    [[ "${TAPTIME_DEPLOY_ALLOW_TEST_HOOKS:-0}" == '1' ]] ||
+      { fail 'The wrong Admin Web version hook requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1.'; return 1; }
+    admin_web_version_to_activate="$PREVIOUS_VERSION"
+    say "[Test] Lege absichtlich die falsche Oberflächenversion $PREVIOUS_VERSION ab."
+  fi
+
+  say "[5/7] Aktiviere Backend und Admin-Web für Version $DESIRED_VERSION."
   NEW_IMAGE_STARTED=1
   trap 'rollback_started_image $?' EXIT
   trap 'exit 130' INT
   trap 'exit 143' TERM
+  activate_admin_web_release "$admin_web_version_to_activate"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
   start_backend "$DESIRED_VERSION"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  restart_caddy "$DESIRED_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   wait_for_health "$DESIRED_VERSION"

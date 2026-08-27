@@ -13,12 +13,44 @@ export TAPTIME_DEPLOY_VERSION_STATE_FILE="$TEST_ROOT/current-version"
 export TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE="$TEST_ROOT/known-versions"
 export TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE="$TEST_ROOT/ghcr-protected-versions.json"
 export TAPTIME_DEPLOY_HEALTH_URL='https://health.invalid/health'
+export TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL='https://admin.invalid/version.txt'
+export TAPTIME_DEPLOY_ADMIN_WEB_ROOT="$TEST_ROOT/admin-web"
 printf 'services: {}\n' > "$TAPTIME_DEPLOY_COMPOSE_FILE"
 printf '# synthetic deployment test configuration\n' > "$TAPTIME_DEPLOY_BACKUP_CONFIG"
 printf 'aaaaaaa\n' > "$TAPTIME_DEPLOY_VERSION_STATE_FILE"
 
 # shellcheck source=../deploy
 source "$(dirname "$0")/../deploy"
+
+mkdir -p "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/status" \
+  "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/assets" \
+  "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa" \
+  "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/bbbbbbb"
+printf 'persistent-status\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/status/proof.txt"
+printf '<script src="/assets/t006.js"></script>\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/index.html"
+printf 't006\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/assets/t006.js"
+printf 'aaaaaaa\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/version.txt"
+printf 'bbbbbbb\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/bbbbbbb/version.txt"
+mkdir -p "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/assets" \
+  "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/bbbbbbb/assets"
+printf '<script src="/releases/aaaaaaa/assets/old.js"></script>\n' \
+  > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/index.html"
+printf '<script src="/releases/bbbbbbb/assets/new.js"></script>\n' \
+  > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/bbbbbbb/index.html"
+printf 'old\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/assets/old.js"
+printf 'new\n' > "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/bbbbbbb/assets/new.js"
+status_before="$(cksum "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/status/proof.txt")"
+legacy_asset_before="$(cksum "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/assets/t006.js")"
+activate_admin_web_release bbbbbbb >/dev/null
+test "$(readlink "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/current")" = 'releases/bbbbbbb'
+grep --quiet '/assets/t006.js' "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/index.html"
+test "$(cksum "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/assets/t006.js")" = "$legacy_asset_before"
+test -f "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/assets/old.js"
+grep --quiet '/releases/aaaaaaa/assets/old.js' \
+  "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/releases/aaaaaaa/index.html"
+test "$(cksum "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/status/proof.txt")" = "$status_before"
+activate_admin_web_release aaaaaaa >/dev/null
+test "$(readlink "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/current")" = 'releases/aaaaaaa'
 
 printf 'aaaaaaa\nccccccc\n' > "$TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE"
 # The production definition is loaded by the source command above.
@@ -37,6 +69,7 @@ record() {
 require_root() { :; }
 acquire_deploy_lock() { :; }
 pull_image() { record "pull $1"; }
+prepare_admin_web_release() { record "prepare-web $1 $2"; }
 verify_local_rehearsal_image() { record "verify-local $1 $2"; }
 select_migration_version() { printf '%s\n' "$DESIRED_VERSION"; }
 run_restore_verification() {
@@ -47,9 +80,15 @@ run_backup() { record backup; }
 sync_migration_sources() { record "sync $1"; }
 migrate_production() { record migrate-production; }
 start_backend() { record "start $1"; }
+ACTIVE_ADMIN_WEB_VERSION='aaaaaaa'
+activate_admin_web_release() {
+  ACTIVE_ADMIN_WEB_VERSION="$1"
+  record "activate-web $1"
+}
+restart_caddy() { record "restart-caddy $1"; }
 wait_for_health() {
   record "health $1"
-  [[ "$1" != "${FAIL_HEALTH_VERSION:-}" ]]
+  [[ "$ACTIVE_ADMIN_WEB_VERSION" == "$1" && "$1" != "${FAIL_HEALTH_VERSION:-}" ]]
 }
 write_current_version() { record "write-version $1"; }
 mark_known_version() { :; }
@@ -81,6 +120,37 @@ assert_log() {
   fi
 }
 
+run_real_health_probe() {
+  local served_version="$1"
+  SERVED_ADMIN_WEB_VERSION="$served_version" bash -c '
+    set -euo pipefail
+    source "$1"
+    compose() { printf "synthetic-backend-container\n"; }
+    docker() {
+      if [[ "$3" == "{{.Config.Image}}" ]]; then
+        printf "ghcr.io/tim180201/taptime-backend-api:bbbbbbb\n"
+      else
+        printf "healthy\n"
+      fi
+    }
+    curl() {
+      local url="${!#}"
+      if [[ "$url" == "$ADMIN_WEB_VERSION_URL" ]]; then
+        printf "%s\n" "$SERVED_ADMIN_WEB_VERSION"
+      fi
+    }
+    sleep() { :; }
+    wait_for_health bbbbbbb
+  ' bash "$(dirname "$0")/../deploy"
+}
+
+expect_status 1 run_real_health_probe aaaaaaa
+grep --quiet 'Version bbbbbbb did not become healthy' "$OUTPUT_FILE"
+printf 'Wrong Admin Web health evidence: expected=bbbbbbb served=aaaaaaa result=rejected\n'
+expect_status 0 run_real_health_probe bbbbbbb
+grep --quiet 'Backend und Admin-Web belegen gemeinsam Version bbbbbbb' "$OUTPUT_FILE"
+printf 'Matching Admin Web health evidence: expected=bbbbbbb served=bbbbbbb result=accepted\n'
+
 expect_status 64 main
 grep --quiet '^Usage: .* <seven-character-commit-hash>$' "$OUTPUT_FILE"
 
@@ -91,7 +161,11 @@ grep --quiet 'Version must be exactly one seven-character lowercase commit hash'
 TAPTIME_DEPLOY_TEST_REHEARSAL_IMAGE=local-bad expect_status 1 main bbbbbbb
 grep --quiet 'rehearsal image override requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1' "$OUTPUT_FILE"
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
-pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa"
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa"
 
 : > "$LOG_FILE"
 TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
@@ -99,6 +173,10 @@ TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
   FAIL_REHEARSAL=1 expect_status 1 main bbbbbbb
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 verify-local local-bad bbbbbbb
 restore-and-rehearsal local-bad"
 
@@ -106,33 +184,80 @@ restore-and-rehearsal local-bad"
 FAIL_REHEARSAL=1 expect_status 1 main bbbbbbb
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb"
 
 : > "$LOG_FILE"
 FAIL_HEALTH_VERSION=bbbbbbb expect_status 1 main bbbbbbb
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 backup
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 migrate-production
+activate-web bbbbbbb
 start bbbbbbb
+restart-caddy bbbbbbb
 health bbbbbbb
+activate-web aaaaaaa
 start aaaaaaa
+restart-caddy aaaaaaa
 health aaaaaaa"
 
 : > "$LOG_FILE"
 expect_status 0 main bbbbbbb
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 backup
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 migrate-production
+activate-web bbbbbbb
 start bbbbbbb
+restart-caddy bbbbbbb
 health bbbbbbb
 publish-protected bbbbbbb aaaaaaa
 write-version bbbbbbb"
+
+: > "$LOG_FILE"
+ACTIVE_ADMIN_WEB_VERSION='aaaaaaa'
+TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
+  TAPTIME_DEPLOY_TEST_WRONG_ADMIN_WEB_VERSION=1 expect_status 1 main bbbbbbb
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
+prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+backup
+sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+migrate-production
+activate-web aaaaaaa
+start bbbbbbb
+restart-caddy bbbbbbb
+health bbbbbbb
+activate-web aaaaaaa
+start aaaaaaa
+restart-caddy aaaaaaa
+health aaaaaaa"
+grep --quiet 'Lege absichtlich die falsche Oberflächenversion aaaaaaa ab' "$OUTPUT_FILE"
+grep --quiet 'Rücknahme erfolgreich; Backend und Admin-Web belegen Version aaaaaaa' "$OUTPUT_FILE"
+test "$ACTIVE_ADMIN_WEB_VERSION" = 'aaaaaaa'
+printf 'Forced wrong-version rollback evidence:\n'
+grep --extended-regexp 'Lege absichtlich|Neuer Stand fehlgeschlagen|Rücknahme erfolgreich' "$OUTPUT_FILE"
+sed -n '/activate-web aaaaaaa/,$p' "$LOG_FILE"
 
 : > "$LOG_FILE"
 # The single-quoted program is evaluated by the child Bash, not this test process.
@@ -147,6 +272,7 @@ expect_status 137 env \
     require_root() { :; }
     acquire_deploy_lock() { :; }
     pull_image() { record "pull $1"; }
+    prepare_admin_web_release() { record "prepare-web $1 $2"; }
     verify_local_rehearsal_image() { record "verify-local $1 $2"; }
     select_migration_version() { printf "%s\n" "$DESIRED_VERSION"; }
     run_restore_verification() { record "restore-and-rehearsal $1"; }
@@ -154,6 +280,8 @@ expect_status 137 env \
     sync_migration_sources() { record "sync $1"; }
     migrate_production() { record migrate-production; }
     start_backend() { record "start $1"; }
+    activate_admin_web_release() { record "activate-web $1"; }
+    restart_caddy() { record "restart-caddy $1"; }
     wait_for_health() { record "health $1"; }
     write_current_version() { record "write-version $1"; }
     mark_known_version() { :; }

@@ -6,6 +6,10 @@ Storage-Box-Zugangsdaten. Der Borg-Schlüssel und die Borg-Passphrase liegen bei
 getrennt verwahrt. Die laufende `/opt/taptime/.env` muss der Product Owner zusätzlich in seinem
 Passwortmanager hinterlegen; ohne diese Kopie kann ein Ersatzserver nicht starten.
 
+Die Sicherungen enthalten auch nicht die statische Oberfläche. Sie wird nicht gesichert, sondern
+aus dem unveränderlichen Admin-Web-Abbild derselben siebenstelligen Version wiederhergestellt.
+Ein Ersatzserver baut sie niemals aus Git und übernimmt keinen handkopierten Verzeichnisstand.
+
 Der letzte erfolgreiche Lauf ist ohne SSH sichtbar: Seine nicht erratbare URL steht nur beim
 Product Owner im Passwortmanager, nicht in Git oder Chat. Ein Zeitpunkt, der älter als eine
 Stunde ist, oder ein anderer Zustand als `ok` ist ein Betriebsfall.
@@ -78,18 +82,28 @@ kopieren.
 4. Richte `taptime-deploy`, dessen `authorized_keys`, die begrenzte sudoers-Regel und erst nach
    dem Konsolen- und SSH-Nachweis die Root-SSH-Sperre exakt nach *Einmalige Einrichtung* in
    `DEPLOY.md` ein. Ohne diese vier Schritte ist der Ersatzserver nicht betriebsbereit.
+5. Installiere `docker-compose.server.yml` und `caddy/Caddyfile` aus demselben geprüften Git-Stand
+   wie das Deploy-Skript. Lege `/opt/taptime/admin-web/status` an. Ermittle die ausdrücklich
+   wiederherzustellende siebenstellige Anwendungsversion aus dem letzten Betriebsnachweis und
+   prüfe, dass Backend- und Admin-Web-Abbild mit diesem Tag in GHCR vorhanden sind.
 
 ## Server ist weg
 
 1. Stelle den Anwendungscode aus Git und `/opt/taptime/.env` aus der getrennten Verwahrung
-   wieder her. Baue die Container noch nicht mit einer leeren Datenbank hoch.
+   wieder her. Baue die Container und die Oberfläche nicht auf dem Server und fahre den Stack
+   noch nicht mit einer leeren Datenbank hoch.
 2. Führe `systemctl start taptime-restore-verify.service` aus. Der Dienst prüft das Archiv, spielt das
    neueste Archiv isoliert in einen Wegwerf-PostgreSQL-Container ein und vergleicht
    Migrations-Checksums, sieben tragende Tabellen, alle TapTim.e-Rollen und `37/37` aktivierte
    und erzwungene RLS-Tabellen.
 3. Ist die Prüfung grün, spiele dasselbe Archiv mit den dort verwendeten Schritten in die neue
-   Produktdatenbank ein, starte den Stack und prüfe `/health` von außen. Bei Fehlern nicht
-   improvisieren: ein älteres Archiv auswählen und den Restore erneut vollständig prüfen.
+   Produktdatenbank ein. Schreibe die gewählte, tatsächlich zum Datenstand kompatible Version
+   nach `/var/lib/taptime-deploy/current-version` und rufe
+   `/usr/local/sbin/taptime-deploy <version>` auf. Der Lauf extrahiert das Admin-Web-Abbild nach
+   `/opt/taptime/admin-web/releases/<version>`, schaltet `current` atomar um und prüft Backend
+   sowie öffentliche `/version.txt`. Bei Fehlern nicht improvisieren: ein älteres Archiv und
+   eine dazu kompatible, vollständig vorhandene Abbildversion auswählen und den Restore erneut
+   vollständig prüfen.
 
 Für die aktuelle Datenmenge dauert Dump, Upload und isolierte Prüfung wenige Minuten. Die
 gemessene Dauer steht im Journal von `taptime-restore-verify.service` und ist nach jedem Lauf

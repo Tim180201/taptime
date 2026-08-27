@@ -3,6 +3,7 @@
 import { readFile } from 'node:fs/promises';
 
 const VERSION_PATTERN = /^[0-9a-f]{7}$/;
+const ADMIN_WEB_TAG_PREFIX = 'admin-web-';
 
 function fail(message) {
   throw new Error(message);
@@ -41,8 +42,8 @@ function validateProtectedVersions(value) {
 }
 
 export function selectGhcrDeletions(snapshot, response, keepNewest) {
-  if (!Number.isSafeInteger(keepNewest) || keepNewest < 0 || keepNewest > 10) {
-    fail('keepNewest must be an integer from zero through ten.');
+  if (!Number.isSafeInteger(keepNewest) || keepNewest < 0 || keepNewest > 20) {
+    fail('keepNewest must be an integer from zero through twenty.');
   }
   const protectedVersions = validateProtectedVersions(snapshot);
   const versions = flattenVersions(response);
@@ -72,7 +73,10 @@ export function selectGhcrDeletions(snapshot, response, keepNewest) {
     if (!Array.isArray(tags)) {
       fail(`GHCR package version ${String(version.id)} has no container tag list.`);
     }
-    return !tags.some((tag) => protectedVersions.has(tag));
+    return !tags.some((tag) => protectedVersions.has(tag) || (
+      tag.startsWith(ADMIN_WEB_TAG_PREFIX) &&
+      protectedVersions.has(tag.slice(ADMIN_WEB_TAG_PREFIX.length))
+    ));
   });
 }
 
