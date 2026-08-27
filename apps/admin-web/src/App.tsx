@@ -13,13 +13,12 @@ import type {
   SafeReviewItem,
 } from './contracts';
 import {
-  adminViews,
   canonicalRoutePath,
-  canonicalViewPath,
   defaultRoute,
   monthLabel,
   monthTimeWindow,
   routeFromLocation,
+  visibleAdminViews,
   type AdminRoute,
 } from './navigation';
 import {
@@ -92,6 +91,27 @@ export function App({
     }
   }, [administration, route.month, state.status]);
 
+  useEffect(() => {
+    void administration.selectLocation(route.locationId);
+  }, [administration, route.locationId]);
+
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    const visibleViews = visibleAdminViews(state.availableSections);
+    const view = visibleViews.some((candidate) => candidate.slug === route.view)
+      ? route.view : 'uebersicht';
+    const locationId = state.locationsEnabled && state.managementScope.kind === 'locations'
+      ? state.selectedLocation?.id ?? null
+      : null;
+    const canonicalRoute = view === route.view
+      ? { ...route, locationId }
+      : defaultRoute(view, locationId);
+    const canonical = canonicalRoutePath(canonicalRoute);
+    if (`${window.location.pathname}${window.location.search}` === canonical) return;
+    window.history.replaceState(null, '', canonical);
+    setRoute(canonicalRoute);
+  }, [route, state]);
+
   const navigate = (next: AdminRoute) => {
     window.history.pushState(null, '', canonicalRoutePath(next));
     setRoute(next);
@@ -106,7 +126,7 @@ export function App({
       <section className="login-card" aria-labelledby="login-title">
         <Brand />
         <h1 id="login-title">Einfach sauber eingerichtet.</h1>
-        <p>Melden Sie sich mit Ihrem Administrator-Zugang an.</p>
+        <p>Melden Sie sich mit Ihrem Zugang zur Verwaltung an.</p>
         {state.status === 'signed_out' && state.notice
           ? <FeedbackBand message={state.notice} /> : null}
         <form onSubmit={(event: FormEvent) => {
@@ -147,16 +167,23 @@ export function App({
     </main>;
   }
 
-  const activeView = adminViews.find((candidate) => candidate.slug === route.view)!;
+  const visibleViews = visibleAdminViews(state.availableSections);
+  const activeRoute = visibleViews.some((candidate) => candidate.slug === route.view)
+    ? route : defaultRoute('uebersicht', state.selectedLocation?.id ?? null);
+  const activeView = visibleViews.find((candidate) => candidate.slug === activeRoute.view)!;
   return <div className="app-shell">
     <aside className="sidebar">
       <Brand />
       <nav aria-label="Hauptnavigation">
-        <ul>{adminViews.map((item) => <li key={item.slug}>
+        <ul>{visibleViews.map((item) => <li key={item.slug}>
           <a
-            href={canonicalViewPath(item.slug)}
-            aria-current={item.slug === route.view ? 'page' : undefined}
-            onClick={(event) => navigateFromLink(event, defaultRoute(item.slug), navigate)}
+            href={canonicalRoutePath(defaultRoute(item.slug, state.selectedLocation?.id ?? null))}
+            aria-current={item.slug === activeRoute.view ? 'page' : undefined}
+            onClick={(event) => navigateFromLink(
+              event,
+              defaultRoute(item.slug, state.selectedLocation?.id ?? null),
+              navigate,
+            )}
           >{item.label}</a>
         </li>)}</ul>
       </nav>
@@ -171,6 +198,22 @@ export function App({
           <p className="eyebrow">VERWALTUNG</p>
           <h1 ref={mainHeading} tabIndex={-1}>{activeView.label}</h1>
         </div>
+        {state.locationsEnabled && state.managementScope.kind === 'locations'
+          && state.selectedLocation !== null
+          ? <div className="location-context">
+              <label htmlFor="management-location">Standort</label>
+              {state.managementScope.locations.length > 1
+                ? <select id="management-location" value={state.selectedLocation.id}
+                    onChange={(event) => navigate({
+                      ...activeRoute,
+                      locationId: event.target.value,
+                    })}>
+                    {state.managementScope.locations.map((location) =>
+                      <option key={location.id} value={location.id}>{location.name}</option>)}
+                  </select>
+                : <strong>{state.selectedLocation.name}</strong>}
+            </div>
+          : null}
         <div className="header-actions">
           <button className="secondary" onClick={() => void administration.refresh()}>
             Alle Bereiche aktualisieren
@@ -183,14 +226,14 @@ export function App({
         {timezone.usedUtcFallback ? ' (sichere Ersatzdarstellung in UTC)' : ''}
       </p>
       {state.notice ? <FeedbackBand message={state.notice} /> : null}
-      {route.view === 'uebersicht'
+      {activeRoute.view === 'uebersicht'
         ? <Overview state={state} administration={administration} navigate={navigate} /> : null}
-      {route.view === 'einrichtung' ? <SetupView state={state} administration={administration} /> : null}
-      {route.view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} timezone={timezone} /> : null}
-      {route.view === 'arbeitszeiten'
+      {activeRoute.view === 'einrichtung' ? <SetupView state={state} administration={administration} /> : null}
+      {activeRoute.view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} timezone={timezone} /> : null}
+      {activeRoute.view === 'arbeitszeiten'
         ? <TimeRecordsView state={state} administration={administration} timezone={timezone}
-            route={route} navigate={navigate} /> : null}
-      {route.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} timezone={timezone} /> : null}
+            route={activeRoute} navigate={navigate} /> : null}
+      {activeRoute.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} timezone={timezone} /> : null}
     </main>
   </div>;
 }
@@ -241,25 +284,34 @@ function Overview({
 }) {
   const projectRequestStarted = useRef(false);
   useEffect(() => {
-    if (projectRequestStarted.current || state.projects !== undefined) return;
+    if (
+      !state.availableSections.includes('setup')
+      || projectRequestStarted.current
+      || state.projects !== undefined
+    ) return;
     projectRequestStarted.current = true;
     void administration.refreshProjects?.();
   }, [administration, state.projects]);
-  const cards: readonly [AdminSection, string, number, boolean][] = [
+  const cards: readonly (readonly [AdminSection, string, number, boolean])[] = ([
     ['setup', 'Kunden geladen', state.projection.customers.length, state.projection.nextCursor === null],
-    ['employees', 'Beschäftigte geladen', state.employeeProjection.employeeMemberships.length, state.employeeProjection.nextCursor === null],
+    ['employees', state.selectedLocation === null
+      ? 'Beschäftigte geladen'
+      : `Beschäftigte am Standort ${state.selectedLocation.name}`,
+    state.employeeProjection.employeeMemberships.length, state.employeeProjection.nextCursor === null],
     ['timeRecords', 'Arbeitszeiten geladen', state.timeRecords.length, state.timeRecordsNextCursor === null],
     ['reviewItems', 'Prüfungen geladen', state.reviewItems.length, state.reviewItemsNextCursor === null],
-  ];
+  ] as const).filter(([section]) => state.sections[section].status !== 'closed'
+    && state.sections[section].status !== 'unavailable');
   const sectionUnavailable = Object.values(state.sections).some(
     (section) => section.status === 'unavailable',
   );
-  const projectsKnown = state.projects !== undefined;
-  const newOperation = projectsKnown
+  const setupAvailable = state.availableSections.includes('setup');
+  const projectsKnown = !setupAvailable || state.projects !== undefined;
+  const newOperation = setupAvailable && projectsKnown
     && !sectionUnavailable
     && state.projection.customers.length === 0
     && state.projection.nfcTags.length === 0
-    && state.projects.length === 0
+    && (state.projects?.length ?? 0) === 0
     && state.timeRecords.length === 0
     && state.reviewItems.length === 0;
   if (!projectsKnown && state.projectBusy === true) {
@@ -271,8 +323,13 @@ function Overview({
       <h2 id="first-empty-title">Ihr Betrieb ist bereit</h2>
       <p>Legen Sie jetzt das erste Arbeitsziel an. Danach können Sie einen NFC-Tag zuordnen
         und die erste Arbeitszeit erfassen.</p>
-      <a className="button-link" href={canonicalViewPath('einrichtung')}
-        onClick={(event) => navigateFromLink(event, defaultRoute('einrichtung'), navigate)}>
+      <a className="button-link"
+        href={canonicalRoutePath(defaultRoute('einrichtung', state.selectedLocation?.id ?? null))}
+        onClick={(event) => navigateFromLink(
+          event,
+          defaultRoute('einrichtung', state.selectedLocation?.id ?? null),
+          navigate,
+        )}>
         Erstes Arbeitsziel anlegen
       </a>
     </section>;
@@ -297,9 +354,16 @@ function Overview({
     <Panel title="Betriebsstatus" description="Geladene Daten ohne unbestätigte Gesamtsummen.">
       <dl className="status-list">
         <dt>Betrieb</dt><dd>{state.projection.organization.name}</dd>
-        <dt>Zeitfenster</dt><dd>Fest begrenzt auf die vergangenen 31 Tage</dd>
+        {state.selectedLocation === null ? null : <>
+          <dt>Standort</dt><dd>{state.selectedLocation.name}</dd>
+        </>}
+        {state.availableSections.includes('time_records') ? <>
+          <dt>Zeitfenster</dt><dd>Fest begrenzt auf die vergangenen 31 Tage</dd>
+        </> : null}
         <dt>Sitzung</dt><dd>Nur im Arbeitsspeicher · Neuladen meldet ab</dd>
-        <dt>CSV-Datei</dt><dd>Vollständige Fassung 3 für die Lohnbuchhaltung</dd>
+        {state.availableSections.includes('time_export') ? <>
+          <dt>CSV-Datei</dt><dd>Vollständige Fassung 3 für die Lohnbuchhaltung</dd>
+        </> : null}
       </dl>
     </Panel>
   </section>;
@@ -516,29 +580,37 @@ function EmployeesView({
   } | null>(null);
   const [revoking, setRevoking] = useState(false);
   const revocationTrigger = useRef<HTMLButtonElement>(null);
+  const employeeNameInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (state.completedAction === 'invitation_created') setName('');
   }, [state.completedAction]);
   useIntentFocusReturn(revocationIntent !== null, revocationTrigger);
   return <SectionBoundary state={state.sections.employees}
     onRetry={() => void administration.retrySection('employees')}>
-    <Panel title="Beschäftigte" description="Aktive Beschäftigte und einmalige Einladungen.">
+    <Panel title="Beschäftigte" description={state.selectedLocation === null
+      ? 'Aktive Beschäftigte und einmalige Einladungen.'
+      : `Aktive Beschäftigte und einmalige Einladungen am Standort ${state.selectedLocation.name}.`}>
       <CountTruth count={state.employeeProjection.employeeMemberships.length}
-        noun="Beschäftigte" complete={state.employeeProjection.nextCursor === null} />
+        noun={state.selectedLocation === null
+          ? state.locationsEnabled ? 'Beschäftigte im Betrieb' : 'Beschäftigte'
+          : `Beschäftigte am Standort ${state.selectedLocation.name}`}
+        complete={state.employeeProjection.nextCursor === null} />
       <form className="inline-form" onSubmit={(event) => {
         event.preventDefault();
         void administration.createEmployeeInvitation(name, role);
       }}>
         <label htmlFor="employee-name">Einladung für</label>
         <div className="input-action">
-          <input id="employee-name" required maxLength={120} value={name}
+          <input ref={employeeNameInput} id="employee-name" required maxLength={120} value={name}
             onChange={(event) => setName(event.target.value)} />
-          <label htmlFor="employee-role">Rolle</label>
-          <select id="employee-role" value={role}
-            onChange={(event) => setRole(event.target.value as typeof role)}>
-            <option value="employee">Beschäftigter</option>
-            <option value="administrator">Administrator</option>
-          </select>
+          {state.managementScope.kind === 'organization' ? <>
+            <label htmlFor="employee-role">Rolle</label>
+            <select id="employee-role" value={role}
+              onChange={(event) => setRole(event.target.value as typeof role)}>
+              <option value="employee">Beschäftigter</option>
+              <option value="administrator">Administrator</option>
+            </select>
+          </> : null}
           <button disabled={state.creatingEmployee}>
             {state.creatingEmployee ? 'Wird erzeugt …' : 'Einladung erzeugen'}
           </button>
@@ -555,17 +627,26 @@ function EmployeesView({
       <ul className="entity-list">{state.employeeProjection.employeeMemberships.map((membership) =>
         <li key={membership.id}><span>{membership.displayName}</span>
           <small className={`pill ${membership.active ? 'success' : ''}`}>
-            {membership.role === 'administrator' ? 'Administrator' : 'Beschäftigter'}
+            {membership.role === 'administrator'
+              ? 'Administrator'
+              : membership.role === 'standortleitung' ? 'Standortleitung' : 'Beschäftigter'}
             {' · '}{membership.active ? 'Aktiv' : 'Zugang entzogen'}
           </small>
-          {membership.active ? <div className="entity-actions">
-            <button className="secondary" onClick={() => void administration.changeMembershipRole(
-              membership.id,
-              membership.rowVersion,
-              membership.role === 'administrator' ? 'employee' : 'administrator',
-            )}>
-              {membership.role === 'administrator' ? 'Rolle Beschäftigter vergeben' : 'Zum Administrator machen'}
-            </button>
+          {state.locationsEnabled && membership.location !== null
+            ? <small>Standort {membership.location.name}</small> : null}
+          {membership.active
+            && (state.managementScope.kind === 'organization' || membership.role === 'employee')
+            ? <div className="entity-actions">
+            {state.managementScope.kind === 'organization'
+              ? <button className="secondary" onClick={() => void administration.changeMembershipRole(
+                  membership.id,
+                  membership.rowVersion,
+                  membership.role === 'administrator' ? 'employee' : 'administrator',
+                )}>
+                  {membership.role === 'administrator'
+                    ? 'Rolle Beschäftigter vergeben' : 'Zum Administrator machen'}
+                </button>
+              : null}
             <button className="quiet" onClick={(event) => {
               revocationTrigger.current = event.currentTarget;
               setRevocationIntent({
@@ -598,7 +679,16 @@ function EmployeesView({
       </Confirmation>}
       {state.employeeProjection.employeeMemberships.length === 0
         && state.employeeProjection.nextCursor === null
-        ? <p className="empty">Keine Beschäftigten vorhanden.</p> : null}
+        ? state.selectedLocation === null
+          ? <p className="empty">Keine Beschäftigten vorhanden.</p>
+          : <div className="empty first-list-empty">
+              <strong>Noch keine Beschäftigten am Standort {state.selectedLocation.name}</strong>
+              <p>Laden Sie die erste beschäftigte Person für diesen Standort ein.</p>
+              <button className="secondary" onClick={() => employeeNameInput.current?.focus()}>
+                Beschäftigte Person einladen
+              </button>
+            </div>
+        : null}
       {state.employeeProjection.nextCursor === null ? null
         : <button className="secondary load-more"
             onClick={() => void administration.loadMoreEmployees()}>
@@ -655,6 +745,14 @@ function TimeRecordsView({
   }, [route.captureType, route.month, route.status]);
   const format = (value: string) => formatZonedDateTime(value, timezone);
   const formatExact = (value: string) => formatExactZonedDateTime(value, timezone);
+  if (!state.availableSections.includes('time_records')) {
+    return <Panel title="Arbeitszeiten herunterladen"
+      description="Die vollständige CSV-Datei steht für die Lohnbuchhaltung bereit.">
+      <button className="secondary" disabled={state.timeReviewBusy}
+        aria-busy={state.timeReviewBusy}
+        onClick={() => void administration.exportTimeRecords()}>CSV herunterladen</button>
+    </Panel>;
+  }
   const visibleRecords = state.timeRecords.filter((record) => {
     const statusMatches = route.status === 'alle'
       || (route.status === 'laufend' && record.status === 'started')
@@ -677,6 +775,7 @@ function TimeRecordsView({
         event.preventDefault();
         navigate({
           view: 'arbeitszeiten',
+          locationId: route.locationId,
           month: month.length === 0 ? null : month,
           status: statusFilter,
           captureType,
@@ -718,16 +817,20 @@ function TimeRecordsView({
             {' '}<strong>{visibleRecords.length}</strong>
           </span>}
         </div>
-        <button className="text-button" onClick={() => navigate(defaultRoute('arbeitszeiten'))}>
+        <button className="text-button" onClick={() => navigate(
+          defaultRoute('arbeitszeiten', route.locationId),
+        )}>
           Alle zurücksetzen
         </button>
       </div> : null}
       <div className="toolbar">
         <CountTruth count={visibleRecords.length} noun="Arbeitszeiten"
           complete={state.timeRecordsNextCursor === null} />
-        <button className="secondary" disabled={state.timeReviewBusy}
-          aria-busy={state.timeReviewBusy}
-          onClick={() => void administration.exportTimeRecords()}>CSV herunterladen</button>
+        {state.availableSections.includes('time_export')
+          ? <button className="secondary" disabled={state.timeReviewBusy}
+              aria-busy={state.timeReviewBusy}
+              onClick={() => void administration.exportTimeRecords()}>CSV herunterladen</button>
+          : null}
       </div>
       <div className="table-scroll" tabIndex={0} aria-label="Geladene Arbeitszeiten">
         <table>
@@ -747,7 +850,9 @@ function TimeRecordsView({
         ? <div className="empty filter-empty">
             <strong>Keine Arbeitszeiten in dieser Auswahl</strong>
             <p>Für den gewählten Zeitraum und die aktiven Filter wurden keine Arbeitszeiten gefunden.</p>
-            <button className="secondary" onClick={() => navigate(defaultRoute('arbeitszeiten'))}>
+            <button className="secondary" onClick={() => navigate(
+              defaultRoute('arbeitszeiten', route.locationId),
+            )}>
               Filter zurücksetzen
             </button>
           </div>
@@ -756,8 +861,13 @@ function TimeRecordsView({
         ? <div className="empty first-list-empty">
             <strong>Noch keine Arbeitszeiten</strong>
             <p>Sobald Beschäftigte ein Arbeitsziel auslösen, erscheinen ihre Arbeitszeiten hier.</p>
-            <a className="button-link secondary-link" href={canonicalViewPath('einrichtung')}
-              onClick={(event) => navigateFromLink(event, defaultRoute('einrichtung'), navigate)}>
+            <a className="button-link secondary-link"
+              href={canonicalRoutePath(defaultRoute('einrichtung', route.locationId))}
+              onClick={(event) => navigateFromLink(
+                event,
+                defaultRoute('einrichtung', route.locationId),
+                navigate,
+              )}>
               Arbeitsziel einrichten
             </a>
           </div>

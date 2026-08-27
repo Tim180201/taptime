@@ -1,4 +1,6 @@
 import type {
+  AdministrationManagementScope,
+  AdministrationSection,
   CursorPage,
   SafeEmployeeProjection,
   SafeProjection,
@@ -8,8 +10,11 @@ import type {
   VolatileInvitationSecret,
 } from './contracts';
 import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
+import { isCanonicalSafeTapTimeName } from './safeTapTimeName';
 
 const maximumJsonBodyBytes = 16 * 1024;
+const maximumEmployeeProjectionBytes = 64 * 1024;
+const maximumSessionBodyBytes = 256 * 1024;
 const maximumTimeReviewBodyBytes = 256 * 1024;
 const maximumCsvBodyBytes = 8 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,7 +25,13 @@ const canonicalTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const opaqueCursor = /^[A-Za-z0-9_-]{1,512}$/;
 const projectCursor = /^v1:[A-Za-z0-9_-]{1,252}$/;
 const fingerprint = /^[A-F0-9]{12}$/;
-export type Session = { readonly membershipId: string; readonly role: 'administrator' | 'employee' };
+export type Session = {
+  readonly membershipId: string;
+  readonly organizationId: string;
+  readonly locationsEnabled: boolean;
+  readonly availableSections: readonly AdministrationSection[];
+  readonly managementScope: AdministrationManagementScope;
+};
 export type ApiResult<Value> =
   | { readonly status: 'succeeded'; readonly value: Value }
   | { readonly status: 'rejected' | 'unavailable' }
@@ -41,6 +52,7 @@ export type ApiResult<Value> =
         | 'stale_row_version'
         | 'last_administrator'
         | 'self_revocation_forbidden'
+        | 'location_scope_forbidden'
         | 'target_unavailable';
     };
 
@@ -58,6 +70,7 @@ export interface AdminWebApiPort {
     token: string,
     membershipId: string,
     nextCursor: string | null,
+    locationId: string | null,
   ): Promise<ApiResult<SafeEmployeeProjection>>;
   createEmployeeInvitation(
     token: string,
@@ -65,6 +78,7 @@ export interface AdminWebApiPort {
     commandId: string,
     displayName: string,
     role: 'administrator' | 'employee',
+    locationId?: string | null,
   ): Promise<ApiResult<VolatileInvitationSecret>>;
   revokeMembership(
     token: string, membershipId: string, commandId: string,
@@ -145,7 +159,12 @@ export class AdminWebApiClient implements AdminWebApiPort {
       isRecord(value) && exact(value, ['status']) && value.status === 'succeeded' ? true : null
     ));
   }
-  async session(token: string): Promise<ApiResult<Session>> { return this.request('/v1/session', token, 'GET', undefined, parseSession); }
+  async session(token: string): Promise<ApiResult<Session>> {
+    return this.request(
+      '/v2/session', token, 'GET', undefined, parseSession,
+      false, false, false, maximumSessionBodyBytes,
+    );
+  }
   async projection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeProjection>> {
     if (nextCursor !== null && !cursor.test(nextCursor)) return { status: 'unavailable' };
     return this.request('/v1/administration/setup-projection', token, 'POST', { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 }, parseProjection);
@@ -160,22 +179,48 @@ export class AdminWebApiClient implements AdminWebApiPort {
       return true;
     });
   }
-  async employeeProjection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeEmployeeProjection>> {
+  async employeeProjection(
+    token: string,
+    membershipId: string,
+    nextCursor: string | null,
+    locationId: string | null,
+  ): Promise<ApiResult<SafeEmployeeProjection>> {
     if (nextCursor !== null && !employeeCursor.test(nextCursor)) return { status: 'unavailable' };
+    if (locationId !== null && !uuid.test(locationId)) return { status: 'unavailable' };
     return this.request(
-      '/v1/administration/employee-memberships-projection',
+      '/v2/administration/employee-memberships-projection',
       token,
       'POST',
-      { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 },
-      (value) => parseEmployeeProjection(value, nextCursor),
+      { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20, locationId },
+      (value) => parseEmployeeProjection(value, nextCursor, locationId),
+      false,
+      false,
+      false,
+      maximumEmployeeProjectionBytes,
+      false,
+      false,
+      true,
     );
   }
-  async createEmployeeInvitation(token: string, membershipId: string, commandId: string, displayName: string, role: 'administrator' | 'employee'): Promise<ApiResult<VolatileInvitationSecret>> {
+  async createEmployeeInvitation(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    displayName: string,
+    role: 'administrator' | 'employee',
+    locationId?: string | null,
+  ): Promise<ApiResult<VolatileInvitationSecret>> {
     return this.request(
       '/v1/administration/employee-invitations',
       token,
       'POST',
-      { expectedMembershipId: membershipId, commandId, displayName, role },
+      {
+        expectedMembershipId: membershipId,
+        commandId,
+        displayName,
+        role,
+        ...(locationId === undefined ? {} : { locationId }),
+      },
       parseInvitation,
       true,
     );
@@ -427,10 +472,22 @@ export class AdminWebApiClient implements AdminWebApiPort {
     maximumResponseBytes = maximumJsonBodyBytes,
     exposeProjectErrors = false,
     exposeMembershipErrors = false,
+    exposeLocationScopeError = false,
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
       const response = await this.fetchRequest(path, { method, headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
+      if (exposeLocationScopeError && response.status === 403) {
+        if (
+          response.redirected
+          || !isJsonContentType(response.headers.get('content-type'))
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)
+        ) return { status: 'unavailable' };
+        const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
+        if (conflictText === null) return { status: 'unavailable' };
+        const code = parseLocationScopeError(JSON.parse(conflictText));
+        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+      }
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
       if (exposeInvitationConflicts && response.status === 409) {
         if (
@@ -496,7 +553,63 @@ export class AdminWebApiClient implements AdminWebApiPort {
   }
 }
 
-function parseSession(value: unknown): Session | null { if (!isRecord(value) || !exact(value, ['userId', 'membershipId', 'organizationId', 'role']) || !uuid.test(String(value.userId)) || !uuid.test(String(value.membershipId)) || !uuid.test(String(value.organizationId)) || (value.role !== 'administrator' && value.role !== 'employee')) return null; return { membershipId: String(value.membershipId), role: value.role }; }
+function parseSession(value: unknown): Session | null {
+  if (
+    !isRecord(value)
+    || !exact(value, [
+      'userId', 'membershipId', 'organizationId', 'locationsEnabled',
+      'availableSections', 'managementScope',
+    ])
+    || !uuid.test(String(value.userId))
+    || !uuid.test(String(value.membershipId))
+    || !uuid.test(String(value.organizationId))
+    || typeof value.locationsEnabled !== 'boolean'
+    || !Array.isArray(value.availableSections)
+    || !isRecord(value.managementScope)
+  ) return null;
+  const allowedSections = new Set<AdministrationSection>([
+    'setup', 'employees', 'time_records', 'time_export', 'review_items',
+  ]);
+  const sections = value.availableSections;
+  if (
+    sections.some((section) => typeof section !== 'string' || !allowedSections.has(section as AdministrationSection))
+    || new Set(sections).size !== sections.length
+  ) return null;
+  let managementScope: AdministrationManagementScope;
+  if (exact(value.managementScope, ['kind']) && value.managementScope.kind === 'organization') {
+    managementScope = { kind: 'organization' };
+  } else if (
+    exact(value.managementScope, ['kind', 'locations'])
+    && value.managementScope.kind === 'locations'
+    && Array.isArray(value.managementScope.locations)
+  ) {
+    const seen = new Set<string>();
+    const locations = value.managementScope.locations.map((location) => {
+      if (
+        !isRecord(location)
+        || !exact(location, ['id', 'name'])
+        || !uuid.test(String(location.id))
+        || typeof location.name !== 'string'
+        || !isCanonicalSafeTapTimeName(location.name)
+        || seen.has(String(location.id))
+      ) return null;
+      seen.add(String(location.id));
+      return Object.freeze({ id: String(location.id), name: location.name });
+    });
+    if (locations.some((location) => location === null)) return null;
+    managementScope = {
+      kind: 'locations',
+      locations: Object.freeze(locations as { readonly id: string; readonly name: string }[]),
+    };
+  } else return null;
+  return Object.freeze({
+    membershipId: String(value.membershipId),
+    organizationId: String(value.organizationId),
+    locationsEnabled: value.locationsEnabled,
+    availableSections: Object.freeze(sections as AdministrationSection[]),
+    managementScope: Object.freeze(managementScope),
+  });
+}
 function parseProjection(value: unknown): SafeProjection | null {
   if (!isRecord(value) || !exact(value, ['status', 'organization', 'customers', 'nfcTags', 'nextCursor']) || value.status !== 'succeeded' || !isRecord(value.organization) || !exact(value.organization, ['id', 'name']) || !uuid.test(String(value.organization.id)) || typeof value.organization.name !== 'string' || !Array.isArray(value.customers) || !Array.isArray(value.nfcTags) || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && cursor.test(value.nextCursor)))) return null;
   const customers = value.customers.map((x) => isRecord(x) && exact(x, ['id', 'displayName', 'active']) && uuid.test(String(x.id)) && typeof x.displayName === 'string' && typeof x.active === 'boolean' ? { id: String(x.id), displayName: x.displayName, active: x.active } : null);
@@ -527,6 +640,7 @@ function parseProjection(value: unknown): SafeProjection | null {
 function parseEmployeeProjection(
   value: unknown,
   requestedCursor: string | null,
+  requestedLocationId: string | null,
 ): SafeEmployeeProjection | null {
   if (!isRecord(value) || !exact(value, ['status', 'organization', 'employeeMemberships', 'nextCursor'])
     || value.status !== 'succeeded' || !isRecord(value.organization)
@@ -534,13 +648,22 @@ function parseEmployeeProjection(
     || typeof value.organization.name !== 'string' || !Array.isArray(value.employeeMemberships)
     || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && employeeCursor.test(value.nextCursor)))) return null;
   const memberships = value.employeeMemberships.map((entry) => isRecord(entry)
-    && exact(entry, ['id', 'displayName', 'role', 'active', 'rowVersion'])
+    && exact(entry, ['id', 'displayName', 'role', 'active', 'rowVersion', 'location'])
     && uuid.test(String(entry.id)) && typeof entry.displayName === 'string'
-    && (entry.role === 'administrator' || entry.role === 'employee')
+    && (entry.role === 'administrator' || entry.role === 'standortleitung' || entry.role === 'employee')
     && typeof entry.active === 'boolean'
     && Number.isSafeInteger(entry.rowVersion) && (entry.rowVersion as number) >= 1
+    && (entry.location === null || (
+      isRecord(entry.location)
+      && exact(entry.location, ['id', 'name'])
+      && uuid.test(String(entry.location.id))
+      && typeof entry.location.name === 'string'
+    ))
     ? { id: String(entry.id), displayName: entry.displayName, role: entry.role,
-        active: entry.active, rowVersion: entry.rowVersion as number }
+        active: entry.active, rowVersion: entry.rowVersion as number,
+        location: entry.location === null ? null : {
+          id: String(entry.location.id), name: entry.location.name as string,
+        } }
     : null);
   if (memberships.some((entry) => entry === null)) return null;
   const projection: SafeEmployeeProjection = {
@@ -548,7 +671,8 @@ function parseEmployeeProjection(
     employeeMemberships: memberships as SafeEmployeeProjection['employeeMemberships'],
     nextCursor: value.nextCursor,
   };
-  return isSafeEmployeeProjectionPage(projection, requestedCursor) ? projection : null;
+  return isSafeEmployeeProjectionPage(projection, requestedCursor, requestedLocationId)
+    ? projection : null;
 }
 function parseMembershipMutation(value: unknown): true | null {
   return isRecord(value)
@@ -558,7 +682,9 @@ function parseMembershipMutation(value: unknown): true | null {
     && isRecord(value.membership)
     && exact(value.membership, ['id', 'role', 'active', 'rowVersion'])
     && uuid.test(String(value.membership.id))
-    && (value.membership.role === 'administrator' || value.membership.role === 'employee')
+    && (value.membership.role === 'administrator'
+      || value.membership.role === 'standortleitung'
+      || value.membership.role === 'employee')
     && typeof value.membership.active === 'boolean'
     && Number.isSafeInteger(value.membership.rowVersion)
     && (value.membership.rowVersion as number) >= 1
@@ -843,6 +969,14 @@ function parseMembershipError(
     || value.error.code === 'stale_row_version'
     || value.error.code === 'target_unavailable'
     ? value.error.code : null;
+}
+function parseLocationScopeError(value: unknown): 'location_scope_forbidden' | null {
+  return isRecord(value)
+    && exact(value, ['error'])
+    && isRecord(value.error)
+    && exact(value.error, ['code'])
+    && value.error.code === 'location_scope_forbidden'
+    ? 'location_scope_forbidden' : null;
 }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function exact(value: Record<string, unknown>, keys: readonly string[]): boolean { return Object.keys(value).sort().join(',') === [...keys].sort().join(','); }

@@ -1,4 +1,6 @@
 import type {
+  AdministrationLocation,
+  AdministrationSection,
   AdminWebCapability,
   AdminSection,
   AdminWebState,
@@ -14,6 +16,7 @@ import {
   AdminWebApiClient,
   type AdminWebApiPort,
   type ApiResult,
+  type Session,
 } from './AdminWebApiClient';
 import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
 import { isValidTimeReviewReason } from '@taptime/time-review-contract';
@@ -29,7 +32,7 @@ export interface AdminWebAuthPort {
 
 type ApiSectionResult<Value> =
   | { readonly status: 'succeeded'; readonly value: Value }
-  | { readonly status: 'unavailable' };
+  | { readonly status: 'unavailable' | 'closed' };
 
 type ReadyDataResult =
   | {
@@ -40,11 +43,14 @@ type ReadyDataResult =
       readonly reviewItems: ApiSectionResult<CursorPage<SafeReviewItem>>;
       readonly timeWindow: { readonly fromInclusive: string; readonly toExclusive: string };
     }
-  | { readonly status: 'rejected' };
+  | { readonly status: 'rejected' }
+  | { readonly status: 'location_scope_forbidden' };
 
 export class AdminWebCoordinator implements AdminWebCapability {
   private state: AdminWebState = Object.freeze({ status: 'signed_out' });
   private membershipId: string | null = null;
+  private session: Session | null = null;
+  private requestedLocationId: string | null = null;
   private generation = 0;
   private refreshEpoch = 0;
   private timeWindowPinned = false;
@@ -69,6 +75,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.generation += 1;
       this.refreshEpoch += 1;
       this.membershipId = null;
+      this.session = null;
       this.clearInvitationExpiryTimer();
       this.setState({ status: 'password_recovery', completing: false, notice: null });
     });
@@ -101,6 +108,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const generation = ++this.generation;
     this.refreshEpoch += 1;
     this.membershipId = null;
+    this.session = null;
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signing_in' });
     await this.enqueueAuthentication(() => this.completeSignIn(generation, email, password));
@@ -148,6 +156,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.generation += 1;
     this.refreshEpoch += 1;
     this.membershipId = null;
+    this.session = null;
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signed_out' });
     await this.enqueueAuthentication(() => this.safeSignOut());
@@ -168,21 +177,118 @@ export class AdminWebCoordinator implements AdminWebCapability {
       reassignmentIntent: null,
       correctionIntent: null,
       adjudicationIntent: null,
-      sections: allSections({ status: 'loading' }),
+      sections: sectionStatesWithValue(current.availableSections, { status: 'loading' }),
       notice: null,
     });
+    const session = this.session;
+    if (session === null) return;
     const result = await this.loadReadyData(
-      membershipId,
+      session,
       this.timeWindowPinned ? current.timeWindow : undefined,
+      current.selectedLocation?.id ?? null,
     );
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     if (result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
       return;
     }
+    if (result.status === 'location_scope_forbidden') {
+      this.setState({
+        ...current,
+        sections: {
+          ...current.sections,
+          employees: {
+            status: 'unavailable',
+            message: 'Der gewählte Standort gehört nicht mehr zu Ihrem Verwaltungsumfang. Wählen Sie einen der angezeigten Standorte.',
+          },
+        },
+      });
+      return;
+    }
     const latest = this.state;
     if (latest.status !== 'ready') return;
     this.setState(mergeRefreshResult(latest, result));
+  }
+
+  async selectLocation(locationId: string | null): Promise<void> {
+    this.requestedLocationId = locationId;
+    const current = this.state;
+    const membershipId = this.membershipId;
+    const session = this.session;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || session === null
+      || !session.locationsEnabled
+      || session.managementScope.kind !== 'locations'
+      || !session.availableSections.includes('employees')
+    ) return;
+    const targetId = locationId ?? session.managementScope.locations[0]?.id ?? null;
+    if (targetId === null || targetId === current.selectedLocation?.id) return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    const sectionEpoch = ++this.sectionEpochs.employees;
+    this.setState({
+      ...current,
+      invitation: null,
+      sections: { ...current.sections, employees: { status: 'loading' } },
+      notice: null,
+    });
+    let result: ApiResult<SafeEmployeeProjection> | null;
+    try {
+      result = await this.auth.withAccessToken(
+        (token) => this.api.employeeProjection(token, membershipId, null, targetId),
+      );
+    } catch {
+      result = { status: 'unavailable' };
+    }
+    if (
+      generation !== this.generation
+      || refreshEpoch !== this.refreshEpoch
+      || sectionEpoch !== this.sectionEpochs.employees
+    ) return;
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(
+        generation,
+        'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.',
+      );
+      return;
+    }
+    if (result.status === 'conflict' && result.code === 'location_scope_forbidden') {
+      this.setState({
+        ...latest,
+        sections: { ...latest.sections, employees: { status: 'ready' } },
+        notice: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Der bisherige Standort bleibt geöffnet.',
+      });
+      return;
+    }
+    const target = session.managementScope.locations.find((location) => location.id === targetId);
+    if (
+      result.status !== 'succeeded'
+      || target === undefined
+      || !sameOrganization(latest.projection.organization, result.value.organization)
+    ) {
+      this.setState({
+        ...latest,
+        sections: {
+          ...latest.sections,
+          employees: {
+            status: 'unavailable',
+            message: 'Der Standort konnte nicht geöffnet werden. Die Standortdaten sind derzeit nicht verfügbar. Der bisherige Standort bleibt geöffnet; versuchen Sie es erneut.',
+          },
+        },
+      });
+      return;
+    }
+    this.setState({
+      ...latest,
+      selectedLocation: target,
+      employeeProjection: result.value,
+      sections: { ...latest.sections, employees: { status: 'ready' } },
+      notice: null,
+    });
   }
 
   async setTimeWindow(
@@ -195,6 +301,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (
       current.status !== 'ready'
       || membershipId === null
+      || !current.availableSections.includes('time_records')
       || !isBoundedTimeWindow(fromInclusive, toExclusive)
       || (
         current.timeWindow.fromInclusive === fromInclusive
@@ -255,7 +362,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
   async retrySection(section: AdminSection): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
-    if (current.status !== 'ready' || membershipId === null) return;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || !isAdminSectionAvailable(current.availableSections, section)
+    ) return;
     const generation = this.generation;
     const refreshEpoch = this.refreshEpoch;
     const sectionEpoch = ++this.sectionEpochs[section];
@@ -296,7 +407,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
   async loadMore(): Promise<void> {
     let current = this.state;
     const membershipId = this.membershipId;
-    if (current.status !== 'ready' || membershipId === null || current.projection.nextCursor === null) return;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || !current.availableSections.includes('setup')
+      || current.projection.nextCursor === null
+    ) return;
     const generation = this.generation;
     const refreshEpoch = this.refreshEpoch;
     const sectionEpoch = ++this.sectionEpochs.setup;
@@ -367,7 +483,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
   async createCustomer(displayName: string): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
-    if (current.status !== 'ready' || membershipId === null || displayName.trim().length < 1 || Array.from(displayName.normalize('NFC').trim()).length > 120) return;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || !current.availableSections.includes('setup')
+      || displayName.trim().length < 1
+      || Array.from(displayName.normalize('NFC').trim()).length > 120
+    ) return;
     const generation = this.generation;
     const requestRefreshEpoch = this.refreshEpoch;
     this.setState({ ...current, creating: true, notice: null, completedAction: null });
@@ -415,6 +537,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (
       current.status !== 'ready'
       || membershipId === null
+      || !current.availableSections.includes('setup')
       || current.projectBusy === true
       || this.api.projects === undefined
     ) return;
@@ -460,6 +583,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (
       current.status !== 'ready'
       || membershipId === null
+      || !current.availableSections.includes('setup')
       || current.projectBusy === true
       || requestedCursor === undefined
       || requestedCursor === null
@@ -519,6 +643,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (
       current.status !== 'ready'
       || membershipId === null
+      || !current.availableSections.includes('setup')
       || current.projectBusy === true
       || normalized.length === 0
       || Array.from(normalized).length > 120
@@ -578,6 +703,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (
       current.status !== 'ready'
       || membershipId === null
+      || !current.availableSections.includes('setup')
       || current.projectBusy === true
       || project === undefined
       || !project.active
@@ -626,6 +752,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (
       current.status !== 'ready'
       || membershipId === null
+      || !current.availableSections.includes('employees')
       || current.employeeProjection.nextCursor === null
     ) return;
     const requestedCursor = current.employeeProjection.nextCursor;
@@ -644,7 +771,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
     let result;
     try {
       result = await this.auth.withAccessToken(
-        (token) => this.api.employeeProjection(token, membershipId, requestedCursor),
+        (token) => this.api.employeeProjection(
+          token,
+          membershipId,
+          requestedCursor,
+          current.selectedLocation?.id ?? null,
+        ),
       );
     } catch {
       result = { status: 'unavailable' as const };
@@ -708,6 +840,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (
       current.status !== 'ready'
       || membershipId === null
+      || !current.availableSections.includes('employees')
+      || (current.managementScope.kind === 'locations' && role !== 'employee')
       || (role !== 'administrator' && role !== 'employee')
       || displayName.trim().length < 1
       || Array.from(displayName.normalize('NFC').trim()).length > 120
@@ -730,6 +864,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
         crypto.randomUUID(),
         displayName,
         role,
+        current.managementScope.kind === 'locations'
+          ? current.selectedLocation?.id ?? null
+          : undefined,
       ));
     } catch {
       result = { status: 'unavailable' as const };
@@ -793,9 +930,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (
       current.status !== 'ready'
       || membershipId === null
+      || !current.availableSections.includes('employees')
       || target === undefined
       || target.rowVersion !== expectedRowVersion
       || !target.active
+      || (role !== null && current.managementScope.kind === 'locations')
       || (role !== null && role === target.role)
     ) return;
     const generation = this.generation;
@@ -1195,7 +1334,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
   async exportTimeRecords(): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
-    if (current.status !== 'ready' || current.timeReviewBusy || membershipId === null) return;
+    if (
+      current.status !== 'ready'
+      || current.timeReviewBusy
+      || membershipId === null
+      || !current.availableSections.includes('time_export')
+    ) return;
     const generation = this.generation;
     const requestRefreshEpoch = this.refreshEpoch;
     this.setState({ ...current, timeReviewBusy: true, notice: null });
@@ -1236,7 +1380,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private async loadMoreCursorSection(section: 'timeRecords' | 'reviewItems'): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
-    if (current.status !== 'ready' || membershipId === null) return;
+    if (
+      current.status !== 'ready'
+      || membershipId === null
+      || !isAdminSectionAvailable(current.availableSections, section)
+    ) return;
     const requestedCursor = section === 'timeRecords'
       ? current.timeRecordsNextCursor
       : current.reviewItemsNextCursor;
@@ -1323,33 +1471,49 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 
   private async loadReadyData(
-    membershipId: string,
+    session: Session,
     requestedTimeWindow?: { readonly fromInclusive: string; readonly toExclusive: string },
+    locationId: string | null = null,
   ): Promise<ReadyDataResult> {
     const timeWindow = requestedTimeWindow ?? boundedTimeWindow(this.now());
+    const membershipId = session.membershipId;
     const [projection, employees, records, reviewItems] = await Promise.all([
-      this.safeSectionRead(
-        () => this.auth.withAccessToken((token) => this.api.projection(token, membershipId, null)),
-      ),
-      this.safeSectionRead(
-        () => this.auth.withAccessToken(
-          (token) => this.api.employeeProjection(token, membershipId, null),
-        ),
-      ),
-      this.safeSectionRead(
-        () => this.auth.withAccessToken((token) => this.api.timeRecords(
-          token, membershipId, timeWindow.fromInclusive, timeWindow.toExclusive, null,
-        )),
-      ),
-      this.safeSectionRead(
-        () => this.auth.withAccessToken(
-          (token) => this.api.reviewItems(token, membershipId, null),
-        ),
-      ),
+      session.availableSections.includes('setup')
+        ? this.safeSectionRead(
+            () => this.auth.withAccessToken(
+              (token) => this.api.projection(token, membershipId, null),
+            ),
+          )
+        : Promise.resolve({ status: 'closed' as const }),
+      session.availableSections.includes('employees')
+        ? this.safeSectionRead(
+            () => this.auth.withAccessToken(
+              (token) => this.api.employeeProjection(token, membershipId, null, locationId),
+            ),
+          )
+        : Promise.resolve({ status: 'closed' as const }),
+      session.availableSections.includes('time_records')
+        ? this.safeSectionRead(
+            () => this.auth.withAccessToken((token) => this.api.timeRecords(
+              token, membershipId, timeWindow.fromInclusive, timeWindow.toExclusive, null,
+            )),
+          )
+        : Promise.resolve({ status: 'closed' as const }),
+      session.availableSections.includes('review_items')
+        ? this.safeSectionRead(
+            () => this.auth.withAccessToken(
+              (token) => this.api.reviewItems(token, membershipId, null),
+            ),
+          )
+        : Promise.resolve({ status: 'closed' as const }),
     ]);
     if ([projection, employees, records, reviewItems].some(
-      (result) => result === null || result.status === 'rejected',
+      (result) => result.status === 'rejected',
     )) return { status: 'rejected' };
+    if (
+      employees.status === 'conflict'
+      && employees.code === 'location_scope_forbidden'
+    ) return { status: 'location_scope_forbidden' };
     const normalizedProjection = normalizeSectionResult(projection);
     const normalizedEmployees = normalizeSectionResult(employees);
     const normalizedRecords = normalizeSectionResult(records);
@@ -1360,7 +1524,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         normalizedEmployees,
         normalizedRecords,
         normalizedReviewItems,
-      ].every((result) => result.status === 'succeeded') ? 'succeeded' : 'partial',
+      ].every((result) => result.status !== 'unavailable') ? 'succeeded' : 'partial',
       projection: normalizedProjection,
       employeeProjection: normalizedEmployees,
       timeRecords: normalizedRecords,
@@ -1371,9 +1535,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   private async safeSectionRead<Value>(
     operation: () => Promise<ApiResult<Value> | null>,
-  ): Promise<ApiResult<Value> | null> {
+  ): Promise<ApiResult<Value>> {
     try {
-      return await operation();
+      return await operation() ?? { status: 'rejected' };
     } catch {
       return { status: 'unavailable' };
     }
@@ -1384,6 +1548,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
     membershipId: string,
     timeWindow: { readonly fromInclusive: string; readonly toExclusive: string },
   ): Promise<{ readonly status: 'succeeded'; readonly value: unknown } | { readonly status: 'rejected' | 'unavailable' } | null> {
+    const current = this.state;
+    if (
+      current.status !== 'ready'
+      || !isAdminSectionAvailable(current.availableSections, section)
+    ) return { status: 'unavailable' };
     try {
       let result: ApiResult<unknown> | null;
       if (section === 'setup') {
@@ -1392,7 +1561,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
         );
       } else if (section === 'employees') {
         result = await this.auth.withAccessToken(
-          (token) => this.api.employeeProjection(token, membershipId, null),
+          (token) => this.api.employeeProjection(
+            token,
+            membershipId,
+            null,
+            current.selectedLocation?.id ?? null,
+          ),
         );
       } else if (section === 'timeRecords') {
         result = await this.auth.withAccessToken((token) => this.api.timeRecords(
@@ -1421,22 +1595,46 @@ export class AdminWebCoordinator implements AdminWebCapability {
         return;
       }
       if (generation !== this.generation) { await this.safeSignOut(); return; }
-      const session = await this.auth.withAccessToken((token) => this.api.session(token));
+      const sessionResult = await this.auth.withAccessToken((token) => this.api.session(token));
       if (generation !== this.generation) { await this.safeSignOut(); return; }
-      if (session?.status !== 'succeeded') {
+      if (sessionResult?.status !== 'succeeded') {
         await this.rejectWithinAuthentication(generation, 'Die Anmeldung konnte nicht abgeschlossen werden. Die Sitzung wurde vom Server nicht bestätigt. Melden Sie sich erneut an.');
         return;
       }
-      if (session.value.role !== 'administrator') {
-        await this.rejectWithinAuthentication(generation, 'Der Zugang wurde abgewiesen. Diese Verwaltung ist nur für Administratoren verfügbar. Melden Sie sich mit einem Administrator-Zugang an.', true);
+      const session = sessionResult.value;
+      if (session.availableSections.length === 0) {
+        await this.rejectWithinAuthentication(
+          generation,
+          'Für diesen Zugang ist derzeit kein Verwaltungsbereich geöffnet. Wenden Sie sich an die Betriebsverwaltung, wenn Sie hier arbeiten sollen.',
+          true,
+        );
         return;
       }
-      this.membershipId = session.value.membershipId;
+      this.membershipId = session.membershipId;
+      this.session = session;
       this.setState({ status: 'loading' });
-      const projection = await this.loadReadyData(session.value.membershipId);
+      let locationId = session.locationsEnabled && session.managementScope.kind === 'locations'
+        ? this.requestedLocationId ?? session.managementScope.locations[0]?.id ?? null
+        : null;
+      let projection = await this.loadReadyData(session, undefined, locationId);
+      let notice: string | null = null;
+      if (projection.status === 'location_scope_forbidden') {
+        const fallback = session.managementScope.kind === 'locations'
+          ? session.managementScope.locations[0]?.id ?? null
+          : null;
+        if (fallback === null || fallback === locationId) {
+          throw new Error('The reported management Location is unavailable');
+        }
+        locationId = fallback;
+        this.requestedLocationId = fallback;
+        projection = await this.loadReadyData(session, undefined, fallback);
+        notice = 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Stattdessen wurde Ihr erster verfügbarer Standort geöffnet.';
+      }
       if (generation !== this.generation) { await this.safeSignOut(); return; }
       if (projection.status === 'rejected') {
         await this.rejectWithinAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
+      } else if (projection.status === 'location_scope_forbidden') {
+        throw new Error('The fallback management Location was rejected');
       } else if (
         projection.projection.status === 'succeeded'
         || projection.employeeProjection.status === 'succeeded'
@@ -1446,14 +1644,27 @@ export class AdminWebCoordinator implements AdminWebCapability {
           : projection.employeeProjection.status === 'succeeded'
             ? projection.employeeProjection.value.organization
             : null;
-        if (boundOrganization === null) throw new Error('Organization binding unavailable');
+        if (
+          boundOrganization === null
+          || boundOrganization.id !== session.organizationId
+        ) throw new Error('Organization binding unavailable');
         const setupProjection = projection.projection.status === 'succeeded'
           ? projection.projection.value
           : emptyProjection(boundOrganization);
         const employeeProjection = projection.employeeProjection.status === 'succeeded'
           ? projection.employeeProjection.value
           : emptyEmployeeProjection(boundOrganization);
-        this.setState(readyState(
+        const selectedLocation = session.managementScope.kind === 'locations'
+          ? session.managementScope.locations.find((location) => location.id === locationId) ?? null
+          : null;
+        if (
+          session.locationsEnabled
+          && session.managementScope.kind === 'locations'
+          && selectedLocation === null
+        ) throw new Error('Selected management Location is absent from the Session');
+        const next = readyState(
+          session,
+          selectedLocation,
           setupProjection,
           employeeProjection,
           projection.timeRecords.status === 'succeeded'
@@ -1463,21 +1674,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
             ? projection.reviewItems.value
             : { items: [], nextCursor: null },
           projection.timeWindow,
-          {
-            setup: projection.projection.status === 'succeeded'
-              ? { status: 'ready' }
-              : { status: 'unavailable', message: sectionUnavailableMessage('setup') },
-            employees: projection.employeeProjection.status === 'succeeded'
-              ? { status: 'ready' }
-              : { status: 'unavailable', message: sectionUnavailableMessage('employees') },
-            timeRecords: projection.timeRecords.status === 'succeeded'
-              ? { status: 'ready' }
-              : { status: 'unavailable', message: sectionUnavailableMessage('timeRecords') },
-            reviewItems: projection.reviewItems.status === 'succeeded'
-              ? { status: 'ready' }
-              : { status: 'unavailable', message: sectionUnavailableMessage('reviewItems') },
-          },
-        ));
+          sectionStates(projection),
+        );
+        this.setState({ ...next, notice });
       } else {
         this.setState({ status: 'unavailable', message: 'Die Verwaltung konnte nicht geöffnet werden. Die Betriebsdaten sind derzeit nicht erreichbar. Melden Sie sich erneut an oder versuchen Sie es später.' });
       }
@@ -1485,6 +1684,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       await this.safeSignOut();
       if (generation === this.generation) {
         this.membershipId = null;
+        this.session = null;
         this.setState({ status: 'unavailable', message: 'Die Anmeldung konnte nicht abgeschlossen werden. Der Anmeldedienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
       }
     }
@@ -1493,6 +1693,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private async rejectWithinAuthentication(generation: number, message: string, forbidden = false): Promise<void> {
     if (generation !== this.generation) { await this.safeSignOut(); return; }
     this.membershipId = null;
+    this.session = null;
     const invalidatedGeneration = ++this.generation;
     await this.safeSignOut();
     if (invalidatedGeneration === this.generation) this.setState({ status: forbidden ? 'forbidden' : 'unavailable', message });
@@ -1501,6 +1702,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private async rejectOutsideAuthentication(generation: number, message: string): Promise<void> {
     if (generation !== this.generation) return;
     this.membershipId = null;
+    this.session = null;
     this.generation += 1;
     this.setState({ status: 'unavailable', message });
     await this.enqueueAuthentication(() => this.safeSignOut());
@@ -1576,12 +1778,14 @@ export class AdminWebCoordinator implements AdminWebCapability {
 }
 
 function readyState(
+  session: Session,
+  selectedLocation: AdministrationLocation | null,
   projection: SafeProjection,
   employeeProjection: SafeEmployeeProjection,
   timeRecords: CursorPage<SafeTimeRecord>,
   reviewItems: CursorPage<SafeReviewItem>,
   timeWindow: { readonly fromInclusive: string; readonly toExclusive: string },
-  sections = allSections({ status: 'ready' } as const),
+  sections = sectionStatesWithValue(session.availableSections, { status: 'ready' } as const),
 ): Extract<AdminWebState, { readonly status: 'ready' }> {
   if (
     projection.organization.id !== employeeProjection.organization.id
@@ -1592,6 +1796,10 @@ function readyState(
   }
   return {
     status: 'ready',
+    locationsEnabled: session.locationsEnabled,
+    availableSections: session.availableSections,
+    managementScope: session.managementScope,
+    selectedLocation,
     projection,
     employeeProjection,
     creating: false,
@@ -1635,11 +1843,36 @@ function emptyEmployeeProjection(
 }
 
 function normalizeSectionResult<Value>(
-  result: ApiResult<Value> | null,
+  result: ApiResult<Value> | { readonly status: 'closed' },
 ): ApiSectionResult<Value> {
-  return result?.status === 'succeeded'
+  return result.status === 'succeeded'
     ? result
-    : { status: 'unavailable' };
+    : result.status === 'closed'
+      ? result
+      : { status: 'unavailable' };
+}
+
+function sectionStates(
+  result: Extract<ReadyDataResult, { readonly projection: ApiSectionResult<SafeProjection> }>,
+): Extract<AdminWebState, { readonly status: 'ready' }>['sections'] {
+  return Object.freeze({
+    setup: sectionStatus(result.projection, 'setup'),
+    employees: sectionStatus(result.employeeProjection, 'employees'),
+    timeRecords: sectionStatus(result.timeRecords, 'timeRecords'),
+    reviewItems: sectionStatus(result.reviewItems, 'reviewItems'),
+  });
+}
+
+function sectionStatesWithValue(
+  availableSections: readonly AdministrationSection[],
+  value: Extract<AdminWebState, { readonly status: 'ready' }>['sections'][AdminSection],
+): Extract<AdminWebState, { readonly status: 'ready' }>['sections'] {
+  return Object.freeze({
+    setup: availableSections.includes('setup') ? value : { status: 'closed' },
+    employees: availableSections.includes('employees') ? value : { status: 'closed' },
+    timeRecords: availableSections.includes('time_records') ? value : { status: 'closed' },
+    reviewItems: availableSections.includes('review_items') ? value : { status: 'closed' },
+  });
 }
 
 function allSections(
@@ -1655,7 +1888,7 @@ function allSections(
 
 function mergeRefreshResult(
   current: Extract<AdminWebState, { readonly status: 'ready' }>,
-  result: Exclude<ReadyDataResult, { readonly status: 'rejected' }>,
+  result: Extract<ReadyDataResult, { readonly status: 'succeeded' | 'partial' }>,
 ): Extract<AdminWebState, { readonly status: 'ready' }> {
   let next = current;
   if (
@@ -1727,7 +1960,19 @@ function sectionStatus(
 ): Extract<AdminWebState, { readonly status: 'ready' }>['sections'][AdminSection] {
   return result.status === 'succeeded'
     ? { status: 'ready' }
+    : result.status === 'closed'
+      ? { status: 'closed' }
     : { status: 'unavailable', message: sectionUnavailableMessage(section) };
+}
+
+function isAdminSectionAvailable(
+  availableSections: readonly AdministrationSection[],
+  section: AdminSection,
+): boolean {
+  if (section === 'setup') return availableSections.includes('setup');
+  if (section === 'employees') return availableSections.includes('employees');
+  if (section === 'timeRecords') return availableSections.includes('time_records');
+  return availableSections.includes('review_items');
 }
 
 function sectionUnavailableMessage(section: AdminSection): string {

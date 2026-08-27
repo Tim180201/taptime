@@ -4,6 +4,13 @@ import { AdminWebCoordinator, type AdminWebAuthPort } from '../src/AdminWebCoord
 import type { SafeEmployeeProjection, SafeProjection, SafeReviewItem, SafeTimeRecord } from '../src/contracts';
 
 const membershipId = '20000000-0000-4000-8000-000000000001';
+const administratorSession: Session = {
+  membershipId,
+  organizationId: '30000000-0000-4000-8000-000000000001',
+  locationsEnabled: false,
+  availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
+  managementScope: { kind: 'organization' },
+};
 const projection: SafeProjection = {
   organization: { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' },
   customers: [{ id: '40000000-0000-4000-8000-000000000001', displayName: 'Werkstatt', active: true }],
@@ -27,6 +34,10 @@ const readyTimeReviewState = {
     timeRecords: { status: 'ready' as const },
     reviewItems: { status: 'ready' as const },
   },
+  locationsEnabled: false,
+  availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
+  managementScope: { kind: 'organization' as const },
+  selectedLocation: null,
   timeWindow: {
     fromInclusive: '2026-06-20T12:00:00.000Z',
     toExclusive: '2026-07-21T12:00:00.000Z',
@@ -59,6 +70,7 @@ function employeeMemberships(start: number, count: number) {
     role: 'employee' as const,
     active: true as const,
     rowVersion: 1,
+    location: null,
   }));
 }
 
@@ -96,7 +108,7 @@ class FakeApi implements AdminWebApiPort {
     status: 'succeeded', value: true,
   }));
   readonly session = vi.fn<AdminWebApiPort['session']>(async () => ({
-    status: 'succeeded', value: { membershipId, role: 'administrator' },
+    status: 'succeeded', value: administratorSession,
   }));
   readonly projection = vi.fn<AdminWebApiPort['projection']>(async () => ({
     status: 'succeeded', value: projection,
@@ -183,21 +195,139 @@ describe('AdminWebCoordinator', () => {
     });
   });
 
-  it('rejects an Employee, clears the memory session, and never loads setup data', async () => {
+  it('rejects a session without an open section and never loads setup data', async () => {
     const { auth, api, coordinator } = setup();
     api.session.mockResolvedValueOnce({
-      status: 'succeeded', value: { membershipId, role: 'employee' },
+      status: 'succeeded', value: { ...administratorSession, availableSections: [] },
     });
 
     await coordinator.signIn('employee@example.test', 'secret');
 
     expect(coordinator.getState()).toEqual({
       status: 'forbidden',
-      message: 'Der Zugang wurde abgewiesen. Diese Verwaltung ist nur für Administratoren verfügbar. Melden Sie sich mit einem Administrator-Zugang an.',
+      message: 'Für diesen Zugang ist derzeit kein Verwaltungsbereich geöffnet. Wenden Sie sich an die Betriebsverwaltung, wenn Sie hier arbeiten sollen.',
     });
     expect(auth.signOut).toHaveBeenCalledOnce();
     expect(auth.active).toBe(false);
     expect(api.projection).not.toHaveBeenCalled();
+  });
+
+  it('loads only the sections named by the session and applies the selected Location', async () => {
+    const { api, coordinator } = setup();
+    const location = { id: '31000000-0000-4000-8000-000000000001', name: 'Berlin' };
+    api.session.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: {
+        ...administratorSession,
+        locationsEnabled: true,
+        availableSections: ['employees'],
+        managementScope: { kind: 'locations', locations: [location] },
+      },
+    });
+    api.employeeProjection.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: {
+        ...employeeProjection,
+        employeeMemberships: [{
+          id: '70000000-0000-4000-8000-000000000001',
+          displayName: 'Employee Alpha',
+          role: 'employee',
+          active: true,
+          rowVersion: 1,
+          location,
+        }],
+      },
+    });
+    await coordinator.selectLocation(location.id);
+
+    await coordinator.signIn('leitung@example.test', 'secret');
+
+    expect(api.employeeProjection).toHaveBeenCalledWith(
+      'memory-only-token', membershipId, null, location.id,
+    );
+    expect(api.projection).not.toHaveBeenCalled();
+    expect(api.timeRecords).not.toHaveBeenCalled();
+    expect(api.reviewItems).not.toHaveBeenCalled();
+    expect(api.projects).not.toHaveBeenCalled();
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      availableSections: ['employees'],
+      selectedLocation: location,
+      sections: {
+        setup: { status: 'closed' },
+        employees: { status: 'ready' },
+        timeRecords: { status: 'closed' },
+        reviewItems: { status: 'closed' },
+      },
+    });
+  });
+
+  it('keeps the current Location and explains a server-rejected foreign Location', async () => {
+    const { api, coordinator } = setup();
+    const location = { id: '31000000-0000-4000-8000-000000000001', name: 'Berlin' };
+    api.session.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: {
+        ...administratorSession,
+        locationsEnabled: true,
+        availableSections: ['employees'],
+        managementScope: { kind: 'locations', locations: [location] },
+      },
+    });
+    api.employeeProjection.mockResolvedValueOnce({
+      status: 'succeeded', value: { ...employeeProjection, employeeMemberships: [] },
+    });
+    await coordinator.signIn('leitung@example.test', 'secret');
+    api.employeeProjection.mockResolvedValueOnce({
+      status: 'conflict', code: 'location_scope_forbidden',
+    });
+    const foreignLocationId = '31000000-0000-4000-8000-000000000002';
+
+    await coordinator.selectLocation(foreignLocationId);
+
+    expect(api.employeeProjection).toHaveBeenLastCalledWith(
+      'memory-only-token', membershipId, null, foreignLocationId,
+    );
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      selectedLocation: location,
+      notice: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Der bisherige Standort bleibt geöffnet.',
+    });
+  });
+
+  it('tries a bookmarked foreign Location through the server before opening the first available Location', async () => {
+    const { api, coordinator } = setup();
+    const location = { id: '31000000-0000-4000-8000-000000000001', name: 'Berlin' };
+    const foreignLocationId = '31000000-0000-4000-8000-000000000002';
+    api.session.mockResolvedValueOnce({
+      status: 'succeeded',
+      value: {
+        ...administratorSession,
+        locationsEnabled: true,
+        availableSections: ['employees'],
+        managementScope: { kind: 'locations', locations: [location] },
+      },
+    });
+    api.employeeProjection
+      .mockResolvedValueOnce({ status: 'conflict', code: 'location_scope_forbidden' })
+      .mockResolvedValueOnce({
+        status: 'succeeded', value: { ...employeeProjection, employeeMemberships: [] },
+      });
+    await coordinator.selectLocation(foreignLocationId);
+
+    await coordinator.signIn('leitung@example.test', 'secret');
+
+    expect(api.employeeProjection).toHaveBeenNthCalledWith(
+      1, 'memory-only-token', membershipId, null, foreignLocationId,
+    );
+    expect(api.employeeProjection).toHaveBeenNthCalledWith(
+      2, 'memory-only-token', membershipId, null, location.id,
+    );
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      selectedLocation: location,
+      notice: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Stattdessen wurde Ihr erster verfügbarer Standort geöffnet.',
+    });
   });
 
   it('clears a late successful sign-in after sign-out instead of retaining a hidden session', async () => {
@@ -230,7 +360,7 @@ describe('AdminWebCoordinator', () => {
     const first = coordinator.signIn('first@example.test', 'secret');
     await vi.waitFor(() => expect(api.session).toHaveBeenCalledTimes(1));
     const second = coordinator.signIn('second@example.test', 'secret');
-    staleSession.resolve({ status: 'succeeded', value: { membershipId, role: 'administrator' } });
+    staleSession.resolve({ status: 'succeeded', value: administratorSession });
     await Promise.all([first, second]);
 
     expect(auth.signIn).toHaveBeenCalledTimes(2);
@@ -441,6 +571,7 @@ describe('AdminWebCoordinator', () => {
       expect.stringMatching(/^[0-9a-f-]{36}$/i),
       'Employee Alpha',
       'employee',
+      undefined,
     );
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',

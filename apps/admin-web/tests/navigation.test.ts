@@ -45,4 +45,12 @@ describe('Admin Web address navigation', () => {
       toExclusive: '2026-09-01T00:00:00.000Z',
     });
   });
+
+  it('keeps only a canonical Location identifier in every real address', () => {
+    const locationId = '31000000-0000-4000-8000-000000000001';
+    const route = routeFromLocation('/beschaeftigte', `?standort=${locationId}`);
+    expect(route.locationId).toBe(locationId);
+    expect(canonicalRoutePath(route)).toBe(`/beschaeftigte?standort=${locationId}`);
+    expect(routeFromLocation('/beschaeftigte', '?standort=Berlin').locationId).toBeNull();
+  });
 });

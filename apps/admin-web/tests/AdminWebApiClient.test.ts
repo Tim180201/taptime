@@ -11,7 +11,19 @@ const ids = {
   assignment: '80000000-0000-4000-8000-000000000001',
   employeeMembership: '70000000-0000-4000-8000-000000000001',
   project: '90000000-0000-4000-8000-000000000001',
+  location: '91000000-0000-4000-8000-000000000001',
 };
+
+function validSession() {
+  return {
+    userId: ids.user,
+    membershipId: ids.membership,
+    organizationId: ids.organization,
+    locationsEnabled: false,
+    availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
+    managementScope: { kind: 'organization' },
+  };
+}
 
 function json(value: unknown, status = 200): Response {
   return Response.json(value, { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
@@ -41,6 +53,7 @@ function employeeMemberships(start: number, count: number) {
     role: 'employee' as const,
     active: true as const,
     rowVersion: 1,
+    location: null,
   }));
 }
 
@@ -70,32 +83,91 @@ describe('AdminWebApiClient', () => {
     const calls: Array<{ readonly input: RequestInfo | URL; readonly init?: RequestInit }> = [];
     const fetchRequest: typeof fetch = async (input, init) => {
       calls.push({ input, init });
-      return json({ userId: ids.user, membershipId: ids.membership, organizationId: ids.organization, role: 'administrator' });
+      return json(validSession());
     };
     const client = new AdminWebApiClient(fetchRequest);
 
     await expect(client.session('secret-token')).resolves.toEqual({
-      status: 'succeeded', value: { membershipId: ids.membership, role: 'administrator' },
+      status: 'succeeded', value: {
+        membershipId: ids.membership,
+        organizationId: ids.organization,
+        locationsEnabled: false,
+        availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
+        managementScope: { kind: 'organization' },
+      },
     });
-    expect(calls[0]?.input).toBe('/v1/session');
+    expect(calls[0]?.input).toBe('/v2/session');
     expect(calls[0]?.init).toMatchObject({ credentials: 'omit', redirect: 'manual', cache: 'no-store' });
     expect(calls[0]?.init?.headers).toMatchObject({ Authorization: 'Bearer secret-token' });
+  });
+
+  it('strictly accepts the located session contract without a role', async () => {
+    const located = {
+      ...validSession(),
+      locationsEnabled: true,
+      availableSections: ['employees'],
+      managementScope: {
+        kind: 'locations',
+        locations: [{ id: ids.location, name: 'Berlin' }],
+      },
+    };
+    const responses = [located, { ...located, role: 'standortleitung' }];
+    const client = new AdminWebApiClient(async () => json(responses.shift()));
+
+    await expect(client.session('token')).resolves.toEqual({
+      status: 'succeeded',
+      value: {
+        membershipId: ids.membership,
+        organizationId: ids.organization,
+        locationsEnabled: true,
+        availableSections: ['employees'],
+        managementScope: {
+          kind: 'locations',
+          locations: [{ id: ids.location, name: 'Berlin' }],
+        },
+      },
+    });
+    await expect(client.session('token')).resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('bounds worst-case Location sessions at 488 entries', async () => {
+    const sessionWithLocations = (count: number) => ({
+      ...validSession(),
+      locationsEnabled: true,
+      managementScope: {
+        kind: 'locations',
+        locations: Array.from({ length: count }, (_, index) => ({
+          id: `31000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+          name: '😀'.repeat(120),
+        })),
+      },
+    });
+    const lastFitting = sessionWithLocations(488);
+    const firstTooLarge = sessionWithLocations(489);
+    expect(new TextEncoder().encode(JSON.stringify(lastFitting)).byteLength).toBe(261_890);
+    expect(new TextEncoder().encode(JSON.stringify(firstTooLarge)).byteLength).toBe(262_426);
+    const responses = [json(lastFitting), json(firstTooLarge)];
+    const client = new AdminWebApiClient(async () => responses.shift()!);
+
+    await expect(client.session('token')).resolves.toMatchObject({ status: 'succeeded' });
+    await expect(client.session('token')).resolves.toEqual({ status: 'unavailable' });
   });
 
   it('invokes the default browser fetch with its required global receiver', async () => {
     const browserFetch = vi.fn(function (this: typeof globalThis) {
       if (this !== globalThis) throw new TypeError('Illegal invocation');
-      return Promise.resolve(json({
-        userId: ids.user,
-        membershipId: ids.membership,
-        organizationId: ids.organization,
-        role: 'administrator',
-      }));
+      return Promise.resolve(json(validSession()));
     });
     vi.stubGlobal('fetch', browserFetch);
     try {
       await expect(new AdminWebApiClient().session('secret-token')).resolves.toEqual({
-        status: 'succeeded', value: { membershipId: ids.membership, role: 'administrator' },
+        status: 'succeeded', value: {
+          membershipId: ids.membership,
+          organizationId: ids.organization,
+          locationsEnabled: false,
+          availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
+          managementScope: { kind: 'organization' },
+        },
       });
       expect(browserFetch).toHaveBeenCalledOnce();
     } finally {
@@ -255,7 +327,7 @@ describe('AdminWebApiClient', () => {
       nextCursor: firstCursor,
     }));
     const client = new AdminWebApiClient(fetchRequest);
-    await expect(client.employeeProjection('token', ids.membership, null)).resolves.toEqual({
+    await expect(client.employeeProjection('token', ids.membership, null, null)).resolves.toEqual({
       status: 'succeeded',
       value: {
         organization: { id: ids.organization, name: 'TapTim.e' },
@@ -267,15 +339,40 @@ describe('AdminWebApiClient', () => {
       expectedMembershipId: ids.membership,
       cursor: null,
       limit: 20,
+      locationId: null,
     });
+    expect(fetchRequest.mock.calls[0]?.[0])
+      .toBe('/v2/administration/employee-memberships-projection');
     fetchRequest.mockResolvedValueOnce(json({
       status: 'succeeded',
       organization: { id: ids.organization, name: 'TapTim.e' },
       employeeMemberships: [{ id: ids.employeeMembership, displayName: 'Employee Alpha', role: 'administrator', active: true }],
       nextCursor: null,
     }));
-    await expect(client.employeeProjection('token', ids.membership, null))
+    await expect(client.employeeProjection('token', ids.membership, null, null))
       .resolves.toEqual({ status: 'unavailable' });
+  });
+
+  it('sends the selected Location and exposes only its distinct scope rejection', async () => {
+    const fetchRequest = vi.fn<typeof fetch>(async () => json({
+      error: { code: 'location_scope_forbidden' },
+    }, 403));
+    const client = new AdminWebApiClient(fetchRequest);
+
+    await expect(client.employeeProjection(
+      'token', ids.membership, null, ids.location,
+    )).resolves.toEqual({ status: 'conflict', code: 'location_scope_forbidden' });
+    expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
+      expectedMembershipId: ids.membership,
+      cursor: null,
+      limit: 20,
+      locationId: ids.location,
+    });
+
+    fetchRequest.mockResolvedValueOnce(json({ error: { code: 'forbidden' } }, 403));
+    await expect(client.employeeProjection(
+      'token', ids.membership, null, ids.location,
+    )).resolves.toEqual({ status: 'unavailable' });
   });
 
   it('rejects unsafe Employee names, duplicates, ordering, and cursor discontinuity', async () => {
@@ -313,7 +410,7 @@ describe('AdminWebApiClient', () => {
     ];
     const client = new AdminWebApiClient(async () => json(responses.shift()!));
     for (let index = 0; index < 7; index += 1) {
-      await expect(client.employeeProjection('token', ids.membership, requestedCursor))
+      await expect(client.employeeProjection('token', ids.membership, requestedCursor, null))
         .resolves.toEqual({ status: 'unavailable' });
     }
   });
@@ -410,7 +507,7 @@ describe('AdminWebApiClient', () => {
   it('cancels an oversized streamed response before full buffering', async () => {
     const cancel = vi.fn();
     let chunkIndex = 0;
-    const chunks = [new Uint8Array(8 * 1024), new Uint8Array(8 * 1024), new Uint8Array(1)];
+    const chunks = [new Uint8Array(128 * 1024), new Uint8Array(128 * 1024), new Uint8Array(1)];
     const response = new Response(new ReadableStream<Uint8Array>({
       pull(controller) { controller.enqueue(chunks[chunkIndex++]!); },
       cancel,

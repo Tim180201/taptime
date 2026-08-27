@@ -1,3 +1,5 @@
+import type { AdministrationSection } from './contracts';
+
 export const adminViews = [
   { slug: 'uebersicht', label: 'Übersicht' },
   { slug: 'einrichtung', label: 'Einrichtung' },
@@ -16,6 +18,7 @@ const allowedCaptureTypes = new Set<string>(['alle', 'gescannt', 'manuell-erfass
 
 export interface AdminRoute {
   readonly view: AdminView;
+  readonly locationId: string | null;
   readonly month: string | null;
   readonly status: TimeRecordStatusFilter;
   readonly captureType: CaptureTypeFilter;
@@ -24,13 +27,15 @@ export interface AdminRoute {
 export function routeFromLocation(pathname: string, search: string): AdminRoute {
   const candidate = pathname.replace(/^\/+|\/+$/g, '');
   const view = allowedViews.has(candidate) ? candidate as AdminView : 'uebersicht';
-  if (view !== 'arbeitszeiten') return defaultRoute(view);
   const parameters = new URLSearchParams(search);
+  const locationId = validLocationId(parameters.get('standort'));
+  if (view !== 'arbeitszeiten') return defaultRoute(view, locationId);
   const month = validMonth(parameters.get('monat'));
   const statusCandidate = parameters.get('status') ?? 'alle';
   const captureCandidate = parameters.get('erfassungsart') ?? 'alle';
   return Object.freeze({
     view,
+    locationId,
     month,
     status: allowedStatuses.has(statusCandidate)
       ? statusCandidate as TimeRecordStatusFilter
@@ -43,8 +48,12 @@ export function routeFromLocation(pathname: string, search: string): AdminRoute 
 
 export function canonicalRoutePath(route: AdminRoute): string {
   const pathname = canonicalViewPath(route.view);
-  if (route.view !== 'arbeitszeiten') return pathname;
   const parameters = new URLSearchParams();
+  if (route.locationId !== null) parameters.set('standort', route.locationId);
+  if (route.view !== 'arbeitszeiten') {
+    const search = parameters.toString();
+    return search.length === 0 ? pathname : `${pathname}?${search}`;
+  }
   if (route.month !== null) parameters.set('monat', route.month);
   if (route.status !== 'alle') parameters.set('status', route.status);
   if (route.captureType !== 'alle') parameters.set('erfassungsart', route.captureType);
@@ -56,8 +65,23 @@ export function canonicalViewPath(view: AdminView): `/${AdminView}` {
   return `/${view}`;
 }
 
-export function defaultRoute(view: AdminView): AdminRoute {
-  return Object.freeze({ view, month: null, status: 'alle', captureType: 'alle' });
+export function defaultRoute(view: AdminView, locationId: string | null = null): AdminRoute {
+  return Object.freeze({ view, locationId, month: null, status: 'alle', captureType: 'alle' });
+}
+
+export function visibleAdminViews(
+  availableSections: readonly AdministrationSection[],
+): readonly (typeof adminViews)[number][] {
+  return adminViews.filter((view) => {
+    if (view.slug === 'uebersicht') return true;
+    if (view.slug === 'einrichtung') return availableSections.includes('setup');
+    if (view.slug === 'beschaeftigte') return availableSections.includes('employees');
+    if (view.slug === 'arbeitszeiten') {
+      return availableSections.includes('time_records')
+        || availableSections.includes('time_export');
+    }
+    return availableSections.includes('review_items');
+  });
 }
 
 export function monthTimeWindow(month: string): {
@@ -85,4 +109,10 @@ function validMonth(value: string | null): string | null {
   if (value === null || !/^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return null;
   const year = Number(value.slice(0, 4));
   return year >= 2000 && year <= 2200 ? value : null;
+}
+
+function validLocationId(value: string | null): string | null {
+  return value !== null
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)
+    ? value : null;
 }

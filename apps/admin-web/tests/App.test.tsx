@@ -69,6 +69,7 @@ const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
       role: 'employee',
       active: true,
       rowVersion: 1,
+      location: null,
     }],
     nextCursor: null,
   },
@@ -77,6 +78,10 @@ const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
   invitation: null,
   reassignmentIntent: null,
   reassigning: false,
+  locationsEnabled: false,
+  availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
+  managementScope: { kind: 'organization' },
+  selectedLocation: null,
   timeRecords: [record],
   timeRecordsNextCursor: null,
   reviewItems: [reviewItem],
@@ -97,6 +102,32 @@ const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
   notice: null,
   completedAction: null,
 };
+const berlin = {
+  id: '31000000-0000-4000-8000-000000000001',
+  name: 'Berlin',
+};
+
+function locationReadyState(
+  employeeMemberships = readyState.employeeProjection.employeeMemberships.map((membership) => ({
+    ...membership,
+    location: berlin,
+  })),
+): ReadyStateForTest {
+  return {
+    ...readyState,
+    locationsEnabled: true,
+    availableSections: ['employees'],
+    managementScope: { kind: 'locations', locations: [berlin] },
+    selectedLocation: berlin,
+    employeeProjection: { ...readyState.employeeProjection, employeeMemberships },
+    sections: {
+      setup: { status: 'closed' },
+      employees: { status: 'ready' },
+      timeRecords: { status: 'closed' },
+      reviewItems: { status: 'closed' },
+    },
+  };
+}
 
 class FakeCapability implements AdminWebCapability {
   state: AdminWebState;
@@ -117,6 +148,7 @@ class FakeCapability implements AdminWebCapability {
   completePasswordRecovery = vi.fn(async () => undefined);
   signOut = vi.fn(async () => undefined);
   refresh = vi.fn(async () => undefined);
+  selectLocation = vi.fn(async () => undefined);
   setTimeWindow = vi.fn(async () => undefined);
   retrySection = vi.fn(async () => undefined);
   loadMore = vi.fn(async () => undefined);
@@ -148,6 +180,55 @@ afterEach(() => {
 });
 
 describe('professional Admin Web shell', () => {
+  it('changes the sidebar when only availableSections changes', async () => {
+    const capability = new FakeCapability(readyState);
+    render(<App administration={capability} />);
+    expect(screen.getByRole('link', { name: 'Einrichtung' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Arbeitszeiten' })).toBeInTheDocument();
+
+    act(() => capability.emit({ ...readyState, availableSections: ['employees'] }));
+
+    expect(screen.getByRole('link', { name: 'Beschäftigte' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Einrichtung' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Arbeitszeiten' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Prüfungen' })).not.toBeInTheDocument();
+  });
+
+  it('shows a located administration without requesting closed projections or drawing their cards', async () => {
+    const capability = new FakeCapability(locationReadyState());
+    render(<App administration={capability} />);
+
+    expect((await screen.findAllByText('Berlin')).length).toBeGreaterThan(0);
+    expect(screen.getByText('Beschäftigte am Standort Berlin')).toBeInTheDocument();
+    expect(screen.queryByText('Arbeitszeiten geladen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Prüfungen geladen')).not.toBeInTheDocument();
+    expect(screen.queryByText('Zeitfenster')).not.toBeInTheDocument();
+    expect(screen.queryByText('CSV-Datei')).not.toBeInTheDocument();
+    expect(capability.refreshProjects).not.toHaveBeenCalled();
+  });
+
+  it('puts the selected Location into addresses and keeps it in navigation links', async () => {
+    window.history.replaceState(null, '', '/beschaeftigte');
+    const capability = new FakeCapability(locationReadyState());
+    render(<App administration={capability} />);
+
+    await waitFor(() => expect(window.location.href).toContain(`standort=${berlin.id}`));
+    expect(screen.getByRole('heading', { level: 1, name: 'Beschäftigte' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Übersicht' }))
+      .toHaveAttribute('href', `/uebersicht?standort=${berlin.id}`);
+  });
+
+  it('leads an empty Location to invitation and hides role assignment', async () => {
+    window.history.replaceState(null, '', `/beschaeftigte?standort=${berlin.id}`);
+    const capability = new FakeCapability(locationReadyState([]));
+    render(<App administration={capability} />);
+
+    expect(screen.getByText('Noch keine Beschäftigten am Standort Berlin')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Rolle')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Beschäftigte Person einladen' }));
+    expect(screen.getByLabelText('Einladung für')).toHaveFocus();
+  });
+
   it('renders an explicitly labelled memory-only sign-in form', async () => {
     const capability = new FakeCapability({ status: 'signed_out' });
     render(<App administration={capability} />);
@@ -280,8 +361,8 @@ describe('professional Admin Web shell', () => {
     render(<App administration={new FakeCapability(failedEmptyState)} />);
 
     expect(screen.queryByRole('heading', { name: 'Ihr Betrieb ist bereit' })).toBeNull();
-    expect(screen.getByText('Letzte Aktualisierung nicht bestätigt')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Bereich erneut laden' })).toBeInTheDocument();
+    expect(screen.queryByText('Arbeitszeiten geladen')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bereich erneut laden' })).not.toBeInTheDocument();
   });
 
   it('does not treat a Betrieb with only an existing project as new', () => {

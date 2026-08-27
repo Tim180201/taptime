@@ -64,6 +64,7 @@ Datenbankrechten eingreifen muss.
 | **T-015b** | Standortleitung als Rolle und Berechtigung (ADR-0022) | Ändert den Körper von `has_membership_management_authority_v1`; Route und Aufrufstellen bleiben | 3 |
 | **T-015c** | **Der Server sagt, was die Oberfläche zeigen darf** | Geteilt am 26.08.: `/v1/session` trägt weder Standortfunktion noch Verwaltungsumfang, die Beschäftigtenprojektion keinen Standort. Ohne diesen Vertrag müsste die Oberfläche selbst über Berechtigungen entscheiden — verboten nach DA6-L08. | 2 |
 | **T-015d** | Zuschnitt der Oberfläche auf den Standort | Braucht T-015c und das Regelwerk aus D-021 | 2 |
+| **T-015e** | **Standorte auswählbar machen (D-029)** | Ein Administrator mit eingeschalteten Standorten kann heute niemanden einladen: Die Einladung verlangt einen Heimatstandort, die Oberfläche kennt keine Liste. Eigener blätterbarer Aufruf statt Liste in der Sitzung — die trägt nur 488 Standorte. **Sperre: Standorte dürfen vorher in keinem Betrieb eingeschaltet werden.** | 2 |
 | **T-020** | **Freigabekette für nicht per NFC erfasste Zeiten (D-014)** | Braucht die Standortleitung als Instanz | 5 |
 | **T-016** | Löschkonzept und Betroffenenrechte | Der AVV verlangt die Fähigkeit, nicht den Text | 5 |
 | **T-017** | Feinschliff, Standortleitungs-Zuschnitt, Barrierefreiheit, **CSP und Sitzung (D-015)**, Landing Page | Nach dem Nutzer-Feedback | 4 |

@@ -9,12 +9,29 @@ export interface SafeEmployeeProjection {
   readonly employeeMemberships: readonly {
     readonly id: string;
     readonly displayName: string;
-    readonly role: 'administrator' | 'employee';
+    readonly role: 'administrator' | 'standortleitung' | 'employee';
     readonly active: boolean;
     readonly rowVersion: number;
+    readonly location: { readonly id: string; readonly name: string } | null;
   }[];
   readonly nextCursor: string | null;
 }
+export type AdministrationSection =
+  | 'setup'
+  | 'employees'
+  | 'time_records'
+  | 'time_export'
+  | 'review_items';
+export interface AdministrationLocation {
+  readonly id: string;
+  readonly name: string;
+}
+export type AdministrationManagementScope =
+  | { readonly kind: 'organization' }
+  | {
+      readonly kind: 'locations';
+      readonly locations: readonly AdministrationLocation[];
+    };
 export interface VolatileInvitationSecret {
   readonly value: string;
   readonly expiresAt: string;
@@ -67,6 +84,7 @@ export type CompletedAdminAction = 'customer_created' | 'project_created' | 'inv
 export type SectionStatus =
   | { readonly status: 'ready' }
   | { readonly status: 'loading' }
+  | { readonly status: 'closed' }
   | { readonly status: 'unavailable'; readonly message: string };
 export interface TimeCorrectionIntent {
   readonly commandId: string;
@@ -94,6 +112,10 @@ export type AdminWebState =
   | { readonly status: 'unavailable'; readonly message: string }
   | {
       readonly status: 'ready';
+      readonly locationsEnabled: boolean;
+      readonly availableSections: readonly AdministrationSection[];
+      readonly managementScope: AdministrationManagementScope;
+      readonly selectedLocation: AdministrationLocation | null;
       readonly projection: SafeProjection;
       readonly employeeProjection: SafeEmployeeProjection;
       readonly creating: boolean;
@@ -125,6 +147,7 @@ export interface AdminWebCapability {
   completePasswordRecovery(password: string): Promise<void>;
   signOut(): Promise<void>;
   refresh(): Promise<void>;
+  selectLocation(locationId: string | null): Promise<void>;
   setTimeWindow(fromInclusive: string, toExclusive: string, pinned?: boolean): Promise<void>;
   retrySection(section: AdminSection): Promise<void>;
   loadMore(): Promise<void>;

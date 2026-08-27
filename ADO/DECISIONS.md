@@ -716,3 +716,23 @@ die von D-027 ausgeschlossene zweite Berechtigungswahrheit.
 **Die Regel, allgemein:** Der Server benennt **Bereiche**. Zusammengesetzte Ansichten leiten sich
 daraus ab und erfinden kein eigenes Recht. Eine Kachel wird nur gezeichnet, wenn ihr Bereich offensteht.
 **Folge für T-015d:** Das Admin-Web lädt heute alle vier Projektionen ungefragt und zeichnet Abweisungen als Kachel mit `0` und Wiederholen-Knopf. T-015d lädt nur offene Bereiche und zeichnet nur geladene Daten.
+
+---
+
+## D-029 — Standorte stehen hinter einem eigenen Aufruf, nicht in der Sitzung
+
+**Datum:** 26.08.2026 · **Entschieden vom Technical Lead** · **Befund aus T-015d** · **Umsetzung:** `T-015e`
+
+`managementScope` trägt im Fall `organization` **keine** Standortliste und bekommt auch keine.
+Ein Administrator mit eingeschalteten Standorten wählt den Heimatstandort einer Einladung aus
+einem **eigenen, blätterbaren Aufruf**.
+
+**Warum nicht in die Sitzung:** Die Antwort ist auf 256 KiB begrenzt. Gemessen in T-015d: sie
+trägt **488** maximal lange Standortnamen, ab 489 nicht mehr. Eine Sitzung, die ab einer
+bestimmten Betriebsgröße als „nicht verfügbar" gilt, ist ein Fehler, den niemand versteht. Der
+Verwaltungsumfang einer Standortleitung bleibt in der Sitzung — er ist klein und begrenzt; die
+Liste **aller** Standorte eines Betriebs ist es nicht.
+
+**Sperre bis dahin:** Die Standort-Funktion darf in **keinem** Betrieb eingeschaltet werden,
+bevor `T-015e` steht. Sonst kann ein Administrator niemanden mehr einladen — die Einladung
+verlangt seit T-015b einen Heimatstandort, den die Oberfläche nicht anbieten kann.

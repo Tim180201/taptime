@@ -28,7 +28,7 @@ describe('C3D Admin Web security boundaries', () => {
     const fetchRequest: typeof fetch = async (input, init) => { calls.push({ input, init }); return new Response(JSON.stringify({ userId: '10000000-0000-4000-8000-000000000001', membershipId: '20000000-0000-4000-8000-000000000001', organizationId: '30000000-0000-4000-8000-000000000001', role: 'administrator', tenantSelector: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }); };
     const client = new AdminWebApiClient(fetchRequest);
     await expect(client.session('secret-token')).resolves.toEqual({ status: 'unavailable' });
-    expect(calls[0]?.input).toBe('/v1/session');
+    expect(calls[0]?.input).toBe('/v2/session');
     expect(calls[0]?.init).toMatchObject({ credentials: 'omit', redirect: 'manual' });
   });
 

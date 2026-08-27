@@ -293,7 +293,8 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   danach** den alten öffentlichen Schlüssel entfernen. In dieser Reihenfolge, sonst sperrt man
   sich aus.
 - **Offen, laufend:** Die Grenztests aus T-025 messen relativ, Budget `1,20×`. Gemessene
-  CI-Verhältnisse: `0,66` · `0,64` · `0,91`. **Jede abgeschlossene Aufgabe trägt ihren Wert hier ein.**
+  Verhältnisse: `0,66` · `0,64` · `0,91` · `0,91` (T-015d lokal; CI ausstehend). **Jede
+  abgeschlossene Aufgabe trägt ihren Wert hier ein.**
   Bei zehn Werten wird die Verteilung ausgewertet und das Budget mit Daten nachgezogen — nicht
   geschätzt.
 - Geparkte Idee: **`ADO/RESULT.md`** — Codex schreibt seinen Abschlussbericht ins Repo statt nur

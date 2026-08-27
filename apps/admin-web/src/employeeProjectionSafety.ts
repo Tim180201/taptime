@@ -8,6 +8,7 @@ const pageLimit = 20;
 export function isSafeEmployeeProjectionPage(
   projection: SafeEmployeeProjection,
   requestedCursor: string | null,
+  requestedLocationId: string | null = null,
 ): boolean {
   if (
     !canonicalUuid.test(projection.organization.id)
@@ -22,10 +23,15 @@ export function isSafeEmployeeProjectionPage(
     if (
       !canonicalUuid.test(membership.id)
       || !isCanonicalSafeTapTimeName(membership.displayName)
-      || (membership.role !== 'employee' && membership.role !== 'administrator')
+      || !['employee', 'standortleitung', 'administrator'].includes(membership.role)
       || typeof membership.active !== 'boolean'
       || !Number.isSafeInteger(membership.rowVersion)
       || membership.rowVersion < 1
+      || (membership.location !== null && (
+        !canonicalUuid.test(membership.location.id)
+        || !isCanonicalSafeTapTimeName(membership.location.name)
+      ))
+      || (requestedLocationId !== null && membership.location?.id !== requestedLocationId)
       || (previousId !== null && membership.id <= previousId)
     ) return false;
     previousId = membership.id;
