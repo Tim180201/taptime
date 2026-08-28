@@ -43,6 +43,125 @@ export interface LocatedEmployeeMembershipSummary extends EmployeeMembershipSumm
   readonly location: { readonly id: string; readonly name: string } | null;
 }
 
+export interface AdministrationAssignableLocation {
+  readonly id: string;
+  readonly displayName: string;
+}
+
+export interface AdministrationLocationSetup {
+  readonly id: string;
+  readonly displayName: string;
+  readonly active: boolean;
+  readonly rowVersion: number;
+}
+
+export interface AdministrationMembershipLocationSetup {
+  readonly id: string;
+  readonly displayName: string;
+  readonly role: MembershipRole;
+  readonly homeLocationId: string | null;
+  readonly workLocationIds: readonly string[];
+  readonly managementLocationIds: readonly string[];
+}
+
+export interface AdministrationWorkTargetLocationSetup {
+  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetId: string;
+  readonly displayName: string;
+  readonly locationId: string | null;
+}
+
+export interface AdministrationLocationActivationGap {
+  readonly kind: 'membership' | 'customer' | 'project' | 'work_target' | 'nfc_assignment';
+  readonly id: string;
+  readonly displayName: string;
+}
+
+export type LocationSetupProjectionKind =
+  | 'locations'
+  | 'memberships'
+  | 'work_targets'
+  | 'activation_gaps';
+
+export interface ReadLocationSetupProjectionCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly kind: LocationSetupProjectionKind;
+  readonly cursor: string | null;
+  readonly limit: number;
+}
+
+export type ReadLocationSetupProjectionResult =
+  | {
+      readonly status: 'succeeded';
+      readonly locationsEnabled: boolean;
+      readonly kind: LocationSetupProjectionKind;
+      readonly items: readonly (
+        | AdministrationLocationSetup
+        | AdministrationMembershipLocationSetup
+        | AdministrationWorkTargetLocationSetup
+        | AdministrationLocationActivationGap
+      )[];
+      readonly nextCursor: string | null;
+    }
+  | AdminAuthorityRejection
+  | { readonly status: 'invalid_request' };
+
+export interface ReadAssignableLocationsCommand {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly cursor: string | null;
+  readonly limit: number;
+}
+
+export type ReadAssignableLocationsResult =
+  | {
+      readonly status: 'succeeded';
+      readonly locations: readonly AdministrationAssignableLocation[];
+      readonly nextCursor: string | null;
+    }
+  | AdminAuthorityRejection
+  | { readonly status: 'invalid_request' };
+
+interface LocationSetupMutationCommon {
+  readonly accessToken: string;
+  readonly expectedMembershipId: MembershipId;
+  readonly commandId: string;
+}
+
+export type MutateLocationSetupCommand = LocationSetupMutationCommon & (
+  | { readonly action: 'create_location'; readonly locationId: string; readonly displayName: string }
+  | { readonly action: 'rename_location'; readonly locationId: string;
+      readonly expectedRowVersion: number; readonly displayName: string }
+  | { readonly action: 'deactivate_location'; readonly locationId: string;
+      readonly expectedRowVersion: number }
+  | { readonly action: 'set_home_location'; readonly membershipId: string;
+      readonly locationId: string }
+  | { readonly action: 'set_work_location'; readonly membershipId: string;
+      readonly locationId: string; readonly assigned: boolean }
+  | { readonly action: 'set_management_location'; readonly membershipId: string;
+      readonly locationId: string; readonly assigned: boolean }
+  | { readonly action: 'set_work_target_location';
+      readonly targetType: 'customer' | 'project' | 'general_work';
+      readonly targetId: string; readonly locationId: string }
+  | { readonly action: 'set_locations_enabled'; readonly enabled: boolean }
+);
+
+export type MutateLocationSetupResult =
+  | { readonly status: 'succeeded'; readonly idempotentRetry: boolean }
+  | AdminAuthorityRejection
+  | { readonly status:
+      | 'command_id_conflict'
+      | 'home_work_conflict'
+      | 'location_in_use'
+      | 'location_unavailable'
+      | 'management_role_required'
+      | 'membership_unavailable'
+      | 'setup_incomplete'
+      | 'stale_row_version'
+      | 'target_unavailable'
+      | 'invalid_request' };
+
 export interface CreateEmployeeMembershipInvitationCommand {
   readonly accessToken: string;
   readonly expectedMembershipId: MembershipId;

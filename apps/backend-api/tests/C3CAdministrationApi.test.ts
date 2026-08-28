@@ -12,9 +12,11 @@ import type {
 } from '@taptime/backend-administration';
 import {
   CustomerId,
+  MembershipId,
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
+  UserId,
 } from '@taptime/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
@@ -198,6 +200,125 @@ describe('C3C exact administration transport', () => {
       status: 'succeeded',
       nextCursor: 'v1:t:50000000-0000-4000-8000-000000000010',
     });
+  });
+
+  it('returns every named Location activation gap through the closed setup projection', async () => {
+    let received: unknown;
+    const origin = await startServer(administrationCoordinator({
+      async readLocationSetupProjection(command) {
+        received = command;
+        return {
+          status: 'succeeded',
+          locationsEnabled: false,
+          kind: 'activation_gaps',
+          items: [
+            { kind: 'membership', id: ids.membership, displayName: 'Administrator Anna' },
+            { kind: 'customer', id: ids.customer, displayName: 'Werkstatt Nord' },
+            { kind: 'nfc_assignment', id: ids.assignment,
+              displayName: 'Eingang → Werkstatt Nord' },
+          ],
+          nextCursor: null,
+        };
+      },
+    }));
+    const response = await postJson(origin, '/v1/administration/location-setup/query', {
+      expectedMembershipId: ids.membership,
+      kind: 'activation_gaps',
+      cursor: null,
+      limit: 100,
+    });
+    expect(response.status).toBe(200);
+    expect(received).toEqual({
+      accessToken: token,
+      expectedMembershipId: ids.membership,
+      kind: 'activation_gaps',
+      cursor: null,
+      limit: 100,
+    });
+    expect(JSON.parse(response.text)).toMatchObject({
+      status: 'succeeded',
+      locationsEnabled: false,
+      items: [
+        { kind: 'membership', displayName: 'Administrator Anna' },
+        { kind: 'customer', displayName: 'Werkstatt Nord' },
+        { kind: 'nfc_assignment', displayName: 'Eingang → Werkstatt Nord' },
+      ],
+    });
+  });
+
+  it('forwards the exact Location lifecycle mutation and maps incomplete setup to conflict',
+    async () => {
+      let received: unknown;
+      const origin = await startServer(administrationCoordinator({
+        async mutateLocationSetup(command) {
+          received = command;
+          return { status: 'setup_incomplete' };
+        },
+      }));
+      const response = await postJson(origin, '/v1/administration/location-setup/mutate', {
+        expectedMembershipId: ids.membership,
+        commandId: ids.command,
+        action: 'set_locations_enabled',
+        enabled: true,
+      });
+      expect(received).toEqual({
+        accessToken: token,
+        expectedMembershipId: ids.membership,
+        commandId: ids.command,
+        action: 'set_locations_enabled',
+        enabled: true,
+      });
+      expectGenericError(response, 409, 'setup_incomplete');
+    });
+
+  it('limits a Location Manager assignable list to the session management scope', async () => {
+    let administrationCalls = 0;
+    const server = createBackendHttpServer({
+      ...dependencies(administrationCoordinator({
+        async readAssignableLocations() {
+          administrationCalls += 1;
+          return { status: 'forbidden' };
+        },
+      })),
+      administrationSessionAuthority: {
+        async resolve() {
+          return {
+            status: 'resolved',
+            session: {
+              userId: UserId('11000000-0000-4000-8000-000000000301'),
+              membershipId: MembershipId(ids.membership),
+              organizationId: OrganizationId(ids.organization),
+              locationsEnabled: true,
+              availableSections: ['employees'],
+              managementScope: { kind: 'locations', locations: [
+                { id: ids.customer, name: 'Berlin' },
+                { id: ids.assignment, name: 'Hamburg' },
+              ] },
+            },
+          } as const;
+        },
+      },
+    });
+    openServers.push(server);
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    if (address === null || typeof address === 'string') throw new Error('Missing server address');
+    const response = await postJson(
+      `http://127.0.0.1:${address.port}`,
+      '/v1/administration/locations/query',
+      { expectedMembershipId: ids.membership, cursor: null, limit: 100 },
+    );
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.text)).toMatchObject({
+      locations: [
+        { id: ids.customer, displayName: 'Berlin' },
+        { id: ids.assignment, displayName: 'Hamburg' },
+      ],
+    });
+    expect(administrationCalls).toBe(0);
   });
 
   it.each([

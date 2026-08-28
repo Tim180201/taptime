@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   createCustomerCommandDigestV1,
   normalizeOrganizationNameV1,
@@ -95,7 +95,7 @@ beforeAll(async () => {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021'],
+    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
     alreadyApplied: [],
   });
   await ensureC3CRuntimeLogin(installerPool, runtimePassword);
@@ -119,13 +119,13 @@ afterAll(async () => {
 });
 
 describe('migration 007, roles and database contracts', () => {
-  it('records exactly immutable migrations 001 through 021 and reruns without changes', async () => {
+  it('records exactly immutable migrations 001 through 022 and reruns without changes', async () => {
     expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
     ]);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021'],
+      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
     });
   });
 
@@ -180,7 +180,7 @@ describe('migration 007, roles and database contracts', () => {
           await dirtyPool.query('DROP SCHEMA dirty_c3c CASCADE');
         }
         await expect(applyMigrationSet(dirtyPool, migrations.slice(6))).resolves.toEqual({
-          applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021'],
+          applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
           alreadyApplied: [],
         });
       } finally {
@@ -229,7 +229,7 @@ describe('migration 007, roles and database contracts', () => {
          WHERE id = '90000000-0000-4000-8000-000000000010'`,
       );
       await expect(applyMigrationSet(migrationPool, migrations.slice(6))).resolves.toEqual({
-        applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021'],
+        applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
         alreadyApplied: [],
       });
     } finally {
@@ -427,6 +427,7 @@ describe('migration 007, roles and database contracts', () => {
         functions: [
           'enforce_admin_break_tag_receipt_integrity',
           'enforce_admin_setup_receipt_integrity',
+          'enforce_current_location_relation_v1',
           'enforce_enabled_location_setup_v1',
           'enforce_work_location_is_additional_v1',
           'insert_admin_setup_nfc_tag_v1',
@@ -437,13 +438,16 @@ describe('migration 007, roles and database contracts', () => {
           'propagate_time_entry_location_v1',
           'propagate_time_record_revision_location_v1',
           'resolve_work_event_location_v1',
+          'revoke_membership_location_relations_v1',
+          'revoke_work_target_location_relation_v1',
           'set_organization_locations_enabled_v1',
         ],
         relations: '0',
       },
       {
         owner: 'taptime_admin_setup_function_owner',
-        functions: ['append_administrative_audit_event', 'has_current_admin_setup_authority'],
+        functions: ['append_administrative_audit_event', 'append_location_setup_audit_event_v1',
+          'has_current_admin_setup_authority'],
         relations: '0',
       },
     ]);
@@ -1833,6 +1837,198 @@ describe('setup projection, paging, isolation and session cleanup', () => {
     } finally {
       await dedicatedPool.end();
     }
+  });
+});
+
+describe('Location setup administration workflow', () => {
+  it('names every missing binding before activation', async () => {
+    const projectId = '21000000-0000-4000-8000-000000000001';
+    await installerPool.query(
+      `INSERT INTO taptime_server.projects (id, organization_id, display_name)
+       VALUES ($1, $2, 'Projekt Polaris')`,
+      [projectId, ids.organizationA],
+    );
+
+    const gaps = await coordinator.readLocationSetupProjection({
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+      kind: 'activation_gaps',
+      cursor: null,
+      limit: 100,
+    });
+
+    expect(gaps).toMatchObject({ status: 'succeeded', locationsEnabled: false });
+    if (gaps.status !== 'succeeded') throw new Error('Expected Location activation gaps');
+    expect(gaps.items.map((item) => ({ kind: 'kind' in item ? item.kind : null,
+      displayName: item.displayName }))).toEqual([
+      { kind: 'membership', displayName: 'Sie selbst' },
+      { kind: 'membership', displayName: `Zugehörigkeit ${ids.membershipAdminA2}` },
+      { kind: 'membership', displayName: `Zugehörigkeit ${ids.membershipEmployeeA}` },
+      { kind: 'customer', displayName: 'Active Customer A' },
+      { kind: 'project', displayName: 'Projekt Polaris' },
+      { kind: 'work_target', displayName: 'Allgemeine Arbeitszeit' },
+      { kind: 'nfc_assignment', displayName: 'Assigned Tag A → Active Customer A' },
+    ]);
+  });
+
+  it('lets an Administrator create a Location, assign self and employee homes, and enable Locations', async () => {
+    const locationId = '51000000-0000-4000-8000-000000000001';
+    const actor = {
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+    } as const;
+    await expect(coordinator.mutateLocationSetup({
+      ...actor,
+      commandId: randomUUID(),
+      action: 'set_locations_enabled',
+      enabled: true,
+    })).resolves.toEqual({ status: 'setup_incomplete' });
+    await expect(installerPool.query(
+      `SELECT locations_enabled FROM taptime_server.organizations WHERE id = $1`,
+      [ids.organizationA],
+    )).resolves.toMatchObject({ rows: [{ locations_enabled: false }] });
+
+    await expect(coordinator.mutateLocationSetup({
+      ...actor,
+      commandId: randomUUID(),
+      action: 'create_location',
+      locationId,
+      displayName: 'Berlin Mitte',
+    })).resolves.toEqual({ status: 'succeeded', idempotentRetry: false });
+    for (const membershipId of [
+      ids.membershipAdminA,
+      ids.membershipAdminA2,
+      ids.membershipEmployeeA,
+    ]) {
+      await expect(coordinator.mutateLocationSetup({
+        ...actor,
+        commandId: randomUUID(),
+        action: 'set_home_location',
+        membershipId,
+        locationId,
+      })).resolves.toEqual({ status: 'succeeded', idempotentRetry: false });
+    }
+
+    const workTargets = await coordinator.readLocationSetupProjection({
+      ...actor,
+      kind: 'work_targets',
+      cursor: null,
+      limit: 100,
+    });
+    expect(workTargets).toMatchObject({ status: 'succeeded' });
+    if (workTargets.status !== 'succeeded') throw new Error('Expected Location work targets');
+    expect(workTargets.items.map((item) => item.displayName).sort()).toEqual([
+      'Active Customer A',
+      'Allgemeine Arbeitszeit',
+    ]);
+    for (const item of workTargets.items) {
+      if (!('targetType' in item)) throw new Error('Expected a work target item');
+      await expect(coordinator.mutateLocationSetup({
+        ...actor,
+        commandId: randomUUID(),
+        action: 'set_work_target_location',
+        targetType: item.targetType,
+        targetId: item.targetId,
+        locationId,
+      })).resolves.toEqual({ status: 'succeeded', idempotentRetry: false });
+    }
+
+    await expect(coordinator.readLocationSetupProjection({
+      ...actor,
+      kind: 'activation_gaps',
+      cursor: null,
+      limit: 100,
+    })).resolves.toMatchObject({ status: 'succeeded', items: [] });
+    await expect(coordinator.mutateLocationSetup({
+      ...actor,
+      commandId: randomUUID(),
+      action: 'set_locations_enabled',
+      enabled: true,
+    })).resolves.toEqual({ status: 'succeeded', idempotentRetry: false });
+    await expect(installerPool.query(
+      `SELECT locations_enabled FROM taptime_server.organizations WHERE id = $1`,
+      [ids.organizationA],
+    )).resolves.toMatchObject({ rows: [{ locations_enabled: true }] });
+  });
+
+  it('keeps Location lifecycle commands Administrator-only after D-029', async () => {
+    await installerPool.query(
+      `UPDATE taptime_server.memberships
+       SET role = 'standortleitung', row_version = row_version + 1
+       WHERE organization_id = $1 AND id = $2`,
+      [ids.organizationA, ids.membershipEmployeeA],
+    );
+    const common = {
+      accessToken: fixtureTokens.employeeA,
+      expectedMembershipId: membershipIds.employeeA,
+    } as const;
+    const locationId = '51000000-0000-4000-8000-000000000002';
+    const forbiddenMutations = [
+      { action: 'create_location', locationId, displayName: 'Unzulässiger Standort' },
+      { action: 'rename_location', locationId, expectedRowVersion: 1,
+        displayName: 'Unzulässiger Name' },
+      { action: 'deactivate_location', locationId, expectedRowVersion: 1 },
+      { action: 'set_home_location', membershipId: ids.membershipEmployeeA, locationId },
+      { action: 'set_work_location', membershipId: ids.membershipEmployeeA, locationId,
+        assigned: true },
+      { action: 'set_management_location', membershipId: ids.membershipEmployeeA, locationId,
+        assigned: true },
+      { action: 'set_work_target_location', targetType: 'customer', targetId: ids.customerA,
+        locationId },
+    ] as const;
+    for (const mutation of forbiddenMutations) {
+      await expect(coordinator.mutateLocationSetup({
+        ...common,
+        commandId: randomUUID(),
+        ...mutation,
+      })).resolves.toEqual({ status: 'forbidden' });
+    }
+  });
+
+  it('rejects a Management Location grant for a non-Location-Manager Membership', async () => {
+    const locationId = '51000000-0000-4000-8000-000000000003';
+    const common = {
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+    } as const;
+    await expect(coordinator.mutateLocationSetup({
+      ...common, commandId: randomUUID(), action: 'create_location', locationId,
+      displayName: 'Berlin Süd',
+    })).resolves.toMatchObject({ status: 'succeeded' });
+    await expect(coordinator.mutateLocationSetup({
+      ...common, commandId: randomUUID(), action: 'set_management_location',
+      membershipId: ids.membershipEmployeeA, locationId, assigned: true,
+    })).resolves.toEqual({ status: 'management_role_required' });
+  });
+
+  it('removes a deactivated Location from choices but retains it in setup history', async () => {
+    const locationId = '51000000-0000-4000-8000-000000000004';
+    const common = {
+      accessToken: fixtureTokens.adminA,
+      expectedMembershipId: membershipIds.adminA,
+    } as const;
+    await expect(coordinator.mutateLocationSetup({
+      ...common, commandId: randomUUID(), action: 'create_location', locationId,
+      displayName: 'Historischer Standort',
+    })).resolves.toMatchObject({ status: 'succeeded' });
+    await expect(coordinator.mutateLocationSetup({
+      ...common, commandId: randomUUID(), action: 'rename_location', locationId,
+      expectedRowVersion: 1, displayName: 'Historischer Standort Neu',
+    })).resolves.toMatchObject({ status: 'succeeded' });
+    await expect(coordinator.mutateLocationSetup({
+      ...common, commandId: randomUUID(), action: 'deactivate_location', locationId,
+      expectedRowVersion: 2,
+    })).resolves.toMatchObject({ status: 'succeeded' });
+    await expect(coordinator.readAssignableLocations({
+      ...common, cursor: null, limit: 100,
+    })).resolves.toMatchObject({ status: 'succeeded', locations: [] });
+    await expect(coordinator.readLocationSetupProjection({
+      ...common, kind: 'locations', cursor: null, limit: 100,
+    })).resolves.toMatchObject({
+      status: 'succeeded',
+      items: [{ id: locationId, displayName: 'Historischer Standort Neu', active: false,
+        rowVersion: 3 }],
+    });
   });
 });
 

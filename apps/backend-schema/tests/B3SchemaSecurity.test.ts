@@ -532,13 +532,13 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly twenty-one sorted versioned migrations', async () => {
+  it('applies exactly twenty-two sorted versioned migrations', async () => {
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
     expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021',
+      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
     ]);
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
@@ -547,7 +547,7 @@ describe('B3 deterministic migration system', () => {
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
       alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021',
+        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
       ],
     });
   });
@@ -831,7 +831,7 @@ describe('B3 deterministic migration system', () => {
     }
   }, 30_000);
 
-  it('contains exactly the thirty-seven approved tables and two effective-record views', async () => {
+  it('contains exactly the thirty-eight approved tables and two effective-record views', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
@@ -850,6 +850,7 @@ describe('B3 deterministic migration system', () => {
       'employee_invitation_command_receipts',
       'employee_membership_invitations',
       'identity_bindings',
+      'location_setup_command_receipts',
       'locations',
       'membership_home_location_assignments',
       'membership_management_command_receipts',
@@ -889,7 +890,7 @@ describe('B3 deterministic migration system', () => {
         AND relation.relrowsecurity
         AND relation.relforcerowsecurity
     `);
-    expect(result.rows[0]?.count).toBe('37');
+    expect(result.rows[0]?.count).toBe('38');
   });
 });
 

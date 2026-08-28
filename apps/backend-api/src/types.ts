@@ -40,9 +40,15 @@ import type {
   ReadSetupProjectionResult,
   RevokeMembershipCommand,
   MembershipMutationResult,
+  MutateLocationSetupCommand,
+  MutateLocationSetupResult,
   RecordPasswordResetCommand,
   RecordPasswordResetResult,
   ReassignmentCoordinatorControls,
+  ReadAssignableLocationsCommand,
+  ReadAssignableLocationsResult,
+  ReadLocationSetupProjectionCommand,
+  ReadLocationSetupProjectionResult,
   RedeemEmployeeMembershipInvitationCommand,
   RedeemEmployeeMembershipInvitationResult,
 } from '@taptime/backend-administration';
@@ -161,6 +167,21 @@ export interface AdministrationCoordinator {
     command: ReadSetupProjectionCommand,
     controls?: AdminCoordinatorControls,
   ): Promise<ReadSetupProjectionResult>;
+
+  readAssignableLocations?(
+    command: ReadAssignableLocationsCommand,
+    controls?: AdminCoordinatorControls,
+  ): Promise<ReadAssignableLocationsResult>;
+
+  readLocationSetupProjection?(
+    command: ReadLocationSetupProjectionCommand,
+    controls?: AdminCoordinatorControls,
+  ): Promise<ReadLocationSetupProjectionResult>;
+
+  mutateLocationSetup?(
+    command: MutateLocationSetupCommand,
+    controls?: AdminCoordinatorControls,
+  ): Promise<MutateLocationSetupResult>;
 }
 
 export interface EmployeeMembershipEnrollmentCoordinator {
@@ -252,6 +273,9 @@ export type BackendApiRoute =
   | 'admin_project_query'
   | 'admin_project_create'
   | 'admin_project_deactivate'
+  | 'admin_assignable_locations'
+  | 'admin_location_setup_projection'
+  | 'admin_location_setup_mutation'
   | 'deferred_lifecycle'
   | 'employee_enrollment_redeem'
   | 'lifecycle'

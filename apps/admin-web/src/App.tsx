@@ -406,6 +406,7 @@ function SetupView({
   }, [state.completedAction]);
   useEffect(() => {
     void administration.refreshProjects?.();
+    void administration.refreshLocationSetup?.();
   }, [administration]);
   useIntentFocusReturn(
     state.reassignmentIntent !== null,
@@ -429,6 +430,9 @@ function SetupView({
   return <SectionBoundary state={state.sections.setup} retryButtonRef={sectionRetryButton}
     onRetry={() => void administration.retrySection('setup')}>
     <div className="content-grid">
+      {state.managementScope.kind === 'organization'
+        ? <LocationSetupPanel state={state} administration={administration} />
+        : null}
       <Panel title="Kunden" description="Aktive und inaktive Kunden der geladenen Seiten.">
         <CountTruth count={state.projection.customers.length} noun="Kunden"
           complete={state.projection.nextCursor === null} />
@@ -578,6 +582,143 @@ function SetupView({
   </SectionBoundary>;
 }
 
+function LocationSetupPanel({
+  state,
+  administration,
+}: {
+  readonly state: ReadyState;
+  readonly administration: AdminWebCapability;
+}) {
+  const [locationName, setLocationName] = useState('');
+  const setup = state.locationSetup;
+  const activeLocations = setup?.locations.filter((location) => location.active) ?? [];
+  const gapLabels = {
+    membership: 'Zugehörigkeit', customer: 'Kunde', project: 'Projekt',
+    work_target: 'Arbeitsziel', nfc_assignment: 'NFC-Zuordnung',
+  } as const;
+  if (setup === null) {
+    return <Panel title="Standorte" description="Standorte und Bindungen werden vollständig geladen."
+      className="full-width">
+      {state.locationSetupBusy
+        ? <DelayedSkeleton label="Standort-Einrichtung wird geladen" />
+        : <button className="secondary" onClick={() => void administration.refreshLocationSetup?.()}>
+            Standort-Einrichtung laden
+          </button>}
+    </Panel>;
+  }
+  return <Panel title="Standorte"
+    description="Standorte vorbereiten, Menschen und Arbeitsziele binden und danach atomar einschalten."
+    className="full-width">
+    <form className="inline-form" onSubmit={(event) => {
+      event.preventDefault();
+      void administration.createLocation?.(locationName).then(() => setLocationName(''));
+    }}>
+      <label htmlFor="location-name">Neuen Standort anlegen</label>
+      <div className="input-action">
+        <input id="location-name" required maxLength={120} value={locationName}
+          onChange={(event) => setLocationName(event.target.value)} />
+        <button disabled={state.locationSetupBusy}>Standort anlegen</button>
+      </div>
+    </form>
+    <ul className="entity-list">{setup.locations.map((location) => <li key={location.id}>
+      <form className="input-action" onSubmit={(event) => {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        void administration.renameLocation?.(
+          location.id, location.rowVersion, String(form.get('displayName') ?? ''),
+        );
+      }}>
+        <input name="displayName" aria-label={`${location.displayName} umbenennen`}
+          defaultValue={location.displayName} disabled={!location.active || state.locationSetupBusy}
+          maxLength={120} required />
+        {location.active ? <button className="secondary" disabled={state.locationSetupBusy}>
+          Namen speichern
+        </button> : <small className="pill">Stillgelegt · historisch sichtbar</small>}
+      </form>
+      {location.active ? <button className="quiet" disabled={state.locationSetupBusy}
+        onClick={() => void administration.deactivateLocation?.(location.id, location.rowVersion)}>
+        Stilllegen
+      </button> : null}
+    </li>)}</ul>
+    {setup.locations.length === 0 ? <p className="empty">Noch kein Standort vorhanden.</p> : null}
+
+    <h3>Menschen zuweisen</h3>
+    <ul className="entity-list">{setup.memberships.map((membership) => <li key={membership.id}>
+      <div><strong>{membership.displayName}</strong><small>{membership.role === 'administrator'
+        ? 'Administrator' : membership.role === 'standortleitung' ? 'Standortleitung' : 'Beschäftigter'}</small></div>
+      <label>Heimatstandort
+        <select value={membership.homeLocationId ?? ''} disabled={state.locationSetupBusy}
+          onChange={(event) => {
+            if (event.target.value.length > 0) void administration.setHomeLocation?.(
+              membership.id, event.target.value,
+            );
+          }}>
+          <option value="">Noch nicht zugewiesen</option>
+          {activeLocations.map((location) => <option key={location.id} value={location.id}>
+            {location.displayName}
+          </option>)}
+        </select>
+      </label>
+      <fieldset><legend>Zusätzliche Arbeitszuweisungen</legend>
+        {activeLocations.filter((location) => location.id !== membership.homeLocationId)
+          .map((location) => <label key={location.id}>
+            <input type="checkbox" checked={membership.workLocationIds.includes(location.id)}
+              disabled={state.locationSetupBusy}
+              onChange={(event) => void administration.setWorkLocation?.(
+                membership.id, location.id, event.target.checked,
+              )} /> {location.displayName}
+          </label>)}
+      </fieldset>
+      {membership.role === 'standortleitung' ? <fieldset>
+        <legend>Verwaltungszuweisungen</legend>
+        {activeLocations.map((location) => <label key={location.id}>
+          <input type="checkbox" checked={membership.managementLocationIds.includes(location.id)}
+            disabled={state.locationSetupBusy}
+            onChange={(event) => void administration.setManagementLocation?.(
+              membership.id, location.id, event.target.checked,
+            )} /> {location.displayName}
+        </label>)}
+      </fieldset> : null}
+    </li>)}</ul>
+
+    <h3>Arbeitsziele zuweisen</h3>
+    <ul className="entity-list">{setup.workTargets.map((target) => <li
+      key={`${target.targetType}:${target.targetId}`}>
+      <span>{target.displayName}</span>
+      <small>{target.targetType === 'customer' ? 'Kunde' : target.targetType === 'project'
+        ? 'Projekt' : 'Allgemeines Arbeitsziel'}</small>
+      <select aria-label={`Standort für ${target.displayName}`} value={target.locationId ?? ''}
+        disabled={state.locationSetupBusy}
+        onChange={(event) => {
+          if (event.target.value.length > 0) void administration.setWorkTargetLocation?.(
+            target.targetType, target.targetId, event.target.value,
+          );
+        }}>
+        <option value="">Noch nicht zugewiesen</option>
+        {activeLocations.map((location) => <option key={location.id} value={location.id}>
+          {location.displayName}
+        </option>)}
+      </select>
+    </li>)}</ul>
+
+    <section className="activation-check" aria-labelledby="location-activation-title">
+      <h3 id="location-activation-title">Vor dem Einschalten</h3>
+      {setup.activationGaps.length === 0
+        ? <p>Alle aktiven Zugehörigkeiten, Kunden, Projekte, Arbeitsziele und NFC-Zuordnungen
+          sind eindeutig gebunden.</p>
+        : <><p><strong>Diese Bindungen fehlen noch:</strong></p>
+          <ul>{setup.activationGaps.map((gap) => <li key={`${gap.kind}:${gap.id}`}>
+            <strong>{gapLabels[gap.kind]}:</strong> {gap.displayName}
+          </li>)}</ul></>}
+      <button disabled={state.locationSetupBusy || (!state.locationsEnabled
+        && setup.activationGaps.length > 0)}
+        onClick={() => void administration.setLocationsEnabled?.(!state.locationsEnabled)}>
+        {state.locationsEnabled ? 'Standort-Funktion ausschalten' : 'Standort-Funktion einschalten'}
+      </button>
+    </section>
+  </Panel>;
+}
+
 function EmployeesView({
   state,
   administration,
@@ -588,7 +729,10 @@ function EmployeesView({
   readonly timezone: TimeZoneContext;
 }) {
   const [name, setName] = useState('');
-  const [role, setRole] = useState<'administrator' | 'employee'>('employee');
+  const [role, setRole] = useState<'administrator' | 'standortleitung' | 'employee'>('employee');
+  const [invitationLocationId, setInvitationLocationId] = useState(
+    state.selectedLocation?.id ?? '',
+  );
   const [revocationIntent, setRevocationIntent] = useState<{
     readonly id: string;
     readonly displayName: string;
@@ -600,6 +744,10 @@ function EmployeesView({
   useEffect(() => {
     if (state.completedAction === 'invitation_created') setName('');
   }, [state.completedAction]);
+  useEffect(() => {
+    if (!state.locationsEnabled) setInvitationLocationId('');
+    else if (state.selectedLocation !== null) setInvitationLocationId(state.selectedLocation.id);
+  }, [state.locationsEnabled, state.selectedLocation]);
   useIntentFocusReturn(revocationIntent !== null, revocationTrigger);
   return <SectionBoundary state={state.sections.employees}
     onRetry={() => void administration.retrySection('employees')}>
@@ -613,7 +761,11 @@ function EmployeesView({
         complete={state.employeeProjection.nextCursor === null} />
       <form className="inline-form" onSubmit={(event) => {
         event.preventDefault();
-        void administration.createEmployeeInvitation(name, role);
+        void administration.createEmployeeInvitation(
+          name,
+          role,
+          state.locationsEnabled ? invitationLocationId : undefined,
+        );
       }}>
         <label htmlFor="employee-name">Einladung für</label>
         <div className="input-action">
@@ -624,10 +776,20 @@ function EmployeesView({
             <select id="employee-role" value={role}
               onChange={(event) => setRole(event.target.value as typeof role)}>
               <option value="employee">Beschäftigter</option>
+              <option value="standortleitung">Standortleitung</option>
               <option value="administrator">Administrator</option>
             </select>
           </> : null}
-          <button disabled={state.creatingEmployee}>
+          {state.locationsEnabled ? <label htmlFor="employee-location">Heimatstandort</label> : null}
+          {state.locationsEnabled ? <select id="employee-location" required
+            value={invitationLocationId}
+            onChange={(event) => setInvitationLocationId(event.target.value)}>
+            <option value="">Standort auswählen</option>
+            {state.assignableLocations.map((location) => <option key={location.id}
+              value={location.id}>{location.name}</option>)}
+          </select> : null}
+          <button disabled={state.creatingEmployee
+            || (state.locationsEnabled && invitationLocationId.length === 0)}>
             {state.creatingEmployee ? 'Wird erzeugt …' : 'Einladung erzeugen'}
           </button>
         </div>
@@ -654,14 +816,19 @@ function EmployeesView({
             && (state.managementScope.kind === 'organization' || membership.role === 'employee')
             ? <div className="entity-actions">
             {state.managementScope.kind === 'organization'
-              ? <button className="secondary" onClick={() => void administration.changeMembershipRole(
-                  membership.id,
-                  membership.rowVersion,
-                  membership.role === 'administrator' ? 'employee' : 'administrator',
-                )}>
-                  {membership.role === 'administrator'
-                    ? 'Rolle Beschäftigter vergeben' : 'Zum Administrator machen'}
-                </button>
+              ? <label>Rolle
+                  <select value={membership.role}
+                    aria-label={`Rolle für ${membership.displayName}`}
+                    onChange={(event) => void administration.changeMembershipRole(
+                      membership.id,
+                      membership.rowVersion,
+                      event.target.value as 'administrator' | 'standortleitung' | 'employee',
+                    )}>
+                    <option value="employee">Beschäftigter</option>
+                    <option value="standortleitung">Standortleitung</option>
+                    <option value="administrator">Administrator</option>
+                  </select>
+                </label>
               : null}
             <button className="quiet" onClick={(event) => {
               revocationTrigger.current = event.currentTarget;

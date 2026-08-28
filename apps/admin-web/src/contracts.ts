@@ -26,6 +26,33 @@ export interface AdministrationLocation {
   readonly id: string;
   readonly name: string;
 }
+export interface LocationSetupState {
+  readonly locations: readonly {
+    readonly id: string;
+    readonly displayName: string;
+    readonly active: boolean;
+    readonly rowVersion: number;
+  }[];
+  readonly memberships: readonly {
+    readonly id: string;
+    readonly displayName: string;
+    readonly role: 'administrator' | 'standortleitung' | 'employee';
+    readonly homeLocationId: string | null;
+    readonly workLocationIds: readonly string[];
+    readonly managementLocationIds: readonly string[];
+  }[];
+  readonly workTargets: readonly {
+    readonly targetType: 'customer' | 'project' | 'general_work';
+    readonly targetId: string;
+    readonly displayName: string;
+    readonly locationId: string | null;
+  }[];
+  readonly activationGaps: readonly {
+    readonly kind: 'membership' | 'customer' | 'project' | 'work_target' | 'nfc_assignment';
+    readonly id: string;
+    readonly displayName: string;
+  }[];
+}
 export type AdministrationManagementScope =
   | { readonly kind: 'organization' }
   | {
@@ -116,6 +143,9 @@ export type AdminWebState =
       readonly availableSections: readonly AdministrationSection[];
       readonly managementScope: AdministrationManagementScope;
       readonly selectedLocation: AdministrationLocation | null;
+      readonly assignableLocations: readonly AdministrationLocation[];
+      readonly locationSetup: LocationSetupState | null;
+      readonly locationSetupBusy: boolean;
       readonly projection: SafeProjection;
       readonly employeeProjection: SafeEmployeeProjection;
       readonly creating: boolean;
@@ -152,12 +182,16 @@ export interface AdminWebCapability {
   retrySection(section: AdminSection): Promise<void>;
   loadMore(): Promise<void>;
   createCustomer(displayName: string): Promise<void>;
-  createEmployeeInvitation(displayName: string, role: 'administrator' | 'employee'): Promise<void>;
+  createEmployeeInvitation(
+    displayName: string,
+    role: 'administrator' | 'standortleitung' | 'employee',
+    locationId?: string | null,
+  ): Promise<void>;
   revokeMembership(membershipId: string, expectedRowVersion: number): Promise<void>;
   changeMembershipRole(
     membershipId: string,
     expectedRowVersion: number,
-    role: 'administrator' | 'employee',
+    role: 'administrator' | 'standortleitung' | 'employee',
   ): Promise<void>;
   loadMoreEmployees(): Promise<void>;
   dismissInvitation(): void;
@@ -184,4 +218,17 @@ export interface AdminWebCapability {
   readonly loadMoreProjects?: () => Promise<void>;
   readonly createProject?: (displayName: string) => Promise<void>;
   readonly deactivateProject?: (projectId: string) => Promise<void>;
+  readonly refreshLocationSetup?: () => Promise<void>;
+  readonly createLocation?: (displayName: string) => Promise<void>;
+  readonly renameLocation?: (locationId: string, expectedRowVersion: number,
+    displayName: string) => Promise<void>;
+  readonly deactivateLocation?: (locationId: string, expectedRowVersion: number) => Promise<void>;
+  readonly setHomeLocation?: (membershipId: string, locationId: string) => Promise<void>;
+  readonly setWorkLocation?: (membershipId: string, locationId: string,
+    assigned: boolean) => Promise<void>;
+  readonly setManagementLocation?: (membershipId: string, locationId: string,
+    assigned: boolean) => Promise<void>;
+  readonly setWorkTargetLocation?: (targetType: 'customer' | 'project' | 'general_work',
+    targetId: string, locationId: string) => Promise<void>;
+  readonly setLocationsEnabled?: (enabled: boolean) => Promise<void>;
 }

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import {
   createCustomerCommandDigestV1,
   normalizeCustomerNameV1,
@@ -24,12 +24,22 @@ import type {
   AdminNfcTagSummary,
   AdminProjectedNfcTagSummary,
   AdminWriteStage,
+  AdministrationLocationActivationGap,
+  AdministrationLocationSetup,
+  AdministrationMembershipLocationSetup,
+  AdministrationWorkTargetLocationSetup,
   CreateCustomerCommand,
   CreateCustomerResult,
+  MutateLocationSetupCommand,
+  MutateLocationSetupResult,
   ProvisionNfcTagCommand,
   ProvisionNfcTagResult,
   ProvisionBreakNfcTagCommand,
   ProvisionBreakNfcTagResult,
+  ReadAssignableLocationsCommand,
+  ReadAssignableLocationsResult,
+  ReadLocationSetupProjectionCommand,
+  ReadLocationSetupProjectionResult,
   ReadSetupProjectionCommand,
   ReadSetupProjectionResult,
 } from './types.js';
@@ -39,6 +49,10 @@ export const C3C_ADMIN_SETUP_ROLE = 'taptime_admin_setup';
 
 const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const cursorPattern = /^v1:([ct]):([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
+const locationCursorPattern = /^v1:l:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
+const membershipLocationCursorPattern = /^v1:m:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
+const workTargetLocationCursorPattern = /^v1:w:(customer|project|general_work):([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
+const locationGapCursorPattern = /^v1:g:([0-4]):([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
 const DEFAULT_INTERNAL_DEADLINE_MILLISECONDS = 8_000;
 const DEADLINE_SAFETY_MILLISECONDS = 100;
 
@@ -94,6 +108,43 @@ interface BreakTagReceiptRow extends QueryResultRow {
 interface OrganizationRow extends QueryResultRow {
   readonly id: string;
   readonly name: string;
+}
+
+interface LocationSetupRow extends QueryResultRow {
+  readonly id: string;
+  readonly display_name: string;
+  readonly active: boolean;
+  readonly row_version: string;
+}
+
+interface MembershipLocationSetupRow extends QueryResultRow {
+  readonly id: string;
+  readonly display_name: string;
+  readonly role: string;
+  readonly home_location_id: string | null;
+  readonly work_location_ids: string[];
+  readonly management_location_ids: string[];
+}
+
+interface WorkTargetLocationSetupRow extends QueryResultRow {
+  readonly target_type: 'customer' | 'project' | 'general_work';
+  readonly target_id: string;
+  readonly display_name: string;
+  readonly location_id: string | null;
+}
+
+interface LocationGapRow extends QueryResultRow {
+  readonly kind_order: number;
+  readonly gap_kind: AdministrationLocationActivationGap['kind'];
+  readonly id: string;
+  readonly display_name: string;
+}
+
+interface LocationReceiptRow extends QueryResultRow {
+  readonly actor_user_id: string;
+  readonly actor_membership_id: string;
+  readonly command_type: MutateLocationSetupCommand['action'];
+  readonly request_hash: Buffer;
 }
 
 interface ParsedCursor {
@@ -458,6 +509,156 @@ export class AdminWriteSessionCoordinator {
       });
   }
 
+  async readAssignableLocations(
+    command: ReadAssignableLocationsCommand,
+    controls: AdminCoordinatorControls = {},
+  ): Promise<ReadAssignableLocationsResult> {
+    const afterId = parseSimpleLocationCursor(command.cursor, 'locations');
+    if (!validLocationRead(command, afterId)) return { status: 'invalid_request' };
+    return this.runWithAuthority(
+      command.accessToken,
+      command.expectedMembershipId,
+      null,
+      controls,
+      async (client, actor) => {
+        const rows = await client.query<LocationSetupRow>(
+          `SELECT location.id, location.display_name, location.active, location.row_version::text
+           FROM taptime_server.locations AS location
+           WHERE location.organization_id = $1
+             AND location.active
+             AND ($2::uuid IS NULL OR location.id > $2)
+           ORDER BY location.id
+           LIMIT $3`,
+          [actor.organization_id, afterId, command.limit + 1],
+        );
+        const page = rows.rows.slice(0, command.limit);
+        return {
+          disposition: 'commit',
+          value: {
+            status: 'succeeded',
+            locations: page.map((row) => ({ id: row.id, displayName: row.display_name })),
+            nextCursor: rows.rows.length > command.limit
+              ? `v1:l:${page.at(-1)!.id}`
+              : null,
+          },
+        };
+      },
+    );
+  }
+
+  async readLocationSetupProjection(
+    command: ReadLocationSetupProjectionCommand,
+    controls: AdminCoordinatorControls = {},
+  ): Promise<ReadLocationSetupProjectionResult> {
+    const parsedCursor = parseLocationSetupCursor(command.kind, command.cursor);
+    if (parsedCursor === undefined || !validLocationRead(command, parsedCursor)) {
+      return { status: 'invalid_request' };
+    }
+    return this.runWithAuthority<ReadLocationSetupProjectionResult>(
+      command.accessToken,
+      command.expectedMembershipId,
+      null,
+      controls,
+      async (client, actor) => {
+        const feature = await client.query<{ readonly locations_enabled: boolean }>(
+          `SELECT organization.locations_enabled
+           FROM taptime_server.organizations AS organization
+           WHERE organization.id = $1`,
+          [actor.organization_id],
+        );
+        if (feature.rowCount !== 1) throw new Error('Location setup Organization disappeared');
+        const projected = await readLocationSetupPage(
+          client,
+          actor.organization_id,
+          actor.membership_id,
+          command.kind,
+          parsedCursor,
+          command.limit,
+        );
+        return {
+          disposition: 'commit',
+          value: {
+            status: 'succeeded',
+            locationsEnabled: feature.rows[0]!.locations_enabled,
+            kind: command.kind,
+            items: projected.items,
+            nextCursor: projected.nextCursor,
+          },
+        };
+      },
+    );
+  }
+
+  async mutateLocationSetup(
+    command: MutateLocationSetupCommand,
+    controls: AdminCoordinatorControls = {},
+  ): Promise<MutateLocationSetupResult> {
+    const prepared = prepareLocationMutation(command);
+    if (prepared === null) return { status: 'invalid_request' };
+    return this.runWithAuthority<MutateLocationSetupResult>(
+      command.accessToken,
+      command.expectedMembershipId,
+      command.commandId,
+      controls,
+      async (client, actor, assertActive) => {
+        await client.query(
+          'SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended($1, 0))',
+          [`taptime:t015e:location-setup:v1:${actor.organization_id}`],
+        );
+        assertActive();
+        const existing = await client.query<LocationReceiptRow>(
+          `SELECT actor_user_id, actor_membership_id, command_type, request_hash
+           FROM taptime_server.location_setup_command_receipts
+           WHERE organization_id = $1 AND command_id = $2`,
+          [actor.organization_id, command.commandId],
+        );
+        if (existing.rowCount === 1) {
+          const receipt = existing.rows[0]!;
+          const matches = receipt.actor_user_id === actor.user_id
+            && receipt.actor_membership_id === actor.membership_id
+            && receipt.command_type === command.action
+            && receipt.request_hash.length === prepared.requestHash.length
+            && timingSafeEqual(receipt.request_hash, prepared.requestHash);
+          return {
+            disposition: 'commit',
+            value: matches
+              ? { status: 'succeeded', idempotentRetry: true }
+              : { status: 'command_id_conflict' },
+          };
+        }
+        assertActive();
+        const result = await applyLocationMutation(
+          client,
+          actor.organization_id,
+          command,
+          prepared.canonicalName,
+        );
+        if (result.status !== 'succeeded') {
+          return { disposition: 'rollback', value: result };
+        }
+        await client.query(
+          `INSERT INTO taptime_server.location_setup_command_receipts (
+             organization_id, command_id, actor_user_id, actor_membership_id,
+             command_type, request_hash, result_entity_id
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [
+            actor.organization_id,
+            command.commandId,
+            actor.user_id,
+            actor.membership_id,
+            command.action,
+            prepared.requestHash,
+            locationMutationEntityId(command, actor.organization_id),
+          ],
+        );
+        return {
+          disposition: 'commit',
+          value: { status: 'succeeded', idempotentRetry: false },
+        };
+      },
+    );
+  }
+
   async readSetupProjection(
     command: ReadSetupProjectionCommand,
     controls: AdminCoordinatorControls = {},
@@ -720,6 +921,561 @@ export class AdminWriteSessionCoordinator {
       client.release(connectionFailure);
     }
   }
+}
+
+type ParsedLocationSetupCursor =
+  | { readonly kind: 'locations' | 'memberships'; readonly id: string }
+  | { readonly kind: 'work_targets'; readonly targetType: string; readonly id: string }
+  | { readonly kind: 'activation_gaps'; readonly kindOrder: number; readonly id: string };
+
+function validLocationRead(
+  command: { readonly accessToken: unknown; readonly expectedMembershipId: unknown;
+    readonly limit: unknown },
+  parsedCursor: unknown,
+): boolean {
+  return typeof command.accessToken === 'string'
+    && command.accessToken.length > 0
+    && isCanonicalUuid(command.expectedMembershipId)
+    && parsedCursor !== undefined
+    && Number.isSafeInteger(command.limit)
+    && Number(command.limit) >= 1
+    && Number(command.limit) <= 100;
+}
+
+function parseSimpleLocationCursor(
+  value: unknown,
+  kind: 'locations' | 'memberships',
+): string | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > 256) return undefined;
+  const match = (kind === 'locations' ? locationCursorPattern : membershipLocationCursorPattern)
+    .exec(value);
+  return match?.[1];
+}
+
+function parseLocationSetupCursor(
+  kind: ReadLocationSetupProjectionCommand['kind'],
+  value: unknown,
+): ParsedLocationSetupCursor | null | undefined {
+  if (value === null) return null;
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > 256) return undefined;
+  if (kind === 'locations' || kind === 'memberships') {
+    const id = parseSimpleLocationCursor(value, kind);
+    return id === undefined || id === null ? id : { kind, id };
+  }
+  if (kind === 'work_targets') {
+    const match = workTargetLocationCursorPattern.exec(value);
+    return match === null ? undefined : { kind, targetType: match[1]!, id: match[2]! };
+  }
+  const match = locationGapCursorPattern.exec(value);
+  return match === null ? undefined : { kind, kindOrder: Number(match[1]), id: match[2]! };
+}
+
+async function readLocationSetupPage(
+  client: PoolClient,
+  organizationId: string,
+  actorMembershipId: string,
+  kind: ReadLocationSetupProjectionCommand['kind'],
+  cursor: ParsedLocationSetupCursor | null,
+  limit: number,
+): Promise<{
+  readonly items: readonly (
+    | AdministrationLocationSetup
+    | AdministrationMembershipLocationSetup
+    | AdministrationWorkTargetLocationSetup
+    | AdministrationLocationActivationGap
+  )[];
+  readonly nextCursor: string | null;
+}> {
+  if (kind === 'locations') {
+    const afterId = cursor?.kind === 'locations' ? cursor.id : null;
+    const result = await client.query<LocationSetupRow>(
+      `SELECT location.id, location.display_name, location.active, location.row_version::text
+       FROM taptime_server.locations AS location
+       WHERE location.organization_id = $1
+         AND ($2::uuid IS NULL OR location.id > $2)
+       ORDER BY location.id
+       LIMIT $3`,
+      [organizationId, afterId, limit + 1],
+    );
+    const page = result.rows.slice(0, limit);
+    const items: AdministrationLocationSetup[] = page.map((row) => ({
+      id: row.id,
+      displayName: row.display_name,
+      active: row.active,
+      rowVersion: safePositiveInteger(row.row_version, 'Location row version'),
+    }));
+    return { items, nextCursor: result.rows.length > limit ? `v1:l:${page.at(-1)!.id}` : null };
+  }
+
+  if (kind === 'memberships') {
+    const afterId = cursor?.kind === 'memberships' ? cursor.id : null;
+    const result = await client.query<MembershipLocationSetupRow>(
+      `SELECT membership.id, COALESCE(membership.display_name, '') AS display_name,
+              membership.role, home.location_id AS home_location_id,
+              ARRAY(
+                SELECT work_grant.location_id::text
+                FROM taptime_server.membership_work_location_grants AS work_grant
+                WHERE work_grant.organization_id = membership.organization_id
+                  AND work_grant.membership_id = membership.id
+                  AND work_grant.revoked_at IS NULL
+                ORDER BY work_grant.location_id
+              ) AS work_location_ids,
+              ARRAY(
+                SELECT management_grant.location_id::text
+                FROM taptime_server.membership_management_location_grants AS management_grant
+                WHERE management_grant.organization_id = membership.organization_id
+                  AND management_grant.membership_id = membership.id
+                  AND management_grant.revoked_at IS NULL
+                ORDER BY management_grant.location_id
+              ) AS management_location_ids
+       FROM taptime_server.memberships AS membership
+       LEFT JOIN taptime_server.membership_home_location_assignments AS home
+         ON home.organization_id = membership.organization_id
+        AND home.membership_id = membership.id
+        AND home.revoked_at IS NULL
+       WHERE membership.organization_id = $1
+         AND membership.revoked_at IS NULL
+         AND ($2::uuid IS NULL OR membership.id > $2)
+       ORDER BY membership.id
+       LIMIT $3`,
+      [organizationId, afterId, limit + 1],
+    );
+    const page = result.rows.slice(0, limit);
+    const items: AdministrationMembershipLocationSetup[] = page.map((row) => {
+      if (!isMembershipRole(row.role)) throw new Error('Unsupported Location setup Membership role');
+      return {
+        id: row.id,
+        displayName: row.display_name.length > 0
+          ? row.display_name
+          : row.id === actorMembershipId ? 'Sie selbst' : `Zugehörigkeit ${row.id}`,
+        role: row.role,
+        homeLocationId: row.home_location_id,
+        workLocationIds: Object.freeze([...row.work_location_ids]),
+        managementLocationIds: Object.freeze([...row.management_location_ids]),
+      };
+    });
+    return { items, nextCursor: result.rows.length > limit ? `v1:m:${page.at(-1)!.id}` : null };
+  }
+
+  if (kind === 'work_targets') {
+    const afterType = cursor?.kind === 'work_targets' ? cursor.targetType : null;
+    const afterId = cursor?.kind === 'work_targets' ? cursor.id : null;
+    const result = await client.query<WorkTargetLocationSetupRow>(
+      `SELECT target.target_type, target.target_id, target.display_name,
+              binding.location_id
+       FROM taptime_server.work_targets AS target
+       LEFT JOIN taptime_server.work_target_location_assignments AS binding
+         ON binding.organization_id = target.organization_id
+        AND binding.target_type = target.target_type
+        AND binding.target_id = target.target_id
+        AND binding.revoked_at IS NULL
+       WHERE target.organization_id = $1
+         AND target.active
+         AND (
+           $2::text IS NULL
+           OR (target.target_type, target.target_id) > ($2, $3::uuid)
+         )
+       ORDER BY target.target_type, target.target_id
+       LIMIT $4`,
+      [organizationId, afterType, afterId, limit + 1],
+    );
+    const page = result.rows.slice(0, limit);
+    const items: AdministrationWorkTargetLocationSetup[] = page.map((row) => ({
+      targetType: row.target_type,
+      targetId: row.target_id,
+      displayName: row.display_name,
+      locationId: row.location_id,
+    }));
+    const last = page.at(-1);
+    return {
+      items,
+      nextCursor: result.rows.length > limit && last !== undefined
+        ? `v1:w:${last.target_type}:${last.target_id}`
+        : null,
+    };
+  }
+
+  const afterKind = cursor?.kind === 'activation_gaps' ? cursor.kindOrder : null;
+  const afterId = cursor?.kind === 'activation_gaps' ? cursor.id : null;
+  const result = await client.query<LocationGapRow>(
+    `WITH gaps AS (
+       SELECT 0 AS kind_order, 'membership'::text AS gap_kind, membership.id,
+              COALESCE(membership.display_name, CASE WHEN membership.id = $5
+                THEN 'Sie selbst' ELSE 'Zugehörigkeit ' || membership.id::text END)
+                AS display_name
+       FROM taptime_server.memberships AS membership
+       WHERE membership.organization_id = $1 AND membership.revoked_at IS NULL
+         AND 1 <> (
+           SELECT count(*)
+           FROM taptime_server.membership_home_location_assignments AS home
+           JOIN taptime_server.locations AS location
+             ON location.organization_id = home.organization_id
+            AND location.id = home.location_id AND location.active
+           WHERE home.organization_id = membership.organization_id
+             AND home.membership_id = membership.id AND home.revoked_at IS NULL
+         )
+       UNION ALL
+       SELECT 1, 'customer', customer.id, customer.display_name
+       FROM taptime_server.customers AS customer
+       LEFT JOIN taptime_server.work_targets AS target
+         ON target.organization_id = customer.organization_id
+        AND target.target_type = 'customer' AND target.target_id = customer.id
+       WHERE customer.organization_id = $1 AND customer.active
+         AND (target.target_id IS NULL OR NOT target.active OR 1 <> (
+           SELECT count(*) FROM taptime_server.work_target_location_assignments AS binding
+           JOIN taptime_server.locations AS location
+             ON location.organization_id = binding.organization_id
+            AND location.id = binding.location_id AND location.active
+           WHERE binding.organization_id = customer.organization_id
+             AND binding.target_type = 'customer' AND binding.target_id = customer.id
+             AND binding.revoked_at IS NULL
+         ))
+       UNION ALL
+       SELECT 2, 'project', project.id, project.display_name
+       FROM taptime_server.projects AS project
+       LEFT JOIN taptime_server.work_targets AS target
+         ON target.organization_id = project.organization_id
+        AND target.target_type = 'project' AND target.target_id = project.id
+       WHERE project.organization_id = $1 AND project.active
+         AND (target.target_id IS NULL OR NOT target.active OR 1 <> (
+           SELECT count(*) FROM taptime_server.work_target_location_assignments AS binding
+           JOIN taptime_server.locations AS location
+             ON location.organization_id = binding.organization_id
+            AND location.id = binding.location_id AND location.active
+           WHERE binding.organization_id = project.organization_id
+             AND binding.target_type = 'project' AND binding.target_id = project.id
+             AND binding.revoked_at IS NULL
+         ))
+       UNION ALL
+       SELECT 3, 'work_target', target.target_id, target.display_name
+       FROM taptime_server.work_targets AS target
+       WHERE target.organization_id = $1 AND target.active AND target.target_type = 'general_work'
+         AND 1 <> (
+           SELECT count(*) FROM taptime_server.work_target_location_assignments AS binding
+           JOIN taptime_server.locations AS location
+             ON location.organization_id = binding.organization_id
+            AND location.id = binding.location_id AND location.active
+           WHERE binding.organization_id = target.organization_id
+             AND binding.target_type = target.target_type
+             AND binding.target_id = target.target_id AND binding.revoked_at IS NULL
+         )
+       UNION ALL
+       SELECT 4, 'nfc_assignment', assignment.id,
+              tag.display_name || ' → ' || COALESCE(target.display_name, 'Arbeitsziel fehlt')
+       FROM taptime_server.nfc_assignments AS assignment
+       JOIN taptime_server.nfc_tags AS tag
+         ON tag.organization_id = assignment.organization_id AND tag.id = assignment.nfc_tag_id
+       LEFT JOIN taptime_server.work_targets AS target
+         ON target.organization_id = assignment.organization_id
+        AND target.target_type = assignment.target_type
+        AND target.target_id = assignment.target_customer_id
+       WHERE assignment.organization_id = $1 AND assignment.active
+         AND assignment.assignment_type = 'work'
+         AND (target.target_id IS NULL OR NOT target.active OR 1 <> (
+           SELECT count(*) FROM taptime_server.work_target_location_assignments AS binding
+           JOIN taptime_server.locations AS location
+             ON location.organization_id = binding.organization_id
+            AND location.id = binding.location_id AND location.active
+           WHERE binding.organization_id = target.organization_id
+             AND binding.target_type = target.target_type
+             AND binding.target_id = target.target_id AND binding.revoked_at IS NULL
+         ))
+     )
+     SELECT kind_order, gap_kind, id, display_name FROM gaps
+     WHERE $2::integer IS NULL OR (kind_order, id) > ($2, $3::uuid)
+     ORDER BY kind_order, id LIMIT $4`,
+    [organizationId, afterKind, afterId, limit + 1, actorMembershipId],
+  );
+  const page = result.rows.slice(0, limit);
+  const items: AdministrationLocationActivationGap[] = page.map((row) => ({
+    kind: row.gap_kind,
+    id: row.id,
+    displayName: row.display_name,
+  }));
+  const last = page.at(-1);
+  return {
+    items,
+    nextCursor: result.rows.length > limit && last !== undefined
+      ? `v1:g:${last.kind_order}:${last.id}`
+      : null,
+  };
+}
+
+function prepareLocationMutation(command: MutateLocationSetupCommand): {
+  readonly canonicalName: string | null;
+  readonly requestHash: Buffer;
+} | null {
+  if (!validCommonCommand(command)) return null;
+  let canonicalName: string | null = null;
+  if (command.action === 'create_location' || command.action === 'rename_location') {
+    if (!isCanonicalUuid(command.locationId) || typeof command.displayName !== 'string') return null;
+    const normalized = normalizeCustomerNameV1(command.displayName);
+    if (normalized.status !== 'valid') return null;
+    canonicalName = normalized.canonicalName;
+    if (command.action === 'rename_location'
+      && (!Number.isSafeInteger(command.expectedRowVersion) || command.expectedRowVersion < 1)) {
+      return null;
+    }
+  } else if (command.action === 'deactivate_location') {
+    if (!isCanonicalUuid(command.locationId)
+      || !Number.isSafeInteger(command.expectedRowVersion) || command.expectedRowVersion < 1) return null;
+  } else if (
+    command.action === 'set_home_location'
+    || command.action === 'set_work_location'
+    || command.action === 'set_management_location'
+  ) {
+    if (!isCanonicalUuid(command.membershipId) || !isCanonicalUuid(command.locationId)) return null;
+    if (command.action !== 'set_home_location' && typeof command.assigned !== 'boolean') return null;
+  } else if (command.action === 'set_work_target_location') {
+    if (!['customer', 'project', 'general_work'].includes(command.targetType)
+      || !isCanonicalUuid(command.targetId) || !isCanonicalUuid(command.locationId)) return null;
+  } else if (command.action === 'set_locations_enabled') {
+    if (typeof command.enabled !== 'boolean') return null;
+  } else {
+    return null;
+  }
+  const common = {
+    expectedMembershipId: command.expectedMembershipId,
+    commandId: command.commandId,
+    action: command.action,
+  } as const;
+  const request = command.action === 'create_location'
+    ? { ...common, locationId: command.locationId, displayName: canonicalName }
+    : command.action === 'rename_location'
+      ? { ...common, locationId: command.locationId,
+          expectedRowVersion: command.expectedRowVersion, displayName: canonicalName }
+      : command.action === 'deactivate_location'
+        ? { ...common, locationId: command.locationId,
+            expectedRowVersion: command.expectedRowVersion }
+        : command.action === 'set_home_location'
+          ? { ...common, membershipId: command.membershipId, locationId: command.locationId }
+          : command.action === 'set_work_location'
+            ? { ...common, membershipId: command.membershipId, locationId: command.locationId,
+                assigned: command.assigned }
+            : command.action === 'set_management_location'
+              ? { ...common, membershipId: command.membershipId, locationId: command.locationId,
+                  assigned: command.assigned }
+              : command.action === 'set_work_target_location'
+                ? { ...common, targetType: command.targetType, targetId: command.targetId,
+                    locationId: command.locationId }
+                : { ...common, enabled: command.enabled };
+  return {
+    canonicalName,
+    requestHash: createHash('sha256')
+      .update('taptime:t015e:location-setup:v1\0')
+      .update(JSON.stringify(request))
+      .digest(),
+  };
+}
+
+function locationMutationEntityId(command: MutateLocationSetupCommand, organizationId: string): string {
+  switch (command.action) {
+    case 'create_location':
+    case 'rename_location':
+    case 'deactivate_location':
+    case 'set_home_location':
+    case 'set_work_location':
+    case 'set_management_location': return command.locationId;
+    case 'set_work_target_location': return command.targetId;
+    case 'set_locations_enabled': return organizationId;
+  }
+}
+
+async function applyLocationMutation(
+  client: PoolClient,
+  organizationId: string,
+  command: MutateLocationSetupCommand,
+  canonicalName: string | null,
+): Promise<MutateLocationSetupResult> {
+  if (command.action === 'create_location') {
+    const inserted = await client.query(
+      `INSERT INTO taptime_server.locations (id, organization_id, display_name)
+       VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+      [command.locationId, organizationId, canonicalName],
+    );
+    return inserted.rowCount === 1
+      ? { status: 'succeeded', idempotentRetry: false }
+      : { status: 'location_unavailable' };
+  }
+  if (command.action === 'rename_location' || command.action === 'deactivate_location') {
+    const references = command.action === 'deactivate_location'
+      ? await client.query(
+          `SELECT 1 FROM (
+             SELECT location_id FROM taptime_server.membership_home_location_assignments
+               WHERE organization_id = $1 AND location_id = $2 AND revoked_at IS NULL
+             UNION ALL SELECT location_id FROM taptime_server.membership_work_location_grants
+               WHERE organization_id = $1 AND location_id = $2 AND revoked_at IS NULL
+             UNION ALL SELECT location_id FROM taptime_server.membership_management_location_grants
+               WHERE organization_id = $1 AND location_id = $2 AND revoked_at IS NULL
+             UNION ALL SELECT location_id FROM taptime_server.work_target_location_assignments
+               WHERE organization_id = $1 AND location_id = $2 AND revoked_at IS NULL
+           ) AS reference LIMIT 1`,
+          [organizationId, command.locationId],
+        )
+      : null;
+    if (references?.rowCount === 1) return { status: 'location_in_use' };
+    const updated = command.action === 'rename_location'
+      ? await client.query(
+          `UPDATE taptime_server.locations
+           SET display_name = $4, row_version = row_version + 1
+           WHERE organization_id = $1 AND id = $2 AND active AND row_version = $3`,
+          [organizationId, command.locationId, command.expectedRowVersion, canonicalName],
+        )
+      : await client.query(
+          `UPDATE taptime_server.locations
+           SET active = false, deactivated_at = pg_catalog.transaction_timestamp(),
+               row_version = row_version + 1
+           WHERE organization_id = $1 AND id = $2 AND active AND row_version = $3`,
+          [organizationId, command.locationId, command.expectedRowVersion],
+        );
+    if (updated.rowCount === 1) return { status: 'succeeded', idempotentRetry: false };
+    const current = await client.query<{ readonly row_version: string }>(
+      `SELECT row_version::text FROM taptime_server.locations
+       WHERE organization_id = $1 AND id = $2 AND active`,
+      [organizationId, command.locationId],
+    );
+    return current.rowCount === 1 ? { status: 'stale_row_version' } : { status: 'location_unavailable' };
+  }
+  if (command.action === 'set_locations_enabled') {
+    try {
+      await client.query(
+        'SELECT taptime_server.set_organization_locations_enabled_v1($1, $2)',
+        [organizationId, command.enabled],
+      );
+      return { status: 'succeeded', idempotentRetry: false };
+    } catch (error) {
+      if (isPostgresError(error, '23514')) return { status: 'setup_incomplete' };
+      throw error;
+    }
+  }
+
+  const location = await client.query(
+    `SELECT 1 FROM taptime_server.locations
+     WHERE organization_id = $1 AND id = $2 AND active`,
+    [organizationId, command.locationId],
+  );
+  if (location.rowCount !== 1) return { status: 'location_unavailable' };
+
+  if (command.action === 'set_work_target_location') {
+    const target = await client.query(
+      `SELECT 1 FROM taptime_server.work_targets
+       WHERE organization_id = $1 AND target_type = $2 AND target_id = $3 AND active`,
+      [organizationId, command.targetType, command.targetId],
+    );
+    if (target.rowCount !== 1) return { status: 'target_unavailable' };
+    const current = await client.query<{ readonly id: string; readonly location_id: string }>(
+      `SELECT id, location_id FROM taptime_server.work_target_location_assignments
+       WHERE organization_id = $1 AND target_type = $2 AND target_id = $3 AND revoked_at IS NULL
+       FOR UPDATE`,
+      [organizationId, command.targetType, command.targetId],
+    );
+    if (current.rows[0]?.location_id === command.locationId) {
+      return { status: 'succeeded', idempotentRetry: false };
+    }
+    if (current.rowCount === 1) {
+      await client.query(
+        `UPDATE taptime_server.work_target_location_assignments
+         SET revoked_at = pg_catalog.transaction_timestamp() WHERE id = $1`,
+        [current.rows[0]!.id],
+      );
+    }
+    await client.query(
+      `INSERT INTO taptime_server.work_target_location_assignments
+         (id, organization_id, target_type, target_id, location_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [randomUUID(), organizationId, command.targetType, command.targetId, command.locationId],
+    );
+    return { status: 'succeeded', idempotentRetry: false };
+  }
+
+  const membership = await client.query<{ readonly role: string }>(
+    `SELECT role FROM taptime_server.memberships
+     WHERE organization_id = $1 AND id = $2 AND revoked_at IS NULL`,
+    [organizationId, command.membershipId],
+  );
+  if (membership.rowCount !== 1) return { status: 'membership_unavailable' };
+  if (command.action === 'set_management_location'
+    && command.assigned && membership.rows[0]!.role !== 'standortleitung') {
+    return { status: 'management_role_required' };
+  }
+
+  if (command.action === 'set_home_location') {
+    const workConflict = await client.query(
+      `SELECT 1 FROM taptime_server.membership_work_location_grants
+       WHERE organization_id = $1 AND membership_id = $2 AND location_id = $3
+         AND revoked_at IS NULL`,
+      [organizationId, command.membershipId, command.locationId],
+    );
+    if (workConflict.rowCount === 1) return { status: 'home_work_conflict' };
+    const current = await client.query<{ readonly id: string; readonly location_id: string }>(
+      `SELECT id, location_id FROM taptime_server.membership_home_location_assignments
+       WHERE organization_id = $1 AND membership_id = $2 AND revoked_at IS NULL FOR UPDATE`,
+      [organizationId, command.membershipId],
+    );
+    if (current.rows[0]?.location_id === command.locationId) {
+      return { status: 'succeeded', idempotentRetry: false };
+    }
+    if (current.rowCount === 1) {
+      await client.query(
+        `UPDATE taptime_server.membership_home_location_assignments
+         SET revoked_at = pg_catalog.transaction_timestamp() WHERE id = $1`,
+        [current.rows[0]!.id],
+      );
+    }
+    await client.query(
+      `INSERT INTO taptime_server.membership_home_location_assignments
+         (id, organization_id, membership_id, location_id)
+       VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), organizationId, command.membershipId, command.locationId],
+    );
+    return { status: 'succeeded', idempotentRetry: false };
+  }
+
+  const table = command.action === 'set_work_location'
+    ? 'membership_work_location_grants'
+    : 'membership_management_location_grants';
+  if (command.action === 'set_work_location' && command.assigned) {
+    const homeConflict = await client.query(
+      `SELECT 1 FROM taptime_server.membership_home_location_assignments
+       WHERE organization_id = $1 AND membership_id = $2 AND location_id = $3
+         AND revoked_at IS NULL`,
+      [organizationId, command.membershipId, command.locationId],
+    );
+    if (homeConflict.rowCount === 1) return { status: 'home_work_conflict' };
+  }
+  const current = await client.query<{ readonly id: string }>(
+    `SELECT id FROM taptime_server.${table}
+     WHERE organization_id = $1 AND membership_id = $2 AND location_id = $3
+       AND revoked_at IS NULL FOR UPDATE`,
+    [organizationId, command.membershipId, command.locationId],
+  );
+  if (command.assigned && current.rowCount === 0) {
+    await client.query(
+      `INSERT INTO taptime_server.${table}
+         (id, organization_id, membership_id, location_id)
+       VALUES ($1, $2, $3, $4)`,
+      [randomUUID(), organizationId, command.membershipId, command.locationId],
+    );
+  } else if (!command.assigned && current.rowCount === 1) {
+    await client.query(
+      `UPDATE taptime_server.${table}
+       SET revoked_at = pg_catalog.transaction_timestamp() WHERE id = $1`,
+      [current.rows[0]!.id],
+    );
+  }
+  return { status: 'succeeded', idempotentRetry: false };
+}
+
+function safePositiveInteger(value: string, label: string): number {
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) throw new Error(`${label} is unsafe`);
+  return parsed;
+}
+
+function isPostgresError(error: unknown, code: string): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error
+    && (error as { readonly code?: unknown }).code === code;
 }
 
 function validCommonCommand(command: {

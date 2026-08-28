@@ -58,6 +58,52 @@ function employeeMemberships(start: number, count: number) {
 }
 
 describe('AdminWebApiClient', () => {
+  it('parses named Location setup pages and sends lifecycle mutations as closed DTOs', async () => {
+    const fetchRequest = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(json({
+        status: 'succeeded',
+        locationsEnabled: false,
+        kind: 'activation_gaps',
+        items: [{ kind: 'membership', id: ids.employeeMembership, displayName: 'Employee Alpha' }],
+        nextCursor: null,
+      }))
+      .mockResolvedValueOnce(json({ status: 'succeeded', idempotentRetry: false }));
+    const client = new AdminWebApiClient(fetchRequest);
+
+    await expect(client.locationSetupPage(
+      'token', ids.membership, 'activation_gaps', null,
+    )).resolves.toEqual({
+      status: 'succeeded',
+      value: {
+        locationsEnabled: false,
+        items: [{ kind: 'membership', id: ids.employeeMembership,
+          displayName: 'Employee Alpha' }],
+        nextCursor: null,
+      },
+    });
+    await expect(client.mutateLocationSetup(
+      'token', ids.membership, ids.command,
+      { action: 'set_home_location', membershipId: ids.employeeMembership,
+        locationId: ids.location },
+    )).resolves.toEqual({ status: 'succeeded', value: true });
+
+    expect(fetchRequest.mock.calls[0]?.[0])
+      .toBe('/v1/administration/location-setup/query');
+    expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
+      expectedMembershipId: ids.membership,
+      kind: 'activation_gaps',
+      cursor: null,
+      limit: 100,
+    });
+    expect(JSON.parse(String(fetchRequest.mock.calls[1]?.[1]?.body))).toEqual({
+      expectedMembershipId: ids.membership,
+      commandId: ids.command,
+      action: 'set_home_location',
+      membershipId: ids.employeeMembership,
+      locationId: ids.location,
+    });
+  });
+
   it('records a password reset with an exact credential-free POST body and response', async () => {
     const fetchRequest = vi.fn<typeof fetch>(async () => json({ status: 'succeeded' }));
     const client = new AdminWebApiClient(fetchRequest);

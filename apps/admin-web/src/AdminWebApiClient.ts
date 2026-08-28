@@ -1,4 +1,5 @@
 import type {
+  AdministrationLocation,
   AdministrationManagementScope,
   AdministrationSection,
   CursorPage,
@@ -24,6 +25,8 @@ const invitationSecret = /^[A-Za-z0-9_-]{43}$/;
 const canonicalTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const opaqueCursor = /^[A-Za-z0-9_-]{1,512}$/;
 const projectCursor = /^v1:[A-Za-z0-9_-]{1,252}$/;
+const locationCursor = /^v1:l:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const locationSetupCursor = /^v1:(?:l|m|w:(?:customer|project|general_work)|g:[0-4]):[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const fingerprint = /^[A-F0-9]{12}$/;
 export type Session = {
   readonly membershipId: string;
@@ -53,6 +56,12 @@ export type ApiResult<Value> =
         | 'last_administrator'
         | 'self_revocation_forbidden'
         | 'location_scope_forbidden'
+        | 'home_work_conflict'
+        | 'location_in_use'
+        | 'location_unavailable'
+        | 'management_role_required'
+        | 'membership_unavailable'
+        | 'setup_incomplete'
         | 'target_unavailable';
     };
 
@@ -77,7 +86,7 @@ export interface AdminWebApiPort {
     membershipId: string,
     commandId: string,
     displayName: string,
-    role: 'administrator' | 'employee',
+    role: 'administrator' | 'standortleitung' | 'employee',
     locationId?: string | null,
   ): Promise<ApiResult<VolatileInvitationSecret>>;
   revokeMembership(
@@ -87,7 +96,7 @@ export interface AdminWebApiPort {
   changeMembershipRole(
     token: string, membershipId: string, commandId: string,
     targetMembershipId: string, expectedRowVersion: number,
-    role: 'administrator' | 'employee',
+    role: 'administrator' | 'standortleitung' | 'employee',
   ): Promise<ApiResult<true>>;
   reassignNfcTag(
     token: string,
@@ -150,6 +159,24 @@ export interface AdminWebApiPort {
     commandId: string,
     project: SafeProject,
   ) => Promise<ApiResult<SafeProject>>;
+  readonly assignableLocations?: (
+    token: string,
+    membershipId: string,
+    nextCursor: string | null,
+  ) => Promise<ApiResult<CursorPage<AdministrationLocation>>>;
+  readonly locationSetupPage?: (
+    token: string,
+    membershipId: string,
+    kind: 'locations' | 'memberships' | 'work_targets' | 'activation_gaps',
+    nextCursor: string | null,
+  ) => Promise<ApiResult<{ readonly locationsEnabled: boolean;
+    readonly items: readonly unknown[]; readonly nextCursor: string | null }>>;
+  readonly mutateLocationSetup?: (
+    token: string,
+    membershipId: string,
+    commandId: string,
+    mutation: Record<string, unknown>,
+  ) => Promise<ApiResult<true>>;
 }
 
 export class AdminWebApiClient implements AdminWebApiPort {
@@ -207,7 +234,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     membershipId: string,
     commandId: string,
     displayName: string,
-    role: 'administrator' | 'employee',
+    role: 'administrator' | 'standortleitung' | 'employee',
     locationId?: string | null,
   ): Promise<ApiResult<VolatileInvitationSecret>> {
     return this.request(
@@ -236,7 +263,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   async changeMembershipRole(
     token: string, membershipId: string, commandId: string,
     targetMembershipId: string, expectedRowVersion: number,
-    role: 'administrator' | 'employee',
+    role: 'administrator' | 'standortleitung' | 'employee',
   ): Promise<ApiResult<true>> {
     return this.membershipMutation('/v1/administration/memberships/change-role', token, {
       expectedMembershipId: membershipId, commandId, targetMembershipId, expectedRowVersion, role,
@@ -460,6 +487,52 @@ export class AdminWebApiClient implements AdminWebApiPort {
       true,
     );
   }
+  async assignableLocations(
+    token: string,
+    membershipId: string,
+    nextCursor: string | null,
+  ): Promise<ApiResult<CursorPage<AdministrationLocation>>> {
+    if (nextCursor !== null && !locationCursor.test(nextCursor)) return { status: 'unavailable' };
+    return this.request(
+      '/v1/administration/locations/query', token, 'POST',
+      { expectedMembershipId: membershipId, cursor: nextCursor, limit: 100 },
+      parseAssignableLocations,
+      false, false, false, maximumJsonBodyBytes,
+    );
+  }
+  async locationSetupPage(
+    token: string,
+    membershipId: string,
+    kind: 'locations' | 'memberships' | 'work_targets' | 'activation_gaps',
+    nextCursor: string | null,
+  ): Promise<ApiResult<{ readonly locationsEnabled: boolean;
+    readonly items: readonly unknown[]; readonly nextCursor: string | null }>> {
+    if (nextCursor !== null && !locationSetupCursor.test(nextCursor)) {
+      return { status: 'unavailable' };
+    }
+    return this.request(
+      '/v1/administration/location-setup/query', token, 'POST',
+      { expectedMembershipId: membershipId, kind, cursor: nextCursor, limit: 100 },
+      (value) => parseLocationSetupPage(value, kind),
+      false, false, false, maximumTimeReviewBodyBytes,
+    );
+  }
+  async mutateLocationSetup(
+    token: string,
+    membershipId: string,
+    commandId: string,
+    mutation: Record<string, unknown>,
+  ): Promise<ApiResult<true>> {
+    return this.request(
+      '/v1/administration/location-setup/mutate', token, 'POST',
+      { expectedMembershipId: membershipId, commandId, ...mutation },
+      (value) => isRecord(value)
+        && exact(value, ['status', 'idempotentRetry'])
+        && value.status === 'succeeded'
+        && typeof value.idempotentRetry === 'boolean' ? true : null,
+      false, false, false, maximumJsonBodyBytes, false, false, false, true,
+    );
+  }
   private async request<Value>(
     path: string,
     token: string,
@@ -473,6 +546,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     exposeProjectErrors = false,
     exposeMembershipErrors = false,
     exposeLocationScopeError = false,
+    exposeLocationSetupErrors = false,
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
@@ -489,6 +563,14 @@ export class AdminWebApiClient implements AdminWebApiPort {
         return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
       }
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
+      if (exposeLocationSetupErrors && (response.status === 404 || response.status === 409)) {
+        if (response.redirected || !isJsonContentType(response.headers.get('content-type'))
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'unavailable' };
+        const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
+        if (conflictText === null) return { status: 'unavailable' };
+        const code = parseLocationSetupError(JSON.parse(conflictText));
+        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+      }
       if (exposeInvitationConflicts && response.status === 409) {
         if (
           response.redirected
@@ -609,6 +691,85 @@ function parseSession(value: unknown): Session | null {
     availableSections: Object.freeze(sections as AdministrationSection[]),
     managementScope: Object.freeze(managementScope),
   });
+}
+
+function parseAssignableLocations(value: unknown): CursorPage<AdministrationLocation> | null {
+  if (!isRecord(value) || !exact(value, ['status', 'locations', 'nextCursor'])
+    || value.status !== 'succeeded' || !Array.isArray(value.locations)
+    || !(value.nextCursor === null || (typeof value.nextCursor === 'string'
+      && locationCursor.test(value.nextCursor)))) return null;
+  const locations = value.locations.map((entry) => isRecord(entry)
+    && exact(entry, ['id', 'displayName'])
+    && uuid.test(String(entry.id))
+    && typeof entry.displayName === 'string'
+    && isCanonicalSafeTapTimeName(entry.displayName)
+    ? { id: String(entry.id), name: entry.displayName }
+    : null);
+  if (locations.some((entry) => entry === null)) return null;
+  return { items: locations as AdministrationLocation[], nextCursor: value.nextCursor };
+}
+
+function parseLocationSetupPage(
+  value: unknown,
+  expectedKind: 'locations' | 'memberships' | 'work_targets' | 'activation_gaps',
+): { readonly locationsEnabled: boolean; readonly items: readonly unknown[];
+  readonly nextCursor: string | null } | null {
+  if (!isRecord(value)
+    || !exact(value, ['status', 'locationsEnabled', 'kind', 'items', 'nextCursor'])
+    || value.status !== 'succeeded' || value.kind !== expectedKind
+    || typeof value.locationsEnabled !== 'boolean' || !Array.isArray(value.items)
+    || !(value.nextCursor === null || (typeof value.nextCursor === 'string'
+      && locationSetupCursor.test(value.nextCursor)))) return null;
+  const items = value.items.map((entry) => parseLocationSetupItem(entry, expectedKind));
+  if (items.some((entry) => entry === null)) return null;
+  return { locationsEnabled: value.locationsEnabled, items, nextCursor: value.nextCursor };
+}
+
+function parseLocationSetupItem(
+  value: unknown,
+  kind: 'locations' | 'memberships' | 'work_targets' | 'activation_gaps',
+): unknown | null {
+  if (!isRecord(value)) return null;
+  if (kind === 'locations') {
+    return exact(value, ['id', 'displayName', 'active', 'rowVersion'])
+      && uuid.test(String(value.id)) && typeof value.displayName === 'string'
+      && isCanonicalSafeTapTimeName(value.displayName) && typeof value.active === 'boolean'
+      && Number.isSafeInteger(value.rowVersion) && Number(value.rowVersion) >= 1
+      ? { id: String(value.id), displayName: value.displayName,
+          active: value.active, rowVersion: Number(value.rowVersion) }
+      : null;
+  }
+  if (kind === 'memberships') {
+    if (!exact(value, ['id', 'displayName', 'role', 'homeLocationId',
+      'workLocationIds', 'managementLocationIds'])
+      || !uuid.test(String(value.id)) || typeof value.displayName !== 'string'
+      || !isCanonicalSafeTapTimeName(value.displayName)
+      || !['administrator', 'standortleitung', 'employee'].includes(String(value.role))
+      || !(value.homeLocationId === null || uuid.test(String(value.homeLocationId)))
+      || !Array.isArray(value.workLocationIds) || value.workLocationIds.some((id) => !uuid.test(String(id)))
+      || !Array.isArray(value.managementLocationIds)
+      || value.managementLocationIds.some((id) => !uuid.test(String(id)))) return null;
+    return { id: String(value.id), displayName: value.displayName, role: value.role,
+      homeLocationId: value.homeLocationId,
+      workLocationIds: value.workLocationIds.map(String),
+      managementLocationIds: value.managementLocationIds.map(String) };
+  }
+  if (kind === 'work_targets') {
+    return exact(value, ['targetType', 'targetId', 'displayName', 'locationId'])
+      && ['customer', 'project', 'general_work'].includes(String(value.targetType))
+      && uuid.test(String(value.targetId)) && typeof value.displayName === 'string'
+      && isCanonicalSafeTapTimeName(value.displayName)
+      && (value.locationId === null || uuid.test(String(value.locationId)))
+      ? { targetType: value.targetType, targetId: String(value.targetId),
+          displayName: value.displayName, locationId: value.locationId }
+      : null;
+  }
+  return exact(value, ['kind', 'id', 'displayName'])
+    && ['membership', 'customer', 'project', 'work_target', 'nfc_assignment'].includes(String(value.kind))
+    && uuid.test(String(value.id)) && typeof value.displayName === 'string'
+    && value.displayName.length >= 1 && value.displayName.length <= 300
+    ? { kind: value.kind, id: String(value.id), displayName: value.displayName }
+    : null;
 }
 function parseProjection(value: unknown): SafeProjection | null {
   if (!isRecord(value) || !exact(value, ['status', 'organization', 'customers', 'nfcTags', 'nextCursor']) || value.status !== 'succeeded' || !isRecord(value.organization) || !exact(value.organization, ['id', 'name']) || !uuid.test(String(value.organization.id)) || typeof value.organization.name !== 'string' || !Array.isArray(value.customers) || !Array.isArray(value.nfcTags) || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && cursor.test(value.nextCursor)))) return null;
@@ -977,6 +1138,28 @@ function parseLocationScopeError(value: unknown): 'location_scope_forbidden' | n
     && exact(value.error, ['code'])
     && value.error.code === 'location_scope_forbidden'
     ? 'location_scope_forbidden' : null;
+}
+function parseLocationSetupError(value: unknown):
+  | 'command_id_conflict'
+  | 'home_work_conflict'
+  | 'location_in_use'
+  | 'location_unavailable'
+  | 'management_role_required'
+  | 'membership_unavailable'
+  | 'setup_incomplete'
+  | 'stale_row_version'
+  | 'target_unavailable'
+  | null {
+  if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error)
+    || !exact(value.error, ['code'])) return null;
+  const accepted = new Set([
+    'command_id_conflict', 'home_work_conflict', 'location_in_use', 'location_unavailable',
+    'management_role_required', 'membership_unavailable', 'setup_incomplete',
+    'stale_row_version', 'target_unavailable',
+  ]);
+  return typeof value.error.code === 'string' && accepted.has(value.error.code)
+    ? value.error.code as Exclude<ReturnType<typeof parseLocationSetupError>, null>
+    : null;
 }
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function exact(value: Record<string, unknown>, keys: readonly string[]): boolean { return Object.keys(value).sort().join(',') === [...keys].sort().join(','); }

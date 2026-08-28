@@ -5,6 +5,7 @@ import type {
   AdminSection,
   AdminWebState,
   CursorPage,
+  LocationSetupState,
   ReviewAdjudicationIntent,
   SafeEmployeeProjection,
   SafeProjection,
@@ -746,6 +747,159 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
+  async refreshLocationSetup(): Promise<void> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (current.status !== 'ready' || membershipId === null
+      || this.api.assignableLocations === undefined || current.locationSetupBusy) return;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    this.setState({ ...current, locationSetupBusy: true });
+    let result: {
+      readonly locations: readonly AdministrationLocation[];
+      readonly setup: LocationSetupState | null;
+      readonly locationsEnabled: boolean;
+    } | null = null;
+    try {
+      result = await this.auth.withAccessToken(async (token) => {
+        const locations = await loadAllAssignableLocations(this.api, token, membershipId);
+        if (locations === null) return null;
+        if (current.managementScope.kind !== 'organization') {
+          return { locations, setup: null, locationsEnabled: current.locationsEnabled };
+        }
+        if (this.api.locationSetupPage === undefined) return null;
+        const [locationPage, membershipPage, targetPage, gapPage] = await Promise.all([
+          loadAllLocationSetupItems(this.api, token, membershipId, 'locations'),
+          loadAllLocationSetupItems(this.api, token, membershipId, 'memberships'),
+          loadAllLocationSetupItems(this.api, token, membershipId, 'work_targets'),
+          loadAllLocationSetupItems(this.api, token, membershipId, 'activation_gaps'),
+        ]);
+        if (locationPage === null || membershipPage === null || targetPage === null
+          || gapPage === null || new Set([
+            locationPage.locationsEnabled, membershipPage.locationsEnabled,
+            targetPage.locationsEnabled, gapPage.locationsEnabled,
+          ]).size !== 1) return null;
+        return {
+          locations,
+          locationsEnabled: locationPage.locationsEnabled,
+          setup: {
+            locations: locationPage.items as LocationSetupState['locations'],
+            memberships: membershipPage.items as LocationSetupState['memberships'],
+            workTargets: targetPage.items as LocationSetupState['workTargets'],
+            activationGaps: gapPage.items as LocationSetupState['activationGaps'],
+          },
+        };
+      }) ?? null;
+    } catch { result = null; }
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+    const latest = this.state;
+    if (latest.status !== 'ready') return;
+    if (result === null) {
+      this.setState({ ...latest, locationSetupBusy: false,
+        notice: 'Die Standort-Einrichtung konnte nicht vollständig geladen werden. Versuchen Sie es erneut.' });
+      return;
+    }
+    this.setState({ ...latest, assignableLocations: result.locations,
+      locationSetup: result.setup, locationSetupBusy: false,
+      locationsEnabled: result.locationsEnabled });
+  }
+
+  async createLocation(displayName: string): Promise<void> {
+    await this.runLocationMutation({ action: 'create_location', locationId: crypto.randomUUID(),
+      displayName }, 'Standort wurde angelegt.');
+  }
+
+  async renameLocation(locationId: string, expectedRowVersion: number,
+    displayName: string): Promise<void> {
+    await this.runLocationMutation({ action: 'rename_location', locationId,
+      expectedRowVersion, displayName }, 'Standort wurde umbenannt.');
+  }
+
+  async deactivateLocation(locationId: string, expectedRowVersion: number): Promise<void> {
+    await this.runLocationMutation({ action: 'deactivate_location', locationId,
+      expectedRowVersion }, 'Standort wurde stillgelegt.');
+  }
+
+  async setHomeLocation(membershipId: string, locationId: string): Promise<void> {
+    await this.runLocationMutation({ action: 'set_home_location', membershipId, locationId },
+      'Heimatstandort wurde zugewiesen.');
+  }
+
+  async setWorkLocation(membershipId: string, locationId: string,
+    assigned: boolean): Promise<void> {
+    await this.runLocationMutation({ action: 'set_work_location', membershipId, locationId,
+      assigned }, assigned ? 'Arbeitszuweisung wurde vergeben.' : 'Arbeitszuweisung wurde widerrufen.');
+  }
+
+  async setManagementLocation(membershipId: string, locationId: string,
+    assigned: boolean): Promise<void> {
+    await this.runLocationMutation({ action: 'set_management_location', membershipId, locationId,
+      assigned }, assigned ? 'Verwaltungszuweisung wurde vergeben.' : 'Verwaltungszuweisung wurde widerrufen.');
+  }
+
+  async setWorkTargetLocation(targetType: 'customer' | 'project' | 'general_work',
+    targetId: string, locationId: string): Promise<void> {
+    await this.runLocationMutation({ action: 'set_work_target_location', targetType, targetId,
+      locationId }, 'Arbeitsziel wurde einem Standort zugewiesen.');
+  }
+
+  async setLocationsEnabled(enabled: boolean): Promise<void> {
+    const succeeded = await this.runLocationMutation({ action: 'set_locations_enabled', enabled },
+      enabled ? 'Standort-Funktion wurde eingeschaltet.' : 'Standort-Funktion wurde ausgeschaltet.');
+    if (!succeeded) return;
+    const generation = this.generation;
+    const session = await this.auth.withAccessToken((token) => this.api.session(token));
+    if (generation !== this.generation || session?.status !== 'succeeded') return;
+    this.session = session.value;
+    const current = this.state;
+    if (current.status !== 'ready') return;
+    this.setState({ ...current, locationsEnabled: session.value.locationsEnabled,
+      managementScope: session.value.managementScope,
+      availableSections: session.value.availableSections });
+    await this.refreshLocationSetup();
+  }
+
+  private async runLocationMutation(
+    mutation: Record<string, unknown>,
+    successNotice: string,
+  ): Promise<boolean> {
+    const current = this.state;
+    const membershipId = this.membershipId;
+    if (current.status !== 'ready' || membershipId === null
+      || current.managementScope.kind !== 'organization'
+      || this.api.mutateLocationSetup === undefined || current.locationSetupBusy) return false;
+    const generation = this.generation;
+    const refreshEpoch = this.refreshEpoch;
+    this.setState({ ...current, locationSetupBusy: true, notice: null });
+    let result;
+    try {
+      result = await this.auth.withAccessToken((token) => this.api.mutateLocationSetup!(
+        token, membershipId, crypto.randomUUID(), mutation,
+      ));
+    } catch { result = { status: 'unavailable' as const }; }
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return false;
+    const latest = this.state;
+    if (latest.status !== 'ready') return false;
+    if (result?.status === 'succeeded') {
+      this.setState({ ...latest, locationSetupBusy: false, notice: successNotice });
+      await this.refreshLocationSetup();
+      const refreshed = this.state;
+      if (refreshed.status === 'ready') this.setState({ ...refreshed, notice: successNotice });
+      return true;
+    }
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation,
+        'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
+      return false;
+    }
+    const notice = result.status === 'conflict'
+      ? locationMutationNotice(result.code)
+      : 'Die Standort-Änderung wurde vom Server nicht bestätigt. Laden Sie die Einrichtung neu und versuchen Sie es erneut.';
+    this.setState({ ...latest, locationSetupBusy: false, notice });
+    await this.refreshLocationSetup();
+    return false;
+  }
+
   async loadMoreEmployees(): Promise<void> {
     let current = this.state;
     const membershipId = this.membershipId;
@@ -833,7 +987,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   async createEmployeeInvitation(
     displayName: string,
-    role: 'administrator' | 'employee',
+    role: 'administrator' | 'standortleitung' | 'employee',
+    locationId?: string | null,
   ): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
@@ -842,7 +997,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
       || membershipId === null
       || !current.availableSections.includes('employees')
       || (current.managementScope.kind === 'locations' && role !== 'employee')
-      || (role !== 'administrator' && role !== 'employee')
+      || !['administrator', 'standortleitung', 'employee'].includes(role)
+      || (current.locationsEnabled && (
+        typeof locationId !== 'string'
+        || !current.assignableLocations.some((location) => location.id === locationId)
+      ))
       || displayName.trim().length < 1
       || Array.from(displayName.normalize('NFC').trim()).length > 120
     ) return;
@@ -864,9 +1023,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         crypto.randomUUID(),
         displayName,
         role,
-        current.managementScope.kind === 'locations'
-          ? current.selectedLocation?.id ?? null
-          : undefined,
+        current.locationsEnabled ? locationId ?? null : undefined,
       ));
     } catch {
       result = { status: 'unavailable' as const };
@@ -912,7 +1069,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   async changeMembershipRole(
     targetMembershipId: string,
     expectedRowVersion: number,
-    role: 'administrator' | 'employee',
+    role: 'administrator' | 'standortleitung' | 'employee',
   ): Promise<void> {
     await this.mutateMembership(targetMembershipId, expectedRowVersion, role);
   }
@@ -920,7 +1077,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private async mutateMembership(
     targetMembershipId: string,
     expectedRowVersion: number,
-    role: 'administrator' | 'employee' | null,
+    role: 'administrator' | 'standortleitung' | 'employee' | null,
   ): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
@@ -1677,6 +1834,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           sectionStates(projection),
         );
         this.setState({ ...next, notice });
+        await this.refreshLocationSetup();
       } else {
         this.setState({ status: 'unavailable', message: 'Die Verwaltung konnte nicht geöffnet werden. Die Betriebsdaten sind derzeit nicht erreichbar. Melden Sie sich erneut an oder versuchen Sie es später.' });
       }
@@ -1777,6 +1935,81 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 }
 
+async function loadAllAssignableLocations(
+  api: AdminWebApiPort,
+  token: string,
+  membershipId: string,
+): Promise<readonly AdministrationLocation[] | null> {
+  if (api.assignableLocations === undefined) return null;
+  const locations: AdministrationLocation[] = [];
+  let cursor: string | null = null;
+  do {
+    const page = await api.assignableLocations(token, membershipId, cursor);
+    if (page.status !== 'succeeded') return null;
+    locations.push(...page.value.items);
+    cursor = page.value.nextCursor;
+  } while (cursor !== null);
+  return Object.freeze(locations);
+}
+
+async function loadAllLocationSetupItems(
+  api: AdminWebApiPort,
+  token: string,
+  membershipId: string,
+  kind: 'locations' | 'memberships' | 'work_targets' | 'activation_gaps',
+): Promise<{ readonly locationsEnabled: boolean; readonly items: readonly unknown[] } | null> {
+  if (api.locationSetupPage === undefined) return null;
+  const items: unknown[] = [];
+  let cursor: string | null = null;
+  let locationsEnabled: boolean | null = null;
+  do {
+    const page = await api.locationSetupPage(token, membershipId, kind, cursor);
+    if (page.status !== 'succeeded'
+      || (locationsEnabled !== null && locationsEnabled !== page.value.locationsEnabled)) return null;
+    locationsEnabled = page.value.locationsEnabled;
+    items.push(...page.value.items);
+    cursor = page.value.nextCursor;
+  } while (cursor !== null);
+  return { locationsEnabled: locationsEnabled ?? false, items: Object.freeze(items) };
+}
+
+function locationMutationNotice(code:
+  | 'command_id_conflict'
+  | 'assignment_conflict'
+  | 'assignment_in_use'
+  | 'assignment_target_unavailable'
+  | 'invitation_created_token_unavailable'
+  | 'invitation_limit_reached'
+  | 'time_review_conflict'
+  | 'not_adjustable'
+  | 'invalid_evidence'
+  | 'project_in_use'
+  | 'project_unavailable'
+  | 'stale_row_version'
+  | 'last_administrator'
+  | 'self_revocation_forbidden'
+  | 'location_scope_forbidden'
+  | 'home_work_conflict'
+  | 'location_in_use'
+  | 'location_unavailable'
+  | 'management_role_required'
+  | 'membership_unavailable'
+  | 'setup_incomplete'
+  | 'target_unavailable'
+): string {
+  switch (code) {
+    case 'setup_incomplete': return 'Die Standort-Funktion bleibt ausgeschaltet. Mindestens eine der namentlich aufgeführten Bindungen fehlt noch.';
+    case 'location_in_use': return 'Der Standort bleibt aktiv, weil noch eine aktuelle Bindung daran hängt. Weisen Sie diese zuerst einem anderen Standort zu.';
+    case 'management_role_required': return 'Die Verwaltungszuweisung wurde abgewiesen. Sie ist ausschließlich für die Rolle Standortleitung zulässig.';
+    case 'home_work_conflict': return 'Heimatstandort und zusätzliche Arbeitszuweisung müssen getrennt bleiben. Widerrufen Sie zuerst die kollidierende Arbeitszuweisung.';
+    case 'stale_row_version': return 'Der Standort wurde zwischenzeitlich geändert. Die aktuelle Fassung wurde neu geladen.';
+    case 'location_unavailable': return 'Der gewählte Standort ist nicht mehr aktiv oder nicht verfügbar.';
+    case 'membership_unavailable': return 'Die gewählte Zugehörigkeit ist nicht mehr aktiv oder nicht verfügbar.';
+    case 'target_unavailable': return 'Das gewählte Arbeitsziel ist nicht mehr aktiv oder nicht verfügbar.';
+    default: return 'Die Standort-Änderung kollidiert mit einem anderen Vorgang. Die aktuelle Fassung wurde neu geladen.';
+  }
+}
+
 function readyState(
   session: Session,
   selectedLocation: AdministrationLocation | null,
@@ -1800,6 +2033,9 @@ function readyState(
     availableSections: session.availableSections,
     managementScope: session.managementScope,
     selectedLocation,
+    assignableLocations: [],
+    locationSetup: null,
+    locationSetupBusy: false,
     projection,
     employeeProjection,
     creating: false,

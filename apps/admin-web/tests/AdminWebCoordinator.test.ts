@@ -24,6 +24,9 @@ const employeeProjection: SafeEmployeeProjection = {
 };
 const fixedNow = Date.parse('2026-07-21T12:00:00.000Z');
 const readyTimeReviewState = {
+  assignableLocations: [],
+  locationSetup: null,
+  locationSetupBusy: false,
   timeRecords: [],
   timeRecordsNextCursor: null,
   reviewItems: [],
@@ -587,6 +590,48 @@ describe('AdminWebCoordinator', () => {
 
     expect(coordinator.getState()).toEqual({ status: 'signed_out' });
     expect(auth.active).toBe(false);
+  });
+
+  it('loads the complete Location setup before exposing activation gaps', async () => {
+    const { api, coordinator } = setup();
+    const assignableLocations = vi.fn<NonNullable<AdminWebApiPort['assignableLocations']>>(
+      async () => ({ status: 'succeeded', value: {
+        items: [{ id: '91000000-0000-4000-8000-000000000001', name: 'Berlin' }],
+        nextCursor: null,
+      } }),
+    );
+    const locationSetupPage = vi.fn<NonNullable<AdminWebApiPort['locationSetupPage']>>(
+      async (_token, _membershipId, kind) => ({
+        status: 'succeeded',
+        value: {
+          locationsEnabled: false,
+          items: kind === 'locations'
+            ? [{ id: '91000000-0000-4000-8000-000000000001', displayName: 'Berlin',
+                active: true, rowVersion: 1 }]
+            : kind === 'activation_gaps'
+              ? [{ kind: 'membership', id: membershipId, displayName: 'Administrator Anna' }]
+              : [],
+          nextCursor: null,
+        },
+      }),
+    );
+    Object.assign(api, { assignableLocations, locationSetupPage });
+
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    expect(assignableLocations).toHaveBeenCalledWith('memory-only-token', membershipId, null);
+    expect(locationSetupPage).toHaveBeenCalledTimes(4);
+    expect(coordinator.getState()).toMatchObject({
+      status: 'ready',
+      assignableLocations: [{ id: '91000000-0000-4000-8000-000000000001', name: 'Berlin' }],
+      locationSetup: {
+        locations: [{ displayName: 'Berlin', active: true }],
+        memberships: [],
+        workTargets: [],
+        activationGaps: [{ kind: 'membership', displayName: 'Administrator Anna' }],
+      },
+      locationSetupBusy: false,
+    });
   });
 
   it('never restores a once-disclosed secret on refresh or command replay conflict', async () => {

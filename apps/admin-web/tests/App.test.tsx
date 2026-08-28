@@ -82,6 +82,9 @@ const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
   availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
   managementScope: { kind: 'organization' },
   selectedLocation: null,
+  assignableLocations: [],
+  locationSetup: null,
+  locationSetupBusy: false,
   timeRecords: [record],
   timeRecordsNextCursor: null,
   reviewItems: [reviewItem],
@@ -171,6 +174,15 @@ class FakeCapability implements AdminWebCapability {
   loadMoreTimeRecords = vi.fn(async () => undefined);
   loadMoreReviewItems = vi.fn(async () => undefined);
   refreshProjects = vi.fn(async () => undefined);
+  refreshLocationSetup = vi.fn(async () => undefined);
+  createLocation = vi.fn(async () => undefined);
+  renameLocation = vi.fn(async () => undefined);
+  deactivateLocation = vi.fn(async () => undefined);
+  setHomeLocation = vi.fn(async () => undefined);
+  setWorkLocation = vi.fn(async () => undefined);
+  setManagementLocation = vi.fn(async () => undefined);
+  setWorkTargetLocation = vi.fn(async () => undefined);
+  setLocationsEnabled = vi.fn(async () => undefined);
 }
 
 afterEach(() => {
@@ -180,6 +192,51 @@ afterEach(() => {
 });
 
 describe('professional Admin Web shell', () => {
+  it('names every missing Location binding and blocks activation until none remain', async () => {
+    window.history.replaceState(null, '', '/einrichtung');
+    const capability = new FakeCapability({
+      ...readyState,
+      assignableLocations: [berlin],
+      locationSetup: {
+        locations: [{ id: berlin.id, displayName: berlin.name, active: true, rowVersion: 1 }],
+        memberships: [{
+          id: readyState.employeeProjection.employeeMemberships[0]!.id,
+          displayName: 'Employee Alpha',
+          role: 'employee',
+          homeLocationId: null,
+          workLocationIds: [],
+          managementLocationIds: [],
+        }],
+        workTargets: [{
+          targetType: 'customer',
+          targetId: customer.id,
+          displayName: customer.displayName,
+          locationId: null,
+        }],
+        activationGaps: [
+          { kind: 'membership', id: readyState.employeeProjection.employeeMemberships[0]!.id,
+            displayName: 'Employee Alpha' },
+          { kind: 'customer', id: customer.id, displayName: customer.displayName },
+          { kind: 'project', id: '41000000-0000-4000-8000-000000000001',
+            displayName: 'Projekt Polaris' },
+          { kind: 'work_target', id: '42000000-0000-4000-8000-000000000001',
+            displayName: 'Allgemeine Arbeitszeit' },
+          { kind: 'nfc_assignment', id: '43000000-0000-4000-8000-000000000001',
+            displayName: 'Eingang → Werkstatt' },
+        ],
+      },
+    });
+    render(<App administration={capability} />);
+
+    expect(screen.getByText('Zugehörigkeit:')).toBeInTheDocument();
+    expect(screen.getAllByText('Employee Alpha')).toHaveLength(2);
+    expect(screen.getByText('Kunde:')).toBeInTheDocument();
+    expect(screen.getByText('Projekt Polaris')).toBeInTheDocument();
+    expect(screen.getByText('Allgemeine Arbeitszeit')).toBeInTheDocument();
+    expect(screen.getByText('Eingang → Werkstatt')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Standort-Funktion einschalten' })).toBeDisabled();
+  });
+
   it('changes the sidebar when only availableSections changes', async () => {
     const capability = new FakeCapability(readyState);
     render(<App administration={capability} />);
@@ -227,6 +284,23 @@ describe('professional Admin Web shell', () => {
     expect(screen.queryByLabelText('Rolle')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Beschäftigte Person einladen' }));
     expect(screen.getByLabelText('Einladung für')).toHaveFocus();
+  });
+
+  it('shows the required invitation Location only while the feature is enabled', async () => {
+    window.history.replaceState(null, '', '/beschaeftigte');
+    const capability = new FakeCapability(readyState);
+    const { rerender } = render(<App administration={capability} />);
+    expect(screen.queryByLabelText('Heimatstandort')).not.toBeInTheDocument();
+
+    const enabled = {
+      ...readyState,
+      locationsEnabled: true,
+      assignableLocations: [berlin],
+    } as ReadyStateForTest;
+    act(() => capability.emit(enabled));
+    rerender(<App administration={capability} />);
+    expect(screen.getByLabelText('Heimatstandort')).toBeRequired();
+    expect(screen.getByRole('option', { name: 'Berlin' })).toBeInTheDocument();
   });
 
   it('renders an explicitly labelled memory-only sign-in form', async () => {

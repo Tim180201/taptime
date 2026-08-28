@@ -162,6 +162,12 @@ afterAll(async () => {
 
 describe('T-015a optional Location model remains off by default', () => {
   it('lets the current Organization Administrator prepare every Location relation while off', async () => {
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'standortleitung', row_version = row_version + 1
+       WHERE id = $1`,
+      [membership.employeeA2],
+    );
     const targets = await installerPool.query<{
       target_type: string;
       target_id: string;
@@ -240,6 +246,12 @@ describe('T-015a optional Location model remains off by default', () => {
   });
 
   it('keeps existing Product projections byte-for-byte unchanged while inactive setup exists', async () => {
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'standortleitung', row_version = row_version + 1
+       WHERE id = $1`,
+      [membership.employeeA],
+    );
     const before = await productReadSnapshot();
 
     await prepareCompleteOrganizationA();
@@ -263,6 +275,164 @@ describe('T-015a optional Location model remains off by default', () => {
     );
     expect(after).toEqual(before);
     expect(feature.rows[0]).toEqual({ locations_enabled: false });
+  });
+
+  it('rejects a direct Management Location grant to a non-Location-Manager', async () => {
+    await insertLocation(location.aHome, ids.organizationA, 'Hauptstandort');
+    expect(await postgresErrorCode(withRole(
+      'taptime_admin_setup', adminAContext, (client) => client.query(
+      `INSERT INTO ${B3_SCHEMA}.membership_management_location_grants
+         (id, organization_id, membership_id, location_id)
+       VALUES (gen_random_uuid(), $1, $2, $3)`,
+      [ids.organizationA, membership.employeeA, location.aHome],
+      ),
+    ))).toBe('23514');
+    await expect(installerPool.query(
+      `SELECT count(*)::integer AS count
+       FROM ${B3_SCHEMA}.membership_management_location_grants`,
+    )).resolves.toMatchObject({ rows: [{ count: 0 }] });
+  });
+
+  it('revokes current Location relations when Membership and Work Target lifecycles end', async () => {
+    await insertLocation(location.aHome, ids.organizationA, 'Hauptstandort');
+    await insertLocation(location.aAdditional, ids.organizationA, 'Nebenstandort');
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'standortleitung', row_version = row_version + 1
+       WHERE id = $1`,
+      [membership.employeeA],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.membership_home_location_assignments
+         (id, organization_id, membership_id, location_id)
+       VALUES (gen_random_uuid(), $1, $2, $3)`,
+      [ids.organizationA, membership.employeeA, location.aHome],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.membership_work_location_grants
+         (id, organization_id, membership_id, location_id)
+       VALUES (gen_random_uuid(), $1, $2, $3)`,
+      [ids.organizationA, membership.employeeA, location.aAdditional],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.membership_management_location_grants
+         (id, organization_id, membership_id, location_id)
+       VALUES (gen_random_uuid(), $1, $2, $3)`,
+      [ids.organizationA, membership.employeeA, location.aAdditional],
+    );
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'employee', row_version = row_version + 1
+       WHERE id = $1`,
+      [membership.employeeA],
+    );
+    await expect(installerPool.query(
+      `SELECT count(*)::integer AS count
+       FROM ${B3_SCHEMA}.membership_management_location_grants
+       WHERE membership_id = $1 AND revoked_at IS NULL`,
+      [membership.employeeA],
+    )).resolves.toMatchObject({ rows: [{ count: 0 }] });
+
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET revoked_at = pg_catalog.transaction_timestamp(), row_version = row_version + 1
+       WHERE id = $1`,
+      [membership.employeeA],
+    );
+    await expect(installerPool.query(
+      `SELECT
+         (SELECT count(*)::integer FROM ${B3_SCHEMA}.membership_home_location_assignments
+          WHERE membership_id = $1 AND revoked_at IS NULL) AS homes,
+         (SELECT count(*)::integer FROM ${B3_SCHEMA}.membership_work_location_grants
+          WHERE membership_id = $1 AND revoked_at IS NULL) AS work_grants`,
+      [membership.employeeA],
+    )).resolves.toMatchObject({ rows: [{ homes: 0, work_grants: 0 }] });
+
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.projects (id, organization_id, display_name)
+       VALUES ($1, $2, 'Lifecycle Project')`,
+      [projectA, ids.organizationA],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.work_target_location_assignments
+         (id, organization_id, target_type, target_id, location_id)
+       VALUES (gen_random_uuid(), $1, 'project', $2, $3)`,
+      [ids.organizationA, projectA, location.aHome],
+    );
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.projects
+       SET active = false, deactivated_at = pg_catalog.transaction_timestamp(),
+           row_version = row_version + 1
+       WHERE id = $1`,
+      [projectA],
+    );
+    await expect(installerPool.query(
+      `SELECT count(*)::integer AS count
+       FROM ${B3_SCHEMA}.work_target_location_assignments
+       WHERE target_type = 'project' AND target_id = $1 AND revoked_at IS NULL`,
+      [projectA],
+    )).resolves.toMatchObject({ rows: [{ count: 0 }] });
+  });
+
+  it('serializes concurrent relation creation against Membership and Work Target lifecycle', async () => {
+    await insertLocation(location.aHome, ids.organizationA, 'Hauptstandort');
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'standortleitung', row_version = row_version + 1
+       WHERE id = $1`,
+      [membership.employeeA],
+    );
+    await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.projects (id, organization_id, display_name)
+       VALUES ($1, $2, 'Concurrent Project')`,
+      [projectA, ids.organizationA],
+    );
+
+    const relationWriter = await installerPool.connect();
+    const lifecycleWriter = await installerPool.connect();
+    try {
+      await relationWriter.query('BEGIN');
+      await relationWriter.query(
+        `INSERT INTO ${B3_SCHEMA}.membership_management_location_grants
+           (id, organization_id, membership_id, location_id)
+         VALUES (gen_random_uuid(), $1, $2, $3)`,
+        [ids.organizationA, membership.employeeA, location.aHome],
+      );
+      await lifecycleWriter.query('BEGIN');
+      await lifecycleWriter.query("SET LOCAL statement_timeout = '100ms'");
+      expect(await postgresErrorCode(lifecycleWriter.query(
+        `UPDATE ${B3_SCHEMA}.memberships
+         SET role = 'employee', row_version = row_version + 1
+         WHERE id = $1`,
+        [membership.employeeA],
+      ))).toBe('57014');
+      await lifecycleWriter.query('ROLLBACK');
+      await relationWriter.query('ROLLBACK');
+
+      await relationWriter.query('BEGIN');
+      await relationWriter.query(
+        `INSERT INTO ${B3_SCHEMA}.work_target_location_assignments
+           (id, organization_id, target_type, target_id, location_id)
+         VALUES (gen_random_uuid(), $1, 'project', $2, $3)`,
+        [ids.organizationA, projectA, location.aHome],
+      );
+      await lifecycleWriter.query('BEGIN');
+      await lifecycleWriter.query("SET LOCAL statement_timeout = '100ms'");
+      expect(await postgresErrorCode(lifecycleWriter.query(
+        `UPDATE ${B3_SCHEMA}.projects
+         SET active = false, deactivated_at = pg_catalog.transaction_timestamp(),
+             row_version = row_version + 1
+         WHERE id = $1`,
+        [projectA],
+      ))).toBe('57014');
+      await lifecycleWriter.query('ROLLBACK');
+      await relationWriter.query('ROLLBACK');
+    } finally {
+      await relationWriter.query('ROLLBACK').catch(() => undefined);
+      await lifecycleWriter.query('ROLLBACK').catch(() => undefined);
+      relationWriter.release();
+      lifecycleWriter.release();
+    }
   });
 
   it('rejects one unbound active row atomically and retains all inactive setup', async () => {
@@ -339,6 +509,12 @@ describe('T-015a optional Location model remains off by default', () => {
   });
 
   it('keeps Work and Management grants non-interchangeable and revokes their effect when off', async () => {
+    await installerPool.query(
+      `UPDATE ${B3_SCHEMA}.memberships
+       SET role = 'standortleitung', row_version = row_version + 1
+       WHERE id = $1`,
+      [membership.employeeA],
+    );
     await prepareCompleteOrganizationA();
     await installerPool.query(
       `INSERT INTO ${B3_SCHEMA}.membership_work_location_grants
@@ -388,7 +564,7 @@ describe('T-015a optional Location model remains off by default', () => {
       work_grant_is_management: false,
       management_grant_is_work: false,
       management_grant_is_management: true,
-      management_grant_is_people_authority: false,
+      management_grant_is_people_authority: true,
     });
 
     await expect(setLocationsEnabled(false)).resolves.toBe(false);

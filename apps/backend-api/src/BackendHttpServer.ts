@@ -114,6 +114,9 @@ const MANUAL_BREAK_LIFECYCLE_PATH = '/v1/lifecycle-events/manual-break';
 const ADMIN_PROJECT_QUERY_PATH = '/v1/administration/projects/query';
 const ADMIN_PROJECT_CREATE_PATH = '/v1/administration/projects/create';
 const ADMIN_PROJECT_DEACTIVATE_PATH = '/v1/administration/projects/deactivate';
+const ADMIN_ASSIGNABLE_LOCATIONS_PATH = '/v1/administration/locations/query';
+const ADMIN_LOCATION_SETUP_PROJECTION_PATH = '/v1/administration/location-setup/query';
+const ADMIN_LOCATION_SETUP_MUTATION_PATH = '/v1/administration/location-setup/mutate';
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const TRUSTED_PROXY_SECRET_HEADER = 'x-taptime-proxy-secret';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
@@ -151,6 +154,12 @@ type ErrorCode =
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
   | 'last_administrator'
+  | 'home_work_conflict'
+  | 'location_in_use'
+  | 'location_unavailable'
+  | 'management_role_required'
+  | 'membership_unavailable'
+  | 'setup_incomplete'
   | 'location_scope_forbidden'
   | 'self_revocation_forbidden'
   | 'target_unavailable'
@@ -408,6 +417,21 @@ async function handleRequest(
   }
   if (route === 'admin_project_deactivate') {
     await handleProjectDeactivate(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_assignable_locations') {
+    await handleAssignableLocations(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_location_setup_projection') {
+    await handleLocationSetupProjection(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_location_setup_mutation') {
+    await handleLocationSetupMutation(response, accessToken, body, dependencies, options,
       correlationId, timeoutMilliseconds);
     return;
   }
@@ -1119,6 +1143,135 @@ function respondMobileReadResult<Response>(
     case 'invalid_request': respondError(response, 400, 'invalid_request'); return;
     case 'unauthorized': respondError(response, 401, 'unauthorized'); return;
     case 'forbidden': respondError(response, 403, 'forbidden'); return;
+  }
+}
+
+async function handleAssignableLocations(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseLocationPageBody(body);
+  if (command === null) { respondError(response, 400, 'invalid_request'); return; }
+  try {
+    if (dependencies.administrationSessionAuthority === undefined) {
+      throw new Error('Administration Session authority is unavailable');
+    }
+    const session = await withTimeout(
+      dependencies.administrationSessionAuthority.resolve(accessToken),
+      timeoutMilliseconds,
+    );
+    if (session.status === 'rejected') { respondError(response, 401, 'unauthorized'); return; }
+    if (session.session.membershipId !== command.expectedMembershipId) {
+      respondError(response, 403, 'forbidden'); return;
+    }
+    if (session.session.managementScope.kind === 'locations') {
+      const afterId = command.cursor === null ? null : command.cursor.slice('v1:l:'.length);
+      const ordered = [...session.session.managementScope.locations]
+        .sort((left, right) => left.id.localeCompare(right.id))
+        .filter((location) => afterId === null || location.id > afterId);
+      const page = ordered.slice(0, command.limit);
+      respondJson(response, 200, {
+        status: 'succeeded',
+        locations: page.map((location) => ({ id: location.id, displayName: location.name })),
+        nextCursor: ordered.length > command.limit ? `v1:l:${page.at(-1)!.id}` : null,
+      });
+      return;
+    }
+    const operation = dependencies.administration.readAssignableLocations;
+    if (operation === undefined) throw new Error('Assignable Location query is unavailable');
+    const result = await withTimeout(
+      operation.call(dependencies.administration, { accessToken, ...command }, {
+        deadlineEpochMilliseconds: Date.now() + timeoutMilliseconds,
+      }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'succeeded': respondJson(response, 200, result); return;
+      case 'invalid_request': respondError(response, 400, 'invalid_request'); return;
+      case 'unauthorized': respondError(response, 401, 'unauthorized'); return;
+      case 'forbidden': respondError(response, 403, 'forbidden'); return;
+      default: return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'administration_failed', correlationId });
+    respondError(response, 503, 'service_unavailable');
+  }
+}
+
+async function handleLocationSetupProjection(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseLocationSetupProjectionBody(body);
+  if (command === null) { respondError(response, 400, 'invalid_request'); return; }
+  const operation = dependencies.administration.readLocationSetupProjection;
+  if (operation === undefined) { respondError(response, 503, 'service_unavailable'); return; }
+  await handleAdministrationOperation(
+    response, options, correlationId, timeoutMilliseconds,
+    (deadlineEpochMilliseconds) => operation.call(
+      dependencies.administration,
+      { accessToken, ...command },
+      { deadlineEpochMilliseconds },
+    ),
+    (result) => ({
+      status: 'succeeded',
+      locationsEnabled: result.locationsEnabled,
+      kind: result.kind,
+      items: result.items,
+      nextCursor: result.nextCursor,
+    }),
+  );
+}
+
+async function handleLocationSetupMutation(
+  response: ServerResponse,
+  accessToken: string,
+  body: unknown,
+  dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions,
+  correlationId: string,
+  timeoutMilliseconds: number,
+): Promise<void> {
+  const command = parseLocationSetupMutationBody(body);
+  if (command === null) { respondError(response, 400, 'invalid_request'); return; }
+  const operation = dependencies.administration.mutateLocationSetup;
+  if (operation === undefined) { respondError(response, 503, 'service_unavailable'); return; }
+  try {
+    const result = await withTimeout(
+      operation.call(dependencies.administration, { accessToken, ...command }, {
+        deadlineEpochMilliseconds: Date.now() + timeoutMilliseconds,
+      }),
+      timeoutMilliseconds,
+    );
+    switch (result.status) {
+      case 'succeeded': respondJson(response, 200, result); return;
+      case 'invalid_request': respondError(response, 400, 'invalid_request'); return;
+      case 'unauthorized': respondError(response, 401, 'unauthorized'); return;
+      case 'forbidden': respondError(response, 403, 'forbidden'); return;
+      case 'location_unavailable':
+      case 'membership_unavailable':
+      case 'target_unavailable': respondError(response, 404, result.status); return;
+      case 'command_id_conflict':
+      case 'home_work_conflict':
+      case 'location_in_use':
+      case 'management_role_required':
+      case 'setup_incomplete':
+      case 'stale_row_version': respondError(response, 409, result.status); return;
+      default: return result satisfies never;
+    }
+  } catch {
+    emitDiagnostic(options.onDiagnostic, { code: 'administration_failed', correlationId });
+    respondError(response, 503, 'service_unavailable');
   }
 }
 
@@ -2254,6 +2407,9 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === ADMIN_PROJECT_QUERY_PATH) return 'admin_project_query';
   if (url === ADMIN_PROJECT_CREATE_PATH) return 'admin_project_create';
   if (url === ADMIN_PROJECT_DEACTIVATE_PATH) return 'admin_project_deactivate';
+  if (url === ADMIN_ASSIGNABLE_LOCATIONS_PATH) return 'admin_assignable_locations';
+  if (url === ADMIN_LOCATION_SETUP_PROJECTION_PATH) return 'admin_location_setup_projection';
+  if (url === ADMIN_LOCATION_SETUP_MUTATION_PATH) return 'admin_location_setup_mutation';
   if (url === ADMIN_TIME_RECORD_QUERY_PATH) return 'admin_time_record_query';
   if (url === ADMIN_TIME_RECORD_QUERY_V2_PATH) return 'admin_time_record_query_v2';
   if (url === ADMIN_TIME_RECORD_CORRECTION_PATH) return 'admin_time_record_correction';
@@ -2359,6 +2515,9 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_project_query':
     case 'admin_project_create':
     case 'admin_project_deactivate':
+    case 'admin_assignable_locations':
+    case 'admin_location_setup_projection':
+    case 'admin_location_setup_mutation':
       return 'administration_failed';
     case 'admin_time_entry_export':
     case 'time_entry_export_v2':
@@ -2429,7 +2588,10 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_review_adjudication'
     || route === 'admin_project_query'
     || route === 'admin_project_create'
-    || route === 'admin_project_deactivate';
+    || route === 'admin_project_deactivate'
+    || route === 'admin_assignable_locations'
+    || route === 'admin_location_setup_projection'
+    || route === 'admin_location_setup_mutation';
 }
 
 function isOfflineRoute(route: Route): boolean {
@@ -2645,6 +2807,105 @@ async function readBoundedBody(request: IncomingMessage): Promise<Buffer> {
 function parseJson(body: Buffer): unknown {
   const json = new TextDecoder('utf-8', { fatal: true }).decode(body);
   return JSON.parse(json) as unknown;
+}
+
+function parseLocationPageBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly cursor: string | null;
+  readonly limit: number;
+} | null {
+  if (!isRecord(body) || !hasExactKeys(body, ['expectedMembershipId', 'cursor', 'limit'])
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || !(body.cursor === null || (typeof body.cursor === 'string'
+      && /^v1:l:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(body.cursor)))
+    || !Number.isSafeInteger(body.limit) || Number(body.limit) < 1 || Number(body.limit) > 100) {
+    return null;
+  }
+  return { expectedMembershipId: MembershipId(body.expectedMembershipId),
+    cursor: body.cursor, limit: Number(body.limit) };
+}
+
+function parseLocationSetupProjectionBody(body: unknown): {
+  readonly expectedMembershipId: MembershipId;
+  readonly kind: 'locations' | 'memberships' | 'work_targets' | 'activation_gaps';
+  readonly cursor: string | null;
+  readonly limit: number;
+} | null {
+  if (!isRecord(body)
+    || !hasExactKeys(body, ['expectedMembershipId', 'kind', 'cursor', 'limit'])
+    || !isCanonicalUuid(body.expectedMembershipId)
+    || !['locations', 'memberships', 'work_targets', 'activation_gaps'].includes(String(body.kind))
+    || !(body.cursor === null || (typeof body.cursor === 'string'
+      && /^v1:(?:l|m|w:(?:customer|project|general_work)|g:[0-4]):[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(body.cursor)))
+    || !Number.isSafeInteger(body.limit) || Number(body.limit) < 1 || Number(body.limit) > 100) {
+    return null;
+  }
+  return {
+    expectedMembershipId: MembershipId(body.expectedMembershipId),
+    kind: body.kind as 'locations' | 'memberships' | 'work_targets' | 'activation_gaps',
+    cursor: body.cursor,
+    limit: Number(body.limit),
+  };
+}
+
+type WithoutAccessToken<Value> = Value extends unknown ? Omit<Value, 'accessToken'> : never;
+type ParsedLocationSetupMutation = WithoutAccessToken<
+  import('@taptime/backend-administration').MutateLocationSetupCommand
+>;
+
+function parseLocationSetupMutationBody(body: unknown): ParsedLocationSetupMutation | null {
+  if (!isRecord(body) || !isCanonicalUuid(body.expectedMembershipId)
+    || !isCanonicalUuid(body.commandId) || typeof body.action !== 'string') return null;
+  const common = {
+    expectedMembershipId: MembershipId(body.expectedMembershipId),
+    commandId: body.commandId,
+  };
+  if (body.action === 'create_location'
+    && hasExactKeys(body, ['expectedMembershipId', 'commandId', 'action', 'locationId', 'displayName'])
+    && isCanonicalUuid(body.locationId) && typeof body.displayName === 'string') {
+    return { ...common, action: body.action, locationId: body.locationId, displayName: body.displayName };
+  }
+  if (body.action === 'rename_location'
+    && hasExactKeys(body, ['expectedMembershipId', 'commandId', 'action', 'locationId', 'expectedRowVersion', 'displayName'])
+    && isCanonicalUuid(body.locationId) && typeof body.displayName === 'string'
+    && Number.isSafeInteger(body.expectedRowVersion) && Number(body.expectedRowVersion) >= 1) {
+    return { ...common, action: body.action, locationId: body.locationId,
+      expectedRowVersion: Number(body.expectedRowVersion), displayName: body.displayName };
+  }
+  if (body.action === 'deactivate_location'
+    && hasExactKeys(body, ['expectedMembershipId', 'commandId', 'action', 'locationId', 'expectedRowVersion'])
+    && isCanonicalUuid(body.locationId)
+    && Number.isSafeInteger(body.expectedRowVersion) && Number(body.expectedRowVersion) >= 1) {
+    return { ...common, action: body.action, locationId: body.locationId,
+      expectedRowVersion: Number(body.expectedRowVersion) };
+  }
+  if (body.action === 'set_home_location'
+    && hasExactKeys(body, ['expectedMembershipId', 'commandId', 'action', 'membershipId', 'locationId'])
+    && isCanonicalUuid(body.membershipId) && isCanonicalUuid(body.locationId)) {
+    return { ...common, action: body.action, membershipId: body.membershipId,
+      locationId: body.locationId };
+  }
+  if ((body.action === 'set_work_location' || body.action === 'set_management_location')
+    && hasExactKeys(body, ['expectedMembershipId', 'commandId', 'action', 'membershipId', 'locationId', 'assigned'])
+    && isCanonicalUuid(body.membershipId) && isCanonicalUuid(body.locationId)
+    && typeof body.assigned === 'boolean') {
+    return { ...common, action: body.action, membershipId: body.membershipId,
+      locationId: body.locationId, assigned: body.assigned };
+  }
+  if (body.action === 'set_work_target_location'
+    && hasExactKeys(body, ['expectedMembershipId', 'commandId', 'action', 'targetType', 'targetId', 'locationId'])
+    && ['customer', 'project', 'general_work'].includes(String(body.targetType))
+    && isCanonicalUuid(body.targetId) && isCanonicalUuid(body.locationId)) {
+    return { ...common, action: body.action,
+      targetType: body.targetType as 'customer' | 'project' | 'general_work',
+      targetId: body.targetId, locationId: body.locationId };
+  }
+  if (body.action === 'set_locations_enabled'
+    && hasExactKeys(body, ['expectedMembershipId', 'commandId', 'action', 'enabled'])
+    && typeof body.enabled === 'boolean') {
+    return { ...common, action: body.action, enabled: body.enabled };
+  }
+  return null;
 }
 
 function parseCreateCustomerBody(body: unknown): {
