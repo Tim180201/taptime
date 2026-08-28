@@ -49,19 +49,74 @@ describe('C3D Admin Web security boundaries', () => {
     expect(styles).toContain('@media (forced-colors: active)');
   });
 
-  it('keeps control boundaries and keyboard focus indicators above 3:1 non-text contrast', async () => {
+  it('keeps every text/background pair readable and control focus above 3:1', async () => {
     const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
-    expect(styles).toContain('--color-control-border: #657b75');
-    expect(styles).toContain('--color-focus: #005fcc');
-    expect(styles).toContain('--color-focus-on-dark: #f4d35e');
-    expect(styles).toMatch(/\.sidebar :focus-visible \{ outline-color: var\(--color-focus-on-dark\); \}/);
-    expect(styles).toMatch(/input, select, textarea \{[\s\S]*border: 1px solid var\(--color-control-border\);/);
-    expect(styles).toMatch(/button\.secondary \{[\s\S]*border-color: var\(--color-control-border\);/);
+    expect(styles).toContain('--color-text-muted: #97A5A0');
+    expect(styles).toContain('--color-focus: #7EE0C0');
+    expect(styles).toMatch(/:focus-visible \{[\s\S]*outline: 3px solid var\(--color-focus\);/);
+    expect(styles).toMatch(/input, select, textarea \{[\s\S]*border: 1px solid var\(--color-text-muted\);/);
+    expect(styles).toMatch(/button\.secondary, \.secondary-link \{[\s\S]*border-color: var\(--color-text-muted\);/);
     expect(styles).toMatch(/\.verbatim-reason \{[\s\S]*white-space: pre-wrap;/);
 
-    expect(contrastRatio('#657b75', '#ffffff')).toBeGreaterThanOrEqual(3);
-    expect(contrastRatio('#005fcc', '#ffffff')).toBeGreaterThanOrEqual(3);
-    expect(contrastRatio('#f4d35e', '#123c36')).toBeGreaterThanOrEqual(3);
+    const darkBackgrounds = ['#0E1512', '#141C19', '#1A2320'] as const;
+    const textOnDark = ['#F2F5F4', '#97A5A0', '#7EE0C0', '#C9F24D', '#E0A44C'] as const;
+    for (const foreground of textOnDark) {
+      for (const background of darkBackgrounds) {
+        expect(contrastRatio(foreground, background), `${foreground} on ${background}`)
+          .toBeGreaterThanOrEqual(4.5);
+      }
+    }
+
+    for (const background of ['#7EE0C0', '#C9F24D', '#E0A44C'] as const) {
+      expect(contrastRatio('#0E1512', background), `#0E1512 on ${background}`)
+        .toBeGreaterThanOrEqual(4.5);
+    }
+    expect(contrastRatio('#000000', '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+
+    expect(contrastRatio('#97A5A0', '#1A2320')).toBeGreaterThanOrEqual(3);
+    for (const background of darkBackgrounds) {
+      expect(contrastRatio('#7EE0C0', background), `focus on ${background}`)
+        .toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('keeps every color literal inside the named raster definition', async () => {
+    const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
+    const root = styles.match(/^:root \{[\s\S]*?\n\}/)?.[0];
+    expect(root).toBeDefined();
+    const namedColors = root?.match(/--color-[a-z-]+:\s*#[0-9A-F]{6};/g) ?? [];
+    expect(namedColors).toEqual([
+      '--color-ground: #0E1512;',
+      '--color-surface: #141C19;',
+      '--color-surface-raised: #1A2320;',
+      '--color-line: #24302C;',
+      '--color-text: #F2F5F4;',
+      '--color-text-muted: #97A5A0;',
+      '--color-accent: #7EE0C0;',
+      '--color-on-accent: #0E1512;',
+      '--color-call-to-action: #C9F24D;',
+      '--color-notice: #E0A44C;',
+      '--color-focus: #7EE0C0;',
+      '--color-print-ground: #FFFFFF;',
+      '--color-print-text: #000000;',
+    ]);
+    const implementation = styles.replace(root!, '');
+    expect(implementation).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
+  });
+
+  it('bundles Inter locally, embeds navigation icons, and defines black-on-white print', async () => {
+    const [app, styles, packageJson] = await Promise.all([
+      readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
+      readFile(new URL('../package.json', import.meta.url), 'utf8'),
+    ]);
+    expect(app.match(/@fontsource\/inter\/latin-(400|600|700)\.css/g)).toHaveLength(3);
+    expect(JSON.parse(packageJson).dependencies['@fontsource/inter']).toBe('5.3.0');
+    expect(app).toContain("className: 'section-icon'");
+    expect(app).not.toMatch(/<img|<use|href=.*\.svg|https?:\/\//i);
+    expect(styles).toMatch(/@media print \{[\s\S]*color: var\(--color-print-text\) !important;/);
+    expect(styles).toMatch(/@media print \{[\s\S]*background: var\(--color-print-ground\) !important;/);
+    expect(styles).toMatch(/@media print \{[\s\S]*background-image: none !important;/);
   });
 
   it('keeps table headings and the name column fixed while the table scrolls', async () => {

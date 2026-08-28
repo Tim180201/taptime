@@ -20,6 +20,7 @@ import {
   routeFromLocation,
   visibleAdminViews,
   type AdminRoute,
+  type AdminView,
 } from './navigation';
 import {
   formatExactZonedDateTime,
@@ -30,6 +31,9 @@ import {
   toZonedLocalInput,
 } from './timeZone';
 import { Confirmation, CountTruth, DelayedSkeleton, Panel, SectionBoundary } from './ui';
+import '@fontsource/inter/latin-400.css';
+import '@fontsource/inter/latin-600.css';
+import '@fontsource/inter/latin-700.css';
 import './styles.css';
 
 export function App({
@@ -171,6 +175,7 @@ export function App({
   const activeRoute = visibleViews.some((candidate) => candidate.slug === route.view)
     ? route : defaultRoute('uebersicht', state.selectedLocation?.id ?? null);
   const activeView = visibleViews.find((candidate) => candidate.slug === activeRoute.view)!;
+  const overviewDate = new Date();
   return <div className="app-shell">
     <aside className="sidebar">
       <Brand />
@@ -184,7 +189,10 @@ export function App({
               defaultRoute(item.slug, state.selectedLocation?.id ?? null),
               navigate,
             )}
-          >{item.label}</a>
+          >
+            <SectionIcon view={item.slug} />
+            <span>{item.label}</span>
+          </a>
         </li>)}</ul>
       </nav>
       <div className="sidebar-footer">
@@ -194,9 +202,17 @@ export function App({
     </aside>
     <main className="workspace">
       <header className="workspace-header">
-        <div>
-          <p className="eyebrow">VERWALTUNG</p>
+        <div className="workspace-title">
+          <p className="eyebrow">{state.projection.organization.name}</p>
           <h1 ref={mainHeading} tabIndex={-1}>{activeView.label}</h1>
+          {activeRoute.view === 'uebersicht'
+            ? <p className="overview-greeting">
+                <span>Guten Tag.</span>
+                <time dateTime={localDateValue(overviewDate)}>
+                  {overviewDateLabel(overviewDate)}
+                </time>
+              </p>
+            : null}
         </div>
         {state.locationsEnabled && state.managementScope.kind === 'locations'
           && state.selectedLocation !== null
@@ -215,7 +231,7 @@ export function App({
             </div>
           : null}
         <div className="header-actions">
-          <button className="secondary" onClick={() => void administration.refresh()}>
+          <button className="header-primary" onClick={() => void administration.refresh()}>
             Alle Bereiche aktualisieren
           </button>
           <button className="quiet" onClick={() => void administration.signOut()}>Abmelden</button>
@@ -337,8 +353,8 @@ function Overview({
   return <section aria-label="Geladener Verwaltungsstand">
     <div className="metric-grid">{cards.map(([section, label, count, complete]) =>
       <article className="metric-card" key={section}>
-        <span>{label}</span>
         <strong>{count}</strong>
+        <span>{label}</span>
         <small>{state.sections[section].status === 'loading'
           ? 'Wird neu geladen; angezeigter Stand ist nicht aktuell bestätigt'
           : state.sections[section].status === 'unavailable'
@@ -1144,6 +1160,63 @@ function Brand() {
     <span className="brand-mark" aria-hidden="true">T</span>
     <span><strong>TapTim.e</strong><small>ZEIT. EINFACH. KLAR.</small></span>
   </div>;
+}
+
+function SectionIcon({ view }: { readonly view: AdminView }) {
+  const common = {
+    className: 'section-icon',
+    viewBox: '0 0 24 24',
+    width: 20,
+    height: 20,
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.75,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+    focusable: 'false' as const,
+  };
+  if (view === 'uebersicht') {
+    return <svg {...common}>
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>;
+  }
+  if (view === 'einrichtung') {
+    return <svg {...common}>
+      <path d="M4 7h10" /><path d="M18 7h2" /><circle cx="16" cy="7" r="2" />
+      <path d="M4 17h2" /><path d="M10 17h10" /><circle cx="8" cy="17" r="2" />
+    </svg>;
+  }
+  if (view === 'beschaeftigte') {
+    return <svg {...common}>
+      <circle cx="9" cy="8" r="3" /><path d="M3.5 20c.4-4 2.2-6 5.5-6s5.1 2 5.5 6" />
+      <path d="M15 5.5a3 3 0 0 1 0 5.8M16.5 14c2.5.5 3.8 2.5 4 6" />
+    </svg>;
+  }
+  if (view === 'arbeitszeiten') {
+    return <svg {...common}>
+      <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" />
+    </svg>;
+  }
+  return <svg {...common}>
+    <path d="M8 4h8" /><path d="M9 3h6v3H9z" />
+    <path d="M6 5h12a2 2 0 0 1 2 2v13H4V7a2 2 0 0 1 2-2z" />
+    <path d="m8 13 2.5 2.5L16 10" />
+  </svg>;
+}
+
+function overviewDateLabel(now = new Date()): string {
+  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'full' }).format(now);
+}
+
+function localDateValue(now = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function currentRoute(): AdminRoute {

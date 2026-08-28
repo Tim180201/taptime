@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fontsource/inter": "5.3.0",
     "@supabase/supabase-js": "^2.110.3",
     "@taptime/time-review-contract": "*",
     "@unicode/unicode-15.1.0": "1.6.17",

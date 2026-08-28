@@ -287,10 +287,32 @@ describe('professional Admin Web shell', () => {
     render(<App administration={capability} />);
     const navigation = screen.getByRole('navigation', { name: 'Hauptnavigation' });
     expect(navigation.querySelectorAll('a')).toHaveLength(5);
+    expect(navigation.querySelectorAll('svg.section-icon')).toHaveLength(5);
+    for (const icon of navigation.querySelectorAll('svg.section-icon')) {
+      expect(icon).toHaveAttribute('width', '20');
+      expect(icon).toHaveAttribute('height', '20');
+      expect(icon).toHaveAttribute('aria-hidden', 'true');
+      expect(icon.querySelector('use')).toBeNull();
+    }
     await userEvent.click(screen.getByRole('link', { name: 'Arbeitszeiten' }));
     expect(window.location.pathname).toBe('/arbeitszeiten');
     expect(await screen.findByRole('heading', { name: 'Arbeitszeiten', level: 1 })).toHaveFocus();
     expect(screen.getByText('Wiederhergestellt')).toBeInTheDocument();
+  });
+
+  it('opens a navigation area with the keyboard and returns focus to its heading', async () => {
+    const capability = new FakeCapability(readyState);
+    const user = userEvent.setup();
+    render(<App administration={capability} />);
+
+    expect(screen.getByRole('heading', { name: 'Übersicht', level: 1 })).toHaveFocus();
+    await user.keyboard('{Shift>}{Tab}{/Shift}');
+    const setup = screen.getByRole('link', { name: 'Prüfungen' });
+    expect(setup).toHaveFocus();
+    await user.keyboard('{Enter}');
+
+    expect(window.location.pathname).toBe('/pruefungen');
+    expect(await screen.findByRole('heading', { name: 'Prüfungen', level: 1 })).toHaveFocus();
   });
 
   it('restores a linked month and every active filter from the address', async () => {
@@ -339,6 +361,18 @@ describe('professional Admin Web shell', () => {
     expect(screen.getByRole('link', { name: 'Erstes Arbeitsziel anlegen' }))
       .toHaveAttribute('href', '/einrichtung');
     expect(document.querySelectorAll('.first-empty .button-link')).toHaveLength(1);
+  });
+
+  it('keeps the overview greeting truthful and puts metric labels below their numbers', () => {
+    render(<App administration={new FakeCapability(readyState)} />);
+
+    const greeting = document.querySelector('.overview-greeting');
+    expect(greeting).toHaveTextContent('Guten Tag.');
+    expect(greeting?.querySelector('time')).toHaveAttribute('datetime');
+    expect(greeting).not.toHaveTextContent(/Aufmerksamkeit|braucht|erledigen/i);
+    const firstMetric = document.querySelector('.metric-card');
+    expect(firstMetric?.children[0]?.tagName).toBe('STRONG');
+    expect(firstMetric?.children[1]?.tagName).toBe('SPAN');
   });
 
   it('does not disguise a failed initial section as a new Betrieb', () => {

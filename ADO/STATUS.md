@@ -176,6 +176,7 @@ in keinem Plan standen.
 | Was | Von wem | Warum es drängt |
 |---|---|---|
 | **Produktname** | Tim | Engste Wahl: **Taptura** — `taptura.de`, `.com` und `.io` frei, `.app` vergeben. Kunstwort, trägt das „Tap" der Bedienung, in beiden Sprachen gleich aussprechbar, keine Kollision mit TIM/Telecom Italia. **Domains registrieren, bevor die Markenvorprüfung läuft** — sie sind das Einzige, das über Nacht weg sein kann. Regel aus der Suche: `.com` darf nicht über den Namen entscheiden; `.de` plus eine moderne Endung genügt. Verworfen: „MyTim" (Domains weg, TIM-Kollision, falsche Perspektive), „Zeitura" (international unklar auszusprechen). „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
+| **Konsolenschritt aus T-028** | Tim | **Blockiert jede Auslieferung.** Auf dem Server steht noch das alte Deploy-Skript mit der `32/32`-Erwartung; jeder Deploy scheitert in der Generalprobe. Ein Befehl in der Hetzner-Konsole als `root`: `docker run --rm -v /:/h ghcr.io/tim180201/taptime-backend-api:ops` — letzte Ausgabezeile muss die Revision nennen. **Vorher prüfen, auf welchem Stand `main` gerade ist**: `ops` ist ein beweglicher Zeiger und wandert mit jeder Veröffentlichung mit. Bauen ist nicht blockiert, nur Ausliefern. |
 | **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
 | **Vier Fragen an den Pilot-Inhaber** | Pilotbetrieb | Am 26.08. **schriftlich** hinausgegangen, Rücklaufzeit offen. Reihenfolge: was an Jibble stört · wie der Monatsabschluss abläuft · was bei einer falschen Stunde passiert · ob es Personalnummern gibt. Blockiert **T-020** (Freigabekette: pro Eintrag oder pro Person und Monat, D-020), **T-023** (Inhalt der Übersicht) und die letzte offene Stelle in **T-013**. Blockiert T-015a/b/c nicht. Schriftlich heißt: kürzere, glattere Antworten als im Gespräch — vor allem bei Frage 1. Kommt dort nichts Konkretes, ist ein Telefonat nachzuholen. |
 | **Monatsgrenzen in Ortszeit** | Tim + Claude | Adressen wie `?monat=2026-10` rechnen heute in UTC-Monatsgrenzen. Ein Oktober in `Europe/Berlin` dauert durch die Zeitumstellung 31 Tage plus eine Stunde; Abfrage und CSV-Export erlauben vertraglich höchstens exakt 31 Tage. Betrifft genau zwei Monate im Jahr — und verschiebt dort Arbeitszeiten über die Monatsgrenze. Bei einer Lohnabrechnung ist das kein Rundungsfehler. Braucht eine Vertrags- und Backendentscheidung, nicht Oberflächenarbeit. Fällt spätestens mit T-013 an. |
@@ -293,7 +294,7 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   danach** den alten öffentlichen Schlüssel entfernen. In dieser Reihenfolge, sonst sperrt man
   sich aus.
 - **Offen, laufend:** Die Grenztests aus T-025 messen relativ, Budget `1,20×`. Gemessene
-  CI-Verhältnisse: `0,66` · `0,64` · `0,91` · `0,57`. **Jede abgeschlossene Aufgabe trägt ihren Wert hier ein.**
+  CI-Verhältnisse: `0,66` · `0,64` · `0,91` · `0,57` · `0,93`. **Jede abgeschlossene Aufgabe trägt ihren Wert hier ein.**
   Bei zehn Werten wird die Verteilung ausgewertet und das Budget mit Daten nachgezogen — nicht
   geschätzt.
 - **P2:** Der Monitoring-Test ist auf dem Entwicklungsrechner (macOS) nicht lauffähig — er
