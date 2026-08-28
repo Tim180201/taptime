@@ -126,6 +126,15 @@ Alles unter `ADO/99_Archive/` ist Historie und wird nicht gelesen.
   werden. Vorher Remote-Stand prüfen, CI muss grün sein.
 - **Produktion, Produktionsdaten, Deployment, Store-Veröffentlichung und alles, was Geld
   kostet, brauchen immer eine separate ausdrückliche Freigabe des Product Owners.**
+- „Nicht committen vor `APPROVED`" in `ADO/TASK.md` bezieht sich auf die **Umsetzung**. Ein
+  **Dokumentations-Commit**, den der Technical Lead ausdrücklich beauftragt, ist davon
+  ausgenommen und wird **vor** der Umsetzung erstellt, getrennt von ihr. Begründung: Diese
+  Dateien sind die Anweisung selbst — der Technical Lead hat sie geschrieben, es gibt daran
+  nichts abzunehmen. Sie zusammen mit dem Code zu committen, vermischt Auftrag und Ergebnis.
+- Ein Dokumentations-Commit berührt **ausschließlich** Dateien unter `ADO/` sowie diese Datei,
+  `AGENTS.md`. Berührt er irgendetwas anderes, ist er keiner.
+- Dass `AGENTS.md` dazugehört, ist Absicht: Ein Regelwerk, das sich selbst nicht ändern lässt,
+  ist eine Sackgasse. Diese Zeile existiert, weil die erste Fassung genau das war.
 
 ## 8. Abschlussbericht
 
