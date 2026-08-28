@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { SignInResult } from '../auth/contracts';
+import { AppBuildIdentity } from '../design/AppBuildIdentity';
 
 interface LoginScreenProps {
   readonly signIn: (email: string, password: string) => Promise<SignInResult>;
@@ -97,6 +98,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
         disabled={disabled || submitting || email.trim().length < 3}
         testID="password-reset-button" />
       {message !== null ? <Text style={styles.error}>{message}</Text> : null}
+      <AppBuildIdentity style={styles.buildIdentity} />
     </View>
   );
 }
@@ -125,4 +127,5 @@ const styles = StyleSheet.create({
     color: '#b00020',
   },
   enrollmentAction: { marginTop: 10 },
+  buildIdentity: { marginTop: 'auto', paddingVertical: 20 },
 });

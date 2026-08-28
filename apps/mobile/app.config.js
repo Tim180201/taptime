@@ -4,12 +4,17 @@ const withDa5V5ValidationAndroidBoundary = require('./plugins/withDa5V5Validatio
 const appVariant = process.env.APP_VARIANT;
 const runtimeVariant = process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT;
 const physicalValidation = appVariant === 'physical-validation';
+const productionValidation = appVariant === 'production-validation';
 const da5V5Validation = appVariant === 'da5-v5-validation';
 const syntheticE2e = appVariant === 'synthetic-e2e';
+const buildSourceCommit = /^[0-9a-f]{40}$/u.test(process.env.EAS_BUILD_GIT_COMMIT_HASH ?? '')
+  ? process.env.EAS_BUILD_GIT_COMMIT_HASH
+  : null;
 
 const validVariantPair = (
   (appVariant === undefined && runtimeVariant === undefined)
   || (physicalValidation && runtimeVariant === 'physical-validation')
+  || (productionValidation && runtimeVariant === 'production-validation')
   || (da5V5Validation && runtimeVariant === 'da5-v5-validation')
   || (syntheticE2e && runtimeVariant === 'synthetic-e2e')
 );
@@ -21,20 +26,24 @@ const configuration = {
   ...base.expo,
   name: da5V5Validation
     ? 'TapTim.e DA5 Validation'
-    : physicalValidation
-      ? 'TapTim.e Validation'
-    : syntheticE2e
-      ? 'TapTim.e Synthetic E2E'
-      : 'TapTim.e',
+    : productionValidation
+      ? 'TapTim.e Produktionstest'
+      : physicalValidation
+        ? 'TapTim.e Validation'
+        : syntheticE2e
+          ? 'TapTim.e Synthetic E2E'
+          : 'TapTim.e',
   slug: 'mobile',
   ...(da5V5Validation
     ? {}
     : {
         scheme: physicalValidation
           ? 'taptime-validation'
-          : syntheticE2e
-            ? 'taptime-synthetic-e2e'
-            : 'taptime',
+          : productionValidation
+            ? 'taptime-production-validation'
+            : syntheticE2e
+              ? 'taptime-synthetic-e2e'
+              : 'taptime',
       }),
   ...(da5V5Validation
     ? {
@@ -49,7 +58,12 @@ const configuration = {
         ]],
         updates: { enabled: false },
       }
-    : {}),
+      : {
+          extra: {
+            ...base.expo.extra,
+            taptimeBuild: { sourceCommit: buildSourceCommit },
+          },
+        }),
   android: {
     ...base.expo.android,
     ...(da5V5Validation
@@ -60,11 +74,13 @@ const configuration = {
       : {}),
     package: da5V5Validation
       ? 'com.tim180201.mobile.validation'
-      : physicalValidation
-      ? 'com.tim180201.mobile.validation'
-      : syntheticE2e
-        ? 'com.tim180201.mobile.synthetic'
-      : base.expo.android.package,
+      : productionValidation
+        ? 'com.tim180201.mobile.productionvalidation'
+        : physicalValidation
+          ? 'com.tim180201.mobile.validation'
+          : syntheticE2e
+            ? 'com.tim180201.mobile.synthetic'
+            : base.expo.android.package,
   },
 };
 

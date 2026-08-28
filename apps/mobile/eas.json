@@ -28,6 +28,22 @@
         "buildType": "apk"
       }
     },
+    "production-validation": {
+      "extends": "base",
+      "distribution": "internal",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "production-validation",
+        "EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT": "production-validation",
+        "EXPO_PUBLIC_TAPTIME_DEMO_MODE": "false",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://sqgwqelzbyyuggxetfdc.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_djQqPAM3hV85UAcApKdOEg_dEWGAMZa",
+        "EXPO_PUBLIC_TAPTIME_API_BASE_URL": "https://api.tb-infra.de"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
       "extends": "base",
       "autoIncrement": true

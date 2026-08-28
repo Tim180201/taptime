@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
+import { AppBuildIdentity } from './design/AppBuildIdentity';
 import { AppNavigator } from './navigation/AppNavigator';
 import { createProductMobileRuntime } from './runtime/ProductMobileRuntime';
 
@@ -20,6 +21,7 @@ function UnsupportedNfcPlatform() {
     <View style={styles.container}>
       <Text style={styles.title}>NFC wird hier nicht unterstützt.</Text>
       <Text>Produktive NFC-Scans sind in dieser Version ausschließlich auf Android verfügbar.</Text>
+      <AppBuildIdentity style={styles.buildIdentity} />
     </View>
   );
 }
@@ -60,6 +62,7 @@ function UnavailableProductRuntime() {
     <View style={styles.container}>
       <Text style={styles.title}>TapTim.e ist nicht verfügbar.</Text>
       <Text>Die sichere Laufzeitkonfiguration konnte nicht geladen werden.</Text>
+      <AppBuildIdentity style={styles.buildIdentity} />
     </View>
   );
 }
@@ -76,4 +79,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
+  buildIdentity: { marginTop: 24 },
 });

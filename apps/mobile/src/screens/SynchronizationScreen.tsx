@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { Text } from 'react-native';
 import type { ProductScanCapability } from '../scan/contracts';
+import { AppBuildIdentity } from '../design/AppBuildIdentity';
 import { ActionButton, Card, Screen } from '../design/primitives';
 
 export function SynchronizationScreen({ scan }: { readonly scan: ProductScanCapability }) {
@@ -23,6 +24,7 @@ export function SynchronizationScreen({ scan }: { readonly scan: ProductScanCapa
       TapTim.e behält die unveränderte Reihenfolge bei. Eine lokale Start-/Stopp-Entscheidung
       wird nicht erfunden.
     </Text>
+    <AppBuildIdentity style={{ marginTop: 'auto', paddingBottom: 16 }} />
   </Screen>;
 }
 
