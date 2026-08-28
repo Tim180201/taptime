@@ -737,6 +737,9 @@ Liste **aller** Standorte eines Betriebs ist es nicht.
 bevor `T-015e` steht. Sonst kann ein Administrator niemanden mehr einladen — die Einladung
 verlangt seit T-015b einen Heimatstandort, den die Oberfläche nicht anbieten kann.
 
+**Aufgehoben am 28.08.2026 mit T-015e** — und zwar erst **nach dessen Auslieferung**. Solange die
+Produktion den Stand nicht trägt, gilt die Sperre dort unverändert weiter.
+
 ---
 
 ## D-030 — Befund: Die Oberfläche wurde nie ausgeliefert
