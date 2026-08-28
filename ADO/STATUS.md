@@ -310,6 +310,15 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   mit fünf Minuten Gültigkeit. Er darf entfernt werden, sobald T-026 mindestens fünf Minuten
   produktiv gelaufen ist — dann kann keine vor der Umschaltung geöffnete Seite ihn mehr brauchen.
   Unversionierte Dateinamen sind ein Übergang, kein Dauerzustand.
+- **Android-Testfassung gebaut, Gerätetest offen** (28.08.2026): EAS-Bau
+  `aa00f3e2-dd90-4057-9d86-a2f81b2549ec`, Paket `com.tim180201.mobile.productionvalidation`,
+  VersionCode 3, Quell-Commit `37266ca`. **Der Installationslink liegt in keinem Chat und in
+  keinem Repository** — er wird bei Bedarf über die Bau-Kennung auf `expo.dev` neu erzeugt.
+  Anleitung: `ADO/04_Operations/Android_Produktionstest.md`. Passende Tags: NTAG213, 215, 216.
+- **NFC auf echter Hardware bestätigt** (Product Owner, 28.08.2026): Lesen funktioniert auf
+  seinem Android-Gerät mit seinen Tags. Bis dahin lief jeder NFC-Nachweis gegen Testdoppel; der
+  automatisierte Hardware-Testlauf ist seit T-005 eingestellt. Damit ist die größte unbelegte
+  Annahme des Produkts belegt — **T-032 baut nicht auf Sand.**
 - **Signierschlüssel, bewusst unterschieden:** Der Schlüssel der Android-**Testfassung**
   (`...productionvalidation`) wird **nicht** verwahrt — sie kommt nie in einen Store, ein Verlust
   kostet einen Neubau. **Beim echten Release gilt das Gegenteil:** Ein verlorener Signierschlüssel

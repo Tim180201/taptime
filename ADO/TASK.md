@@ -4,89 +4,83 @@
 
 ---
 
-## T-018 · Die App kommt auf ein echtes Telefon
+## T-032 · Die App bekommt das Raster — und eine spürbare Rückmeldung
 
-**Für:** Codex · **Risiko:** eine App, die auf die Produktion zeigt, verlässt den Rechner
-**Zeitbox:** zwei Arbeitssitzungen · **Grundlage:** `eas.json`, ADR-0016, ADR-0017
+**Für:** Codex · **Risiko:** keine Datenänderung, aber das Gefühl des Produkts
+**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** **D-031**, `UI_Leitlinien.md`, D-016, D-021
 
-### Ziel
+### Zuerst lesen
 
-**Der Product Owner installiert die App auf seinem Android-Gerät, scannt einen NFC-Tag und sieht
-die Arbeitszeit im Admin-Web erscheinen.**
+**`ADO/01_Architecture/UI_Leitlinien.md`**, besonders *Farb- und Gestaltungsraster*. Es gilt für
+**alle** Oberflächen, nicht nur fürs Admin-Web.
 
-Das ist der erste vollständige Durchlauf des Produkts durch echte Hardware. Bis heute ist jede
-Zeile gegen Testdoppel gelaufen.
+Ein Unterschied bleibt: **Die App duzt** (D-021). Das Admin-Web siezt.
 
-### Was schon da ist
+### Der Stand heute, gemessen
 
-`eas.json` hat ein Profil `physical-validation`: interne Verteilung, APK, eigener Paketname.
-Der Bauweg existiert. Was fehlt, ist ein Profil, das auf die **Produktion** zeigt.
+15 React-Native-Standardknöpfe. Feste **helle** Farbwerte im Quelltext (`#e7f6ed`, `#12372a`)
+statt des Rasters. **Null Haptik, null Ton, null Animation** im gesamten Mobile-Quelltext.
 
-### Schritte
+Die App ist gebaut und geprüft — 1.298 Tests. Sie ist nur nicht gestaltet.
 
-**1. Ein Profil für den Trockenlauf**
+### Das Wichtigste zuerst: die Rückmeldung
 
-Baut eine APK, die gegen `api.tb-infra.de` läuft. **Eigener Paketname**, damit sie neben einer
-späteren Store-Fassung stehen kann und nichts überschreibt.
+**Wer ein Telefon an einen Tag hält, sieht den Bildschirm nicht.** Er sieht die Rückseite seines
+Geräts. Jede noch so schöne Animation erreicht ihn nicht — ein Impuls und ein Ton schon.
 
-Die Adresse kommt aus der Konfiguration, nicht aus dem Quelltext. Kein Geheimnis im Abbild, in
-der Konfiguration oder im Bericht — der publizierbare Supabase-Schlüssel ist keins, alles andere
-schon.
+Vier Ergebnisse, **mit geschlossenen Augen unterscheidbar**:
 
-**2. Die Version ist ablesbar**
+| Ergebnis | Rückmeldung |
+|---|---|
+| Arbeit begonnen | ein kräftiger kurzer Impuls, aufsteigender Ton |
+| Arbeit beendet | zwei kurze Impulse, absteigender Ton |
+| Pause begonnen oder beendet | weicher und gedämpfter — nicht dieselbe Wucht wie Arbeit |
+| Hat nicht geklappt | deutlich anders: länger, unangenehmer, tiefer Ton |
 
-Die App zeigt an einer ruhigen Stelle, welchen Stand sie hat. Ohne das steht der Product Owner
-in vier Wochen vor einem Fehler und niemand weiß, welche Fassung auf dem Telefon liegt — genau
-der Fehler, den wir bei der Oberfläche hatten (**D-030**).
+**Ton nur, wenn das Gerät nicht stumm ist.** Eine Lehrkraft im Unterricht will keinen Klang.
+Vibration immer, Ton nach Systemeinstellung.
 
-**3. Eine Anleitung für den Product Owner**
+**Keine Bestätigung zum Wegtippen.** Kein Dialog, kein „OK". Dranhalten, spüren, wegstecken.
+Sobald eine Schaltfläche nötig wird, ist es kein *One Tap* mehr.
 
-Kurz, in `ADO/04_Operations/`. Für jemanden, der kein Entwickler ist:
+### Danach: das Aussehen
 
-- wie er die App installiert — Android warnt bei Installation außerhalb des Stores, das ist
-  normal und muss dastehen, sonst bricht er ab
-- wie er sich anmeldet
-- wie er einen NFC-Tag registriert und einem Arbeitsziel zuordnet
-- was er sieht, wenn es funktioniert — und was, wenn nicht
-- **welche NFC-Tags funktionieren.** Er muss welche kaufen; sag ihm, worauf er achten muss
+- Farben **ausschließlich** aus benannten Merkmalen. Kein Farbwert im Quelltext
+- Die 15 Standardknöpfe durch eigene ersetzen, die dem Raster folgen
+- Der Scanbildschirm bekommt die ruhige Bewegung aus dem Entwurf: ein atmender Kreis, der
+  zeigt, dass die App bereit ist — für den Moment, in dem doch jemand hinschaut
+- Sechs Zustände je Bedienelement, sichtbarer Tastaturfokus, Kontrast geprüft
 
-**4. Der Verteilungslink ist nicht öffentlich**
-
-Die APK zeigt auf die Produktion. Wer sie hat, hat eine Anmeldemaske vor echten Daten. Der Link
-gehört an den Product Owner, nicht in ein Repository und nicht in einen Chat, den jemand
-weiterleitet.
-
-Falls der Bauweg ein Konto oder Geld verlangt: **melden, bevor du es anlegst.** Das ist eine
-Entscheidung des Product Owners.
-
-### Vision-Check
-
-**One Tap. One Decision.** Das erste Mal, dass ein Mensch tatsächlich einmal tippt.
+**Bewegung hat einen Zweck.** Sie zeigt einen Zustand — bereit, arbeitet, fertig. Bewegung ohne
+Aussage lenkt ab und kostet Batterie. Und wer *Reduzierte Bewegung* im System eingestellt hat,
+bekommt keine.
 
 ### Nicht anfassen
 
-- Die fachliche Logik der App. Sie ist gebaut und getestet
-- `packages/core`, Migrationen, Backend
+- Jede fachliche Logik, `packages/core`, Backend, Migrationen
 - Das Admin-Web
-- iOS. Das ist **T-030**, und zwar zuerst als Recherche
-- Der eingefrorene `apps/synthetic-android-e2e`
+- Die Anzeige des eingebetteten Stands — sie bleibt, wo sie ist
+- **Neue Funktionen.** Keine. Kein Bildschirm, den es nicht gibt
+- iOS
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- Eine APK ist gebaut und ihr Ursprungs-Commit ist benannt
-- Die App zeigt ihren Stand an, und er stimmt mit dem Commit überein
-- Die Anleitung ist so geschrieben, dass jemand ohne Entwicklerwissen sie befolgen kann —
-  einschließlich der Android-Warnung bei Installation außerhalb des Stores
-- Kein Geheimnis im Abbild, in der Konfiguration oder im Bericht
-- Der Paketname unterscheidet sich von einer späteren Store-Fassung
-- Alle bestehenden Mobile-Tests bleiben grün
+- **Vier unterscheidbare Rückmeldungen**, jede fest einem Ergebnis zugeordnet; ein Test weist
+  nach, dass sie sich paarweise unterscheiden — nicht nur, dass es sie gibt
+- Bei stummem Gerät kommt **kein** Ton, die Vibration aber schon
+- Nach einem Scan erscheint **kein** Dialog und keine Schaltfläche, die weggetippt werden muss
+- **Kein Farbwert außerhalb der Merkmalsdefinition**; ein Test weist es nach, wie im Admin-Web
+- Kein React-Native-Standardknopf mehr in `screens/`
+- Bei eingestellter *Reduzierter Bewegung* läuft keine Animation
+- Kontrast geprüft; der Tastaturfokus ist sichtbar
+- Alle 1.298 Mobile-Tests bleiben grün
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Was passiert, wenn der Product Owner diese App benutzt, während wir eine neue Fassung
-> ausliefern? Merkt er, dass seine Fassung alt ist? Wenn nicht: nenne es als Befund — es ist
-> derselbe Fehler wie **D-030**, nur auf dem Telefon.
+> Halte dir die vier Rückmeldungen vor: Könntest du sie **ohne hinzusehen** auseinanderhalten?
+> Insbesondere „Arbeit begonnen" gegen „hat nicht geklappt" — wenn die sich ähneln, ist die
+> ganze Aufgabe wertlos, weil die Person doch wieder auf den Bildschirm schaut.
 
 ### Abschluss
 
@@ -97,5 +91,5 @@ Dokumentations-Commit vorab ist erlaubt.
 
 ## Danach
 
-`T-030` iOS-Machbarkeit · `T-020` Freigabekette (D-014, D-026) · `T-016` Löschkonzept ·
-`T-024` Geheimnisse rotieren · siehe `ADO/PLAN.md`.
+Gerätetest durch den Product Owner (T-018) · offener P1 aus T-028 · `T-030` iOS-Machbarkeit ·
+`T-020` Freigabekette · siehe `ADO/PLAN.md`.
