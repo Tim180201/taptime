@@ -799,3 +799,22 @@ hatte seinen ersten Termin noch nicht (30.08., 03:35 UTC), der Tagesmonitor läu
 **Die Probe brach vor Sicherung, Migration und Aktivierung ab.** Das Tor hat gehalten.
 
 **Regel:** Was auf dem Server läuft, kommt aus einer versionierten Auslieferung.
+
+---
+
+## D-033 — Befund: Standorte lassen sich nicht anlegen, nicht zuweisen, nicht einschalten
+
+**Datum:** 28.08.2026 · **Gefunden vor dem Schreiben von T-015e** · **Umsetzung:** `T-015e`
+
+Migration 019 hat Tabellen, Auslöser und Berechtigungsregeln. Es gibt aber **keine Funktion, die
+einen Standort anlegt**, keine, die einer bestehenden Zugehörigkeit einen Heimatstandort zuweist,
+und keine, die eine Arbeits- oder Verwaltungszuweisung vergibt. Nur T-015b schreibt einen
+Heimatstandort — und nur für **neue** Einladungen.
+
+**Folge:** Die Funktion ist unerreichbar. Das Einschalten verlangt für **jede** aktive
+Zugehörigkeit einen Heimatstandort, auch für den Administrator selbst. Den kann ihr niemand
+geben. D-029 beschrieb das Loch als fehlende Auswahl — tatsächlich fehlt der ganze Weg.
+
+**Ursache, benannt:** T-015a hat beschrieben, **was** ein Standort ist, und ausdrücklich verlangt,
+dass sich nichts verhält. Niemand hat gefragt, **wie einer entsteht**. Vierter Befund dieser
+Bauart in zwei Tagen (D-030, D-032, D-029, dieser). Gegenmaßnahme: neue Regel in `AGENTS.md`.

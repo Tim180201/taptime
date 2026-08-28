@@ -4,103 +4,111 @@
 
 ---
 
-## T-027 · Das dunkle Gestaltungsraster umsetzen
+## T-015e · Standorte entstehen, werden zugewiesen, werden auswählbar
 
-**Für:** Codex · **Risiko:** keine Datenänderung, aber das Gesicht des Produkts
-**Zeitbox:** drei Arbeitssitzungen · **Grundlage:** **D-031**, `UI_Leitlinien.md`, D-021
+**Für:** Codex · **Risiko:** Berechtigungsdimension, Einschaltvorgang → **unabhängiges Review verpflichtend**
+**Zeitbox:** fünf Arbeitssitzungen · **Grundlage:** **D-033**, D-029, ADR-0020 (DA6-L01, L03, L04), ADR-0022
 
-### Zuerst lesen
+### Der Befund
 
-**`ADO/01_Architecture/UI_Leitlinien.md`** — vollständig, besonders den Abschnitt
-*Farb- und Gestaltungsraster*. Die elf Farbrollen, die Rundungen und die Icon-Regel sind
-verbindlich und werden hier nicht wiederholt.
+Migration 019 hat Tabellen, Auslöser und Berechtigungsregeln für Standorte — aber **keinen Weg,
+einen anzulegen.** Keine Funktion weist einer bestehenden Zugehörigkeit einen Heimatstandort zu,
+keine vergibt eine Arbeits- oder Verwaltungszuweisung. Nur die Einladung aus T-015b schreibt
+einen Heimatstandort, und nur für neue Personen.
+
+**Damit lässt sich die Funktion nie einschalten.** Das Einschalten verlangt für jede aktive
+Zugehörigkeit einen Heimatstandort — auch für den Administrator, der einschaltet.
+
+D-029 beschrieb das als fehlende Auswahl. Tatsächlich fehlt der ganze Weg.
 
 ### Ziel
 
-**Das Admin-Web sieht aus wie der Entwurf — und sagt nicht mehr, als es weiß.**
+**Ein Administrator kann Standorte anlegen, Menschen zuweisen und die Funktion einschalten —
+und danach funktioniert alles, was T-015a bis T-015d gebaut haben.**
 
-### Umfang: Aussehen. Nichts sonst.
+### Umfang
 
-**1 · Farben aus Merkmalen, nicht aus der Hand**
+**1 · Standorte anlegen, umbenennen, stilllegen**
 
-Jede Farbe kommt aus einem benannten Merkmal des Rasters. Außerhalb der Merkmalsdefinition steht
-**kein einziger Farbwert** im Quelltext. Nur so lässt sich später etwas ändern, ohne alles zu
-suchen.
+Nur der Administrator (DA6-L04). Ein Standort wird **nie gelöscht**, nur stillgelegt — die
+Historie hängt daran (DA6-L06). Ein stillgelegter Standort taucht in keiner Auswahl mehr auf,
+bleibt aber an alten Datensätzen sichtbar.
 
-**2 · Schrift**
+**2 · Zuweisungen vergeben**
 
-Inter, **selbst ausgeliefert**. Nicht von einer fremden Adresse nachladen — weder Google Fonts
-noch sonst ein Netz. Zwei Gründe, beide zwingend: Es sendet die Adresse jedes Besuchers an einen
-Dritten, und die Content-Security-Policy aus T-017 würde es ohnehin blockieren.
+- **Heimatstandort** je Zugehörigkeit: genau einer, änderbar
+- **Arbeitszuweisungen**: null oder mehr
+- **Verwaltungszuweisungen**: null oder mehr, nur für die Rolle Standortleitung
 
-Ersatzschrift, falls sie nicht lädt: die Systemschrift. Zahlen bleiben `tabular-nums`.
+Die vier Begriffe bleiben getrennt (T-015a): keiner impliziert einen anderen. Eine
+Verwaltungszuweisung an jemanden, der keine Standortleitung ist, wird abgewiesen.
 
-**3 · Icons**
+**3 · Standorte abfragen — blätterbar, nicht in der Sitzung (D-029)**
 
-Ein Linien-Icon je Bereich der Seitenleiste, 20 px, **als eingebettetes SVG**. Keine
-Icon-Bibliothek, kein Icon-Font, keine fremde Adresse — dieselben zwei Gründe. Icons stehen
-**neben** der Beschriftung, nie allein.
+Ein eigener Aufruf, der **genau die Standorte** liefert, die der Aufrufende zuweisen darf:
+betriebsweit für den Administrator, die Verwaltungsstandorte für eine Standortleitung. Blätterbar,
+damit die Antwortgrenze nie zum Thema wird — in T-015d gemessen: 488 Standorte in einer Sitzung.
 
-**4 · Seitenleiste, Kopfbereich, Karten**
+**4 · Die Einladung bekommt eine Auswahl**
 
-Seitenleiste als eigene Fläche mit Logoblock; der aktive Bereich als gefüllter Block statt nur
-fetter Schrift. Kopfbereich mit Betriebsname links und der wichtigsten Handlung rechts. Karten
-mit mehr Luft, große Zahl mit gedämpfter Beschriftung darunter.
+Ist die Funktion an, wird der Heimatstandort ausgewählt und ist Pflicht. Ist sie aus, ist die
+Auswahl nicht vorhanden — nicht ausgegraut, nicht leer.
 
-**5 · Der Fokusring**
+**5 · Das Einschalten wird bedienbar**
 
-3 px in Akzentfarbe, immer sichtbar. Auf hellem Grund genügt ein dünner Rahmen, auf dunklem nicht.
+Der Administrator sieht **vor** dem Einschalten, was noch fehlt: welche Zugehörigkeiten, Kunden,
+Projekte, Arbeitsziele und NFC-Zuordnungen keine Bindung haben. Die Umschaltung selbst bleibt
+unverändert eine einzige Transaktion, die bei jeder Lücke **vollständig** abweist (DA6-L01).
 
-**6 · Der Ausdruck**
+Eine Umschaltung, die kommentarlos scheitert, ist eine Sackgasse. Eine Liste dessen, was fehlt,
+ist der Unterschied zwischen einer Funktion und einer Falle.
 
-Ein eigenes Regelwerk fürs Drucken: **schwarz auf weiß**, keine Flächen, keine Verläufe. Eine
-gedruckte Zeitliste geht zur Lohnbuchhaltung; ein dunkler Block aus dem Drucker ist unbrauchbar.
+### Vision-Check
 
-**7 · Eine Begrüßung, mehr nicht**
-
-Der Kopf der Übersicht darf eine Begrüßung und das Datum tragen. **Keine Zeile, die behauptet,
-was die Seite zeigt** — „Hier sehen Sie, was Ihre Aufmerksamkeit braucht" wäre heute unwahr.
+Die Einrichtung ist Arbeit für den Betrieb, nicht für den Beschäftigten. Für ihn ändert sich
+nichts.
 
 ### Nicht anfassen
 
-- **Jeder Inhalt.** Keine neue Kachel, keine Liste „Jetzt zu erledigen", kein Standortwähler,
-  keine Freigabeansicht. Das ist T-020, T-023 und T-015e
-- Der Aufbau: fünf Bereiche, dieselben Adressen, Tabellen bleiben Tabellen
-- Der Wortschatz — mit der einen Ausnahme aus Punkt 7
-- Spalten einer Tabelle hinzufügen oder entfernen. Das ist **T-029**
-- Die Mobile-App. Sie bekommt dasselbe Raster später, in einer eigenen Aufgabe
-- `packages/core`, Migrationen, Backend-Module
-- Ein Logo. Der Name wird sich ändern; ein Platzhalter bleibt ein Platzhalter
+- `BusinessEngine` und die Entscheidungsreihenfolge
+- Die Autoritätsfunktion aus Migration 020 in ihrer **Wirkung**
+- Rückwirkende Standortvergabe — **D-022** und ADR-0025 gelten unverändert
+- Die Mobile-App
+- Das dunkle Gestaltungsraster. Neue Oberflächenteile folgen ihm, ändern es aber nicht
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- **Kein Farbwert außerhalb der Merkmalsdefinition.** Ein Test weist das nach
-- Der vorhandene `contrastRatio`-Test wird **erweitert**, nicht ersetzt, und deckt **jede**
-  Kombination aus Schrift und Untergrund des Rasters ab
-- **Kein einziger Abruf an eine fremde Adresse** — nicht für Schrift, nicht für Icons.
-  Nachzuweisen an den ausgehenden Anfragen, nicht an der Konfiguration
-- Der Tastaturfokus ist auf dunklem Grund sichtbar; die Anwendung bleibt allein mit der Tastatur
-  bedienbar
-- Das Druck-Regelwerk existiert und setzt Schrift auf Schwarz und Grund auf Weiß
-- Die Übersicht enthält **keine** Aussage über Inhalte, die sie nicht zeigt
-- Alle bestehenden Admin-Web-Tests bleiben grün
+- Ein Administrator legt einen Standort an, weist sich selbst und einem Beschäftigten einen
+  Heimatstandort zu und **schaltet die Funktion erfolgreich ein**. Das ist der Nachweis, dass das
+  Loch aus D-033 zu ist
+- Vor dem Einschalten nennt die Oberfläche **jede** fehlende Bindung namentlich
+- Eine Umschaltung mit einer verbleibenden Lücke wird **vollständig** abgewiesen; danach ist
+  nichts halb umgestellt
+- Eine **Standortleitung** kann keinen Standort anlegen, umbenennen, stilllegen und keine
+  Zuweisung vergeben
+- Eine Verwaltungszuweisung an eine Person ohne die Rolle Standortleitung wird abgewiesen
+- Ein stillgelegter Standort erscheint in keiner Auswahl, bleibt aber an bestehenden Datensätzen
+  sichtbar
+- Der Abfrageaufruf liefert einer Standortleitung **ausschließlich** ihre Verwaltungsstandorte
+- Bei **ausgeschalteter** Funktion ist von alledem nichts sichtbar
+- Nach dieser Aufgabe ist die Sperre aus **D-029** aufgehoben; sag das ausdrücklich im Bericht
 - Der Grenzlauf aus T-025 bleibt grün; das Verhältnis kommt in die Reihe in `ADO/STATUS.md`
 - CI grün, kein `[skip ci]`
 
 ### Zusätzliches Review
 
-> Öffne jeden der fünf Bereiche und nenne **jede** Stelle, an der etwas schlechter lesbar
-> geworden ist als vorher. Gedämpfter Text auf dunklem Grund ist die häufigste Art, eine dunkle
-> Oberfläche unbenutzbar zu machen. Suche danach, statt es auszuschließen.
+> Gehe jedes Ding durch, das diese Aufgabe einführt, und beantworte für jedes: **Wer legt es an,
+> wer ändert es, wer entfernt es?** (Regel 5 des Vision-Checks.) Fehlt einer der drei, melde es —
+> das ist genau der Fehler, der zu D-033 geführt hat.
 
 ### Abschluss
 
-Vier Punkte melden — Nachweise als **Sätze**. **Nicht committen** vor `APPROVED`.
+Vier Punkte melden — Nachweise als **Sätze**. **Nicht committen** vor `APPROVED`; der
+Dokumentations-Commit vorab ist erlaubt.
 
 ---
 
 ## Danach
 
-Offen aus T-028: der Konsolenschritt des Product Owners, danach der Deploy mit den beiden
-Vorführungen. · `T-015e` (D-029) · `T-020` Freigabekette (D-014, D-026) ·
-**Vorschlag T-029** Die Ansichten folgen der Arbeit · siehe `ADO/PLAN.md`.
+Offen aus T-028: Konsolenschritt und Deploy. · `T-020` Freigabekette (D-014, D-026) ·
+`T-016` Löschkonzept · `T-024` Geheimnisse rotieren · siehe `ADO/PLAN.md`.

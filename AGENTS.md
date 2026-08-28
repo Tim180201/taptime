@@ -23,6 +23,13 @@ Bevor irgendetwas gebaut wird, muss die Aufgabe diesen Test bestehen:
 3. **Bleibt es nachvollziehbar?** Korrekturen überschreiben niemals die Original-Historie.
 4. **Bleibt die Domäne trigger-agnostisch?** NFC ist der erste Auslöser, nicht die Domäne.
 
+5. **Entsteht, ändert und verschwindet es?** Führt eine Aufgabe ein neues Ding ein — eine
+   Tabelle, eine Datei auf dem Server, eine Rolle, ein Merkmal —, muss sie benennen, **wer es
+   anlegt, wer es ändert und wer es entfernt**. Fehlt einer der drei, ist die Aufgabe
+   unvollständig, auch wenn alles Beschriebene gebaut ist. Diese Regel entstand aus vier
+   Befunden in zwei Tagen (D-029, D-030, D-032, D-033): jedes Mal war beschrieben, was ein Ding
+   sein soll, und nicht, wie es in die Welt kommt.
+
 Besteht eine Aufgabe diesen Test nicht, wird sie **nicht implementiert**, sondern als
 Produktfrage an den Product Owner gemeldet.
 
