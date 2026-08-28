@@ -178,6 +178,7 @@ in keinem Plan standen.
 | **Produktname** | Tim | Engste Wahl: **Taptura** — `taptura.de`, `.com` und `.io` frei, `.app` vergeben. Kunstwort, trägt das „Tap" der Bedienung, in beiden Sprachen gleich aussprechbar, keine Kollision mit TIM/Telecom Italia. **Domains registrieren, bevor die Markenvorprüfung läuft** — sie sind das Einzige, das über Nacht weg sein kann. Regel aus der Suche: `.com` darf nicht über den Namen entscheiden; `.de` plus eine moderne Endung genügt. Verworfen: „MyTim" (Domains weg, TIM-Kollision, falsche Perspektive), „Zeitura" (international unklar auszusprechen). „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
 | **Konsolenschritt aus T-028** | Tim | **Blockiert jede Auslieferung.** Auf dem Server steht noch das alte Deploy-Skript mit der `32/32`-Erwartung; jeder Deploy scheitert in der Generalprobe. Ein Befehl in der Hetzner-Konsole als `root`: `docker run --rm -v /:/h ghcr.io/tim180201/taptime-backend-api:ops` — letzte Ausgabezeile muss die Revision nennen. **Vorher prüfen, auf welchem Stand `main` gerade ist**: `ops` ist ein beweglicher Zeiger und wandert mit jeder Veröffentlichung mit. Bauen ist nicht blockiert, nur Ausliefern. |
 | **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
+| **Welche Telefone haben die Lehrkräfte?** | Tim → Pilotbetrieb | **Kann den gesamten Pilotbetrieb blockieren.** Die App ist Android; T-018 liefert sie per Direktlink aus, was auf einem iPhone nicht möglich ist. iOS steht bewusst nicht im Plan. Haben die Lehrkräfte iPhones, führt der Weg nur über den App Store: Apple-Entwicklerkonto (99 €/Jahr), Unternehmen, Prüfverfahren — Wochen, nicht Tage. **Diese Frage gehört an den Anfang des Gesprächs, nicht ans Ende.** Sie entscheidet, ob der Pilot in der geplanten Form überhaupt stattfinden kann. |
 | **Vier Fragen an den Pilot-Inhaber** | Pilotbetrieb | Am 26.08. **schriftlich** hinausgegangen, Rücklaufzeit offen. Reihenfolge: was an Jibble stört · wie der Monatsabschluss abläuft · was bei einer falschen Stunde passiert · ob es Personalnummern gibt. Blockiert **T-020** (Freigabekette: pro Eintrag oder pro Person und Monat, D-020), **T-023** (Inhalt der Übersicht) und die letzte offene Stelle in **T-013**. Blockiert T-015a/b/c nicht. Schriftlich heißt: kürzere, glattere Antworten als im Gespräch — vor allem bei Frage 1. Kommt dort nichts Konkretes, ist ein Telefonat nachzuholen. |
 | **Monatsgrenzen in Ortszeit** | Tim + Claude | Adressen wie `?monat=2026-10` rechnen heute in UTC-Monatsgrenzen. Ein Oktober in `Europe/Berlin` dauert durch die Zeitumstellung 31 Tage plus eine Stunde; Abfrage und CSV-Export erlauben vertraglich höchstens exakt 31 Tage. Betrifft genau zwei Monate im Jahr — und verschiebt dort Arbeitszeiten über die Monatsgrenze. Bei einer Lohnabrechnung ist das kein Rundungsfehler. Braucht eine Vertrags- und Backendentscheidung, nicht Oberflächenarbeit. Fällt spätestens mit T-013 an. |
 
@@ -221,6 +222,8 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   Gleichheit von `started_via`/`stopped_via` und `trigger_type` gehärtet werden. Die aktuellen
   Writer erzeugen bereits die richtige Form.
 - App heißt intern noch `mobile` (Name, Slug, Package-ID) statt TapTim.e.
+- **P2, Befund aus T-018:** Die installierte Produktionstest-App erkennt eine neuere Fassung
+  nicht selbst. Sie zeigt ihren Commit; der Technical Lead muss einen neuen Stand aktiv melden.
 - Ungetracktes `app.json` im Wurzelverzeichnis (seit 20.07.2026), von keinem Build oder Runtime
   gelesen. Package-ID entscheidet der Product Owner.
 - Nur zwei Rollen (`administrator`, `employee`). `team_lead` ist eine typische B2B-Rückfrage,
@@ -300,10 +303,19 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 - **P2:** Der Monitoring-Test ist auf dem Entwicklungsrechner (macOS) nicht lauffähig — er
   braucht GNU-`stat -c`. Ein Test, der nur in der CI läuft, wird beim Entwickeln nicht bemerkt.
   Unverändert übernommen aus T-026.
+- **P2, Befund aus T-028:** Beim ersten Wechsel bytegleicher systemd-Einheiten von regulären
+  Dateien auf Release-Symlinks blieb `NeedDaemonReload=yes`: Die Änderungsprüfung vergleicht
+  Inhalte, nicht den Pfad-/Inodewechsel. Die Sicherung lief trotz der systemd-Warnung erfolgreich.
 - **Aufräumen, terminiert:** Der Caddy-Zweig `/assets/*` trägt den unversionierten T-006-Altbestand
   mit fünf Minuten Gültigkeit. Er darf entfernt werden, sobald T-026 mindestens fünf Minuten
   produktiv gelaufen ist — dann kann keine vor der Umschaltung geöffnete Seite ihn mehr brauchen.
   Unversionierte Dateinamen sind ein Übergang, kein Dauerzustand.
+- **Signierschlüssel, bewusst unterschieden:** Der Schlüssel der Android-**Testfassung**
+  (`...productionvalidation`) wird **nicht** verwahrt — sie kommt nie in einen Store, ein Verlust
+  kostet einen Neubau. **Beim echten Release gilt das Gegenteil:** Ein verlorener Signierschlüssel
+  bedeutet, dass die App nie wieder aktualisiert werden kann, unter keinen Umständen. Er wird
+  verwahrt wie der Borg-Schlüssel, und die Aufgabe, die ihn erzeugt, ist ohne diese Bestätigung
+  nicht abgeschlossen.
 - Geparkte Idee: **`ADO/RESULT.md`** — Codex schreibt seinen Abschlussbericht ins Repo statt nur
   in den Chat. Spart dem Product Owner bei jeder Aufgabe einen Handgriff.
 
