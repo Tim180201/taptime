@@ -40,6 +40,11 @@ describe('production validation build configuration', () => {
     expect(packageJson.scripts['android:production-validation:build']).toBe(
       'node scripts/buildProductionValidationAndroid.mjs',
     );
+    expect(packageJson.scripts['eas-build-post-install']).toBe(
+      'npm run build --workspace=@taptime/mobile-work-contract'
+      + ' && npm run build --workspace=@taptime/offline-sync-contract'
+      + ' && npm run build --workspace=@taptime/time-review-contract',
+    );
     expect(buildSource).toContain("['diff', '--quiet', 'HEAD', '--', ...sourcePathspec]");
     expect(buildSource).toContain("'packages/mobile-work-contract'");
     expect(buildSource).toContain("'package-lock.json'");
