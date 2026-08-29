@@ -833,3 +833,15 @@ noch nicht bestaetigt“ — kurz, neutral in der Tonhoehe, hoerbar unfertig, ni
 Fehlermuster verwechselbar. Wurde der Scan nicht abgelegt, ist er fehlgeschlagen und bekommt das
 Fehlermuster. Trifft die Entscheidung spaeter ein, gibt es keinen nachtraeglichen Impuls; der
 aufgenommene Scan bleibt sichtbar, bis er bestaetigt oder abgelehnt ist.
+
+---
+
+## D-036 · Befund: Ein erfundener Testablauf hat einen Fehlschlag versteckt
+
+29.08. — Die Rückmeldung ordnete jedem nicht aufgezählten Zustand das Fehlermuster zu. Der
+Zustand `server_decision`, mit dem in der Produktion JEDER erfolgreiche Scan mit Netz endet, war
+nicht aufgezählt: ein gelungenes Einstempeln haette 400 ms tief gebrummt. 1.320 gruene Tests
+sahen das nicht, weil der Test eine Zustandsfolge nachspielte, die kein Produktionscode
+veroeffentlicht. Daraus zwei Regeln: Eine Zuordnung ueber einen Vertragstyp wird vollstaendig
+ausgeschrieben und endet an einem `never`-Zweig, nie an einem Auffangzweig mit Bedeutung. Und ein
+Test ueber Zustandsfolgen faehrt die Folgen, die der Produktionscode wirklich veroeffentlicht.
