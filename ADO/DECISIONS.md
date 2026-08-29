@@ -821,3 +821,15 @@ geben. D-029 beschrieb das Loch als fehlende Auswahl — tatsächlich fehlt der 
 **Ursache, benannt:** T-015a hat beschrieben, **was** ein Standort ist, und ausdrücklich verlangt,
 dass sich nichts verhält. Niemand hat gefragt, **wie einer entsteht**. Vierter Befund dieser
 Bauart in zwei Tagen (D-030, D-032, D-029, dieser). Gegenmaßnahme: neue Regel in `AGENTS.md`.
+
+---
+
+## D-035 · Das Muster sagt, was wirklich passiert ist
+
+29.08. — Ohne Netz weiss das Geraet noch nicht, ob aus dem Scan Beginn, Ende oder Pause wird.
+Wurde der Scan abgelegt, hat er geklappt: das Fehlermuster waere gelogen und verleitet zum
+zweiten Stempel, das Startmuster waere geraten. Dafuer gibt es ein fuenftes Muster „aufgenommen,
+noch nicht bestaetigt“ — kurz, neutral in der Tonhoehe, hoerbar unfertig, nicht mit dem
+Fehlermuster verwechselbar. Wurde der Scan nicht abgelegt, ist er fehlgeschlagen und bekommt das
+Fehlermuster. Trifft die Entscheidung spaeter ein, gibt es keinen nachtraeglichen Impuls; der
+aufgenommene Scan bleibt sichtbar, bis er bestaetigt oder abgelehnt ist.

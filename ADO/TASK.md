@@ -28,13 +28,14 @@ Die App ist gebaut und geprüft — 1.298 Tests. Sie ist nur nicht gestaltet.
 **Wer ein Telefon an einen Tag hält, sieht den Bildschirm nicht.** Er sieht die Rückseite seines
 Geräts. Jede noch so schöne Animation erreicht ihn nicht — ein Impuls und ein Ton schon.
 
-Vier Ergebnisse, **mit geschlossenen Augen unterscheidbar**:
+Fünf Ergebnisse, **mit geschlossenen Augen unterscheidbar**:
 
 | Ergebnis | Rückmeldung |
 |---|---|
 | Arbeit begonnen | ein kräftiger kurzer Impuls, aufsteigender Ton |
 | Arbeit beendet | zwei kurze Impulse, absteigender Ton |
 | Pause begonnen oder beendet | weicher und gedämpfter — nicht dieselbe Wucht wie Arbeit |
+| Aufgenommen, noch nicht bestätigt | kurz, neutral in der Tonhöhe, hörbar unfertig |
 | Hat nicht geklappt | deutlich anders: länger, unangenehmer, tiefer Ton |
 
 **Ton nur, wenn das Gerät nicht stumm ist.** Eine Lehrkraft im Unterricht will keinen Klang.
@@ -65,7 +66,7 @@ bekommt keine.
 
 ### Prüfung — nachweisen, nicht behaupten
 
-- **Vier unterscheidbare Rückmeldungen**, jede fest einem Ergebnis zugeordnet; ein Test weist
+- **Fünf unterscheidbare Rückmeldungen**, jede fest einem Ergebnis zugeordnet; ein Test weist
   nach, dass sie sich paarweise unterscheiden — nicht nur, dass es sie gibt
 - Bei stummem Gerät kommt **kein** Ton, die Vibration aber schon
 - Nach einem Scan erscheint **kein** Dialog und keine Schaltfläche, die weggetippt werden muss
@@ -78,7 +79,7 @@ bekommt keine.
 
 ### Zusätzliches Review
 
-> Halte dir die vier Rückmeldungen vor: Könntest du sie **ohne hinzusehen** auseinanderhalten?
+> Halte dir die fünf Rückmeldungen vor: Könntest du sie **ohne hinzusehen** auseinanderhalten?
 > Insbesondere „Arbeit begonnen" gegen „hat nicht geklappt" — wenn die sich ähneln, ist die
 > ganze Aufgabe wertlos, weil die Person doch wieder auf den Bildschirm schaut.
 
