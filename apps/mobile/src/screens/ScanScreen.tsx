@@ -1,6 +1,14 @@
-import { useSyncExternalStore } from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  StyleSheet,
+  View,
+} from 'react-native';
 import type { ProductMembershipRole } from '../auth/contracts';
+import { ActionButton, AppText as Text } from '../design/primitives';
+import { mobileTokens } from '../design/tokens';
 import {
   scanStatusTestId,
   type ProductScanCapability,
@@ -45,12 +53,13 @@ export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScree
         accessibilityLiveRegion="polite"
         testID={statusTestId}
       >
+        <BreathingScanIndicator state={state} tone={presentation.tone} />
         <Text style={styles.statusTitle}>{presentation.title}</Text>
         <Text style={styles.statusMessage}>{presentation.message}</Text>
       </View>
 
       <View style={styles.actions}>
-        <Button
+        <ActionButton
           title="NFC-Tag scannen"
           onPress={() => scan.scan()}
           disabled={!isScanReadyState(state)}
@@ -58,15 +67,16 @@ export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScree
           testID="scan-button"
         />
         {state.status === 'scanning' ? (
-          <Button
+          <ActionButton
             title="Scan abbrechen"
+            tone="secondary"
             onPress={() => scan.cancel()}
             accessibilityLabel="Aktiven NFC-Scan abbrechen"
             testID="cancel-scan-button"
           />
         ) : null}
         {state.status === 'retry_pending' || state.status === 'saved_locally' ? (
-          <Button
+          <ActionButton
             title="Unveränderte Daten erneut senden"
             onPress={() => scan.retry()}
             accessibilityLabel="Dieselben Scan-Daten erneut senden"
@@ -76,8 +86,9 @@ export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScree
       </View>
 
       {embedded ? null : <View style={styles.signOut}>
-        <Button
+        <ActionButton
           title="Abmelden"
+          tone="quiet"
           onPress={signOut}
           accessibilityLabel="Von TapTim.e abmelden"
           testID="sign-out-button"
@@ -89,8 +100,93 @@ export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScree
 
 export function presentActor(actor: ProductMembershipRole | 'offline'): string {
   if (actor === 'administrator') return 'Administrator';
-  if (actor === 'employee') return 'Mitarbeiter';
+  if (actor === 'employee') return 'Beschäftigter';
   return 'Offline-Erfassung';
+}
+
+function BreathingScanIndicator({
+  state,
+  tone,
+}: {
+  readonly state: ProductScanState;
+  readonly tone: ScanScreenPresentation['tone'];
+}) {
+  const reducedMotion = useReducedMotion();
+  const progress = useRef(new Animated.Value(1)).current;
+  const active = shouldAnimateScanIndicator(state, reducedMotion);
+
+  useEffect(() => {
+    if (!active) {
+      progress.stopAnimation();
+      progress.setValue(1);
+      return;
+    }
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(progress, {
+        toValue: 0,
+        duration: 1_400,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }),
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: 1_400,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [active, progress]);
+
+  const symbol = state.status === 'submitting' || state.status === 'synchronizing'
+    ? '···'
+    : tone === 'success' ? '✓' : tone === 'error' || tone === 'warning' ? '!' : 'NFC';
+  return <Animated.View
+    accessibilityElementsHidden
+    importantForAccessibility="no-hide-descendants"
+    style={[
+      styles.scanIndicator,
+      styles[`indicator_${tone}`],
+      active && {
+        opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.62, 1] }),
+        transform: [{
+          scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.04] }),
+        }],
+      },
+    ]}
+  >
+    <Text style={styles.scanIndicatorText}>{symbol}</Text>
+  </Animated.View>;
+}
+
+export function shouldAnimateScanIndicator(
+  state: ProductScanState,
+  reducedMotion: boolean,
+): boolean {
+  if (reducedMotion) return false;
+  return state.status === 'scanning'
+    || (state.status === 'ready' && state.outcome === null)
+    || (state.status === 'offline_ready' && state.outcome === null);
+}
+
+function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(true);
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (active) setReduced(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduced,
+    );
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+  return reduced;
 }
 
 export function presentScanState(state: ProductScanState): ScanScreenPresentation {
@@ -258,53 +354,88 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 56,
-    paddingHorizontal: 20,
-    backgroundColor: '#f4f7f5',
+    paddingHorizontal: mobileTokens.spacing.md,
+    backgroundColor: mobileTokens.color.ground,
   },
-  embeddedContainer: { paddingTop: 20 },
+  embeddedContainer: { paddingTop: mobileTokens.spacing.lg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 28,
+    marginBottom: mobileTokens.spacing.xl,
   },
   brand: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#12372a',
+    color: mobileTokens.color.text,
   },
   role: {
     fontSize: 14,
-    color: '#52635d',
+    color: mobileTokens.color.textMuted,
   },
   statusCard: {
     minHeight: 160,
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: mobileTokens.radius.card,
     borderWidth: 1,
-    padding: 22,
+    padding: mobileTokens.spacing.lg,
+    alignItems: 'center',
   },
-  status_neutral: { backgroundColor: '#eef3f1', borderColor: '#c6d3ce' },
-  status_success: { backgroundColor: '#e7f6ed', borderColor: '#8fc9a4' },
-  status_warning: { backgroundColor: '#fff7df', borderColor: '#e5c86b' },
-  status_error: { backgroundColor: '#fdecea', borderColor: '#e1a29b' },
+  status_neutral: {
+    backgroundColor: mobileTokens.color.surface,
+    borderColor: mobileTokens.color.line,
+  },
+  status_success: {
+    backgroundColor: mobileTokens.color.surface,
+    borderColor: mobileTokens.color.success,
+  },
+  status_warning: {
+    backgroundColor: mobileTokens.color.surface,
+    borderColor: mobileTokens.color.warning,
+  },
+  status_error: {
+    backgroundColor: mobileTokens.color.surface,
+    borderColor: mobileTokens.color.danger,
+  },
   statusTitle: {
     fontSize: 21,
     fontWeight: '700',
-    color: '#183c30',
-    marginBottom: 10,
+    color: mobileTokens.color.text,
+    marginBottom: mobileTokens.spacing.sm,
+    textAlign: 'center',
   },
   statusMessage: {
     fontSize: 16,
     lineHeight: 23,
-    color: '#2f423b',
+    color: mobileTokens.color.textMuted,
+    textAlign: 'center',
+  },
+  scanIndicator: {
+    width: 72,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: mobileTokens.radius.pill,
+    borderWidth: 3,
+    marginBottom: mobileTokens.spacing.md,
+    backgroundColor: mobileTokens.color.surfaceRaised,
+  },
+  indicator_neutral: { borderColor: mobileTokens.color.accent },
+  indicator_success: { borderColor: mobileTokens.color.success },
+  indicator_warning: { borderColor: mobileTokens.color.warning },
+  indicator_error: { borderColor: mobileTokens.color.danger },
+  scanIndicatorText: {
+    color: mobileTokens.color.text,
+    fontSize: 16,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   actions: {
-    gap: 12,
-    marginTop: 28,
+    gap: mobileTokens.spacing.sm,
+    marginTop: mobileTokens.spacing.lg,
   },
   signOut: {
     marginTop: 'auto',
-    marginBottom: 28,
+    marginBottom: mobileTokens.spacing.lg,
   },
 });

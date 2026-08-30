@@ -7,6 +7,7 @@ import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type {
   OfflineManualCaptureCapability,
 } from '../offline/OfflineCaptureCoordinator';
+import type { ScanFeedbackLifecycle } from '../feedback/ScanFeedbackCoordinator';
 
 export interface ProductMobileRuntime {
   readonly session: MobileSessionCapability;
@@ -88,6 +89,10 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       stop() {},
     },
     offlineManualCapture: OfflineManualCaptureCapability = unavailableOfflineManualCapture(),
+    private readonly scanFeedbackLifecycle: ScanFeedbackLifecycle = {
+      start() {},
+      stop() {},
+    },
   ) {
     // React receives a real narrow facade, not the coordinator object that owns C2 token access.
     this.sessionCapability = Object.freeze({
@@ -179,9 +184,11 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     const runtimeGeneration = ++this.runtimeGeneration;
     // Keep the private capability graph owned for the complete product-runtime lifetime.
     void this.serverTransport;
+    this.scanFeedbackLifecycle.start();
     try {
       await this.scanOrchestrator.start();
     } catch (error) {
+      this.scanFeedbackLifecycle.stop();
       if (this.isCurrentRuntime(runtimeGeneration)) {
         throw error;
       }
@@ -224,6 +231,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     this.offlineSchedulingLifecycle.stop();
     this.mobileWorkCoordinator.stop();
     this.nativeIngressLifecycle.stop();
+    this.scanFeedbackLifecycle.stop();
     void this.administrationCoordinator.stop();
     void this.scanOrchestrator.stop();
     this.coordinator.stop();

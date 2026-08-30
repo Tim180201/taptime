@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type {
   ManualOfflineAcknowledgement,
   OfflineManualCaptureCapability,
 } from '../offline/OfflineCaptureCoordinator';
-import { ActionButton, Card, Screen } from '../design/primitives';
+import { ActionButton, AppText as Text, Card, Screen, TextField } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 
 type ProjectionState =
@@ -116,7 +116,7 @@ export function OfflineManualCaptureScreen({
     <Text style={styles.explanation}>
       Nur sicher geleaste Ziele sind offline verfügbar. Start oder Stopp entscheidet der Server.
     </Text>
-    <TextInput
+    <TextField
       value={search}
       onChangeText={setSearch}
       placeholder="Kunde oder Projekt suchen"
@@ -152,6 +152,7 @@ export function OfflineManualCaptureScreen({
           || outcome === 'pending'
           || pendingWorkEventId !== null
         }
+        loading={submitting}
         onPress={trigger}
       />
       {outcome === null ? null
@@ -195,6 +196,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: mobileTokens.radius.control,
     paddingHorizontal: mobileTokens.spacing.md,
+    color: mobileTokens.color.text,
     fontSize: 16,
   },
   list: { gap: mobileTokens.spacing.md, paddingBottom: mobileTokens.spacing.sm },

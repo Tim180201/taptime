@@ -5,9 +5,23 @@ import {
 } from '../../src/scan/contracts';
 
 vi.mock('react-native', () => ({
-  Button: () => null,
+  AccessibilityInfo: {
+    addEventListener: () => ({ remove() {} }),
+    isReduceMotionEnabled: async () => false,
+  },
+  ActivityIndicator: () => null,
+  Animated: {
+    Value: class {},
+    View: () => null,
+    loop: () => ({ start() {}, stop() {} }),
+    sequence: () => null,
+    timing: () => null,
+  },
+  Easing: { inOut: () => null, sin: null },
+  Pressable: () => null,
   StyleSheet: { create: <Value>(value: Value) => value },
   Text: () => null,
+  TextInput: () => null,
   View: () => null,
 }));
 
@@ -20,7 +34,7 @@ const {
 describe('ScanScreen presentation', () => {
   it('labels offline capture without disclosing a retained account identity', () => {
     expect(presentActor('administrator')).toBe('Administrator');
-    expect(presentActor('employee')).toBe('Mitarbeiter');
+    expect(presentActor('employee')).toBe('Beschäftigter');
     expect(presentActor('offline')).toBe('Offline-Erfassung');
   });
 
@@ -32,6 +46,10 @@ describe('ScanScreen presentation', () => {
     [{ status: 'scanning' }, 'Bereit zum Erfassen'],
     [{ status: 'submitting', phase: 'scan_context' }, 'Scan wird sicher verarbeitet'],
     [{ status: 'submitting', phase: 'lifecycle' }, 'Scan wird sicher verarbeitet'],
+    [{ status: 'saved_locally', queueCount: 1 }, 'Sicher lokal gespeichert'],
+    [{ status: 'synchronizing', queueCount: 1 }, 'Synchronisierung läuft'],
+    [{ status: 'server_decision', queueCount: 0,
+      outcome: { status: 'active_entry_for_other_target_rejected' } }, 'Andere Arbeitszeit ist aktiv'],
     [{ status: 'retry_pending' }, 'Übertragung noch offen'],
     [{ status: 'secure_storage_unavailable' }, 'Sicherer Speicher nicht verfügbar'],
     [{ status: 'protected_pending', reason: 'identity_mismatch' }, 'Ausstehender Vorgang geschützt'],

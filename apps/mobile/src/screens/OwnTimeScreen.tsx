@@ -1,8 +1,8 @@
-import { ScrollView, StyleSheet, Text } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { useSyncExternalStore } from 'react';
 import type { SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 import type { MobileWorkCapability } from '../work/contracts';
-import { ActionButton, Card, Screen } from '../design/primitives';
+import { ActionButton, AppText as Text, Card, Screen } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 
 export function OwnTimeScreen({ work }: { readonly work: MobileWorkCapability }) {
@@ -43,6 +43,7 @@ export function OwnTimeScreen({ work }: { readonly work: MobileWorkCapability })
         : <ActionButton
             title={state.loadingMore ? 'Weitere Zeiten werden geladen …' : 'Weitere Zeiten laden'}
             disabled={state.loadingMore}
+            loading={state.loadingMore}
             onPress={() => work.loadMoreOwnTime()}
           />}
     </ScrollView>

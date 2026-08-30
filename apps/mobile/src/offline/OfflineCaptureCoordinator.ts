@@ -148,6 +148,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private offlineRestorationSnapshot: InternalOfflineRestorationSnapshot | null = null;
   private offlineCaptureContext: ActiveOfflineCaptureContext | null = null;
   private nativeNfcIngressAuthority: NativeNfcIngressAuthoritySnapshot | null = null;
+  private visibleTerminalOutcome: ProductScanOutcome | null = null;
   private protectedLegacy = false;
   private readonly manualAcknowledgements = new Map<string, ManualOfflineAcknowledgement>();
   private readonly manualAcknowledgementListeners = new Set<() => void>();
@@ -209,6 +210,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
     this.nativeNfcIngressAuthority = null;
+    this.visibleTerminalOutcome = null;
     this.sessionTransitionFlight = null;
     this.manualAcknowledgements.clear();
     this.unsubscribeSession?.();
@@ -653,6 +655,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       mode === 'offline'
       && (restorationSnapshot === null || expectedOfflineContext === null)
     ) return;
+    this.visibleTerminalOutcome = null;
     this.setState({ status: 'scanning' });
     let capture: NfcScanCaptureResult;
     try {
@@ -770,7 +773,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return;
     }
     const queueCount = await database.queueCount();
-    this.setState({ status: 'saved_locally', queueCount });
+    this.setState(mode === 'offline'
+      ? { status: 'saved_locally', queueCount }
+      : { status: 'synchronizing', queueCount });
     void this.scheduler?.trigger('event_append');
   }
 
@@ -956,6 +961,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     mode: CaptureMode,
     outcome: ProductScanOutcome | null = null,
   ): Promise<void> {
+    if (outcome !== null) this.visibleTerminalOutcome = Object.freeze(outcome);
     let capability;
     try {
       capability = await this.nfcLifecycle.checkCapability();
@@ -998,10 +1004,15 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       this.setState({ status: 'server_review_pending', queueCount });
       return;
     }
+    if (queueCount > 0 && this.visibleTerminalOutcome === null) {
+      this.setState({ status: 'saved_locally', queueCount });
+      return;
+    }
+    const visibleOutcome = outcome ?? this.visibleTerminalOutcome;
     if (mode === 'offline') {
-      this.setState({ status: 'offline_ready', queueCount, outcome });
+      this.setState({ status: 'offline_ready', queueCount, outcome: visibleOutcome });
     } else {
-      this.setState({ status: 'ready', outcome });
+      this.setState({ status: 'ready', outcome: visibleOutcome });
     }
   }
 
@@ -1076,6 +1087,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         });
         return;
       case 'server_decision':
+        this.visibleTerminalOutcome = Object.freeze(
+          decisionOutcome(schedulerState.decision),
+        );
         this.setManualAcknowledgement(schedulerState.workEventId, {
           status: 'server_decision',
           outcome: decisionOutcome(schedulerState.decision).status as Extract<
@@ -1085,7 +1099,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         });
         this.setState({
           status: 'server_decision',
-          outcome: decisionOutcome(schedulerState.decision),
+          outcome: this.visibleTerminalOutcome,
           queueCount: schedulerState.queueCount,
         });
         return;
@@ -1112,6 +1126,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.nativeNfcIngressAuthority = null;
     if (removeLookupKey) {
       this.manualAcknowledgements.clear();
+      this.visibleTerminalOutcome = null;
     } else {
       this.updatePendingManualAcknowledgements({ status: 'rejected' });
     }
@@ -1205,7 +1220,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (outcome.status === 'session_rejected') {
       this.nativeNfcIngressAuthority = null;
     }
-    this.setState({ status: 'ready', outcome: Object.freeze(outcome) });
+    this.visibleTerminalOutcome = Object.freeze(outcome);
+    this.setState({ status: 'ready', outcome: this.visibleTerminalOutcome });
   }
 
   private setState(state: ProductScanState): void {

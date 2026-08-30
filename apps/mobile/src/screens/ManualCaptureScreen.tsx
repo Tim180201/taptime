@@ -2,13 +2,11 @@ import { useMemo, useState, useSyncExternalStore } from 'react';
 import {
   ScrollView,
   StyleSheet,
-  Text,
-  TextInput,
   View,
 } from 'react-native';
 import type { SafeWorkTarget, WorkTargetType } from '@taptime/mobile-work-contract';
 import type { MobileWorkCapability } from '../work/contracts';
-import { ActionButton, Card, Screen } from '../design/primitives';
+import { ActionButton, AppText as Text, Card, Screen, TextField } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 
 export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapability }) {
@@ -52,11 +50,12 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
       <ActionButton
         title={state.submitting ? 'Wird sicher ausgelöst …' : 'Pause auslösen'}
         disabled={state.submitting}
+        loading={state.submitting}
         onPress={() => work.triggerBreak()}
         accessibilityHint="Der Server entscheidet, ob die Pause beginnt oder endet."
       />
     </Card>
-    <TextInput
+    <TextField
       value={search}
       onChangeText={setSearch}
       placeholder="Kunde oder Projekt suchen"
@@ -86,6 +85,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
       <ActionButton
         title={state.submitting ? 'Wird sicher ausgelöst …' : 'Arbeitszeit auslösen'}
         disabled={selected === null || state.submitting}
+        loading={state.submitting}
         onPress={() => selected === null ? undefined : work.triggerManual(selected)}
         accessibilityHint="Der Server entscheidet, ob die Arbeitszeit startet oder stoppt."
       />
@@ -134,6 +134,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: mobileTokens.radius.control,
     paddingHorizontal: mobileTokens.spacing.md,
+    color: mobileTokens.color.text,
     fontSize: 16,
   },
   list: { gap: mobileTokens.spacing.md, paddingBottom: mobileTokens.spacing.sm },

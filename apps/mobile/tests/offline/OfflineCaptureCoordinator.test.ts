@@ -10,8 +10,9 @@ import type {
   ProductSessionContext,
 } from '../../src/auth/contracts';
 import type { NfcCaptureLifecyclePort } from '../../src/nfc/RnNfcScanAdapter';
-import type { ProductScanSessionSnapshot } from '../../src/scan/contracts';
+import type { ProductScanSessionSnapshot, ProductScanState } from '../../src/scan/contracts';
 import type { LifecycleEvidenceOutbox } from '../../src/scan/LifecycleEvidenceOutbox';
+import { ScanFeedbackCoordinator } from '../../src/feedback/ScanFeedbackCoordinator';
 import { AndroidMonotonicClock } from '../../src/offline/AndroidMonotonicClock';
 import {
   OfflineCaptureCoordinator,
@@ -20,7 +21,10 @@ import {
 import { OfflineCaptureDatabase } from '../../src/offline/OfflineCaptureDatabase';
 import type { OfflineCaptureLeaseApiPort } from '../../src/offline/OfflineCaptureLeaseClient';
 import { OfflineInstallationIdentityStore } from '../../src/offline/OfflineInstallationIdentityStore';
-import { OfflineSyncScheduler } from '../../src/offline/OfflineSyncScheduler';
+import {
+  OfflineSyncScheduler,
+  type OfflineSyncSchedulerState,
+} from '../../src/offline/OfflineSyncScheduler';
 import { encodeBase64Url } from '../../src/offline/encoding';
 
 const ids = {
@@ -49,6 +53,103 @@ const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));
 
 describe('OfflineCaptureCoordinator', () => {
+  it('emits work-start feedback for the real successful online state sequence', async () => {
+    const harness = await feedbackProductionHarness();
+
+    await harness.coordinator.scan();
+    harness.setQueueCount(0);
+    harness.scheduler.publish({
+      status: 'server_decision',
+      queueCount: 0,
+      workEventId: ids.event,
+      decision: { status: 'time_entry_started', timeEntryId: ids.event },
+    });
+
+    expect(harness.states).toEqual(['scanning', 'synchronizing', 'server_decision']);
+    expect(harness.feedback.perform).toHaveBeenCalledTimes(1);
+    expect(harness.feedback.perform).toHaveBeenCalledWith('work_started');
+  });
+
+  it('emits pending feedback for the real online review state sequence', async () => {
+    const harness = await feedbackProductionHarness();
+
+    await harness.coordinator.scan();
+    harness.setQueueCount(0);
+    harness.scheduler.publish({
+      status: 'review_pending',
+      queueCount: 0,
+      workEventId: ids.event,
+    });
+
+    expect(harness.states).toEqual(['scanning', 'synchronizing', 'server_review_pending']);
+    expect(harness.feedback.perform).toHaveBeenCalledTimes(1);
+    expect(harness.feedback.perform).toHaveBeenCalledWith('pending_confirmation');
+  });
+
+  it('emits the same pending pattern for real online escalation and review states', async () => {
+    const escalation = await feedbackProductionHarness();
+
+    await escalation.coordinator.scan();
+    escalation.setQueueCount(0);
+    escalation.scheduler.publish({
+      status: 'server_decision',
+      queueCount: 0,
+      workEventId: ids.event,
+      decision: {
+        status: 'escalation_required',
+        reason: 'business_engine_could_not_decide',
+      },
+    });
+
+    const review = await feedbackProductionHarness();
+    await review.coordinator.scan();
+    review.setQueueCount(0);
+    review.scheduler.publish({
+      status: 'review_pending',
+      queueCount: 0,
+      workEventId: ids.event,
+    });
+
+    expect(escalation.states).toEqual(['scanning', 'synchronizing', 'server_decision']);
+    expect(escalation.feedback.perform).toHaveBeenCalledTimes(1);
+    expect(escalation.feedback.perform).toHaveBeenCalledWith('pending_confirmation');
+    expect(review.feedback.perform.mock.calls).toEqual(escalation.feedback.perform.mock.calls);
+  });
+
+  it('emits pending once for the real no-network sequence and stays silent later', async () => {
+    const harness = await feedbackProductionHarness();
+
+    await harness.coordinator.scan();
+    harness.scheduler.publish({ status: 'retry_wait', queueCount: 1 });
+    expect(harness.states).toEqual(['scanning', 'synchronizing', 'saved_locally']);
+    expect(harness.feedback.perform).toHaveBeenCalledTimes(1);
+    expect(harness.feedback.perform).toHaveBeenCalledWith('pending_confirmation');
+
+    harness.scheduler.publish({ status: 'synchronizing', queueCount: 1 });
+    harness.setQueueCount(0);
+    harness.scheduler.publish({
+      status: 'server_decision',
+      queueCount: 0,
+      workEventId: ids.event,
+      decision: { status: 'time_entry_started', timeEntryId: ids.event },
+    });
+    expect(harness.feedback.perform).toHaveBeenCalledTimes(1);
+  });
+
+  it('emits failure for the real queue-full state sequence without storing the scan', async () => {
+    const harness = await feedbackProductionHarness('full');
+
+    await harness.coordinator.scan();
+
+    expect(harness.states).toEqual(['scanning', 'ready']);
+    expect(harness.coordinator.getState()).toEqual({
+      status: 'ready',
+      outcome: { status: 'queue_full' },
+    });
+    expect(harness.feedback.perform).toHaveBeenCalledTimes(1);
+    expect(harness.feedback.perform).toHaveBeenCalledWith('failed');
+  });
+
   it('persists a changed-boot scan as review-only before triggering synchronization', async () => {
     const order: string[] = [];
     const appendEvent = vi.fn(async (draft) => {
@@ -60,7 +161,9 @@ describe('OfflineCaptureCoordinator', () => {
       hasProtectedLegacy: vi.fn(async () => false),
       bindOwner: vi.fn(async () => ({ status: 'ready' })),
       activateLease: vi.fn(async () => ({ status: 'ready' })),
-      queueCount: vi.fn(async () => 1),
+      queueCount: vi.fn()
+        .mockResolvedValueOnce(0)
+        .mockResolvedValue(1),
       lookupActiveItem: vi.fn(async () => ({
         itemType: 'nfc_assignment' as const,
         leaseId: ids.lease,
@@ -134,7 +237,7 @@ describe('OfflineCaptureCoordinator', () => {
     });
     expect(draft.provenanceVersion).toBe(3);
     expect(order.indexOf('append')).toBeLessThan(order.lastIndexOf('trigger'));
-    expect(coordinator.getState()).toEqual({ status: 'saved_locally', queueCount: 1 });
+    expect(coordinator.getState()).toEqual({ status: 'synchronizing', queueCount: 1 });
     await coordinator.onExplicitLogout();
     expect(coordinator.isNativeNfcIngressAuthorityCurrent(ingressAuthority!)).toBe(false);
     await expect(coordinator.captureNativeNfcIngressAuthority({
@@ -176,6 +279,89 @@ describe('OfflineCaptureCoordinator', () => {
       status: 'server_review_pending',
       queueCount: 0,
     });
+  });
+
+  it('keeps a rejected server decision visible across later idle scheduler hints', async () => {
+    const database = databaseFake({
+      initialize: vi.fn(async () => ({ status: 'ready' })),
+      hasProtectedLegacy: vi.fn(async () => false),
+      bindOwner: vi.fn(async () => ({ status: 'ready' })),
+      activateLease: vi.fn(async () => ({ status: 'ready' })),
+      queueCount: vi.fn(async () => 0),
+      close: vi.fn(async () => undefined),
+    });
+    const scheduler = controllableScheduler();
+    const coordinator = new OfflineCaptureCoordinator(
+      { async scan() { return { status: 'cancelled' }; } },
+      nfcLifecycle(),
+      sessionReader({ status: 'authenticated', session }, snapshot),
+      identityStore(),
+      () => database,
+      leaseClient(),
+      new AndroidMonotonicClock({
+        async sample() {
+          return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100 };
+        },
+      }),
+      () => scheduler.scheduler,
+      emptyOutbox(),
+      sequentialUuid([ids.command]),
+    );
+
+    await coordinator.start();
+    scheduler.publish({
+      status: 'server_decision',
+      queueCount: 0,
+      workEventId: ids.event,
+      decision: {
+        status: 'active_entry_for_other_target_rejected',
+        activeTimeEntryId: ids.event,
+      },
+    });
+    expect(coordinator.getState()).toEqual({
+      status: 'server_decision',
+      queueCount: 0,
+      outcome: { status: 'active_entry_for_other_target_rejected' },
+    });
+
+    scheduler.publish({ status: 'idle', queueCount: 0 });
+    await vi.waitFor(() => {
+      expect(coordinator.getState()).toEqual({
+        status: 'ready',
+        outcome: { status: 'active_entry_for_other_target_rejected' },
+      });
+    });
+  });
+
+  it('restores a persisted queue as visibly saved after an app or device restart', async () => {
+    const database = databaseFake({
+      initialize: vi.fn(async () => ({ status: 'ready' })),
+      hasProtectedLegacy: vi.fn(async () => false),
+      bindOwner: vi.fn(async () => ({ status: 'ready' })),
+      activateLease: vi.fn(async () => ({ status: 'ready' })),
+      queueCount: vi.fn(async () => 1),
+      close: vi.fn(async () => undefined),
+    });
+    const coordinator = new OfflineCaptureCoordinator(
+      { async scan() { return { status: 'cancelled' }; } },
+      nfcLifecycle(),
+      sessionReader({ status: 'authenticated', session }, snapshot),
+      identityStore(),
+      () => database,
+      leaseClient(),
+      new AndroidMonotonicClock({
+        async sample() {
+          return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100 };
+        },
+      }),
+      () => schedulerFake([]),
+      emptyOutbox(),
+      sequentialUuid([ids.command]),
+    );
+
+    await coordinator.start();
+
+    expect(coordinator.getState()).toEqual({ status: 'saved_locally', queueCount: 1 });
   });
 
   it('opens cold-start capture only for a typed transient context failure and same-boot lease',
@@ -643,6 +829,82 @@ function protectedOriginCoordinator(origin:
   );
 }
 
+async function feedbackProductionHarness(appendStatus: 'ready' | 'full' = 'ready') {
+  let queueCount = 0;
+  const database = databaseFake({
+    initialize: vi.fn(async () => ({ status: 'ready' })),
+    hasProtectedLegacy: vi.fn(async () => false),
+    bindOwner: vi.fn(async () => ({ status: 'ready' })),
+    activateLease: vi.fn(async () => ({ status: 'ready' })),
+    queueCount: vi.fn(async () => queueCount),
+    lookupActiveItem: vi.fn(async () => ({
+      itemType: 'nfc_assignment' as const,
+      leaseId: ids.lease,
+      leaseItemId: ids.item,
+      assignmentId: ids.assignment,
+      nfcTagId: ids.tag,
+      targetType: 'customer',
+      targetId: ids.customer,
+      displayName: 'Kunde',
+      issuedAt: '2026-07-18T10:00:00.000Z',
+      expiresAt: '2026-07-18T22:00:00.000Z',
+      activationBootMarker: 'boot-1',
+      activationMonotonicMilliseconds: 100,
+    })),
+    readActiveCaptureContext: vi.fn(async () => activeContext()),
+    appendEvent: vi.fn(async (draft) => {
+      if (appendStatus === 'full') return { status: 'full' as const };
+      queueCount = 1;
+      return {
+        status: 'ready' as const,
+        command: { ...draft, deviceSequence: 1 },
+      };
+    }),
+    invalidateCapture: vi.fn(async () => undefined),
+    close: vi.fn(async () => undefined),
+  });
+  const scheduler = controllableScheduler();
+  let monotonicMilliseconds = 100;
+  const coordinator = new OfflineCaptureCoordinator(
+    {
+      async scan(): Promise<NfcScanCaptureResult> {
+        return {
+          status: 'captured',
+          payload: createCanonicalNfcUidPayload('04AABBCC'),
+          capturedAt: createTimestamp('2026-07-18T10:05:00.000Z'),
+        };
+      },
+    },
+    nfcLifecycle(),
+    sessionReader({ status: 'authenticated', session }, snapshot),
+    identityStore(),
+    () => database,
+    leaseClient(),
+    new AndroidMonotonicClock({
+      async sample() {
+        monotonicMilliseconds += 100;
+        return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: monotonicMilliseconds };
+      },
+    }),
+    () => scheduler.scheduler,
+    emptyOutbox(),
+    sequentialUuid([ids.command, ids.event, ids.receipt]),
+  );
+  const states: ProductScanState['status'][] = [];
+  const feedback = { perform: vi.fn(async () => undefined) };
+  const scanFeedback = new ScanFeedbackCoordinator(coordinator, feedback);
+  await coordinator.start();
+  coordinator.subscribe(() => states.push(coordinator.getState().status));
+  scanFeedback.start();
+  return {
+    coordinator,
+    scheduler,
+    feedback,
+    states,
+    setQueueCount(value: number) { queueCount = value; },
+  };
+}
+
 function databaseFake(
   methods: Record<string, ReturnType<typeof vi.fn>>,
 ): OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>> {
@@ -669,6 +931,31 @@ function schedulerFake(order: string[]): OfflineSyncScheduler {
     }),
   };
   return scheduler as unknown as OfflineSyncScheduler;
+}
+
+function controllableScheduler(): {
+  readonly scheduler: OfflineSyncScheduler;
+  readonly publish: (state: OfflineSyncSchedulerState) => void;
+} {
+  const listeners = new Set<() => void>();
+  let state: OfflineSyncSchedulerState = { status: 'idle', queueCount: 0 };
+  const scheduler = {
+    start: vi.fn(),
+    stop: vi.fn(),
+    subscribe: vi.fn((listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    }),
+    getState: vi.fn(() => state),
+    trigger: vi.fn(async () => state),
+  } as unknown as OfflineSyncScheduler;
+  return {
+    scheduler,
+    publish(next) {
+      state = Object.freeze(next);
+      for (const listener of listeners) listener();
+    },
+  };
 }
 
 function identityStore(removeActiveLookupKey = vi.fn(async () => undefined)) {

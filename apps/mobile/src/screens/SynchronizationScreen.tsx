@@ -1,8 +1,7 @@
 import { useSyncExternalStore } from 'react';
-import { Text } from 'react-native';
 import type { ProductScanCapability } from '../scan/contracts';
 import { AppBuildIdentity } from '../design/AppBuildIdentity';
-import { ActionButton, Card, Screen } from '../design/primitives';
+import { ActionButton, AppText as Text, Card, Screen } from '../design/primitives';
 
 export function SynchronizationScreen({ scan }: { readonly scan: ProductScanCapability }) {
   const state = useSyncExternalStore(

@@ -1,6 +1,8 @@
 import { useState, useSyncExternalStore } from 'react';
-import { Button, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import type { AdminSetupCapability, AdminSetupState } from '../administration/contracts';
+import { ActionButton, AppText as Text, TextField } from '../design/primitives';
+import { mobileTokens } from '../design/tokens';
 
 export function AdminSetupScreen({ administration }: { readonly administration: AdminSetupCapability }) {
   const state = useSyncExternalStore(
@@ -30,14 +32,24 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       </View>
       <Text style={styles.label}>Kunde</Text>
       {projection.customers.filter((customer) => customer.active).map((customer) => (
-        <Button key={customer.id} title={`${customerId === customer.id ? '✓ ' : ''}${customer.displayName}`} onPress={() => setCustomerId(customer.id)} disabled={busy} />
+        <ActionButton key={customer.id}
+          title={`${customerId === customer.id ? '✓ ' : ''}${customer.displayName}`}
+          tone={customerId === customer.id ? 'primary' : 'secondary'}
+          onPress={() => setCustomerId(customer.id)} disabled={busy} />
       ))}
       {projection.customers.length === 0 ? <Text>Noch keine Kunden. Lege zuerst im Admin-Web einen Kunden an.</Text> : null}
       <Text style={styles.label}>Tag-Bezeichnung</Text>
-      <TextInput value={tagName} onChangeText={setTagName} maxLength={80} editable={!busy} placeholder="z. B. Eingang Werkstatt" accessibilityLabel="Bezeichnung des NFC-Tags" style={styles.input} />
-      <Button title="NFC-Tag erfassen und zuordnen" onPress={() => administration.provision(customerId, tagName)} disabled={busy || customerId.length === 0 || tagName.trim().length === 0} />
-      <Button title="Pausen-Tag erfassen" onPress={() => administration.provisionBreak(tagName)} disabled={busy || tagName.trim().length === 0} />
-      {state.status === 'capturing' ? <Button title="Erfassung abbrechen" onPress={() => administration.cancel()} /> : null}
+      <TextField value={tagName} onChangeText={setTagName} maxLength={80} editable={!busy}
+        placeholder="z. B. Eingang Werkstatt" accessibilityLabel="Bezeichnung des NFC-Tags" />
+      <ActionButton title="NFC-Tag erfassen und zuordnen"
+        onPress={() => administration.provision(customerId, tagName)}
+        loading={state.status === 'submitting'}
+        disabled={busy || customerId.length === 0 || tagName.trim().length === 0} />
+      <ActionButton title="Pausen-Tag erfassen" tone="secondary"
+        onPress={() => administration.provisionBreak(tagName)}
+        disabled={busy || tagName.trim().length === 0} />
+      {state.status === 'capturing' ? <ActionButton title="Erfassung abbrechen" tone="secondary"
+        onPress={() => administration.cancel()} /> : null}
       <Text style={styles.label}>Registrierte Tags</Text>
       {projection.nfcTags.map((tag) => (
         <View key={tag.id} style={styles.tagRow}>
@@ -46,8 +58,10 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
           <Text>{presentAssignment(tag.assignmentState, tag.assignmentType)}</Text>
         </View>
       ))}
-      {projection.nextCursor === null ? null : <Button title="Weitere Einträge laden" onPress={() => administration.loadMore()} disabled={busy} />}
-      <Button title="Ansicht aktualisieren" onPress={() => administration.refresh()} disabled={busy} />
+      {projection.nextCursor === null ? null : <ActionButton title="Weitere Einträge laden"
+        tone="secondary" onPress={() => administration.loadMore()} disabled={busy} />}
+      <ActionButton title="Ansicht aktualisieren" tone="quiet"
+        onPress={() => administration.refresh()} disabled={busy} />
     </ScrollView>
   );
 }
@@ -81,9 +95,28 @@ export function presentAdminSetupState(state: AdminSetupState): { title: string;
 
 function Message({ title }: { readonly title: string }) { return <View style={styles.container}><Text style={styles.title}>{title}</Text></View>; }
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, gap: 12, paddingTop: 48, paddingHorizontal: 20, paddingBottom: 40, backgroundColor: '#f4f7f5' },
-  title: { fontSize: 28, fontWeight: '700', color: '#12372a' }, organization: { color: '#52635d', marginBottom: 8 },
-  card: { padding: 18, borderRadius: 16, backgroundColor: '#fff' }, cardTitle: { fontWeight: '700', marginBottom: 4 },
-  label: { fontSize: 16, fontWeight: '700', marginTop: 8 }, input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#bac8c1', borderRadius: 10, padding: 12 },
-  tagRow: { padding: 14, borderRadius: 12, backgroundColor: '#fff' },
+  container: {
+    flexGrow: 1,
+    gap: mobileTokens.spacing.sm,
+    paddingTop: 48,
+    paddingHorizontal: mobileTokens.spacing.md,
+    paddingBottom: 40,
+    backgroundColor: mobileTokens.color.ground,
+  },
+  title: { fontSize: 28, fontWeight: '700', color: mobileTokens.color.text },
+  organization: { color: mobileTokens.color.textMuted, marginBottom: mobileTokens.spacing.sm },
+  card: {
+    padding: mobileTokens.spacing.md,
+    borderRadius: mobileTokens.radius.card,
+    backgroundColor: mobileTokens.color.surface,
+    borderColor: mobileTokens.color.line,
+    borderWidth: 1,
+  },
+  cardTitle: { color: mobileTokens.color.text, fontWeight: '700', marginBottom: mobileTokens.spacing.xs },
+  label: { color: mobileTokens.color.text, fontSize: 16, fontWeight: '700', marginTop: mobileTokens.spacing.sm },
+  tagRow: {
+    padding: mobileTokens.spacing.md,
+    borderRadius: mobileTokens.radius.card,
+    backgroundColor: mobileTokens.color.surface,
+  },
 });

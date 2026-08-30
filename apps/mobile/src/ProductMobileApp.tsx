@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { AppBuildIdentity } from './design/AppBuildIdentity';
+import { AppText as Text } from './design/primitives';
+import { mobileTokens } from './design/tokens';
 import { AppNavigator } from './navigation/AppNavigator';
 import { createProductMobileRuntime } from './runtime/ProductMobileRuntime';
 
@@ -71,13 +73,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#fff',
+    paddingHorizontal: mobileTokens.spacing.lg,
+    backgroundColor: mobileTokens.color.ground,
   },
   title: {
+    color: mobileTokens.color.text,
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: mobileTokens.spacing.sm,
   },
-  buildIdentity: { marginTop: 24 },
+  buildIdentity: { marginTop: mobileTokens.spacing.lg },
 });

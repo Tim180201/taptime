@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Button, Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, StyleSheet, View } from 'react-native';
 import type { MobileSessionCapability } from '../auth/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
@@ -20,6 +20,7 @@ import {
   OFFLINE_PRODUCT_DESTINATIONS,
 } from './offlineCaptureShell';
 import { mobileTokens } from '../design/tokens';
+import { ActionButton, AppText as Text, TextField } from '../design/primitives';
 
 export function AppNavigator({
   session,
@@ -75,8 +76,10 @@ export function AppNavigator({
       return (
         <View style={styles.administratorShell}>
           <View style={styles.tabs}>
-            <Button title="Zeiterfassung" onPress={() => { void administration.cancel(); setAdministratorView('scan'); }} />
-            <Button title="NFC-Einrichtung" onPress={() => { void scan.cancel(); setAdministratorView('setup'); }} />
+            <ActionButton title="Zeiterfassung" tone="secondary"
+              onPress={() => { void administration.cancel(); setAdministratorView('scan'); }} />
+            <ActionButton title="NFC-Einrichtung" tone="secondary"
+              onPress={() => { void scan.cancel(); setAdministratorView('setup'); }} />
           </View>
           {administratorView === 'setup'
             ? <AdminSetupScreen administration={administration} />
@@ -115,8 +118,8 @@ export function AppNavigator({
     }
     return (
       <MessageScreen title="Sitzungskontext vorübergehend nicht verfügbar.">
-        <Button title="Erneut versuchen" onPress={() => session.retryContext()} />
-        <Button title="Abmelden" onPress={() => session.signOut()} />
+        <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />
+        <ActionButton title="Abmelden" tone="quiet" onPress={() => session.signOut()} />
       </MessageScreen>
     );
   }
@@ -147,10 +150,11 @@ function PasswordRecoveryScreen({ session, completing, notice }: {
   const [password, setPassword] = useState('');
   return <View style={styles.administratorShell}>
     <Text>Neues Passwort setzen</Text>
-    <TextInput secureTextEntry autoComplete="new-password" value={password}
+    <TextField secureTextEntry autoComplete="new-password" value={password}
       onChangeText={setPassword} placeholder="Neues Passwort" testID="recovery-password-input" />
-    <Button title={completing ? 'Wird geändert …' : 'Passwort ändern'}
+    <ActionButton title={completing ? 'Wird geändert …' : 'Passwort ändern'}
       disabled={completing || password.length < 8}
+      loading={completing}
       onPress={() => { const value = password; setPassword('');
         void session.completePasswordRecovery?.(value); }} />
     {notice === null ? null : <Text>{notice}</Text>}
@@ -173,7 +177,7 @@ function OfflineProductShell({
   const labels = {
     capture: 'Erfassen',
     manual: 'Manuell',
-    sync: 'Sync',
+    sync: 'Abgleich',
   } as const;
   const navigate = (next: (typeof OFFLINE_PRODUCT_DESTINATIONS)[number]): void => {
     if (next !== 'capture') void scan.cancel();
@@ -182,13 +186,12 @@ function OfflineProductShell({
   return <View style={styles.productShell}>
     <View style={styles.sessionBar}>
       <Text style={styles.sessionRole}>Offline-Erfassung</Text>
-      <Pressable
-        accessibilityRole="button"
+      <ActionButton
+        title="Abmelden"
+        tone="quiet"
         style={styles.signOutAction}
         onPress={() => session.signOut()}
-      >
-        <Text style={styles.signOutLabel}>Abmelden</Text>
-      </Pressable>
+      />
     </View>
     <View style={styles.productContent}>
       {destination === 'capture'
@@ -200,18 +203,15 @@ function OfflineProductShell({
       {destination === 'sync' ? <SynchronizationScreen scan={scan} /> : null}
     </View>
     <View style={styles.destinationBar} accessibilityRole="tablist">
-      {OFFLINE_PRODUCT_DESTINATIONS.map((item) => <Pressable
+      {OFFLINE_PRODUCT_DESTINATIONS.map((item) => <ActionButton
         key={item}
+        title={labels[item]}
         accessibilityRole="tab"
         accessibilityState={{ selected: item === destination }}
         onPress={() => navigate(item)}
-        style={[styles.destination, item === destination && styles.destinationActive]}
-      >
-        <Text style={[
-          styles.destinationLabel,
-          item === destination && styles.destinationLabelActive,
-        ]}>{labels[item]}</Text>
-      </Pressable>)}
+        tone={item === destination ? 'primary' : 'quiet'}
+        style={styles.destination}
+      />)}
     </View>
   </View>;
 }
@@ -237,7 +237,7 @@ function AuthenticatedProductShell({
     { id: 'capture', label: 'Erfassen' },
     { id: 'manual', label: 'Manuell' },
     { id: 'times', label: 'Meine Zeiten' },
-    { id: 'sync', label: 'Sync' },
+    { id: 'sync', label: 'Abgleich' },
     ...(role === 'administrator'
       ? [{ id: 'setup' as const, label: 'NFC-Einrichtung' }]
       : []),
@@ -252,15 +252,14 @@ function AuthenticatedProductShell({
   return <View style={styles.productShell}>
     <View style={styles.sessionBar}>
       <Text style={styles.sessionRole}>
-        {role === 'administrator' ? 'Administrator' : 'Mitarbeiter'}
+        {role === 'administrator' ? 'Administrator' : 'Beschäftigter'}
       </Text>
-      <Pressable
-        accessibilityRole="button"
+      <ActionButton
+        title="Abmelden"
+        tone="quiet"
         style={styles.signOutAction}
         onPress={() => session.signOut()}
-      >
-        <Text style={styles.signOutLabel}>Abmelden</Text>
-      </Pressable>
+      />
     </View>
     <View style={styles.productContent}>
       {destination === 'capture'
@@ -274,21 +273,15 @@ function AuthenticatedProductShell({
         : null}
     </View>
     <View style={styles.destinationBar} accessibilityRole="tablist">
-      {destinations.map((item) => <Pressable
+      {destinations.map((item) => <ActionButton
         key={item.id}
+        title={item.label}
         accessibilityRole="tab"
         accessibilityState={{ selected: item.id === destination }}
         onPress={() => navigate(item.id)}
-        style={[
-          styles.destination,
-          item.id === destination && styles.destinationActive,
-        ]}
-      >
-        <Text style={[
-          styles.destinationLabel,
-          item.id === destination && styles.destinationLabelActive,
-        ]}>{item.label}</Text>
-      </Pressable>)}
+        tone={item.id === destination ? 'primary' : 'quiet'}
+        style={styles.destination}
+      />)}
     </View>
   </View>;
 }
@@ -322,18 +315,16 @@ const styles = StyleSheet.create({
   sessionRole: { color: mobileTokens.color.inkMuted, fontSize: 13, fontWeight: '700' },
   signOutAction: {
     minHeight: mobileTokens.touchMinimum,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: mobileTokens.spacing.sm,
   },
-  signOutLabel: { color: mobileTokens.color.primary, fontSize: 14, fontWeight: '700' },
   destinationBar: {
     minHeight: 68,
     flexDirection: 'row',
     backgroundColor: mobileTokens.color.surface,
     borderTopColor: mobileTokens.color.border,
     borderTopWidth: 1,
-    paddingHorizontal: 4,
-    paddingBottom: 8,
+    paddingHorizontal: mobileTokens.spacing.xs,
+    paddingBottom: mobileTokens.spacing.sm,
   },
   destination: {
     flex: 1,
@@ -341,26 +332,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: mobileTokens.radius.control,
-    paddingHorizontal: 2,
+    paddingHorizontal: mobileTokens.spacing.xs,
   },
-  destinationActive: { backgroundColor: mobileTokens.color.surfaceMuted },
-  destinationLabel: {
-    color: mobileTokens.color.inkMuted,
-    fontSize: 11,
-    textAlign: 'center',
-    fontWeight: '600',
+  administratorShell: { flex: 1, backgroundColor: mobileTokens.color.ground },
+  tabs: {
+    flexDirection: 'row',
+    gap: mobileTokens.spacing.sm,
+    paddingTop: 40,
+    paddingHorizontal: mobileTokens.spacing.md,
+    paddingBottom: mobileTokens.spacing.xs,
+    backgroundColor: mobileTokens.color.surface,
   },
-  destinationLabelActive: { color: mobileTokens.color.primary, fontWeight: '800' },
-  administratorShell: { flex: 1 },
-  tabs: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 42, paddingBottom: 4, backgroundColor: '#fff' },
   container: {
     flex: 1,
     justifyContent: 'center',
-    gap: 12,
-    paddingHorizontal: 24,
-    backgroundColor: '#fff',
+    gap: mobileTokens.spacing.sm,
+    paddingHorizontal: mobileTokens.spacing.lg,
+    backgroundColor: mobileTokens.color.ground,
   },
   title: {
+    color: mobileTokens.color.text,
     fontSize: 18,
     fontWeight: '600',
   },

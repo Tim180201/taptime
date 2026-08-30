@@ -1,7 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import { lazy, Suspense } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { ProductMobileApp } from './src/ProductMobileApp';
+import { AppText as Text } from './src/design/primitives';
+import { mobileTokens } from './src/design/tokens';
 import { selectMobileCompositionMode } from './src/runtime/compositionMode';
 
 const DevelopmentDemoMobileApp = lazy(async () => {
@@ -37,7 +39,7 @@ export default function App() {
         : mode === 'product'
           ? <ProductMobileApp />
           : <ForbiddenConfiguration />}
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </>
   );
 }
@@ -54,7 +56,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    backgroundColor: '#fff',
+    paddingHorizontal: mobileTokens.spacing.lg,
+    backgroundColor: mobileTokens.color.ground,
   },
 });

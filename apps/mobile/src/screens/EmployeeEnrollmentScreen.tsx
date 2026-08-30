@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { EmployeeEnrollmentResult, MobileSessionState } from '../auth/contracts';
+import { ActionButton, AppText as Text, TextField } from '../design/primitives';
+import { mobileTokens } from '../design/tokens';
 
 export function EmployeeEnrollmentScreen({
   notice,
@@ -41,7 +43,7 @@ export function EmployeeEnrollmentScreen({
     <Text style={styles.description}>
       Du bist sicher beim Anmeldedienst angemeldet, hast aber noch keinen TapTim.e-Zugang.
     </Text>
-    <TextInput
+    <TextField
       value={invitationSecret}
       onChangeText={setInvitationSecret}
       placeholder="Einladungsgeheimnis"
@@ -51,22 +53,29 @@ export function EmployeeEnrollmentScreen({
       style={styles.input}
       testID="employee-invitation-input"
     />
-    <Button
+    <ActionButton
       title={submitting ? 'Einladung wird geprüft …' : 'Einladung sicher einlösen'}
       onPress={submit}
       disabled={submitting || invitationSecret.length === 0}
+      loading={submitting}
       testID="redeem-employee-invitation-button"
     />
     {message === null ? null : <Text style={styles.message}>{message}</Text>}
-    <View style={styles.signOut}><Button title="Abmelden" onPress={signOut} /></View>
+    <View style={styles.signOut}><ActionButton title="Abmelden" tone="quiet" onPress={signOut} /></View>
   </View>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 60, paddingHorizontal: 16, backgroundColor: '#fff' },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 10 },
-  description: { marginBottom: 20, color: '#334' },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 6, padding: 10, marginBottom: 12 },
-  message: { marginTop: 14, color: '#8a3b00' },
-  signOut: { marginTop: 18 },
+  container: {
+    flex: 1,
+    gap: mobileTokens.spacing.sm,
+    paddingTop: 64,
+    paddingHorizontal: mobileTokens.spacing.md,
+    backgroundColor: mobileTokens.color.ground,
+  },
+  title: { fontSize: 20, fontWeight: '700', marginBottom: mobileTokens.spacing.sm },
+  description: { marginBottom: mobileTokens.spacing.md, color: mobileTokens.color.textMuted },
+  input: { marginBottom: mobileTokens.spacing.xs },
+  message: { marginTop: mobileTokens.spacing.sm, color: mobileTokens.color.notice },
+  signOut: { marginTop: mobileTokens.spacing.md },
 });

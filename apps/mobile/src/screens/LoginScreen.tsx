@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { SignInResult } from '../auth/contracts';
 import { AppBuildIdentity } from '../design/AppBuildIdentity';
+import { ActionButton, AppText as Text, TextField } from '../design/primitives';
+import { mobileTokens } from '../design/tokens';
 
 interface LoginScreenProps {
   readonly signIn: (email: string, password: string) => Promise<SignInResult>;
@@ -60,7 +62,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   return (
     <View style={styles.container}>
       <Text style={styles.title}>TapTim.e — Anmeldung</Text>
-      <TextInput
+      <TextField
         style={styles.input}
         value={email}
         onChangeText={setEmail}
@@ -70,7 +72,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
         keyboardType="email-address"
         testID="email-input"
       />
-      <TextInput
+      <TextField
         style={styles.input}
         value={password}
         onChangeText={setPassword}
@@ -80,21 +82,23 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
         secureTextEntry
         testID="password-input"
       />
-      <Button
+      <ActionButton
         title={submitting ? 'Anmeldung läuft …' : 'Anmelden'}
         onPress={() => handleSignIn(false)}
         disabled={disabled || submitting}
+        loading={submitting}
         testID="sign-in-button"
       />
       <View style={styles.enrollmentAction}>
-        <Button
+        <ActionButton
           title="Mit Einladung beitreten"
+          tone="secondary"
           onPress={() => handleSignIn(true)}
           disabled={disabled || submitting}
           testID="employee-enrollment-sign-in-button"
         />
       </View>
-      <Button title="Passwort vergessen" onPress={handlePasswordReset}
+      <ActionButton title="Passwort vergessen" tone="quiet" onPress={handlePasswordReset}
         disabled={disabled || submitting || email.trim().length < 3}
         testID="password-reset-button" />
       {message !== null ? <Text style={styles.error}>{message}</Text> : null}
@@ -106,26 +110,22 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: 60,
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
+    paddingTop: 64,
+    paddingHorizontal: mobileTokens.spacing.md,
+    backgroundColor: mobileTokens.color.ground,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: mobileTokens.spacing.sm,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 12,
+    marginBottom: mobileTokens.spacing.sm,
   },
   error: {
-    marginTop: 12,
-    color: '#b00020',
+    marginTop: mobileTokens.spacing.sm,
+    color: mobileTokens.color.notice,
   },
-  enrollmentAction: { marginTop: 10 },
-  buildIdentity: { marginTop: 'auto', paddingVertical: 20 },
+  enrollmentAction: { marginTop: mobileTokens.spacing.sm },
+  buildIdentity: { marginTop: 'auto', paddingVertical: mobileTokens.spacing.lg },
 });

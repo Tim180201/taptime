@@ -40,6 +40,7 @@ export const DA5_V5_VALIDATION_EXCLUDED_NATIVE_MODULES = Object.freeze([
   'expo-status-bar',
   'expo-task-manager',
   'expo-updates-interface',
+  'taptime-feedback',
   'taptime-monotonic-clock',
   'taptime-nfc-ingress',
   'unimodules-app-loader',

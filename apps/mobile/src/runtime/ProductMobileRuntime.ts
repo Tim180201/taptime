@@ -47,6 +47,8 @@ import {
 } from './DefaultProductMobileRuntime';
 import { MobileWorkCoordinator } from '../work/MobileWorkCoordinator';
 import { TapTimeMobileWorkApiClient } from '../work/TapTimeMobileWorkApiClient';
+import { NativeAndroidFeedback } from '../feedback/NativeAndroidFeedback';
+import { ScanFeedbackCoordinator } from '../feedback/ScanFeedbackCoordinator';
 
 export type { ProductMobileRuntime } from './DefaultProductMobileRuntime';
 
@@ -172,6 +174,10 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     serverTransport.administration,
     randomUUID,
   );
+  const scanFeedback = new ScanFeedbackCoordinator(
+    scanOrchestrator,
+    new NativeAndroidFeedback(),
+  );
   return {
     status: 'ready',
     runtime: new DefaultProductMobileRuntime(
@@ -184,6 +190,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       mobileWorkCoordinator,
       nativeNfcIngressLifecycle,
       scanOrchestrator,
+      scanFeedback,
     ),
   };
 }
