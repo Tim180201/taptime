@@ -824,6 +824,18 @@ Bauart in zwei Tagen (D-030, D-032, D-029, dieser). Gegenmaßnahme: neue Regel i
 
 ---
 
+## D-034 · Befund: Ein gesperrtes Telefon kann nicht stempeln
+
+28.08. — Die App startet beim Scannen von selbst; Tag-Dispatch ueber ACTION_TECH_DISCOVERED ist
+gebaut (ADR-0017, DA5-T08). Android liefert bei gesperrtem oder dunklem Bildschirm aber
+grundsaetzlich keine NFC-Tags an Apps aus. Keine Einstellung, kein Geraet, keine Version aendert
+das — es ist eine Entscheidung von Google. „Gesperrt scannen, dann entsperren, Zeit laeuft" ist
+von niemandem baubar. Unser Ablauf: entsperren, dranhalten, Zeit laeuft — drei Sekunden, kein
+Menue. Die Alternative waere die Bezahlkarten-Technik mit einem Lesegeraet je Einsatzort, also
+das Kiosk-Modell, das wir nach D-024 bewusst nicht bauen. Fuer den Vertrieb ist das die Antwort auf eine Frage, die jeder Kunde stellen wird.
+
+---
+
 ## D-035 · Das Muster sagt, was wirklich passiert ist
 
 29.08. — Ohne Netz weiss das Geraet noch nicht, ob aus dem Scan Beginn, Ende oder Pause wird.
