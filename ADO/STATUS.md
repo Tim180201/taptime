@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 26.08.2026 (T-015d ausgeliefert, Produktion auf `28dcac6`, Migrationen 001–021) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 30.08.2026 (T-032 abgeschlossen auf `846a126`, CI-grün; Produktion weiterhin auf `28dcac6`, Migrationen 001–021) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 ---
 
@@ -78,6 +78,8 @@ danach Firma, Recht und Store.
   Sommerzeit, garantiert belegte Personenkennung, Korrekturhinweis mit Revisionsnummer,
   Erfassungsart je Grenze. Die effektive Arbeitszeit kommt aus
   `effective_work_duration_seconds_v1` — **eine** Quelle, in SQL. V2 bleibt unverändert.
+- **T-032 Gestaltungsraster und spürbare Rückmeldung** — `846a126`, CI-grün. Fünf
+  unterscheidbare Scanmuster, dunkles Raster und reduzierte Bewegung sind in der Mobile-App.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -99,16 +101,9 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-026 — Die Oberfläche wird mit ausgeliefert.** Siehe `ADO/TASK.md`. **Vorgezogen vor allem
-anderen.**
-
-**Befund D-030:** Der Auslieferungsweg nimmt die Oberfläche nicht mit. T-017a und T-015d sind
-nie in Produktion angekommen; in `/opt/taptime/admin-web` liegt ein von Hand kopierter Stand aus
-T-006. Das Backend läuft korrekt auf `28dcac6` mit den Migrationen 001–021 — die Oberfläche
-nicht. Gefunden vom Product Owner im ersten Bildschirm.
-
-**Stand der Kette:** T-015a bis T-015d sind gebaut, geprüft und auf `main`. Sichtbar werden sie
-erst mit T-026.
+**T-033 — Die App kommt aufs Gerät.** Siehe `ADO/TASK.md`. T-032 ist auf `main` mit
+`846a126` abgeschlossen und CI-grün; jetzt wird exakt dieser Code-Stand als interne
+Android-Testfassung gebaut und dem Product Owner persönlich zur Installation übergeben.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
@@ -224,8 +219,13 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 - App heißt intern noch `mobile` (Name, Slug, Package-ID) statt TapTim.e.
 - **P2, Befund aus T-018:** Die installierte Produktionstest-App erkennt eine neuere Fassung
   nicht selbst. Sie zeigt ihren Commit; der Technical Lead muss einen neuen Stand aktiv melden.
-- Ungetracktes `app.json` im Wurzelverzeichnis (seit 20.07.2026), von keinem Build oder Runtime
-  gelesen. Package-ID entscheidet der Product Owner.
+- **Offen, nur am Mac:** Nicht versionierte `app.json` im Wurzelverzeichnis mit Paketkennung
+  `com.tim180201.taptime`, während die App `com.tim180201.mobile` heißt. Kein Code verweist
+  darauf. Zu prüfen und dann zu entfernen oder zu versionieren; hier nicht erledigt.
+- **P1 aus T-028, offen und nur am Mac:** Rund 131 uncommittierte Zeilen in
+  `infrastructure/deploy` und `infrastructure/tests/taptime-deploy.test` beheben die falsch
+  aufgezeichnete Betriebsversion. Ungeprüft, nicht ausgeliefert und noch auf keinem Zweig
+  gesichert; hier nicht erledigt.
 - Nur zwei Rollen (`administrator`, `employee`). `team_lead` ist eine typische B2B-Rückfrage,
   additiv nachrüstbar. Der Standortleiter aus T-015 deckt den häufigsten Fall ab.
 - **P1, Frist spätestens T-018:** `taptime://auth/recovery` ist ein eigenes URL-Schema. Auf
