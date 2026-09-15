@@ -897,3 +897,17 @@ die Erklaerung falsch — der Product Owner suchte sein Passwort, waehrend der
 Dienst nicht lief. Zwei Folgen: Supabase Pro gehoert vor den ersten zahlenden
 Kunden, und eine Anmeldung muss die Ursache nennen. Dritter Vorfall der
 Bauart „ein Wahrheitswert kann keinen Grund tragen" nach D-023 und T-032.
+
+---
+
+## D-040 · Befund: Der lokale Speicher wurde nie angelegt
+
+15.09. — Das Schema der verschluesselten Geraetedatenbank enthaelt einen
+SQL-Syntaxfehler: in offline_lease_generations folgt nach einer Tabellen-Bedingung noch die
+Spalte generation_state (OfflineCaptureDatabase.ts:1903). SQLite bricht mit „near
+generation_state: syntax error" ab, die App faengt das als migration_failed ab und meldet
+„Ausstehender Vorgang geschuetzt". Der Offline-Weg hat damit auf keinem Geraet je funktioniert;
+ein Scan ohne Netz war nie moeglich. 1.323 gruene Tests sahen es nicht, weil sie gegen
+MemoryOfflineDatabase und ein SQLite-Fake laufen. Regel daraus: Ein Schema gilt erst als
+geprueft, wenn eine echte SQLite-Maschine es vollstaendig ausgefuehrt hat. Ein Fake, der
+ungueltiges SQL annimmt, ist kein Test.

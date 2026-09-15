@@ -69,6 +69,62 @@ NTAG213/215/216 als NFC Forum Type 2 und ISO/IEC 14443 Type A. Siehe
 
 ## Wenn etwas nicht funktioniert
 
+### Fehler per USB eingrenzen
+
+Diese Diagnose ist nur nach einem abgebrochenen Test nötig. Sie liest den flüchtigen
+Android-Systemlog des App-Prozesses; sie liest weder App-Daten noch die lokale Datenbank.
+
+1. Installiere auf dem Rechner die Android **Platform Tools**. Prüfe im Terminal mit
+   `adb version`, dass `adb` erreichbar ist.
+2. Öffne am Telefon *Einstellungen → Telefoninfo → Softwareinformationen* und tippe siebenmal
+   auf *Buildnummer*. Schalte danach unter *Entwickleroptionen* vorübergehend
+   *USB-Debugging* ein.
+3. Verbinde das entsperrte Telefon mit einem Datenkabel. Führe `adb devices -l` aus und
+   bestätige den Fingerabdruck-Dialog am Telefon. Hinter dem Gerät muss `device` stehen;
+   bei `unauthorized` ist der Dialog noch nicht bestätigt.
+4. Erfasse Paket- und Installationsstand, ohne App-Inhalte auszulesen:
+
+   ```sh
+   adb shell dumpsys package com.tim180201.mobile.productionvalidation \
+     | grep -E 'versionCode=|versionName=|firstInstallTime=|lastUpdateTime='
+   ```
+
+5. Notiere die sichtbare Fehlermeldung, leere dann für den kontrollierten Wiederholungslauf
+   den flüchtigen Logpuffer und starte ausschließlich die Produktionstest-App neu:
+
+   ```sh
+   adb logcat -c
+   adb shell am force-stop com.tim180201.mobile.productionvalidation
+   adb shell am start -W \
+     -n com.tim180201.mobile.productionvalidation/.MainActivity
+   TAPTIME_APP_PID="$(adb shell pidof \
+     com.tim180201.mobile.productionvalidation | tr -d '\r')"
+   printf '%s\n' "$TAPTIME_APP_PID"
+   ```
+
+   Eine leere PID bedeutet: Die App läuft nicht. Dann nicht mit einem ungefilterten Log
+   weitermachen, sondern den Startfehler melden.
+6. Lies nur den gerade gestarteten App-Prozess und nur Diagnosebegriffe aus. Die letzte Stufe
+   schwärzt zusätzlich lange Hexwerte, JWT-artige Werte und Bearer-Werte:
+
+   ```sh
+   adb logcat -d --pid="$TAPTIME_APP_PID" -v threadtime '*:V' \
+     | grep -Ei 'P0[1-9]|sqlite|sqlcipher|database|migration|exception|syntax error|failed' \
+     | sed -E \
+       -e 's/[[:xdigit:]]{64}/<REDACTED>/g' \
+       -e 's/eyJ[A-Za-z0-9._-]+/<REDACTED>/g' \
+       -e 's/(Bearer[[:space:]]+)[A-Za-z0-9._-]+/\1<REDACTED>/g'
+   ```
+
+7. Gib nur die gefilterten Diagnosezeilen, den App-Stand und die sichtbare Meldung weiter.
+   Niemals den vollständigen Logpuffer, Schlüssel, Token, Zugangsdaten, SQL-Parameter oder
+   Datenbankinhalte kopieren. Schalte anschließend *USB-Debugging* wieder aus.
+
+**Grenze des aktuellen Testbaus:** Die APK mit App-Stand `2b0a5573` schreibt weder die
+Schutzklasse P01–P09 noch eine innerhalb der Offline-Initialisierung abgefangene Ausnahme in
+den App-Log. Bleibt die gefilterte Ausgabe trotz sichtbarer Schutzmeldung leer, ist genau das
+zu melden; aus dem deutschen Titel darf keine Klasse geraten werden.
+
 - **Installation blockiert:** Prüfe, ob du die APK über den erhaltenen Link geöffnet und dem
   verwendeten Browser vorübergehend die Installation unbekannter Apps erlaubt hast.
 - **„TapTim.e ist nicht verfügbar":** Nicht weiterprobieren. App-Stand notieren und Technical
