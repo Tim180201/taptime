@@ -925,3 +925,16 @@ vertretbar, solange kein Geraet einen aelteren Stand tragen kann — aber es
 ist eine bewusste Luecke, keine Vollstaendigkeit. Vor der ersten
 Schemaaenderung nach dem Pilotbetrieb muss entschieden werden: entweder die
 Aufstiegspfade in denselben Echttest aufnehmen oder sie entfernen.
+
+---
+
+## D-042 · Befund: Die Kette traegt, der Weg der Vision nicht
+
+15.09. — Erster vollstaendiger Geraetetest (T-033), SM-A336B, Android 15, APK 486ad76.
+Zehn von elf Schritten bestanden: Tag einrichten, ein- und ausstempeln, Pause, Erfassung ohne
+Netz samt Abgleich, Fehlerfall, Blindtest der fuenf Rueckmeldungsmuster, eigene Zeiten und die
+Zeile in der CSV. Der Offline-Weg lief zum ersten Mal ueberhaupt, nach der Behebung aus D-040;
+die drei kurzen Impulse fuer „aufgenommen" waren spuerbar unterscheidbar. Gescheitert ist allein
+der Weg, fuer den das Produkt gebaut ist: bei geschlossener App fragt Android, welche App den
+Scan nutzen soll, mit mehreren Kandidaten bei nur einer installierten App. „One Tap. One
+Decision." ist auf Android heute nicht erfuellt.

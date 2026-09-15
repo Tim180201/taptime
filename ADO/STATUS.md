@@ -90,6 +90,10 @@ danach Firma, Recht und Store.
   Supabase-Herkunft und öffentlichem Schlüssel belegt. Der Product Owner hat die Anmeldung im
   ausgelieferten Admin-Web bestätigt. Die Restore-Prüfung leitet die RLS-Bedingung aus allen
   vorhandenen Anwendungstabellen ab.
+- **T-033 Gerätetest durch den Product Owner — abgeschlossen.** APK `486ad76`, VersionCode 5,
+  SM-A336B mit Android 15: zehn von elf Schritten bestanden. Die vollständige Kette bis zur
+  CSV-Zeile und der Offline-Weg tragen; offen bleibt Schritt 11, weil ein Tag bei geschlossener
+  App den Android-Auswahldialog mit mehreren Kandidaten öffnet. Die Diagnose läuft als T-043.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -111,11 +115,11 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-033 — Gerätetest durch den Product Owner.** Testgegenstand ist die intern installierbare
-Android-APK mit dem Quellstand `2b0a5573`. T-034 (`56e975a`) hat `apps/mobile` nicht verändert;
-die APK muss deshalb nicht neu gebaut werden. Der vollständige Weg von Installation und
-Anmeldung über NFC-Erfassung bis zum sichtbaren, beendeten Eintrag im Admin-Web wird nach
-`ADO/04_Operations/Android_Produktionstest.md` am echten Gerät geprüft.
+**T-043 — Der Tag startet die App.** Zuerst wird am angeschlossenen Testgerät ausschließlich
+diagnostiziert, warum ein Scan bei vollständig geschlossener App den Android-Auswahldialog statt
+TapTim.e öffnet. Paketauflösung, tatsächlich zugestellter Intent, NDEF-Inhalt und Tag-Technologien
+werden einzeln belegt; der benannte Verdacht am `TECH_DISCOVERED`-Filter wird gegen offizielle
+Android-Dokumentation und Gerät geprüft. Keine Reparatur und keine Codeänderung vor dem Bericht.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
@@ -340,10 +344,11 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   mit fünf Minuten Gültigkeit. Er darf entfernt werden, sobald T-026 mindestens fünf Minuten
   produktiv gelaufen ist — dann kann keine vor der Umschaltung geöffnete Seite ihn mehr brauchen.
   Unversionierte Dateinamen sind ein Übergang, kein Dauerzustand.
-- **Android-Testfassung gebaut, Gerätetest offen:** APK-Quellstand `2b0a5573`, Paket
-  `com.tim180201.mobile.productionvalidation`. **Der Installationslink liegt in keinem Chat und in
-  keinem Repository** — er wird bei Bedarf über die Bau-Kennung auf `expo.dev` neu erzeugt.
-  Anleitung: `ADO/04_Operations/Android_Produktionstest.md`. Passende Tags: NTAG213, 215, 216.
+- **Android-Testfassung am Gerät geprüft:** APK `486ad76`, VersionCode 5, Paket
+  `com.tim180201.mobile.productionvalidation`. Zehn von elf Schritten bestanden; Schritt 11 ist
+  als T-043 offen. **Der Installationslink liegt in keinem Chat und in keinem Repository** — er
+  wird bei Bedarf über die Bau-Kennung auf `expo.dev` neu erzeugt. Anleitung:
+  `ADO/04_Operations/Android_Produktionstest.md`. Passende Tags: NTAG213, 215, 216.
 - **NFC auf echter Hardware bestätigt** (Product Owner, 28.08.2026): Lesen funktioniert auf
   seinem Android-Gerät mit seinen Tags. Bis dahin lief jeder NFC-Nachweis gegen Testdoppel; der
   automatisierte Hardware-Testlauf ist seit T-005 eingestellt. Damit ist die größte unbelegte

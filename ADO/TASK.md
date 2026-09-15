@@ -4,54 +4,45 @@
 
 ---
 
-## T-041 · Der lokale Speicher entsteht wirklich
+## T-043 · Der Tag startet die App
 
-**Für:** Development · **Risiko:** Die Mobile-App blockiert jede Erfassung, wenn das
-verschlüsselte lokale Schema nicht von echter SQLite ausgeführt werden kann; eine unbereinigte
-Diagnose könnte zugleich Geheimnisse oder Personendaten offenlegen. · **Zeitbox:** eine Sitzung ·
-**Grundlage:** bestätigter Befund D-040, APK-Stand `2b0a5573`
+**Für:** Development · **Risiko:** Der Kernweg „One Tap. One Decision.“ ist bei geschlossener App
+unterbrochen; eine zu breite Änderung an mehreren NFC-Filtern würde die Ursache verdecken. ·
+**Zeitbox:** eine Sitzung · **Grundlage:** Gerätetest T-033 und Befund D-042, APK `486ad76`,
+SM-A336B mit Android 15, Paket `com.tim180201.mobile.productionvalidation`
 
 ### Ziel
 
-Eine jungfräuliche lokale Datenbank lässt sich vollständig mit SQLCipher initialisieren. Die
-normale CI lässt jede Anweisung des vollständigen Schemas von einer echten SQLite-Maschine
-ausführen und die App protokolliert bei einem Schutzfall ausschließlich Schutzklasse,
-SQLite-Fehlercode und bereinigten Meldungstext.
+Die Ursache des Android-Auswahldialogs bei vollständig geschlossener App ist mit Ausgaben vom
+echten Gerät belegt. Vor jeder Reparatur steht fest, ob TapTim.e richtig registriert ist, welcher
+Intent tatsächlich ankommt, was der eingerichtete Tag trägt und ob sein Technologieprofil vom
+Filter erfasst wird.
 
 ### Umsetzung
 
-- Vor jeder Reparatur jede aus `OFFLINE_SCHEMA_V4` abgeleitete Anweisung einzeln mit
-  `node:sqlite` ausführen und sämtliche unabhängigen Fehler erfassen.
-- In jeder fehlerhaften Tabelle Spaltendefinitionen vor Tabellen-Bedingungen anordnen; die
-  Bedingung bleibt inhaltlich unverändert.
-- Einen Test im normalen Mobile-Testlauf ergänzen, der das vollständige Produktionsschema mit
-  echter SQLite ausführt. Gegenbeweis: Eine absichtlich syntaktisch beschädigte Variante muss
-  von derselben Prüfstrecke abgewiesen werden.
-- Schutzklasse und bereinigte SQLite-Ausnahme protokollieren. Erlaubt sind nur Klasse,
-  SQLite-Fehlercode und Meldung; Schlüssel, Token, SQL, Parameter, Datenbank- und Personendaten
-  sind ausgeschlossen.
-- Bestehende Tests benennen, die über `MemoryOfflineDatabase` oder ein SQLite-Fake
-  Schema-Verhalten behaupten, ohne SQL zu parsen; kein Umbau außerhalb des neuen Echttests.
-
-### Entstehung, Änderung und Entfernung
-
-- **Anlegen:** Development legt Echttest und minimale Diagnose im Mobile-Workspace an.
-- **Ändern:** Jede Änderung am lokalen Schema hält den Echttest im selben Diff aktuell; jede
-  neue Schutzklasse bleibt Teil der geschlossenen Diagnosezuordnung.
-- **Entfernen:** Der Echttest darf nur entfallen, wenn ihn im normalen CI-Lauf eine gleichwertige
-  Prüfung des vollständigen Produktionsschemas mit echter SQLite ersetzt. Die Diagnose darf nur
-  durch eine mindestens ebenso datensparsame Diagnose ersetzt werden.
+- Die ADB-Strecke aus `ADO/04_Operations/Android_Produktionstest.md` verwenden.
+- Das Paketsystem für `NDEF_DISCOVERED`, `TECH_DISCOVERED` und `TAG_DISCOVERED` einzeln abfragen;
+  alle beanspruchenden Activities benennen und ausdrücklich sagen, ob TapTim.e darunter ist.
+- Im Android-Dialog TapTim.e auswählen und praktisch feststellen, ob der Scan stempelt.
+- Den beim Antippen tatsächlich ankommenden Intent und den NDEF-Inhalt des über die App
+  eingerichteten Tags feststellen; NDEF hat bei Android Vorrang vor TECH und TAG.
+- Den Inhalt von `taptime_nfc_tech_filter.xml` den vom Gerät gemeldeten Tag-Technologien
+  gegenüberstellen.
+- Den Verdacht prüfen, dass `plugins/withNfcTagDispatch.js` für `TECH_DISCOVERED` fälschlich
+  `android.intent.category.DEFAULT` setzt: offizielle Android-Dokumentation und Geräteverhalten
+  müssen beide den Befund tragen. Ist der Verdacht falsch, wird die echte Ursache benannt.
 
 ### Verifikation und Grenzen
 
-- Mobile-Typecheck und vollständiger Mobile-Testlauf grün; nachweisen, dass der Test in der
-  ausgeführten CI-Konfiguration enthalten ist.
-- Positiver Echttest und negativer Gegenbeweis werden getrennt belegt.
-- Unabhängiges Review wegen lokal gespeicherter personenbezogener Daten und Diagnosegrenze.
-- Keine Änderung der Oberflächenmeldung, kein APK-Bau und kein Testprotokoll.
-- Dokumentations-Commit getrennt vor der Umsetzung; Umsetzung weder committen noch pushen.
+- Keine Codeänderung, keine Reparatur, kein APK-Bau, kein Deploy und kein Zugriff auf
+  Produktionsdaten. Geheimnisse, Schlüssel, Token, Datenbank- und Personendaten bleiben aus
+  Befehlsausgaben, Protokollen und Bericht ausgeschlossen.
+- Der getrennte Vordergrundmangel bleibt ausschließlich als T-044 im Plan: kein Reader-Mode-
+  Umbau und keine Änderung von `ScanScreen.tsx` in T-043.
+- Erst den Diagnosebericht abgeben. Eine Reparatur folgt nur als eigener, einzeln messbarer
+  Schritt nach neuer Anweisung.
 
 ### Bericht
 
-Vier Punkte gemäß `AGENTS.md`, darin: Gesamtzahl der Vorher-Fehler, Reparatur, Echttest samt
-Gegenbeweis, benannte Fake-Tests, T-Nummer und Hash des Dokumentations-Commits.
+Vier Punkte gemäß `AGENTS.md`, darin die Tatsachen a) bis d) jeweils samt bereinigter Ausgabe,
+das Ergebnis zum benannten Verdacht, T- und D-Nummer sowie Hash des Dokumentations-Commits.
