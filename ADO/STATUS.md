@@ -105,10 +105,11 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-034 — Beweisbarer Betrieb.** Siehe `ADO/TASK.md`. Vor dem nächsten Gerätebau wird belegt,
-dass das Admin-Web nur mit seiner öffentlichen Anmeldekonfiguration gebaut und als startfähig
-abgenommen wird und dass der Restore jede Anwendungstabelle dynamisch auf erzwungene RLS prüft.
-T-033 ist zurückgestellt; T-038 folgt unmittelbar auf T-034.
+**T-034 — Beweisbarer Betrieb — technisch abgeschlossen (`56e975a`).** CI und der vollständige
+Image-Bau sind grün. Vor einer Produktionsauslieferung muss der Product Owner noch auf der
+Serverkonsole bestätigen, dass der Hostname aus `SUPABASE_ISSUER` der im Admin-Web-Bündel
+gebackenen Supabase-Herkunft entspricht. Bei Abweichung wird nicht ausgeliefert; die dauerhafte
+Härtung ist als T-039 geplant. T-033 bleibt zurückgestellt.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
@@ -208,6 +209,24 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 
 ## Bekannte Kleinigkeiten (blockieren nichts)
 
+- **P2, gelöst in T-034:** `DEPLOY.md` und `RESTORE.md` beschrieben nach der ersten Umsetzung
+  noch den alten festen Tabellenzähler und nur den Versionsnachweis des Admin-Webs; beide sind
+  an die bedingungs- und inhaltsbasierte Prüfung angeglichen.
+- **P2 aus T-034, Nachweis geschlossen:** Der positive vollständige Admin-Web-Dockerbau
+  scheiterte lokal erst nach dem Konfigurationsgate an einem vollen 10-GiB-Colima-Datenträger.
+  Der nachgelagerte CI-Lauf `34972562477` hat das vollständige Abbild aus `56e975a` erfolgreich
+  gebaut und veröffentlicht; die lokale Ursache bleibt als untersuchtes Kapazitätssignal notiert.
+- **P2 aus T-034:** Die öffentliche Admin-Web-Konfiguration wird aus
+  `apps/mobile/eas.json`, `build['production-validation'].env` gelesen — dem Wegwerf-Testprofil
+  der App. Der Wert stimmt heute; ändert jemand dieses Profil, wandert die Produktionskonfiguration
+  der Website jedoch unbemerkt mit. Sie braucht eine eigene, ausdrückliche Quelle.
+- **P1 aus T-034, vor Auslieferung manuell zu prüfen, dauerhaft in T-039:** Das Bündeltor weist
+  eine gültige Supabase-Herkunft nach, nicht die richtige. Weicht sie vom Hostnamen des
+  `SUPABASE_ISSUER` ab, dem das Backend vertraut, zeigt die Seite eine Anmeldemaske, die jede
+  Anmeldung ablehnt, während das Tor grün bleibt. Bei Abweichung darf nicht ausgeliefert werden.
+- **P2 aus T-034:** Der Rollback-Orchestrierungstest ersetzt `wait_for_health` durch ein Testdoppel.
+  Produktiv läuft das echte Bündeltor auch beim Rollback und ist separat negativ und positiv
+  belegt; die Kombination aus automatischem Rollback und echtem Tor bleibt automatisiert offen.
 - **P2, gelöst in T-025:** Drei Grenztest-Vorfälle waren Läuferwetter statt Produktfehler; zuletzt
   schwankte Payroll V3 von 8,9 auf 30,2 Sekunden. Der 8-MiB-Test vergleicht den Export nun mit
   einem festen, V3-ähnlichen PostgreSQL-Workload im selben Lauf (`1,20×`), meldet absolute
