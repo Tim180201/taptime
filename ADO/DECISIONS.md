@@ -857,3 +857,15 @@ sahen das nicht, weil der Test eine Zustandsfolge nachspielte, die kein Produkti
 veroeffentlicht. Daraus zwei Regeln: Eine Zuordnung ueber einen Vertragstyp wird vollstaendig
 ausgeschrieben und endet an einem `never`-Zweig, nie an einem Auffangzweig mit Bedeutung. Und ein
 Test ueber Zustandsfolgen faehrt die Folgen, die der Produktionscode wirklich veroeffentlicht.
+
+---
+
+## D-037 · Auf dem iPhone gehört die Bestätigung dazu
+
+15.09. — iOS liest Tags im Hintergrund nur ueber einen NDEF-Datensatz mit Universal Link und
+liefert die Daten erst, wenn die Person die Mitteilung antippt; bei gesperrtem Geraet wird vorher
+zum Entsperren aufgefordert (Apple, Core NFC: „Adding Support for Background Tag Reading"). Auf
+iOS ist es damit ein Tap plus eine Bestaetigung. Der Product Owner hat das ausdruecklich
+akzeptiert: lieber ein Tap mehr als kein iPhone. „One Tap. One Decision." bleibt der Massstab;
+die Bestaetigung ist die Ausnahme, die benannt wird statt verschwiegen. iOS ist ein festes Ziel,
+kein Vielleicht.

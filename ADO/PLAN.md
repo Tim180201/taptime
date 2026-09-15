@@ -73,7 +73,11 @@ Datenbankrechten eingreifen muss.
 | **T-017** | Feinschliff, Standortleitungs-Zuschnitt, Barrierefreiheit, **CSP und Sitzung (D-015)**, Landing Page | Nach dem Nutzer-Feedback | 4 |
 | **T-032 ✓** | **Die App bekommt das Raster und spürbare Rückmeldung — abgeschlossen (`846a126`, CI-grün)** | Fünf unterscheidbare Rückmeldungen, dunkles Raster und reduzierte Bewegung sind gebaut. | 3 |
 | **T-033** | **Die App kommt aufs Gerät** | Den sauberen Code-Stand `846a126` mit dem nachgeschlagenen EAS-Profil als intern installierbare Android-APK bauen und den Link persönlich an den Product Owner geben. | 1 |
-| **T-030** | **iOS-Machbarkeit klären — nur Recherche, kein Code** | `eas.json` kennt **kein iOS-Bauprofil**, und ADR-0009 sowie ADR-0017 beschreiben den NFC-Weg ausdrücklich als Android. Liefert Core NFC die Tag-Kennung in der Form, die unser Modell braucht? Geht Hintergrund-Erkennung? Wenn nein, ändert das **das Produkt**, nicht die Verpackung. **Früh klären**: ein Befund in Woche 3 kostet nichts, in Woche 20 kostet er den Zeitplan. | 1 |
+| **T-034** | **Beweisbarer Betrieb (B01, B04)** | Das Admin-Web wird ohne die von `main.tsx:8–18` verlangte Anmeldekonfiguration gebaut: Dockerfile und `container-image.yml:276` reichen nur `TAPTIME_VERSION` durch. Die Auslieferungsprüfung prüft `version.txt`, nicht den Anwendungsstart. Außerdem erwartet `taptime-restore-verify:159` fest `37/37`, obwohl Migration 022 eine 38. RLS-Tabelle anlegt. | — |
+| **T-035** | **Kein stiller Datenverlust (B05, B03)** | Die stündliche Sicherung und das sofortige `acknowledgeHead` lassen bestätigte Zeiten zwischen zwei Sicherungen auf beiden Seiten verschwinden; Verlustgrenze festlegen und nachweisen. Außerdem löscht `OfflineSyncScheduler.trigger():91` den Timer, während `retry_wait:177` keinen neuen setzt; die Warteschlange kann mit Daten ohne Wecker liegen bleiben. | — |
+| **T-036** | **Zeitrichtigkeit (B02)** | `navigation.ts:86–98` bildet Monatsgrenzen mit `Date.UTC`; ein deutscher September beginnt damit am 31.08. um 22:00 UTC. Der Test bestätigt die falschen Grenzen. Betrifft zwei Monatswechsel im Jahr und verschiebt dort Zeiten über die Monatsgrenze. | — |
+| **T-037** | **Reparaturweg und die ungeprüften Befunde (B06, dann B08, B09, B07)** | `container-image.yml:194–201` holt die Schutzliste mit `curl --fail` unter `set -euo pipefail` vor der Veröffentlichung bei `:268` aus der Produktion; bei deren Ausfall lässt sich kein Reparaturabbild veröffentlichen. B08 (Sicherung und Vergleichsliste aus verschiedenen Datenständen), B09 (Auth-Widerruf sperrt die eigene API nicht sofort) und B07 (kein gemeinsames Verbindungsbudget) zuerst verifizieren, dann bewerten. | — |
+| **T-030** | **iOS-Weg klären — nur Recherche, kein Code** | iOS ist nach D-037 festes Ziel; Tap plus Bestätigung ist akzeptiert. Zu klären sind NDEF-Datensatz, Universal Link, Bauprofil und die technische Einbindung in das trigger-agnostische Modell. | 1 |
 | **T-031** | Landing Page | Aus T-017 herausgelöst, damit sie unabhängig laufen kann. Eine statische Seite, ein halber Tag — aber sie braucht drei Dinge, die nicht bei der Entwicklung liegen: **Name und Domain**, **Impressum nach § 5 DDG und Datenschutzerklärung** (ohne die darf sie nicht online), und den **Werbesatz aus dem Pilotgespräch**. Vorher gebaut heißt zweimal gebaut. | 2 |
 | **T-018** | Installierbare App per Direktlink | Für den eigenen Test | 2 |
 | **T-023** | **Vorschlag:** Übersicht als Arbeitsvorrat statt Zustandsbericht | Die Übersicht zählt heute, was geladen ist. Sie soll zeigen, **was ohne den Administrator stehen bleibt**: offene Prüfungen, manuell erfasste Zeiten vor der Freigabe, laufende Arbeitszeiten. Summen über Projekte brauchen eine echte Auswertung im Backend auf Basis von `effective_work_duration_seconds_v1` — geladene Seiten zu addieren ergibt eine Zahl, die falsch ist und richtig aussieht. **Noch keine Entscheidung.** Der Inhalt wird vom Pilotgespräch bestimmt (D-020), nicht geraten. | 4 |
@@ -81,7 +85,11 @@ Datenbankrechten eingreifen muss.
 | **T-019** | Dokumente an die Wirklichkeit angleichen | Vier Dokumente beschreiben, was es nicht gibt | 1 |
 | **T-021** | **Zustellbarkeit: eigener Mailversand, SPF/DKIM/DMARC** | Supabase erlaubt eingebaut nur **zwei Mails pro Stunde** projektweit — die Zurücksetzung aus T-009 versagt beim ersten echten Kunden, und zwar lautlos. Braucht den Product Owner. | 1 |
 
-**Größe** in Arbeitssitzungen. Summe 48.
+**Größe** in Arbeitssitzungen. Bestehende Schätzung: 48; T-034 bis T-037 sind noch ungeschätzt.
+
+**Gutachten vom 06.09.:** B01 bis B06 hat der Product Owner an den Fundstellen geprüft und
+bestätigt. B07, B08 und B09 sind ungeprüft; T-037 behandelt sie ausdrücklich erst nach
+Verifikation.
 
 **Reihenfolge ist echt.** T-020 steht zwischen T-015 und T-016, weil die Freigabekette die
 Standortleitung als Instanz voraussetzt. T-013 braucht die Pausen aus T-012. T-016 braucht die Standorte aus
@@ -119,7 +127,7 @@ Go/No-Go.
 
 ## Was bewusst wartet
 
-Controlling und Stundensätze, Budgets, Self-Service-Onboarding, Abrechnungsautomatik, iOS,
+Controlling und Stundensätze, Budgets, Self-Service-Onboarding, Abrechnungsautomatik,
 Dashboards, vollständige Rollenmatrix mit System Owner und Team Lead, Mehrfach-Mitgliedschaft,
 Statusseite, Zertifizierungen.
 

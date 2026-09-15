@@ -29,6 +29,10 @@ Bevor irgendetwas gebaut wird, muss die Aufgabe diesen Test bestehen:
    unvollständig, auch wenn alles Beschriebene gebaut ist. Diese Regel entstand aus vier
    Befunden in zwei Tagen (D-029, D-030, D-032, D-033): jedes Mal war beschrieben, was ein Ding
    sein soll, und nicht, wie es in die Welt kommt.
+6. **Prüft die Bedingung statt einer Zahl?** Eine Prüfung vergleicht nie gegen eine fest
+   hineingeschriebene Zahl, sondern gegen eine Bedingung, die aus der Quelle abgeleitet wird.
+   Wer `37/37` schreibt, prüft nicht die Sicherheit, sondern das Alter der Datei. Zulässig ist:
+   Für jede vorhandene Anwendungstabelle muss RLS eingeschaltet und erzwungen sein.
 
 Besteht eine Aufgabe diesen Test nicht, wird sie **nicht implementiert**, sondern als
 Produktfrage an den Product Owner gemeldet.

@@ -2,7 +2,11 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 30.08.2026 (T-032 abgeschlossen auf `846a126`, CI-grün; Produktion weiterhin auf `28dcac6`, Migrationen 001–021) · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 15.09.2026 · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+
+**Freigabebedingung:** Fertig ist, wenn ein korrekt ausgeliefertes und nachweislich
+wiederherstellbares System einen vollständigen Monatsabschluss übersteht — nicht, wenn eine
+Aufgabenliste leer ist.
 
 ---
 
@@ -171,9 +175,11 @@ in keinem Plan standen.
 | Was | Von wem | Warum es drängt |
 |---|---|---|
 | **Produktname** | Tim | Engste Wahl: **Taptura** — `taptura.de`, `.com` und `.io` frei, `.app` vergeben. Kunstwort, trägt das „Tap" der Bedienung, in beiden Sprachen gleich aussprechbar, keine Kollision mit TIM/Telecom Italia. **Domains registrieren, bevor die Markenvorprüfung läuft** — sie sind das Einzige, das über Nacht weg sein kann. Regel aus der Suche: `.com` darf nicht über den Namen entscheiden; `.de` plus eine moderne Endung genügt. Verworfen: „MyTim" (Domains weg, TIM-Kollision, falsche Perspektive), „Zeitura" (international unklar auszusprechen). „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
-| **Konsolenschritt aus T-028** | Tim | **Blockiert jede Auslieferung.** Auf dem Server steht noch das alte Deploy-Skript mit der `32/32`-Erwartung; jeder Deploy scheitert in der Generalprobe. Ein Befehl in der Hetzner-Konsole als `root`: `docker run --rm -v /:/h ghcr.io/tim180201/taptime-backend-api:ops` — letzte Ausgabezeile muss die Revision nennen. **Vorher prüfen, auf welchem Stand `main` gerade ist**: `ops` ist ein beweglicher Zeiger und wandert mit jeder Veröffentlichung mit. Bauen ist nicht blockiert, nur Ausliefern. |
+| **Domain** | Tim | Technische Bauvoraussetzung für iOS: Universal Links und der NDEF-Datensatz brauchen eine kontrollierte Domain. |
+| **D-U-N-S-Nummer** | Tim | Nach der Gründung der UG beantragen; Voraussetzung für den Unternehmensweg in den Store. |
+| **Supabase-Betrieb** | Tim | Gratis-Projekte pausieren nach sieben Tagen ohne Aktivität. Vor dem ersten echten Kunden durch einen belastbaren Tarif oder eine andere ausdrücklich entschiedene Betriebsmaßnahme lösen. |
 | **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
-| **Welche Telefone haben die Lehrkräfte?** | Tim → Pilotbetrieb | **Kann den gesamten Pilotbetrieb blockieren.** Die App ist Android; T-018 liefert sie per Direktlink aus, was auf einem iPhone nicht möglich ist. iOS steht bewusst nicht im Plan. Haben die Lehrkräfte iPhones, führt der Weg nur über den App Store: Apple-Entwicklerkonto (99 €/Jahr), Unternehmen, Prüfverfahren — Wochen, nicht Tage. **Diese Frage gehört an den Anfang des Gesprächs, nicht ans Ende.** Sie entscheidet, ob der Pilot in der geplanten Form überhaupt stattfinden kann. |
+| **Welche Telefone haben die Lehrkräfte?** | Tim → Pilotbetrieb | Bestimmt den Distributionsweg. iOS ist nach D-037 festes Ziel; dort gehören Universal Link, Mitteilung und Bestätigung zum akzeptierten Ablauf. |
 | **Vier Fragen an den Pilot-Inhaber** | Pilotbetrieb | Am 26.08. **schriftlich** hinausgegangen, Rücklaufzeit offen. Reihenfolge: was an Jibble stört · wie der Monatsabschluss abläuft · was bei einer falschen Stunde passiert · ob es Personalnummern gibt. Blockiert **T-020** (Freigabekette: pro Eintrag oder pro Person und Monat, D-020), **T-023** (Inhalt der Übersicht) und die letzte offene Stelle in **T-013**. Blockiert T-015a/b/c nicht. Schriftlich heißt: kürzere, glattere Antworten als im Gespräch — vor allem bei Frage 1. Kommt dort nichts Konkretes, ist ein Telefonat nachzuholen. |
 | **Monatsgrenzen in Ortszeit** | Tim + Claude | Adressen wie `?monat=2026-10` rechnen heute in UTC-Monatsgrenzen. Ein Oktober in `Europe/Berlin` dauert durch die Zeitumstellung 31 Tage plus eine Stunde; Abfrage und CSV-Export erlauben vertraglich höchstens exakt 31 Tage. Betrifft genau zwei Monate im Jahr — und verschiebt dort Arbeitszeiten über die Monatsgrenze. Bei einer Lohnabrechnung ist das kein Rundungsfehler. Braucht eine Vertrags- und Backendentscheidung, nicht Oberflächenarbeit. Fällt spätestens mit T-013 an. |
 
@@ -219,13 +225,10 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 - App heißt intern noch `mobile` (Name, Slug, Package-ID) statt TapTim.e.
 - **P2, Befund aus T-018:** Die installierte Produktionstest-App erkennt eine neuere Fassung
   nicht selbst. Sie zeigt ihren Commit; der Technical Lead muss einen neuen Stand aktiv melden.
-- **Offen, nur am Mac:** Nicht versionierte `app.json` im Wurzelverzeichnis mit Paketkennung
-  `com.tim180201.taptime`, während die App `com.tim180201.mobile` heißt. Kein Code verweist
-  darauf. Zu prüfen und dann zu entfernen oder zu versionieren; hier nicht erledigt.
-- **P1 aus T-028, offen und nur am Mac:** Rund 131 uncommittierte Zeilen in
+- **P1 aus T-028:** Rund 131 Zeilen in
   `infrastructure/deploy` und `infrastructure/tests/taptime-deploy.test` beheben die falsch
-  aufgezeichnete Betriebsversion. Ungeprüft, nicht ausgeliefert und noch auf keinem Zweig
-  gesichert; hier nicht erledigt.
+  aufgezeichnete Betriebsversion. Ungeprüft und nicht ausgeliefert; als `7ef7344` auf
+  `wip/t-028-operations-version` gesichert, nicht gemergt.
 - Nur zwei Rollen (`administrator`, `employee`). `team_lead` ist eine typische B2B-Rückfrage,
   additiv nachrüstbar. Der Standortleiter aus T-015 deckt den häufigsten Fall ab.
 - **P1, Frist spätestens T-018:** `taptime://auth/recovery` ist ein eigenes URL-Schema. Auf
