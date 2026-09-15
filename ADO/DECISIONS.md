@@ -883,3 +883,17 @@ zieht. Fuer den service-role-Schluessel und jedes andere Geheimnis ist dieser
 Weg deshalb verboten — die gehoeren in Dateien mit Modus 0600 auf dem Server,
 nie in ein Abbild, nie in argv. Fehlt einer der beiden oeffentlichen Werte,
 bricht der Bau ab, statt eine startunfaehige App zu erzeugen.
+
+---
+
+## D-039 · Befund: Der pausierte Anmeldedienst sah aus wie ein falsches Passwort
+
+15.09. — Supabase pausiert Gratis-Projekte nach sieben Tagen ohne
+Aktivitaet. Heute traf es unser Projekt: Website und App konnten niemanden
+mehr anmelden. Die Oberflaeche meldete dabei „E-Mail-Adresse oder Passwort
+stimmen nicht", weil SupabaseMemoryAuth.signIn() einen booleschen Wert
+liefert und jeden Fehlschlag darauf abbildet. Der Ausfall war also total und
+die Erklaerung falsch — der Product Owner suchte sein Passwort, waehrend der
+Dienst nicht lief. Zwei Folgen: Supabase Pro gehoert vor den ersten zahlenden
+Kunden, und eine Anmeldung muss die Ursache nennen. Dritter Vorfall der
+Bauart „ein Wahrheitswert kann keinen Grund tragen" nach D-023 und T-032.

@@ -84,6 +84,12 @@ danach Firma, Recht und Store.
   `effective_work_duration_seconds_v1` — **eine** Quelle, in SQL. V2 bleibt unverändert.
 - **T-032 Gestaltungsraster und spürbare Rückmeldung** — `846a126`, CI-grün. Fünf
   unterscheidbare Scanmuster, dunkles Raster und reduzierte Bewegung sind in der Mobile-App.
+- **T-034 Beweisbarer Betrieb — abgeschlossen und ausgeliefert** — `56e975a`, CI und
+  vollständiger Image-Bau grün. Produktion läuft auf diesem Stand; das Auslieferungstor hat das
+  echte Admin-Web-Bündel einschließlich
+  Supabase-Herkunft und öffentlichem Schlüssel belegt. Der Product Owner hat die Anmeldung im
+  ausgelieferten Admin-Web bestätigt. Die Restore-Prüfung leitet die RLS-Bedingung aus allen
+  vorhandenen Anwendungstabellen ab.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -105,11 +111,11 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-034 — Beweisbarer Betrieb — technisch abgeschlossen (`56e975a`).** CI und der vollständige
-Image-Bau sind grün. Vor einer Produktionsauslieferung muss der Product Owner noch auf der
-Serverkonsole bestätigen, dass der Hostname aus `SUPABASE_ISSUER` der im Admin-Web-Bündel
-gebackenen Supabase-Herkunft entspricht. Bei Abweichung wird nicht ausgeliefert; die dauerhafte
-Härtung ist als T-039 geplant. T-033 bleibt zurückgestellt.
+**T-033 — Gerätetest durch den Product Owner.** Testgegenstand ist die intern installierbare
+Android-APK mit dem Quellstand `2b0a5573`. T-034 (`56e975a`) hat `apps/mobile` nicht verändert;
+die APK muss deshalb nicht neu gebaut werden. Der vollständige Weg von Installation und
+Anmeldung über NFC-Erfassung bis zum sichtbaren, beendeten Eintrag im Admin-Web wird nach
+`ADO/04_Operations/Android_Produktionstest.md` am echten Gerät geprüft.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
@@ -179,7 +185,7 @@ in keinem Plan standen.
 | **Produktname** | Tim | Engste Wahl: **Taptura** — `taptura.de`, `.com` und `.io` frei, `.app` vergeben. Kunstwort, trägt das „Tap" der Bedienung, in beiden Sprachen gleich aussprechbar, keine Kollision mit TIM/Telecom Italia. **Domains registrieren, bevor die Markenvorprüfung läuft** — sie sind das Einzige, das über Nacht weg sein kann. Regel aus der Suche: `.com` darf nicht über den Namen entscheiden; `.de` plus eine moderne Endung genügt. Verworfen: „MyTim" (Domains weg, TIM-Kollision, falsche Perspektive), „Zeitura" (international unklar auszusprechen). „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
 | **Domain** | Tim | Technische Bauvoraussetzung für iOS: Universal Links und der NDEF-Datensatz brauchen eine kontrollierte Domain. |
 | **D-U-N-S-Nummer** | Tim | Nach der Gründung der UG beantragen; Voraussetzung für den Unternehmensweg in den Store. |
-| **Supabase-Betrieb** | Tim | Gratis-Projekte pausieren nach sieben Tagen ohne Aktivität. Vor dem ersten echten Kunden durch einen belastbaren Tarif oder eine andere ausdrücklich entschiedene Betriebsmaßnahme lösen. |
+| **Supabase Pro** | Tim | Kein theoretisches Risiko mehr: Am 15.09. pausierte Supabase das Gratis-Projekt nach sieben Tagen ohne Aktivität; Website und App konnten niemanden mehr anmelden. Vor dem ersten zahlenden Kunden auf einen belastbaren Tarif wechseln. |
 | **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
 | **Welche Telefone haben die Lehrkräfte?** | Tim → Pilotbetrieb | Bestimmt den Distributionsweg. iOS ist nach D-037 festes Ziel; dort gehören Universal Link, Mitteilung und Bestätigung zum akzeptierten Ablauf. |
 | **Vier Fragen an den Pilot-Inhaber** | Pilotbetrieb | Am 26.08. **schriftlich** hinausgegangen, Rücklaufzeit offen. Reihenfolge: was an Jibble stört · wie der Monatsabschluss abläuft · was bei einer falschen Stunde passiert · ob es Personalnummern gibt. Blockiert **T-020** (Freigabekette: pro Eintrag oder pro Person und Monat, D-020), **T-023** (Inhalt der Übersicht) und die letzte offene Stelle in **T-013**. Blockiert T-015a/b/c nicht. Schriftlich heißt: kürzere, glattere Antworten als im Gespräch — vor allem bei Frage 1. Kommt dort nichts Konkretes, ist ein Telefonat nachzuholen. |
@@ -220,10 +226,11 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   `apps/mobile/eas.json`, `build['production-validation'].env` gelesen — dem Wegwerf-Testprofil
   der App. Der Wert stimmt heute; ändert jemand dieses Profil, wandert die Produktionskonfiguration
   der Website jedoch unbemerkt mit. Sie braucht eine eigene, ausdrückliche Quelle.
-- **P1 aus T-034, vor Auslieferung manuell zu prüfen, dauerhaft in T-039:** Das Bündeltor weist
+- **P1 aus T-034, bei der Auslieferung manuell belegt, dauerhaft in T-039:** Das Bündeltor weist
   eine gültige Supabase-Herkunft nach, nicht die richtige. Weicht sie vom Hostnamen des
   `SUPABASE_ISSUER` ab, dem das Backend vertraut, zeigt die Seite eine Anmeldemaske, die jede
-  Anmeldung ablehnt, während das Tor grün bleibt. Bei Abweichung darf nicht ausgeliefert werden.
+  Anmeldung ablehnt, während das Tor grün bleibt. Für `56e975a` stimmten beide Herkünfte überein;
+  die Anmeldung in Produktion ist bestätigt. T-039 automatisiert diesen Vergleich.
 - **P2 aus T-034:** Der Rollback-Orchestrierungstest ersetzt `wait_for_health` durch ein Testdoppel.
   Produktiv läuft das echte Bündeltor auch beim Rollback und ist separat negativ und positiv
   belegt; die Kombination aus automatischem Rollback und echtem Tor bleibt automatisiert offen.
@@ -333,9 +340,8 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   mit fünf Minuten Gültigkeit. Er darf entfernt werden, sobald T-026 mindestens fünf Minuten
   produktiv gelaufen ist — dann kann keine vor der Umschaltung geöffnete Seite ihn mehr brauchen.
   Unversionierte Dateinamen sind ein Übergang, kein Dauerzustand.
-- **Android-Testfassung gebaut, Gerätetest offen** (28.08.2026): EAS-Bau
-  `aa00f3e2-dd90-4057-9d86-a2f81b2549ec`, Paket `com.tim180201.mobile.productionvalidation`,
-  VersionCode 3, Quell-Commit `37266ca`. **Der Installationslink liegt in keinem Chat und in
+- **Android-Testfassung gebaut, Gerätetest offen:** APK-Quellstand `2b0a5573`, Paket
+  `com.tim180201.mobile.productionvalidation`. **Der Installationslink liegt in keinem Chat und in
   keinem Repository** — er wird bei Bedarf über die Bau-Kennung auf `expo.dev` neu erzeugt.
   Anleitung: `ADO/04_Operations/Android_Produktionstest.md`. Passende Tags: NTAG213, 215, 216.
 - **NFC auf echter Hardware bestätigt** (Product Owner, 28.08.2026): Lesen funktioniert auf
