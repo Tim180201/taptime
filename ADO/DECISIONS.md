@@ -938,3 +938,16 @@ die drei kurzen Impulse fuer „aufgenommen" waren spuerbar unterscheidbar. Gesc
 der Weg, fuer den das Produkt gebaut ist: bei geschlossener App fragt Android, welche App den
 Scan nutzen soll, mit mehreren Kandidaten bei nur einer installierten App. „One Tap. One
 Decision." ist auf Android heute nicht erfuellt.
+
+---
+
+## D-043 · Befund: Ein Test hat den Fehler beglaubigt
+
+15.09. — Bei geschlossener App startete ein Tag TapTim.e, erzeugte aber keinen Stempel: die
+Erfassung entsteht vor der Laufzeitinitialisierung und wird von der danach gesetzten
+Authority-Grenze als zu alt verworfen (TapTimeNfcIngressModule.kt:23,
+OfflineCaptureCoordinator.ts:243, DefaultProductMobileRuntime.ts:187).
+NativeNfcIngress.test.ts:103 erwartete dieses Verhalten ausdruecklich und war gruen. Fuenfter
+Vorfall dieser Bauart nach D-036. Regel daraus: Ein Test, der eine Erwartung festschreibt, muss
+begruenden, WARUM sie richtig ist — sonst haelt er fest, was gerade passiert, statt was passieren
+soll. Bei einer Sicherheitsgrenze gehoert diese Begruendung in den Test.

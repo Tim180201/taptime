@@ -93,7 +93,8 @@ danach Firma, Recht und Store.
 - **T-033 Gerätetest durch den Product Owner — abgeschlossen.** APK `486ad76`, VersionCode 5,
   SM-A336B mit Android 15: zehn von elf Schritten bestanden. Die vollständige Kette bis zur
   CSV-Zeile und der Offline-Weg tragen; offen bleibt Schritt 11, weil ein Tag bei geschlossener
-  App den Android-Auswahldialog mit mehreren Kandidaten öffnet. Die Diagnose läuft als T-043.
+  App den Android-Auswahldialog mit mehreren Kandidaten öffnet. T-043 hat Resolverkonflikt und
+  verworfenen Cold-Start getrennt; T-045 behebt zuerst den Cold-Start.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -115,11 +116,10 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-043 — Der Tag startet die App.** Zuerst wird am angeschlossenen Testgerät ausschließlich
-diagnostiziert, warum ein Scan bei vollständig geschlossener App den Android-Auswahldialog statt
-TapTim.e öffnet. Paketauflösung, tatsächlich zugestellter Intent, NDEF-Inhalt und Tag-Technologien
-werden einzeln belegt; der benannte Verdacht am `TECH_DISCOVERED`-Filter wird gegen offizielle
-Android-Dokumentation und Gerät geprüft. Keine Reparatur und keine Codeänderung vor dem Bericht.
+**T-045 — Der startauslösende Intent gehört zur neuen Berechtigung.** Der Cold-Start-Intent darf
+nicht von der erst danach gesetzten Authority-Grenze als alt verworfen werden. Fremde Identität
+oder Mitgliedschaft, ein früherer Gerätestart und nicht startursächliche alte Erfassungen bleiben
+ausgeschlossen. Der Android-Auswahldialog aus T-043 bleibt als getrennte Reparatur sichtbar.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
@@ -346,7 +346,7 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   Unversionierte Dateinamen sind ein Übergang, kein Dauerzustand.
 - **Android-Testfassung am Gerät geprüft:** APK `486ad76`, VersionCode 5, Paket
   `com.tim180201.mobile.productionvalidation`. Zehn von elf Schritten bestanden; Schritt 11 ist
-  als T-043 offen. **Der Installationslink liegt in keinem Chat und in keinem Repository** — er
+  als T-043 und T-045 getrennt offen. **Der Installationslink liegt in keinem Chat und in keinem Repository** — er
   wird bei Bedarf über die Bau-Kennung auf `expo.dev` neu erzeugt. Anleitung:
   `ADO/04_Operations/Android_Produktionstest.md`. Passende Tags: NTAG213, 215, 216.
 - **NFC auf echter Hardware bestätigt** (Product Owner, 28.08.2026): Lesen funktioniert auf
