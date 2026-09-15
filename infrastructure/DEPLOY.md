@@ -26,8 +26,12 @@ Geheimnisse gehören weder in Git noch in Befehlsargumente. `taptime-deploy` hat
 Der unabhängige Rückweg ist die **Hetzner Console**: Projekt *Taptime* → Server
 *taptime-prod* → *Aktionen* → *Konsole*. Mit `root` und dem im Passwortmanager verwahrten
 Server-Root-Passwort anmelden. Diese Konsole verwendet eine **US-Tastaturbelegung**; die
-Passworteingabe bleibt vollständig unsichtbar. Dieser Weg umgeht SSH und wurde vor dem Sperren
-des Root-SSH-Logins praktisch geprüft.
+Passworteingabe bleibt vollständig unsichtbar. Auf einer deutschen Tastatur erzeugt
+`Shift` + `Ö` den Doppelpunkt `:`, die Taste `-` unten rechts neben dem Punkt den Schrägstrich
+`/` und die Taste `ß` oben rechts neben der `0` den Bindestrich `-`; außerdem sind `y` und `z`
+vertauscht. Die Einfügefunktion oben rechts in der Console übernimmt einen Befehl aus der
+Zwischenablage und vermeidet das Tippen mit dieser abweichenden Belegung vollständig. Dieser Weg
+umgeht SSH und wurde vor dem Sperren des Root-SSH-Logins praktisch geprüft.
 
 ## Einmalige Einrichtung
 
@@ -81,9 +85,14 @@ und gilt unverändert auf einem Ersatzserver ohne vorhandenes Deploy-Skript.
 
 Docker kann vor der Abschlussmeldung mehrere Ladezeilen ausgeben; für die Bedienung zählt die
 **letzte Zeile**. Erfolg lautet `ERFOLG: Deploy-Controller <revision> installiert.`. Der Product
-Owner vergleicht die dort genannte Revision mit dem aktuellen Kurzschlüssel von `main` und fährt
-nur bei Gleichheit fort. Dieser menschliche Vergleich ist die Freigabeprüfung, die der bewegliche
-Tag selbst nicht leisten kann. Bei einer abgewiesenen Nutzlast lautet die letzte Zeile
+Owner vergleicht die dort genannte Revision mit dem Commit, aus dem die drei Abbilder gebaut
+wurden, und fährt nur bei Gleichheit fort — nicht mit der Spitze von `main`, auf der inzwischen
+ein `[skip ci]`-Dokumentations-Commit liegen kann. Die gesuchte Revision steht im erfolgreichen
+GitHub-Actions-Lauf *Release container images* oben beim Commit; eindeutig auslesen lässt sie
+sich mit der Run-ID aus dessen URL über
+`gh run view <run-id> --json headSha --jq '.headSha[0:7]'`. Dieser menschliche Vergleich ist die
+Freigabeprüfung, die der bewegliche Tag selbst nicht leisten kann. Bei einer abgewiesenen Nutzlast
+lautet die letzte Zeile
 `FEHLER: Bootstrap abgebrochen; nichts wurde veraendert.`; dann bleibt die Konsole offen und die
 vollständige Ausgabe wird gemeldet. Fehlt eine dieser Abschlusszeilen, ist schon Docker vor dem
 Start des Installers gescheitert und hat am Server nichts installiert.
