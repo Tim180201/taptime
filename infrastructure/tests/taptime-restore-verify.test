@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Created in T-034; maintain it with restore verification and remove it only with that verifier.
+readonly TEST_CONTAINER="taptime-restore-rls-proof-$$"
+trap 'docker rm --force "$TEST_CONTAINER" >/dev/null 2>&1 || true' EXIT
+
+# shellcheck source=../backup/taptime-restore-verify
+source "$(dirname "$0")/../backup/taptime-restore-verify"
+
+docker run --detach --name "$TEST_CONTAINER" --network none \
+  --env POSTGRES_HOST_AUTH_METHOD=trust postgres:17.10-alpine >/dev/null
+
+ready=0
+for _ in $(seq 1 30); do
+  if docker exec --user postgres "$TEST_CONTAINER" pg_isready --dbname=postgres >/dev/null 2>&1; then
+    ready=1
+    break
+  fi
+  sleep 1
+done
+if (( ready == 0 )); then
+  printf 'Synthetic restore PostgreSQL did not become ready.\n' >&2
+  exit 1
+fi
+
+docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
+  --set ON_ERROR_STOP=on --command '
+    CREATE SCHEMA taptime_server;
+    CREATE TABLE taptime_server.protected_entry (id bigint PRIMARY KEY);
+    ALTER TABLE taptime_server.protected_entry ENABLE ROW LEVEL SECURITY;
+    ALTER TABLE taptime_server.protected_entry FORCE ROW LEVEL SECURITY;
+    CREATE TABLE taptime_server.unprotected_entry (id bigint PRIMARY KEY);
+  ' >/dev/null
+
+set +e
+failure_output="$(check_restored_rls "$TEST_CONTAINER" postgres 2>&1)"
+failure_status=$?
+set -e
+if (( failure_status == 0 )); then
+  printf 'RLS verification accepted an application table without RLS.\n' >&2
+  exit 1
+fi
+grep --fixed-strings --quiet ' - unprotected_entry' <<< "$failure_output"
+if grep --fixed-strings --quiet ' - protected_entry' <<< "$failure_output"; then
+  printf 'RLS verification falsely named the protected table.\n' >&2
+  exit 1
+fi
+printf 'Application table without RLS: named and rejected.\n'
+
+docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
+  --set ON_ERROR_STOP=on --command '
+    ALTER TABLE taptime_server.unprotected_entry ENABLE ROW LEVEL SECURITY;
+  ' >/dev/null
+if check_restored_rls "$TEST_CONTAINER" postgres >/dev/null 2>&1; then
+  printf 'RLS verification accepted a table without forced RLS.\n' >&2
+  exit 1
+fi
+printf 'Application table without forced RLS: rejected.\n'
+
+docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
+  --set ON_ERROR_STOP=on --command '
+    ALTER TABLE taptime_server.unprotected_entry FORCE ROW LEVEL SECURITY;
+  ' >/dev/null
+check_restored_rls "$TEST_CONTAINER" postgres >/dev/null
+printf 'All application tables with enabled and forced RLS: accepted.\n'

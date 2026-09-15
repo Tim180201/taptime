@@ -150,7 +150,9 @@ assert_log() {
 
 run_real_health_probe() {
   local served_version="$1"
-  SERVED_ADMIN_WEB_VERSION="$served_version" bash -c '
+  local configuration="${2:-configured}"
+  SERVED_ADMIN_WEB_VERSION="$served_version" \
+    SERVED_ADMIN_WEB_CONFIGURATION="$configuration" bash -c '
     set -euo pipefail
     source "$1"
     compose() { printf "synthetic-backend-container\n"; }
@@ -165,6 +167,14 @@ run_real_health_probe() {
       local url="${!#}"
       if [[ "$url" == "$ADMIN_WEB_VERSION_URL" ]]; then
         printf "%s\n" "$SERVED_ADMIN_WEB_VERSION"
+      elif [[ "$url" == "${ADMIN_WEB_VERSION_URL%version.txt}" ]]; then
+        printf "<script type=\"module\" src=\"/releases/bbbbbbb/assets/application.js\"></script>\n"
+      elif [[ "$url" == "${ADMIN_WEB_VERSION_URL%version.txt}releases/bbbbbbb/assets/application.js" ]]; then
+        if [[ "$SERVED_ADMIN_WEB_CONFIGURATION" == configured ]]; then
+          printf "const origin=\"https://syntheticproject.supabase.co\";const key=\"sb_publishable_synthetic_public_value\";\n"
+        else
+          printf "const origin=\"\";const key=\"\";\n"
+        fi
       fi
     }
     sleep() { :; }
@@ -175,9 +185,12 @@ run_real_health_probe() {
 expect_status 1 run_real_health_probe aaaaaaa
 grep --quiet 'Version bbbbbbb did not become healthy' "$OUTPUT_FILE"
 printf 'Wrong Admin Web health evidence: expected=bbbbbbb served=aaaaaaa result=rejected\n'
+expect_status 1 run_real_health_probe bbbbbbb missing
+grep --quiet 'Admin Web bundle has no valid configured Supabase origin' "$OUTPUT_FILE"
+printf 'Unconfigured Admin Web startup evidence: version=bbbbbbb configuration=missing result=rejected\n'
 expect_status 0 run_real_health_probe bbbbbbb
-grep --quiet 'Backend und Admin-Web belegen gemeinsam Version bbbbbbb' "$OUTPUT_FILE"
-printf 'Matching Admin Web health evidence: expected=bbbbbbb served=bbbbbbb result=accepted\n'
+grep --quiet 'Backend und startfähiges Admin-Web belegen gemeinsam Version bbbbbbb' "$OUTPUT_FILE"
+printf 'Matching startable Admin Web evidence: expected=bbbbbbb served=bbbbbbb result=accepted\n'
 
 expect_status 64 main
 grep --quiet '^Usage: .* <seven-character-commit-hash>$' "$OUTPUT_FILE"

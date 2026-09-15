@@ -66,6 +66,34 @@ jobs:
             printf 'name=ghcr.io/%s/taptime-backend-api\n' "${GITHUB_REPOSITORY_OWNER,,}"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Resolve the public Admin Web build configuration
+        id: admin_web_configuration
+        shell: bash
+        working-directory: source
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { appendFileSync, readFileSync } = require('node:fs');
+          const configuration = JSON.parse(readFileSync('apps/mobile/eas.json', 'utf8'))
+            .build?.['production-validation']?.env;
+          const url = configuration?.EXPO_PUBLIC_SUPABASE_URL;
+          const publishableKey = configuration?.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+          let parsed;
+          try {
+            parsed = new URL(url);
+          } catch {
+            throw new Error('The repository has no valid public Supabase URL for the Admin Web build.');
+          }
+          if (parsed.protocol !== 'https:' || parsed.origin !== url ||
+              !/^https:\/\/[a-z0-9]+\.supabase\.co$/u.test(url) ||
+              !/^sb_publishable_[\w-]+$/u.test(publishableKey)) {
+            throw new Error('The repository has no valid public Supabase configuration for the Admin Web build.');
+          }
+          process.stdout.write(`::add-mask::${url}\n::add-mask::${publishableKey}\n`);
+          appendFileSync(process.env.GITHUB_OUTPUT,
+            `supabase_url=${url}\nsupabase_publishable_key=${publishableKey}\n`);
+          NODE
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -275,6 +303,8 @@ jobs:
           tags: ${{ steps.image.outputs.name }}:admin-web-${{ steps.image.outputs.short_sha }}
           build-args: |
             TAPTIME_VERSION=${{ steps.image.outputs.short_sha }}
+            VITE_TAPTIME_SUPABASE_URL=${{ steps.admin_web_configuration.outputs.supabase_url }}
+            VITE_TAPTIME_SUPABASE_PUBLISHABLE_KEY=${{ steps.admin_web_configuration.outputs.supabase_publishable_key }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.image.outputs.full_sha }}

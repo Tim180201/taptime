@@ -777,6 +777,42 @@ restart_caddy() {
   compose "$version" up --detach --no-deps --force-recreate caddy
 }
 
+admin_web_bundle_is_startable() (
+  set -euo pipefail
+
+  local version="$1"
+  local base_url script_path
+  local temporary_directory index_file bundle_file
+
+  base_url="${ADMIN_WEB_VERSION_URL%version.txt}"
+  [[ "$base_url" != "$ADMIN_WEB_VERSION_URL" ]] ||
+    fail 'Admin Web version URL must end in version.txt.'
+
+  temporary_directory="$(mktemp -d)"
+  trap 'rm -rf -- "$temporary_directory"' EXIT
+  index_file="$temporary_directory/index.html"
+  bundle_file="$temporary_directory/application.js"
+
+  curl --fail --silent --show-error --max-time 5 \
+    --header 'Cache-Control: no-cache' "$base_url" > "$index_file"
+  script_path="$(sed -n 's/.*<script[^>]* src="\([^"]*\)"[^>]*>.*/\1/p' "$index_file")"
+  [[ -n "$script_path" && "$script_path" != *$'\n'* ]] ||
+    fail 'Admin Web index must load exactly one application bundle.'
+  [[ "$script_path" =~ ^/releases/$version/assets/[A-Za-z0-9._-]+\.js$ ]] ||
+    fail "Admin Web index does not load the application bundle for version $version."
+
+  curl --fail --silent --show-error --max-time 5 \
+    --header 'Cache-Control: no-cache' \
+    "${base_url%/}$script_path" > "$bundle_file"
+  LC_ALL=C grep --extended-regexp --quiet \
+    'https://[a-z0-9]+[.]supabase[.]co([^A-Za-z0-9._~:/?#@!$&()*+,;=%-]|$)' \
+    "$bundle_file" ||
+    fail 'Admin Web bundle has no valid configured Supabase origin.'
+  LC_ALL=C grep --extended-regexp --quiet \
+    'sb_publishable_[A-Za-z0-9_-]{20,}([^A-Za-z0-9_-]|$)' "$bundle_file" ||
+    fail 'Admin Web bundle has no valid configured public application key.'
+)
+
 wait_for_health() {
   local version="$1"
   local container health running_image admin_web_version
@@ -796,8 +832,11 @@ wait_for_health() {
       admin_web_version="$(curl --fail --silent --show-error --max-time 5 \
         --header 'Cache-Control: no-cache' "$ADMIN_WEB_VERSION_URL")" &&
       [[ "$admin_web_version" == "$version" ]]; then
-      say "[6/7] Backend und Admin-Web belegen gemeinsam Version $version."
-      return 0
+      if admin_web_bundle_is_startable "$version"; then
+        say "[6/7] Backend und startfähiges Admin-Web belegen gemeinsam Version $version."
+        return 0
+      fi
+      break
     fi
     [[ "$health" == 'unhealthy' || "$health" == 'exited' || "$health" == 'dead' ]] && break
     sleep 2

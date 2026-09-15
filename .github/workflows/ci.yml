@@ -43,6 +43,8 @@ jobs:
             infrastructure/deploy \
             infrastructure/operations/taptime-bootstrap \
             infrastructure/tests/taptime-deploy.test \
+            infrastructure/tests/taptime-admin-web-image.test \
+            infrastructure/tests/taptime-restore-verify.test \
             infrastructure/tests/taptime-operations-install.test \
             infrastructure/tests/taptime-bootstrap.test \
             infrastructure/monitoring/taptime-immediate-monitor \
@@ -57,6 +59,8 @@ jobs:
           bash -n infrastructure/deploy
           bash -n infrastructure/operations/taptime-bootstrap
           bash infrastructure/tests/taptime-deploy.test
+          bash infrastructure/tests/taptime-admin-web-image.test
+          bash infrastructure/tests/taptime-restore-verify.test
           bash infrastructure/tests/taptime-operations-install.test
           bash infrastructure/tests/taptime-bootstrap.test
           bash infrastructure/monitoring/tests/taptime-monitor.test

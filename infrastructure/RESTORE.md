@@ -120,17 +120,19 @@ kopieren.
 
    Führe die Prüfung als `root` aus. Sie spielt
    das neueste Archiv isoliert in einen Wegwerf-PostgreSQL-Container ein und vergleicht
-   Migrations-Checksums, sieben tragende Tabellen, alle TapTim.e-Rollen und `37/37` aktivierte
-   und erzwungene RLS-Tabellen.
+   Migrations-Checksums, sieben tragende Tabellen und alle TapTim.e-Rollen. Zusätzlich verlangt
+   sie für jede vorhandene Anwendungstabelle aktivierte und erzwungene RLS.
 3. Ist die Prüfung grün, spiele dasselbe Archiv mit den dort verwendeten Schritten in die neue
    Produktdatenbank ein. Schreibe die gewählte, tatsächlich zum Datenstand kompatible Version
    nach `/var/lib/taptime-deploy/current-version` und rufe
    `/usr/local/sbin/taptime-deploy <version>` auf. Der Lauf installiert zuerst die vollständigen
    Betriebsdateien aus dem Operations-Abbild, extrahiert dann das Admin-Web-Abbild nach
    `/opt/taptime/admin-web/releases/<version>`, schaltet `current` atomar um und prüft Backend
-   sowie öffentliche `/version.txt`. Bei Fehlern nicht improvisieren: ein älteres Archiv und
-   eine dazu kompatible, vollständig vorhandene Abbildversion auswählen und den Restore erneut
-   vollständig prüfen.
+   sowie öffentliche `/version.txt`. Das Tor lädt außerdem die ausgelieferte `index.html` und
+   ihr versionsgebundenes Anwendungsbündel und weist darin die vollständige öffentliche
+   Anmeldekonfiguration nach. Bei Fehlern nicht improvisieren: ein älteres Archiv und eine dazu
+   kompatible, vollständig vorhandene Abbildversion auswählen und den Restore erneut vollständig
+   prüfen.
 
    Nach dem erfolgreichen Deploy zeigt der Migrationspfad auf den versionierten Operations-Stand;
    dann kann `/run/taptime-restore-bootstrap` entfernt werden.
@@ -147,7 +149,8 @@ zu aktualisieren, bevor sie als Zusage verwendet wird.
 3. Starte einen leeren PostgreSQL-17-Container ohne veröffentlichte Ports und ohne
    Produktions-Volume, spiele zuerst `globals.sql`, dann `database.dump` ein.
 4. Führe die gleichen Vergleiche wie `taptime-restore-verify` durch. Insbesondere ist ein
-   Ergebnis ohne `RLS enabled and forced: 37/37` kein gültiger Restore.
+   Ergebnis ohne `RLS is enabled and forced on every application table.` kein gültiger
+   Restore. Bei einer Abweichung nennt die Prüfung jede ungeschützte Tabelle.
 5. Erst nach erfolgreicher Prüfung die defekte Produktdatenbank durch den geprüften Stand
    ersetzen, `backend-api` starten und `/health` prüfen.
 

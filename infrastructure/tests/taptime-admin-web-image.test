@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Created in T-034; maintain it with the Admin Web image and remove it only with that image.
+REPOSITORY_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+readonly REPOSITORY_ROOT
+readonly MISSING_CONFIGURATION_IMAGE="taptime-admin-web-missing-configuration-test"
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
+TEST_OUTPUT="$TEST_ROOT/build.log"
+readonly TEST_OUTPUT
+cleanup() {
+  docker image rm --force "$MISSING_CONFIGURATION_IMAGE" >/dev/null 2>&1 || true
+  rm -rf -- "$TEST_ROOT"
+}
+trap cleanup EXIT
+
+docker info >/dev/null
+if docker build \
+  --progress plain \
+  --file "$REPOSITORY_ROOT/infrastructure/admin-web/Dockerfile" \
+  --tag "$MISSING_CONFIGURATION_IMAGE" \
+  --build-arg TAPTIME_VERSION=abcdef0 \
+  "$REPOSITORY_ROOT" > "$TEST_OUTPUT" 2>&1; then
+  printf 'Admin Web image without public build configuration was accepted.\n' >&2
+  exit 1
+fi
+grep --fixed-strings --quiet 'VITE_TAPTIME_SUPABASE_URL is required.' "$TEST_OUTPUT"
+
+printf 'Admin Web image without public build configuration: rejected before publication.\n'

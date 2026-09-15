@@ -198,8 +198,9 @@ Minuten produktiv ist und keine vor der Umschaltung geöffnete T-006-Seite mehr 
 muss. Der
 Caddy-Container wird ohne seine Daten- und Konfigurationsvolumes zu verändern neu erzeugt, damit
 auch eine neu installierte Caddyfile sicher eingelesen wird. Erst wenn das laufende
-Backend-Abbild und die öffentliche
-`/version.txt` beide exakt das Ziel belegen, schreibt das Skript `current-version` fort. Das
+Backend-Abbild, die öffentliche `/version.txt` und die vollständige öffentliche
+Anmeldekonfiguration im tatsächlich ausgelieferten Anwendungsbündel gemeinsam das Ziel belegen,
+schreibt das Skript `current-version` fort. Das
 Migrationsabbild bringt die eingefrorenen SQL-Dateien selbst mit; das Skript hält die von T-007
 geprüfte lokale Quelle dazu synchron. Wegwerf-Container und Klartext-Dump existieren nach der
 Probe nicht mehr.
@@ -224,9 +225,13 @@ curl --fail --silent --show-error \
 ```
 
 `current-version` und `/version.txt` müssen exakt den Ziel-Commit nennen; `/health` muss
-erfolgreich antworten. Der Ledger-Nachweis steht bereits in der gesicherten Deploy-Ausgabe: Die Zeile
+erfolgreich antworten. Die gesicherte Deploy-Ausgabe muss zusätzlich
+`Backend und startfähiges Admin-Web belegen gemeinsam Version <ziel>` enthalten; diese Prüfung
+hat die ausgelieferte `index.html` und ihr versionsgebundenes Anwendungsbündel geladen und darin
+Supabase-Herkunft und öffentlichen Anwendungsschlüssel nachgewiesen, ohne deren Werte auszugeben.
+Der Ledger-Nachweis steht ebenfalls in der Deploy-Ausgabe: Die Zeile
 `B3 migrations complete: applied=... existing=...` muss sämtliche Migrationen entweder als neu
-angewendet oder vorhanden ausweisen. Fehlt einer dieser vier Belege, ist die Auslieferung nicht
+angewendet oder vorhanden ausweisen. Fehlt einer dieser Belege, ist die Auslieferung nicht
 erfolgreich nachgewiesen.
 
 Schlägt die Operations-Prüfung oder die Generalprobe fehl, wurden weder Sicherung noch
@@ -240,8 +245,9 @@ Rücknahme ist derselbe Befehl mit der ausdrücklich gewünschten früheren Anwe
 behält die separat freigegebene Betriebsfassung und aktiviert Backend und Admin-Web der älteren
 Anwendung gemeinsam. Schlägt Start oder Gesundheit fehl, setzt das Skript automatisch Backend
 und Oberfläche auf die vorherige Anwendungsversion zurück und belegt erneut Backend und
-öffentliche `/version.txt`. Das Schema wird nie zurückgedreht; Migrationen müssen deshalb zur
-vorherigen Anwendung kompatibel bleiben.
+öffentliche `/version.txt` sowie die Startkonfiguration im ausgelieferten Anwendungsbündel. Das
+Schema wird nie zurückgedreht; Migrationen müssen deshalb zur vorherigen Anwendung kompatibel
+bleiben.
 
 Meldet das Skript `[7/7] Neuer Stand fehlgeschlagen`, **nicht von Hand nachhelfen und nicht selbst
 Container starten**. Den automatischen Rücklauf bis `Rücknahme erfolgreich` abwarten, die gesamte

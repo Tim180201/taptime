@@ -12,6 +12,34 @@ require_file() {
   fi
 }
 
+check_restored_rls() {
+  local target_container="$1"
+  local restored_database="$2"
+  local failing_tables
+
+  printf 'Checking RLS: every application table must have RLS enabled and forced.\n'
+  failing_tables="$(docker exec --user postgres "$target_container" \
+    psql --tuples-only --no-align --dbname="$restored_database" --command "
+      SELECT relation.relname
+      FROM pg_catalog.pg_class AS relation
+      JOIN pg_catalog.pg_namespace AS namespace
+        ON namespace.oid = relation.relnamespace
+      WHERE namespace.nspname = 'taptime_server'
+        AND relation.relkind IN ('r', 'p')
+        AND (NOT relation.relrowsecurity OR NOT relation.relforcerowsecurity)
+      ORDER BY relation.relname;")"
+  if [[ -n "$failing_tables" ]]; then
+    printf 'RLS check failed for application tables:\n' >&2
+    while IFS= read -r table_name; do
+      [[ -n "$table_name" ]] && printf ' - %s\n' "$table_name" >&2
+    done <<< "$failing_tables"
+    return 1
+  fi
+  printf 'RLS is enabled and forced on every application table.\n'
+}
+
+main() {
+
 require_file "$CONFIG_FILE"
 # shellcheck source=/etc/taptime-backup/config
 source "$CONFIG_FILE"
@@ -151,14 +179,7 @@ docker exec --user postgres "$container" psql --tuples-only --no-align --field-s
 diff --unified "$stage/manifest/row-counts.tsv" "$stage/restored-row-counts.tsv"
 cat "$stage/restored-row-counts.tsv"
 
-printf 'Checking RLS: every application table must be enabled and forced.\n'
-rls_result="$(docker exec --user postgres "$container" psql --tuples-only --no-align --dbname="$DATABASE_NAME" \
-  --command "SELECT count(*) || '/' || count(*) FILTER (WHERE relrowsecurity AND relforcerowsecurity) FROM pg_catalog.pg_class WHERE relnamespace = 'taptime_server'::pg_catalog.regnamespace AND relkind = 'r';")"
-printf 'RLS enabled and forced: %s\n' "$rls_result"
-if [[ "$rls_result" != '37/37' ]]; then
-  printf 'RLS check failed: expected 37/37.\n' >&2
-  exit 1
-fi
+check_restored_rls "$container" "$DATABASE_NAME"
 
 printf 'Comparing all non-built-in PostgreSQL roles.\n'
 docker exec --user postgres "$container" psql --tuples-only --no-align --dbname="$DATABASE_NAME" \
@@ -169,3 +190,8 @@ printf 'Non-built-in PostgreSQL roles restored: %s\n' "$(wc -l < "$stage/restore
 
 printf 'Restore verification completed: %s\n' "$archive"
 restore_state='ok'
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi
