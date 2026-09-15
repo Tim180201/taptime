@@ -16,10 +16,17 @@ export TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE="$TEST_ROOT/ghcr-protected-version
 export TAPTIME_DEPLOY_HEALTH_URL='https://health.invalid/health'
 export TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL='https://admin.invalid/version.txt'
 export TAPTIME_DEPLOY_ADMIN_WEB_ROOT="$TEST_ROOT/admin-web"
+export TAPTIME_DEPLOY_OPERATIONS_ROOT="$TEST_ROOT/operations"
 printf 'services: {}\n' > "$TAPTIME_DEPLOY_COMPOSE_FILE"
 printf '# synthetic deployment test configuration\n' > "$TAPTIME_DEPLOY_BACKUP_CONFIG"
 printf 'aaaaaaa\n' > "$TAPTIME_DEPLOY_VERSION_STATE_FILE"
-printf 'ddddddd\n' > "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE"
+mkdir -p "$TAPTIME_DEPLOY_OPERATIONS_ROOT/releases/ddddddd/var/lib/taptime-deploy"
+printf 'ddddddd\n' > "$TAPTIME_DEPLOY_OPERATIONS_ROOT/releases/ddddddd/version.txt"
+printf 'ddddddd\n' \
+  > "$TAPTIME_DEPLOY_OPERATIONS_ROOT/releases/ddddddd/var/lib/taptime-deploy/operations-version"
+ln -s releases/ddddddd "$TAPTIME_DEPLOY_OPERATIONS_ROOT/current"
+ln -s "$TAPTIME_DEPLOY_OPERATIONS_ROOT/current/var/lib/taptime-deploy/operations-version" \
+  "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE"
 
 # shellcheck source=../deploy
 source "$(dirname "$0")/../deploy"
@@ -148,6 +155,19 @@ assert_log() {
   fi
 }
 
+reject_contradictory_operations_release() (
+  set -euo pipefail
+
+  printf 'ccccccc\n' > "$TAPTIME_DEPLOY_OPERATIONS_ROOT/releases/ddddddd/version.txt"
+  trap 'printf "ddddddd\\n" > "$TAPTIME_DEPLOY_OPERATIONS_ROOT/releases/ddddddd/version.txt"' EXIT
+  reconcile_operations_version
+)
+
+expect_status 1 reject_contradictory_operations_release
+grep --quiet 'pointer names ddddddd but its version.txt proves ccccccc' "$OUTPUT_FILE"
+test "$(tr -d '[:space:]' < "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE")" = ddddddd
+printf 'Contradictory installed release evidence: rejected without changing the recorded version.\n'
+
 run_real_health_probe() {
   local served_version="$1"
   SERVED_ADMIN_WEB_VERSION="$served_version" bash -c '
@@ -241,7 +261,15 @@ install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbb
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb"
 
 : > "$LOG_FILE"
+rm -f "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE"
+printf '28dcac6\n' > "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE"
 FAIL_REHEARSAL=1 expect_status 1 main ccccccc
+grep --quiet 'Aufgezeichnete Betriebsversion 28dcac6 widerspricht dem ausgelieferten Release ddddddd' \
+  "$OUTPUT_FILE"
+test -L "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE"
+test "$(readlink "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE")" = \
+  "$TAPTIME_DEPLOY_OPERATIONS_ROOT/current/var/lib/taptime-deploy/operations-version"
+test "$(tr -d '[:space:]' < "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE")" = ddddddd
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:ccccccc
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-ccccccc
@@ -251,6 +279,7 @@ prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-ccccccc ccccccc
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-ddddddd ddddddd
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:ccccccc"
+printf 'Wrong recorded operations evidence: 28dcac6 corrected to installed release ddddddd before image selection.\n'
 printf 'Known rollback evidence: application ccccccc kept operations ddddddd.\n'
 
 : > "$LOG_FILE"

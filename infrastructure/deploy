@@ -168,6 +168,103 @@ read_operations_release_version() {
   printf '%s\n' "$actual"
 }
 
+replace_operations_version_record() (
+  set -euo pipefail
+
+  local expected="$1"
+  local directory temporary moved=0
+
+  directory="$(dirname "$OPERATIONS_VERSION_STATE_FILE")"
+  install -d -m 0755 "$directory"
+  temporary="$(mktemp "$directory/.operations-version.XXXXXX")"
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2317,SC2329
+  cleanup_operations_version_record() {
+    rm -f -- "$temporary"
+  }
+  trap cleanup_operations_version_record EXIT
+  rm -f -- "$temporary"
+  ln -s "$expected" "$temporary"
+  if mv --help 2>&1 | grep --quiet -- '--no-target-directory'; then
+    if mv -Tf "$temporary" "$OPERATIONS_VERSION_STATE_FILE"; then moved=1; fi
+  else
+    if mv -fh "$temporary" "$OPERATIONS_VERSION_STATE_FILE"; then moved=1; fi
+  fi
+  (( moved == 1 )) || fail 'Could not atomically correct the operations version record.'
+  trap - EXIT
+)
+
+reconcile_operations_version() {
+  local current_pointer release_version release expected_recorded_path
+  local release_recorded_version recorded_candidate='' recorded_version='fehlend oder unlesbar'
+
+  if [[ ! -e "$OPERATIONS_ROOT/current" && ! -L "$OPERATIONS_ROOT/current" ]]; then
+    require_file "$OPERATIONS_VERSION_STATE_FILE" || return
+    OPERATIONS_VERSION="$(tr -d '[:space:]' < "$OPERATIONS_VERSION_STATE_FILE")"
+    validate_version "$OPERATIONS_VERSION" || return
+    say "[Vorbereitung] Noch kein Betriebs-Release installiert; verwende Startwert $OPERATIONS_VERSION."
+    return 0
+  fi
+
+  if [[ ! -L "$OPERATIONS_ROOT/current" ]]; then
+    fail "$OPERATIONS_ROOT/current is not a symbolic link."
+    return
+  fi
+  current_pointer="$(readlink "$OPERATIONS_ROOT/current")"
+  if [[ ! "$current_pointer" =~ ^releases/([0-9a-f]{7})$ ]]; then
+    fail "$OPERATIONS_ROOT/current does not name an immutable operations release."
+    return
+  fi
+  release_version="${BASH_REMATCH[1]}"
+  release="$OPERATIONS_ROOT/$current_pointer"
+  if [[ ! -d "$release" || -L "$release" ]]; then
+    fail "Installed operations release is missing or not a real directory: $release"
+    return
+  fi
+  if [[ -L "$release/version.txt" ]]; then
+    fail "Installed operations version proof must not be a symbolic link: $release/version.txt"
+    return
+  fi
+  if [[ -L "$release/var/lib/taptime-deploy/operations-version" ]]; then
+    fail "Installed operations state must not be a symbolic link inside the release."
+    return
+  fi
+
+  OPERATIONS_VERSION="$(read_operations_release_version "$release")" || return
+  if [[ "$OPERATIONS_VERSION" != "$release_version" ]]; then
+    fail "Operations pointer names $release_version but its version.txt proves $OPERATIONS_VERSION."
+    return
+  fi
+  require_file "$release/var/lib/taptime-deploy/operations-version" || return
+  release_recorded_version="$(tr -d '[:space:]' < \
+    "$release/var/lib/taptime-deploy/operations-version")"
+  validate_version "$release_recorded_version" || return
+  if [[ "$release_recorded_version" != "$OPERATIONS_VERSION" ]]; then
+    fail "Operations release $OPERATIONS_VERSION contains a contradictory state value $release_recorded_version."
+    return
+  fi
+
+  expected_recorded_path="$OPERATIONS_ROOT/current/var/lib/taptime-deploy/operations-version"
+  if [[ -f "$OPERATIONS_VERSION_STATE_FILE" ]]; then
+    recorded_candidate="$(tr -d '[:space:]' < "$OPERATIONS_VERSION_STATE_FILE" 2>/dev/null || true)"
+    if validate_version "$recorded_candidate" >/dev/null 2>&1; then
+      recorded_version="$recorded_candidate"
+    else
+      recorded_version='ungültig'
+    fi
+  fi
+  if [[ ! -L "$OPERATIONS_VERSION_STATE_FILE" ||
+    "$(readlink "$OPERATIONS_VERSION_STATE_FILE" 2>/dev/null || true)" != "$expected_recorded_path" ||
+    "$recorded_version" != "$OPERATIONS_VERSION" ]]; then
+    say "[Vorbereitung] Aufgezeichnete Betriebsversion $recorded_version widerspricht dem ausgelieferten Release $OPERATIONS_VERSION; korrigiere aus dem Release-Beleg."
+    replace_operations_version_record "$expected_recorded_path" || return
+  fi
+  if [[ "$(tr -d '[:space:]' < "$OPERATIONS_VERSION_STATE_FILE")" != "$OPERATIONS_VERSION" ]]; then
+    fail 'Corrected operations version record does not match the installed release.'
+    return
+  fi
+}
+
 validate_caddy_candidate() (
   set -euo pipefail
 
@@ -906,7 +1003,8 @@ main() {
   require_file "$VERSION_STATE_FILE"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
-  require_file "$OPERATIONS_VERSION_STATE_FILE"
+
+  acquire_deploy_lock
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
 
@@ -914,16 +1012,12 @@ main() {
   validate_version "$PREVIOUS_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
-  OPERATIONS_VERSION="$(tr -d '[:space:]' < "$OPERATIONS_VERSION_STATE_FILE")"
-  validate_version "$OPERATIONS_VERSION"
+
+  reconcile_operations_version
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   OPERATIONS_VERSION="$(select_operations_version \
     "$DESIRED_VERSION" "$PREVIOUS_VERSION" "$OPERATIONS_VERSION")"
-
-  acquire_deploy_lock
-  step_status=$?
-  if (( step_status != 0 )); then return "$step_status"; fi
 
   local desired_image previous_image desired_admin_web_image previous_admin_web_image desired_operations_image
   local migration_image rehearsal_image
