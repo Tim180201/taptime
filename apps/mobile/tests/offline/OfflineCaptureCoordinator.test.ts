@@ -26,6 +26,7 @@ import {
   type OfflineSyncSchedulerState,
 } from '../../src/offline/OfflineSyncScheduler';
 import { encodeBase64Url } from '../../src/offline/encoding';
+import { MemoryOfflineDatabase } from '../support/MemoryOfflinePlatform';
 
 const ids = {
   user: '10000000-0000-4000-8000-000000000001',
@@ -755,25 +756,62 @@ describe('OfflineCaptureCoordinator', () => {
     expect(coordinator.getState()).toEqual(state);
     expect(coordinator.getState().protection).toEqual([protection]);
   });
+
+  it('logs the P04 class with only the sanitized SQLite code and message', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const native = new MemoryOfflineDatabase();
+      const execute = native.execAsync.bind(native);
+      native.execAsync = async (source) => {
+        if (source.includes('CREATE TABLE offline_owner')) {
+          throw Object.assign(new Error(
+            "Call to function 'NativeDatabase.execAsync' has been rejected.\n"
+            + '→ Caused by: near "generation_state": syntax error',
+          ), { code: 'ERR_INTERNAL_SQLITE_ERROR' });
+        }
+        await execute(source);
+      };
+      const database = new OfflineCaptureDatabase(
+        async () => native,
+        new Uint8Array(32).fill(8),
+      );
+      const coordinator = protectedOriginCoordinator('database_migration', database);
+
+      await coordinator.start();
+
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      const [serialized] = consoleError.mock.calls[0]!;
+      expect(JSON.parse(String(serialized))).toEqual({
+        protectionClass: 'P04',
+        sqliteErrorCode: 'ERR_INTERNAL_SQLITE_ERROR',
+        message: 'near "generation_state": syntax error',
+      });
+      expect(coordinator.getState().protection).toEqual(['P04']);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });
 
-function protectedOriginCoordinator(origin:
-  | 'secure_identity'
-  | 'database_initialization'
-  | 'database_integrity'
-  | 'database_migration'
-  | 'legacy_import'
-  | 'owner_binding'
-  | 'lease_completeness'
-  | 'lease_activation'
-  | 'scheduler_durable'
+function protectedOriginCoordinator(
+  origin:
+    | 'secure_identity'
+    | 'database_initialization'
+    | 'database_integrity'
+    | 'database_migration'
+    | 'legacy_import'
+    | 'owner_binding'
+    | 'lease_completeness'
+    | 'lease_activation'
+    | 'scheduler_durable',
+  databaseOverride?: OfflineCaptureDatabase,
 ): OfflineCaptureCoordinator {
   const initialized = origin === 'database_integrity'
     ? { status: 'protected' as const, reason: 'cipher_integrity_failed' as const }
     : origin === 'database_migration'
       ? { status: 'migration_failed' as const }
       : { status: 'ready' as const };
-  const database = databaseFake({
+  const database = databaseOverride ?? databaseFake({
     initialize: vi.fn(async () => initialized),
     hasProtectedLegacy: vi.fn(async () => origin === 'legacy_import'),
     bindOwner: vi.fn(async () => origin === 'owner_binding'

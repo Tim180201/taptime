@@ -46,6 +46,7 @@ import {
   type OfflineInstallationSecrets,
 } from './OfflineInstallationIdentityStore';
 import { LegacyLifecycleEvidenceImporter } from './LegacyLifecycleEvidenceImporter';
+import { reportOfflineProtectionDiagnostic } from './OfflineCaptureDiagnostic';
 import {
   mobileLookupHmac,
   mobileSha256Hex,
@@ -348,7 +349,12 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     let initialized;
     try {
-      initialized = await database.initialize();
+      initialized = await database.initialize((error) => {
+        reportOfflineProtectionDiagnostic(
+          PRODUCT_SCAN_PROTECTION_CLASS.databaseMigration,
+          error,
+        );
+      });
     } catch {
       this.setState(protectedScanState(
         'local_evidence_protected',

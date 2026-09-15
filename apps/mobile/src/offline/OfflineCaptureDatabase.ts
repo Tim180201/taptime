@@ -29,6 +29,7 @@ import type { LifecycleEventSubmission } from '../transport/contracts';
 import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
 import { bytesToLowercaseHex } from './encoding';
 import { mobileManifestDigest, mobileManifestDigestV2, mobileManifestDigestV3 } from './MobileLookupHmac';
+import type { OfflineMigrationFailureReporter } from './OfflineCaptureDiagnostic';
 
 export type OfflineSqlValue = string | number | null | Uint8Array;
 export type OfflineSqlParams =
@@ -281,7 +282,9 @@ export class OfflineCaptureDatabase {
     private readonly databaseKey: Uint8Array,
   ) {}
 
-  initialize(): Promise<OfflineLocalStoreResult> {
+  initialize(
+    reportMigrationFailure?: OfflineMigrationFailureReporter,
+  ): Promise<OfflineLocalStoreResult> {
     return this.serialized(async () => {
       if (this.connection !== null) return { status: 'ready' };
       if (this.databaseKey.length !== 32) {
@@ -316,8 +319,9 @@ export class OfflineCaptureDatabase {
               await transaction.execAsync(OFFLINE_SCHEMA_V4);
               await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V4}`);
             });
-          } catch {
+          } catch (error) {
             await database.closeAsync().catch(() => undefined);
+            safelyReportMigrationFailure(reportMigrationFailure, error);
             return { status: 'migration_failed' };
           }
         } else if (version.user_version === 1) {
@@ -328,8 +332,9 @@ export class OfflineCaptureDatabase {
               await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
               await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V4}`);
             });
-          } catch {
+          } catch (error) {
             await database.closeAsync().catch(() => undefined);
+            safelyReportMigrationFailure(reportMigrationFailure, error);
             return { status: 'migration_failed' };
           }
         } else if (version.user_version === 2) {
@@ -339,8 +344,9 @@ export class OfflineCaptureDatabase {
               await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
               await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V4}`);
             });
-          } catch {
+          } catch (error) {
             await database.closeAsync().catch(() => undefined);
+            safelyReportMigrationFailure(reportMigrationFailure, error);
             return { status: 'migration_failed' };
           }
         } else if (version.user_version === OFFLINE_LOCAL_SCHEMA_VERSION_V3) {
@@ -349,8 +355,9 @@ export class OfflineCaptureDatabase {
               await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
               await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V4}`);
             });
-          } catch {
+          } catch (error) {
             await database.closeAsync().catch(() => undefined);
+            safelyReportMigrationFailure(reportMigrationFailure, error);
             return { status: 'migration_failed' };
           }
         }
@@ -1486,6 +1493,18 @@ export class OfflineCaptureDatabase {
   }
 }
 
+function safelyReportMigrationFailure(
+  reporter: OfflineMigrationFailureReporter | undefined,
+  error: unknown,
+): void {
+  if (reporter === undefined) return;
+  try {
+    reporter(error);
+  } catch {
+    // A diagnostic sink cannot change database protection behavior.
+  }
+}
+
 async function cipherAndDatabaseIntegrityPass(
   database: OfflineDatabaseConnection,
 ): Promise<boolean> {
@@ -1861,7 +1880,7 @@ function hasExactKeys(
   return actual.length === keys.length && actual.every((key) => keys.includes(key));
 }
 
-const OFFLINE_SCHEMA_V4 = `
+export const OFFLINE_SCHEMA_V4 = `
 CREATE TABLE offline_owner (
   singleton_id INTEGER PRIMARY KEY CHECK (singleton_id = 1),
   organization_id TEXT NOT NULL,
@@ -1900,8 +1919,8 @@ CREATE TABLE offline_lease_generations (
   activation_monotonic_milliseconds INTEGER NOT NULL CHECK (activation_monotonic_milliseconds >= 0),
   lease_schema_version INTEGER NOT NULL DEFAULT 1 CHECK (lease_schema_version IN (1, 2)),
   manifest_version INTEGER NOT NULL DEFAULT 1 CHECK (manifest_version IN (1, 2)),
-  CHECK (lease_schema_version = manifest_version),
-  generation_state TEXT NOT NULL CHECK (generation_state IN ('assembling', 'active', 'retired'))
+  generation_state TEXT NOT NULL CHECK (generation_state IN ('assembling', 'active', 'retired')),
+  CHECK (lease_schema_version = manifest_version)
 ) STRICT;
 
 CREATE UNIQUE INDEX one_active_offline_lease

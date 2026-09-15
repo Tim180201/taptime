@@ -53,6 +53,31 @@ describe('OfflineCaptureDatabase state machine', () => {
       expect(native.exclusiveTransactions).toBeGreaterThanOrEqual(2);
     });
 
+  it('reports a SQLite migration failure without changing fail-closed behavior',
+    async () => {
+      const native = new MemoryOfflineDatabase();
+      const execute = native.execAsync.bind(native);
+      const migrationError = Object.assign(new Error(
+        "Call to function 'NativeDatabase.execAsync' has been rejected.\n"
+        + '→ Caused by: near "generation_state": syntax error',
+      ), { code: 'ERR_INTERNAL_SQLITE_ERROR' });
+      native.execAsync = async (source) => {
+        if (source.includes('CREATE TABLE offline_owner')) {
+          throw migrationError;
+        }
+        await execute(source);
+      };
+      const diagnostics: unknown[] = [];
+      const store = new OfflineCaptureDatabase(async () => native, installationBinding);
+
+      await expect(store.initialize((diagnostic) => {
+        diagnostics.push(diagnostic);
+        throw new Error('diagnostic sink failure');
+      })).resolves.toEqual({ status: 'migration_failed' });
+      expect(diagnostics).toEqual([migrationError]);
+      expect(native.closed).toBe(true);
+    });
+
   it('migrates schema v1 exclusively and preserves its owner while adding durable review state',
     async () => {
       const native = new MemoryOfflineDatabase();
