@@ -869,3 +869,17 @@ iOS ist es damit ein Tap plus eine Bestaetigung. Der Product Owner hat das ausdr
 akzeptiert: lieber ein Tap mehr als kein iPhone. „One Tap. One Decision." bleibt der Massstab;
 die Bestaetigung ist die Ausnahme, die benannt wird statt verschwiegen. iOS ist ein festes Ziel,
 kein Vielleicht.
+
+---
+
+## D-038 · Öffentliche Schlüssel dürfen ins Abbild, geheime nie
+
+15.09. — Das Admin-Web braucht Supabase-Adresse und oeffentlichen
+Anwendungsschluessel schon beim Bauen, weil Vite sie einbackt. Beide sind
+oeffentlich: derselbe Schluessel steht bereits in eas.json im Repository und
+geht an jedes Telefon. Sie duerfen deshalb Bauargumente sein. Ein Bauargument
+landet aber in den Metadaten des Abbilds und ist fuer jeden lesbar, der es
+zieht. Fuer den service-role-Schluessel und jedes andere Geheimnis ist dieser
+Weg deshalb verboten — die gehoeren in Dateien mit Modus 0600 auf dem Server,
+nie in ein Abbild, nie in argv. Fehlt einer der beiden oeffentlichen Werte,
+bricht der Bau ab, statt eine startunfaehige App zu erzeugen.

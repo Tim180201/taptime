@@ -105,9 +105,10 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-033 — Die App kommt aufs Gerät.** Siehe `ADO/TASK.md`. T-032 ist auf `main` mit
-`846a126` abgeschlossen und CI-grün; jetzt wird exakt dieser Code-Stand als interne
-Android-Testfassung gebaut und dem Product Owner persönlich zur Installation übergeben.
+**T-034 — Beweisbarer Betrieb.** Siehe `ADO/TASK.md`. Vor dem nächsten Gerätebau wird belegt,
+dass das Admin-Web nur mit seiner öffentlichen Anmeldekonfiguration gebaut und als startfähig
+abgenommen wird und dass der Restore jede Anwendungstabelle dynamisch auf erzwungene RLS prüft.
+T-033 ist zurückgestellt; T-038 folgt unmittelbar auf T-034.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
