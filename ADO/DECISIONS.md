@@ -911,3 +911,17 @@ ein Scan ohne Netz war nie moeglich. 1.323 gruene Tests sahen es nicht, weil sie
 MemoryOfflineDatabase und ein SQLite-Fake laufen. Regel daraus: Ein Schema gilt erst als
 geprueft, wenn eine echte SQLite-Maschine es vollstaendig ausgefuehrt hat. Ein Fake, der
 ungueltiges SQL annimmt, ist kein Test.
+
+---
+
+## D-041 · Befund: Die Aufstiegspfade der Geraetedatenbank sind unerreichbar
+
+15.09. — Weil das V4-Schema nie fehlerfrei ausgefuehrt wurde (D-040), gibt es
+auf keinem Geraet eine Datenbank der Staende v1, v2 oder v3. Die
+Migrationsbloecke in OfflineCaptureDatabase.ts sind damit heute toter Code:
+sie koennen nicht ausloesen und sind entsprechend nie gegen echte SQLite
+gelaufen. Der neue Echttest deckt nur OFFLINE_SCHEMA_V4 ab. Das ist
+vertretbar, solange kein Geraet einen aelteren Stand tragen kann — aber es
+ist eine bewusste Luecke, keine Vollstaendigkeit. Vor der ersten
+Schemaaenderung nach dem Pilotbetrieb muss entschieden werden: entweder die
+Aufstiegspfade in denselben Echttest aufnehmen oder sie entfernen.
