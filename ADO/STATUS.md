@@ -107,7 +107,7 @@ danach Firma, Recht und Store.
 - **Zugang entziehen, zweiter Administrator, Passwort zurücksetzen.** Die Datenbank kann es,
   die Anwendung nicht.
 - **Auflösung eskalierter Ereignisse.** Eine Eskalation legt die Warteschlange dauerhaft still.
-- Eigener Mailversand mit SPF, DKIM und DMARC; als T-021 vor dem ersten echten Kunden geparkt
+- Eigener Mailversand mit SPF, DKIM und DMARC; T-021 ist seit 16.09. **nicht mehr geparkt**, sondern Voraussetzung fuer die Aufnahme von Beschaeftigten (D-048)
 - Pausenerfassung; Export ohne Pausen, lokale Zeit, Personenkennung und Korrekturhinweis
 - Zweite Umgebung; die Produktion baut aus dem Quellbaum statt aus einem geprüften Artefakt
 - Standorte und Standortleiter (ADR-0020 ist beschrieben, nicht gebaut)
@@ -194,7 +194,8 @@ in keinem Plan standen.
 | **Domain** | Tim | Technische Bauvoraussetzung für iOS: Universal Links und der NDEF-Datensatz brauchen eine kontrollierte Domain. |
 | **D-U-N-S-Nummer** | Tim | Nach der Gründung der UG beantragen; Voraussetzung für den Unternehmensweg in den Store. |
 | **Supabase Pro** | Tim | Kein theoretisches Risiko mehr: Am 15.09. pausierte Supabase das Gratis-Projekt nach sieben Tagen ohne Aktivität; Website und App konnten niemanden mehr anmelden. Vor dem ersten zahlenden Kunden auf einen belastbaren Tarif wechseln. |
-| **T-021 Zustellbarkeit** | Tim | Brevo-Konto und DNS. Vor dem ersten echten Kunden, blockiert T-012 nicht. |
+| **T-021 Zustellbarkeit** | Tim | Brevo-Konto, DNS mit SPF, DKIM und DMARC, dazu der AVV mit Brevo. **Seit 16.09. Voraussetzung fuer den Piloten, nicht mehr geparkt:** Ohne Mailversand kann kein einziger Beschaeftigter aufgenommen werden (D-048, T-047). |
+| **Markenrecherche Taptura** | Tim | `register.dpma.de` und `euipo.europa.eu`, beide kostenlos. Kommt **vor** dem Domainkauf — wer eine Domain kauft, die er nicht fuehren darf, hat Geld verbrannt. |
 | **Welche Telefone haben die Lehrkräfte?** | Tim → Pilotbetrieb | Bestimmt den Distributionsweg. iOS ist nach D-037 festes Ziel; dort gehören Universal Link, Mitteilung und Bestätigung zum akzeptierten Ablauf. |
 | **Vier Fragen an den Pilot-Inhaber** | Pilotbetrieb | Am 26.08. **schriftlich** hinausgegangen, Rücklaufzeit offen. Reihenfolge: was an Jibble stört · wie der Monatsabschluss abläuft · was bei einer falschen Stunde passiert · ob es Personalnummern gibt. Blockiert **T-020** (Freigabekette: pro Eintrag oder pro Person und Monat, D-020), **T-023** (Inhalt der Übersicht) und die letzte offene Stelle in **T-013**. Blockiert T-015a/b/c nicht. Schriftlich heißt: kürzere, glattere Antworten als im Gespräch — vor allem bei Frage 1. Kommt dort nichts Konkretes, ist ein Telefonat nachzuholen. |
 | **Monatsgrenzen in Ortszeit** | Tim + Claude | Adressen wie `?monat=2026-10` rechnen heute in UTC-Monatsgrenzen. Ein Oktober in `Europe/Berlin` dauert durch die Zeitumstellung 31 Tage plus eine Stunde; Abfrage und CSV-Export erlauben vertraglich höchstens exakt 31 Tage. Betrifft genau zwei Monate im Jahr — und verschiebt dort Arbeitszeiten über die Monatsgrenze. Bei einer Lohnabrechnung ist das kein Rundungsfehler. Braucht eine Vertrags- und Backendentscheidung, nicht Oberflächenarbeit. Fällt spätestens mit T-013 an. |

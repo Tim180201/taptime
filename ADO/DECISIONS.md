@@ -979,3 +979,58 @@ Antworten auf exakte Feldmengen — damit ist keine additive Aenderung
 vertraeglich, und es gab keinen Test, der Backend-Antwort und Parser
 gegeneinander haelt. Regel daraus: Wo zwei Seiten einen Vertrag teilen, muss
 ein Test die Naht pruefen, nicht jede Seite nur sich selbst.
+
+---
+
+## D-046 · Der Arbeitstag wird in zwei Stufen freigegeben
+
+16.09. — Ein Zeitdatensatz kennt heute nur started und stopped
+(contracts.ts:86); eine Freigabe gibt es nicht. Sie wird eingefuehrt, je
+Arbeitstag, in zwei Stufen: Der Beschaeftigte gibt seinen Tag frei, danach
+Standortleitung oder Administrator. Ein Tag ohne Zeiten oder mit laufender
+Erfassung ist nicht freigebbar, ebenso wenig einer mit offenem Prueffall.
+Abgelehnt wird mit Begruendung, die der Beschaeftigte sieht. Freigegeben
+heisst auf normalem Weg gesperrt; der Administrator kann wieder oeffnen, aber
+nur mit Begruendung in der Korrekturhistorie. Die Benachrichtigung ist
+zunaechst ein Zaehler in der Oberflaeche, keine Mail.
+
+---
+
+## D-047 · Pausen werden nicht gestempelt, sondern nach Gesetz abgezogen
+
+16.09. — Der Pausen-Tag entfaellt; damit verschwinden ein Tag-Typ, eine
+Scan-Art und ein Rueckmeldungsmuster aus dem Produkt. Stattdessen zieht das
+System nach § 4 ArbZG ab: 30 Minuten bei mehr als sechs bis zu neun Stunden,
+45 Minuten bei mehr als neun Stunden. Bei exakt neun Stunden sind es 30.
+Abgezogen wird immer, auch wenn keine Luecke vorlag; der Beschaeftigte sieht
+davon nichts. Im Datensatz steht dann aber ein Feld fuer den Abzug ohne
+Luecke, und die CSV bekommt dafuer eine eigene Spalte. Der Abzug veraendert
+die Scan-Aufzeichnung nicht — er ist eine berechnete Schicht darueber (D-014).
+
+---
+
+## D-048 · Befund: Niemand kann sich registrieren
+
+16.09. — Der Anmeldeweg der App kennt nur signInWithPassword
+(SupabaseEmailPasswordAuthAdapter.ts:31); ein signUp gibt es nicht. Und
+/v1/employee-enrollment/redeem verlangt bereits ein gueltiges Zugangstoken —
+der Beschaeftigte muss also schon angemeldet sein, bevor er die Einladung
+einloesen kann. Ein Konto entsteht damit nur, wenn jemand es von Hand im
+Supabase-Dashboard anlegt. Unbemerkt geblieben, weil alle bisherigen Konten
+genau so entstanden sind. Dieselbe Bauart wie D-030 und D-033: gebaut, aber
+nicht erreichbar — hier fehlte sogar der erste Schritt.
+
+---
+
+## D-049 · Der Server darf Konten anlegen — D-038 wird dafuer erweitert
+
+16.09. — Bisher galt: der Supabase service-role-Schluessel verlaesst das Konto
+des Product Owners nie. Das trug, solange das Backend Token nur prueft. Fuer
+die Aufnahme von Beschaeftigten legt es kuenftig Konten an und loest die
+Einladungsmail aus; dafuer braucht es den Schluessel. Die Folge wird benannt
+statt verschwiegen: Wer den Produktionsserver hat, kann Konten im
+Supabase-Projekt anlegen. Auflagen: ausschliesslich in /opt/taptime/.env,
+Modus 0600, root-eigen, nie in einem Abbild, nie in einem Bauargument, nie in
+argv — D-038 gilt unveraendert. Benutzt fuer genau eine Aufgabe, das
+Einladen, und jede Verwendung wird protokolliert. Der Product Owner traegt
+ihn selbst ein.
