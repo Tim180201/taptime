@@ -219,6 +219,11 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 
 ## Bekannte Kleinigkeiten (blockieren nichts)
 
+- **P2 aus T-045:** CI-Lauf `35075515260` traf im bestehenden
+  `taptime-restore-verify.test` das PostgreSQL-Startfenster zwischen dem ersten erfolgreichen
+  `pg_isready` und dem folgenden `psql`; 11 von 12 Jobs waren gruen, die T-045-Pruefungen im
+  Sammeljob wurden dadurch nicht ausgefuehrt. Der Produktiv-Verifier verlangt bereits drei
+  stabile Bereitschaftsbeobachtungen, der Test nur eine. Nicht im Fremd-Scope T-045 repariert.
 - **P2, gelöst in T-034:** `DEPLOY.md` und `RESTORE.md` beschrieben nach der ersten Umsetzung
   noch den alten festen Tabellenzähler und nur den Versionsnachweis des Admin-Webs; beide sind
   an die bedingungs- und inhaltsbasierte Prüfung angeglichen.
