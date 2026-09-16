@@ -357,7 +357,7 @@ reconcile_contiguous_watermark() {
 
   while IFS= read -r wal_archive; do
     [[ -n "$wal_archive" ]] || continue
-    wal_file="${wal_archive#wal-$CLUSTER_ARCHIVE_IDENTIFIER-}"
+    wal_file="${wal_archive#wal-"$CLUSTER_ARCHIVE_IDENTIFIER"-}"
     [[ "$wal_file" =~ ^[0-9A-F]{24}$ ]] || continue
     [[ "${wal_file:0:8}" == "$timeline" && ! "$wal_file" < "$start_wal_file" ]] \
       || continue

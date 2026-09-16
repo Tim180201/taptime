@@ -293,7 +293,7 @@ extract_relevant_wal() {
     }
   while IFS= read -r wal_archive; do
     [[ -n "$wal_archive" ]] || continue
-    wal_file="${wal_archive#wal-$RESTORE_ARCHIVE_IDENTIFIER-}"
+    wal_file="${wal_archive#wal-"$RESTORE_ARCHIVE_IDENTIFIER"-}"
     if [[ "$wal_file" =~ ^[0-9A-F]{24}$ \
       && "${wal_file:0:8}" == "$start_timeline" \
       && ! "$wal_file" < "$start_wal_file" ]] \
@@ -532,7 +532,7 @@ prune_after_verified_restore() {
   remove_obsolete_verified_base_markers "$markers" "$retained_bases" || return 1
   while IFS= read -r wal_archive; do
     [[ -n "$wal_archive" ]] || continue
-    wal_file="${wal_archive#wal-$RESTORE_ARCHIVE_IDENTIFIER-}"
+    wal_file="${wal_archive#wal-"$RESTORE_ARCHIVE_IDENTIFIER"-}"
     [[ "$wal_file" =~ ^[0-9A-F]{24}$ ]] || continue
     timeline="${wal_file:0:8}"
     floor_record="$(awk -F '|' -v selected_timeline="$timeline" \

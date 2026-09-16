@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly TEST_ROOT="$(mktemp -d)"
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
 trap 'rm -rf -- "$TEST_ROOT"' EXIT
 readonly CALL_LOG="$TEST_ROOT/calls.log"
 readonly CLUSTER_IDENTIFIER='0123456789abcdef'
@@ -9,12 +10,12 @@ readonly CLUSTER_IDENTIFIER='0123456789abcdef'
 # shellcheck source=../backup/taptime-restore-verify
 source "$(dirname "$0")/../backup/taptime-restore-verify"
 
-RESTORE_ARCHIVE_IDENTIFIER="$CLUSTER_IDENTIFIER"
-BORG_REPOSITORY='synthetic-repository'
-BASE_BACKUP_KEEP_HOURLY='1'
-BASE_BACKUP_KEEP_DAILY='1'
-BASE_BACKUP_KEEP_WEEKLY='1'
-BASE_BACKUP_KEEP_MONTHLY='1'
+export RESTORE_ARCHIVE_IDENTIFIER="$CLUSTER_IDENTIFIER"
+export BORG_REPOSITORY='synthetic-repository'
+export BASE_BACKUP_KEEP_HOURLY='1'
+export BASE_BACKUP_KEEP_DAILY='1'
+export BASE_BACKUP_KEEP_WEEKLY='1'
+export BASE_BACKUP_KEEP_MONTHLY='1'
 RETENTION_FAILURE=''
 
 production_base_is_registered() { return 0; }

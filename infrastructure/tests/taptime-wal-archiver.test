@@ -61,8 +61,8 @@ getent() {
       ;;
   esac
 }
-BORG_RSH='ssh -p 23 -i /synthetic-key -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/synthetic-known-hosts -o StrictHostKeyChecking=yes'
-BORG_REPOSITORY="$TEST_ROOT/local-borg-repository"
+export BORG_RSH='ssh -p 23 -i /synthetic-key -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/synthetic-known-hosts -o StrictHostKeyChecking=yes'
+export BORG_REPOSITORY="$TEST_ROOT/local-borg-repository"
 set +e
 validate_offsite_borg_repository > "$TEST_ROOT/repository.output.log" 2>&1
 repository_status=$?
@@ -72,7 +72,7 @@ if (( repository_status == 0 )); then
   exit 1
 fi
 grep --quiet 'must use non-local ssh:// storage' "$TEST_ROOT/repository.output.log"
-BORG_REPOSITORY='ssh://synthetic@localhost:23/./taptime'
+export BORG_REPOSITORY='ssh://synthetic@localhost:23/./taptime'
 set +e
 validate_offsite_borg_repository > "$TEST_ROOT/repository.output.log" 2>&1
 repository_status=$?
@@ -83,7 +83,7 @@ if (( repository_status == 0 )); then
 fi
 grep --quiet 'must not resolve by configuration to this host' \
   "$TEST_ROOT/repository.output.log"
-BORG_REPOSITORY='ssh://synthetic@local-alias.invalid:23/./taptime'
+export BORG_REPOSITORY='ssh://synthetic@local-alias.invalid:23/./taptime'
 set +e
 validate_offsite_borg_repository > "$TEST_ROOT/repository.output.log" 2>&1
 repository_status=$?
@@ -94,13 +94,13 @@ if (( repository_status == 0 )); then
 fi
 grep --quiet 'resolves to a local interface address' \
   "$TEST_ROOT/repository.output.log"
-BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'
+export BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'
 validate_offsite_borg_repository
-WAL_SPOOL_DIRECTORY="$TEST_ROOT/spool"
-DATABASE_CONTAINER='synthetic-database'
-DATABASE_NAME='synthetic'
-CLUSTER_SYSTEM_IDENTIFIER='81985529216486895'
-CLUSTER_ARCHIVE_IDENTIFIER="$CLUSTER_ID"
+export WAL_SPOOL_DIRECTORY="$TEST_ROOT/spool"
+export DATABASE_CONTAINER='synthetic-database'
+export DATABASE_NAME='synthetic'
+export CLUSTER_SYSTEM_IDENTIFIER='81985529216486895'
+export CLUSTER_ARCHIVE_IDENTIFIER="$CLUSTER_ID"
 
 set +e
 archive_file "$WAL_FILE" > "$TEST_ROOT/output.log" 2>&1

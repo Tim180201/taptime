@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly TEST_ROOT="$(mktemp -d)"
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
 trap 'rm -rf -- "$TEST_ROOT"' EXIT
 readonly CALL_LOG="$TEST_ROOT/calls.log"
 readonly TEST_CONFIG_FILE="$TEST_ROOT/backup.conf"
@@ -49,8 +50,10 @@ export TAPTIME_DEPLOY_LOCK_FILE="$TEST_ROOT/deploy.lock"
 export TAPTIME_RESTORE_CALL_LOG="$CALL_LOG"
 export TAPTIME_RESTORE_EXPECTED_WAL_SPOOL_DIRECTORY="$TEST_WAL_SPOOL_DIRECTORY"
 
-readonly TEST_POSTGRES_UID="$(id -u)"
-readonly TEST_POSTGRES_GID="$(id -g)"
+TEST_POSTGRES_UID="$(id -u)"
+readonly TEST_POSTGRES_UID
+TEST_POSTGRES_GID="$(id -g)"
+readonly TEST_POSTGRES_GID
 
 # shellcheck source=../backup/taptime-restore-activate
 source "$(dirname "$0")/../backup/taptime-restore-activate"

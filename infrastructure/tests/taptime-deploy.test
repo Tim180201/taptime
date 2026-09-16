@@ -167,7 +167,7 @@ wal_archive_mount_state() { printf '%s\n' "${TEST_WAL_MOUNT_STATE:-active}"; }
 archive_contract_is_active() { [[ "${TEST_ARCHIVE_CONTRACT_ACTIVE:-1}" == '1' ]]; }
 ensure_wal_archive_runtime() { record ensure-wal-runtime; }
 begin_wal_archive_cutover() {
-  ARCHIVE_CUTOVER_ACTIVE=1
+  export ARCHIVE_CUTOVER_ACTIVE=1
   trap 'rollback_started_image $?' EXIT
   record begin-wal-cutover
 }
@@ -207,17 +207,17 @@ expect_status() {
   fi
 }
 
-BORG_RSH='ssh -p 23 -i /synthetic-key -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/synthetic-known-hosts -o StrictHostKeyChecking=yes'
-BORG_REPOSITORY="$TEST_ROOT/local-borg-repository"
+export BORG_RSH='ssh -p 23 -i /synthetic-key -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/synthetic-known-hosts -o StrictHostKeyChecking=yes'
+export BORG_REPOSITORY="$TEST_ROOT/local-borg-repository"
 expect_status 1 validate_offsite_borg_repository
 grep --quiet 'must use non-local ssh:// storage' "$OUTPUT_FILE"
-BORG_REPOSITORY='ssh://synthetic@localhost:23/./taptime'
+export BORG_REPOSITORY='ssh://synthetic@localhost:23/./taptime'
 expect_status 1 validate_offsite_borg_repository
 grep --quiet 'must not resolve by configuration to this host' "$OUTPUT_FILE"
-BORG_REPOSITORY='ssh://synthetic@local-alias.invalid:23/./taptime'
+export BORG_REPOSITORY='ssh://synthetic@local-alias.invalid:23/./taptime'
 expect_status 1 validate_offsite_borg_repository
 grep --quiet 'resolves to a local interface address' "$OUTPUT_FILE"
-BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'
+export BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'
 expect_status 0 validate_offsite_borg_repository
 printf 'Offsite repository evidence: local paths, localhost and local aliases are rejected.\n'
 

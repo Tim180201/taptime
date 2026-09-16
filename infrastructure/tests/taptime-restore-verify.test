@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Created in T-034; maintain it with restore verification and remove it only with that verifier.
 readonly TEST_CONTAINER="taptime-restore-rls-proof-$$"
-readonly TEST_ROOT="$(mktemp -d)"
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
 trap 'docker rm --force "$TEST_CONTAINER" >/dev/null 2>&1 || true; rm -rf -- "$TEST_ROOT"' EXIT
 
 # shellcheck source=../backup/taptime-restore-verify

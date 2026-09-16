@@ -20,10 +20,11 @@ readonly POSTGRES_GID
   printf 'PostgreSQL image returned no valid runtime identity.\n' >&2
   exit 1
 }
-RESTORE_IMAGE="$IMAGE"
+export RESTORE_IMAGE="$IMAGE"
 # Keep bind-mounted evidence below the checkout so macOS container runtimes and Linux CI
 # observe the same files; system temporary directories are not necessarily shared into a VM.
-readonly TEST_ROOT="$(mktemp -d "$REPOSITORY_ROOT/.taptime-pitr.XXXXXX")"
+TEST_ROOT="$(mktemp -d "$REPOSITORY_ROOT/.taptime-pitr.XXXXXX")"
+readonly TEST_ROOT
 readonly SOURCE_CONTAINER="taptime-pitr-source-$$"
 readonly LATEST_RESTORE_CONTAINER="taptime-pitr-latest-$$"
 readonly HISTORICAL_RESTORE_CONTAINER="taptime-pitr-historical-$$"
@@ -32,8 +33,10 @@ readonly BASE_DIRECTORY="$TEST_ROOT/base"
 readonly WAL_DIRECTORY="$TEST_ROOT/wal"
 readonly LATEST_RESTORE_DIRECTORY="$TEST_ROOT/latest-restore"
 readonly HISTORICAL_RESTORE_DIRECTORY="$TEST_ROOT/historical-restore"
-readonly HOST_UID="$(id -u)"
-readonly HOST_GID="$(id -g)"
+HOST_UID="$(id -u)"
+readonly HOST_UID
+HOST_GID="$(id -g)"
+readonly HOST_GID
 readonly EARLIER_CHANGE='earlier-change'
 readonly LATER_CHANGE='later-change'
 
