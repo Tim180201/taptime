@@ -1034,3 +1034,18 @@ Modus 0600, root-eigen, nie in einem Abbild, nie in einem Bauargument, nie in
 argv — D-038 gilt unveraendert. Benutzt fuer genau eine Aufgabe, das
 Einladen, und jede Verwendung wird protokolliert. Der Product Owner traegt
 ihn selbst ein.
+
+---
+
+## D-050 · Der Universal Link braucht keine neue Domain
+
+16.09. — Fuer Android genuegt jede Adresse auf dem Tag; das Vergleichsprojekt
+frogs-zeiterfassung belegt das mit einem eigenen Schema. Fuer iOS verlangt
+Apple einen https-Universal-Link auf einer Domain, die wir kontrollieren und
+die Apple verifizieren kann; eigene Schemata akzeptiert Apple ausdruecklich
+nicht. Eine solche Domain haben wir bereits: tb-infra.de. Das Tag-Format wird
+deshalb auf einer Adresse unter tb-infra.de festgelegt, statt auf taptura.de
+zu warten. Eine App darf mehrere Domains beanspruchen — kommt taptura.de
+spaeter dazu, bleiben ausgegebene Tags gueltig und muessen nicht neu
+beschrieben werden. Der Domainkauf blockiert damit weder T-043 noch T-030; er
+entscheidet nur, wie das Produkt heisst.
