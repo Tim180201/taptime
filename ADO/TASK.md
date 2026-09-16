@@ -14,14 +14,18 @@ die vorherige Oberfläche brechen. · **Zeitbox:** eine Sitzung · **Grundlage:*
 
 `AdminWriteSessionCoordinator` bildet Arbeits-Zuordnungen mit Kunde, Pausen-Zuordnungen ohne
 Kunde und unzugeordnete Tags ohne beides korrekt ab. Die v1-HTTP-Antwort sendet bereits das neue
-Feld `assignmentType`; der exakte Parser kennt es nicht und verlangt außerdem bei jedem
-`assigned`-Tag einen Kunden. Damit ist die Einrichtungsprojektion heute nicht lesbar.
+Feld `assignmentType`; der exakte Parser kennt dieses Feld nicht. Deshalb verwirft bereits jeder
+reale Tag die gesamte Projektion. Zusätzlich verlangt sein unvollständiges Modell bei jedem
+`assigned`-Tag einen Kunden, was für einen Pausen-Tag unmöglich ist.
 
 ### Umsetzung
 
-- Den v1-Endpunkt auf seine alte exakte Antwortform zurückführen. Eine neue
-  `/v2/administration/setup-projection` liefert `assignmentType`; das Admin-Web wechselt atomar
-  auf v2. V1 und seine strenge Prüfung bleiben für einen Rückfall unverändert nutzbar.
+- Den v1-Endpunkt in seiner bestehenden exakten Antwortform einschließlich `assignmentType`
+  unverändert lassen: Die Mobile-App konsumiert diese Form bereits exakt; ein Entfernen des
+  Feldes würde installierte Geräte brechen. Eine eigene
+  `/v2/administration/setup-projection` trägt denselben geschlossenen Drei-Fälle-Vertrag für das
+  Admin-Web und gibt dessen künftigen Änderungen eine unabhängige Versionslinie. Das Admin-Web
+  wechselt atomar auf v2.
 - Den Vertrag in `packages/administration-contract` besitzen lassen: Der Backend-Serializer und
   der Web-Parser werden von ihren Laufzeitseiten verwendet. Ein Nahttest führt eine echte
   Backend-Antwort mit Arbeits-, Pausen- und unzugeordnetem Tag durch den Web-Parser.
@@ -49,7 +53,7 @@ erneuten Laden des Bereichs entfernt.
 - Positiv belegen: Arbeits-, Pausen- und unzugeordneter Tag sind lesbar; eine ungültige Einzelzeile
   lässt gültige Zeilen sichtbar und setzt `complete = false`; ungültige Hülle verwirft alles.
 - Kein Deploy, kein Zugriff auf Produktionsdaten, keine Reparatur des Android-Auswahldialogs.
-  Die Umsetzung weder committen noch pushen.
+  Commit und Push erst nach `APPROVED`; Abbilder erst nach grüner CI bauen.
 
 ### Bericht
 
