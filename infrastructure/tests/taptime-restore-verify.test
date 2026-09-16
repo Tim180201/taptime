@@ -25,9 +25,12 @@ printf 'Recovery configuration: UTC target and writable WAL destination accepted
 docker run --detach --name "$TEST_CONTAINER" --network none \
   --env POSTGRES_HOST_AUTH_METHOD=trust postgres:17.10-alpine >/dev/null
 
+# The official image's temporary bootstrap server accepts Unix-socket connections before it
+# shuts down and starts the final server. TCP only becomes ready in the final server.
 ready=0
 for _ in $(seq 1 30); do
-  if docker exec --user postgres "$TEST_CONTAINER" pg_isready --dbname=postgres >/dev/null 2>&1; then
+  if docker exec --user postgres "$TEST_CONTAINER" pg_isready \
+    --host=127.0.0.1 --dbname=postgres >/dev/null 2>&1; then
     ready=1
     break
   fi

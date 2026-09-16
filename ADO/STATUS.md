@@ -236,11 +236,10 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
   hat 529 Tests bestanden und fünf bereits in `HEAD` vorhandene Drifts offengelegt: drei erwarten
   entfernte DA5-Workflow-Schritte, einer einen alten `app.json`-Hash, einer scheitert am unveränderten
   Enrollment-Testdoppel ohne drei Membership-Methoden. Die T-035-Rollenregression ist behoben.
-- **P2 aus T-045:** CI-Lauf `35075515260` traf im bestehenden
-  `taptime-restore-verify.test` das PostgreSQL-Startfenster zwischen dem ersten erfolgreichen
-  `pg_isready` und dem folgenden `psql`; 11 von 12 Jobs waren gruen, die T-045-Pruefungen im
-  Sammeljob wurden dadurch nicht ausgefuehrt. Der Produktiv-Verifier verlangt bereits drei
-  stabile Bereitschaftsbeobachtungen, der Test nur eine. Nicht im Fremd-Scope T-045 repariert.
+- **P2 aus T-045, gelöst in T-035:** CI-Lauf `35075515260` traf im bestehenden
+  `taptime-restore-verify.test` das PostgreSQL-Startfenster zwischen dem temporären
+  Unix-Socket-Server und dem endgültigen Server. Der Test wartet nun auf dessen TCP-Bereitschaft;
+  der Wiederholungsbefund aus T-035 war der Auslöser für die Reparatur.
 - **P2, gelöst in T-034:** `DEPLOY.md` und `RESTORE.md` beschrieben nach der ersten Umsetzung
   noch den alten festen Tabellenzähler und nur den Versionsnachweis des Admin-Webs; beide sind
   an die bedingungs- und inhaltsbasierte Prüfung angeglichen.
