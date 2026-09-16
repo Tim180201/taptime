@@ -98,6 +98,10 @@ danach Firma, Recht und Store.
 - **T-045 Cold-Start-NFC — abgeschlossen.** Der startauslösende Intent wird genau einmal unter
   der durch diesen Prozessstart entstandenen Berechtigung verarbeitet. Der Product Owner hat den
   kalten Start am Gerät um 11:15:21 mit dem sichtbaren Ergebnis „Arbeitszeit gestoppt“ belegt.
+- **T-046 Einrichtungsvertrag — abgeschlossen und ausgeliefert.** Arbeits-, Pausen- und
+  unzugeordnete Tags tragen einen gemeinsamen exakten Vertrag; beschädigte Einzelzeilen lassen
+  gültige Zeilen sichtbar. Der Product Owner hat bestätigt, dass die Einrichtung in Produktion
+  auf `3954282` wieder lädt.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -119,11 +123,12 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-046 — Der Einrichtungsvertrag trägt Pausen-Tags und beschädigte Einzelzeilen.** Die
-versionierte Einrichtungsprojektion bildet Arbeits-, Pausen- und unzugeordnete Tags ausdrücklich
-ab. Ein gemeinsamer Nahttest hält Backend-Antwort und Web-Parser zusammen; eine unlesbare
-Listenzeile macht nur die ausgewiesene Anzahl unvollständig, eine unlesbare Hülle weiterhin den
-ganzen Bereich. Netzfehler und unverwertbare Antworten werden wahrheitsgemäß unterschieden.
+**T-035 — Kein stiller Datenverlust.** Vor der B05-Umsetzung entscheidet der Product Owner die
+zulässige Verlustgrenze und Wiederanlaufzeit anhand der bewerteten Wege fortlaufende
+Datenbankarchivierung, zeitlich begrenztes Zweitstück auf dem Telefon oder einer begründeten
+Alternative. B03 wird unabhängig repariert: Trifft ein zweiter Auslöser vor der gespeicherten
+Fälligkeit ein, muss aus der echten Geräte-Datenbank erneut genau dieser Fälligkeitszeitpunkt
+geweckt werden. Der neue Regressionstest braucht kontrollierte Uhr und Pflicht-Gegenbeweis.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`

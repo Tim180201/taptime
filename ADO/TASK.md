@@ -4,59 +4,54 @@
 
 ---
 
-## T-046 · Der Einrichtungsvertrag trägt Pausen-Tags und beschädigte Einzelzeilen
+## T-035 · Kein stiller Datenverlust
 
-**Für:** Development · **Risiko:** Eine gelockerte Vertragsprüfung könnte falsche oder
-mandantenfremde Einrichtungsdaten anzeigen; ein unversionierter Wechsel könnte den Rückfall auf
-die vorherige Oberfläche brechen. · **Zeitbox:** eine Sitzung · **Grundlage:** D-027 und D-045
+**Für:** Development · **Risiko:** Lohndaten können nach einer Serverbestätigung endgültig
+verschwinden oder dauerhaft ungesendet auf dem Telefon liegen. · **Zeitbox:** eine Sitzung;
+reißt sie, Scope melden und schneiden. · **Grundlage:** bestätigte Gutachtenbefunde B05 und B03
 
-### Bestätigter Befund
+### Vision-Check und Produktgrenze
 
-`AdminWriteSessionCoordinator` bildet Arbeits-Zuordnungen mit Kunde, Pausen-Zuordnungen ohne
-Kunde und unzugeordnete Tags ohne beides korrekt ab. Die v1-HTTP-Antwort sendet bereits das neue
-Feld `assignmentType`; der exakte Parser kennt dieses Feld nicht. Deshalb verwirft bereits jeder
-reale Tag die gesamte Projektion. Zusätzlich verlangt sein unvollständiges Modell bei jedem
-`assigned`-Tag einen Kunden, was für einen Pausen-Tag unmöglich ist.
+Die Reparatur fügt keine Nutzerentscheidung hinzu und lässt
+`Trigger → WorkEvent → BusinessEngine → TimeEntry`, Append-only-Historie und
+Trigger-Agnostik intakt. Vor jeder B05-Umsetzung benennt der Product Owner jedoch verbindlich:
 
-### Umsetzung
+- wie viel bereits bestätigte Arbeitszeit nach einem Ausfall verloren gehen darf;
+- bis wann der Dienst nach einem Ausfall wiederhergestellt sein muss.
 
-- Den v1-Endpunkt in seiner bestehenden exakten Antwortform einschließlich `assignmentType`
-  unverändert lassen: Die Mobile-App konsumiert diese Form bereits exakt; ein Entfernen des
-  Feldes würde installierte Geräte brechen. Eine eigene
-  `/v2/administration/setup-projection` trägt denselben geschlossenen Drei-Fälle-Vertrag für das
-  Admin-Web und gibt dessen künftigen Änderungen eine unabhängige Versionslinie. Das Admin-Web
-  wechselt atomar auf v2.
-- Den Vertrag in `packages/administration-contract` besitzen lassen: Der Backend-Serializer und
-  der Web-Parser werden von ihren Laufzeitseiten verwendet. Ein Nahttest führt eine echte
-  Backend-Antwort mit Arbeits-, Pausen- und unzugeordnetem Tag durch den Web-Parser.
-- Pflicht-Gegenbeweis: Ein unbekanntes Zusatzfeld in der Backend-Antwort macht den Nahttest rot.
-  Keine tolerante Feldmengenprüfung und kein Auffangzweig mit Bedeutung.
-- Die Antwort-Hülle einschließlich Status, Betrieb, Listen und Seitenzeiger bleibt exakt und
-  fail closed. Eine einzelne ungültige Kunden- oder Tag-Zeile wird ausgelassen; die jeweilige
-  Anzahl wird über das vorhandene `CountTruth.complete` als unvollständig ausgewiesen.
-- Clientfehler mindestens in `unreachable` und `invalid_response` unterscheiden: Netzfehler und
-  Zeitüberschreitung gegen unverwertbare Antwort oder ungültigen Seitenzeiger. Jede Zuordnung zu
-  einem deutschen Meldungstext ist vollständig und endet in einem `never`-Zweig.
+Development bewertet mindestens fortlaufende Datenbankarchivierung zusätzlich zum stündlichen
+Dump und ein befristetes Zweitstück bestätigter Ereignisse auf dem Telefon. Kosten, Betrieb,
+Datenschutz, Speicher, Entstehung, Änderung und Entfernung jedes neuen Zustands sind zu nennen.
+Erst berichten, dann B05 bauen; die gewählte Grenze wird als eigene Entscheidung dokumentiert.
 
-### Entstehung, Änderung und Entfernung
+### B03 · Fehlenden Wecker reparieren
 
-`assignmentType` entsteht ausschließlich aus der bestehenden aktiven Zuordnung, wird vom
-Backend unverändert transportiert und verschwindet mit der Antwort; es entsteht kein neuer
-persistenter Zustand. Unlesbare Zeilen erzeugen nur die flüchtige Vollständigkeitsmarkierung;
-sie wird bei jeder neu geladenen Seite neu aus deren Inhalt abgeleitet und beim Verlassen oder
-erneuten Laden des Bereichs entfernt.
+`OfflineSyncScheduler.trigger()` löscht zunächst den vorhandenen Timer. Ist der FIFO-Kopf in
+der Datenbank noch nicht fällig, liefern `claimLegacyHead` und `claimHead` `null`; der Zweig
+`retry_wait` muss aus der gespeicherten Fälligkeit wieder einen Wecker ableiten, statt die
+Warteschlange ohne Auslöser liegen zu lassen.
+
+- Regressionstest mit kontrollierter Uhr und dem echten Fälligkeitsverhalten von
+  `OfflineCaptureDatabase`: erster Fehlversuch speichert die Wiederholungszeit; ein zweiter
+  Auslöser kommt davor; bis zur Fälligkeit erfolgt kein Senden, zur Fälligkeit genau der Versuch.
+- Keine fest hineingeschriebene Sicherheitszahl: Der Weckzeitpunkt wird aus dem vorhandenen
+  Kopfzustand abgeleitet. Neue Test-/Produkt-Schnittstellen bilden diese Bedingung ab.
+- Pflicht-Gegenbeweis: Ohne die Reparatur muss genau dieser Test rot sein. Die bestehende
+  Scheduler-Stichprobe mit vereinfachten Datenbank- und Timer-Stellvertretern genügt nicht.
 
 ### Verifikation und Grenzen
 
-- Typecheck und vollständige Tests von `administration-contract`, `backend-api` und `admin-web`
-  grün; nachweisen, dass der Nahttest in der ausgeführten Konfiguration enthalten ist.
-- Positiv belegen: Arbeits-, Pausen- und unzugeordneter Tag sind lesbar; eine ungültige Einzelzeile
-  lässt gültige Zeilen sichtbar und setzt `complete = false`; ungültige Hülle verwirft alles.
-- Kein Deploy, kein Zugriff auf Produktionsdaten, keine Reparatur des Android-Auswahldialogs.
-  Commit und Push erst nach `APPROVED`; Abbilder erst nach grüner CI bauen.
+- Typecheck einschließlich der Testdatei und vollständige Tests des Mobile-Workspace grün.
+- Vorherigen roten Gegenbeweis und anschließenden grünen Lauf getrennt belegen; jeden weiteren
+  Fehlschlag untersuchen und mindestens als P2 festhalten.
+- Wegen personenbezogener Lohndaten unabhängiges Review durch einen zweiten Agenten; maximal
+  zwei Review-Runden, nur P0/P1 blockieren.
+- Nicht in diesem Scope: B02/T-036, B06, B07, B08, B09 und Android-Dialog/T-043.
+- Kein Deploy und kein Zugriff auf Produktionsdaten. Umsetzung nicht committen oder pushen vor
+  `APPROVED`; der beauftragte Dokumentations-Commit wird getrennt sofort gepusht.
 
 ### Bericht
 
-Vier Punkte gemäß `AGENTS.md`, darin: Befund, Versionierungsweg, Ort und Gegenbeweis des
-Nahttests, Zeilen-gegen-Hülle-Verhalten, Meldungszuordnung, T- und D-Nummer sowie Hash des
-Dokumentations-Commits.
+Vier Punkte gemäß `AGENTS.md`, darin: vorgeschlagene Verlustgrenze und Wiederanlaufzeit mit
+Begründung, empfohlener Weg, B03-Gegenbeweis und Reparatur, Typecheck, Testlauf, Review-Ergebnis
+und Hash des Dokumentations-Commits.
