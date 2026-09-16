@@ -951,3 +951,16 @@ NativeNfcIngress.test.ts:103 erwartete dieses Verhalten ausdruecklich und war gr
 Vorfall dieser Bauart nach D-036. Regel daraus: Ein Test, der eine Erwartung festschreibt, muss
 begruenden, WARUM sie richtig ist — sonst haelt er fest, was gerade passiert, statt was passieren
 soll. Bei einer Sicherheitsgrenze gehoert diese Begruendung in den Test.
+
+---
+
+## D-044 · Eine Geraeteabnahme kommt nach dem Commit, nicht davor
+
+16.09. — „Nicht committen vor APPROVED" liess sich bei Mobilaufgaben nicht
+einhalten: ein APK entsteht nur aus einem Commit, und die Abnahme findet am
+Geraet statt. Bei T-045 stand beides gleichzeitig im Auftrag. Aufloesung:
+Wo die Abnahme nur am Geraet moeglich ist, heisst APPROVED „freigegeben zum
+Committen und Bauen", und die Geraeteabnahme folgt danach. Scheitert sie,
+wird gemeldet und zurueckgenommen oder nachgebessert — aber nicht aus einem
+schmutzigen Arbeitsverzeichnis gebaut. Ein Abbild, das keinem Commit
+entspricht, ist nicht nachvollziehbar und darf nie auf ein Geraet.

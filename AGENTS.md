@@ -144,6 +144,9 @@ Alles unter `ADO/99_Archive/` ist Historie und wird nicht gelesen.
   nichts abzunehmen. Sie zusammen mit dem Code zu committen, vermischt Auftrag und Ergebnis.
 - Ein Dokumentations-Commit berührt **ausschließlich** Dateien unter `ADO/` sowie diese Datei,
   `AGENTS.md`. Berührt er irgendetwas anderes, ist er keiner.
+- Ein Dokumentations-Commit wird sofort gepusht. Er ist wertlos, solange er
+  auf einem einzigen Rechner liegt — dreimal in einer Woche ist nicht mehr
+  Zufall.
 - Dass `AGENTS.md` dazugehört, ist Absicht: Ein Regelwerk, das sich selbst nicht ändern lässt,
   ist eine Sackgasse. Diese Zeile existiert, weil die erste Fassung genau das war.
 
