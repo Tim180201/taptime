@@ -31,9 +31,13 @@ export interface AdminWebAuthPort {
   subscribePasswordRecovery?(listener: () => void): () => void;
 }
 
+type ApiFailureStatus = 'unreachable' | 'invalid_response';
+
 type ApiSectionResult<Value> =
   | { readonly status: 'succeeded'; readonly value: Value }
-  | { readonly status: 'unavailable' | 'closed' };
+  | { readonly status: 'unreachable' }
+  | { readonly status: 'invalid_response' }
+  | { readonly status: 'closed' };
 
 type ReadyDataResult =
   | {
@@ -241,7 +245,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         (token) => this.api.employeeProjection(token, membershipId, null, targetId),
       );
     } catch {
-      result = { status: 'unavailable' };
+      result = { status: 'unreachable' };
     }
     if (
       generation !== this.generation
@@ -351,7 +355,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           timeRecords: {
             status: 'unavailable',
-            message: 'Die Arbeitszeiten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+            message: sectionUnavailableMessage('timeRecords', result.status),
           },
         },
       });
@@ -396,7 +400,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           [section]: {
             status: 'unavailable',
-            message: sectionUnavailableMessage(section),
+            message: sectionUnavailableMessage(section, result.status),
           },
         },
       });
@@ -432,7 +436,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     try {
       result = await this.auth.withAccessToken((token) => this.api.projection(token, membershipId, requestedCursor));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -474,7 +478,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           setup: {
             status: 'unavailable',
-            message: 'Weitere Einrichtungsdaten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+            message: setupPageUnavailableMessage(apiFailureStatus(result), true),
           },
         },
       });
@@ -498,7 +502,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     try {
       result = await this.auth.withAccessToken((token) => this.api.createCustomer(token, membershipId, crypto.randomUUID(), displayName));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -551,7 +555,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         (token) => this.api.projects!(token, membershipId, null),
       );
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     const latest = this.state;
@@ -599,7 +603,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         (token) => this.api.projects!(token, membershipId, requestedCursor),
       );
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     const latest = this.state;
@@ -663,7 +667,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         normalized,
       ));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     const latest = this.state;
@@ -722,7 +726,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         project,
       ));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     const latest = this.state;
@@ -876,7 +880,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       result = await this.auth.withAccessToken((token) => this.api.mutateLocationSetup!(
         token, membershipId, crypto.randomUUID(), mutation,
       ));
-    } catch { result = { status: 'unavailable' as const }; }
+    } catch { result = { status: 'unreachable' as const }; }
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return false;
     const latest = this.state;
     if (latest.status !== 'ready') return false;
@@ -933,7 +937,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         ),
       );
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -1026,7 +1030,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         current.locationsEnabled ? locationId ?? null : undefined,
       ));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -1106,7 +1110,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           token, membershipId, crypto.randomUUID(), targetMembershipId, expectedRowVersion, role,
         ));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     if (result === null || result.status === 'rejected') {
@@ -1167,6 +1171,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       tag === undefined
       || target === undefined
       || tag.assignmentState !== 'assigned'
+      || tag.assignmentType !== 'work'
       || tag.targetCustomerId === null
       || tag.activeAssignmentId === null
       || tag.targetCustomerId === target.id
@@ -1225,7 +1230,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         intent.targetCustomerId,
       ));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -1335,7 +1340,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         intent.startedAt, intent.stoppedAt, intent.reason,
       ));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -1440,7 +1445,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         resolution, intent.reason,
       ));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -1506,7 +1511,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         token, membershipId, current.timeWindow.fromInclusive, current.timeWindow.toExclusive,
       ));
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -1568,7 +1573,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
             (token) => this.api.reviewItems(token, membershipId, requestedCursor),
           );
     } catch {
-      result = { status: 'unavailable' as const };
+      result = { status: 'unreachable' as const };
     }
     if (
       generation !== this.generation
@@ -1588,7 +1593,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           [section]: {
             status: 'unavailable',
-            message: sectionUnavailableMessage(section),
+            message: sectionUnavailableMessage(section, apiFailureStatus(result)),
           },
         },
       });
@@ -1681,7 +1686,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
         normalizedEmployees,
         normalizedRecords,
         normalizedReviewItems,
-      ].every((result) => result.status !== 'unavailable') ? 'succeeded' : 'partial',
+      ].every((result) => result.status === 'succeeded' || result.status === 'closed')
+        ? 'succeeded'
+        : 'partial',
       projection: normalizedProjection,
       employeeProjection: normalizedEmployees,
       timeRecords: normalizedRecords,
@@ -1696,7 +1703,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     try {
       return await operation() ?? { status: 'rejected' };
     } catch {
-      return { status: 'unavailable' };
+      return { status: 'unreachable' };
     }
   }
 
@@ -1704,12 +1711,16 @@ export class AdminWebCoordinator implements AdminWebCapability {
     section: AdminSection,
     membershipId: string,
     timeWindow: { readonly fromInclusive: string; readonly toExclusive: string },
-  ): Promise<{ readonly status: 'succeeded'; readonly value: unknown } | { readonly status: 'rejected' | 'unavailable' } | null> {
+  ): Promise<
+    | { readonly status: 'succeeded'; readonly value: unknown }
+    | { readonly status: 'rejected' | ApiFailureStatus }
+    | null
+  > {
     const current = this.state;
     if (
       current.status !== 'ready'
       || !isAdminSectionAvailable(current.availableSections, section)
-    ) return { status: 'unavailable' };
+    ) return { status: 'invalid_response' };
     try {
       let result: ApiResult<unknown> | null;
       if (section === 'setup') {
@@ -1735,9 +1746,15 @@ export class AdminWebCoordinator implements AdminWebCapability {
         );
       }
       if (result === null || result.status === 'rejected') return result;
-      return result.status === 'succeeded' ? result : { status: 'unavailable' };
+      switch (result.status) {
+        case 'succeeded': return result;
+        case 'unreachable':
+        case 'invalid_response': return result;
+        case 'conflict': return { status: 'invalid_response' };
+        default: return result satisfies never;
+      }
     } catch {
-      return { status: 'unavailable' };
+      return { status: 'unreachable' };
     }
   }
 
@@ -1836,7 +1853,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
         this.setState({ ...next, notice });
         await this.refreshLocationSetup();
       } else {
-        this.setState({ status: 'unavailable', message: 'Die Verwaltung konnte nicht geöffnet werden. Die Betriebsdaten sind derzeit nicht erreichbar. Melden Sie sich erneut an oder versuchen Sie es später.' });
+        const failure = readyDataFailureStatus(projection);
+        this.setState({
+          status: 'unavailable',
+          message: administrationUnavailableMessage(failure),
+        });
       }
     } catch {
       await this.safeSignOut();
@@ -2065,6 +2086,8 @@ function emptyProjection(
     customers: Object.freeze([]),
     nfcTags: Object.freeze([]),
     nextCursor: null,
+    customersComplete: true,
+    nfcTagsComplete: true,
   });
 }
 
@@ -2081,11 +2104,18 @@ function emptyEmployeeProjection(
 function normalizeSectionResult<Value>(
   result: ApiResult<Value> | { readonly status: 'closed' },
 ): ApiSectionResult<Value> {
-  return result.status === 'succeeded'
-    ? result
-    : result.status === 'closed'
-      ? result
-      : { status: 'unavailable' };
+  switch (result.status) {
+    case 'succeeded':
+    case 'closed':
+    case 'unreachable':
+    case 'invalid_response':
+      return result;
+    case 'rejected':
+    case 'conflict':
+      return { status: 'invalid_response' };
+    default:
+      return result satisfies never;
+  }
 }
 
 function sectionStates(
@@ -2194,11 +2224,17 @@ function sectionStatus(
   result: ApiSectionResult<unknown>,
   section: AdminSection,
 ): Extract<AdminWebState, { readonly status: 'ready' }>['sections'][AdminSection] {
-  return result.status === 'succeeded'
-    ? { status: 'ready' }
-    : result.status === 'closed'
-      ? { status: 'closed' }
-    : { status: 'unavailable', message: sectionUnavailableMessage(section) };
+  switch (result.status) {
+    case 'succeeded': return { status: 'ready' };
+    case 'closed': return { status: 'closed' };
+    case 'unreachable':
+    case 'invalid_response':
+      return {
+        status: 'unavailable',
+        message: sectionUnavailableMessage(section, result.status),
+      };
+    default: return result satisfies never;
+  }
 }
 
 function isAdminSectionAvailable(
@@ -2211,17 +2247,80 @@ function isAdminSectionAvailable(
   return availableSections.includes('review_items');
 }
 
-function sectionUnavailableMessage(section: AdminSection): string {
-  if (section === 'setup') {
-    return 'Die Einrichtung konnte nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+function sectionUnavailableMessage(
+  section: AdminSection,
+  failure: ApiFailureStatus,
+): string {
+  if (section === 'setup') return setupPageUnavailableMessage(failure, false);
+  switch (failure) {
+    case 'unreachable':
+      switch (section) {
+        case 'employees': return 'Die Beschäftigten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+        case 'timeRecords': return 'Die Arbeitszeiten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+        case 'reviewItems': return 'Die offenen Prüfungen konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+        default: return section satisfies never;
+      }
+    case 'invalid_response':
+      switch (section) {
+        case 'employees': return 'Die Beschäftigten konnten nicht übernommen werden. Die Antwort des Dienstes ist nicht verwertbar. Laden Sie den Bereich erneut.';
+        case 'timeRecords': return 'Die Arbeitszeiten konnten nicht übernommen werden. Die Antwort des Dienstes ist nicht verwertbar. Laden Sie den Bereich erneut.';
+        case 'reviewItems': return 'Die offenen Prüfungen konnten nicht übernommen werden. Die Antwort des Dienstes ist nicht verwertbar. Laden Sie den Bereich erneut.';
+        default: return section satisfies never;
+      }
+    default: return failure satisfies never;
   }
-  if (section === 'employees') {
-    return 'Die Beschäftigten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+}
+
+function setupPageUnavailableMessage(failure: ApiFailureStatus, additionalPage: boolean): string {
+  const subject = additionalPage ? 'Weitere Einrichtungsdaten' : 'Die Einrichtung';
+  switch (failure) {
+    case 'unreachable':
+      return `${subject} konnte${additionalPage ? 'n' : ''} nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.`;
+    case 'invalid_response':
+      return `${subject} konnte${additionalPage ? 'n' : ''} nicht übernommen werden. Die Antwort des Dienstes ist nicht verwertbar. Laden Sie den Bereich erneut.`;
+    default:
+      return failure satisfies never;
   }
-  if (section === 'timeRecords') {
-    return 'Die Arbeitszeiten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+}
+
+function apiFailureStatus(
+  result: Exclude<ApiResult<unknown>, { readonly status: 'succeeded' | 'rejected' }>,
+): ApiFailureStatus {
+  switch (result.status) {
+    case 'unreachable':
+    case 'invalid_response': return result.status;
+    case 'conflict': return 'invalid_response';
+    default: return result satisfies never;
   }
-  return 'Die offenen Prüfungen konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+}
+
+function readyDataFailureStatus(
+  result: Extract<ReadyDataResult, { readonly status: 'succeeded' | 'partial' }>,
+): ApiFailureStatus {
+  const sections = [
+    result.projection,
+    result.employeeProjection,
+    result.timeRecords,
+    result.reviewItems,
+  ];
+  if (sections.some((section) => section.status === 'invalid_response')) {
+    return 'invalid_response';
+  }
+  if (sections.some((section) => section.status === 'unreachable')) {
+    return 'unreachable';
+  }
+  throw new TypeError('Administration ready-data result has no failed section');
+}
+
+function administrationUnavailableMessage(failure: ApiFailureStatus): string {
+  switch (failure) {
+    case 'unreachable':
+      return 'Die Verwaltung konnte nicht geöffnet werden. Die Betriebsdaten sind derzeit nicht erreichbar. Melden Sie sich erneut an oder versuchen Sie es später.';
+    case 'invalid_response':
+      return 'Die Verwaltung konnte nicht geöffnet werden. Die Antwort des Dienstes ist nicht verwertbar. Melden Sie sich erneut an oder laden Sie die Seite später neu.';
+    default:
+      return failure satisfies never;
+  }
 }
 
 function applySectionResult(
@@ -2319,6 +2418,8 @@ function mergeProjection(current: SafeProjection, next: SafeProjection, requeste
     customers: Object.freeze([...current.customers, ...next.customers]),
     nfcTags: Object.freeze([...current.nfcTags, ...next.nfcTags]),
     nextCursor: next.nextCursor,
+    customersComplete: current.customersComplete && next.customersComplete,
+    nfcTagsComplete: current.nfcTagsComplete && next.nfcTagsComplete,
   });
 }
 

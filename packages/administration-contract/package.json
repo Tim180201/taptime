@@ -3,14 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Neutral Unicode 15.1 name and C3 command-digest contracts shared by bootstrap and normal administration.",
+  "description": "Administration names, command digests, and versioned setup-projection contracts shared by server and clients.",
   "engines": {
     "node": ">=24 <25"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./setup-projection": {
+      "types": "./dist/setupProjection.d.ts",
+      "import": "./dist/setupProjection.js"
+    }
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --sourcemap --outfile=dist/index.js",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/setupProjection.ts --bundle --platform=node --target=node24 --format=esm --sourcemap --outdir=dist",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

@@ -39,6 +39,7 @@ function validProjection() {
       displayName: 'Eingang',
       validationFingerprint: 'A1B2C3D4E5F6',
       assignmentState: 'assigned',
+      assignmentType: 'work',
       targetCustomerId: ids.customer,
       activeAssignmentId: ids.assignment,
     }],
@@ -121,7 +122,7 @@ describe('AdminWebApiClient', () => {
 
     fetchRequest.mockResolvedValueOnce(json({ status: 'succeeded', userId: ids.user }));
     await expect(client.recordPasswordReset('recovery-token')).resolves.toEqual({
-      status: 'unavailable',
+      status: 'invalid_response',
     });
   });
 
@@ -173,7 +174,7 @@ describe('AdminWebApiClient', () => {
         },
       },
     });
-    await expect(client.session('token')).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.session('token')).resolves.toEqual({ status: 'invalid_response' });
   });
 
   it('bounds worst-case Location sessions at 488 entries', async () => {
@@ -196,7 +197,7 @@ describe('AdminWebApiClient', () => {
     const client = new AdminWebApiClient(async () => responses.shift()!);
 
     await expect(client.session('token')).resolves.toMatchObject({ status: 'succeeded' });
-    await expect(client.session('token')).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.session('token')).resolves.toEqual({ status: 'invalid_response' });
   });
 
   it('invokes the default browser fetch with its required global receiver', async () => {
@@ -235,23 +236,95 @@ describe('AdminWebApiClient', () => {
           displayName: 'Eingang',
           validationFingerprint: 'A1B2C3D4E5F6',
           assignmentState: 'assigned',
+          assignmentType: 'work',
           targetCustomerId: ids.customer,
           activeAssignmentId: ids.assignment,
         }],
         nextCursor: null,
+        customersComplete: true,
+        nfcTagsComplete: true,
       },
     });
+    expect(fetchRequest.mock.calls[0]?.[0]).toBe('/v2/administration/setup-projection');
     expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
       expectedMembershipId: ids.membership, cursor: null, limit: 20,
     });
 
     fetchRequest.mockResolvedValueOnce(json({ ...validProjection(), nextCursor: 12 }));
-    await expect(client.projection('token', ids.membership, null)).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.projection('token', ids.membership, null)).resolves.toEqual({ status: 'invalid_response' });
     fetchRequest.mockResolvedValueOnce(json({ ...validProjection(), providerSubject: 'must-not-escape' }));
-    await expect(client.projection('token', ids.membership, null)).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.projection('token', ids.membership, null)).resolves.toEqual({ status: 'invalid_response' });
 
-    await expect(client.projection('token', ids.membership, 'not-a-cursor')).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.projection('token', ids.membership, 'not-a-cursor')).resolves.toEqual({ status: 'invalid_response' });
     expect(fetchRequest).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps valid setup rows, reads a Break Tag, and marks only damaged row counts incomplete',
+    async () => {
+      const breakTag = {
+        id: '50000000-0000-4000-8000-000000000002',
+        displayName: 'Pause',
+        validationFingerprint: 'B1C2D3E4F5A6',
+        assignmentState: 'assigned',
+        assignmentType: 'break',
+        targetCustomerId: null,
+        activeAssignmentId: '80000000-0000-4000-8000-000000000002',
+      } as const;
+      const response = validProjection();
+      const client = new AdminWebApiClient(async () => json({
+        ...response,
+        customers: [response.customers[0], { ...response.customers[0], unexpected: true }],
+        nfcTags: [
+          response.nfcTags[0],
+          breakTag,
+          { ...breakTag, id: '50000000-0000-4000-8000-000000000003', targetCustomerId: ids.customer },
+        ],
+      }));
+
+      await expect(client.projection('token', ids.membership, null)).resolves.toEqual({
+        status: 'succeeded',
+        value: {
+          organization: response.organization,
+          customers: response.customers,
+          nfcTags: [response.nfcTags[0], breakTag],
+          nextCursor: null,
+          customersComplete: false,
+          nfcTagsComplete: false,
+        },
+      });
+  });
+
+  it('distinguishes an unreachable service from a response that cannot be used', async () => {
+    const unreachable = new AdminWebApiClient(async () => {
+      throw new TypeError('network unavailable');
+    });
+    const invalid = new AdminWebApiClient(async () => new Response('{', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }));
+
+    await expect(unreachable.projection('token', ids.membership, null))
+      .resolves.toEqual({ status: 'unreachable' });
+    await expect(invalid.projection('token', ids.membership, null))
+      .resolves.toEqual({ status: 'invalid_response' });
+  });
+
+  it('classifies its bounded request timeout as unreachable', async () => {
+    vi.useFakeTimers();
+    try {
+      const client = new AdminWebApiClient((_input, init) => new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(new DOMException('The request was aborted.', 'AbortError'));
+        }, { once: true });
+      }));
+
+      const result = client.projection('token', ids.membership, null);
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      await expect(result).resolves.toEqual({ status: 'unreachable' });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('accepts an exact idempotent Customer result and sends no tenant or role selector', async () => {
@@ -347,7 +420,7 @@ describe('AdminWebApiClient', () => {
       },
     ]) {
       fetchRequest.mockResolvedValueOnce(json(invalid));
-      await expect(submit()).resolves.toEqual({ status: 'unavailable' });
+      await expect(submit()).resolves.toEqual({ status: 'invalid_response' });
     }
 
     fetchRequest.mockResolvedValueOnce(json({
@@ -396,7 +469,7 @@ describe('AdminWebApiClient', () => {
       nextCursor: null,
     }));
     await expect(client.employeeProjection('token', ids.membership, null, null))
-      .resolves.toEqual({ status: 'unavailable' });
+      .resolves.toEqual({ status: 'invalid_response' });
   });
 
   it('sends the selected Location and exposes only its distinct scope rejection', async () => {
@@ -418,7 +491,7 @@ describe('AdminWebApiClient', () => {
     fetchRequest.mockResolvedValueOnce(json({ error: { code: 'forbidden' } }, 403));
     await expect(client.employeeProjection(
       'token', ids.membership, null, ids.location,
-    )).resolves.toEqual({ status: 'unavailable' });
+    )).resolves.toEqual({ status: 'invalid_response' });
   });
 
   it('rejects unsafe Employee names, duplicates, ordering, and cursor discontinuity', async () => {
@@ -457,7 +530,7 @@ describe('AdminWebApiClient', () => {
     const client = new AdminWebApiClient(async () => json(responses.shift()!));
     for (let index = 0; index < 7; index += 1) {
       await expect(client.employeeProjection('token', ids.membership, requestedCursor, null))
-        .resolves.toEqual({ status: 'unavailable' });
+        .resolves.toEqual({ status: 'invalid_response' });
     }
   });
 
@@ -502,17 +575,17 @@ describe('AdminWebApiClient', () => {
       .resolves.toEqual({ status: 'conflict', code: 'invitation_limit_reached' });
     fetchRequest.mockResolvedValueOnce(json({ error: { code: 'internal_detail' } }, 409));
     await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
-      .resolves.toEqual({ status: 'unavailable' });
+      .resolves.toEqual({ status: 'invalid_response' });
     fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({
       error: { code: 'invitation_limit_reached' },
     }), { status: 409, headers: { 'Content-Type': 'text/plain' } }));
     await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
-      .resolves.toEqual({ status: 'unavailable' });
+      .resolves.toEqual({ status: 'invalid_response' });
     fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({
       error: { code: 'invitation_limit_reached' },
     }), { status: 409, headers: { 'Content-Type': 'application/jsonp' } }));
     await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
-      .resolves.toEqual({ status: 'unavailable' });
+      .resolves.toEqual({ status: 'invalid_response' });
     fetchRequest.mockResolvedValueOnce(new Response(JSON.stringify({
       error: { code: 'invitation_limit_reached' },
     }), {
@@ -520,14 +593,14 @@ describe('AdminWebApiClient', () => {
       headers: { 'Content-Type': 'application/json', 'Content-Length': '16385' },
     }));
     await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
-      .resolves.toEqual({ status: 'unavailable' });
+      .resolves.toEqual({ status: 'invalid_response' });
     fetchRequest.mockResolvedValueOnce(json({
       status: 'succeeded',
       invitationSecret: `${secret.slice(0, -1)}B`,
       expiresAt: '2026-07-15T12:34:56.789Z',
     }));
     await expect(client.createEmployeeInvitation('token', ids.membership, ids.command, 'Employee Alpha', 'employee'))
-      .resolves.toEqual({ status: 'unavailable' });
+      .resolves.toEqual({ status: 'invalid_response' });
   });
 
   it.each([401, 403])('maps HTTP %s to one disclosure-safe authority rejection', async (status) => {
@@ -546,7 +619,7 @@ describe('AdminWebApiClient', () => {
     ];
     const client = new AdminWebApiClient(async () => responses.shift()!);
     for (let index = 0; index < 4; index += 1) {
-      await expect(client.session('token')).resolves.toEqual({ status: 'unavailable' });
+      await expect(client.session('token')).resolves.toEqual({ status: 'invalid_response' });
     }
   });
 
@@ -561,7 +634,7 @@ describe('AdminWebApiClient', () => {
     const text = vi.spyOn(response, 'text');
     const client = new AdminWebApiClient(async () => response);
 
-    await expect(client.session('token')).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.session('token')).resolves.toEqual({ status: 'invalid_response' });
     expect(text).not.toHaveBeenCalled();
     expect(cancel).toHaveBeenCalledOnce();
     expect(chunkIndex).toBe(3);
@@ -644,7 +717,7 @@ describe('AdminWebApiClient', () => {
       '2026-07-01T00:00:00.000Z',
       '2026-07-21T00:00:00.000Z',
       'contains whitespace',
-    )).resolves.toEqual({ status: 'unavailable' });
+    )).resolves.toEqual({ status: 'invalid_response' });
     expect(fetchRequest).toHaveBeenCalledTimes(2);
   });
 
@@ -757,7 +830,7 @@ describe('AdminWebApiClient', () => {
     const client = new AdminWebApiClient(vi.fn<typeof fetch>(async () => response));
     await expect(client.exportTimeEntries(
       'token', ids.membership, '2026-07-01T00:00:00.000Z', '2026-07-21T00:00:00.000Z',
-    )).resolves.toEqual({ status: 'unavailable' });
+    )).resolves.toEqual({ status: 'invalid_response' });
     expect(chunkIndex).toBeGreaterThanOrEqual(2);
   });
 });

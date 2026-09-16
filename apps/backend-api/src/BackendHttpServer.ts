@@ -29,6 +29,11 @@ import {
 } from '@taptime/mobile-work-contract';
 import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
 import {
+  serializeAdministrationSetupProjectionV1,
+  serializeAdministrationSetupProjectionV2,
+  type AdministrationSetupNfcTag,
+} from '@taptime/administration-contract/setup-projection';
+import {
   validateMobileReviewStateRequest,
   validateReviewAdjudicationRequest,
   validateReviewItemQueryRequest,
@@ -90,6 +95,7 @@ const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
 const ADMIN_BREAK_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision-break';
 const ADMIN_NFC_REASSIGN_PATH = '/v1/administration/nfc-tags/reassign';
 const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
+const ADMIN_SETUP_PROJECTION_V2_PATH = '/v2/administration/setup-projection';
 const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
 const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
 const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_V2_PATH = '/v2/administration/employee-memberships-projection';
@@ -566,6 +572,20 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
+      1,
+    );
+    return;
+  }
+  if (route === 'admin_setup_projection_v2') {
+    await handleSetupProjection(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      2,
     );
     return;
   }
@@ -1416,6 +1436,7 @@ async function handleSetupProjection(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  schemaVersion: 1 | 2,
 ): Promise<void> {
   const command = parseSetupProjectionBody(body);
   if (command === null) {
@@ -1432,29 +1453,84 @@ async function handleSetupProjection(
       { accessToken, ...command },
       { deadlineEpochMilliseconds },
     ),
-    (result) => ({
-      status: 'succeeded',
-      organization: {
-        id: result.organization.id,
-        name: result.organization.name,
-      },
-      customers: result.customers.map((customer) => ({
-        id: customer.id,
-        displayName: customer.displayName,
-        active: customer.active,
-      })),
-      nfcTags: result.nfcTags.map((nfcTag) => ({
-        id: nfcTag.id,
-        displayName: nfcTag.displayName,
-        validationFingerprint: nfcTag.validationFingerprint,
-        assignmentState: nfcTag.assignmentState,
-        assignmentType: nfcTag.assignmentType,
+    (result) => {
+      const source = {
+        organization: {
+          id: result.organization.id,
+          name: result.organization.name,
+        },
+        customers: result.customers.map((customer) => ({
+          id: customer.id,
+          displayName: customer.displayName,
+          active: customer.active,
+        })),
+        nfcTags: result.nfcTags.map(toAdministrationSetupNfcTag),
+        nextCursor: result.nextCursor,
+      };
+      return schemaVersion === 1
+        ? serializeAdministrationSetupProjectionV1(source)
+        : serializeAdministrationSetupProjectionV2(source);
+    },
+  );
+}
+
+function toAdministrationSetupNfcTag(nfcTag: {
+  readonly id: string;
+  readonly displayName: string;
+  readonly validationFingerprint: string;
+  readonly assignmentState: 'assigned' | 'unassigned';
+  readonly assignmentType: 'work' | 'break' | null;
+  readonly targetCustomerId: string | null;
+  readonly activeAssignmentId: string | null;
+}): AdministrationSetupNfcTag {
+  const common = {
+    id: nfcTag.id,
+    displayName: nfcTag.displayName,
+    validationFingerprint: nfcTag.validationFingerprint,
+  };
+  switch (nfcTag.assignmentType) {
+    case 'work':
+      if (
+        nfcTag.assignmentState !== 'assigned'
+        || nfcTag.targetCustomerId === null
+        || nfcTag.activeAssignmentId === null
+      ) throw new TypeError('Work NFC Tag has an invalid setup projection shape');
+      return {
+        ...common,
+        assignmentState: 'assigned',
+        assignmentType: 'work',
         targetCustomerId: nfcTag.targetCustomerId,
         activeAssignmentId: nfcTag.activeAssignmentId,
-      })),
-      nextCursor: result.nextCursor,
-    }),
-  );
+      };
+    case 'break':
+      if (
+        nfcTag.assignmentState !== 'assigned'
+        || nfcTag.targetCustomerId !== null
+        || nfcTag.activeAssignmentId === null
+      ) throw new TypeError('Break NFC Tag has an invalid setup projection shape');
+      return {
+        ...common,
+        assignmentState: 'assigned',
+        assignmentType: 'break',
+        targetCustomerId: null,
+        activeAssignmentId: nfcTag.activeAssignmentId,
+      };
+    case null:
+      if (
+        nfcTag.assignmentState !== 'unassigned'
+        || nfcTag.targetCustomerId !== null
+        || nfcTag.activeAssignmentId !== null
+      ) throw new TypeError('Unassigned NFC Tag has an invalid setup projection shape');
+      return {
+        ...common,
+        assignmentState: 'unassigned',
+        assignmentType: null,
+        targetCustomerId: null,
+        activeAssignmentId: null,
+      };
+    default:
+      return nfcTag.assignmentType satisfies never;
+  }
 }
 
 async function handleTimeEntryExport(
@@ -2454,6 +2530,7 @@ function requestRoute(url: string | undefined): Route | null {
   if (url === ADMIN_SETUP_PROJECTION_PATH) {
     return 'admin_setup_projection';
   }
+  if (url === ADMIN_SETUP_PROJECTION_V2_PATH) return 'admin_setup_projection_v2';
   if (url === SESSION_PATH) {
     return 'session';
   }
@@ -2512,6 +2589,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_provision_break_nfc_tag':
     case 'admin_reassign_nfc_tag':
     case 'admin_setup_projection':
+    case 'admin_setup_projection_v2':
     case 'admin_project_query':
     case 'admin_project_create':
     case 'admin_project_deactivate':
@@ -2577,6 +2655,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_provision_break_nfc_tag'
     || route === 'admin_reassign_nfc_tag'
     || route === 'admin_setup_projection'
+    || route === 'admin_setup_projection_v2'
     || route === 'admin_time_entry_export'
     || route === 'time_entry_export_v2'
     || route === 'time_entry_export_v3'

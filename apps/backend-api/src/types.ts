@@ -261,6 +261,7 @@ export type BackendApiRoute =
   | 'admin_provision_break_nfc_tag'
   | 'admin_reassign_nfc_tag'
   | 'admin_setup_projection'
+  | 'admin_setup_projection_v2'
   | 'admin_time_entry_export'
   | 'time_entry_export_v2'
   | 'time_entry_export_v3'

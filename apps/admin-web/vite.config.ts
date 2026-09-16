@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => {
   }
   return {
     plugins: [react()],
-    server: proxyTarget === undefined ? undefined : { proxy: { '/v1': { target: proxyTarget, changeOrigin: false } } },
+    server: proxyTarget === undefined ? undefined : {
+      proxy: {
+        '/v1': { target: proxyTarget, changeOrigin: false },
+        '/v2': { target: proxyTarget, changeOrigin: false },
+      },
+    },
   };
 });

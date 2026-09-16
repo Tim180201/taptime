@@ -16,6 +16,8 @@ const projection: SafeProjection = {
   customers: [{ id: '40000000-0000-4000-8000-000000000001', displayName: 'Werkstatt', active: true }],
   nfcTags: [],
   nextCursor: null,
+  customersComplete: true,
+  nfcTagsComplete: true,
 };
 const employeeProjection: SafeEmployeeProjection = {
   organization: projection.organization,
@@ -186,7 +188,7 @@ describe('AdminWebCoordinator', () => {
 
   it('keeps recovery authority when the mandatory password-reset audit cannot be recorded', async () => {
     const { auth, api, coordinator } = setup();
-    api.recordPasswordReset.mockResolvedValueOnce({ status: 'unavailable' });
+    api.recordPasswordReset.mockResolvedValueOnce({ status: 'unreachable' });
     auth.emitPasswordRecovery();
 
     await coordinator.completePasswordRecovery('new-memory-secret');
@@ -444,6 +446,8 @@ describe('AdminWebCoordinator', () => {
         customers: [{ id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
         nfcTags: [],
         nextCursor: null,
+        customersComplete: true,
+        nfcTagsComplete: true,
       },
     });
 
@@ -460,6 +464,8 @@ describe('AdminWebCoordinator', () => {
         customers: [...projection.customers, { id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
         nfcTags: [],
         nextCursor: null,
+        customersComplete: true,
+        nfcTagsComplete: true,
       },
     });
   });
@@ -533,6 +539,8 @@ describe('AdminWebCoordinator', () => {
         customers: [{ id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
         nfcTags: [],
         nextCursor: null,
+        customersComplete: true,
+        nfcTagsComplete: true,
       },
       {
         ...projection,
@@ -700,6 +708,8 @@ describe('AdminWebCoordinator', () => {
         }],
         nfcTags: [],
         nextCursor: null,
+        customersComplete: true,
+        nfcTagsComplete: true,
       },
     });
 
@@ -756,7 +766,7 @@ describe('AdminWebCoordinator', () => {
     const creating = coordinator.createCustomer('Werkstatt Zwei');
     await vi.waitFor(() => expect(api.createCustomer).toHaveBeenCalledTimes(1));
     coordinator.dismissInvitation();
-    pendingCustomer.resolve({ status: 'unavailable' });
+    pendingCustomer.resolve({ status: 'unreachable' });
     await creating;
 
     expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: null });
@@ -888,13 +898,14 @@ describe('AdminWebCoordinator', () => {
         displayName: 'Eingang',
         validationFingerprint: 'A1B2C3D4E5F6',
         assignmentState: 'assigned',
+        assignmentType: 'work',
         targetCustomerId: projection.customers[0]!.id,
         activeAssignmentId: '60000000-0000-4000-8000-000000000001',
       }],
     };
     api.projection.mockResolvedValue({ status: 'succeeded', value: reassignmentProjection });
     api.reassignNfcTag
-      .mockResolvedValueOnce({ status: 'unavailable' })
+      .mockResolvedValueOnce({ status: 'unreachable' })
       .mockResolvedValueOnce({ status: 'succeeded', value: { assignmentChanged: true } });
     await coordinator.signIn('administrator@example.test', 'secret');
 
@@ -947,6 +958,7 @@ describe('AdminWebCoordinator', () => {
           displayName: 'Eingang',
           validationFingerprint: 'A1B2C3D4E5F6',
           assignmentState: 'assigned',
+          assignmentType: 'work',
           targetCustomerId: projection.customers[0]!.id,
           activeAssignmentId: assignmentId,
         }],
@@ -978,6 +990,7 @@ describe('AdminWebCoordinator', () => {
           displayName: 'Eingang',
           validationFingerprint: 'A1B2C3D4E5F6',
           assignmentState: 'assigned',
+          assignmentType: 'work',
           targetCustomerId: projection.customers[0]!.id,
           activeAssignmentId: '60000000-0000-4000-8000-000000000001',
         }],
@@ -1004,7 +1017,7 @@ describe('AdminWebCoordinator', () => {
       value: { items: [stoppedRecord], nextCursor: null },
     });
     api.correctTimeRecord
-      .mockResolvedValueOnce({ status: 'unavailable' })
+      .mockResolvedValueOnce({ status: 'unreachable' })
       .mockResolvedValueOnce({ status: 'succeeded', value: true });
     await coordinator.signIn('administrator@example.test', 'secret');
 
@@ -1183,7 +1196,7 @@ describe('AdminWebCoordinator', () => {
 
   it('keeps successful sections usable when one authenticated read area is unavailable', async () => {
     const { api, coordinator } = setup();
-    api.reviewItems.mockResolvedValueOnce({ status: 'unavailable' });
+    api.reviewItems.mockResolvedValueOnce({ status: 'unreachable' });
 
     await coordinator.signIn('administrator@example.test', 'secret');
 
@@ -1212,6 +1225,25 @@ describe('AdminWebCoordinator', () => {
       sections: { reviewItems: { status: 'ready' } },
     });
   });
+
+  it('reports a reachable but unusable setup response without claiming the service is down',
+    async () => {
+      const { api, coordinator } = setup();
+      api.projection.mockResolvedValueOnce({ status: 'invalid_response' });
+
+      await coordinator.signIn('administrator@example.test', 'secret');
+
+      expect(coordinator.getState()).toMatchObject({
+        status: 'ready',
+        sections: {
+          setup: {
+            status: 'unavailable',
+            message: 'Die Einrichtung konnte nicht übernommen werden. Die Antwort des Dienstes ist nicht verwertbar. Laden Sie den Bereich erneut.',
+          },
+          employees: { status: 'ready' },
+        },
+      });
+    });
 
   it('discards an older refresh after a newer refresh for the same Membership completes', async () => {
     const { api, coordinator } = setup();
@@ -1361,6 +1393,7 @@ describe('AdminWebCoordinator', () => {
         displayName: 'Eingang',
         validationFingerprint: 'A1B2C3D4E5F6',
         assignmentState: 'assigned',
+        assignmentType: 'work',
         targetCustomerId: projection.customers[0]!.id,
         activeAssignmentId: '60000000-0000-4000-8000-000000000001',
       }],
@@ -1440,7 +1473,7 @@ describe('AdminWebCoordinator', () => {
       fromInclusive: '2026-06-22T12:00:00.000Z',
       toExclusive: '2026-07-23T12:00:00.000Z',
     };
-    api.timeRecords.mockResolvedValueOnce({ status: 'unavailable' });
+    api.timeRecords.mockResolvedValueOnce({ status: 'unreachable' });
 
     await coordinator.refresh();
 
@@ -1467,7 +1500,7 @@ describe('AdminWebCoordinator', () => {
       null,
     );
 
-    api.exportTimeEntries.mockResolvedValueOnce({ status: 'unavailable' });
+    api.exportTimeEntries.mockResolvedValueOnce({ status: 'unreachable' });
     await coordinator.exportTimeRecords();
     expect(api.exportTimeEntries).toHaveBeenLastCalledWith(
       'memory-only-token',

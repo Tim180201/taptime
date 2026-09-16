@@ -27,7 +27,9 @@ export interface AdminNfcTagSummary {
   readonly targetCustomerId: CustomerId | null;
 }
 
-export interface AdminProjectedNfcTagSummary extends AdminNfcTagSummary {
+export interface AdminProjectedNfcTagSummary
+  extends Omit<AdminNfcTagSummary, 'assignmentType'> {
+  readonly assignmentType: 'work' | 'break' | null;
   readonly activeAssignmentId: NfcAssignmentId | null;
 }
 

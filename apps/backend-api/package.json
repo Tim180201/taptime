@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@taptime/administration-contract": "*",
     "@taptime/backend-administration": "*",
     "@taptime/backend-identity": "*",
     "@taptime/backend-lifecycle": "*",

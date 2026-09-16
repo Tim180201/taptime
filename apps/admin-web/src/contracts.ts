@@ -1,9 +1,8 @@
-export interface SafeProjection {
-  readonly organization: { readonly id: string; readonly name: string };
-  readonly customers: readonly { readonly id: string; readonly displayName: string; readonly active: boolean }[];
-  readonly nfcTags: readonly { readonly id: string; readonly displayName: string; readonly validationFingerprint: string; readonly assignmentState: 'assigned' | 'unassigned'; readonly targetCustomerId: string | null; readonly activeAssignmentId: string | null }[];
-  readonly nextCursor: string | null;
-}
+import type {
+  ParsedAdministrationSetupProjectionV2,
+} from '@taptime/administration-contract/setup-projection';
+
+export type SafeProjection = ParsedAdministrationSetupProjectionV2;
 export interface SafeEmployeeProjection {
   readonly organization: { readonly id: string; readonly name: string };
   readonly employeeMemberships: readonly {

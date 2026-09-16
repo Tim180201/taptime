@@ -71,8 +71,9 @@ jobs:
       - name: Verify Caddy replaces untrusted forwarding headers
         run: bash infrastructure/caddy/tests/taptime-caddy-forwarding.test
 
-      - name: Build offline synchronization contract for workspace type resolution
+      - name: Build shared contracts for workspace type resolution
         run: |
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-entry-export-contract

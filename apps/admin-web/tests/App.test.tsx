@@ -19,6 +19,7 @@ const tag = {
   displayName: 'Eingang',
   validationFingerprint: 'A1B2C3D4E5F6',
   assignmentState: 'assigned' as const,
+  assignmentType: 'work' as const,
   targetCustomerId: customer.id,
   activeAssignmentId: '60000000-0000-4000-8000-000000000001',
 };
@@ -60,7 +61,14 @@ function deferred<Value>() {
 
 const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
   status: 'ready',
-  projection: { organization, customers: [customer], nfcTags: [tag], nextCursor: null },
+  projection: {
+    organization,
+    customers: [customer],
+    nfcTags: [tag],
+    nextCursor: null,
+    customersComplete: true,
+    nfcTagsComplete: true,
+  },
   employeeProjection: {
     organization,
     employeeMemberships: [{
@@ -422,7 +430,10 @@ describe('professional Admin Web shell', () => {
   it('guides a new Betrieb with one primary next action', () => {
     const emptyState = {
       ...readyState,
-      projection: { organization, customers: [], nfcTags: [], nextCursor: null },
+      projection: {
+        organization, customers: [], nfcTags: [], nextCursor: null,
+        customersComplete: true, nfcTagsComplete: true,
+      },
       projects: [],
       projectsNextCursor: null,
       projectBusy: false,
@@ -452,7 +463,10 @@ describe('professional Admin Web shell', () => {
   it('does not disguise a failed initial section as a new Betrieb', () => {
     const failedEmptyState = {
       ...readyState,
-      projection: { organization, customers: [], nfcTags: [], nextCursor: null },
+      projection: {
+        organization, customers: [], nfcTags: [], nextCursor: null,
+        customersComplete: true, nfcTagsComplete: true,
+      },
       projects: [],
       projectsNextCursor: null,
       projectBusy: false,
@@ -476,7 +490,10 @@ describe('professional Admin Web shell', () => {
   it('does not treat a Betrieb with only an existing project as new', () => {
     const projectOnlyState = {
       ...readyState,
-      projection: { organization, customers: [], nfcTags: [], nextCursor: null },
+      projection: {
+        organization, customers: [], nfcTags: [], nextCursor: null,
+        customersComplete: true, nfcTagsComplete: true,
+      },
       projects: [{
         projectId: '41000000-0000-4000-8000-000000000001',
         displayName: 'Monatsabschluss',
@@ -492,6 +509,35 @@ describe('professional Admin Web shell', () => {
 
     expect(screen.queryByRole('heading', { name: 'Ihr Betrieb ist bereit' })).toBeNull();
     expect(screen.getByText('Geladene Daten ohne unbestätigte Gesamtsummen.')).toBeInTheDocument();
+  });
+
+  it('marks damaged setup row counts incomplete and identifies a valid Break Tag truthfully', () => {
+    const breakTag = {
+      id: '50000000-0000-4000-8000-000000000002',
+      displayName: 'Pause',
+      validationFingerprint: 'B1C2D3E4F5A6',
+      assignmentState: 'assigned' as const,
+      assignmentType: 'break' as const,
+      targetCustomerId: null,
+      activeAssignmentId: '60000000-0000-4000-8000-000000000002',
+    };
+    const capability = new FakeCapability({
+      ...readyState,
+      projection: {
+        ...readyState.projection,
+        nfcTags: [tag, breakTag],
+        customersComplete: false,
+        nfcTagsComplete: false,
+      },
+    });
+    window.history.replaceState(null, '', '/einrichtung');
+
+    render(<App administration={capability} />);
+
+    expect(screen.getByText('Kunden bisher geladen')).toBeInTheDocument();
+    expect(screen.getByText('NFC-Tags bisher geladen')).toBeInTheDocument();
+    expect(screen.getByText('Pausen-Tag')).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /Pause/ })).toBeNull();
   });
 
   it('clears successful form inputs by stable action identifiers, not notice wording', async () => {

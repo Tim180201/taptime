@@ -10,6 +10,7 @@ import type {
   SafeTimeRecord,
   VolatileInvitationSecret,
 } from './contracts';
+import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
 import { isCanonicalSafeTapTimeName } from './safeTapTimeName';
 
@@ -27,7 +28,6 @@ const opaqueCursor = /^[A-Za-z0-9_-]{1,512}$/;
 const projectCursor = /^v1:[A-Za-z0-9_-]{1,252}$/;
 const locationCursor = /^v1:l:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const locationSetupCursor = /^v1:(?:l|m|w:(?:customer|project|general_work)|g:[0-4]):[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const fingerprint = /^[A-F0-9]{12}$/;
 export type Session = {
   readonly membershipId: string;
   readonly organizationId: string;
@@ -37,7 +37,9 @@ export type Session = {
 };
 export type ApiResult<Value> =
   | { readonly status: 'succeeded'; readonly value: Value }
-  | { readonly status: 'rejected' | 'unavailable' }
+  | { readonly status: 'rejected' }
+  | { readonly status: 'unreachable' }
+  | { readonly status: 'invalid_response' }
   | {
       readonly status: 'conflict';
       readonly code:
@@ -193,8 +195,8 @@ export class AdminWebApiClient implements AdminWebApiPort {
     );
   }
   async projection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeProjection>> {
-    if (nextCursor !== null && !cursor.test(nextCursor)) return { status: 'unavailable' };
-    return this.request('/v1/administration/setup-projection', token, 'POST', { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 }, parseProjection);
+    if (nextCursor !== null && !cursor.test(nextCursor)) return { status: 'invalid_response' };
+    return this.request('/v2/administration/setup-projection', token, 'POST', { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 }, parseAdministrationSetupProjectionV2);
   }
   async createCustomer(token: string, membershipId: string, commandId: string, displayName: string): Promise<ApiResult<true>> {
     return this.request('/v1/administration/customers', token, 'POST', { expectedMembershipId: membershipId, commandId, displayName }, (value) => {
@@ -212,8 +214,8 @@ export class AdminWebApiClient implements AdminWebApiPort {
     nextCursor: string | null,
     locationId: string | null,
   ): Promise<ApiResult<SafeEmployeeProjection>> {
-    if (nextCursor !== null && !employeeCursor.test(nextCursor)) return { status: 'unavailable' };
-    if (locationId !== null && !uuid.test(locationId)) return { status: 'unavailable' };
+    if (nextCursor !== null && !employeeCursor.test(nextCursor)) return { status: 'invalid_response' };
+    if (locationId !== null && !uuid.test(locationId)) return { status: 'invalid_response' };
     return this.request(
       '/v2/administration/employee-memberships-projection',
       token,
@@ -308,7 +310,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     toExclusive: string,
     nextCursor: string | null,
   ): Promise<ApiResult<CursorPage<SafeTimeRecord>>> {
-    if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'unavailable' };
+    if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'invalid_response' };
     return this.request(
       '/v2/administration/time-records/query', token, 'POST',
       { expectedMembershipId: membershipId, fromInclusive, toExclusive, limit: 100, cursor: nextCursor },
@@ -324,7 +326,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     membershipId: string,
     nextCursor: string | null,
   ): Promise<ApiResult<CursorPage<SafeReviewItem>>> {
-    if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'unavailable' };
+    if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'invalid_response' };
     return this.request(
       '/v2/administration/review-items/query', token, 'POST',
       { expectedMembershipId: membershipId, limit: 100, cursor: nextCursor },
@@ -413,12 +415,12 @@ export class AdminWebApiClient implements AdminWebApiPort {
         || response.headers.get('content-type')?.split(';', 1)[0]?.trim() !== 'text/csv'
         || !hasSafeDeclaredLength(response, maximumCsvBodyBytes)
         || match === null
-      ) return { status: 'unavailable' };
+      ) return { status: 'invalid_response' };
       const blob = await readBoundedResponseBlob(response, maximumCsvBodyBytes);
-      if (blob === null) return { status: 'unavailable' };
+      if (blob === null) return { status: 'invalid_response' };
       return { status: 'succeeded', value: { blob, filename: match[1]! } };
     } catch {
-      return { status: 'unavailable' };
+      return { status: 'unreachable' };
     } finally {
       clearTimeout(timeout);
     }
@@ -429,7 +431,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     nextCursor: string | null,
   ): Promise<ApiResult<CursorPage<SafeProject>>> {
     if (nextCursor !== null && !projectCursor.test(nextCursor)) {
-      return { status: 'unavailable' };
+      return { status: 'invalid_response' };
     }
     return this.request(
       '/v1/administration/projects/query',
@@ -492,7 +494,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     membershipId: string,
     nextCursor: string | null,
   ): Promise<ApiResult<CursorPage<AdministrationLocation>>> {
-    if (nextCursor !== null && !locationCursor.test(nextCursor)) return { status: 'unavailable' };
+    if (nextCursor !== null && !locationCursor.test(nextCursor)) return { status: 'invalid_response' };
     return this.request(
       '/v1/administration/locations/query', token, 'POST',
       { expectedMembershipId: membershipId, cursor: nextCursor, limit: 100 },
@@ -508,7 +510,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<{ readonly locationsEnabled: boolean;
     readonly items: readonly unknown[]; readonly nextCursor: string | null }>> {
     if (nextCursor !== null && !locationSetupCursor.test(nextCursor)) {
-      return { status: 'unavailable' };
+      return { status: 'invalid_response' };
     }
     return this.request(
       '/v1/administration/location-setup/query', token, 'POST',
@@ -556,82 +558,96 @@ export class AdminWebApiClient implements AdminWebApiPort {
           response.redirected
           || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response, maximumResponseBytes)
-        ) return { status: 'unavailable' };
+        ) return { status: 'invalid_response' };
         const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
-        if (conflictText === null) return { status: 'unavailable' };
+        if (conflictText === null) return { status: 'invalid_response' };
         const code = parseLocationScopeError(JSON.parse(conflictText));
-        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+        return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
       if (exposeLocationSetupErrors && (response.status === 404 || response.status === 409)) {
         if (response.redirected || !isJsonContentType(response.headers.get('content-type'))
-          || !hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'unavailable' };
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'invalid_response' };
         const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
-        if (conflictText === null) return { status: 'unavailable' };
+        if (conflictText === null) return { status: 'invalid_response' };
         const code = parseLocationSetupError(JSON.parse(conflictText));
-        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+        return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
       if (exposeInvitationConflicts && response.status === 409) {
         if (
           response.redirected
           || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response, maximumResponseBytes)
-        ) return { status: 'unavailable' };
+        ) return { status: 'invalid_response' };
         const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
-        if (conflictText === null) return { status: 'unavailable' };
+        if (conflictText === null) return { status: 'invalid_response' };
         const code = parseInvitationConflict(JSON.parse(conflictText));
-        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+        return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
       if (exposeReassignmentErrors && (response.status === 404 || response.status === 409)) {
         if (
           response.redirected
           || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response, maximumResponseBytes)
-        ) return { status: 'unavailable' };
+        ) return { status: 'invalid_response' };
         const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
-        if (conflictText === null) return { status: 'unavailable' };
+        if (conflictText === null) return { status: 'invalid_response' };
         const code = parseReassignmentError(JSON.parse(conflictText), response.status);
-        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+        return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
       if (exposeTimeReviewErrors && (response.status === 409 || response.status === 422)) {
         if (
           response.redirected
           || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response, maximumResponseBytes)
-        ) return { status: 'unavailable' };
+        ) return { status: 'invalid_response' };
         const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
-        if (conflictText === null) return { status: 'unavailable' };
+        if (conflictText === null) return { status: 'invalid_response' };
         const code = parseTimeReviewError(JSON.parse(conflictText), response.status);
-        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+        return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
       if (exposeProjectErrors && (response.status === 404 || response.status === 409)) {
         if (
           response.redirected
           || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response, maximumResponseBytes)
-        ) return { status: 'unavailable' };
+        ) return { status: 'invalid_response' };
         const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
-        if (conflictText === null) return { status: 'unavailable' };
+        if (conflictText === null) return { status: 'invalid_response' };
         const code = parseProjectError(JSON.parse(conflictText));
-        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+        return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
       if (exposeMembershipErrors && (response.status === 404 || response.status === 409)) {
         if (
           response.redirected
           || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response, maximumResponseBytes)
-        ) return { status: 'unavailable' };
+        ) return { status: 'invalid_response' };
         const conflictText = await readBoundedResponseText(response, maximumResponseBytes);
-        if (conflictText === null) return { status: 'unavailable' };
+        if (conflictText === null) return { status: 'invalid_response' };
         const code = parseMembershipError(JSON.parse(conflictText));
-        return code === null ? { status: 'unavailable' } : { status: 'conflict', code };
+        return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
-      if (response.status !== 200 || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'unavailable' };
-      if (!hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'unavailable' };
+      if (response.status !== 200 || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'invalid_response' };
+      if (!hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'invalid_response' };
       const text = await readBoundedResponseText(response, maximumResponseBytes);
-      if (text === null) return { status: 'unavailable' };
-      const value = parse(JSON.parse(text)); return value === null ? { status: 'unavailable' } : { status: 'succeeded', value };
-    } catch { return { status: 'unavailable' }; } finally { clearTimeout(timeout); }
+      if (text === null) return { status: 'invalid_response' };
+      let decoded: unknown;
+      try {
+        decoded = JSON.parse(text);
+      } catch {
+        return { status: 'invalid_response' };
+      }
+      let value: Value | null;
+      try {
+        value = parse(decoded);
+      } catch {
+        return { status: 'invalid_response' };
+      }
+      return value === null ? { status: 'invalid_response' } : { status: 'succeeded', value };
+    } catch (error) {
+      return { status: error instanceof SyntaxError ? 'invalid_response' : 'unreachable' };
+    } finally { clearTimeout(timeout); }
   }
 }
 
@@ -770,33 +786,6 @@ function parseLocationSetupItem(
     && value.displayName.length >= 1 && value.displayName.length <= 300
     ? { kind: value.kind, id: String(value.id), displayName: value.displayName }
     : null;
-}
-function parseProjection(value: unknown): SafeProjection | null {
-  if (!isRecord(value) || !exact(value, ['status', 'organization', 'customers', 'nfcTags', 'nextCursor']) || value.status !== 'succeeded' || !isRecord(value.organization) || !exact(value.organization, ['id', 'name']) || !uuid.test(String(value.organization.id)) || typeof value.organization.name !== 'string' || !Array.isArray(value.customers) || !Array.isArray(value.nfcTags) || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && cursor.test(value.nextCursor)))) return null;
-  const customers = value.customers.map((x) => isRecord(x) && exact(x, ['id', 'displayName', 'active']) && uuid.test(String(x.id)) && typeof x.displayName === 'string' && typeof x.active === 'boolean' ? { id: String(x.id), displayName: x.displayName, active: x.active } : null);
-  const tags = value.nfcTags.map((x) => isRecord(x)
-    && exact(x, ['id', 'displayName', 'validationFingerprint', 'assignmentState', 'targetCustomerId', 'activeAssignmentId'])
-    && uuid.test(String(x.id))
-    && typeof x.displayName === 'string'
-    && fingerprint.test(String(x.validationFingerprint))
-    && (x.assignmentState === 'assigned' || x.assignmentState === 'unassigned')
-    && (x.targetCustomerId === null || uuid.test(String(x.targetCustomerId)))
-    && (x.activeAssignmentId === null || uuid.test(String(x.activeAssignmentId)))
-    && (
-      (x.assignmentState === 'assigned' && x.targetCustomerId !== null && x.activeAssignmentId !== null)
-      || (x.assignmentState === 'unassigned' && x.targetCustomerId === null && x.activeAssignmentId === null)
-    )
-    ? {
-        id: String(x.id),
-        displayName: x.displayName,
-        validationFingerprint: String(x.validationFingerprint),
-        assignmentState: x.assignmentState,
-        targetCustomerId: x.targetCustomerId === null ? null : String(x.targetCustomerId),
-        activeAssignmentId: x.activeAssignmentId === null ? null : String(x.activeAssignmentId),
-      }
-    : null);
-  if (customers.some((x) => x === null) || tags.some((x) => x === null)) return null;
-  return { organization: { id: String(value.organization.id), name: value.organization.name }, customers: customers as SafeProjection['customers'], nfcTags: tags as SafeProjection['nfcTags'], nextCursor: value.nextCursor };
 }
 function parseEmployeeProjection(
   value: unknown,

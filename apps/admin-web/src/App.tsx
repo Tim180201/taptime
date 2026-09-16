@@ -309,7 +309,8 @@ function Overview({
     void administration.refreshProjects?.();
   }, [administration, state.projects]);
   const cards: readonly (readonly [AdminSection, string, number, boolean])[] = ([
-    ['setup', 'Kunden geladen', state.projection.customers.length, state.projection.nextCursor === null],
+    ['setup', 'Kunden geladen', state.projection.customers.length,
+      state.projection.nextCursor === null && state.projection.customersComplete],
     ['employees', state.selectedLocation === null
       ? 'Beschäftigte geladen'
       : `Beschäftigte am Standort ${state.selectedLocation.name}`,
@@ -325,6 +326,8 @@ function Overview({
   const projectsKnown = !setupAvailable || state.projects !== undefined;
   const newOperation = setupAvailable && projectsKnown
     && !sectionUnavailable
+    && state.projection.customersComplete
+    && state.projection.nfcTagsComplete
     && state.projection.customers.length === 0
     && state.projection.nfcTags.length === 0
     && (state.projects?.length ?? 0) === 0
@@ -435,7 +438,7 @@ function SetupView({
         : null}
       <Panel title="Kunden" description="Aktive und inaktive Kunden der geladenen Seiten.">
         <CountTruth count={state.projection.customers.length} noun="Kunden"
-          complete={state.projection.nextCursor === null} />
+          complete={state.projection.nextCursor === null && state.projection.customersComplete} />
         <form className="inline-form" onSubmit={(event) => {
           event.preventDefault();
           void administration.createCustomer(customerName);
@@ -456,18 +459,22 @@ function SetupView({
           </small>
         </li>)}</ul>
         {state.projection.customers.length === 0 && state.projection.nextCursor === null
+          && state.projection.customersComplete
           ? <p className="empty">Keine Kunden vorhanden.</p> : null}
       </Panel>
       <Panel title="NFC-Tags" description="Sichere Prüffingerabdrücke statt NFC-Rohdaten.">
         <CountTruth count={state.projection.nfcTags.length} noun="NFC-Tags"
-          complete={state.projection.nextCursor === null} />
+          complete={state.projection.nextCursor === null && state.projection.nfcTagsComplete} />
         <ul className="entity-list">{state.projection.nfcTags.map((tag) => <li key={tag.id}>
           <div><span>{tag.displayName}</span><small>Prüffingerabdruck {tag.validationFingerprint}</small></div>
-          <small>{tag.targetCustomerId === null
-            ? 'Nicht zugeordnet'
-            : customerNameById.get(tag.targetCustomerId) ?? 'Zugeordnet'}</small>
+          <small>{tag.assignmentType === 'break'
+            ? 'Pausen-Tag'
+            : tag.assignmentType === null
+              ? 'Nicht zugeordnet'
+              : customerNameById.get(tag.targetCustomerId) ?? 'Zugeordnet'}</small>
         </li>)}</ul>
         {state.projection.nfcTags.length === 0 && state.projection.nextCursor === null
+          && state.projection.nfcTagsComplete
           ? <p className="empty">Keine NFC-Tags registriert.</p> : null}
       </Panel>
       <Panel title="Projekte" description="Eigenständige Arbeitsziele ohne Kundenbeziehung.">
@@ -527,7 +534,7 @@ function SetupView({
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTagId(event.target.value)}>
               <option value="">NFC-Tag auswählen</option>
-              {state.projection.nfcTags.filter((tag) => tag.assignmentState === 'assigned')
+              {state.projection.nfcTags.filter((tag) => tag.assignmentType === 'work')
                 .map((tag) => <option key={tag.id} value={tag.id}>
                   {tag.displayName} · {tag.validationFingerprint}
                 </option>)}

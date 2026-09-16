@@ -165,6 +165,7 @@ describe('C3C exact administration transport', () => {
       displayName: maximumName,
       validationFingerprint: 'ABCDEF123456',
       assignmentState: 'unassigned' as const,
+      assignmentType: null,
       targetCustomerId: null,
       activeAssignmentId: null,
     }));
@@ -200,6 +201,59 @@ describe('C3C exact administration transport', () => {
       status: 'succeeded',
       nextCursor: 'v1:t:50000000-0000-4000-8000-000000000010',
     });
+    expect(JSON.parse(response.text).nfcTags[0]).toHaveProperty('assignmentType', null);
+  });
+
+  it('keeps the Mobile v1 shape and exposes the same closed Tag contract through Web v2',
+    async () => {
+      const result = {
+        status: 'succeeded' as const,
+        organization: { id: OrganizationId(ids.organization), name: 'TapTim.e' },
+        customers: [{ id: CustomerId(ids.customer), displayName: 'Werkstatt', active: true }],
+        nfcTags: [
+          {
+            id: NfcTagId(ids.tag),
+            displayName: 'Eingang',
+            validationFingerprint: 'A1B2C3D4E5F6',
+            assignmentState: 'assigned' as const,
+            assignmentType: 'work' as const,
+            targetCustomerId: CustomerId(ids.customer),
+            activeAssignmentId: NfcAssignmentId(ids.assignment),
+          },
+          {
+            id: NfcTagId('15dd0000-0000-4000-8000-000000000302'),
+            displayName: 'Pause',
+            validationFingerprint: 'B1C2D3E4F5A6',
+            assignmentState: 'assigned' as const,
+            assignmentType: 'break' as const,
+            targetCustomerId: null,
+            activeAssignmentId: NfcAssignmentId('16ee0000-0000-4000-8000-000000000302'),
+          },
+          {
+            id: NfcTagId('15dd0000-0000-4000-8000-000000000303'),
+            displayName: 'Reserve',
+            validationFingerprint: 'C1D2E3F4A5B6',
+            assignmentState: 'unassigned' as const,
+            assignmentType: null,
+            targetCustomerId: null,
+            activeAssignmentId: null,
+          },
+        ],
+        nextCursor: null,
+      };
+      const origin = await startServer(administrationCoordinator({
+        async readSetupProjection() { return result; },
+      }));
+
+      const v1 = JSON.parse((await postJson(
+        origin, '/v1/administration/setup-projection', projectionBody(),
+      )).text);
+      const v2 = JSON.parse((await postJson(
+        origin, '/v2/administration/setup-projection', projectionBody(),
+      )).text);
+
+      expect(v1.nfcTags).toEqual(result.nfcTags);
+      expect(v2.nfcTags).toEqual(result.nfcTags);
   });
 
   it('returns every named Location activation gap through the closed setup projection', async () => {
@@ -360,6 +414,7 @@ describe('C3C exact administration transport', () => {
         ['/v1/administration/customers', customerBody()],
         ['/v1/administration/nfc-tags/provision', tagBody()],
         ['/v1/administration/setup-projection', projectionBody()],
+        ['/v2/administration/setup-projection', projectionBody()],
       ] as const;
       for (const [path, body] of cases) {
         const response = await postJson(origin, path, body, {
@@ -497,6 +552,7 @@ describe('C3C exact administration transport', () => {
     ['GET', '/v1/administration/customers', 405, 'POST'],
     ['GET', '/v1/administration/nfc-tags/provision', 405, 'POST'],
     ['GET', '/v1/administration/setup-projection', 405, 'POST'],
+    ['GET', '/v2/administration/setup-projection', 405, 'POST'],
     ['POST', '/v1/administration/customers/', 404, undefined],
     ['POST', '/v1/administration/setup-projection?cursor=x', 404, undefined],
     ['POST', '/v1/administration/nfc-tags', 404, undefined],
