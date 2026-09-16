@@ -964,3 +964,18 @@ Committen und Bauen", und die Geraeteabnahme folgt danach. Scheitert sie,
 wird gemeldet und zurueckgenommen oder nachgebessert — aber nicht aus einem
 schmutzigen Arbeitsverzeichnis gebaut. Ein Abbild, das keinem Commit
 entspricht, ist nicht nachvollziehbar und darf nie auf ein Geraet.
+
+---
+
+## D-045 · Befund: Eine strenge Pruefung ohne Nahttest bricht leise
+
+16.09. — Der Bereich Einrichtung war unbenutzbar, sobald ein Pausen-Tag
+existierte: das Backend liefert ihn als zugeordnet ohne Kunden
+(AdminWriteSessionCoordinator.ts:763-776), der Parser im Admin-Web verlangt
+fuer zugeordnete Tags einen Kunden (AdminWebApiClient.ts:786), und ein
+einziger nicht lesbarer Tag verwirft die gesamte Projektion. Eingefuehrt mit
+Migration 017, unbemerkt bis zum ersten Geraetetest. Der Client prueft
+Antworten auf exakte Feldmengen — damit ist keine additive Aenderung
+vertraeglich, und es gab keinen Test, der Backend-Antwort und Parser
+gegeneinander haelt. Regel daraus: Wo zwei Seiten einen Vertrag teilen, muss
+ein Test die Naht pruefen, nicht jede Seite nur sich selbst.

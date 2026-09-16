@@ -2,7 +2,7 @@
 
 > **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
 
-**Stand:** 15.09.2026 · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+**Stand:** 16.09.2026 · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
 
 **Freigabebedingung:** Fertig ist, wenn ein korrekt ausgeliefertes und nachweislich
 wiederherstellbares System einen vollständigen Monatsabschluss übersteht — nicht, wenn eine
@@ -94,7 +94,10 @@ danach Firma, Recht und Store.
   SM-A336B mit Android 15: zehn von elf Schritten bestanden. Die vollständige Kette bis zur
   CSV-Zeile und der Offline-Weg tragen; offen bleibt Schritt 11, weil ein Tag bei geschlossener
   App den Android-Auswahldialog mit mehreren Kandidaten öffnet. T-043 hat Resolverkonflikt und
-  verworfenen Cold-Start getrennt; T-045 behebt zuerst den Cold-Start.
+  verworfenen Cold-Start getrennt; der Resolverkonflikt bleibt als T-043 offen.
+- **T-045 Cold-Start-NFC — abgeschlossen.** Der startauslösende Intent wird genau einmal unter
+  der durch diesen Prozessstart entstandenen Berechtigung verarbeitet. Der Product Owner hat den
+  kalten Start am Gerät um 11:15:21 mit dem sichtbaren Ergebnis „Arbeitszeit gestoppt“ belegt.
 - **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
 
 **Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
@@ -116,10 +119,11 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-045 — Der startauslösende Intent gehört zur neuen Berechtigung.** Der Cold-Start-Intent darf
-nicht von der erst danach gesetzten Authority-Grenze als alt verworfen werden. Fremde Identität
-oder Mitgliedschaft, ein früherer Gerätestart und nicht startursächliche alte Erfassungen bleiben
-ausgeschlossen. Der Android-Auswahldialog aus T-043 bleibt als getrennte Reparatur sichtbar.
+**T-046 — Der Einrichtungsvertrag trägt Pausen-Tags und beschädigte Einzelzeilen.** Die
+versionierte Einrichtungsprojektion bildet Arbeits-, Pausen- und unzugeordnete Tags ausdrücklich
+ab. Ein gemeinsamer Nahttest hält Backend-Antwort und Web-Parser zusammen; eine unlesbare
+Listenzeile macht nur die ausgewiesene Anzahl unvollständig, eine unlesbare Hülle weiterhin den
+ganzen Bereich. Netzfehler und unverwertbare Antworten werden wahrheitsgemäß unterschieden.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
