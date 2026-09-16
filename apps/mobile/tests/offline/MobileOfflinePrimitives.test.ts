@@ -96,6 +96,7 @@ describe('Mobile complete-offline primitives', () => {
   it('validates the native same-boot sample and rejects impossible native values', async () => {
     const sample = {
       bootMarker: 'a'.repeat(64),
+      processStartElapsedRealtimeMilliseconds: 123_000,
       elapsedRealtimeMilliseconds: 123_456,
     };
     const clock = new AndroidMonotonicClock({ sample: vi.fn(async () => sample) });
@@ -107,6 +108,10 @@ describe('Mobile complete-offline primitives', () => {
     expect(validateAndroidMonotonicSample({
       ...sample,
       bootMarker: 'x'.repeat(257),
+    })).toBeNull();
+    expect(validateAndroidMonotonicSample({
+      ...sample,
+      processStartElapsedRealtimeMilliseconds: 123_457,
     })).toBeNull();
   });
 });

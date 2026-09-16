@@ -18,6 +18,8 @@ export interface NativeNfcIngressSource {
 
 export interface NativeNfcIngressCaptureEvidence {
   readonly bootMarker: string;
+  readonly intentOrigin: 'process_start_intent' | 'activity_delivery_intent';
+  readonly processStartElapsedRealtimeMilliseconds: number;
   readonly elapsedRealtimeMilliseconds: number;
 }
 
@@ -35,8 +37,17 @@ export class NativeNfcIngressCapturePort {
         evidence === null
         || typeof evidence.bootMarker !== 'string'
         || evidence.bootMarker.length < 1
+        || new TextEncoder().encode(evidence.bootMarker).length > 256
+        || (
+          evidence.intentOrigin !== 'process_start_intent'
+          && evidence.intentOrigin !== 'activity_delivery_intent'
+        )
+        || !Number.isSafeInteger(evidence.processStartElapsedRealtimeMilliseconds)
+        || evidence.processStartElapsedRealtimeMilliseconds < 0
         || !Number.isSafeInteger(evidence.elapsedRealtimeMilliseconds)
         || evidence.elapsedRealtimeMilliseconds < 0
+        || evidence.processStartElapsedRealtimeMilliseconds
+          > evidence.elapsedRealtimeMilliseconds
       ) {
         this.source.clear();
         return null;
@@ -75,6 +86,8 @@ export interface NativeNfcIngressScanCapability {
 }
 
 export interface NativeNfcIngressAuthorityReader {
+  bindNativeNfcIngressRuntimeStart(): void;
+  unbindNativeNfcIngressRuntimeStart(): void;
   captureNativeNfcIngressAuthority(
     evidence: NativeNfcIngressCaptureEvidence,
   ): Promise<object | null>;
@@ -102,6 +115,7 @@ export class NativeNfcIngressLifecycle {
 
   start(): void {
     if (this.interval !== null) return;
+    this.authority.bindNativeNfcIngressRuntimeStart();
     void this.tick();
     this.interval = this.schedule(() => void this.tick(), 250);
   }
@@ -110,6 +124,7 @@ export class NativeNfcIngressLifecycle {
     if (this.interval !== null) this.unschedule(this.interval);
     this.interval = null;
     this.checking = false;
+    this.authority.unbindNativeNfcIngressRuntimeStart();
     this.ingress.clear();
   }
 
@@ -129,6 +144,9 @@ export class NativeNfcIngressLifecycle {
         || !this.authority.isNativeNfcIngressAuthorityCurrent(authority)
         || currentEvidence === null
         || currentEvidence.bootMarker !== evidence.bootMarker
+        || currentEvidence.intentOrigin !== evidence.intentOrigin
+        || currentEvidence.processStartElapsedRealtimeMilliseconds
+          !== evidence.processStartElapsedRealtimeMilliseconds
         || currentEvidence.elapsedRealtimeMilliseconds
           !== evidence.elapsedRealtimeMilliseconds
       ) {

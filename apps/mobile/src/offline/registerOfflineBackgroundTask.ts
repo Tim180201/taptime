@@ -1,5 +1,6 @@
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
+import NativeNfcIngress from '../../modules/taptime-nfc-ingress';
 import {
   OFFLINE_BACKGROUND_MINIMUM_INTERVAL_MINUTES,
 } from '@taptime/offline-sync-contract';
@@ -12,6 +13,8 @@ let activeScheduler: OfflineSyncScheduler | null = null;
 
 if (!TaskManager.isTaskDefined(OFFLINE_BACKGROUND_TASK_NAME)) {
   TaskManager.defineTask(OFFLINE_BACKGROUND_TASK_NAME, async ({ error }) => {
+    // A WorkManager-started headless process cannot lend start provenance to a later NFC Intent.
+    NativeNfcIngress.closeProcessStartIntentWindow();
     if (error !== null || activeScheduler === null) {
       return BackgroundTask.BackgroundTaskResult.Failed;
     }

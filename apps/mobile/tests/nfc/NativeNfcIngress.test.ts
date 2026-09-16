@@ -6,6 +6,7 @@ vi.mock('../../modules/taptime-nfc-ingress', () => ({
     readPendingEvidence: () => null,
     consume: () => null,
     clear() {},
+    closeProcessStartIntentWindow() {},
   },
 }));
 import {
@@ -16,6 +17,8 @@ import {
 describe('Native NFC ingress', () => {
   const pendingEvidence = Object.freeze({
     bootMarker: 'boot-a',
+    intentOrigin: 'activity_delivery_intent' as const,
+    processStartElapsedRealtimeMilliseconds: 10,
     elapsedRealtimeMilliseconds: 42,
   });
 
@@ -59,6 +62,22 @@ describe('Native NFC ingress', () => {
     expect(port.consume()).toBeNull();
   });
 
+  it('fails closed when native process-start evidence is inconsistent', () => {
+    const source = {
+      hasPending: vi.fn(() => true),
+      readPendingEvidence: vi.fn(() => ({
+        ...pendingEvidence,
+        intentOrigin: 'process_start_intent' as const,
+        processStartElapsedRealtimeMilliseconds: 43,
+      })),
+      consume: vi.fn(() => null),
+      clear: vi.fn(),
+    };
+
+    expect(new NativeNfcIngressCapturePort(source).readPendingEvidence()).toBeNull();
+    expect(source.clear).toHaveBeenCalledOnce();
+  });
+
   it('routes a pending capture through the product scan capability', async () => {
     const timer: { callback?: () => void } = {};
     let pending = true;
@@ -72,6 +91,8 @@ describe('Native NFC ingress', () => {
       scan: vi.fn(async () => { pending = false; }),
     };
     const authority = {
+      bindNativeNfcIngressRuntimeStart: vi.fn(),
+      unbindNativeNfcIngressRuntimeStart: vi.fn(),
       captureNativeNfcIngressAuthority: vi.fn(async () => authoritySnapshot),
       isNativeNfcIngressAuthorityCurrent: vi.fn(() => true),
     };
@@ -92,6 +113,8 @@ describe('Native NFC ingress', () => {
     await Promise.resolve();
     expect(scan.scan).toHaveBeenCalledTimes(1);
     lifecycle.stop();
+    expect(authority.bindNativeNfcIngressRuntimeStart).toHaveBeenCalledOnce();
+    expect(authority.unbindNativeNfcIngressRuntimeStart).toHaveBeenCalledOnce();
     expect(ingress.clear).toHaveBeenCalledOnce();
     expect(scan.scan).toHaveBeenCalledWith();
     expect(authority.captureNativeNfcIngressAuthority)
@@ -100,31 +123,25 @@ describe('Native NFC ingress', () => {
       .toHaveBeenCalledWith(authoritySnapshot);
   });
 
-  it('discards a Tag captured before new authority when its first poll is after login-ready', async () => {
+  it('processes the process-start Tag under the authority restored by that same start, because no earlier process-local authority can own it', async () => {
     let pending = true;
-    const preLoginEvidence = Object.freeze({
+    const processStartEvidence = Object.freeze({
       bootMarker: 'boot-a',
+      intentOrigin: 'process_start_intent' as const,
+      processStartElapsedRealtimeMilliseconds: 50,
       elapsedRealtimeMilliseconds: 100,
     });
-    const authoritySnapshot = Object.freeze({
-      generation: 2,
-      validFromBootMarker: 'boot-a',
-      validFromElapsedRealtimeMilliseconds: 200,
-    });
+    const authoritySnapshot = Object.freeze({ generation: 2 });
     const ingress = {
       hasPending: vi.fn(() => pending),
-      readPendingEvidence: vi.fn(() => pending ? preLoginEvidence : null),
+      readPendingEvidence: vi.fn(() => pending ? processStartEvidence : null),
       clear: vi.fn(() => { pending = false; }),
     };
     const scan = { scan: vi.fn(async () => { pending = false; }) };
     const authority = {
-      captureNativeNfcIngressAuthority: vi.fn(async (evidence: typeof preLoginEvidence) => (
-        evidence.bootMarker === authoritySnapshot.validFromBootMarker
-        && evidence.elapsedRealtimeMilliseconds
-          >= authoritySnapshot.validFromElapsedRealtimeMilliseconds
-          ? authoritySnapshot
-          : null
-      )),
+      bindNativeNfcIngressRuntimeStart: vi.fn(),
+      unbindNativeNfcIngressRuntimeStart: vi.fn(),
+      captureNativeNfcIngressAuthority: vi.fn(async () => authoritySnapshot),
       isNativeNfcIngressAuthorityCurrent: vi.fn(
         (candidate) => candidate === authoritySnapshot,
       ),
@@ -139,45 +156,75 @@ describe('Native NFC ingress', () => {
       vi.fn() as typeof clearInterval,
     );
 
-    // The native slot predates login; the lifecycle starts only after login is ready.
+    // The coordinator owns the eligibility decision; this layer preserves its one-shot route.
     lifecycle.start();
     await Promise.resolve();
-    expect(ingress.clear).toHaveBeenCalledOnce();
-    expect(scan.scan).not.toHaveBeenCalled();
+    expect(scan.scan).toHaveBeenCalledOnce();
+    expect(ingress.clear).not.toHaveBeenCalled();
     expect(authority.captureNativeNfcIngressAuthority)
-      .toHaveBeenCalledWith(preLoginEvidence);
+      .toHaveBeenCalledWith(processStartEvidence);
   });
 
-  it.each(['sign-out', 'session replacement', 'Membership mismatch', 'runtime generation'])(
-    'clears a pending Tag when %s invalidates the captured authority',
-    async () => {
-      const authoritySnapshot = Object.freeze({ generation: 3 });
-      const ingress = {
-        hasPending: vi.fn(() => true),
-        readPendingEvidence: vi.fn(() => pendingEvidence),
-        clear: vi.fn(),
-      };
-      const scan = { scan: vi.fn(async () => undefined) };
-      const lifecycle = new NativeNfcIngressLifecycle(
-        ingress,
-        scan,
-        {
-          captureNativeNfcIngressAuthority: async () => authoritySnapshot,
-          isNativeNfcIngressAuthorityCurrent: () => false,
-        },
-        vi.fn(() => (
-          1 as unknown as ReturnType<typeof setInterval>
-        )) as unknown as typeof setInterval,
-        vi.fn() as typeof clearInterval,
-      );
+  it('discards a pending Tag when the coordinator rejects its authority', async () => {
+    const ingress = {
+      hasPending: vi.fn(() => true),
+      readPendingEvidence: vi.fn(() => pendingEvidence),
+      clear: vi.fn(),
+    };
+    const scan = { scan: vi.fn(async () => undefined) };
+    const authority = {
+      bindNativeNfcIngressRuntimeStart: vi.fn(),
+      unbindNativeNfcIngressRuntimeStart: vi.fn(),
+      captureNativeNfcIngressAuthority: vi.fn(async () => null),
+      isNativeNfcIngressAuthorityCurrent: vi.fn(() => false),
+    };
+    const lifecycle = new NativeNfcIngressLifecycle(
+      ingress,
+      scan,
+      authority,
+      vi.fn(() => (
+        1 as unknown as ReturnType<typeof setInterval>
+      )) as unknown as typeof setInterval,
+      vi.fn() as typeof clearInterval,
+    );
 
-      lifecycle.start();
-      await Promise.resolve();
+    // Boot, process, origin, and identity boundaries are real coordinator tests; this layer clears.
+    lifecycle.start();
+    await Promise.resolve();
 
-      expect(ingress.clear).toHaveBeenCalledOnce();
-      expect(scan.scan).not.toHaveBeenCalled();
-    },
-  );
+    expect(ingress.clear).toHaveBeenCalledOnce();
+    expect(scan.scan).not.toHaveBeenCalled();
+  });
+
+  it('clears a pending Tag when the captured authority is no longer current', async () => {
+    const authoritySnapshot = Object.freeze({ generation: 3 });
+    const ingress = {
+      hasPending: vi.fn(() => true),
+      readPendingEvidence: vi.fn(() => pendingEvidence),
+      clear: vi.fn(),
+    };
+    const scan = { scan: vi.fn(async () => undefined) };
+    const lifecycle = new NativeNfcIngressLifecycle(
+      ingress,
+      scan,
+      {
+        bindNativeNfcIngressRuntimeStart() {},
+        unbindNativeNfcIngressRuntimeStart() {},
+        captureNativeNfcIngressAuthority: async () => authoritySnapshot,
+        isNativeNfcIngressAuthorityCurrent: () => false,
+      },
+      vi.fn(() => (
+        1 as unknown as ReturnType<typeof setInterval>
+      )) as unknown as typeof setInterval,
+      vi.fn() as typeof clearInterval,
+    );
+
+    lifecycle.start();
+    await Promise.resolve();
+
+    expect(ingress.clear).toHaveBeenCalledOnce();
+    expect(scan.scan).not.toHaveBeenCalled();
+  });
 
   it('consumes one pending Tag under the exact current offline-restoration authority', async () => {
     const timer: { callback?: () => void } = {};
@@ -197,6 +244,8 @@ describe('Native NFC ingress', () => {
       ingress,
       scan,
       {
+        bindNativeNfcIngressRuntimeStart() {},
+        unbindNativeNfcIngressRuntimeStart() {},
         captureNativeNfcIngressAuthority: async () => restorationAuthority,
         isNativeNfcIngressAuthorityCurrent: (candidate) => candidate === restorationAuthority,
       },
@@ -231,6 +280,8 @@ describe('Native NFC ingress', () => {
       ingress,
       scan,
       {
+        bindNativeNfcIngressRuntimeStart() {},
+        unbindNativeNfcIngressRuntimeStart() {},
         captureNativeNfcIngressAuthority: () => restoration.promise,
         isNativeNfcIngressAuthorityCurrent: (candidate) => candidate === laterAuthority,
       },
@@ -259,19 +310,64 @@ describe('Native NFC ingress', () => {
     ), 'utf8');
     const capture = source.slice(
       source.indexOf('fun captureIntent'),
+      source.indexOf('private fun stripNfcExtras'),
+    );
+    const stripping = source.slice(
+      source.indexOf('private fun stripNfcExtras'),
       source.indexOf('fun consume'),
     );
+    const stripCall = capture.indexOf('stripNfcExtras(intent)');
     const pendingExit = capture.indexOf('if (pending != null) return');
     const invalidUidExit = capture.indexOf('if (uid.isEmpty() || uid.size > 32) return');
 
     for (const extra of ['EXTRA_TAG', 'EXTRA_ID', 'EXTRA_NDEF_MESSAGES']) {
-      const removal = capture.indexOf(`intent.removeExtra(NfcAdapter.${extra})`);
+      const removal = stripping.indexOf(`intent.removeExtra(NfcAdapter.${extra})`);
       expect(removal).toBeGreaterThan(-1);
-      expect(removal).toBeLessThan(pendingExit);
-      expect(removal).toBeLessThan(invalidUidExit);
     }
+    expect(stripCall).toBeGreaterThan(-1);
+    expect(stripCall).toBeLessThan(pendingExit);
+    expect(stripCall).toBeLessThan(invalidUidExit);
     expect(capture.match(/getParcelableExtra<Tag>/g)).toHaveLength(1);
     expect(capture.indexOf('tag?.id?.copyOf()')).toBeGreaterThan(pendingExit);
+  });
+
+  it('keeps restored queued newIntent eligible only until first post-resume', () => {
+    const source = readFileSync(new URL(
+      '../../modules/taptime-nfc-ingress/android/src/main/java/com/taptime/nfcingress/TapTimeNfcIngressModule.kt',
+      import.meta.url,
+    ), 'utf8');
+    const activityCreate = source.slice(
+      source.indexOf('fun captureActivityCreateIntent'),
+      source.indexOf('fun captureActivityDeliveryIntent'),
+    );
+    const activityDelivery = source.slice(
+      source.indexOf('fun captureActivityDeliveryIntent'),
+      source.indexOf('fun closeProcessStartIntentWindow'),
+    );
+    const closeWindow = source.slice(
+      source.indexOf('fun closeProcessStartIntentWindow'),
+      source.indexOf('private fun claimProcessStartIntentOrigin'),
+    );
+
+    expect(activityCreate).toContain('isRestoredCreation && !isNfcIntent');
+    expect(activityCreate).toContain('captureIntent(intent, claimProcessStartIntentOrigin())');
+    expect(activityDelivery).toContain(
+      'captureIntent(intent, claimProcessStartIntentOrigin())',
+    );
+    expect(closeWindow).toContain('processStartIntentWindowOpen = false');
+  });
+
+  it('closes process-start provenance before the known WorkManager headless path runs', () => {
+    const source = readFileSync(new URL(
+      '../../src/offline/registerOfflineBackgroundTask.ts',
+      import.meta.url,
+    ), 'utf8');
+    const callback = source.slice(source.indexOf('TaskManager.defineTask'));
+
+    expect(callback.indexOf('NativeNfcIngress.closeProcessStartIntentWindow()'))
+      .toBeGreaterThan(-1);
+    expect(callback.indexOf('NativeNfcIngress.closeProcessStartIntentWindow()'))
+      .toBeLessThan(callback.indexOf('if (error !== null'));
   });
 
   it('exposes capture-time authority evidence without exposing the raw UID', () => {
@@ -285,8 +381,10 @@ describe('Native NFC ingress', () => {
     );
 
     expect(evidenceFunction).toContain('"bootMarker" to bootMarker');
+    expect(evidenceFunction).toContain('"intentOrigin" to capture.intentOrigin');
+    expect(evidenceFunction).toContain('"processStartElapsedRealtimeMilliseconds" to');
     expect(evidenceFunction).toContain(
-      '"elapsedRealtimeMilliseconds" to elapsedRealtimeMilliseconds.toDouble()',
+      '"elapsedRealtimeMilliseconds" to capture.elapsedRealtimeMilliseconds.toDouble()',
     );
     expect(evidenceFunction).not.toMatch(/uid|wallClock/i);
   });

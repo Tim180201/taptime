@@ -243,7 +243,12 @@ class MainActivity {
     const twice = patchMainActivitySource(once);
 
     expect(twice).toBe(once);
-    expect(once).toContain('TapTimeNfcIngress.captureIntent(intent)');
+    expect(once).toContain(
+      'TapTimeNfcIngress.captureActivityCreateIntent(intent, savedInstanceState != null)',
+    );
+    expect(once).toContain('TapTimeNfcIngress.captureActivityDeliveryIntent(intent)');
+    expect(once).toContain('TapTimeNfcIngress.closeProcessStartIntentWindow()');
+    expect(once).toContain('override fun onPostResume()');
     expect(once).toContain('override fun onNewIntent(intent: Intent)');
     expect(once).not.toContain('Service');
     expect(once).not.toContain('WakeLock');
@@ -278,7 +283,35 @@ class MainActivity {
 }
 `;
     const patched = patchMainActivitySource(source);
-    expect(patched.match(/TapTimeNfcIngress\.captureIntent\(intent\)/g)).toHaveLength(2);
+    expect(patched.match(/TapTimeNfcIngress\.captureActivityCreateIntent\(/g))
+      .toHaveLength(1);
+    expect(patched.match(/TapTimeNfcIngress\.captureActivityDeliveryIntent\(/g))
+      .toHaveLength(1);
+    expect(patchMainActivitySource(patched)).toBe(patched);
+  });
+
+  it('keeps restored queued newIntent inside the process-start window until post-resume', () => {
+    const source = `package com.taptime.mobile
+
+import android.os.Bundle
+
+class MainActivity {
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+  }
+  override fun onPostResume() {
+    super.onPostResume()
+  }
+}
+`;
+    const patched = patchMainActivitySource(source);
+    const superResume = patched.indexOf('super.onPostResume()');
+    const closeWindow = patched.indexOf(
+      'TapTimeNfcIngress.closeProcessStartIntentWindow()',
+    );
+
+    expect(superResume).toBeGreaterThan(-1);
+    expect(closeWindow).toBeGreaterThan(superResume);
     expect(patchMainActivitySource(patched)).toBe(patched);
   });
 
@@ -323,15 +356,26 @@ class MainActivity {
       expect(twice).toBe(once);
       expect(once).toContain(
         'override fun onCreate(savedInstanceState: Bundle?) {\n'
-        + '    TapTimeNfcIngress.captureIntent(intent)',
+        + '    TapTimeNfcIngress.captureActivityCreateIntent('
+        + 'intent, savedInstanceState != null)',
       );
       expect(once).toContain(
         'override fun onNewIntent(intent: Intent) {\n'
         + '    super.onNewIntent(intent)\n'
         + '    setIntent(intent)\n'
-        + '    TapTimeNfcIngress.captureIntent(intent)',
+        + '    TapTimeNfcIngress.captureActivityDeliveryIntent(intent)',
       );
-      expect(once.match(/TapTimeNfcIngress\.captureIntent\(intent\)/g)).toHaveLength(2);
+      expect(once).toContain(
+        'override fun onPostResume() {\n'
+        + '    super.onPostResume()\n'
+        + '    TapTimeNfcIngress.closeProcessStartIntentWindow()',
+      );
+      expect(once.match(/TapTimeNfcIngress\.captureActivityCreateIntent\(/g))
+        .toHaveLength(1);
+      expect(once.match(/TapTimeNfcIngress\.captureActivityDeliveryIntent\(/g))
+        .toHaveLength(1);
+      expect(once.match(/TapTimeNfcIngress\.closeProcessStartIntentWindow\(\)/g))
+        .toHaveLength(1);
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }

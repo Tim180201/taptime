@@ -217,6 +217,8 @@ describe('OfflineCaptureCoordinator', () => {
     expect(coordinator.getState()).toEqual({ status: 'ready', outcome: null });
     const ingressAuthority = await coordinator.captureNativeNfcIngressAuthority({
       bootMarker: 'boot-1',
+      intentOrigin: 'activity_delivery_intent',
+      processStartElapsedRealtimeMilliseconds: 0,
       elapsedRealtimeMilliseconds: 201,
     });
     expect(ingressAuthority).not.toBeNull();
@@ -243,6 +245,8 @@ describe('OfflineCaptureCoordinator', () => {
     expect(coordinator.isNativeNfcIngressAuthorityCurrent(ingressAuthority!)).toBe(false);
     await expect(coordinator.captureNativeNfcIngressAuthority({
       bootMarker: 'boot-1',
+      intentOrigin: 'activity_delivery_intent',
+      processStartElapsedRealtimeMilliseconds: 0,
       elapsedRealtimeMilliseconds: 201,
     })).resolves.toBeNull();
   });
@@ -402,6 +406,8 @@ describe('OfflineCaptureCoordinator', () => {
       });
       const ingressAuthority = await coordinator.captureNativeNfcIngressAuthority({
         bootMarker: 'boot-1',
+        intentOrigin: 'activity_delivery_intent',
+        processStartElapsedRealtimeMilliseconds: 0,
         elapsedRealtimeMilliseconds: 600_101,
       });
       expect(ingressAuthority).not.toBeNull();
@@ -409,10 +415,55 @@ describe('OfflineCaptureCoordinator', () => {
       expect(issueComplete).not.toHaveBeenCalled();
     });
 
-  it('rejects captures before or equal to cold authority and accepts the next millisecond',
+  it('accepts the process-start Intent under the authority created by that runtime start',
     async () => {
-      let sessionState: MobileSessionState = { status: 'initializing' };
-      let authenticatedSnapshot: ProductScanSessionSnapshot | null = null;
+      const database = databaseFake({
+        initialize: vi.fn(async () => ({ status: 'ready' })),
+        hasProtectedLegacy: vi.fn(async () => false),
+        bindOwner: vi.fn(async () => ({ status: 'ready' })),
+        activateLease: vi.fn(async () => ({ status: 'ready' })),
+        queueCount: vi.fn(async () => 0),
+        close: vi.fn(async () => undefined),
+      });
+      const coordinator = new OfflineCaptureCoordinator(
+        { async scan() { return { status: 'cancelled' }; } },
+        nfcLifecycle(),
+        sessionReader({ status: 'authenticated', session }, snapshot),
+        identityStore(),
+        () => database,
+        leaseClient(),
+        new AndroidMonotonicClock({
+          async sample() {
+            return {
+              bootMarker: 'boot-1',
+              processStartElapsedRealtimeMilliseconds: 10,
+              elapsedRealtimeMilliseconds: 100,
+            };
+          },
+        }),
+        () => schedulerFake([]),
+        emptyOutbox(),
+        sequentialUuid([ids.command]),
+      );
+
+      await coordinator.start();
+      coordinator.bindNativeNfcIngressRuntimeStart();
+
+      // A just-created process has no older local authority; runtime startup binds this generation.
+      const authority = await coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        intentOrigin: 'process_start_intent',
+        processStartElapsedRealtimeMilliseconds: 10,
+        elapsedRealtimeMilliseconds: 50,
+      });
+      expect(authority).not.toBeNull();
+      expect(coordinator.isNativeNfcIngressAuthorityCurrent(authority!)).toBe(true);
+    });
+
+  it('rejects foreign identity/Membership, previous boot, process mismatch, and old non-start delivery because later authority must not adopt them',
+    async () => {
+      let sessionState: MobileSessionState = { status: 'authenticated', session };
+      let authenticatedSnapshot: ProductScanSessionSnapshot | null = snapshot;
       const sessionSubscription: { listener?: () => void } = {};
       let cancelCount = 0;
       const delayedCancel = deferred<void>();
@@ -452,7 +503,11 @@ describe('OfflineCaptureCoordinator', () => {
         leaseClient(),
         new AndroidMonotonicClock({
           async sample() {
-            return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100 };
+            return {
+              bootMarker: 'boot-1',
+              processStartElapsedRealtimeMilliseconds: 10,
+              elapsedRealtimeMilliseconds: 100,
+            };
           },
         }),
         () => schedulerFake([]),
@@ -460,14 +515,54 @@ describe('OfflineCaptureCoordinator', () => {
         sequentialUuid([ids.command]),
       );
       await coordinator.start();
-      expect(coordinator.getState()).toEqual({ status: 'inactive' });
+      coordinator.bindNativeNfcIngressRuntimeStart();
+      expect(coordinator.getState()).toEqual({ status: 'ready', outcome: null });
 
-      sessionState = { status: 'authenticated', session };
-      authenticatedSnapshot = snapshot;
+      await expect(coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-2',
+        intentOrigin: 'process_start_intent',
+        processStartElapsedRealtimeMilliseconds: 10,
+        elapsedRealtimeMilliseconds: 50,
+      })).resolves.toBeNull();
+      await expect(coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        intentOrigin: 'process_start_intent',
+        processStartElapsedRealtimeMilliseconds: 9,
+        elapsedRealtimeMilliseconds: 50,
+      })).resolves.toBeNull();
+      await expect(coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        intentOrigin: 'activity_delivery_intent',
+        processStartElapsedRealtimeMilliseconds: 10,
+        elapsedRealtimeMilliseconds: 50,
+      })).resolves.toBeNull();
+      await expect(coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        intentOrigin: 'activity_delivery_intent',
+        processStartElapsedRealtimeMilliseconds: 10,
+        elapsedRealtimeMilliseconds: 100,
+      })).resolves.toBeNull();
+      const normalAuthority = await coordinator.captureNativeNfcIngressAuthority({
+        bootMarker: 'boot-1',
+        intentOrigin: 'activity_delivery_intent',
+        processStartElapsedRealtimeMilliseconds: 10,
+        elapsedRealtimeMilliseconds: 101,
+      });
+      expect(normalAuthority).not.toBeNull();
+
+      const foreignSession = {
+        ...session,
+        userId: '10000000-0000-4000-8000-000000000002',
+        membershipId: '30000000-0000-4000-8000-000000000002',
+      } as const;
+      sessionState = { status: 'authenticated', session: foreignSession };
+      authenticatedSnapshot = { generation: 2, session: foreignSession };
       expect(sessionSubscription.listener).toBeDefined();
       sessionSubscription.listener!();
       const authorityPromise = coordinator.captureNativeNfcIngressAuthority({
         bootMarker: 'boot-1',
+        intentOrigin: 'process_start_intent',
+        processStartElapsedRealtimeMilliseconds: 10,
         elapsedRealtimeMilliseconds: 50,
       });
       let settled = false;
@@ -478,19 +573,6 @@ describe('OfflineCaptureCoordinator', () => {
       delayedCancel.resolve();
       const authority = await authorityPromise;
       expect(authority).toBeNull();
-
-      const boundaryAuthority = await coordinator.captureNativeNfcIngressAuthority({
-        bootMarker: 'boot-1',
-        elapsedRealtimeMilliseconds: 100,
-      });
-      expect(boundaryAuthority).toBeNull();
-
-      const eligibleAuthority = await coordinator.captureNativeNfcIngressAuthority({
-        bootMarker: 'boot-1',
-        elapsedRealtimeMilliseconds: 101,
-      });
-      expect(eligibleAuthority).not.toBeNull();
-      expect(coordinator.isNativeNfcIngressAuthorityCurrent(eligibleAuthority!)).toBe(true);
     });
 
   it.each([
@@ -537,6 +619,8 @@ describe('OfflineCaptureCoordinator', () => {
       expect(coordinator.getState()).toEqual({ status: 'inactive' });
       await expect(coordinator.captureNativeNfcIngressAuthority({
         bootMarker: 'boot-1',
+        intentOrigin: 'activity_delivery_intent',
+        processStartElapsedRealtimeMilliseconds: 0,
         elapsedRealtimeMilliseconds: 600_100,
       })).resolves.toBeNull();
     },

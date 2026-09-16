@@ -190,21 +190,23 @@ function patchMainActivitySource(source) {
     result = `${result.slice(0, packageLineEnd + 1)}\n${KOTLIN_IMPORT}\n${result.slice(packageLineEnd + 1)}`;
   }
   const createMarker = 'override fun onCreate(savedInstanceState: Bundle?) {';
-  if (!result.includes('TapTimeNfcIngress.captureIntent(intent)')) {
+  if (!result.includes('TapTimeNfcIngress.captureActivityCreateIntent(intent')) {
     if (!result.includes(createMarker)) {
       throw new Error('MainActivity onCreate boundary is missing');
     }
     result = result.replace(
       createMarker,
-      `${createMarker}\n    TapTimeNfcIngress.captureIntent(intent)`,
+      `${createMarker}\n    TapTimeNfcIngress.captureActivityCreateIntent(intent, savedInstanceState != null)`,
     );
   }
   const warmMarker = 'override fun onNewIntent(intent: Intent) {';
-  const captureCount = result.split('TapTimeNfcIngress.captureIntent(intent)').length - 1;
-  if (result.includes(warmMarker) && captureCount < 2) {
+  if (
+    result.includes(warmMarker)
+    && !result.includes('TapTimeNfcIngress.captureActivityDeliveryIntent(intent)')
+  ) {
     result = result.replace(
       warmMarker,
-      `${warmMarker}\n    TapTimeNfcIngress.captureIntent(intent)`,
+      `${warmMarker}\n    TapTimeNfcIngress.captureActivityDeliveryIntent(intent)`,
     );
   } else if (!result.includes(warmMarker)) {
     if (!result.includes('import android.content.Intent')) {
@@ -216,7 +218,32 @@ function patchMainActivitySource(source) {
   ${warmMarker}
     super.onNewIntent(intent)
     setIntent(intent)
-    TapTimeNfcIngress.captureIntent(intent)
+    TapTimeNfcIngress.captureActivityDeliveryIntent(intent)
+  }
+${result.slice(finalBrace)}`;
+  }
+  const postResumeMarker = 'override fun onPostResume() {';
+  const closeStartWindow = 'TapTimeNfcIngress.closeProcessStartIntentWindow()';
+  if (result.includes(postResumeMarker) && !result.includes(closeStartWindow)) {
+    const postResumeStart = result.indexOf(postResumeMarker);
+    const superCall = 'super.onPostResume()';
+    const superCallStart = result.indexOf(superCall, postResumeStart);
+    const nextOverride = result.indexOf('\n  override fun ', postResumeStart + 1);
+    if (
+      superCallStart < 0
+      || (nextOverride >= 0 && superCallStart > nextOverride)
+    ) {
+      throw new Error('MainActivity onPostResume super boundary is missing');
+    }
+    const superCallEnd = superCallStart + superCall.length;
+    result = `${result.slice(0, superCallEnd)}\n    ${closeStartWindow}${result.slice(superCallEnd)}`;
+  } else if (!result.includes(postResumeMarker)) {
+    const finalBrace = result.lastIndexOf('}');
+    if (finalBrace < 0) throw new Error('MainActivity class boundary is missing');
+    result = `${result.slice(0, finalBrace)}
+  ${postResumeMarker}
+    super.onPostResume()
+    ${closeStartWindow}
   }
 ${result.slice(finalBrace)}`;
   }

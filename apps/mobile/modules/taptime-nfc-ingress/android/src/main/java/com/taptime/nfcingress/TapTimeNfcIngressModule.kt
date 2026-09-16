@@ -13,27 +13,67 @@ import java.security.MessageDigest
 data class PendingNfcCapture(
   val uid: ByteArray,
   val wallClockMilliseconds: Long,
-  val elapsedRealtimeMilliseconds: Long
+  val elapsedRealtimeMilliseconds: Long,
+  val processStartElapsedRealtimeMilliseconds: Long,
+  val intentOrigin: String
 )
 
 object TapTimeNfcIngress {
+  private const val PROCESS_START_INTENT = "process_start_intent"
+  private const val ACTIVITY_DELIVERY_INTENT = "activity_delivery_intent"
+
   private var pending: PendingNfcCapture? = null
+  private var processStartIntentWindowOpen = true
 
   @Synchronized
-  fun captureIntent(intent: Intent?) {
+  fun captureActivityCreateIntent(intent: Intent?, isRestoredCreation: Boolean) {
+    val isHistoryLaunch = ((intent?.flags ?: 0)
+      and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
+    val isNfcIntent = intent?.action == NfcAdapter.ACTION_TECH_DISCOVERED
+    if (isHistoryLaunch || (isRestoredCreation && !isNfcIntent)) {
+      stripNfcExtras(intent)
+      return
+    }
+    captureIntent(intent, claimProcessStartIntentOrigin())
+  }
+
+  @Synchronized
+  fun captureActivityDeliveryIntent(intent: Intent?) {
+    captureIntent(intent, claimProcessStartIntentOrigin())
+  }
+
+  @Synchronized
+  fun closeProcessStartIntentWindow() {
+    processStartIntentWindowOpen = false
+  }
+
+  private fun claimProcessStartIntentOrigin(): String {
+    if (!processStartIntentWindowOpen) return ACTIVITY_DELIVERY_INTENT
+    processStartIntentWindowOpen = false
+    return PROCESS_START_INTENT
+  }
+
+  private fun captureIntent(intent: Intent?, intentOrigin: String) {
     if (intent?.action != NfcAdapter.ACTION_TECH_DISCOVERED) return
     val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
-    intent.removeExtra(NfcAdapter.EXTRA_TAG)
-    intent.removeExtra(NfcAdapter.EXTRA_ID)
-    intent.removeExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
+    stripNfcExtras(intent)
     if (pending != null) return
     val uid = tag?.id?.copyOf() ?: return
     if (uid.isEmpty() || uid.size > 32) return
     pending = PendingNfcCapture(
       uid,
       System.currentTimeMillis(),
-      SystemClock.elapsedRealtime()
+      SystemClock.elapsedRealtime(),
+      android.os.Process.getStartElapsedRealtime(),
+      intentOrigin
     )
+  }
+
+  private fun stripNfcExtras(intent: Intent?) {
+    if (intent?.action != NfcAdapter.ACTION_TECH_DISCOVERED) return
+    intent.removeExtra(NfcAdapter.EXTRA_TAG)
+    intent.removeExtra(NfcAdapter.EXTRA_ID)
+    intent.removeExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)
   }
 
   @Synchronized
@@ -47,7 +87,7 @@ object TapTimeNfcIngress {
   fun hasPending(): Boolean = pending != null
 
   @Synchronized
-  fun pendingElapsedRealtimeMilliseconds(): Long? = pending?.elapsedRealtimeMilliseconds
+  fun pendingEvidence(): PendingNfcCapture? = pending
 
   @Synchronized
   fun clear() {
@@ -74,9 +114,7 @@ class TapTimeNfcIngressModule : Module() {
     }
 
     Function("readPendingEvidence") {
-      val elapsedRealtimeMilliseconds =
-        TapTimeNfcIngress.pendingElapsedRealtimeMilliseconds()
-          ?: return@Function null
+      val capture = TapTimeNfcIngress.pendingEvidence() ?: return@Function null
       val context = appContext.reactContext
         ?: throw IllegalStateException("Android application context is unavailable")
       val bootCount = Settings.Global.getInt(
@@ -95,12 +133,19 @@ class TapTimeNfcIngressModule : Module() {
         }
       mapOf(
         "bootMarker" to bootMarker,
-        "elapsedRealtimeMilliseconds" to elapsedRealtimeMilliseconds.toDouble()
+        "intentOrigin" to capture.intentOrigin,
+        "processStartElapsedRealtimeMilliseconds" to
+          capture.processStartElapsedRealtimeMilliseconds.toDouble(),
+        "elapsedRealtimeMilliseconds" to capture.elapsedRealtimeMilliseconds.toDouble()
       )
     }
 
     Function("clear") {
       TapTimeNfcIngress.clear()
+    }
+
+    Function("closeProcessStartIntentWindow") {
+      TapTimeNfcIngress.closeProcessStartIntentWindow()
     }
   }
 }

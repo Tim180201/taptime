@@ -88,6 +88,7 @@ interface NativeNfcIngressAuthoritySnapshot {
   readonly restorationSnapshot: InternalOfflineRestorationSnapshot | null;
   readonly offlineCaptureContext: ActiveOfflineCaptureContext | null;
   readonly validFromBootMarker: string;
+  readonly processStartElapsedRealtimeMilliseconds: number | null;
   readonly validFromElapsedRealtimeMilliseconds: number;
 }
 
@@ -149,6 +150,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private offlineRestorationSnapshot: InternalOfflineRestorationSnapshot | null = null;
   private offlineCaptureContext: ActiveOfflineCaptureContext | null = null;
   private nativeNfcIngressAuthority: NativeNfcIngressAuthoritySnapshot | null = null;
+  private nativeNfcIngressRuntimeStartGeneration: number | null = null;
   private visibleTerminalOutcome: ProductScanOutcome | null = null;
   private protectedLegacy = false;
   private readonly manualAcknowledgements = new Map<string, ManualOfflineAcknowledgement>();
@@ -211,6 +213,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
     this.nativeNfcIngressAuthority = null;
+    this.nativeNfcIngressRuntimeStartGeneration = null;
     this.visibleTerminalOutcome = null;
     this.sessionTransitionFlight = null;
     this.manualAcknowledgements.clear();
@@ -240,6 +243,14 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     return flight;
   }
 
+  bindNativeNfcIngressRuntimeStart(): void {
+    this.nativeNfcIngressRuntimeStartGeneration = this.started ? this.generation : null;
+  }
+
+  unbindNativeNfcIngressRuntimeStart(): void {
+    this.nativeNfcIngressRuntimeStartGeneration = null;
+  }
+
   async captureNativeNfcIngressAuthority(
     evidence: NativeNfcIngressCaptureEvidence,
   ): Promise<object | null> {
@@ -250,12 +261,23 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     if (generation !== this.generation) return null;
     const authority = this.nativeNfcIngressAuthority;
+    const followsPublishedAuthority = authority !== null
+      && evidence.elapsedRealtimeMilliseconds
+        > authority.validFromElapsedRealtimeMilliseconds;
+    const startedCurrentRuntime = authority !== null
+      && evidence.intentOrigin === 'process_start_intent'
+      && authority.generation === this.nativeNfcIngressRuntimeStartGeneration
+      && evidence.processStartElapsedRealtimeMilliseconds
+        === authority.processStartElapsedRealtimeMilliseconds
+      && evidence.processStartElapsedRealtimeMilliseconds
+        <= evidence.elapsedRealtimeMilliseconds
+      && evidence.elapsedRealtimeMilliseconds
+        <= authority.validFromElapsedRealtimeMilliseconds;
     return authority !== null
       && this.operationFlight === null
       && canStartScan(this.state)
       && evidence.bootMarker === authority.validFromBootMarker
-      && evidence.elapsedRealtimeMilliseconds
-        > authority.validFromElapsedRealtimeMilliseconds
+      && (followsPublishedAuthority || startedCurrentRuntime)
       && this.isNativeNfcIngressAuthorityCurrent(authority)
       ? authority
       : null;
@@ -443,6 +465,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
     this.nativeNfcIngressAuthority = null;
+    this.nativeNfcIngressRuntimeStartGeneration = null;
     await this.nfcLifecycle.cancelCapture();
     if (!this.isCurrent(generation)) return;
     if (this.protectedLegacy) {
@@ -1130,6 +1153,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
     this.nativeNfcIngressAuthority = null;
+    this.nativeNfcIngressRuntimeStartGeneration = null;
     if (removeLookupKey) {
       this.manualAcknowledgements.clear();
       this.visibleTerminalOutcome = null;
@@ -1217,6 +1241,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       restorationSnapshot,
       offlineCaptureContext,
       validFromBootMarker: validFrom.bootMarker,
+      processStartElapsedRealtimeMilliseconds:
+        validFrom.processStartElapsedRealtimeMilliseconds ?? null,
       validFromElapsedRealtimeMilliseconds:
         validFrom.elapsedRealtimeMilliseconds,
     });

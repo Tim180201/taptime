@@ -8,6 +8,8 @@ export interface NativeNfcIngressCapture {
 
 export interface NativeNfcIngressCaptureEvidence {
   readonly bootMarker: string;
+  readonly intentOrigin: 'process_start_intent' | 'activity_delivery_intent';
+  readonly processStartElapsedRealtimeMilliseconds: number;
   readonly elapsedRealtimeMilliseconds: number;
 }
 
@@ -16,6 +18,7 @@ interface NativeNfcIngressModule {
   readPendingEvidence(): NativeNfcIngressCaptureEvidence | null;
   consume(): NativeNfcIngressCapture | null;
   clear(): void;
+  closeProcessStartIntentWindow(): void;
 }
 
 const nativeModule = requireOptionalNativeModule<NativeNfcIngressModule>('TapTimeNfcIngress');
@@ -31,14 +34,25 @@ export default {
       typeof evidence.bootMarker !== 'string'
       || evidence.bootMarker.length < 1
       || new TextEncoder().encode(evidence.bootMarker).length > 256
+      || (
+        evidence.intentOrigin !== 'process_start_intent'
+        && evidence.intentOrigin !== 'activity_delivery_intent'
+      )
+      || !Number.isSafeInteger(evidence.processStartElapsedRealtimeMilliseconds)
+      || evidence.processStartElapsedRealtimeMilliseconds < 0
       || !Number.isSafeInteger(evidence.elapsedRealtimeMilliseconds)
       || evidence.elapsedRealtimeMilliseconds < 0
+      || evidence.processStartElapsedRealtimeMilliseconds
+        > evidence.elapsedRealtimeMilliseconds
     ) {
       nativeModule?.clear();
       return null;
     }
     return Object.freeze({
       bootMarker: evidence.bootMarker,
+      intentOrigin: evidence.intentOrigin,
+      processStartElapsedRealtimeMilliseconds:
+        evidence.processStartElapsedRealtimeMilliseconds,
       elapsedRealtimeMilliseconds: evidence.elapsedRealtimeMilliseconds,
     });
   },
@@ -66,5 +80,8 @@ export default {
   },
   clear(): void {
     nativeModule?.clear();
+  },
+  closeProcessStartIntentWindow(): void {
+    nativeModule?.closeProcessStartIntentWindow();
   },
 } satisfies NativeNfcIngressModule;

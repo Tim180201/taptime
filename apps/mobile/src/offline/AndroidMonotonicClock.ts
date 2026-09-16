@@ -1,5 +1,7 @@
 export interface AndroidMonotonicSample {
   readonly bootMarker: string;
+  /** Present on the Android product module; absence fails the NFC process-start exception. */
+  readonly processStartElapsedRealtimeMilliseconds?: number;
   readonly elapsedRealtimeMilliseconds: number;
   /** Present on the Android product module and sampled atomically with elapsed realtime. */
   readonly wallClockMilliseconds?: number;
@@ -27,6 +29,15 @@ export function validateAndroidMonotonicSample(value: unknown): AndroidMonotonic
     || !Number.isSafeInteger(sample.elapsedRealtimeMilliseconds)
     || sample.elapsedRealtimeMilliseconds < 0
     || (
+      sample.processStartElapsedRealtimeMilliseconds !== undefined
+      && (
+        typeof sample.processStartElapsedRealtimeMilliseconds !== 'number'
+        || !Number.isSafeInteger(sample.processStartElapsedRealtimeMilliseconds)
+        || sample.processStartElapsedRealtimeMilliseconds < 0
+        || sample.processStartElapsedRealtimeMilliseconds > sample.elapsedRealtimeMilliseconds
+      )
+    )
+    || (
       sample.wallClockMilliseconds !== undefined
       && (
         typeof sample.wallClockMilliseconds !== 'number'
@@ -39,6 +50,12 @@ export function validateAndroidMonotonicSample(value: unknown): AndroidMonotonic
   }
   return {
     bootMarker: sample.bootMarker,
+    ...(sample.processStartElapsedRealtimeMilliseconds === undefined
+      ? {}
+      : {
+          processStartElapsedRealtimeMilliseconds:
+            sample.processStartElapsedRealtimeMilliseconds,
+        }),
     elapsedRealtimeMilliseconds: sample.elapsedRealtimeMilliseconds,
     ...(sample.wallClockMilliseconds === undefined
       ? {}
