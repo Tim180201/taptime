@@ -59,34 +59,40 @@ visudo -cf /etc/sudoers.d/taptime-deploy
 install -d -o root -g root -m 0755 /opt/taptime/admin-web/status
 ```
 
-### Einmaliger Wechsel auf den versionierten Betriebsweg
+### Deploy-Controller installieren oder aktualisieren
 
-Das Deploy-Skript kann sich nicht selbst ersetzen. Nach Freigabe des T-028-Commits öffnet der
-Product Owner deshalb genau einmal die Hetzner Console, meldet sich als `root` an und tippt genau
-diesen Befehl:
+Das Deploy-Skript kann sich nicht selbst ersetzen und der normale Deploy ersetzt es bewusst nie.
+Bei jeder technisch freigegebenen Controlleränderung öffnet eine ausdrücklich beauftragte Person
+nach separater Produktionsfreigabe die Hetzner Console als `root`. `abcdef0` wird durch die exakt
+freigegebene siebenstellige Revision ersetzt:
 
 ```sh
-docker run --rm -v /:/h ghcr.io/tim180201/taptime-backend-api:ops
+controller_version=abcdef0
+controller_image="ghcr.io/tim180201/taptime-backend-api:operations-$controller_version"
+docker pull "$controller_image"
+docker run --rm --volume /:/h "$controller_image"
+test "$(tr -d '\r\n' < /var/lib/taptime-deploy/operations-version)" = \
+  "$controller_version"
 ```
 
 Die vollständige Einbindung des Server-Dateisystems mit `-v /:/h` ist nur hier vertretbar:
-einmalig, durch `root` in der Hetzner Console und mit dem eigenen, geprüften Abbild. Sie gibt dem
-Container absichtlich Schreibzugriff auf den ganzen Server und gehört deshalb ausdrücklich in
-keinen automatisierten Ablauf, keine CI und keinen gewöhnlichen Deploy.
+bewusst, durch `root` in der Hetzner Console und mit dem eigenen, exakt versionierten Abbild. Sie
+gibt dem Container absichtlich Schreibzugriff auf den ganzen Server und gehört deshalb
+ausdrücklich in keinen automatisierten Ablauf, keine CI und keinen gewöhnlichen Deploy.
 
-`ops` ist nur der kurze, bewegliche Name zum Tippen. Das Abbild trägt seine siebenstellige
+`ops` ist nur ein beweglicher Hinweis auf das neueste Operations-Abbild und kein zulässiger
+Freigabenachweis für eine Controlleraktualisierung. Das exakte Abbild trägt seine siebenstellige
 Revision zusätzlich fest im Installer und in einer getrennten Versionsdatei; der Installer
 vergleicht beide, bevor er den eingebundenen Server berührt. Das beweist nur, dass das Abbild in
-sich stimmig ist — nicht, dass der bewegliche Zeiger auf den gewünschten Stand zeigt; auch ein
-veraltetes, intern stimmiges Abbild würde diese Prüfung bestehen. Danach prüft der Installer die
+sich stimmig ist. Danach prüft der Installer die
 Shell-Syntax, sichert eine vorhandene Vorgängerfassung und ersetzt Controller und aufgezeichnete
 Betriebsversion mit vollständiger Rücknahme bei einem Fehler. Derselbe Befehl ist wiederholbar
 und gilt unverändert auf einem Ersatzserver ohne vorhandenes Deploy-Skript.
 
 Docker kann vor der Abschlussmeldung mehrere Ladezeilen ausgeben; für die Bedienung zählt die
-**letzte Zeile**. Erfolg lautet `ERFOLG: Deploy-Controller <revision> installiert.`. Der Product
-Owner vergleicht die dort genannte Revision mit dem Commit, aus dem die drei Abbilder gebaut
-wurden, und fährt nur bei Gleichheit fort — nicht mit der Spitze von `main`, auf der inzwischen
+**letzte Zeile**. Erfolg lautet `ERFOLG: Deploy-Controller <revision> installiert.`. Die
+ausführende Person vergleicht die dort genannte Revision mit dem technisch freigegebenen Commit, aus dem
+die drei Abbilder gebaut wurden, und fährt nur bei Gleichheit fort — nicht mit der Spitze von `main`, auf der inzwischen
 ein `[skip ci]`-Dokumentations-Commit liegen kann. Die gesuchte Revision steht im erfolgreichen
 GitHub-Actions-Lauf *Release container images* oben beim Commit; eindeutig auslesen lässt sie
 sich mit der Run-ID aus dessen URL über
@@ -146,6 +152,43 @@ freigegebene Commit; die Rücknahmeversion steht in
 `/var/lib/taptime-deploy/current-version`, die Betriebsfassung in
 `/var/lib/taptime-deploy/operations-version`. Keine davon darf geraten werden.
 
+Vor dem ersten T-035-Deploy wird zuerst der T-035-Controller mit dem exakten Operations-Abbild
+nach dem vorigen Abschnitt installiert. Danach ergänzt `root` in der Hetzner Console mit
+`sudoedit /etc/taptime-backup/config` die folgende Liste vollständig und führt aus:
+
+```sh
+chown root:root /etc/taptime-backup/config
+chmod 0600 /etc/taptime-backup/config
+bash -n /etc/taptime-backup/config
+```
+
+Das Deploy verteilt
+bewusst keine Zugangswerte. Fehlen Basisaufbewahrung, WAL-Spool, Containerpfad,
+Replikationsslot, Archivintervall, zulässige verpasste Zyklen, WAL-Status, WAL-Cache oder die
+konfigurierten Restore-Zeiten, bricht es vor Sicherung und Migration ab. Borg-Zugang und
+Passphrase bleiben in ihren getrennten Dateien.
+Deploy und Betrieb akzeptieren ausschließlich ein entferntes `ssh://`-Borg-Ziel mit festem
+Schlüssel, Batch-Modus und strikt geprüftem Hostschlüssel; lokale Pfade und der lokale Host
+brechen vor jeder Sicherung, Archivierung oder Wiederherstellung ab.
+Diese nicht geheimen T-035-Werte werden ergänzt, ohne bestehende Zugänge oder Pfade zu
+überschreiben:
+
+```sh
+BASE_BACKUP_KEEP_HOURLY='24'
+BASE_BACKUP_KEEP_DAILY='14'
+BASE_BACKUP_KEEP_WEEKLY='8'
+BASE_BACKUP_KEEP_MONTHLY='6'
+WAL_SPOOL_DIRECTORY='/var/lib/taptime-wal'
+WAL_CONTAINER_DIRECTORY='/var/lib/postgresql/wal-archive'
+WAL_REPLICATION_SLOT='taptime_offsite_archive'
+WAL_ARCHIVE_INTERVAL_SECONDS='60'
+WAL_ARCHIVE_MISSED_CYCLES='2'
+WAL_ARCHIVE_STATUS_FILE='/var/lib/taptime-monitor/wal-archive-status.json'
+WAL_ARCHIVE_CACHE_DIRECTORY='/var/cache/taptime-wal-archive'
+RESTORE_RECOVERY_TIMEOUT_SECONDS='14400'
+RESTORE_RECOVERY_POLL_SECONDS='5'
+```
+
 ## Ausliefern
 
 Der folgende vollständige Befehl läuft auf dem Rechner der ausliefernden Person, nicht auf dem
@@ -173,9 +216,10 @@ einem getrennten Wegwerf-Container abgewiesen; der laufende Caddy wird dabei wed
 noch ersetzt. Erst nach vollständig grüner Prüfung wechselt
 `/opt/taptime/operations/current` atomar und diese Ziele verweisen auf den ausgewählten Stand:
 
-- `/usr/local/sbin/taptime-backup` und `taptime-restore-verify`
+- `/usr/local/sbin/taptime-backup`, `taptime-restore-verify`,
+  `taptime-restore-activate`, `taptime-wal-receiver` und `taptime-wal-archiver`
 - `/usr/local/sbin/taptime-immediate-monitor` und `taptime-daily-monitor`
-- alle acht zugehörigen Dateien unter `/etc/systemd/system/`
+- alle zugehörigen versionierten Einheiten unter `/etc/systemd/system/`
 - `/etc/systemd/journald.conf.d/60-taptime.conf`
 - `/opt/taptime/source/infrastructure/docker-compose.server.yml`
 - `/opt/taptime/source/infrastructure/caddy/Caddyfile`
@@ -189,10 +233,15 @@ sowie den bisherigen Operations-Zeiger wieder her.
 Das geschieht vollständig **vor** Generalprobe, Sicherung und Migration.
 
 Danach legt das Skript die vollständigen Admin-Web-Releases für Ziel und Rücknahme daneben und
-lässt die unveränderte T-007-Wiederherstellungsprüfung laufen. Unmittelbar vor
-deren Cleanup spielt ein begrenzter Hook die ausstehenden Migrationen in **denselben**
-Wegwerf-Container ein. Danach wartet das Skript auf eine frische Sicherung, migriert die
-Produktion und aktiviert Backend und Oberfläche. Die Oberfläche wechselt durch genau eine
+weist nach, dass das Zielabbild den versionierten Vertrag für verzögerte Archivquittungen trägt.
+Es prüft WAL-Mount und Datenbankvertrag getrennt. Fehlt einer von beiden, stoppt es das alte
+Backend, richtet den physischen Empfänger ein und lädt vorhandenes WAL zunächst ohne
+Datenbankquittung extern hoch. Vor der Migration erzeugt es eine frische physische Basis, belegt
+deren Start-WAL extern und probt die Wiederherstellung samt ausstehenden Migrationen in einem
+isolierten Container. Nach der Migration wiederholt es Basis, WAL-Nachweis und Restore mit dem
+aktiven versionierten Archivvertrag. Erst danach aktiviert es Backend und Oberfläche. Ein
+serverbestätigtes WorkEvent kann daher nicht in einem unarchivierten Umschaltfenster entstehen.
+Die Oberfläche wechselt durch genau eine
 Symlink-Umbenennung. Ihre `index.html` verweist ausschließlich auf
 `/releases/<version>/assets/...`; die vorherigen Releases bleiben erreichbar. Deshalb lädt auch
 ein Browser an der Umschaltgrenze alle Bausteine aus der Version seiner `index.html`. Der
@@ -211,14 +260,14 @@ Backend-Abbild, die öffentliche `/version.txt` und die vollständige öffentlic
 Anmeldekonfiguration im tatsächlich ausgelieferten Anwendungsbündel gemeinsam das Ziel belegen,
 schreibt das Skript `current-version` fort. Das
 Migrationsabbild bringt die eingefrorenen SQL-Dateien selbst mit; das Skript hält die von T-007
-geprüfte lokale Quelle dazu synchron. Wegwerf-Container und Klartext-Dump existieren nach der
-Probe nicht mehr.
+geprüfte lokale Quelle dazu synchron. Wegwerf-Container sowie die nur im tmpfs entpackte Basis
+und WAL-Kette existieren nach der Probe nicht mehr.
 
-Der belegte Lauf mit der aktuellen kleinen Datenmenge dauerte rund eine Minute; für größere
-Stände sind mehrere Minuten einzuplanen. Wiederherstellungsprobe und frische Sicherung können
-dabei minutenlang keine neue Ausgabe erzeugen; das ist kein Hänger und kein Grund zum
-Abbrechen. Die Ausgabe schreitet insgesamt von `[1/7]` bis `[7/7]` fort und endet erfolgreich
-mit `Auslieferung abgeschlossen: <vorher> -> <ziel>`.
+Für den T-035-Pfad liegt vor dem freigegebenen Produktivdeploy noch keine reale Laufzeitmessung
+vor. Basis- und WAL-Upload sowie beide Restore-Proben können minutenlang keine neue Ausgabe
+erzeugen; das ist kein Hänger und kein Grund zum Abbrechen. Maßgeblich ist die abschließende
+Zeile `[7/7] Auslieferung abgeschlossen: <vorher> -> <ziel>`. Die Laufzeit wird beim ersten
+freigegebenen Lauf gemessen.
 
 Danach vom eigenen Rechner aus alle vier Belege prüfen:
 
@@ -243,40 +292,61 @@ Der Ledger-Nachweis steht ebenfalls in der Deploy-Ausgabe: Die Zeile
 angewendet oder vorhanden ausweisen. Fehlt einer dieser Belege, ist die Auslieferung nicht
 erfolgreich nachgewiesen.
 
-Schlägt die Operations-Prüfung oder die Generalprobe fehl, wurden weder Sicherung noch
-Produktionsdatenbank noch Anwendung angefasst. Ausgabe sichern, Ursache korrigieren, ein neues
-Abbild mit neuem Commit bauen und den Befehl mit dessen Version wiederholen. Niemals eine bereits
-veröffentlichte Migration umschreiben.
+Schlägt die Operations- oder Abbildprüfung **vor** der ersten `[Archiv]`- beziehungsweise
+Sicherungszeile fehl, sind Datenbank und Anwendung unangetastet. Danach kann der sichere
+Archiv-Cutover das alte Backend bereits gestoppt, die Datenbank mit WAL-Mount neu erzeugt und
+eine externe Basis samt WAL geschrieben haben; nach der Migrationszeile kann auch das Schema
+fortgeschritten sein. `current-version` bleibt bis zum vollständigen Erfolg unverändert, ist
+aber kein Beleg dafür, dass der alte Container noch läuft. Vollständige Ausgabe sichern, Ursache
+korrigieren und den Deploy kontrolliert wiederholen. Niemals eine veröffentlichte Migration
+umschreiben oder das alte Backend am Archivtor vorbei manuell starten.
 
 ## Rücknahme und Unterbrechung
 
 Rücknahme ist derselbe Befehl mit der ausdrücklich gewünschten früheren Anwendungsversion. Sie
 behält die separat freigegebene Betriebsfassung und aktiviert Backend und Admin-Web der älteren
-Anwendung gemeinsam. Schlägt Start oder Gesundheit fehl, setzt das Skript automatisch Backend
-und Oberfläche auf die vorherige Anwendungsversion zurück und belegt erneut Backend und
-öffentliche `/version.txt` sowie die Startkonfiguration im ausgelieferten Anwendungsbündel. Das
-Schema wird nie zurückgedreht; Migrationen müssen deshalb zur vorherigen Anwendung kompatibel
-bleiben.
+Anwendung gemeinsam. Das Schema wird nie zurückgedreht; Migrationen müssen deshalb zur
+vorherigen Anwendung kompatibel bleiben.
 
-Meldet das Skript `[7/7] Neuer Stand fehlgeschlagen`, **nicht von Hand nachhelfen und nicht selbst
-Container starten**. Den automatischen Rücklauf bis `Rücknahme erfolgreich` abwarten, die gesamte
-Ausgabe sichern und Ursache sowie beide genannten Versionen melden. Scheitert auch die
-automatische Rücknahme, Produktion unverändert lassen, die Hetzner Console als Rückweg offen
-halten und den Betriebsfall sofort eskalieren.
+**Nach Migration 023 ist ein Rückbau auf ein älteres Backend-Image kein gangbarer Rollback.**
+`app.offline_archive_contract_version` erzwingt den versionierten Archivvertrag; ein älteres
+Image verweigert die Offline-Ingestion bewusst. Weder ein unverändertes `current-version` noch
+ein manueller Containerstart heben diesen Zaun auf. Bei einem Fehler den archivfähigen Stand
+vorwärts reparieren und erneut geprüft ausliefern, statt das ältere Image zu starten.
 
-Bricht der Prozess nach der Migration, aber vor dem Start ab, läuft der alte Container weiter.
-`current-version` bleibt unverändert. Der nächste Aufruf probt erneut, erkennt die Migrationen
-als bereits angewendet und kann den Start sicher fortsetzen. Nach einem Serverneustart startet
-Docker den zuletzt gesund gestarteten Container über `restart: unless-stopped`; für ein späteres
-manuelles `docker compose up` muss `TAPTIME_VERSION` ausdrücklich aus `current-version` gesetzt
-werden.
+Der aktuelle T-035-Controller nimmt nach einem fehlgeschlagenen Start keine automatische
+Rücknahme vor: Jeder erreichbare Start folgt bereits auf Archiv-Cutover oder aktiven
+Archivvertrag. Er meldet `[7/7] Archivvertrag ist aktiv; das alte Backend bleibt zur
+Verlustvermeidung gestoppt.` Vollständige Ausgabe sichern, keine Container von Hand starten,
+Ursache beheben und den Deploy kontrolliert wiederholen. Der ältere automatische Vor-Archiv-Zweig
+ist im T-035-Ablauf nicht erreichbar.
+
+Bricht der Prozess nach der Migration, aber vor dem Start ab, bleibt `current-version`
+unverändert. War der Archivvertrag bereits aktiv, kann der alte archivfähige Container
+weiterlaufen. Beim erstmaligen Archiv-Cutover bleibt das alte Backend dagegen bewusst gestoppt;
+ein manueller Start würde wieder eine vorzeitige Quittung ermöglichen. Der nächste Deploy-Aufruf
+probt erneut, erkennt die Migrationen als bereits angewendet und setzt den sicheren Weg fort.
+Für einen späteren manuellen Compose-Start müssen Anwendungsversion **und** ausgewähltes
+PostgreSQL-Volume ausdrücklich aus ihren Zustandsdateien gesetzt werden; der normale Weg bleibt
+der Deploy-Controller:
+
+```sh
+postgres_volume=taptime-postgres-data
+if test -f /var/lib/taptime-deploy/postgres-volume; then
+  postgres_volume="$(cat /var/lib/taptime-deploy/postgres-volume)"
+fi
+TAPTIME_VERSION="$(cat /var/lib/taptime-deploy/current-version)" \
+TAPTIME_POSTGRES_VOLUME="$postgres_volume" \
+docker compose --file /opt/taptime/source/infrastructure/docker-compose.server.yml up --detach
+unset postgres_volume
+```
 
 ## Was dieser Weg weiterhin nicht aktualisiert
 
 | Bestandteil | Wie er heute auf den Server kommt | Folge eines veralteten Stands |
 |---|---|---|
 | `/opt/taptime/.env` und Dateien unter `/opt/taptime/secrets` | getrennte Verwahrung und bewusste Installation durch den Product Owner | Anwendung startet mit alten Zugangsdaten oder nach einer Rotation gar nicht; eine automatische Verteilung wäre selbst ein Geheimnisweg |
-| `/usr/local/sbin/taptime-deploy` | einmaliger, ausdrücklich belegter Konsolenschritt aus dem Operations-Abbild | der Controller kann sich nicht sicher selbst ersetzen; die von ihm verwalteten Betriebsdateien und deren Versionsstand laufen danach ohne weitere Handkopie durch den normalen Deploy |
+| `/usr/local/sbin/taptime-deploy` | bei jeder ausdrücklich freigegebenen Controlleränderung separater Konsolenschritt aus dem exakten Operations-Abbild | der Controller kann sich nicht sicher selbst ersetzen; ohne den Schritt läuft ein neuer Betriebsvertrag unter einem alten Controller nicht an |
 | `/etc/taptime-backup/config`, Borg-Schlüssel und Passphrase-Datei | getrennte Verwahrung und bewusste Installation durch den Product Owner | Sicherung oder Restore können ohne betriebliche Zugangswerte nicht laufen; ein Operations-Abbild darf sie nicht enthalten |
 | `/etc/taptime-monitor/*.curl` | getrennte geheime Einrichtung nach `MONITORING.md` | Alarmziele fehlen oder zeigen auf alte Endpunkte; sie dürfen nicht in Git oder einem öffentlichen Abbild stehen |
 | SSH-Härtung, Deploy-Schlüssel und sudoers-Regel | bewusster Konsolen-/Root-Schritt nach dieser Anleitung | verlorene oder zu breite Zugänge bleiben bestehen; ein automatisches Deploy darf diese Rückwege nicht selbst verändern |

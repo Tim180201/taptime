@@ -1061,3 +1061,16 @@ vergroessert Failover, Failback und Ueberwachung, obwohl nur der Gruender den Be
 Weg C wird richtig, sobald eine weitere Person Stoerfaelle unabhaengig beherrschen kann.
 **Betrieb:** Rueckstand folgt aus Archivbedarf und konfigurierter Taktung, nie aus einer Pruefzahl.
 **Nachweis:** Zeitpunkt-Restore; unarchiviert bestaetigte Ereignisse bleiben auf dem Telefon.
+
+---
+
+## D-052 · Die Hand bestaetigt sofort, das Telefon loescht spaeter · 16.09.2026 · Tim
+**Entscheidung:** Der Server gibt seine Entscheidung sofort zurueck; sie wird im selben Tap
+gezeigt und gefuehlt. Die FIFO-Zeile verschwindet weiter erst nach Archivnachweis (D-051 gilt).
+**Warum:** T-035 koppelte beides. Dadurch zeigte jeder gesunde Scan ein bis drei Minuten lang
+"Sicher lokal gespeichert" statt "Arbeitszeit gestartet" — genau der Moment, fuer den es das
+Produkt gibt.
+**Warum es sicher bleibt:** Die Kopie auf dem Telefon bleibt liegen. Verliert der Server das
+Ereignis vor der Archivierung, spielt das Telefon es nach der Wiederherstellung erneut ein. Die
+gezeigte Entscheidung ist vorlaeufig, nie falsch. RPO bleibt 0.
+**Fehler:** Die Vermischung stand in meiner Aufgabenbeschreibung zu T-035, nicht im Code.
