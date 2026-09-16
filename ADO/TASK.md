@@ -6,52 +6,61 @@
 
 ## T-035 · Kein stiller Datenverlust
 
-**Für:** Development · **Risiko:** Lohndaten können nach einer Serverbestätigung endgültig
-verschwinden oder dauerhaft ungesendet auf dem Telefon liegen. · **Zeitbox:** eine Sitzung;
-reißt sie, Scope melden und schneiden. · **Grundlage:** bestätigte Gutachtenbefunde B05 und B03
+**Für:** Development · **Risiko:** personenbezogene Lohndaten · **Zeitbox:** zwei Sitzungen;
+reißt sie, Scope melden und schneiden. · **Grundlage:** bestätigte Befunde B05/B03 und D-051
 
-### Vision-Check und Produktgrenze
+### Produktgrenze
 
-Die Reparatur fügt keine Nutzerentscheidung hinzu und lässt
-`Trigger → WorkEvent → BusinessEngine → TimeEntry`, Append-only-Historie und
-Trigger-Agnostik intakt. Vor jeder B05-Umsetzung benennt der Product Owner jedoch verbindlich:
+- RPO: Kein serverbestätigtes WorkEvent geht beim Ausfall eines Servers oder Datenträgers
+  verloren. RTO: API und Datenbank sind spätestens vier Stunden nach Alarm wieder schreibfähig.
+- Kein synchroner Standby. Solange nur der Gründer den Betrieb beherrscht, wiegen dessen neue
+  Ausfall-, Failover- und Überwachungswege schwerer. Neu bewerten, sobald eine zweite Person den
+  Betrieb unabhängig beherrscht.
+- Die fachliche Kette, Append-only-Historie und Trigger-Agnostik bleiben unverändert; der Nutzer
+  trifft keine neue Entscheidung.
 
-- wie viel bereits bestätigte Arbeitszeit nach einem Ausfall verloren gehen darf;
-- bis wann der Dienst nach einem Ausfall wiederhergestellt sein muss.
+### B05 · Quittung erst nach externer Archivierung
 
-Development bewertet mindestens fortlaufende Datenbankarchivierung zusätzlich zum stündlichen
-Dump und ein befristetes Zweitstück bestätigter Ereignisse auf dem Telefon. Kosten, Betrieb,
-Datenschutz, Speicher, Entstehung, Änderung und Entfernung jedes neuen Zustands sind zu nennen.
-Erst berichten, dann B05 bauen; die gewählte Grenze wird als eigene Entscheidung dokumentiert.
+- Den logischen Stundendump nicht als PITR-Basis ausgeben. Eine geprüfte physische
+  PostgreSQL-Basissicherung und fortlaufend verschlüsselt außer Haus archiviertes WAL bilden die
+  Wiederherstellungskette. Lokal geschriebenes oder nur empfangenes WAL gilt nicht als archiviert.
+- Nach dem Commit die für genau dieses Ereignis erforderliche WAL-Position konservativ erfassen.
+  `synchronized` oder `review_pending` darf erst nach einem externen Archiv-Wasserstand an App
+  oder Reconciliation zurückgegeben werden, der diese Position abdeckt. Vorher bleibt die
+  vorhandene FIFO-Zeile erhalten und wird wiederholt; kein neuer Telefon-Zweitspeicher entsteht.
+- Der heutige Vertrag kann Archivhaltbarkeit nicht ausdrücken. Eine neue exakte Version der
+  Offline-Ingestion und Reconciliation benennt `archive_pending` und `offsite_archived`.
+  Bestehende v1–v3-Routen bleiben formstabil und liefern bis zum Archivnachweis ihr bekanntes
+  `pending`; niemals eine vorzeitige Alt-Quittung. Keine tolerante Feldmengenprüfung.
+- Archivierungsrückstand alarmiert aus der ältesten noch benötigten WAL-Position, dem letzten
+  extern bestätigten Wasserstand und der konfigurierten Archivtaktung. Keine fest hineingeschriebene
+  Prüfzahl. Die Prüfung wird mit einem absichtlich angehaltenen Archivweg negativ belegt.
+- Wiederherstellung gegen einen Zeitpunkt zwischen zwei Änderungen: die frühere ist vorhanden,
+  die spätere nicht. Pflicht-Gegenbeweis auf der App-Seite: Commit ohne Archivnachweis löscht die
+  FIFO-Zeile nicht.
 
 ### B03 · Fehlenden Wecker reparieren
 
-`OfflineSyncScheduler.trigger()` löscht zunächst den vorhandenen Timer. Ist der FIFO-Kopf in
-der Datenbank noch nicht fällig, liefern `claimLegacyHead` und `claimHead` `null`; der Zweig
-`retry_wait` muss aus der gespeicherten Fälligkeit wieder einen Wecker ableiten, statt die
-Warteschlange ohne Auslöser liegen zu lassen.
+- Wenn `trigger()` einen Timer löscht und der echte SQLite-FIFO-Kopf noch nicht fällig ist, den
+  nächsten Weckzeitpunkt aus dessen gespeichertem `next_attempt_at` neu setzen.
+- Regressionstest mit kontrollierter Uhr, echter SQLite-Abfrage und zweitem Auslöser vor der
+  Fälligkeit: vorher kein Senden, zur Fälligkeit genau ein neuer Versuch. Ohne Reparatur rot.
 
-- Regressionstest mit kontrollierter Uhr und dem echten Fälligkeitsverhalten von
-  `OfflineCaptureDatabase`: erster Fehlversuch speichert die Wiederholungszeit; ein zweiter
-  Auslöser kommt davor; bis zur Fälligkeit erfolgt kein Senden, zur Fälligkeit genau der Versuch.
-- Keine fest hineingeschriebene Sicherheitszahl: Der Weckzeitpunkt wird aus dem vorhandenen
-  Kopfzustand abgeleitet. Neue Test-/Produkt-Schnittstellen bilden diese Bedingung ab.
-- Pflicht-Gegenbeweis: Ohne die Reparatur muss genau dieser Test rot sein. Die bestehende
-  Scheduler-Stichprobe mit vereinfachten Datenbank- und Timer-Stellvertretern genügt nicht.
+### Entstehung, Änderung und Entfernung
+
+Physische Basen und WAL entstehen ausschließlich im Betriebsdienst, bleiben unverändert und
+werden nur entfernt, wenn eine neuere geprüfte Basis samt lückenlos benötigtem WAL und die
+Aufbewahrungsregel sie entbehrlich machen. Der Server legt je Event eine unveränderliche
+WAL-Anforderung nach Commit an; sie verschwindet mit dem zugehörigen WorkEvent. Den externen
+Wasserstand ändert nur der Archivierer nach erfolgreichem Upload; er verschwindet beim bewussten
+Rückbau der Archivstrecke. Die Telefonzeile entsteht weiter beim Trigger und verschwindet nur
+nach exakter archivierter Quittung oder dem bestehenden bewussten Schutz-/Identitätsverfahren.
 
 ### Verifikation und Grenzen
 
-- Typecheck einschließlich der Testdatei und vollständige Tests des Mobile-Workspace grün.
-- Vorherigen roten Gegenbeweis und anschließenden grünen Lauf getrennt belegen; jeden weiteren
-  Fehlschlag untersuchen und mindestens als P2 festhalten.
-- Wegen personenbezogener Lohndaten unabhängiges Review durch einen zweiten Agenten; maximal
-  zwei Review-Runden, nur P0/P1 blockieren.
-- Nicht in diesem Scope: B02/T-036, B06, B07, B08, B09 und Android-Dialog/T-043.
-- Kein Deploy und kein Zugriff auf Produktionsdaten. Umsetzung nicht committen oder pushen vor
-  `APPROVED`; der beauftragte Dokumentations-Commit wird getrennt sofort gepusht.
-
-### Bericht
-
-Vier Punkte gemäß `AGENTS.md`, darin: vorgeschlagene Verlustgrenze und Wiederanlaufzeit mit
-Begründung, empfohlener Weg, B03-Gegenbeweis und Reparatur, Typecheck, Testlauf, Review-Ergebnis
-und Hash des Dokumentations-Commits.
+- Typecheck einschließlich Tests und vollständige Tests aller betroffenen Workspaces grün;
+  PostgreSQL-Integrationssuiten lokal seriell. Unabhängiges Review, maximal zwei Runden.
+- Kein Deploy, kein Produktionszugriff, kein B02/T-036, B06–B09 oder T-043. Umsetzung nicht
+  committen oder pushen vor `APPROVED`; Dokumentations-Commit getrennt sofort pushen.
+- Bericht nach `AGENTS.md`: Vertrag und Lebenszyklen, B03/B05-Gegenbeweise, Zeitpunkt-Restore,
+  Rückstandsalarm, Typechecks, Tests, Review und Hash des Dokumentations-Commits.

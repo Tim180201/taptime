@@ -1049,3 +1049,15 @@ zu warten. Eine App darf mehrere Domains beanspruchen — kommt taptura.de
 spaeter dazu, bleiben ausgegebene Tags gueltig und muessen nicht neu
 beschrieben werden. Der Domainkauf blockiert damit weder T-043 noch T-030; er
 entscheidet nur, wie das Produkt heisst.
+
+---
+
+## D-051 · Quittung folgt externer Archivierung · 16.09.2026 · Tim
+**Entscheidung:** RPO 0 fuer bestaetigte WorkEvents bei einem Server- oder Datentraegerausfall;
+RTO vier Stunden ab Alarm. Das Telefon loescht erst nach nachgewiesener externer Archivierung.
+PostgreSQL erhaelt physische Basissicherungen und fortlaufend extern archiviertes WAL.
+**Warum nicht Weg C:** Ein synchroner Standby koppelt Schreiben an einen zweiten Server und
+vergroessert Failover, Failback und Ueberwachung, obwohl nur der Gruender den Betrieb beherrscht.
+Weg C wird richtig, sobald eine weitere Person Stoerfaelle unabhaengig beherrschen kann.
+**Betrieb:** Rueckstand folgt aus Archivbedarf und konfigurierter Taktung, nie aus einer Pruefzahl.
+**Nachweis:** Zeitpunkt-Restore; unarchiviert bestaetigte Ereignisse bleiben auf dem Telefon.

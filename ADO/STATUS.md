@@ -123,12 +123,11 @@ danach Firma, Recht und Store.
 
 ## Aktuelle Aufgabe
 
-**T-035 — Kein stiller Datenverlust.** Vor der B05-Umsetzung entscheidet der Product Owner die
-zulässige Verlustgrenze und Wiederanlaufzeit anhand der bewerteten Wege fortlaufende
-Datenbankarchivierung, zeitlich begrenztes Zweitstück auf dem Telefon oder einer begründeten
-Alternative. B03 wird unabhängig repariert: Trifft ein zweiter Auslöser vor der gespeicherten
-Fälligkeit ein, muss aus der echten Geräte-Datenbank erneut genau dieser Fälligkeitszeitpunkt
-geweckt werden. Der neue Regressionstest braucht kontrollierte Uhr und Pflicht-Gegenbeweis.
+**T-035 — Kein stiller Datenverlust.** D-051 setzt RPO 0 für bestätigte WorkEvents und RTO vier
+Stunden. PostgreSQL erhält eine physische Basissicherung plus fortlaufendes externes WAL; das
+Telefon behält seine bestehende Queue-Zeile, bis der Server genau deren Archivierung bestätigt.
+Der explizite Archivierungsvertrag wird versioniert, alte Clients bleiben bis dahin im bekannten
+`pending`. B03 repariert zusätzlich den fehlenden Wecker vor einer gespeicherten Fälligkeit.
 
 Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
 nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
