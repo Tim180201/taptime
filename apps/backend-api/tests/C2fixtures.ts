@@ -1,5 +1,10 @@
 import { Pool } from 'pg';
-import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '../../backend-schema/src/index.js';
+import {
+  B3_MIGRATION_TABLE,
+  B3_SCHEMA,
+  loadMigrations,
+  migrate,
+} from '../../backend-schema/src/index.js';
 import {
   ids,
   resetAndSeedB6,
@@ -65,8 +70,9 @@ export async function resetMigrateAndPrepareC2(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019,020,021,022') {
-    throw new Error('C2 requires a clean migration set 001 through 022');
+  const expected = (await loadMigrations()).map(({ version }) => version);
+  if (result.applied.join(',') !== expected.join(',')) {
+    throw new Error('C2 requires every source migration in order');
   }
 
   await normalizeRuntimeLogin(

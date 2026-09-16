@@ -94,6 +94,10 @@ export function runtimeConnectionString(
 export async function resetAndSeedB6(installerPool: Pool, issuer: string): Promise<void> {
   await installerPool.query(`
     TRUNCATE TABLE
+      taptime_server.offsite_wal_archive_watermarks,
+      taptime_server.offsite_base_backup_receipts,
+      taptime_server.offsite_wal_archive_receipts,
+      taptime_server.lifecycle_event_archive_requirements,
       taptime_server.audit_events,
       taptime_server.sync_receipts,
       taptime_server.canonical_decisions,

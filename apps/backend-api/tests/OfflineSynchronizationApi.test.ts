@@ -3,7 +3,7 @@ import {
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
   type OfflineCaptureLeaseResult,
   type OfflineCaptureLeaseResultV2,
-  type OfflineLifecycleEventResult,
+  type OfflineLifecycleEventResultV4,
 } from '@taptime/offline-sync-contract';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
@@ -157,40 +157,45 @@ describe('complete offline synchronization HTTP boundary', () => {
       'synchronized',
       {
         status: 'synchronized',
+        archiveStatus: 'offsite_archived',
         idempotentRetry: false,
         workEventId: ids.event,
         receiptId: ids.receipt,
         deviceSequence: 1,
         decision: { status: 'time_entry_started', timeEntryId: ids.timeEntry },
-      } satisfies OfflineLifecycleEventResult,
+      } satisfies OfflineLifecycleEventResultV4,
       200,
     ],
     [
       'review',
       {
         status: 'review_pending',
+        archiveStatus: 'offsite_archived',
         idempotentRetry: false,
         workEventId: ids.event,
         receiptId: ids.receipt,
         deviceSequence: 1,
         reason: 'capture_time_out_of_bounds',
-      } satisfies OfflineLifecycleEventResult,
+      } satisfies OfflineLifecycleEventResultV4,
       202,
     ],
     [
       'conflict',
-      { status: 'conflict', reason: 'event_content_conflict' },
+      {
+        status: 'conflict',
+        reason: 'event_content_conflict',
+      } satisfies OfflineLifecycleEventResultV4,
       409,
     ],
   ])('maps a valid offline event %s result without changing its closed payload',
     async (_label, result, status) => {
-      const ingest = vi.fn(async (): Promise<OfflineLifecycleEventResult> => (
-        result as OfflineLifecycleEventResult
+      const ingest = vi.fn(async (): Promise<OfflineLifecycleEventResultV4> => (
+        result as OfflineLifecycleEventResultV4
       ));
       const origin = await start({ offlineLifecycleIngestor: { ingest } });
       const response = await post(origin, '/v1/lifecycle-events/offline', offlineEventBody());
       expect(response.status).toBe(status);
-      expect(await response.json()).toEqual(result);
+      expect(await response.json()).toEqual(legacyLifecycleResult(result));
       expect(ingest).toHaveBeenCalledWith({
         accessToken: 'abc.def.ghi',
         command: offlineEventBody(),
@@ -198,7 +203,7 @@ describe('complete offline synchronization HTTP boundary', () => {
     });
 
   it('validates the entire offline event envelope and exposes only a bounded Retry-After', async () => {
-    const ingest = vi.fn(async (): Promise<OfflineLifecycleEventResult> => ({
+    const ingest = vi.fn(async (): Promise<OfflineLifecycleEventResultV4> => ({
       status: 'pending',
       reason: 'lock_retry',
       retryAfterSeconds: 17,
@@ -221,9 +226,69 @@ describe('complete offline synchronization HTTP boundary', () => {
     expect(ingest).toHaveBeenCalledTimes(1);
   });
 
+  it('versions archival acknowledgement without weakening installed client responses',
+    async () => {
+      const archivePending = {
+        status: 'archive_pending' as const,
+        idempotentRetry: false,
+        workEventId: ids.event,
+        receiptId: ids.receipt,
+        deviceSequence: 1,
+      };
+      const ingest = vi.fn(async (): Promise<OfflineLifecycleEventResultV4> => archivePending);
+      const origin = await start({ offlineLifecycleIngestor: { ingest } });
+
+      const current = await post(origin, '/v4/lifecycle-events/offline', offlineEventBody());
+      expect(current.status).toBe(202);
+      expect(await current.json()).toEqual(archivePending);
+
+      const installed = await post(origin, '/v1/lifecycle-events/offline', offlineEventBody());
+      expect(installed.status).toBe(202);
+      expect(await installed.json()).toEqual({
+        status: 'pending',
+        reason: 'temporarily_unavailable',
+      });
+    });
+
+  it('exposes archive state only on exact v2 reconciliation records', async () => {
+    const origin = await start({
+      offlineEventReconciliationReader: {
+        async reconcile() { return { status: 'ready', records: [] }; },
+        async reconcileV2() {
+          return {
+            status: 'ready',
+            records: [{
+              workEventId: ids.event,
+              receiptId: ids.receipt,
+              deviceSequence: 1,
+              archiveStatus: 'archive_pending',
+              result: { status: 'archive_pending' },
+            }],
+          } as const;
+        },
+        async readReviewState() { return { status: 'unavailable' }; },
+      },
+    });
+
+    const response = await post(origin, '/v2/lifecycle-events/reconcile', {
+      workEventIds: [ids.event],
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      status: 'ready',
+      records: [{
+        workEventId: ids.event,
+        receiptId: ids.receipt,
+        deviceSequence: 1,
+        archiveStatus: 'archive_pending',
+        result: { status: 'archive_pending' },
+      }],
+    });
+  });
+
   it('accepts only provenance-v2 trigger unions on the additive offline lifecycle route',
     async () => {
-      const ingest = vi.fn(async (): Promise<OfflineLifecycleEventResult> => ({
+      const ingest = vi.fn(async (): Promise<OfflineLifecycleEventResultV4> => ({
         status: 'pending',
         reason: 'temporarily_unavailable',
       }));
@@ -377,6 +442,17 @@ function offlineEventBodyV2() {
     },
     receipt: { id: ids.receipt, attemptNumber: 1 },
   } as const;
+}
+
+function legacyLifecycleResult(result: OfflineLifecycleEventResultV4): unknown {
+  if (result.status === 'synchronized' || result.status === 'review_pending') {
+    const { archiveStatus: _archiveStatus, ...legacy } = result;
+    return legacy;
+  }
+  if (result.status === 'archive_pending') {
+    return { status: 'pending', reason: 'temporarily_unavailable' };
+  }
+  return result;
 }
 
 function readyLease(): OfflineCaptureLeaseResult {

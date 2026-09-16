@@ -1,15 +1,91 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly CONFIG_FILE=/etc/taptime-backup/config
-readonly LOCK_FILE=/run/lock/taptime-borg.lock
-readonly STAGING_ROOT=/run/taptime-backup
+readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
+readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
 
 require_file() {
   if [[ ! -f "$1" ]]; then
     printf 'Required file is missing: %s\n' "$1" >&2
     exit 1
   fi
+}
+
+validate_offsite_borg_repository() {
+  local repository_path authority host local_host resolved_addresses
+  local local_address_text address local_address
+  local -a local_addresses
+
+  [[ "${BORG_REPOSITORY:-}" == ssh://* ]] || {
+    printf 'BORG_REPOSITORY must use non-local ssh:// storage.\n' >&2
+    return 1
+  }
+  repository_path="${BORG_REPOSITORY#ssh://}"
+  [[ "$repository_path" == */?* ]] || {
+    printf 'BORG_REPOSITORY must name a remote archive path.\n' >&2
+    return 1
+  }
+  authority="${repository_path%%/*}"
+  host="${authority#*@}"
+  host="${host%%:*}"
+  [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]] || {
+    printf 'BORG_REPOSITORY must use a DNS name or IPv4 host.\n' >&2
+    return 1
+  }
+  local_host="$(hostname 2>/dev/null)" || {
+    printf 'Could not determine the local host for offsite validation.\n' >&2
+    return 1
+  }
+  local_host="$(printf '%s' "$local_host" | tr '[:upper:]' '[:lower:]')"
+  host="$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')"
+  [[ "$host" != 'localhost' && "$host" != '0.0.0.0' \
+    && "$host" != 127.* && "$host" != "$local_host" ]] || {
+    printf 'BORG_REPOSITORY must not resolve by configuration to this host.\n' >&2
+    return 1
+  }
+  resolved_addresses="$(getent ahostsv4 "$host" 2>/dev/null \
+    | awk '{print $1}')" || {
+    printf 'BORG_REPOSITORY host could not be resolved for offsite validation.\n' >&2
+    return 1
+  }
+  [[ -n "$resolved_addresses" ]] || {
+    printf 'BORG_REPOSITORY host resolved to no IPv4 address.\n' >&2
+    return 1
+  }
+  local_address_text="$(hostname -I 2>/dev/null)" || {
+    printf 'Could not read local interface addresses for offsite validation.\n' >&2
+    return 1
+  }
+  [[ -n "$local_address_text" ]] || {
+    printf 'No local interface address was available for offsite validation.\n' >&2
+    return 1
+  }
+  read -r -a local_addresses <<< "$local_address_text"
+  while IFS= read -r address; do
+    [[ "$address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+      printf 'BORG_REPOSITORY host resolution returned invalid IPv4 evidence.\n' >&2
+      return 1
+    }
+    [[ "$address" != '0.0.0.0' && "$address" != 127.* ]] || {
+      printf 'BORG_REPOSITORY must resolve only to non-local addresses.\n' >&2
+      return 1
+    }
+    for local_address in "${local_addresses[@]}"; do
+      [[ "$address" != "$local_address" ]] || {
+        printf 'BORG_REPOSITORY resolves to a local interface address.\n' >&2
+        return 1
+      }
+    done
+  done <<< "$resolved_addresses"
+  [[ -n "${BORG_RSH:-}" \
+    && "$BORG_RSH" == *'BatchMode=yes'* \
+    && "$BORG_RSH" == *'IdentitiesOnly=yes'* \
+    && "$BORG_RSH" == *'StrictHostKeyChecking=yes'* \
+    && "$BORG_RSH" == *'UserKnownHostsFile='* ]] || {
+    printf 'BORG_RSH must enforce the configured key and verified host identity.\n' >&2
+    return 1
+  }
 }
 
 write_status() {
@@ -25,83 +101,142 @@ write_status() {
   trap - RETURN
 }
 
-require_file "$CONFIG_FILE"
-# shellcheck source=/etc/taptime-backup/config
-source "$CONFIG_FILE"
-require_file "$BORG_PASSPHRASE_FILE"
-require_file "$MIGRATIONS_DIRECTORY/001_foundation.sql"
-install -d -m 0755 "$(dirname "$STATUS_FILE")"
+main() {
+  local stage archive backup_label start_time start_wal_lsn start_wal_file switch_evidence
+  local cluster_evidence cluster_system_identifier cluster_archive_identifier
+  local migration_ledger version recorded_checksum source_file source_checksum
+  local -a source_matches
 
-install -d -m 0700 "$STAGING_ROOT"
-if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
-  printf '%s must be a tmpfs; refusing to create an unencrypted dump on disk\n' "$STAGING_ROOT" >&2
-  exit 1
-fi
+  require_file "$CONFIG_FILE"
+  # shellcheck source=/etc/taptime-backup/config
+  source "$CONFIG_FILE"
+  validate_offsite_borg_repository
+  require_file "$BORG_PASSPHRASE_FILE"
+  require_file "$MIGRATIONS_DIRECTORY/001_foundation.sql"
+  : "${DATABASE_CONTAINER:?DATABASE_CONTAINER must be configured}"
+  : "${DATABASE_NAME:?DATABASE_NAME must be configured}"
+  : "${STATUS_FILE:?STATUS_FILE must be configured}"
+  install -d -m 0755 "$(dirname "$STATUS_FILE")"
 
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  printf 'Another Borg operation is already running; backup skipped.\n'
-  exit 0
-fi
+  install -d -m 0700 "$STAGING_ROOT"
+  if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
+    printf '%s must be a tmpfs; refusing to create an unencrypted base backup on disk\n' \
+      "$STAGING_ROOT" >&2
+    exit 1
+  fi
 
-export BORG_RSH
-export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
-export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
-export BORG_CACHE_DIR="$STAGING_ROOT/borg-cache"
-export BORG_CONFIG_DIR="$STAGING_ROOT/borg-config"
-install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+  exec 9>"$LOCK_FILE"
+  flock 9
 
-stage="$(mktemp -d "$STAGING_ROOT/backup.XXXXXX")"
-cleanup() {
-  rm -rf "$stage"
+  export BORG_RSH
+  export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
+  export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
+  export BORG_CACHE_DIR="$STAGING_ROOT/borg-cache"
+  export BORG_CONFIG_DIR="$STAGING_ROOT/borg-config"
+  install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+
+  stage="$(mktemp -d "$STAGING_ROOT/backup.XXXXXX")"
+  cleanup() {
+    rm -rf -- "$stage"
+  }
+  trap cleanup EXIT
+
+  cluster_evidence="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+    --command "SELECT control.system_identifier::text || '|' ||
+      pg_catalog.lpad(pg_catalog.to_hex(control.system_identifier), 16, '0')
+      FROM pg_catalog.pg_control_system() AS control;")"
+  IFS='|' read -r cluster_system_identifier cluster_archive_identifier \
+    <<< "$cluster_evidence"
+  [[ "$cluster_system_identifier" =~ ^-?[0-9]+$ \
+    && "$cluster_archive_identifier" =~ ^[0-9a-f]{16}$ ]] || {
+    printf 'PostgreSQL returned no valid cluster system identifier.\n' >&2
+    exit 1
+  }
+  archive="base-$cluster_archive_identifier-$(date -u +%Y%m%dT%H%M%SZ)"
+  mkdir -p "$stage/manifest"
+
+  printf 'Creating PostgreSQL physical base backup in tmpfs.\n'
+  docker exec --user postgres "$DATABASE_CONTAINER" \
+    pg_basebackup --dbname="dbname=$DATABASE_NAME" --format=tar --pgdata=- \
+      --wal-method=fetch --checkpoint=fast --manifest-checksums=SHA256 \
+      > "$stage/base.tar"
+  tar --list --file "$stage/base.tar" | grep --fixed-strings --line-regexp --quiet backup_manifest
+  tar --list --file "$stage/base.tar" | grep --fixed-strings --line-regexp --quiet backup_label
+  backup_label="$(tar --extract --to-stdout --file "$stage/base.tar" backup_label)"
+  start_time="$(sed -n 's/^START TIME: //p' <<< "$backup_label")"
+  start_time="$(date --utc --date="$start_time" +%Y-%m-%dT%H:%M:%S.%NZ)"
+  start_wal_lsn="$(sed -n \
+    's/^START WAL LOCATION: \([0-9A-F]\+\/[0-9A-F]\+\) (file [0-9A-F]\{24\})$/\1/p' \
+    <<< "$backup_label")"
+  start_wal_file="$(sed -n \
+    's/^START WAL LOCATION: [0-9A-F]\+\/[0-9A-F]\+ (file \([0-9A-F]\{24\}\))$/\1/p' \
+    <<< "$backup_label")"
+  [[ "$start_wal_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ \
+    && "$start_wal_file" =~ ^[0-9A-F]{24}$ \
+    && "$start_time" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]] || {
+    printf 'Physical base backup has no valid START WAL location.\n' >&2
+    exit 1
+  }
+  printf '%s\n' "$start_wal_lsn" > "$stage/manifest/base-start-wal-lsn"
+  printf '%s\n' "$start_wal_file" > "$stage/manifest/base-start-wal-file"
+  printf '%s\n' "$start_time" > "$stage/manifest/base-started-at-utc"
+  printf '%s\n' "$cluster_system_identifier" \
+    > "$stage/manifest/cluster-system-identifier"
+  printf '%s\n' "$cluster_archive_identifier" \
+    > "$stage/manifest/cluster-archive-identifier"
+  date --utc +%Y-%m-%dT%H:%M:%S.%NZ > "$stage/manifest/base-created-at-utc"
+
+  migration_ledger="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+    --command "SELECT version || '|' || pg_catalog.rtrim(checksum)
+      FROM public.taptime_server_schema_migrations ORDER BY version;")"
+  [[ -n "$migration_ledger" ]] || {
+    printf 'Production migration ledger is empty.\n' >&2
+    exit 1
+  }
+  : > "$stage/manifest/source-migration-checksums.tsv"
+  while IFS='|' read -r version recorded_checksum; do
+    [[ "$version" =~ ^[0-9]{3}$ && "$recorded_checksum" =~ ^[0-9a-f]{64}$ ]] || {
+      printf 'Production migration ledger contains invalid evidence.\n' >&2
+      exit 1
+    }
+    source_matches=("$MIGRATIONS_DIRECTORY/${version}_"*.sql)
+    if (( ${#source_matches[@]} != 1 )) || [[ ! -f "${source_matches[0]}" ]]; then
+      printf 'Applied migration %s has no unique source file.\n' "$version" >&2
+      exit 1
+    fi
+    source_file="${source_matches[0]}"
+    source_checksum="$(sha256sum "$source_file")"
+    source_checksum="${source_checksum%% *}"
+    [[ "$source_checksum" == "$recorded_checksum" ]] || {
+      printf 'Applied migration %s differs from its source file.\n' "$version" >&2
+      exit 1
+    }
+    printf '%s  ./%s\n' "$source_checksum" "${source_file##*/}" \
+      >> "$stage/manifest/source-migration-checksums.tsv"
+  done <<< "$migration_ledger"
+
+  printf 'Writing encrypted Borg archive %s.\n' "$archive"
+  (
+    cd "$stage"
+    borg create --stats --compression zstd,6 "$BORG_REPOSITORY::$archive" base.tar manifest
+  )
+  borg check --verify-data "$BORG_REPOSITORY::$archive"
+
+  switch_evidence="$(docker exec --user postgres "$DATABASE_CONTAINER" \
+    psql --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+      --command "WITH switched AS (SELECT pg_catalog.pg_switch_wal() AS next_lsn)
+        SELECT (next_lsn - 1)::text || '|' || pg_catalog.pg_walfile_name(next_lsn - 1)
+        FROM switched;")"
+  [[ "$switch_evidence" =~ ^[0-9A-F]+/[0-9A-F]+\|[0-9A-F]{24}$ ]] || {
+    printf 'PostgreSQL returned no valid post-backup WAL boundary.\n' >&2
+    exit 1
+  }
+
+  write_status ok
+  printf 'Physical base backup completed: %s (starts at WAL %s)\n' \
+    "$archive" "$start_wal_file"
 }
-trap cleanup EXIT
 
-archive="taptime-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-mkdir -p "$stage/manifest"
-
-printf 'Creating PostgreSQL custom dump in tmpfs.\n'
-docker exec --user postgres "$DATABASE_CONTAINER" \
-  pg_dump --format=custom --compress=9 --dbname="$DATABASE_NAME" > "$stage/database.dump"
-
-printf 'Creating PostgreSQL global-role dump in tmpfs.\n'
-docker exec --user postgres "$DATABASE_CONTAINER" pg_dumpall --globals-only > "$stage/globals.sql"
-
-docker exec --user postgres "$DATABASE_CONTAINER" psql --tuples-only --no-align \
-  --dbname="$DATABASE_NAME" --command \
-  "SELECT version || E'\\t' || name || E'\\t' || checksum FROM public.taptime_server_schema_migrations ORDER BY version" \
-  > "$stage/manifest/migration-ledger.tsv"
-
-(
-  cd "$MIGRATIONS_DIRECTORY"
-  find . -maxdepth 1 -type f -name '[0-9][0-9][0-9]_*.sql' -print0 | sort -z | xargs -0 sha256sum
-) > "$stage/manifest/source-migration-checksums.tsv"
-
-docker exec --user postgres "$DATABASE_CONTAINER" psql --tuples-only --no-align \
-  --field-separator=$'\t' --dbname="$DATABASE_NAME" --command "
-  SELECT 'organizations', count(*) FROM taptime_server.organizations
-  UNION ALL SELECT 'memberships', count(*) FROM taptime_server.memberships
-  UNION ALL SELECT 'work_events', count(*) FROM taptime_server.work_events
-  UNION ALL SELECT 'time_entries', count(*) FROM taptime_server.time_entries
-  UNION ALL SELECT 'canonical_decisions', count(*) FROM taptime_server.canonical_decisions
-  UNION ALL SELECT 'offline_event_reconciliations', count(*) FROM taptime_server.offline_event_reconciliations
-  UNION ALL SELECT 'audit_events', count(*) FROM taptime_server.audit_events
-  ORDER BY 1" > "$stage/manifest/row-counts.tsv"
-
-docker exec --user postgres "$DATABASE_CONTAINER" psql --tuples-only --no-align \
-  --dbname="$DATABASE_NAME" --command \
-  "SELECT rolname FROM pg_catalog.pg_roles WHERE rolname !~ '^pg_' ORDER BY rolname" \
-  > "$stage/manifest/database-roles.txt"
-
-printf 'Writing encrypted Borg archive %s.\n' "$archive"
-(
-  cd "$stage"
-  borg create --stats --compression zstd,6 "$BORG_REPOSITORY::$archive" .
-)
-
-printf 'Applying retention policy.\n'
-borg prune --list "$BORG_REPOSITORY" \
-  --keep-hourly 24 --keep-daily 14 --keep-weekly 8 --keep-monthly 6
-
-write_status 'ok'
-printf 'Backup completed: %s\n' "$archive"
+main "$@"

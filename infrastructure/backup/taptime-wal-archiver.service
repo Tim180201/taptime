@@ -1,0 +1,25 @@
+[Unit]
+Description=TapTim.e encrypted offsite WAL archiver
+Wants=network-online.target docker.service taptime-wal-receiver.service
+After=network-online.target docker.service taptime-wal-receiver.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/taptime-wal-archiver
+User=root
+Group=root
+UMask=0077
+Restart=always
+RestartSec=5s
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+CacheDirectory=taptime-wal-archive
+CacheDirectoryMode=0700
+StateDirectory=taptime-monitor
+StateDirectoryMode=0700
+ReadWritePaths=/var/cache/taptime-wal-archive /var/lib/taptime-monitor /var/lib/taptime-wal /run/lock /var/run/docker.sock
+
+[Install]
+WantedBy=multi-user.target

@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly CONFIG_FILE=/etc/taptime-backup/config
-readonly LOCK_FILE=/run/lock/taptime-borg.lock
-readonly STAGING_ROOT=/run/taptime-backup
+readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
+readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
+RESTORE_SYSTEM_IDENTIFIER=''
+RESTORE_ARCHIVE_IDENTIFIER=''
+MATERIALIZED_VOLUME_IN_PROGRESS=''
 
 require_file() {
   if [[ ! -f "$1" ]]; then
@@ -12,12 +15,110 @@ require_file() {
   fi
 }
 
+validate_offsite_borg_repository() {
+  local repository_path authority host local_host resolved_addresses
+  local local_address_text address local_address
+  local -a local_addresses
+
+  [[ "${BORG_REPOSITORY:-}" == ssh://* ]] || {
+    printf 'BORG_REPOSITORY must use non-local ssh:// storage.\n' >&2
+    return 1
+  }
+  repository_path="${BORG_REPOSITORY#ssh://}"
+  [[ "$repository_path" == */?* ]] || {
+    printf 'BORG_REPOSITORY must name a remote archive path.\n' >&2
+    return 1
+  }
+  authority="${repository_path%%/*}"
+  host="${authority#*@}"
+  host="${host%%:*}"
+  [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]] || {
+    printf 'BORG_REPOSITORY must use a DNS name or IPv4 host.\n' >&2
+    return 1
+  }
+  local_host="$(hostname 2>/dev/null)" || {
+    printf 'Could not determine the local host for offsite validation.\n' >&2
+    return 1
+  }
+  local_host="$(printf '%s' "$local_host" | tr '[:upper:]' '[:lower:]')"
+  host="$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')"
+  [[ "$host" != 'localhost' && "$host" != '0.0.0.0' \
+    && "$host" != 127.* && "$host" != "$local_host" ]] || {
+    printf 'BORG_REPOSITORY must not resolve by configuration to this host.\n' >&2
+    return 1
+  }
+  resolved_addresses="$(getent ahostsv4 "$host" 2>/dev/null \
+    | awk '{print $1}')" || {
+    printf 'BORG_REPOSITORY host could not be resolved for offsite validation.\n' >&2
+    return 1
+  }
+  [[ -n "$resolved_addresses" ]] || {
+    printf 'BORG_REPOSITORY host resolved to no IPv4 address.\n' >&2
+    return 1
+  }
+  local_address_text="$(hostname -I 2>/dev/null)" || {
+    printf 'Could not read local interface addresses for offsite validation.\n' >&2
+    return 1
+  }
+  [[ -n "$local_address_text" ]] || {
+    printf 'No local interface address was available for offsite validation.\n' >&2
+    return 1
+  }
+  read -r -a local_addresses <<< "$local_address_text"
+  while IFS= read -r address; do
+    [[ "$address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+      printf 'BORG_REPOSITORY host resolution returned invalid IPv4 evidence.\n' >&2
+      return 1
+    }
+    [[ "$address" != '0.0.0.0' && "$address" != 127.* ]] || {
+      printf 'BORG_REPOSITORY must resolve only to non-local addresses.\n' >&2
+      return 1
+    }
+    for local_address in "${local_addresses[@]}"; do
+      [[ "$address" != "$local_address" ]] || {
+        printf 'BORG_REPOSITORY resolves to a local interface address.\n' >&2
+        return 1
+      }
+    done
+  done <<< "$resolved_addresses"
+  [[ -n "${BORG_RSH:-}" \
+    && "$BORG_RSH" == *'BatchMode=yes'* \
+    && "$BORG_RSH" == *'IdentitiesOnly=yes'* \
+    && "$BORG_RSH" == *'StrictHostKeyChecking=yes'* \
+    && "$BORG_RSH" == *'UserKnownHostsFile='* ]] || {
+    printf 'BORG_RSH must enforce the configured key and verified host identity.\n' >&2
+    return 1
+  }
+}
+
+require_positive_integer() {
+  local name="$1"
+  local value="$2"
+  [[ "$value" =~ ^[1-9][0-9]*$ ]] || {
+    printf '%s must be a positive integer.\n' "$name" >&2
+    return 1
+  }
+}
+
 check_restored_rls() {
   local target_container="$1"
   local restored_database="$2"
-  local failing_tables
+  local application_tables failing_tables
 
   printf 'Checking RLS: every application table must have RLS enabled and forced.\n'
+  application_tables="$(docker exec --user postgres "$target_container" \
+    psql --tuples-only --no-align --dbname="$restored_database" --command "
+      SELECT relation.relname
+      FROM pg_catalog.pg_class AS relation
+      JOIN pg_catalog.pg_namespace AS namespace
+        ON namespace.oid = relation.relnamespace
+      WHERE namespace.nspname = 'taptime_server'
+        AND relation.relkind IN ('r', 'p')
+      ORDER BY relation.relname;")"
+  if [[ -z "$application_tables" ]]; then
+    printf 'RLS check found no TapTime application table.\n' >&2
+    return 1
+  fi
   failing_tables="$(docker exec --user postgres "$target_container" \
     psql --tuples-only --no-align --dbname="$restored_database" --command "
       SELECT relation.relname
@@ -38,158 +139,814 @@ check_restored_rls() {
   printf 'RLS is enabled and forced on every application table.\n'
 }
 
+check_restored_migrations() {
+  local target_container="$1"
+  local restored_database="$2"
+  local checksum_manifest="$3"
+  local checksum source_file version expected='' actual ledger_exists
+
+  ledger_exists="$(docker exec --user postgres "$target_container" \
+    psql --tuples-only --no-align --dbname="$restored_database" --command "
+      SELECT pg_catalog.to_regclass(
+        'public.taptime_server_schema_migrations'
+      ) IS NOT NULL;")"
+  [[ "$ledger_exists" == 't' ]] || {
+    printf 'Restored database has no migration ledger.\n' >&2
+    return 1
+  }
+
+  while read -r checksum source_file; do
+    [[ "$checksum" =~ ^[0-9a-f]{64}$ \
+      && "$source_file" =~ ^\./([0-9]{3})_[a-z0-9_]+\.sql$ ]] || {
+      printf 'Archived migration checksum manifest is invalid.\n' >&2
+      return 1
+    }
+    version="${BASH_REMATCH[1]}"
+    expected+="$version|$checksum"$'\n'
+  done < "$checksum_manifest"
+  expected="$(printf '%s' "$expected" | sort)"
+  [[ -n "$expected" ]] || {
+    printf 'Archived migration checksum manifest is empty.\n' >&2
+    return 1
+  }
+  actual="$(docker exec --user postgres "$target_container" \
+    psql --tuples-only --no-align --dbname="$restored_database" --command "
+      SELECT version || '|' || pg_catalog.rtrim(checksum)
+      FROM public.taptime_server_schema_migrations
+      ORDER BY version;")"
+  [[ "$actual" == "$expected" ]] || {
+    printf 'Restored migration ledger differs from the archived source set.\n' >&2
+    return 1
+  }
+  printf 'Restored migration ledger exactly matches the archived source set.\n'
+}
+
+timestamp_nanos() {
+  date --utc --date="$1" +%s%N
+}
+
+select_restore_cluster_identity() {
+  local requested_identifier="${TAPTIME_RESTORE_SYSTEM_IDENTIFIER:-}"
+  local production_identity candidate archive discovered_identifier='' base_archives
+
+  if [[ -n "$requested_identifier" \
+    && ! "$requested_identifier" =~ ^[0-9a-f]{16}$ ]]; then
+    printf 'TAPTIME_RESTORE_SYSTEM_IDENTIFIER must be a 16-character lowercase hexadecimal identifier.\n' >&2
+    return 1
+  fi
+  if production_database_is_running; then
+    production_identity="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+      --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+      --command "SELECT control.system_identifier::text || '|' ||
+        pg_catalog.lpad(pg_catalog.to_hex(control.system_identifier), 16, '0')
+        FROM pg_catalog.pg_control_system() AS control;")"
+    IFS='|' read -r RESTORE_SYSTEM_IDENTIFIER RESTORE_ARCHIVE_IDENTIFIER \
+      <<< "$production_identity"
+    [[ "$RESTORE_SYSTEM_IDENTIFIER" =~ ^-?[0-9]+$ \
+      && "$RESTORE_ARCHIVE_IDENTIFIER" =~ ^[0-9a-f]{16}$ ]] || {
+      printf 'Production PostgreSQL returned no valid cluster system identifier.\n' >&2
+      return 1
+    }
+    [[ -z "$requested_identifier" \
+      || "$requested_identifier" == "$RESTORE_ARCHIVE_IDENTIFIER" ]] || {
+      printf 'Requested restore cluster differs from the running production cluster.\n' >&2
+      return 1
+    }
+    return 0
+  fi
+  if [[ -n "$requested_identifier" ]]; then
+    RESTORE_ARCHIVE_IDENTIFIER="$requested_identifier"
+    return 0
+  fi
+
+  base_archives="$(borg list --glob-archives 'sh:base-*' \
+    --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
+      printf 'Could not inventory archived physical bases.\n' >&2
+      return 1
+    }
+  while IFS= read -r archive; do
+    [[ "$archive" =~ ^base-([0-9a-f]{16})-[0-9]{8}T[0-9]{6}Z$ ]] || continue
+    candidate="${BASH_REMATCH[1]}"
+    if [[ -z "$discovered_identifier" ]]; then
+      discovered_identifier="$candidate"
+    elif [[ "$candidate" != "$discovered_identifier" ]]; then
+      printf 'Multiple PostgreSQL clusters are archived; set TAPTIME_RESTORE_SYSTEM_IDENTIFIER explicitly.\n' >&2
+      return 1
+    fi
+  done < <(printf '%s\n' "$base_archives" | sort)
+  [[ -n "$discovered_identifier" ]] || {
+    printf 'No physical base archive with a cluster identity is available.\n' >&2
+    return 1
+  }
+  RESTORE_ARCHIVE_IDENTIFIER="$discovered_identifier"
+}
+
+select_base_archive() {
+  local target="${TAPTIME_RESTORE_TARGET_TIME:-}"
+  local target_nanos='' archive started_at started_nanos selected='' base_archives
+
+  if [[ -n "$target" ]]; then
+    target_nanos="$(timestamp_nanos "$target")" || return 1
+  fi
+  base_archives="$(borg list \
+    --glob-archives "sh:base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
+      printf 'Could not inventory physical bases for the selected cluster.\n' >&2
+      return 1
+    }
+  while IFS= read -r archive; do
+    [[ "$archive" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] \
+      || continue
+    if [[ -z "$target" ]]; then
+      selected="$archive"
+      continue
+    fi
+    started_at="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$archive" manifest/base-created-at-utc | tr -d '\r\n')" || {
+        printf 'Could not read creation time from physical base %s.\n' "$archive" >&2
+        return 1
+      }
+    started_nanos="$(timestamp_nanos "$started_at")" || return 1
+    if (( started_nanos <= target_nanos )); then
+      selected="$archive"
+    fi
+  done < <(printf '%s\n' "$base_archives" | sort)
+  [[ -n "$selected" ]] || {
+    printf 'No physical base begins at or before the requested recovery point.\n' >&2
+    return 1
+  }
+  printf '%s\n' "$selected"
+}
+
+extract_relevant_wal() {
+  local start_wal_file="$1"
+  local wal_directory="$2"
+  local start_timeline="${start_wal_file:0:8}"
+  local wal_archive wal_file wal_archives
+
+  mkdir -p "$wal_directory"
+  wal_archives="$(borg list \
+    --glob-archives "sh:wal-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
+      printf 'Could not inventory WAL archives for the selected cluster.\n' >&2
+      return 1
+    }
+  while IFS= read -r wal_archive; do
+    [[ -n "$wal_archive" ]] || continue
+    wal_file="${wal_archive#wal-$RESTORE_ARCHIVE_IDENTIFIER-}"
+    if [[ "$wal_file" =~ ^[0-9A-F]{24}$ \
+      && "${wal_file:0:8}" == "$start_timeline" \
+      && ! "$wal_file" < "$start_wal_file" ]] \
+      || [[ "$wal_file" =~ ^[0-9A-F]{8}\.history$ ]]; then
+      (
+        cd "$wal_directory"
+        borg extract "$BORG_REPOSITORY::$wal_archive"
+      )
+    fi
+  done <<< "$wal_archives"
+}
+
+wal_files_are_adjacent() {
+  local previous="$1"
+  local following="$2"
+  local segment_size="$3"
+  local timeline previous_log previous_segment segments_per_log
+  local expected_log expected_segment expected
+
+  [[ "$previous" =~ ^[0-9A-F]{24}$ \
+    && "$following" =~ ^[0-9A-F]{24}$ \
+    && "$segment_size" =~ ^[1-9][0-9]*$ \
+    && "${previous:0:8}" == "${following:0:8}" ]] || return 1
+  timeline="${previous:0:8}"
+  previous_log=$((16#${previous:8:8}))
+  previous_segment=$((16#${previous:16:8}))
+  segments_per_log=$((0x100000000 / segment_size))
+  (( segments_per_log > 0 && previous_segment < segments_per_log )) || return 1
+  if (( previous_segment + 1 < segments_per_log )); then
+    expected_log="$previous_log"
+    expected_segment=$((previous_segment + 1))
+  else
+    expected_log=$((previous_log + 1))
+    expected_segment=0
+  fi
+  printf -v expected '%s%08X%08X' "$timeline" "$expected_log" "$expected_segment"
+  [[ "$following" == "$expected" ]]
+}
+
+validate_wal_chain() {
+  local start_wal_file="$1"
+  local wal_directory="$2"
+  local data_directory="$3"
+  local segment_size wal_path wal_file previous='' latest='' wal_files
+
+  segment_size="$(docker run --rm --network none --volume "$data_directory:/data:ro" \
+    "$RESTORE_IMAGE" pg_controldata /data \
+    | sed -n 's/^Bytes per WAL segment: *//p')"
+  [[ "$segment_size" =~ ^[1-9][0-9]*$ ]] || {
+    printf 'Could not derive the restored cluster WAL segment size.\n' >&2
+    return 1
+  }
+  wal_files="$({
+    for wal_path in "$wal_directory"/*; do
+      wal_file="${wal_path##*/}"
+      [[ -f "$wal_path" && "$wal_file" =~ ^[0-9A-F]{24}$ \
+        && "${wal_file:0:8}" == "${start_wal_file:0:8}" \
+        && ! "$wal_file" < "$start_wal_file" ]] \
+        && printf '%s\n' "$wal_file"
+    done
+  } | sort)"
+  while IFS= read -r wal_file; do
+    [[ -n "$wal_file" ]] || continue
+    if [[ -z "$previous" ]]; then
+      [[ "$wal_file" == "$start_wal_file" ]] || {
+        printf 'Offsite WAL chain does not begin at the physical base.\n' >&2
+        return 1
+      }
+    elif ! wal_files_are_adjacent "$previous" "$wal_file" "$segment_size"; then
+      printf 'Offsite WAL chain contains a gap after %s.\n' "$previous" >&2
+      return 1
+    fi
+    previous="$wal_file"
+    latest="$wal_file"
+  done <<< "$wal_files"
+  [[ -n "$latest" ]] || {
+    printf 'No complete offsite WAL segment exists for the physical base.\n' >&2
+    return 1
+  }
+  printf '%s\n' "$latest"
+}
+
+require_base_start_wal() {
+  local start_wal_file="$1"
+  local wal_directory="$2"
+
+  [[ -f "$wal_directory/$start_wal_file" ]] || {
+    printf 'No complete offsite start WAL segment exists for the physical base.\n' >&2
+    return 1
+  }
+}
+
+latest_wal_record_lsn() {
+  local wal_directory="$1"
+  local start_wal_lsn="$2"
+  local start_wal_file="$3"
+  local latest_wal_file="$4"
+  local last_lsn
+
+  last_lsn="$(docker run --rm --network none --volume "$wal_directory:/wal:ro" \
+    "$RESTORE_IMAGE" pg_waldump --path=/wal --start="$start_wal_lsn" \
+      "$start_wal_file" "$latest_wal_file" \
+    | sed -n 's/.* lsn: \([0-9A-F]\+\/[0-9A-F]\+\), prev .*/\1/p' \
+    | tail -n 1)" || {
+      printf 'The latest offsite WAL segment could not be parsed.\n' >&2
+      return 1
+    }
+  [[ "$last_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ ]] || {
+    printf 'The latest offsite WAL segment contains no complete record.\n' >&2
+    return 1
+  }
+  printf '%s\n' "$last_lsn"
+}
+
+configure_point_in_time_recovery() {
+  local data_directory="$1"
+  local latest_record_lsn="${2:-}"
+  local recovery_target_time="${TAPTIME_RESTORE_TARGET_TIME:-}"
+  local postgres_recovery_target_time=''
+
+  if [[ -n "$recovery_target_time" ]]; then
+    [[ "$recovery_target_time" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$ ]] || {
+      printf 'TAPTIME_RESTORE_TARGET_TIME must be an exact UTC timestamp.\n' >&2
+      return 1
+    }
+    postgres_recovery_target_time="${recovery_target_time/T/ }"
+    postgres_recovery_target_time="${postgres_recovery_target_time%Z}+00"
+  else
+    [[ "$latest_record_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ ]] || {
+      printf 'Latest restore verification requires an exact archived WAL record.\n' >&2
+      return 1
+    }
+  fi
+  touch "$data_directory/recovery.signal"
+  {
+    printf "restore_command = 'cp /var/lib/postgresql/wal-restore/%%f %%p && chmod 0600 %%p'\n"
+    if [[ -n "$recovery_target_time" ]]; then
+      printf "recovery_target_time = '%s'\n" "$postgres_recovery_target_time"
+    else
+      printf "recovery_target_lsn = '%s'\n" "$latest_record_lsn"
+      printf "recovery_target_inclusive = 'on'\n"
+    fi
+    printf "recovery_target_action = 'promote'\n"
+    printf "recovery_target_timeline = 'current'\n"
+  } >> "$data_directory/postgresql.auto.conf"
+}
+
+retained_base_wal_floors() {
+  local retained_archives="$1"
+  local retained_archive wal_file timeline floor_records=''
+
+  while IFS= read -r retained_archive; do
+    [[ -n "$retained_archive" ]] || continue
+    wal_file="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$retained_archive" manifest/base-start-wal-file | tr -d '\r\n')" || {
+        printf 'Could not read the WAL floor from retained base %s.\n' \
+          "$retained_archive" >&2
+        return 1
+      }
+    [[ "$wal_file" =~ ^[0-9A-F]{24}$ ]] || {
+      printf 'Retained base %s has no valid start WAL file.\n' "$retained_archive" >&2
+      return 1
+    }
+    timeline="${wal_file:0:8}"
+    floor_records+="$timeline|$wal_file"$'\n'
+  done <<< "$retained_archives"
+
+  [[ -n "$floor_records" ]] || {
+    printf 'No retained physical base backup is available.\n' >&2
+    return 1
+  }
+  printf '%s' "$floor_records" | sort | awk -F '|' '!seen[$1]++'
+}
+
+prune_after_verified_restore() {
+  local verified_archive="$1"
+  local wal_archive wal_file timeline floor_record floor_records wal_archives markers
+  local retained_bases
+  local floor_count=0
+
+  if ! production_base_is_registered "$verified_archive"; then
+    printf 'Deferring retention until the archiver registered the verified base.\n'
+    return 0
+  fi
+  borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
+    printf 'Verified physical base is unavailable before retention.\n' >&2
+    return 1
+  }
+  printf 'Applying retention only after the physical base started and passed verification.\n'
+  borg prune --list \
+    --glob-archives "sh:base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    "$BORG_REPOSITORY" \
+    --keep-hourly "$BASE_BACKUP_KEEP_HOURLY" \
+    --keep-daily "$BASE_BACKUP_KEEP_DAILY" \
+    --keep-weekly "$BASE_BACKUP_KEEP_WEEKLY" \
+    --keep-monthly "$BASE_BACKUP_KEEP_MONTHLY" || return 1
+  borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
+    printf 'Retention removed or cannot re-read the verified physical base.\n' >&2
+    return 1
+  }
+  retained_bases="$(borg list \
+    --glob-archives "sh:base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
+      printf 'Could not inventory retained physical bases.\n' >&2
+      return 1
+    }
+  floor_records="$(retained_base_wal_floors "$retained_bases")" || return 1
+  [[ -n "$floor_records" ]] || {
+    printf 'No complete retained-base WAL inventory is available.\n' >&2
+    return 1
+  }
+  while IFS='|' read -r timeline floor_record; do
+    [[ "$timeline" =~ ^[0-9A-F]{8}$ \
+      && "$floor_record" =~ ^${timeline}[0-9A-F]{16}$ ]] || {
+        printf 'Retained-base WAL inventory is invalid.\n' >&2
+        return 1
+      }
+    floor_count=$((floor_count + 1))
+  done <<< "$floor_records"
+  (( floor_count > 0 )) || {
+    printf 'Retained-base WAL inventory contains no timeline floor.\n' >&2
+    return 1
+  }
+  wal_archives="$(borg list \
+    --glob-archives "sh:wal-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
+      printf 'Could not inventory WAL archives before retention.\n' >&2
+      return 1
+    }
+  markers="$(borg list \
+    --glob-archives "sh:verified-base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
+      printf 'Could not inventory restore-verification markers before retention.\n' >&2
+      return 1
+    }
+  remove_obsolete_verified_base_markers "$markers" "$retained_bases" || return 1
+  while IFS= read -r wal_archive; do
+    [[ -n "$wal_archive" ]] || continue
+    wal_file="${wal_archive#wal-$RESTORE_ARCHIVE_IDENTIFIER-}"
+    [[ "$wal_file" =~ ^[0-9A-F]{24}$ ]] || continue
+    timeline="${wal_file:0:8}"
+    floor_record="$(awk -F '|' -v selected_timeline="$timeline" \
+      '$1 == selected_timeline { print $2; exit }' <<< "$floor_records")"
+    if [[ -z "$floor_record" || "$wal_file" < "$floor_record" ]]; then
+      printf 'Removing WAL archive made obsolete by every verified retained base: %s\n' \
+        "$wal_archive"
+      borg delete "$BORG_REPOSITORY::$wal_archive" || return 1
+    fi
+  done <<< "$wal_archives"
+}
+
+remove_obsolete_verified_base_markers() {
+  local markers="$1"
+  local retained_bases="$2"
+  local marker base_archive
+
+  while IFS= read -r marker; do
+    [[ "$marker" =~ ^verified-base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] \
+      || continue
+    base_archive="${marker#verified-}"
+    if ! grep --fixed-strings --line-regexp --quiet \
+      "$base_archive" <<< "$retained_bases"; then
+      printf 'Removing verification marker for pruned base: %s\n' "$marker"
+      borg delete "$BORG_REPOSITORY::$marker" || return 1
+    fi
+  done <<< "$markers"
+}
+
+register_verified_base() {
+  local archive_name="$1"
+  local start_wal_lsn="$2"
+  local start_wal_file="$3"
+  local capability
+
+  capability="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+    --command "SELECT pg_catalog.to_regprocedure(
+      'taptime_server.record_offsite_base_backup_v1(text,pg_lsn,text)'
+    ) IS NOT NULL;")"
+  [[ "$capability" == 't' ]] || {
+    printf 'Production database lacks the versioned base-registration capability.\n' >&2
+    return 1
+  }
+  docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --quiet --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+    --command "SET ROLE taptime_wal_archiver;
+      SELECT taptime_server.record_offsite_base_backup_v1(
+        '$archive_name', '$start_wal_lsn'::pg_lsn, '$start_wal_file'
+      );" >/dev/null
+}
+
+production_database_is_running() {
+  [[ "$(docker inspect --format '{{.State.Running}}' \
+    "$DATABASE_CONTAINER" 2>/dev/null || true)" == 'true' ]]
+}
+
+production_base_is_registered() {
+  local archive_name="$1"
+  local capability registered
+
+  capability="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+    --command "SELECT pg_catalog.to_regprocedure(
+      'taptime_server.read_offsite_base_backup_receipt_v1(text)'
+    ) IS NOT NULL;")" || return 1
+  [[ "$capability" == 't' ]] || return 1
+  registered="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" --command \
+    "SET ROLE taptime_wal_archiver;
+     SELECT EXISTS (
+       SELECT FROM taptime_server.read_offsite_base_backup_receipt_v1('$archive_name')
+     );")" || return 1
+  [[ "$registered" == 't' ]]
+}
+
+record_verified_base_marker() {
+  local stage_directory="$1"
+  local archive_name="$2"
+  local start_wal_lsn="$3"
+  local start_wal_file="$4"
+  local marker_archive="verified-$archive_name"
+  local marker_directory="$stage_directory/verified-base"
+  local existing existing_lsn existing_file existing_system_identifier
+  local existing_archive_identifier
+
+  mkdir -p "$marker_directory"
+  printf '%s\n' "$archive_name" > "$marker_directory/base-archive-name"
+  printf '%s\n' "$start_wal_lsn" > "$marker_directory/base-start-wal-lsn"
+  printf '%s\n' "$start_wal_file" > "$marker_directory/base-start-wal-file"
+  printf '%s\n' "$RESTORE_SYSTEM_IDENTIFIER" \
+    > "$marker_directory/cluster-system-identifier"
+  printf '%s\n' "$RESTORE_ARCHIVE_IDENTIFIER" \
+    > "$marker_directory/cluster-archive-identifier"
+  if borg info "$BORG_REPOSITORY::$marker_archive" >/dev/null 2>&1; then
+    existing="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$marker_archive" base-archive-name | tr -d '\r\n')"
+    existing_lsn="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$marker_archive" base-start-wal-lsn | tr -d '\r\n')"
+    existing_file="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$marker_archive" base-start-wal-file | tr -d '\r\n')"
+    existing_system_identifier="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$marker_archive" cluster-system-identifier | tr -d '\r\n')"
+    existing_archive_identifier="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$marker_archive" cluster-archive-identifier | tr -d '\r\n')"
+    [[ "$existing" == "$archive_name" \
+      && "$existing_lsn" == "$start_wal_lsn" \
+      && "$existing_file" == "$start_wal_file" \
+      && "$existing_system_identifier" == "$RESTORE_SYSTEM_IDENTIFIER" \
+      && "$existing_archive_identifier" == "$RESTORE_ARCHIVE_IDENTIFIER" ]] \
+      || return 1
+  else
+    (
+      cd "$marker_directory"
+      borg create --compression zstd,6 "$BORG_REPOSITORY::$marker_archive" \
+        base-archive-name base-start-wal-lsn base-start-wal-file \
+        cluster-system-identifier cluster-archive-identifier
+    )
+  fi
+  borg check --verify-data "$BORG_REPOSITORY::$marker_archive"
+}
+
+materialize_verified_restore() {
+  local data_directory="$1"
+  local volume_name="$2"
+  local archive_name="$3"
+  local recovery_target="${TAPTIME_RESTORE_TARGET_TIME:-latest}"
+  local copied_system_identifier
+
+  [[ "$volume_name" =~ ^taptime-postgres-restored-[0-9]{8}T[0-9]{6}Z$ ]] || {
+    printf 'Restore volume must be named taptime-postgres-restored-YYYYMMDDTHHMMSSZ.\n' >&2
+    return 1
+  }
+  if docker volume inspect "$volume_name" >/dev/null 2>&1; then
+    printf 'Restore volume already exists and will not be overwritten: %s\n' \
+      "$volume_name" >&2
+    return 1
+  fi
+  [[ ! -e "$data_directory/postmaster.pid" ]] || {
+    printf 'Recovered PostgreSQL must be stopped before materialization.\n' >&2
+    return 1
+  }
+  docker volume create \
+    --label com.taptime.restore.candidate=true \
+    --label "com.taptime.restore.cluster=$RESTORE_ARCHIVE_IDENTIFIER" \
+    --label "com.taptime.restore.archive=$archive_name" \
+    --label "com.taptime.restore.target=$recovery_target" \
+    "$volume_name" >/dev/null
+  MATERIALIZED_VOLUME_IN_PROGRESS="$volume_name"
+  docker run --rm --user root --network none \
+    --volume "$data_directory:/source:ro" \
+    --volume "$volume_name:/destination" \
+    "$RESTORE_IMAGE" sh -euc '
+      test -z "$(find /destination -mindepth 1 -print -quit)"
+      cp -a /source/. /destination/
+      sync -f /destination
+    '
+  copied_system_identifier="$(docker run --rm --network none \
+    --volume "$volume_name:/data:ro" "$RESTORE_IMAGE" pg_controldata /data \
+    | sed -n 's/^Database system identifier: *//p')"
+  [[ "$copied_system_identifier" == "$RESTORE_SYSTEM_IDENTIFIER" ]] || {
+    printf 'Materialized volume changed the PostgreSQL cluster identity.\n' >&2
+    return 1
+  }
+  docker run --rm --user root --network none \
+    --volume "$volume_name:/data" "$RESTORE_IMAGE" sh -euc '
+      temporary=/data/.taptime-restore-complete.tmp
+      printf "format=1\ncluster=%s\narchive=%s\ntarget=%s\n" \
+        "$1" "$2" "$3" > "$temporary"
+      chown 999:999 "$temporary"
+      chmod 0400 "$temporary"
+      mv "$temporary" /data/.taptime-restore-complete
+      sync -f /data
+    ' sh "$RESTORE_ARCHIVE_IDENTIFIER" "$archive_name" "$recovery_target"
+  MATERIALIZED_VOLUME_IN_PROGRESS=''
+  printf 'Verified restore materialized in new Docker volume: %s\n' "$volume_name"
+}
+
 main() {
+  local restore_state='failed'
+  local stage='' container='' archive start_wal_lsn start_wal_file
+  local latest_wal_file latest_record_lsn
+  local manifest_system_identifier manifest_archive_identifier restored_system_identifier
+  local recovery_complete target_reached
+  local rehearsal_only recovery_deadline container_running
+  local write_canonical_status=1
+  local materialize_volume=''
 
-require_file "$CONFIG_FILE"
-# shellcheck source=/etc/taptime-backup/config
-source "$CONFIG_FILE"
-require_file "$BORG_PASSPHRASE_FILE"
-: "${RESTORE_STATUS_FILE:?RESTORE_STATUS_FILE must be configured}"
-
-install -d -m 0700 "$STAGING_ROOT"
-if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
-  printf '%s must be a tmpfs; refusing restore verification.\n' "$STAGING_ROOT" >&2
-  exit 1
-fi
-
-exec 9>"$LOCK_FILE"
-if ! flock -n 9; then
-  printf 'Another Borg operation is already running; restore verification skipped.\n'
-  exit 0
-fi
-
-restore_state='failed'
-stage=''
-container=''
-
-write_restore_status() {
-  local temporary
-  install -d -m 0700 "$(dirname "$RESTORE_STATUS_FILE")"
-  temporary="$(mktemp "${RESTORE_STATUS_FILE}.XXXXXX")"
-  printf '{"state":"%s","last_attempt_at_utc":"%s"}\n' \
-    "$restore_state" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$temporary"
-  chmod 0644 "$temporary"
-  mv "$temporary" "$RESTORE_STATUS_FILE"
-}
-
-cleanup() {
-  if [[ -n "$container" ]]; then
-    docker rm --force "$container" >/dev/null 2>&1 || true
+  if (( $# == 0 )); then
+    :
+  elif (( $# == 2 )) && [[ "$1" == '--materialize-volume' ]]; then
+    materialize_volume="$2"
+  else
+    printf 'Usage: %s [--materialize-volume taptime-postgres-restored-YYYYMMDDTHHMMSSZ]\n' \
+      "${0##*/}" >&2
+    exit 64
   fi
-  if [[ -n "$stage" ]]; then
-    rm -rf "$stage"
+
+  require_file "$CONFIG_FILE"
+  # shellcheck source=/etc/taptime-backup/config
+  source "$CONFIG_FILE"
+  validate_offsite_borg_repository
+  require_file "$BORG_PASSPHRASE_FILE"
+  : "${RESTORE_STATUS_FILE:?RESTORE_STATUS_FILE must be configured}"
+  : "${DATABASE_CONTAINER:?DATABASE_CONTAINER must be configured}"
+  : "${DATABASE_NAME:?DATABASE_NAME must be configured}"
+  : "${MIGRATIONS_DIRECTORY:?MIGRATIONS_DIRECTORY must be configured}"
+  : "${RESTORE_IMAGE:?RESTORE_IMAGE must be configured}"
+  : "${BASE_BACKUP_KEEP_HOURLY:?BASE_BACKUP_KEEP_HOURLY must be configured}"
+  : "${BASE_BACKUP_KEEP_DAILY:?BASE_BACKUP_KEEP_DAILY must be configured}"
+  : "${BASE_BACKUP_KEEP_WEEKLY:?BASE_BACKUP_KEEP_WEEKLY must be configured}"
+  : "${BASE_BACKUP_KEEP_MONTHLY:?BASE_BACKUP_KEEP_MONTHLY must be configured}"
+  : "${RESTORE_RECOVERY_TIMEOUT_SECONDS:?RESTORE_RECOVERY_TIMEOUT_SECONDS must be configured}"
+  : "${RESTORE_RECOVERY_POLL_SECONDS:?RESTORE_RECOVERY_POLL_SECONDS must be configured}"
+  require_positive_integer BASE_BACKUP_KEEP_HOURLY "$BASE_BACKUP_KEEP_HOURLY"
+  require_positive_integer BASE_BACKUP_KEEP_DAILY "$BASE_BACKUP_KEEP_DAILY"
+  require_positive_integer BASE_BACKUP_KEEP_WEEKLY "$BASE_BACKUP_KEEP_WEEKLY"
+  require_positive_integer BASE_BACKUP_KEEP_MONTHLY "$BASE_BACKUP_KEEP_MONTHLY"
+  require_positive_integer RESTORE_RECOVERY_TIMEOUT_SECONDS \
+    "$RESTORE_RECOVERY_TIMEOUT_SECONDS"
+  require_positive_integer RESTORE_RECOVERY_POLL_SECONDS \
+    "$RESTORE_RECOVERY_POLL_SECONDS"
+  rehearsal_only="${TAPTIME_RESTORE_REHEARSAL_ONLY:-0}"
+  [[ "$rehearsal_only" == '0' || "$rehearsal_only" == '1' ]] || {
+    printf 'TAPTIME_RESTORE_REHEARSAL_ONLY must be 0 or 1.\n' >&2
+    exit 1
+  }
+  if [[ -n "$materialize_volume" && "$rehearsal_only" == '1' ]]; then
+    printf 'A migration rehearsal cannot materialize a production restore volume.\n' >&2
+    exit 1
   fi
-}
-
-finish() {
-  local status=$?
-  trap - EXIT
-  cleanup
-  if ! write_restore_status; then
-    printf 'Could not persist restore-verification status.\n' >&2
-    status=1
+  if [[ -n "${TAPTIME_RESTORE_TARGET_TIME:-}" ]]; then
+    write_canonical_status=0
   fi
-  exit "$status"
-}
 
-trap finish EXIT
+  install -d -m 0700 "$STAGING_ROOT"
+  if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
+    printf '%s must be a tmpfs; refusing restore verification.\n' "$STAGING_ROOT" >&2
+    exit 1
+  fi
 
-export BORG_RSH
-export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
-export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
-export BORG_CACHE_DIR="$STAGING_ROOT/borg-cache"
-export BORG_CONFIG_DIR="$STAGING_ROOT/borg-config"
-install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+  exec 9>"$LOCK_FILE"
+  flock 9
 
-stage="$(mktemp -d "$STAGING_ROOT/restore.XXXXXX")"
-container="taptime-restore-verify-$(date +%s)"
+  write_restore_status() {
+    local temporary
+    install -d -m 0700 "$(dirname "$RESTORE_STATUS_FILE")"
+    temporary="$(mktemp "${RESTORE_STATUS_FILE}.XXXXXX")"
+    printf '{"state":"%s","last_attempt_at_utc":"%s"}\n' \
+      "$restore_state" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$temporary"
+    chmod 0644 "$temporary"
+    mv "$temporary" "$RESTORE_STATUS_FILE"
+  }
 
-printf 'Verifying Borg repository data.\n'
-borg check --verify-data "$BORG_REPOSITORY"
-archive="$(borg list --last 1 --format '{archive}{NL}' "$BORG_REPOSITORY")"
-if [[ -z "$archive" ]]; then
-  printf 'No Borg archive is available for restore verification.\n' >&2
-  exit 1
-fi
-printf 'Restoring newest archive: %s\n' "$archive"
+  cleanup() {
+    if [[ -n "$container" ]]; then
+      docker rm --force "$container" >/dev/null 2>&1 || true
+    fi
+    if [[ -n "$stage" ]]; then
+      rm -rf -- "$stage"
+    fi
+    if [[ -n "$MATERIALIZED_VOLUME_IN_PROGRESS" ]]; then
+      docker volume rm "$MATERIALIZED_VOLUME_IN_PROGRESS" >/dev/null 2>&1 || true
+    fi
+  }
 
-(
-  cd "$stage"
-  borg extract "$BORG_REPOSITORY::$archive" manifest
-)
+  finish() {
+    local status=$?
+    trap - EXIT
+    cleanup
+    if (( write_canonical_status == 1 )) && ! write_restore_status; then
+      printf 'Could not persist restore-verification status.\n' >&2
+      status=1
+    fi
+    exit "$status"
+  }
 
-printf 'Checking the archived migration-source checksums.\n'
-(
-  cd "$MIGRATIONS_DIRECTORY"
-  sha256sum --check "$stage/manifest/source-migration-checksums.tsv"
-)
+  trap finish EXIT
 
-docker run --detach --name "$container" --network none --read-only \
-  --tmpfs /var/lib/postgresql/data:rw,noexec,nosuid,size=1g,uid=999,gid=999,mode=0700 \
-  --tmpfs /var/run/postgresql:rw,noexec,nosuid,size=64m,uid=999,gid=999,mode=0775 \
-  --env POSTGRES_HOST_AUTH_METHOD=trust \
-  "$RESTORE_IMAGE" >/dev/null
+  export BORG_RSH
+  export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
+  export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
+  export BORG_CACHE_DIR="$STAGING_ROOT/borg-cache"
+  export BORG_CONFIG_DIR="$STAGING_ROOT/borg-config"
+  install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
 
-ready_observations=0
-for _ in $(seq 1 30); do
-  if docker exec --user postgres "$container" pg_isready --dbname=postgres >/dev/null 2>&1; then
-    ready_observations=$((ready_observations + 1))
-    if (( ready_observations >= 3 )); then
-      break
+  select_restore_cluster_identity
+  stage="$(mktemp -d "$STAGING_ROOT/restore.XXXXXX")"
+  container="taptime-restore-verify-$(date +%s)"
+  archive="$(select_base_archive)"
+  printf 'Verifying encrypted physical base archive: %s\n' "$archive"
+  borg check --verify-data "$BORG_REPOSITORY::$archive"
+  (
+    cd "$stage"
+    borg extract "$BORG_REPOSITORY::$archive" base.tar manifest
+  )
+  printf 'Checking the archived migration-source checksums.\n'
+  (
+    cd "$MIGRATIONS_DIRECTORY"
+    sha256sum --check "$stage/manifest/source-migration-checksums.tsv"
+  )
+
+  start_wal_lsn="$(tr -d '\r\n' < "$stage/manifest/base-start-wal-lsn")"
+  start_wal_file="$(tr -d '\r\n' < "$stage/manifest/base-start-wal-file")"
+  manifest_system_identifier="$(tr -d '\r\n' \
+    < "$stage/manifest/cluster-system-identifier")"
+  manifest_archive_identifier="$(tr -d '\r\n' \
+    < "$stage/manifest/cluster-archive-identifier")"
+  if [[ -z "$RESTORE_SYSTEM_IDENTIFIER" ]]; then
+    RESTORE_SYSTEM_IDENTIFIER="$manifest_system_identifier"
+  fi
+  [[ "$start_wal_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ \
+    && "$start_wal_file" =~ ^[0-9A-F]{24}$ \
+    && "$manifest_system_identifier" =~ ^-?[0-9]+$ \
+    && "$manifest_system_identifier" == "$RESTORE_SYSTEM_IDENTIFIER" \
+    && "$manifest_archive_identifier" == "$RESTORE_ARCHIVE_IDENTIFIER" \
+    && "$archive" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || {
+    printf 'Physical base manifest has no valid cluster-bound WAL location.\n' >&2
+    exit 1
+  }
+  mkdir -p "$stage/data"
+  tar --extract --file "$stage/base.tar" --directory "$stage/data"
+  docker run --rm --network none --volume "$stage/data:/backup:ro" \
+    "$RESTORE_IMAGE" pg_verifybackup /backup
+  restored_system_identifier="$(docker run --rm --network none \
+    --volume "$stage/data:/data:ro" "$RESTORE_IMAGE" pg_controldata /data \
+    | sed -n 's/^Database system identifier: *//p')"
+  [[ "$restored_system_identifier" == "$RESTORE_SYSTEM_IDENTIFIER" ]] || {
+    printf 'Physical base belongs to a different PostgreSQL cluster.\n' >&2
+    exit 1
+  }
+
+  extract_relevant_wal "$start_wal_file" "$stage/wal"
+  if [[ -n "${TAPTIME_RESTORE_TARGET_TIME:-}" ]]; then
+    require_base_start_wal "$start_wal_file" "$stage/wal"
+    latest_record_lsn=''
+  else
+    latest_wal_file="$(validate_wal_chain \
+      "$start_wal_file" "$stage/wal" "$stage/data")"
+    latest_record_lsn="$(latest_wal_record_lsn \
+      "$stage/wal" "$start_wal_lsn" "$start_wal_file" "$latest_wal_file")"
+  fi
+  configure_point_in_time_recovery "$stage/data" "$latest_record_lsn"
+  chown -R 999:999 "$stage/data" "$stage/wal"
+  chmod 0700 "$stage/data" "$stage/wal"
+  find "$stage/wal" -type d -exec chmod 0700 {} +
+  find "$stage/wal" -type f -exec chmod 0400 {} +
+
+  docker run --detach --name "$container" --network none --read-only \
+    --volume "$stage/data:/var/lib/postgresql/data" \
+    --volume "$stage/wal:/var/lib/postgresql/wal-restore:ro" \
+    --tmpfs /var/run/postgresql:rw,noexec,nosuid,size=64m,uid=999,gid=999,mode=0775 \
+    "$RESTORE_IMAGE" >/dev/null
+
+  recovery_complete='f'
+  recovery_deadline=$(( $(date +%s) + RESTORE_RECOVERY_TIMEOUT_SECONDS ))
+  while (( $(date +%s) < recovery_deadline )); do
+    container_running="$(docker inspect --format '{{.State.Running}}' \
+      "$container" 2>/dev/null || true)"
+    [[ "$container_running" == 'true' ]] || {
+      printf 'Restored PostgreSQL exited during archive recovery.\n' >&2
+      docker logs "$container" >&2 || true
+      exit 1
+    }
+    if docker exec --user postgres "$container" pg_isready --dbname="$DATABASE_NAME" \
+      >/dev/null 2>&1; then
+      recovery_complete="$(docker exec --user postgres "$container" psql \
+        --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+        --command 'SELECT NOT pg_catalog.pg_is_in_recovery();' 2>/dev/null || true)"
+      [[ "$recovery_complete" == 't' ]] && break
+    fi
+    sleep "$RESTORE_RECOVERY_POLL_SECONDS"
+  done
+  [[ "$recovery_complete" == 't' ]] || {
+    printf 'Restored PostgreSQL did not finish archive recovery before its configured deadline.\n' >&2
+    docker logs "$container" >&2 || true
+    exit 1
+  }
+  if [[ -z "${TAPTIME_RESTORE_TARGET_TIME:-}" ]]; then
+    target_reached="$(docker exec --user postgres "$container" psql \
+      --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+      --command "SELECT pg_catalog.pg_last_wal_replay_lsn() >= \
+        '$latest_record_lsn'::pg_lsn;")"
+    [[ "$target_reached" == 't' ]] || {
+      printf 'Restore did not reach the last complete offsite WAL record.\n' >&2
+      exit 1
+    }
+  fi
+
+  check_restored_migrations \
+    "$container" "$DATABASE_NAME" "$stage/manifest/source-migration-checksums.tsv"
+  check_restored_rls "$container" "$DATABASE_NAME"
+
+  printf 'Physical restore verification completed: %s\n' "$archive"
+  if [[ -n "$materialize_volume" ]]; then
+    docker stop "$container" >/dev/null
+    docker rm "$container" >/dev/null
+    container=''
+    materialize_verified_restore "$stage/data" "$materialize_volume" "$archive"
+    printf 'Materialization leaves base markers and retention unchanged until activation.\n'
+  elif [[ "$rehearsal_only" == '1' ]]; then
+    printf 'Migration rehearsal leaves base markers and retention unchanged.\n'
+  elif [[ -z "${TAPTIME_RESTORE_TARGET_TIME:-}" ]]; then
+    record_verified_base_marker "$stage" "$archive" "$start_wal_lsn" "$start_wal_file"
+    if production_database_is_running; then
+      register_verified_base "$archive" "$start_wal_lsn" "$start_wal_file"
+      prune_after_verified_restore "$archive"
+    else
+      printf 'Production database is absent; base registration and retention are deferred.\n'
     fi
   else
-    ready_observations=0
+    printf 'Historical point-in-time verification leaves retention and base markers unchanged.\n'
   fi
-  sleep 1
-done
-if (( ready_observations < 3 )); then
-  printf 'Restore PostgreSQL did not become stably ready.\n' >&2
-  exit 1
-fi
-docker exec --user postgres "$container" pg_isready --dbname=postgres
-
-printf 'Restoring global roles.\n'
-borg extract --stdout "$BORG_REPOSITORY::$archive" globals.sql | \
-  sed -e '/^CREATE ROLE postgres;$/d' -e '/^ALTER ROLE postgres /d' | \
-  docker exec --interactive --user postgres "$container" psql --set ON_ERROR_STOP=on --dbname=postgres
-docker exec --user postgres "$container" createdb "$DATABASE_NAME"
-
-printf 'Restoring database.\n'
-borg extract --stdout "$BORG_REPOSITORY::$archive" database.dump | \
-  docker exec --interactive --user postgres "$container" \
-  pg_restore --exit-on-error --dbname="$DATABASE_NAME"
-
-printf 'Comparing migration ledger.\n'
-docker exec --user postgres "$container" psql --tuples-only --no-align --dbname="$DATABASE_NAME" \
-  --command "SELECT version || E'\\t' || name || E'\\t' || checksum FROM public.taptime_server_schema_migrations ORDER BY version" \
-  > "$stage/restored-migration-ledger.tsv"
-diff --unified "$stage/manifest/migration-ledger.tsv" "$stage/restored-migration-ledger.tsv"
-
-printf 'Comparing seven carrying-table row counts.\n'
-docker exec --user postgres "$container" psql --tuples-only --no-align --field-separator=$'\t' \
-  --dbname="$DATABASE_NAME" --command "
-  SELECT 'organizations', count(*) FROM taptime_server.organizations
-  UNION ALL SELECT 'memberships', count(*) FROM taptime_server.memberships
-  UNION ALL SELECT 'work_events', count(*) FROM taptime_server.work_events
-  UNION ALL SELECT 'time_entries', count(*) FROM taptime_server.time_entries
-  UNION ALL SELECT 'canonical_decisions', count(*) FROM taptime_server.canonical_decisions
-  UNION ALL SELECT 'offline_event_reconciliations', count(*) FROM taptime_server.offline_event_reconciliations
-  UNION ALL SELECT 'audit_events', count(*) FROM taptime_server.audit_events
-  ORDER BY 1" > "$stage/restored-row-counts.tsv"
-diff --unified "$stage/manifest/row-counts.tsv" "$stage/restored-row-counts.tsv"
-cat "$stage/restored-row-counts.tsv"
-
-check_restored_rls "$container" "$DATABASE_NAME"
-
-printf 'Comparing all non-built-in PostgreSQL roles.\n'
-docker exec --user postgres "$container" psql --tuples-only --no-align --dbname="$DATABASE_NAME" \
-  --command "SELECT rolname FROM pg_catalog.pg_roles WHERE rolname !~ '^pg_' ORDER BY rolname" \
-  > "$stage/restored-database-roles.txt"
-diff --unified "$stage/manifest/database-roles.txt" "$stage/restored-database-roles.txt"
-printf 'Non-built-in PostgreSQL roles restored: %s\n' "$(wc -l < "$stage/restored-database-roles.txt")"
-
-printf 'Restore verification completed: %s\n' "$archive"
-restore_state='ok'
+  restore_state='ok'
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

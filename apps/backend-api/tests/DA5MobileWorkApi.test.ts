@@ -1,4 +1,5 @@
 import type { Server } from 'node:http';
+import { LifecycleArchivePendingError } from '@taptime/backend-lifecycle';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
 import {
@@ -264,6 +265,33 @@ describe('DA5 Mobile work HTTP boundaries', () => {
     }
     expect(ingestManualBreak).toHaveBeenCalledOnce();
   });
+
+  it('withholds both manual HTTP acknowledgements while offsite archival is pending',
+    async () => {
+      const unavailable = async (): Promise<never> => {
+        throw new LifecycleArchivePendingError();
+      };
+      const origin = await start({
+        manualLifecycleIngestor: {
+          ingestManual: unavailable,
+          ingestManualBreak: unavailable,
+        },
+      });
+
+      await expectError(await post(origin, '/v1/lifecycle-events/manual', {
+        expectedMembershipId: ids.membership,
+        workEvent: {
+          id: ids.event,
+          target: { targetType: 'project', targetId: ids.project },
+        },
+        receipt: { id: ids.receipt, attemptNumber: 1 },
+      }), 503, 'service_unavailable');
+      await expectError(await post(origin, '/v1/lifecycle-events/manual-break', {
+        expectedMembershipId: ids.membership,
+        workEvent: { id: ids.event, subject: { type: 'break' } },
+        receipt: { id: ids.receipt, attemptNumber: 1 },
+      }), 503, 'service_unavailable');
+    });
 });
 
 function mobileRuntimeConfiguration(): BackendApiRuntimeConfiguration {

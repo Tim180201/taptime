@@ -7,9 +7,10 @@ import type {
   OfflineLifecycleEventCommand,
   OfflineLifecycleEventCommandV2,
   OfflineLifecycleEventCommandV3,
-  OfflineLifecycleEventResult,
+  OfflineLifecycleEventResultV4,
   OfflineReconciliationCommand,
   OfflineReconciliationResult,
+  OfflineReconciliationResultV2,
 } from '@taptime/offline-sync-contract';
 import type {
   MobileReviewState,
@@ -72,13 +73,16 @@ export interface OfflineLifecycleIngestor {
   ingest(
     command: AuthenticatedOfflineLifecycleEventCommand,
     controls?: OfflineLifecycleIngestionControls,
-  ): Promise<OfflineLifecycleEventResult>;
+  ): Promise<OfflineLifecycleEventResultV4>;
 }
 
 export interface OfflineEventReconciliationReader {
   reconcile(
     command: AuthenticatedOfflineReconciliationCommand,
   ): Promise<OfflineReconciliationResult>;
+  readonly reconcileV2?: (
+    command: AuthenticatedOfflineReconciliationCommand,
+  ) => Promise<OfflineReconciliationResultV2>;
   readReviewState(
     command: AuthenticatedMobileReviewStateCommand,
   ): Promise<TimeReviewReadResult<MobileReviewState>>;

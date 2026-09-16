@@ -44,6 +44,11 @@ import type {
   NonDurableDeferredLifecycleIngestionResult,
   PersistedLifecycleDecision,
 } from './types.js';
+import {
+  LifecycleArchivePendingError,
+  PostgresLifecycleArchiveDurability,
+  type LifecycleArchiveDurabilityPort,
+} from './LifecycleArchiveDurability.js';
 
 export const B6_IDENTITY_RESOLVER_ROLE = 'taptime_identity_resolver';
 export const B6_LIFECYCLE_ROLE = 'taptime_server_lifecycle';
@@ -149,6 +154,8 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
   constructor(
     private readonly pool: Pool,
     private readonly accessTokenVerifier: SupabaseJwtAccessTokenVerifier,
+    private readonly archiveDurability: LifecycleArchiveDurabilityPort =
+      new PostgresLifecycleArchiveDurability(),
   ) {}
 
   async ingest(
@@ -305,7 +312,11 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
           }
           await query(client, 'COMMIT');
           transactionOpen = false;
-          return durableDeferredResult(command, true);
+          return await this.requireOffsiteArchive(
+            client,
+            actor,
+            durableDeferredResult(command, true),
+          );
         }
         const receiptResult = await ensureRetryReceipt(
           client,
@@ -320,7 +331,11 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
         }
         await query(client, 'COMMIT');
         transactionOpen = false;
-        return synchronizedResult(command, persisted, true);
+        return await this.requireOffsiteArchive(
+          client,
+          actor,
+          synchronizedResult(command, persisted, true),
+        );
       }
 
       if (policy === 'defer_only') {
@@ -352,7 +367,11 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
 
         await query(client, 'COMMIT');
         transactionOpen = false;
-        return durableDeferredResult(command, false);
+        return await this.requireOffsiteArchive(
+          client,
+          actor,
+          durableDeferredResult(command, false),
+        );
       }
 
       if (!configurationIsAutomaticallyEvaluable(configuration, command.workEvent.occurredAt)) {
@@ -378,7 +397,11 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
         await afterWrite('audit_event', controls);
         await query(client, 'COMMIT');
         transactionOpen = false;
-        return durableDeferredResult(command, false);
+        return await this.requireOffsiteArchive(
+          client,
+          actor,
+          durableDeferredResult(command, false),
+        );
       }
 
       const activeTimeEntry = await findActiveTimeEntry(client, actor);
@@ -422,7 +445,11 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
 
       await query(client, 'COMMIT');
       transactionOpen = false;
-      return synchronizedResult(command, persistedDecision, false);
+      return await this.requireOffsiteArchive(
+        client,
+        actor,
+        synchronizedResult(command, persistedDecision, false),
+      );
     } catch (error) {
       if (transactionOpen) {
         await rollbackPreservingOriginalError(client);
@@ -431,6 +458,27 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
     } finally {
       client.release();
     }
+  }
+
+  private async requireOffsiteArchive<Result extends
+    DurableDeferredLifecycleIngestionResult
+    | Extract<LifecycleIngestionResult, { readonly status: 'synchronized' }>>(
+    client: PoolClient,
+    actor: ResolvedActorRow,
+    result: Result,
+  ): Promise<Result> {
+    const archive = await this.archiveDurability.requireOffsiteArchive(
+      client,
+      {
+        organizationId: actor.organization_id,
+        userId: actor.user_id,
+        membershipId: actor.membership_id,
+        membershipRole: actor.membership_role,
+      },
+      { workEventId: result.workEventId, receiptId: result.receiptId },
+    );
+    if (!archive.offsiteArchived) throw new LifecycleArchivePendingError();
+    return result;
   }
 }
 
@@ -1350,7 +1398,7 @@ function synchronizedResult(
   command: LifecycleIngestionCommand,
   decision: PersistedLifecycleDecision,
   idempotentRetry: boolean,
-): LifecycleIngestionResult {
+): Extract<LifecycleIngestionResult, { readonly status: 'synchronized' }> {
   return {
     status: 'synchronized',
     idempotentRetry,

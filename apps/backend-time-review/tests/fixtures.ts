@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
-import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '@taptime/backend-schema';
+import { B3_MIGRATION_TABLE, B3_SCHEMA, loadMigrations, migrate } from '@taptime/backend-schema';
 import type { AccessTokenVerifier, AccessTokenVerificationResult } from '@taptime/backend-identity';
 
 export const DA3_ISSUER = 'https://synthetic.invalid/auth';
@@ -60,8 +60,9 @@ export async function resetMigratePrepareAndSeed(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const migrated = await migrate(installerPool);
-  if (migrated.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019,020,021,022') {
-    throw new Error('DA3 requires a clean migration set 001 through 022');
+  const expected = (await loadMigrations()).map(({ version }) => version);
+  if (migrated.applied.join(',') !== expected.join(',')) {
+    throw new Error('DA3 requires every source migration in order');
   }
   await prepareLogin(installerPool, DA3_READ_LOGIN, runtimePassword, 'taptime_time_review_reader');
   await prepareLogin(installerPool, DA3_WRITE_LOGIN, runtimePassword, 'taptime_time_review_writer');

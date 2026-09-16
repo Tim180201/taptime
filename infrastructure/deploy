@@ -6,6 +6,7 @@ readonly COMPOSE_FILE="${TAPTIME_DEPLOY_COMPOSE_FILE:-/opt/taptime/source/infras
 readonly BACKUP_CONFIG="${TAPTIME_DEPLOY_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly VERSION_STATE_FILE="${TAPTIME_DEPLOY_VERSION_STATE_FILE:-/var/lib/taptime-deploy/current-version}"
 readonly OPERATIONS_VERSION_STATE_FILE="${TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE:-/var/lib/taptime-deploy/operations-version}"
+readonly POSTGRES_VOLUME_STATE_FILE="${TAPTIME_DEPLOY_POSTGRES_VOLUME_STATE_FILE:-/var/lib/taptime-deploy/postgres-volume}"
 readonly KNOWN_VERSIONS_FILE="${TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE:-/var/lib/taptime-deploy/known-versions}"
 readonly PROTECTED_VERSIONS_FILE="${TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE:-/opt/taptime/admin-web/status/ghcr-protected-versions.json}"
 readonly HEALTH_URL="${TAPTIME_DEPLOY_HEALTH_URL:-https://api.tb-infra.de/health}"
@@ -16,12 +17,17 @@ readonly OPERATIONS_TARGET_ROOT="${TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT:-}"
 readonly OPERATIONS_RUNTIME_ROOT="${TAPTIME_DEPLOY_OPERATIONS_RUNTIME_ROOT:-/run/taptime-operations}"
 readonly RESTORE_STATUS_FILE_DEFAULT='/var/lib/taptime-monitor/restore-status.json'
 readonly RESTORE_VERIFY_COMMAND="${TAPTIME_DEPLOY_RESTORE_VERIFY_COMMAND:-/usr/local/sbin/taptime-restore-verify}"
+readonly WAL_ARCHIVER_COMMAND="${TAPTIME_DEPLOY_WAL_ARCHIVER_COMMAND:-/usr/local/sbin/taptime-wal-archiver}"
+readonly DEPLOY_LOCK_FILE="${TAPTIME_DEPLOY_LOCK_FILE:-/run/lock/taptime-deploy.lock}"
 
 DESIRED_VERSION=''
 PREVIOUS_VERSION=''
 NEW_IMAGE_STARTED=0
 MIGRATION_VERSION=''
 OPERATIONS_VERSION=''
+WAL_ARCHIVE_BOOTSTRAP=0
+ARCHIVE_CUTOVER_ACTIVE=0
+ARCHIVE_CONTRACT_ACTIVE=0
 
 say() {
   printf '%s\n' "$*"
@@ -30,6 +36,82 @@ say() {
 fail() {
   printf 'ERROR: %s\n' "$*" >&2
   return 1
+}
+
+validate_offsite_borg_repository() {
+  local repository_path authority host local_host resolved_addresses
+  local local_address_text address local_address
+  local -a local_addresses
+
+  [[ "${BORG_REPOSITORY:-}" == ssh://* ]] || {
+    fail 'BORG_REPOSITORY must use non-local ssh:// storage.'
+    return 1
+  }
+  repository_path="${BORG_REPOSITORY#ssh://}"
+  [[ "$repository_path" == */?* ]] || {
+    fail 'BORG_REPOSITORY must name a remote archive path.'
+    return 1
+  }
+  authority="${repository_path%%/*}"
+  host="${authority#*@}"
+  host="${host%%:*}"
+  [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]] || {
+    fail 'BORG_REPOSITORY must use a DNS name or IPv4 host.'
+    return 1
+  }
+  local_host="$(hostname 2>/dev/null)" || {
+    fail 'Could not determine the local host for offsite validation.'
+    return 1
+  }
+  local_host="$(printf '%s' "$local_host" | tr '[:upper:]' '[:lower:]')"
+  host="$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')"
+  [[ "$host" != 'localhost' && "$host" != '0.0.0.0' \
+    && "$host" != 127.* && "$host" != "$local_host" ]] || {
+    fail 'BORG_REPOSITORY must not resolve by configuration to this host.'
+    return 1
+  }
+  resolved_addresses="$(getent ahostsv4 "$host" 2>/dev/null \
+    | awk '{print $1}')" || {
+    fail 'BORG_REPOSITORY host could not be resolved for offsite validation.'
+    return 1
+  }
+  [[ -n "$resolved_addresses" ]] || {
+    fail 'BORG_REPOSITORY host resolved to no IPv4 address.'
+    return 1
+  }
+  local_address_text="$(hostname -I 2>/dev/null)" || {
+    fail 'Could not read local interface addresses for offsite validation.'
+    return 1
+  }
+  [[ -n "$local_address_text" ]] || {
+    fail 'No local interface address was available for offsite validation.'
+    return 1
+  }
+  read -r -a local_addresses <<< "$local_address_text"
+  while IFS= read -r address; do
+    [[ "$address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+      fail 'BORG_REPOSITORY host resolution returned invalid IPv4 evidence.'
+      return 1
+    }
+    [[ "$address" != '0.0.0.0' && "$address" != 127.* ]] || {
+      fail 'BORG_REPOSITORY must resolve only to non-local addresses.'
+      return 1
+    }
+    for local_address in "${local_addresses[@]}"; do
+      [[ "$address" != "$local_address" ]] || {
+        fail 'BORG_REPOSITORY resolves to a local interface address.'
+        return 1
+      }
+    done
+  done <<< "$resolved_addresses"
+  [[ -n "${BORG_RSH:-}" \
+    && "$BORG_RSH" == *'BatchMode=yes'* \
+    && "$BORG_RSH" == *'IdentitiesOnly=yes'* \
+    && "$BORG_RSH" == *'StrictHostKeyChecking=yes'* \
+    && "$BORG_RSH" == *'UserKnownHostsFile='* ]] || {
+    fail 'BORG_RSH must enforce the configured key and verified host identity.'
+    return 1
+  }
 }
 
 require_file() {
@@ -71,8 +153,25 @@ select_operations_version() {
   fi
 }
 
+selected_postgres_volume() {
+  local volume='taptime-postgres-data'
+  if [[ -f "$POSTGRES_VOLUME_STATE_FILE" ]]; then
+    volume="$(tr -d '[:space:]' < "$POSTGRES_VOLUME_STATE_FILE")"
+  fi
+  [[ "$volume" == 'taptime-postgres-data' \
+    || "$volume" =~ ^taptime-postgres-restored-[0-9]{8}T[0-9]{6}Z$ ]] ||
+    {
+      fail "Invalid PostgreSQL volume state: $volume"
+      return 1
+    }
+  printf '%s\n' "$volume"
+}
+
 compose() {
-  TAPTIME_VERSION="$1" docker compose --file "$COMPOSE_FILE" "${@:2}"
+  local postgres_volume
+  postgres_volume="$(selected_postgres_volume)" || return
+  TAPTIME_VERSION="$1" TAPTIME_POSTGRES_VOLUME="$postgres_volume" \
+    docker compose --file "$COMPOSE_FILE" "${@:2}"
 }
 
 status_fingerprint() {
@@ -89,6 +188,18 @@ file_mode() {
   else
     stat -f '%Lp' "$1"
   fi
+}
+
+move_replace_no_target() {
+  if mv --help 2>&1 | grep --quiet -- '--no-target-directory'; then
+    mv -Tf "$1" "$2"
+  else
+    mv -fh "$1" "$2"
+  fi
+}
+
+copy_preserving_link() {
+  cp -a "$1" "$2"
 }
 
 run_fresh_oneshot() {
@@ -123,12 +234,17 @@ operations_paths() {
   printf '%s\n' \
     'usr/local/sbin/taptime-backup' \
     'usr/local/sbin/taptime-restore-verify' \
+    'usr/local/sbin/taptime-restore-activate' \
+    'usr/local/sbin/taptime-wal-receiver' \
+    'usr/local/sbin/taptime-wal-archiver' \
     'usr/local/sbin/taptime-immediate-monitor' \
     'usr/local/sbin/taptime-daily-monitor' \
     'etc/systemd/system/taptime-backup.service' \
     'etc/systemd/system/taptime-backup.timer' \
     'etc/systemd/system/taptime-restore-verify.service' \
     'etc/systemd/system/taptime-restore-verify.timer' \
+    'etc/systemd/system/taptime-wal-receiver.service' \
+    'etc/systemd/system/taptime-wal-archiver.service' \
     'etc/systemd/system/taptime-immediate-monitor.service' \
     'etc/systemd/system/taptime-immediate-monitor.timer' \
     'etc/systemd/system/taptime-daily-monitor.service' \
@@ -208,6 +324,12 @@ validate_systemd_candidates() (
     'ExecStart=/usr/local/sbin/taptime-restore-verify' \
     "$release/etc/systemd/system/taptime-restore-verify.service"
   grep --fixed-strings --line-regexp --quiet \
+    'ExecStart=/usr/local/sbin/taptime-wal-receiver' \
+    "$release/etc/systemd/system/taptime-wal-receiver.service"
+  grep --fixed-strings --line-regexp --quiet \
+    'ExecStart=/usr/local/sbin/taptime-wal-archiver' \
+    "$release/etc/systemd/system/taptime-wal-archiver.service"
+  grep --fixed-strings --line-regexp --quiet \
     'ExecStart=/usr/local/sbin/taptime-immediate-monitor' \
     "$release/etc/systemd/system/taptime-immediate-monitor.service"
   grep --fixed-strings --line-regexp --quiet \
@@ -238,6 +360,9 @@ validate_operations_scripts() {
   for script in \
     taptime-backup \
     taptime-restore-verify \
+    taptime-restore-activate \
+    taptime-wal-receiver \
+    taptime-wal-archiver \
     taptime-immediate-monitor \
     taptime-daily-monitor; do
     bash -n "$release/usr/local/sbin/$script" || return
@@ -288,6 +413,9 @@ validate_operations_release() {
   done <<'EOF_OPERATIONS_MODES'
 700 usr/local/sbin/taptime-backup
 700 usr/local/sbin/taptime-restore-verify
+700 usr/local/sbin/taptime-restore-activate
+700 usr/local/sbin/taptime-wal-receiver
+700 usr/local/sbin/taptime-wal-archiver
 755 usr/local/sbin/taptime-immediate-monitor
 755 usr/local/sbin/taptime-daily-monitor
 EOF_OPERATIONS_MODES
@@ -360,20 +488,26 @@ operations_target_matches_release() {
 reload_operations_runtime() {
   local units_changed="$1"
   local journald_changed="$2"
-  local timer
+  local unit
 
   if (( units_changed == 1 )); then
     systemctl daemon-reload
-    for timer in \
+    for unit in \
       taptime-backup.timer \
       taptime-restore-verify.timer \
       taptime-immediate-monitor.timer \
       taptime-daily-monitor.timer; do
-      if systemctl is-active --quiet "$timer"; then
-        systemctl restart "$timer"
+      if systemctl is-active --quiet "$unit"; then
+        systemctl restart "$unit"
       fi
     done
   fi
+  # The service path is stable while the linked script changes with every operations release.
+  for unit in taptime-wal-receiver.service taptime-wal-archiver.service; do
+    if systemctl is-active --quiet "$unit"; then
+      systemctl restart "$unit"
+    fi
+  done
   if (( journald_changed == 1 )); then
     systemctl restart systemd-journald.service
   fi
@@ -430,8 +564,8 @@ install_operations_release() (
           mv "${backups[$rollback_index]}" "$rollback_target"
         elif [[ "${existed[$rollback_index]}" == '1' ]]; then
           rollback_temporary="${rollback_target}.taptime-rollback.$$"
-          cp -a --no-dereference "${backups[$rollback_index]}" "$rollback_temporary"
-          mv -Tf "$rollback_temporary" "$rollback_target"
+          copy_preserving_link "${backups[$rollback_index]}" "$rollback_temporary"
+          move_replace_no_target "$rollback_temporary" "$rollback_target"
         else
           rm -f -- "$rollback_target"
         fi
@@ -440,7 +574,7 @@ install_operations_release() (
         if (( current_existed == 1 )); then
           switch_directory="$(mktemp -d "$OPERATIONS_ROOT/.rollback-current.XXXXXX")"
           ln -s "$previous_current" "$switch_directory/current"
-          mv -Tf "$switch_directory/current" "$OPERATIONS_ROOT/current"
+          move_replace_no_target "$switch_directory/current" "$OPERATIONS_ROOT/current"
           rmdir "$switch_directory"
         else
           rm -f -- "$OPERATIONS_ROOT/current"
@@ -463,7 +597,7 @@ install_operations_release() (
 
   switch_directory="$(mktemp -d "$OPERATIONS_ROOT/.deploy-current.XXXXXX")"
   ln -s "releases/$version" "$switch_directory/current"
-  mv -Tf "$switch_directory/current" "$OPERATIONS_ROOT/current"
+  move_replace_no_target "$switch_directory/current" "$OPERATIONS_ROOT/current"
   rmdir "$switch_directory"
   current_switched=1
 
@@ -475,14 +609,14 @@ install_operations_release() (
       existed+=(directory)
       mv "$target" "$backup_directory/$index"
     elif [[ -e "$target" || -L "$target" ]]; then
-      cp -a --no-dereference "$target" "$backup_directory/$index"
+      copy_preserving_link "$target" "$backup_directory/$index"
       existed+=(1)
     else
       existed+=(0)
     fi
     temporary="${target}.taptime-operations.$$"
     ln -s "$OPERATIONS_ROOT/current/$relative" "$temporary"
-    mv -Tf "$temporary" "$target"
+    move_replace_no_target "$temporary" "$target"
     index=$((index + 1))
   done < <(operations_paths)
 
@@ -599,6 +733,11 @@ image_has_migrator() {
   docker run --rm --entrypoint test "$1" -f /app/schema/migrate.js
 }
 
+image_supports_archive_ack_contract() {
+  docker run --rm --entrypoint test "$1" \
+    -f /app/contracts/lifecycle-archive-ack-v1
+}
+
 select_migration_version() {
   local desired_image="$1"
   local previous_image="$2"
@@ -648,6 +787,7 @@ run_restore_verification() (
   set -euo pipefail
 
   local image="$1"
+  local rehearsal_only="${2:-0}"
   local restore_status hook_directory hook_status hook_log before after real_docker script_path
   local verify_status=0 hook_state duration_ms
 
@@ -655,6 +795,8 @@ run_restore_verification() (
   source "$BACKUP_CONFIG"
   restore_status="${RESTORE_STATUS_FILE:-$RESTORE_STATUS_FILE_DEFAULT}"
   : "${DATABASE_NAME:?DATABASE_NAME must be configured}"
+  [[ "$rehearsal_only" == '0' || "$rehearsal_only" == '1' ]] ||
+    fail 'Restore rehearsal mode must be 0 or 1.'
   require_file "$RESTORE_VERIFY_COMMAND"
   install -d -m 0700 /run/taptime-backup
   [[ "$(findmnt -n -o FSTYPE --target /run/taptime-backup)" == 'tmpfs' ]] ||
@@ -684,6 +826,7 @@ run_restore_verification() (
     TAPTIME_HOOK_MIGRATION_IMAGE="$image" \
     TAPTIME_HOOK_STATUS="$hook_status" \
     TAPTIME_HOOK_LOG="$hook_log" \
+    TAPTIME_RESTORE_REHEARSAL_ONLY="$rehearsal_only" \
     "$RESTORE_VERIFY_COMMAND"
   verify_status=$?
   set -e
@@ -699,6 +842,197 @@ run_restore_verification() (
   say "[1/7] Migrations-Generalprobe im T-007-Container erfolgreich: $duration_ms ms."
 )
 
+validate_wal_archive_configuration() (
+  set -euo pipefail
+
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  : "${DATABASE_CONTAINER:?DATABASE_CONTAINER must be configured}"
+  : "${DATABASE_NAME:?DATABASE_NAME must be configured}"
+  : "${WAL_SPOOL_DIRECTORY:?WAL_SPOOL_DIRECTORY must be configured}"
+  : "${WAL_CONTAINER_DIRECTORY:?WAL_CONTAINER_DIRECTORY must be configured}"
+  : "${WAL_REPLICATION_SLOT:?WAL_REPLICATION_SLOT must be configured}"
+  : "${WAL_ARCHIVE_INTERVAL_SECONDS:?WAL_ARCHIVE_INTERVAL_SECONDS must be configured}"
+  : "${WAL_ARCHIVE_MISSED_CYCLES:?WAL_ARCHIVE_MISSED_CYCLES must be configured}"
+  : "${WAL_ARCHIVE_STATUS_FILE:?WAL_ARCHIVE_STATUS_FILE must be configured}"
+  : "${WAL_ARCHIVE_CACHE_DIRECTORY:?WAL_ARCHIVE_CACHE_DIRECTORY must be configured}"
+  : "${BASE_BACKUP_KEEP_HOURLY:?BASE_BACKUP_KEEP_HOURLY must be configured}"
+  : "${BASE_BACKUP_KEEP_DAILY:?BASE_BACKUP_KEEP_DAILY must be configured}"
+  : "${BASE_BACKUP_KEEP_WEEKLY:?BASE_BACKUP_KEEP_WEEKLY must be configured}"
+  : "${BASE_BACKUP_KEEP_MONTHLY:?BASE_BACKUP_KEEP_MONTHLY must be configured}"
+  : "${RESTORE_RECOVERY_TIMEOUT_SECONDS:?RESTORE_RECOVERY_TIMEOUT_SECONDS must be configured}"
+  : "${RESTORE_RECOVERY_POLL_SECONDS:?RESTORE_RECOVERY_POLL_SECONDS must be configured}"
+  validate_offsite_borg_repository
+  [[ "$WAL_SPOOL_DIRECTORY" == '/var/lib/taptime-wal' ]] ||
+    fail 'WAL_SPOOL_DIRECTORY must match the systemd and Compose path.'
+  [[ "$WAL_CONTAINER_DIRECTORY" == '/var/lib/postgresql/wal-archive' ]] ||
+    fail 'WAL_CONTAINER_DIRECTORY must match the Compose path.'
+  [[ "$WAL_ARCHIVE_STATUS_FILE" == '/var/lib/taptime-monitor/wal-archive-status.json' ]] ||
+    fail 'WAL_ARCHIVE_STATUS_FILE must match the monitoring service path.'
+  [[ "$WAL_ARCHIVE_CACHE_DIRECTORY" == '/var/cache/taptime-wal-archive' ]] ||
+    fail 'WAL_ARCHIVE_CACHE_DIRECTORY must match the archiver service path.'
+  [[ "$WAL_REPLICATION_SLOT" =~ ^[a-z0-9_]+$ ]] ||
+    fail 'WAL_REPLICATION_SLOT contains unsafe characters.'
+  for value in \
+    "$WAL_ARCHIVE_INTERVAL_SECONDS" \
+    "$WAL_ARCHIVE_MISSED_CYCLES" \
+    "$BASE_BACKUP_KEEP_HOURLY" \
+    "$BASE_BACKUP_KEEP_DAILY" \
+    "$BASE_BACKUP_KEEP_WEEKLY" \
+    "$BASE_BACKUP_KEEP_MONTHLY" \
+    "$RESTORE_RECOVERY_TIMEOUT_SECONDS" \
+    "$RESTORE_RECOVERY_POLL_SECONDS"; do
+    [[ "$value" =~ ^[1-9][0-9]*$ ]] ||
+      fail 'Archive cadence and retention values must be positive integers.'
+  done
+)
+
+wal_archive_mount_state() (
+  set -euo pipefail
+  local mount_record
+
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  mount_record="$(docker inspect --format \
+    '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/wal-archive"}}{{.Type}}|{{.Source}}|{{.RW}}{{end}}{{end}}' \
+    "$DATABASE_CONTAINER")"
+  if [[ -z "$mount_record" ]]; then
+    printf 'missing\n'
+  elif [[ "$mount_record" == "bind|$WAL_SPOOL_DIRECTORY|true" ]]; then
+    printf 'active\n'
+  else
+    fail "Database WAL mount is not the configured writable bind: $mount_record"
+  fi
+)
+
+archive_contract_is_active() {
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  [[ "$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+    --command "SELECT pg_catalog.to_regprocedure(
+      'taptime_server.record_lifecycle_event_archive_requirement_v1(uuid,uuid)'
+    ) IS NOT NULL;")" == 't' ]]
+}
+
+begin_wal_archive_cutover() {
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  ARCHIVE_CUTOVER_ACTIVE=1
+  trap 'rollback_started_image $?' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  say '[Archiv] Halte das bisherige Backend an, bevor die neue Sicherungskette beginnt.'
+  compose "$PREVIOUS_VERSION" stop backend-api
+  docker exec --user postgres "$DATABASE_CONTAINER" \
+    pg_receivewal --dbname="dbname=$DATABASE_NAME" --slot="$WAL_REPLICATION_SLOT" \
+      --create-slot --if-not-exists --no-password
+}
+
+wait_for_database_health() {
+  local container="$1"
+  local deadline="$2"
+  local health
+
+  while (( $(date +%s) <= deadline )); do
+    health="$(docker inspect --format \
+      '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+      "$container")"
+    [[ "$health" == 'healthy' ]] && return 0
+    [[ "$health" == 'unhealthy' || "$health" == 'exited' || "$health" == 'dead' ]] && break
+    sleep 1
+  done
+  fail 'Database did not become healthy inside the configured archive window.'
+}
+
+wait_for_wal_receiver() {
+  local deadline="$1"
+  local slot_active=''
+
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  while (( $(date +%s) <= deadline )); do
+    if systemctl is-active --quiet taptime-wal-receiver.service; then
+      slot_active="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+        --tuples-only --no-align --dbname="$DATABASE_NAME" --command \
+        "SELECT active FROM pg_catalog.pg_replication_slots
+         WHERE slot_name = '$WAL_REPLICATION_SLOT' AND slot_type = 'physical';")"
+      [[ "$slot_active" == 't' ]] && return 0
+    fi
+    sleep 1
+  done
+  fail 'WAL receiver did not activate its physical replication slot.'
+}
+
+activate_wal_receiver() {
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  local deadline container
+
+  install -d -m 0700 "$WAL_SPOOL_DIRECTORY"
+  chown 999:999 "$WAL_SPOOL_DIRECTORY"
+  compose "$PREVIOUS_VERSION" up --detach --no-deps --force-recreate database
+  container="$(compose "$PREVIOUS_VERSION" ps --quiet database)"
+  [[ -n "$container" ]] || fail 'Recreated database container is not running.'
+  deadline=$(( $(date +%s) + WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES ))
+  wait_for_database_health "$container" "$deadline"
+  [[ "$(wal_archive_mount_state)" == 'active' ]] ||
+    fail 'Recreated database does not expose the configured WAL bind mount.'
+
+  systemctl enable --now taptime-wal-receiver.service
+  wait_for_wal_receiver "$deadline"
+}
+
+ensure_wal_archive_runtime() {
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  local deadline
+
+  [[ "$(wal_archive_mount_state)" == 'active' ]] ||
+    fail 'Database does not expose the configured WAL bind mount.'
+  systemctl enable --now taptime-wal-receiver.service taptime-wal-archiver.service
+  deadline=$(( $(date +%s) + WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES ))
+  wait_for_wal_receiver "$deadline"
+  systemctl is-active --quiet taptime-wal-archiver.service ||
+    fail 'WAL archiver is not active.'
+}
+
+complete_wal_archive_cutover() {
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  local barrier cluster_system_identifier barrier_lsn wal_file archived deadline
+
+  ensure_wal_archive_runtime
+  (( WAL_ARCHIVE_BOOTSTRAP == 1 )) || return 0
+
+  barrier="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --dbname="$DATABASE_NAME" --command \
+    "WITH switched AS (SELECT pg_catalog.pg_switch_wal() AS next_lsn)
+     SELECT control.system_identifier::text || '|' ||
+            (next_lsn - 1)::text || '|' ||
+            pg_catalog.pg_walfile_name(next_lsn - 1)
+     FROM switched CROSS JOIN pg_catalog.pg_control_system() AS control;")"
+  IFS='|' read -r cluster_system_identifier barrier_lsn wal_file <<< "$barrier"
+  [[ "$cluster_system_identifier" =~ ^-?[0-9]+$ \
+    && "$barrier_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ \
+    && "$wal_file" =~ ^[0-9A-F]{24}$ ]] ||
+    fail 'PostgreSQL returned an invalid WAL barrier filename.'
+  deadline=$(( $(date +%s) + WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES ))
+  while (( $(date +%s) <= deadline )); do
+    archived="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+      --tuples-only --no-align --dbname="$DATABASE_NAME" --command \
+      "SELECT taptime_server.offline_wal_requirement_is_archived_v1(
+         '$cluster_system_identifier'::bigint, '$barrier_lsn'::pg_lsn, '$wal_file'
+       );")"
+    if [[ "$archived" == 't' ]]; then
+      say "[Archiv] Externe WAL-Barriere belegt: $wal_file"
+      return 0
+    fi
+    sleep 1
+  done
+  fail "WAL barrier was not archived inside the configured archive window: $wal_file"
+}
+
 run_backup() {
   local status_file
 
@@ -707,6 +1041,39 @@ run_backup() {
   status_file="${STATUS_FILE:?STATUS_FILE must be configured}"
   say '[2/7] Erzeuge eine frische Sicherung und warte auf ihren Erfolg.'
   run_fresh_oneshot taptime-backup.service "$status_file" || return
+}
+
+prepare_offsite_wal_for_restore() {
+  # shellcheck disable=SC1090
+  source "$BACKUP_CONFIG"
+  local upload_only="${1:-0}"
+  local deadline archive_status
+
+  require_file "$WAL_ARCHIVER_COMMAND"
+  [[ "$upload_only" == '0' || "$upload_only" == '1' ]] ||
+    fail 'WAL upload-only mode must be 0 or 1.'
+  systemctl stop taptime-wal-archiver.service
+  deadline=$(( $(date +%s) + WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES ))
+  while (( $(date +%s) <= deadline )); do
+    set +e
+    TAPTIME_WAL_ARCHIVE_RUN_ONCE=1 \
+      TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY="$upload_only" \
+      "$WAL_ARCHIVER_COMMAND"
+    archive_status=$?
+    set -e
+    if (( archive_status == 0 )); then
+      if [[ "$upload_only" == '0' ]]; then
+        systemctl enable --now taptime-wal-archiver.service
+      fi
+      say '[Archiv] Der Start-WAL der frischen Basis liegt geprüft extern vor.'
+      return 0
+    fi
+    sleep "$WAL_ARCHIVE_INTERVAL_SECONDS"
+  done
+  if [[ "$upload_only" == '0' ]]; then
+    systemctl enable --now taptime-wal-archiver.service || true
+  fi
+  fail 'Fresh physical base WAL was not archived inside the configured archive window.'
 }
 
 sync_migration_sources() (
@@ -903,7 +1270,18 @@ publish_protected_versions() {
 }
 
 acquire_deploy_lock() {
-  exec 9>/run/lock/taptime-deploy.lock
+  local inherited_fd="${TAPTIME_DEPLOY_LOCK_FD:-}"
+  local inherited_target
+
+  if [[ -n "$inherited_fd" ]]; then
+    [[ "$inherited_fd" =~ ^[0-9]+$ ]] || fail 'Inherited deploy lock descriptor is invalid.'
+    inherited_target="$(readlink "/proc/$$/fd/$inherited_fd" 2>/dev/null || true)"
+    [[ "$inherited_target" == "$DEPLOY_LOCK_FILE" ]] ||
+      fail 'Inherited deploy lock does not reference the deployment lock.'
+    flock -n "$inherited_fd" || fail 'Inherited deployment lock is not held.'
+    return 0
+  fi
+  exec 9>"$DEPLOY_LOCK_FILE"
   flock -n 9 || fail 'Another deployment is already running.'
 }
 
@@ -911,7 +1289,10 @@ rollback_started_image() {
   local status="$1"
 
   trap - EXIT INT TERM
-  if (( NEW_IMAGE_STARTED == 1 )); then
+  if (( ARCHIVE_CUTOVER_ACTIVE == 1 || ARCHIVE_CONTRACT_ACTIVE == 1 )); then
+    say '[7/7] Archivvertrag ist aktiv; das alte Backend bleibt zur Verlustvermeidung gestoppt.' >&2
+    say 'ERROR: Manual recovery with the current image is required before traffic resumes.' >&2
+  elif (( NEW_IMAGE_STARTED == 1 )); then
     say "[7/7] Neuer Stand fehlgeschlagen; setze Backend und Admin-Web auf $PREVIOUS_VERSION zurück." >&2
     if activate_admin_web_release "$PREVIOUS_VERSION" &&
       start_backend "$PREVIOUS_VERSION" && restart_caddy "$PREVIOUS_VERSION" &&
@@ -925,7 +1306,7 @@ rollback_started_image() {
 }
 
 main() {
-  local step_status admin_web_version_to_activate
+  local step_status admin_web_version_to_activate wal_mount_state
 
   if (( $# != 1 )); then
     printf 'Usage: %s <seven-character-commit-hash>\n' "${0##*/}" >&2
@@ -960,6 +1341,24 @@ main() {
   OPERATIONS_VERSION="$(select_operations_version \
     "$DESIRED_VERSION" "$PREVIOUS_VERSION" "$OPERATIONS_VERSION")"
 
+  validate_wal_archive_configuration
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  if archive_contract_is_active; then
+    ARCHIVE_CONTRACT_ACTIVE=1
+  else
+    # A historical restore can already expose the WAL bind mount while predating the
+    # versioned delayed-acknowledgement contract. Keep the old backend stopped and use
+    # upload-only archiving until the migration installs that contract.
+    WAL_ARCHIVE_BOOTSTRAP=1
+  fi
+  wal_mount_state="$(wal_archive_mount_state)"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  if [[ "$wal_mount_state" == 'missing' ]]; then
+    WAL_ARCHIVE_BOOTSTRAP=1
+  fi
+
   acquire_deploy_lock
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
@@ -987,6 +1386,12 @@ main() {
   pull_image "$desired_operations_image"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
+  image_supports_archive_ack_contract "$desired_image"
+  step_status=$?
+  if (( step_status != 0 )); then
+    fail "Target image $desired_image cannot honor delayed archive acknowledgement."
+    return 1
+  fi
   prepare_admin_web_release "$desired_admin_web_image" "$DESIRED_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
@@ -1014,16 +1419,42 @@ main() {
     if (( step_status != 0 )); then return "$step_status"; fi
   fi
 
-  run_restore_verification "$rehearsal_image"
-  step_status=$?
-  if (( step_status != 0 )); then return "$step_status"; fi
-  run_backup
+  if (( WAL_ARCHIVE_BOOTSTRAP == 1 )); then
+    begin_wal_archive_cutover
+    step_status=$?
+    if (( step_status != 0 )); then return "$step_status"; fi
+    activate_wal_receiver
+  else
+    ensure_wal_archive_runtime
+  fi
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   sync_migration_sources "$migration_image"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
+  run_backup
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  prepare_offsite_wal_for_restore "$WAL_ARCHIVE_BOOTSTRAP"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  run_restore_verification "$rehearsal_image" 1
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
   migrate_production
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  ARCHIVE_CONTRACT_ACTIVE=1
+  run_backup
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  prepare_offsite_wal_for_restore 0
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  run_restore_verification "$rehearsal_image" 0
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  complete_wal_archive_cutover
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   mark_known_version "$PREVIOUS_VERSION"
@@ -1072,6 +1503,7 @@ main() {
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   NEW_IMAGE_STARTED=0
+  ARCHIVE_CUTOVER_ACTIVE=0
   trap - EXIT INT TERM
   say "[7/7] Auslieferung abgeschlossen: $PREVIOUS_VERSION -> $DESIRED_VERSION."
 }

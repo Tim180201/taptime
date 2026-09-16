@@ -346,6 +346,27 @@ export type OfflineLifecycleEventResult =
   | { readonly status: 'conflict'; readonly reason: OfflineConflictReason }
   | { readonly status: 'authority_rejected' };
 
+export type OfflineLifecycleEventResultV4 =
+  | (OfflineDurableResultIdentity & {
+      readonly status: 'synchronized';
+      readonly idempotentRetry: boolean;
+      readonly archiveStatus: 'offsite_archived';
+      readonly decision: OfflineCanonicalDecision;
+    })
+  | (OfflineDurableResultIdentity & {
+      readonly status: 'review_pending';
+      readonly idempotentRetry: boolean;
+      readonly archiveStatus: 'offsite_archived';
+      readonly reason: OfflineReviewReason;
+    })
+  | (OfflineDurableResultIdentity & {
+      readonly status: 'archive_pending';
+      readonly idempotentRetry: boolean;
+    })
+  | Extract<OfflineLifecycleEventResult, {
+      readonly status: 'pending' | 'conflict' | 'authority_rejected';
+    }>;
+
 export interface OfflineReconciliationCommand {
   readonly workEventIds: readonly string[];
 }
@@ -364,6 +385,30 @@ export interface OfflineReconciliationRecord extends OfflineDurableResultIdentit
 
 export type OfflineReconciliationResult =
   | { readonly status: 'ready'; readonly records: readonly OfflineReconciliationRecord[] }
+  | { readonly status: 'authority_rejected' }
+  | { readonly status: 'unavailable' };
+
+export type OfflineReconciliationRecordV2 = OfflineDurableResultIdentity & (
+  | {
+      readonly archiveStatus: 'archive_pending';
+      readonly result: { readonly status: 'archive_pending' };
+    }
+  | {
+      readonly archiveStatus: 'offsite_archived';
+      readonly result:
+        | {
+            readonly status: 'synchronized';
+            readonly decision: OfflineCanonicalDecision;
+          }
+        | {
+            readonly status: 'review_pending';
+            readonly reason: OfflineReviewReason;
+          };
+    }
+);
+
+export type OfflineReconciliationResultV2 =
+  | { readonly status: 'ready'; readonly records: readonly OfflineReconciliationRecordV2[] }
   | { readonly status: 'authority_rejected' }
   | { readonly status: 'unavailable' };
 

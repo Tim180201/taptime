@@ -1,0 +1,378 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+readonly COMPOSE_FILE="${TAPTIME_RESTORE_COMPOSE_FILE:-/opt/taptime/source/infrastructure/docker-compose.server.yml}"
+readonly VERSION_STATE_FILE="${TAPTIME_RESTORE_VERSION_STATE_FILE:-/var/lib/taptime-deploy/current-version}"
+readonly VOLUME_STATE_FILE="${TAPTIME_RESTORE_VOLUME_STATE_FILE:-/var/lib/taptime-deploy/postgres-volume}"
+readonly DEPLOY_COMMAND="${TAPTIME_RESTORE_DEPLOY_COMMAND:-/usr/local/sbin/taptime-deploy}"
+readonly LOCK_FILE="${TAPTIME_RESTORE_ACTIVATE_LOCK_FILE:-/run/lock/taptime-restore-activate.lock}"
+readonly DEPLOY_LOCK_FILE="${TAPTIME_DEPLOY_LOCK_FILE:-/run/lock/taptime-deploy.lock}"
+readonly EXPECTED_WAL_SPOOL_DIRECTORY="${TAPTIME_RESTORE_EXPECTED_WAL_SPOOL_DIRECTORY:-/var/lib/taptime-wal}"
+PRESERVED_WAL_SPOOL=''
+
+fail() {
+  printf 'ERROR: %s\n' "$*" >&2
+  return 1
+}
+
+require_file() {
+  [[ -f "$1" ]] || {
+    fail "Required file is missing: $1"
+    return 1
+  }
+}
+
+selected_postgres_volume() {
+  local volume='taptime-postgres-data'
+  if [[ -f "$VOLUME_STATE_FILE" ]]; then
+    volume="$(tr -d '[:space:]' < "$VOLUME_STATE_FILE")"
+  fi
+  [[ "$volume" == 'taptime-postgres-data' \
+    || "$volume" =~ ^taptime-postgres-restored-[0-9]{8}T[0-9]{6}Z$ ]] ||
+    {
+      fail "Invalid current PostgreSQL volume state: $volume"
+      return 1
+    }
+  printf '%s\n' "$volume"
+}
+
+compose_with_volume() {
+  local version="$1"
+  local volume="$2"
+  shift 2
+  TAPTIME_VERSION="$version" TAPTIME_POSTGRES_VOLUME="$volume" \
+    docker compose --file "$COMPOSE_FILE" "$@"
+}
+
+volume_label() {
+  local volume="$1"
+  local label="$2"
+  docker volume inspect --format "{{index .Labels \"$label\"}}" "$volume"
+}
+
+wait_for_candidate_database() {
+  local version="$1"
+  local volume="$2"
+  local deadline container health
+
+  container="$(compose_with_volume "$version" "$volume" ps --quiet database)"
+  [[ -n "$container" ]] || {
+    fail 'Restored database container was not created.'
+    return 1
+  }
+  deadline=$(( $(date +%s) + RESTORE_RECOVERY_TIMEOUT_SECONDS ))
+  while (( $(date +%s) < deadline )); do
+    health="$(docker inspect --format \
+      '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \
+      "$container" 2>/dev/null || true)"
+    [[ "$health" == 'healthy' ]] && return 0
+    [[ "$health" == 'unhealthy' || "$health" == 'exited' || "$health" == 'dead' ]] \
+      && break
+    sleep "$RESTORE_RECOVERY_POLL_SECONDS"
+  done
+  docker logs "$container" >&2 || true
+  fail 'Restored database did not become healthy before the configured recovery deadline.'
+}
+
+verify_candidate_database_mount() {
+  local version="$1"
+  local volume="$2"
+  local container mount_record
+
+  container="$(compose_with_volume "$version" "$volume" ps --quiet database)"
+  [[ -n "$container" ]] || {
+    fail 'Restored database container was not created.'
+    return 1
+  }
+  mount_record="$(docker inspect --format \
+    '{{range .Mounts}}{{if eq .Destination "/var/lib/postgresql/data"}}{{.Type}}|{{.Name}}|{{.RW}}{{end}}{{end}}' \
+    "$container")" || {
+      fail 'Could not inspect the restored database data mount.'
+      return 1
+    }
+  [[ "$mount_record" == "volume|$volume|true" ]] || {
+    fail "Restored database is not mounted from the selected candidate volume: $mount_record"
+    return 1
+  }
+}
+
+write_volume_state() (
+  set -euo pipefail
+  local volume="$1"
+  local directory temporary
+
+  directory="$(dirname "$VOLUME_STATE_FILE")"
+  install -d -m 0755 "$directory"
+  temporary="$(mktemp "$directory/postgres-volume.XXXXXX")"
+  printf '%s\n' "$volume" > "$temporary"
+  chmod 0644 "$temporary"
+  mv "$temporary" "$VOLUME_STATE_FILE"
+)
+
+create_active_wal_spool() {
+  local postgres_uid="$1"
+  local postgres_gid="$2"
+
+  install -d -m 0700 "$WAL_SPOOL_DIRECTORY" || {
+    fail 'Could not create the active WAL spool.'
+    return 1
+  }
+  chmod 0700 "$WAL_SPOOL_DIRECTORY" || {
+    fail 'Could not protect the active WAL spool.'
+    return 1
+  }
+  chown "$postgres_uid:$postgres_gid" "$WAL_SPOOL_DIRECTORY" || {
+    fail 'Could not assign the active WAL spool to PostgreSQL.'
+    return 1
+  }
+}
+
+prepare_fresh_wal_spool() {
+  local target_volume="$1"
+  local suffix quarantine postgres_uid postgres_gid first_entry
+
+  [[ "$WAL_SPOOL_DIRECTORY" == "$EXPECTED_WAL_SPOOL_DIRECTORY" ]] || {
+    fail 'Configured WAL spool does not match the restored database mount.'
+    return 1
+  }
+  suffix="${target_volume#taptime-postgres-restored-}"
+  quarantine="${WAL_SPOOL_DIRECTORY}.pre-restore-$suffix"
+  [[ ! -L "$WAL_SPOOL_DIRECTORY" && ! -L "$quarantine" ]] || {
+    fail 'WAL spool paths must not be symbolic links.'
+    return 1
+  }
+  postgres_uid="$(docker run --rm --network none "$RESTORE_IMAGE" id -u postgres)" || {
+    fail 'Could not derive the PostgreSQL runtime user.'
+    return 1
+  }
+  postgres_gid="$(docker run --rm --network none "$RESTORE_IMAGE" id -g postgres)" || {
+    fail 'Could not derive the PostgreSQL runtime group.'
+    return 1
+  }
+  [[ "$postgres_uid" =~ ^[0-9]+$ && "$postgres_gid" =~ ^[0-9]+$ ]] || {
+    fail 'PostgreSQL image returned no valid runtime identity.'
+    return 1
+  }
+
+  if [[ -e "$quarantine" ]]; then
+    [[ -d "$quarantine" ]] || {
+      fail 'Preserved pre-restore WAL spool is not a directory.'
+      return 1
+    }
+    if [[ -e "$WAL_SPOOL_DIRECTORY" ]]; then
+      [[ -d "$WAL_SPOOL_DIRECTORY" ]] || {
+        fail 'Active WAL spool is not a directory.'
+        return 1
+      }
+      first_entry="$(find "$WAL_SPOOL_DIRECTORY" -mindepth 1 -maxdepth 1 \
+        -print -quit)" || {
+          fail 'Could not inspect the active WAL spool.'
+          return 1
+        }
+      [[ -z "$first_entry" ]] || {
+        fail 'A retried restore activation found a non-empty new WAL spool.'
+        return 1
+      }
+    fi
+    create_active_wal_spool "$postgres_uid" "$postgres_gid" || return 1
+    PRESERVED_WAL_SPOOL="$quarantine"
+    return 0
+  fi
+
+  if [[ ! -e "$WAL_SPOOL_DIRECTORY" ]]; then
+    create_active_wal_spool "$postgres_uid" "$postgres_gid" || return 1
+    return 0
+  fi
+  [[ -d "$WAL_SPOOL_DIRECTORY" ]] || {
+    fail 'Active WAL spool is not a directory.'
+    return 1
+  }
+  mv -- "$WAL_SPOOL_DIRECTORY" "$quarantine" || {
+    fail 'Could not preserve the pre-restore WAL spool.'
+    return 1
+  }
+  if ! create_active_wal_spool "$postgres_uid" "$postgres_gid"; then
+    rmdir "$WAL_SPOOL_DIRECTORY" 2>/dev/null || true
+    if mv -- "$quarantine" "$WAL_SPOOL_DIRECTORY"; then
+      fail 'Could not create a fresh active WAL spool; the previous spool was restored.'
+    else
+      fail "Could not create a fresh active WAL spool; recover it from $quarantine."
+    fi
+    return 1
+  fi
+  PRESERVED_WAL_SPOOL="$quarantine"
+}
+
+main() {
+  local target_volume="${1:-}"
+  local current_volume version candidate_label cluster_label archive_label target_label
+  local completion_evidence expected_completion live_cluster
+
+  if (( $# != 1 )); then
+    printf 'Usage: %s taptime-postgres-restored-YYYYMMDDTHHMMSSZ\n' "${0##*/}" >&2
+    return 64
+  fi
+  [[ "$(id -u)" == '0' ]] || {
+    fail 'Restore activation must run as root.'
+    return 1
+  }
+  [[ "$target_volume" =~ ^taptime-postgres-restored-[0-9]{8}T[0-9]{6}Z$ ]] ||
+    {
+      fail 'Restore volume name is invalid.'
+      return 1
+    }
+  require_file "$CONFIG_FILE" || return 1
+  require_file "$COMPOSE_FILE" || return 1
+  require_file "$VERSION_STATE_FILE" || return 1
+  [[ -x "$DEPLOY_COMMAND" ]] || {
+    fail "Deploy command is unavailable: $DEPLOY_COMMAND"
+    return 1
+  }
+  # shellcheck source=/etc/taptime-backup/config
+  source "$CONFIG_FILE" || {
+    fail "Could not load backup configuration: $CONFIG_FILE"
+    return 1
+  }
+  [[ -n "${DATABASE_NAME:-}" ]] || {
+    fail 'DATABASE_NAME must be configured.'
+    return 1
+  }
+  [[ -n "${RESTORE_IMAGE:-}" ]] || {
+    fail 'RESTORE_IMAGE must be configured.'
+    return 1
+  }
+  [[ -n "${WAL_SPOOL_DIRECTORY:-}" ]] || {
+    fail 'WAL_SPOOL_DIRECTORY must be configured.'
+    return 1
+  }
+  [[ -n "${RESTORE_RECOVERY_TIMEOUT_SECONDS:-}" \
+    && -n "${RESTORE_RECOVERY_POLL_SECONDS:-}" ]] || {
+    fail 'Restore recovery timing must be configured.'
+    return 1
+  }
+  [[ "$RESTORE_RECOVERY_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ \
+    && "$RESTORE_RECOVERY_POLL_SECONDS" =~ ^[1-9][0-9]*$ ]] ||
+    {
+      fail 'Restore recovery timing must use positive configured integers.'
+      return 1
+    }
+  version="$(tr -d '[:space:]' < "$VERSION_STATE_FILE")"
+  [[ "$version" =~ ^[0-9a-f]{7}$ ]] || {
+    fail 'Current application version is invalid.'
+    return 1
+  }
+  current_volume="$(selected_postgres_volume)" || return 1
+  [[ "$target_volume" != "$current_volume" ]] ||
+    {
+      fail 'Restore volume is already active.'
+      return 1
+    }
+
+  candidate_label="$(volume_label "$target_volume" com.taptime.restore.candidate)" || {
+    fail 'Could not read restore-candidate evidence.'
+    return 1
+  }
+  cluster_label="$(volume_label "$target_volume" com.taptime.restore.cluster)" || {
+    fail 'Could not read restore-cluster evidence.'
+    return 1
+  }
+  archive_label="$(volume_label "$target_volume" com.taptime.restore.archive)" || {
+    fail 'Could not read restore-archive evidence.'
+    return 1
+  }
+  target_label="$(volume_label "$target_volume" com.taptime.restore.target)" || {
+    fail 'Could not read restore-target evidence.'
+    return 1
+  }
+  [[ "$candidate_label" == 'true' \
+    && "$cluster_label" =~ ^[0-9a-f]{16}$ \
+    && "$archive_label" =~ ^base-${cluster_label}-[0-9]{8}T[0-9]{6}Z$ \
+    && ( "$target_label" == 'latest' \
+      || "$target_label" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$ ) ]] ||
+    {
+      fail 'Target volume has no valid restore-verification evidence.'
+      return 1
+    }
+  completion_evidence="$(docker run --rm --network none \
+    --volume "$target_volume:/data:ro" "$RESTORE_IMAGE" \
+    cat /data/.taptime-restore-complete)" ||
+    {
+      fail 'Target volume has no completed restore marker.'
+      return 1
+    }
+  printf -v expected_completion 'format=1\ncluster=%s\narchive=%s\ntarget=%s' \
+    "$cluster_label" "$archive_label" "$target_label"
+  [[ "$completion_evidence" == "$expected_completion" ]] ||
+    {
+      fail 'Target volume completion marker differs from its archive evidence.'
+      return 1
+    }
+
+  exec 9>"$LOCK_FILE"
+  flock -n 9 || {
+    fail 'Another restore activation is already running.'
+    return 1
+  }
+  exec 8>"$DEPLOY_LOCK_FILE"
+  flock -n 8 || {
+    fail 'A deployment is already running.'
+    return 1
+  }
+  systemctl stop taptime-wal-archiver.service taptime-wal-receiver.service || {
+    fail 'Could not stop WAL archiving before restore activation.'
+    return 1
+  }
+  compose_with_volume "$version" "$current_volume" stop backend-api database || {
+    fail 'Could not stop the currently selected application and database.'
+    return 1
+  }
+  prepare_fresh_wal_spool "$target_volume" || return 1
+  compose_with_volume "$version" "$target_volume" \
+    up --detach --no-deps --force-recreate database || {
+      fail 'Could not start the restored database candidate.'
+      return 1
+    }
+  if ! verify_candidate_database_mount "$version" "$target_volume"; then
+    compose_with_volume "$version" "$target_volume" stop database || true
+    fail 'Candidate volume remains inactive; the previous volume selection is unchanged.'
+    return 1
+  fi
+  if ! wait_for_candidate_database "$version" "$target_volume"; then
+    compose_with_volume "$version" "$target_volume" stop database || true
+    fail 'Candidate volume remains inactive; the previous volume selection is unchanged.'
+    return 1
+  fi
+  live_cluster="$(compose_with_volume "$version" "$target_volume" exec --no-tty \
+    --user postgres database psql --tuples-only --no-align --set ON_ERROR_STOP=on \
+    --dbname="$DATABASE_NAME" --command "SELECT pg_catalog.lpad(
+      pg_catalog.to_hex(control.system_identifier), 16, '0'
+    ) FROM pg_catalog.pg_control_system() AS control;")" || {
+      compose_with_volume "$version" "$target_volume" stop database || true
+      fail 'Could not read the running candidate cluster identity.'
+      return 1
+    }
+  [[ "$live_cluster" == "$cluster_label" ]] || {
+    compose_with_volume "$version" "$target_volume" stop database || true
+    fail 'Running candidate cluster differs from the materialized restore evidence.'
+    return 1
+  }
+
+  write_volume_state "$target_volume" || {
+    fail 'Could not persist the selected PostgreSQL volume.'
+    return 1
+  }
+  if ! TAPTIME_DEPLOY_LOCK_FD=8 "$DEPLOY_COMMAND" "$version"; then
+    fail 'Restore volume is active, but the fail-closed deployment did not complete.'
+    return 1
+  fi
+  if [[ -n "$PRESERVED_WAL_SPOOL" ]]; then
+    printf 'Previous WAL spool preserved at %s.\n' "$PRESERVED_WAL_SPOOL"
+  fi
+  printf 'Restore activated from %s; previous volume %s remains unchanged.\n' \
+    "$target_volume" "$current_volume"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

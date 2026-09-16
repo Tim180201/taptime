@@ -532,25 +532,63 @@ afterAll(async () => {
 });
 
 describe('B3 deterministic migration system', () => {
-  it('applies exactly twenty-two sorted versioned migrations', async () => {
+  it('applies every source migration in sorted order', async () => {
+    const migrations = await loadMigrations();
     const rows = await installerPool.query<{ version: string; checksum: string }>(
       `SELECT version, checksum FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
 
-    expect(rows.rows.map((row) => row.version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
-    ]);
+    expect(rows.rows.map((row) => row.version))
+      .toEqual(migrations.map((migration) => migration.version));
     expect(rows.rows.every((row) => /^[0-9a-f]{64}$/.test(row.checksum))).toBe(true);
   });
 
   it('reruns safely without applying any migration twice', async () => {
+    const migrations = await loadMigrations();
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: [
-        '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
-      ],
+      alreadyApplied: migrations.map((migration) => migration.version),
     });
   });
+
+  it('removes every pre-existing member of the WAL archive capability roles', async () => {
+    const database = 'taptime_023_role_graph_check';
+    const probe = 'taptime_023_archive_probe';
+    await dropProbeRole(probe);
+    await installerPool.query(`DROP DATABASE IF EXISTS ${database} WITH (FORCE)`);
+    await installerPool.query(`CREATE DATABASE ${database}`);
+    const url = new URL(installerConnectionString);
+    url.pathname = `/${database}`;
+    const upgradePool = new Pool({ connectionString: url.toString(), max: 2 });
+    try {
+      const migrations = await loadMigrations();
+      const archiveMigrationIndex = migrations.findIndex(
+        ({ name }) => name === 'offsite_wal_archive_acknowledgement',
+      );
+      expect(archiveMigrationIndex).toBeGreaterThan(0);
+      await applyMigrationSet(upgradePool, migrations.slice(0, archiveMigrationIndex));
+      await installerPool.query(`CREATE ROLE ${probe} NOLOGIN NOINHERIT`);
+      await installerPool.query(`GRANT taptime_wal_archiver TO ${probe}`);
+
+      await applyMigrationSet(
+        upgradePool,
+        migrations.slice(archiveMigrationIndex, archiveMigrationIndex + 1),
+      );
+      const membership = await installerPool.query<{ remains_member: boolean }>(
+        `SELECT pg_catalog.pg_has_role($1, 'taptime_wal_archiver', 'MEMBER')
+           AS remains_member`,
+        [probe],
+      );
+      expect(membership.rows[0]?.remains_member).toBe(false);
+    } finally {
+      await closePoolAndDropTestDatabase({
+        targetPool: upgradePool,
+        installerPool,
+        databaseName: database,
+      });
+      await dropProbeRole(probe);
+    }
+  }, 30_000);
 
   it('removes resolver-role contamination and restores each B3 login to exactly its target role', async () => {
     await installerPool.query(
@@ -831,7 +869,7 @@ describe('B3 deterministic migration system', () => {
     }
   }, 30_000);
 
-  it('contains exactly the thirty-eight approved tables and two effective-record views', async () => {
+  it('contains the approved tables and effective-record views', async () => {
     const result = await installerPool.query<{ table_name: string }>(
       `SELECT table_name FROM information_schema.tables WHERE table_schema = $1 ORDER BY table_name`,
       [B3_SCHEMA],
@@ -850,6 +888,7 @@ describe('B3 deterministic migration system', () => {
       'employee_invitation_command_receipts',
       'employee_membership_invitations',
       'identity_bindings',
+      'lifecycle_event_archive_requirements',
       'location_setup_command_receipts',
       'locations',
       'membership_home_location_assignments',
@@ -862,10 +901,15 @@ describe('B3 deterministic migration system', () => {
       'offline_capture_lease_items',
       'offline_capture_lease_receipts',
       'offline_capture_leases',
+      'offline_event_archive_requirements',
       'offline_event_reconciliations',
       'offline_installations',
       'offline_review_adjudications',
       'offline_sync_cursors',
+      'offsite_archive_cluster_identity',
+      'offsite_base_backup_receipts',
+      'offsite_wal_archive_receipts',
+      'offsite_wal_archive_watermarks',
       'organizations',
       'project_command_receipts',
       'projects',
@@ -881,16 +925,16 @@ describe('B3 deterministic migration system', () => {
   });
 
   it('enables and forces RLS on every logical table', async () => {
-    const result = await installerPool.query<{ count: string }>(`
-      SELECT count(*)
+    const result = await installerPool.query<{ table_name: string }>(`
+      SELECT relation.relname AS table_name
       FROM pg_class AS relation
       JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
       WHERE namespace.nspname = '${B3_SCHEMA}'
         AND relation.relkind = 'r'
-        AND relation.relrowsecurity
-        AND relation.relforcerowsecurity
+        AND (NOT relation.relrowsecurity OR NOT relation.relforcerowsecurity)
+      ORDER BY relation.relname
     `);
-    expect(result.rows[0]?.count).toBe('38');
+    expect(result.rows).toEqual([]);
   });
 });
 
@@ -1078,6 +1122,200 @@ describe('B3 least-privilege roles and request context', () => {
       },
     ]);
   });
+
+  it('pins the WAL archive roles, fixed-path capabilities and actual caller boundary',
+    async () => {
+      const roleNames = [
+        'taptime_wal_archiver',
+        'taptime_wal_archive_function_owner',
+      ];
+      const roles = await installerPool.query<{
+        readonly rolname: string;
+        readonly rolcanlogin: boolean;
+        readonly rolsuper: boolean;
+        readonly rolcreatedb: boolean;
+        readonly rolcreaterole: boolean;
+        readonly rolinherit: boolean;
+        readonly rolreplication: boolean;
+        readonly rolbypassrls: boolean;
+      }>(`
+        SELECT rolname, rolcanlogin, rolsuper, rolcreatedb, rolcreaterole,
+               rolinherit, rolreplication, rolbypassrls
+        FROM pg_catalog.pg_roles
+        WHERE rolname = ANY($1::text[])
+        ORDER BY rolname
+      `, [roleNames]);
+      expect(roles.rows).toEqual([
+        {
+          rolname: 'taptime_wal_archive_function_owner',
+          rolcanlogin: false,
+          rolsuper: false,
+          rolcreatedb: false,
+          rolcreaterole: false,
+          rolinherit: false,
+          rolreplication: false,
+          rolbypassrls: true,
+        },
+        {
+          rolname: 'taptime_wal_archiver',
+          rolcanlogin: false,
+          rolsuper: false,
+          rolcreatedb: false,
+          rolcreaterole: false,
+          rolinherit: false,
+          rolreplication: false,
+          rolbypassrls: false,
+        },
+      ]);
+
+      const graph = await installerPool.query<{ readonly child: string; readonly parent: string }>(`
+        SELECT member.rolname AS child, parent.rolname AS parent
+        FROM pg_catalog.pg_auth_members AS edge
+        JOIN pg_catalog.pg_roles AS member ON member.oid = edge.member
+        JOIN pg_catalog.pg_roles AS parent ON parent.oid = edge.roleid
+        WHERE member.rolname = ANY($1::text[]) OR parent.rolname = ANY($1::text[])
+        ORDER BY child, parent
+      `, [roleNames]);
+      expect(graph.rows).toEqual([]);
+
+      const routines = await installerPool.query<{
+        readonly name: string;
+        readonly security_definer: boolean;
+        readonly configuration: string[];
+      }>(`
+        SELECT procedure.proname AS name,
+               procedure.prosecdef AS security_definer,
+               array_to_json(procedure.proconfig) AS configuration
+        FROM pg_catalog.pg_proc AS procedure
+        JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+        JOIN pg_catalog.pg_roles AS owner ON owner.oid = procedure.proowner
+        WHERE namespace.nspname = '${B3_SCHEMA}'
+          AND owner.rolname = 'taptime_wal_archive_function_owner'
+        ORDER BY procedure.proname
+      `);
+      expect(routines.rows).toEqual([
+        { name: 'advance_offsite_wal_archive_watermark_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'current_offsite_archive_cluster_identifier_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'offline_wal_requirement_is_archived_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'read_offsite_base_backup_receipt_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'read_offsite_wal_archive_backlog_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'read_offsite_wal_archive_receipt_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'read_pending_offsite_wal_files_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'record_lifecycle_event_archive_requirement_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'record_offsite_base_backup_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'record_offsite_wal_archive_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'wal_files_are_adjacent_v1', security_definer: false,
+          configuration: ['search_path=pg_catalog'] },
+        { name: 'wal_hex32_to_bigint_v1', security_definer: false,
+          configuration: ['search_path=pg_catalog'] },
+      ]);
+
+      const directTablePrivileges = await installerPool.query<{ readonly table_name: string }>(`
+        SELECT relation.relname AS table_name
+        FROM pg_catalog.pg_class AS relation
+        JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+        WHERE namespace.nspname = '${B3_SCHEMA}'
+          AND relation.relkind IN ('r', 'p', 'v', 'm')
+          AND (
+            has_table_privilege('taptime_wal_archiver', relation.oid,
+              'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')
+            OR has_any_column_privilege('taptime_wal_archiver', relation.oid,
+              'SELECT,INSERT,UPDATE,REFERENCES')
+          )
+        ORDER BY relation.relname
+      `);
+      expect(directTablePrivileges.rows).toEqual([]);
+
+      const callable = await installerPool.query<{
+        readonly role_name: string;
+        readonly name: string;
+      }>(`
+        SELECT caller.role_name, procedure.proname AS name
+        FROM pg_catalog.pg_proc AS procedure
+        JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = procedure.pronamespace
+        JOIN pg_catalog.pg_roles AS owner ON owner.oid = procedure.proowner
+        CROSS JOIN unnest(ARRAY[
+          'taptime_employee',
+          'taptime_server_lifecycle',
+          'taptime_wal_archiver'
+        ]) AS caller(role_name)
+        WHERE namespace.nspname = '${B3_SCHEMA}'
+          AND owner.rolname = 'taptime_wal_archive_function_owner'
+          AND has_function_privilege(caller.role_name, procedure.oid, 'EXECUTE')
+        ORDER BY caller.role_name, procedure.proname
+      `);
+      expect(callable.rows).toEqual([
+        { role_name: 'taptime_server_lifecycle',
+          name: 'record_lifecycle_event_archive_requirement_v1' },
+        { role_name: 'taptime_wal_archiver',
+          name: 'advance_offsite_wal_archive_watermark_v1' },
+        { role_name: 'taptime_wal_archiver', name: 'read_offsite_base_backup_receipt_v1' },
+        { role_name: 'taptime_wal_archiver', name: 'read_offsite_wal_archive_backlog_v1' },
+        { role_name: 'taptime_wal_archiver', name: 'read_offsite_wal_archive_receipt_v1' },
+        { role_name: 'taptime_wal_archiver', name: 'read_pending_offsite_wal_files_v1' },
+        { role_name: 'taptime_wal_archiver', name: 'record_offsite_base_backup_v1' },
+        { role_name: 'taptime_wal_archiver', name: 'record_offsite_wal_archive_v1' },
+        { role_name: 'taptime_wal_archiver', name: 'wal_files_are_adjacent_v1' },
+        { role_name: 'taptime_wal_archiver', name: 'wal_hex32_to_bigint_v1' },
+      ]);
+
+      const client = await installerPool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query('SET LOCAL ROLE taptime_wal_archiver');
+        const adjacency = await client.query<{ readonly adjacent: boolean }>(
+          `SELECT taptime_server.wal_files_are_adjacent_v1(
+             '000000010000000000000001', '000000010000000000000002'
+           ) AS adjacent`,
+        );
+        expect(adjacency.rows).toEqual([{ adjacent: true }]);
+        const pending = await client.query(
+          'SELECT * FROM taptime_server.read_pending_offsite_wal_files_v1()',
+        );
+        expect(pending.rows).toEqual([]);
+        await client.query('ROLLBACK');
+      } finally {
+        client.release();
+      }
+    });
+
+  it('rejects archive evidence after a logical copy changes the PostgreSQL cluster identity',
+    async () => {
+      const client = await installerPool.connect();
+      try {
+        await client.query('BEGIN');
+        await client.query(`
+          ALTER TABLE taptime_server.offsite_archive_cluster_identity
+            DISABLE TRIGGER offsite_archive_cluster_identity_immutable
+        `);
+        await client.query(`
+          UPDATE taptime_server.offsite_archive_cluster_identity
+          SET system_identifier = ~system_identifier
+          WHERE singleton
+        `);
+        await client.query(`
+          ALTER TABLE taptime_server.offsite_archive_cluster_identity
+            ENABLE TRIGGER offsite_archive_cluster_identity_immutable
+        `);
+        await client.query('SET LOCAL ROLE taptime_wal_archiver');
+        await expect(client.query(
+          'SELECT * FROM taptime_server.read_pending_offsite_wal_files_v1()',
+        )).rejects.toMatchObject({ code: '55000' });
+        await client.query('ROLLBACK');
+      } finally {
+        client.release();
+      }
+    });
 
   it('keeps DA3 application roles non-login/non-bypass and isolates BYPASSRLS to function owners', async () => {
     const roles = await installerPool.query<{

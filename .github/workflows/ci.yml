@@ -45,22 +45,35 @@ jobs:
             infrastructure/tests/taptime-deploy.test \
             infrastructure/tests/taptime-admin-web-image.test \
             infrastructure/tests/taptime-restore-verify.test \
+            infrastructure/tests/taptime-restore-retention.test \
+            infrastructure/tests/taptime-restore-activate.test \
+            infrastructure/tests/taptime-wal-archiver.test \
+            infrastructure/tests/taptime-pitr.test \
             infrastructure/tests/taptime-operations-install.test \
             infrastructure/tests/taptime-bootstrap.test \
             infrastructure/monitoring/taptime-immediate-monitor \
             infrastructure/monitoring/taptime-daily-monitor \
             infrastructure/backup/taptime-backup \
             infrastructure/backup/taptime-restore-verify \
+            infrastructure/backup/taptime-restore-activate \
+            infrastructure/backup/taptime-wal-receiver \
+            infrastructure/backup/taptime-wal-archiver \
             infrastructure/caddy/tests/taptime-caddy-forwarding.test
           bash -n infrastructure/monitoring/taptime-immediate-monitor
           bash -n infrastructure/monitoring/taptime-daily-monitor
           bash -n infrastructure/backup/taptime-backup
           bash -n infrastructure/backup/taptime-restore-verify
+          bash -n infrastructure/backup/taptime-restore-activate
+          bash -n infrastructure/backup/taptime-wal-receiver
+          bash -n infrastructure/backup/taptime-wal-archiver
           bash -n infrastructure/deploy
           bash -n infrastructure/operations/taptime-bootstrap
           bash infrastructure/tests/taptime-deploy.test
           bash infrastructure/tests/taptime-admin-web-image.test
           bash infrastructure/tests/taptime-restore-verify.test
+          bash infrastructure/tests/taptime-restore-retention.test
+          bash infrastructure/tests/taptime-restore-activate.test
+          bash infrastructure/tests/taptime-wal-archiver.test
           bash infrastructure/tests/taptime-operations-install.test
           bash infrastructure/tests/taptime-bootstrap.test
           bash infrastructure/monitoring/tests/taptime-monitor.test
@@ -114,6 +127,20 @@ jobs:
       - name: Bundle Android product graph
         working-directory: apps/mobile
         run: npx expo export --platform android
+
+  physical-pitr:
+    name: PostgreSQL physical point-in-time recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Prove latest and historical recovery with real WAL
+        run: timeout 600 bash infrastructure/tests/taptime-pitr.test
 
   backend-b1-spike:
     name: Backend B1 PostgreSQL spike
@@ -208,10 +235,10 @@ jobs:
       - name: Typecheck backend B3 schema
         run: npm run typecheck --workspace=@taptime/backend-schema
 
-      - name: Apply current schema migrations 001 through 017 to empty PostgreSQL database
+      - name: Apply current schema migrations to empty PostgreSQL database
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 017
+      - name: Re-run and verify the complete migration ledger
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -263,7 +290,7 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Apply current schema migrations 001 through 017 for B4
+      - name: Apply current schema migrations for B4
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the B4 migration ledger
@@ -324,7 +351,7 @@ jobs:
       - name: Build the approved B4 identity dependency
         run: npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply current schema migrations 001 through 017 for B5
+      - name: Apply current schema migrations for B5
         run: npm run migrate --workspace=@taptime/backend-schema
 
       - name: Re-run and verify the migration ledger
@@ -388,10 +415,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 017
+      - name: Apply current schema migrations
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 017
+      - name: Re-run and verify the complete migration ledger
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -472,10 +499,10 @@ jobs:
           npm run build --workspace=@taptime/backend-time-review
           npm run build --workspace=@taptime/backend-offline-sync
 
-      - name: Apply schema migrations 001 through 017 to clean PostgreSQL 17
+      - name: Apply current schema migrations to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 017
+      - name: Re-run and verify the complete migration ledger
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -551,10 +578,10 @@ jobs:
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
 
-      - name: Apply schema migrations 001 through 017 to clean PostgreSQL 17
+      - name: Apply current schema migrations to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 017
+      - name: Re-run and verify the complete migration ledger
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -619,10 +646,10 @@ jobs:
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-lifecycle
 
-      - name: Apply schema migrations 001 through 017 to clean PostgreSQL 17
+      - name: Apply current schema migrations to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
 
-      - name: Re-run and verify migration ledger 001 through 017
+      - name: Re-run and verify the complete migration ledger
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run verify-migrations --workspace=@taptime/backend-schema
@@ -826,7 +853,7 @@ jobs:
           npm run typecheck --workspace=@taptime/time-review-contract
           npm test --workspace=@taptime/time-review-contract
 
-      - name: Apply, replay, and verify schema migrations 001 through 017
+      - name: Apply, replay, and verify all current schema migrations
         run: |
           npm run migrate --workspace=@taptime/backend-schema
           npm run migrate --workspace=@taptime/backend-schema

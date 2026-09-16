@@ -9,9 +9,24 @@ readonly BACKUP_MAXIMUM_AGE_SECONDS=7200
 readonly RESTORE_MAXIMUM_AGE_SECONDS=691200
 readonly DISK_USAGE_THRESHOLD_PERCENT=80
 
+file_mode() {
+  if stat --format='%a' "$1" >/dev/null 2>&1; then
+    stat --format='%a' "$1"
+  else
+    stat -f '%Lp' "$1"
+  fi
+}
+
+utc_epoch() {
+  if date --date="$1" +%s 2>/dev/null; then
+    return 0
+  fi
+  date -ju -f '%Y-%m-%dT%H:%M:%SZ' "$1" +%s
+}
+
 require_private_file() {
   local file="$1"
-  if [[ ! -f "$file" || -L "$file" || ! -O "$file" || "$(stat -c '%a' "$file")" != '600' ]]; then
+  if [[ ! -f "$file" || -L "$file" || ! -O "$file" || "$(file_mode "$file")" != '600' ]]; then
     printf 'Required root-owned mode-0600 file is unavailable: %s\n' "$file" >&2
     exit 1
   fi
@@ -50,7 +65,7 @@ backup_is_current() {
   else
     return 1
   fi
-  success_epoch="$(date --date="$timestamp" +%s)" || return 1
+  success_epoch="$(utc_epoch "$timestamp")" || return 1
   (( now_epoch - success_epoch <= BACKUP_MAXIMUM_AGE_SECONDS ))
 }
 
@@ -67,7 +82,7 @@ restore_is_healthy() {
   else
     return 1
   fi
-  attempt_epoch="$(date --date="$timestamp" +%s)" || return 1
+  attempt_epoch="$(utc_epoch "$timestamp")" || return 1
   (( now_epoch - attempt_epoch <= RESTORE_MAXIMUM_AGE_SECONDS ))
 }
 

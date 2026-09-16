@@ -15,17 +15,24 @@ Die aus `infrastructure/logging/taptime-journald.conf` versioniert installierte 
 mindestens 1 GiB freiem Plattenplatz. Der API-Container muss den Docker-Logging-Treiber
 `journald` und den Tag `taptime-backend-api` verwenden.
 
-## Genau vier Meldungen
+## Genau fünf Meldungen
 
 | Text | Prüfung | Versand |
 |---|---|---|
 | `API antwortet nicht` | jede Minute | ntfy, Priorität 5, einmal je Ausfall |
+| `WAL-Archivierung steht` | jede Minute; Status fehlt/ist nicht `ok`, ist älter als Archivintervall mal zulässige verpasste Zyklen oder älteste benötigte WAL-Position und letzter extern bestätigter Wasserstand belegen keinen rechtzeitigen lückenlosen Fortschritt | ntfy, Priorität 5, einmal je Ausfall |
 | `Sicherung überfällig` | täglich 08:00 Europe/Berlin, letzter Erfolg älter als zwei Stunden | gebündelt, ntfy, Priorität 3 |
 | `Wiederherstellungsprüfung fehlgeschlagen` | täglich 08:00 Europe/Berlin, letzter Status nicht `ok` oder älter als acht Tage | gebündelt, ntfy, Priorität 3 |
 | `Platte über 80 Prozent` | täglich 08:00 Europe/Berlin, Belegung mindestens 80 Prozent | gebündelt, ntfy, Priorität 3 |
 
-Es gibt keine Entwarnungs- oder Transportfehlermeldung als fünfte Meldung. Nach einer still
+Es gibt keine Entwarnungs- oder Transportfehlermeldung als sechste Meldung. Nach einer still
 erkannten Erholung darf derselbe Fehler bei einem späteren neuen Ausfall wieder melden.
+Der WAL-Schwellwert ist keine fest eingebaute Zeit: Er wird aus
+`WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES` aus derselben Backup-Konfiguration
+abgeleitet, die Empfänger und Archivierer steuert. Bei Rückstand werden die älteste noch
+benötigte WAL-Datei und der letzte externe Archivstand gemeinsam ausgewertet; ein späteres
+Archiv hinter einer älteren Lücke ist ausdrücklich nicht gesund. Auch bei leerer
+Ereigniswarteschlange löst ein stehender Empfänger oder veralteter Status aus.
 
 ## Geheimnisse und Telefon
 
@@ -47,7 +54,9 @@ Sofort-Meldungen gesetzt, ersetzt aber nicht diese Betriebssystemfreigabe.
 Healthchecks.io enthält genau einen groben Totmannschalter: Zeitraum fünf Minuten, Nachfrist
 15 Minuten. Dieses absichtlich träge Zeitfenster vermeidet Fehlalarme bei normalen
 Serverneustarts; den Ausfall nur der API meldet der Server selbst sofort. Der Server sendet jede
-Minute einen leeren `HEAD` an die geheime Ping-URL. Nur der Übergang auf *Down* löst einen
+Minute nach vollständig erfolgreicher API- und WAL-Prüfung beziehungsweise erfolgreich
+zugestelltem Erstalarm einen leeren `HEAD` an die geheime Ping-URL. Schlägt die Alarmzustellung
+fehl, unterbleibt das Lebenszeichen. Nur der Übergang auf *Down* löst einen
 POST-Webhook an das geheime ntfy-Thema aus:
 
 - Body: `API antwortet nicht`
@@ -70,17 +79,21 @@ gemeinsam und liest geänderte Einheiten neu ein. Nur die geheimen Dateien
 `/etc/taptime-monitor/ntfy.curl` und `/etc/taptime-monitor/healthchecks.curl` werden getrennt
 eingerichtet und vom Deploy nicht verändert. Der Restore-Dienst schreibt seinen dauerhaften
 Status nach `/var/lib/taptime-monitor/restore-status.json`; das Verzeichnis ist root-only.
-Auf dem bestehenden Produktionsserver sind alle vier Timer bereits aktiviert. Auf einem
+Auf dem bestehenden Produktionsserver sind alle Timer bereits aktiviert. WAL-Empfänger und
+Archivierer sind dauerhafte Dienste, keine Timer. Auf einem
 Ersatzserver werden sie nach dem ersten erfolgreichen Deploy einmalig aktiviert:
 
 ```sh
+systemctl enable --now taptime-wal-receiver.service taptime-wal-archiver.service
 systemctl enable --now taptime-backup.timer taptime-restore-verify.timer
 systemctl enable --now taptime-immediate-monitor.timer taptime-daily-monitor.timer
 systemctl list-timers 'taptime-*'
 systemctl start taptime-immediate-monitor.service
 systemctl start taptime-daily-monitor.service
+systemctl is-active taptime-wal-receiver.service taptime-wal-archiver.service
 ```
 
 Meldungstests verwenden ausschließlich kontrollierte Statusdateien beziehungsweise einen
 kurzen API-Stopp. Geheim-URLs werden dabei weder ausgegeben noch als Argument übergeben. Nach
-jeder Prüfung müssen API, Restore-Status und alle Timer wieder grün sein.
+jeder Prüfung müssen API, WAL-Archivstatus, Restore-Status, Dienste und alle Timer wieder grün
+sein.

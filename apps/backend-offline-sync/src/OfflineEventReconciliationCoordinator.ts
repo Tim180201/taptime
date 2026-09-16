@@ -4,6 +4,7 @@ import {
   isCanonicalOfflineUuid,
   type OfflineCanonicalDecision,
   type OfflineReconciliationResult,
+  type OfflineReconciliationResultV2,
 } from '@taptime/offline-sync-contract';
 import {
   validateMobileReviewStateRequest,
@@ -41,6 +42,7 @@ interface ReconciliationRow extends QueryResultRow {
   readonly time_entry_id: string | null;
   readonly active_time_entry_id: string | null;
   readonly previous_work_event_id: string | null;
+  readonly archive_status?: 'archive_pending' | 'offsite_archived';
 }
 
 interface ReviewStateRow extends QueryResultRow {
@@ -59,6 +61,27 @@ implements OfflineEventReconciliationReader {
   async reconcile(
     request: AuthenticatedOfflineReconciliationCommand,
   ): Promise<OfflineReconciliationResult> {
+    return this.reconcileVersion(request, 1);
+  }
+
+  async reconcileV2(
+    request: AuthenticatedOfflineReconciliationCommand,
+  ): Promise<OfflineReconciliationResultV2> {
+    return this.reconcileVersion(request, 2);
+  }
+
+  private async reconcileVersion(
+    request: AuthenticatedOfflineReconciliationCommand,
+    version: 1,
+  ): Promise<OfflineReconciliationResult>;
+  private async reconcileVersion(
+    request: AuthenticatedOfflineReconciliationCommand,
+    version: 2,
+  ): Promise<OfflineReconciliationResultV2>;
+  private async reconcileVersion(
+    request: AuthenticatedOfflineReconciliationCommand,
+    version: 1 | 2,
+  ): Promise<OfflineReconciliationResult | OfflineReconciliationResultV2> {
     const ids = request.command.workEventIds;
     if (
       ids.length < 1
@@ -95,29 +118,21 @@ implements OfflineEventReconciliationReader {
         client,
         `SELECT work_event_id, receipt_id, device_sequence, result_status, review_reason,
                 decision_type, reason, time_entry_id, active_time_entry_id,
-                previous_work_event_id
-         FROM taptime_server.read_offline_event_reconciliations_v1($1::uuid[])`,
+                previous_work_event_id${version === 2 ? ', archive_status' : ''}
+         FROM taptime_server.read_offline_event_reconciliations_v${version}($1::uuid[])`,
         [ids],
       );
       await query(client, 'COMMIT');
       transactionOpen = false;
+      if (version === 2) {
+        return {
+          status: 'ready',
+          records: Object.freeze(result.rows.map((row) => reconciliationRecordV2(row))),
+        };
+      }
       return {
         status: 'ready',
-        records: Object.freeze(result.rows.map((row) => Object.freeze({
-          workEventId: row.work_event_id,
-          receiptId: row.receipt_id,
-          deviceSequence: Number(row.device_sequence),
-          result: row.result_status === 'review_pending'
-            && row.review_reason !== ENGINE_ESCALATION_REVIEW_REASON
-            ? {
-                status: 'review_pending' as const,
-                reason: requireReviewReason(row.review_reason),
-              }
-            : {
-                status: 'synchronized' as const,
-                decision: decisionFromRow(row),
-              },
-        }))),
+        records: Object.freeze(result.rows.map((row) => reconciliationRecord(row))),
       };
     } catch (error) {
       if (transactionOpen) await rollback(client);
@@ -183,6 +198,57 @@ implements OfflineEventReconciliationReader {
       client.release();
     }
   }
+}
+
+function reconciliationIdentity(row: ReconciliationRow) {
+  const deviceSequence = Number(row.device_sequence);
+  if (!Number.isSafeInteger(deviceSequence) || deviceSequence <= 0) {
+    throw new Error('Persisted offline reconciliation sequence is invalid');
+  }
+  return {
+    workEventId: row.work_event_id,
+    receiptId: row.receipt_id,
+    deviceSequence,
+  };
+}
+
+function reconciliationRecord(row: ReconciliationRow) {
+  return Object.freeze({
+    ...reconciliationIdentity(row),
+    result: reconciliationResult(row),
+  });
+}
+
+function reconciliationRecordV2(row: ReconciliationRow) {
+  const identity = reconciliationIdentity(row);
+  if (row.archive_status === 'archive_pending') {
+    return Object.freeze({
+      ...identity,
+      archiveStatus: 'archive_pending' as const,
+      result: { status: 'archive_pending' as const },
+    });
+  }
+  if (row.archive_status !== 'offsite_archived') {
+    throw new Error('Persisted offline archive status is invalid');
+  }
+  return Object.freeze({
+    ...identity,
+    archiveStatus: 'offsite_archived' as const,
+    result: reconciliationResult(row),
+  });
+}
+
+function reconciliationResult(row: ReconciliationRow) {
+  return row.result_status === 'review_pending'
+    && row.review_reason !== ENGINE_ESCALATION_REVIEW_REASON
+    ? {
+        status: 'review_pending' as const,
+        reason: requireReviewReason(row.review_reason),
+      }
+    : {
+        status: 'synchronized' as const,
+        decision: decisionFromRow(row),
+      };
 }
 
 function mapReviewState(

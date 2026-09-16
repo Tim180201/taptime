@@ -10,6 +10,7 @@ import {
 import {
   ManualLifecycleIngestionCoordinator,
   ServerCanonicalLifecycleIngestionCoordinator,
+  type LifecycleArchiveDurabilityPort,
 } from '@taptime/backend-lifecycle';
 import {
   MobileWorkReadCoordinator,
@@ -61,6 +62,10 @@ export interface BackendApiRuntime {
   close(): Promise<void>;
 }
 
+export interface BackendApiRuntimeOptions extends BackendHttpServerOptions {
+  readonly lifecycleArchiveDurability?: LifecycleArchiveDurabilityPort;
+}
+
 interface ValidatedDatabaseUrl {
   readonly connectionString: string;
   readonly username: string;
@@ -77,8 +82,9 @@ const allowedDatabaseUrlParameters = new Set([
 
 export function createBackendApiRuntime(
   configuration: BackendApiRuntimeConfiguration,
-  options: BackendHttpServerOptions = {},
+  options: BackendApiRuntimeOptions = {},
 ): BackendApiRuntime {
+  const { lifecycleArchiveDurability, ...httpServerOptions } = options;
   const sessionDatabase = validateDatabaseUrl(configuration.sessionDatabaseUrl);
   const readModelDatabase = validateDatabaseUrl(configuration.readModelDatabaseUrl);
   const lifecycleDatabase = validateDatabaseUrl(configuration.lifecycleDatabaseUrl);
@@ -164,6 +170,7 @@ export function createBackendApiRuntime(
   const lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecyclePool,
     verifier,
+    lifecycleArchiveDurability,
   );
   const mobileWorkReader = (
     mobileOwnTimePool === undefined
@@ -222,6 +229,7 @@ export function createBackendApiRuntime(
         manualLifecycleIngestor: new ManualLifecycleIngestionCoordinator(
           manualLifecyclePool,
           verifier,
+          lifecycleArchiveDurability,
         ),
       }),
       ...(mobileWorkReader === undefined ? {} : { mobileWorkReader }),
@@ -232,7 +240,7 @@ export function createBackendApiRuntime(
         ),
       }),
     },
-    options,
+    httpServerOptions,
   );
 
   return Object.freeze({

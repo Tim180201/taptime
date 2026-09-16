@@ -1061,9 +1061,11 @@ export class OfflineCaptureDatabase {
            ORDER BY legacy_order
            LIMIT 1`,
         );
+        if (row?.queue_state === 'protected_review_predecessor') {
+          throw new Error('Legacy queue head requires protected review');
+        }
         if (
           row === null
-          || row.queue_state === 'protected_review_predecessor'
           || (
             row.queue_state === 'retry_wait'
             && row.next_attempt_at !== null
@@ -1202,6 +1204,32 @@ export class OfflineCaptureDatabase {
       });
       if (this.protectedReason !== null) throw new Error('Offline queue is protected');
       return head;
+    });
+  }
+
+  readNextRetryAt(): Promise<number | null> {
+    return this.serialized(async () => {
+      const row = await this.requireReady().getFirstAsync<{
+        readonly next_attempt_at: number | null;
+      }>(
+        `SELECT min(next_attempt_at) AS next_attempt_at
+         FROM (
+           SELECT next_attempt_at
+           FROM offline_legacy_queue
+           WHERE legacy_order = (SELECT min(legacy_order) FROM offline_legacy_queue)
+             AND queue_state = 'retry_wait'
+           UNION ALL
+           SELECT next_attempt_at
+           FROM offline_event_queue
+           WHERE device_sequence = (SELECT min(device_sequence) FROM offline_event_queue)
+             AND queue_state = 'retry_wait'
+         )`,
+      );
+      if (row === null || row.next_attempt_at === null) return null;
+      if (!Number.isSafeInteger(row.next_attempt_at) || row.next_attempt_at < 0) {
+        throw new Error('Offline retry deadline is invalid');
+      }
+      return row.next_attempt_at;
     });
   }
 

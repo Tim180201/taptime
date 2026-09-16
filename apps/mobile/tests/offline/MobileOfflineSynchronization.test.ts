@@ -1,9 +1,11 @@
+import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it, vi } from 'vitest';
+import { TimeEntryId } from '@taptime/core';
 import type {
   OfflineCaptureLeasePage,
   OfflineCaptureLeasePageV2,
   OfflineLifecycleEventCommand,
-  OfflineReconciliationResult,
+  OfflineReconciliationResultV2,
 } from '@taptime/offline-sync-contract';
 import type {
   AuthenticatedHttpResult,
@@ -18,7 +20,12 @@ import type {
   PendingLifecycleEvidence,
   StoredLifecycleEvidence,
 } from '../../src/scan/LifecycleEvidenceOutbox';
-import { OfflineCaptureDatabase } from '../../src/offline/OfflineCaptureDatabase';
+import {
+  OfflineCaptureDatabase,
+  type OfflineDatabaseConnection,
+  type OfflineSqlParams,
+  type OfflineSqlValue,
+} from '../../src/offline/OfflineCaptureDatabase';
 import { OfflineCaptureLeaseClient } from '../../src/offline/OfflineCaptureLeaseClient';
 import {
   OfflineLifecycleClient,
@@ -179,6 +186,7 @@ describe('Mobile complete offline clients', () => {
 
     request.handler = async () => response(200, {
       status: 'synchronized',
+      archiveStatus: 'offsite_archived',
       idempotentRetry: false,
       workEventId: ids.event,
       receiptId: ids.receipt,
@@ -195,6 +203,7 @@ describe('Mobile complete offline clients', () => {
         workEventId: ids.event,
         receiptId: ids.receipt,
         deviceSequence: 1,
+        archiveStatus: 'offsite_archived',
         result: {
           status: 'synchronized',
           decision: { status: 'time_entry_started', timeEntryId: ids.timeEntry },
@@ -241,6 +250,192 @@ describe('Mobile complete offline clients', () => {
 });
 
 describe('Mobile FIFO scheduler and legacy migration', () => {
+  it('re-arms the persisted retry deadline after a second early trigger with real SQLite',
+    async () => {
+      let now = 10_000;
+      const connection = new NodeSqliteOfflineConnection();
+      const database = new OfflineCaptureDatabase(
+        async () => connection,
+        new Uint8Array(32).fill(1),
+      );
+      await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
+      await expect(database.bindOwner({
+        organizationId: ids.organization,
+        userId: ids.user,
+        membershipId: ids.membership,
+        installationBindingDigest: '0'.repeat(64),
+      })).resolves.toEqual({ status: 'ready' });
+      await expect(database.activateLease({
+        page: leasePage(),
+        activationBootMarker: 'retry-proof-boot',
+        activationMonotonicMilliseconds: now,
+      })).resolves.toEqual({ status: 'ready' });
+      const { deviceSequence: _deviceSequence, ...draft } = offlineCommand();
+      await expect(database.appendEvent(draft)).resolves.toMatchObject({ status: 'ready' });
+
+      const ingest = vi.fn(async () => ({ status: 'unavailable' as const }));
+      const timer = new ControlledSchedulerTimer(() => now);
+      const scheduler = new OfflineSyncScheduler(
+        database,
+        {
+          ingest,
+          async reconcile() { return { status: 'ready', records: [] }; },
+          async readReviewState() { return { status: 'unavailable' }; },
+        },
+        { async ingest() { return { status: 'transient_failure' }; } },
+        { async rejectOfflineCapture() {} },
+        () => now,
+        () => 0.5,
+        timer,
+      );
+
+      await expect(scheduler.trigger('runtime_start')).resolves.toEqual({
+        status: 'retry_wait',
+        queueCount: 1,
+      });
+      const retryAt = timer.onlyDeadline();
+      now += Math.floor((retryAt - now) / 2);
+
+      await expect(scheduler.trigger('network_hint')).resolves.toEqual({
+        status: 'retry_wait',
+        queueCount: 1,
+      });
+      expect(timer.onlyDeadline()).toBe(retryAt);
+      expect(ingest).toHaveBeenCalledTimes(1);
+
+      now = retryAt;
+      timer.fireDue();
+      await vi.waitFor(() => expect(ingest).toHaveBeenCalledTimes(2));
+      scheduler.stop();
+      await database.close();
+    });
+
+  it('keeps a server-committed event in real SQLite while its archive is still pending',
+    async () => {
+      const now = 20_000;
+      const connection = new NodeSqliteOfflineConnection();
+      const database = new OfflineCaptureDatabase(
+        async () => connection,
+        new Uint8Array(32).fill(2),
+      );
+      await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
+      await expect(database.bindOwner({
+        organizationId: ids.organization,
+        userId: ids.user,
+        membershipId: ids.membership,
+        installationBindingDigest: '1'.repeat(64),
+      })).resolves.toEqual({ status: 'ready' });
+      await expect(database.activateLease({
+        page: leasePage(),
+        activationBootMarker: 'archive-proof-boot',
+        activationMonotonicMilliseconds: now,
+      })).resolves.toEqual({ status: 'ready' });
+      const { deviceSequence: _deviceSequence, ...draft } = offlineCommand();
+      await expect(database.appendEvent(draft)).resolves.toMatchObject({ status: 'ready' });
+
+      const ingest = vi.fn(async () => ({
+        status: 'archive_pending' as const,
+        idempotentRetry: false,
+        workEventId: ids.event,
+        receiptId: ids.receipt,
+        deviceSequence: 1,
+      }));
+      const timer = new ControlledSchedulerTimer(() => now);
+      const scheduler = new OfflineSyncScheduler(
+        database,
+        {
+          ingest,
+          async reconcile() { return { status: 'ready', records: [] }; },
+          async readReviewState() { return { status: 'unavailable' }; },
+        },
+        { async ingest() { return { status: 'transient_failure' }; } },
+        { async rejectOfflineCapture() {} },
+        () => now,
+        () => 0.5,
+        timer,
+      );
+
+      await expect(scheduler.trigger('network_hint')).resolves.toEqual({
+        status: 'retry_wait',
+        queueCount: 1,
+      });
+      expect(ingest).toHaveBeenCalledOnce();
+      await expect(database.queueCount()).resolves.toBe(1);
+      await expect(database.readNextRetryAt()).resolves.toBeGreaterThan(now);
+
+      scheduler.stop();
+      await database.close();
+    });
+
+  it('keeps legacy evidence until the unchanged v1 acknowledgement becomes durable',
+    async () => {
+    let now = 25_000;
+    const evidence = legacyEvidence();
+    const connection = new NodeSqliteOfflineConnection();
+    const database = new OfflineCaptureDatabase(
+      async () => connection,
+      new Uint8Array(32).fill(3),
+    );
+    await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
+    await expect(database.bindOwner({
+      organizationId: ids.organization,
+      userId: ids.user,
+      membershipId: ids.membership,
+      installationBindingDigest: '2'.repeat(64),
+    })).resolves.toEqual({ status: 'ready' });
+    await expect(database.importLegacyReplayable(evidence.submission))
+      .resolves.toEqual({ status: 'ready' });
+
+    const legacyIngest = vi.fn<() => Promise<LifecycleEventResult>>()
+      .mockResolvedValueOnce({ status: 'unavailable' })
+      .mockResolvedValueOnce({
+        status: 'synchronized',
+        idempotentRetry: true,
+        decision: { status: 'time_entry_started', timeEntryId: TimeEntryId(ids.timeEntry) },
+        workEventId: evidence.submission.command.workEvent.id,
+        receiptId: evidence.submission.command.receipt.id,
+        serverTimeEntryId: TimeEntryId(ids.timeEntry),
+      });
+    const timer = new ControlledSchedulerTimer(() => now);
+    const scheduler = new OfflineSyncScheduler(
+      database,
+      {
+        async ingest() { return { status: 'unavailable' }; },
+        async reconcile() { return { status: 'ready', records: [] }; },
+        async readReviewState() { return { status: 'unavailable' }; },
+      },
+      { ingest: legacyIngest },
+      { async rejectOfflineCapture() {} },
+      () => now,
+      () => 0.5,
+      timer,
+    );
+
+    await expect(scheduler.trigger('network_hint')).resolves.toEqual({
+      status: 'retry_wait',
+      queueCount: 1,
+    });
+    const retryAt = timer.onlyDeadline();
+    await expect(database.queueCount()).resolves.toBe(1);
+    await expect(database.verifyLegacyReplayable(evidence.submission)).resolves.toBe(true);
+
+    now += Math.floor((retryAt - now) / 2);
+    await expect(scheduler.trigger('foreground')).resolves.toEqual({
+      status: 'retry_wait',
+      queueCount: 1,
+    });
+    expect(legacyIngest).toHaveBeenCalledOnce();
+    expect(timer.onlyDeadline()).toBe(retryAt);
+
+    now = retryAt;
+    timer.fireDue();
+    await vi.waitFor(() => expect(legacyIngest).toHaveBeenCalledTimes(2));
+    await vi.waitFor(async () => expect(await database.queueCount()).toBe(0));
+
+    scheduler.stop();
+    await database.close();
+  });
+
   it('clears only the exact encrypted marker covered by an authenticated server high-water proof',
     async () => {
       const clearReviewPendingSequence = vi.fn(async () => true);
@@ -288,13 +483,14 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
     const ingest = vi.fn();
     const offline: OfflineLifecycleApiPort = {
       ingest,
-      async reconcile(): Promise<OfflineReconciliationResult> {
+      async reconcile(): Promise<OfflineReconciliationResultV2> {
         return {
           status: 'ready',
           records: [{
             workEventId: ids.event,
             receiptId: ids.receipt,
             deviceSequence: 1,
+            archiveStatus: 'offsite_archived',
             result: {
               status: 'synchronized',
               decision: { status: 'time_entry_started', timeEntryId: ids.timeEntry },
@@ -352,6 +548,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
         async ingest() {
           return {
             status: 'review_pending',
+            archiveStatus: 'offsite_archived',
             idempotentRetry: false,
             reason: 'historical_configuration_not_valid',
             workEventId: ids.event,
@@ -618,6 +815,7 @@ function fakeDatabase(
 ): OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>> {
   return {
     readReviewPendingSequence: vi.fn(async () => null),
+    readNextRetryAt: vi.fn(async () => null),
     ...overrides,
   } as unknown as OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>>;
 }
@@ -666,4 +864,100 @@ function offlineCommandToLegacy(): PendingLifecycleEvidence['submission']['comma
     workEvent: command.workEvent as PendingLifecycleEvidence['submission']['command']['workEvent'],
     receipt: command.receipt,
   };
+}
+
+class ControlledSchedulerTimer {
+  private nextHandle = 1;
+  private readonly scheduled = new Map<
+    number,
+    { readonly callback: () => void; readonly deadline: number }
+  >();
+
+  constructor(private readonly now: () => number) {}
+
+  schedule(callback: () => void, delayMilliseconds: number): number {
+    const handle = this.nextHandle;
+    this.nextHandle += 1;
+    this.scheduled.set(handle, {
+      callback,
+      deadline: this.now() + delayMilliseconds,
+    });
+    return handle;
+  }
+
+  cancel(handle: unknown): void {
+    if (typeof handle === 'number') this.scheduled.delete(handle);
+  }
+
+  onlyDeadline(): number {
+    const deadlines = [...this.scheduled.values()].map(({ deadline }) => deadline);
+    if (deadlines.length !== 1) {
+      throw new Error(`Expected one scheduled retry, received ${deadlines.length}`);
+    }
+    return deadlines[0]!;
+  }
+
+  fireDue(): void {
+    const due = [...this.scheduled.entries()]
+      .filter(([, scheduled]) => scheduled.deadline <= this.now());
+    for (const [handle, scheduled] of due) {
+      this.scheduled.delete(handle);
+      scheduled.callback();
+    }
+  }
+}
+
+class NodeSqliteOfflineConnection implements OfflineDatabaseConnection {
+  private readonly database = new DatabaseSync(':memory:');
+
+  async execAsync(source: string): Promise<void> {
+    this.database.exec(source);
+  }
+
+  async runAsync(
+    source: string,
+    params: OfflineSqlParams,
+  ): Promise<{ readonly changes: number }> {
+    const result = this.database.prepare(source).run(...sqliteValues(params));
+    return { changes: Number(result.changes) };
+  }
+
+  async getFirstAsync<Row>(
+    source: string,
+    params: OfflineSqlParams = [],
+  ): Promise<Row | null> {
+    return (this.database.prepare(source).get(...sqliteValues(params)) as Row | undefined)
+      ?? null;
+  }
+
+  async getAllAsync<Row>(
+    source: string,
+    params: OfflineSqlParams = [],
+  ): Promise<Row[]> {
+    return this.database.prepare(source).all(...sqliteValues(params)) as Row[];
+  }
+
+  async withExclusiveTransactionAsync(
+    task: (transaction: OfflineDatabaseConnection) => Promise<void>,
+  ): Promise<void> {
+    this.database.exec('BEGIN EXCLUSIVE');
+    try {
+      await task(this);
+      this.database.exec('COMMIT');
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
+  async closeAsync(): Promise<void> {
+    this.database.close();
+  }
+}
+
+function sqliteValues(params: OfflineSqlParams): OfflineSqlValue[] {
+  if (!Array.isArray(params)) {
+    throw new TypeError('This real SQLite fixture accepts positional parameters only');
+  }
+  return [...params] as OfflineSqlValue[];
 }

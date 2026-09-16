@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+readonly REPOSITORY_ROOT
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+
+mkdir -p "$TEST_ROOT/bin" "$TEST_ROOT/spool"
+readonly WAL_FILE='000000010000000000000001'
+readonly CLUSTER_ID='0123456789abcdef'
+printf 'synthetic WAL bytes\n' > "$TEST_ROOT/spool/$WAL_FILE"
+
+cat > "$TEST_ROOT/bin/borg" <<'EOF_BORG'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'borg %s\n' "$*" >> "$ARCHIVER_CALL_LOG"
+if [[ "${1:-}" == 'info' ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == 'extract' && "${2:-}" == '--stdout' ]]; then
+  exit 42
+fi
+exit 1
+EOF_BORG
+
+cat > "$TEST_ROOT/bin/docker" <<'EOF_DOCKER'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'docker %s\n' "$*" >> "$ARCHIVER_CALL_LOG"
+exit 99
+EOF_DOCKER
+chmod 0755 "$TEST_ROOT/bin/borg" "$TEST_ROOT/bin/docker"
+
+export PATH="$TEST_ROOT/bin:$PATH"
+export ARCHIVER_CALL_LOG="$TEST_ROOT/calls.log"
+export TAPTIME_BORG_LOCK_FILE="$TEST_ROOT/borg.lock"
+: > "$ARCHIVER_CALL_LOG"
+
+# shellcheck source=../backup/taptime-wal-archiver
+source "$REPOSITORY_ROOT/infrastructure/backup/taptime-wal-archiver"
+hostname() {
+  if [[ "${1:-}" == '-I' ]]; then
+    printf '192.0.2.10 10.0.0.10\n'
+  else
+    printf 'synthetic-local\n'
+  fi
+}
+getent() {
+  [[ "${1:-}" == 'ahostsv4' ]] || return 1
+  case "${2:-}" in
+    offsite.invalid)
+      printf '198.51.100.23 STREAM offsite.invalid\n'
+      ;;
+    local-alias.invalid)
+      printf '192.0.2.10 STREAM local-alias.invalid\n'
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+BORG_RSH='ssh -p 23 -i /synthetic-key -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/synthetic-known-hosts -o StrictHostKeyChecking=yes'
+BORG_REPOSITORY="$TEST_ROOT/local-borg-repository"
+set +e
+validate_offsite_borg_repository > "$TEST_ROOT/repository.output.log" 2>&1
+repository_status=$?
+set -e
+if (( repository_status == 0 )); then
+  printf 'A local Borg repository was accepted as offsite storage.\n' >&2
+  exit 1
+fi
+grep --quiet 'must use non-local ssh:// storage' "$TEST_ROOT/repository.output.log"
+BORG_REPOSITORY='ssh://synthetic@localhost:23/./taptime'
+set +e
+validate_offsite_borg_repository > "$TEST_ROOT/repository.output.log" 2>&1
+repository_status=$?
+set -e
+if (( repository_status == 0 )); then
+  printf 'The local host was accepted as offsite storage.\n' >&2
+  exit 1
+fi
+grep --quiet 'must not resolve by configuration to this host' \
+  "$TEST_ROOT/repository.output.log"
+BORG_REPOSITORY='ssh://synthetic@local-alias.invalid:23/./taptime'
+set +e
+validate_offsite_borg_repository > "$TEST_ROOT/repository.output.log" 2>&1
+repository_status=$?
+set -e
+if (( repository_status == 0 )); then
+  printf 'A local interface alias was accepted as offsite storage.\n' >&2
+  exit 1
+fi
+grep --quiet 'resolves to a local interface address' \
+  "$TEST_ROOT/repository.output.log"
+BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'
+validate_offsite_borg_repository
+WAL_SPOOL_DIRECTORY="$TEST_ROOT/spool"
+DATABASE_CONTAINER='synthetic-database'
+DATABASE_NAME='synthetic'
+CLUSTER_SYSTEM_IDENTIFIER='81985529216486895'
+CLUSTER_ARCHIVE_IDENTIFIER="$CLUSTER_ID"
+
+set +e
+archive_file "$WAL_FILE" > "$TEST_ROOT/output.log" 2>&1
+archive_status=$?
+set -e
+if (( archive_status == 0 )); then
+  printf 'A failed offsite read-back was accepted.\n' >&2
+  exit 1
+fi
+test -f "$TEST_ROOT/spool/$WAL_FILE"
+if grep --quiet '^docker ' "$ARCHIVER_CALL_LOG"; then
+  printf 'An archive receipt was recorded before external bytes were verified.\n' >&2
+  exit 1
+fi
+grep --quiet 'Could not read back offsite WAL archive' "$TEST_ROOT/output.log"
+
+receiver_is_active() { printf 'f\n'; }
+set +e
+archive_once > "$TEST_ROOT/receiver.output.log" 2>&1
+receiver_status=$?
+set -e
+if (( receiver_status == 0 )); then
+  printf 'An inactive physical WAL receiver was accepted.\n' >&2
+  exit 1
+fi
+grep --quiet 'physical WAL receiver slot is not active' "$TEST_ROOT/receiver.output.log"
+
+database_query() { printf '81985529216486895|%s\n' "$CLUSTER_ID"; }
+printf 'fedcba9876543210\n' > "$TEST_ROOT/spool/.cluster-system-identifier"
+set +e
+load_cluster_identity > "$TEST_ROOT/identity.output.log" 2>&1
+identity_status=$?
+set -e
+if (( identity_status == 0 )); then
+  printf 'A WAL spool from another PostgreSQL cluster was accepted.\n' >&2
+  exit 1
+fi
+grep --quiet 'WAL spool belongs to a different PostgreSQL cluster' \
+  "$TEST_ROOT/identity.output.log"
+
+printf 'WAL archive failure evidence: no receipt and local segment retained.\n'
+printf 'WAL receiver failure evidence: inactive slot rejected before backlog processing.\n'
+printf 'WAL cluster evidence: a spool from another PostgreSQL cluster was rejected.\n'
+printf 'Offsite repository evidence: local paths, localhost and local aliases were rejected.\n'

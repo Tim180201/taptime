@@ -18,7 +18,7 @@ import { dirname, join, parse, resolve, sep } from 'node:path';
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import type { Readable, Writable } from 'node:stream';
 import { Pool } from 'pg';
-import { B3_MIGRATION_TABLE, B3_SCHEMA } from '@taptime/backend-schema';
+import { B3_MIGRATION_TABLE, B3_SCHEMA, loadMigrations } from '@taptime/backend-schema';
 import { da5V5RuntimeLogins, runtimeLogins } from './constants.js';
 import type {
   Da5V5PostgresMountIdentityRecord,
@@ -412,6 +412,10 @@ const da5V5MigrationRoles = Object.freeze([
   'taptime_employee_redemption_data_function_owner',
   'taptime_employee_redemption_function_owner',
   'taptime_identity_resolver',
+  'taptime_membership_enrollment_redeemer',
+  'taptime_membership_management_function_owner',
+  'taptime_membership_manager',
+  'taptime_membership_redemption_function_owner',
   'taptime_mobile_own_time_reader',
   'taptime_mobile_read_function_owner',
   'taptime_mobile_target_reader',
@@ -421,6 +425,8 @@ const da5V5MigrationRoles = Object.freeze([
   'taptime_offline_lease_issuer',
   'taptime_offline_reconciliation_function_owner',
   'taptime_offline_reconciliation_reader',
+  'taptime_password_reset_auditor',
+  'taptime_people_audit_function_owner',
   'taptime_project_administrator',
   'taptime_server_lifecycle',
   'taptime_time_export_function_owner',
@@ -429,6 +435,8 @@ const da5V5MigrationRoles = Object.freeze([
   'taptime_time_review_reader',
   'taptime_time_review_write_function_owner',
   'taptime_time_review_writer',
+  'taptime_wal_archive_function_owner',
+  'taptime_wal_archiver',
   'taptime_work_target_function_owner',
 ] as const);
 
@@ -3515,6 +3523,8 @@ async function attestDa5V5OwnerLifecycle(
     || stage === 'before-product-listeners'
     || stage === 'before-cleanup'
   ) {
+    const expectedMigrationVersions = (await loadMigrations())
+      .map(({ version }) => version);
     const ledger = await pool.query<{
       migration_count: string;
       migration_list: string;
@@ -3538,9 +3548,8 @@ async function attestDa5V5OwnerLifecycle(
     `);
     const migration = ledger.rows[0];
     if (
-      migration?.migration_count !== '13'
-      || migration.migration_list
-        !== '001,002,003,004,005,006,007,008,009,010,011,012,013'
+      migration?.migration_count !== String(expectedMigrationVersions.length)
+      || migration.migration_list !== expectedMigrationVersions.join(',')
       || migration.schema_owner !== 'taptime_da5_v5_installer'
     ) {
       throw new Error('DA5 V5 PostgreSQL migration-ledger mismatch');

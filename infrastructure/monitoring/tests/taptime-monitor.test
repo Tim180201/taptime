@@ -20,6 +20,10 @@ assert_equals() {
   [[ "$actual" == "$expected" ]] || fail "$description: expected [$expected], got [$actual]"
 }
 
+epoch_for() {
+  node -e 'process.stdout.write(String(Date.parse(process.argv[1]) / 1000))' "$1"
+}
+
 mkdir -p "$test_root/bin" "$test_root/config" "$test_root/state" "$test_root/messages"
 chmod 0700 "$test_root/config" "$test_root/state"
 
@@ -33,11 +37,12 @@ if [[ "$arguments" == *' https://api.test/health '* ]]; then
   exit "${FAKE_API_EXIT_STATUS:-0}"
 fi
 if [[ "$arguments" == *'/ntfy.curl '* ]]; then
-  message_number="$(find "$FAKE_MESSAGE_DIRECTORY" -type f | wc -l)"
+  message_number="$(find "$FAKE_MESSAGE_DIRECTORY" -type f | wc -l | tr -d ' ')"
   cat > "$FAKE_MESSAGE_DIRECTORY/$message_number"
   if [[ "$arguments" != *' --output /dev/null '* ]]; then
     printf '%s\n' '{"topic":"test-only-secret-topic"}'
   fi
+  exit "${FAKE_NTFY_EXIT_STATUS:-0}"
 fi
 if [[ "$arguments" == *'/healthchecks.curl '* ]]; then
   printf 'heartbeat\n' >> "$FAKE_HEARTBEAT_LOG"
@@ -60,10 +65,25 @@ url = "https://hc-ping.com/00000000-0000-4000-8000-test-only-secret"
 EOF_HEALTHCHECKS
 chmod 0600 "$test_root/config/ntfy.curl" "$test_root/config/healthchecks.curl"
 
+readonly BACKUP_STATUS="$test_root/backup-status.json"
+readonly RESTORE_STATUS="$test_root/restore-status.json"
+readonly WAL_ARCHIVE_STATUS="$test_root/wal-archive-status.json"
+readonly BACKUP_CONFIG="$test_root/backup.conf"
+cat > "$BACKUP_CONFIG" <<EOF_BACKUP
+STATUS_FILE='$BACKUP_STATUS'
+WAL_ARCHIVE_STATUS_FILE='$WAL_ARCHIVE_STATUS'
+WAL_ARCHIVE_INTERVAL_SECONDS='60'
+WAL_ARCHIVE_MISSED_CYCLES='2'
+EOF_BACKUP
+chmod 0600 "$BACKUP_CONFIG"
+printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":null,"oldest_required_wal_file":null,"last_archived_wal_file":null,"last_archived_at_utc":null,"pending_count":0}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WAL_ARCHIVE_STATUS"
+
 export PATH="$test_root/bin:$PATH"
 export TAPTIME_MONITOR_CONFIG_DIRECTORY="$test_root/config"
 export TAPTIME_MONITOR_STATE_DIRECTORY="$test_root/state"
 export TAPTIME_API_HEALTH_URL='https://api.test/health'
+export TAPTIME_BACKUP_CONFIG="$BACKUP_CONFIG"
 export FAKE_CURL_ARGUMENT_LOG="$test_root/curl-arguments"
 export FAKE_MESSAGE_DIRECTORY="$test_root/messages"
 export FAKE_HEARTBEAT_LOG="$test_root/heartbeats"
@@ -93,20 +113,48 @@ if grep -Eq 'test-only-secret-topic|00000000-0000-4000-8000-test-only-secret' \
   fail 'secret URLs must not appear in curl process arguments'
 fi
 
+printf '%s\n' '{"state":"failed","observed_at_utc":"2026-08-24T12:00:00Z","oldest_required_at_utc":null,"oldest_required_wal_file":null,"last_archived_wal_file":null,"last_archived_at_utc":null,"pending_count":0}' \
+  > "$WAL_ARCHIVE_STATUS"
+TAPTIME_MONITOR_NOW_EPOCH="$(epoch_for '2026-08-24T12:00:00Z')" \
+  FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+assert_equals 'WAL-Archivierung steht' "$({ find "$test_root/messages" -type f -print0 \
+  | xargs -0 grep -l 'WAL-Archivierung steht'; } | head -n 1 | xargs cat)" \
+  'an inactive receiver with no pending event must raise the WAL alert'
+
+printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":null,"oldest_required_wal_file":null,"last_archived_wal_file":null,"last_archived_at_utc":null,"pending_count":0}\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WAL_ARCHIVE_STATUS"
+FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
 rm -f "$test_root/messages"/*
-readonly BACKUP_STATUS="$test_root/backup-status.json"
-readonly RESTORE_STATUS="$test_root/restore-status.json"
-readonly BACKUP_CONFIG="$test_root/backup.conf"
-cat > "$BACKUP_CONFIG" <<EOF_BACKUP
-STATUS_FILE='$BACKUP_STATUS'
-EOF_BACKUP
-chmod 0600 "$BACKUP_CONFIG"
+
+printf '%s\n' '{"state":"ok","observed_at_utc":"2026-08-24T11:50:00Z","oldest_required_at_utc":"2026-08-24T11:49:00Z","oldest_required_wal_file":"000000010000000000000002","last_archived_wal_file":"000000010000000000000001","last_archived_at_utc":"2026-08-24T11:48:00Z","pending_count":1}' \
+  > "$WAL_ARCHIVE_STATUS"
+TAPTIME_MONITOR_NOW_EPOCH="$(epoch_for '2026-08-24T12:00:00Z')" \
+  FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+assert_equals 'WAL-Archivierung steht' "$({ find "$test_root/messages" -type f -print0 \
+  | xargs -0 grep -l 'WAL-Archivierung steht'; } | head -n 1 | xargs cat)" \
+  'a backlog beyond the configured cadence must raise the derived WAL alert'
+
+printf '%s\n' '{"state":"failed","observed_at_utc":"2026-08-24T12:00:00Z","oldest_required_at_utc":null,"oldest_required_wal_file":null,"last_archived_wal_file":null,"last_archived_at_utc":null,"pending_count":0}' \
+  > "$WAL_ARCHIVE_STATUS"
+rm -f "$test_root/state/wal-archive-down"
+heartbeat_count_before="$(wc -l < "$FAKE_HEARTBEAT_LOG" | tr -d ' ')"
+set +e
+TAPTIME_MONITOR_NOW_EPOCH="$(epoch_for '2026-08-24T12:00:00Z')" \
+  FAKE_API_EXIT_STATUS=0 FAKE_NTFY_EXIT_STATUS=1 "$IMMEDIATE_MONITOR" \
+  >/dev/null 2>&1
+undelivered_status=$?
+set -e
+(( undelivered_status != 0 )) || fail 'an undeliverable WAL alert must fail the monitor run'
+assert_equals "$heartbeat_count_before" \
+  "$(wc -l < "$FAKE_HEARTBEAT_LOG" | tr -d ' ')" \
+  'an undeliverable WAL alert must not send a success heartbeat'
+
+rm -f "$test_root/messages"/*
 printf '%s\n' '{"state":"ok","last_success_at_utc":"2026-08-24T10:30:00Z"}' > "$BACKUP_STATUS"
 printf '%s\n' '{"state":"ok","last_attempt_at_utc":"2026-08-23T03:40:00Z"}' > "$RESTORE_STATUS"
-export TAPTIME_BACKUP_CONFIG="$BACKUP_CONFIG"
 export TAPTIME_RESTORE_STATUS_FILE="$RESTORE_STATUS"
 export TAPTIME_MONITOR_NOW_EPOCH
-TAPTIME_MONITOR_NOW_EPOCH="$(date --date='2026-08-24T12:00:00Z' +%s)"
+TAPTIME_MONITOR_NOW_EPOCH="$(epoch_for '2026-08-24T12:00:00Z')"
 export FAKE_DISK_PERCENT=79
 
 "$DAILY_MONITOR"
@@ -131,10 +179,17 @@ assert_equals '1' "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
   'daily failures must produce one bundled push'
 grep -q 'Priority:.*3' "$FAKE_CURL_ARGUMENT_LOG" || fail 'the daily alert must use normal priority'
 
-mapfile -t alert_messages < <(
-  grep -Eoh 'API antwortet nicht|Sicherung überfällig|Wiederherstellungsprüfung fehlgeschlagen|Platte über 80 Prozent' \
-    "$IMMEDIATE_MONITOR" "$DAILY_MONITOR" | sort -u
-)
-assert_equals '4' "${#alert_messages[@]}" 'the implementation must contain exactly four alert messages'
+alert_messages="$(grep -Eoh \
+  'API antwortet nicht|WAL-Archivierung steht|Sicherung überfällig|Wiederherstellungsprüfung fehlgeschlagen|Platte über 80 Prozent' \
+  "$IMMEDIATE_MONITOR" "$DAILY_MONITOR" | sort -u)"
+for expected_alert in \
+  'API antwortet nicht' \
+  'WAL-Archivierung steht' \
+  'Sicherung überfällig' \
+  'Wiederherstellungsprüfung fehlgeschlagen' \
+  'Platte über 80 Prozent'; do
+  printf '%s\n' "$alert_messages" | grep --fixed-strings --line-regexp --quiet "$expected_alert" \
+    || fail "missing operational alert: $expected_alert"
+done
 
-printf 'Monitoring tests passed: one empty heartbeat, four fixed messages, two priorities, no secret argv.\n'
+printf 'Monitoring tests passed: heartbeat, derived WAL backlog, fixed messages, two priorities, no secret argv.\n'

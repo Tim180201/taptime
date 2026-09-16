@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+
+require_file() {
+  [[ -f "$1" ]] || { printf 'Required file is missing: %s\n' "$1" >&2; exit 1; }
+}
+
+require_file "$CONFIG_FILE"
+# shellcheck source=/etc/taptime-backup/config
+source "$CONFIG_FILE"
+: "${DATABASE_CONTAINER:?DATABASE_CONTAINER must be configured}"
+: "${DATABASE_NAME:?DATABASE_NAME must be configured}"
+: "${WAL_SPOOL_DIRECTORY:?WAL_SPOOL_DIRECTORY must be configured}"
+: "${WAL_CONTAINER_DIRECTORY:?WAL_CONTAINER_DIRECTORY must be configured}"
+: "${WAL_REPLICATION_SLOT:?WAL_REPLICATION_SLOT must be configured}"
+
+install -d -m 0700 "$WAL_SPOOL_DIRECTORY"
+chown 999:999 "$WAL_SPOOL_DIRECTORY"
+
+docker inspect --format '{{.State.Running}}' "$DATABASE_CONTAINER" | grep --quiet '^true$'
+cluster_archive_identifier="$(docker exec --user postgres "$DATABASE_CONTAINER" \
+  psql --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+    --command "SELECT pg_catalog.lpad(
+      pg_catalog.to_hex(control.system_identifier), 16, '0'
+    ) FROM pg_catalog.pg_control_system() AS control;")"
+[[ "$cluster_archive_identifier" =~ ^[0-9a-f]{16}$ ]] || {
+  printf 'PostgreSQL returned no valid cluster system identifier.\n' >&2
+  exit 1
+}
+cluster_identity_file="$WAL_SPOOL_DIRECTORY/.cluster-system-identifier"
+if [[ -f "$cluster_identity_file" ]]; then
+  [[ "$(tr -d '\r\n' < "$cluster_identity_file")" == "$cluster_archive_identifier" ]] || {
+    printf 'WAL spool belongs to a different PostgreSQL cluster.\n' >&2
+    exit 1
+  }
+elif [[ -n "$(find "$WAL_SPOOL_DIRECTORY" -mindepth 1 -maxdepth 1 -print -quit)" ]]; then
+  printf 'Non-empty WAL spool has no PostgreSQL cluster identity.\n' >&2
+  exit 1
+else
+  cluster_identity_temporary="$(mktemp \
+    "$WAL_SPOOL_DIRECTORY/.cluster-system-identifier.XXXXXX")"
+  printf '%s\n' "$cluster_archive_identifier" > "$cluster_identity_temporary"
+  chmod 0600 "$cluster_identity_temporary"
+  chown 999:999 "$cluster_identity_temporary"
+  mv "$cluster_identity_temporary" "$cluster_identity_file"
+fi
+docker exec --user postgres "$DATABASE_CONTAINER" \
+  pg_receivewal --dbname="dbname=$DATABASE_NAME" --slot="$WAL_REPLICATION_SLOT" \
+    --create-slot --if-not-exists --no-password
+
+exec docker exec --user postgres "$DATABASE_CONTAINER" \
+  pg_receivewal --dbname="dbname=$DATABASE_NAME" --directory="$WAL_CONTAINER_DIRECTORY" \
+    --slot="$WAL_REPLICATION_SLOT" --synchronous --no-password

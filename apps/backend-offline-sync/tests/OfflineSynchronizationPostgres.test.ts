@@ -3,6 +3,7 @@ import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
 import {
   ServerCanonicalLifecycleIngestionCoordinator,
+  type LifecycleArchiveDurabilityPort,
   type LifecycleIngestionCommand,
 } from '@taptime/backend-lifecycle';
 import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '@taptime/backend-schema';
@@ -36,6 +37,8 @@ import {
   OfflineCaptureLeaseCoordinator,
   OfflineEventReconciliationCoordinator,
   OfflineLifecycleIngestionCoordinator,
+  PostgresOfflineArchiveDurability,
+  type OfflineArchiveDurabilityPort,
   offlineLookupHmac,
 } from '../src/index.js';
 
@@ -77,6 +80,11 @@ const subject = 'offline-employee';
 const canonicalPayload = 'nfc:uid:v1:04AABBCC';
 const installationBinding = Buffer.alloc(32, 0x11).toString('base64url');
 const lookupKey = Buffer.alloc(32, 0x22).toString('base64url');
+const archivedLifecycleDurability: LifecycleArchiveDurabilityPort = {
+  async requireOffsiteArchive() {
+    return { requiredWalFile: '000000010000000000000000', offsiteArchived: true };
+  },
+};
 const verifier: AccessTokenVerifier = {
   async verify(accessToken) {
     return accessToken === 'valid'
@@ -133,7 +141,13 @@ beforeAll(async () => {
     max: 2,
   });
   leaseCoordinator = new OfflineCaptureLeaseCoordinator(leasePool, verifier);
-  eventCoordinator = new OfflineLifecycleIngestionCoordinator(eventPool, verifier);
+  eventCoordinator = new OfflineLifecycleIngestionCoordinator(
+    eventPool,
+    verifier,
+    undefined,
+    undefined,
+    immediatelyArchivedDurability(),
+  );
   reconciliationCoordinator = new OfflineEventReconciliationCoordinator(
     reconciliationPool,
     verifier,
@@ -146,12 +160,18 @@ beforeAll(async () => {
   canonicalCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     canonicalPool,
     canonicalVerifier,
+    archivedLifecycleDurability,
   );
 });
 
 beforeEach(async () => {
   await installerPool.query(`
     TRUNCATE TABLE
+      taptime_server.offsite_wal_archive_watermarks,
+      taptime_server.offsite_base_backup_receipts,
+      taptime_server.offsite_wal_archive_receipts,
+      taptime_server.lifecycle_event_archive_requirements,
+      taptime_server.offline_event_archive_requirements,
       taptime_server.offline_event_reconciliations,
       taptime_server.offline_sync_cursors,
       taptime_server.offline_capture_lease_receipts,
@@ -233,6 +253,253 @@ afterAll(async () => {
 });
 
 describe('complete offline PostgreSQL boundary', () => {
+  it('repairs the archive requirement after interruption between event commit and durability',
+    async () => {
+      const interruptedDurability: OfflineArchiveDurabilityPort = {
+        async requireOffsiteArchive() {
+          throw new Error('synthetic interruption after event commit');
+        },
+      };
+      const interruptedCoordinator = new OfflineLifecycleIngestionCoordinator(
+        eventPool,
+        verifier,
+        undefined,
+        undefined,
+        interruptedDurability,
+      );
+      const lease = await issueLease();
+      const command = eventCommand(
+        lease,
+        lease.items[0]!.itemId,
+        ids.event1,
+        ids.receipt1,
+        1,
+        new Date(Date.parse(lease.issuedAt) + 1_000).toISOString(),
+      );
+
+      await expect(interruptedCoordinator.ingest({ accessToken: 'valid', command }))
+        .rejects.toThrow('synthetic interruption after event commit');
+      const interruptedState = await installerPool.query<{
+        readonly event_count: string;
+        readonly reconciliation_count: string;
+        readonly requirement_count: string;
+      }>(`
+        SELECT
+          (SELECT count(*) FROM taptime_server.work_events
+            WHERE organization_id = $1::uuid AND id = $2::uuid) AS event_count,
+          (SELECT count(*) FROM taptime_server.offline_event_reconciliations
+            WHERE organization_id = $1::uuid
+              AND work_event_id = $2::uuid) AS reconciliation_count,
+          (SELECT count(*) FROM taptime_server.offline_event_archive_requirements
+            WHERE organization_id = $1::uuid
+              AND work_event_id = $2::uuid) AS requirement_count
+      `, [ids.organization, ids.event1]);
+      expect(interruptedState.rows).toEqual([{
+        event_count: '1',
+        reconciliation_count: '1',
+        requirement_count: '0',
+      }]);
+
+      const repairingCoordinator = new OfflineLifecycleIngestionCoordinator(
+        eventPool,
+        verifier,
+        undefined,
+        undefined,
+        new PostgresOfflineArchiveDurability(),
+      );
+      await expect(repairingCoordinator.ingest({ accessToken: 'valid', command }))
+        .resolves.toMatchObject({
+          status: 'archive_pending',
+          idempotentRetry: true,
+          workEventId: ids.event1,
+        });
+      const repaired = await installerPool.query<{ readonly requirement_count: string }>(
+        `SELECT count(*) AS requirement_count
+         FROM taptime_server.offline_event_archive_requirements
+         WHERE organization_id = $1::uuid AND work_event_id = $2::uuid`,
+        [ids.organization, ids.event1],
+      );
+      expect(repaired.rows).toEqual([{ requirement_count: '1' }]);
+    });
+
+  it('holds a single pooled connection until post-commit durability has finished', async () => {
+    const durabilityEntered = deferred();
+    const releaseDurability = deferred();
+    const serializedPool = new Pool({
+      connectionString: runtimeConnectionString(eventLogin),
+      application_name: `${eventApplicationName}-serialized`,
+      max: 1,
+    });
+    const coordinator = new OfflineLifecycleIngestionCoordinator(
+      serializedPool,
+      verifier,
+      undefined,
+      undefined,
+      {
+        async requireOffsiteArchive() {
+          durabilityEntered.resolve();
+          await releaseDurability.promise;
+          return {
+            requiredWalFile: '000000010000000000000000',
+            offsiteArchived: true,
+          };
+        },
+      },
+    );
+    try {
+      const lease = await issueLease();
+      const command = eventCommand(
+        lease,
+        lease.items[0]!.itemId,
+        ids.event1,
+        ids.receipt1,
+        1,
+        new Date(Date.parse(lease.issuedAt) + 1_000).toISOString(),
+      );
+      const ingestion = coordinator.ingest({ accessToken: 'valid', command });
+      await durabilityEntered.promise;
+
+      let probeCompleted = false;
+      const probe = serializedPool.query('SELECT 1').then(() => {
+        probeCompleted = true;
+      });
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(probeCompleted).toBe(false);
+
+      releaseDurability.resolve();
+      await expect(ingestion).resolves.toMatchObject({ status: 'synchronized' });
+      await probe;
+      expect(probeCompleted).toBe(true);
+    } finally {
+      releaseDurability.resolve();
+      await serializedPool.end();
+    }
+  });
+
+  it('withholds acknowledgement until the exact committed WAL file is offsite archived',
+    async () => {
+      const coordinator = new OfflineLifecycleIngestionCoordinator(eventPool, verifier);
+      const lease = await issueLease();
+      const command = eventCommand(
+        lease,
+        lease.items[0]!.itemId,
+        ids.event1,
+        ids.receipt1,
+        1,
+        new Date(Date.parse(lease.issuedAt) + 1_000).toISOString(),
+      );
+
+      await expect(coordinator.ingest({ accessToken: 'valid', command }))
+        .resolves.toEqual({
+          status: 'archive_pending',
+          idempotentRetry: false,
+          workEventId: ids.event1,
+          receiptId: ids.receipt1,
+          deviceSequence: 1,
+        });
+      await expect(reconciliationCoordinator.reconcile({
+        accessToken: 'valid',
+        command: { workEventIds: [ids.event1] },
+      })).resolves.toEqual({ status: 'ready', records: [] });
+      await expect(reconciliationCoordinator.reconcileV2({
+        accessToken: 'valid',
+        command: { workEventIds: [ids.event1] },
+      })).resolves.toMatchObject({
+        status: 'ready',
+        records: [{
+          workEventId: ids.event1,
+          archiveStatus: 'archive_pending',
+          result: { status: 'archive_pending' },
+        }],
+      });
+
+      const legacyClient = await eventPool.connect();
+      try {
+        await legacyClient.query('BEGIN');
+        await legacyClient.query('SET LOCAL ROLE taptime_offline_event_ingestor');
+        await expect(legacyClient.query(
+          `SELECT * FROM taptime_server.lock_offline_historical_actor_v1(
+             $1, $2, $3::uuid
+           )`,
+          [issuer, subject, ids.membership],
+        )).rejects.toMatchObject({ code: '42501' });
+        await legacyClient.query('ROLLBACK');
+      } finally {
+        legacyClient.release();
+      }
+
+      const requirement = await installerPool.query<{
+        required_wal_file: string;
+      }>(
+        `SELECT required_wal_file
+         FROM taptime_server.offline_event_archive_requirements
+         WHERE organization_id = $1::uuid AND work_event_id = $2::uuid`,
+        [ids.organization, ids.event1],
+      );
+      const walFile = requirement.rows[0]?.required_wal_file;
+      if (walFile === undefined) throw new Error('Archive requirement was not persisted');
+
+      const segmentSize = await installerPool.query<{ bytes: string }>(
+        `SELECT pg_catalog.pg_size_bytes(
+           pg_catalog.current_setting('wal_segment_size')
+         )::text AS bytes`,
+      );
+      const precedingWalFile = previousWalFile(
+        walFile,
+        BigInt(segmentSize.rows[0]?.bytes ?? '0'),
+      );
+      const gapEvidence = await syntheticArchiveEvidence(walFile, precedingWalFile);
+      const archiverClient = await installerPool.connect();
+      try {
+        await archiverClient.query('BEGIN');
+        await archiverClient.query('SET LOCAL ROLE taptime_wal_archiver');
+        await archiverClient.query(
+          `SELECT taptime_server.record_offsite_base_backup_v1(
+             $1, $2::pg_lsn, $3
+           )`,
+          [gapEvidence.baseArchive, gapEvidence.baseStartLsn, precedingWalFile],
+        );
+        await archiverClient.query(
+          `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
+          [walFile, gapEvidence.walArchive, '1'.repeat(64)],
+        );
+        await expect(archiverClient.query(
+          `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
+          [gapEvidence.baseArchive, walFile],
+        )).rejects.toMatchObject({ code: '42501' });
+        await archiverClient.query('ROLLBACK');
+      } finally {
+        archiverClient.release();
+      }
+      await expect(coordinator.ingest({ accessToken: 'valid', command }))
+        .resolves.toMatchObject({
+          status: 'archive_pending',
+          idempotentRetry: true,
+          workEventId: ids.event1,
+        });
+
+      await recordSyntheticArchiveReceipt(walFile);
+
+      await expect(coordinator.ingest({ accessToken: 'valid', command }))
+        .resolves.toMatchObject({
+          status: 'synchronized',
+          archiveStatus: 'offsite_archived',
+          idempotentRetry: true,
+          workEventId: ids.event1,
+        });
+      await expect(reconciliationCoordinator.reconcileV2({
+        accessToken: 'valid',
+        command: { workEventIds: [ids.event1] },
+      })).resolves.toMatchObject({
+        status: 'ready',
+        records: [{
+          workEventId: ids.event1,
+          archiveStatus: 'offsite_archived',
+          result: { status: 'synchronized' },
+        }],
+      });
+    });
+
   it('issues an exact immutable lease and returns the same lease on an exact command retry', async () => {
     const first = await issueLease();
     expect(first.itemCount).toBe(1);
@@ -1320,6 +1587,131 @@ function deferred(): { readonly promise: Promise<void>; readonly resolve: () => 
     resolve = resolvePromise;
   });
   return { promise, resolve };
+}
+
+function previousWalFile(walFile: string, segmentBytes: bigint): string {
+  if (!/^[0-9A-F]{24}$/u.test(walFile) || segmentBytes <= 0n) {
+    throw new Error('Cannot derive preceding WAL segment');
+  }
+  const timeline = walFile.slice(0, 8);
+  let log = BigInt(`0x${walFile.slice(8, 16)}`);
+  let segment = BigInt(`0x${walFile.slice(16)}`);
+  const segmentsPerLog = (2n ** 32n) / segmentBytes;
+  if (segment === 0n) {
+    if (log === 0n) throw new Error('Synthetic WAL segment has no predecessor');
+    log -= 1n;
+    segment = segmentsPerLog - 1n;
+  } else {
+    segment -= 1n;
+  }
+  const hex = (value: bigint) => value.toString(16).toUpperCase().padStart(8, '0');
+  return `${timeline}${hex(log)}${hex(segment)}`;
+}
+
+function immediatelyArchivedDurability(): OfflineArchiveDurabilityPort {
+  const durability = new PostgresOfflineArchiveDurability();
+  return {
+    async requireOffsiteArchive(client, actor, identity) {
+      const requirement = await durability.requireOffsiteArchive(client, actor, identity);
+      await recordSyntheticArchiveReceipt(requirement.requiredWalFile);
+      return { ...requirement, offsiteArchived: true };
+    },
+  };
+}
+
+let syntheticBaseSequence = 0;
+
+async function syntheticArchiveEvidence(
+  walFile: string,
+  baseStartWalFile?: string,
+): Promise<{
+  readonly baseArchive: string;
+  readonly baseStartLsn: string;
+  readonly walArchive: string;
+  readonly archiveIdentifier: string;
+}> {
+  const cluster = await installerPool.query<{
+    readonly archive_identifier: string;
+    readonly segment_bytes: string;
+  }>(`
+    SELECT pg_catalog.lpad(pg_catalog.to_hex(control.system_identifier), 16, '0')
+             AS archive_identifier,
+           pg_catalog.pg_size_bytes(
+             pg_catalog.current_setting('wal_segment_size')
+           )::text AS segment_bytes
+    FROM pg_catalog.pg_control_system() AS control
+  `);
+  const archiveIdentifier = cluster.rows[0]?.archive_identifier;
+  const segmentBytes = BigInt(cluster.rows[0]?.segment_bytes ?? '0');
+  const startWalFile = baseStartWalFile ?? previousWalFile(walFile, segmentBytes);
+  if (archiveIdentifier === undefined || !/^[0-9a-f]{16}$/u.test(archiveIdentifier)) {
+    throw new Error('Synthetic archive has no PostgreSQL cluster identifier');
+  }
+  syntheticBaseSequence += 1;
+  return {
+    baseArchive:
+      `base-${archiveIdentifier}-20990101T${String(syntheticBaseSequence).padStart(6, '0')}Z`,
+    baseStartLsn: walFileStartLsn(startWalFile, segmentBytes),
+    walArchive: `wal-${archiveIdentifier}-${walFile}`,
+    archiveIdentifier,
+  };
+}
+
+function walFileStartLsn(walFile: string, segmentBytes: bigint): string {
+  if (!/^[0-9A-F]{24}$/u.test(walFile) || segmentBytes <= 0n) {
+    throw new Error('Cannot derive WAL segment start LSN');
+  }
+  const log = BigInt(`0x${walFile.slice(8, 16)}`);
+  const segment = BigInt(`0x${walFile.slice(16)}`);
+  const offset = segment * segmentBytes;
+  return `${log.toString(16).toUpperCase()}/${offset.toString(16).toUpperCase()}`;
+}
+
+async function recordSyntheticArchiveReceipt(walFile: string): Promise<void> {
+  const segmentSize = await installerPool.query<{ bytes: string }>(`
+    SELECT pg_catalog.pg_size_bytes(
+      pg_catalog.current_setting('wal_segment_size')
+    )::text AS bytes
+  `);
+  const precedingWalFile = previousWalFile(
+    walFile,
+    BigInt(segmentSize.rows[0]?.bytes ?? '0'),
+  );
+  const evidence = await syntheticArchiveEvidence(walFile, precedingWalFile);
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL ROLE taptime_wal_archiver');
+    await client.query(
+      `SELECT taptime_server.record_offsite_base_backup_v1(
+         $1, $2::pg_lsn, $3
+       )`,
+      [evidence.baseArchive, evidence.baseStartLsn, precedingWalFile],
+    );
+    await client.query(
+      `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
+      [precedingWalFile,
+        `wal-${evidence.archiveIdentifier}-${precedingWalFile}`, '0'.repeat(64)],
+    );
+    await client.query(
+      `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
+      [evidence.baseArchive, precedingWalFile],
+    );
+    await client.query(
+      `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
+      [walFile, evidence.walArchive, '1'.repeat(64)],
+    );
+    await client.query(
+      `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
+      [evidence.baseArchive, walFile],
+    );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function waitForAdvisoryLockWait(applicationName: string): Promise<void> {

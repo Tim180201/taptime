@@ -8,6 +8,7 @@ import { AdminWriteSessionCoordinator } from '@taptime/backend-administration';
 import {
   InjectedB6Failure,
   ServerCanonicalLifecycleIngestionCoordinator,
+  type LifecycleArchiveDurabilityPort,
 } from '@taptime/backend-lifecycle';
 import { TenantReadSessionCoordinator } from '@taptime/backend-read-model';
 import { Pool } from 'pg';
@@ -18,6 +19,7 @@ import {
   NfcAssignmentId,
   NfcTagId,
   OrganizationId,
+  TimeEntryId,
   WorkEventId,
   createTimestamp,
   customerAssignmentTarget,
@@ -60,6 +62,11 @@ import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
 
 const installerConnectionString = process.env.C2_DATABASE_URL
   ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c2';
+const archivedLifecycleDurability: LifecycleArchiveDurabilityPort = {
+  async requireOffsiteArchive() {
+    return { requiredWalFile: '000000010000000000000000', offsiteArchived: true };
+  },
+};
 const passwords = {
   session: process.env.C2_SESSION_RUNTIME_PASSWORD ?? 'c2-session-local-synthetic-only',
   readModel: process.env.C2_READ_MODEL_RUNTIME_PASSWORD ?? 'c2-read-local-synthetic-only',
@@ -184,6 +191,7 @@ beforeAll(async () => {
     supabaseIssuer: jwks.issuerA,
   }, {
     onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+    lifecycleArchiveDurability: archivedLifecycleDurability,
   });
   await listen(runtime.server);
   apiOrigin = serverOrigin(runtime.server);
@@ -201,13 +209,11 @@ afterAll(async () => {
 });
 
 describe('C2 package, runtime composition, and least privilege', () => {
-  it('uses exactly migrations 001 through 022 and reruns the ledger cleanly', async () => {
-    expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
-    ]);
+  it('uses every source migration and reruns the ledger cleanly', async () => {
+    const expectedVersions = (await loadMigrations()).map(({ version }) => version);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
+      alreadyApplied: expectedVersions,
     });
   });
 
@@ -426,6 +432,7 @@ describe('C2 package, runtime composition, and least privilege', () => {
       const coordinator = new ServerCanonicalLifecycleIngestionCoordinator(
         pool,
         createC2Verifier(),
+        archivedLifecycleDurability,
       );
       const command = {
         accessToken: await token(ids.subjectA),
@@ -663,6 +670,91 @@ describe('exact routes, HTTP hardening, and disclosure-safe errors', () => {
       }
     },
   );
+
+  it('keeps both v1 acknowledgement shapes unavailable until durability succeeds', async () => {
+    let canonicalCalls = 0;
+    let deferredCalls = 0;
+    const timeEntryId = '70000000-0000-4000-8000-000000000906';
+    const server = createBackendHttpServer(testDependencies({
+      lifecycleIngestor: {
+        async ingest(command) {
+          canonicalCalls += 1;
+          if (canonicalCalls === 1) throw new Error('archive pending');
+          const brandedTimeEntryId = TimeEntryId(timeEntryId);
+          return {
+            status: 'synchronized',
+            idempotentRetry: true,
+            decision: { status: 'time_entry_started', timeEntryId: brandedTimeEntryId },
+            workEventId: command.workEvent.id,
+            receiptId: command.receipt.id,
+            serverTimeEntryId: brandedTimeEntryId,
+          };
+        },
+      },
+      deferredLifecycleIngestor: {
+        async ingestDeferred(command) {
+          deferredCalls += 1;
+          if (deferredCalls === 1) throw new Error('archive pending');
+          return {
+            status: 'deferred',
+            evidenceStored: true,
+            idempotentRetry: true,
+            workEventId: command.workEvent.id,
+            receiptId: command.receipt.id,
+          };
+        },
+      },
+    }));
+    await listen(server);
+    const origin = serverOrigin(server);
+    const canonicalBody = lifecycleBody({ event: 906, receipt: 906 });
+    const deferredBody = lifecycleBody({ event: 907, receipt: 907 });
+    try {
+      expectGenericError(
+        await postJson(origin, '/v1/lifecycle-events', 'abc.def.ghi', canonicalBody),
+        503,
+        'service_unavailable',
+      );
+      const canonical = await postJson(
+        origin,
+        '/v1/lifecycle-events',
+        'abc.def.ghi',
+        canonicalBody,
+      );
+      expect(canonical.status).toBe(200);
+      expect(JSON.parse(canonical.text)).toEqual({
+        status: 'synchronized',
+        idempotentRetry: true,
+        decision: { status: 'time_entry_started', timeEntryId },
+        workEventId: canonicalBody.workEvent.id,
+        receiptId: canonicalBody.receipt.id,
+        serverTimeEntryId: timeEntryId,
+      });
+
+      const postDeferred = () => rawRequest(origin, {
+        method: 'POST',
+        path: '/v1/lifecycle-events/deferred',
+        headers: {
+          authorization: 'Bearer abc.def.ghi',
+          'content-type': 'application/json',
+          'x-taptime-expected-membership-id': ids.membershipA,
+        },
+        body: JSON.stringify(deferredBody),
+      });
+      expectGenericError(await postDeferred(), 503, 'service_unavailable');
+      const deferred = await postDeferred();
+      expect(deferred.status).toBe(202);
+      expect(JSON.parse(deferred.text)).toEqual({
+        status: 'deferred',
+        evidenceStored: true,
+        idempotentRetry: true,
+        workEventId: deferredBody.workEvent.id,
+        receiptId: deferredBody.receipt.id,
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
 
   it('bounds a stalled C2 capability and preserves generic diagnostics', async () => {
     const server = createBackendHttpServer(testDependencies({
@@ -1029,6 +1121,7 @@ describe('B6-backed server-canonical lifecycle route', () => {
       const coordinator = new ServerCanonicalLifecycleIngestionCoordinator(
         pool,
         createC2Verifier(),
+        archivedLifecycleDurability,
       );
       const writeReached = deferred<void>();
       const continueWrite = deferred<void>();

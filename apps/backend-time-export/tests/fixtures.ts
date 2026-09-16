@@ -1,14 +1,9 @@
 import { Pool, type PoolClient } from 'pg';
-import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '@taptime/backend-schema';
+import { B3_MIGRATION_TABLE, B3_SCHEMA, loadMigrations, migrate } from '@taptime/backend-schema';
 import type { AccessTokenVerifier, AccessTokenVerificationResult } from '@taptime/backend-identity';
 
 export const DA2_ISSUER = 'https://synthetic.invalid/auth';
 export const DA2_RUNTIME_LOGIN = 'taptime_da2_export_runtime';
-const DA2_EXPECTED_MIGRATIONS = Object.freeze([
-  '001', '002', '003', '004', '005', '006', '007', '008', '009',
-  '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
-]);
-
 export const ids = Object.freeze({
   organizationA: '00000000-0000-4000-8000-000000000101',
   organizationB: '00000000-0000-4000-8000-000000000102',
@@ -66,8 +61,9 @@ export async function resetMigrateAndPrepare(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== DA2_EXPECTED_MIGRATIONS.join(',')) {
-    throw new Error('DA2 requires a clean migration set 001 through 022');
+  const expected = (await loadMigrations()).map(({ version }) => version);
+  if (result.applied.join(',') !== expected.join(',')) {
+    throw new Error('DA2 requires every source migration in order');
   }
   await installerPool.query(`
     DO $login$
@@ -336,7 +332,8 @@ export async function truncateDa2DataTables(installerPool: Pool): Promise<void> 
     `SELECT pg_catalog.array_agg(version ORDER BY version) AS versions
      FROM ${B3_MIGRATION_TABLE}`,
   );
-  if (ledger.rows[0]?.versions.join(',') !== DA2_EXPECTED_MIGRATIONS.join(',')) {
+  const expected = (await loadMigrations()).map(({ version }) => version);
+  if (ledger.rows[0]?.versions.join(',') !== expected.join(',')) {
     throw new Error('DA2 data cleanup changed the migration ledger');
   }
 }

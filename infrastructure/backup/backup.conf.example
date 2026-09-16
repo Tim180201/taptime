@@ -4,12 +4,27 @@
 BORG_REPOSITORY='ssh://u000000-sub0@u000000-sub0.your-storagebox.de:23/./taptime-production'
 BORG_RSH='ssh -p 23 -i /etc/taptime-backup/ssh/storage-box_ed25519 -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/taptime-backup/storage-box-known_hosts -o StrictHostKeyChecking=yes'
 BORG_PASSPHRASE_FILE='/etc/taptime-backup/borg-passphrase'
+BASE_BACKUP_KEEP_HOURLY='24'
+BASE_BACKUP_KEEP_DAILY='14'
+BASE_BACKUP_KEEP_WEEKLY='8'
+BASE_BACKUP_KEEP_MONTHLY='6'
 
 DATABASE_CONTAINER='taptime-prod-database-1'
 DATABASE_NAME='taptime'
+WAL_SPOOL_DIRECTORY='/var/lib/taptime-wal'
+WAL_CONTAINER_DIRECTORY='/var/lib/postgresql/wal-archive'
+WAL_REPLICATION_SLOT='taptime_offsite_archive'
+WAL_ARCHIVE_INTERVAL_SECONDS='60'
+WAL_ARCHIVE_MISSED_CYCLES='2'
+WAL_ARCHIVE_STATUS_FILE='/var/lib/taptime-monitor/wal-archive-status.json'
+WAL_ARCHIVE_CACHE_DIRECTORY='/var/cache/taptime-wal-archive'
 MIGRATIONS_DIRECTORY='/opt/taptime/source/apps/backend-schema/migrations'
 # Generate the 32 hexadecimal characters on the server. Give the resulting public URL only to
 # the Product Owner, and keep it out of Git and operational reports.
 STATUS_FILE='/opt/taptime/admin-web/status/<32-random-hex>.json'
 RESTORE_STATUS_FILE='/var/lib/taptime-monitor/restore-status.json'
 RESTORE_IMAGE='postgres:17.10-bookworm'
+# The restore deadline is the Product Owner's four-hour RTO, expressed as configuration so
+# recovery waits are checked against the operational promise instead of a code-local number.
+RESTORE_RECOVERY_TIMEOUT_SECONDS='14400'
+RESTORE_RECOVERY_POLL_SECONDS='5'

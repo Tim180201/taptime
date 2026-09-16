@@ -3,21 +3,39 @@ set -euo pipefail
 
 readonly CONFIG_DIRECTORY="${TAPTIME_MONITOR_CONFIG_DIRECTORY:-/etc/taptime-monitor}"
 readonly STATE_DIRECTORY="${TAPTIME_MONITOR_STATE_DIRECTORY:-/var/lib/taptime-monitor}"
+readonly BACKUP_CONFIG="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly API_HEALTH_URL="${TAPTIME_API_HEALTH_URL:-https://api.tb-infra.de/health}"
 readonly NTFY_CURL_CONFIG="$CONFIG_DIRECTORY/ntfy.curl"
 readonly HEALTHCHECKS_CURL_CONFIG="$CONFIG_DIRECTORY/healthchecks.curl"
 readonly API_DOWN_STATE="$STATE_DIRECTORY/api-down"
+readonly WAL_ARCHIVE_DOWN_STATE="$STATE_DIRECTORY/wal-archive-down"
+
+file_mode() {
+  if stat --format='%a' "$1" >/dev/null 2>&1; then
+    stat --format='%a' "$1"
+  else
+    stat -f '%Lp' "$1"
+  fi
+}
+
+utc_epoch() {
+  if date --date="$1" +%s 2>/dev/null; then
+    return 0
+  fi
+  date -ju -f '%Y-%m-%dT%H:%M:%SZ' "$1" +%s
+}
 
 require_private_file() {
   local file="$1"
-  if [[ ! -f "$file" || -L "$file" || ! -O "$file" || "$(stat -c '%a' "$file")" != '600' ]]; then
+  if [[ ! -f "$file" || -L "$file" || ! -O "$file" || "$(file_mode "$file")" != '600' ]]; then
     printf 'Required root-owned mode-0600 file is unavailable: %s\n' "$file" >&2
     exit 1
   fi
 }
 
 send_urgent_notification() {
-  printf '%s' 'API antwortet nicht' | curl --config "$NTFY_CURL_CONFIG" \
+  local message="$1"
+  printf '%s' "$message" | curl --config "$NTFY_CURL_CONFIG" \
     --silent \
     --show-error \
     --fail \
@@ -29,26 +47,84 @@ send_urgent_notification() {
     --data-binary @-
 }
 
+wal_archive_is_current() {
+  local content observed oldest oldest_wal last_archived_wal last_archived pending_count
+  local now_epoch observed_epoch oldest_epoch last_archived_epoch
+  local maximum_age
+
+  [[ -f "$WAL_ARCHIVE_STATUS_FILE" ]] || return 1
+  content="$(< "$WAL_ARCHIVE_STATUS_FILE")"
+  [[ "$content" == *'"state":"ok"'* ]] || return 1
+  [[ "$content" =~ \"observed_at_utc\":\"([^\"]+)\" ]] || return 1
+  observed="${BASH_REMATCH[1]}"
+  [[ "$content" =~ \"pending_count\":([0-9]+) ]] || return 1
+  pending_count="${BASH_REMATCH[1]}"
+  now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
+  observed_epoch="$(utc_epoch "$observed")" || return 1
+  maximum_age=$((WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES))
+  (( now_epoch - observed_epoch <= maximum_age )) || return 1
+  (( pending_count == 0 )) && return 0
+
+  [[ "$content" =~ \"oldest_required_at_utc\":\"([^\"]+)\" ]] || return 1
+  oldest="${BASH_REMATCH[1]}"
+  [[ "$content" =~ \"oldest_required_wal_file\":\"([0-9A-F]{24})\" ]] || return 1
+  oldest_wal="${BASH_REMATCH[1]}"
+  oldest_epoch="$(utc_epoch "$oldest")" || return 1
+  if [[ "$content" =~ \"last_archived_wal_file\":\"([0-9A-F]{24})\" ]]; then
+    last_archived_wal="${BASH_REMATCH[1]}"
+    # A later externally archived segment with an earlier hole is never a healthy sequence.
+    [[ "$last_archived_wal" < "$oldest_wal" ]] || return 1
+  fi
+  if [[ "$content" =~ \"last_archived_at_utc\":\"([^\"]+)\" ]]; then
+    last_archived="${BASH_REMATCH[1]}"
+    last_archived_epoch="$(utc_epoch "$last_archived")" || return 1
+    (( last_archived_epoch >= 0 )) || return 1
+  fi
+  (( now_epoch - oldest_epoch <= maximum_age ))
+}
+
 require_private_file "$NTFY_CURL_CONFIG"
 require_private_file "$HEALTHCHECKS_CURL_CONFIG"
+require_private_file "$BACKUP_CONFIG"
+# shellcheck source=/etc/taptime-backup/config
+source "$BACKUP_CONFIG"
+: "${WAL_ARCHIVE_STATUS_FILE:?WAL_ARCHIVE_STATUS_FILE must be configured}"
+: "${WAL_ARCHIVE_INTERVAL_SECONDS:?WAL_ARCHIVE_INTERVAL_SECONDS must be configured}"
+: "${WAL_ARCHIVE_MISSED_CYCLES:?WAL_ARCHIVE_MISSED_CYCLES must be configured}"
+[[ "$WAL_ARCHIVE_INTERVAL_SECONDS" =~ ^[1-9][0-9]*$ ]]
+[[ "$WAL_ARCHIVE_MISSED_CYCLES" =~ ^[1-9][0-9]*$ ]]
 install -d -m 0700 "$STATE_DIRECTORY"
 
 result=0
 
-# The dead-man switch receives only an empty HEAD request. Its secret URL stays in
-# the root-only curl config and therefore never appears in the process arguments.
-if ! curl --config "$HEALTHCHECKS_CURL_CONFIG" --head --output /dev/null; then
-  printf 'The empty dead-man heartbeat could not be delivered.\n' >&2
-  result=1
-fi
-
 if curl --silent --show-error --fail --max-time 10 --output /dev/null "$API_HEALTH_URL"; then
   rm -f "$API_DOWN_STATE"
 elif [[ ! -e "$API_DOWN_STATE" ]]; then
-  if send_urgent_notification; then
+  if send_urgent_notification 'API antwortet nicht'; then
     touch "$API_DOWN_STATE"
   else
     printf 'The API alert could not be delivered.\n' >&2
+    result=1
+  fi
+fi
+
+if wal_archive_is_current; then
+  rm -f "$WAL_ARCHIVE_DOWN_STATE"
+elif [[ ! -e "$WAL_ARCHIVE_DOWN_STATE" ]]; then
+  if send_urgent_notification 'WAL-Archivierung steht'; then
+    touch "$WAL_ARCHIVE_DOWN_STATE"
+  else
+    printf 'The WAL archive alert could not be delivered.\n' >&2
+    result=1
+  fi
+fi
+
+# A success heartbeat is evidence that every check above either remained healthy or delivered
+# its first alert. When alert delivery fails, omitting this ping lets the independent dead-man
+# path report the monitor failure instead of falsely acknowledging a healthy run.
+if (( result == 0 )); then
+  if ! curl --config "$HEALTHCHECKS_CURL_CONFIG" --head --output /dev/null; then
+    printf 'The empty dead-man heartbeat could not be delivered.\n' >&2
     result=1
   fi
 fi

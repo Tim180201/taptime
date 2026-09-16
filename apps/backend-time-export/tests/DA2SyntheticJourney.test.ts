@@ -13,16 +13,22 @@ import type {
   AccessTokenVerificationResult,
   SupabaseJwtAccessTokenVerifier,
 } from '@taptime/backend-identity';
-import { ServerCanonicalLifecycleIngestionCoordinator } from '@taptime/backend-lifecycle';
+import {
+  ServerCanonicalLifecycleIngestionCoordinator,
+  type LifecycleArchiveDurabilityPort,
+} from '@taptime/backend-lifecycle';
 import {
   OfflineCaptureLeaseCoordinator,
   OfflineEventReconciliationCoordinator,
   OfflineLifecycleIngestionCoordinator,
+  PostgresOfflineArchiveDurability,
+  type OfflineArchiveDurabilityPort,
 } from '@taptime/backend-offline-sync';
 import { TimeReviewCoordinator } from '@taptime/backend-time-review';
 import {
   B3_MIGRATION_TABLE,
   B3_SCHEMA,
+  loadMigrations,
   migrate,
 } from '@taptime/backend-schema';
 import {
@@ -41,6 +47,11 @@ import { TimeEntryExportCoordinator } from '../src/index.js';
 
 const installerConnectionString = process.env.DA2_DATABASE_URL
   ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_da2';
+const archivedLifecycleDurability: LifecycleArchiveDurabilityPort = {
+  async requireOffsiteArchive() {
+    return { requiredWalFile: '000000010000000000000000', offsiteArchived: true };
+  },
+};
 const issuer = 'https://da2-journey.synthetic.invalid/auth';
 const tokens = Object.freeze({
   administrator: 'da2-journey-administrator',
@@ -197,6 +208,7 @@ it('runs the authorized synthetic Setup/Lifecycle/Offline/Review/Correction/Expo
     const lifecycle = new ServerCanonicalLifecycleIngestionCoordinator(
       lifecyclePool,
       verifier as SupabaseJwtAccessTokenVerifier,
+      archivedLifecycleDurability,
     );
     const firstStart = Date.now() + 1_000;
     await expect(lifecycle.ingest(lifecycleCommand({
@@ -409,7 +421,13 @@ it('runs the authorized synthetic Setup/Lifecycle/Offline/Review/Correction/Expo
       (item) => item.assignmentId === reassignment.resultAssignmentId,
     );
     if (offlineItem === undefined) throw new Error('Synthetic offline lease item is missing');
-    const offlineIngestor = new OfflineLifecycleIngestionCoordinator(offlineEventPool, verifier);
+    const offlineIngestor = new OfflineLifecycleIngestionCoordinator(
+      offlineEventPool,
+      verifier,
+      undefined,
+      undefined,
+      immediatelyArchivedDurability(installerPool),
+    );
     const offlineReviewCommand = (deviceSequence: number, workEventId: string) => ({
       accessToken: tokens.employee,
       command: {
@@ -747,9 +765,71 @@ function bootstrapTarget() {
 async function resetDatabase(pool: Pool): Promise<void> {
   await removeJourneyState(pool);
   const result = await migrate(pool);
-  expect(result.applied).toEqual([
-    '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
-  ]);
+  expect(result.applied).toEqual(
+    (await loadMigrations()).map(({ version }) => version),
+  );
+}
+
+function immediatelyArchivedDurability(installerPool: Pool): OfflineArchiveDurabilityPort {
+  const durability = new PostgresOfflineArchiveDurability();
+  return {
+    async requireOffsiteArchive(client, actor, identity) {
+      const requirement = await durability.requireOffsiteArchive(client, actor, identity);
+      await recordSyntheticPostCommitBase(installerPool);
+      const archived = await durability.requireOffsiteArchive(client, actor, identity);
+      if (!archived.offsiteArchived) {
+        throw new Error('Synthetic post-commit base did not archive the offline event');
+      }
+      return archived;
+    },
+  };
+}
+
+let syntheticBaseSequence = 0;
+
+async function recordSyntheticPostCommitBase(installerPool: Pool): Promise<void> {
+  const evidence = await installerPool.query<{
+    readonly archive_identifier: string;
+    readonly start_lsn: string;
+    readonly start_wal_file: string;
+  }>(`
+    SELECT pg_catalog.lpad(pg_catalog.to_hex(control.system_identifier), 16, '0')
+             AS archive_identifier,
+           wal.current_lsn::text AS start_lsn,
+           pg_catalog.pg_walfile_name(wal.current_lsn) AS start_wal_file
+    FROM pg_catalog.pg_control_system() AS control
+    CROSS JOIN LATERAL (
+      SELECT pg_catalog.pg_current_wal_insert_lsn() AS current_lsn
+    ) AS wal
+  `);
+  const row = evidence.rows[0];
+  if (
+    row === undefined
+    || !/^[0-9a-f]{16}$/u.test(row.archive_identifier)
+    || !/^[0-9A-F]+\/[0-9A-F]+$/u.test(row.start_lsn)
+    || !/^[0-9A-F]{24}$/u.test(row.start_wal_file)
+  ) {
+    throw new Error('Synthetic post-commit base evidence is invalid');
+  }
+  syntheticBaseSequence += 1;
+  const archiveName = `base-${row.archive_identifier}-20990101T${String(
+    syntheticBaseSequence,
+  ).padStart(6, '0')}Z`;
+  const archiveClient = await installerPool.connect();
+  try {
+    await archiveClient.query('BEGIN');
+    await archiveClient.query('SET LOCAL ROLE taptime_wal_archiver');
+    await archiveClient.query(
+      `SELECT taptime_server.record_offsite_base_backup_v1($1, $2::pg_lsn, $3)`,
+      [archiveName, row.start_lsn, row.start_wal_file],
+    );
+    await archiveClient.query('COMMIT');
+  } catch (error) {
+    await archiveClient.query('ROLLBACK');
+    throw error;
+  } finally {
+    archiveClient.release();
+  }
 }
 
 async function createRuntimeLogins(pool: Pool): Promise<void> {

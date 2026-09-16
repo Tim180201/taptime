@@ -11,6 +11,7 @@ services:
       - postgres_installer_password
     volumes:
       - taptime-postgres-data:/var/lib/postgresql/data
+      - /var/lib/taptime-wal:/var/lib/postgresql/wal-archive
     networks:
       - taptime-internal
     healthcheck:
@@ -113,7 +114,7 @@ networks:
 
 volumes:
   taptime-postgres-data:
-    name: taptime-postgres-data
+    name: ${TAPTIME_POSTGRES_VOLUME:-taptime-postgres-data}
   taptime-caddy-data:
     name: taptime-caddy-data
   taptime-caddy-config:

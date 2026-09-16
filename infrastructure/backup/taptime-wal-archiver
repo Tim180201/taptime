@@ -1,0 +1,530 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
+CLUSTER_SYSTEM_IDENTIFIER=''
+CLUSTER_ARCHIVE_IDENTIFIER=''
+
+require_file() {
+  [[ -f "$1" ]] || { printf 'Required file is missing: %s\n' "$1" >&2; return 1; }
+}
+
+validate_offsite_borg_repository() {
+  local repository_path authority host local_host resolved_addresses
+  local local_address_text address local_address
+  local -a local_addresses
+
+  [[ "${BORG_REPOSITORY:-}" == ssh://* ]] || {
+    printf 'BORG_REPOSITORY must use non-local ssh:// storage.\n' >&2
+    return 1
+  }
+  repository_path="${BORG_REPOSITORY#ssh://}"
+  [[ "$repository_path" == */?* ]] || {
+    printf 'BORG_REPOSITORY must name a remote archive path.\n' >&2
+    return 1
+  }
+  authority="${repository_path%%/*}"
+  host="${authority#*@}"
+  host="${host%%:*}"
+  [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]] || {
+    printf 'BORG_REPOSITORY must use a DNS name or IPv4 host.\n' >&2
+    return 1
+  }
+  local_host="$(hostname 2>/dev/null)" || {
+    printf 'Could not determine the local host for offsite validation.\n' >&2
+    return 1
+  }
+  local_host="$(printf '%s' "$local_host" | tr '[:upper:]' '[:lower:]')"
+  host="$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')"
+  [[ "$host" != 'localhost' && "$host" != '0.0.0.0' \
+    && "$host" != 127.* && "$host" != "$local_host" ]] || {
+    printf 'BORG_REPOSITORY must not resolve by configuration to this host.\n' >&2
+    return 1
+  }
+  resolved_addresses="$(getent ahostsv4 "$host" 2>/dev/null \
+    | awk '{print $1}')" || {
+    printf 'BORG_REPOSITORY host could not be resolved for offsite validation.\n' >&2
+    return 1
+  }
+  [[ -n "$resolved_addresses" ]] || {
+    printf 'BORG_REPOSITORY host resolved to no IPv4 address.\n' >&2
+    return 1
+  }
+  local_address_text="$(hostname -I 2>/dev/null)" || {
+    printf 'Could not read local interface addresses for offsite validation.\n' >&2
+    return 1
+  }
+  [[ -n "$local_address_text" ]] || {
+    printf 'No local interface address was available for offsite validation.\n' >&2
+    return 1
+  }
+  read -r -a local_addresses <<< "$local_address_text"
+  while IFS= read -r address; do
+    [[ "$address" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+      printf 'BORG_REPOSITORY host resolution returned invalid IPv4 evidence.\n' >&2
+      return 1
+    }
+    [[ "$address" != '0.0.0.0' && "$address" != 127.* ]] || {
+      printf 'BORG_REPOSITORY must resolve only to non-local addresses.\n' >&2
+      return 1
+    }
+    for local_address in "${local_addresses[@]}"; do
+      [[ "$address" != "$local_address" ]] || {
+        printf 'BORG_REPOSITORY resolves to a local interface address.\n' >&2
+        return 1
+      }
+    done
+  done <<< "$resolved_addresses"
+  [[ -n "${BORG_RSH:-}" \
+    && "$BORG_RSH" == *'BatchMode=yes'* \
+    && "$BORG_RSH" == *'IdentitiesOnly=yes'* \
+    && "$BORG_RSH" == *'StrictHostKeyChecking=yes'* \
+    && "$BORG_RSH" == *'UserKnownHostsFile='* ]] || {
+    printf 'BORG_RSH must enforce the configured key and verified host identity.\n' >&2
+    return 1
+  }
+}
+
+write_status() {
+  local state="$1"
+  local oldest_required_at="${2:-}"
+  local oldest_required_wal_file="${3:-}"
+  local last_archived_wal_file="${4:-}"
+  local last_archived_at="${5:-}"
+  local pending_count="${6:-0}"
+  local temporary
+
+  install -d -m 0700 "$(dirname "$WAL_ARCHIVE_STATUS_FILE")"
+  temporary="$(mktemp "${WAL_ARCHIVE_STATUS_FILE}.XXXXXX")"
+  printf '{"state":"%s","observed_at_utc":"%s","oldest_required_at_utc":%s,"oldest_required_wal_file":%s,"last_archived_wal_file":%s,"last_archived_at_utc":%s,"pending_count":%s}\n' \
+    "$state" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "$(json_string_or_null "$oldest_required_at")" \
+    "$(json_string_or_null "$oldest_required_wal_file")" \
+    "$(json_string_or_null "$last_archived_wal_file")" \
+    "$(json_string_or_null "$last_archived_at")" "$pending_count" > "$temporary"
+  chmod 0644 "$temporary"
+  mv "$temporary" "$WAL_ARCHIVE_STATUS_FILE"
+}
+
+json_string_or_null() {
+  if [[ -n "$1" ]]; then
+    printf '"%s"' "$1"
+  else
+    printf 'null'
+  fi
+}
+
+database_query() {
+  docker exec --user postgres "$DATABASE_CONTAINER" \
+    psql --quiet --tuples-only --no-align --set ON_ERROR_STOP=on \
+      --dbname="$DATABASE_NAME" --command "$1"
+}
+
+load_cluster_identity() {
+  local evidence spool_identity_file spool_identity
+
+  evidence="$(database_query "SELECT control.system_identifier::text || '|' ||
+    pg_catalog.lpad(pg_catalog.to_hex(control.system_identifier), 16, '0')
+    FROM pg_catalog.pg_control_system() AS control;")"
+  IFS='|' read -r CLUSTER_SYSTEM_IDENTIFIER CLUSTER_ARCHIVE_IDENTIFIER \
+    <<< "$evidence"
+  [[ "$CLUSTER_SYSTEM_IDENTIFIER" =~ ^-?[0-9]+$ \
+    && "$CLUSTER_ARCHIVE_IDENTIFIER" =~ ^[0-9a-f]{16}$ ]] || {
+    printf 'PostgreSQL returned no valid cluster system identifier.\n' >&2
+    return 1
+  }
+  spool_identity_file="$WAL_SPOOL_DIRECTORY/.cluster-system-identifier"
+  [[ -f "$spool_identity_file" ]] || {
+    printf 'WAL spool has no PostgreSQL cluster identity.\n' >&2
+    return 1
+  }
+  spool_identity="$(tr -d '\r\n' < "$spool_identity_file")"
+  [[ "$spool_identity" == "$CLUSTER_ARCHIVE_IDENTIFIER" ]] || {
+    printf 'WAL spool belongs to a different PostgreSQL cluster.\n' >&2
+    return 1
+  }
+}
+
+pending_wal_files() {
+  database_query \
+    "SET ROLE taptime_wal_archiver; SELECT wal_file FROM taptime_server.read_pending_offsite_wal_files_v1();"
+}
+
+receiver_is_active() {
+  database_query \
+    "SELECT COALESCE((
+       SELECT active FROM pg_catalog.pg_replication_slots
+       WHERE slot_name = '$WAL_REPLICATION_SLOT' AND slot_type = 'physical'
+     ), false);"
+}
+
+backlog_status() {
+  database_query \
+    "SET ROLE taptime_wal_archiver;
+     SELECT COALESCE(to_char(oldest_required_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), '')
+       || '|' || COALESCE(oldest_required_wal_file, '')
+       || '|' || COALESCE(last_archived_wal_file, '')
+       || '|' || COALESCE(to_char(last_archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), '')
+       || '|' || pending_count::text
+     FROM taptime_server.read_offsite_wal_archive_backlog_v1();"
+}
+
+record_archive_receipt() {
+  local wal_file="$1"
+  local archive_name="$2"
+  local checksum="$3"
+  database_query \
+    "SET ROLE taptime_wal_archiver;
+     SELECT taptime_server.record_offsite_wal_archive_v1('$wal_file', '$archive_name', '$checksum');" \
+    >/dev/null
+}
+
+record_base_receipt() {
+  local archive_name="$1"
+  local start_wal_lsn="$2"
+  local start_wal_file="$3"
+  database_query \
+    "SET ROLE taptime_wal_archiver;
+     SELECT taptime_server.record_offsite_base_backup_v1(
+       '$archive_name', '$start_wal_lsn'::pg_lsn, '$start_wal_file'
+     );" >/dev/null
+}
+
+advance_watermark() {
+  local base_archive="$1"
+  local wal_file="$2"
+  database_query \
+    "SET ROLE taptime_wal_archiver;
+     SELECT taptime_server.advance_offsite_wal_archive_watermark_v1(
+       '$base_archive', '$wal_file'
+     );" >/dev/null
+}
+
+registered_base_evidence() {
+  local archive_name="$1"
+  database_query \
+    "SET ROLE taptime_wal_archiver;
+     SELECT start_wal_lsn::text || '|' || start_wal_file
+     FROM taptime_server.read_offsite_base_backup_receipt_v1('$archive_name');"
+}
+
+registered_wal_checksum() {
+  local wal_file="$1"
+  database_query \
+    "SET ROLE taptime_wal_archiver;
+     SELECT content_sha256
+     FROM taptime_server.read_offsite_wal_archive_receipt_v1('$wal_file');"
+}
+
+wal_files_are_adjacent() {
+  local previous_wal_file="$1"
+  local next_wal_file="$2"
+  database_query \
+    "SET ROLE taptime_wal_archiver;
+     SELECT taptime_server.wal_files_are_adjacent_v1(
+       '$previous_wal_file', '$next_wal_file'
+     );"
+}
+
+archived_checksum() {
+  local wal_file="$1"
+  local archive_name="wal-$CLUSTER_ARCHIVE_IDENTIFIER-$wal_file"
+  local checksum
+
+  if ! checksum="$(borg extract --stdout "$BORG_REPOSITORY::$archive_name" "$wal_file" \
+    | sha256sum)"; then
+    printf 'Could not read back offsite WAL archive: %s\n' "$archive_name" >&2
+    return 1
+  fi
+  printf '%s\n' "${checksum%% *}"
+}
+
+latest_verified_base_marker() {
+  borg list --glob-archives "sh:verified-base-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY" \
+    | sort | tail -n 1
+}
+
+latest_physical_base_archive() {
+  borg list --glob-archives "sh:base-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY" \
+    | sort | tail -n 1
+}
+
+latest_base_has_offsite_start_wal() {
+  local base_archive start_wal_file manifest_system_identifier manifest_archive_identifier
+
+  base_archive="$(latest_physical_base_archive)"
+  [[ "$base_archive" =~ ^base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || {
+    printf 'No physical base is available for WAL bootstrap.\n' >&2
+    return 1
+  }
+  manifest_system_identifier="$(borg extract --stdout \
+    "$BORG_REPOSITORY::$base_archive" manifest/cluster-system-identifier \
+    | tr -d '\r\n')"
+  manifest_archive_identifier="$(borg extract --stdout \
+    "$BORG_REPOSITORY::$base_archive" manifest/cluster-archive-identifier \
+    | tr -d '\r\n')"
+  start_wal_file="$(borg extract --stdout \
+    "$BORG_REPOSITORY::$base_archive" manifest/base-start-wal-file | tr -d '\r\n')"
+  [[ "$manifest_system_identifier" == "$CLUSTER_SYSTEM_IDENTIFIER" \
+    && "$manifest_archive_identifier" == "$CLUSTER_ARCHIVE_IDENTIFIER" \
+    && "$start_wal_file" =~ ^[0-9A-F]{24}$ ]] || {
+    printf 'Latest physical base has no valid cluster-bound start WAL file.\n' >&2
+    return 1
+  }
+  borg info "$BORG_REPOSITORY::wal-$CLUSTER_ARCHIVE_IDENTIFIER-$start_wal_file" \
+    >/dev/null 2>&1 || {
+    printf 'The physical base start WAL is not yet offsite: %s\n' "$start_wal_file" >&2
+    return 1
+  }
+}
+
+ensure_base_evidence() {
+  local marker_archive="$1"
+  local archive_name="${marker_archive#verified-}"
+  local evidence recorded_archive start_wal_lsn start_wal_file
+  local marker_system_identifier marker_archive_identifier
+
+  borg check --verify-data "$BORG_REPOSITORY::$marker_archive"
+  recorded_archive="$(borg extract --stdout \
+    "$BORG_REPOSITORY::$marker_archive" base-archive-name | tr -d '\r\n')"
+  start_wal_lsn="$(borg extract --stdout \
+    "$BORG_REPOSITORY::$marker_archive" base-start-wal-lsn | tr -d '\r\n')"
+  start_wal_file="$(borg extract --stdout \
+    "$BORG_REPOSITORY::$marker_archive" base-start-wal-file | tr -d '\r\n')"
+  marker_system_identifier="$(borg extract --stdout \
+    "$BORG_REPOSITORY::$marker_archive" cluster-system-identifier | tr -d '\r\n')"
+  marker_archive_identifier="$(borg extract --stdout \
+    "$BORG_REPOSITORY::$marker_archive" cluster-archive-identifier | tr -d '\r\n')"
+  [[ "$recorded_archive" == "$archive_name" \
+    && "$marker_system_identifier" == "$CLUSTER_SYSTEM_IDENTIFIER" \
+    && "$marker_archive_identifier" == "$CLUSTER_ARCHIVE_IDENTIFIER" \
+    && "$start_wal_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ \
+    && "$start_wal_file" =~ ^[0-9A-F]{24}$ ]] || return 1
+  borg info "$BORG_REPOSITORY::$archive_name" >/dev/null
+
+  evidence="$(registered_base_evidence "$archive_name")"
+  if [[ -n "$evidence" ]]; then
+    [[ "$evidence" == "$start_wal_lsn|$start_wal_file" ]] || {
+      printf 'Registered base evidence differs from the offsite marker: %s\n' \
+        "$archive_name" >&2
+      return 1
+    }
+    printf '%s\n' "$evidence"
+    return 0
+  fi
+
+  record_base_receipt "$archive_name" "$start_wal_lsn" "$start_wal_file"
+  printf '%s|%s\n' "$start_wal_lsn" "$start_wal_file"
+}
+
+ensure_wal_receipt() {
+  local wal_file="$1"
+  local checksum
+
+  checksum="$(registered_wal_checksum "$wal_file")"
+  if [[ -n "$checksum" ]]; then
+    [[ "$checksum" =~ ^[0-9a-f]{64}$ ]]
+    borg info "$BORG_REPOSITORY::wal-$CLUSTER_ARCHIVE_IDENTIFIER-$wal_file" >/dev/null
+    return
+  fi
+  checksum="$(archived_checksum "$wal_file")"
+  [[ "$checksum" =~ ^[0-9a-f]{64}$ ]] || return 1
+  record_archive_receipt "$wal_file" \
+    "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$wal_file" "$checksum"
+}
+
+reconcile_contiguous_watermark() {
+  local marker_archive base_archive evidence start_wal_lsn start_wal_file timeline
+  local wal_archive wal_file previous_wal_file='' wal_archives
+
+  marker_archive="$(latest_verified_base_marker)"
+  [[ "$marker_archive" =~ ^verified-base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || {
+    printf 'No restore-verified physical base is available offsite.\n' >&2
+    return 1
+  }
+  base_archive="${marker_archive#verified-}"
+  evidence="$(ensure_base_evidence "$marker_archive")"
+  IFS='|' read -r start_wal_lsn start_wal_file <<< "$evidence"
+  [[ "$start_wal_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ \
+    && "$start_wal_file" =~ ^[0-9A-F]{24}$ ]] || return 1
+  timeline="${start_wal_file:0:8}"
+  wal_archives="$(borg list \
+    --glob-archives "sh:wal-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY" | sort)"
+
+  while IFS= read -r wal_archive; do
+    [[ -n "$wal_archive" ]] || continue
+    wal_file="${wal_archive#wal-$CLUSTER_ARCHIVE_IDENTIFIER-}"
+    [[ "$wal_file" =~ ^[0-9A-F]{24}$ ]] || continue
+    [[ "${wal_file:0:8}" == "$timeline" && ! "$wal_file" < "$start_wal_file" ]] \
+      || continue
+    if [[ -z "$previous_wal_file" ]]; then
+      [[ "$wal_file" == "$start_wal_file" ]] || {
+        printf 'Offsite WAL chain does not begin at the verified base: %s\n' \
+          "$start_wal_file" >&2
+        return 1
+      }
+    else
+      [[ "$(wal_files_are_adjacent "$previous_wal_file" "$wal_file")" == 't' ]] || {
+        printf 'Offsite WAL chain contains a gap after %s.\n' "$previous_wal_file" >&2
+        return 1
+      }
+    fi
+    ensure_wal_receipt "$wal_file"
+    # PostgreSQL accepts the advancement only when its exact predecessor already belongs to
+    # this base's chain. A later archive can therefore never bridge a missing segment.
+    advance_watermark "$base_archive" "$wal_file"
+    previous_wal_file="$wal_file"
+  done <<< "$wal_archives"
+  [[ -n "$previous_wal_file" ]] || {
+    printf 'No WAL segment exists for the restore-verified physical base.\n' >&2
+    return 1
+  }
+}
+
+archive_file() {
+  local file="$1"
+  local archive_name="wal-$CLUSTER_ARCHIVE_IDENTIFIER-$file"
+  local local_checksum offsite_checksum
+
+  if ! borg info "$BORG_REPOSITORY::$archive_name" >/dev/null 2>&1; then
+    printf 'Writing encrypted offsite WAL archive %s.\n' "$archive_name"
+    (
+      cd "$WAL_SPOOL_DIRECTORY"
+      borg create --compression zstd,6 "$BORG_REPOSITORY::$archive_name" "$file"
+    )
+  fi
+
+  if [[ "$file" =~ ^[0-9A-F]{24}$ ]]; then
+    local_checksum="$(sha256sum "$WAL_SPOOL_DIRECTORY/$file")"
+    local_checksum="${local_checksum%% *}"
+    offsite_checksum="$(archived_checksum "$file")"
+    [[ "$local_checksum" == "$offsite_checksum" ]] || {
+      printf 'Offsite WAL checksum differs from local file: %s\n' "$file" >&2
+      return 1
+    }
+    if [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" != '1' ]]; then
+      record_archive_receipt "$file" "$archive_name" "$offsite_checksum"
+    fi
+  else
+    borg extract --stdout "$BORG_REPOSITORY::$archive_name" "$file" >/dev/null
+  fi
+  rm -f -- "$WAL_SPOOL_DIRECTORY/$file"
+}
+
+archive_once() {
+  local pending=''
+  local path file
+  local oldest_required_at oldest_required_wal_file marker_archive
+  local last_archived_wal_file last_archived_at pending_count
+
+  exec 9>"$LOCK_FILE"
+  flock 9
+
+  [[ "$(receiver_is_active)" == 't' ]] || {
+    printf 'The physical WAL receiver slot is not active.\n' >&2
+    return 1
+  }
+  if [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" != '1' ]]; then
+    pending="$(pending_wal_files)"
+    if [[ -n "$pending" ]]; then
+      database_query 'SELECT pg_catalog.pg_switch_wal();' >/dev/null
+    fi
+  fi
+
+  for path in "$WAL_SPOOL_DIRECTORY"/*; do
+    [[ -f "$path" ]] || continue
+    file="${path##*/}"
+    [[ "$file" =~ ^([0-9A-F]{24}|[0-9A-F]{8}\.history)$ ]] || continue
+    archive_file "$file"
+  done
+
+  latest_base_has_offsite_start_wal
+  if [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" == '1' ]]; then
+    write_status awaiting_migration '' '' '' '' 0
+    printf 'Offsite WAL is waiting for the versioned archive migration.\n'
+    return 0
+  fi
+  marker_archive="$(latest_verified_base_marker)"
+  if [[ ! "$marker_archive" =~ ^verified-base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]]; then
+    IFS='|' read -r oldest_required_at oldest_required_wal_file \
+      last_archived_wal_file last_archived_at pending_count < <(backlog_status)
+    [[ "$pending_count" =~ ^[0-9]+$ ]] || return 1
+    write_status awaiting_verified_base "$oldest_required_at" "$oldest_required_wal_file" \
+      "$last_archived_wal_file" "$last_archived_at" "$pending_count"
+    printf 'Offsite WAL is waiting for restore verification of its physical base.\n'
+    return 0
+  fi
+
+  # A point-in-time restore can predate local receipts. Rebuild them from the encrypted remote
+  # and advance only the gap-free chain rooted in a verified physical base.
+  reconcile_contiguous_watermark
+
+  IFS='|' read -r oldest_required_at oldest_required_wal_file \
+    last_archived_wal_file last_archived_at pending_count < <(backlog_status)
+  [[ "$pending_count" =~ ^[0-9]+$ ]] || return 1
+  write_status ok "$oldest_required_at" "$oldest_required_wal_file" \
+    "$last_archived_wal_file" "$last_archived_at" "$pending_count"
+}
+
+main() {
+  require_file "$CONFIG_FILE"
+  # shellcheck source=/etc/taptime-backup/config
+  source "$CONFIG_FILE"
+  validate_offsite_borg_repository
+  require_file "$BORG_PASSPHRASE_FILE"
+  : "${DATABASE_CONTAINER:?DATABASE_CONTAINER must be configured}"
+  : "${DATABASE_NAME:?DATABASE_NAME must be configured}"
+  : "${WAL_SPOOL_DIRECTORY:?WAL_SPOOL_DIRECTORY must be configured}"
+  : "${WAL_ARCHIVE_STATUS_FILE:?WAL_ARCHIVE_STATUS_FILE must be configured}"
+  : "${WAL_ARCHIVE_INTERVAL_SECONDS:?WAL_ARCHIVE_INTERVAL_SECONDS must be configured}"
+  : "${WAL_ARCHIVE_CACHE_DIRECTORY:?WAL_ARCHIVE_CACHE_DIRECTORY must be configured}"
+  : "${WAL_REPLICATION_SLOT:?WAL_REPLICATION_SLOT must be configured}"
+  [[ "$WAL_ARCHIVE_INTERVAL_SECONDS" =~ ^[1-9][0-9]*$ ]] || {
+    printf 'WAL_ARCHIVE_INTERVAL_SECONDS must be a positive integer.\n' >&2
+    return 1
+  }
+  [[ "$WAL_REPLICATION_SLOT" =~ ^[a-z0-9_]+$ ]] || {
+    printf 'WAL_REPLICATION_SLOT contains unsafe characters.\n' >&2
+    return 1
+  }
+  [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" == '0' \
+    || "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" == '1' ]] || {
+    printf 'TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY must be 0 or 1.\n' >&2
+    return 1
+  }
+  if [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" == '1' \
+    && "${TAPTIME_WAL_ARCHIVE_RUN_ONCE:-0}" != '1' ]]; then
+    printf 'Upload-only WAL bootstrap is allowed only for one bounded run.\n' >&2
+    return 1
+  fi
+
+  export BORG_RSH
+  export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
+  export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
+  export BORG_CACHE_DIR="$WAL_ARCHIVE_CACHE_DIRECTORY/cache"
+  export BORG_CONFIG_DIR="$WAL_ARCHIVE_CACHE_DIRECTORY/config"
+  install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+  load_cluster_identity
+
+  while true; do
+    set +e
+    ( set -e; archive_once )
+    archive_status=$?
+    set -e
+    if (( archive_status != 0 )); then
+      write_status failed '' '' '' '' 0 || true
+    fi
+    if [[ "${TAPTIME_WAL_ARCHIVE_RUN_ONCE:-0}" == '1' ]]; then
+      return "$archive_status"
+    fi
+    sleep "$WAL_ARCHIVE_INTERVAL_SECONDS"
+  done
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

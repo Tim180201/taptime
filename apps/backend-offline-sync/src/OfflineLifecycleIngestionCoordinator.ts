@@ -49,10 +49,15 @@ import {
   type OfflineLifecycleEventCommandV2,
   type OfflineLifecycleEventCommandV3,
   type OfflineLifecycleEventResult,
+  type OfflineLifecycleEventResultV4,
   type OfflineReviewReason,
 } from '@taptime/offline-sync-contract';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { query, rollback, setOfflineActorContext } from './database.js';
+import {
+  PostgresOfflineArchiveDurability,
+  type OfflineArchiveDurabilityPort,
+} from './OfflineArchiveDurability.js';
 import type {
   AuthenticatedOfflineLifecycleEventCommand,
   OfflineLifecycleIngestionControls,
@@ -65,6 +70,9 @@ const ENGINE_ESCALATION_REVIEW_REASON = 'business_engine_escalation' as const;
 type OfflineCommand = OfflineLifecycleEventCommand
   | OfflineLifecycleEventCommandV2
   | OfflineLifecycleEventCommandV3;
+type LogicalDurableResult = Extract<OfflineLifecycleEventResult, {
+  readonly status: 'synchronized' | 'review_pending';
+}>;
 
 type PersistedOfflineReviewReason = OfflineReviewReason
   | typeof ENGINE_ESCALATION_REVIEW_REASON;
@@ -194,6 +202,8 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
     private readonly accessTokenVerifier: AccessTokenVerifier,
     createTimeEntryId: () => string = randomUUID,
     createBreakIntervalId: () => string = randomUUID,
+    private readonly archiveDurability: OfflineArchiveDurabilityPort =
+      new PostgresOfflineArchiveDurability(),
   ) {
     this.businessEngine = new BusinessEngine(
       () => TimeEntryId(requireGeneratedUuid(createTimeEntryId())),
@@ -204,7 +214,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
   async ingest(
     request: AuthenticatedOfflineLifecycleEventCommand,
     controls: OfflineLifecycleIngestionControls = {},
-  ): Promise<OfflineLifecycleEventResult> {
+  ): Promise<OfflineLifecycleEventResultV4> {
     validateCommand(request.command);
     const verification = await this.accessTokenVerifier.verify(request.accessToken);
     if (verification.status === 'rejected') {
@@ -216,6 +226,10 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       await query(client, 'BEGIN ISOLATION LEVEL READ COMMITTED');
       transactionOpen = true;
       await query(client, `SET LOCAL ROLE ${OFFLINE_EVENT_ROLE}`);
+      await query(
+        client,
+        "SELECT pg_catalog.set_config('app.offline_archive_contract_version', '4', true)",
+      );
       const actorResult = await query<ActorRow>(
         client,
         `SELECT identity_binding_id, user_id, organization_id, membership_id,
@@ -286,7 +300,9 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         );
         await query(client, 'COMMIT');
         transactionOpen = false;
-        return result;
+        return result.status === 'synchronized' || result.status === 'review_pending'
+          ? await this.requireOffsiteArchive(client, actor, installationRow.id, result)
+          : result;
       }
 
       const leaseItem = await query<LeaseItemRow>(
@@ -407,7 +423,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       const workEvent = authoritativeWorkEvent(request.command, actor, lease);
       const workEventHash = workEventHashForVersion(workEvent, request.command.provenanceVersion);
 
-      let result: OfflineLifecycleEventResult;
+      let result: LogicalDurableResult;
       if (reviewReason !== null) {
         await persistWorkEvent(client, workEvent, workEventHash);
         await persistReceipt(client, request.command, workEvent, 'received', null);
@@ -499,13 +515,41 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       );
       await query(client, 'COMMIT');
       transactionOpen = false;
-      return result;
+      return await this.requireOffsiteArchive(client, actor, installationRow.id, result);
     } catch (error) {
       if (transactionOpen) await rollback(client);
       throw error;
     } finally {
       client.release();
     }
+  }
+
+  private async requireOffsiteArchive(
+    client: PoolClient,
+    actor: ActorRow,
+    installationId: string,
+    result: LogicalDurableResult,
+  ): Promise<OfflineLifecycleEventResultV4> {
+    const archive = await this.archiveDurability.requireOffsiteArchive(
+      client,
+      actor,
+      {
+        workEventId: result.workEventId,
+        receiptId: result.receiptId,
+        installationId,
+        deviceSequence: result.deviceSequence,
+      },
+    );
+    if (!archive.offsiteArchived) {
+      return {
+        status: 'archive_pending',
+        idempotentRetry: result.idempotentRetry,
+        workEventId: result.workEventId,
+        receiptId: result.receiptId,
+        deviceSequence: result.deviceSequence,
+      };
+    }
+    return Object.freeze({ ...result, archiveStatus: 'offsite_archived' as const });
   }
 }
 

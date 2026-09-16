@@ -3,10 +3,23 @@ set -euo pipefail
 
 # Created in T-034; maintain it with restore verification and remove it only with that verifier.
 readonly TEST_CONTAINER="taptime-restore-rls-proof-$$"
-trap 'docker rm --force "$TEST_CONTAINER" >/dev/null 2>&1 || true' EXIT
+readonly TEST_ROOT="$(mktemp -d)"
+trap 'docker rm --force "$TEST_CONTAINER" >/dev/null 2>&1 || true; rm -rf -- "$TEST_ROOT"' EXIT
 
 # shellcheck source=../backup/taptime-restore-verify
 source "$(dirname "$0")/../backup/taptime-restore-verify"
+
+mkdir "$TEST_ROOT/recovery-config"
+: > "$TEST_ROOT/recovery-config/postgresql.auto.conf"
+TAPTIME_RESTORE_TARGET_TIME='2026-09-16T12:34:56.123456Z' \
+  configure_point_in_time_recovery "$TEST_ROOT/recovery-config"
+grep --fixed-strings --line-regexp --quiet \
+  "recovery_target_time = '2026-09-16 12:34:56.123456+00'" \
+  "$TEST_ROOT/recovery-config/postgresql.auto.conf"
+grep --fixed-strings --line-regexp --quiet \
+  "restore_command = 'cp /var/lib/postgresql/wal-restore/%f %p && chmod 0600 %p'" \
+  "$TEST_ROOT/recovery-config/postgresql.auto.conf"
+printf 'Recovery configuration: UTC target and writable WAL destination accepted.\n'
 
 docker run --detach --name "$TEST_CONTAINER" --network none \
   --env POSTGRES_HOST_AUTH_METHOD=trust postgres:17.10-alpine >/dev/null
@@ -25,8 +38,15 @@ if (( ready == 0 )); then
 fi
 
 docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
+  --set ON_ERROR_STOP=on --command 'CREATE SCHEMA taptime_server;' >/dev/null
+if check_restored_rls "$TEST_CONTAINER" postgres >/dev/null 2>&1; then
+  printf 'RLS verification accepted an empty application schema.\n' >&2
+  exit 1
+fi
+printf 'Application schema without application tables: rejected.\n'
+
+docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
   --set ON_ERROR_STOP=on --command '
-    CREATE SCHEMA taptime_server;
     CREATE TABLE taptime_server.protected_entry (id bigint PRIMARY KEY);
     ALTER TABLE taptime_server.protected_entry ENABLE ROW LEVEL SECURITY;
     ALTER TABLE taptime_server.protected_entry FORCE ROW LEVEL SECURITY;
@@ -64,3 +84,66 @@ docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
   ' >/dev/null
 check_restored_rls "$TEST_CONTAINER" postgres >/dev/null
 printf 'All application tables with enabled and forced RLS: accepted.\n'
+
+mkdir "$TEST_ROOT/migrations"
+printf 'SELECT 1;\n' > "$TEST_ROOT/migrations/001_foundation.sql"
+printf 'SELECT 2;\n' > "$TEST_ROOT/migrations/002_extension.sql"
+(
+  cd "$TEST_ROOT/migrations"
+  sha256sum ./001_foundation.sql ./002_extension.sql
+) > "$TEST_ROOT/source-migration-checksums.tsv"
+read -r first_checksum _ < "$TEST_ROOT/source-migration-checksums.tsv"
+second_checksum="$(sed -n '2{s/ .*//;p;}' "$TEST_ROOT/source-migration-checksums.tsv")"
+docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
+  --set ON_ERROR_STOP=on --command "
+    CREATE TABLE public.taptime_server_schema_migrations (
+      version text PRIMARY KEY,
+      checksum char(64) NOT NULL
+    );
+    INSERT INTO public.taptime_server_schema_migrations (version, checksum)
+    VALUES ('001', '$first_checksum'), ('002', '$second_checksum');
+  " >/dev/null
+check_restored_migrations \
+  "$TEST_CONTAINER" postgres "$TEST_ROOT/source-migration-checksums.tsv" >/dev/null
+printf 'Checksum-identical migration ledger: accepted.\n'
+
+docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
+  --set ON_ERROR_STOP=on --command "
+    DELETE FROM public.taptime_server_schema_migrations WHERE version = '002';
+  " >/dev/null
+if check_restored_migrations \
+  "$TEST_CONTAINER" postgres "$TEST_ROOT/source-migration-checksums.tsv" >/dev/null 2>&1; then
+  printf 'Migration verification accepted a missing ledger row.\n' >&2
+  exit 1
+fi
+printf 'Incomplete migration ledger: rejected.\n'
+
+docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
+  --set ON_ERROR_STOP=on --command "
+    UPDATE public.taptime_server_schema_migrations
+    SET checksum = '$second_checksum'
+    WHERE version = '001';
+    INSERT INTO public.taptime_server_schema_migrations (version, checksum)
+    VALUES ('002', '$second_checksum');
+  " >/dev/null
+if check_restored_migrations \
+  "$TEST_CONTAINER" postgres "$TEST_ROOT/source-migration-checksums.tsv" >/dev/null 2>&1; then
+  printf 'Migration verification accepted a mismatched checksum.\n' >&2
+  exit 1
+fi
+printf 'Migration-ledger checksum mismatch: rejected.\n'
+
+docker exec --user postgres "$TEST_CONTAINER" psql --dbname=postgres \
+  --set ON_ERROR_STOP=on --command "
+    UPDATE public.taptime_server_schema_migrations
+    SET checksum = '$first_checksum'
+    WHERE version = '001';
+    INSERT INTO public.taptime_server_schema_migrations (version, checksum)
+    VALUES ('003', '$first_checksum');
+  " >/dev/null
+if check_restored_migrations \
+  "$TEST_CONTAINER" postgres "$TEST_ROOT/source-migration-checksums.tsv" >/dev/null 2>&1; then
+  printf 'Migration verification accepted an unknown ledger row.\n' >&2
+  exit 1
+fi
+printf 'Unknown migration-ledger row: rejected.\n'

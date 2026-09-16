@@ -7,9 +7,9 @@ import {
   type OfflineLifecycleEventCommand,
   type OfflineLifecycleEventCommandV2,
   type OfflineLifecycleEventCommandV3,
-  type OfflineLifecycleEventResult,
-  type OfflineReconciliationRecord,
-  type OfflineReconciliationResult,
+  type OfflineLifecycleEventResultV4,
+  type OfflineReconciliationRecordV2,
+  type OfflineReconciliationResultV2,
 } from '@taptime/offline-sync-contract';
 import {
   validateMobileReviewStateRequest,
@@ -27,10 +27,8 @@ import {
   parseJsonObject,
 } from '../transport/strictJson';
 
-const OFFLINE_EVENT_PATH = '/v1/lifecycle-events/offline';
-const OFFLINE_EVENT_V2_PATH = '/v2/lifecycle-events/offline';
-const OFFLINE_EVENT_V3_PATH = '/v3/lifecycle-events/offline';
-const RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
+const OFFLINE_EVENT_V4_PATH = '/v4/lifecycle-events/offline';
+const RECONCILIATION_V2_PATH = '/v2/lifecycle-events/reconcile';
 const REVIEW_STATE_PATH = '/v1/offline-review-state/query';
 
 const reviewReasons = new Set([
@@ -67,11 +65,11 @@ const escalationReasons = new Set<BusinessEngineEscalationReason>([
 ]);
 
 export type OfflineLifecycleTransportResult =
-  | OfflineLifecycleEventResult
+  | OfflineLifecycleEventResultV4
   | { readonly status: 'unavailable'; readonly retryAfterSeconds?: number };
 
 export type OfflineReconciliationTransportResult =
-  | OfflineReconciliationResult
+  | OfflineReconciliationResultV2
   | { readonly status: 'unavailable'; readonly retryAfterSeconds?: number };
 
 export interface OfflineLifecycleApiPort {
@@ -85,9 +83,7 @@ export interface OfflineLifecycleApiPort {
 }
 
 export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
-  private readonly eventEndpoint: URL;
-  private readonly eventV2Endpoint: URL;
-  private readonly eventV3Endpoint: URL;
+  private readonly eventV4Endpoint: URL;
   private readonly reconciliationEndpoint: URL;
   private readonly reviewStateEndpoint: URL;
 
@@ -95,10 +91,8 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
     apiBaseUrl: URL,
     private readonly requests: AuthenticatedJsonPostPort,
   ) {
-    this.eventEndpoint = new URL(OFFLINE_EVENT_PATH, apiBaseUrl);
-    this.eventV2Endpoint = new URL(OFFLINE_EVENT_V2_PATH, apiBaseUrl);
-    this.eventV3Endpoint = new URL(OFFLINE_EVENT_V3_PATH, apiBaseUrl);
-    this.reconciliationEndpoint = new URL(RECONCILIATION_PATH, apiBaseUrl);
+    this.eventV4Endpoint = new URL(OFFLINE_EVENT_V4_PATH, apiBaseUrl);
+    this.reconciliationEndpoint = new URL(RECONCILIATION_V2_PATH, apiBaseUrl);
     this.reviewStateEndpoint = new URL(REVIEW_STATE_PATH, apiBaseUrl);
   }
 
@@ -106,8 +100,7 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
     command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | OfflineLifecycleEventCommandV3,
   ): Promise<OfflineLifecycleTransportResult> {
     const response = await this.post(
-      command.provenanceVersion === 3 ? this.eventV3Endpoint
-        : command.provenanceVersion === 2 ? this.eventV2Endpoint : this.eventEndpoint,
+      this.eventV4Endpoint,
       JSON.stringify(command),
     );
     if (response.status !== 'response') return transportFailure(response);
@@ -121,6 +114,9 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
     if (response.statusCode === 202) {
       if (body.status === 'review_pending') {
         return parseDurableResult(body, command, 'review_pending');
+      }
+      if (body.status === 'archive_pending') {
+        return parseArchivePendingResult(body, command);
       }
       const pending = parsePendingResult(body);
       if (pending === null || !sameRetryAfter(pending.retryAfterSeconds, response.retryAfterSeconds)) {
@@ -161,9 +157,9 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
     ) return { status: 'unavailable' };
     const allowed = new Set(workEventIds);
     const seen = new Set<string>();
-    const records: OfflineReconciliationRecord[] = [];
+    const records: OfflineReconciliationRecordV2[] = [];
     for (const candidate of body.records) {
-      const record = parseReconciliationRecord(candidate);
+      const record = parseReconciliationRecordV2(candidate);
       if (
         record === null
         || !allowed.has(record.workEventId)
@@ -244,6 +240,7 @@ function parseDurableResult(
 ): OfflineLifecycleTransportResult {
   if (
     body.status !== expectedStatus
+    || body.archiveStatus !== 'offsite_archived'
     || typeof body.idempotentRetry !== 'boolean'
     || body.workEventId !== command.workEvent.id
     || body.receiptId !== command.receipt.id
@@ -253,6 +250,7 @@ function parseDurableResult(
     if (
       !hasExactKeys(body, [
         'deviceSequence',
+        'archiveStatus',
         'idempotentRetry',
         'reason',
         'receiptId',
@@ -265,9 +263,10 @@ function parseDurableResult(
     return {
       status: 'review_pending',
       idempotentRetry: body.idempotentRetry,
-      reason: body.reason as Extract<OfflineLifecycleEventResult, {
+      reason: body.reason as Extract<OfflineLifecycleEventResultV4, {
         status: 'review_pending';
       }>['reason'],
+      archiveStatus: 'offsite_archived',
       workEventId: command.workEvent.id,
       receiptId: command.receipt.id,
       deviceSequence: command.deviceSequence,
@@ -277,6 +276,7 @@ function parseDurableResult(
     !hasExactKeys(body, [
       'decision',
       'deviceSequence',
+      'archiveStatus',
       'idempotentRetry',
       'receiptId',
       'status',
@@ -288,6 +288,7 @@ function parseDurableResult(
     ? { status: 'unavailable' }
     : {
         status: 'synchronized',
+        archiveStatus: 'offsite_archived',
         idempotentRetry: body.idempotentRetry,
         decision,
         workEventId: command.workEvent.id,
@@ -296,9 +297,35 @@ function parseDurableResult(
       };
 }
 
+function parseArchivePendingResult(
+  body: Record<string, unknown>,
+  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | OfflineLifecycleEventCommandV3,
+): OfflineLifecycleTransportResult {
+  return hasExactKeys(body, [
+    'deviceSequence',
+    'idempotentRetry',
+    'receiptId',
+    'status',
+    'workEventId',
+  ])
+    && body.status === 'archive_pending'
+    && typeof body.idempotentRetry === 'boolean'
+    && body.workEventId === command.workEvent.id
+    && body.receiptId === command.receipt.id
+    && body.deviceSequence === command.deviceSequence
+    ? {
+        status: 'archive_pending',
+        idempotentRetry: body.idempotentRetry,
+        workEventId: command.workEvent.id,
+        receiptId: command.receipt.id,
+        deviceSequence: command.deviceSequence,
+      }
+    : { status: 'unavailable' };
+}
+
 function parsePendingResult(
   body: Record<string, unknown>,
-): Extract<OfflineLifecycleEventResult, { status: 'pending' }> | null {
+): Extract<OfflineLifecycleEventResultV4, { status: 'pending' }> | null {
   const hasRetryAfter = Object.hasOwn(body, 'retryAfterSeconds');
   if (
     !hasExactKeys(body, hasRetryAfter
@@ -314,7 +341,7 @@ function parsePendingResult(
   ) return null;
   return {
     status: 'pending',
-    reason: body.reason as Extract<OfflineLifecycleEventResult, {
+    reason: body.reason as Extract<OfflineLifecycleEventResultV4, {
       status: 'pending';
     }>['reason'],
     ...(hasRetryAfter ? { retryAfterSeconds: body.retryAfterSeconds as number } : {}),
@@ -323,25 +350,26 @@ function parsePendingResult(
 
 function parseConflictResult(
   body: Record<string, unknown>,
-): Extract<OfflineLifecycleEventResult, { status: 'conflict' }> | null {
+): Extract<OfflineLifecycleEventResultV4, { status: 'conflict' }> | null {
   return hasExactKeys(body, ['reason', 'status'])
     && body.status === 'conflict'
     && typeof body.reason === 'string'
     && conflictReasons.has(body.reason as never)
     ? {
         status: 'conflict',
-        reason: body.reason as Extract<OfflineLifecycleEventResult, {
+        reason: body.reason as Extract<OfflineLifecycleEventResultV4, {
           status: 'conflict';
         }>['reason'],
       }
     : null;
 }
 
-function parseReconciliationRecord(value: unknown): OfflineReconciliationRecord | null {
+function parseReconciliationRecordV2(value: unknown): OfflineReconciliationRecordV2 | null {
   if (
     !isObject(value)
     || !hasExactKeys(value, [
       'deviceSequence',
+      'archiveStatus',
       'receiptId',
       'result',
       'workEventId',
@@ -353,6 +381,20 @@ function parseReconciliationRecord(value: unknown): OfflineReconciliationRecord 
     || !isObject(value.result)
   ) return null;
   if (
+    value.archiveStatus === 'archive_pending'
+    && value.result.status === 'archive_pending'
+    && hasExactKeys(value.result, ['status'])
+  ) {
+    return {
+      workEventId: value.workEventId,
+      receiptId: value.receiptId,
+      deviceSequence: value.deviceSequence as number,
+      archiveStatus: 'archive_pending',
+      result: { status: 'archive_pending' },
+    };
+  }
+  if (value.archiveStatus !== 'offsite_archived') return null;
+  if (
     value.result.status === 'synchronized'
     && hasExactKeys(value.result, ['decision', 'status'])
   ) {
@@ -361,6 +403,7 @@ function parseReconciliationRecord(value: unknown): OfflineReconciliationRecord 
       workEventId: value.workEventId,
       receiptId: value.receiptId,
       deviceSequence: value.deviceSequence as number,
+      archiveStatus: 'offsite_archived',
       result: { status: 'synchronized', decision },
     };
   }
@@ -374,9 +417,10 @@ function parseReconciliationRecord(value: unknown): OfflineReconciliationRecord 
       workEventId: value.workEventId,
       receiptId: value.receiptId,
       deviceSequence: value.deviceSequence as number,
+      archiveStatus: 'offsite_archived',
       result: {
         status: 'review_pending',
-        reason: value.result.reason as Extract<OfflineReconciliationRecord['result'], {
+        reason: value.result.reason as Extract<OfflineReconciliationRecordV2['result'], {
           status: 'review_pending';
         }>['reason'],
       },

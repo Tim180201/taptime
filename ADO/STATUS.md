@@ -228,6 +228,14 @@ Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript lä
 
 ## Bekannte Kleinigkeiten (blockieren nichts)
 
+- **P2 aus T-035:** Der erste vollständige Mobile-Testlauf nahm lokal ignorierte Android-
+  Bauausgaben unterhalb des Quellbaums mit und scheiterte an deren doppelten Modulen. Mit exakt
+  denselben Quellen und vorübergehend ausgelagerten Bauausgaben liefen 61 Testdateien mit 1.337
+  Tests grün. Der Testverschluss sollte generierte Android-Verzeichnisse dauerhaft ausschließen.
+- **P2 aus T-035:** Der zusätzliche, nicht im T-035-CI-Gate liegende Synthetic-Android-Gesamtlauf
+  hat 529 Tests bestanden und fünf bereits in `HEAD` vorhandene Drifts offengelegt: drei erwarten
+  entfernte DA5-Workflow-Schritte, einer einen alten `app.json`-Hash, einer scheitert am unveränderten
+  Enrollment-Testdoppel ohne drei Membership-Methoden. Die T-035-Rollenregression ist behoben.
 - **P2 aus T-045:** CI-Lauf `35075515260` traf im bestehenden
   `taptime-restore-verify.test` das PostgreSQL-Startfenster zwischen dem ersten erfolgreichen
   `pg_isready` und dem folgenden `psql`; 11 von 12 Jobs waren gruen, die T-045-Pruefungen im

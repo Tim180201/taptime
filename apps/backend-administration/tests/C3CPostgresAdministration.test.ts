@@ -94,8 +94,9 @@ beforeAll(async () => {
   installerPool = new Pool({ connectionString: installerDatabaseUrl, max: 4 });
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
+  const expectedVersions = (await loadMigrations()).map(({ version }) => version);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
+    applied: expectedVersions,
     alreadyApplied: [],
   });
   await ensureC3CRuntimeLogin(installerPool, runtimePassword);
@@ -119,13 +120,11 @@ afterAll(async () => {
 });
 
 describe('migration 007, roles and database contracts', () => {
-  it('records exactly immutable migrations 001 through 022 and reruns without changes', async () => {
-    expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
-    ]);
+  it('records every source migration immutably and reruns without changes', async () => {
+    const expectedVersions = (await loadMigrations()).map(({ version }) => version);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
+      alreadyApplied: expectedVersions,
     });
   });
 
@@ -140,8 +139,12 @@ describe('migration 007, roles and database contracts', () => {
       const dirtyPool = new Pool({ connectionString: url.toString(), max: 2 });
       try {
         const migrations = await loadMigrations();
-        await expect(applyMigrationSet(dirtyPool, migrations.slice(0, 6))).resolves.toEqual({
-          applied: ['001', '002', '003', '004', '005', '006'],
+        const c3cMigrationIndex = migrations.findIndex(({ version }) => version === '007');
+        expect(c3cMigrationIndex).toBeGreaterThan(0);
+        const prerequisites = migrations.slice(0, c3cMigrationIndex);
+        const c3cAndLater = migrations.slice(c3cMigrationIndex);
+        await expect(applyMigrationSet(dirtyPool, prerequisites)).resolves.toEqual({
+          applied: prerequisites.map(({ version }) => version),
           alreadyApplied: [],
         });
         await dirtyPool.query('CREATE SCHEMA dirty_c3c');
@@ -159,7 +162,7 @@ describe('migration 007, roles and database contracts', () => {
           );
         }
 
-        await expect(applyMigrationSet(dirtyPool, migrations.slice(6))).rejects.toMatchObject({
+        await expect(applyMigrationSet(dirtyPool, c3cAndLater)).rejects.toMatchObject({
           code: '42501',
         });
         const atomicState = await dirtyPool.query<{
@@ -179,8 +182,8 @@ describe('migration 007, roles and database contracts', () => {
         } else {
           await dirtyPool.query('DROP SCHEMA dirty_c3c CASCADE');
         }
-        await expect(applyMigrationSet(dirtyPool, migrations.slice(6))).resolves.toEqual({
-          applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
+        await expect(applyMigrationSet(dirtyPool, c3cAndLater)).resolves.toEqual({
+          applied: c3cAndLater.map(({ version }) => version),
           alreadyApplied: [],
         });
       } finally {
@@ -204,8 +207,12 @@ describe('migration 007, roles and database contracts', () => {
     const migrationPool = new Pool({ connectionString: url.toString(), max: 2 });
     try {
       const migrations = await loadMigrations();
-      await expect(applyMigrationSet(migrationPool, migrations.slice(0, 6))).resolves.toEqual({
-        applied: ['001', '002', '003', '004', '005', '006'],
+      const c3cMigrationIndex = migrations.findIndex(({ version }) => version === '007');
+      expect(c3cMigrationIndex).toBeGreaterThan(0);
+      const prerequisites = migrations.slice(0, c3cMigrationIndex);
+      const c3cAndLater = migrations.slice(c3cMigrationIndex);
+      await expect(applyMigrationSet(migrationPool, prerequisites)).resolves.toEqual({
+        applied: prerequisites.map(({ version }) => version),
         alreadyApplied: [],
       });
       await migrationPool.query(
@@ -213,7 +220,7 @@ describe('migration 007, roles and database contracts', () => {
          VALUES ('90000000-0000-4000-8000-000000000010', '  Not Canonical  ')`,
       );
 
-      await expect(applyMigrationSet(migrationPool, migrations.slice(6))).rejects.toMatchObject({
+      await expect(applyMigrationSet(migrationPool, c3cAndLater)).rejects.toMatchObject({
         code: '23514',
       });
       const atomicState = await migrationPool.query<{ ledger_rows: number }>(`
@@ -228,8 +235,8 @@ describe('migration 007, roles and database contracts', () => {
          SET name = 'Canonical Organization', row_version = row_version + 1
          WHERE id = '90000000-0000-4000-8000-000000000010'`,
       );
-      await expect(applyMigrationSet(migrationPool, migrations.slice(6))).resolves.toEqual({
-        applied: ['007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
+      await expect(applyMigrationSet(migrationPool, c3cAndLater)).resolves.toEqual({
+        applied: c3cAndLater.map(({ version }) => version),
         alreadyApplied: [],
       });
     } finally {

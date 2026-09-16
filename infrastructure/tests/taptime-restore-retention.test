@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly TEST_ROOT="$(mktemp -d)"
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+readonly CALL_LOG="$TEST_ROOT/calls.log"
+readonly CLUSTER_IDENTIFIER='0123456789abcdef'
+
+# shellcheck source=../backup/taptime-restore-verify
+source "$(dirname "$0")/../backup/taptime-restore-verify"
+
+RESTORE_ARCHIVE_IDENTIFIER="$CLUSTER_IDENTIFIER"
+BORG_REPOSITORY='synthetic-repository'
+BASE_BACKUP_KEEP_HOURLY='1'
+BASE_BACKUP_KEEP_DAILY='1'
+BASE_BACKUP_KEEP_WEEKLY='1'
+BASE_BACKUP_KEEP_MONTHLY='1'
+RETENTION_FAILURE=''
+
+production_base_is_registered() { return 0; }
+
+borg() {
+  printf '%s\n' "$*" >> "$CALL_LOG"
+  case "$1" in
+    info | prune)
+      return 0
+      ;;
+    list)
+      if [[ "$*" == *"sh:verified-base-$CLUSTER_IDENTIFIER-"* ]]; then
+        [[ "$RETENTION_FAILURE" != 'marker-list' ]] || return 1
+        printf 'verified-base-%s-20260916T090000Z\n' "$CLUSTER_IDENTIFIER"
+        printf 'verified-base-%s-20260916T100000Z\n' "$CLUSTER_IDENTIFIER"
+        return 0
+      fi
+      if [[ "$*" == *"sh:base-$CLUSTER_IDENTIFIER-"* ]]; then
+        [[ "$RETENTION_FAILURE" != 'base-list' ]] || return 1
+        printf 'base-%s-20260916T100000Z\n' "$CLUSTER_IDENTIFIER"
+        printf 'base-%s-20260916T110000Z\n' "$CLUSTER_IDENTIFIER"
+        return 0
+      fi
+      if [[ "$*" == *"sh:wal-$CLUSTER_IDENTIFIER-"* ]]; then
+        [[ "$RETENTION_FAILURE" != 'wal-list' ]] || return 1
+        printf 'wal-%s-000000010000000000000004\n' "$CLUSTER_IDENTIFIER"
+        printf 'wal-%s-000000010000000000000005\n' "$CLUSTER_IDENTIFIER"
+        printf 'wal-%s-000000020000000000000002\n' "$CLUSTER_IDENTIFIER"
+        printf 'wal-%s-000000020000000000000003\n' "$CLUSTER_IDENTIFIER"
+        return 0
+      fi
+      return 1
+      ;;
+    extract)
+      [[ "$RETENTION_FAILURE" != 'base-extract' ]] || return 1
+      if [[ "$3" == *20260916T100000Z ]]; then
+        printf '000000010000000000000005\n'
+      elif [[ "$3" == *20260916T110000Z ]]; then
+        printf '000000020000000000000003\n'
+      else
+        return 1
+      fi
+      ;;
+    delete)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+assert_no_delete_after_failure() {
+  local failure="$1"
+  local status
+
+  : > "$CALL_LOG"
+  RETENTION_FAILURE="$failure"
+  set +e
+  prune_after_verified_restore \
+    "base-$CLUSTER_IDENTIFIER-20260916T110000Z" >/dev/null 2>&1
+  status=$?
+  set -e
+  (( status != 0 ))
+  if grep --quiet '^delete ' "$CALL_LOG"; then
+    printf 'Retention deleted archives after %s inventory failure.\n' "$failure" >&2
+    exit 1
+  fi
+}
+
+: > "$CALL_LOG"
+prune_after_verified_restore "base-$CLUSTER_IDENTIFIER-20260916T110000Z"
+deleted_archives="$(sed -n 's/^delete synthetic-repository:://p' "$CALL_LOG" \
+  | paste -s -d ' ' -)"
+[[ "$deleted_archives" == \
+  "verified-base-$CLUSTER_IDENTIFIER-20260916T090000Z wal-$CLUSTER_IDENTIFIER-000000010000000000000004 wal-$CLUSTER_IDENTIFIER-000000020000000000000002" ]]
+if grep --quiet \
+  "^delete synthetic-repository::verified-base-$CLUSTER_IDENTIFIER-20260916T100000Z$" \
+  "$CALL_LOG"; then
+  printf 'Retention removed a marker whose base is still retained.\n' >&2
+  exit 1
+fi
+printf 'Timeline retention evidence: each retained base supplied its own WAL floor.\n'
+
+assert_no_delete_after_failure base-list
+assert_no_delete_after_failure base-extract
+assert_no_delete_after_failure wal-list
+assert_no_delete_after_failure marker-list
+printf 'Retention failure evidence: incomplete base, WAL, or marker inventory deleted nothing.\n'

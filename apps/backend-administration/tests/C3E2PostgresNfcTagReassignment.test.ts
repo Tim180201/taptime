@@ -2,9 +2,15 @@ import { reassignNfcTagCommandDigestV1 } from '@taptime/administration-contract'
 import { type SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
 import {
   ServerCanonicalLifecycleIngestionCoordinator,
+  type LifecycleArchiveDurabilityPort,
   type LifecycleIngestionCommand,
 } from '@taptime/backend-lifecycle';
-import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '@taptime/backend-schema';
+import {
+  B3_MIGRATION_TABLE,
+  B3_SCHEMA,
+  loadMigrations,
+  migrate,
+} from '@taptime/backend-schema';
 import {
   CustomerId,
   NfcAssignmentId,
@@ -45,6 +51,11 @@ import {
 
 const installerDatabaseUrl = process.env.C3C_DATABASE_URL
   ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c3c';
+const archivedLifecycleDurability: LifecycleArchiveDurabilityPort = {
+  async requireOffsiteArchive() {
+    return { requiredWalFile: '000000010000000000000000', offsiteArchived: true };
+  },
+};
 const runtimePassword = syntheticPassword();
 const lifecycleRuntimeLogin = 'taptime_c3e2_b6_race_test_login';
 const organizationBResources = {
@@ -69,8 +80,9 @@ beforeAll(async () => {
   installerPool = new Pool({ connectionString: installerDatabaseUrl, max: 6 });
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
+  const expectedVersions = (await loadMigrations()).map(({ version }) => version);
   await expect(migrate(installerPool)).resolves.toEqual({
-    applied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
+    applied: expectedVersions,
     alreadyApplied: [],
   });
   await ensureC3CRuntimeLogin(installerPool, runtimePassword);
@@ -100,6 +112,7 @@ beforeAll(async () => {
   lifecycleCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
     lifecycleRuntimePool,
     fixtureAccessTokenVerifier as SupabaseJwtAccessTokenVerifier,
+    archivedLifecycleDurability,
   );
   await c3cRuntimePool.query('SELECT 1');
   await runtimePool.query('SELECT 1');

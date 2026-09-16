@@ -39,6 +39,11 @@ import type {
   ManualLifecycleIngestionCommand,
   PersistedLifecycleDecision,
 } from './types.js';
+import {
+  LifecycleArchivePendingError,
+  PostgresLifecycleArchiveDurability,
+  type LifecycleArchiveDurabilityPort,
+} from './LifecycleArchiveDurability.js';
 
 export const DA5_MANUAL_LIFECYCLE_ROLE = 'taptime_server_lifecycle';
 const IDENTITY_RESOLVER_ROLE = 'taptime_identity_resolver';
@@ -124,6 +129,14 @@ interface ReceiptRow extends QueryResultRow {
 
 type ManualCommand = ManualLifecycleIngestionCommand | ManualBreakLifecycleIngestionCommand;
 type ManualEvent = ManualWorkEvent | ManualBreakWorkEvent;
+type SynchronizedLifecycleIngestionResult = Extract<
+  LifecycleIngestionResult,
+  { readonly status: 'synchronized' }
+>;
+type ManualReplayResult = SynchronizedLifecycleIngestionResult | Extract<
+  LifecycleIngestionResult,
+  { readonly status: 'conflict' }
+>;
 
 function isBreakCommand(
   command: ManualCommand,
@@ -148,6 +161,8 @@ export class ManualLifecycleIngestionCoordinator {
   constructor(
     private readonly pool: Pool,
     private readonly accessTokenVerifier: AccessTokenVerifier,
+    private readonly archiveDurability: LifecycleArchiveDurabilityPort =
+      new PostgresLifecycleArchiveDurability(),
   ) {}
 
   async ingestManual(command: ManualLifecycleIngestionCommand): Promise<LifecycleIngestionResult> {
@@ -198,7 +213,8 @@ export class ManualLifecycleIngestionCoordinator {
         const replay = await exactReplay(client, actor, command, existing);
         await client.query(replay.status === 'conflict' ? 'ROLLBACK' : 'COMMIT');
         transactionOpen = false;
-        return replay;
+        if (replay.status === 'conflict') return replay;
+        return await this.requireOffsiteArchive(client, actor, replay);
       }
       const receiptCollision = await client.query<{ work_event_id: string }>(
         `SELECT work_event_id
@@ -283,14 +299,14 @@ export class ManualLifecycleIngestionCoordinator {
       transactionOpen = false;
 
       const persisted = persistedDecision(decision);
-      return {
+      return await this.requireOffsiteArchive(client, actor, {
         status: 'synchronized',
         idempotentRetry: false,
         decision: persisted,
         workEventId: event.id,
         receiptId: command.receipt.id,
         serverTimeEntryId: resultTimeEntryId(persisted),
-      };
+      });
     } catch (error) {
       if (transactionOpen) {
         try {
@@ -303,6 +319,25 @@ export class ManualLifecycleIngestionCoordinator {
     } finally {
       client.release();
     }
+  }
+
+  private async requireOffsiteArchive(
+    client: PoolClient,
+    actor: ActorRow,
+    result: SynchronizedLifecycleIngestionResult,
+  ): Promise<SynchronizedLifecycleIngestionResult> {
+    const archive = await this.archiveDurability.requireOffsiteArchive(
+      client,
+      {
+        organizationId: actor.organization_id,
+        userId: actor.user_id,
+        membershipId: actor.membership_id,
+        membershipRole: actor.membership_role,
+      },
+      { workEventId: result.workEventId, receiptId: result.receiptId },
+    );
+    if (!archive.offsiteArchived) throw new LifecycleArchivePendingError();
+    return result;
   }
 }
 
@@ -387,7 +422,7 @@ async function exactReplay(
   actor: ActorRow,
   command: ManualCommand,
   existing: ExistingEventRow,
-): Promise<LifecycleIngestionResult> {
+): Promise<ManualReplayResult> {
   const expectedHash = isBreakCommand(command)
     ? breakWorkEventContentHashV3({
         id: command.workEvent.id,

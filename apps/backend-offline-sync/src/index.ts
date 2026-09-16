@@ -1,5 +1,6 @@
 export * from './lookupHmac.js';
 export * from './manifestDigest.js';
+export * from './OfflineArchiveDurability.js';
 export * from './OfflineCaptureLeaseCoordinator.js';
 export * from './OfflineEventReconciliationCoordinator.js';
 export * from './OfflineLifecycleIngestionCoordinator.js';

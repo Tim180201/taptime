@@ -38,9 +38,11 @@ import {
   B6_LIFECYCLE_ROLE,
   B6_RUNTIME_LOGIN,
   InjectedB6Failure,
+  LifecycleArchivePendingError,
   ManualLifecycleIngestionCoordinator,
   ServerCanonicalLifecycleIngestionCoordinator,
   type B6WriteStage,
+  type LifecycleArchiveDurabilityPort,
   type LifecycleIngestionCommand,
 } from '../src/index.js';
 import {
@@ -67,6 +69,11 @@ const sessionId = '90000000-0000-4000-8000-000000000601';
 const carryoverLocationId = '89000000-0000-4000-8000-000000000001';
 const carryoverBreakTagId = '89000000-0000-4000-8000-000000000003';
 const carryoverBreakAssignmentId = '89000000-0000-4000-8000-000000000004';
+const archivedLifecycleDurability: LifecycleArchiveDurabilityPort = {
+  async requireOffsiteArchive() {
+    return { requiredWalFile: '000000010000000000000000', offsiteArchived: true };
+  },
+};
 let signingKey: CryptoKey;
 let otherSigningKey: CryptoKey;
 let jwksServer: Server;
@@ -153,6 +160,102 @@ async function command(options: {
         : { clientTimeEntryId: TimeEntryId(options.clientTimeEntryId) }),
     },
   };
+}
+
+let syntheticLifecycleBaseSequence = 0;
+
+async function recordSyntheticLifecycleArchive(workEventId: string): Promise<void> {
+  const requirement = await installerPool.query<{ readonly required_wal_file: string }>(
+    `SELECT required_wal_file
+     FROM taptime_server.lifecycle_event_archive_requirements
+     WHERE organization_id = $1::uuid AND work_event_id = $2::uuid`,
+    [ids.organizationA, workEventId],
+  );
+  const walFile = requirement.rows[0]?.required_wal_file;
+  if (walFile === undefined) throw new Error('Lifecycle WAL requirement was not persisted');
+  const cluster = await installerPool.query<{
+    readonly archive_identifier: string;
+    readonly segment_bytes: string;
+  }>(`
+    SELECT pg_catalog.lpad(pg_catalog.to_hex(control.system_identifier), 16, '0')
+             AS archive_identifier,
+           pg_catalog.pg_size_bytes(
+             pg_catalog.current_setting('wal_segment_size')
+           )::text AS segment_bytes
+    FROM pg_catalog.pg_control_system() AS control
+  `);
+  const archiveIdentifier = cluster.rows[0]?.archive_identifier;
+  const segmentBytes = BigInt(cluster.rows[0]?.segment_bytes ?? '0');
+  if (archiveIdentifier === undefined || !/^[0-9a-f]{16}$/u.test(archiveIdentifier)) {
+    throw new Error('Lifecycle archive has no PostgreSQL cluster identifier');
+  }
+  const precedingWalFile = precedingLifecycleWalFile(walFile, segmentBytes) ?? walFile;
+  syntheticLifecycleBaseSequence += 1;
+  const baseArchive = `base-${archiveIdentifier}-20990102T${String(
+    syntheticLifecycleBaseSequence,
+  ).padStart(6, '0')}Z`;
+  const client = await installerPool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL ROLE taptime_wal_archiver');
+    await client.query(
+      `SELECT taptime_server.record_offsite_base_backup_v1(
+         $1, $2::pg_lsn, $3
+       )`,
+      [baseArchive, lifecycleWalFileStartLsn(precedingWalFile, segmentBytes),
+        precedingWalFile],
+    );
+    await client.query(
+      `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
+      [precedingWalFile, `wal-${archiveIdentifier}-${precedingWalFile}`, '0'.repeat(64)],
+    );
+    await client.query(
+      `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
+      [baseArchive, precedingWalFile],
+    );
+    if (precedingWalFile !== walFile) {
+      await client.query(
+        `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
+        [walFile, `wal-${archiveIdentifier}-${walFile}`, '1'.repeat(64)],
+      );
+      await client.query(
+        `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
+        [baseArchive, walFile],
+      );
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+function precedingLifecycleWalFile(walFile: string, segmentBytes: bigint): string | null {
+  if (!/^[0-9A-F]{24}$/u.test(walFile) || segmentBytes <= 0n) {
+    throw new Error('Cannot derive preceding lifecycle WAL segment');
+  }
+  const timeline = walFile.slice(0, 8);
+  let log = BigInt(`0x${walFile.slice(8, 16)}`);
+  let segment = BigInt(`0x${walFile.slice(16)}`);
+  const segmentsPerLog = (2n ** 32n) / segmentBytes;
+  if (segment === 0n) {
+    if (log === 0n) return null;
+    log -= 1n;
+    segment = segmentsPerLog - 1n;
+  } else {
+    segment -= 1n;
+  }
+  const hex = (value: bigint) => value.toString(16).toUpperCase().padStart(8, '0');
+  return `${timeline}${hex(log)}${hex(segment)}`;
+}
+
+function lifecycleWalFileStartLsn(walFile: string, segmentBytes: bigint): string {
+  const log = BigInt(`0x${walFile.slice(8, 16)}`);
+  const segment = BigInt(`0x${walFile.slice(16)}`);
+  return `${log.toString(16).toUpperCase()}/${(segment * segmentBytes)
+    .toString(16).toUpperCase()}`;
 }
 
 async function startJwksServer(jwk: JWK): Promise<{ server: Server; origin: URL }> {
@@ -321,8 +424,16 @@ beforeAll(async () => {
     jwksUrl: new URL(`${issuer}/.well-known/jwks.json`),
     allowedAlgorithms: ['RS256'],
   });
-  coordinator = new ServerCanonicalLifecycleIngestionCoordinator(runtimePool, verifier);
-  manualCoordinator = new ManualLifecycleIngestionCoordinator(runtimePool, verifier);
+  coordinator = new ServerCanonicalLifecycleIngestionCoordinator(
+    runtimePool,
+    verifier,
+    archivedLifecycleDurability,
+  );
+  manualCoordinator = new ManualLifecycleIngestionCoordinator(
+    runtimePool,
+    verifier,
+    archivedLifecycleDurability,
+  );
 }, 30_000);
 
 beforeEach(async () => {
@@ -336,19 +447,15 @@ afterAll(async () => {
 });
 
 describe('B6 migration and least-privilege runtime boundary', () => {
-  it('applies exactly migrations 001 through 022 and reruns the immutable ledger', async () => {
-    expect((await loadMigrations()).map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
-    ]);
+  it('applies every source migration and reruns the immutable ledger', async () => {
+    const expectedVersions = (await loadMigrations()).map(({ version }) => version);
     const ledger = await installerPool.query<{ version: string }>(
       `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
     );
-    expect(ledger.rows.map(({ version }) => version)).toEqual([
-      '001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022',
-    ]);
+    expect(ledger.rows.map(({ version }) => version)).toEqual(expectedVersions);
     await expect(migrate(installerPool)).resolves.toEqual({
       applied: [],
-      alreadyApplied: ['001', '002', '003', '004', '005', '006', '007', '008', '009', '010', '011', '012', '013', '014', '015', '016', '017', '018', '019', '020', '021', '022'],
+      alreadyApplied: expectedVersions,
     });
   });
 
@@ -520,6 +627,152 @@ describe('B6 migration and least-privilege runtime boundary', () => {
 });
 
 describe('server-canonical Core decisions and exact relational mappings', () => {
+  it('withholds a manual work result until its committed WAL is archived',
+    async () => {
+      const durableManual = new ManualLifecycleIngestionCoordinator(runtimePool, verifier);
+      const manualWork = {
+        accessToken: await accessToken(),
+        expectedMembershipId: MembershipId(ids.membershipA),
+        workEvent: {
+          id: WorkEventId(uuid('5', 7)),
+          target: customerAssignmentTarget(CustomerId(ids.customerA)),
+        },
+        receipt: { id: uuid('6', 7), attemptNumber: 1 as const },
+      };
+
+      await expect(durableManual.ingestManual(manualWork))
+        .rejects.toBeInstanceOf(LifecycleArchivePendingError);
+      await recordSyntheticLifecycleArchive(manualWork.workEvent.id);
+      await expect(durableManual.ingestManual(manualWork)).resolves.toMatchObject({
+        status: 'synchronized',
+        idempotentRetry: true,
+        workEventId: manualWork.workEvent.id,
+        receiptId: manualWork.receipt.id,
+      });
+    });
+
+  it('withholds a manual break result until its committed WAL is archived',
+    async () => {
+      const durableManual = new ManualLifecycleIngestionCoordinator(runtimePool, verifier);
+      const manualBreak = {
+        accessToken: await accessToken(),
+        expectedMembershipId: MembershipId(ids.membershipA),
+        workEvent: {
+          id: WorkEventId(uuid('5', 107)),
+          subject: { type: 'break' as const },
+        },
+        receipt: { id: uuid('6', 107), attemptNumber: 1 as const },
+      };
+      await expect(durableManual.ingestManualBreak(manualBreak))
+        .rejects.toBeInstanceOf(LifecycleArchivePendingError);
+      await recordSyntheticLifecycleArchive(manualBreak.workEvent.id);
+      await expect(durableManual.ingestManualBreak(manualBreak)).resolves.toMatchObject({
+        status: 'synchronized',
+        idempotentRetry: true,
+        workEventId: manualBreak.workEvent.id,
+        receiptId: manualBreak.receipt.id,
+      });
+    });
+
+  it('withholds the unchanged canonical v1 result until its committed WAL is archived',
+    async () => {
+      const durableCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
+        runtimePool,
+        verifier,
+      );
+      const input = await command({ eventNumber: 8, receiptNumber: 8 });
+
+      await expect(durableCoordinator.ingest(input))
+        .rejects.toBeInstanceOf(LifecycleArchivePendingError);
+      const committed = await installerPool.query<{
+        readonly event_count: string;
+        readonly requirement_count: string;
+      }>(`
+        SELECT
+          (SELECT count(*) FROM taptime_server.work_events
+            WHERE organization_id = $1::uuid AND id = $2::uuid) AS event_count,
+          (SELECT count(*) FROM taptime_server.lifecycle_event_archive_requirements
+            WHERE organization_id = $1::uuid
+              AND work_event_id = $2::uuid) AS requirement_count
+      `, [ids.organizationA, input.workEvent.id]);
+      expect(committed.rows).toEqual([{ event_count: '1', requirement_count: '1' }]);
+
+      await recordSyntheticLifecycleArchive(input.workEvent.id);
+      await expect(durableCoordinator.ingest(input)).resolves.toMatchObject({
+        status: 'synchronized',
+        idempotentRetry: true,
+        workEventId: input.workEvent.id,
+        receiptId: input.receipt.id,
+      });
+    });
+
+  it('reuses the WorkEvent archive proof for an append-only retry Receipt', async () => {
+    const durableCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
+      runtimePool,
+      verifier,
+    );
+    const original = await command({ eventNumber: 108, receiptNumber: 108 });
+    const retry: LifecycleIngestionCommand = {
+      ...original,
+      receipt: { id: uuid('6', 109), attemptNumber: 2 },
+    };
+
+    await expect(durableCoordinator.ingest(original))
+      .rejects.toBeInstanceOf(LifecycleArchivePendingError);
+    await expect(durableCoordinator.ingest(retry))
+      .rejects.toBeInstanceOf(LifecycleArchivePendingError);
+
+    const receipts = await installerPool.query<{
+      readonly id: string;
+      readonly attempt_number: number;
+    }>(`
+      SELECT id, attempt_number
+      FROM taptime_server.sync_receipts
+      WHERE organization_id = $1::uuid AND work_event_id = $2::uuid
+      ORDER BY attempt_number
+    `, [ids.organizationA, original.workEvent.id]);
+    expect(receipts.rows).toEqual([
+      { id: original.receipt.id, attempt_number: original.receipt.attemptNumber },
+      { id: retry.receipt.id, attempt_number: retry.receipt.attemptNumber },
+    ]);
+    const requirements = await installerPool.query<{ readonly receipt_id: string }>(`
+      SELECT receipt_id
+      FROM taptime_server.lifecycle_event_archive_requirements
+      WHERE organization_id = $1::uuid AND work_event_id = $2::uuid
+    `, [ids.organizationA, original.workEvent.id]);
+    expect(requirements.rows).toEqual([{ receipt_id: original.receipt.id }]);
+
+    await recordSyntheticLifecycleArchive(original.workEvent.id);
+    await expect(durableCoordinator.ingest(retry)).resolves.toMatchObject({
+      status: 'synchronized',
+      idempotentRetry: true,
+      workEventId: original.workEvent.id,
+      receiptId: retry.receipt.id,
+    });
+  });
+
+  it('withholds the unchanged durable deferred v1 result until its WAL is archived',
+    async () => {
+      const durableCoordinator = new ServerCanonicalLifecycleIngestionCoordinator(
+        runtimePool,
+        verifier,
+      );
+      const input = await command({ eventNumber: 9, receiptNumber: 9 });
+
+      await expect(durableCoordinator.ingestDeferred(input, MembershipId(ids.membershipA)))
+        .rejects.toBeInstanceOf(LifecycleArchivePendingError);
+      await recordSyntheticLifecycleArchive(input.workEvent.id);
+      await expect(
+        durableCoordinator.ingestDeferred(input, MembershipId(ids.membershipA)),
+      ).resolves.toEqual({
+        status: 'deferred',
+        evidenceStored: true,
+        idempotentRetry: true,
+        workEventId: input.workEvent.id,
+        receiptId: input.receipt.id,
+      });
+    });
+
   it('persists a genuine Core Start with exact WorkEvent, Decision, Receipt and Audit mapping', async () => {
     const input = await command({
       eventNumber: 10,

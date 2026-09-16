@@ -38,6 +38,10 @@ RUN npx esbuild apps/backend-schema/src/cli.ts \
   --banner:js="import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" \
   --sourcemap \
   --outfile=/runtime/migrate.js
+RUN mkdir -p /runtime/contracts \
+  && if [ -f infrastructure/backend-api/capabilities/lifecycle-archive-ack-v1 ]; then \
+    cp infrastructure/backend-api/capabilities/lifecycle-archive-ack-v1 /runtime/contracts/; \
+  fi
 
 FROM node:24.17.0-bookworm-slim AS runtime
 
@@ -47,6 +51,7 @@ WORKDIR /app
 
 COPY --from=build --chown=node:node /runtime/main.js /runtime/main.js.map ./
 COPY --from=build --chown=node:node /runtime/migrate.js /runtime/migrate.js.map ./schema/
+COPY --from=build --chown=node:node /runtime/contracts ./contracts
 COPY --from=build --chown=node:node /app/apps/backend-schema/migrations ./migrations
 
 USER node

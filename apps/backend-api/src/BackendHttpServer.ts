@@ -60,7 +60,11 @@ import {
   type OfflineLifecycleEventCommand,
   type OfflineLifecycleEventCommandV2,
   type OfflineLifecycleEventCommandV3,
+  type OfflineLifecycleEventResult,
+  type OfflineLifecycleEventResultV4,
   type OfflineReconciliationCommand,
+  type OfflineReconciliationResult,
+  type OfflineReconciliationResultV2,
 } from '@taptime/offline-sync-contract';
 import type {
   BackendApiDependencies,
@@ -89,7 +93,9 @@ const OFFLINE_CAPTURE_LEASE_PAGE_V3_PATH = '/v3/offline-capture-leases/page';
 const OFFLINE_LIFECYCLE_PATH = '/v1/lifecycle-events/offline';
 const OFFLINE_LIFECYCLE_V2_PATH = '/v2/lifecycle-events/offline';
 const OFFLINE_LIFECYCLE_V3_PATH = '/v3/lifecycle-events/offline';
+const OFFLINE_LIFECYCLE_V4_PATH = '/v4/lifecycle-events/offline';
 const OFFLINE_RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
+const OFFLINE_RECONCILIATION_V2_PATH = '/v2/lifecycle-events/reconcile';
 const ADMIN_CUSTOMERS_PATH = '/v1/administration/customers';
 const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
 const ADMIN_BREAK_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision-break';
@@ -760,6 +766,11 @@ async function handleRequest(
       correlationId, timeoutMilliseconds, 3);
     return;
   }
+  if (route === 'offline_lifecycle_v4') {
+    await handleOfflineLifecycle(response, accessToken, body, dependencies, options,
+      correlationId, timeoutMilliseconds, 4);
+    return;
+  }
   if (route === 'offline_reconciliation') {
     await handleOfflineReconciliation(
       response,
@@ -769,6 +780,19 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
+    );
+    return;
+  }
+  if (route === 'offline_reconciliation_v2') {
+    await handleOfflineReconciliation(
+      response,
+      accessToken,
+      body,
+      dependencies,
+      options,
+      correlationId,
+      timeoutMilliseconds,
+      2,
     );
     return;
   }
@@ -2355,9 +2379,11 @@ async function handleOfflineLifecycle(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
-  version: 1 | 2 | 3 = 1,
+  version: 1 | 2 | 3 | 4 = 1,
 ): Promise<void> {
-  const command = version === 3
+  const command = version === 4
+    ? parseOfflineLifecycleBodyV4(body)
+    : version === 3
     ? parseOfflineLifecycleBodyV3(body)
     : version === 2
       ? parseOfflineLifecycleBodyV2(body)
@@ -2371,35 +2397,50 @@ async function handleOfflineLifecycle(
       dependencies.offlineLifecycleIngestor.ingest({ accessToken, command }),
       timeoutMilliseconds,
     );
-    switch (result.status) {
+    const responseResult = version === 4 ? result : legacyOfflineLifecycleResult(result);
+    switch (responseResult.status) {
       case 'synchronized':
-        respondJson(response, 200, result);
+        respondJson(response, 200, responseResult);
         return;
       case 'review_pending':
-        respondJson(response, 202, result);
+      case 'archive_pending':
+        respondJson(response, 202, responseResult);
         return;
       case 'pending':
         if (
-          result.retryAfterSeconds !== undefined
-          && isValidRetryAfterSeconds(result.retryAfterSeconds)
+          responseResult.retryAfterSeconds !== undefined
+          && isValidRetryAfterSeconds(responseResult.retryAfterSeconds)
         ) {
-          response.setHeader('Retry-After', String(result.retryAfterSeconds));
+          response.setHeader('Retry-After', String(responseResult.retryAfterSeconds));
         }
-        respondJson(response, 202, result);
+        respondJson(response, 202, responseResult);
         return;
       case 'conflict':
-        respondJson(response, 409, result);
+        respondJson(response, 409, responseResult);
         return;
       case 'authority_rejected':
         respondError(response, 401, 'unauthorized');
         return;
       default:
-        return result satisfies never;
+        return responseResult satisfies never;
     }
   } catch {
     emitOfflineDiagnostic(options.onDiagnostic, correlationId);
     respondError(response, 503, 'service_unavailable');
   }
+}
+
+function legacyOfflineLifecycleResult(
+  result: OfflineLifecycleEventResultV4,
+): OfflineLifecycleEventResult {
+  if (result.status === 'archive_pending') {
+    return { status: 'pending', reason: 'temporarily_unavailable' };
+  }
+  if (result.status === 'synchronized' || result.status === 'review_pending') {
+    const { archiveStatus: _archiveStatus, ...legacy } = result;
+    return legacy;
+  }
+  return result;
 }
 
 async function handleOfflineReconciliation(
@@ -2410,6 +2451,7 @@ async function handleOfflineReconciliation(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  version: 1 | 2 = 1,
 ): Promise<void> {
   const command = parseOfflineReconciliationBody(body);
   if (command === null) {
@@ -2417,8 +2459,18 @@ async function handleOfflineReconciliation(
     return;
   }
   try {
+    const reconcileV2 = dependencies.offlineEventReconciliationReader.reconcileV2;
+    const operation: Promise<OfflineReconciliationResult | OfflineReconciliationResultV2> =
+      version === 2
+        ? reconcileV2 === undefined
+          ? Promise.resolve({ status: 'unavailable' as const })
+          : reconcileV2.call(
+              dependencies.offlineEventReconciliationReader,
+              { accessToken, command },
+            )
+        : dependencies.offlineEventReconciliationReader.reconcile({ accessToken, command });
     const result = await withTimeout(
-      dependencies.offlineEventReconciliationReader.reconcile({ accessToken, command }),
+      operation,
       timeoutMilliseconds,
     );
     switch (result.status) {
@@ -2568,9 +2620,11 @@ function requestRoute(url: string | undefined): Route | null {
     return 'offline_lifecycle_v2';
   }
   if (url === OFFLINE_LIFECYCLE_V3_PATH) return 'offline_lifecycle_v3';
+  if (url === OFFLINE_LIFECYCLE_V4_PATH) return 'offline_lifecycle_v4';
   if (url === OFFLINE_RECONCILIATION_PATH) {
     return 'offline_reconciliation';
   }
+  if (url === OFFLINE_RECONCILIATION_V2_PATH) return 'offline_reconciliation_v2';
   return null;
 }
 
@@ -2633,7 +2687,9 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'offline_lifecycle':
     case 'offline_lifecycle_v2':
     case 'offline_lifecycle_v3':
+    case 'offline_lifecycle_v4':
     case 'offline_reconciliation':
+    case 'offline_reconciliation_v2':
     case 'offline_review_state':
       return 'offline_synchronization_failed';
     case null:
@@ -2683,7 +2739,9 @@ function isOfflineRoute(route: Route): boolean {
     || route === 'offline_lifecycle'
     || route === 'offline_lifecycle_v2'
     || route === 'offline_lifecycle_v3'
+    || route === 'offline_lifecycle_v4'
     || route === 'offline_reconciliation'
+    || route === 'offline_reconciliation_v2'
     || route === 'offline_review_state';
 }
 
@@ -3455,6 +3513,19 @@ function parseOfflineLifecycleBodyV3(
 ): OfflineLifecycleEventCommandV3 | null {
   if (!isOfflineLifecycleEventCommandV3(body)) return null;
   return body as OfflineLifecycleEventCommandV3;
+}
+
+function parseOfflineLifecycleBodyV4(
+  body: unknown,
+): OfflineLifecycleEventCommand
+  | OfflineLifecycleEventCommandV2
+  | OfflineLifecycleEventCommandV3
+  | null {
+  if (!isRecord(body)) return null;
+  if (body.provenanceVersion === 1) return parseOfflineLifecycleBody(body);
+  if (body.provenanceVersion === 2) return parseOfflineLifecycleBodyV2(body);
+  if (body.provenanceVersion === 3) return parseOfflineLifecycleBodyV3(body);
+  return null;
 }
 
 function parseOfflineReconciliationBody(

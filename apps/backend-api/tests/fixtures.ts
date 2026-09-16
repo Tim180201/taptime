@@ -1,7 +1,12 @@
 import { createServer, type Server } from 'node:http';
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey, type JWK } from 'jose';
 import { Pool } from 'pg';
-import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '../../backend-schema/src/index.js';
+import {
+  B3_MIGRATION_TABLE,
+  B3_SCHEMA,
+  loadMigrations,
+  migrate,
+} from '../../backend-schema/src/index.js';
 
 export const C2_SESSION_RUNTIME_LOGIN = 'taptime_c2_session_runtime';
 export const C3E2_REASSIGNMENT_RUNTIME_LOGIN = 'taptime_c3e2_reassignment_runtime';
@@ -55,8 +60,9 @@ export async function resetMigrateAndPrepareLogin(
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   const result = await migrate(installerPool);
-  if (result.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019,020,021,022') {
-    throw new Error('C1 requires a clean migration set 001 through 022');
+  const expected = (await loadMigrations()).map(({ version }) => version);
+  if (result.applied.join(',') !== expected.join(',')) {
+    throw new Error('C1 requires every source migration in order');
   }
   await ensureExactRuntimeLogin(installerPool, runtimePassword);
   await ensureExactReassignmentRuntimeLogin(installerPool);

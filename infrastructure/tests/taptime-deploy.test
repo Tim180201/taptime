@@ -11,18 +11,73 @@ export TAPTIME_DEPLOY_COMPOSE_FILE="$TEST_ROOT/docker-compose.yml"
 export TAPTIME_DEPLOY_BACKUP_CONFIG="$TEST_ROOT/backup.conf"
 export TAPTIME_DEPLOY_VERSION_STATE_FILE="$TEST_ROOT/current-version"
 export TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE="$TEST_ROOT/operations-version"
+export TAPTIME_DEPLOY_POSTGRES_VOLUME_STATE_FILE="$TEST_ROOT/postgres-volume"
 export TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE="$TEST_ROOT/known-versions"
 export TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE="$TEST_ROOT/ghcr-protected-versions.json"
 export TAPTIME_DEPLOY_HEALTH_URL='https://health.invalid/health'
 export TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL='https://admin.invalid/version.txt'
 export TAPTIME_DEPLOY_ADMIN_WEB_ROOT="$TEST_ROOT/admin-web"
 printf 'services: {}\n' > "$TAPTIME_DEPLOY_COMPOSE_FILE"
-printf '# synthetic deployment test configuration\n' > "$TAPTIME_DEPLOY_BACKUP_CONFIG"
+printf '%s\n' \
+  "BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'" \
+  "BORG_RSH='ssh -p 23 -i /synthetic-key -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/synthetic-known-hosts -o StrictHostKeyChecking=yes'" \
+  "DATABASE_CONTAINER=taptime-database" \
+  "DATABASE_NAME=taptime" \
+  "WAL_SPOOL_DIRECTORY=/var/lib/taptime-wal" \
+  "WAL_CONTAINER_DIRECTORY=/var/lib/postgresql/wal-archive" \
+  "WAL_REPLICATION_SLOT=taptime_offsite_archive" \
+  "WAL_ARCHIVE_INTERVAL_SECONDS=1" \
+  "WAL_ARCHIVE_MISSED_CYCLES=2" \
+  "WAL_ARCHIVE_STATUS_FILE=/var/lib/taptime-monitor/wal-archive-status.json" \
+  "WAL_ARCHIVE_CACHE_DIRECTORY=/var/cache/taptime-wal-archive" \
+  "BASE_BACKUP_KEEP_HOURLY=1" \
+  "BASE_BACKUP_KEEP_DAILY=1" \
+  "BASE_BACKUP_KEEP_WEEKLY=1" \
+  "BASE_BACKUP_KEEP_MONTHLY=1" \
+  "RESTORE_RECOVERY_TIMEOUT_SECONDS=14400" \
+  "RESTORE_RECOVERY_POLL_SECONDS=1" \
+  > "$TAPTIME_DEPLOY_BACKUP_CONFIG"
 printf 'aaaaaaa\n' > "$TAPTIME_DEPLOY_VERSION_STATE_FILE"
 printf 'ddddddd\n' > "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE"
 
 # shellcheck source=../deploy
 source "$(dirname "$0")/../deploy"
+
+hostname() {
+  if [[ "${1:-}" == '-I' ]]; then
+    printf '192.0.2.10 10.0.0.10\n'
+  else
+    printf 'synthetic-local\n'
+  fi
+}
+
+getent() {
+  [[ "${1:-}" == 'ahostsv4' ]] || return 1
+  case "${2:-}" in
+    offsite.invalid)
+      printf '198.51.100.23 STREAM offsite.invalid\n'
+      ;;
+    local-alias.invalid)
+      printf '192.0.2.10 STREAM local-alias.invalid\n'
+      ;;
+    *)
+      return 2
+      ;;
+  esac
+}
+export -f hostname getent
+
+printf 'unexpected-volume\n' > "$TAPTIME_DEPLOY_POSTGRES_VOLUME_STATE_FILE"
+set +e
+invalid_volume_output="$(selected_postgres_volume 2> "$TEST_ROOT/invalid-volume.log")"
+invalid_volume_status=$?
+set -e
+(( invalid_volume_status != 0 ))
+[[ -z "$invalid_volume_output" ]]
+grep --quiet 'Invalid PostgreSQL volume state' "$TEST_ROOT/invalid-volume.log"
+printf 'taptime-postgres-data\n' > "$TAPTIME_DEPLOY_POSTGRES_VOLUME_STATE_FILE"
+[[ "$(selected_postgres_volume)" == 'taptime-postgres-data' ]]
+printf 'PostgreSQL volume-state evidence: invalid state fails without a compose fallback.\n'
 
 BROKEN_OPERATIONS_RELEASE="$TEST_ROOT/broken-operations"
 readonly BROKEN_OPERATIONS_RELEASE
@@ -99,12 +154,26 @@ deploy_operations_release() {
   fi
 }
 verify_local_rehearsal_image() { record "verify-local $1 $2"; }
+image_supports_archive_ack_contract() {
+  [[ "${TEST_IMAGE_ARCHIVE_CAPABLE:-1}" == '1' ]]
+}
 select_migration_version() { printf '%s\n' "$DESIRED_VERSION"; }
 run_restore_verification() {
-  record "restore-and-rehearsal $1"
+  record "restore-and-rehearsal $1 ${2:-0}"
   [[ "${FAIL_REHEARSAL:-0}" != '1' ]]
 }
 run_backup() { record backup; }
+wal_archive_mount_state() { printf '%s\n' "${TEST_WAL_MOUNT_STATE:-active}"; }
+archive_contract_is_active() { [[ "${TEST_ARCHIVE_CONTRACT_ACTIVE:-1}" == '1' ]]; }
+ensure_wal_archive_runtime() { record ensure-wal-runtime; }
+begin_wal_archive_cutover() {
+  ARCHIVE_CUTOVER_ACTIVE=1
+  trap 'rollback_started_image $?' EXIT
+  record begin-wal-cutover
+}
+activate_wal_receiver() { record activate-wal-receiver; }
+prepare_offsite_wal_for_restore() { record "prepare-offsite-wal ${1:-0}"; }
+complete_wal_archive_cutover() { record complete-wal-cutover; }
 sync_migration_sources() { record "sync $1"; }
 migrate_production() { record migrate-production; }
 start_backend() { record "start $1"; }
@@ -138,6 +207,20 @@ expect_status() {
   fi
 }
 
+BORG_RSH='ssh -p 23 -i /synthetic-key -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/synthetic-known-hosts -o StrictHostKeyChecking=yes'
+BORG_REPOSITORY="$TEST_ROOT/local-borg-repository"
+expect_status 1 validate_offsite_borg_repository
+grep --quiet 'must use non-local ssh:// storage' "$OUTPUT_FILE"
+BORG_REPOSITORY='ssh://synthetic@localhost:23/./taptime'
+expect_status 1 validate_offsite_borg_repository
+grep --quiet 'must not resolve by configuration to this host' "$OUTPUT_FILE"
+BORG_REPOSITORY='ssh://synthetic@local-alias.invalid:23/./taptime'
+expect_status 1 validate_offsite_borg_repository
+grep --quiet 'resolves to a local interface address' "$OUTPUT_FILE"
+BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'
+expect_status 0 validate_offsite_borg_repository
+printf 'Offsite repository evidence: local paths, localhost and local aliases are rejected.\n'
+
 assert_log() {
   local expected="$1"
   local actual
@@ -146,6 +229,53 @@ assert_log() {
     printf 'Unexpected call log.\nExpected:\n%s\nActual:\n%s\n' "$expected" "$actual" >&2
     exit 1
   fi
+}
+
+run_real_archive_barrier() {
+  bash -c '
+    set -euo pipefail
+    source "$1"
+    WAL_ARCHIVE_BOOTSTRAP=1
+    ensure_wal_archive_runtime() { :; }
+    docker() {
+      if [[ "$*" == *pg_switch_wal* ]]; then
+        printf "123456789|0/FFFFFF|000000010000000000000001\n"
+      elif [[ "$*" == *offline_wal_requirement_is_archived_v1* ]]; then
+        [[ "$*" == *"123456789'"'"'::bigint, '"'"'0/FFFFFF'"'"'::pg_lsn"* ]]
+        printf "t\n"
+      else
+        return 1
+      fi
+    }
+    complete_wal_archive_cutover
+  ' bash "$(dirname "$0")/../deploy"
+}
+
+run_real_wal_preparation() {
+  local preparation_log="$TEST_ROOT/wal-preparation.log"
+
+  : > "$preparation_log"
+  TAPTIME_DEPLOY_BACKUP_CONFIG="$TAPTIME_DEPLOY_BACKUP_CONFIG" \
+    TAPTIME_DEPLOY_WAL_ARCHIVER_COMMAND=fake_archiver \
+    bash -c '
+      set -euo pipefail
+      source "$1"
+      preparation_log="$2"
+      require_file() { :; }
+      systemctl() { printf "systemctl %s\n" "$*" >> "$preparation_log"; }
+      fake_archiver() {
+        printf "archiver upload-only=%s run-once=%s\n" \
+          "$TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY" "$TAPTIME_WAL_ARCHIVE_RUN_ONCE" \
+          >> "$preparation_log"
+      }
+      prepare_offsite_wal_for_restore 1
+      prepare_offsite_wal_for_restore 0
+    ' bash "$(dirname "$0")/../deploy" "$preparation_log"
+  [[ "$(< "$preparation_log")" == "systemctl stop taptime-wal-archiver.service
+archiver upload-only=1 run-once=1
+systemctl stop taptime-wal-archiver.service
+archiver upload-only=0 run-once=1
+systemctl enable --now taptime-wal-archiver.service" ]]
 }
 
 run_real_health_probe() {
@@ -198,6 +328,39 @@ grep --quiet '^Usage: .* <seven-character-commit-hash>$' "$OUTPUT_FILE"
 expect_status 1 main latest
 grep --quiet 'Version must be exactly one seven-character lowercase commit hash' "$OUTPUT_FILE"
 
+expect_status 0 run_real_archive_barrier
+grep --quiet 'Externe WAL-Barriere belegt' "$OUTPUT_FILE"
+printf 'WAL barrier evidence: the cluster-bound three-argument SQL contract was used.\n'
+
+expect_status 0 run_real_wal_preparation
+printf 'WAL bootstrap evidence: upload-only keeps the normal archiver stopped until migration.\n'
+
+: > "$LOG_FILE"
+TEST_IMAGE_ARCHIVE_CAPABLE=0 expect_status 1 main bbbbbbb
+grep --quiet 'cannot honor delayed archive acknowledgement' "$OUTPUT_FILE"
+assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
+pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
+pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb"
+printf 'Archive-contract image evidence: an incapable target was rejected before installation.\n'
+
+: > "$LOG_FILE"
+TEST_ARCHIVE_CONTRACT_ACTIVE=0 expect_status 0 main bbbbbbb
+cutover_line="$(grep --line-number '^begin-wal-cutover$' "$LOG_FILE" | cut -d: -f1)"
+upload_only_line="$(grep --line-number '^prepare-offsite-wal 1$' "$LOG_FILE" | cut -d: -f1)"
+migration_line="$(grep --line-number '^migrate-production$' "$LOG_FILE" | cut -d: -f1)"
+normal_archive_line="$(grep --line-number '^prepare-offsite-wal 0$' "$LOG_FILE" | cut -d: -f1)"
+[[ "$cutover_line" -lt "$upload_only_line" \
+  && "$upload_only_line" -lt "$migration_line" \
+  && "$migration_line" -lt "$normal_archive_line" ]]
+if grep --quiet '^ensure-wal-runtime$' "$LOG_FILE"; then
+  printf 'A database without the archive contract started the normal archiver too early.\n' >&2
+  exit 1
+fi
+printf 'Historical-contract bootstrap evidence: active mount still stops old ingestion and uploads WAL before migration.\n'
+ACTIVE_ADMIN_WEB_VERSION='aaaaaaa'
+
 : > "$LOG_FILE"
 rm -f "$TAPTIME_DEPLOY_COMPOSE_FILE"
 INSTALL_MISSING_COMPOSE=1 FAIL_OPERATIONS=1 expect_status 2 main bbbbbbb
@@ -239,7 +402,11 @@ prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 verify-local local-bad bbbbbbb
-restore-and-rehearsal local-bad"
+ensure-wal-runtime
+sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal local-bad 1"
 
 : > "$LOG_FILE"
 FAIL_REHEARSAL=1 expect_status 1 main bbbbbbb
@@ -251,7 +418,11 @@ pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
-restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb"
+ensure-wal-runtime
+sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 1"
 
 : > "$LOG_FILE"
 FAIL_REHEARSAL=1 expect_status 1 main ccccccc
@@ -263,7 +434,11 @@ pull ghcr.io/tim180201/taptime-backend-api:operations-ddddddd
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-ccccccc ccccccc
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-ddddddd ddddddd
-restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:ccccccc"
+ensure-wal-runtime
+sync ghcr.io/tim180201/taptime-backend-api:ccccccc
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:ccccccc 1"
 printf 'Known rollback evidence: application ccccccc kept operations ddddddd.\n'
 
 : > "$LOG_FILE"
@@ -276,18 +451,21 @@ pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
-restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
-backup
+ensure-wal-runtime
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 1
 migrate-production
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 0
+complete-wal-cutover
 activate-web bbbbbbb
 start bbbbbbb
 restart-caddy bbbbbbb
-health bbbbbbb
-activate-web aaaaaaa
-start aaaaaaa
-restart-caddy aaaaaaa
-health aaaaaaa"
+health bbbbbbb"
+grep --quiet 'Archivvertrag ist aktiv; das alte Backend bleibt' "$OUTPUT_FILE"
 
 : > "$LOG_FILE"
 expect_status 0 main bbbbbbb
@@ -299,10 +477,16 @@ pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
-restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
-backup
+ensure-wal-runtime
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 1
 migrate-production
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 0
+complete-wal-cutover
 activate-web bbbbbbb
 start bbbbbbb
 restart-caddy bbbbbbb
@@ -322,23 +506,24 @@ pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
-restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb
-backup
+ensure-wal-runtime
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 1
 migrate-production
+backup
+prepare-offsite-wal 0
+restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 0
+complete-wal-cutover
 activate-web aaaaaaa
 start bbbbbbb
 restart-caddy bbbbbbb
-health bbbbbbb
-activate-web aaaaaaa
-start aaaaaaa
-restart-caddy aaaaaaa
-health aaaaaaa"
+health bbbbbbb"
 grep --quiet 'Lege absichtlich die falsche Oberflächenversion aaaaaaa ab' "$OUTPUT_FILE"
-grep --quiet 'Rücknahme erfolgreich; Backend und Admin-Web belegen Version aaaaaaa' "$OUTPUT_FILE"
-test "$ACTIVE_ADMIN_WEB_VERSION" = 'aaaaaaa'
-printf 'Forced wrong-version rollback evidence:\n'
-grep --extended-regexp 'Lege absichtlich|Neuer Stand fehlgeschlagen|Rücknahme erfolgreich' "$OUTPUT_FILE"
+grep --quiet 'Archivvertrag ist aktiv; das alte Backend bleibt' "$OUTPUT_FILE"
+printf 'Forced wrong-version fail-closed evidence:\n'
+grep --extended-regexp 'Lege absichtlich|Archivvertrag ist aktiv|Manual recovery' "$OUTPUT_FILE"
 sed -n '/activate-web aaaaaaa/,$p' "$LOG_FILE"
 
 : > "$LOG_FILE"
@@ -357,9 +542,15 @@ expect_status 137 env \
     prepare_admin_web_release() { record "prepare-web $1 $2"; }
     deploy_operations_release() { record "install-operations $1 $2"; }
     verify_local_rehearsal_image() { record "verify-local $1 $2"; }
+    image_supports_archive_ack_contract() { return 0; }
     select_migration_version() { printf "%s\n" "$DESIRED_VERSION"; }
-    run_restore_verification() { record "restore-and-rehearsal $1"; }
+    run_restore_verification() { record "restore-and-rehearsal $1 ${2:-0}"; }
     run_backup() { record backup; }
+    wal_archive_mount_state() { printf "active\n"; }
+    archive_contract_is_active() { return 0; }
+    ensure_wal_archive_runtime() { record ensure-wal-runtime; }
+    prepare_offsite_wal_for_restore() { record "prepare-offsite-wal ${1:-0}"; }
+    complete_wal_archive_cutover() { record complete-wal-cutover; }
     sync_migration_sources() { record "sync $1"; }
     migrate_production() { record migrate-production; }
     start_backend() { record "start $1"; }

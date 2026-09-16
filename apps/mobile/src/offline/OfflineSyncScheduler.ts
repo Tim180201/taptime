@@ -88,8 +88,8 @@ export class OfflineSyncScheduler {
 
   trigger(_trigger: OfflineSyncTrigger): Promise<OfflineSyncSchedulerState> {
     if (this.stopped) return Promise.resolve(this.state);
-    this.cancelTimer();
     if (this.flight !== null) return this.flight;
+    this.cancelTimer();
     const operation = this.drain();
     let flight!: Promise<OfflineSyncSchedulerState>;
     flight = operation.finally(() => {
@@ -173,6 +173,15 @@ export class OfflineSyncScheduler {
         return this.publish({ status: 'protected', queueCount });
       }
       if (head === null) {
+        let nextRetryAt: number | null;
+        try {
+          nextRetryAt = await this.database.readNextRetryAt();
+        } catch {
+          return this.publish({ status: 'protected', queueCount });
+        }
+        if (nextRetryAt !== null) {
+          this.scheduleRetry(nextRetryAt - this.now());
+        }
         return this.publish({ status: 'retry_wait', queueCount });
       }
       const outcome = await this.submitOffline(head, queueCount);
@@ -282,6 +291,12 @@ export class OfflineSyncScheduler {
           state: this.publish({ status: 'protected', queueCount }),
         };
       }
+      if (recovered.result.status === 'archive_pending') {
+        return {
+          status: 'stop',
+          state: await this.retryOffline(head, identity, queueCount),
+        };
+      }
       try {
         await this.database.acknowledgeHead(identity, recovered.result.status);
       } catch {
@@ -362,7 +377,7 @@ export class OfflineSyncScheduler {
         head,
         identity,
         queueCount,
-        result.retryAfterSeconds,
+        'retryAfterSeconds' in result ? result.retryAfterSeconds : undefined,
       ),
     };
   }

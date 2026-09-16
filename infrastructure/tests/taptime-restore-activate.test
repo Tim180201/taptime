@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+readonly TEST_ROOT="$(mktemp -d)"
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+readonly CALL_LOG="$TEST_ROOT/calls.log"
+readonly TEST_CONFIG_FILE="$TEST_ROOT/backup.conf"
+readonly TEST_COMPOSE_FILE="$TEST_ROOT/docker-compose.yml"
+readonly VERSION_FILE="$TEST_ROOT/current-version"
+readonly VOLUME_FILE="$TEST_ROOT/postgres-volume"
+readonly DEPLOY_STUB="$TEST_ROOT/taptime-deploy"
+readonly TEST_WAL_SPOOL_DIRECTORY="$TEST_ROOT/wal-spool"
+readonly PRESERVED_WAL_SPOOL_DIRECTORY="${TEST_WAL_SPOOL_DIRECTORY}.pre-restore-20260916T120000Z"
+readonly CLUSTER_IDENTIFIER='0123456789abcdef'
+readonly TARGET_VOLUME='taptime-postgres-restored-20260916T120000Z'
+readonly FAILED_VOLUME='taptime-postgres-restored-20260916T130000Z'
+readonly INCOMPLETE_VOLUME='taptime-postgres-restored-20260916T140000Z'
+
+printf '%s\n' \
+  "DATABASE_NAME=taptime" \
+  "RESTORE_IMAGE=postgres:test" \
+  "WAL_SPOOL_DIRECTORY=$TEST_WAL_SPOOL_DIRECTORY" \
+  "RESTORE_RECOVERY_TIMEOUT_SECONDS=10" \
+  "RESTORE_RECOVERY_POLL_SECONDS=1" > "$TEST_CONFIG_FILE"
+printf 'services: {}\n' > "$TEST_COMPOSE_FILE"
+printf 'abcdef0\n' > "$VERSION_FILE"
+printf 'taptime-postgres-data\n' > "$VOLUME_FILE"
+install -d -m 0700 "$TEST_WAL_SPOOL_DIRECTORY"
+printf '%s\n' "$CLUSTER_IDENTIFIER" > \
+  "$TEST_WAL_SPOOL_DIRECTORY/.cluster-system-identifier"
+printf 'future timeline WAL\n' > \
+  "$TEST_WAL_SPOOL_DIRECTORY/0000000200000000000000FF"
+cat > "$DEPLOY_STUB" <<'EOF_DEPLOY'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'deploy %s|%s\n' "$1" "$(< "$TAPTIME_RESTORE_VOLUME_STATE_FILE")" \
+  >> "$TAPTIME_RESTORE_CALL_LOG"
+EOF_DEPLOY
+chmod 0700 "$DEPLOY_STUB"
+: > "$CALL_LOG"
+
+export TAPTIME_BACKUP_CONFIG="$TEST_CONFIG_FILE"
+export TAPTIME_RESTORE_COMPOSE_FILE="$TEST_COMPOSE_FILE"
+export TAPTIME_RESTORE_VERSION_STATE_FILE="$VERSION_FILE"
+export TAPTIME_RESTORE_VOLUME_STATE_FILE="$VOLUME_FILE"
+export TAPTIME_RESTORE_DEPLOY_COMMAND="$DEPLOY_STUB"
+export TAPTIME_RESTORE_ACTIVATE_LOCK_FILE="$TEST_ROOT/activate.lock"
+export TAPTIME_DEPLOY_LOCK_FILE="$TEST_ROOT/deploy.lock"
+export TAPTIME_RESTORE_CALL_LOG="$CALL_LOG"
+export TAPTIME_RESTORE_EXPECTED_WAL_SPOOL_DIRECTORY="$TEST_WAL_SPOOL_DIRECTORY"
+
+readonly TEST_POSTGRES_UID="$(id -u)"
+readonly TEST_POSTGRES_GID="$(id -g)"
+
+# shellcheck source=../backup/taptime-restore-activate
+source "$(dirname "$0")/../backup/taptime-restore-activate"
+
+id() { printf '0\n'; }
+flock() { :; }
+systemctl() {
+  printf 'systemctl %s\n' "$*" >> "$CALL_LOG"
+  [[ "${FAKE_SYSTEMCTL_STOP_FAILURE:-0}" != '1' ]]
+}
+docker() {
+  printf 'docker %s\n' "$*" >> "$CALL_LOG"
+  if [[ "$1" == 'volume' && "$2" == 'inspect' ]]; then
+    if [[ "$4" == *'candidate'* ]]; then
+      printf 'true\n'
+    elif [[ "$4" == *'cluster'* ]]; then
+      printf '%s\n' "$CLUSTER_IDENTIFIER"
+    elif [[ "$4" == *'archive'* ]]; then
+      printf 'base-%s-20260916T110000Z\n' "$CLUSTER_IDENTIFIER"
+    elif [[ "$4" == *'target'* ]]; then
+      printf 'latest\n'
+    fi
+    return 0
+  fi
+  if [[ "$1" == 'run' && "$*" == *'.taptime-restore-complete'* ]]; then
+    [[ "${FAKE_MARKER_PRESENT:-1}" == '1' ]] || return 1
+    printf 'format=1\ncluster=%s\narchive=base-%s-20260916T110000Z\ntarget=latest\n' \
+      "$CLUSTER_IDENTIFIER" "$CLUSTER_IDENTIFIER"
+    return 0
+  fi
+  if [[ "$1" == 'run' && "${*: -3}" == 'id -u postgres' ]]; then
+    printf '%s\n' "$TEST_POSTGRES_UID"
+    return 0
+  fi
+  if [[ "$1" == 'run' && "${*: -3}" == 'id -g postgres' ]]; then
+    printf '%s\n' "$TEST_POSTGRES_GID"
+    return 0
+  fi
+  if [[ "$1" == 'inspect' ]]; then
+    if [[ "$3" == *'.Mounts'* ]]; then
+      printf 'volume|%s|true\n' "$(< "$TEST_ROOT/running-volume")"
+      return 0
+    fi
+    printf '%s\n' "${FAKE_DATABASE_HEALTH:-healthy}"
+    return 0
+  fi
+  if [[ "$1" == 'compose' && "$*" == *' ps --quiet database'* ]]; then
+    printf 'candidate-database\n'
+    return 0
+  fi
+  if [[ "$1" == 'compose' && "$*" == *' up --detach '* ]]; then
+    if [[ "${FAKE_IGNORE_TARGET_VOLUME:-0}" == '1' ]]; then
+      printf 'taptime-postgres-data\n' > "$TEST_ROOT/running-volume"
+    else
+      printf '%s\n' "${TAPTIME_POSTGRES_VOLUME:?}" > "$TEST_ROOT/running-volume"
+    fi
+    return 0
+  fi
+  if [[ "$1" == 'compose' && "$*" == *' exec --no-tty '* ]]; then
+    printf '%s\n' "${FAKE_LIVE_CLUSTER_IDENTIFIER:-$CLUSTER_IDENTIFIER}"
+    return 0
+  fi
+  return 0
+}
+
+set +e
+FAKE_MARKER_PRESENT=0 main "$INCOMPLETE_VOLUME" \
+  > "$TEST_ROOT/incomplete.log" 2>&1
+incomplete_status=$?
+set -e
+(( incomplete_status != 0 ))
+[[ "$(tr -d '[:space:]' < "$VOLUME_FILE")" == 'taptime-postgres-data' ]]
+grep --quiet 'no completed restore marker' "$TEST_ROOT/incomplete.log"
+[[ -f "$TEST_WAL_SPOOL_DIRECTORY/0000000200000000000000FF" ]]
+
+set +e
+FAKE_SYSTEMCTL_STOP_FAILURE=1 main "$TARGET_VOLUME" \
+  > "$TEST_ROOT/systemctl-stop.log" 2>&1
+systemctl_stop_status=$?
+set -e
+(( systemctl_stop_status != 0 ))
+[[ "$(tr -d '[:space:]' < "$VOLUME_FILE")" == 'taptime-postgres-data' ]]
+[[ -f "$TEST_WAL_SPOOL_DIRECTORY/0000000200000000000000FF" ]]
+[[ ! -e "$PRESERVED_WAL_SPOOL_DIRECTORY" ]]
+grep --quiet 'Could not stop WAL archiving' "$TEST_ROOT/systemctl-stop.log"
+
+set +e
+FAKE_IGNORE_TARGET_VOLUME=1 main "$TARGET_VOLUME" \
+  > "$TEST_ROOT/wrong-mount.log" 2>&1
+wrong_mount_status=$?
+set -e
+(( wrong_mount_status != 0 ))
+[[ "$(tr -d '[:space:]' < "$VOLUME_FILE")" == 'taptime-postgres-data' ]]
+grep --quiet 'not mounted from the selected candidate volume' \
+  "$TEST_ROOT/wrong-mount.log"
+[[ -d "$PRESERVED_WAL_SPOOL_DIRECTORY" ]]
+[[ -f "$PRESERVED_WAL_SPOOL_DIRECTORY/.cluster-system-identifier" ]]
+[[ -f "$PRESERVED_WAL_SPOOL_DIRECTORY/0000000200000000000000FF" ]]
+[[ -d "$TEST_WAL_SPOOL_DIRECTORY" ]]
+[[ -z "$(find "$TEST_WAL_SPOOL_DIRECTORY" -mindepth 1 -maxdepth 1 -print -quit)" ]]
+
+set +e
+FAKE_LIVE_CLUSTER_IDENTIFIER='fedcba9876543210' main "$TARGET_VOLUME" \
+  > "$TEST_ROOT/wrong-cluster.log" 2>&1
+wrong_cluster_status=$?
+set -e
+(( wrong_cluster_status != 0 ))
+[[ "$(tr -d '[:space:]' < "$VOLUME_FILE")" == 'taptime-postgres-data' ]]
+grep --quiet 'differs from the materialized restore evidence' \
+  "$TEST_ROOT/wrong-cluster.log"
+
+main "$TARGET_VOLUME" > "$TEST_ROOT/success.log"
+[[ "$(tr -d '[:space:]' < "$VOLUME_FILE")" == "$TARGET_VOLUME" ]]
+grep --fixed-strings --line-regexp --quiet \
+  "deploy abcdef0|$TARGET_VOLUME" "$CALL_LOG"
+grep --quiet 'systemctl stop taptime-wal-archiver.service taptime-wal-receiver.service' \
+  "$CALL_LOG"
+grep --fixed-strings --quiet \
+  "Previous WAL spool preserved at $PRESERVED_WAL_SPOOL_DIRECTORY." \
+  "$TEST_ROOT/success.log"
+
+printf 'taptime-postgres-data\n' > "$VOLUME_FILE"
+set +e
+FAKE_DATABASE_HEALTH=unhealthy main "$FAILED_VOLUME" \
+  > "$TEST_ROOT/failure.log" 2>&1
+failure_status=$?
+set -e
+(( failure_status != 0 ))
+[[ "$(tr -d '[:space:]' < "$VOLUME_FILE")" == 'taptime-postgres-data' ]]
+grep --quiet 'previous volume selection is unchanged' "$TEST_ROOT/failure.log"
+
+printf 'Restore activation tests passed: marker, services, WAL timeline isolation, mount, identity, health, and switch are fail-closed.\n'

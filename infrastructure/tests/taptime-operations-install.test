@@ -51,12 +51,17 @@ make_release() {
   done <<'EOF_RELEASE_FILES'
 infrastructure/backup/taptime-backup|usr/local/sbin/taptime-backup|700
 infrastructure/backup/taptime-restore-verify|usr/local/sbin/taptime-restore-verify|700
+infrastructure/backup/taptime-restore-activate|usr/local/sbin/taptime-restore-activate|700
+infrastructure/backup/taptime-wal-receiver|usr/local/sbin/taptime-wal-receiver|700
+infrastructure/backup/taptime-wal-archiver|usr/local/sbin/taptime-wal-archiver|700
 infrastructure/monitoring/taptime-immediate-monitor|usr/local/sbin/taptime-immediate-monitor|755
 infrastructure/monitoring/taptime-daily-monitor|usr/local/sbin/taptime-daily-monitor|755
 infrastructure/backup/taptime-backup.service|etc/systemd/system/taptime-backup.service|644
 infrastructure/backup/taptime-backup.timer|etc/systemd/system/taptime-backup.timer|644
 infrastructure/backup/taptime-restore-verify.service|etc/systemd/system/taptime-restore-verify.service|644
 infrastructure/backup/taptime-restore-verify.timer|etc/systemd/system/taptime-restore-verify.timer|644
+infrastructure/backup/taptime-wal-receiver.service|etc/systemd/system/taptime-wal-receiver.service|644
+infrastructure/backup/taptime-wal-archiver.service|etc/systemd/system/taptime-wal-archiver.service|644
 infrastructure/monitoring/taptime-immediate-monitor.service|etc/systemd/system/taptime-immediate-monitor.service|644
 infrastructure/monitoring/taptime-immediate-monitor.timer|etc/systemd/system/taptime-immediate-monitor.timer|644
 infrastructure/monitoring/taptime-daily-monitor.service|etc/systemd/system/taptime-daily-monitor.service|644
@@ -156,3 +161,18 @@ test "$secret_state_before" = "$(cksum \
   "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/ntfy.curl" \
   "$TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT/etc/taptime-monitor/healthchecks.curl")"
 printf 'Operations rollback evidence: failed runtime reload restored every target and configuration.\n'
+
+service_reload_log="$TEST_ROOT/service-reload.log"
+bash -c '
+  set -euo pipefail
+  source "$1"
+  reload_log="$2"
+  systemctl() {
+    if [[ "$1" == "is-active" ]]; then return 0; fi
+    printf "%s\n" "$*" >> "$reload_log"
+  }
+  reload_operations_runtime 0 0
+' bash infrastructure/deploy "$service_reload_log"
+test "$(cat "$service_reload_log")" = 'restart taptime-wal-receiver.service
+restart taptime-wal-archiver.service'
+printf 'Operations reload evidence: active WAL services restart after script-only releases.\n'

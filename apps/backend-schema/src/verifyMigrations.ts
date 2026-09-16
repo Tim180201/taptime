@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { B3_MIGRATION_TABLE } from './migrations.js';
+import { B3_MIGRATION_TABLE, loadMigrations } from './migrations.js';
 
 const connectionString = process.env.B3_DATABASE_URL;
 if (connectionString === undefined || connectionString.length === 0) {
@@ -12,7 +12,11 @@ try {
     `SELECT version FROM ${B3_MIGRATION_TABLE} ORDER BY version`,
   );
   const versions = result.rows.map((row) => row.version);
-  if (versions.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013,014,015,016,017,018,019,020,021,022') {
+  const expectedVersions = (await loadMigrations()).map((migration) => migration.version);
+  if (
+    versions.length !== expectedVersions.length
+    || versions.some((version, index) => version !== expectedVersions[index])
+  ) {
     throw new Error(`Unexpected backend schema migration versions: ${versions.join(',') || 'none'}`);
   }
   process.stdout.write(`Backend schema migration versions verified: ${versions.join(',')}\n`);

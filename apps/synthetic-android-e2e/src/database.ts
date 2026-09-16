@@ -239,16 +239,14 @@ export async function prepareDa5V5SyntheticDatabase(
       async (installerOperations) => {
         const installerPool = installerOperations as unknown as Pool;
         await assertInstallerConnection(installerPool);
+        const migrations = await loadMigrations(migrationDirectory);
         const migration = await applyMigrationSet(
           installerPool,
-          await loadMigrations(migrationDirectory),
+          migrations,
         );
-        if (
-          migration.applied.join(',')
-          !== '001,002,003,004,005,006,007,008,009,010,011,012,013'
-        ) {
+        if (migration.applied.join(',') !== migrations.map(({ version }) => version).join(',')) {
           throw new Error(
-            'Synthetic E2E requires a clean migration set 001 through 013',
+            'Synthetic E2E requires every source migration in order',
           );
         }
         await normalizeApplicationRoles(installerPool, DA5_V5_PROFILE);
@@ -321,12 +319,10 @@ async function prepareSyntheticDatabaseWithInstaller(
     await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
     await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   }
-  const migration = await applyMigrationSet(
-    installerPool,
-    await loadMigrations(migrationDirectory),
-  );
-  if (migration.applied.join(',') !== '001,002,003,004,005,006,007,008,009,010,011,012,013') {
-    throw new Error('Synthetic E2E requires a clean migration set 001 through 013');
+  const migrations = await loadMigrations(migrationDirectory);
+  const migration = await applyMigrationSet(installerPool, migrations);
+  if (migration.applied.join(',') !== migrations.map(({ version }) => version).join(',')) {
+    throw new Error('Synthetic E2E requires every source migration in order');
   }
 
   await normalizeApplicationRoles(installerPool, profile);
