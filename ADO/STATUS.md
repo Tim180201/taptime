@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand:** 17.09.2026 · T-054 abgenommen; T-052 beauftragt, Umsetzung offen.
+**Stand:** 17.09.2026 · T-052: neuer Auftrag, Umsetzung läuft.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen
 Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt oder verändert.
 
@@ -9,7 +9,7 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 - Domäne und Business Engine: `Trigger → WorkEvent → Engine → TimeEntry`, Korrekturen append-only.
 - Backend: 11 `apps/backend-*`-Workspaces einschließlich API und Schema; 52 registrierte
   HTTP-Pfade inklusive `/health` aus `BACKEND_HTTP_ROUTES` in `BackendHttpServer.ts`.
-- 23 SQL-Migrationsdateien unter `apps/backend-schema/migrations`; Rollen laut Migration 020:
+- 24 SQL-Migrationsdateien unter `apps/backend-schema/migrations`; Rollen laut Migration 020:
   `administrator`, `standortleitung`, `employee`. RLS und mandantengebundene Berechtigungen.
 - Mobile: Anmeldung, Einladungseinlösung, NFC, manuelle Erfassung, eigene Zeiten, Offline-Queue.
   Erfassung über Offline v4, Abgleich v2, Leases v3; Löschung der Queue erst nach Archivnachweis.
@@ -22,16 +22,15 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 
 ## Aktuelle Aufgabe
 
-**T-052:** Sofortige Serverentscheidung im Tap von der späteren Archivquittung trennen;
-FIFO-Löschung bleibt an externe Archivierung gebunden. Vertrag v4/Abgleich v2, Scheduler,
-Oberfläche und Feedback, verpflichtender Abgleich-Port, belegter Lease-Client-Rückbau.
-Pflichtnachweise: roter SQLite-Gegenbeweis vor Reparatur, echte PostgreSQL-Restores zum
-letzten archivierten und zu einem früheren Punkt; Ergebnis als Regel in RESTORE.md.
-Zeitbox zwei Sitzungen; unabhängiges Review, maximal zwei Runden. Kein Deploy/Produktionszugriff.
+**T-052 — neu zugeschnitten:** Entscheidung und Fortschritt der Übertragung werden von der
+Archivquittung getrennt. Bestätigte, unarchivierte Zeilen bleiben lokal, ohne Folge-Taps zu
+blockieren; ein eigener Nachlauf räumt nach Archivnachweis auf. Vertrag v4/Abgleich v2,
+verpflichtender Port und Lease-Client-Rückbau bleiben aus dem bisherigen Arbeitsstand.
+Der neue SQLite-Gegenbeweis und die Verifikation stehen an. Restore-Befunde sind jetzt
+D-055/T-055; die dokumentierten Belege bleiben unverändert. Umsetzung uncommittet, kein Deploy.
 
 ## Offen bis zum Pilotbetrieb
 
-- T-052: Entscheidung sofort im Tap anzeigen, Archivquittung weiterhin später (D-052).
 - Registrierung/Einladung mit Kontenerstellung und zustellbarer Mail: T-021/T-047.
 - Ortszeitgrenzen, Tagesfreigabe, Kalender und beschlossene Pausenautomatik: T-036/T-048–T-050.
 - Android-App-Auswahl und Lesemodus, iOS, Datenschutz/Löschung, fertige Oberflächen und CSP.
@@ -40,6 +39,8 @@ Zeitbox zwei Sitzungen; unabhängiges Review, maximal zwei Runden. Kein Deploy/P
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P1 T-055:** Restore braucht erhaltene Lease-Bindung und Reihenfolge über Installationen;
+  erneute Zeitfensterprüfung kann das Ergebnis ändern. D-055 nimmt die Wiederanlaufzusage zurück.
 - **P1:** Passwort-Recovery nutzt ein fremd beanspruchbares eigenes URL-Schema;
   das Web-Bündeltor prüft noch nicht die Übereinstimmung mit dem Backend-Aussteller (T-039).
 - **P2 Betrieb:** Öffentliche Web-Konfiguration stammt aus dem Mobile-Testprofil; Rollback mit

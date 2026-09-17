@@ -1,48 +1,45 @@
 # Aktuelle Aufgabe
 
-## T-052 · Die Bestätigung kommt zurück in den Tap
+## T-052 · Die Bestätigung kommt zurück in den Tap — neu zugeschnitten
 
 **Für:** Development · **Risiko:** personenbezogene Lohndaten, Produktvision
-**Zeitbox:** zwei Sitzungen. **Grundlage:** D-052; D-051 bleibt unverändert.
+**Zeitbox:** zwei Sitzungen. **Grundlage:** D-052, D-055; D-051 bleibt unverändert.
+Dieser Auftrag ersetzt den bisherigen T-052-Auftrag vollständig.
 
 ### Zweck und Grenzen
 
-Die Serverentscheidung wird im selben Tap gezeigt und gefühlt. Keine neue Nutzerentscheidung,
-kein Dialog, kein zweiter Schritt. `Trigger → WorkEvent → BusinessEngine → TimeEntry`,
-append-only Historie und trigger-agnostische Domäne bleiben erhalten. Das Telefon legt die
-FIFO-Zeile beim Tap an, aktualisiert ihren Abgleich und löscht sie ausschließlich nach
-nachgewiesener externer Archivierung. RPO bleibt 0. Kein neuer fachlicher Speicher.
-Keine Server-Endpunkte entfernen; alte Apps bleiben bedient. Kein Deploy, Produktionszugriff,
-T-036 oder T-043. Befunde, die neue Entscheidungen erfordern, melden statt zurechtbiegen.
+Eine Serverbestätigung zeigt und fühlt die Entscheidung und lässt die Übertragung sofort
+weiterrücken. Die lokale Zeile wird erst nach externem Archivnachweis gelöscht. Kein Knopf,
+kein Dialog, keine neue Nutzerentscheidung. Die fachliche Kette und Originalhistorie bleiben
+intakt. Das Telefon legt die Zeile an, bestätigt sie lokal und entfernt sie nach Archivnachweis.
+Kein Deploy, Produktionszugriff, T-055, T-036 oder T-043. Umsetzung nicht vor APPROVED committen.
 
 ### Umsetzung
 
-1. Den noch nicht ausgelieferten Vertrag v4 an Ort und Stelle ändern: `archive_pending`
-   trägt dieselbe geschlossene Entscheidungs-/Prüfgrund-Union wie der archivierte Fall,
-   mit `archiveStatus: archive_pending`. Dasselbe für `OfflineReconciliationRecordV2`.
-   Exakte Schlüsselmengen erhalten; die SQL-Zeile aus dem LEFT JOIN auf canonical_decisions
-   im nicht archivierten Fall prüfen und ihre vorhandene Entscheidung weiterreichen.
-2. Scheduler: in submitOffline und Wiederherstellung bei `archive_pending` sofort ein
-   durable-Ergebnis (`server_decision` / `review_pending`) liefern und `retryOffline`
-   aufrufen; niemals vor Archivnachweis `acknowledgeHead`.
-3. Eigener sichtbarer Zustand: Entscheidung bestätigt, Sicherung läuft noch. Verständlicher
-   Text ohne Betriebsbegriffe, Entscheidungsimpuls statt Warteimpuls. Die vollständige
-   Abbildung in ScanFeedbackCoordinator endet weiterhin in `satisfies never`.
-4. `OfflineEventReconciliationReader.reconcileV2` verpflichtend machen, Testdoppel nachziehen.
-5. Tote Lease-V1/V2-Wege im mobilen Client samt Transport und Parser nach Referenzsuche
-   entfernen. Bei lebendem Verbraucher nur diesen Punkt abbrechen und melden.
+1. Bereits umgesetzt beibehalten: v4 und Reconciliation v2 tragen dieselbe geschlossene
+   Entscheidungs-/Prüfgrund-Union mit eigenem Archivstatus; exakte Schlüsselmengen bleiben exakt.
+   reconcileV2 ist verpflichtend. Tote mobile Lease-V1/V2-Wege bleiben entfernt;
+   sämtliche Server-Endpunkte bleiben für alte Apps bestehen.
+2. Bei synchronized oder review_pending sofort Entscheidung zeigen und fühlen, nächste
+   Queue-Zeile senden. Kein retryOffline für diese Bestätigung. Unarchivierte Zeilen in einem
+   eigenen dauerhaften Zustand behalten; sie zählen nicht als offene Übertragung für die UI.
+3. Ein ruhiger, unabhängig getakteter Nachlauf fragt Reconciliation v2 ab. Er löscht nur die
+   jeweils nachweislich archivierte Zeile und blockiert keine Erfassung. Persistenz, Neustart
+   und Eigentümerbindung erhalten. Der Nachlauf aktualisiert und entfernt den Aufbewahrungszustand.
+4. Oberfläche zeigt die Entscheidung. Zusätzlichen Sicherungs-Wartezustand entfernen, wenn
+   er keinen Nutzen mehr hat; Ergebnis melden. Entscheidungsimpuls und exhaustive Abbildung
+   mit satisfies never bleiben erhalten.
 
 ### Pflichtbelege und Verifikation
 
-- Vor der Reparatur roten Test mit echter SQLite zeigen: bei `archive_pending` ist die
-  Entscheidung sichtbar UND die FIFO-Zeile bleibt. Bestehenden Nichtlösch-Test erhalten.
-- Alte v1–v3-Routen bleiben formstabil mit bekanntem `pending`; Vertragsnaht testen.
-- Echtes PostgreSQL: Restore zum zuletzt archivierten Punkt muss gelöschte Ereignisse
-  enthalten; erhaltene Telefonereignisse müssen dieselbe Reihenfolge und Grundlage finden.
-  Bewussten Restore auf einen früheren Punkt gesondert belegen, einschließlich fehlender
-  bereits gelöschter Ereignisse. Ergebnis als Einsatzregel in infrastructure/RESTORE.md.
-- Typecheck nachweislich einschließlich Tests; vollständige Tests betroffener Workspaces;
-  PostgreSQL-Integrationssuiten lokal seriell. Unabhängiges Review, maximal zwei Runden.
-- Dokumentations-Commit vorab getrennt und sofort pushen, nur ADO/ und AGENTS.md.
-  RESTORE.md gehört zur Umsetzung. Umsetzung nicht vor APPROVED committen oder pushen.
+- Vor Reparatur roter Test mit echter SQLite: zwei Ereignisse, erstes bestätigt und noch
+  unarchiviert; zweites wird trotzdem gesendet und bekommt seine eigene Entscheidung.
+- Commit ohne Archivnachweis löscht keine Zeile. Nachlauf löscht erst nach offsite_archived
+  aus Reconciliation v2 und niemals eine andere Zeile. Alte v1–v3-Routen bleiben formstabil.
+- Restore-Befunde gehören zu D-055/T-055. RESTORE.md und OfflineRestorePostgres.test.ts bleiben
+  unverändert; den belegten Fehlerfall nicht durch andere Erwartungen grün machen.
+- Typecheck nachweislich einschließlich Tests, vollständige Tests betroffener Workspaces,
+  PostgreSQL-Integrationssuiten lokal seriell; unabhängiges Review, maximal zwei Runden.
+- D-055 und T-055-Planzeile mit dem neuen Auftrag vor Umsetzung getrennt committen und sofort
+  pushen, ausschließlich ADO/ und AGENTS.md. RESTORE.md gehört zur Umsetzung.
 - Abschlussbericht gemäß AGENTS.md §8; ausgelassene Prüfungen mit Grund melden.

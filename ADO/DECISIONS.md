@@ -1100,3 +1100,18 @@ den es gibt, und genau dafuer ist er da.
 **Was nicht bleibt:** Die Zusicherung, erfasste Zeit sei ein Anwesenheitsnachweis. Sie darf in
 keinem Verkaufstext, keinem Angebot und keiner Auftragsverarbeitung stehen.
 **Offen fuer den Product Owner:** Ob das Produkt einen echten Anwesenheitsnachweis braucht.
+
+---
+
+## D-055 · "Vorlaeufig, nie falsch" wird zurueckgenommen · 17.09.2026 · Tim
+**Befund:** Der in T-052 geforderte Nachweis an echtem PostgreSQL ist gescheitert. Beim Restore
+auf den letzten Archivpunkt kann eine erst danach ausgestellte Lease fehlen; das erhaltene
+Telefonereignis wird dann mit `lease_binding_conflict` abgewiesen, obwohl der Server denselben
+Start zuvor bestaetigt hatte.
+**Was gilt weiter:** Die sofort gezeigte Entscheidung bleibt richtig, und das Ereignis geht nicht
+verloren — es liegt auf dem Telefon, der Konflikt ist sichtbar, nicht still.
+**Was nicht mehr gilt:** Die Zusage, dass sich die Entscheidung nach einem Wiederanlauf von
+selbst wieder einstellt. Bis T-055 ist sie keine Betriebszusage.
+**Eiserne Grenze:** Niemals eine neue Lease-ID in erhaltene Evidenz schreiben. Das faelschte
+Herkunft, um eine Statistik zu retten.
+**Fehler:** Die Zusage stand in meiner Formulierung von D-052, nicht im Code.
