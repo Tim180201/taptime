@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand:** 17.09.2026 · T-052: technisch APPROVED, Commit/Push und CI-Abschluss beauftragt.
+**Stand:** 17.09.2026 · T-052 abgeschlossen, technisch APPROVED und CI grün.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen
 Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt oder verändert.
 
@@ -22,15 +22,14 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 
 ## Aktuelle Aufgabe
 
-**T-052 — technisch APPROVED; unabhängiges Review APPROVED (Runde 1):** Serverbestätigung zeigt die Entscheidung
-und lässt die Übertragung weiterrücken. SQLite v5 behält unarchivierte Zeilen getrennt; ein
-ruhiger Nachlauf löscht exakt nach Archivnachweis. Kein zusätzlicher Sicherungszustand in der UI.
-v4/Abgleich v2, verpflichtender Port und Lease-Client-Rückbau bleiben; Alt-Routen formstabil.
-SQLite-Folgetap und eigener Impuls vor Reparatur rot, danach grün. Alle betroffenen Tests,
-Typechecks einschließlich Tests, Builds und Android-Export grün; PostgreSQL seriell.
-Restore-Belege unverändert, T-055 offen. Dokumentations-Commit 06577e5 samt CI grün.
-Technical Lead hat Commit und Push freigegeben. Umsetzungs-CI und Geräteabnahme stehen aus;
-kein Deploy. T-055 und T-036 folgen ausschließlich in eigenen Chats.
+**T-052 — abgeschlossen:** Technical Lead APPROVED; unabhängiges Review APPROVED (Runde 1).
+Die Umsetzung ist auf main; die [CI der Umsetzung](https://github.com/Tim180201/taptime/actions/runs/35204136246)
+ist vollständig grün. Bestätigung zeigt die Entscheidung und lässt die Übertragung weiterrücken;
+SQLite v5 behält unarchivierte Zeilen getrennt, der ruhige Nachlauf löscht exakt nach Archivnachweis.
+Kein zusätzlicher Sicherungszustand in der UI; Alt-Routen bleiben formstabil. SQLite-Folgetap
+und eigener Impuls vor Reparatur rot, danach grün. Betroffene Tests, testsinklusive Typechecks,
+Builds und Android-Export lokal grün; PostgreSQL seriell. Restore-Belege unverändert, kein Deploy.
+Geräteabnahme vor einer Auslieferung bleibt offen. T-055 und T-036 folgen in eigenen Chats.
 
 ## Offen bis zum Pilotbetrieb
 

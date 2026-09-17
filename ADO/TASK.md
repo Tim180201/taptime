@@ -1,10 +1,11 @@
 # Aktuelle Aufgabe
 
-## T-052 · Die Bestätigung kommt zurück in den Tap — neu zugeschnitten
+## T-052 · Die Bestätigung kommt zurück in den Tap — abgeschlossen
 
 **Für:** Development · **Risiko:** personenbezogene Lohndaten, Produktvision
 **Zeitbox:** zwei Sitzungen. **Grundlage:** D-052, D-055; D-051 bleibt unverändert.
-Dieser Auftrag ersetzt den bisherigen T-052-Auftrag vollständig.
+Technisch APPROVED; Umsetzung auf main, CI vollständig grün. Kein Deploy.
+T-055 und T-036 werden in eigenen Chats beauftragt.
 
 ### Zweck und Grenzen
 
