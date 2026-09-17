@@ -69,9 +69,6 @@ export * from './application/SessionService';
 export * from './application/classifyScanPipelineOutcome';
 export * from './application/classifySynchronizationResult';
 export * from './application/classifyAuthenticationResult';
-export * from './application/OrganizationManagementService';
-export * from './application/MembershipService';
-export * from './application/OrganizationAdministrationService';
 
 export * from './infrastructure/adapters/FakeNfcScanAdapter';
 export * from './infrastructure/adapters/FakeSynchronizationGateway';
