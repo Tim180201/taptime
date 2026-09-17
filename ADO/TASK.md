@@ -1,5 +1,7 @@
 # Aktuelle Aufgabe
 
+> **Zwischenstand 17.09.:** T-047 ist pausiert (Codex ohne Kontingent, Teilarbeit uncommittet im Arbeitsbaum). In der Zwischenzeit hat der Technical Lead drei kleine Aufgaben umgesetzt: T-040 ✓, CSP ✓, T-039 ✓. T-044 bleibt bei Codex: Der Lesemodus aendert NFC-Verhalten, das nur am Geraet abgenommen werden kann, und der heutige Bildschirmtext beschreibt den heutigen Weg korrekt — ihn vor der Verhaltensaenderung zu aendern, liesse ihn luegen. Diese Datei behaelt den T-047-Auftrag, damit Codex ihn unveraendert wieder aufnimmt.
+
 ## T-047 · Beschäftigte aufnehmen können
 
 **Für:** Development · **Risiko:** Kontenerstellung im Anmeldedienst, service-role-Schlüssel
@@ -55,3 +57,9 @@ Echte Einladung an echtes Postfach, gelesen am echten Handy, folgt nach Commit u
 mit Rotnachweis umgesetzt. UI-Befund aus Review Runde 2 ebenfalls behoben;
 Technical-Lead-APPROVED am 17.09.; Commit, CI und anschließende TL-Integration beauftragt.
 Nachweise und Grenzen: `docs/T-047-Verifikation.md`.
+
+**Integration am 17.09.:** T-047 auf main, CI grün; Hauptarbeitsbaum ohne Code-Konflikt integriert.
+TL-Korrekturpatch angewandt, genau vier Auth-Gegenbeweise vor Korrektur rot, danach alle 202
+Admin-Web-Tests und testsinklusiver Typecheck grün; bash -n, CI-ShellCheck und Deploy-Test grün.
+Unabhängiges Korrekturreview Runde 2 APPROVED; drei getrennte Commits mit anschließender CI
+beauftragt. Image-Workflow wird nicht unterbrochen; Wiederanlauf und offener Build-Befund in STATUS.md.

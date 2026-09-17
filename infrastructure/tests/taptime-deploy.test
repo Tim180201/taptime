@@ -281,7 +281,11 @@ systemctl enable --now taptime-wal-archiver.service" ]]
 run_real_health_probe() {
   local served_version="$1"
   local configuration="${2:-configured}"
-  SERVED_ADMIN_WEB_VERSION="$served_version" \
+  local issuer_line="${3:-SUPABASE_ISSUER=https://syntheticproject.supabase.co/auth/v1}"
+  local env_file="$TEST_ROOT/backend.env"
+  printf 'DATABASE_PASSWORD=never-printed\n%s\n' "$issuer_line" > "$env_file"
+  TAPTIME_DEPLOY_BACKEND_ENV_FILE="$env_file" \
+    SERVED_ADMIN_WEB_VERSION="$served_version" \
     SERVED_ADMIN_WEB_CONFIGURATION="$configuration" bash -c '
     set -euo pipefail
     source "$1"
@@ -300,11 +304,16 @@ run_real_health_probe() {
       elif [[ "$url" == "${ADMIN_WEB_VERSION_URL%version.txt}" ]]; then
         printf "<script type=\"module\" src=\"/releases/bbbbbbb/assets/application.js\"></script>\n"
       elif [[ "$url" == "${ADMIN_WEB_VERSION_URL%version.txt}releases/bbbbbbb/assets/application.js" ]]; then
-        if [[ "$SERVED_ADMIN_WEB_CONFIGURATION" == configured ]]; then
-          printf "const origin=\"https://syntheticproject.supabase.co\";const key=\"sb_publishable_synthetic_public_value\";\n"
-        else
-          printf "const origin=\"\";const key=\"\";\n"
-        fi
+        case "$SERVED_ADMIN_WEB_CONFIGURATION" in
+          configured)
+            printf "const origin=\"https://syntheticproject.supabase.co\";const key=\"sb_publishable_synthetic_public_value\";\n" ;;
+          foreign)
+            printf "const origin=\"https://otherproject.supabase.co\";const key=\"sb_publishable_synthetic_public_value\";\n" ;;
+          ambiguous)
+            printf "const a=\"https://syntheticproject.supabase.co\";const b=\"https://otherproject.supabase.co\";const key=\"sb_publishable_synthetic_public_value\";\n" ;;
+          *)
+            printf "const origin=\"\";const key=\"\";\n" ;;
+        esac
       fi
     }
     sleep() { :; }
@@ -321,6 +330,38 @@ printf 'Unconfigured Admin Web startup evidence: version=bbbbbbb configuration=m
 expect_status 0 run_real_health_probe bbbbbbb
 grep --quiet 'Backend und startfähiges Admin-Web belegen gemeinsam Version bbbbbbb' "$OUTPUT_FILE"
 printf 'Matching startable Admin Web evidence: expected=bbbbbbb served=bbbbbbb result=accepted\n'
+
+# T-039: a valid-looking Supabase origin is not enough. The bundle must be built for the
+# issuer the backend trusts, and for no other project.
+expect_status 1 run_real_health_probe bbbbbbb foreign
+grep --quiet 'built for a Supabase origin the backend does not trust' "$OUTPUT_FILE"
+grep --quiet 'bundle: https://otherproject.supabase.co' "$OUTPUT_FILE"
+grep --quiet 'backend: https://syntheticproject.supabase.co' "$OUTPUT_FILE"
+printf 'Foreign issuer evidence: bundle=otherproject backend=syntheticproject result=rejected\n'
+expect_status 1 run_real_health_probe bbbbbbb ambiguous
+grep --quiet 'built for a Supabase origin the backend does not trust' "$OUTPUT_FILE"
+printf 'Ambiguous issuer evidence: two origins in one bundle result=rejected\n'
+expect_status 1 run_real_health_probe bbbbbbb configured 'UNRELATED=1'
+grep --quiet 'SUPABASE_ISSUER is not set' "$OUTPUT_FILE"
+printf 'Unknown issuer evidence: no SUPABASE_ISSUER in backend environment result=rejected\n'
+expect_status 0 run_real_health_probe bbbbbbb configured \
+  'SUPABASE_ISSUER="https://syntheticproject.supabase.co/auth/v1/"'
+printf 'Quoted issuer with trailing slash: normalized and accepted\n'
+expect_status 1 run_real_health_probe bbbbbbb configured \
+  'SUPABASE_ISSUER=https://syntheticproject.supabase.co'
+grep --quiet 'must be exactly' "$OUTPUT_FILE"
+expect_status 1 run_real_health_probe bbbbbbb configured \
+  'SUPABASE_ISSUER=https://syntheticproject.supabase.co/auth/v1garbage'
+grep --quiet 'must be exactly' "$OUTPUT_FILE"
+expect_status 1 run_real_health_probe bbbbbbb configured \
+  'SUPABASE_ISSUER=https://syntheticproject.supabase.co/rest/v1'
+grep --quiet 'must be exactly' "$OUTPUT_FILE"
+printf 'Issuer shape evidence: bare origin, trailing garbage and other paths are rejected (review round 2)\n'
+if grep --quiet 'never-printed' "$OUTPUT_FILE"; then
+  printf 'The deploy leaked a value from the backend environment file.\n' >&2
+  exit 1
+fi
+printf 'Environment file evidence: only SUPABASE_ISSUER was read, nothing else surfaced\n'
 
 expect_status 64 main
 grep --quiet '^Usage: .* <seven-character-commit-hash>$' "$OUTPUT_FILE"

@@ -132,6 +132,9 @@ Alles unter `ADO/99_Archive/` ist Historie und wird nicht gelesen.
 
 ## 7. Commits und Freigaben
 
+- CI und Image-Workflow laufen automatisch und werden nicht unterbrochen. Deploy bezeichnet
+  ausschließlich die Ausführung von `infrastructure/deploy` auf dem Server; der automatische
+  Image-Bau samt GHCR-Bereinigung und Veröffentlichung ist kein Deploy.
 - Kein Commit, Push, PR oder Merge ohne ausdrücklichen Auftrag.
 - Nach `APPROVED` durch den Technical Lead darf direkt committet und nach `main` gepusht
   werden. Vorher Remote-Stand prüfen, CI muss grün sein.

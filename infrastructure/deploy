@@ -9,6 +9,8 @@ readonly OPERATIONS_VERSION_STATE_FILE="${TAPTIME_DEPLOY_OPERATIONS_VERSION_STAT
 readonly POSTGRES_VOLUME_STATE_FILE="${TAPTIME_DEPLOY_POSTGRES_VOLUME_STATE_FILE:-/var/lib/taptime-deploy/postgres-volume}"
 readonly KNOWN_VERSIONS_FILE="${TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE:-/var/lib/taptime-deploy/known-versions}"
 readonly PROTECTED_VERSIONS_FILE="${TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE:-/opt/taptime/admin-web/status/ghcr-protected-versions.json}"
+# T-039: the backend's trusted issuer lives here; the deploy reads exactly one key from it.
+readonly BACKEND_ENV_FILE="${TAPTIME_DEPLOY_BACKEND_ENV_FILE:-/opt/taptime/.env}"
 readonly HEALTH_URL="${TAPTIME_DEPLOY_HEALTH_URL:-https://api.tb-infra.de/health}"
 readonly ADMIN_WEB_VERSION_URL="${TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL:-https://admin.tb-infra.de/version.txt}"
 readonly ADMIN_WEB_ROOT="${TAPTIME_DEPLOY_ADMIN_WEB_ROOT:-/opt/taptime/admin-web}"
@@ -1144,16 +1146,39 @@ restart_caddy() {
   compose "$version" up --detach --no-deps --force-recreate caddy
 }
 
+# T-039: derive the Supabase project origin the backend actually trusts from SUPABASE_ISSUER.
+# Reads that one key only; never prints or exports anything else from the environment file.
+trusted_supabase_origin() {
+  local issuer origin
+  [[ -f "$BACKEND_ENV_FILE" ]] ||
+    { fail "Backend environment file is missing; the trusted issuer is unknown."; return 1; }
+  issuer="$(sed -n 's/^SUPABASE_ISSUER=//p' "$BACKEND_ENV_FILE" | tail -n 1 | tr -d '"'"'"' \r')"
+  [[ -n "$issuer" ]] ||
+    { fail 'SUPABASE_ISSUER is not set in the backend environment; the trusted issuer is unknown.'; return 1; }
+  # The backend expects the exact Auth issuer; anything else (a bare origin, a different
+  # path, trailing garbage) would pass a naive origin extraction yet break token verification.
+  [[ "$issuer" =~ ^(https://[a-z0-9]+\.supabase\.co)/auth/v1/?$ ]] ||
+    { fail 'SUPABASE_ISSUER must be exactly https://<project>.supabase.co/auth/v1.'; return 1; }
+  origin="${BASH_REMATCH[1]}"
+  printf '%s\n' "$origin"
+}
+
+# Runs as an `if` condition, where bash ignores errexit — so every refusal exits explicitly.
+# Before T-039 the gate relied on errexit here and only rejected a bundle when its LAST check
+# failed; a wrong-but-present origin with a valid key slipped through.
 admin_web_bundle_is_startable() (
-  set -euo pipefail
+  set -uo pipefail
 
   local version="$1"
   local base_url script_path
   local temporary_directory index_file bundle_file
+  local trusted_origin bundle_origins
+
+  refuse() { fail "$@"; exit 1; }
 
   base_url="${ADMIN_WEB_VERSION_URL%version.txt}"
   [[ "$base_url" != "$ADMIN_WEB_VERSION_URL" ]] ||
-    fail 'Admin Web version URL must end in version.txt.'
+    refuse 'Admin Web version URL must end in version.txt.'
 
   temporary_directory="$(mktemp -d)"
   trap 'rm -rf -- "$temporary_directory"' EXIT
@@ -1161,23 +1186,32 @@ admin_web_bundle_is_startable() (
   bundle_file="$temporary_directory/application.js"
 
   curl --fail --silent --show-error --max-time 5 \
-    --header 'Cache-Control: no-cache' "$base_url" > "$index_file"
+    --header 'Cache-Control: no-cache' "$base_url" > "$index_file" ||
+    refuse 'Admin Web index could not be fetched.'
   script_path="$(sed -n 's/.*<script[^>]* src="\([^"]*\)"[^>]*>.*/\1/p' "$index_file")"
   [[ -n "$script_path" && "$script_path" != *$'\n'* ]] ||
-    fail 'Admin Web index must load exactly one application bundle.'
+    refuse 'Admin Web index must load exactly one application bundle.'
   [[ "$script_path" =~ ^/releases/$version/assets/[A-Za-z0-9._-]+\.js$ ]] ||
-    fail "Admin Web index does not load the application bundle for version $version."
+    refuse "Admin Web index does not load the application bundle for version $version."
 
   curl --fail --silent --show-error --max-time 5 \
     --header 'Cache-Control: no-cache' \
-    "${base_url%/}$script_path" > "$bundle_file"
+    "${base_url%/}$script_path" > "$bundle_file" ||
+    refuse 'Admin Web bundle could not be fetched.'
   LC_ALL=C grep --extended-regexp --quiet \
     'https://[a-z0-9]+[.]supabase[.]co([^A-Za-z0-9._~:/?#@!$&()*+,;=%-]|$)' \
     "$bundle_file" ||
-    fail 'Admin Web bundle has no valid configured Supabase origin.'
+    refuse 'Admin Web bundle has no valid configured Supabase origin.'
+  # T-039: any Supabase origin is not enough — it must be the one the backend trusts, and
+  # nothing else. A bundle built against a second project passes tokens the backend rejects.
+  trusted_origin="$(trusted_supabase_origin)" || exit 1
+  bundle_origins="$(LC_ALL=C grep --extended-regexp --only-matching \
+    'https://[a-z0-9]+[.]supabase[.]co' "$bundle_file" | sort -u)"
+  [[ "$bundle_origins" == "$trusted_origin" ]] ||
+    refuse "Admin Web bundle is built for a Supabase origin the backend does not trust (bundle: $(tr '\n' ' ' <<< "$bundle_origins")| backend: $trusted_origin)."
   LC_ALL=C grep --extended-regexp --quiet \
     'sb_publishable_[A-Za-z0-9_-]{20,}([^A-Za-z0-9_-]|$)' "$bundle_file" ||
-    fail 'Admin Web bundle has no valid configured public application key.'
+    refuse 'Admin Web bundle has no valid configured public application key.'
 )
 
 wait_for_health() {
