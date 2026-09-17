@@ -42,6 +42,8 @@ interface ReconciliationRow extends QueryResultRow {
   readonly time_entry_id: string | null;
   readonly active_time_entry_id: string | null;
   readonly previous_work_event_id: string | null;
+  readonly break_interval_id?: string | null;
+  readonly active_break_interval_id?: string | null;
   readonly archive_status?: 'archive_pending' | 'offsite_archived';
 }
 
@@ -118,7 +120,7 @@ implements OfflineEventReconciliationReader {
         client,
         `SELECT work_event_id, receipt_id, device_sequence, result_status, review_reason,
                 decision_type, reason, time_entry_id, active_time_entry_id,
-                previous_work_event_id${version === 2 ? ', archive_status' : ''}
+                previous_work_event_id${version === 2 ? ', archive_status, break_interval_id, active_break_interval_id' : ''}
          FROM taptime_server.read_offline_event_reconciliations_v${version}($1::uuid[])`,
         [ids],
       );
@@ -221,19 +223,12 @@ function reconciliationRecord(row: ReconciliationRow) {
 
 function reconciliationRecordV2(row: ReconciliationRow) {
   const identity = reconciliationIdentity(row);
-  if (row.archive_status === 'archive_pending') {
-    return Object.freeze({
-      ...identity,
-      archiveStatus: 'archive_pending' as const,
-      result: { status: 'archive_pending' as const },
-    });
-  }
-  if (row.archive_status !== 'offsite_archived') {
+  if (row.archive_status !== 'archive_pending' && row.archive_status !== 'offsite_archived') {
     throw new Error('Persisted offline archive status is invalid');
   }
   return Object.freeze({
     ...identity,
-    archiveStatus: 'offsite_archived' as const,
+    archiveStatus: row.archive_status,
     result: reconciliationResult(row),
   });
 }
@@ -328,6 +323,21 @@ function decisionFromRow(row: ReconciliationRow): OfflineCanonicalDecision {
         status: 'active_entry_for_other_target_rejected',
         activeTimeEntryId: row.active_time_entry_id,
       };
+    case 'break_started':
+    case 'break_stopped':
+      if (row.time_entry_id === null || row.break_interval_id == null) {
+        throw new Error('Persisted break decision is incomplete');
+      }
+      return { status: row.decision_type, timeEntryId: row.time_entry_id,
+        breakIntervalId: row.break_interval_id };
+    case 'break_without_active_time_entry_rejected':
+      return { status: row.decision_type };
+    case 'work_trigger_during_break_rejected':
+      if (row.active_time_entry_id === null || row.active_break_interval_id == null) {
+        throw new Error('Persisted active break decision is incomplete');
+      }
+      return { status: row.decision_type, activeTimeEntryId: row.active_time_entry_id,
+        activeBreakIntervalId: row.active_break_interval_id };
     case 'escalation_required':
       if (row.reason === null) throw new Error('Persisted escalation decision is incomplete');
       return { status: 'escalation_required', reason: row.reason };

@@ -36,6 +36,16 @@ describe('ScanScreen presentation', () => {
     expect(presentActor('offline')).toBe('Offline-Erfassung');
   });
 
+  it('shows the confirmed decision without treating retained evidence as pending work', () => {
+    expect(presentScanState({ status: 'server_decision', queueCount: 0,
+      outcome: { status: 'time_entry_started' } })).toEqual({
+      title: 'Arbeitszeit gestartet', tone: 'success',
+      message: 'Der Server hat den Start bestätigt.',
+    });
+    expect(presentScanState({ status: 'server_review_pending', queueCount: 0 }).title)
+      .toBe('Sichere Prüfung erforderlich');
+  });
+
   it.each([
     [{ status: 'checking' }, 'NFC wird geprüft'],
     [{ status: 'not_supported' }, 'NFC nicht unterstützt'],

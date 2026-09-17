@@ -252,7 +252,7 @@ export function presentScanState(state: ProductScanState): ScanScreenPresentatio
     case 'server_review_pending':
       return {
         title: 'Sichere Prüfung erforderlich',
-        message: `Der Server hat die Evidenz dauerhaft übernommen. ${state.queueCount} Vorgänge sind noch lokal offen.`,
+        message: 'Dein Scan ist zur Prüfung aufgenommen.',
         tone: 'warning',
       };
     case 'server_decision':

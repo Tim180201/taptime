@@ -2,6 +2,7 @@ import {
   OFFLINE_RETRY_BASE_MILLISECONDS,
   OFFLINE_RETRY_CAP_MILLISECONDS,
   type OfflineCanonicalDecision,
+  OFFLINE_RECONCILIATION_MAXIMUM_EVENT_IDS,
   type OfflineDurableResultIdentity,
 } from '@taptime/offline-sync-contract';
 import type {
@@ -55,6 +56,8 @@ export interface OfflineSchedulerTimerPort {
   cancel(handle: unknown): void;
 }
 
+export const OFFLINE_ARCHIVE_POLL_MILLISECONDS = 60_000;
+
 const defaultTimer: OfflineSchedulerTimerPort = {
   schedule: (callback, delay) => setTimeout(callback, delay),
   cancel: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
@@ -66,6 +69,11 @@ export class OfflineSyncScheduler {
   private flight: Promise<OfflineSyncSchedulerState> | null = null;
   private timerHandle: unknown | null = null;
   private stopped = false;
+  private archiveTimerHandle: unknown | null = null;
+  private archiveFlight: Promise<void> | null = null;
+  private archiveAfterSequence = 0;
+  private archiveNextAttemptAt = 0;
+  private archiveGeneration = 0;
 
   constructor(
     private readonly database: OfflineCaptureDatabase,
@@ -102,10 +110,88 @@ export class OfflineSyncScheduler {
   stop(): void {
     this.stopped = true;
     this.cancelTimer();
+    this.archiveGeneration += 1;
+    if (this.archiveTimerHandle !== null) this.timer.cancel(this.archiveTimerHandle);
+    this.archiveTimerHandle = null;
   }
 
   start(): void {
     this.stopped = false;
+    this.scheduleArchiveReconciliation();
+  }
+
+  // This flight never joins the transmission flight or publishes scan feedback.
+  // Background execution uses the same deadline as the independent foreground timer.
+  reconcileArchives(): Promise<void> {
+    if (this.stopped) return Promise.resolve();
+    if (this.archiveFlight !== null) return this.archiveFlight;
+    if (this.now() < this.archiveNextAttemptAt) {
+      this.scheduleArchiveReconciliation();
+      return Promise.resolve();
+    }
+    if (this.archiveTimerHandle !== null) this.timer.cancel(this.archiveTimerHandle);
+    this.archiveTimerHandle = null;
+    const generation = this.archiveGeneration;
+    const current = () => !this.stopped && generation === this.archiveGeneration;
+    const operation = async () => {
+      try {
+        let rows = await this.database.readAwaitingArchive(
+          this.archiveAfterSequence, OFFLINE_RECONCILIATION_MAXIMUM_EVENT_IDS,
+        );
+        if (rows.length === 0 && this.archiveAfterSequence !== 0) {
+          this.archiveAfterSequence = 0;
+          rows = await this.database.readAwaitingArchive(0, OFFLINE_RECONCILIATION_MAXIMUM_EVENT_IDS);
+        }
+        if (!current() || rows.length === 0) return;
+        const result = await this.offlineLifecycle.reconcile(rows.map((row) => row.workEventId));
+        if (!current()) return;
+        if (result.status !== 'ready') {
+          if ('retryAfterSeconds' in result && result.retryAfterSeconds !== undefined) {
+            this.archiveNextAttemptAt = this.now() + result.retryAfterSeconds * 1_000;
+          }
+          return;
+        }
+        // Validate the entire reply before deleting anything, including duplicate/unrequested IDs.
+        const seen = new Set<string>();
+        for (const record of result.records) {
+          const expected = rows.find((row) => row.workEventId === record.workEventId);
+          if (expected === undefined || !sameDurableIdentity(expected, record)
+            || seen.has(record.workEventId)) return;
+          seen.add(record.workEventId);
+        }
+        for (const record of result.records) {
+          if (!current()) return;
+          if (record.archiveStatus === 'offsite_archived') {
+            await this.database.acknowledgeArchived(record);
+          }
+        }
+        this.archiveAfterSequence = rows[rows.length - 1]!.deviceSequence;
+      } catch {
+        // Preserve all evidence on transport/storage failure; retry without disturbing capture.
+      }
+    };
+    let flight!: Promise<void>;
+    flight = operation().finally(() => {
+      if (this.archiveFlight === flight) this.archiveFlight = null;
+      if (!this.stopped) {
+        this.archiveNextAttemptAt = Math.max(this.archiveNextAttemptAt,
+          this.now() + OFFLINE_ARCHIVE_POLL_MILLISECONDS);
+        this.scheduleArchiveReconciliation();
+      }
+    });
+    this.archiveFlight = flight;
+    return flight;
+  }
+
+  private scheduleArchiveReconciliation(): void {
+    if (this.stopped || this.archiveTimerHandle !== null || this.archiveFlight !== null) return;
+    if (this.archiveNextAttemptAt <= this.now()) {
+      this.archiveNextAttemptAt = this.now() + OFFLINE_ARCHIVE_POLL_MILLISECONDS;
+    }
+    this.archiveTimerHandle = this.timer.schedule(() => {
+      this.archiveTimerHandle = null;
+      void this.reconcileArchives();
+    }, Math.max(1, this.archiveNextAttemptAt - this.now()));
   }
 
   private async drain(): Promise<OfflineSyncSchedulerState> {
@@ -187,6 +273,7 @@ export class OfflineSyncScheduler {
       const outcome = await this.submitOffline(head, queueCount);
       if (outcome.status === 'continue') {
         lastDurable = outcome.durable;
+        this.publish({ ...lastDurable, queueCount: Math.max(0, queueCount - 1) });
         continue;
       }
       return outcome.state;
@@ -291,14 +378,13 @@ export class OfflineSyncScheduler {
           state: this.publish({ status: 'protected', queueCount }),
         };
       }
-      if (recovered.result.status === 'archive_pending') {
-        return {
-          status: 'stop',
-          state: await this.retryOffline(head, identity, queueCount),
-        };
-      }
       try {
-        await this.database.acknowledgeHead(identity, recovered.result.status);
+        if (recovered.archiveStatus === 'archive_pending') {
+          await this.database.confirmHead(identity, recovered.result.status);
+          this.scheduleArchiveReconciliation();
+        } else {
+          await this.database.acknowledgeHead(identity, recovered.result.status);
+        }
       } catch {
         return {
           status: 'stop',
@@ -335,7 +421,12 @@ export class OfflineSyncScheduler {
         };
       }
       try {
-        await this.database.acknowledgeHead(identity, result.status);
+        if (result.archiveStatus === 'archive_pending') {
+          await this.database.confirmHead(identity, result.status);
+          this.scheduleArchiveReconciliation();
+        } else {
+          await this.database.acknowledgeHead(identity, result.status);
+        }
       } catch {
         return {
           status: 'stop',

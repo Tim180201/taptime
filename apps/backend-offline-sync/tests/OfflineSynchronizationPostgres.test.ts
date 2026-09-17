@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
@@ -309,7 +310,8 @@ describe('complete offline PostgreSQL boundary', () => {
       );
       await expect(repairingCoordinator.ingest({ accessToken: 'valid', command }))
         .resolves.toMatchObject({
-          status: 'archive_pending',
+          status: 'synchronized',
+          archiveStatus: 'archive_pending',
           idempotentRetry: true,
           workEventId: ids.event1,
         });
@@ -391,7 +393,9 @@ describe('complete offline PostgreSQL boundary', () => {
 
       await expect(coordinator.ingest({ accessToken: 'valid', command }))
         .resolves.toEqual({
-          status: 'archive_pending',
+          status: 'synchronized',
+          archiveStatus: 'archive_pending',
+          decision: { status: 'time_entry_started', timeEntryId: expect.any(String) },
           idempotentRetry: false,
           workEventId: ids.event1,
           receiptId: ids.receipt1,
@@ -409,7 +413,7 @@ describe('complete offline PostgreSQL boundary', () => {
         records: [{
           workEventId: ids.event1,
           archiveStatus: 'archive_pending',
-          result: { status: 'archive_pending' },
+          result: { status: 'synchronized', decision: { status: 'time_entry_started' } },
         }],
       });
 
@@ -473,7 +477,8 @@ describe('complete offline PostgreSQL boundary', () => {
       }
       await expect(coordinator.ingest({ accessToken: 'valid', command }))
         .resolves.toMatchObject({
-          status: 'archive_pending',
+          status: 'synchronized',
+          archiveStatus: 'archive_pending',
           idempotentRetry: true,
           workEventId: ids.event1,
         });
@@ -912,6 +917,36 @@ describe('complete offline PostgreSQL boundary', () => {
       started_via: 'manual',
       provenance_version: 2,
     }]);
+  });
+
+  it('reconciles the exact pause decision union before and after archival', async () => {
+    const lease = await issueLeaseV3();
+    const work = lease.items.find((item) => item.itemType === 'nfc_assignment' && item.subjectType === 'work')!;
+    const pause = lease.items.find((item) => item.itemType === 'manual_break')!;
+    const coordinator = new OfflineLifecycleIngestionCoordinator(eventPool, verifier);
+    const records = [];
+    const expectedStatuses = ['break_without_active_time_entry_rejected', 'time_entry_started',
+      'break_started', 'work_trigger_during_break_rejected', 'break_stopped'];
+    for (const [index, item] of [pause, work, pause, work, pause].entries()) {
+      const command = eventCommandV3(lease, item, randomUUID(), randomUUID(), index + 1,
+        new Date(Date.parse(lease.issuedAt) + (index + 1) * 60_000).toISOString());
+      const result = await coordinator.ingest({ accessToken: 'valid', command });
+      expect(result).toMatchObject({ status: 'synchronized', archiveStatus: 'archive_pending',
+        decision: { status: expectedStatuses[index] } });
+      if (result.status !== 'synchronized') throw new Error('Expected decision');
+      records.push({ workEventId: result.workEventId, receiptId: result.receiptId,
+        deviceSequence: result.deviceSequence, result: { status: 'synchronized', decision: result.decision } });
+    }
+    const command = { workEventIds: records.map((record) => record.workEventId) };
+    await expect(reconciliationCoordinator.reconcileV2({ accessToken: 'valid', command })).resolves.toEqual({
+      status: 'ready', records: records.map((record) => ({ ...record, archiveStatus: 'archive_pending' })),
+    });
+    const requirements = await installerPool.query<{ required_wal_file: string }>(
+      'SELECT DISTINCT required_wal_file FROM taptime_server.offline_event_archive_requirements');
+    for (const row of requirements.rows) await recordSyntheticArchiveReceipt(row.required_wal_file);
+    await expect(reconciliationCoordinator.reconcileV2({ accessToken: 'valid', command })).resolves.toEqual({
+      status: 'ready', records: records.map((record) => ({ ...record, archiveStatus: 'offsite_archived' })),
+    });
   });
 
   it('synchronizes offline pause start and stop completely in device-sequence order', async () => {

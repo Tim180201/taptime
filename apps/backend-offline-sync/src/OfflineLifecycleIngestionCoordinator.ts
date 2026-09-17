@@ -540,16 +540,10 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         deviceSequence: result.deviceSequence,
       },
     );
-    if (!archive.offsiteArchived) {
-      return {
-        status: 'archive_pending',
-        idempotentRetry: result.idempotentRetry,
-        workEventId: result.workEventId,
-        receiptId: result.receiptId,
-        deviceSequence: result.deviceSequence,
-      };
-    }
-    return Object.freeze({ ...result, archiveStatus: 'offsite_archived' as const });
+    return Object.freeze({
+      ...result,
+      archiveStatus: archive.offsiteArchived ? 'offsite_archived' : 'archive_pending',
+    });
   }
 }
 

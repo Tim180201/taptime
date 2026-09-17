@@ -1,3 +1,6 @@
+import { NodeSqliteOfflineConnection } from '../support/NodeSqliteOfflineConnection';
+import { OfflineLifecycleClient } from '../../src/offline/OfflineLifecycleClient';
+import { mobileLookupHmac, mobileManifestDigestV3 } from '../../src/offline/MobileLookupHmac';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createCanonicalNfcUidPayload,
@@ -23,6 +26,7 @@ import type { OfflineCaptureLeaseApiPort } from '../../src/offline/OfflineCaptur
 import { OfflineInstallationIdentityStore } from '../../src/offline/OfflineInstallationIdentityStore';
 import {
   OfflineSyncScheduler,
+  OFFLINE_ARCHIVE_POLL_MILLISECONDS,
   type OfflineSyncSchedulerState,
 } from '../../src/offline/OfflineSyncScheduler';
 import { encodeBase64Url } from '../../src/offline/encoding';
@@ -54,6 +58,90 @@ const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));
 
 describe('OfflineCaptureCoordinator', () => {
+  it.each([
+    ['time_entry_started', 'work_started'], ['time_entry_stopped', 'work_stopped'],
+    ['break_started', 'break_changed'], ['break_stopped', 'break_changed'],
+  ] as const)('shows and feels %s while retaining the event in real SQLite until archived', async (decisionStatus, feedbackKind) => {
+    const database = new OfflineCaptureDatabase(
+      async () => new NodeSqliteOfflineConnection(), new Uint8Array(32).fill(8),
+    );
+    let now = 20_000;
+    let archiveStatus = 'archive_pending';
+    let received: { workEventId: string; receiptId: string; deviceSequence: number } | null = null;
+    const decision = { status: decisionStatus, timeEntryId: ids.event,
+      ...(decisionStatus.startsWith('break_') ? { breakIntervalId: ids.receipt } : {}) };
+    let scheduler!: OfflineSyncScheduler;
+    const client = new OfflineLifecycleClient(new URL('https://api.example/'), {
+      async post(endpoint, requestBody) {
+        const command = JSON.parse(requestBody);
+        const reconciliation = endpoint.pathname.endsWith('/reconcile');
+        if (!reconciliation) received = { workEventId: command.workEvent.id,
+          receiptId: command.receipt.id, deviceSequence: command.deviceSequence };
+        const body = reconciliation
+          ? { status: 'ready', records: received !== null && command.workEventIds.includes(received.workEventId)
+              ? [{ ...received, archiveStatus, result: { status: 'synchronized', decision } }] : [] }
+          : { status: 'synchronized', archiveStatus, idempotentRetry: false, ...received, decision };
+        return { status: 'response', statusCode: 200, contentType: 'application/json',
+          body: JSON.stringify(body) };
+      },
+    });
+    const coordinator = new OfflineCaptureCoordinator(
+      { async scan() { return { status: 'captured',
+        payload: createCanonicalNfcUidPayload('04AABBCC'),
+        capturedAt: createTimestamp('2026-07-18T10:00:00.000Z') }; } },
+      nfcLifecycle(), sessionReader({ status: 'authenticated', session }, snapshot),
+      identityStore(), () => database, leaseClient(true),
+      new AndroidMonotonicClock({ async sample() {
+        return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100,
+          wallClockMilliseconds: Date.parse('2026-07-18T10:00:00.000Z') };
+      } }),
+      (db, authority) => {
+        scheduler = new OfflineSyncScheduler(db, client,
+          { async ingest() { return { status: 'unavailable' }; } }, authority,
+          () => now, () => 0.5,
+          { schedule() { return 1; }, cancel() {} });
+        return scheduler;
+      },
+      emptyOutbox(), sequentialUuid([ids.command, ids.event, ids.receipt, ids.assignment, ids.tag]),
+      { bind() {} }, () => new Date('2026-07-18T10:00:00.000Z'),
+    );
+    const feedback = { perform: vi.fn(async () => undefined) };
+    const scanFeedback = new ScanFeedbackCoordinator(coordinator, feedback);
+    try {
+      await coordinator.start();
+      await vi.waitFor(() => expect(coordinator.getState().status).toBe('ready'));
+      scanFeedback.start();
+      await coordinator.scan();
+      await scheduler.trigger('network_hint');
+      // D-051 protects the row; D-052 gives the hand the actual engine decision now.
+      await expect(database.queueCount()).resolves.toBe(0);
+      await expect(database.readAwaitingArchive(0, 25)).resolves.toHaveLength(1);
+      expect(coordinator.getState()).toMatchObject({
+        status: 'server_decision', queueCount: 0,
+        outcome: { status: decisionStatus },
+      });
+      expect(feedback.perform).toHaveBeenCalledExactlyOnceWith(feedbackKind);
+      now += OFFLINE_ARCHIVE_POLL_MILLISECONDS;
+      archiveStatus = 'offsite_archived';
+      await scheduler.reconcileArchives();
+      await expect(database.readAwaitingArchive(0, 25)).resolves.toHaveLength(0);
+      await expect(database.queueCount()).resolves.toBe(0);
+      // Archival completion does not produce a second impulse.
+      expect(feedback.perform).toHaveBeenCalledTimes(1);
+      archiveStatus = 'archive_pending';
+      const manual = await coordinator.captureManual({ targetType: 'customer', targetId: ids.customer });
+      expect(manual).toEqual({ status: 'saved', workEventId: ids.assignment });
+      await scheduler.trigger('manual');
+      expect(coordinator.readManualAcknowledgement(ids.assignment)).toEqual({
+        status: 'server_decision', outcome: decisionStatus,
+      });
+      await expect(database.queueCount()).resolves.toBe(0);
+    } finally {
+      scanFeedback.stop();
+      await coordinator.stop();
+    }
+  });
+
   it('emits work-start feedback for the real successful online state sequence', async () => {
     const harness = await feedbackProductionHarness();
 
@@ -69,6 +157,24 @@ describe('OfflineCaptureCoordinator', () => {
     expect(harness.states).toEqual(['scanning', 'synchronizing', 'server_decision']);
     expect(harness.feedback.perform).toHaveBeenCalledTimes(1);
     expect(harness.feedback.perform).toHaveBeenCalledWith('work_started');
+  });
+
+  it('waits for this tap’s decision and haptic while a preceding event is confirmed', async () => {
+    const h = await feedbackProductionHarness();
+    await h.coordinator.scan();
+    h.scheduler.publish({ status: 'server_decision', queueCount: 1,
+      workEventId: ids.assignment,
+      decision: { status: 'time_entry_started', timeEntryId: ids.event } });
+    expect(h.feedback.perform).not.toHaveBeenCalled();
+    expect(h.coordinator.getState().status).toBe('synchronizing');
+    h.setQueueCount(0);
+    h.scheduler.publish({ status: 'server_decision', queueCount: 0,
+      workEventId: ids.event,
+      decision: { status: 'time_entry_stopped', timeEntryId: ids.event } });
+    expect(h.feedback.perform).toHaveBeenCalledExactlyOnceWith('work_stopped');
+    expect(h.coordinator.getState()).toMatchObject({ status: 'server_decision',
+      outcome: { status: 'time_entry_stopped' } });
+    await h.coordinator.stop();
   });
 
   it('emits pending feedback for the real online review state sequence', async () => {
@@ -378,14 +484,14 @@ describe('OfflineCaptureCoordinator', () => {
         queueCount: vi.fn(async () => 0),
         close: vi.fn(async () => undefined),
       });
-      const issueComplete = vi.fn();
+      const issueCompleteV3 = vi.fn();
       const coordinator = new OfflineCaptureCoordinator(
         { async scan() { return { status: 'cancelled' }; } },
         nfcLifecycle(),
         sessionReader({ status: 'context_unavailable' }, null, true),
         identityStore(),
         () => database,
-        { issueComplete },
+        { issueCompleteV3 },
         new AndroidMonotonicClock({
           async sample() {
             return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 600_100 };
@@ -412,7 +518,7 @@ describe('OfflineCaptureCoordinator', () => {
       });
       expect(ingressAuthority).not.toBeNull();
       expect(coordinator.isNativeNfcIngressAuthorityCurrent(ingressAuthority!)).toBe(true);
-      expect(issueComplete).not.toHaveBeenCalled();
+      expect(issueCompleteV3).not.toHaveBeenCalled();
     });
 
   it('accepts the process-start Intent under the authority created by that runtime start',
@@ -1096,13 +1202,13 @@ function identityStore(removeActiveLookupKey = vi.fn(async () => undefined)) {
   } as unknown as OfflineInstallationIdentityStore;
 }
 
-function leaseClient(): OfflineCaptureLeaseApiPort {
+function leaseClient(withManual = false): OfflineCaptureLeaseApiPort {
   const issueCompleteV3 = async () => {
     const items = [{
       itemType: 'nfc_assignment' as const,
       subjectType: 'work' as const,
       itemId: ids.item,
-      lookup: '1'.repeat(64),
+      lookup: mobileLookupHmac(new Uint8Array(32).fill(7), 'nfc:uid:v1:04AABBCC'),
       assignmentId: ids.assignment,
       nfcTagId: ids.tag,
       targetType: 'customer' as const,
@@ -1110,7 +1216,11 @@ function leaseClient(): OfflineCaptureLeaseApiPort {
       displayName: 'Kunde',
       assignmentRowVersion: 1,
       targetRowVersion: 1,
-    }];
+    }, ...(withManual ? [{
+      itemId: 'a0000000-0000-4000-8000-000000000002', itemType: 'manual_target' as const,
+      subjectType: 'work' as const, targetType: 'customer' as const, targetId: ids.customer,
+      displayName: 'Kunde', targetRowVersion: 1,
+    }] : [])];
     return {
       status: 'ready' as const,
       idempotentRetry: false,
@@ -1128,89 +1238,15 @@ function leaseClient(): OfflineCaptureLeaseApiPort {
         issuedAt: '2026-07-18T10:00:00.000Z',
         expiresAt: '2026-07-18T22:00:00.000Z',
         configurationRevision: '2'.repeat(64),
-        itemCount: 1,
+        itemCount: items.length,
         serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength,
-        manifestDigest: '3'.repeat(64),
+        manifestDigest: mobileManifestDigestV3(items),
         items,
         nextCursor: null,
       },
     };
   };
-  const issueCompleteV2 = async () => {
-    const items = [{
-      itemType: 'nfc_assignment' as const,
-      itemId: ids.item,
-      lookup: '1'.repeat(64),
-      assignmentId: ids.assignment,
-      nfcTagId: ids.tag,
-      targetType: 'customer' as const,
-      targetId: ids.customer,
-      displayName: 'Kunde',
-      assignmentRowVersion: 1,
-      targetRowVersion: 1,
-    }];
-    return {
-      status: 'ready' as const,
-      idempotentRetry: false,
-      page: {
-        leaseSchemaVersion: 2 as const,
-        manifestVersion: 2 as const,
-        leaseId: ids.lease,
-        installationId: ids.installation,
-        identityBindingId: ids.identity,
-        userId: ids.user,
-        organizationId: ids.organization,
-        membershipId: ids.membership,
-        membershipRowVersion: 1,
-        role: 'employee' as const,
-        issuedAt: '2026-07-18T10:00:00.000Z',
-        expiresAt: '2026-07-18T22:00:00.000Z',
-        configurationRevision: '2'.repeat(64),
-        itemCount: 1,
-        serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength,
-        manifestDigest: '3'.repeat(64),
-        items,
-        nextCursor: null,
-      },
-    };
-  };
-  return {
-    async issueComplete() {
-      const items = [{
-        itemId: ids.item,
-        lookup: '1'.repeat(64),
-        assignmentId: ids.assignment,
-        nfcTagId: ids.tag,
-        targetType: 'customer' as const,
-        targetId: ids.customer,
-        displayName: 'Kunde',
-      }];
-      return {
-        status: 'ready',
-        idempotentRetry: false,
-        page: {
-          leaseId: ids.lease,
-          installationId: ids.installation,
-          identityBindingId: ids.identity,
-          userId: ids.user,
-          organizationId: ids.organization,
-          membershipId: ids.membership,
-          membershipRowVersion: 1,
-          role: 'employee',
-          issuedAt: '2026-07-18T10:00:00.000Z',
-          expiresAt: '2026-07-18T22:00:00.000Z',
-          configurationRevision: '2'.repeat(64),
-          itemCount: 1,
-          serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength,
-          manifestDigest: '3'.repeat(64),
-          items,
-          nextCursor: null,
-        },
-      };
-    },
-    issueCompleteV2,
-    issueCompleteV3,
-  };
+  return { issueCompleteV3 };
 }
 
 function sessionReader(

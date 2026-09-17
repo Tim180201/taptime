@@ -70,7 +70,7 @@ export function feedbackKindForOutcome(
       return 'break_changed';
     case 'server_review_pending':
     case 'escalation_required':
-      // The server durably accepted the WorkEvent and the outbox was cleared; only the
+      // The server accepted the WorkEvent for review; only the
       // BusinessEngine decision is still open. The hand must match the visible review state.
       return 'pending_confirmation';
     case 'duplicate_scan_ignored':

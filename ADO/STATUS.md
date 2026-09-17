@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand:** 17.09.2026 · T-052: neuer Auftrag, Umsetzung läuft.
+**Stand:** 17.09.2026 · T-052: technisch APPROVED, Commit/Push und CI-Abschluss beauftragt.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen
 Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt oder verändert.
 
@@ -22,12 +22,15 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 
 ## Aktuelle Aufgabe
 
-**T-052 — neu zugeschnitten:** Entscheidung und Fortschritt der Übertragung werden von der
-Archivquittung getrennt. Bestätigte, unarchivierte Zeilen bleiben lokal, ohne Folge-Taps zu
-blockieren; ein eigener Nachlauf räumt nach Archivnachweis auf. Vertrag v4/Abgleich v2,
-verpflichtender Port und Lease-Client-Rückbau bleiben aus dem bisherigen Arbeitsstand.
-Der neue SQLite-Gegenbeweis und die Verifikation stehen an. Restore-Befunde sind jetzt
-D-055/T-055; die dokumentierten Belege bleiben unverändert. Umsetzung uncommittet, kein Deploy.
+**T-052 — technisch APPROVED; unabhängiges Review APPROVED (Runde 1):** Serverbestätigung zeigt die Entscheidung
+und lässt die Übertragung weiterrücken. SQLite v5 behält unarchivierte Zeilen getrennt; ein
+ruhiger Nachlauf löscht exakt nach Archivnachweis. Kein zusätzlicher Sicherungszustand in der UI.
+v4/Abgleich v2, verpflichtender Port und Lease-Client-Rückbau bleiben; Alt-Routen formstabil.
+SQLite-Folgetap und eigener Impuls vor Reparatur rot, danach grün. Alle betroffenen Tests,
+Typechecks einschließlich Tests, Builds und Android-Export grün; PostgreSQL seriell.
+Restore-Belege unverändert, T-055 offen. Dokumentations-Commit 06577e5 samt CI grün.
+Technical Lead hat Commit und Push freigegeben. Umsetzungs-CI und Geräteabnahme stehen aus;
+kein Deploy. T-055 und T-036 folgen ausschließlich in eigenen Chats.
 
 ## Offen bis zum Pilotbetrieb
 
@@ -39,8 +42,13 @@ D-055/T-055; die dokumentierten Belege bleiben unverändert. Umsetzung uncommitt
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P2 Prüfstrecke T-052:** Zwei neue Testfixtures zunächst rot (fehlender Konstantenimport,
+  falscher Lookup-Feldname); Ursachen korrigiert, vollständige Läufe danach grün. Kein Flaky-Befund.
+
 - **P1 T-055:** Restore braucht erhaltene Lease-Bindung und Reihenfolge über Installationen;
-  erneute Zeitfensterprüfung kann das Ergebnis ändern. D-055 nimmt die Wiederanlaufzusage zurück.
+  erneute Zeitfensterprüfung kann das Ergebnis ändern. Nach Restore serverseitig fehlende, schon
+  bestätigte Zeilen bleiben lokal erhalten; der Archivnachlauf spielt sie nicht erneut ein und
+  erzeugt keinen automatischen sichtbaren Konflikt. D-055 nimmt die Wiederanlaufzusage zurück.
 - **P1:** Passwort-Recovery nutzt ein fremd beanspruchbares eigenes URL-Schema;
   das Web-Bündeltor prüft noch nicht die Übereinstimmung mit dem Backend-Aussteller (T-039).
 - **P2 Betrieb:** Öffentliche Web-Konfiguration stammt aus dem Mobile-Testprofil; Rollback mit

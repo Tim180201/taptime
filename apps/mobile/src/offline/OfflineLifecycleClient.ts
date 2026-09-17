@@ -115,9 +115,6 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
       if (body.status === 'review_pending') {
         return parseDurableResult(body, command, 'review_pending');
       }
-      if (body.status === 'archive_pending') {
-        return parseArchivePendingResult(body, command);
-      }
       const pending = parsePendingResult(body);
       if (pending === null || !sameRetryAfter(pending.retryAfterSeconds, response.retryAfterSeconds)) {
         return { status: 'unavailable' };
@@ -240,7 +237,7 @@ function parseDurableResult(
 ): OfflineLifecycleTransportResult {
   if (
     body.status !== expectedStatus
-    || body.archiveStatus !== 'offsite_archived'
+    || (body.archiveStatus !== 'offsite_archived' && body.archiveStatus !== 'archive_pending')
     || typeof body.idempotentRetry !== 'boolean'
     || body.workEventId !== command.workEvent.id
     || body.receiptId !== command.receipt.id
@@ -266,7 +263,7 @@ function parseDurableResult(
       reason: body.reason as Extract<OfflineLifecycleEventResultV4, {
         status: 'review_pending';
       }>['reason'],
-      archiveStatus: 'offsite_archived',
+      archiveStatus: body.archiveStatus,
       workEventId: command.workEvent.id,
       receiptId: command.receipt.id,
       deviceSequence: command.deviceSequence,
@@ -288,39 +285,13 @@ function parseDurableResult(
     ? { status: 'unavailable' }
     : {
         status: 'synchronized',
-        archiveStatus: 'offsite_archived',
+        archiveStatus: body.archiveStatus,
         idempotentRetry: body.idempotentRetry,
         decision,
         workEventId: command.workEvent.id,
         receiptId: command.receipt.id,
         deviceSequence: command.deviceSequence,
       };
-}
-
-function parseArchivePendingResult(
-  body: Record<string, unknown>,
-  command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | OfflineLifecycleEventCommandV3,
-): OfflineLifecycleTransportResult {
-  return hasExactKeys(body, [
-    'deviceSequence',
-    'idempotentRetry',
-    'receiptId',
-    'status',
-    'workEventId',
-  ])
-    && body.status === 'archive_pending'
-    && typeof body.idempotentRetry === 'boolean'
-    && body.workEventId === command.workEvent.id
-    && body.receiptId === command.receipt.id
-    && body.deviceSequence === command.deviceSequence
-    ? {
-        status: 'archive_pending',
-        idempotentRetry: body.idempotentRetry,
-        workEventId: command.workEvent.id,
-        receiptId: command.receipt.id,
-        deviceSequence: command.deviceSequence,
-      }
-    : { status: 'unavailable' };
 }
 
 function parsePendingResult(
@@ -380,20 +351,7 @@ function parseReconciliationRecordV2(value: unknown): OfflineReconciliationRecor
     || Number(value.deviceSequence) < 1
     || !isObject(value.result)
   ) return null;
-  if (
-    value.archiveStatus === 'archive_pending'
-    && value.result.status === 'archive_pending'
-    && hasExactKeys(value.result, ['status'])
-  ) {
-    return {
-      workEventId: value.workEventId,
-      receiptId: value.receiptId,
-      deviceSequence: value.deviceSequence as number,
-      archiveStatus: 'archive_pending',
-      result: { status: 'archive_pending' },
-    };
-  }
-  if (value.archiveStatus !== 'offsite_archived') return null;
+  if (value.archiveStatus !== 'offsite_archived' && value.archiveStatus !== 'archive_pending') return null;
   if (
     value.result.status === 'synchronized'
     && hasExactKeys(value.result, ['decision', 'status'])
@@ -403,7 +361,7 @@ function parseReconciliationRecordV2(value: unknown): OfflineReconciliationRecor
       workEventId: value.workEventId,
       receiptId: value.receiptId,
       deviceSequence: value.deviceSequence as number,
-      archiveStatus: 'offsite_archived',
+      archiveStatus: value.archiveStatus,
       result: { status: 'synchronized', decision },
     };
   }
@@ -417,7 +375,7 @@ function parseReconciliationRecordV2(value: unknown): OfflineReconciliationRecor
       workEventId: value.workEventId,
       receiptId: value.receiptId,
       deviceSequence: value.deviceSequence as number,
-      archiveStatus: 'offsite_archived',
+      archiveStatus: value.archiveStatus,
       result: {
         status: 'review_pending',
         reason: value.result.reason as Extract<OfflineReconciliationRecordV2['result'], {

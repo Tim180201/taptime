@@ -1,9 +1,11 @@
+import { OfflineLifecycleClient } from '../../mobile/src/offline/OfflineLifecycleClient';
 import type { Server } from 'node:http';
 import {
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
   type OfflineCaptureLeaseResult,
   type OfflineCaptureLeaseResultV2,
   type OfflineLifecycleEventResultV4,
+  type OfflineLifecycleEventCommand,
 } from '@taptime/offline-sync-contract';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
@@ -213,9 +215,9 @@ describe('complete offline synchronization HTTP boundary', () => {
     expect(pending.status).toBe(202);
     expect(pending.headers.get('retry-after')).toBe('17');
 
-    const invalid = offlineEventBody() as Record<string, unknown>;
+    const invalid = { ...offlineEventBody() };
     invalid.clock = {
-      ...(invalid.clock as Record<string, unknown>),
+      ...invalid.clock,
       monotonicDeltaMilliseconds: -1,
     };
     await expectGenericError(
@@ -229,7 +231,9 @@ describe('complete offline synchronization HTTP boundary', () => {
   it('versions archival acknowledgement without weakening installed client responses',
     async () => {
       const archivePending = {
-        status: 'archive_pending' as const,
+        status: 'synchronized' as const,
+        archiveStatus: 'archive_pending' as const,
+        decision: { status: 'time_entry_started' as const, timeEntryId: ids.event },
         idempotentRetry: false,
         workEventId: ids.event,
         receiptId: ids.receipt,
@@ -239,15 +243,28 @@ describe('complete offline synchronization HTTP boundary', () => {
       const origin = await start({ offlineLifecycleIngestor: { ingest } });
 
       const current = await post(origin, '/v4/lifecycle-events/offline', offlineEventBody());
-      expect(current.status).toBe(202);
+      expect(current.status).toBe(200);
       expect(await current.json()).toEqual(archivePending);
 
-      const installed = await post(origin, '/v1/lifecycle-events/offline', offlineEventBody());
-      expect(installed.status).toBe(202);
-      expect(await installed.json()).toEqual({
-        status: 'pending',
-        reason: 'temporarily_unavailable',
+      for (const [path, body] of [
+        ['/v1/lifecycle-events/offline', offlineEventBody()],
+        ['/v2/lifecycle-events/offline', offlineEventBodyV2()],
+        ['/v3/lifecycle-events/offline', { ...offlineEventBodyV2(), provenanceVersion: 3,
+          workEvent: { ...offlineEventBodyV2().workEvent, subject: { type: 'work' } } }],
+      ] as const) {
+        const installed = await post(origin, path, body);
+        expect(installed.status).toBe(202);
+        expect(await installed.json()).toEqual({ status: 'pending', reason: 'temporarily_unavailable' });
+      }
+      const client = new OfflineLifecycleClient(new URL(origin), {
+        async post(endpoint, body) {
+          const response = await post(origin, endpoint.pathname, JSON.parse(body));
+          return { status: 'response', statusCode: response.status,
+            contentType: response.headers.get('content-type'), body: await response.text() };
+        },
       });
+      await expect(client.ingest(offlineEventBody())).resolves.toEqual(archivePending);
+
     });
 
   it('exposes archive state only on exact v2 reconciliation records', async () => {
@@ -262,7 +279,7 @@ describe('complete offline synchronization HTTP boundary', () => {
               receiptId: ids.receipt,
               deviceSequence: 1,
               archiveStatus: 'archive_pending',
-              result: { status: 'archive_pending' },
+              result: { status: 'synchronized', decision: { status: 'time_entry_started', timeEntryId: ids.event } },
             }],
           } as const;
         },
@@ -281,7 +298,7 @@ describe('complete offline synchronization HTTP boundary', () => {
         receiptId: ids.receipt,
         deviceSequence: 1,
         archiveStatus: 'archive_pending',
-        result: { status: 'archive_pending' },
+        result: { status: 'synchronized', decision: { status: 'time_entry_started', timeEntryId: ids.event } },
       }],
     });
   });
@@ -328,6 +345,7 @@ describe('complete offline synchronization HTTP boundary', () => {
           },
         },
         offlineEventReconciliationReader: {
+          async reconcileV2() { return { status: 'unavailable' }; },
           async reconcile() {
             return {
               status: 'ready',
@@ -375,6 +393,7 @@ describe('complete offline synchronization HTTP boundary', () => {
 
       const timedOutOrigin = await start({
         offlineEventReconciliationReader: {
+          async reconcileV2() { return { status: 'unavailable' }; },
           async reconcile() {
             return new Promise<never>(() => undefined);
           },
@@ -389,7 +408,7 @@ describe('complete offline synchronization HTTP boundary', () => {
     });
 });
 
-function offlineEventBody() {
+function offlineEventBody(): OfflineLifecycleEventCommand {
   return {
     organizationId: ids.organization,
     expectedMembershipId: ids.membership,
@@ -445,12 +464,12 @@ function offlineEventBodyV2() {
 }
 
 function legacyLifecycleResult(result: OfflineLifecycleEventResultV4): unknown {
+  if ('archiveStatus' in result && result.archiveStatus === 'archive_pending') {
+    return { status: 'pending', reason: 'temporarily_unavailable' };
+  }
   if (result.status === 'synchronized' || result.status === 'review_pending') {
     const { archiveStatus: _archiveStatus, ...legacy } = result;
     return legacy;
-  }
-  if (result.status === 'archive_pending') {
-    return { status: 'pending', reason: 'temporarily_unavailable' };
   }
   return result;
 }

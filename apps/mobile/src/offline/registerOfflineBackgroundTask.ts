@@ -20,6 +20,7 @@ if (!TaskManager.isTaskDefined(OFFLINE_BACKGROUND_TASK_NAME)) {
     }
     try {
       const result = await activeScheduler.trigger('background');
+      await activeScheduler.reconcileArchives();
       return result.status === 'protected'
         ? BackgroundTask.BackgroundTaskResult.Failed
         : BackgroundTask.BackgroundTaskResult.Success;

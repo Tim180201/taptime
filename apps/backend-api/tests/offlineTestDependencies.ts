@@ -28,6 +28,7 @@ export function unavailableOfflineDependencies(): OfflineBackendApiDependencies 
       },
     },
     offlineEventReconciliationReader: {
+      async reconcileV2() { return { status: 'unavailable' }; },
       async reconcile() {
         return { status: 'unavailable' };
       },

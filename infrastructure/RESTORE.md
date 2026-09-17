@@ -2,8 +2,8 @@
 
 ## Verlust- und Zeitgrenze
 
-Für serverbestätigte WorkEvents gilt bei Ausfall eines einzelnen Servers oder Datenträgers
-RPO 0. Eine Quittung ist deshalb erst dauerhaft, wenn das zugehörige PostgreSQL-WAL
+Für nach externer Archivierung quittierte WorkEvents gilt bei Ausfall eines einzelnen Servers
+oder Datenträgers RPO 0. Eine Quittung ist deshalb erst dauerhaft, wenn das zugehörige PostgreSQL-WAL
 verschlüsselt außerhalb des Servers liegt und der lückenlose Archiv-Wasserstand diese Position
 erreicht hat. Bis dahin bleibt die bestehende FIFO-Zeile auf dem Telefon. Die
 Wiederanlaufgrenze beträgt vier Stunden ab Alarm bis API und Datenbank wieder schreibfähig sind.
@@ -153,6 +153,51 @@ externen WAL-Datensatz:
 ```sh
 /usr/local/sbin/taptime-restore-verify
 ```
+
+### Einsatzregel: letzter Archivstand oder bewusster Rücksprung
+
+- **Server-/Datenträgerverlust:** Ohne `TAPTIME_RESTORE_TARGET_TIME` bis zum letzten
+  vollständigen, lückenlos archivierten WAL-Datensatz wiederherstellen. Keine bequemere ältere
+  Basis als Endstand aktivieren. Jedes nach Archivnachweis vom Telefon gelöschte Ereignis muss
+  in diesem Kandidaten enthalten sein. Die zugehörigen WorkEvent-IDs, Entscheidungen und
+  Gerätereihenfolgen am Kandidaten nachlesen, bevor der Wiederanlauf als vollständig gilt.
+- **Auf dem Telefon verbliebene Ereignisse:** Apps und App-Daten erhalten; keine Neuinstallation,
+  keine Queue-Löschung und keine ersatzweise Neuerfassung desselben Taps. Nach dem Wiederanlauf
+  den Abgleich beobachten. Ein geschützter Vorgang ist ein offener Störfall, kein erledigter
+  Abgleich. Betroffene Zeiten als ungeklärt melden; ihre Vollständigkeit nicht zusichern.
+- **Befund T-052, nachgewiesen am 17.09.2026:** Ereigniserhalt allein garantiert die zuvor
+  gezeigte Entscheidung nicht. Eine erst nach der letzten Archivgrenze ausgestellte Lease kann
+  zusammen mit ihrem bereits entschiedenen Ereignis fehlen. Beim unveränderten Replay verweigert
+  der Server die fehlende Bindung (`lease_binding_conflict`), obwohl er vorher den Start bestätigt
+  hatte. Die laufende Implementierung besitzt keinen Reparaturweg für diese Grundlage. Dies an
+  den Technical Lead eskalieren; niemals eine neue Lease-ID in die erhaltene Evidenz schreiben.
+  Ein erfolgreicher physischer Restore beweist deshalb noch keine vollständige Wiederaufnahme
+  dieser Telefonereignisse. D-052s Zusicherung „vorläufig, nie falsch“ ist bis zur Entscheidung
+  und erneutem Nachweis nicht als Betriebszusage verwendbar.
+- **Bewusster Rücksprung vor den letzten Archivstand:** Nur mit ausdrücklicher Freigabe des
+  Product Owners und dokumentiertem Zielzeitpunkt. Schon vom Telefon gelöschte Ereignisse können
+  dann fehlen; automatische Wiederholung kann sie nicht zurückbringen. Den letzten Archivstand
+  zusätzlich isoliert erhalten und dessen Ereignisse nach dem Zielzeitpunkt inventarisieren,
+  fachlich klären und nachvollziehbar nachtragen. Eine vollständige Abrechnung ist vorher nicht belegt.
+  Das ist eine bewusst gewählte Rücknahme; hierfür darf kein RPO-0-Ergebnis gemeldet werden.
+
+Der ausführbare Nachweis ist `apps/backend-offline-sync/tests/OfflineRestorePostgres.test.ts`
+(`npm test --workspace=@taptime/backend-offline-sync -- tests/OfflineRestorePostgres.test.ts`,
+lokaler Docker-Dienst erforderlich). Er prüft eine echte physische Basis mit `pg_verifybackup`,
+archiviert echte WAL-Segmente in ein vom Quelldatenträger getrenntes lokales Test-Volume und
+zerstört den Quelldatenträger vor zwei Restores. Kein Produktionszugriff und kein externer
+Borg-Transport werden damit simuliert oder behauptet. Belegt werden:
+
+1. Letzter Archivpunkt: gelöschtes Start-Ereignis vorhanden; der erhaltene Stopp mit bereits
+   archivierter Lease erzeugt dieselbe Entscheidung einschließlich derselben TimeEntry-ID.
+2. Derselbe Archivpunkt: der folgende erhaltene Start mit verlorener neuer Lease endet im
+   Bindungskonflikt. Dies ist ein reproduzierter Fehlerbeleg, keine Freigabe des Verhaltens.
+3. Früherer Zeitpunkt: gelöschter Start fehlt; der erhaltene Stopp meldet `sequence_gap`.
+
+Die Testressourcen legt der Test selbst an, PostgreSQL verändert sie während der Probe, und der
+Test entfernt seine eigenen Container und Volumes im Abschlussblock. Zusätzliche Review-Befunde
+zur Reihenfolge über mehrere Installationen und zum neu bewerteten Zeitfenster sind keine durch
+diese Einzelgeräteprobe belegten Garantien; auch sie sind vor einer Freigabe zu klären.
 
 Für einen Zeitpunkt zwischen zwei Änderungen muss der Zeitpunkt exakt in UTC angegeben werden.
 Auf einem Ersatzserver mit Archiven mehrerer PostgreSQL-Cluster ist zusätzlich die gewünschte

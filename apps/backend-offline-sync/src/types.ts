@@ -80,7 +80,7 @@ export interface OfflineEventReconciliationReader {
   reconcile(
     command: AuthenticatedOfflineReconciliationCommand,
   ): Promise<OfflineReconciliationResult>;
-  readonly reconcileV2?: (
+  readonly reconcileV2: (
     command: AuthenticatedOfflineReconciliationCommand,
   ) => Promise<OfflineReconciliationResultV2>;
   readReviewState(

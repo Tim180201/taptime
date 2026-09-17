@@ -151,6 +151,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private offlineCaptureContext: ActiveOfflineCaptureContext | null = null;
   private nativeNfcIngressAuthority: NativeNfcIngressAuthoritySnapshot | null = null;
   private nativeNfcIngressRuntimeStartGeneration: number | null = null;
+  private visibleWorkEventId: string | null = null;
   private visibleTerminalOutcome: ProductScanOutcome | null = null;
   private protectedLegacy = false;
   private readonly manualAcknowledgements = new Map<string, ManualOfflineAcknowledgement>();
@@ -215,6 +216,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.nativeNfcIngressAuthority = null;
     this.nativeNfcIngressRuntimeStartGeneration = null;
     this.visibleTerminalOutcome = null;
+    this.visibleWorkEventId = null;
     this.sessionTransitionFlight = null;
     this.manualAcknowledgements.clear();
     this.unsubscribeSession?.();
@@ -801,6 +803,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       ));
       return;
     }
+    this.visibleWorkEventId = workEventId;
     const queueCount = await database.queueCount();
     this.setState(mode === 'offline'
       ? { status: 'saved_locally', queueCount }
@@ -897,6 +900,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     if (appended.status === 'full') return { status: 'full' };
     if (appended.status !== 'ready') return { status: 'protected' };
+    this.visibleWorkEventId = workEventId;
     this.setManualAcknowledgement(workEventId, { status: 'pending' });
     void this.scheduler?.trigger('event_append');
     return { status: 'saved', workEventId };
@@ -952,6 +956,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     if (appended.status === 'full') return { status: 'full' };
     if (appended.status !== 'ready') return { status: 'protected' };
+    this.visibleWorkEventId = workEventId;
     this.setManualAcknowledgement(workEventId, { status: 'pending' });
     void this.scheduler?.trigger('event_append');
     return { status: 'saved', workEventId };
@@ -1087,6 +1092,23 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (this.operationFlight !== null) return;
     const schedulerState = this.scheduler?.getState();
     if (schedulerState === undefined) return;
+    if (schedulerState.status === 'review_pending' && schedulerState.workEventId !== undefined) {
+      this.setManualAcknowledgement(schedulerState.workEventId, { status: 'review_pending' });
+    }
+    if (schedulerState.status === 'server_decision') {
+      this.setManualAcknowledgement(schedulerState.workEventId, {
+        status: 'server_decision',
+        outcome: decisionOutcome(schedulerState.decision).status as Extract<
+          ManualOfflineAcknowledgement, { status: 'server_decision' }
+        >['outcome'],
+      });
+    }
+    if ((schedulerState.status === 'server_decision' || schedulerState.status === 'review_pending')
+      && this.visibleWorkEventId !== null && schedulerState.workEventId !== undefined
+      && schedulerState.workEventId !== this.visibleWorkEventId) {
+      // A predecessor's confirmation advances transmission but does not finish this tap.
+      return;
+    }
     switch (schedulerState.status) {
       case 'idle':
         if (this.captureMode !== null) void this.publishReady(this.captureMode);
@@ -1104,12 +1126,6 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         });
         return;
       case 'review_pending':
-        if (schedulerState.workEventId !== undefined) {
-          this.setManualAcknowledgement(
-            schedulerState.workEventId,
-            { status: 'review_pending' },
-          );
-        }
         this.setState({
           status: 'server_review_pending',
           queueCount: schedulerState.queueCount,
@@ -1119,13 +1135,6 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         this.visibleTerminalOutcome = Object.freeze(
           decisionOutcome(schedulerState.decision),
         );
-        this.setManualAcknowledgement(schedulerState.workEventId, {
-          status: 'server_decision',
-          outcome: decisionOutcome(schedulerState.decision).status as Extract<
-            ManualOfflineAcknowledgement,
-            { status: 'server_decision' }
-          >['outcome'],
-        });
         this.setState({
           status: 'server_decision',
           outcome: this.visibleTerminalOutcome,

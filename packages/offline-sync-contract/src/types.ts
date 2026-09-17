@@ -189,6 +189,7 @@ export type OfflineProtectedReason =
   | 'wrong_key';
 
 export type OfflineQueueState =
+  | 'confirmed_awaiting_archive'
   | 'pending'
   | 'in_flight'
   | 'retry_wait'
@@ -346,23 +347,12 @@ export type OfflineLifecycleEventResult =
   | { readonly status: 'conflict'; readonly reason: OfflineConflictReason }
   | { readonly status: 'authority_rejected' };
 
+export type OfflineArchiveStatus = 'archive_pending' | 'offsite_archived';
+
 export type OfflineLifecycleEventResultV4 =
-  | (OfflineDurableResultIdentity & {
-      readonly status: 'synchronized';
-      readonly idempotentRetry: boolean;
-      readonly archiveStatus: 'offsite_archived';
-      readonly decision: OfflineCanonicalDecision;
-    })
-  | (OfflineDurableResultIdentity & {
-      readonly status: 'review_pending';
-      readonly idempotentRetry: boolean;
-      readonly archiveStatus: 'offsite_archived';
-      readonly reason: OfflineReviewReason;
-    })
-  | (OfflineDurableResultIdentity & {
-      readonly status: 'archive_pending';
-      readonly idempotentRetry: boolean;
-    })
+  | (Extract<OfflineLifecycleEventResult, {
+      readonly status: 'synchronized' | 'review_pending';
+    }> & { readonly archiveStatus: OfflineArchiveStatus })
   | Extract<OfflineLifecycleEventResult, {
       readonly status: 'pending' | 'conflict' | 'authority_rejected';
     }>;
@@ -388,24 +378,9 @@ export type OfflineReconciliationResult =
   | { readonly status: 'authority_rejected' }
   | { readonly status: 'unavailable' };
 
-export type OfflineReconciliationRecordV2 = OfflineDurableResultIdentity & (
-  | {
-      readonly archiveStatus: 'archive_pending';
-      readonly result: { readonly status: 'archive_pending' };
-    }
-  | {
-      readonly archiveStatus: 'offsite_archived';
-      readonly result:
-        | {
-            readonly status: 'synchronized';
-            readonly decision: OfflineCanonicalDecision;
-          }
-        | {
-            readonly status: 'review_pending';
-            readonly reason: OfflineReviewReason;
-          };
-    }
-);
+export type OfflineReconciliationRecordV2 = OfflineReconciliationRecord & {
+  readonly archiveStatus: OfflineArchiveStatus;
+};
 
 export type OfflineReconciliationResultV2 =
   | { readonly status: 'ready'; readonly records: readonly OfflineReconciliationRecordV2[] }

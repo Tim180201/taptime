@@ -4,6 +4,9 @@ import {
   OFFLINE_LEASE_ACTIVATION_MAXIMUM_ITEMS,
   OFFLINE_LOCAL_SCHEMA_VERSION_V3,
   OFFLINE_LOCAL_SCHEMA_VERSION_V4,
+  OFFLINE_LOCAL_SCHEMA_VERSION_V5,
+  type OfflineDurableResultIdentity,
+  type OfflineReconciliationRecordV2,
   OFFLINE_QUEUE_MAXIMUM_EVENT_BYTES,
   OFFLINE_QUEUE_MAXIMUM_EVENTS,
   OFFLINE_QUEUE_MAXIMUM_TOTAL_BYTES,
@@ -309,15 +312,15 @@ export class OfflineCaptureDatabase {
           await database.closeAsync().catch(() => undefined);
           return this.protect('corrupt_row');
         }
-        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V4) {
+        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V5) {
           await database.closeAsync().catch(() => undefined);
           return this.protect('unknown_schema');
         }
         if (version.user_version === 0) {
           try {
             await database.withExclusiveTransactionAsync(async (transaction) => {
-              await transaction.execAsync(OFFLINE_SCHEMA_V4);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V4}`);
+              await transaction.execAsync(OFFLINE_SCHEMA_V5);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
             });
           } catch (error) {
             await database.closeAsync().catch(() => undefined);
@@ -330,7 +333,8 @@ export class OfflineCaptureDatabase {
               await transaction.execAsync(OFFLINE_SCHEMA_V1_TO_V2);
               await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
               await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V4}`);
+              await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
             });
           } catch (error) {
             await database.closeAsync().catch(() => undefined);
@@ -342,7 +346,8 @@ export class OfflineCaptureDatabase {
             await database.withExclusiveTransactionAsync(async (transaction) => {
               await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
               await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V4}`);
+              await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
             });
           } catch (error) {
             await database.closeAsync().catch(() => undefined);
@@ -353,7 +358,20 @@ export class OfflineCaptureDatabase {
           try {
             await database.withExclusiveTransactionAsync(async (transaction) => {
               await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V4}`);
+              await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
+            });
+          } catch (error) {
+            await database.closeAsync().catch(() => undefined);
+            safelyReportMigrationFailure(reportMigrationFailure, error);
+            return { status: 'migration_failed' };
+          }
+        }
+        if (version.user_version === OFFLINE_LOCAL_SCHEMA_VERSION_V4) {
+          try {
+            await database.withExclusiveTransactionAsync(async (transaction) => {
+              await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
             });
           } catch (error) {
             await database.closeAsync().catch(() => undefined);
@@ -1168,6 +1186,7 @@ export class OfflineCaptureDatabase {
         const row = await transaction.getFirstAsync<QueueRow>(
           `SELECT queue_state, attempt_count, next_attempt_at, command_json
            FROM offline_event_queue
+           WHERE queue_state <> 'confirmed_awaiting_archive'
            ORDER BY device_sequence
            LIMIT 1`,
         );
@@ -1221,7 +1240,8 @@ export class OfflineCaptureDatabase {
            UNION ALL
            SELECT next_attempt_at
            FROM offline_event_queue
-           WHERE device_sequence = (SELECT min(device_sequence) FROM offline_event_queue)
+           WHERE device_sequence = (SELECT min(device_sequence) FROM offline_event_queue
+               WHERE queue_state <> 'confirmed_awaiting_archive')
              AND queue_state = 'retry_wait'
          )`,
       );
@@ -1257,6 +1277,7 @@ export class OfflineCaptureDatabase {
            WHERE device_sequence = ? AND work_event_id = ? AND receipt_id = ?
              AND device_sequence = (
                SELECT min(device_sequence) FROM offline_event_queue
+               WHERE queue_state <> 'confirmed_awaiting_archive'
              )`,
           [
             attemptCount,
@@ -1286,6 +1307,7 @@ export class OfflineCaptureDatabase {
            AND queue_state = 'in_flight'
            AND device_sequence = (
              SELECT min(device_sequence) FROM offline_event_queue
+               WHERE queue_state <> 'confirmed_awaiting_archive'
            )`,
         [identity.deviceSequence, identity.workEventId, identity.receiptId],
       );
@@ -1307,6 +1329,7 @@ export class OfflineCaptureDatabase {
          WHERE device_sequence = ? AND work_event_id = ? AND receipt_id = ?
            AND device_sequence = (
              SELECT min(device_sequence) FROM offline_event_queue
+               WHERE queue_state <> 'confirmed_awaiting_archive'
            )`,
         [identity.deviceSequence, identity.workEventId, identity.receiptId],
       );
@@ -1314,13 +1337,24 @@ export class OfflineCaptureDatabase {
     });
   }
 
+  confirmHead(
+    identity: OfflineDurableResultIdentity,
+    durableStatus: 'synchronized' | 'review_pending',
+  ): Promise<void> {
+    return this.finishHead(identity, durableStatus, false);
+  }
+
   acknowledgeHead(
-    identity: {
-      readonly deviceSequence: number;
-      readonly workEventId: string;
-      readonly receiptId: string;
-    },
+    identity: OfflineDurableResultIdentity,
     durableStatus: 'synchronized' | 'review_pending' = 'synchronized',
+  ): Promise<void> {
+    return this.finishHead(identity, durableStatus, true);
+  }
+
+  private finishHead(
+    identity: OfflineDurableResultIdentity,
+    durableStatus: 'synchronized' | 'review_pending',
+    archived: boolean,
   ): Promise<void> {
     return this.serialized(async () => {
       const database = this.requireReady();
@@ -1341,10 +1375,13 @@ export class OfflineCaptureDatabase {
           }
         }
         const deleted = await transaction.runAsync(
-          `DELETE FROM offline_event_queue
+          `${archived ? 'DELETE FROM offline_event_queue'
+            : `UPDATE offline_event_queue
+               SET queue_state = 'confirmed_awaiting_archive', next_attempt_at = NULL`}
            WHERE device_sequence = ? AND work_event_id = ? AND receipt_id = ?
              AND device_sequence = (
                SELECT min(device_sequence) FROM offline_event_queue
+               WHERE queue_state <> 'confirmed_awaiting_archive'
              )`,
           [identity.deviceSequence, identity.workEventId, identity.receiptId],
         );
@@ -1352,6 +1389,31 @@ export class OfflineCaptureDatabase {
           throw new Error('Offline durable acknowledgement identity mismatch');
         }
       });
+    });
+  }
+
+  readAwaitingArchive(afterSequence: number, limit: number): Promise<OfflineDurableResultIdentity[]> {
+    return this.serialized(async () => this.requireReady().getAllAsync<OfflineDurableResultIdentity>(
+      `SELECT device_sequence AS deviceSequence, work_event_id AS workEventId, receipt_id AS receiptId
+       FROM offline_event_queue
+       WHERE queue_state = 'confirmed_awaiting_archive' AND device_sequence > ?
+       ORDER BY device_sequence LIMIT ?`,
+      [afterSequence, limit],
+    ));
+  }
+
+  acknowledgeArchived(record: OfflineReconciliationRecordV2): Promise<void> {
+    return this.serialized(async () => {
+      if (record.archiveStatus !== 'offsite_archived') {
+        throw new Error('Offline deletion requires archival proof');
+      }
+      const deleted = await this.requireReady().runAsync(
+        `DELETE FROM offline_event_queue
+         WHERE device_sequence = ? AND work_event_id = ? AND receipt_id = ?
+           AND queue_state = 'confirmed_awaiting_archive'`,
+        [record.deviceSequence, record.workEventId, record.receiptId],
+      );
+      if (deleted.changes !== 1) throw new Error('Offline archive acknowledgement identity mismatch');
     });
   }
 
@@ -1402,7 +1464,8 @@ export class OfflineCaptureDatabase {
     return this.serialized(async () => {
       const row = await this.requireReady().getFirstAsync<{ readonly count: number }>(
         `SELECT (
-           (SELECT count(*) FROM offline_event_queue)
+           (SELECT count(*) FROM offline_event_queue
+            WHERE queue_state <> 'confirmed_awaiting_archive')
            + (SELECT count(*) FROM offline_legacy_queue)
            + (SELECT count(*) FROM offline_protected_quarantine)
          ) AS count`,
@@ -2337,3 +2400,39 @@ WHEN NEW.device_sequence <> OLD.device_sequence
   OR NEW.serialized_bytes <> OLD.serialized_bytes
 BEGIN SELECT RAISE(ABORT, 'offline queue evidence is immutable'); END;
 `;
+
+const OFFLINE_SCHEMA_V4_TO_V5 = `
+DROP TRIGGER offline_queue_immutable_fields;
+ALTER TABLE offline_event_queue RENAME TO offline_event_queue_v4;
+CREATE TABLE offline_event_queue (
+  device_sequence INTEGER PRIMARY KEY CHECK (device_sequence > 0),
+  work_event_id TEXT NOT NULL UNIQUE,
+  receipt_id TEXT NOT NULL UNIQUE,
+  lease_id TEXT NOT NULL,
+  lease_item_id TEXT NOT NULL,
+  command_json TEXT NOT NULL,
+  serialized_bytes INTEGER NOT NULL CHECK (serialized_bytes BETWEEN 1 AND 4096),
+  queue_state TEXT NOT NULL CHECK (
+    queue_state IN ('pending', 'in_flight', 'retry_wait', 'protected_review_predecessor',
+      'confirmed_awaiting_archive')
+  ),
+  attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+  next_attempt_at INTEGER,
+  FOREIGN KEY (lease_id, lease_item_id)
+    REFERENCES offline_lease_items (lease_id, item_id)
+) STRICT;
+INSERT INTO offline_event_queue SELECT * FROM offline_event_queue_v4;
+DROP TABLE offline_event_queue_v4;
+CREATE TRIGGER offline_queue_immutable_fields
+BEFORE UPDATE ON offline_event_queue
+WHEN NEW.device_sequence <> OLD.device_sequence
+  OR NEW.work_event_id <> OLD.work_event_id
+  OR NEW.receipt_id <> OLD.receipt_id
+  OR NEW.lease_id <> OLD.lease_id
+  OR NEW.lease_item_id <> OLD.lease_item_id
+  OR NEW.command_json <> OLD.command_json
+  OR NEW.serialized_bytes <> OLD.serialized_bytes
+BEGIN SELECT RAISE(ABORT, 'offline queue evidence is immutable'); END;
+`;
+
+export const OFFLINE_SCHEMA_V5 = OFFLINE_SCHEMA_V4 + OFFLINE_SCHEMA_V4_TO_V5;

@@ -2413,7 +2413,6 @@ async function handleOfflineLifecycle(
         respondJson(response, 200, responseResult);
         return;
       case 'review_pending':
-      case 'archive_pending':
         respondJson(response, 202, responseResult);
         return;
       case 'pending':
@@ -2443,7 +2442,7 @@ async function handleOfflineLifecycle(
 function legacyOfflineLifecycleResult(
   result: OfflineLifecycleEventResultV4,
 ): OfflineLifecycleEventResult {
-  if (result.status === 'archive_pending') {
+  if ('archiveStatus' in result && result.archiveStatus === 'archive_pending') {
     return { status: 'pending', reason: 'temporarily_unavailable' };
   }
   if (result.status === 'synchronized' || result.status === 'review_pending') {
@@ -2469,15 +2468,9 @@ async function handleOfflineReconciliation(
     return;
   }
   try {
-    const reconcileV2 = dependencies.offlineEventReconciliationReader.reconcileV2;
     const operation: Promise<OfflineReconciliationResult | OfflineReconciliationResultV2> =
       version === 2
-        ? reconcileV2 === undefined
-          ? Promise.resolve({ status: 'unavailable' as const })
-          : reconcileV2.call(
-              dependencies.offlineEventReconciliationReader,
-              { accessToken, command },
-            )
+        ? dependencies.offlineEventReconciliationReader.reconcileV2({ accessToken, command })
         : dependencies.offlineEventReconciliationReader.reconcile({ accessToken, command });
     const result = await withTimeout(
       operation,

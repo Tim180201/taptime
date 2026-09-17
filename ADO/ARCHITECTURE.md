@@ -24,7 +24,7 @@ Backend-Coordinators und Datenbankfunktionen; die unbenutzten Core-Verwaltungsdi
 | `packages/*-contract` | Geteilte, exakt geprüfte und versionierte Verträge |
 | `apps/backend-api` | Einziger deploybarer Backend-Dienst; Node 24 und esbuild |
 | Weitere `apps/backend-*` | Fachmodule und Schema; zusammen mit API 11 Workspaces |
-| `apps/backend-schema/migrations` | 23 SQL-Dateien, Migration 001 bis 023 |
+| `apps/backend-schema/migrations` | 24 SQL-Dateien, Migration 001 bis 024 |
 | PostgreSQL 17 | Selbstbetriebene Produktdatenbank; Supabase dient ausschließlich der Anmeldung |
 | `apps/mobile` | Expo 57 / React Native 0.86, Android, native NFC-Erfassung, verschlüsselte SQLite-Queue |
 | `apps/admin-web` | React/Vite: Übersicht, Beschäftigte, Einrichtung, Arbeitszeiten, Prüfungen |
@@ -71,11 +71,21 @@ Mitgliedschaft. Er verwendet Leases **v3**, schreibt zuerst lokal und übergibt 
 - `/v2/lifecycle-events/reconcile` für Archivabgleich,
 - `/v1/offline-review-state/query` für spätere Prüfentscheidungen.
 
-Die Queue-Zeile bleibt bis zum expliziten Nachweis externer WAL-Archivierung erhalten. Der aktuelle
-v4-Vertrag liefert während `archive_pending` noch keine fachliche Entscheidung; die sofortige
-Rückmeldung aus D-052 ist T-052, nicht Bestandteil von T-054. Der vorhandene Lifecycle-Client und
-die alte SecureStore-Outbox bleiben für die Wiederaufnahme bereits gespeicherter Evidenz erhalten.
-Eskalationen werden zu Prüfposten; sie dürfen folgende Queue-Ereignisse nicht dauerhaft blockieren.
+Die Queue-Zeile bleibt bis zum expliziten Nachweis externer WAL-Archivierung erhalten. T-052
+trennt Bestätigung, Fortschritt und Löschung: Entscheidung/Prüfgrund werden sofort angezeigt,
+unarchivierte Bestätigungen bleiben in SQLite v5 als `confirmed_awaiting_archive`. Die FIFO
+sendet danach den nächsten unbestätigten Eintrag; die Oberfläche zählt nur offene Übertragungen.
+Ein eigener Nachlauf fragt höchstens eine Vertragsseite pro Minute ab, rotiert über erhaltene
+Zeilen und löscht ausschließlich exakt zugeordnete archivierte Zeilen. Er verändert keine
+Scan-Rückmeldung. Alle erhaltenen Zeilen zählen weiterhin gegen die Speichergrenzen.
+Mobile nutzt ausschließlich den Lease-Client v3; Serverrouten v1–v3 bleiben bestehen.
+Migration 024 ergänzt die fehlenden Pausen-IDs im Abgleich v2. Ein echter Restore belegt:
+Ein auf dem Telefon erhaltenes Ereignis kann seine unarchivierte Lease verlieren und dann
+nicht identisch wiederholt werden. Der Archivnachlauf bewahrt serverseitig fehlende Bestätigungen
+weiter auf, spielt sie aber nicht erneut ein; er erzeugt damit auch keinen sichtbaren Lease-Konflikt.
+D-055 nimmt die Wiederanlaufzusage zurück; Reparatur T-055.
+Der vorhandene Lifecycle-Client und die alte SecureStore-Outbox bleiben für die Wiederaufnahme
+bereits gespeicherter Evidenz erhalten. Eskalationen werden zu Prüfposten.
 
 Die Android-APK entsteht über `scripts/buildProductionValidationAndroid.mjs` und das EAS-Profil
 `production-validation`. Dieser Weg und seine Konfiguration bleiben erhalten. Der produktive

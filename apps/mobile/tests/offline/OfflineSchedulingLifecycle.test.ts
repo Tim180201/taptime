@@ -452,10 +452,7 @@ const unavailableEnrollment: EmployeeEnrollmentPort = {
 };
 
 const unavailableLeaseClient: OfflineCaptureLeaseApiPort = {
-  async issueComplete() {
-    return { status: 'unavailable' };
-  },
-  async issueCompleteV2() {
+  async issueCompleteV3() {
     return { status: 'unavailable' };
   },
 };
