@@ -1,394 +1,56 @@
 # TapTim.e — Status
 
-> **Diese Datei wird überschrieben, nie angehängt.** Sie beschreibt nur den Jetzt-Zustand.
+**Stand:** 17.09.2026 · Repository nach T-054-Rückbau; technisch abgenommen.
+Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen
+Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt oder verändert.
 
-**Stand:** 16.09.2026 · **Ziel:** System fertig in ~6 Wochen, erster Kunde in ~3 Monaten
+## Vorhanden
 
-**Freigabebedingung:** Fertig ist, wenn ein korrekt ausgeliefertes und nachweislich
-wiederherstellbares System einen vollständigen Monatsabschluss übersteht — nicht, wenn eine
-Aufgabenliste leer ist.
-
----
-
-## Wo wir stehen
-
-Das Produkt ist weitgehend gebaut. Was fehlt: Betrieb, Standorte, Pausen, fertige Oberflächen —
-danach Firma, Recht und Store.
-
-**Fertig und im Repository:**
-
-- Domäne und Business Engine (`Trigger → WorkEvent → Engine → TimeEntry`)
-- Backend: 15 Module in einem deploybaren Dienst, 34 API-Endpunkte
-- Datenbank: 13 Migrationen, Mandantentrennung über RLS
-- Mobile-App: NFC-Scan, Offline-Queue, Anmeldung, Einladung, eigene Zeiten, manuelle Erfassung
-- Admin-Web: Übersicht, Einrichtung, Beschäftigte, Arbeitszeiten, Prüfungen
-- Korrekturen mit lückenloser Historie, CSV-Export (V2), Offline-Abgleich
-- CI auf GitHub Actions — 11 Jobs, alle produktrelevant
-- **T-001 Prozess-Reset** — `84ac01b`
-- **T-002 Container und Healthcheck** — `e7a16f0`, `/health` mit eigenem Verbindungspool,
-  Dockerfile ohne root, `env.example` mit 17 Least-Privilege-Rollen
-- **T-002b** — `1c81aed`, eingefrorener Harness aus CI entfernt (1.180 → 767 Zeilen)
-- **T-004 Server und Datenbank** — `3b35007` und `93fd143`. Hetzner Nürnberg, CX23,
-  `46.225.58.30`. PostgreSQL 17 im Container, von außen nicht erreichbar, nur Port 22 offen.
-  Schema 001–014, RLS auf 29/29 Tabellen, 17 Laufzeitrollen mit minimalen Rechten.
-  Migration 014 entzieht tote Schreibrechte; B3-Sicherheitstests von 109 auf 124 gewachsen,
-  Nachweisführung von einem auf sieben Tests.
-- **T-005 API im Netz** — `4fd2de2`. Backend-API im Container hinter Caddy, automatisches
-  TLS von Let's Encrypt. Zwei Netze: `taptime-internal` ohne Außenverbindung für API und
-  Datenbank, `taptime-edge` nur für Caddy. Container schreibgeschützt, ohne Capabilities,
-  ohne Rechteerweiterung. `https://api.tb-infra.de/health` liefert `200`, überlebt den
-  Serverneustart.
-- **T-006 Admin-Web und Erstinbetriebnahme** — `7ef3951`. `https://admin.tb-infra.de` liefert
-  das Admin-Web, `/v1/*`, `/v2/*` und `/health` gehen an dieselbe API — gleicher Ursprung, kein
-  CORS. HSTS auf beiden Hosts. Ausgeliefert werden genau drei Dateien, kein Quelltext, keine
-  Source Maps, kein Service-Role-Key. Vollständiger Portscan 1–65535: nur 22, 80, 443.
-  Erstinbetriebnahme: eine Organisation „Tim Bartz", eine Administrator-Mitgliedschaft, eine
-  Identitätsbindung, die eingebaute Allgemeine Arbeitszeit. Nach echtem Neustart alles wieder da.
-  **Der Product Owner hat sich angemeldet und die Übersicht gesehen.**
-- **T-010 Eskalationen erreichen den Administrator** — Migration 015. Eine Engine-Eskalation
-  ist jetzt zugleich dauerhafte Entscheidung **und** offener Prüfposten; die Datenbank erzwingt
-  diese Form über `offline_reconciliations_result_shape_v2`. Alle sieben Eskalationsgründe
-  erscheinen einzeln und in verständlichem Deutsch in der Ansicht *Prüfungen*. Das Gerät
-  quittiert weiterhin, spätere Ereignisse werden nicht blockiert. Kanonischer und manueller Weg
-  sind mit abgedeckt.
-- **T-007 Sicherung und getesteter Restore** — `2e53907`. Stündlich `pg_dump` in ein
-  verschlüsseltes Borg-Archiv auf einer Hetzner Storage Box in Falkenstein. Wöchentliche
-  **automatische Wiederherstellung** in einen Wegwerf-Container mit Abgleich gegen ein
-  Manifest aus dem Archiv: Migrationsverzeichnis, Zeilenzahlen, Rollen, RLS auf 29/29.
-  Ein absichtlich beschädigtes Archiv wird erkannt. Borg-Schlüssel und `.env` liegen getrennt
-  beim Product Owner.
-- **T-008 Betriebssichtbarkeit** — `3ab175d`. Diagnose angeschlossen: Protokolle mit Zeitpunkt,
-  Fehlerklasse, geschlossener Route und Korrelations-ID — **kein Personenbezug**, erzwungen durch
-  eine Projektion auf vier getippte Felder statt durch einen Filter. journald mit 14 Tagen
-  Aufbewahrung. Vier Meldungen per ntfy in zwei Dringlichkeitsstufen, alle vier absichtlich
-  ausgelöst und angekommen. Totmannschalter über healthchecks.io, nach echtem Neustart bewährt.
-  Geheimnisse ausschließlich in root-eigenen `curl`-Konfigurationen, nie in `argv`.
-- **T-009 Menschen verwalten** — `b85b0ce`. Zugang entziehen, zweiter Administrator, Passwort
-  zurücksetzen — in Web und App. Die Berechtigung sitzt in **einer** Funktion
-  (`has_membership_management_authority_v1`), die T-015 nur noch auf einen Standort einschränken
-  muss. Letzter Administrator und Selbstentzug sind **in der Datenbank** abgewiesen, der Wettlauf
-  über einen Advisory Lock je Organisation. Der Entzug wirkt beim nächsten Zugriff, nicht erst
-  beim nächsten Anmelden. Vier nicht übertragene Ereignisse eines Gesperrten werden zu
-  Prüfposten statt zu Verlust.
-- **T-011 Ratenbegrenzung** — `3a08601`. Einladungseinlösung streng und alle übrigen eigenen
-  API-Ränder großzügig je Adresse begrenzt. Caddy überschreibt fremde `X-Forwarded-For`-Werte;
-  die API akzeptiert sie nur mit einem gemeinsamen Proxy-Geheimnis. Zustand ist flüchtig,
-  adressverschleiert, zeitlich und mengenmäßig begrenzt.
-- **T-012 Pausenerfassung** — `59bdafd`. Die Pause ist ein **Auslöser**, kein Knopf: Die Engine
-  entscheidet, ob sie beginnt oder endet. Der Zeiteintrag bleibt offen, die Pause ist ein
-  Intervall darin. Vier neue Konsistenzprüfungen rund um die Pause. Ein Arbeits-Auslöser während
-  einer Pause wird abgewiesen, weil er mehrdeutig wäre.
-- **T-013 Export für die Lohnbuchhaltung** — `8094744`. CSV **V3**: Pausen, lokale Zeit mit
-  Sommerzeit, garantiert belegte Personenkennung, Korrekturhinweis mit Revisionsnummer,
-  Erfassungsart je Grenze. Die effektive Arbeitszeit kommt aus
-  `effective_work_duration_seconds_v1` — **eine** Quelle, in SQL. V2 bleibt unverändert.
-- **T-032 Gestaltungsraster und spürbare Rückmeldung** — `846a126`, CI-grün. Fünf
-  unterscheidbare Scanmuster, dunkles Raster und reduzierte Bewegung sind in der Mobile-App.
-- **T-034 Beweisbarer Betrieb — abgeschlossen und ausgeliefert** — `56e975a`, CI und
-  vollständiger Image-Bau grün. Produktion läuft auf diesem Stand; das Auslieferungstor hat das
-  echte Admin-Web-Bündel einschließlich
-  Supabase-Herkunft und öffentlichem Schlüssel belegt. Der Product Owner hat die Anmeldung im
-  ausgelieferten Admin-Web bestätigt. Die Restore-Prüfung leitet die RLS-Bedingung aus allen
-  vorhandenen Anwendungstabellen ab.
-- **T-033 Gerätetest durch den Product Owner — abgeschlossen.** APK `486ad76`, VersionCode 5,
-  SM-A336B mit Android 15: zehn von elf Schritten bestanden. Die vollständige Kette bis zur
-  CSV-Zeile und der Offline-Weg tragen; offen bleibt Schritt 11, weil ein Tag bei geschlossener
-  App den Android-Auswahldialog mit mehreren Kandidaten öffnet. T-043 hat Resolverkonflikt und
-  verworfenen Cold-Start getrennt; der Resolverkonflikt bleibt als T-043 offen.
-- **T-045 Cold-Start-NFC — abgeschlossen.** Der startauslösende Intent wird genau einmal unter
-  der durch diesen Prozessstart entstandenen Berechtigung verarbeitet. Der Product Owner hat den
-  kalten Start am Gerät um 11:15:21 mit dem sichtbaren Ergebnis „Arbeitszeit gestoppt“ belegt.
-- **T-046 Einrichtungsvertrag — abgeschlossen und ausgeliefert.** Arbeits-, Pausen- und
-  unzugeordnete Tags tragen einen gemeinsamen exakten Vertrag; beschädigte Einzelzeilen lassen
-  gültige Zeilen sichtbar. Der Product Owner hat bestätigt, dass die Einrichtung in Produktion
-  auf `3954282` wieder lädt.
-- **`tb-infra.de`** zeigt auf den Server, TTL 300, DNS bestätigt
-
-**Nicht vorhanden** — nach vollständiger Anforderungsprüfung am 24.08. (D-012):
-
-- Sicherung und getesteter Restore. Datenverlust ist heute endgültig.
-- **Protokollierung.** Im Betrieb entsteht kein einziger Logeintrag, kein Alarm.
-- **Zugang entziehen, zweiter Administrator, Passwort zurücksetzen.** Die Datenbank kann es,
-  die Anwendung nicht.
-- **Auflösung eskalierter Ereignisse.** Eine Eskalation legt die Warteschlange dauerhaft still.
-- Eigener Mailversand mit SPF, DKIM und DMARC; T-021 ist seit 16.09. **nicht mehr geparkt**, sondern Voraussetzung fuer die Aufnahme von Beschaeftigten (D-048)
-- Pausenerfassung; Export ohne Pausen, lokale Zeit, Personenkennung und Korrekturhinweis
-- Zweite Umgebung; die Produktion baut aus dem Quellbaum statt aus einem geprüften Artefakt
-- Standorte und Standortleiter (ADR-0020 ist beschrieben, nicht gebaut)
-- Löschkonzept und Betroffenenrechte im laufenden System
-- Fertige Oberflächen, Barrierefreiheit der Mobile-Anmeldung, Landing Page
-- Signierte App, Store-Eintrag, Rechtspaket, Firma
-
----
+- Domäne und Business Engine: `Trigger → WorkEvent → Engine → TimeEntry`, Korrekturen append-only.
+- Backend: 11 `apps/backend-*`-Workspaces einschließlich API und Schema; 52 registrierte
+  HTTP-Pfade inklusive `/health` aus `BACKEND_HTTP_ROUTES` in `BackendHttpServer.ts`.
+- 23 SQL-Migrationsdateien unter `apps/backend-schema/migrations`; Rollen laut Migration 020:
+  `administrator`, `standortleitung`, `employee`. RLS und mandantengebundene Berechtigungen.
+- Mobile: Anmeldung, Einladungseinlösung, NFC, manuelle Erfassung, eigene Zeiten, Offline-Queue.
+  Erfassung über Offline v4, Abgleich v2, Leases v3; Löschung der Queue erst nach Archivnachweis.
+- Verwaltung: Beschäftigte, Standorte und Zuständigkeiten, Arbeitsziele, Tags, Korrektur und
+  Prüfentscheidung. Pausenintervalle und CSV V3 mit Pausen, Ortszeit und Revisionskennzeichnung.
+- Betrieb im Repository: Container, Caddy, Deploy/Rollback, Diagnose, Alarmierung, physische
+  Basissicherung, externes WAL, Zeitpunkt-Restore und Wiederherstellungsprüfung samt Tests.
+- Android-APK-Baustrecke über `android:production-validation:build` bleibt erhalten.
+  NFC und Offline wurden am Gerät abgenommen; der Android-Auswahldialog bleibt T-043.
 
 ## Aktuelle Aufgabe
 
-**T-035 — Kein stiller Datenverlust.** D-051 setzt RPO 0 für bestätigte WorkEvents und RTO vier
-Stunden. PostgreSQL erhält eine physische Basissicherung plus fortlaufendes externes WAL; das
-Telefon behält seine bestehende Queue-Zeile, bis der Server genau deren Archivierung bestätigt.
-Der explizite Archivierungsvertrag wird versioniert, alte Clients bleiben bis dahin im bekannten
-`pending`. B03 repariert zusätzlich den fehlenden Wecker vor einer gespeicherten Fälligkeit.
+**T-054:** Synthetic-Paket, Mobile-Prüfapparat, B1-Spike, alter Scan-Client und drei unbenutzte
+Core-Dienste entfernt. Tests sichern echte Runtime-Verdrahtung und Android-Backup-Schutz;
+Serverrouten und Migrationen bleiben unverändert. Unabhängiges Review (Runde 1) und technische
+Abnahme: APPROVED. Sechs getrennte Umsetzungs-Commits; Dokumentationsauftrag zuvor gepusht.
 
-Danach die Folgeaufgaben in neuer Reihenfolge, siehe `ADO/PLAN.md`. Die Kette wurde am 24.08.
-nach Betriebsfähigkeit sortiert und um sieben Aufgaben erweitert (D-012). `T-001` bis `T-006`
-sind unverändert, alles danach ist neu nummeriert.
+## Offen bis zum Pilotbetrieb
 
-## T-003 — eingestellt, nicht abgeschlossen
+- T-052: Entscheidung sofort im Tap anzeigen, Archivquittung weiterhin später (D-052).
+- Registrierung/Einladung mit Kontenerstellung und zustellbarer Mail: T-021/T-047.
+- Ortszeitgrenzen, Tagesfreigabe, Kalender und beschlossene Pausenautomatik: T-036/T-048–T-050.
+- Android-App-Auswahl und Lesemodus, iOS, Datenschutz/Löschung, fertige Oberflächen und CSP.
+- Firma, Recht, Store-Freigabe und Verwahrung des Release-Signierschlüssels; unabhängiger
+  Aussperr-Test durch den Product Owner. Supabase-Tarif vor zahlenden Kunden klären.
 
-Der Versuch, das Schema auf Supabase einzuspielen, ist nach **sechs Berechtigungshürden**
-eingestellt worden. Das Ziel — Schema und 17 Laufzeitrollen — wandert unverändert nach T-004,
-auf eine selbstbetriebene Datenbank. Begründung: `ADR-0021` und `DECISIONS.md` D-010.
+## Bekannte Kleinigkeiten und offene Risiken
 
-**Dauerhaft übernommen:** `d6b8679` (Prüfblöcke gegen SUPERUSER in den Migrationen) und
-`400fd43` (B4-Test deckt Normalisierung *und* Verweigerung ab). Beide sind unabhängig vom
-Betreiber Verbesserungen.
-
-**Verworfen:** die uncommitteten Nicht-Superuser-Umbauten aus T-003d und T-003f.
-
-## Schätzung gegen Wirklichkeit
-
-Der Technical Lead führt beide Zahlen mit, um eigene systematische Fehler zu erkennen.
-
-| Aufgabe | Geschätzt | Tatsächlich |
-|---|---|---|
-| T-001 | eine Sitzung | eine Sitzung + eine Nachbesserung |
-| T-002 | zwei Sitzungen | zwei Sitzungen (inkl. T-002b) |
-| T-003 | zwei Sitzungen | **sechs** — eingestellt |
-| T-004 | zwei Sitzungen | drei — inkl. einer Korrekturrunde |
-| T-005 | eine Sitzung | eine Sitzung |
-| T-006 | zwei Sitzungen | zwei Sitzungen |
-| T-010 | drei Sitzungen | eine Sitzung |
-| T-007 | zwei Sitzungen | eine Sitzung |
-| T-008 | zwei Sitzungen | zwei Sitzungen |
-| T-009 | drei Sitzungen | zwei Sitzungen |
-| T-011 | eine Sitzung | eine Sitzung |
-| T-012 | drei Sitzungen | vier — inkl. drei Runden CI-Reparatur |
-| T-013 | zwei Sitzungen | zwei Sitzungen |
-| T-014 | zwei Sitzungen | drei |
-| T-017a | drei Sitzungen | offen |
-
-Die Prüfung vom 24.08. hat die Restschätzung von 11 auf **38 Sitzungen** über 13 Aufgaben
-korrigiert — nicht weil mehr Arbeit entstanden ist, sondern weil sieben nötige Aufgaben vorher
-in keinem Plan standen.
-
----
-
-## Bewusst offene Ränder
-
-| Was | Wie weit offen | Wann neu bewerten |
-|---|---|---|
-| **Anmeldung** | Läuft direkt gegen Supabase, nicht über unsere API. `/v1/session` ist ein `GET` mit Bearer-Token und sieht nie ein Passwort. Supabase begrenzt auf 1.800 Anfragen/Stunde je IP, Burst 30 — **keine Konto-Achse**. Wir können daran nichts bremsen, solange der öffentliche Password-Grant erreichbar ist. | vor dem ersten zahlenden Kunden |
-| **Passwortzurücksetzung** | Ebenfalls direkt gegen Supabase. Mindestens 60 Sekunden je Nutzer. Bekannte und unbekannte Adresse liefern beide `200 {}` — kein Kontoverrat. | mit T-021 |
-
----
-
-## Offene Abnahme durch den Product Owner
-
-| Was | Warum es zählt | Spätestens |
-|---|---|---|
-| **Aussperr-Test** | Zweiten Administrator anlegen, damit anmelden, dem ersten den Zugang entziehen — und rückwärts. Prüft, ob ein Kunde sich aus jeder Lage selbst befreien kann, ohne uns. Braucht einen Rechner, nicht das Telefon. | vor dem ersten fremden Nutzer |
-
----
-
-## Blockiert / wartet auf Entscheidung
-
-| Was | Von wem | Warum es drängt |
-|---|---|---|
-| **Produktname** | Tim | Engste Wahl: **Taptura** — `taptura.de`, `.com` und `.io` frei, `.app` vergeben. Kunstwort, trägt das „Tap" der Bedienung, in beiden Sprachen gleich aussprechbar, keine Kollision mit TIM/Telecom Italia. **Domains registrieren, bevor die Markenvorprüfung läuft** — sie sind das Einzige, das über Nacht weg sein kann. Regel aus der Suche: `.com` darf nicht über den Namen entscheiden; `.de` plus eine moderne Endung genügt. Verworfen: „MyTim" (Domains weg, TIM-Kollision, falsche Perspektive), „Zeitura" (international unklar auszusprechen). „TapTime" ist vergeben. Wird für Store, Firma und Domain gebraucht — Deadline Woche 12. Blockiert Phase 1 nicht. |
-| **Domain** | Tim | Technische Bauvoraussetzung für iOS: Universal Links und der NDEF-Datensatz brauchen eine kontrollierte Domain. |
-| **D-U-N-S-Nummer** | Tim | Nach der Gründung der UG beantragen; Voraussetzung für den Unternehmensweg in den Store. |
-| **Supabase Pro** | Tim | Kein theoretisches Risiko mehr: Am 15.09. pausierte Supabase das Gratis-Projekt nach sieben Tagen ohne Aktivität; Website und App konnten niemanden mehr anmelden. Vor dem ersten zahlenden Kunden auf einen belastbaren Tarif wechseln. |
-| **T-021 Zustellbarkeit** | Tim | Brevo-Konto, DNS mit SPF, DKIM und DMARC, dazu der AVV mit Brevo. **Seit 16.09. Voraussetzung fuer den Piloten, nicht mehr geparkt:** Ohne Mailversand kann kein einziger Beschaeftigter aufgenommen werden (D-048, T-047). |
-| **Markenrecherche Taptura** | Tim | `register.dpma.de` und `euipo.europa.eu`, beide kostenlos. Kommt **vor** dem Domainkauf — wer eine Domain kauft, die er nicht fuehren darf, hat Geld verbrannt. |
-| **Welche Telefone haben die Lehrkräfte?** | Tim → Pilotbetrieb | Bestimmt den Distributionsweg. iOS ist nach D-037 festes Ziel; dort gehören Universal Link, Mitteilung und Bestätigung zum akzeptierten Ablauf. |
-| **Vier Fragen an den Pilot-Inhaber** | Pilotbetrieb | Am 26.08. **schriftlich** hinausgegangen, Rücklaufzeit offen. Reihenfolge: was an Jibble stört · wie der Monatsabschluss abläuft · was bei einer falschen Stunde passiert · ob es Personalnummern gibt. Blockiert **T-020** (Freigabekette: pro Eintrag oder pro Person und Monat, D-020), **T-023** (Inhalt der Übersicht) und die letzte offene Stelle in **T-013**. Blockiert T-015a/b/c nicht. Schriftlich heißt: kürzere, glattere Antworten als im Gespräch — vor allem bei Frage 1. Kommt dort nichts Konkretes, ist ein Telefonat nachzuholen. |
-| **Monatsgrenzen in Ortszeit** | Tim + Claude | Adressen wie `?monat=2026-10` rechnen heute in UTC-Monatsgrenzen. Ein Oktober in `Europe/Berlin` dauert durch die Zeitumstellung 31 Tage plus eine Stunde; Abfrage und CSV-Export erlauben vertraglich höchstens exakt 31 Tage. Betrifft genau zwei Monate im Jahr — und verschiebt dort Arbeitszeiten über die Monatsgrenze. Bei einer Lohnabrechnung ist das kein Rundungsfehler. Braucht eine Vertrags- und Backendentscheidung, nicht Oberflächenarbeit. Fällt spätestens mit T-013 an. |
-
----
-
-## Geheimnisse — verwahrt am 25.08.2026
-
-Bis zum 25.08. lagen Borg-Passphrase, Borg-Schlüssel und `/opt/taptime/.env` **ausschließlich
-auf dem Server**. Jede Sicherung wäre bei einem Serververlust unlesbar gewesen — T-007 hat
-funktioniert, aber sein Zweck nicht. Der Product Owner hat vier Einträge angelegt:
-
-| Eintrag | Inhalt |
-|---|---|
-| TapTime Server Root (Hetzner-Konsole) | Root-Passwort für den Konsolen-Rückweg |
-| TapTime Borg Passphrase | am 25.08. rotiert, weil die alte in einem Chatverlauf landete |
-| TapTime Borg Schlüssel (Papierform) | `borg key export --paper`, zusätzlich ausgedruckt |
-| TapTime Produktions-.env | 18 Datenbank-Zugangsdaten und der Cursor-HMAC-Schlüssel |
-
-**Regel ab sofort:** Eine Aufgabe, die ein Geheimnis erzeugt, ist erst abgeschlossen, wenn der
-Product Owner bestätigt hat, dass es verwahrt ist — nicht wenn das Skript läuft. Und bei jeder
-Änderung auf dem Server wird der Eintrag am selben Tag nachgezogen; **T-024** rotiert die
-`.env` und muss sie danach erneut verwahren.
-
----
-
-## Bekannte Kleinigkeiten (blockieren nichts)
-
-- **P2 aus T-035:** Der erste vollständige Mobile-Testlauf nahm lokal ignorierte Android-
-  Bauausgaben unterhalb des Quellbaums mit und scheiterte an deren doppelten Modulen. Mit exakt
-  denselben Quellen und vorübergehend ausgelagerten Bauausgaben liefen 61 Testdateien mit 1.337
-  Tests grün. Der Testverschluss sollte generierte Android-Verzeichnisse dauerhaft ausschließen.
-- **P2 aus T-035:** Der zusätzliche, nicht im T-035-CI-Gate liegende Synthetic-Android-Gesamtlauf
-  hat 529 Tests bestanden und fünf bereits in `HEAD` vorhandene Drifts offengelegt: drei erwarten
-  entfernte DA5-Workflow-Schritte, einer einen alten `app.json`-Hash, einer scheitert am unveränderten
-  Enrollment-Testdoppel ohne drei Membership-Methoden. Die T-035-Rollenregression ist behoben.
-- **P2 aus T-045, gelöst in T-035:** CI-Lauf `35075515260` traf im bestehenden
-  `taptime-restore-verify.test` das PostgreSQL-Startfenster zwischen dem temporären
-  Unix-Socket-Server und dem endgültigen Server. Der Test wartet nun auf dessen TCP-Bereitschaft;
-  der Wiederholungsbefund aus T-035 war der Auslöser für die Reparatur.
-- **P2, gelöst in T-034:** `DEPLOY.md` und `RESTORE.md` beschrieben nach der ersten Umsetzung
-  noch den alten festen Tabellenzähler und nur den Versionsnachweis des Admin-Webs; beide sind
-  an die bedingungs- und inhaltsbasierte Prüfung angeglichen.
-- **P2 aus T-034, Nachweis geschlossen:** Der positive vollständige Admin-Web-Dockerbau
-  scheiterte lokal erst nach dem Konfigurationsgate an einem vollen 10-GiB-Colima-Datenträger.
-  Der nachgelagerte CI-Lauf `34972562477` hat das vollständige Abbild aus `56e975a` erfolgreich
-  gebaut und veröffentlicht; die lokale Ursache bleibt als untersuchtes Kapazitätssignal notiert.
-- **P2 aus T-034:** Die öffentliche Admin-Web-Konfiguration wird aus
-  `apps/mobile/eas.json`, `build['production-validation'].env` gelesen — dem Wegwerf-Testprofil
-  der App. Der Wert stimmt heute; ändert jemand dieses Profil, wandert die Produktionskonfiguration
-  der Website jedoch unbemerkt mit. Sie braucht eine eigene, ausdrückliche Quelle.
-- **P1 aus T-034, bei der Auslieferung manuell belegt, dauerhaft in T-039:** Das Bündeltor weist
-  eine gültige Supabase-Herkunft nach, nicht die richtige. Weicht sie vom Hostnamen des
-  `SUPABASE_ISSUER` ab, dem das Backend vertraut, zeigt die Seite eine Anmeldemaske, die jede
-  Anmeldung ablehnt, während das Tor grün bleibt. Für `56e975a` stimmten beide Herkünfte überein;
-  die Anmeldung in Produktion ist bestätigt. T-039 automatisiert diesen Vergleich.
-- **P2 aus T-034:** Der Rollback-Orchestrierungstest ersetzt `wait_for_health` durch ein Testdoppel.
-  Produktiv läuft das echte Bündeltor auch beim Rollback und ist separat negativ und positiv
-  belegt; die Kombination aus automatischem Rollback und echtem Tor bleibt automatisiert offen.
-- **P2, gelöst in T-025:** Drei Grenztest-Vorfälle waren Läuferwetter statt Produktfehler; zuletzt
-  schwankte Payroll V3 von 8,9 auf 30,2 Sekunden. Der 8-MiB-Test vergleicht den Export nun mit
-  einem festen, V3-ähnlichen PostgreSQL-Workload im selben Lauf (`1,20×`), meldet absolute
-  Langsamkeit nur als Warnung und läuft in einem eigenen CI-Job mit eigener Datenbank.
-- **P2:** PostgreSQL-Integrationssuiten dürfen lokal nicht parallel auf demselben Cluster laufen:
-  Migrationen normalisieren clusterweite Rollen und können dadurch eine fremde Suite stören.
-  Die CI-Jobs besitzen getrennte PostgreSQL-Servicecontainer; lokale Prüfläufe bleiben seriell.
-- **P2:** `effective_work_duration_seconds_v1` hat noch keinen Aufrufer. Das ist bis T-013
-  korrekt; **T-013 muss diese Funktion aufrufen** und darf den Pausenabzug nicht in TypeScript
-  nachrechnen, sonst entstehen zwei Wahrheiten.
-- **P2:** Offline-Reconciliation speichert bei `work_trigger_during_break_rejected` die aktive
-  `server_time_entry_id` noch nicht mit, obwohl die Entscheidung selbst korrekt ankommt.
-- **P2:** Die Break-WorkEvent-Bindung könnte zusätzlich über `subject_type = 'break'` sowie die
-  Gleichheit von `started_via`/`stopped_via` und `trigger_type` gehärtet werden. Die aktuellen
-  Writer erzeugen bereits die richtige Form.
-- App heißt intern noch `mobile` (Name, Slug, Package-ID) statt TapTim.e.
-- **P2, Befund aus T-018:** Die installierte Produktionstest-App erkennt eine neuere Fassung
-  nicht selbst. Sie zeigt ihren Commit; der Technical Lead muss einen neuen Stand aktiv melden.
-- **P1 aus T-028:** Rund 131 Zeilen in
-  `infrastructure/deploy` und `infrastructure/tests/taptime-deploy.test` beheben die falsch
-  aufgezeichnete Betriebsversion. Ungeprüft und nicht ausgeliefert; als `7ef7344` auf
-  `wip/t-028-operations-version` gesichert, nicht gemergt.
-- Nur zwei Rollen (`administrator`, `employee`). `team_lead` ist eine typische B2B-Rückfrage,
-  additiv nachrüstbar. Der Standortleiter aus T-015 deckt den häufigsten Fall ab.
-- **P1, Frist spätestens T-018:** `taptime://auth/recovery` ist ein eigenes URL-Schema. Auf
-  Android kann eine fremde App es beanspruchen und den Wiederherstellungstoken abfangen; auf
-  iOS ist die Zuordnung bei mehreren beanspruchenden Apps undefiniert. Vor Installation auf dem
-  ersten fremden Telefon auf HTTPS App Links / Universal Links mit Domainnachweis umstellen.
-- **P2:** Acht von 30 Tabellen tragen keine RLS-Policy — `bootstrap_receipts`,
-  `employee_membership_invitations`, `employee_invitation_command_receipts`,
-  `employee_enrollment_redemption_receipts`, `membership_management_command_receipts`,
-  `time_record_revisions`,
-  `time_review_command_receipts`, `offline_review_adjudications`. `FORCE` ohne Policy sperrt
-  alles, sie sind also fail-closed; ihre Mandantentrennung hängt aber allein an den Prädikaten
-  der `SECURITY DEFINER`-Funktionen. Auf `time_record_revisions` liegt ein `UPDATE`-Recht, dessen
-  Unveränderlichkeits-Trigger nirgends getestet ist.
-- **P2:** Fünf Policies aus Migration 013 leiten die Administrator-Eigenschaft aus einer
-  Anwendungsvariablen ab statt aus `memberships` wie die anderen 42. Heute nicht ausnutzbar,
-  bricht aber das Muster.
-- **P2:** `admin.tb-infra.de` hat **keine Content-Security-Policy** — weder in Caddy noch in der
-  Seite. Der Schutz „Token nur im Arbeitsspeicher" aus ADR-0015 DA4-P10 wirkt gegen
-  eingeschleustes JavaScript deshalb nur begrenzt. Wird in T-017 zusammen mit der Umstellung auf
-  `sessionStorage` behoben, in dieser Reihenfolge. Siehe D-015.
-- **P2:** Der Zeitstempel der manuellen Erfassung stammt von der Geräteuhr. Der Serverpfad mit
-  `transaction_timestamp()` existiert, wird von der App aber nie aufgerufen.
-- **P2:** Die Wiederherstellungsprüfung läuft gegen eine praktisch leere Datenbank —
-  `work_events`, `time_entries` und `canonical_decisions` stehen auf 0. Die Mechanik ist damit
-  bewiesen, ein echter Datenrundlauf nicht. Erledigt sich mit den ersten echten Daten.
-- **P2:** Zehn automatische Schnappschüsse rotieren täglich. Bei anhaltender Serverübernahme
-  sind sie nach zehn Tagen ersetzt. Gegenmittel ist der zweite Topf: zehn **manuelle**
-  Schnappschüsse rotieren nicht — einer pro Monat, einer vor jeder größeren Serveränderung.
-- **P3:** Eine gemischte Auswahl in *Prüfungen* — Engine-Eskalation zusammen mit einem anderen
-  Prüfposten — wird mit `invalid_evidence` abgewiesen. Sicher, aber für den Administrator nicht
-  selbsterklärend. Gehört in T-017.
-- **P2:** Ein vergessener Stopp läuft unbegrenzt weiter. Es gibt keine Obergrenze und keinen
-  Hinweis an den Administrator.
-- **P3:** Vier Dokumente beschreiben, was es nicht gibt — `Role_Model.md` und `Domain_Model.md`
-  führen System Owner und Team Lead, `Glossary.md` kennt Work Target und Revision nicht,
-  ADR-0018 DA6-P03 nennt Supabase als Datenebene. Wird in T-019 angeglichen.
-- `apps/backend-b1-spike` ist ein altes Experiment und kann entfernt werden.
-- **P2:** `/health` löst pro Aufruf eine Datenbankabfrage aus. Der eigene Pool (`max: 1`) schützt
-  die Fachmodule, aber ein Ergebnis-Zwischenspeicher von wenigen Sekunden würde das Thema ganz
-  erledigen.
-- **Bewusste Betriebseinschränkung:** Die API-Ausfallmeldung kommt genau einmal pro Ausfall.
-  Bleibt die API lange unerreichbar und wird die Meldung übersehen, gibt es keine Erinnerung.
-  Das vermeidet bewusst einen Alarmsturm.
-- **P3:** Fünf hohe npm-Audit-Meldungen, alle im Expo/Metro-Build-Werkzeug der Mobile-App.
-  Nichts davon läuft im Backend-Container. Updates verfügbar.
-- **P3:** Caddy nennt bei HTTP-Anfragen an die IP oder einen fremden Host seinen Produktnamen
-  ohne Version. Die Antworten für `api.tb-infra.de` enthalten den Header nicht.
-- **P3:** Caddy kündigt HTTP/3 per `Alt-Svc` an, obwohl aktuell nur 443/TCP veröffentlicht ist.
-  Funktional fällt der Client auf HTTP/2 zurück; die Ankündigung ist unnötig.
-- **P2:** Der T-011-Caddy-Integrationstest prüft eine kleine äquivalente Testkonfiguration statt
-  der Produktionsdatei. Die Produktionsdatei wird separat validiert; ein späteres Entfernen der
-  Proxy-Header aus nur einer echten Route würde der Integrationstest aber nicht bemerken.
-- Mit dem entfernten CI-Job entfielen auch Absicherungen gegen bekannte Lücken in
-  Abhängigkeiten (GHSA-Einträge, `image-size`). Falls das erhalten bleiben soll, gehört es in
-  eine eigene Abhängigkeits-Richtlinie — nicht zurück in den eingefrorenen Harness.
-- **P2:** `securityBoundaries.test.ts` prüft die Tabellenfixierung über reguläre Ausdrücke
-  auf dem **Quelltext** von `styles.css`, nicht über Verhalten. Er bricht bei jeder
-  Umformatierung ohne Verhaltensänderung — und würde einen echten Verlust der Fixierung
-  durch eine andere Schreibweise nicht bemerken. Bewusst so belassen, weil jsdom die
-  Fixierung nicht darstellt.
-- **P2:** Das Admin-Web-Bündel liegt bei 510 kB JavaScript. Ohne Aufteilung wird der erste
-  Aufbau in schlechten Netzen spürbar.
-- **P2:** Der private Deploy-Schlüssel auf dem Arbeitsrechner ist weiterhin **ohne
-  Passphrase**. Nach T-022 öffnet er nicht mehr root, sondern nur noch `taptime-deploy` mit
-  genau einer erlaubten `sudo`-Regel — der Schaden bei Verlust des Rechners ist damit deutlich
-  kleiner, aber nicht null. Vorschlag von Codex vom 25.08., aufgenommen in **T-024**: neuen
-  passphrasegeschützten Schlüssel einrichten, mit einer echten Auslieferung belegen, **erst
-  danach** den alten öffentlichen Schlüssel entfernen. In dieser Reihenfolge, sonst sperrt man
-  sich aus.
-- **Offen, laufend:** Die Grenztests aus T-025 messen relativ, Budget `1,20×`. Gemessene
-  CI-Verhältnisse: `0,66` · `0,64` · `0,91` · `0,57` · `0,93` · `0,93`. **Jede abgeschlossene Aufgabe trägt ihren Wert hier ein.**
-  Bei zehn Werten wird die Verteilung ausgewertet und das Budget mit Daten nachgezogen — nicht
-  geschätzt.
-- **P2:** Der Monitoring-Test ist auf dem Entwicklungsrechner (macOS) nicht lauffähig — er
-  braucht GNU-`stat -c`. Ein Test, der nur in der CI läuft, wird beim Entwickeln nicht bemerkt.
-  Unverändert übernommen aus T-026.
-- **P2, Befund aus T-028:** Beim ersten Wechsel bytegleicher systemd-Einheiten von regulären
-  Dateien auf Release-Symlinks blieb `NeedDaemonReload=yes`: Die Änderungsprüfung vergleicht
-  Inhalte, nicht den Pfad-/Inodewechsel. Die Sicherung lief trotz der systemd-Warnung erfolgreich.
-- **Aufräumen, terminiert:** Der Caddy-Zweig `/assets/*` trägt den unversionierten T-006-Altbestand
-  mit fünf Minuten Gültigkeit. Er darf entfernt werden, sobald T-026 mindestens fünf Minuten
-  produktiv gelaufen ist — dann kann keine vor der Umschaltung geöffnete Seite ihn mehr brauchen.
-  Unversionierte Dateinamen sind ein Übergang, kein Dauerzustand.
-- **Android-Testfassung am Gerät geprüft:** APK `486ad76`, VersionCode 5, Paket
-  `com.tim180201.mobile.productionvalidation`. Zehn von elf Schritten bestanden; Schritt 11 ist
-  als T-043 und T-045 getrennt offen. **Der Installationslink liegt in keinem Chat und in keinem Repository** — er
-  wird bei Bedarf über die Bau-Kennung auf `expo.dev` neu erzeugt. Anleitung:
-  `ADO/04_Operations/Android_Produktionstest.md`. Passende Tags: NTAG213, 215, 216.
-- **NFC auf echter Hardware bestätigt** (Product Owner, 28.08.2026): Lesen funktioniert auf
-  seinem Android-Gerät mit seinen Tags. Bis dahin lief jeder NFC-Nachweis gegen Testdoppel; der
-  automatisierte Hardware-Testlauf ist seit T-005 eingestellt. Damit ist die größte unbelegte
-  Annahme des Produkts belegt — **T-032 baut nicht auf Sand.**
-- **Signierschlüssel, bewusst unterschieden:** Der Schlüssel der Android-**Testfassung**
-  (`...productionvalidation`) wird **nicht** verwahrt — sie kommt nie in einen Store, ein Verlust
-  kostet einen Neubau. **Beim echten Release gilt das Gegenteil:** Ein verlorener Signierschlüssel
-  bedeutet, dass die App nie wieder aktualisiert werden kann, unter keinen Umständen. Er wird
-  verwahrt wie der Borg-Schlüssel, und die Aufgabe, die ihn erzeugt, ist ohne diese Bestätigung
-  nicht abgeschlossen.
-- Geparkte Idee: **`ADO/RESULT.md`** — Codex schreibt seinen Abschlussbericht ins Repo statt nur
-  in den Chat. Spart dem Product Owner bei jeder Aufgabe einen Handgriff.
-
----
-
-## Eingefroren
-
-- **`apps/synthetic-android-e2e`** — der automatisierte Hardware-Testlauf ist eingestellt.
-  Ersetzt durch `ADO/04_Operations/Smoke_Test_Checkliste.md`. Code bleibt liegen, wird nicht
-  weiterentwickelt. Begründung: `ADO/DECISIONS.md`, D-001.
-- **Development Assignment 5 / V5-Verfahren** — beendet. Die offene Frage war nie ein
-  Produktfehler; im Ereignisprotokoll stand durchgehend `Product finding: NONE`.
+- **P1:** Passwort-Recovery nutzt ein fremd beanspruchbares eigenes URL-Schema;
+  das Web-Bündeltor prüft noch nicht die Übereinstimmung mit dem Backend-Aussteller (T-039).
+- **P2 Betrieb:** Öffentliche Web-Konfiguration stammt aus dem Mobile-Testprofil; Rollback mit
+  echtem Bündeltor, Betriebsversion und systemd-Pfadwechsel bleiben gesondert abzusichern.
+  Caddy-Test nutzt eine eigene Konfiguration; Monitoring-Test benötigt GNU-Werkzeuge.
+- **P2 Sicherheit:** CSP fehlt; SECURITY-DEFINER-Zugriffspfade und uneinheitliche Policy-Prädikate
+  bleiben Prüfaufgaben. Geheimnisrotation und passphrasegeschützter Deploy-Schlüssel: T-024.
+  Direkte Supabase-Anmeldung liegt außerhalb eigener API-Ratenbegrenzung; kontobezogenen
+  Schutz vor zahlenden Kunden prüfen.
+- **P2 Fachlich:** Geräteuhr für manuelle Erfassung, unbegrenzter vergessener Stopp,
+  fehlende aktive Zeitreferenz bei Offline-Pausenkonflikten und zusätzliche Break-Bindungen.
+- **P2/P3 Oberfläche:** Keine automatische Meldung neuer APKs; gemischte Prüfposten-Auswahl
+  erklärt ihre Abweisung nicht; CSS-Quelltexttest und ungeteiltes Web-Bündel bleiben offen.
+- **P2/P3 Pflege:** Weitere Fach-/Rollendokumente in T-019 abgleichen; Abhängigkeitssicherheit
+  braucht eine eigene Richtlinie. Lokale PostgreSQL-Suiten wegen clusterweiter Rollen seriell.
+  Health-Abfrage ohne Cache, einmaliger API-Ausfallalarm und alte Caddy-Assets bleiben bestehen.

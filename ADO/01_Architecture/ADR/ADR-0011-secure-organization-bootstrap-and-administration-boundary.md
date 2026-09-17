@@ -1,4 +1,5 @@
 # ADR-0011: Secure Organization Bootstrap and Administration Boundary
+> Durch [D-053](../../DECISIONS.md#d-053--der-eingefrorene-pruefapparat-wird-zurueckgebaut--17092026--tim) überholt.
 
 Status: Accepted by Human Architect — C3B/C3C/C3D/C3E1/C3E2 independently closed for their
 authorized scopes; production gated

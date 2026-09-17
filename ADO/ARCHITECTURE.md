@@ -1,212 +1,116 @@
 # TapTim.e — Architektur
 
-> **One Tap. One Decision.** Der Nutzer löst aus. Die Engine entscheidet.
+**Stand:** 17.09.2026 · Ausgeführter Repository-Code ist maßgeblich.
+**One Tap. One Decision.** Der Nutzer löst aus; die Engine entscheidet.
 
-Diese Datei beschreibt, wie das System gebaut ist und welche Invarianten nicht gebrochen
-werden dürfen. Sie ist die Datei, die ein neuer Agent lesen muss, um mitarbeiten zu können.
+## Fachliche Kette
 
----
+`Trigger (NFC | manuell | nachträglich synchronisiert) → WorkEvent → BusinessEngine → TimeEntry`
 
-## 1. Die fachliche Kette
+Ein Trigger erzeugt niemals direkt einen Zeiteintrag. Das WorkEvent hält das Ereignis fest;
+Beginn, Ende, Pause, Ablehnung und Eskalation entstehen in der Engine. Korrekturen ergänzen
+Revisionen, ohne die ursprüngliche Aufzeichnung umzuschreiben. Ein NFC-UID identifiziert einen
+Tag, beweist aber weder physische Anwesenheit noch Echtheit (D-054).
 
-```
-Trigger (NFC-Scan | manuell | offline nachgetragen)
-  -> WorkEvent            unveränderliche Tatsache: "etwas ist passiert"
-  -> BusinessEngine       entscheidet, was es bedeutet
-  -> TimeEntry            fachliches Ergebnis: started -> stopped
-```
+`packages/core/src` enthält Domäne, Engine, Anwendungsdienste und austauschbare Ports/Adapter.
+Die Domäne kennt weder NFC-Bibliothek noch UI oder Datenbank. Produktive Verwaltung liegt in
+Backend-Coordinators und Datenbankfunktionen; die unbenutzten Core-Verwaltungsdienste sind entfernt.
 
-Ein Trigger erzeugt **nie** direkt einen `TimeEntry`. Das ist die zentrale Invariante des
-Produkts. Sie ist der Grund, warum später QR-Code, Terminal, Kalender-Import oder eine API
-als weitere Trigger dazukommen können, ohne das Datenmodell zu ändern.
+## Bausteine und Quellen
 
-Implementiert in `packages/core/src`:
-`domain/` (WorkEvent, TimeEntry, Events) · `business/` (BusinessEngine, WorkEventFactory) ·
-`application/` (Orchestrierung, keine Geschäftsregeln) · `ports/` + `infrastructure/`
-(Adapter, austauschbar).
-
-Hexagonal: Geschäftslogik kennt weder UI noch NFC-Bibliothek noch Datenbank.
-
----
-
-## 2. Bausteine
-
-| Baustein | Was | Technik |
-|---|---|---|
-| `packages/core` | Domäne, Business Engine, Ports | TypeScript, ohne Framework |
-| `packages/*-contract` | Geteilte Verträge Mobile ↔ Server | versioniert |
-| `apps/backend-api` | **Das einzige deploybare Backend.** Bündelt alle `backend-*` | Node 24, esbuild, `node dist/main.js` |
-| `apps/backend-*` | Fachliche Server-Module (15 Stück) | als Bibliotheken eingebunden |
-| `apps/backend-schema` | Datenbankmigrationen (013) | SQL, Schema `taptime_server` |
-| PostgreSQL | **Selbstbetrieben auf dem Hetzner-Server** (ADR-0021). Supabase liefert nur noch Authentifizierung. | Container, festes Datenverzeichnis |
-| `apps/mobile` | Android-App | Expo 57, RN 0.86, NFC, SQLite-Offline-Queue |
-| `apps/admin-web` | Verwaltung im Browser | Vite + React, 5 Ansichten |
-
-**Ein Container, eine Datenbank, zwei Frontends.** Mehr braucht der Betrieb nicht.
-
-Neue fachliche Module (z. B. später `backend-controlling`) kommen als weiteres
-`apps/backend-*` dazu und werden in `backend-api` eingehängt. Kein Umbau nötig.
-
----
-
-## 3. Mandantentrennung
-
-PostgreSQL läuft selbstbetrieben auf dem eigenen Server (ADR-0021); Supabase stellt nur noch
-die Authentifizierung. Jede fachliche Tabelle trägt `organization_id` und ist über
-**Row Level Security** (`ENABLE` + `FORCE`) abgesichert. Zusammengesetzte Fremdschlüssel
-enthalten immer `organization_id`, damit ein Datensatz technisch nicht über Mandantengrenzen
-zeigen kann.
-
-Auth läuft über Supabase; die Zuordnung Benutzer → Mitgliedschaft → Organisation passiert
-serverseitig (`identity_bindings`, `memberships`).
-
-**Regel:** Jede neue Tabelle mit fachlichen Daten bekommt `organization_id`, RLS und einen
-mandantensicheren Fremdschlüssel. Ohne Ausnahme.
-
----
-
-## 4. Die Invarianten für spätere Erweiterung
-
-Diese Eigenschaften sind der Grund, warum Controlling, Auswertungen oder Abrechnung
-später *additiv* möglich sind. Sie dürfen nicht gebrochen werden.
-
-### I1 — `work_targets` ist die einzige Dimensionstabelle
-
-Alles, worauf Zeit gebucht wird, läuft über `work_targets`
-(`target_type IN ('customer','project','general_work')`).
-
-Ein neuer Typ — Kostenstelle, Auftrag, Maschine — ist später eine CHECK-Erweiterung plus
-eine Zeile. Kein Rewrite. **Niemals eine parallele Zuordnungstabelle einführen.**
-
-### I2 — Append-only bei fachlicher Wahrheit
-
-`work_events`, `time_record_revisions`, `audit_events`, `canonical_decisions` und
-`sync_receipts` werden nur geschrieben, nie fachlich überschrieben.
-
-Deshalb bleiben alte Auswertungen reproduzierbar, wenn sich später etwas ändert (z. B. ein
-Stundensatz zum Jahreswechsel). Das ist genau die Eigenschaft, an der die meisten
-Zeiterfassungen scheitern, sobald jemand Controlling darauf aufsetzen will.
-
-**Kein `UPDATE` auf fachliche Wahrheit. Korrektur = neuer Revisionsdatensatz.**
-
-### I3 — Der Export ist versioniert
-
-`TIME_ENTRY_EXPORT_SCHEMA_VERSION` V1 → V2 ist bereits sauber migriert. Neue Spalten
-erzeugen eine **neue Version**, niemals eine Änderung an einer bestehenden.
-
-Controlling wird V3. Bestehende Kunden-Importe brechen dadurch nicht.
-
-### I4 — Angewendete Migrationen sind eingefroren
-
-Der Migrations-Ledger speichert je Migration eine SHA-256-Prüfsumme und bricht bei
-Abweichung ab. Sobald eine Migration auf einer Datenbank mit schützenswerten Daten
-verzeichnet ist, ist ihre Datei dauerhaft unveränderlich. Korrekturen kommen
-ausschließlich als neue Migration. Die einmalige Änderung von 004 bis 012 am
-2026-08-23 war zulässig, weil zu diesem Zeitpunkt keine solche Datenbank existierte.
-
----
-
-## 4b. Funktionsumfang — was das Produkt kann
-
-Diese Übersicht existiert, damit niemand — Mensch oder Agent — den Funktionsumfang aus dem
-Quelltext zusammensuchen muss. Bei jeder Erweiterung mitpflegen.
-
-### Die Auslöser-Regel (ADR-0017, DA5-T01)
-
-**NFC-Scan und manuelle Erfassung sind beides nur Auslöser, niemals Start- oder Stopp-Befehle.**
-Beide erzeugen ein unveränderliches WorkEvent und laufen durch dieselbe Business Engine.
-Keine Oberfläche, kein Adapter, keine API-Route darf Start oder Stopp vorwählen oder einen
-TimeEntry direkt verändern.
-
-Entscheidungsreihenfolge der Engine:
-ungültig ablehnen → Duplikatschutz → starten, wenn nichts läuft → stoppen, wenn dasselbe Ziel
-läuft → ablehnen, wenn ein anderes Ziel läuft → bei widersprüchlichem Zustand eskalieren.
-
-### Ziele
-
-`customer` · `project` · `general_work`. Die eingebaute **Allgemeine Arbeitszeit** existiert
-genau einmal je Organisation, ist immer aktiv und lässt sich weder umbenennen noch löschen.
-
-### Mobile-App — acht Bildschirme
-
-| Bildschirm | Zweck |
+| Baustein | Aufgabe |
 |---|---|
-| Anmelden | E-Mail und Passwort, alternativ „Mit Einladung beitreten" |
-| Einladung einlösen | Einladungsgeheimnis eingeben, Mitgliedschaft entsteht |
-| NFC-Tag scannen | Der Kernweg. Chip halten, Engine entscheidet. |
-| **Manuell erfassen** | Ziel suchen und auslösen — ohne Chip, gleiche Engine |
-| **Manuell erfassen (offline)** | Dasselbe ohne Netz, aus dem lokalen Zielbestand |
-| Meine Zeiten | Eigene Einträge der letzten 31 Tage |
-| Synchronisierung | Abgleichstatus, unveränderte Daten erneut senden |
-| Einrichtung | NFC-Tag erfassen und zuordnen — **nur Administratoren** |
+| `packages/core` | Domäne, Business Engine, Ports; TypeScript ohne UI-Framework |
+| `packages/*-contract` | Geteilte, exakt geprüfte und versionierte Verträge |
+| `apps/backend-api` | Einziger deploybarer Backend-Dienst; Node 24 und esbuild |
+| Weitere `apps/backend-*` | Fachmodule und Schema; zusammen mit API 11 Workspaces |
+| `apps/backend-schema/migrations` | 23 SQL-Dateien, Migration 001 bis 023 |
+| PostgreSQL 17 | Selbstbetriebene Produktdatenbank; Supabase dient ausschließlich der Anmeldung |
+| `apps/mobile` | Expo 57 / React Native 0.86, Android, native NFC-Erfassung, verschlüsselte SQLite-Queue |
+| `apps/admin-web` | React/Vite: Übersicht, Beschäftigte, Einrichtung, Arbeitszeiten, Prüfungen |
 
-### Admin-Web — fünf Ansichten
+`BACKEND_HTTP_ROUTES` in `apps/backend-api/src/BackendHttpServer.ts` registriert **52 Pfade**,
+inklusive `/health` (**51 API-Pfade**). Migrationen werden durch `loadMigrations()` aus Dateien
+mit dem Muster `NNN_name.sql` geladen. Dies sind abgeleitete Bestandszahlen, keine Prüfgrenzen.
+Die CI in `.github/workflows/ci.yml` enthält nach dem Rückbau **12 Jobs**.
 
-| Ansicht | Zweck |
-|---|---|
-| Übersicht | Lage auf einen Blick |
-| Einrichtung | Kunden, Projekte, NFC-Tags anlegen, zuweisen, neu zuweisen |
-| Beschäftigte | Einladungen erstellen, Mitgliedschaften verwalten |
-| Arbeitszeiten | Abfragen, korrigieren (append-only), als CSV exportieren |
-| Prüfungen | Nachträge und Offline-Konflikte entscheiden |
+Der Root-Build verwendet `npm run build --workspaces --if-present`; die Workspaces werden über
+`packages/*` und `apps/*` gefunden. Synthetic-Android und B1 sind entfernt. `packages/core/dist/`
+ist ignorierter Build-Output, nicht versioniert; der Core-Paket-Einstieg verweist auf `src/index.ts`.
 
-## 5. Offline
+## Identität, Rollen und Mandantentrennung
 
-Kernerfassung funktioniert ohne Netz (Produktprinzip 4). Die App schreibt in eine lokale
-SQLite-Queue und synchronisiert später über `/v1/lifecycle-events/offline` und die
-Leases-/Reconcile-Endpunkte. Konflikte werden nicht still aufgelöst, sondern landen in
-`Prüfungen` zur Adjudikation durch einen Administrator.
+Supabase authentifiziert. Der Server ordnet `issuer`/`subject` über `identity_bindings` einer
+Mitgliedschaft und Organisation zu. Mobile liest weiterhin `/v1/session`; Admin-Web nutzt den
+erweiterten Vertrag `/v2/session`. Alte Serverrouten bleiben für ausgelieferte Clients bestehen,
+auch die Scan-Context-Routen ohne aktuellen Mobile-Verbraucher.
 
-**Regel:** Kein Erfassungsweg darf eine Netzverbindung voraussetzen.
+Migration 020 definiert **`administrator`, `standortleitung`, `employee`**. Standorte, Heimatstandort,
+Arbeits- und Verwaltungszuweisungen sowie ihr Aktivierungsweg sind implementiert. Die Funktion
+ist pro Organisation einschaltbar. Der Server liefert den erlaubten Verwaltungsumfang und die
+zugänglichen Bereiche; die Oberfläche erfindet keine eigenen Berechtigungen.
 
----
+Mandantenfachdaten sind organisationsgebunden; zusammengesetzte Fremdschlüssel erhalten diese
+Bindung. Für jede Anwendungstabelle im Schema `taptime_server` sind RLS `ENABLE` und `FORCE`
+erforderlich. Laufzeitrollen haben eng begrenzte Rechte; transaktionslokaler Kontext darf keine
+Verbindung überleben. Organisationsübergreifende Archivmetadaten haben eigene Betriebsrollen.
+`SECURITY DEFINER`-Funktionen müssen ihre Autorisierung selbst erzwingen; RLS allein ersetzt sie nicht.
 
-## 6. Rollen (Stand heute)
+## Mobile-Erfassung und Abgleich
 
-Im Schema existieren genau zwei: `administrator` und `employee`.
+`createProductMobileRuntime()` verdrahtet den `OfflineCaptureCoordinator`. Vordergrund-NFC und
+native Start-Intents teilen den `ExclusiveNfcCaptureArbiter`; Einrichtung hat einen eigenen
+Erfassungsumfang. React erhält schmale Fähigkeiten für Sitzung, Scan, Verwaltung, Arbeitsziele
+und manuelle Offline-Erfassung. Tokens, NFC-Rohdaten und private Clients bleiben dahinter.
 
-`system_owner` und `team_lead` aus dem ursprünglichen Role Model sind **nicht** implementiert.
-Das ist eine bewusste v1-Reduktion, kein Versehen. Eine Erweiterung ist additiv möglich.
+Der Coordinator bindet verschlüsselte SQLite-Daten an Installation, Benutzer, Organisation und
+Mitgliedschaft. Er verwendet Leases **v3**, schreibt zuerst lokal und übergibt den Abgleich an
+`OfflineSyncScheduler`. Dessen `OfflineLifecycleClient` verwendet:
 
----
+- `/v4/lifecycle-events/offline` für Erfassung,
+- `/v2/lifecycle-events/reconcile` für Archivabgleich,
+- `/v1/offline-review-state/query` für spätere Prüfentscheidungen.
 
-## 7. Was heute fehlt
+Die Queue-Zeile bleibt bis zum expliziten Nachweis externer WAL-Archivierung erhalten. Der aktuelle
+v4-Vertrag liefert während `archive_pending` noch keine fachliche Entscheidung; die sofortige
+Rückmeldung aus D-052 ist T-052, nicht Bestandteil von T-054. Der vorhandene Lifecycle-Client und
+die alte SecureStore-Outbox bleiben für die Wiederaufnahme bereits gespeicherter Evidenz erhalten.
+Eskalationen werden zu Prüfposten; sie dürfen folgende Queue-Ereignisse nicht dauerhaft blockieren.
 
-Ehrlicher Stand, damit niemand es für vorhanden hält:
+Die Android-APK entsteht über `scripts/buildProductionValidationAndroid.mjs` und das EAS-Profil
+`production-validation`. Dieser Weg und seine Konfiguration bleiben erhalten. Der produktive
+Backup-Plugin und `verifyOfflineStorageAndroidBoundary.mjs` schützen SQLite/Schlüssel vor
+Android-Backup und Geräteübertragung. Die separate physische NFC-Prüfansicht bleibt verfügbar.
 
-- **Kein Betrieb.** Kein Server, kein Deployment, kein Backup, kein getesteter Restore,
-  kein Monitoring. Container und Healthcheck sind gebaut (T-002).
-- **Keine Pausenlogik.** `time_entries` kennt nur `started` und `stopped`.
-  Offene Produkt-/Rechtsfrage — siehe `ADO/PLAN.md`, Bahn A.
-- **Keine Distribution.** Kein signiertes Release, kein Play-Console-Eintrag.
-- **Kein Rechts-/Datenschutzpaket.**
+## Fachliche Invarianten
 
----
+- **Eine Zieldimension:** `work_targets` trägt `customer`, `project`, `general_work`.
+  Allgemeine Arbeitszeit ist einmalig pro Organisation; Standorte sind Berechtigungsumfang.
+- **Historie bleibt:** fachliche Ereignisse und ursprüngliche Entscheidungen werden nicht durch
+  Korrekturen ersetzt. Eine Korrektur erzeugt einen begründeten Revisionsdatensatz.
+- **Export bleibt versioniert:** V1, V2 und V3 existieren nebeneinander. V3 enthält Pausen,
+  Ortszeit, Personenkennung und Revision. `read_effective_time_entry_export_v3` ruft die
+  SQL-Berechnung `effective_work_duration_seconds_v1` auf; keine zweite Rechnung im Client.
+- **Pausen sind heute Intervalle:** Pausen-Trigger laufen durch dieselbe Engine; der Zeiteintrag
+  bleibt dabei offen. Der beschlossene automatische Abzug aus D-047 ist noch nicht umgesetzt.
+- **Migrationen bleiben unveränderlich:** Der Ledger prüft gespeicherte Prüfsummen. Korrekturen
+  kommen als neue Migration; keine Entfernung historischer Dateien.
 
-## 8. Wo was steht
+## Betrieb und verbleibende Arbeit
 
-- Plattformentscheidung: `ADO/01_Architecture/ADR/ADR-0007`, `ADR-0008`
-- Alle weiteren Entscheidungen: `ADO/01_Architecture/ADR/`
-- Produktabsicht: `ADO/01_Architecture/Product_Vision.md`, `Product_Principles.md`
-- Alles unter `ADO/99_Archive/`: Historie, wird nicht gelesen.
+Dockerfiles, `infrastructure/deploy`, Caddy, Diagnoselogging und Monitoring sind vorhanden.
+Auslieferung umfasst API, Web-Bündel und Betriebsskripte. Das Gesundheitstor prüft Version und
+Web-Inhalt; die Prüfung der richtigen Supabase-Herkunft bleibt T-039.
 
----
+`infrastructure/backup/` enthält physische Basissicherung, WAL-Empfang/-Archivierung,
+Wiederherstellungsprüfung und Aktivierung. `infrastructure/tests/` prüft auch Zeitpunkt-Restore
+und Archivierung. D-051 verlangt RPO 0 für bestätigte WorkEvents und RTO vier Stunden.
+Ein Repository-Nachweis ist keine Aussage über den gerade ausgelieferten Produktionsstand.
 
-## 5. Regel für Migrationen und Rücknahme
+Rollback setzt das Anwendungsabbild zurück; Migrationen laufen ausschließlich vorwärts.
+Schemaänderungen müssen die vorherige Anwendung weiter tragen: zunächst hinzufügen, dann
+umstellen, erst in einer späteren Auslieferung entbehrliche Struktur entfernen.
 
-**Eine Migration darf nichts entfernen, was die vorherige Anwendungsversion noch braucht.**
-
-Eine Auslieferung wird zurückgenommen, indem das **Abbild** auf die vorherige Version gesetzt
-wird. Migrationen sind vorwärtsgerichtet und werden nicht zurückgerollt — jede läuft zwar in
-einer eigenen Transaktion, aber ein bereits eingespielter Stand bleibt.
-
-Daraus folgt die Reihenfolge über drei Auslieferungen:
-
-1. Spalte **hinzufügen**, nullbar, von der Anwendung noch nicht verlangt
-2. Anwendung befüllt und liest sie
-3. Frühestens jetzt darf das Alte entfernt werden
-
-Wer Schritt 1 und 3 in einer Migration zusammenzieht, macht die Rücknahme unmöglich — und merkt
-es in dem Moment, in dem er sie dringend braucht.
-
-Gilt ab `T-014`.
+Offen sind unter anderem Mitarbeiter-Kontenerstellung und Mailzustellung, Tagesfreigabe,
+Ortszeitgrenzen, Pausenautomatik, NFC-App-Auswahl, iOS, CSP, Löschfähigkeit sowie Recht und Store.
+Aktuelle Prioritäten: `ADO/PLAN.md`; Auftrag: `ADO/TASK.md`; Entscheidungen: `ADO/DECISIONS.md`.

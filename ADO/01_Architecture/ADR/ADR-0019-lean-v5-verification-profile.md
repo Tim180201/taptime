@@ -1,4 +1,5 @@
 # ADR-0019: Lean V5 Verification Profile
+> Durch [D-053](../../DECISIONS.md#d-053--der-eingefrorene-pruefapparat-wird-zurueckgebaut--17092026--tim) überholt.
 
 ## Fast-flight activation (`2026-08-13`)
 
