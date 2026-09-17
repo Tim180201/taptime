@@ -1074,3 +1074,29 @@ Produkt gibt.
 Ereignis vor der Archivierung, spielt das Telefon es nach der Wiederherstellung erneut ein. Die
 gezeigte Entscheidung ist vorlaeufig, nie falsch. RPO bleibt 0.
 **Fehler:** Die Vermischung stand in meiner Aufgabenbeschreibung zu T-035, nicht im Code.
+
+---
+
+## D-053 · Der eingefrorene Pruefapparat wird zurueckgebaut · 17.09.2026 · Tim
+**Entscheidung:** `apps/synthetic-android-e2e`, die DA5-Auslaeufer unter `apps/mobile` und der
+`backend-b1-spike` werden aus dem aktiven Projekt entfernt, einschliesslich Bauanbindung und
+CI-Job. Rund 70.000 Zeilen Hilfs- und Testcode.
+**Warum D-001s "Kein Rueckbau noetig" falsch war:** Einfrieren hat den Apparat aus einem CI-Pfad
+genommen, nicht aus dem Projekt. `build --workspaces` baut ihn weiter, die Mobile-Testauswahl
+fuehrt seine Tests weiter aus, und jede kuenftige Aenderung muss ihn mitschleppen.
+**Was verloren geht:** Ein historisches Pruefverfahren, sofort ausfuehrbar. Keine Produktfunktion.
+Die Geschichte bleibt in Git.
+**Grenze:** Die produktive Android-Baustrecke fuer die APK bleibt. Sie ist kein Teil des Apparats.
+
+---
+
+## D-054 · D-014s Anwesenheitsbehauptung wird zurueckgenommen · 17.09.2026 · Tim
+**Korrektur:** D-014 sagt "Wer ihn scannt, war koerperlich dort". Das folgt aus dem umgesetzten
+UID-Modell nicht. ADR-0009 sagt selbst, dass die UID kopierbar ist und weder Anwesenheit noch
+Echtheit beweist. Die Entscheidungen sind append-only; D-014 bleibt stehen, diese Zeile begrenzt
+seinen Anspruch.
+**Was bleibt:** NFC als Bedienweg ist unberuehrt. Ein Tag am Ort ist der schnellste Ausloeser,
+den es gibt, und genau dafuer ist er da.
+**Was nicht bleibt:** Die Zusicherung, erfasste Zeit sei ein Anwesenheitsnachweis. Sie darf in
+keinem Verkaufstext, keinem Angebot und keiner Auftragsverarbeitung stehen.
+**Offen fuer den Product Owner:** Ob das Produkt einen echten Anwesenheitsnachweis braucht.
