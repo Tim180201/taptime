@@ -83,8 +83,9 @@ Mobile OwnTimeScreen/Work-Coordinator bilden keine Tagesgrenzen; Geräteanzeige 
 
 - **TL-Reviewbefunde erledigt:** T-040-P1 durch codebasierte Fehlerzuordnung, CSP-P2 durch
   plattformunabhängige Zählung und T-039-P2 durch exakte Issuer-Prüfung korrigiert; Review APPROVED.
-- **P1 Image-Bau:** Admin-Web-Dockerfile baut den benötigten TimeEntry-Export-Vertrag nicht;
-  T-047-Backend-Image vorhanden, Admin-Web/Operations noch nicht vollständig veröffentlicht.
+- **P1 Image-Bau:** Seit `bc675d0` (T-036) war wegen des fehlenden Bauschritts für den
+  TimeEntry-Export-Vertrag kein Admin-Web-Image baufähig; vier CI-Läufe waren grün,
+  erkannt wurde der Fehler erst durch den Image-Workflow.
 - **P2 Prüfstrecke T-047:** Erstaufbau ohne Abhängigkeitsreihenfolge fehlgeschlagen; CI-Reihenfolge
   und Node 24 verwendet. UI-Test erwartete alten Code, Schema-Inventar kannte neuen Beleg nicht;
   Erwartungen fachlich angepasst, volle Suiten grün. Bestehende Bündelgrößenwarnung bleibt.
