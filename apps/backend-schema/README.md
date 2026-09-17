@@ -6,7 +6,7 @@ bootstrap capability; migration `007` adds the narrow normal-administration role
 safe receipt/audit contracts; migration `008` adds the isolated Employee invitation/redemption
 boundary. Migrations `001`–`007` remain immutable.
 
-It is **not a production backend**, repository adapter, HTTP API, Auth provider integration or cloud deployment. It creates no Supabase resource and contains only synthetic test identities/data. The disposable B1 spike remains separate under `apps/backend-b1-spike`.
+It is **not a production backend**, repository adapter, HTTP API, Auth provider integration or cloud deployment. It creates no Supabase resource and contains only synthetic test identities/data.
 
 Required local environment:
 
