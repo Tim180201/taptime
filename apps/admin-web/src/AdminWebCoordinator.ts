@@ -23,8 +23,36 @@ import {
 import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
 import { isValidTimeReviewReason } from '@taptime/time-review-contract';
 
+// T-040: the sign-in adapter names the cause; the coordinator never guesses "wrong password".
+export type AdminWebSignInOutcome =
+  | 'signed_in'
+  | 'credentials_rejected'
+  | 'email_not_confirmed'
+  | 'access_blocked'
+  | 'rate_limited'
+  | 'service_unavailable';
+
+export const SIGN_IN_FAILURE_NOTICES: Readonly<Record<
+  Exclude<AdminWebSignInOutcome, 'signed_in'>, string
+>> = Object.freeze({
+  credentials_rejected:
+    'Die Anmeldung war nicht erfolgreich. E-Mail-Adresse oder Passwort stimmen nicht. '
+    + 'Prüfen Sie die Eingaben und versuchen Sie es erneut.',
+  email_not_confirmed:
+    'Diese E-Mail-Adresse ist noch nicht bestätigt. Öffnen Sie die Bestätigungsmail und folgen '
+    + 'Sie dem Link, bevor Sie sich anmelden.',
+  access_blocked:
+    'Dieser Zugang ist gesperrt. Wenden Sie sich an die Betriebsverwaltung.',
+  rate_limited:
+    'Zu viele Anmeldeversuche in kurzer Zeit. Warten Sie eine Minute und versuchen Sie es dann erneut.',
+  service_unavailable:
+    'Der Anmeldedienst ist gerade nicht erreichbar. Ihre Eingaben wurden nicht geprüft. Versuchen '
+    + 'Sie es in ein paar Minuten erneut. Bleibt die Meldung bestehen, wenden Sie sich an die '
+    + 'Betriebsverwaltung.',
+});
+
 export interface AdminWebAuthPort {
-  signIn(email: string, password: string): Promise<boolean>;
+  signIn(email: string, password: string): Promise<AdminWebSignInOutcome>;
   withAccessToken<Value>(operation: (accessToken: string) => Promise<Value>): Promise<Value | null>;
   signOut(): Promise<void>;
   requestPasswordReset?(email: string): Promise<boolean>;
@@ -1741,11 +1769,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   private async completeSignIn(generation: number, email: string, password: string): Promise<void> {
     try {
-      if (!await this.auth.signIn(email, password)) {
+      const outcome = await this.auth.signIn(email, password);
+      if (outcome !== 'signed_in') {
         await this.safeSignOut();
         if (generation === this.generation) this.setState({
           status: 'signed_out',
-          notice: 'Die Anmeldung war nicht erfolgreich. E-Mail-Adresse oder Passwort stimmen nicht. Prüfen Sie die Eingaben und versuchen Sie es erneut.',
+          notice: signInFailureNotice(outcome),
         });
         return;
       }
@@ -2494,4 +2523,17 @@ function adjudicationConflictNotice(code: string): string {
     return 'Die Prüfentscheidung konnte nicht gespeichert werden. Die Anfrage wurde bereits für einen anderen Vorgang verwendet. Laden Sie die Prüfungen neu und versuchen Sie es erneut.';
   }
   return 'Die Prüfentscheidung konnte nicht gespeichert werden. Der Prüfstand wurde zwischenzeitlich verändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.';
+}
+
+function signInFailureNotice(outcome: Exclude<AdminWebSignInOutcome, 'signed_in'>): string {
+  switch (outcome) {
+    case 'credentials_rejected':
+    case 'email_not_confirmed':
+    case 'access_blocked':
+    case 'rate_limited':
+    case 'service_unavailable':
+      return SIGN_IN_FAILURE_NOTICES[outcome];
+    default:
+      return outcome satisfies never;
+  }
 }

@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminWebApiPort, ApiResult, Session } from '../src/AdminWebApiClient';
-import { AdminWebCoordinator, type AdminWebAuthPort } from '../src/AdminWebCoordinator';
+import {
+  AdminWebCoordinator,
+  SIGN_IN_FAILURE_NOTICES,
+  type AdminWebAuthPort,
+  type AdminWebSignInOutcome,
+} from '../src/AdminWebCoordinator';
 import type { SafeEmployeeProjection, SafeProjection, SafeReviewItem, SafeTimeRecord } from '../src/contracts';
 
 const membershipId = '20000000-0000-4000-8000-000000000001';
@@ -87,7 +92,7 @@ function deferred<Value>() {
 
 class FakeAuth implements AdminWebAuthPort {
   active = false;
-  readonly signIn = vi.fn<AdminWebAuthPort['signIn']>(async () => { this.active = true; return true; });
+  readonly signIn = vi.fn<AdminWebAuthPort['signIn']>(async () => { this.active = true; return 'signed_in'; });
   readonly signOut = vi.fn<AdminWebAuthPort['signOut']>(async () => { this.active = false; });
   readonly requestPasswordReset = vi.fn(async () => true);
   readonly updateRecoveredPassword = vi.fn(async () => true);
@@ -337,18 +342,18 @@ describe('AdminWebCoordinator', () => {
 
   it('clears a late successful sign-in after sign-out instead of retaining a hidden session', async () => {
     const { auth, api, coordinator } = setup();
-    const lateSignIn = deferred<boolean>();
+    const lateSignIn = deferred<AdminWebSignInOutcome>();
     auth.signIn.mockImplementationOnce(async () => {
-      const succeeded = await lateSignIn.promise;
-      auth.active = succeeded;
-      return succeeded;
+      const outcome = await lateSignIn.promise;
+      auth.active = outcome === 'signed_in';
+      return outcome;
     });
 
     const signingIn = coordinator.signIn('administrator@example.test', 'secret');
     const signingOut = coordinator.signOut();
     expect(coordinator.getState()).toEqual({ status: 'signed_out' });
 
-    lateSignIn.resolve(true);
+    lateSignIn.resolve('signed_in');
     await Promise.all([signingIn, signingOut]);
 
     expect(auth.active).toBe(false);
@@ -1522,5 +1527,41 @@ describe('AdminWebCoordinator', () => {
       status: 'ready', timeReviewBusy: false, notice: null,
     });
     createObjectUrl.mockRestore();
+  });
+});
+
+describe('T-040 sign-in names its cause', () => {
+  const failures: readonly Exclude<AdminWebSignInOutcome, 'signed_in'>[] = [
+    'credentials_rejected', 'email_not_confirmed', 'access_blocked', 'rate_limited', 'service_unavailable',
+  ];
+
+  it.each(failures)('shows the notice for %s and never a session', async (outcome) => {
+    const { auth, api, coordinator } = setup();
+    auth.signIn.mockImplementationOnce(async () => outcome);
+
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    expect(coordinator.getState()).toEqual({ status: 'signed_out', notice: SIGN_IN_FAILURE_NOTICES[outcome] });
+    expect(api.session).not.toHaveBeenCalled();
+  });
+
+  it('never blames the password when the sign-in service did not answer', async () => {
+    // Counter-proof for the paused-project incident: before T-040 every failure read as a
+    // wrong password. An outage must say the inputs were not checked.
+    const { auth, coordinator } = setup();
+    auth.signIn.mockImplementationOnce(async () => 'service_unavailable');
+
+    await coordinator.signIn('administrator@example.test', 'secret');
+
+    const state = coordinator.getState();
+    expect(state.status).toBe('signed_out');
+    const notice = state.status === 'signed_out' ? state.notice ?? '' : '';
+    expect(notice).not.toContain('Passwort');
+    expect(notice).toContain('nicht geprüft');
+  });
+
+  it('keeps every failure notice distinct so a support call can tell them apart', () => {
+    const notices = failures.map((outcome) => SIGN_IN_FAILURE_NOTICES[outcome]);
+    expect(new Set(notices).size).toBe(failures.length);
   });
 });

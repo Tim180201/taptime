@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { AdminWebSignInOutcome } from './AdminWebCoordinator';
 
 interface RecoveryLocationAdapter {
   readonly recoveryUrl?: () => string;
@@ -24,9 +25,18 @@ export class SupabaseMemoryAuth {
       void this.activateRecovery(tokens);
     }
   }
-  async signIn(email: string, password: string): Promise<boolean> {
-    const result = await this.client.auth.signInWithPassword({ email, password });
-    return result.error === null && result.data.session !== null;
+  async signIn(email: string, password: string): Promise<AdminWebSignInOutcome> {
+    let result: Awaited<ReturnType<SupabaseClient['auth']['signInWithPassword']>>;
+    try {
+      result = await this.client.auth.signInWithPassword({ email, password });
+    } catch {
+      // The SDK throws only before a response exists (aborted fetch, broken client).
+      return 'service_unavailable';
+    }
+    if (result.error === null) {
+      return result.data.session !== null ? 'signed_in' : 'service_unavailable';
+    }
+    return classifySignInError(result.error);
   }
   async withAccessToken<Value>(operation: (accessToken: string) => Promise<Value>): Promise<Value | null> {
     const result = await this.client.auth.getSession();
@@ -84,4 +94,26 @@ function parseRecoveryTokens(value: string): RecoveryTokens | null {
 function clearBrowserRecoveryUrl(): void {
   if (typeof window === 'undefined') return;
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+}
+
+// T-040: an outage must never read as a wrong password. Only a code that names the user's
+// input may blame the user. Every other answer — a disabled provider, a rejected API key, an
+// unknown code, no response at all — is reported as "your inputs were not checked", because
+// that is the only honest statement then. Review round 2 caught 422 email_provider_disabled
+// reading as wrong credentials; the status alone is never evidence against the user.
+function classifySignInError(error: { readonly status?: number; readonly code?: string }): Exclude<AdminWebSignInOutcome, 'signed_in'> {
+  switch (error.code) {
+    case 'invalid_credentials':
+    case 'validation_failed':
+    case 'email_address_invalid':
+      return 'credentials_rejected';
+    case 'email_not_confirmed': return 'email_not_confirmed';
+    case 'user_banned': return 'access_blocked';
+    case 'over_request_rate_limit': return 'rate_limited';
+    default: break;
+  }
+  if (error.status === 429) return 'rate_limited';
+  // A bare 400 without a code is the pre-error-code API shape for rejected credentials.
+  if (error.status === 400 && error.code === undefined) return 'credentials_rejected';
+  return 'service_unavailable';
 }
