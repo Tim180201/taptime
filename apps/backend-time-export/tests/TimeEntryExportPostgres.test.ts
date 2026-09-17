@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
-import type { TimeEntryExportRequest } from '@taptime/time-entry-export-contract';
+import { TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS, type TimeEntryExportRequest } from '@taptime/time-entry-export-contract';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TimeEntryExportCoordinator, type TimeEntryExportCoordinatorControls } from '../src/index.js';
 import {
@@ -99,6 +99,78 @@ describe('DA2 PostgreSQL export security and truth', () => {
     }]);
     expect(JSON.stringify(audits.rows[0]!.payload)).not.toContain('Jörg');
     expect(JSON.stringify(audits.rows[0]!.payload)).not.toContain('Kunde');
+  });
+
+  registerExportTest('matches the live SQL limit to the export contract in every installed version', async () => {
+    const limit = await installerPool.query<{ milliseconds: number }>(
+      `SELECT (extract(epoch FROM taptime_server.maximum_calendar_month_range()) * 1000)
+         ::double precision AS milliseconds`,
+    );
+    const milliseconds = limit.rows[0]!.milliseconds;
+    expect(milliseconds).toBe(TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS);
+    // Discover versions in the running database: a future v4 must pass the same seam.
+    const functions = await installerPool.query<{ name: string }>(
+      `SELECT p.proname AS name FROM pg_catalog.pg_proc p
+       JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'taptime_server' AND (
+         p.proname ~ '^(read_effective_time_entry_export|append_time_entry_export_audit)_v[0-9]+$'
+         OR p.proname ~ '^time_entry_export_v[0-9]+_is_compatible$'
+       ) ORDER BY p.proname`,
+    );
+    expect(functions.rows.length).toBeGreaterThan(0);
+    const from = '2026-09-30T22:00:00.000Z';
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SELECT
+        set_config('app.user_id', $1, true),
+        set_config('app.organization_id', $2, true),
+        set_config('app.membership_id', $3, true),
+        set_config('app.membership_role', 'administrator', true)`,
+      [ids.adminA, ids.organizationA, ids.membershipAdminA]);
+      await client.query('SET LOCAL ROLE taptime_time_exporter');
+      for (const { name } of functions.rows) {
+        for (const excess of [0, 1]) {
+          const to = new Date(Date.parse(from) + milliseconds + excess).toISOString();
+          const values = name.startsWith('append_')
+            ? ['90000000-0000-4000-8000-000000000036', ids.organizationA, ids.adminA,
+              '90000000-0000-4000-8000-000000000036', from, to, 0, 1, 'a'.repeat(64)]
+            : name.startsWith('read_') ? [ids.organizationA, from, to, 1]
+              : [ids.organizationA, from, to];
+          const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
+          await client.query('SAVEPOINT limit_probe');
+          // Function names come only from the anchored, identifier-safe query above.
+          const probe = client.query(`SELECT * FROM taptime_server.${name}(${placeholders})`, values);
+          if (excess === 0) await expect(probe, name).resolves.toBeDefined();
+          else await expect(probe, name).rejects.toMatchObject({ code: '42501' });
+          await client.query('ROLLBACK TO SAVEPOINT limit_probe');
+          await client.query('RELEASE SAVEPOINT limit_probe');
+        }
+      }
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
+
+  registerExportTest('exports and audits the complete Berlin October including its repeated hour', async () => {
+    const october = {
+      ...request,
+      fromInclusive: '2026-09-30T22:00:00.000Z',
+      toExclusive: '2026-10-31T23:00:00.000Z',
+    };
+    const result = await exportV3As(tokens.adminA, october);
+    expect(result.status).toBe('succeeded');
+    const audits = await installerPool.query<{ payload: Record<string, unknown> }>(
+      `SELECT payload FROM taptime_server.audit_events
+       WHERE event_type = 'TimeEntryExportGenerated'`,
+    );
+    expect(audits.rows).toEqual([{ payload: expect.objectContaining({ schemaVersion: 3 }) }]);
+    // JSON timestamptz output may use the database session's offset; compare the instants.
+    expect(new Date(String(audits.rows[0]!.payload.fromInclusive)).toISOString())
+      .toBe(october.fromInclusive);
+    expect(new Date(String(audits.rows[0]!.payload.toExclusive)).toISOString())
+      .toBe(october.toExclusive);
   });
 
   registerExportTest('returns header-only bytes and a truthful zero-row audit for an empty interval', async () => {

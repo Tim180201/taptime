@@ -1,3 +1,4 @@
+import { TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS } from '@taptime/time-entry-export-contract';
 import type {
   AdministrationLocation,
   AdministrationSection,
@@ -88,26 +89,6 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   getState(): AdminWebState { return this.state; }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
-
-  invalidateTimeBoundIntents(): void {
-    const current = this.state;
-    if (
-      current.status !== 'ready'
-      || (
-        current.correctionIntent === null
-        && current.adjudicationIntent === null
-        && !current.timeReviewBusy
-      )
-    ) return;
-    this.setState({
-      ...current,
-      correctionIntent: null,
-      adjudicationIntent: null,
-      timeReviewBusy: false,
-      notice: 'Die Zeitzone hat sich geändert. Offene Zeitangaben wurden verworfen, damit keine falschen Zeiten gespeichert werden. Geben Sie die Zeiten erneut ein.',
-    });
-    void this.refresh();
-  }
 
   async signIn(email: string, password: string): Promise<void> {
     const generation = ++this.generation;
@@ -2457,13 +2438,12 @@ function boundedTimeWindow(now: number): { readonly fromInclusive: string; reado
 function isBoundedTimeWindow(fromInclusive: string, toExclusive: string): boolean {
   const from = Date.parse(fromInclusive);
   const to = Date.parse(toExclusive);
-  const maximumRangeMilliseconds = 31 * 24 * 60 * 60 * 1_000;
   return Number.isFinite(from)
     && Number.isFinite(to)
     && new Date(from).toISOString() === fromInclusive
     && new Date(to).toISOString() === toExclusive
     && from < to
-    && to - from <= maximumRangeMilliseconds;
+    && to - from <= TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS;
 }
 
 function isClosedInterval(startedAt: string, stoppedAt: string, now: number): boolean {

@@ -24,7 +24,6 @@ const validRequest = {
 
 describe('time-entry export contract', () => {
   it('freezes the Human-accepted limits and exact header order', () => {
-    expect(TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS).toBe(2_678_400_000);
     expect(TIME_ENTRY_EXPORT_MAXIMUM_ROWS).toBe(10_000);
     expect(TIME_ENTRY_EXPORT_MAXIMUM_BYTES).toBe(8_388_608);
     expect(TIME_ENTRY_EXPORT_HEADERS).toEqual([
@@ -35,7 +34,7 @@ describe('time-entry export contract', () => {
     ]);
   });
 
-  it('accepts only the exact canonical request shape and a positive range of at most 31 days', () => {
+  it('accepts only the exact canonical request shape and a positive bounded range', () => {
     expect(validateTimeEntryExportRequest(validRequest).status).toBe('valid');
     expect(validateTimeEntryExportRequest({
       ...validRequest,
@@ -50,6 +49,21 @@ describe('time-entry export contract', () => {
     expect(validateTimeEntryExportRequest({
       ...validRequest,
       expectedMembershipId: 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA',
+    }).status).toBe('invalid_request');
+  });
+
+  it('accepts the complete Berlin October, including the repeated hour, but no more', () => {
+    const october = {
+      ...validRequest,
+      fromInclusive: '2026-09-30T22:00:00.000Z',
+      toExclusive: '2026-10-31T23:00:00.000Z',
+    };
+    expect(validateTimeEntryExportRequest(october).status).toBe('valid');
+    expect(TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS).toBe(
+      Date.parse(october.toExclusive) - Date.parse(october.fromInclusive),
+    );
+    expect(validateTimeEntryExportRequest({
+      ...october, toExclusive: '2026-10-31T23:00:00.001Z',
     }).status).toBe('invalid_request');
   });
 

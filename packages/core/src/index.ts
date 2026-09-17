@@ -1,3 +1,4 @@
+export * from './domain/BusinessTimeZone';
 export * from './domain/ids';
 export * from './domain/NfcPayload';
 export * from './domain/CanonicalNfcUidPayload';

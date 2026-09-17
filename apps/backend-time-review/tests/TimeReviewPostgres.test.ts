@@ -1,3 +1,4 @@
+import { TIME_REVIEW_MAXIMUM_RANGE_MILLISECONDS } from '@taptime/time-review-contract';
 import { Pool } from 'pg';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { TimeReviewCoordinator } from '../src/index.js';
@@ -34,6 +35,60 @@ afterAll(async () => {
 });
 
 describe('DA3 PostgreSQL correction and review boundary', () => {
+  it('matches the live SQL limit to the time-record contract in every installed version', async () => {
+    const limit = await installerPool.query<{ milliseconds: number }>(
+      `SELECT (extract(epoch FROM taptime_server.maximum_calendar_month_range()) * 1000)
+         ::double precision AS milliseconds`,
+    );
+    const milliseconds = limit.rows[0]!.milliseconds;
+    expect(milliseconds).toBe(TIME_REVIEW_MAXIMUM_RANGE_MILLISECONDS);
+    const functions = await installerPool.query<{ name: string }>(
+      `SELECT p.proname AS name FROM pg_catalog.pg_proc p
+       JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+       WHERE n.nspname = 'taptime_server'
+         AND p.proname ~ '^read_effective_time_records_v[0-9]+$'
+       ORDER BY p.proname`,
+    );
+    expect(functions.rows.length).toBeGreaterThan(0);
+    const from = '2026-09-30T22:00:00.000Z';
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SELECT
+        set_config('app.user_id', $1, true),
+        set_config('app.organization_id', $2, true),
+        set_config('app.membership_id', $3, true),
+        set_config('app.membership_role', 'administrator', true)`,
+      [ids.adminA, ids.organizationA, ids.membershipAdminA]);
+      await client.query('SET LOCAL ROLE taptime_time_review_reader');
+      for (const { name } of functions.rows) {
+        for (const excess of [0, 1]) {
+          const to = new Date(Date.parse(from) + milliseconds + excess).toISOString();
+          await client.query('SAVEPOINT limit_probe');
+          const probe = client.query(
+            `SELECT * FROM taptime_server.${name}($1, $2, $3, $4, $5, NULL, NULL, 1)`,
+            [ids.organizationA, ids.adminA, ids.membershipAdminA, from, to],
+          );
+          if (excess === 0) await expect(probe, name).resolves.toBeDefined();
+          else await expect(probe, name).rejects.toMatchObject({ code: '42501' });
+          await client.query('ROLLBACK TO SAVEPOINT limit_probe');
+          await client.query('RELEASE SAVEPOINT limit_probe');
+        }
+      }
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+    const result = await coordinator.queryTimeRecordsV2({
+      accessToken: tokens.adminA,
+      request: {
+        expectedMembershipId: ids.membershipAdminA, fromInclusive: from,
+        toExclusive: '2026-10-31T23:00:00.000Z', limit: 100, cursor: null,
+      },
+    });
+    expect(result).toMatchObject({ status: 'ready', value: { records: [] } });
+  });
+
   it('projects, tenant-isolates and adjudicates a canonical Engine escalation', async () => {
     const escalationEventId = '50000000-0000-4000-8000-000000000321';
     await insertCanonicalEscalation(

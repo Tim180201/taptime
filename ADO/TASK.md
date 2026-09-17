@@ -4,6 +4,7 @@
 
 **Für:** Development · **Risiko:** Lohnabrechnung, jede Monatsgrenze falsch
 **Zeitbox:** eine Sitzung. **Grundlage:** D-056, Audit vom 17.09.2026.
+Technisch APPROVED; Commit und Push beauftragt. Abschluss nach grüner Code-CI.
 
 ### Zweck und Grenzen
 
@@ -11,7 +12,8 @@ Alle fachlichen Grenzen und Anzeigen im Admin-Web gelten in Europe/Berlin, unabh
 der Browser-Zone. Keine zusätzliche Nutzerentscheidung; Ereigniskette und Originalhistorie
 bleiben intakt. Die Zone entsteht als Core-Konstante und wird durch Development mit dem Code
 gepflegt; bei späterem Bedarf ersetzt eine explizite Folgeaufgabe sie durch ein Feld (D-056).
-Kein Feld, keine Migration, kein Deploy, kein Produktionszugriff, kein T-048 oder T-055.
+Kein Zonenfeld, kein Deploy, kein Produktionszugriff, kein T-048 oder T-055. Migration 025
+ist für reine Grenzwertkorrekturen per CREATE OR REPLACE erlaubt; keine Datenänderung.
 Umsetzung nicht vor APPROVED durch den Technical Lead committen.
 
 ### Umsetzung
@@ -23,11 +25,13 @@ Umsetzung nicht vor APPROVED durch den Technical Lead committen.
 3. resolveBrowserTimeZone und Browser-Zone entfernen. Admin-Web zeigt überall Berlin;
    Bildschirm und CSV stimmen auch bei einem Browser in einer anderen Zone überein.
 4. Export-Abfrageschutz aus längstem Berliner Kalendermonat ableiten: 31 Tage plus eine Stunde.
-   Herleitung im Konstantennamen sichtbar; nur Wert ändern, kein Vertragswechsel.
+   Herleitung sichtbar, kein Vertragswechsel. 025 ersetzt betroffene SQL-Funktionen; alte
+   Migrationen unverändert. SQL-Wert aus laufender DB gegen beide Verträge testen, inklusive
+   wirksamer Annahme-/Abweisungsgrenze jeder vorhandenen Funktionsversion.
 5. Alle Tages-/Monatsgrenzen aus Zeitstempeln in apps/backend-* suchen und vollständig melden,
    auch bei leerer Liste. Core-Konstante für spätere Backend-Tagesgrenzen erreichbar machen.
 6. OwnTimeScreen und Work-Coordinator auf selbst gebildete Tagesgrenzen prüfen; Gerätezeit als
-   Befund melden, nur beheben, falls es eine Zeile ist.
+   P2 in STATUS aufnehmen; in T-036 nicht ändern.
 
 ### Pflichtgegenbeweise — vor Reparatur rot
 

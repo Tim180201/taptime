@@ -1,3 +1,5 @@
+import { BUSINESS_TIME_ZONE } from '@taptime/core';
+import { parseZonedLocalTimestamp } from './timeZone';
 import type { AdministrationSection } from './contracts';
 
 export const adminViews = [
@@ -90,10 +92,13 @@ export function monthTimeWindow(month: string): {
 } | null {
   if (validMonth(month) === null) return null;
   const [year, monthNumber] = month.split('-').map(Number);
-  return Object.freeze({
-    fromInclusive: new Date(Date.UTC(year!, monthNumber! - 1, 1)).toISOString(),
-    toExclusive: new Date(Date.UTC(year!, monthNumber!, 1)).toISOString(),
-  });
+  const nextMonth = monthNumber === 12
+    ? `${year! + 1}-01`
+    : `${year}-${String(monthNumber! + 1).padStart(2, '0')}`;
+  const fromInclusive = parseZonedLocalTimestamp(`${month}-01T00:00`);
+  const toExclusive = parseZonedLocalTimestamp(`${nextMonth}-01T00:00`);
+  if (fromInclusive === null || toExclusive === null) return null;
+  return Object.freeze({ fromInclusive, toExclusive });
 }
 
 export function monthLabel(month: string): string {
@@ -101,7 +106,7 @@ export function monthLabel(month: string): string {
   return window === null
     ? month
     : new Intl.DateTimeFormat('de-DE', {
-        month: 'long', year: 'numeric', timeZone: 'UTC',
+        month: 'long', year: 'numeric', timeZone: BUSINESS_TIME_ZONE,
       }).format(new Date(window.fromInclusive));
 }
 

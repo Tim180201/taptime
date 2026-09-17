@@ -1,3 +1,4 @@
+import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import {
   FormEvent,
   type MouseEvent as ReactMouseEvent,
@@ -26,8 +27,6 @@ import {
   formatExactZonedDateTime,
   formatZonedDateTime,
   parseZonedLocalTimestamp,
-  resolveBrowserTimeZone,
-  type TimeZoneContext,
   toZonedLocalInput,
 } from './timeZone';
 import { Confirmation, CountTruth, DelayedSkeleton, Panel, SectionBoundary } from './ui';
@@ -38,10 +37,8 @@ import './styles.css';
 
 export function App({
   administration,
-  resolveTimeZone = resolveBrowserTimeZone,
 }: {
   readonly administration: AdminWebCapability;
-  readonly resolveTimeZone?: () => TimeZoneContext;
 }) {
   const state = useSyncExternalStore(
     (listener) => administration.subscribe(listener),
@@ -50,7 +47,6 @@ export function App({
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const timezone = useCentralTimeZone(administration, resolveTimeZone);
   const [route, setRoute] = useState<AdminRoute>(() => currentRoute());
   const previousView = useRef(route.view);
   const appliedMonth = useRef<string | null>(null);
@@ -238,18 +234,17 @@ export function App({
         </div>
       </header>
       <p className="timezone-declaration">
-        Zeitdarstellung: {timezone.timeZone}
-        {timezone.usedUtcFallback ? ' (sichere Ersatzdarstellung in UTC)' : ''}
+        Zeitdarstellung: {BUSINESS_TIME_ZONE}
       </p>
       {state.notice ? <FeedbackBand message={state.notice} /> : null}
       {activeRoute.view === 'uebersicht'
         ? <Overview state={state} administration={administration} navigate={navigate} /> : null}
       {activeRoute.view === 'einrichtung' ? <SetupView state={state} administration={administration} /> : null}
-      {activeRoute.view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} timezone={timezone} /> : null}
+      {activeRoute.view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} /> : null}
       {activeRoute.view === 'arbeitszeiten'
-        ? <TimeRecordsView state={state} administration={administration} timezone={timezone}
+        ? <TimeRecordsView state={state} administration={administration}
             route={activeRoute} navigate={navigate} /> : null}
-      {activeRoute.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} timezone={timezone} /> : null}
+      {activeRoute.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} /> : null}
     </main>
   </div>;
 }
@@ -729,11 +724,9 @@ function LocationSetupPanel({
 function EmployeesView({
   state,
   administration,
-  timezone,
 }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
-  readonly timezone: TimeZoneContext;
 }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState<'administrator' | 'standortleitung' | 'employee'>('employee');
@@ -804,7 +797,7 @@ function EmployeesView({
       {state.invitation === null ? null : <aside className="invitation" role="status">
         <strong>Nur jetzt sicher übergeben</strong>
         <code>{state.invitation.value}</code>
-        <small>Gültig bis {formatZonedDateTime(state.invitation.expiresAt, timezone)}</small>
+        <small>Gültig bis {formatZonedDateTime(state.invitation.expiresAt)}</small>
         <button className="secondary" onClick={() => administration.dismissInvitation()}>
           Geheimnis verwerfen
         </button>
@@ -891,13 +884,11 @@ function EmployeesView({
 function TimeRecordsView({
   state,
   administration,
-  timezone,
   route,
   navigate,
 }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
-  readonly timezone: TimeZoneContext;
   readonly route: AdminRoute;
   readonly navigate: (route: AdminRoute) => void;
 }) {
@@ -912,7 +903,6 @@ function TimeRecordsView({
   const prepareButton = useRef<HTMLButtonElement>(null);
   const recordSelect = useRef<HTMLSelectElement>(null);
   const sectionRetryButton = useRef<HTMLButtonElement>(null);
-  const previousTimeZone = useRef(timezone.timeZone);
   useIntentFocusReturn(
     state.correctionIntent !== null,
     prepareButton,
@@ -920,21 +910,12 @@ function TimeRecordsView({
     sectionRetryButton,
   );
   useEffect(() => {
-    if (previousTimeZone.current === timezone.timeZone) return;
-    previousTimeZone.current = timezone.timeZone;
-    setRecordId('');
-    setStartedAt('');
-    setStoppedAt('');
-    setReason('');
-    setTimeError(null);
-  }, [timezone.timeZone]);
-  useEffect(() => {
     setMonth(route.month ?? '');
     setStatusFilter(route.status);
     setCaptureType(route.captureType);
   }, [route.captureType, route.month, route.status]);
-  const format = (value: string) => formatZonedDateTime(value, timezone);
-  const formatExact = (value: string) => formatExactZonedDateTime(value, timezone);
+  const format = formatZonedDateTime;
+  const formatExact = formatExactZonedDateTime;
   if (!state.availableSections.includes('time_records')) {
     return <Panel title="Arbeitszeiten herunterladen"
       description="Die vollständige CSV-Datei steht für die Lohnbuchhaltung bereit.">
@@ -1069,11 +1050,11 @@ function TimeRecordsView({
           </button>}
     </Panel>
     <Panel title="Abgeschlossene Arbeitszeit korrigieren"
-      description={`Eingaben werden in ${timezone.timeZone} gelesen; gespeichert wird in UTC.`}>
+      description={`Eingaben werden in ${BUSINESS_TIME_ZONE} gelesen; gespeichert wird in UTC.`}>
       <form className="form-grid" onSubmit={(event) => {
         event.preventDefault();
-        const canonicalStart = parseZonedLocalTimestamp(startedAt, timezone.timeZone);
-        const canonicalStop = parseZonedLocalTimestamp(stoppedAt, timezone.timeZone);
+        const canonicalStart = parseZonedLocalTimestamp(startedAt);
+        const canonicalStop = parseZonedLocalTimestamp(stoppedAt);
         if (canonicalStart === null || canonicalStop === null) {
           setTimeError('Die Zeitangaben können nicht verwendet werden. Mindestens ein lokaler Zeitpunkt existiert nicht oder ist wegen der Zeitumstellung mehrdeutig. Prüfen Sie Beginn und Ende; Ihre Eingaben bleiben erhalten.');
           return;
@@ -1088,8 +1069,8 @@ function TimeRecordsView({
               const id = event.target.value;
               const selected = state.timeRecords.find((record) => record.timeRecordId === id);
               setRecordId(id);
-              setStartedAt(selected === undefined ? '' : toZonedLocalInput(selected.startedAt, timezone.timeZone));
-              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedLocalInput(selected.stoppedAt, timezone.timeZone));
+              setStartedAt(selected === undefined ? '' : toZonedLocalInput(selected.startedAt));
+              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedLocalInput(selected.stoppedAt));
             }}>
             <option value="">Arbeitszeit auswählen</option>
             {state.timeRecords.filter((record) => record.status === 'stopped').map((record) =>
@@ -1146,11 +1127,9 @@ function TimeRecordsView({
 function ReviewsView({
   state,
   administration,
-  timezone,
 }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
-  readonly timezone: TimeZoneContext;
 }) {
   const [itemId, setItemId] = useState('');
   const [resolution, setResolution] = useState<'no_time_record_change' | 'adjust_existing_time_record' | 'create_recovered_time_record'>('no_time_record_change');
@@ -1162,26 +1141,14 @@ function ReviewsView({
   const prepareButton = useRef<HTMLButtonElement>(null);
   const itemSelect = useRef<HTMLSelectElement>(null);
   const sectionRetryButton = useRef<HTMLButtonElement>(null);
-  const previousTimeZone = useRef(timezone.timeZone);
   useIntentFocusReturn(
     state.adjudicationIntent !== null,
     prepareButton,
     itemSelect,
     sectionRetryButton,
   );
-  useEffect(() => {
-    if (previousTimeZone.current === timezone.timeZone) return;
-    previousTimeZone.current = timezone.timeZone;
-    setItemId('');
-    setResolution('no_time_record_change');
-    setRecordId('');
-    setStartedAt('');
-    setStoppedAt('');
-    setReason('');
-    setTimeError(null);
-  }, [timezone.timeZone]);
-  const format = (value: string) => formatZonedDateTime(value, timezone);
-  const formatExact = (value: string) => formatExactZonedDateTime(value, timezone);
+  const format = formatZonedDateTime;
+  const formatExact = formatExactZonedDateTime;
   const selectedItem = state.reviewItems.find((item) => item.reviewItemId === itemId);
   return <SectionBoundary state={state.sections.reviewItems}
     retryButtonRef={sectionRetryButton}
@@ -1200,14 +1167,14 @@ function ReviewsView({
           </button>}
     </Panel>
     <Panel title="Prüffall entscheiden"
-      description={`Lokale Zeiteingaben verwenden ${timezone.timeZone}; übertragen wird in UTC.`}>
+      description={`Lokale Zeiteingaben verwenden ${BUSINESS_TIME_ZONE}; übertragen wird in UTC.`}>
       <form className="form-grid" onSubmit={(event) => {
         event.preventDefault();
         let canonicalStart: string | null = null;
         let canonicalStop: string | null = null;
         if (resolution !== 'no_time_record_change') {
-          canonicalStart = parseZonedLocalTimestamp(startedAt, timezone.timeZone);
-          canonicalStop = parseZonedLocalTimestamp(stoppedAt, timezone.timeZone);
+          canonicalStart = parseZonedLocalTimestamp(startedAt);
+          canonicalStop = parseZonedLocalTimestamp(stoppedAt);
           if (canonicalStart === null || canonicalStop === null) {
             setTimeError('Die Zeitangaben können nicht verwendet werden. Mindestens ein lokaler Zeitpunkt existiert nicht oder ist wegen der Zeitumstellung mehrdeutig. Prüfen Sie Beginn und Ende; Ihre Eingaben bleiben erhalten.');
             return;
@@ -1249,8 +1216,8 @@ function ReviewsView({
               const id = event.target.value;
               const selected = state.timeRecords.find((record) => record.timeRecordId === id);
               setRecordId(id);
-              setStartedAt(selected === undefined ? '' : toZonedLocalInput(selected.startedAt, timezone.timeZone));
-              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedLocalInput(selected.stoppedAt, timezone.timeZone));
+              setStartedAt(selected === undefined ? '' : toZonedLocalInput(selected.startedAt));
+              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedLocalInput(selected.stoppedAt));
             }}>
             <option value="">Arbeitszeit auswählen</option>
             {state.timeRecords.filter((record) => record.status === 'stopped').map((record) =>
@@ -1383,14 +1350,11 @@ function SectionIcon({ view }: { readonly view: AdminView }) {
 }
 
 function overviewDateLabel(now = new Date()): string {
-  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'full' }).format(now);
+  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'full', timeZone: BUSINESS_TIME_ZONE }).format(now);
 }
 
 function localDateValue(now = new Date()): string {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return toZonedLocalInput(now.toISOString()).slice(0, 10);
 }
 
 function currentRoute(): AdminRoute {
@@ -1536,29 +1500,4 @@ function focusFirstAvailable(
     if (document.activeElement === element) return true;
   }
   return false;
-}
-
-function useCentralTimeZone(
-  administration: AdminWebCapability,
-  resolveTimeZone: () => TimeZoneContext,
-): TimeZoneContext {
-  const [context, setContext] = useState(resolveTimeZone);
-  useEffect(() => {
-    const synchronize = () => {
-      const next = resolveTimeZone();
-      if (
-        next.timeZone === context.timeZone
-        && next.usedUtcFallback === context.usedUtcFallback
-      ) return;
-      administration.invalidateTimeBoundIntents();
-      setContext(next);
-    };
-    window.addEventListener('focus', synchronize);
-    document.addEventListener('visibilitychange', synchronize);
-    return () => {
-      window.removeEventListener('focus', synchronize);
-      document.removeEventListener('visibilitychange', synchronize);
-    };
-  }, [administration, context, resolveTimeZone]);
-  return context;
 }

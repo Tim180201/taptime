@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@taptime/backend-identity": "*",
+    "@taptime/core": "*",
     "@taptime/time-entry-export-contract": "*",
     "pg": "^8.22.0"
   },
@@ -27,7 +28,6 @@
     "@taptime/backend-time-review": "*",
     "@taptime/backend-offline-sync": "*",
     "@taptime/backend-schema": "*",
-    "@taptime/core": "*",
     "@types/node": "^24.10.13",
     "@types/pg": "^8.20.0",
     "esbuild": "^0.28.1",

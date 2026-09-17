@@ -28,6 +28,20 @@ describe('time-review contract', () => {
       .toBe('invalid_request');
   });
 
+  it('accepts the entire Berlin October but rejects one millisecond beyond it', () => {
+    const october = {
+      expectedMembershipId,
+      fromInclusive: '2026-09-30T22:00:00.000Z',
+      toExclusive: '2026-10-31T23:00:00.000Z',
+      limit: 100,
+      cursor: null,
+    };
+    expect(validateTimeRecordQueryRequest(october).status).toBe('valid');
+    expect(validateTimeRecordQueryRequest({
+      ...october, toExclusive: '2026-10-31T23:00:00.001Z',
+    }).status).toBe('invalid_request');
+  });
+
   it('preserves the verbatim Human reason while enforcing btrim length and interval shape', () => {
     const request = {
       expectedMembershipId,

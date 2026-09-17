@@ -24,7 +24,7 @@ Backend-Coordinators und Datenbankfunktionen; die unbenutzten Core-Verwaltungsdi
 | `packages/*-contract` | Geteilte, exakt geprüfte und versionierte Verträge |
 | `apps/backend-api` | Einziger deploybarer Backend-Dienst; Node 24 und esbuild |
 | Weitere `apps/backend-*` | Fachmodule und Schema; zusammen mit API 11 Workspaces |
-| `apps/backend-schema/migrations` | 24 SQL-Dateien, Migration 001 bis 024 |
+| `apps/backend-schema/migrations` | 25 SQL-Dateien, Migration 001 bis 025 |
 | PostgreSQL 17 | Selbstbetriebene Produktdatenbank; Supabase dient ausschließlich der Anmeldung |
 | `apps/mobile` | Expo 57 / React Native 0.86, Android, native NFC-Erfassung, verschlüsselte SQLite-Queue |
 | `apps/admin-web` | React/Vite: Übersicht, Beschäftigte, Einrichtung, Arbeitszeiten, Prüfungen |
@@ -98,6 +98,9 @@ Android-Backup und Geräteübertragung. Die separate physische NFC-Prüfansicht 
   Allgemeine Arbeitszeit ist einmalig pro Organisation; Standorte sind Berechtigungsumfang.
 - **Historie bleibt:** fachliche Ereignisse und ursprüngliche Entscheidungen werden nicht durch
   Korrekturen ersetzt. Eine Korrektur erzeugt einen begründeten Revisionsdatensatz.
+- **Ein Geschäftskalender:** Core definiert Europe/Berlin für Web und CSV sowie die maximale
+  Berliner Monatslänge. Migration 025 nutzt eine gemeinsame SQL-Grenze; Nahttests vergleichen
+  den Datenbankwert mit beiden Abfrageverträgen und prüfen die wirksamen Funktionsgrenzen.
 - **Export bleibt versioniert:** V1, V2 und V3 existieren nebeneinander. V3 enthält Pausen,
   Ortszeit, Personenkennung und Revision. `read_effective_time_entry_export_v3` ruft die
   SQL-Berechnung `effective_work_duration_seconds_v1` auf; keine zweite Rechnung im Client.

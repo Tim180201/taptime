@@ -1053,37 +1053,6 @@ describe('AdminWebCoordinator', () => {
     });
   });
 
-  it('invalidates a pending time-bound command before a changed-zone response can apply', async () => {
-    const { api, coordinator } = setup();
-    api.timeRecords.mockResolvedValue({
-      status: 'succeeded',
-      value: { items: [stoppedRecord], nextCursor: null },
-    });
-    await coordinator.signIn('administrator@example.test', 'secret');
-    coordinator.prepareCorrection(
-      stoppedRecord.timeRecordId,
-      '2026-07-20T08:15:00.000Z',
-      '2026-07-20T10:30:00.000Z',
-      'Kundennachweis geprüft',
-    );
-    const correctionResult = deferred<ApiResult<true>>();
-    api.correctTimeRecord.mockImplementationOnce(() => correctionResult.promise);
-    const confirming = coordinator.confirmCorrection();
-    await vi.waitFor(() => expect(api.correctTimeRecord).toHaveBeenCalledOnce());
-
-    coordinator.invalidateTimeBoundIntents();
-    await vi.waitFor(() => expect(api.projection).toHaveBeenCalledTimes(2));
-    correctionResult.resolve({ status: 'succeeded', value: true });
-    await confirming;
-
-    expect(coordinator.getState()).toMatchObject({
-      status: 'ready',
-      correctionIntent: null,
-      adjudicationIntent: null,
-      timeReviewBusy: false,
-    });
-  });
-
   it('requires an explicit review decision and submits its exact selected evidence', async () => {
     const { api, coordinator } = setup();
     api.reviewItems.mockResolvedValue({
@@ -1460,6 +1429,25 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready', adjudicationIntent: null, timeReviewBusy: false, notice: null,
     });
+  });
+
+  it('passes the complete Berlin October unchanged to time records and payroll export', async () => {
+    const { api, coordinator } = setup();
+    await coordinator.signIn('administrator@example.test', 'secret');
+    const from = '2026-09-30T22:00:00.000Z';
+    const to = '2026-10-31T23:00:00.000Z';
+    await coordinator.setTimeWindow(from, to);
+    expect(coordinator.getState()).toMatchObject({
+      timeWindow: { fromInclusive: from, toExclusive: to },
+    });
+    expect(api.timeRecords).toHaveBeenLastCalledWith(
+      'memory-only-token', membershipId, from, to, null,
+    );
+    api.exportTimeEntries.mockResolvedValueOnce({ status: 'unreachable' });
+    await coordinator.exportTimeRecords();
+    expect(api.exportTimeEntries).toHaveBeenLastCalledWith(
+      'memory-only-token', membershipId, from, to,
+    );
   });
 
   it('binds retry and export to the newest attempted rolling window after a partial refresh', async () => {

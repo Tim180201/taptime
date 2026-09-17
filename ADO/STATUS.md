@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand:** 17.09.2026 · T-052 abgeschlossen, technisch APPROVED und CI grün.
+**Stand:** 17.09.2026 · T-036 technisch APPROVED; Umsetzung bereit zur CI.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen
 Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt oder verändert.
 
@@ -9,7 +9,7 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 - Domäne und Business Engine: `Trigger → WorkEvent → Engine → TimeEntry`, Korrekturen append-only.
 - Backend: 11 `apps/backend-*`-Workspaces einschließlich API und Schema; 52 registrierte
   HTTP-Pfade inklusive `/health` aus `BACKEND_HTTP_ROUTES` in `BackendHttpServer.ts`.
-- 24 SQL-Migrationsdateien unter `apps/backend-schema/migrations`; Rollen laut Migration 020:
+- 25 SQL-Migrationsdateien unter `apps/backend-schema/migrations`; Rollen laut Migration 020:
   `administrator`, `standortleitung`, `employee`. RLS und mandantengebundene Berechtigungen.
 - Mobile: Anmeldung, Einladungseinlösung, NFC, manuelle Erfassung, eigene Zeiten, Offline-Queue.
   Erfassung über Offline v4, Abgleich v2, Leases v3; Löschung der Queue erst nach Archivnachweis.
@@ -22,14 +22,19 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 
 ## Aktuelle Aufgabe
 
-**T-052 — abgeschlossen:** Technical Lead APPROVED; unabhängiges Review APPROVED (Runde 1).
-Die Umsetzung ist auf main; die [CI der Umsetzung](https://github.com/Tim180201/taptime/actions/runs/35204136246)
-ist vollständig grün. Bestätigung zeigt die Entscheidung und lässt die Übertragung weiterrücken;
-SQLite v5 behält unarchivierte Zeilen getrennt, der ruhige Nachlauf löscht exakt nach Archivnachweis.
-Kein zusätzlicher Sicherungszustand in der UI; Alt-Routen bleiben formstabil. SQLite-Folgetap
-und eigener Impuls vor Reparatur rot, danach grün. Betroffene Tests, testsinklusive Typechecks,
-Builds und Android-Export lokal grün; PostgreSQL seriell. Restore-Belege unverändert, kein Deploy.
-Geräteabnahme vor einer Auslieferung bleibt offen. T-055 und T-036 folgen in eigenen Chats.
+**T-036 — technisch APPROVED:** Gemeinsame Core-Zone Europe/Berlin, Monatsgrenzen über
+vorhandene Wandzeitumrechnung, feste Web-Anzeige einschließlich Übersicht und CSV-Zone.
+Beide Abfrageverträge und SQL erlauben den längsten Berliner Monat: 31 Tage plus eine Stunde.
+025 ersetzt ausschließlich Grenzprüfungen; alte Migrationen, Bestandsdaten und Rechte bleiben
+unverändert, durch Aufstiegstest belegt. Nahttests lesen den SQL-Wert aus der Datenbank,
+vergleichen beide Verträge und prüfen jede installierte Funktionsversion am Rand und darüber.
+Pflichtgegenbeweise einschließlich PostgreSQL-Oktober vor Reparatur rot, danach grün.
+Testsinklusive Typechecks und Builds grün; volle betroffene Suiten geprüft, PG lokal seriell.
+Review Runde 1: Übersichtsdatum gefunden und korrigiert; Runde 2 APPROVED ohne offene Befunde.
+Technical-Lead-APPROVED liegt vor; Code-CI steht aus. Dokumentationsauftrag separat gepusht.
+Kein Deploy/Produktionszugriff.
+Backend-Inventur: keine Tages-/Monatsgrenzen, nur CSV-Datum und gleitendes Mobile-Fenster.
+Mobile OwnTimeScreen/Work-Coordinator bilden keine Tagesgrenzen; Geräteanzeige bleibt als P2.
 
 ## Offen bis zum Pilotbetrieb
 
@@ -41,6 +46,10 @@ Geräteabnahme vor einer Auslieferung bleibt offen. T-055 und T-036 folgen in ei
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P2 Mobile T-036:** OwnTimeScreen zeigt weiterhin die Gerätezone; bewusst nicht geändert.
+- **P2 Prüfstrecke T-036:** Lokaler PG/Clustervorlage zunächst ohne UTF8; behoben. Neutraler
+  Contract-Bündler brauchte main-Auflösung für Core. Neue Tests erwarteten unnormalisierte
+  datetime-local-Werte bzw. UTC-Text statt gleichem Audit-Zeitpunkt mit Offset; korrigiert.
 - **P2 Prüfstrecke T-052:** Zwei neue Testfixtures zunächst rot (fehlender Konstantenimport,
   falscher Lookup-Feldname); Ursachen korrigiert, vollständige Läufe danach grün. Kein Flaky-Befund.
 

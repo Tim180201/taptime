@@ -1,3 +1,4 @@
+import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
@@ -413,13 +414,13 @@ async function readV3Snapshot(
        entry.started_via,
        entry.stopped_via,
        pg_catalog.to_char(
-         entry.started_at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM-DD'
+         entry.started_at AT TIME ZONE $5, 'YYYY-MM-DD'
        ) AS local_date,
        pg_catalog.to_char(
-         entry.started_at AT TIME ZONE 'Europe/Berlin', 'HH24:MI:SS.US'
+         entry.started_at AT TIME ZONE $5, 'HH24:MI:SS.US'
        ) AS started_at_local,
        CASE WHEN entry.status = 'stopped' THEN pg_catalog.to_char(
-         entry.stopped_at AT TIME ZONE 'Europe/Berlin', 'HH24:MI:SS.US'
+         entry.stopped_at AT TIME ZONE $5, 'HH24:MI:SS.US'
        ) END AS stopped_at_local,
        pg_catalog.to_char(
          entry.started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'
@@ -438,6 +439,7 @@ async function readV3Snapshot(
       request.fromInclusive,
       request.toExclusive,
       TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1,
+      BUSINESS_TIME_ZONE,
     ],
   );
   return snapshot.rows;

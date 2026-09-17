@@ -50,7 +50,6 @@ const reviewItem = {
   deviceSequence: 7,
   predecessorBlocked: true,
 };
-const utcContext = { timeZone: 'UTC', usedUtcFallback: true } as const;
 type ReadyStateForTest = Extract<AdminWebState, { readonly status: 'ready' }>;
 
 function deferred<Value>() {
@@ -153,7 +152,6 @@ class FakeCapability implements AdminWebCapability {
     this.state = state;
     for (const listener of this.listeners) listener();
   }
-  invalidateTimeBoundIntents = vi.fn(() => undefined);
   signIn = vi.fn(async () => undefined);
   requestPasswordReset = vi.fn(async () => undefined);
   completePasswordRecovery = vi.fn(async () => undefined);
@@ -195,6 +193,7 @@ class FakeCapability implements AdminWebCapability {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.useRealTimers();
   window.history.replaceState(null, '', '/uebersicht');
 });
@@ -411,8 +410,8 @@ describe('professional Admin Web shell', () => {
     expect(screen.getByLabelText('Erfassungsart')).toHaveValue('manuell-erfasst');
     expect(screen.getByText(/Monat August 2026/)).toBeInTheDocument();
     await waitFor(() => expect(capability.setTimeWindow).toHaveBeenCalledWith(
-      '2026-08-01T00:00:00.000Z',
-      '2026-09-01T00:00:00.000Z',
+      '2026-07-31T22:00:00.000Z',
+      '2026-08-31T22:00:00.000Z',
     ));
   });
 
@@ -446,6 +445,19 @@ describe('professional Admin Web shell', () => {
     expect(screen.getByRole('link', { name: 'Erstes Arbeitsziel anlegen' }))
       .toHaveAttribute('href', '/einrichtung');
     expect(document.querySelectorAll('.first-empty .button-link')).toHaveLength(1);
+  });
+
+  it('shows the Berlin calendar date at midnight even in a New York browser', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-31T22:30:00.000Z'));
+    const nativeDateTimeFormat = Intl.DateTimeFormat;
+    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locales, options) {
+      return new nativeDateTimeFormat(locales, { timeZone: 'America/New_York', ...options });
+    });
+    render(<App administration={new FakeCapability(readyState)} />);
+    const date = document.querySelector('.overview-greeting time');
+    expect(date).toHaveTextContent('Dienstag, 1. September 2026');
+    expect(date).toHaveAttribute('datetime', '2026-09-01');
   });
 
   it('keeps the overview greeting truthful and puts metric labels below their numbers', () => {
@@ -776,7 +788,7 @@ describe('professional Admin Web shell', () => {
       });
     });
     window.history.replaceState(null, '', '/arbeitszeiten');
-    render(<App administration={capability} resolveTimeZone={() => utcContext} />);
+    render(<App administration={capability} />);
     fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
       target: { value: record.timeRecordId },
     });
@@ -794,15 +806,15 @@ describe('professional Admin Web shell', () => {
 
     expect(capability.prepareCorrection).toHaveBeenCalledWith(
       record.timeRecordId,
-      '2026-07-20T08:15:30.123Z',
-      '2026-07-20T16:45:59.987Z',
+      '2026-07-20T06:15:30.123Z',
+      '2026-07-20T14:45:59.987Z',
       reason,
     );
     const confirmation = screen.getByRole('alertdialog', {
       name: 'Korrektur ausdrücklich bestätigen',
     });
-    expect(confirmation).toHaveTextContent('2026-07-20 08:15:30.123 GMT+0 [UTC]');
-    expect(confirmation).toHaveTextContent('2026-07-20 16:45:59.987 GMT+0 [UTC]');
+    expect(confirmation).toHaveTextContent('2026-07-20 08:15:30.123 GMT+2 [Europe/Berlin]');
+    expect(confirmation).toHaveTextContent('2026-07-20 16:45:59.987 GMT+2 [Europe/Berlin]');
     expect(confirmation.querySelector('.verbatim-reason')?.textContent).toBe(reason);
 
     await userEvent.click(screen.getByRole('button', {
@@ -847,7 +859,7 @@ describe('professional Admin Web shell', () => {
       });
     });
     window.history.replaceState(null, '', '/pruefungen');
-    render(<App administration={capability} resolveTimeZone={() => utcContext} />);
+    render(<App administration={capability} />);
     fireEvent.change(screen.getByLabelText('Prüffall'), {
       target: { value: reviewItem.reviewItemId },
     });
@@ -870,15 +882,15 @@ describe('professional Admin Web shell', () => {
       reviewItem.reviewItemId,
       'create_recovered_time_record',
       null,
-      '2026-07-20T07:01:02.003Z',
-      '2026-07-20T08:04:05.006Z',
+      '2026-07-20T05:01:02.003Z',
+      '2026-07-20T06:04:05.006Z',
       reason,
     );
     const confirmation = screen.getByRole('alertdialog', {
       name: 'Entscheidung ausdrücklich bestätigen',
     });
-    expect(confirmation).toHaveTextContent('2026-07-20 07:01:02.003 GMT+0 [UTC]');
-    expect(confirmation).toHaveTextContent('2026-07-20 08:04:05.006 GMT+0 [UTC]');
+    expect(confirmation).toHaveTextContent('2026-07-20 07:01:02.003 GMT+2 [Europe/Berlin]');
+    expect(confirmation).toHaveTextContent('2026-07-20 08:04:05.006 GMT+2 [Europe/Berlin]');
     expect(confirmation.querySelector('.verbatim-reason')?.textContent).toBe(reason);
 
     await userEvent.click(screen.getByRole('button', {
@@ -1074,29 +1086,21 @@ describe('professional Admin Web shell', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
-  it('uses one central timezone and atomically discards open inputs and intents after a zone change', async () => {
-    let context = { timeZone: 'Europe/Berlin', usedUtcFallback: false };
-    const resolveTimeZone = () => context;
-    const capability = new FakeCapability(readyState);
-    capability.invalidateTimeBoundIntents.mockImplementation(() => {
-      const current = capability.getState();
-      if (current.status === 'ready') {
-        capability.emit({
-          ...current,
-          correctionIntent: null,
-          adjudicationIntent: null,
-          timeReviewBusy: false,
-        });
-      }
+  it('keeps Berlin display, local inputs and open intent when the browser zone changes', () => {
+    const nativeDateTimeFormat = Intl.DateTimeFormat;
+    let browserZone = 'America/New_York';
+    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locales, options) {
+      return new nativeDateTimeFormat(locales, { timeZone: browserZone, ...options });
     });
+    const capability = new FakeCapability(readyState);
     window.history.replaceState(null, '', '/arbeitszeiten');
-    render(<App administration={capability} resolveTimeZone={resolveTimeZone} />);
+    render(<App administration={capability} />);
     expect(screen.getByText('Zeitdarstellung: Europe/Berlin')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
       target: { value: record.timeRecordId },
     });
-    expect(screen.getByLabelText('Neuer Beginn')).not.toHaveValue('');
-    capability.emit({
+    expect(screen.getByLabelText('Neuer Beginn')).toHaveValue('2026-07-20T10:00');
+    act(() => capability.emit({
       ...readyState,
       correctionIntent: {
         commandId: 'a0000000-0000-4000-8000-000000000003',
@@ -1105,17 +1109,13 @@ describe('professional Admin Web shell', () => {
         stoppedAt: '2026-07-20T16:00:00.000Z',
         reason: 'Offener Intent',
       },
-    });
-
-    context = { timeZone: 'UTC', usedUtcFallback: true };
+    }));
+    browserZone = 'Asia/Tokyo';
     fireEvent.focus(window);
-
-    await waitFor(() => expect(capability.invalidateTimeBoundIntents).toHaveBeenCalledOnce());
-    expect(await screen.findByText(/Zeitdarstellung: UTC/)).toBeInTheDocument();
-    expect(screen.queryByRole('alertdialog')).toBeNull();
-    expect(screen.getByLabelText('Arbeitszeit')).toHaveValue('');
-    expect(screen.getByLabelText('Neuer Beginn')).toHaveValue('');
-    expect(screen.getByLabelText('Neues Ende')).toHaveValue('');
+    fireEvent(document, new Event('visibilitychange'));
+    expect(screen.getByText('Zeitdarstellung: Europe/Berlin')).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('10:00:00.000 GMT+2 [Europe/Berlin]');
+    expect(screen.getByLabelText('Neuer Beginn')).toHaveValue('2026-07-20T10:00');
   });
 
   it('returns focus to the preparation button when a confirmation is cancelled', async () => {
