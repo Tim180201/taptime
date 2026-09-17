@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand:** 17.09.2026 · Repository nach T-054-Rückbau; technisch abgenommen.
+**Stand:** 17.09.2026 · T-054 abgenommen; T-052 beauftragt, Umsetzung offen.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen
 Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt oder verändert.
 
@@ -22,10 +22,12 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 
 ## Aktuelle Aufgabe
 
-**T-054:** Synthetic-Paket, Mobile-Prüfapparat, B1-Spike, alter Scan-Client und drei unbenutzte
-Core-Dienste entfernt. Tests sichern echte Runtime-Verdrahtung und Android-Backup-Schutz;
-Serverrouten und Migrationen bleiben unverändert. Unabhängiges Review (Runde 1) und technische
-Abnahme: APPROVED. Sechs getrennte Umsetzungs-Commits; Dokumentationsauftrag zuvor gepusht.
+**T-052:** Sofortige Serverentscheidung im Tap von der späteren Archivquittung trennen;
+FIFO-Löschung bleibt an externe Archivierung gebunden. Vertrag v4/Abgleich v2, Scheduler,
+Oberfläche und Feedback, verpflichtender Abgleich-Port, belegter Lease-Client-Rückbau.
+Pflichtnachweise: roter SQLite-Gegenbeweis vor Reparatur, echte PostgreSQL-Restores zum
+letzten archivierten und zu einem früheren Punkt; Ergebnis als Regel in RESTORE.md.
+Zeitbox zwei Sitzungen; unabhängiges Review, maximal zwei Runden. Kein Deploy/Produktionszugriff.
 
 ## Offen bis zum Pilotbetrieb
 

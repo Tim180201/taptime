@@ -1,54 +1,48 @@
 # Aktuelle Aufgabe
 
-## T-054 · Rückbau des eingefrorenen Prüfapparats
+## T-052 · Die Bestätigung kommt zurück in den Tap
 
-**Für:** Development · **Risiko:** versehentliches Löschen von Tragendem
-**Zeitbox:** zwei Sitzungen; bei Überschreitung nach der letzten grünen Stufe abbrechen und
-offene Stufen melden. **Grundlage:** D-053, externes Audit, vom Technical Lead bestätigt.
+**Für:** Development · **Risiko:** personenbezogene Lohndaten, Produktvision
+**Zeitbox:** zwei Sitzungen. **Grundlage:** D-052; D-051 bleibt unverändert.
 
 ### Zweck und Grenzen
 
-Löschaufgabe: Der eingestellte Prüfapparat verschwindet aus Projekt, Build und Testauswahl.
-Neue Implementierung entsteht nur, wo das Löschen eine echte Lücke hinterlässt. Keine neue
-Nutzerentscheidung; `Trigger → WorkEvent → BusinessEngine → TimeEntry`, unveränderliche
-Historie und trigger-agnostische Domäne bleiben erhalten. Development entfernt die alten
-Einheiten nach Referenzbeleg; ein neuer fachlicher Lebenszyklus entsteht nicht.
+Die Serverentscheidung wird im selben Tap gezeigt und gefühlt. Keine neue Nutzerentscheidung,
+kein Dialog, kein zweiter Schritt. `Trigger → WorkEvent → BusinessEngine → TimeEntry`,
+append-only Historie und trigger-agnostische Domäne bleiben erhalten. Das Telefon legt die
+FIFO-Zeile beim Tap an, aktualisiert ihren Abgleich und löscht sie ausschließlich nach
+nachgewiesener externer Archivierung. RPO bleibt 0. Kein neuer fachlicher Speicher.
+Keine Server-Endpunkte entfernen; alte Apps bleiben bedient. Kein Deploy, Produktionszugriff,
+T-036 oder T-043. Befunde, die neue Entscheidungen erfordern, melden statt zurechtbiegen.
 
-- Keine Server-Endpunkte entfernen, auch keine alten: `/v1/session` und Scan-Context bleiben.
-- Die produktive Android-APK-Baustrecke bleibt vollständig; ihre Aufrufkette am Code prüfen.
-- Keine Datenbankmigration entfernen oder verändern (gespeicherte Prüfsummen).
-- Kein Deploy, kein Produktionszugriff, kein T-052.
+### Umsetzung
 
-### Reihenfolge — jede Stufe vollständig und für sich grün
+1. Den noch nicht ausgelieferten Vertrag v4 an Ort und Stelle ändern: `archive_pending`
+   trägt dieselbe geschlossene Entscheidungs-/Prüfgrund-Union wie der archivierte Fall,
+   mit `archiveStatus: archive_pending`. Dasselbe für `OfflineReconciliationRecordV2`.
+   Exakte Schlüsselmengen erhalten; die SQL-Zeile aus dem LEFT JOIN auf canonical_decisions
+   im nicht archivierten Fall prüfen und ihre vorhandene Entscheidung weiterreichen.
+2. Scheduler: in submitOffline und Wiederherstellung bei `archive_pending` sofort ein
+   durable-Ergebnis (`server_decision` / `review_pending`) liefern und `retryOffline`
+   aufrufen; niemals vor Archivnachweis `acknowledgeHead`.
+3. Eigener sichtbarer Zustand: Entscheidung bestätigt, Sicherung läuft noch. Verständlicher
+   Text ohne Betriebsbegriffe, Entscheidungsimpuls statt Warteimpuls. Die vollständige
+   Abbildung in ScanFeedbackCoordinator endet weiterhin in `satisfies never`.
+4. `OfflineEventReconciliationReader.reconcileV2` verpflichtend machen, Testdoppel nachziehen.
+5. Tote Lease-V1/V2-Wege im mobilen Client samt Transport und Parser nach Referenzsuche
+   entfernen. Bei lebendem Verbraucher nur diesen Punkt abbrechen und melden.
 
-1. **`apps/synthetic-android-e2e`:** Paket, Workspace-/Build-Anbindung und betroffene CI-Jobs.
-2. **Mobile DA5/Synthetic:** sieben `android:da5-v5:*`-/`android:synthetic-e2e:*`-Skripte samt
-   Dateien unter `scripts/` und zugehörigen Tests. `android:offline-storage-boundary:verify`
-   und `android:production-validation:build` am Code als produktiv oder Apparat einordnen
-   und den Befund melden; produktive APK-Strecke erhalten.
-3. **`apps/backend-b1-spike`:** Wegwerf-Paket samt eigenem CI-Job; produktive PostgreSQL-Tests
-   bleiben bestehen.
-4. **Alter mobiler Scan-Ablauf:** `ProductScanOrchestrator`, `ProductScanContextResolver`,
-   `SessionBoundScanContextResolver`, `TapTimeScanContextApiClient` und
-   `ProductMobileRuntime.serverTransport.scanContext`. `compositionBoundary.test.ts` durch
-   eine Prüfung der tatsächlichen Verdrahtung ersetzen, nicht durch Quelltext-Zeichenfolgen.
-5. **Unbenutzte Core-Dienste:** `OrganizationManagementService`, `MembershipService`,
-   `OrganizationAdministrationService`, Barrel-Exporte, Tests und zugehörige gebaute Artefakte
-   in `packages/core/dist/`. Versionierung von `dist/` prüfen und einschätzen; nur Nötiges ändern.
-6. **Projektgedächtnis:** STATUS und ARCHITECTURE auf ausgeführten Code bringen. Migrationen
-   aus Dateien, Routen aus `BACKEND_HTTP_ROUTES`, Rollen aus dem Schema ableiten; Betrieb,
-   Offline v4 und überholte Aussagen korrigieren. Synthetic-Drifts aus T-035 streichen.
-   Diese Stufe beschreibt das Ergebnis und gehört erst ans Ende.
+### Pflichtbelege und Verifikation
 
-### Belege, Verifikation und Freigabe
-
-- **Vor jeder Löschung:** Referenzsuche über das ganze Repository für jede entfernte Einheit;
-  belegen, dass kein produktiver Pfad sie benötigt. Grüne Tests allein sind kein Löschbeleg.
-- Nach jeder Stufe: Typecheck nachweislich einschließlich Tests und vollständige Tests aller
-  betroffenen Workspaces. Gelaufene Tests vorher/nachher melden und Rückgang erklären.
-- Zum Abschluss: Zeilen vorher/nachher je Bereich. Unabhängiges Review, maximal zwei Runden.
-- Zuerst eigener Dokumentations-Commit, sofort pushen: ausschließlich `ADO/` und `AGENTS.md`,
-  einschließlich der vorhandenen TL-Ergänzung zur Betriebsdokumentation in §7.
-- Umsetzung nicht vor `APPROVED` committen oder pushen. Nach Freigabe jede Stufe als eigenen
-  Commit in obiger Reihenfolge pushen. Stufe 6 ist kein vorgezogener Dokumentations-Commit.
-- Bericht nach `AGENTS.md` §8, zusätzlich je Stufe: entfernt, Referenzbeleg, Testzahl.
+- Vor der Reparatur roten Test mit echter SQLite zeigen: bei `archive_pending` ist die
+  Entscheidung sichtbar UND die FIFO-Zeile bleibt. Bestehenden Nichtlösch-Test erhalten.
+- Alte v1–v3-Routen bleiben formstabil mit bekanntem `pending`; Vertragsnaht testen.
+- Echtes PostgreSQL: Restore zum zuletzt archivierten Punkt muss gelöschte Ereignisse
+  enthalten; erhaltene Telefonereignisse müssen dieselbe Reihenfolge und Grundlage finden.
+  Bewussten Restore auf einen früheren Punkt gesondert belegen, einschließlich fehlender
+  bereits gelöschter Ereignisse. Ergebnis als Einsatzregel in infrastructure/RESTORE.md.
+- Typecheck nachweislich einschließlich Tests; vollständige Tests betroffener Workspaces;
+  PostgreSQL-Integrationssuiten lokal seriell. Unabhängiges Review, maximal zwei Runden.
+- Dokumentations-Commit vorab getrennt und sofort pushen, nur ADO/ und AGENTS.md.
+  RESTORE.md gehört zur Umsetzung. Umsetzung nicht vor APPROVED committen oder pushen.
+- Abschlussbericht gemäß AGENTS.md §8; ausgelassene Prüfungen mit Grund melden.
