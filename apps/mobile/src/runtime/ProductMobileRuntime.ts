@@ -34,7 +34,6 @@ import type {
 } from '../scan/contracts';
 import { AuthenticatedHttpRequestExecutor } from '../transport/AuthenticatedHttpRequestExecutor';
 import { TapTimeLifecycleApiClient } from '../transport/TapTimeLifecycleApiClient';
-import { TapTimeScanContextApiClient } from '../transport/TapTimeScanContextApiClient';
 import type { ProductServerTransport } from '../transport/contracts';
 import { createNativeAppStateAutoRefreshLifecycle } from './AppStateAutoRefreshLifecycle';
 import {
@@ -84,10 +83,6 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
   // responses before they are buffered in full by React Native's legacy fetch polyfill.
   const authenticatedRequests = new AuthenticatedHttpRequestExecutor(coordinator, expoFetch);
   const serverTransport: ProductServerTransport = Object.freeze({
-    scanContext: new TapTimeScanContextApiClient(
-      configuration.configuration.tapTimeApiBaseUrl,
-      authenticatedRequests,
-    ),
     lifecycle: new TapTimeLifecycleApiClient(
       configuration.configuration.tapTimeApiBaseUrl,
       authenticatedRequests,

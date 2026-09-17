@@ -1,7 +1,31 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { selectMobileCompositionMode } from '../../src/runtime/compositionMode';
+
+// Only host/native ports are replaced. The factory, runtime and product coordinators are real.
+vi.mock('react-native', () => ({ Platform: { OS: 'android' }, AppState: {} }));
+vi.mock('expo/fetch', () => ({ fetch: vi.fn(() => { throw new Error('Unexpected network request'); }) }));
+vi.mock('expo-crypto', () => ({ randomUUID: vi.fn(), getRandomBytesAsync: vi.fn() }));
+vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'device-only' }));
+vi.mock('expo-sqlite', () => ({ openDatabaseAsync: vi.fn() }));
+vi.mock('expo-network', () => ({}));
+vi.mock('expo-modules-core', () => ({ requireOptionalNativeModule: () => null }));
+vi.mock('expo-background-task', () => ({}));
+vi.mock('expo-task-manager', () => ({ isTaskDefined: () => true }));
+vi.mock('react-native-nfc-manager', () => ({ default: {}, NfcEvents: {} }));
+vi.mock('react-native-url-polyfill/auto', () => ({}));
+vi.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth: {} }), processLock: vi.fn() }));
+
+import { OfflineCaptureCoordinator } from '../../src/offline/OfflineCaptureCoordinator';
+import { AdminSetupCoordinator } from '../../src/administration/AdminSetupCoordinator';
+import { MobileWorkCoordinator } from '../../src/work/MobileWorkCoordinator';
+import { createProductMobileRuntime } from '../../src/runtime/ProductMobileRuntime';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 describe('C1 Mobile composition boundary', () => {
   it.each([
@@ -32,7 +56,6 @@ describe('C1 Mobile composition boundary', () => {
       'SupabaseEmailPasswordAuthAdapter',
       'ExpoRefreshTokenStore',
       'AuthenticatedHttpRequestExecutor',
-      'TapTimeScanContextApiClient',
       'TapTimeLifecycleApiClient',
       'ServerCanonicalLifecycleIngestionCoordinator',
       'TenantReadSessionCoordinator',
@@ -43,46 +66,48 @@ describe('C1 Mobile composition boundary', () => {
     }
   });
 
-  it('keeps C2 transport and native NFC private while React receives only the scan facade', async () => {
-    const runtimeSource = (await Promise.all([
-      '../../src/runtime/ProductMobileRuntime.ts',
-      '../../src/runtime/DefaultProductMobileRuntime.ts',
-    ].map((relativePath) => readFile(
-      fileURLToPath(new URL(relativePath, import.meta.url)),
-      'utf8',
-    )))).join('\n');
-    const scanScreenSource = await readFile(
-      fileURLToPath(new URL('../../src/screens/ScanScreen.tsx', import.meta.url)),
-      'utf8',
-    );
+  it('wires the real product factory to one offline capture owner behind its public facades', async () => {
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_URL', 'https://auth.example.invalid');
+    vi.stubEnv('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'sb_publishable_composition_test');
+    vi.stubEnv('EXPO_PUBLIC_TAPTIME_API_BASE_URL', 'https://api.example.invalid');
+    const scan = vi.spyOn(OfflineCaptureCoordinator.prototype, 'scan').mockResolvedValue();
+    const cancel = vi.spyOn(OfflineCaptureCoordinator.prototype, 'cancel').mockResolvedValue();
+    const retry = vi.spyOn(OfflineCaptureCoordinator.prototype, 'retry').mockResolvedValue();
+    const readTargets = vi.spyOn(OfflineCaptureCoordinator.prototype, 'readOfflineManualTargets')
+      .mockResolvedValue({ status: 'unavailable' });
+    const captureBreak = vi.spyOn(OfflineCaptureCoordinator.prototype, 'captureBreak')
+      .mockResolvedValue({ status: 'unavailable' });
+    const administration = vi.spyOn(AdminSetupCoordinator.prototype, 'refresh').mockResolvedValue();
+    const work = vi.spyOn(MobileWorkCoordinator.prototype, 'refresh').mockResolvedValue();
 
-    expect(runtimeSource).toContain('AuthenticatedHttpRequestExecutor');
-    expect(runtimeSource).toContain("fetch as expoFetch } from 'expo/fetch'");
-    expect(runtimeSource).toContain('AuthenticatedHttpRequestExecutor(coordinator, expoFetch)');
-    expect(runtimeSource).toContain('TapTimeScanContextApiClient');
-    expect(runtimeSource).toContain('TapTimeLifecycleApiClient');
-    expect(runtimeSource).toContain('React receives a real narrow facade');
-    expect(runtimeSource).toContain('return this.sessionCapability');
-    expect(runtimeSource).toContain('new RnNfcScanAdapter');
-    expect(runtimeSource).toContain('new OfflineCaptureCoordinator');
-    expect(runtimeSource).toContain('new OfflineCaptureLeaseClient');
-    expect(runtimeSource).toContain('getExpoOfflineCaptureDatabase');
-    expect(runtimeSource).toContain('new OfflineSyncScheduler');
-    expect(runtimeSource).not.toContain('new ProductScanOrchestrator');
-    expect(runtimeSource).not.toContain('new SessionBoundScanContextResolver');
-    expect(runtimeSource).toContain('new ExpoSecureLifecycleEvidenceOutbox');
-    expect(runtimeSource).not.toContain('waitForNextTag');
-    expect(runtimeSource).toContain('randomUUID');
-    expect(runtimeSource).not.toContain('Math.random');
-    expect(runtimeSource).toContain('return this.scanCapability');
-    expect(scanScreenSource).toContain('NFC-Tag scannen');
-    expect(scanScreenSource).toContain('Scan abbrechen');
-    expect(scanScreenSource).toContain('Unveränderte Daten erneut senden');
-    expect(scanScreenSource).toContain('Abmelden');
-    expect(scanScreenSource).toContain('disabled={!isScanReadyState(state)}');
-    expect(scanScreenSource).not.toMatch(
-      /TextInput|payload|scan-context|lifecycle-events|NfcManager|accessToken|refreshToken/i,
-    );
+    const result = createProductMobileRuntime();
+    expect(result.status).toBe('ready');
+    if (result.status !== 'ready') throw new Error('Product runtime was not created');
+    const { runtime } = result;
+    await runtime.scan.scan();
+    await runtime.scan.cancel();
+    await runtime.scan.retry();
+    await runtime.offlineManual.readOfflineManualTargets();
+    expect(runtime.offlineManual.captureBreak).toBeTypeOf('function');
+    await runtime.offlineManual.captureBreak!();
+    await runtime.administration.refresh();
+    await runtime.work.refresh();
+
+    expect(scan).toHaveBeenCalledOnce();
+    const owner = scan.mock.contexts[0];
+    expect(owner).toBeInstanceOf(OfflineCaptureCoordinator);
+    for (const action of [cancel, retry, readTargets, captureBreak]) {
+      expect(action).toHaveBeenCalledOnce();
+      expect(action.mock.contexts[0]).toBe(owner);
+    }
+    expect(administration).toHaveBeenCalledOnce();
+    expect(administration.mock.contexts[0]).toBeInstanceOf(AdminSetupCoordinator);
+    expect(work).toHaveBeenCalledOnce();
+    expect(work.mock.contexts[0]).toBeInstanceOf(MobileWorkCoordinator);
+    expect(runtime.scan).not.toBe(owner);
+    expect(Object.isFrozen(runtime.scan)).toBe(true);
+    expect(runtime.scan).not.toHaveProperty('session');
+    expect(runtime.session).not.toHaveProperty('captureAuthenticatedSessionSnapshot');
   });
 
   it('keeps administration capture and tokens out of React, persistence, and logging surfaces', async () => {

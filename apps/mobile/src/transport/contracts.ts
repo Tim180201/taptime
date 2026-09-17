@@ -16,30 +16,6 @@ export type MobileTransportFailure =
   | { readonly status: 'transient_failure' }
   | { readonly status: 'unavailable' };
 
-export interface ScanContextResolutionCommand {
-  readonly organizationId: OrganizationId;
-  readonly payload: string;
-}
-
-export type ScanContextResolutionResult =
-  | ({
-      readonly status: 'resolved';
-      readonly assignmentId: NfcAssignmentId;
-      readonly nfcTagId: NfcTagId;
-    } & (
-      | {
-          readonly target: AssignmentTarget;
-          readonly subject?: { readonly type: 'work'; readonly target: AssignmentTarget };
-        }
-      | { readonly subject: { readonly type: 'break' }; readonly target?: never }
-    ))
-  | { readonly status: 'not_resolved' }
-  | MobileTransportFailure;
-
-export interface ScanContextApiPort {
-  resolve(command: ScanContextResolutionCommand): Promise<ScanContextResolutionResult>;
-}
-
 interface LifecycleWorkEventEvidenceBase {
   readonly id: WorkEventId;
   readonly assignmentId: NfcAssignmentId;
@@ -139,7 +115,6 @@ export interface LifecycleEventApiPort {
 }
 
 export interface ProductServerTransport {
-  readonly scanContext: ScanContextApiPort;
   readonly lifecycle: LifecycleEventApiPort;
   readonly administration: AdminSetupApiPort;
 }
