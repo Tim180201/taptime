@@ -149,6 +149,12 @@ Alles unter `ADO/99_Archive/` ist Historie und wird nicht gelesen.
   Zufall.
 - Dass `AGENTS.md` dazugehört, ist Absicht: Ein Regelwerk, das sich selbst nicht ändern lässt,
   ist eine Sackgasse. Diese Zeile existiert, weil die erste Fassung genau das war.
+- Betriebsdokumentation wie `infrastructure/DEPLOY.md`, `RESTORE.md` oder `MONITORING.md`
+  gehört **nicht** in einen Dokumentations-Commit, sondern zur Umsetzung. Grund: Sie
+  beschreibt, wie sich das System verhält. Vorab committet beschreibt sie ein Verhalten,
+  das noch nicht existiert — ein Runbook, das lügt, ist schlimmer als keins. In T-035 hat
+  der Technical Lead genau das angewiesen; die Regel steht hier, damit es nicht von
+  seinem Gedächtnis abhängt.
 
 ## 8. Abschlussbericht
 

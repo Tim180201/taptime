@@ -1,66 +1,54 @@
 # Aktuelle Aufgabe
 
-> Genau **eine** Aufgabe gleichzeitig. Diese Datei wird pro Aufgabe überschrieben.
+## T-054 · Rückbau des eingefrorenen Prüfapparats
 
----
+**Für:** Development · **Risiko:** versehentliches Löschen von Tragendem
+**Zeitbox:** zwei Sitzungen; bei Überschreitung nach der letzten grünen Stufe abbrechen und
+offene Stufen melden. **Grundlage:** D-053, externes Audit, vom Technical Lead bestätigt.
 
-## T-035 · Kein stiller Datenverlust
+### Zweck und Grenzen
 
-**Für:** Development · **Risiko:** personenbezogene Lohndaten · **Zeitbox:** zwei Sitzungen;
-reißt sie, Scope melden und schneiden. · **Grundlage:** bestätigte Befunde B05/B03 und D-051
+Löschaufgabe: Der eingestellte Prüfapparat verschwindet aus Projekt, Build und Testauswahl.
+Neue Implementierung entsteht nur, wo das Löschen eine echte Lücke hinterlässt. Keine neue
+Nutzerentscheidung; `Trigger → WorkEvent → BusinessEngine → TimeEntry`, unveränderliche
+Historie und trigger-agnostische Domäne bleiben erhalten. Development entfernt die alten
+Einheiten nach Referenzbeleg; ein neuer fachlicher Lebenszyklus entsteht nicht.
 
-### Produktgrenze
+- Keine Server-Endpunkte entfernen, auch keine alten: `/v1/session` und Scan-Context bleiben.
+- Die produktive Android-APK-Baustrecke bleibt vollständig; ihre Aufrufkette am Code prüfen.
+- Keine Datenbankmigration entfernen oder verändern (gespeicherte Prüfsummen).
+- Kein Deploy, kein Produktionszugriff, kein T-052.
 
-- RPO: Kein serverbestätigtes WorkEvent geht beim Ausfall eines Servers oder Datenträgers
-  verloren. RTO: API und Datenbank sind spätestens vier Stunden nach Alarm wieder schreibfähig.
-- Kein synchroner Standby. Solange nur der Gründer den Betrieb beherrscht, wiegen dessen neue
-  Ausfall-, Failover- und Überwachungswege schwerer. Neu bewerten, sobald eine zweite Person den
-  Betrieb unabhängig beherrscht.
-- Die fachliche Kette, Append-only-Historie und Trigger-Agnostik bleiben unverändert; der Nutzer
-  trifft keine neue Entscheidung.
+### Reihenfolge — jede Stufe vollständig und für sich grün
 
-### B05 · Quittung erst nach externer Archivierung
+1. **`apps/synthetic-android-e2e`:** Paket, Workspace-/Build-Anbindung und betroffene CI-Jobs.
+2. **Mobile DA5/Synthetic:** sieben `android:da5-v5:*`-/`android:synthetic-e2e:*`-Skripte samt
+   Dateien unter `scripts/` und zugehörigen Tests. `android:offline-storage-boundary:verify`
+   und `android:production-validation:build` am Code als produktiv oder Apparat einordnen
+   und den Befund melden; produktive APK-Strecke erhalten.
+3. **`apps/backend-b1-spike`:** Wegwerf-Paket samt eigenem CI-Job; produktive PostgreSQL-Tests
+   bleiben bestehen.
+4. **Alter mobiler Scan-Ablauf:** `ProductScanOrchestrator`, `ProductScanContextResolver`,
+   `SessionBoundScanContextResolver`, `TapTimeScanContextApiClient` und
+   `ProductMobileRuntime.serverTransport.scanContext`. `compositionBoundary.test.ts` durch
+   eine Prüfung der tatsächlichen Verdrahtung ersetzen, nicht durch Quelltext-Zeichenfolgen.
+5. **Unbenutzte Core-Dienste:** `OrganizationManagementService`, `MembershipService`,
+   `OrganizationAdministrationService`, Barrel-Exporte, Tests und zugehörige gebaute Artefakte
+   in `packages/core/dist/`. Versionierung von `dist/` prüfen und einschätzen; nur Nötiges ändern.
+6. **Projektgedächtnis:** STATUS und ARCHITECTURE auf ausgeführten Code bringen. Migrationen
+   aus Dateien, Routen aus `BACKEND_HTTP_ROUTES`, Rollen aus dem Schema ableiten; Betrieb,
+   Offline v4 und überholte Aussagen korrigieren. Synthetic-Drifts aus T-035 streichen.
+   Diese Stufe beschreibt das Ergebnis und gehört erst ans Ende.
 
-- Den logischen Stundendump nicht als PITR-Basis ausgeben. Eine geprüfte physische
-  PostgreSQL-Basissicherung und fortlaufend verschlüsselt außer Haus archiviertes WAL bilden die
-  Wiederherstellungskette. Lokal geschriebenes oder nur empfangenes WAL gilt nicht als archiviert.
-- Nach dem Commit die für genau dieses Ereignis erforderliche WAL-Position konservativ erfassen.
-  `synchronized` oder `review_pending` darf erst nach einem externen Archiv-Wasserstand an App
-  oder Reconciliation zurückgegeben werden, der diese Position abdeckt. Vorher bleibt die
-  vorhandene FIFO-Zeile erhalten und wird wiederholt; kein neuer Telefon-Zweitspeicher entsteht.
-- Der heutige Vertrag kann Archivhaltbarkeit nicht ausdrücken. Eine neue exakte Version der
-  Offline-Ingestion und Reconciliation benennt `archive_pending` und `offsite_archived`.
-  Bestehende v1–v3-Routen bleiben formstabil und liefern bis zum Archivnachweis ihr bekanntes
-  `pending`; niemals eine vorzeitige Alt-Quittung. Keine tolerante Feldmengenprüfung.
-- Archivierungsrückstand alarmiert aus der ältesten noch benötigten WAL-Position, dem letzten
-  extern bestätigten Wasserstand und der konfigurierten Archivtaktung. Keine fest hineingeschriebene
-  Prüfzahl. Die Prüfung wird mit einem absichtlich angehaltenen Archivweg negativ belegt.
-- Wiederherstellung gegen einen Zeitpunkt zwischen zwei Änderungen: die frühere ist vorhanden,
-  die spätere nicht. Pflicht-Gegenbeweis auf der App-Seite: Commit ohne Archivnachweis löscht die
-  FIFO-Zeile nicht.
+### Belege, Verifikation und Freigabe
 
-### B03 · Fehlenden Wecker reparieren
-
-- Wenn `trigger()` einen Timer löscht und der echte SQLite-FIFO-Kopf noch nicht fällig ist, den
-  nächsten Weckzeitpunkt aus dessen gespeichertem `next_attempt_at` neu setzen.
-- Regressionstest mit kontrollierter Uhr, echter SQLite-Abfrage und zweitem Auslöser vor der
-  Fälligkeit: vorher kein Senden, zur Fälligkeit genau ein neuer Versuch. Ohne Reparatur rot.
-
-### Entstehung, Änderung und Entfernung
-
-Physische Basen und WAL entstehen ausschließlich im Betriebsdienst, bleiben unverändert und
-werden nur entfernt, wenn eine neuere geprüfte Basis samt lückenlos benötigtem WAL und die
-Aufbewahrungsregel sie entbehrlich machen. Der Server legt je Event eine unveränderliche
-WAL-Anforderung nach Commit an; sie verschwindet mit dem zugehörigen WorkEvent. Den externen
-Wasserstand ändert nur der Archivierer nach erfolgreichem Upload; er verschwindet beim bewussten
-Rückbau der Archivstrecke. Die Telefonzeile entsteht weiter beim Trigger und verschwindet nur
-nach exakter archivierter Quittung oder dem bestehenden bewussten Schutz-/Identitätsverfahren.
-
-### Verifikation und Grenzen
-
-- Typecheck einschließlich Tests und vollständige Tests aller betroffenen Workspaces grün;
-  PostgreSQL-Integrationssuiten lokal seriell. Unabhängiges Review, maximal zwei Runden.
-- Kein Deploy, kein Produktionszugriff, kein B02/T-036, B06–B09 oder T-043. Umsetzung nicht
-  committen oder pushen vor `APPROVED`; Dokumentations-Commit getrennt sofort pushen.
-- Bericht nach `AGENTS.md`: Vertrag und Lebenszyklen, B03/B05-Gegenbeweise, Zeitpunkt-Restore,
-  Rückstandsalarm, Typechecks, Tests, Review und Hash des Dokumentations-Commits.
+- **Vor jeder Löschung:** Referenzsuche über das ganze Repository für jede entfernte Einheit;
+  belegen, dass kein produktiver Pfad sie benötigt. Grüne Tests allein sind kein Löschbeleg.
+- Nach jeder Stufe: Typecheck nachweislich einschließlich Tests und vollständige Tests aller
+  betroffenen Workspaces. Gelaufene Tests vorher/nachher melden und Rückgang erklären.
+- Zum Abschluss: Zeilen vorher/nachher je Bereich. Unabhängiges Review, maximal zwei Runden.
+- Zuerst eigener Dokumentations-Commit, sofort pushen: ausschließlich `ADO/` und `AGENTS.md`,
+  einschließlich der vorhandenen TL-Ergänzung zur Betriebsdokumentation in §7.
+- Umsetzung nicht vor `APPROVED` committen oder pushen. Nach Freigabe jede Stufe als eigenen
+  Commit in obiger Reihenfolge pushen. Stufe 6 ist kein vorgezogener Dokumentations-Commit.
+- Bericht nach `AGENTS.md` §8, zusätzlich je Stufe: entfernt, Referenzbeleg, Testzahl.
