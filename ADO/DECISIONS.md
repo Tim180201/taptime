@@ -1115,3 +1115,16 @@ selbst wieder einstellt. Bis T-055 ist sie keine Betriebszusage.
 **Eiserne Grenze:** Niemals eine neue Lease-ID in erhaltene Evidenz schreiben. Das faelschte
 Herkunft, um eine Statistik zu retten.
 **Fehler:** Die Zusage stand in meiner Formulierung von D-052, nicht im Code.
+
+---
+
+## D-056 · Eine Zeitzone: Europe/Berlin · 17.09.2026 · Tim
+**Entscheidung:** Alle fachlichen Zeitgrenzen — Monat, Tag, Exportfenster, Anzeige — gelten in
+`Europe/Berlin`. Die Zone ist eine benannte Konstante an genau einer Stelle in `packages/core`,
+von Backend und Web gemeinsam benutzt. Kein Datenbankfeld, keine Migration.
+**Warum:** Der Markt ist Mitteleuropa; jedes Nachbarland ausser UK und Portugal liegt in derselben
+Zone. Ein Feld, das heute niemand anders belegt, ist Vorratsbau — die Lehre aus dem Audit.
+**Was es ersetzt:** Die Browser-Zeitzone im Admin-Web. Ein Lohnbuchhalter im Urlaub sieht
+dieselben Zahlen wie am Schreibtisch; Bildschirm und CSV stimmen ueberein.
+**Rueckweg:** Braucht ein Kunde eine andere Zone, wird die Konstante ein Feld mit Standardwert.
+Eine Migration, kein Umbau.

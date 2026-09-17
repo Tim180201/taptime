@@ -1,46 +1,44 @@
 # Aktuelle Aufgabe
 
-## T-052 · Die Bestätigung kommt zurück in den Tap — abgeschlossen
+## T-036 · Zeitrichtigkeit
 
-**Für:** Development · **Risiko:** personenbezogene Lohndaten, Produktvision
-**Zeitbox:** zwei Sitzungen. **Grundlage:** D-052, D-055; D-051 bleibt unverändert.
-Technisch APPROVED; Umsetzung auf main, CI vollständig grün. Kein Deploy.
-T-055 und T-036 werden in eigenen Chats beauftragt.
+**Für:** Development · **Risiko:** Lohnabrechnung, jede Monatsgrenze falsch
+**Zeitbox:** eine Sitzung. **Grundlage:** D-056, Audit vom 17.09.2026.
 
 ### Zweck und Grenzen
 
-Eine Serverbestätigung zeigt und fühlt die Entscheidung und lässt die Übertragung sofort
-weiterrücken. Die lokale Zeile wird erst nach externem Archivnachweis gelöscht. Kein Knopf,
-kein Dialog, keine neue Nutzerentscheidung. Die fachliche Kette und Originalhistorie bleiben
-intakt. Das Telefon legt die Zeile an, bestätigt sie lokal und entfernt sie nach Archivnachweis.
-Kein Deploy, Produktionszugriff, T-055, T-036 oder T-043. Umsetzung nicht vor APPROVED committen.
+Alle fachlichen Grenzen und Anzeigen im Admin-Web gelten in Europe/Berlin, unabhängig von
+der Browser-Zone. Keine zusätzliche Nutzerentscheidung; Ereigniskette und Originalhistorie
+bleiben intakt. Die Zone entsteht als Core-Konstante und wird durch Development mit dem Code
+gepflegt; bei späterem Bedarf ersetzt eine explizite Folgeaufgabe sie durch ein Feld (D-056).
+Kein Feld, keine Migration, kein Deploy, kein Produktionszugriff, kein T-048 oder T-055.
+Umsetzung nicht vor APPROVED durch den Technical Lead committen.
 
 ### Umsetzung
 
-1. Bereits umgesetzt beibehalten: v4 und Reconciliation v2 tragen dieselbe geschlossene
-   Entscheidungs-/Prüfgrund-Union mit eigenem Archivstatus; exakte Schlüsselmengen bleiben exakt.
-   reconcileV2 ist verpflichtend. Tote mobile Lease-V1/V2-Wege bleiben entfernt;
-   sämtliche Server-Endpunkte bleiben für alte Apps bestehen.
-2. Bei synchronized oder review_pending sofort Entscheidung zeigen und fühlen, nächste
-   Queue-Zeile senden. Kein retryOffline für diese Bestätigung. Unarchivierte Zeilen in einem
-   eigenen dauerhaften Zustand behalten; sie zählen nicht als offene Übertragung für die UI.
-3. Ein ruhiger, unabhängig getakteter Nachlauf fragt Reconciliation v2 ab. Er löscht nur die
-   jeweils nachweislich archivierte Zeile und blockiert keine Erfassung. Persistenz, Neustart
-   und Eigentümerbindung erhalten. Der Nachlauf aktualisiert und entfernt den Aufbewahrungszustand.
-4. Oberfläche zeigt die Entscheidung. Zusätzlichen Sicherungs-Wartezustand entfernen, wenn
-   er keinen Nutzen mehr hat; Ergebnis melden. Entscheidungsimpuls und exhaustive Abbildung
-   mit satisfies never bleiben erhalten.
+1. Eine benannte Zeitzonen-Konstante an genau einer Stelle in packages/core; Backend und Web
+   importieren sie. Bestehende Core-Abhängigkeit des Admin-Web prüfen und bei Fehlen melden.
+2. monthTimeWindow verwendet die vorhandene Wandzeit-Umrechnung aus timeZone.ts und die
+   Konstante statt Date.UTC. Keine zweite Umrechnung. Den alten falschen Navigationstest ersetzen.
+3. resolveBrowserTimeZone und Browser-Zone entfernen. Admin-Web zeigt überall Berlin;
+   Bildschirm und CSV stimmen auch bei einem Browser in einer anderen Zone überein.
+4. Export-Abfrageschutz aus längstem Berliner Kalendermonat ableiten: 31 Tage plus eine Stunde.
+   Herleitung im Konstantennamen sichtbar; nur Wert ändern, kein Vertragswechsel.
+5. Alle Tages-/Monatsgrenzen aus Zeitstempeln in apps/backend-* suchen und vollständig melden,
+   auch bei leerer Liste. Core-Konstante für spätere Backend-Tagesgrenzen erreichbar machen.
+6. OwnTimeScreen und Work-Coordinator auf selbst gebildete Tagesgrenzen prüfen; Gerätezeit als
+   Befund melden, nur beheben, falls es eine Zeile ist.
 
-### Pflichtbelege und Verifikation
+### Pflichtgegenbeweise — vor Reparatur rot
 
-- Vor Reparatur roter Test mit echter SQLite: zwei Ereignisse, erstes bestätigt und noch
-  unarchiviert; zweites wird trotzdem gesendet und bekommt seine eigene Entscheidung.
-- Commit ohne Archivnachweis löscht keine Zeile. Nachlauf löscht erst nach offsite_archived
-  aus Reconciliation v2 und niemals eine andere Zeile. Alte v1–v3-Routen bleiben formstabil.
-- Restore-Befunde gehören zu D-055/T-055. RESTORE.md und OfflineRestorePostgres.test.ts bleiben
-  unverändert; den belegten Fehlerfall nicht durch andere Erwartungen grün machen.
-- Typecheck nachweislich einschließlich Tests, vollständige Tests betroffener Workspaces,
-  PostgreSQL-Integrationssuiten lokal seriell; unabhängiges Review, maximal zwei Runden.
-- D-055 und T-055-Planzeile mit dem neuen Auftrag vor Umsetzung getrennt committen und sofort
-  pushen, ausschließlich ADO/ und AGENTS.md. RESTORE.md gehört zur Umsetzung.
-- Abschlussbericht gemäß AGENTS.md §8; ausgelassene Prüfungen mit Grund melden.
+- August 2026: [2026-07-31T22:00:00.000Z, 2026-08-31T22:00:00.000Z).
+- März 2026: [2026-02-28T23:00:00.000Z, 2026-03-31T22:00:00.000Z), 31 Tage minus eine Stunde.
+- Oktober 2026: [2026-09-30T22:00:00.000Z, 2026-10-31T23:00:00.000Z), 31 Tage plus eine Stunde;
+  dieser Monat muss das Exportfenster passieren.
+- 2026-08-31T22:30:00.000Z gehört zum September, nicht zum August. Rote Läufe zeigen.
+
+### Verifikation und Abschluss
+
+Testsinklusive Typechecks, vollständige Tests betroffener Workspaces; unabhängiges Review,
+maximal zwei Runden. D-056, aktualisierte T-036-Planzeile und dieser Auftrag vor Umsetzung
+getrennt committen und sofort pushen. Bericht nach AGENTS.md §8, ausgelassene Prüfungen begründen.
