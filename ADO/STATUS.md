@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand:** 17.09.2026 · T-036 technisch APPROVED; Umsetzung bereit zur CI.
+**Stand:** 17.09.2026 · T-036 abgeschlossen, auf main, CI grün; T-048 freigegeben zur Planung.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen
 Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt oder verändert.
 
@@ -22,7 +22,7 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 
 ## Aktuelle Aufgabe
 
-**T-036 — technisch APPROVED:** Gemeinsame Core-Zone Europe/Berlin, Monatsgrenzen über
+**T-036 — abgeschlossen:** Gemeinsame Core-Zone Europe/Berlin, Monatsgrenzen über
 vorhandene Wandzeitumrechnung, feste Web-Anzeige einschließlich Übersicht und CSV-Zone.
 Beide Abfrageverträge und SQL erlauben den längsten Berliner Monat: 31 Tage plus eine Stunde.
 025 ersetzt ausschließlich Grenzprüfungen; alte Migrationen, Bestandsdaten und Rechte bleiben
@@ -31,15 +31,15 @@ vergleichen beide Verträge und prüfen jede installierte Funktionsversion am Ra
 Pflichtgegenbeweise einschließlich PostgreSQL-Oktober vor Reparatur rot, danach grün.
 Testsinklusive Typechecks und Builds grün; volle betroffene Suiten geprüft, PG lokal seriell.
 Review Runde 1: Übersichtsdatum gefunden und korrigiert; Runde 2 APPROVED ohne offene Befunde.
-Technical-Lead-APPROVED liegt vor; Code-CI steht aus. Dokumentationsauftrag separat gepusht.
-Kein Deploy/Produktionszugriff.
+Technical-Lead-APPROVED; Umsetzung `bc675d0` auf main, [Code-CI grün](https://github.com/Tim180201/taptime/actions/runs/35214461215).
+Dokumentationsauftrag separat gepusht. Kein Deploy/Produktionszugriff. T-048 kann folgen.
 Backend-Inventur: keine Tages-/Monatsgrenzen, nur CSV-Datum und gleitendes Mobile-Fenster.
 Mobile OwnTimeScreen/Work-Coordinator bilden keine Tagesgrenzen; Geräteanzeige bleibt als P2.
 
 ## Offen bis zum Pilotbetrieb
 
 - Registrierung/Einladung mit Kontenerstellung und zustellbarer Mail: T-021/T-047.
-- Ortszeitgrenzen, Tagesfreigabe, Kalender und beschlossene Pausenautomatik: T-036/T-048–T-050.
+- Tagesfreigabe, Kalender und beschlossene Pausenautomatik: T-048–T-050.
 - Android-App-Auswahl und Lesemodus, iOS, Datenschutz/Löschung, fertige Oberflächen und CSP.
 - Firma, Recht, Store-Freigabe und Verwahrung des Release-Signierschlüssels; unabhängiger
   Aussperr-Test durch den Product Owner. Supabase-Tarif vor zahlenden Kunden klären.

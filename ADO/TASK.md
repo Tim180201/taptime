@@ -1,10 +1,10 @@
 # Aktuelle Aufgabe
 
-## T-036 · Zeitrichtigkeit
+## T-036 · Zeitrichtigkeit — abgeschlossen
 
 **Für:** Development · **Risiko:** Lohnabrechnung, jede Monatsgrenze falsch
 **Zeitbox:** eine Sitzung. **Grundlage:** D-056, Audit vom 17.09.2026.
-Technisch APPROVED; Commit und Push beauftragt. Abschluss nach grüner Code-CI.
+Technisch APPROVED; Umsetzung `bc675d0` auf main, [Code-CI grün](https://github.com/Tim180201/taptime/actions/runs/35214461215).
 
 ### Zweck und Grenzen
 
@@ -14,7 +14,7 @@ bleiben intakt. Die Zone entsteht als Core-Konstante und wird durch Development 
 gepflegt; bei späterem Bedarf ersetzt eine explizite Folgeaufgabe sie durch ein Feld (D-056).
 Kein Zonenfeld, kein Deploy, kein Produktionszugriff, kein T-048 oder T-055. Migration 025
 ist für reine Grenzwertkorrekturen per CREATE OR REPLACE erlaubt; keine Datenänderung.
-Umsetzung nicht vor APPROVED durch den Technical Lead committen.
+Commit und Push nach APPROVED durch den Technical Lead erfolgt; T-048 kann folgen.
 
 ### Umsetzung
 
