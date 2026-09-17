@@ -1,48 +1,52 @@
 # Aktuelle Aufgabe
 
-## T-036 · Zeitrichtigkeit — abgeschlossen
+## T-047 · Beschäftigte aufnehmen können
 
-**Für:** Development · **Risiko:** Lohnabrechnung, jede Monatsgrenze falsch
-**Zeitbox:** eine Sitzung. **Grundlage:** D-056, Audit vom 17.09.2026.
-Technisch APPROVED; Umsetzung `bc675d0` auf main, [Code-CI grün](https://github.com/Tim180201/taptime/actions/runs/35214461215).
+**Für:** Development · **Risiko:** Kontenerstellung im Anmeldedienst, service-role-Schlüssel
+**Zeitbox:** zwei Sitzungen. **Grundlage:** D-048, D-049, D-057. Auftrag vom 17.09.2026.
 
-### Zweck und Grenzen
+### Ergebnis und Grenzen
 
-Alle fachlichen Grenzen und Anzeigen im Admin-Web gelten in Europe/Berlin, unabhängig von
-der Browser-Zone. Keine zusätzliche Nutzerentscheidung; Ereigniskette und Originalhistorie
-bleiben intakt. Die Zone entsteht als Core-Konstante und wird durch Development mit dem Code
-gepflegt; bei späterem Bedarf ersetzt eine explizite Folgeaufgabe sie durch ein Feld (D-056).
-Kein Zonenfeld, kein Deploy, kein Produktionszugriff, kein T-048 oder T-055. Migration 025
-ist für reine Grenzwertkorrekturen per CREATE OR REPLACE erlaubt; keine Datenänderung.
-Commit und Push nach APPROVED durch den Technical Lead erfolgt; T-048 kann folgen.
+In Beschäftigte: „Mitarbeiter hinzufügen“, Name und E-Mail. Supabase verschickt die deutsche
+Taptura-Einladung über Brevo Custom SMTP. Der Link öffnet eine eigene Passwort-Seite im
+Admin-Web. Danach: „Jetzt die App öffnen und anmelden.“ Anmeldung führt direkt in die
+Mitgliedschaft, ohne Einladungscode. Keine Admin-Navigation oder Verwaltungsdaten auf dieser
+Seite. Der zusätzliche Code-Schritt entfällt; Ereigniskette und Originalhistorie bleiben intakt.
+Kein Deploy, Produktionszugriff oder echter Supabase-Aufruf aus Tests. Alte Code-Strecke bleibt.
 
 ### Umsetzung
 
-1. Eine benannte Zeitzonen-Konstante an genau einer Stelle in packages/core; Backend und Web
-   importieren sie. Bestehende Core-Abhängigkeit des Admin-Web prüfen und bei Fehlen melden.
-2. monthTimeWindow verwendet die vorhandene Wandzeit-Umrechnung aus timeZone.ts und die
-   Konstante statt Date.UTC. Keine zweite Umrechnung. Den alten falschen Navigationstest ersetzen.
-3. resolveBrowserTimeZone und Browser-Zone entfernen. Admin-Web zeigt überall Berlin;
-   Bildschirm und CSV stimmen auch bei einem Browser in einer anderen Zone überein.
-4. Export-Abfrageschutz aus längstem Berliner Kalendermonat ableiten: 31 Tage plus eine Stunde.
-   Herleitung sichtbar, kein Vertragswechsel. 025 ersetzt betroffene SQL-Funktionen; alte
-   Migrationen unverändert. SQL-Wert aus laufender DB gegen beide Verträge testen, inklusive
-   wirksamer Annahme-/Abweisungsgrenze jeder vorhandenen Funktionsversion.
-5. Alle Tages-/Monatsgrenzen aus Zeitstempeln in apps/backend-* suchen und vollständig melden,
-   auch bei leerer Liste. Core-Konstante für spätere Backend-Tagesgrenzen erreichbar machen.
-6. OwnTimeScreen und Work-Coordinator auf selbst gebildete Tagesgrenzen prüfen; Gerätezeit als
-   P2 in STATUS aufnehmen; in T-036 nicht ändern.
-
-### Pflichtgegenbeweise — vor Reparatur rot
-
-- August 2026: [2026-07-31T22:00:00.000Z, 2026-08-31T22:00:00.000Z).
-- März 2026: [2026-02-28T23:00:00.000Z, 2026-03-31T22:00:00.000Z), 31 Tage minus eine Stunde.
-- Oktober 2026: [2026-09-30T22:00:00.000Z, 2026-10-31T23:00:00.000Z), 31 Tage plus eine Stunde;
-  dieser Monat muss das Exportfenster passieren.
-- 2026-08-31T22:30:00.000Z gehört zum September, nicht zum August. Rote Läufe zeigen.
+1. Backend lädt über den Supabase-Admin-Endpunkt ein. Mitgliedschaft und identity_binding
+   (issuer + zurückgelieferter subject) entstehen zusammen in einer Datenbanktransaktion.
+   Supabase-Fehler dürfen keine halbe Mitgliedschaft hinterlassen.
+2. Eigene Route, etwa `/willkommen`, nimmt das Invite-Token entgegen und setzt das Passwort.
+   Erlaubte Redirect-URLs recherchieren und die erforderliche Dashboard-Konfiguration nennen.
+3. D-049 wörtlich: Schlüssel ausschließlich in `/opt/taptime/.env`, root-eigen, Modus 0600;
+   nie Abbild, Bauargument, argv, Repository oder Chat. Genau eine Operation: Einladen.
+   Jede Nutzung diagnostizieren mit Betrieb, Administrator und Zielkonto, ohne Schlüssel oder
+   E-Mail im Klartext. Ohne Schlüssel startet das Backend normal; Einladen meldet ausdrücklich
+   „Kontenerstellung nicht eingerichtet“.
+4. Eigener enger Ratenbegrenzungs-Scope nach `enrollment_redemption`; der Wächter aus T-053
+   muss die neue Route automatisch erfassen.
+5. Doppelte E-Mail, vorhandene Mitgliedschaft und ausgeschiedene Person sichtbar unterscheiden.
+   Tatsächliche Supabase-Antworten recherchieren und abbilden, keine Vermutungen.
+6. Unter `docs/`: deutsche Einladungsvorlage (Absender Taptura, Betreff, Text, Link) und PO-Liste:
+   DNS bei INWX; Brevo-SMTP in Supabase; Vorlage einsetzen; Redirect freigeben; Schlüssel selbst
+   eintragen und Verwahrung bestätigen. Backend enthält keinen Mailcode.
+7. Lebenszyklus: Administrator stößt Konto/Mitgliedschaft an; Beschäftigter setzt sein Passwort;
+   bestehende Verwaltung ändert/sperrt Mitgliedschaften, Löschfähigkeit bleibt T-016.
+   PO legt SMTP, Vorlage, Redirect und Schlüssel an, pflegt/rotiert und entfernt sie im Betrieb;
+   Development pflegt die Vorlagendatei. Neue persistente Dinge brauchen denselben Nachweis.
+8. Entfällt der letzte produktive Aufrufer der Code-Strecke, als Befund mit Zeilenzahl melden;
+   nicht entfernen. Architektur- oder Produktentscheidungen als offene Frage melden.
 
 ### Verifikation und Abschluss
 
-Testsinklusive Typechecks, vollständige Tests betroffener Workspaces; unabhängiges Review,
-maximal zwei Runden. D-056, aktualisierte T-036-Planzeile und dieser Auftrag vor Umsetzung
-getrennt committen und sofort pushen. Bericht nach AGENTS.md §8, ausgelassene Prüfungen begründen.
+Pflichtgegenbeweise: Start und übrige Funktionen ohne Schlüssel; benannter Einladungsfehler;
+Supabase-Testdoppel mit erfolgreicher atomarer Bindung und Rollback; Diagnoseprüfung auf
+Schlüsselmuster; automatischer Routenwächter; Passwort-Erfolg ohne Admin-Web-Inhalte.
+Testsinklusive Typechecks und vollständige betroffene Workspace-Tests, PostgreSQL seriell.
+Unabhängiges Review, maximal zwei Runden. Umsetzung nicht vor Technical-Lead-APPROVED committen.
+D-057 und dieser Auftrag getrennt vor Umsetzung committen und sofort pushen.
+Echte Einladung an echtes Postfach, gelesen am echten Handy, folgt nach Commit und PO-Schritten
+(D-044). Bericht nach AGENTS.md §8; ausgelassene Prüfungen mit Grund nennen.

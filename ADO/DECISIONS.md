@@ -1128,3 +1128,16 @@ Zone. Ein Feld, das heute niemand anders belegt, ist Vorratsbau — die Lehre au
 dieselben Zahlen wie am Schreibtisch; Bildschirm und CSV stimmen ueberein.
 **Rueckweg:** Braucht ein Kunde eine andere Zone, wird die Konstante ein Feld mit Standardwert.
 Eine Migration, kein Umbau.
+
+---
+
+## D-057 · Mails verschickt Supabase ueber Brevo, nicht unser Backend · 17.09.2026 · Tim
+**Entscheidung:** Supabase bekommt Brevo als eigenen SMTP-Versand (Custom SMTP). Einladung,
+Passwort-Zuruecksetzung und alle kuenftigen Anmelde-Mails laufen damit ueber Brevo, ohne dass
+unser Backend eine Zeile Mailcode enthaelt. Vorlagen werden im Supabase-Dashboard gepflegt.
+**Warum:** Die Zwei-Mails-pro-Stunde-Grenze von Supabase gilt nur fuer den eingebauten Versand.
+Eigener Mailcode im Backend haette die Zuruecksetzung aus T-009 nicht mitgeheilt; so heilt sie
+mit. Weniger Code, ein Weg, die Lehre aus dem Audit.
+**Zwei Geheimnisse, zwei Orte:** Der Brevo-SMTP-Schluessel liegt im Supabase-Dashboard und nie
+auf unserem Server. Der service-role-Schluessel (D-049) liegt in `/opt/taptime/.env` und nie im
+Dashboard-Umfeld. Beide traegt der Product Owner selbst ein.
