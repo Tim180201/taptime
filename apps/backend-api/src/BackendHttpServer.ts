@@ -77,58 +77,68 @@ import {
   type RequestRateLimitScope,
 } from './RequestRateLimiter.js';
 
-const SESSION_PATH = '/v1/session';
-const SESSION_V2_PATH = '/v2/session';
-const HEALTH_PATH = '/health';
-const SCAN_CONTEXT_PATH = '/v1/scan-context/resolve';
-const SCAN_CONTEXT_V2_PATH = '/v2/scan-context/resolve';
-const LIFECYCLE_PATH = '/v1/lifecycle-events';
-const DEFERRED_LIFECYCLE_PATH = '/v1/lifecycle-events/deferred';
-const OFFLINE_CAPTURE_LEASE_PATH = '/v1/offline-capture-leases';
-const OFFLINE_CAPTURE_LEASE_PAGE_PATH = '/v1/offline-capture-leases/page';
-const OFFLINE_CAPTURE_LEASE_V2_PATH = '/v2/offline-capture-leases';
-const OFFLINE_CAPTURE_LEASE_PAGE_V2_PATH = '/v2/offline-capture-leases/page';
-const OFFLINE_CAPTURE_LEASE_V3_PATH = '/v3/offline-capture-leases';
-const OFFLINE_CAPTURE_LEASE_PAGE_V3_PATH = '/v3/offline-capture-leases/page';
-const OFFLINE_LIFECYCLE_PATH = '/v1/lifecycle-events/offline';
-const OFFLINE_LIFECYCLE_V2_PATH = '/v2/lifecycle-events/offline';
-const OFFLINE_LIFECYCLE_V3_PATH = '/v3/lifecycle-events/offline';
-const OFFLINE_LIFECYCLE_V4_PATH = '/v4/lifecycle-events/offline';
-const OFFLINE_RECONCILIATION_PATH = '/v1/lifecycle-events/reconcile';
-const OFFLINE_RECONCILIATION_V2_PATH = '/v2/lifecycle-events/reconcile';
-const ADMIN_CUSTOMERS_PATH = '/v1/administration/customers';
-const ADMIN_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision';
-const ADMIN_BREAK_NFC_PROVISION_PATH = '/v1/administration/nfc-tags/provision-break';
-const ADMIN_NFC_REASSIGN_PATH = '/v1/administration/nfc-tags/reassign';
-const ADMIN_SETUP_PROJECTION_PATH = '/v1/administration/setup-projection';
-const ADMIN_SETUP_PROJECTION_V2_PATH = '/v2/administration/setup-projection';
-const ADMIN_EMPLOYEE_INVITATIONS_PATH = '/v1/administration/employee-invitations';
-const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH = '/v1/administration/employee-memberships-projection';
-const ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_V2_PATH = '/v2/administration/employee-memberships-projection';
-const ADMIN_REVOKE_MEMBERSHIP_PATH = '/v1/administration/memberships/revoke';
-const ADMIN_CHANGE_MEMBERSHIP_ROLE_PATH = '/v1/administration/memberships/change-role';
-const PASSWORD_RESET_AUDIT_PATH = '/v1/auth/password-reset/audit';
-const ADMIN_TIME_ENTRY_EXPORT_PATH = '/v1/administration/time-entries/export';
-const TIME_ENTRY_EXPORT_V2_PATH = '/v2/time-entries/export';
-const TIME_ENTRY_EXPORT_V3_PATH = '/v3/time-entries/export';
-const ADMIN_TIME_RECORD_QUERY_PATH = '/v1/administration/time-records/query';
-const ADMIN_TIME_RECORD_QUERY_V2_PATH = '/v2/administration/time-records/query';
-const ADMIN_TIME_RECORD_CORRECTION_PATH = '/v1/administration/time-records/correct';
-const ADMIN_REVIEW_ITEM_QUERY_PATH = '/v1/administration/review-items/query';
-const ADMIN_REVIEW_ITEM_QUERY_V2_PATH = '/v2/administration/review-items/query';
-const ADMIN_REVIEW_ADJUDICATION_PATH = '/v1/administration/review-items/adjudicate';
-const OFFLINE_REVIEW_STATE_PATH = '/v1/offline-review-state/query';
-const EMPLOYEE_ENROLLMENT_REDEEM_PATH = '/v1/employee-enrollment/redeem';
-const MOBILE_OWN_TIME_PATH = '/v1/mobile/own-time/query';
-const MOBILE_WORK_TARGETS_PATH = '/v1/mobile/work-targets/query';
-const MANUAL_LIFECYCLE_PATH = '/v1/lifecycle-events/manual';
-const MANUAL_BREAK_LIFECYCLE_PATH = '/v1/lifecycle-events/manual-break';
-const ADMIN_PROJECT_QUERY_PATH = '/v1/administration/projects/query';
-const ADMIN_PROJECT_CREATE_PATH = '/v1/administration/projects/create';
-const ADMIN_PROJECT_DEACTIVATE_PATH = '/v1/administration/projects/deactivate';
-const ADMIN_ASSIGNABLE_LOCATIONS_PATH = '/v1/administration/locations/query';
-const ADMIN_LOCATION_SETUP_PROJECTION_PATH = '/v1/administration/location-setup/query';
-const ADMIN_LOCATION_SETUP_MUTATION_PATH = '/v1/administration/location-setup/mutate';
+// Shared registration for dispatch and request protection. Health alone bypasses the API budget.
+export const BACKEND_HTTP_ROUTES = Object.freeze({
+  '/health': 'health',
+  '/v1/mobile/own-time/query': 'mobile_own_time',
+  '/v1/mobile/work-targets/query': 'mobile_work_targets',
+  '/v1/lifecycle-events/manual': 'manual_lifecycle',
+  '/v1/lifecycle-events/manual-break': 'manual_break_lifecycle',
+  '/v1/administration/projects/query': 'admin_project_query',
+  '/v1/administration/projects/create': 'admin_project_create',
+  '/v1/administration/projects/deactivate': 'admin_project_deactivate',
+  '/v1/administration/locations/query': 'admin_assignable_locations',
+  '/v1/administration/location-setup/query': 'admin_location_setup_projection',
+  '/v1/administration/location-setup/mutate': 'admin_location_setup_mutation',
+  '/v1/administration/time-records/query': 'admin_time_record_query',
+  '/v2/administration/time-records/query': 'admin_time_record_query_v2',
+  '/v1/administration/time-records/correct': 'admin_time_record_correction',
+  '/v1/administration/review-items/query': 'admin_review_item_query',
+  '/v2/administration/review-items/query': 'admin_review_item_query_v2',
+  '/v1/administration/review-items/adjudicate': 'admin_review_adjudication',
+  '/v1/offline-review-state/query': 'offline_review_state',
+  '/v1/administration/time-entries/export': 'admin_time_entry_export',
+  '/v2/time-entries/export': 'time_entry_export_v2',
+  '/v3/time-entries/export': 'time_entry_export_v3',
+  '/v1/administration/employee-invitations': 'admin_create_employee_invitation',
+  '/v1/administration/employee-memberships-projection': 'admin_employee_memberships_projection',
+  '/v2/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v2',
+  '/v1/administration/memberships/revoke': 'admin_revoke_membership',
+  '/v1/administration/memberships/change-role': 'admin_change_membership_role',
+  '/v1/auth/password-reset/audit': 'auth_password_reset_audit',
+  '/v1/employee-enrollment/redeem': 'employee_enrollment_redeem',
+  '/v1/administration/customers': 'admin_create_customer',
+  '/v1/administration/nfc-tags/provision': 'admin_provision_nfc_tag',
+  '/v1/administration/nfc-tags/provision-break': 'admin_provision_break_nfc_tag',
+  '/v1/administration/nfc-tags/reassign': 'admin_reassign_nfc_tag',
+  '/v1/administration/setup-projection': 'admin_setup_projection',
+  '/v2/administration/setup-projection': 'admin_setup_projection_v2',
+  '/v1/session': 'session',
+  '/v2/session': 'session_v2',
+  '/v1/scan-context/resolve': 'scan_context',
+  '/v2/scan-context/resolve': 'scan_context_v2',
+  '/v1/lifecycle-events': 'lifecycle',
+  '/v1/lifecycle-events/deferred': 'deferred_lifecycle',
+  '/v1/offline-capture-leases': 'offline_capture_lease',
+  '/v1/offline-capture-leases/page': 'offline_capture_lease_page',
+  '/v2/offline-capture-leases': 'offline_capture_lease_v2',
+  '/v2/offline-capture-leases/page': 'offline_capture_lease_page_v2',
+  '/v3/offline-capture-leases': 'offline_capture_lease_v3',
+  '/v3/offline-capture-leases/page': 'offline_capture_lease_page_v3',
+  '/v1/lifecycle-events/offline': 'offline_lifecycle',
+  '/v2/lifecycle-events/offline': 'offline_lifecycle_v2',
+  '/v3/lifecycle-events/offline': 'offline_lifecycle_v3',
+  '/v4/lifecycle-events/offline': 'offline_lifecycle_v4',
+  '/v1/lifecycle-events/reconcile': 'offline_reconciliation',
+  '/v2/lifecycle-events/reconcile': 'offline_reconciliation_v2',
+} as const satisfies Readonly<Record<string, BackendApiRoute>>);
+
+const routesByPath: ReadonlyMap<string, Route> = new Map(Object.entries(BACKEND_HTTP_ROUTES));
+// Keep unknown paths in registered API versions bounded too, without a version allowlist.
+const apiVersionPrefixes = [...new Set(Object.keys(BACKEND_HTTP_ROUTES).flatMap((path) => {
+  const prefix = /^\/v\d+(?=\/|$)/.exec(path)?.[0];
+  return prefix === undefined ? [] : [prefix];
+}))];
 const EXPECTED_MEMBERSHIP_HEADER = 'x-taptime-expected-membership-id';
 const TRUSTED_PROXY_SECRET_HEADER = 'x-taptime-proxy-secret';
 const MAX_AUTHORIZATION_LENGTH = 4_096;
@@ -262,7 +272,7 @@ async function handleRequest(
   rateLimiter: RequestRateLimiter,
 ): Promise<void> {
   const rateLimitScope = requestRateLimitScope(request.url);
-  const requiresClientAddress = rateLimitScope !== null || request.url === HEALTH_PATH;
+  const requiresClientAddress = rateLimitScope !== null || requestRoute(request.url) === 'health';
   const clientAddress = requiresClientAddress ? resolveClientAddress(request) : null;
   if (requiresClientAddress && clientAddress === null) {
     request.resume();
@@ -2526,106 +2536,8 @@ async function handleOfflineReviewState(
   }
 }
 
-function requestRoute(url: string | undefined): Route | null {
-  if (url === HEALTH_PATH) return 'health';
-  if (url === MOBILE_OWN_TIME_PATH) return 'mobile_own_time';
-  if (url === MOBILE_WORK_TARGETS_PATH) return 'mobile_work_targets';
-  if (url === MANUAL_LIFECYCLE_PATH) return 'manual_lifecycle';
-  if (url === MANUAL_BREAK_LIFECYCLE_PATH) return 'manual_break_lifecycle';
-  if (url === ADMIN_PROJECT_QUERY_PATH) return 'admin_project_query';
-  if (url === ADMIN_PROJECT_CREATE_PATH) return 'admin_project_create';
-  if (url === ADMIN_PROJECT_DEACTIVATE_PATH) return 'admin_project_deactivate';
-  if (url === ADMIN_ASSIGNABLE_LOCATIONS_PATH) return 'admin_assignable_locations';
-  if (url === ADMIN_LOCATION_SETUP_PROJECTION_PATH) return 'admin_location_setup_projection';
-  if (url === ADMIN_LOCATION_SETUP_MUTATION_PATH) return 'admin_location_setup_mutation';
-  if (url === ADMIN_TIME_RECORD_QUERY_PATH) return 'admin_time_record_query';
-  if (url === ADMIN_TIME_RECORD_QUERY_V2_PATH) return 'admin_time_record_query_v2';
-  if (url === ADMIN_TIME_RECORD_CORRECTION_PATH) return 'admin_time_record_correction';
-  if (url === ADMIN_REVIEW_ITEM_QUERY_PATH) return 'admin_review_item_query';
-  if (url === ADMIN_REVIEW_ITEM_QUERY_V2_PATH) return 'admin_review_item_query_v2';
-  if (url === ADMIN_REVIEW_ADJUDICATION_PATH) return 'admin_review_adjudication';
-  if (url === OFFLINE_REVIEW_STATE_PATH) return 'offline_review_state';
-  if (url === ADMIN_TIME_ENTRY_EXPORT_PATH) {
-    return 'admin_time_entry_export';
-  }
-  if (url === TIME_ENTRY_EXPORT_V2_PATH) {
-    return 'time_entry_export_v2';
-  }
-  if (url === TIME_ENTRY_EXPORT_V3_PATH) {
-    return 'time_entry_export_v3';
-  }
-  if (url === ADMIN_EMPLOYEE_INVITATIONS_PATH) {
-    return 'admin_create_employee_invitation';
-  }
-  if (url === ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_PATH) {
-    return 'admin_employee_memberships_projection';
-  }
-  if (url === ADMIN_EMPLOYEE_MEMBERSHIPS_PROJECTION_V2_PATH) {
-    return 'admin_employee_memberships_projection_v2';
-  }
-  if (url === ADMIN_REVOKE_MEMBERSHIP_PATH) return 'admin_revoke_membership';
-  if (url === ADMIN_CHANGE_MEMBERSHIP_ROLE_PATH) return 'admin_change_membership_role';
-  if (url === PASSWORD_RESET_AUDIT_PATH) return 'auth_password_reset_audit';
-  if (url === EMPLOYEE_ENROLLMENT_REDEEM_PATH) {
-    return 'employee_enrollment_redeem';
-  }
-  if (url === ADMIN_CUSTOMERS_PATH) {
-    return 'admin_create_customer';
-  }
-  if (url === ADMIN_NFC_PROVISION_PATH) {
-    return 'admin_provision_nfc_tag';
-  }
-  if (url === ADMIN_BREAK_NFC_PROVISION_PATH) return 'admin_provision_break_nfc_tag';
-  if (url === ADMIN_NFC_REASSIGN_PATH) {
-    return 'admin_reassign_nfc_tag';
-  }
-  if (url === ADMIN_SETUP_PROJECTION_PATH) {
-    return 'admin_setup_projection';
-  }
-  if (url === ADMIN_SETUP_PROJECTION_V2_PATH) return 'admin_setup_projection_v2';
-  if (url === SESSION_PATH) {
-    return 'session';
-  }
-  if (url === SESSION_V2_PATH) return 'session_v2';
-  if (url === SCAN_CONTEXT_PATH) {
-    return 'scan_context';
-  }
-  if (url === SCAN_CONTEXT_V2_PATH) {
-    return 'scan_context_v2';
-  }
-  if (url === LIFECYCLE_PATH) {
-    return 'lifecycle';
-  }
-  if (url === DEFERRED_LIFECYCLE_PATH) {
-    return 'deferred_lifecycle';
-  }
-  if (url === OFFLINE_CAPTURE_LEASE_PATH) {
-    return 'offline_capture_lease';
-  }
-  if (url === OFFLINE_CAPTURE_LEASE_PAGE_PATH) {
-    return 'offline_capture_lease_page';
-  }
-  if (url === OFFLINE_CAPTURE_LEASE_V2_PATH) {
-    return 'offline_capture_lease_v2';
-  }
-  if (url === OFFLINE_CAPTURE_LEASE_PAGE_V2_PATH) {
-    return 'offline_capture_lease_page_v2';
-  }
-  if (url === OFFLINE_CAPTURE_LEASE_V3_PATH) return 'offline_capture_lease_v3';
-  if (url === OFFLINE_CAPTURE_LEASE_PAGE_V3_PATH) return 'offline_capture_lease_page_v3';
-  if (url === OFFLINE_LIFECYCLE_PATH) {
-    return 'offline_lifecycle';
-  }
-  if (url === OFFLINE_LIFECYCLE_V2_PATH) {
-    return 'offline_lifecycle_v2';
-  }
-  if (url === OFFLINE_LIFECYCLE_V3_PATH) return 'offline_lifecycle_v3';
-  if (url === OFFLINE_LIFECYCLE_V4_PATH) return 'offline_lifecycle_v4';
-  if (url === OFFLINE_RECONCILIATION_PATH) {
-    return 'offline_reconciliation';
-  }
-  if (url === OFFLINE_RECONCILIATION_V2_PATH) return 'offline_reconciliation_v2';
-  return null;
+export function requestRoute(url: string | undefined): Route | null {
+  return url === undefined ? null : routesByPath.get(url) ?? null;
 }
 
 function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code'] | null {
@@ -2801,18 +2713,21 @@ function bearerToken(request: IncomingMessage): string | null {
   return match[1]!;
 }
 
-function requestRateLimitScope(requestUrl: string | undefined): RequestRateLimitScope | null {
+export function requestRateLimitScope(requestUrl: string | undefined): RequestRateLimitScope | null {
   if (requestUrl === undefined) {
     return null;
   }
   const queryStart = requestUrl.indexOf('?');
   const path = queryStart === -1 ? requestUrl : requestUrl.slice(0, queryStart);
-  if (path === EMPLOYEE_ENROLLMENT_REDEEM_PATH) {
+  const route = requestRoute(path);
+  if (route === 'health') {
+    return null;
+  }
+  if (route === 'employee_enrollment_redeem') {
     return 'enrollment_redemption';
   }
-  return path === '/v1' || path.startsWith('/v1/')
-    || path === '/v2' || path.startsWith('/v2/')
-    || path === '/v3' || path.startsWith('/v3/')
+  return route !== null
+    || apiVersionPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
     ? 'general_api'
     : null;
 }
