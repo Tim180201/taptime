@@ -80,6 +80,47 @@ for _attempt in $(seq 1 30); do
 done
 grep --fixed-strings --ignore-case --quiet 'Cache-Control: no-store' \
   "$test_directory/index.headers"
+
+# CSP: one truth in the production Caddyfile. Extract it there, require the same value from the
+# real Caddy serving the test config, and refuse the classic weakenings by structure.
+production_csp="$(sed -n \
+  '/^admin\.tb-infra\.de {/,/^}/{s/^\t\tContent-Security-Policy "\(.*\)"$/\1/p;}' \
+  infrastructure/caddy/Caddyfile)"
+# grep -c instead of wc -l: macOS pads wc output with spaces (review round 2).
+if [[ "$(printf '%s\n' "$production_csp" | grep -c '')" != '1' || -z "$production_csp" ]]; then
+  printf 'production Caddyfile must carry exactly one Admin Web Content-Security-Policy\n' >&2
+  exit 1
+fi
+served_csp="$(sed -n 's/^[Cc]ontent-[Ss]ecurity-[Pp]olicy: //p' "$test_directory/index.headers" \
+  | tr -d '\r')"
+if [[ "$served_csp" != "$production_csp" ]]; then
+  printf 'served CSP differs from the production Caddyfile:\n  served:     %s\n  production: %s\n' \
+    "$served_csp" "$production_csp" >&2
+  exit 1
+fi
+for forbidden in "'unsafe-inline'" "'unsafe-eval'" ' \* ' ' \*;' 'http:' 'https:( |;|$)' \
+  "default-src 'self'"; do
+  if grep -Eq -- "$forbidden" <<< "$production_csp "; then
+    printf 'Admin Web CSP must not contain %s\n' "$forbidden" >&2
+    exit 1
+  fi
+done
+for required in "default-src 'none'" "script-src 'self'" "frame-ancestors 'none'" \
+  "object-src 'none'" "base-uri 'self'" "connect-src 'self' https://\*.supabase.co"; do
+  if ! grep -Eq -- "$required" <<< "$production_csp"; then
+    printf 'Admin Web CSP must contain %s\n' "$required" >&2
+    exit 1
+  fi
+done
+for header in 'X-Content-Type-Options: nosniff' 'Referrer-Policy: no-referrer' 'X-Frame-Options: DENY'; do
+  grep --fixed-strings --ignore-case --quiet "$header" "$test_directory/index.headers"
+done
+if ! grep -Fq $'\t\tContent-Security-Policy "default-src \'none\'; frame-ancestors \'none\'"' \
+  infrastructure/caddy/Caddyfile; then
+  printf 'production Caddyfile does not lock the API host against rendering and framing\n' >&2
+  exit 1
+fi
+printf 'admin_csp=served_equals_production api_csp=locked\n'
 curl --fail --silent --show-error \
   --dump-header "$test_directory/release.headers" \
   --output "$test_directory/release.body" \
