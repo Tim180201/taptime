@@ -47,7 +47,7 @@ export type ProductScanProtectionClass =
 
 /**
  * One closed pre-scan protection origin. The tuple makes the production writer prove that it
- * resolved exactly one class; Synthetic readers still validate the runtime shape fail-closed.
+ * resolved exactly one class.
  */
 export type ProductScanProtectionClassification = readonly [ProductScanProtectionClass];
 
@@ -88,50 +88,6 @@ type ProductScanStateValue =
 export type ProductScanState = ProductScanStateValue & {
   readonly protection?: ProductScanProtectionClassification;
 };
-
-const SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX =
-  'com.tim180201.mobile.synthetic:id/scan-status-';
-
-const SYNTHETIC_SCAN_STATUS_TEST_IDS: Readonly<Record<
-  ProductScanProtectionClass,
-  string
->> = Object.freeze({
-  P01: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p01`,
-  P02: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p02`,
-  P03: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p03`,
-  P04: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p04`,
-  P05: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p05`,
-  P06: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p06`,
-  P07: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p07`,
-  P08: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p08`,
-  P09: `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}p09`,
-});
-
-const productScanProtectionClasses = new Set<ProductScanProtectionClass>(
-  Object.values(PRODUCT_SCAN_PROTECTION_CLASS),
-);
-
-export function scanStatusTestId(
-  state: ProductScanState,
-  runtimeVariant: string | undefined,
-): string {
-  if (runtimeVariant !== 'synthetic-e2e') return 'scan-status';
-  const protection = state.protection as readonly unknown[] | undefined;
-  if (protection !== undefined) {
-    if (
-      protection.length !== 1
-      || !productScanProtectionClasses.has(protection[0] as ProductScanProtectionClass)
-    ) return `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}other`;
-    return SYNTHETIC_SCAN_STATUS_TEST_IDS[protection[0] as ProductScanProtectionClass];
-  }
-  if (state.status === 'ready' && state.outcome === null) {
-    return `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}ready`;
-  }
-  if (state.status === 'unavailable' || state.status === 'secure_storage_unavailable') {
-    return `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}unavailable`;
-  }
-  return `${SYNTHETIC_SCAN_STATUS_RESOURCE_PREFIX}other`;
-}
 
 export interface ProductScanCapability {
   getState(): ProductScanState;

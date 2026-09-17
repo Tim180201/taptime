@@ -32,25 +32,11 @@
     "typescript": "~6.0.3",
     "vitest": "^4.1.9"
   },
-  "expo": {
-    "autolinking": {
-      "exclude": [
-        "taptime-da5-v5-validation-device-binding"
-      ]
-    }
-  },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "eas-build-post-install": "npm run build --workspace=@taptime/mobile-work-contract && npm run build --workspace=@taptime/offline-sync-contract && npm run build --workspace=@taptime/time-review-contract",
     "android:production-validation:build": "node scripts/buildProductionValidationAndroid.mjs",
-    "android:da5-v5:no-install-preflight": "node scripts/da5V5AndroidNoInstallPreflight.mjs",
-    "android:da5-v5-validation:build": "node scripts/buildDa5V5ValidationAndroid.mjs",
-    "android:da5-v5-validation:verify": "node scripts/verifyDa5V5ValidationAndroidArtifact.mjs",
-    "android:synthetic-e2e:build": "node scripts/buildSyntheticE2eAndroid.mjs",
-    "android:synthetic-e2e:disconnect": "node scripts/disconnectSyntheticE2eAndroid.mjs",
-    "android:synthetic-e2e:install": "node scripts/installSyntheticE2eAndroid.mjs",
-    "android:synthetic-e2e:runtime-verify": "node scripts/verifySyntheticE2eAndroidRuntime.mjs",
     "android:offline-storage-boundary:verify": "node scripts/verifyOfflineStorageAndroidBoundary.mjs",
     "ios": "expo start --ios",
     "web": "expo start --web",

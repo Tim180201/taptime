@@ -10,11 +10,9 @@ import type { ProductMembershipRole } from '../auth/contracts';
 import { ActionButton, AppText as Text } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 import {
-  scanStatusTestId,
   type ProductScanCapability,
   type ProductScanState,
 } from '../scan/contracts';
-export { scanStatusTestId } from '../scan/contracts';
 
 interface ScanScreenProps {
   readonly actor: ProductMembershipRole | 'offline';
@@ -36,10 +34,7 @@ export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScree
     () => scan.getState(),
   );
   const presentation = presentScanState(state);
-  const statusTestId = scanStatusTestId(
-    state,
-    process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT,
-  );
+
 
   return (
     <View style={[styles.container, embedded && styles.embeddedContainer]}>
@@ -51,7 +46,7 @@ export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScree
       <View
         style={[styles.statusCard, styles[`status_${presentation.tone}`]]}
         accessibilityLiveRegion="polite"
-        testID={statusTestId}
+        testID="scan-status"
       >
         <BreathingScanIndicator state={state} tone={presentation.tone} />
         <Text style={styles.statusTitle}>{presentation.title}</Text>

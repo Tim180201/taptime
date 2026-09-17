@@ -1,11 +1,55 @@
 import { spawnSync } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const mobileDirectory = fileURLToPath(new URL('../..', import.meta.url));
 
 describe('production validation build configuration', () => {
+  it('excludes the encrypted offline store and its key from Android backup and transfer', async () => {
+    const require = createRequire(import.meta.url);
+    const appConfig = require('../../app.json').expo;
+    expect(appConfig.android.allowBackup).toBe(false);
+    expect(appConfig.plugins).toContain('./plugins/withOfflineStorageBackupBoundary');
+    expect(appConfig.plugins).toContainEqual(['expo-secure-store', { configureAndroidBackup: false }]);
+    expect(appConfig.plugins).toContainEqual(['expo-sqlite', { useSQLCipher: true }]);
+
+    const withBackupBoundary = require('../../plugins/withOfflineStorageBackupBoundary');
+    const config = withBackupBoundary({ name: 'Backup boundary test', slug: 'backup-boundary-test' });
+    const manifest = await config.mods.android.manifest({
+      ...config,
+      modRequest: {},
+      modResults: { manifest: { application: [{ $: { 'android:allowBackup': 'true' } }] } },
+    });
+    expect(manifest.modResults.manifest.application[0].$).toMatchObject({
+      'android:allowBackup': 'false',
+      'android:fullBackupContent': '@xml/taptime_offline_backup_rules',
+      'android:dataExtractionRules': '@xml/taptime_offline_data_extraction_rules',
+    });
+
+    const directory = await mkdtemp(join(tmpdir(), 'taptime-backup-boundary-'));
+    try {
+      await config.mods.android.dangerous({
+        ...config, modRequest: { platformProjectRoot: directory },
+      });
+      const xmlDirectory = join(directory, 'app/src/main/res/xml');
+      const backup = await readFile(join(xmlDirectory, 'taptime_offline_backup_rules.xml'), 'utf8');
+      const extraction = await readFile(join(xmlDirectory, 'taptime_offline_data_extraction_rules.xml'), 'utf8');
+      const cloudBackup = extraction.match(/<cloud-backup[^>]*>([\s\S]*?)<\/cloud-backup>/)?.[1];
+      const deviceTransfer = extraction.match(/<device-transfer>([\s\S]*?)<\/device-transfer>/)?.[1];
+      for (const rules of [backup, cloudBackup, deviceTransfer]) {
+        expect(rules).toContain('<exclude domain="sharedpref" path="SecureStore" />');
+        expect(rules).toContain('<exclude domain="file" path="SQLite" />');
+        expect(rules).toContain('<exclude domain="database" path="." />');
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('builds an internal APK with a separate identity and the production runtime', async () => {
     const [easSource, packageSource, buildSource] = await Promise.all([
       readFile(fileURLToPath(new URL('../../eas.json', import.meta.url)), 'utf8'),

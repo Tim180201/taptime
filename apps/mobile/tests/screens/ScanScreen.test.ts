@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  PRODUCT_SCAN_PROTECTION_CLASS,
   type ProductScanState,
 } from '../../src/scan/contracts';
 
@@ -28,7 +27,6 @@ vi.mock('react-native', () => ({
 const {
   presentActor,
   presentScanState,
-  scanStatusTestId,
 } = await import('../../src/screens/ScanScreen');
 
 describe('ScanScreen presentation', () => {
@@ -123,40 +121,4 @@ describe('ScanScreen presentation', () => {
     expect(presentation.message).not.toContain('versuche es dann noch einmal');
   });
 
-  it('keeps the production testID exact and exposes only fixed opaque Synthetic readiness IDs',
-    () => {
-      const protectedState: ProductScanState = {
-        status: 'protected_pending',
-        reason: 'identity_mismatch',
-        protection: [PRODUCT_SCAN_PROTECTION_CLASS.ownerBinding],
-      };
-      expect(scanStatusTestId(protectedState, undefined)).toBe('scan-status');
-      expect(scanStatusTestId(protectedState, 'production')).toBe('scan-status');
-      expect(scanStatusTestId({ status: 'ready', outcome: null }, 'synthetic-e2e'))
-        .toBe('com.tim180201.mobile.synthetic:id/scan-status-ready');
-      expect(scanStatusTestId(protectedState, 'synthetic-e2e'))
-        .toBe('com.tim180201.mobile.synthetic:id/scan-status-p06');
-      expect(scanStatusTestId({ status: 'unavailable' }, 'synthetic-e2e'))
-        .toBe('com.tim180201.mobile.synthetic:id/scan-status-unavailable');
-    });
-
-  it('fails Synthetic classification closed for absent, unknown or multiple protection codes',
-    () => {
-      const protectedState = {
-        status: 'protected_pending',
-        reason: 'local_evidence_protected',
-      } as const;
-      expect(scanStatusTestId(protectedState, 'synthetic-e2e'))
-        .toBe('com.tim180201.mobile.synthetic:id/scan-status-other');
-      expect(scanStatusTestId({
-        ...protectedState,
-        protection: ['P10'],
-      } as unknown as ProductScanState, 'synthetic-e2e'))
-        .toBe('com.tim180201.mobile.synthetic:id/scan-status-other');
-      expect(scanStatusTestId({
-        ...protectedState,
-        protection: ['P01', 'P02'],
-      } as unknown as ProductScanState, 'synthetic-e2e'))
-        .toBe('com.tim180201.mobile.synthetic:id/scan-status-other');
-    });
 });

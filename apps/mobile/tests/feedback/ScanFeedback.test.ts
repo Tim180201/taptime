@@ -112,13 +112,7 @@ describe('scan feedback', () => {
     expect(source).not.toContain('RINGER_MODE_SILENT) {\n        vibrate');
   });
 
-  it('keeps the product feedback module out of the isolated DA5 hardware build', async () => {
-    const source = await readFile(new URL(
-      '../../scripts/da5V5ValidationRuntimeContract.mjs',
-      import.meta.url,
-    ), 'utf8');
-    expect(source).toContain("'taptime-feedback'");
-  });
+
 });
 
 function vibrationSignature(profile: typeof scanFeedbackProfiles.work_started): string {
