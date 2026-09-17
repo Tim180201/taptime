@@ -884,6 +884,7 @@ describe('B3 deterministic migration system', () => {
       'customers',
       'effective_time_records_v1',
       'effective_time_records_v2',
+      'employee_account_invitation_receipts',
       'employee_enrollment_redemption_receipts',
       'employee_invitation_command_receipts',
       'employee_membership_invitations',

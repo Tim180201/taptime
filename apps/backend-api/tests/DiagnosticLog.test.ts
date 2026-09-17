@@ -56,3 +56,31 @@ describe('backend diagnostic production log sink', () => {
     expect(output).not.toContain('organization');
   });
 });
+
+describe('T-047 invitation diagnostics', () => {
+  it('serializes only scoped identifiers and never the credential or the email', async () => {
+    const { SupabaseAccountInviter } = await import('@taptime/backend-administration');
+    const { randomUUID } = await import('node:crypto');
+    const key = `test-service-role-${randomUUID()}`;
+    const email = 'person@example.test';
+    let output = '';
+    const sink = createBackendApiDiagnosticLogSink({
+      output: { write: (chunk) => { output += String(chunk); return true; } },
+    });
+    const context = { correlationId: randomUUID(), organizationId: randomUUID(),
+      administratorMembershipId: randomUUID(), deadlineEpochMilliseconds: Date.now() + 8_000 };
+    const inviter = new SupabaseAccountInviter('https://synthetic.invalid/auth/v1', key,
+      'https://admin.example.test/willkommen', sink, async () => {
+        throw new Error(`${key} ${email}`);
+      });
+    const result = await inviter.invite(email, context);
+    expect(result.status).toBe('invitation_service_unavailable');
+    expect(output.includes(key)).toBe(false);
+    expect(output.includes(email)).toBe(false);
+    expect(/test-service-role-/.test(output)).toBe(false);
+    expect(JSON.parse(output)).toMatchObject({
+      error_class: 'account_invitation_provider_request', organization_id: context.organizationId,
+      administrator_membership_id: context.administratorMembershipId, target_account: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
+  });
+});

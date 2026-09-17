@@ -64,6 +64,8 @@ const runtime = createBackendApiRuntime({
   mobileOwnTimeCursorHmacKey,
   projectAdministrationDatabaseUrl,
   supabaseIssuer,
+  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  employeeInvitationRedirectUrl: process.env.TAPTIME_EMPLOYEE_INVITATION_REDIRECT_URL,
 }, {
   clientAddressMode,
   onDiagnostic: createBackendApiDiagnosticLogSink(),

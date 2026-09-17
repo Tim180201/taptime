@@ -18,6 +18,7 @@ import {
   generalWorkTarget,
   projectWorkTarget,
 } from '@taptime/core';
+import type { AccountInvitationFailure } from '@taptime/backend-administration';
 import type { LifecycleIngestionCommand } from '@taptime/backend-lifecycle';
 import {
   validateManualBreakLifecycleRequest,
@@ -100,6 +101,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/administration/time-entries/export': 'admin_time_entry_export',
   '/v2/time-entries/export': 'time_entry_export_v2',
   '/v3/time-entries/export': 'time_entry_export_v3',
+  '/v1/administration/employee-account-invitations': 'admin_create_employee_account_invitation',
   '/v1/administration/employee-invitations': 'admin_create_employee_invitation',
   '/v1/administration/employee-memberships-projection': 'admin_employee_memberships_projection',
   '/v2/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v2',
@@ -155,6 +157,7 @@ const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 const isoTimestampPattern = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 type ErrorCode =
+  | AccountInvitationFailure
   | 'assignment_conflict'
   | 'assignment_in_use'
   | 'assignment_target_unavailable'
@@ -286,7 +289,7 @@ async function handleRequest(
       return;
     }
     const generalDecision = rateLimiter.take('general_api', clientAddress);
-    const strictDecision = rateLimitScope === 'enrollment_redemption'
+    const strictDecision = rateLimitScope !== 'general_api'
       ? rateLimiter.take(rateLimitScope, clientAddress)
       : generalDecision;
     const decision = generalDecision.allowed ? strictDecision : generalDecision;
@@ -469,6 +472,32 @@ async function handleRequest(
       timeoutMilliseconds,
     );
     return;
+  }
+  if (route === 'admin_create_employee_account_invitation') {
+    if (!isRecord(body) || !hasExactKeys(body, ['commandId', 'displayName', 'email', 'expectedMembershipId', 'locationId'])
+      || !isCanonicalUuid(body.commandId) || !isCanonicalUuid(body.expectedMembershipId)
+      || typeof body.displayName !== 'string' || typeof body.email !== 'string'
+      || (body.locationId !== null && !isCanonicalUuid(body.locationId))) {
+      respondError(response, 400, 'invalid_request'); return;
+    }
+    const result = await dependencies.employeeEnrollment.createAccountInvitation?.({
+      accessToken, commandId: body.commandId, expectedMembershipId: MembershipId(body.expectedMembershipId),
+      displayName: body.displayName, email: body.email, locationId: body.locationId as string | null,
+    }, { deadlineEpochMilliseconds: Date.now() + timeoutMilliseconds - 500 })
+      ?? { status: 'account_creation_not_configured' as const };
+    switch (result.status) {
+      case 'succeeded': case 'succeeded_existing_account': respondJson(response, 200, result); return;
+      case 'unauthorized': respondError(response, 401, result.status); return;
+      case 'forbidden': respondError(response, 403, result.status); return;
+      case 'invalid_email': case 'invalid_request': respondError(response, 400, result.status); return;
+      case 'command_id_conflict': case 'email_exists': case 'membership_exists': case 'former_membership':
+        respondError(response, 409, result.status); return;
+      case 'invitation_rate_limited': respondError(response, 429, result.status); return;
+      case 'account_creation_not_configured': case 'invitation_delivery_failed':
+      case 'invitation_needs_attention': case 'invitation_service_unavailable':
+        respondError(response, 503, result.status); return;
+      default: return result satisfies never;
+    }
   }
   if (route === 'admin_create_employee_invitation') {
     await handleCreateEmployeeInvitation(
@@ -2538,6 +2567,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'health':
       return null;
     case 'admin_create_customer':
+    case 'admin_create_employee_account_invitation':
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':
     case 'admin_employee_memberships_projection_v2':
@@ -2606,6 +2636,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
 
 function isAdministrationRoute(route: Route): boolean {
   return route === 'admin_create_customer'
+    || route === 'admin_create_employee_account_invitation'
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'
     || route === 'admin_employee_memberships_projection_v2'
@@ -2716,6 +2747,7 @@ export function requestRateLimitScope(requestUrl: string | undefined): RequestRa
   if (route === 'health') {
     return null;
   }
+  if (route === 'admin_create_employee_account_invitation') return 'employee_account_invitation';
   if (route === 'employee_enrollment_redeem') {
     return 'enrollment_redemption';
   }

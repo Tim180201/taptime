@@ -22,6 +22,14 @@ Monatsabschluss übersteht. Der Produktionsstand wurde in T-054 nicht abgefragt 
 
 ## Aktuelle Aufgabe
 
+**T-047 — technisch abgenommen (APPROVED):** isolierter Arbeitsbaum `../taptime-t047`;
+geschützte TL-Änderungen im ursprünglichen Arbeitsbaum unverändert. Direkte Kontoeinladung,
+atomare lokale Mitgliedschaft/Identitätsbindung und isolierte Passwort-Seite umgesetzt.
+TL-Befund zu ungebundenen Bestandskonten korrigiert; Rotnachweis für Aufnahme und Rollback-Reparatur.
+Review Runde 2: CHANGES REQUIRED wegen verlorener Erfolgsmeldung beim Refresh; ebenfalls
+mit Rot-/Grün-Nachweis behoben. Technical-Lead-APPROVED am 17.09.; Commit und Integration beauftragt.
+Prüfungen und Grenzen: `docs/T-047-Verifikation.md`; PO-Schritte: `docs/T-047-Inbetriebnahme.md`.
+
 **T-036 — abgeschlossen:** Gemeinsame Core-Zone Europe/Berlin, Monatsgrenzen über
 vorhandene Wandzeitumrechnung, feste Web-Anzeige einschließlich Übersicht und CSV-Zone.
 Beide Abfrageverträge und SQL erlauben den längsten Berliner Monat: 31 Tage plus eine Stunde.
@@ -45,6 +53,13 @@ Mobile OwnTimeScreen/Work-Coordinator bilden keine Tagesgrenzen; Geräteanzeige 
   Aussperr-Test durch den Product Owner. Supabase-Tarif vor zahlenden Kunden klären.
 
 ## Bekannte Kleinigkeiten und offene Risiken
+
+- **P2 Prüfstrecke T-047:** Erstaufbau ohne Abhängigkeitsreihenfolge fehlgeschlagen; CI-Reihenfolge
+  und Node 24 verwendet. UI-Test erwartete alten Code, Schema-Inventar kannte neuen Beleg nicht;
+  Erwartungen fachlich angepasst, volle Suiten grün. Bestehende Bündelgrößenwarnung bleibt.
+- **P2 Prüfstrecke T-047/R2:** Lokaler Testcluster zunächst ohne vorgesehenen Port gestartet;
+  neuer UI-Test zunächst auf Übersicht statt Beschäftigte. Testaufbau korrigiert, fachliche
+  Rotnachweise separat erbracht. Volle Suiten grün; Integration mit TL-Diffs ungeprüft.
 
 - **P2 Mobile T-036:** OwnTimeScreen zeigt weiterhin die Gerätezone; bewusst nicht geändert.
 - **P2 Prüfstrecke T-036:** Lokaler PG/Clustervorlage zunächst ohne UTF8; behoben. Neutraler

@@ -20,6 +20,7 @@ import type {
 } from '@taptime/backend-offline-sync';
 import type {
   AdminCoordinatorControls,
+  AccountInvitationResult,
   CreateEmployeeMembershipInvitationCommand,
   CreateEmployeeMembershipInvitationResult,
   ChangeMembershipRoleCommand,
@@ -185,6 +186,12 @@ export interface AdministrationCoordinator {
 }
 
 export interface EmployeeMembershipEnrollmentCoordinator {
+  createAccountInvitation?(
+    command: { readonly accessToken: string; readonly expectedMembershipId: MembershipId;
+      readonly commandId: string; readonly displayName: string; readonly email: string;
+      readonly locationId: string | null },
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<AccountInvitationResult>;
   createInvitation(
     command: CreateEmployeeMembershipInvitationCommand,
     controls?: EmployeeEnrollmentCoordinatorControls,
@@ -252,6 +259,7 @@ export type BackendApiRoute =
   | 'health'
   | 'admin_create_customer'
   | 'admin_create_employee_invitation'
+  | 'admin_create_employee_account_invitation'
   | 'admin_employee_memberships_projection'
   | 'admin_employee_memberships_projection_v2'
   | 'admin_revoke_membership'
@@ -305,6 +313,8 @@ export type BackendApiRoute =
 export interface BackendApiDiagnostic {
   readonly code:
     | 'administration_failed'
+    | 'account_invitation_provider_request'
+    | 'account_invitation_needs_attention'
     | 'employee_enrollment_failed'
     | 'lifecycle_ingestion_failed'
     | 'offline_synchronization_failed'
@@ -315,6 +325,9 @@ export interface BackendApiDiagnostic {
     | 'time_review_failed';
   readonly route?: BackendApiRoute;
   readonly correlationId: string;
+  readonly organizationId?: string;
+  readonly administratorMembershipId?: string;
+  readonly targetAccount?: string;
 }
 
 export type BackendApiDiagnosticSink = (diagnostic: BackendApiDiagnostic) => void;

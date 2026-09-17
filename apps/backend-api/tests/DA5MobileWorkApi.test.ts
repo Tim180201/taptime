@@ -25,6 +25,18 @@ afterEach(async () => {
 });
 
 describe('DA5 Mobile work HTTP boundaries', () => {
+  it('starts and serves unrelated routes without an account invitation service-role key', async () => {
+    const runtime = createBackendApiRuntime({ ...mobileRuntimeConfiguration(),
+      supabaseServiceRoleKey: undefined, employeeInvitationRedirectUrl: undefined });
+    try {
+      await new Promise<void>((resolve) => runtime.server.listen(0, '127.0.0.1', resolve));
+      const address = runtime.server.address();
+      if (address === null || typeof address === 'string') throw new Error('Expected local test address');
+      const response = await fetch(`http://127.0.0.1:${address.port}/v1/session`);
+      expect(response.status).toBe(401);
+    } finally { await runtime.close(); }
+  });
+
   it('requires and validates the server-only own-time cursor key during runtime composition',
     async () => {
       const configuration = mobileRuntimeConfiguration();

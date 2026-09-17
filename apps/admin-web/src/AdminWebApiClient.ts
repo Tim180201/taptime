@@ -1,3 +1,4 @@
+import { ACCOUNT_INVITATION_NOTICES, type AccountInvitationApiResult, type AccountInvitationFailureCode } from './accountInvitation';
 import type {
   AdministrationLocation,
   AdministrationManagementScope,
@@ -68,6 +69,8 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  createEmployeeAccountInvitation?(token: string, membershipId: string, commandId: string,
+    displayName: string, email: string, locationId: string | null): Promise<AccountInvitationApiResult>;
   recordPasswordReset(token: string): Promise<ApiResult<true>>;
   session(token: string): Promise<ApiResult<Session>>;
   projection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeProjection>>;
@@ -230,6 +233,42 @@ export class AdminWebApiClient implements AdminWebApiPort {
       false,
       true,
     );
+  }
+  async createEmployeeAccountInvitation(token: string, membershipId: string, commandId: string,
+    displayName: string, email: string, locationId: string | null): Promise<AccountInvitationApiResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const response = await this.fetchRequest('/v1/administration/employee-account-invitations', {
+        method: 'POST', headers: { Accept: 'application/json', Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedMembershipId: membershipId, commandId, displayName, email, locationId }),
+        signal: controller.signal, cache: 'no-store', credentials: 'omit', redirect: 'manual',
+      });
+      if (response.status === 401 || response.status === 403) return { status: 'rejected' };
+      if (response.redirected || !isJsonContentType(response.headers.get('content-type'))
+        || !hasSafeDeclaredLength(response, maximumJsonBodyBytes)) return { status: 'invalid_response' };
+      const text = await readBoundedResponseText(response, maximumJsonBodyBytes);
+      if (text === null) return { status: 'invalid_response' };
+      const value: unknown = JSON.parse(text);
+      if (response.status === 200 && isRecord(value) && exact(value, ['status', 'membershipId'])
+        && (value.status === 'succeeded' || value.status === 'succeeded_existing_account')
+        && typeof value.membershipId === 'string' && uuid.test(value.membershipId)) {
+        return { status: value.status };
+      }
+      if (isRecord(value) && exact(value, ['error']) && isRecord(value.error) && exact(value.error, ['code'])) {
+        const code = value.error.code;
+        if (response.status === 429 && code === 'rate_limited') {
+          return { status: 'failed', code: 'invitation_rate_limited' };
+        }
+        if ([400, 409, 429, 503].includes(response.status) && typeof code === 'string'
+          && Object.hasOwn(ACCOUNT_INVITATION_NOTICES, code)) {
+          return { status: 'failed', code: code as AccountInvitationFailureCode };
+        }
+      }
+      return { status: 'invalid_response' };
+    } catch { return { status: 'unreachable' }; }
+    finally { clearTimeout(timeout); }
   }
   async createEmployeeInvitation(
     token: string,

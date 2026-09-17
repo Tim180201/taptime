@@ -12,6 +12,7 @@ import type {
   EmployeeMembershipEnrollmentCoordinator,
 } from '../src/types.js';
 import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
+import { AdminWebApiClient } from '../../admin-web/src/AdminWebApiClient.js';
 
 const accessToken = 'header.payload.signature';
 const membershipId = MembershipId('12000000-0000-4000-8000-000000000001');
@@ -28,6 +29,49 @@ afterEach(async () => {
 });
 
 describe('C3E1 Employee enrollment HTTP contract', () => {
+  it.each([
+    ['account_creation_not_configured', 503], ['email_exists', 409], ['membership_exists', 409],
+    ['former_membership', 409], ['invitation_delivery_failed', 503], ['invitation_rate_limited', 429],
+    ['invitation_service_unavailable', 503], ['invitation_needs_attention', 503], ['invalid_email', 400],
+  ] as const)('exposes the named account invitation result %s', async (status, httpStatus) => {
+    const apiOrigin = await origin(coordinator({ async createAccountInvitation() { return { status }; } }));
+    const response = await post(apiOrigin, '/v1/administration/employee-account-invitations', {
+      expectedMembershipId: membershipId, commandId, displayName: 'Neue Person',
+      email: 'person@example.test', locationId: null,
+    });
+    expect(response.status).toBe(httpStatus);
+    expect(await response.json()).toEqual({ error: { code: status } });
+    // D-045: parse the real HTTP envelope with the production web client.
+    const client = new AdminWebApiClient((input, init) => fetch(`${apiOrigin}${String(input)}`, init));
+    expect(await client.createEmployeeAccountInvitation(accessToken, membershipId, commandId,
+      'Neue Person', 'person@example.test', null)).toEqual({ status: 'failed', code: status });
+    // The rest of the server continues to dispatch normally without an invitation credential.
+    expect((await fetch(`${apiOrigin}/v1/session`)).status).toBe(401);
+  });
+
+  it.each(['succeeded', 'succeeded_existing_account'] as const)('returns %s with immediate membership and a separate invitation budget', async (status) => {
+    const createAccountInvitation = vi.fn<NonNullable<EmployeeMembershipEnrollmentCoordinator['createAccountInvitation']>>(
+      async () => ({ status, membershipId }),
+    );
+    const apiOrigin = await origin(coordinator({ createAccountInvitation }));
+    const body = { expectedMembershipId: membershipId, commandId, displayName: 'Neue Person',
+      email: 'person@example.test', locationId: null };
+    const first = await post(apiOrigin, '/v1/administration/employee-account-invitations', body);
+    expect(first.status).toBe(200);
+    expect(await first.json()).toEqual({ status, membershipId });
+    expect(first.headers.get('cache-control')).toBe('no-store');
+    const client = new AdminWebApiClient((input, init) => fetch(`${apiOrigin}${String(input)}`, init));
+    expect(await client.createEmployeeAccountInvitation(accessToken, membershipId, commandId,
+      'Neue Person', 'person@example.test', null)).toEqual({ status });
+    let response: Response;
+    do { response = await post(apiOrigin, '/v1/administration/employee-account-invitations', body); }
+    while (response.status === 200);
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).not.toBeNull();
+    // A used invitation budget must not spend the independent code-redemption budget.
+    expect((await post(apiOrigin, '/v1/employee-enrollment/redeem', {})).status).toBe(400);
+  });
+
   it('returns the one-time invitation secret in the exact no-store success shape', async () => {
     const employeeEnrollment = coordinator({
       async createInvitation() {

@@ -7,7 +7,7 @@ import {
   requestRoute,
   type BackendHttpServerOptions,
 } from '../src/BackendHttpServer.js';
-import { RequestRateLimiter } from '../src/RequestRateLimiter.js';
+import { RequestRateLimiter, REQUEST_RATE_LIMIT_POLICIES } from '../src/RequestRateLimiter.js';
 import type { BackendApiDependencies } from '../src/types.js';
 import { closeServer, listen } from './fixtures.js';
 
@@ -26,7 +26,7 @@ describe('registered route protection', () => {
     // Every business route must be bounded, regardless of its version or name.
     // Health is the sole operational exception and has its own proxy test below.
     const unprotected = apiRoutes
-      .filter(([path]) => !['general_api', 'enrollment_redemption'].includes(
+      .filter(([path]) => !Object.keys(REQUEST_RATE_LIMIT_POLICIES).includes(
         requestRateLimitScope(path) ?? '',
       ))
       .map(([path]) => path);

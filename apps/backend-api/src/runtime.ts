@@ -2,7 +2,9 @@ import {
   AdminWriteSessionCoordinator,
   EmployeeMembershipEnrollmentCoordinator,
   NfcTagReassignmentCoordinator,
+  SupabaseAccountInviter,
 } from '@taptime/backend-administration';
+import { createBackendApiDiagnosticLogSink } from './diagnosticLog.js';
 import {
   PostgresIdentityMembershipResolver,
   SupabaseJwtAccessTokenVerifier,
@@ -55,6 +57,8 @@ export interface BackendApiRuntimeConfiguration {
   readonly mobileOwnTimeCursorHmacKey?: string;
   readonly projectAdministrationDatabaseUrl?: string;
   readonly supabaseIssuer: string;
+  readonly supabaseServiceRoleKey?: string;
+  readonly employeeInvitationRedirectUrl?: string;
 }
 
 export interface BackendApiRuntime {
@@ -221,6 +225,11 @@ export function createBackendApiRuntime(
         employeeInvitationPool,
         employeeEnrollmentPool,
         verifier,
+        configuration.supabaseServiceRoleKey && configuration.employeeInvitationRedirectUrl
+          ? new SupabaseAccountInviter(issuer, configuration.supabaseServiceRoleKey,
+            configuration.employeeInvitationRedirectUrl,
+            options.onDiagnostic ?? createBackendApiDiagnosticLogSink())
+          : undefined,
       ),
       tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
       timeEntryExporter: new TimeEntryExportCoordinator(timeEntryExportPool, verifier),

@@ -52,6 +52,34 @@ const reviewItem = {
 };
 type ReadyStateForTest = Extract<AdminWebState, { readonly status: 'ready' }>;
 
+it.each([
+  ['succeeded', 'Einladung verschickt.'],
+  ['succeeded_existing_account', 'Konto bestand bereits — es wurde keine Mail verschickt.'],
+] as const)('keeps the %s notice through the real employee SectionBoundary refresh', async (status, message) => {
+  window.history.replaceState(null, '', '/beschaeftigte');
+  const capability = new FakeCapability({ ...readyState, availableSections: ['employees'] });
+  const refresh = deferred<void>();
+  capability.retrySection.mockImplementation(async () => {
+    capability.emit({ ...readyState, availableSections: ['employees'],
+      sections: { ...readyState.sections, employees: { status: 'loading' } } });
+    await refresh.promise;
+    capability.emit({ ...readyState, availableSections: ['employees'] });
+  });
+  render(<App administration={capability} accountInvitations={{ invite: async () => ({ status }) }} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Mitarbeiter hinzufügen' }));
+  fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Neue Person' } });
+  fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'person@example.test' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Einladung senden' }));
+  await waitFor(() => expect(capability.retrySection).toHaveBeenCalledWith('employees'));
+  expect(screen.getByText(message, { exact: false })).toBeVisible();
+  await act(async () => { refresh.resolve(); await refresh.promise; });
+  expect(screen.getByText(message, { exact: false })).toBeVisible();
+  if (status === 'succeeded_existing_account') {
+    expect(screen.getByText(message, { exact: false })).toHaveTextContent('Bitte informieren Sie die Person selbst.');
+    expect(screen.getByText(message, { exact: false })).toHaveTextContent('Passwort vergessen');
+  }
+});
+
 function deferred<Value>() {
   let resolve!: (value: Value) => void;
   const promise = new Promise<Value>((done) => { resolve = done; });
@@ -290,13 +318,14 @@ describe('professional Admin Web shell', () => {
     expect(screen.getByText('Noch keine Beschäftigten am Standort Berlin')).toBeInTheDocument();
     expect(screen.queryByLabelText('Rolle')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Beschäftigte Person einladen' }));
-    expect(screen.getByLabelText('Einladung für')).toHaveFocus();
+    expect(screen.getByLabelText('Name')).toHaveFocus();
   });
 
   it('shows the required invitation Location only while the feature is enabled', async () => {
     window.history.replaceState(null, '', '/beschaeftigte');
     const capability = new FakeCapability(readyState);
     const { rerender } = render(<App administration={capability} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Mitarbeiter hinzufügen' }));
     expect(screen.queryByLabelText('Heimatstandort')).not.toBeInTheDocument();
 
     const enabled = {
@@ -583,14 +612,15 @@ describe('professional Admin Web shell', () => {
 
     window.history.pushState(null, '', '/beschaeftigte');
     fireEvent(window, new PopStateEvent('popstate'));
-    const employeeInput = await screen.findByLabelText('Einladung für');
+    await userEvent.click(screen.getByRole('button', { name: 'Mitarbeiter hinzufügen' }));
+    const employeeInput = await screen.findByLabelText('Name');
     await userEvent.type(employeeInput, 'Neue Person');
     capability.emit({
       ...(capability.state as ReadyStateForTest),
       notice: 'Die Einladung ist fertig – mit vollständig geändertem Wortlaut.',
       completedAction: 'invitation_created',
     });
-    await waitFor(() => expect(employeeInput).toHaveValue(''));
+    expect(employeeInput).toHaveValue('Neue Person');
   });
 
   it('confirms access revocation with the shared confirmation component', async () => {
@@ -640,7 +670,7 @@ describe('professional Admin Web shell', () => {
     expect(window.location.href).not.toContain('secret-value');
   });
 
-  it('destroys a one-time invitation when navigating away from Beschäftigte', async () => {
+  it('never displays a legacy code in the account invitation UI and clears it on navigation', async () => {
     const secret = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const capability = new FakeCapability({
       ...readyState,
@@ -648,7 +678,7 @@ describe('professional Admin Web shell', () => {
     });
     window.history.replaceState(null, '', '/beschaeftigte');
     render(<App administration={capability} />);
-    expect(screen.getByText(secret)).toBeInTheDocument();
+    expect(screen.queryByText(secret)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/clipboard/i);
     await userEvent.click(screen.getByRole('link', { name: 'Übersicht' }));
     await waitFor(() => expect(capability.dismissInvitation).toHaveBeenCalledOnce());

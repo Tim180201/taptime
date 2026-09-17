@@ -1,6 +1,11 @@
 import { createHmac, randomBytes } from 'node:crypto';
 
-export type RequestRateLimitScope = 'enrollment_redemption' | 'general_api';
+export const REQUEST_RATE_LIMIT_POLICIES = {
+  enrollment_redemption: 5,
+  employee_account_invitation: 3,
+  general_api: 300,
+} as const;
+export type RequestRateLimitScope = keyof typeof REQUEST_RATE_LIMIT_POLICIES;
 
 export interface RequestRateLimitDecision {
   readonly allowed: boolean;
@@ -13,8 +18,6 @@ interface FixedWindow {
 }
 
 const WINDOW_MILLISECONDS = 60_000;
-const ENROLLMENT_REDEMPTION_LIMIT = 5;
-const GENERAL_API_LIMIT = 300;
 const MAX_ACTIVE_WINDOWS = 100_000;
 
 export class RequestRateLimiter {
@@ -43,9 +46,7 @@ export class RequestRateLimiter {
       .update(clientAddress, 'utf8')
       .digest('base64url')}`;
     const existing = this.windows.get(key);
-    const limit = scope === 'enrollment_redemption'
-      ? ENROLLMENT_REDEMPTION_LIMIT
-      : GENERAL_API_LIMIT;
+    const limit = REQUEST_RATE_LIMIT_POLICIES[scope];
 
     if (existing === undefined || now >= existing.expiresAtMilliseconds) {
       if (existing === undefined && this.windows.size >= this.maxActiveWindows) {

@@ -50,3 +50,8 @@ Unabhängiges Review, maximal zwei Runden. Umsetzung nicht vor Technical-Lead-AP
 D-057 und dieser Auftrag getrennt vor Umsetzung committen und sofort pushen.
 Echte Einladung an echtes Postfach, gelesen am echten Handy, folgt nach Commit und PO-Schritten
 (D-044). Bericht nach AGENTS.md §8; ausgelassene Prüfungen mit Grund nennen.
+
+**Development-Stand T-047:** umgesetzt im separaten Arbeitsbaum; TL-Korrektur zu Bestandskonten
+mit Rotnachweis umgesetzt. UI-Befund aus Review Runde 2 ebenfalls behoben;
+Technical-Lead-APPROVED am 17.09.; Commit, CI und anschließende TL-Integration beauftragt.
+Nachweise und Grenzen: `docs/T-047-Verifikation.md`.

@@ -1,3 +1,5 @@
+import { EmployeeAccountInvitationForm, type EmployeeAccountInvitationCapability } from './EmployeeAccountInvitationForm';
+import { ACCOUNT_INVITATION_SUCCESS_NOTICES, type AccountInvitationSuccess } from './accountInvitation';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import {
   FormEvent,
@@ -37,8 +39,10 @@ import './styles.css';
 
 export function App({
   administration,
+  accountInvitations,
 }: {
   readonly administration: AdminWebCapability;
+  readonly accountInvitations?: EmployeeAccountInvitationCapability;
 }) {
   const state = useSyncExternalStore(
     (listener) => administration.subscribe(listener),
@@ -240,7 +244,7 @@ export function App({
       {activeRoute.view === 'uebersicht'
         ? <Overview state={state} administration={administration} navigate={navigate} /> : null}
       {activeRoute.view === 'einrichtung' ? <SetupView state={state} administration={administration} /> : null}
-      {activeRoute.view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} /> : null}
+      {activeRoute.view === 'beschaeftigte' ? <EmployeesView state={state} administration={administration} accountInvitations={accountInvitations} /> : null}
       {activeRoute.view === 'arbeitszeiten'
         ? <TimeRecordsView state={state} administration={administration}
             route={activeRoute} navigate={navigate} /> : null}
@@ -721,18 +725,14 @@ function LocationSetupPanel({
   </Panel>;
 }
 
-function EmployeesView({
-  state,
-  administration,
-}: {
+function EmployeesView({ state, administration, accountInvitations }: {
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
+  readonly accountInvitations?: EmployeeAccountInvitationCapability;
 }) {
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<'administrator' | 'standortleitung' | 'employee'>('employee');
-  const [invitationLocationId, setInvitationLocationId] = useState(
-    state.selectedLocation?.id ?? '',
-  );
+  const [adding, setAdding] = useState(false);
+  const [invitationSuccess, setInvitationSuccess] = useState<AccountInvitationSuccess | null>(null);
+  useEffect(() => { setInvitationSuccess(null); }, [state.selectedLocation?.id]);
   const [revocationIntent, setRevocationIntent] = useState<{
     readonly id: string;
     readonly displayName: string;
@@ -740,68 +740,27 @@ function EmployeesView({
   } | null>(null);
   const [revoking, setRevoking] = useState(false);
   const revocationTrigger = useRef<HTMLButtonElement>(null);
-  const employeeNameInput = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (state.completedAction === 'invitation_created') setName('');
-  }, [state.completedAction]);
-  useEffect(() => {
-    if (!state.locationsEnabled) setInvitationLocationId('');
-    else if (state.selectedLocation !== null) setInvitationLocationId(state.selectedLocation.id);
-  }, [state.locationsEnabled, state.selectedLocation]);
   useIntentFocusReturn(revocationIntent !== null, revocationTrigger);
-  return <SectionBoundary state={state.sections.employees}
+  return <>
+    {invitationSuccess === null ? null : <p role="status">{ACCOUNT_INVITATION_SUCCESS_NOTICES[invitationSuccess]}</p>}
+    <SectionBoundary state={state.sections.employees}
     onRetry={() => void administration.retrySection('employees')}>
     <Panel title="Beschäftigte" description={state.selectedLocation === null
-      ? 'Aktive Beschäftigte und einmalige Einladungen.'
-      : `Aktive Beschäftigte und einmalige Einladungen am Standort ${state.selectedLocation.name}.`}>
+      ? 'Beschäftigte und ihre Zugänge.'
+      : `Beschäftigte und ihre Zugänge am Standort ${state.selectedLocation.name}.`}>
       <CountTruth count={state.employeeProjection.employeeMemberships.length}
         noun={state.selectedLocation === null
           ? state.locationsEnabled ? 'Beschäftigte im Betrieb' : 'Beschäftigte'
           : `Beschäftigte am Standort ${state.selectedLocation.name}`}
         complete={state.employeeProjection.nextCursor === null} />
-      <form className="inline-form" onSubmit={(event) => {
-        event.preventDefault();
-        void administration.createEmployeeInvitation(
-          name,
-          role,
-          state.locationsEnabled ? invitationLocationId : undefined,
-        );
-      }}>
-        <label htmlFor="employee-name">Einladung für</label>
-        <div className="input-action">
-          <input ref={employeeNameInput} id="employee-name" required maxLength={120} value={name}
-            onChange={(event) => setName(event.target.value)} />
-          {state.managementScope.kind === 'organization' ? <>
-            <label htmlFor="employee-role">Rolle</label>
-            <select id="employee-role" value={role}
-              onChange={(event) => setRole(event.target.value as typeof role)}>
-              <option value="employee">Beschäftigter</option>
-              <option value="standortleitung">Standortleitung</option>
-              <option value="administrator">Administrator</option>
-            </select>
-          </> : null}
-          {state.locationsEnabled ? <label htmlFor="employee-location">Heimatstandort</label> : null}
-          {state.locationsEnabled ? <select id="employee-location" required
-            value={invitationLocationId}
-            onChange={(event) => setInvitationLocationId(event.target.value)}>
-            <option value="">Standort auswählen</option>
-            {state.assignableLocations.map((location) => <option key={location.id}
-              value={location.id}>{location.name}</option>)}
-          </select> : null}
-          <button disabled={state.creatingEmployee
-            || (state.locationsEnabled && invitationLocationId.length === 0)}>
-            {state.creatingEmployee ? 'Wird erzeugt …' : 'Einladung erzeugen'}
-          </button>
-        </div>
-      </form>
-      {state.invitation === null ? null : <aside className="invitation" role="status">
-        <strong>Nur jetzt sicher übergeben</strong>
-        <code>{state.invitation.value}</code>
-        <small>Gültig bis {formatZonedDateTime(state.invitation.expiresAt)}</small>
-        <button className="secondary" onClick={() => administration.dismissInvitation()}>
-          Geheimnis verwerfen
-        </button>
-      </aside>}
+      <EmployeeAccountInvitationForm key={state.selectedLocation?.id ?? 'organization'}
+        capability={accountInvitations} state={state} open={adding} setOpen={(open) => {
+          if (open) setInvitationSuccess(null);
+          setAdding(open);
+        }} onCreated={async (status) => {
+          setInvitationSuccess(status);
+          await administration.retrySection('employees');
+        }} />
       <ul className="entity-list">{state.employeeProjection.employeeMemberships.map((membership) =>
         <li key={membership.id}><span>{membership.displayName}</span>
           <small className={`pill ${membership.active ? 'success' : ''}`}>
@@ -867,7 +826,7 @@ function EmployeesView({
           : <div className="empty first-list-empty">
               <strong>Noch keine Beschäftigten am Standort {state.selectedLocation.name}</strong>
               <p>Laden Sie die erste beschäftigte Person für diesen Standort ein.</p>
-              <button className="secondary" onClick={() => employeeNameInput.current?.focus()}>
+              <button className="secondary" onClick={() => setAdding(true)}>
                 Beschäftigte Person einladen
               </button>
             </div>
@@ -878,7 +837,7 @@ function EmployeesView({
             Weitere Beschäftigte laden
           </button>}
     </Panel>
-  </SectionBoundary>;
+  </SectionBoundary></>;
 }
 
 function TimeRecordsView({
