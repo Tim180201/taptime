@@ -20,6 +20,15 @@ RETENTION_FAILURE=''
 
 production_base_is_registered() { return 0; }
 
+# Guard against re-introducing a literal "sh:" prefix: Borg 1.2 and 1.4 document
+# --glob-archives as "sh: rules apply (without actually using the sh: prefix)".
+if grep --quiet --extended-regexp "glob-archives ['\"]sh:" \
+    "$(dirname "$0")/../backup/taptime-wal-archiver" \
+    "$(dirname "$0")/../backup/taptime-restore-verify"; then
+  printf 'A --glob-archives pattern carries a literal sh: prefix and would match nothing.\n' >&2
+  exit 1
+fi
+
 borg() {
   printf '%s\n' "$*" >> "$CALL_LOG"
   case "$1" in
@@ -27,19 +36,24 @@ borg() {
       return 0
       ;;
     list)
-      if [[ "$*" == *"sh:verified-base-$CLUSTER_IDENTIFIER-"* ]]; then
+      # Real Borg 1.2/1.4 takes a bare shell glob after --glob-archives; an explicit
+      # "sh:" prefix is matched literally and therefore lists nothing.
+      if [[ "$*" == *'--glob-archives sh:'* ]]; then
+        return 0
+      fi
+      if [[ "$*" == *"--glob-archives verified-base-$CLUSTER_IDENTIFIER-"* ]]; then
         [[ "$RETENTION_FAILURE" != 'marker-list' ]] || return 1
         printf 'verified-base-%s-20260916T090000Z\n' "$CLUSTER_IDENTIFIER"
         printf 'verified-base-%s-20260916T100000Z\n' "$CLUSTER_IDENTIFIER"
         return 0
       fi
-      if [[ "$*" == *"sh:base-$CLUSTER_IDENTIFIER-"* ]]; then
+      if [[ "$*" == *"--glob-archives base-$CLUSTER_IDENTIFIER-"* ]]; then
         [[ "$RETENTION_FAILURE" != 'base-list' ]] || return 1
         printf 'base-%s-20260916T100000Z\n' "$CLUSTER_IDENTIFIER"
         printf 'base-%s-20260916T110000Z\n' "$CLUSTER_IDENTIFIER"
         return 0
       fi
-      if [[ "$*" == *"sh:wal-$CLUSTER_IDENTIFIER-"* ]]; then
+      if [[ "$*" == *"--glob-archives wal-$CLUSTER_IDENTIFIER-"* ]]; then
         [[ "$RETENTION_FAILURE" != 'wal-list' ]] || return 1
         printf 'wal-%s-000000010000000000000004\n' "$CLUSTER_IDENTIFIER"
         printf 'wal-%s-000000010000000000000005\n' "$CLUSTER_IDENTIFIER"

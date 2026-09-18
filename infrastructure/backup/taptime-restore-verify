@@ -219,7 +219,7 @@ select_restore_cluster_identity() {
     return 0
   fi
 
-  base_archives="$(borg list --glob-archives 'sh:base-*' \
+  base_archives="$(borg list --glob-archives 'base-*' \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
       printf 'Could not inventory archived physical bases.\n' >&2
       return 1
@@ -249,7 +249,7 @@ select_base_archive() {
     target_nanos="$(timestamp_nanos "$target")" || return 1
   fi
   base_archives="$(borg list \
-    --glob-archives "sh:base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
       printf 'Could not inventory physical bases for the selected cluster.\n' >&2
       return 1
@@ -286,7 +286,7 @@ extract_relevant_wal() {
 
   mkdir -p "$wal_directory"
   wal_archives="$(borg list \
-    --glob-archives "sh:wal-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --glob-archives "wal-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
       printf 'Could not inventory WAL archives for the selected cluster.\n' >&2
       return 1
@@ -484,7 +484,7 @@ prune_after_verified_restore() {
   }
   printf 'Applying retention only after the physical base started and passed verification.\n'
   borg prune --list \
-    --glob-archives "sh:base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     "$BORG_REPOSITORY" \
     --keep-hourly "$BASE_BACKUP_KEEP_HOURLY" \
     --keep-daily "$BASE_BACKUP_KEEP_DAILY" \
@@ -495,7 +495,7 @@ prune_after_verified_restore() {
     return 1
   }
   retained_bases="$(borg list \
-    --glob-archives "sh:base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
       printf 'Could not inventory retained physical bases.\n' >&2
       return 1
@@ -518,13 +518,13 @@ prune_after_verified_restore() {
     return 1
   }
   wal_archives="$(borg list \
-    --glob-archives "sh:wal-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --glob-archives "wal-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
       printf 'Could not inventory WAL archives before retention.\n' >&2
       return 1
     }
   markers="$(borg list \
-    --glob-archives "sh:verified-base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --glob-archives "verified-base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
       printf 'Could not inventory restore-verification markers before retention.\n' >&2
       return 1

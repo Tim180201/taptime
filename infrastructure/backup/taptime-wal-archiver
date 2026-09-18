@@ -241,13 +241,13 @@ archived_checksum() {
 }
 
 latest_verified_base_marker() {
-  borg list --glob-archives "sh:verified-base-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
+  borg list --glob-archives "verified-base-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY" \
     | sort | tail -n 1
 }
 
 latest_physical_base_archive() {
-  borg list --glob-archives "sh:base-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
+  borg list --glob-archives "base-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY" \
     | sort | tail -n 1
 }
@@ -352,7 +352,7 @@ reconcile_contiguous_watermark() {
     && "$start_wal_file" =~ ^[0-9A-F]{24}$ ]] || return 1
   timeline="${start_wal_file:0:8}"
   wal_archives="$(borg list \
-    --glob-archives "sh:wal-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
+    --glob-archives "wal-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY" | sort)"
 
   while IFS= read -r wal_archive; do
