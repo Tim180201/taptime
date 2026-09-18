@@ -21,9 +21,6 @@ describe('mobile color and control raster', () => {
     const sourceRoot = new URL('../../src/', import.meta.url);
     const sources = await readSourceFiles(sourceRoot);
     for (const [path, source] of sources) {
-      // The frozen development demo and isolated hardware-validation compositions are not
-      // product surfaces; their executable identity is guarded independently.
-      if (/\/src\/(?:demo|validation)\//u.test(path)) continue;
       if (path.endsWith('/design/tokens.ts')) continue;
       expect(source, path).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
     }
@@ -65,6 +62,28 @@ describe('mobile color and control raster', () => {
     }
   });
 
+  it('(d) inherits tested symbol colors through SVG currentColor on every used surface', async () => {
+    const icon = await readFile(new URL('../../src/design/LineIcon.tsx', import.meta.url), 'utf8');
+    expect(icon).toContain('stroke="currentColor"');
+    expect(icon).toContain('color={color}');
+    const sources = await readSourceFiles(new URL('../../src/', import.meta.url));
+    const foregrounds = new Set<string>([mobileTokens.color.textMuted, mobileTokens.color.accent,
+      mobileTokens.color.notice, mobileTokens.color.onAccent]);
+    for (const [path, source] of sources) {
+      for (const match of source.matchAll(/<LineIcon\b[^>]*color=\{mobileTokens.color.(\w+)\}/g)) {
+        const key = match[1] as keyof typeof mobileTokens.color;
+        expect(mobileTokens.color[key], path).toBeDefined();
+        foregrounds.add(mobileTokens.color[key]);
+      }
+    }
+    for (const color of foregrounds) {
+      const backgrounds = color === mobileTokens.color.onAccent
+        ? [mobileTokens.color.accent, mobileTokens.color.notice]
+        : [mobileTokens.color.ground, mobileTokens.color.surface, mobileTokens.color.surfaceRaised];
+      for (const background of backgrounds) expect(contrastRatio(color, background)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it('defines all six control states with deterministic precedence', () => {
     expect(resolveControlVisualState(state())).toBe('idle');
     expect(resolveControlVisualState(state({ hovered: true }))).toBe('hovered');
@@ -98,7 +117,9 @@ describe('mobile color and control raster', () => {
     const ring = await readFile(new URL('../../src/design/ScanRing.tsx', import.meta.url), 'utf8');
     expect(ring).toContain('if (reducedMotion) return');
     expect(ring).toContain('value.stopAnimation()');
-    expect(ring).toContain("'reduceMotionChanged'");
+    expect(ring).toContain('useReducedMotion()');
+    const preference = await readFile(new URL('../../src/design/useReducedMotion.ts', import.meta.url), 'utf8');
+    expect(preference).toContain("'reduceMotionChanged'");
   });
 });
 

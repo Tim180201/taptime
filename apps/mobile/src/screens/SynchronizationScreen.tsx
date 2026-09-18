@@ -13,11 +13,11 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
   const state = useSyncExternalStore((listener) => scan.subscribe(listener), () => scan.getState(), () => scan.getState());
   const status = indicator ?? syncIndicator(state);
   return <Screen title="Abgleich"><ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 24 }}>
-    <Text style={{ color: mobileTokens.color.textMuted, fontSize: 14 }}>
+    <Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>
       Jeder Tap bleibt auf deinem Handy, bis seine externe Sicherung nachgewiesen ist.
     </Text>
-    <Card><Text style={{ color: mobileTokens.color.textMuted, fontSize: 12 }}>Zustand</Text>
-      <Text accessibilityLiveRegion="polite" style={{ fontSize: 22, fontWeight: '800',
+    <Card><Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>Zustand</Text>
+      <Text accessibilityLiveRegion="polite" style={{ fontSize: 15, fontWeight: '800',
         color: status.kind === 'confirmed' ? mobileTokens.color.accent : mobileTokens.color.notice }}>
         {status.kind === 'confirmed' ? 'Alles bestätigt' : status.kind === 'pending' ? 'Wird nachgereicht'
           : status.kind === 'protected' ? 'Vorgänge geschützt' : status.kind === 'review' ? 'Prüfung erforderlich' : 'Noch nicht bestätigt'}

@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText as Text } from '../design/primitives';
+import { mobileTokens } from '../design/tokens';
 import {
   FakeAuthenticationGateway,
   SessionService,
@@ -24,22 +27,22 @@ export function DemoMobileApp() {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.banner}>DEMO MODE — KEINE PRODUKTIVE AUTHENTIFIZIERUNG</Text>
       {caller === null ? <DemoLoginScreen signIn={signIn} /> : <DemoScanScreen caller={caller} />}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: mobileTokens.color.ground },
   banner: {
-    paddingTop: 48,
+    paddingTop: 16,
     paddingBottom: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#8b0000',
-    color: '#fff',
-    fontWeight: '700',
+    paddingHorizontal: 20,
+    backgroundColor: mobileTokens.color.surface,
+    color: mobileTokens.color.notice,
+    fontWeight: '800',
     textAlign: 'center',
   },
 });

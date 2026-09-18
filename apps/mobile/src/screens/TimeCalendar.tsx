@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
-import { ActionButton, AppText as Text, TouchTarget, Card, Screen } from '../design/primitives';
+import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/primitives';
 import { LineIcon } from '../design/LineIcon';
 import { mobileTokens } from '../design/tokens';
 import { businessDay, dayStart, formatClock, formatDuration, formatHours, intervalMilliseconds,
@@ -30,10 +30,10 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange}: {readonly
     <Card>
       <View style={styles.monthHeading}>
         <TouchTarget accessibilityRole="button" accessibilityLabel="Voriger Monat" style={styles.arrow} onPress={() => changeMonth(-1)}>
-          <LineIcon name="back" color={mobileTokens.color.text} /></TouchTarget>
+          <LineIcon name="back" /></TouchTarget>
         <Text style={styles.monthTitle}>{monthTitle}</Text>
         <TouchTarget accessibilityRole="button" accessibilityLabel="Nächster Monat" style={styles.arrow} onPress={() => changeMonth(1)}>
-          <View style={{ transform: [{ rotate: '180deg' }] }}><LineIcon name="back" color={mobileTokens.color.text} /></View></TouchTarget>
+          <LineIcon name="arrow" /></TouchTarget>
       </View>
       <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}><View style={{ flex: 1, minWidth: 308 }}>
       <View style={styles.grid}>{['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day) =>
@@ -79,14 +79,14 @@ export function ownTimeLoadStatus(count: number, nextCursor: string | null): str
     : `${count} Einträge geladen · weitere verfügbar; Summen noch unvollständig`;
 }
 const styles = StyleSheet.create({
-  content: { gap: 16, paddingBottom: 24 }, summaries: { flexDirection: 'row', gap: 12 },
+  content: { gap: 16, paddingBottom: 24 }, summaries: { flexDirection: 'row', gap: 16 },
   summary: { flex: 1, padding: 12 }, number: { fontSize: 40, lineHeight: 48, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  muted: { fontSize: 12, lineHeight: 18, color: mobileTokens.color.textMuted },
+  muted: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted },
   monthHeading: { flexDirection: 'row', alignItems: 'center' }, monthTitle: { flex: 1, fontSize: 15, fontWeight: '800' },
   arrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' }, weekday: { width: '14.285714%', textAlign: 'center', fontSize: 11, color: mobileTokens.color.textMuted },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' }, weekday: { width: '14.285714%', textAlign: 'center', fontSize: 13, color: mobileTokens.color.textMuted },
   daySpace: { width: '14.285714%', minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  dayNumber: { fontSize: 13, fontWeight: '600' }, dayHours: { fontSize: 10, lineHeight: 16, color: mobileTokens.color.textMuted },
+  dayNumber: { fontSize: 13, fontWeight: '600' }, dayHours: { fontSize: 13, lineHeight: 16, color: mobileTokens.color.textMuted },
   selected: { backgroundColor: mobileTokens.color.accent }, selectedText: { color: mobileTokens.color.onAccent },
-  duration: { fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  duration: { fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
 });

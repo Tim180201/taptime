@@ -1,5 +1,6 @@
+import { AppText as Text } from './primitives';
 import Constants from 'expo-constants';
-import { StyleSheet, Text, type StyleProp, type TextStyle } from 'react-native';
+import { StyleSheet, type StyleProp, type TextStyle } from 'react-native';
 import { presentBuildIdentity } from '../runtime/buildIdentity';
 import { mobileTokens } from './tokens';
 
@@ -25,7 +26,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 const styles = StyleSheet.create({
   text: {
     color: mobileTokens.color.inkMuted,
-    fontSize: 12,
+    fontSize: 13,
     textAlign: 'center',
   },
 });

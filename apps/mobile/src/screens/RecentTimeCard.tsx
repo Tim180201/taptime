@@ -15,14 +15,14 @@ export function RecentTime({ ownTime }: { readonly ownTime: MobileOwnTimeQueryRe
     .sort((a, b) => (b.stoppedAt ?? b.startedAt).localeCompare(a.stoppedAt ?? a.startedAt))[0];
   const at = latest?.stoppedAt ?? latest?.startedAt;
   return <Card>
-    <Text style={{ color: mobileTokens.color.textMuted, fontSize: 12, fontWeight: '600' }}>Zuletzt</Text>
+    <Text style={{ fontSize: 15, fontWeight: '800' }}>Zuletzt</Text>
     {latest && at ? <View style={{ gap: 4 }}>
       <Text style={{ fontWeight: '600' }}>{latest.stoppedAt === null ? 'Start' : 'Stopp'} {formatClock(at)} · {latest.targetDisplayName}</Text>
       <Text style={{ fontSize: 13, color: mobileTokens.color.textMuted }}>
         {businessDay(at).split('-').reverse().join('.')} · {latest.stoppedAt === null ? 'läuft'
           : `Zeitspanne ${formatDuration(Date.parse(latest.stoppedAt) - Date.parse(latest.startedAt))}`}
       </Text>
-    </View> : <Text style={{ fontSize: 14, color: mobileTokens.color.textMuted }}>
+    </View> : <Text style={{ fontSize: 13, color: mobileTokens.color.textMuted }}>
       {ownTime === null ? 'Bestätigte Zeiten werden geladen.' : 'Noch keine bestätigte Zeit im geladenen Zeitraum.'}
     </Text>}
   </Card>;

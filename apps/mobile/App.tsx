@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { lazy, Suspense } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ProductMobileApp } from './src/ProductMobileApp';
 import { AppText as Text, FontReadyContext } from './src/design/primitives';
 import { mobileTokens } from './src/design/tokens';
@@ -26,6 +27,7 @@ export default function App() {
     __DEV__,
   );
   return (
+    <SafeAreaProvider style={styles.root}>
     <FontReadyContext.Provider value={fontsLoaded}>
       {mode === 'physical_validation'
         ? (
@@ -42,24 +44,26 @@ export default function App() {
         : mode === 'product'
           ? <ProductMobileApp />
           : <ForbiddenConfiguration />}
-      <StatusBar style="light" />
+      <StatusBar style="light" hidden={false} animated={false} />
     </FontReadyContext.Provider>
+    </SafeAreaProvider>
   );
 }
 
 function ForbiddenConfiguration() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text>Die gewählte App-Komposition ist in diesem Build nicht zulässig.</Text>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: mobileTokens.color.ground },
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: mobileTokens.spacing.lg,
+    paddingHorizontal: 20,
     backgroundColor: mobileTokens.color.ground,
   },
 });

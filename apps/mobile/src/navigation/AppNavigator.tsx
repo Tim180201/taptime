@@ -1,7 +1,8 @@
 import type { EmployeesCapability } from '../employees/contracts';
 import { EmployeesScreen } from '../screens/EmployeesScreen';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { BackHandler, Linking, Platform, StyleSheet, View } from 'react-native';
+import { BackHandler, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MobileSessionCapability, ProductMembershipRole, MobileManagementScope } from '../auth/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
@@ -24,7 +25,7 @@ import {
 import { LineIcon } from '../design/LineIcon';
 import { destinationLabels, productDestinations, syncIndicator, type ProductDestination } from './presentation';
 import { mobileTokens } from '../design/tokens';
-import { ActionButton, AppText as Text, TouchTarget, EmbeddedScreenContext, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, TouchTarget, EmbeddedScreenContext, Screen, TextField } from '../design/primitives';
 
 export function AppNavigator({
   session,
@@ -122,17 +123,17 @@ function PasswordRecoveryScreen({ session, completing, notice }: {
   readonly notice: string | null;
 }) {
   const [password, setPassword] = useState('');
-  return <View style={styles.administratorShell}>
-    <Text>Neues Passwort setzen</Text>
+  return <Screen title="Neues Passwort setzen"><ScrollView contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
+    <Text>Neues Passwort</Text>
     <TextField secureTextEntry autoComplete="new-password" value={password}
-      onChangeText={setPassword} placeholder="Neues Passwort" testID="recovery-password-input" />
+      onChangeText={setPassword} accessibilityLabel="Neues Passwort" placeholder="Neues Passwort" testID="recovery-password-input" />
     <ActionButton title={completing ? 'Wird geändert …' : 'Passwort ändern'}
       disabled={completing || password.length < 8}
       loading={completing}
       onPress={() => { const value = password; setPassword('');
         void session.completePasswordRecovery?.(value); }} />
     {notice === null ? null : <Text>{notice}</Text>}
-  </View>;
+  </ScrollView></Screen>;
 }
 
 function ProductShell({ role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, offlineManual }: {
@@ -147,6 +148,7 @@ function ProductShell({ role, nfcSetupAvailable = false, managementScope, locati
   readonly work?: MobileWorkCapability;
   readonly offlineManual: OfflineManualCaptureCapability;
 }) {
+  const insets = useSafeAreaInsets();
   const [destination, setDestination] = useState<ProductDestination>('capture');
   const [showSync, setShowSync] = useState(false);
   const scanState = useSyncExternalStore((listener) => scan.subscribe(listener),
@@ -180,11 +182,11 @@ function ProductShell({ role, nfcSetupAvailable = false, managementScope, locati
   }, [showSync, destination, scan, administration]);
   const roleLabel = role === 'administrator' ? 'Administrator' : role === 'standortleitung'
     ? 'Standortleitung' : role === 'offline' ? 'Offline-Erfassung' : 'Deine Arbeitszeit';
-  return <View style={styles.productShell}>
+  return <View style={[styles.productShell, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]}>
     <View style={styles.header}>
       {showSync ? <TouchTarget accessibilityRole="button" accessibilityLabel="Zurück"
         onPress={() => setShowSync(false)} style={styles.iconAction}>
-        <LineIcon name="back" color={mobileTokens.color.text} />
+        <LineIcon name="back" />
       </TouchTarget> : null}
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={styles.title}>{showSync ? 'Abgleich' : destinationLabels[destination]}</Text>
@@ -217,7 +219,7 @@ function ProductShell({ role, nfcSetupAvailable = false, managementScope, locati
           : nfcSetupAvailable ? <AdminSetupScreen administration={administration} /> : null}
       </View>
     </EmbeddedScreenContext.Provider>
-    <View style={styles.destinationBar} accessibilityRole="tablist">
+    <View style={[styles.destinationBar, { paddingBottom: insets.bottom }]} accessibilityRole="tablist">
       {destinations.map((item) => <TouchTarget key={item} accessibilityRole="tab"
         accessibilityLabel={destinationLabels[item]}
         accessibilityState={{ selected: !showSync && item === destination }}
@@ -241,16 +243,15 @@ function MessageScreen({
   readonly children?: React.ReactNode;
 }) {
   return (
-    <View style={styles.container}>
+    <Screen title="Taptura"><ScrollView contentContainerStyle={styles.formContent}>
       <Text style={styles.title}>{title}</Text>
       {children}
-    </View>
+    </ScrollView></Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  productShell: { flex: 1, backgroundColor: mobileTokens.color.canvas,
-    paddingTop: Platform.OS === 'android' ? 32 : 48 },
+  productShell: { flex: 1, backgroundColor: mobileTokens.color.canvas },
   productContent: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20,
     paddingTop: 16, paddingBottom: 8, gap: 8 },
@@ -261,16 +262,13 @@ const styles = StyleSheet.create({
   confirmedDot: { width: 10, height: 10, borderRadius: 999, backgroundColor: mobileTokens.color.accent },
   pendingBadge: { minWidth: 24, height: 24, paddingHorizontal: 4, borderRadius: 999,
     backgroundColor: mobileTokens.color.notice, alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: mobileTokens.color.onAccent, fontSize: 12, fontWeight: '800' },
-  destinationBar: { flexDirection: 'row', backgroundColor: mobileTokens.color.surface,
-    borderTopColor: mobileTokens.color.border, borderTopWidth: 1,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12 },
-  destination: { flex: 1, height: 56, justifyContent: 'center', alignItems: 'center', gap: 2 },
+  badgeText: { color: mobileTokens.color.onAccent, fontSize: 13, fontWeight: '800' },
+  destinationBar: { flexDirection: 'row', backgroundColor: mobileTokens.color.ground,
+    borderTopColor: mobileTokens.color.border, borderTopWidth: 1 },
+  destination: { flex: 1, minHeight: 56, paddingVertical: 8, justifyContent: 'center', alignItems: 'center', gap: 2 },
   tabLabel: { color: mobileTokens.color.textMuted, fontSize: 11, lineHeight: 16, fontWeight: '600' },
   activeLabel: { color: mobileTokens.color.accent },
   pressed: { backgroundColor: mobileTokens.color.surfaceRaised },
   focused: { outlineWidth: 3, outlineColor: mobileTokens.color.focus, outlineStyle: 'solid' },
-  administratorShell: { flex: 1, backgroundColor: mobileTokens.color.ground, padding: 24, gap: 16 },
-  container: { flex: 1, justifyContent: 'center', gap: 8, paddingHorizontal: 24,
-    backgroundColor: mobileTokens.color.ground },
+  formContent: { gap: 16, paddingBottom: 16 },
 });

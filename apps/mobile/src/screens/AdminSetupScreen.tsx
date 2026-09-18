@@ -41,7 +41,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   return <Screen title="Tags"><ScrollView contentContainerStyle={styles.container}>
     {assigning ? <>
       <View style={styles.formHeader}><TouchTarget accessibilityRole="button" accessibilityLabel="Zurück zu Tags"
-        onPress={goBack} style={styles.back}><LineIcon name="back" color={mobileTokens.color.text} /></TouchTarget>
+        onPress={goBack} style={styles.back}><LineIcon name="back" /></TouchTarget>
         <Text style={styles.title}>Tag zuordnen</Text></View>
       <Text style={styles.muted}>Wähle ein Arbeitsziel und gib dem Tag einen Namen. Tippe dann auf den Kreis und halte dein Handy an den Tag, bis er zugeordnet ist. Dabei wird der Tag beschrieben und sein bisheriger Inhalt ersetzt.</Text>
       {invalid ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel und gib eine Bezeichnung ein. Deine Eingaben bleiben erhalten.</Text> : null}
@@ -67,7 +67,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <Text style={styles.muted}>{projection.organization.name}</Text>
       <Text style={styles.muted}>Jeder Tag gehört zu einem Arbeitsziel. Start und Stopp erkennt Taptura selbst.</Text>
       {projection.nfcTags.map((tag) => <Card key={tag.id}>
-        <View style={styles.row}><LineIcon name="setup" size={24} color={mobileTokens.color.accent} />
+        <View style={styles.row}><LineIcon name="setup" size={24} />
           <View style={{ flex: 1 }}><Text style={styles.label}>{tag.displayName}</Text>
             <Text style={styles.muted}>{projection.customers.find((customer) => customer.id === tag.targetCustomerId)?.displayName
               ?? presentAssignment(tag.assignmentState, tag.assignmentType)}</Text></View></View>
@@ -121,13 +121,13 @@ export function presentAdminSetupState(state: AdminSetupState): { title: string;
   }
 }
 
-function Message({ title }: { readonly title: string }) { return <View style={styles.container}><Text style={styles.title}>{title}</Text></View>; }
+function Message({ title }: { readonly title: string }) { return <Screen title="Tags"><Card><Text>{title}</Text></Card></Screen>; }
 const styles = StyleSheet.create({
-  container: { gap: 16, paddingBottom: 24 }, title: { fontSize: 22, fontWeight: '800' },
+  container: { gap: 16, paddingBottom: 24 }, title: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
   muted: { color: mobileTokens.color.textMuted, fontSize: 13, lineHeight: 20 },
   label: { fontSize: 15, fontWeight: '800' }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   formHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  capture: { width: 204, height: 204, borderRadius: 999, borderWidth: 2, borderStyle: 'dashed',
+  capture: { width: 204, height: 204, borderRadius: 999, borderWidth: 1, borderStyle: 'dashed',
     borderColor: mobileTokens.color.line, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', gap: 16 },
 });

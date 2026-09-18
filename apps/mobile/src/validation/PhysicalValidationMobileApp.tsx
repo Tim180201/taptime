@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText as Text, TouchTarget as Pressable } from '../design/primitives';
+import { mobileTokens } from '../design/tokens';
 import type { ValidationSlot } from './PhysicalValidationController';
 import { createPhysicalValidationRuntime } from './createPhysicalValidationRuntime';
 
@@ -76,12 +79,31 @@ function outcomeText(outcome: string | null, scanning: boolean): string {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#F3F7F4' }, content: { padding: 22, paddingBottom: 40 },
-  brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 36 }, brand: { fontSize: 27, fontWeight: '800', color: '#103A2B' }, eyebrow: { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: '#688078' },
-  badge: { backgroundColor: '#DDF3E5', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8 }, badgeText: { color: '#17633F', fontSize: 11, fontWeight: '800' },
-  title: { fontSize: 32, lineHeight: 38, fontWeight: '800', color: '#102F25' }, subtitle: { marginTop: 10, fontSize: 16, lineHeight: 23, color: '#52675F' },
-  notice: { marginTop: 24, backgroundColor: '#153D30', borderRadius: 20, padding: 20 }, noticeTitle: { color: '#FFF', fontSize: 19, fontWeight: '800' }, noticeText: { color: '#D8E7E1', marginTop: 7, fontSize: 14, lineHeight: 20 },
-  slotRow: { flexDirection: 'row', gap: 12, marginTop: 18 }, slot: { flex: 1, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#D6E0DC', borderRadius: 18, padding: 16 }, slotActive: { borderWidth: 2, borderColor: '#1D8A58', padding: 15, backgroundColor: '#F8FFFA' }, slotLabel: { fontSize: 12, fontWeight: '800', color: '#60756D' }, count: { marginTop: 9, fontSize: 30, fontWeight: '800', color: '#12382B' }, countTotal: { fontSize: 15, color: '#84928D' }, fingerprintLabel: { marginTop: 10, fontSize: 8, lineHeight: 11, fontWeight: '800', color: '#82918B' }, fingerprint: { marginTop: 3, fontSize: 12, fontWeight: '700', color: '#536A61', fontVariant: ['tabular-nums'] }, mismatch: { marginTop: 8, fontSize: 11, color: '#37805C' }, mismatchError: { color: '#B2433A' },
-  primary: { marginTop: 22, minHeight: 58, borderRadius: 17, backgroundColor: '#1D8A58', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 15 }, primaryText: { color: '#FFF', fontSize: 17, fontWeight: '800', textAlign: 'center' }, secondary: { marginTop: 10, minHeight: 50, borderRadius: 16, borderWidth: 1, borderColor: '#9AAEA6', alignItems: 'center', justifyContent: 'center' }, secondaryText: { color: '#25493B', fontSize: 15, fontWeight: '700' }, dim: { opacity: 0.55 },
-  result: { marginTop: 22, padding: 17, backgroundColor: '#FFF7DF', borderRadius: 16, borderWidth: 1, borderColor: '#E8D18A' }, resultReady: { backgroundColor: '#E6F6EC', borderColor: '#8BC9A3' }, resultTitle: { fontSize: 15, fontWeight: '800', color: '#263E35' }, resultText: { marginTop: 5, color: '#5B6B65', lineHeight: 19 }, reset: { marginTop: 22, textAlign: 'center', color: '#48675B', fontWeight: '700' }, privacy: { marginTop: 25, fontSize: 11, lineHeight: 16, color: '#788983', textAlign: 'center' },
+  safe: { flex: 1, backgroundColor: mobileTokens.color.ground },
+  content: { padding: 20, gap: 16 },
+  brandRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'center' },
+  brand: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
+  eyebrow: { fontSize: 13, fontWeight: '600', color: mobileTokens.color.textMuted },
+  badge: { backgroundColor: mobileTokens.color.surfaceRaised, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  badgeText: { color: mobileTokens.color.textMuted, fontSize: 13, fontWeight: '800' },
+  title: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
+  subtitle: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted },
+  notice: { backgroundColor: mobileTokens.color.surface, borderRadius: 12, padding: 12, gap: 8, borderWidth: 1, borderColor: mobileTokens.color.line },
+  noticeTitle: { fontSize: 15, fontWeight: '800' }, noticeText: { fontSize: 15 },
+  slotRow: { flexDirection: 'row', gap: 16 },
+  slot: { flex: 1, backgroundColor: mobileTokens.color.surface, borderWidth: 1, borderColor: mobileTokens.color.line, borderRadius: 12, padding: 12, gap: 8 },
+  slotActive: { borderColor: mobileTokens.color.accent, backgroundColor: mobileTokens.color.surfaceRaised },
+  slotLabel: { fontSize: 15, fontWeight: '800' }, count: { fontSize: 40, lineHeight: 48, fontWeight: '800' },
+  countTotal: { fontSize: 15, color: mobileTokens.color.textMuted },
+  fingerprintLabel: { fontSize: 13, lineHeight: 20, fontWeight: '600', color: mobileTokens.color.textMuted },
+  fingerprint: { fontSize: 13, fontWeight: '600', color: mobileTokens.color.textMuted },
+  mismatch: { fontSize: 13, color: mobileTokens.color.textMuted }, mismatchError: { color: mobileTokens.color.notice },
+  primary: { minHeight: 44, borderRadius: 10, backgroundColor: mobileTokens.color.accent, alignItems: 'center', justifyContent: 'center', padding: 12 },
+  primaryText: { color: mobileTokens.color.onAccent, fontSize: 15, fontWeight: '800', textAlign: 'center' },
+  secondary: { minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: mobileTokens.color.textMuted, alignItems: 'center', justifyContent: 'center', padding: 12 },
+  secondaryText: { fontSize: 15, fontWeight: '600' }, dim: { borderWidth: 1, borderColor: mobileTokens.color.textMuted },
+  result: { padding: 12, backgroundColor: mobileTokens.color.surface, borderRadius: 12, borderWidth: 1, borderColor: mobileTokens.color.notice, gap: 8 },
+  resultReady: { borderColor: mobileTokens.color.accent }, resultTitle: { fontSize: 15, fontWeight: '800' },
+  resultText: { fontSize: 15 }, reset: { textAlign: 'center', fontWeight: '600' },
+  privacy: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted, textAlign: 'center' },
 });

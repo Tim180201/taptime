@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBuildIdentity } from './design/AppBuildIdentity';
 import { AppText as Text } from './design/primitives';
 import { mobileTokens } from './design/tokens';
@@ -20,11 +21,11 @@ export function ProductMobileApp() {
 
 function UnsupportedNfcPlatform() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>NFC wird hier nicht unterstützt.</Text>
       <Text>Produktive NFC-Scans sind in dieser Version ausschließlich auf Android verfügbar.</Text>
       <AppBuildIdentity style={styles.buildIdentity} />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -61,11 +62,11 @@ function ReadyProductMobileApp({
 
 function UnavailableProductRuntime() {
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Taptura ist nicht verfügbar.</Text>
       <Text>Die sichere Laufzeitkonfiguration konnte nicht geladen werden.</Text>
       <AppBuildIdentity style={styles.buildIdentity} />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -73,13 +74,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: mobileTokens.spacing.lg,
+    paddingHorizontal: 20,
     backgroundColor: mobileTokens.color.ground,
   },
   title: {
     color: mobileTokens.color.text,
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '800',
     marginBottom: mobileTokens.spacing.sm,
   },
   buildIdentity: { marginTop: mobileTokens.spacing.lg },

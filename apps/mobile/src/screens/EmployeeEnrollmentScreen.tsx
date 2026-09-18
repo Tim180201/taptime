@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import type { EmployeeEnrollmentResult, MobileSessionState } from '../auth/contracts';
-import { ActionButton, AppText as Text, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, Screen, TextField } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 
 export function EmployeeEnrollmentScreen({
@@ -38,12 +38,13 @@ export function EmployeeEnrollmentScreen({
       : notice === 'request_failed'
         ? 'Die Einladung konnte vorübergehend nicht geprüft werden. Du kannst es erneut versuchen.'
         : null;
-  return <View style={styles.container}>
-    <Text style={styles.title}>Als Beschäftigter beitreten</Text>
+  return <Screen title="Als Beschäftigter beitreten"><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <Text style={styles.description}>
       Du bist sicher beim Anmeldedienst angemeldet, hast aber noch keinen Taptura-Zugang.
     </Text>
+    <Text>Einladungsgeheimnis</Text>
     <TextField
+      accessibilityLabel="Einladungsgeheimnis"
       value={invitationSecret}
       onChangeText={setInvitationSecret}
       placeholder="Einladungsgeheimnis"
@@ -62,20 +63,17 @@ export function EmployeeEnrollmentScreen({
     />
     {message === null ? null : <Text style={styles.message}>{message}</Text>}
     <View style={styles.signOut}><ActionButton title="Abmelden" tone="quiet" onPress={signOut} /></View>
-  </View>;
+  </ScrollView></Screen>;
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    gap: mobileTokens.spacing.sm,
-    paddingTop: 64,
-    paddingHorizontal: mobileTokens.spacing.md,
+    flexGrow: 1,
+    gap: 16,
     backgroundColor: mobileTokens.color.ground,
   },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: mobileTokens.spacing.sm },
-  description: { marginBottom: mobileTokens.spacing.md, color: mobileTokens.color.textMuted },
-  input: { marginBottom: mobileTokens.spacing.xs },
+  description: { color: mobileTokens.color.textMuted, fontSize: 13 },
+  input: {},
   message: { marginTop: mobileTokens.spacing.sm, color: mobileTokens.color.notice },
   signOut: { marginTop: mobileTokens.spacing.md },
 });

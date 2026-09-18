@@ -113,58 +113,60 @@ export function OfflineManualCaptureScreen({
   };
 
   return <Screen title="Manuell erfassen" eyebrow="OFFLINE">
-    <Text style={styles.explanation}>
-      Wähle dein Arbeitsziel. Der Vorgang wird sicher gespeichert; Start oder Stopp entscheidet der Server beim Abgleich.
-    </Text>
-    <Text style={styles.group}>Arbeitsziel</Text>
-    <TextField
-      value={search}
-      onChangeText={setSearch}
-      placeholder="Kunde oder Projekt suchen"
-      accessibilityLabel="Offline-Arbeitsziel suchen"
-      style={styles.search}
-    />
-    <ScrollView contentContainerStyle={styles.list}>
-      {(['customer', 'project', 'general_work'] as const).map((type) => {
-        const targets = visible.filter((target) => target.targetType === type);
-        if (targets.length === 0) return null;
-        return <View key={type} accessibilityRole="list">
-          <Text style={styles.group}>{groupLabel(type)}</Text>
-          {targets.map((target) => <ActionButton
-            key={`${target.targetType}:${target.targetId}`}
-            title={target.displayName}
-            tone={selected !== null && sameTarget(selected, target) ? 'primary' : 'secondary'}
-            disabled={pendingWorkEventId !== null}
-            onPress={() => {
-              setSelected(target);
-              setOutcome(null);
-            }}
-          />)}
-        </View>;
-      })}
-    </ScrollView>
-    <Card>
-      <Text>{selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
-      <ActionButton
-        tone="cta"
-        title={submitting ? 'Wird sicher gespeichert …' : 'Jetzt erfassen'}
-        disabled={
-          selected === null
-          || submitting
-          || outcome === 'pending'
-          || pendingWorkEventId !== null
-        }
-        loading={submitting}
-        onPress={trigger}
+    <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+      <Text style={styles.explanation}>
+        Wähle dein Arbeitsziel. Der Vorgang wird sicher gespeichert; Start oder Stopp entscheidet der Server beim Abgleich.
+      </Text>
+      <Text style={styles.group}>Arbeitsziel</Text>
+      <TextField
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Kunde oder Projekt suchen"
+        accessibilityLabel="Offline-Arbeitsziel suchen"
+        style={styles.search}
       />
-      {outcome === null ? null
-        : <Text accessibilityLiveRegion="polite">
-            {offlineOutcomeLabel(outcome)}
-          </Text>}
-    </Card>
-    <Card><Text style={styles.group}>Zuletzt</Text><Text>
-      {outcome === null ? 'Bestätigte Zeiten siehst du nach dem Abgleich.' : offlineOutcomeLabel(outcome)}
-    </Text></Card>
+      <View style={styles.list}>
+        {(['customer', 'project', 'general_work'] as const).map((type) => {
+          const targets = visible.filter((target) => target.targetType === type);
+          if (targets.length === 0) return null;
+          return <View key={type} accessibilityRole="list" style={styles.list}>
+            <Text style={styles.group}>{groupLabel(type)}</Text>
+            {targets.map((target) => <ActionButton
+              key={`${target.targetType}:${target.targetId}`}
+              title={target.displayName}
+              tone={selected !== null && sameTarget(selected, target) ? 'primary' : 'secondary'}
+              disabled={pendingWorkEventId !== null}
+              onPress={() => {
+                setSelected(target);
+                setOutcome(null);
+              }}
+            />)}
+          </View>;
+        })}
+      </View>
+      <Card>
+        <Text>{selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
+        <ActionButton
+          tone="cta"
+          title={submitting ? 'Wird sicher gespeichert …' : 'Jetzt erfassen'}
+          disabled={
+            selected === null
+            || submitting
+            || outcome === 'pending'
+            || pendingWorkEventId !== null
+          }
+          loading={submitting}
+          onPress={trigger}
+        />
+        {outcome === null ? null
+          : <Text accessibilityLiveRegion="polite">
+              {offlineOutcomeLabel(outcome)}
+            </Text>}
+      </Card>
+      <Card><Text style={styles.group}>Zuletzt</Text><Text>
+        {outcome === null ? 'Bestätigte Zeiten siehst du nach dem Abgleich.' : offlineOutcomeLabel(outcome)}
+      </Text></Card>
+    </ScrollView>
   </Screen>;
 }
 
@@ -193,22 +195,22 @@ function groupLabel(type: SafeWorkTarget['targetType']): string {
 }
 
 const styles = StyleSheet.create({
-  explanation: { color: mobileTokens.color.inkMuted, fontSize: 16, lineHeight: 23 },
+  explanation: { color: mobileTokens.color.inkMuted, fontSize: 13, lineHeight: 20 },
   search: {
     minHeight: mobileTokens.touchMinimum,
     backgroundColor: mobileTokens.color.surface,
-    borderColor: mobileTokens.color.border,
+    borderColor: mobileTokens.color.textMuted,
     borderWidth: 1,
     borderRadius: mobileTokens.radius.control,
     paddingHorizontal: mobileTokens.spacing.md,
     color: mobileTokens.color.text,
-    fontSize: 16,
+    fontSize: 15,
   },
   list: { gap: mobileTokens.spacing.md, paddingBottom: mobileTokens.spacing.sm },
   group: {
-    color: mobileTokens.color.inkMuted,
-    fontSize: 13,
-    fontWeight: '700',
+    color: mobileTokens.color.ink,
+    fontSize: 15,
+    fontWeight: '800',
     marginBottom: mobileTokens.spacing.sm,
   },
 });

@@ -49,7 +49,15 @@
           "useSQLCipher": true
         }
       ],
-      "expo-background-task"
+      "expo-background-task",
+      [
+        "expo-status-bar",
+        {
+          "style": "light",
+          "hidden": false
+        }
+      ],
+      "./plugins/withSystemBarAppearance"
     ],
     "extra": {
       "eas": {

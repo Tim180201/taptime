@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
+
+import { ActionButton as Button, AppText as Text, TextField as TextInput } from '../design/primitives';
+import { mobileTokens } from '../design/tokens';
 
 export function DemoLoginScreen({
   signIn,
@@ -10,7 +13,7 @@ export function DemoLoginScreen({
   const [error, setError] = useState<string | null>(null);
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <TextInput
         style={styles.input}
         value={code}
@@ -20,12 +23,12 @@ export function DemoLoginScreen({
       />
       <Button title="Demo sign in" onPress={async () => setError(await signIn(code))} />
       {error === null ? null : <Text style={styles.error}>Demo sign-in rejected: {error}</Text>}
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 8, marginBottom: 12 },
-  error: { color: '#b00020', marginTop: 12 },
+  container: { flexGrow: 1, gap: 16, padding: 20, backgroundColor: mobileTokens.color.ground },
+  input: {},
+  error: { color: mobileTokens.color.notice, marginTop: 12 },
 });

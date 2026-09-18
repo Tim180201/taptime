@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import type { SignInResult } from '../auth/contracts';
 import { AppBuildIdentity } from '../design/AppBuildIdentity';
-import { ActionButton, AppText as Text, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, Screen, TextField } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 
 interface LoginScreenProps {
@@ -60,9 +60,10 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Taptura — Anmeldung</Text>
+    <Screen title="Taptura — Anmeldung"><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <Text>E-Mail-Adresse</Text>
       <TextField
+        accessibilityLabel="E-Mail-Adresse"
         style={styles.input}
         value={email}
         onChangeText={setEmail}
@@ -72,7 +73,9 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
         keyboardType="email-address"
         testID="email-input"
       />
+      <Text>Passwort</Text>
       <TextField
+        accessibilityLabel="Passwort"
         style={styles.input}
         value={password}
         onChangeText={setPassword}
@@ -103,29 +106,23 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
         testID="password-reset-button" />
       {message !== null ? <Text style={styles.error}>{message}</Text> : null}
       <AppBuildIdentity style={styles.buildIdentity} />
-    </View>
+    </ScrollView></Screen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    paddingTop: 64,
-    paddingHorizontal: mobileTokens.spacing.md,
+    flexGrow: 1,
+    gap: 16,
     backgroundColor: mobileTokens.color.ground,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: mobileTokens.spacing.sm,
-  },
   input: {
-    marginBottom: mobileTokens.spacing.sm,
+    marginBottom: 0,
   },
   error: {
     marginTop: mobileTokens.spacing.sm,
     color: mobileTokens.color.notice,
   },
-  enrollmentAction: { marginTop: mobileTokens.spacing.sm },
+  enrollmentAction: {},
   buildIdentity: { marginTop: 'auto', paddingVertical: mobileTokens.spacing.lg },
 });

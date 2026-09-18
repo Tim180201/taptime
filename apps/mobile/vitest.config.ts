@@ -7,6 +7,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
+    setupFiles: ['tests/design/nativeUiMocks.ts'],
     include: ['tests/**/*.test.ts'],
   },
 });

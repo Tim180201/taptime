@@ -1,3 +1,4 @@
+import { LineIcon } from '../design/LineIcon';
 import { View } from 'react-native';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { ManagedPerson } from '../employees/contracts';
@@ -10,8 +11,8 @@ export function PersonTimeScreen({person,value,onBack,onRefresh,busy=false,faile
   readonly onBack: ()=>void; readonly onRefresh: ()=>Promise<void>; readonly busy?: boolean; readonly failed?: boolean; readonly onMonthChange?: (month: string)=>void;
 }) {
   return <Screen title={person.displayName}>
-    <View style={{gap:8}}><ActionButton title="Zurück zur Liste" tone="quiet" onPress={onBack} />
-      <Card><Text accessibilityRole="header" style={{fontSize:22,fontWeight:'800'}}>{person.displayName}</Text>
+    <View style={{gap:16}}><ActionButton title="Zurück zur Liste" tone="quiet" onPress={onBack} />
+      <Card><View style={{flexDirection:'row',gap:8,alignItems:'center'}}><LineIcon name="person" /><Text accessibilityRole="header" style={{fontSize:22,lineHeight:28,fontWeight:'800',flex:1}}>{person.displayName}</Text></View>
         <Text>{roleName(person.role)}{person.location ? ` · ${person.location.name}` : ''}</Text>
         <Text>{value?.activeRecord ? `Aktiv seit ${formatClock(Date.parse(value.activeRecord.startedAt))} · ${value.activeRecord.targetDisplayName}`
           : value ? 'Gerade inaktiv' : 'Arbeitszeiten werden geladen …'}</Text></Card>

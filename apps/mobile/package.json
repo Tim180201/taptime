@@ -27,7 +27,9 @@
     "react-native-nfc-manager": "^3.17.2",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.21.2",
-    "@taptime/administration-contract": "*"
+    "@taptime/administration-contract": "*",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

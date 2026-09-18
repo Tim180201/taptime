@@ -42,61 +42,63 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
   }
 
   return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
-    <Text style={styles.explanation}>
-      Wähle dein Arbeitsziel. Taptura entscheidet über Start oder Stopp. Die Zeit bleibt als manuell erfasst gekennzeichnet.
-    </Text>
-    <Text style={styles.selection}>Arbeitsziel</Text>
-    {selectionError && selected === null && !pauseTag ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten.</Text> : null}
-    <TextField
-      value={search}
-      onChangeText={setSearch}
-      placeholder="Kunde oder Projekt suchen"
-      accessibilityLabel="Arbeitsziel suchen"
-      style={styles.search}
-    />
-    <ScrollView contentContainerStyle={styles.list}>
-      {(['customer', 'project', 'general_work'] as const).map((type) => {
-        const targets = visible.filter((target) => target.targetType === type);
-        if (targets.length === 0) return null;
-        return <View key={type} accessibilityRole="list">
-          <Text style={styles.group}>{groupLabel(type)}</Text>
-          {targets.map((target) => <ActionButton
-            key={`${target.targetType}:${target.targetId}`}
-            title={target.displayName}
-            tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
-            accessibilityState={{ selected: selected?.targetId === target.targetId }}
-            onPress={() => { setSelected(target); setPauseTag(false); setSelectionError(false); }}
-          />)}
-        </View>;
-      })}
-      <ActionButton
-        title="Pause"
-        tone={pauseTag ? 'primary' : 'quiet'}
-        accessibilityState={{ selected: pauseTag }}
-        accessibilityHint="Der Server entscheidet, ob die Pause beginnt oder endet."
-        onPress={() => { setSelected(null); setPauseTag(true); setSelectionError(false); }}
-      />
-    </ScrollView>
-    <Card>
-      <Text style={styles.selection}>
-        {pauseTag ? 'Pause' : selected === null ? 'Noch kein Arbeitsziel ausgewählt' : selected.displayName}
+    <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+      <Text style={styles.explanation}>
+        Wähle dein Arbeitsziel. Taptura entscheidet über Start oder Stopp. Die Zeit bleibt als manuell erfasst gekennzeichnet.
       </Text>
-      <ActionButton
-        tone="cta"
-        title={state.submitting ? 'Wird erfasst …' : 'Jetzt erfassen'}
-        disabled={state.submitting}
-        loading={state.submitting}
-        onPress={() => pauseTag ? work.triggerBreak()
-          : selected === null ? setSelectionError(true) : work.triggerManual(selected)}
-        accessibilityHint={pauseTag ? 'Der Server entscheidet, ob die Pause beginnt oder endet.'
-          : 'Der Server entscheidet, ob die Arbeitszeit startet oder stoppt.'}
+      <Text style={styles.selection}>Arbeitsziel</Text>
+      {selectionError && selected === null && !pauseTag ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten.</Text> : null}
+      <TextField
+        value={search}
+        onChangeText={setSearch}
+        placeholder="Kunde oder Projekt suchen"
+        accessibilityLabel="Arbeitsziel suchen"
+        style={styles.search}
       />
-      {state.outcome === null ? null
-        : <Text accessibilityLiveRegion="polite" style={styles.outcome}>
-            {outcomeLabel(state.outcome)}
-          </Text>}
-    </Card>
-    <RecentTime ownTime={state.ownTime} />
+      <View style={styles.list}>
+        {(['customer', 'project', 'general_work'] as const).map((type) => {
+          const targets = visible.filter((target) => target.targetType === type);
+          if (targets.length === 0) return null;
+          return <View key={type} accessibilityRole="list" style={styles.list}>
+            <Text style={styles.group}>{groupLabel(type)}</Text>
+            {targets.map((target) => <ActionButton
+              key={`${target.targetType}:${target.targetId}`}
+              title={target.displayName}
+              tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
+              accessibilityState={{ selected: selected?.targetId === target.targetId }}
+              onPress={() => { setSelected(target); setPauseTag(false); setSelectionError(false); }}
+            />)}
+          </View>;
+        })}
+        <ActionButton
+          title="Pause"
+          tone={pauseTag ? 'primary' : 'quiet'}
+          accessibilityState={{ selected: pauseTag }}
+          accessibilityHint="Der Server entscheidet, ob die Pause beginnt oder endet."
+          onPress={() => { setSelected(null); setPauseTag(true); setSelectionError(false); }}
+        />
+      </View>
+      <Card>
+        <Text style={styles.selection}>
+          {pauseTag ? 'Pause' : selected === null ? 'Noch kein Arbeitsziel ausgewählt' : selected.displayName}
+        </Text>
+        <ActionButton
+          tone="cta"
+          title={state.submitting ? 'Wird erfasst …' : 'Jetzt erfassen'}
+          disabled={state.submitting}
+          loading={state.submitting}
+          onPress={() => pauseTag ? work.triggerBreak()
+            : selected === null ? setSelectionError(true) : work.triggerManual(selected)}
+          accessibilityHint={pauseTag ? 'Der Server entscheidet, ob die Pause beginnt oder endet.'
+            : 'Der Server entscheidet, ob die Arbeitszeit startet oder stoppt.'}
+        />
+        {state.outcome === null ? null
+          : <Text accessibilityLiveRegion="polite" style={styles.outcome}>
+              {outcomeLabel(state.outcome)}
+            </Text>}
+      </Card>
+      <RecentTime ownTime={state.ownTime} />
+    </ScrollView>
   </Screen>;
 }
 
@@ -129,24 +131,24 @@ function outcomeLabel(outcome: NonNullable<
 }
 
 const styles = StyleSheet.create({
-  explanation: { color: mobileTokens.color.inkMuted, fontSize: 16, lineHeight: 23 },
+  explanation: { color: mobileTokens.color.inkMuted, fontSize: 13, lineHeight: 20 },
   search: {
     minHeight: mobileTokens.touchMinimum,
     backgroundColor: mobileTokens.color.surface,
-    borderColor: mobileTokens.color.border,
+    borderColor: mobileTokens.color.textMuted,
     borderWidth: 1,
     borderRadius: mobileTokens.radius.control,
     paddingHorizontal: mobileTokens.spacing.md,
     color: mobileTokens.color.text,
-    fontSize: 16,
+    fontSize: 15,
   },
   list: { gap: mobileTokens.spacing.md, paddingBottom: mobileTokens.spacing.sm },
   group: {
-    color: mobileTokens.color.inkMuted,
-    fontSize: 13,
-    fontWeight: '700',
+    color: mobileTokens.color.ink,
+    fontSize: 15,
+    fontWeight: '800',
     marginBottom: mobileTokens.spacing.sm,
   },
-  selection: { color: mobileTokens.color.ink, fontSize: 17, fontWeight: '700' },
+  selection: { color: mobileTokens.color.ink, fontSize: 15, fontWeight: '800' },
   outcome: { color: mobileTokens.color.ink, fontSize: 15, textAlign: 'center' },
 });

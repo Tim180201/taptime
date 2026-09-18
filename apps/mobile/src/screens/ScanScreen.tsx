@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ProductMembershipRole } from '../auth/contracts';
 import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/primitives';
 import { ScanRing } from '../design/ScanRing';
@@ -40,7 +41,7 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work }: Sca
   const resting = (ready && (state.status === 'saved_locally' || state.status === 'server_decision' && presentScanState(state).tone === 'success' || ('outcome' in state && (state.outcome === null || presentScanState(state).tone === 'success'))))
     || state.status === 'scanning';
   const presentation = presentScanState(state);
-  return <View style={[styles.container, embedded && styles.embeddedContainer]}>
+  return <SafeAreaView edges={embedded ? [] : ['top', 'bottom', 'left', 'right']} style={[styles.container, embedded && styles.embeddedContainer]}>
     {embedded ? null : <View style={styles.header}><Text style={styles.brand}>Taptura</Text>
       <Text style={styles.role}>{presentActor(actor)}</Text></View>}
     <ScrollView contentContainerStyle={styles.content}>
@@ -73,7 +74,7 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work }: Sca
         <Text>Bestätigte Zeiten siehst du nach dem Abgleich.</Text></Card>}
     </ScrollView>
     {embedded ? null : <ActionButton title="Abmelden" tone="quiet" onPress={signOut} />}
-  </View>;
+  </SafeAreaView>;
 }
 
 export function presentActor(actor: ProductMembershipRole | 'offline'): string {
@@ -254,13 +255,13 @@ function isScanReadyState(state: ProductScanState): boolean {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: 56, paddingHorizontal: 20, backgroundColor: mobileTokens.color.ground },
+  container: { flex: 1, paddingTop: 16, paddingHorizontal: 20, backgroundColor: mobileTokens.color.ground },
   embeddedContainer: { paddingTop: 0 },
   content: { flexGrow: 1, paddingBottom: 16, gap: 16 },
   scene: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  brand: { fontSize: 22, fontWeight: '800' },
+  brand: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
   role: { fontSize: 13, color: mobileTokens.color.textMuted },
-  statusTitle: { fontSize: 24, fontWeight: '800', textAlign: 'center' },
-  statusMessage: { fontSize: 15, lineHeight: 22, color: mobileTokens.color.textMuted, textAlign: 'center', maxWidth: 320 },
+  statusTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', textAlign: 'center' },
+  statusMessage: { fontSize: 13, lineHeight: 22, color: mobileTokens.color.textMuted, textAlign: 'center', maxWidth: 320 },
 });
