@@ -1,4 +1,5 @@
 import type { InternalAuthenticatedSessionSnapshot } from '../auth/contracts';
+import type { TagWriteFailureReason } from './NfcTagWriter';
 
 export interface AdminCustomerSummary {
   readonly id: string;
@@ -24,6 +25,7 @@ export interface AdminSetupProjection {
 }
 
 export type AdminSetupOutcome =
+  | { readonly status: 'tag_write_failed'; readonly reason: TagWriteFailureReason }
   | { readonly status: 'tag_provisioned'; readonly validationFingerprint: string }
   | { readonly status: 'unreadable' | 'timed_out' | 'cancelled' | 'nfc_unavailable' }
   | { readonly status: 'invalid_input' | 'tag_already_registered' | 'customer_unavailable' }
@@ -35,6 +37,7 @@ export type AdminSetupState =
   | { readonly status: 'not_administrator' }
   | { readonly status: 'ready'; readonly projection: AdminSetupProjection; readonly outcome: AdminSetupOutcome | null }
   | { readonly status: 'capturing'; readonly projection: AdminSetupProjection }
+  | { readonly status: 'writing'; readonly projection: AdminSetupProjection }
   | { readonly status: 'submitting'; readonly projection: AdminSetupProjection };
 
 export interface AdminSetupCapability {

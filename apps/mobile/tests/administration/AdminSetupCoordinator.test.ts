@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { TAG_URI } from '../../src/nfc/tagAddress';
 import { createCanonicalNfcUidPayload, createTimestamp } from '@taptime/core';
 import { AdminSetupCoordinator } from '../../src/administration/AdminSetupCoordinator';
 import type { AdminSessionSnapshot, AdminSetupApiPort } from '../../src/administration/contracts';
@@ -15,11 +16,86 @@ function setup(role: 'administrator' | 'employee' = 'administrator') {
     provisionTag: vi.fn(async () => ({ status: 'succeeded' as const, validationFingerprint: 'A1B2C3D4E5F6' })),
     provisionBreakTag: vi.fn(async () => ({ status: 'succeeded' as const, validationFingerprint: 'A1B2C3D4E5F6' })),
   };
-  const coordinator = new AdminSetupCoordinator(session, nfc, api, () => '50000000-0000-4000-8000-000000000001');
-  return { coordinator, session, nfc, api, replace(value: AdminSessionSnapshot) { current = value; listener(); } };
+  const writer = { write: vi.fn(async (_payload: string, _uri: string): Promise<{ status: 'written' } | { status: 'failed'; reason: 'write_failed' }> => ({ status: 'written' })), cancel: vi.fn(async () => undefined) };
+  const coordinator = new AdminSetupCoordinator(session, nfc, api, () => '50000000-0000-4000-8000-000000000001', writer);
+  return { coordinator, session, nfc, api, writer, replace(value: AdminSessionSnapshot) { current = value; listener(); } };
 }
 
 describe('AdminSetupCoordinator', () => {
+  const provisions = [
+    { name: 'work', run: (coordinator: AdminSetupCoordinator) => coordinator.provision(projection.customers[0]!.id, 'Eingang'), method: 'provisionTag' },
+    { name: 'break', run: (coordinator: AdminSetupCoordinator) => coordinator.provisionBreak('Pause'), method: 'provisionBreakTag' },
+  ] as const;
+
+  it.each(provisions)('writes the dispatch URI before registering the captured UID ($name)', async ({ run, method }) => {
+    const context = setup();
+    let finishWrite!: (value: { status: 'written' }) => void;
+    context.writer.write.mockImplementationOnce(() => new Promise((resolve) => { finishWrite = resolve; }));
+    await context.coordinator.start();
+    const pending = run(context.coordinator);
+    await vi.waitFor(() => expect(context.writer.write).toHaveBeenCalledWith('nfc:uid:v1:B55E8B6AEB30', TAG_URI));
+    expect(context.api.provisionTag).not.toHaveBeenCalled();
+    expect(context.api.provisionBreakTag).not.toHaveBeenCalled();
+    finishWrite({ status: 'written' });
+    await pending;
+    expect(context.api[method]).toHaveBeenCalledWith(expect.objectContaining({ canonicalPayload: 'nfc:uid:v1:B55E8B6AEB30' }));
+    await run(context.coordinator);
+    expect(context.writer.write.mock.calls).toEqual([
+      ['nfc:uid:v1:B55E8B6AEB30', TAG_URI],
+      ['nfc:uid:v1:B55E8B6AEB30', TAG_URI],
+    ]);
+  });
+
+  it.each(provisions)('registers nothing and reports tag_write_failed on a write error ($name)', async ({ run }) => {
+    const context = setup();
+    context.writer.write.mockResolvedValueOnce({ status: 'failed', reason: 'write_failed' });
+    await context.coordinator.start();
+    await run(context.coordinator);
+    expect(context.api.provisionTag).not.toHaveBeenCalled();
+    expect(context.api.provisionBreakTag).not.toHaveBeenCalled();
+    expect(context.coordinator.getState()).toMatchObject({ status: 'ready', outcome: { status: 'tag_write_failed', reason: 'write_failed' } });
+  });
+
+  it.each(provisions)('does not register after cancellation during writing ($name)', async ({ run }) => {
+    const context = setup();
+    let finishWrite!: (value: { status: 'written' }) => void;
+    context.writer.write.mockImplementationOnce(() => new Promise((resolve) => { finishWrite = resolve; }));
+    await context.coordinator.start();
+    const pending = run(context.coordinator);
+    await vi.waitFor(() => expect(context.writer.write).toHaveBeenCalled());
+    await context.coordinator.cancel();
+    finishWrite({ status: 'written' });
+    await pending;
+    expect(context.writer.cancel).toHaveBeenCalled();
+    expect(context.api.provisionTag).not.toHaveBeenCalled();
+    expect(context.api.provisionBreakTag).not.toHaveBeenCalled();
+  });
+
+  it.each(provisions)('does not register after membership changes during writing ($name)', async ({ run }) => {
+    const context = setup();
+    let finishWrite!: (value: { status: 'written' }) => void;
+    context.writer.write.mockImplementationOnce(() => new Promise((resolve) => { finishWrite = resolve; }));
+    await context.coordinator.start();
+    const pending = run(context.coordinator);
+    await vi.waitFor(() => expect(context.writer.write).toHaveBeenCalled());
+    context.replace({ ...snapshot, generation: 2 });
+    finishWrite({ status: 'written' });
+    await pending;
+    expect(context.api.provisionTag).not.toHaveBeenCalled();
+    expect(context.api.provisionBreakTag).not.toHaveBeenCalled();
+  });
+
+  it.each(provisions)('maps a thrown write failure without registering ($name)', async ({ run }) => {
+    const context = setup();
+    context.writer.write.mockRejectedValueOnce(new Error('private native error'));
+    await context.coordinator.start();
+    await run(context.coordinator);
+    expect(context.api.provisionTag).not.toHaveBeenCalled();
+    expect(context.api.provisionBreakTag).not.toHaveBeenCalled();
+    expect(context.coordinator.getState()).toMatchObject({ outcome: { status: 'tag_write_failed', reason: 'write_failed' } });
+    expect(JSON.stringify(context.coordinator.getState())).not.toContain('private');
+  });
+
   it('keeps raw capture private and exposes only the safe fingerprint', async () => {
     const context = setup(); await context.coordinator.start();
     await context.coordinator.provision(projection.customers[0]!.id, 'Eingang');

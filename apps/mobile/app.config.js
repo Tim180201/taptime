@@ -1,5 +1,6 @@
 const base = require('./app.json');
 const withNfcTagDispatch = require('./plugins/withNfcTagDispatch');
+const TAG_HOSTS = require('./src/nfc/tagHosts.json');
 
 const appVariant = process.env.APP_VARIANT;
 const runtimeVariant = process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT;
@@ -34,6 +35,7 @@ const configuration = {
   extra: {
     ...base.expo.extra,
     taptimeBuild: { sourceCommit: buildSourceCommit },
+    nfcTagHosts: TAG_HOSTS,
   },
   android: {
     ...base.expo.android,

@@ -1,9 +1,11 @@
 import { Platform } from 'react-native';
 import { fetch as expoFetch } from 'expo/fetch';
 import { randomUUID } from 'expo-crypto';
+import Constants from 'expo-constants';
 import { createTimestamp } from '@taptime/core';
 import { ExpoRefreshTokenStore } from '../auth/ExpoRefreshTokenStore';
 import { AdminSetupCoordinator } from '../administration/AdminSetupCoordinator';
+import { RnNfcTagWriter } from '../administration/RnNfcTagWriter';
 import { TapTimeAdministrationApiClient } from '../administration/TapTimeAdministrationApiClient';
 import { MobileSessionCoordinator } from '../auth/MobileSessionCoordinator';
 import type { InternalOfflineRestorationSnapshot } from '../auth/contracts';
@@ -168,6 +170,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     administrationNfc,
     serverTransport.administration,
     randomUUID,
+    new RnNfcTagWriter(Constants.expoConfig?.android?.package),
   );
   const scanFeedback = new ScanFeedbackCoordinator(
     scanOrchestrator,

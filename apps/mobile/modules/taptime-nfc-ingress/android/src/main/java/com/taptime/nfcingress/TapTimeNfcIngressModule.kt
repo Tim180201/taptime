@@ -29,7 +29,7 @@ object TapTimeNfcIngress {
   fun captureActivityCreateIntent(intent: Intent?, isRestoredCreation: Boolean) {
     val isHistoryLaunch = ((intent?.flags ?: 0)
       and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0
-    val isNfcIntent = intent?.action == NfcAdapter.ACTION_TECH_DISCOVERED
+    val isNfcIntent = isNfcIntent(intent)
     if (isHistoryLaunch || (isRestoredCreation && !isNfcIntent)) {
       stripNfcExtras(intent)
       return
@@ -53,8 +53,20 @@ object TapTimeNfcIngress {
     return PROCESS_START_INTENT
   }
 
+  private fun isNfcIntent(intent: Intent?): Boolean {
+    // Android 16 dispatches HTTP(S) NFC tags as ACTION_VIEW and retains EXTRA_TAG
+    // (Android documentation: "Tag dispatch"). Ordinary links carry no tag evidence.
+    if (intent == null || !intent.hasExtra(NfcAdapter.EXTRA_TAG)) return false
+    return when (intent.action) {
+      NfcAdapter.ACTION_TECH_DISCOVERED,
+      NfcAdapter.ACTION_NDEF_DISCOVERED,
+      Intent.ACTION_VIEW -> true
+      else -> false
+    }
+  }
+
   private fun captureIntent(intent: Intent?, intentOrigin: String) {
-    if (intent?.action != NfcAdapter.ACTION_TECH_DISCOVERED) return
+    if (intent == null || !isNfcIntent(intent)) return
     val tag = intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)
     stripNfcExtras(intent)
     if (pending != null) return
@@ -70,7 +82,7 @@ object TapTimeNfcIngress {
   }
 
   private fun stripNfcExtras(intent: Intent?) {
-    if (intent?.action != NfcAdapter.ACTION_TECH_DISCOVERED) return
+    if (intent == null || !isNfcIntent(intent)) return
     intent.removeExtra(NfcAdapter.EXTRA_TAG)
     intent.removeExtra(NfcAdapter.EXTRA_ID)
     intent.removeExtra(NfcAdapter.EXTRA_NDEF_MESSAGES)

@@ -3,6 +3,16 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { selectMobileCompositionMode } from '../../src/runtime/compositionMode';
 
+const { writerPackages } = vi.hoisted(() => ({ writerPackages: vi.fn() }));
+vi.mock('expo-constants', () => ({ default: { expoConfig: { android: { package: 'de.example.runtime' } } } }));
+vi.mock('../../src/administration/RnNfcTagWriter', () => ({
+  RnNfcTagWriter: class {
+    constructor(packageName: string | null | undefined) { writerPackages(packageName); }
+    async write() { return { status: 'written' as const }; }
+    async cancel() {}
+  },
+}));
+
 // Only host/native ports are replaced. The factory, runtime and product coordinators are real.
 vi.mock('react-native', () => ({ Platform: { OS: 'android' }, AppState: {} }));
 vi.mock('expo/fetch', () => ({ fetch: vi.fn(() => { throw new Error('Unexpected network request'); }) }));
@@ -82,6 +92,7 @@ describe('C1 Mobile composition boundary', () => {
 
     const result = createProductMobileRuntime();
     expect(result.status).toBe('ready');
+    expect(writerPackages).toHaveBeenLastCalledWith('de.example.runtime');
     if (result.status !== 'ready') throw new Error('Product runtime was not created');
     const { runtime } = result;
     await runtime.scan.scan();

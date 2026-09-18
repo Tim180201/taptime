@@ -7,6 +7,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ACTION = 'android.nfc.action.TECH_DISCOVERED';
+const NDEF_ACTION = 'android.nfc.action.NDEF_DISCOVERED';
+const VIEW_ACTION = 'android.intent.action.VIEW';
 const DEFAULT_CATEGORY = 'android.intent.category.DEFAULT';
 const METADATA_NAME = 'android.nfc.action.TECH_DISCOVERED';
 const NFC_ACTION_PREFIX = 'android.nfc.action.';
@@ -15,7 +17,7 @@ const KOTLIN_IMPORT = 'import com.taptime.nfcingress.TapTimeNfcIngress';
 
 function withNfcTagDispatch(config) {
   config = withAndroidManifest(config, (result) => {
-    result.modResults = mutateAndroidManifest(result.modResults);
+    result.modResults = mutateAndroidManifest(result.modResults, result.extra?.nfcTagHosts);
     return result;
   });
   return withDangerousMod(config, ['android', async (result) => {
@@ -44,7 +46,30 @@ async function patchMainActivityAtProjectRootAsync(projectRoot) {
   );
 }
 
-function mutateAndroidManifest(manifest) {
+function mutateAndroidManifest(manifest, hosts) {
+  if (!Array.isArray(hosts) || hosts.length === 0
+    || hosts.some((host) => typeof host !== 'string'
+      || !/^[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$/u.test(host))
+    || new Set(hosts).size !== hosts.length) {
+    throw new Error('TapTim.e NFC host list is missing or invalid');
+  }
+  const expectedFilters = [
+    { action: [{ $: { 'android:name': ACTION } }],
+      category: [{ $: { 'android:name': DEFAULT_CATEGORY } }] },
+    ...hosts.flatMap((host) => [
+      {
+        action: [{ $: { 'android:name': NDEF_ACTION } }],
+        category: [{ $: { 'android:name': DEFAULT_CATEGORY } }],
+        data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:pathPrefix': '/tag' } }],
+      },
+      {
+        action: [{ $: { 'android:name': VIEW_ACTION } }],
+        category: [{ $: { 'android:name': DEFAULT_CATEGORY } },
+          { $: { 'android:name': 'android.intent.category.BROWSABLE' } }],
+        data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:pathPrefix': '/tag' } }],
+      },
+    ]),
+  ];
   const application = manifest.manifest.application?.[0];
   if (application === undefined) throw new Error('Android application manifest entry is missing');
   const activities = application.activity ?? [];
@@ -63,20 +88,16 @@ function mutateAndroidManifest(manifest) {
   ];
   const nfcFilters = owners.flatMap((owner) =>
     (owner.entry['intent-filter'] ?? [])
-      .filter((filter) => touchesNfcDispatchFilter(filter))
+      .filter((filter) => touchesNfcDispatchFilter(filter, hosts))
       .map((filter) => ({ ...owner, filter })));
-  if (nfcFilters.length > 1) {
-    throw new Error('TapTim.e NFC intent-filter manifest entry mismatch');
-  }
-  if (
-    nfcFilters.length === 1
-    && (
-      nfcFilters[0].kind !== 'activity'
-      || nfcFilters[0].entry !== activity
-      || !isExactNfcDispatchFilter(nfcFilters[0].filter)
-    )
-  ) {
-    throw new Error('TapTim.e NFC intent-filter manifest entry mismatch');
+  const presentFilters = new Set();
+  for (const owner of nfcFilters) {
+    const index = expectedFilters.findIndex((expected) => isExactFilter(owner.filter, expected));
+    if (owner.kind !== 'activity' || owner.entry !== activity || index < 0
+      || presentFilters.has(index)) {
+      throw new Error('TapTim.e NFC intent-filter manifest entry mismatch');
+    }
+    presentFilters.add(index);
   }
   const nfcMetadata = owners.flatMap((owner) =>
     (owner.entry['meta-data'] ?? [])
@@ -101,14 +122,10 @@ function mutateAndroidManifest(manifest) {
     permissions.push({ $: { 'android:name': 'android.permission.NFC' } });
   }
   manifest.manifest['uses-permission'] = permissions;
-  if (nfcFilters.length === 0) {
-    const filters = activity['intent-filter'] ?? [];
-    filters.push({
-      action: [{ $: { 'android:name': ACTION } }],
-      category: [{ $: { 'android:name': DEFAULT_CATEGORY } }],
-    });
-    activity['intent-filter'] = filters;
-  }
+  activity['intent-filter'] = [
+    ...(activity['intent-filter'] ?? []),
+    ...expectedFilters.filter((_, index) => !presentFilters.has(index)),
+  ];
   if (nfcMetadata.length === 0) {
     const metadata = activity['meta-data'] ?? [];
     metadata.push({
@@ -122,23 +139,24 @@ function mutateAndroidManifest(manifest) {
   return manifest;
 }
 
-function touchesNfcDispatchFilter(filter) {
+function touchesNfcDispatchFilter(filter, hosts) {
   return (filter.action ?? []).some((entry) => (
     typeof entry.$?.['android:name'] === 'string'
     && entry.$['android:name'].startsWith(NFC_ACTION_PREFIX)
-  ));
+  )) || ((filter.action ?? []).some((entry) => entry.$?.['android:name'] === VIEW_ACTION)
+    && (filter.data ?? []).some((entry) => hosts.includes(entry.$?.['android:host'])));
 }
 
-function isExactNfcDispatchFilter(filter) {
-  return (
-    exactKeys(filter, ['action', 'category'])
-    && Array.isArray(filter.action)
-    && filter.action.length === 1
-    && isExactNamedEntry(filter.action[0], ACTION)
-    && Array.isArray(filter.category)
-    && filter.category.length === 1
-    && isExactNamedEntry(filter.category[0], DEFAULT_CATEGORY)
-  );
+function isExactFilter(value, expected) {
+  if (Array.isArray(expected)) {
+    return Array.isArray(value) && value.length === expected.length
+      && expected.every((entry, index) => isExactFilter(value[index], entry));
+  }
+  if (typeof expected === 'object' && expected !== null) {
+    return exactKeys(value, Object.keys(expected))
+      && Object.keys(expected).every((key) => isExactFilter(value[key], expected[key]));
+  }
+  return value === expected;
 }
 
 function touchesNfcDispatchMetadata(metadata) {
@@ -158,14 +176,6 @@ function isExactNfcDispatchMetadata(metadata) {
     && exactKeys(metadata.$, ['android:name', 'android:resource'])
     && metadata.$['android:name'] === METADATA_NAME
     && metadata.$['android:resource'] === TECH_RESOURCE
-  );
-}
-
-function isExactNamedEntry(entry, name) {
-  return (
-    exactKeys(entry, ['$'])
-    && exactKeys(entry.$, ['android:name'])
-    && entry.$['android:name'] === name
   );
 }
 

@@ -1,5 +1,7 @@
 import type { NfcScanPort } from '@taptime/core';
 import type { NfcCaptureLifecyclePort } from '../nfc/RnNfcScanAdapter';
+import { TAG_URI } from '../nfc/tagAddress';
+import type { NfcTagWriter, TagWriteResult } from './NfcTagWriter';
 import type { AdminSessionContextReader, AdminSetupApiPort, AdminSetupCapability, AdminSetupOutcome, AdminSetupState } from './contracts';
 
 export class AdminSetupCoordinator implements AdminSetupCapability {
@@ -14,6 +16,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     private readonly nfc: NfcScanPort & NfcCaptureLifecyclePort,
     private readonly api: AdminSetupApiPort,
     private readonly createCommandId: () => string,
+    private readonly writer: NfcTagWriter,
   ) {}
 
   getState(): AdminSetupState { return this.state; }
@@ -32,6 +35,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     this.generation += 1;
     this.unsubscribe?.();
     this.unsubscribe = null;
+    await this.writer.cancel();
     await this.nfc.stop();
     this.setState({ status: 'inactive' });
   }
@@ -80,6 +84,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       this.finish(current.projection, { status });
       return;
     }
+    if (!await this.writeTag(capture.payload, current.projection, snapshot, generation)) return;
     this.setState({ status: 'submitting', projection: current.projection });
     const result = await this.api.provisionTag({
       expectedMembershipId: snapshot.session.membershipId,
@@ -118,6 +123,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
         ? 'nfc_unavailable' : capture.status });
       return;
     }
+    if (!await this.writeTag(capture.payload, current.projection, snapshot, generation)) return;
     this.setState({ status: 'submitting', projection: current.projection });
     const result = await (this.api.provisionBreakTag?.({
       expectedMembershipId: snapshot.session.membershipId,
@@ -136,10 +142,27 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     this.finish(current.projection, { status: mapped } as AdminSetupOutcome);
   }
 
-  async cancel(): Promise<void> { this.generation += 1; await this.nfc.cancelCapture(); await this.loadProjection({ status: 'cancelled' }); }
+  async cancel(): Promise<void> { this.generation += 1; await this.writer.cancel(); await this.nfc.cancelCapture(); await this.loadProjection({ status: 'cancelled' }); }
+
+  private async writeTag(payload: string, projection: Extract<AdminSetupState, { status: 'ready' }>['projection'], snapshot: NonNullable<ReturnType<AdminSessionContextReader['capture']>>, generation: number): Promise<boolean> {
+    this.setState({ status: 'writing', projection });
+    let result: TagWriteResult;
+    try {
+      result = await this.writer.write(payload, TAG_URI);
+    } catch {
+      result = { status: 'failed', reason: 'write_failed' };
+    }
+    if (!this.isCurrent(generation, snapshot)) return false;
+    if (result.status === 'failed') {
+      this.finish(projection, { status: 'tag_write_failed', reason: result.reason });
+      return false;
+    }
+    return true;
+  }
 
   private async onSessionChanged(): Promise<void> {
     this.generation += 1;
+    await this.writer.cancel();
     await this.nfc.cancelCapture();
     const snapshot = this.session.capture();
     if (snapshot === null) { this.setState({ status: 'inactive' }); return; }

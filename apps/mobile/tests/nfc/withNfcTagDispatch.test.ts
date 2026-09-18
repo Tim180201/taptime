@@ -9,17 +9,54 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { TAG_HOSTS, TAG_URI } from '../../src/nfc/tagAddress';
 
 const require = createRequire(import.meta.url);
 const { AndroidConfig } = require('expo/config-plugins');
 const {
-  mutateAndroidManifest,
+  mutateAndroidManifest: mutate,
   patchMainActivityAtProjectRootAsync,
   patchMainActivitySource,
   techFilterXml,
 } = require('../../plugins/withNfcTagDispatch');
 
+function mutateAndroidManifest(manifest: object, hosts: readonly string[] = TAG_HOSTS) {
+  return mutate(manifest, hosts);
+}
+
 describe('Android NFC Tag Dispatch configuration plugin', () => {
+  it('shares the app host list through app.config extra and derives the write URI from its first host', () => {
+    const config = require('../../app.config.js');
+    const configSource = readFileSync(new URL('../../app.config.js', import.meta.url), 'utf8');
+    expect(configSource).not.toMatch(/require\([^)]*\.ts['"]/u);
+    expect(configSource).toContain("require('./src/nfc/tagHosts.json')");
+    expect(config.extra.nfcTagHosts).toEqual(require('../../src/nfc/tagHosts.json'));
+    expect(config.extra.nfcTagHosts).toEqual(TAG_HOSTS);
+    expect(TAG_HOSTS).toEqual(['tb-infra.de']);
+    expect(TAG_URI).toBe(`https://${TAG_HOSTS[0]}/tag`);
+    const manifest = manifestFixture();
+    mutateAndroidManifest(manifest, config.extra.nfcTagHosts);
+    for (const host of TAG_HOSTS) expect(JSON.stringify(manifest)).toContain(`"android:host":"${host}"`);
+  });
+
+  it('adds exactly one HTTPS NDEF and VIEW filter per configured host alongside TECH', () => {
+    const hosts = [...TAG_HOSTS, 'next.example.test'];
+    const manifest = manifestFixture();
+    mutateAndroidManifest(manifest, hosts);
+    mutateAndroidManifest(manifest, hosts);
+    expect((manifest.manifest.application[0].activity[0] as ReturnType<typeof activity>)['intent-filter']).toEqual([
+      exactNfcFilter(),
+      ...hosts.flatMap((host) => [
+        { ...nfcFilter('android.nfc.action.NDEF_DISCOVERED'),
+          data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:pathPrefix': '/tag' } }] },
+        { action: [named('android.intent.action.VIEW')],
+          category: [named('android.intent.category.DEFAULT'), named('android.intent.category.BROWSABLE')],
+          data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:pathPrefix': '/tag' } }] },
+      ]),
+    ]);
+    expect(JSON.stringify(manifest)).not.toContain('autoVerify');
+  });
+
   it('canonicalizes only the exact NFC dispatch while preserving unrelated filters idempotently', () => {
     const launcherFilter = {
       action: [{
@@ -63,7 +100,7 @@ describe('Android NFC Tag Dispatch configuration plugin', () => {
     expect(serialized).toContain('android.nfc.action.TECH_DISCOVERED');
     expect(serialized).toContain('@xml/taptime_nfc_tech_filter');
     expect(serialized).not.toContain('android.nfc.action.TAG_DISCOVERED');
-    expect(serialized).not.toContain('NDEF_DISCOVERED');
+    expect(serialized).toContain('NDEF_DISCOVERED');
     expect(serialized.match(/android\.permission\.NFC/g)).toHaveLength(1);
     expect(mainActivity['intent-filter']).toContain(launcherFilter);
     expect(mainActivity['intent-filter']).toContain(deepLinkFilter);
@@ -173,7 +210,7 @@ describe('Android NFC Tag Dispatch configuration plugin', () => {
       create: () => manifestFixture({
         mainFilters: [nfcFilter('android.nfc.action.NDEF_DISCOVERED')],
       }),
-      name: 'NDEF action',
+      name: 'unconstrained NDEF action',
     },
     {
       create: () => manifestFixture({
@@ -225,6 +262,17 @@ describe('Android NFC Tag Dispatch configuration plugin', () => {
     const before = JSON.stringify(manifest);
 
     expect(() => mutateAndroidManifest(manifest)).toThrow(/manifest entry mismatch/u);
+    expect(JSON.stringify(manifest)).toBe(before);
+  });
+
+  it.each([
+    { label: 'foreign host', data: { 'android:scheme': 'https', 'android:host': 'foreign.example', 'android:pathPrefix': '/tag' } },
+    { label: 'wrong scheme', data: { 'android:scheme': 'http', 'android:host': TAG_HOSTS[0], 'android:pathPrefix': '/tag' } },
+    { label: 'missing path', data: { 'android:scheme': 'https', 'android:host': TAG_HOSTS[0] } },
+  ])('rejects $label without modifying the manifest', ({ data }) => {
+    const manifest = manifestFixture({ mainFilters: [{ ...nfcFilter('android.nfc.action.NDEF_DISCOVERED'), data: [{ $: data }] }] });
+    const before = JSON.stringify(manifest);
+    expect(() => mutateAndroidManifest(manifest)).toThrow(/manifest entry mismatch/);
     expect(JSON.stringify(manifest)).toBe(before);
   });
 

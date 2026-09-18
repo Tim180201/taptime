@@ -29,7 +29,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   if (state.status === 'inactive' || state.status === 'loading') return <Message title="Tags werden geladen …" />;
   if (state.status === 'not_administrator') return <Message title="Diese Funktion ist nur für Administratoren verfügbar." />;
   const projection = state.projection;
-  const busy = state.status === 'capturing' || state.status === 'submitting';
+  const busy = state.status === 'capturing' || state.status === 'writing' || state.status === 'submitting';
   const presentation = presentAdminSetupState(state);
   const capture = () => {
     if (busy) return;
@@ -43,7 +43,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <View style={styles.formHeader}><TouchTarget accessibilityRole="button" accessibilityLabel="Zurück zu Tags"
         onPress={goBack} style={styles.back}><LineIcon name="back" color={mobileTokens.color.text} /></TouchTarget>
         <Text style={styles.title}>Tag zuordnen</Text></View>
-      <Text style={styles.muted}>Wähle ein Arbeitsziel und gib dem Tag einen Namen. Tippe dann auf den Kreis und halte dein Handy an den Tag.</Text>
+      <Text style={styles.muted}>Wähle ein Arbeitsziel und gib dem Tag einen Namen. Tippe dann auf den Kreis und halte dein Handy an den Tag, bis er zugeordnet ist. Dabei wird der Tag beschrieben und sein bisheriger Inhalt ersetzt.</Text>
       {invalid ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel und gib eine Bezeichnung ein. Deine Eingaben bleiben erhalten.</Text> : null}
       <Text style={styles.label}>Arbeitsziel</Text>
       {projection.customers.filter((customer) => customer.active).map((customer) => <ActionButton
@@ -57,7 +57,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <Text style={styles.label}>Bezeichnung</Text>
       <TextField value={tagName} onChangeText={setTagName} maxLength={80} editable={!busy}
         placeholder="z. B. Eingang Werkstatt" accessibilityLabel="Bezeichnung des NFC-Tags" />
-      <TouchTarget accessibilityRole="button" accessibilityLabel="NFC-Tag erfassen und zuordnen" disabled={busy}
+      <TouchTarget accessibilityRole="button" accessibilityLabel="NFC-Tag beschreiben und zuordnen" disabled={busy}
         accessibilityState={{ disabled: busy }} onPress={capture} style={styles.capture}>
         <LineIcon name="capture" size={48} color={mobileTokens.color.accent} />
         <Text style={{ fontWeight: '800', textAlign: 'center' }}>{busy ? 'Jetzt den Tag antippen' : 'Tag erfassen'}</Text>
@@ -95,11 +95,20 @@ function presentAssignment(
 
 export function presentAdminSetupState(state: AdminSetupState): { title: string; message: string } {
   if (state.status === 'capturing') return { title: 'Bereit zum Erfassen', message: 'Halte das Android-Gerät an den neuen NFC-Tag.' };
+  if (state.status === 'writing') return { title: 'Tag wird beschrieben', message: 'Halte dein Handy weiter an den Tag.' };
   if (state.status === 'submitting') return { title: 'Tag wird sicher eingerichtet', message: 'Registrierung und Zuordnung werden atomar vom Server geprüft.' };
   if (state.status !== 'ready' || state.outcome === null) return { title: 'Einrichtung bereit', message: 'Wähle einen Kunden und gib eine eindeutige Tag-Bezeichnung ein.' };
   switch (state.outcome.status) {
     case 'tag_provisioned': return { title: 'Tag erfolgreich zugeordnet', message: 'Der Server hat den Tag und seine Zuordnung gespeichert.' };
     case 'tag_already_registered': return { title: 'Tag bereits registriert', message: 'Der Server hat keine neue Zuordnung angelegt.' };
+    case 'tag_write_failed': return { title: 'Tag konnte nicht beschrieben werden, nichts wurde registriert', message: {
+      ndef_not_supported: 'Dieser Tag unterstützt das benötigte Nachrichtenformat nicht.',
+      read_only: 'Dieser Tag ist schreibgeschützt. Verwende einen beschreibbaren Tag.',
+      capacity_exceeded: 'Dieser Tag hat nicht genug Speicher. Verwende einen anderen Tag.',
+      tag_changed: 'Es wurde ein anderer Tag erkannt. Versuche es mit demselben Tag erneut.',
+      write_failed: 'Halte dein Handy am Tag und versuche es erneut.',
+      cancelled: 'Das Beschreiben wurde abgebrochen. Du kannst es erneut versuchen.',
+    }[state.outcome.reason] };
     case 'customer_unavailable': return { title: 'Kunde nicht verfügbar', message: 'Aktualisiere die Ansicht und wähle einen aktiven Kunden.' };
     case 'invalid_input': return { title: 'Eingabe ungültig', message: 'Prüfe Kunde und Tag-Bezeichnung.' };
     case 'unreadable': return { title: 'Tag nicht lesbar', message: 'Bitte versuche die Erfassung erneut.' };

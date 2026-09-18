@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTimestamp } from '@taptime/core';
+import type { TagEvent } from 'react-native-nfc-manager';
 import type { RnNfcScanAdapterOptions } from '../../src/nfc/RnNfcScanAdapter';
 
 const { nfcManagerMock } = vi.hoisted(() => ({
@@ -29,7 +30,7 @@ function createAdapter(options: RnNfcScanAdapterOptions = {}) {
   });
 }
 
-type DiscoverListener = (tag: { id?: string }) => void;
+type DiscoverListener = (tag: { id?: string; ndefMessage?: TagEvent['ndefMessage'] }) => void;
 
 function deferred<Value>() {
   let resolve!: (value: Value) => void;
@@ -67,6 +68,22 @@ describe('RnNfcScanAdapter (Block D)', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('captures identical UID evidence with absent, own or foreign NDEF URI', async () => {
+    const evidence = [];
+    for (const uri of [null, 'https://tb-infra.de/tag', 'https://foreign.example/tag']) {
+      const { result, listener } = await beginCapture();
+      listener({ id: '04A1B2C3', ...(uri === null ? {} : {
+        ndefMessage: [{ tnf: 1, type: [0x55], payload: [0, ...new TextEncoder().encode(uri)], id: [] }],
+      }) });
+      evidence.push(await result);
+      nfcManagerMock.setEventListener.mockClear();
+      nfcManagerMock.registerTagEvent.mockClear();
+    }
+    for (const capture of evidence) expect(capture).toEqual({
+      status: 'captured', payload: 'nfc:uid:v1:04A1B2C3', capturedAt,
+    });
   });
 
   it('scan() waits for native discovery and resolves only after listener cleanup', async () => {
