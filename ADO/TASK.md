@@ -103,14 +103,19 @@ einer neuen APK** — diese Aufgabe ist erst damit fertig.
    Nichts an bestehenden Bereichen ändert sich; `setup_available` und die Standortlogik aus
    027 bleiben, wie sie sind.
 2. **Rollenschale und Leiste je Rolle** (`navigation.ts`, `App.tsx`): Mitarbeiter sieht
-   *Meine Zeiten, Manuell*; Standortleitung *Übersicht, Beschäftigte, Prüfungen, Meine Zeiten,
-   Manuell* im eigenen Standort; Administrator zusätzlich *Einrichtung* und *Lohnexport*.
-   Jeder Bereich wird weiterhin bei jedem Befehl gegen die Sitzung geprüft, nicht nur beim
-   Zeichnen.
+   *Meine Zeiten, Manuell*; Standortleitung *Übersicht, Beschäftigte, Meine Zeiten, Manuell*
+   im eigenen Standort; Administrator zusätzlich *Prüfungen*, *Einrichtung* und *Lohnexport*.
+   **Korrektur vom 18.09. (Befund Development):** Prüfen ist seit Migration 012
+   (`has_current_time_review_administrator_v1`) administrator-only. D-059 sieht es für die
+   Standortleitung vor, gebaut ist es nie worden — das ist **T-062**, nicht T-049. Die Leiste
+   zeigt *Prüfungen* deshalb weiterhin genau dann, wenn die Sitzung den Bereich `review_items`
+   nennt; wenn T-062 ihn öffnet, erscheint er von selbst. Jeder Bereich wird weiterhin bei jedem
+   Befehl gegen die Sitzung geprüft, nicht nur beim Zeichnen.
 3. **Übersicht (Entwurf 01/11)** mit Aktiv-Kachel aus `managed-active-summary`: „x / y gerade
-   aktiv", Stand der **Serverzeit**, Umfang benannt (Betrieb oder Standort). Daneben offene
-   Prüfungen und der laufende Monat. Keine Zahl ohne Herkunft; was der Server nicht liefert,
-   wird weggelassen.
+   aktiv", Stand der **Serverzeit**, Umfang benannt (Betrieb oder Standort). Die Kachel „offene
+   Prüfungen" erscheint nur, wenn die Sitzung `review_items` nennt — für eine Standortleitung
+   heute also nicht. Keine Zahl ohne Herkunft; was der Server nicht liefert, wird weggelassen,
+   und keine Kachel zeigt eine Zahl, die der Aufrufer nicht lesen darf.
 4. **Beschäftigte und Person (02/03)**: Liste mit Aktiv/Inaktiv, Zeile mit Initialen, Name,
    „seit hh:mm · Ziel"; Person öffnet Monatskalender und Tagesliste aus
    `managed-person-time`. **Die Kalenderlogik wird geteilt, nicht kopiert:** die reinen Helfer

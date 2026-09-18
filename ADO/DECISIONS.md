@@ -1224,3 +1224,19 @@ Schreibtisch nicht beurteilen, ob Menschen ihren Tag abends freigeben — das sa
 echter Betrieb. Zwei Monate loesen beides.
 **Grenze:** Vor dem Zuschalten wird der Pilotkunde gefragt; die Freigabe gilt erst ab einem
 vereinbarten Stichtag, nie rueckwirkend fuer schon abgerechnete Tage.
+
+---
+
+## D-064 · Pruefen im eigenen Standort kommt mit T-062, nicht mit dem Web · 18.09.2026 · Claude (TL), bestaetigt Tim
+**Entscheidung:** D-059 bleibt unveraendert gueltig — eine Standortleitung darf im eigenen
+Standort auch pruefen. Gebaut wird das als eigene Aufgabe **T-062** (serverseitige Autoritaet
+mit Standortgrenze, nach dem Muster von T-060), terminiert in Pilotmonat 1 neben T-048 und
+T-050. T-049 aendert keine Pruefautoritaet und zeigt den Bereich weiterhin nach dem, was die
+Sitzung nennt.
+**Warum:** Eine Berechtigungsaenderung gehoert nicht in eine Oberflaechenaufgabe; sie braucht
+Rotnachweise ueber die Standortgrenze und ein eigenes Review. Ausserdem sind Standorte
+standardmaessig ausgeschaltet (Migration 019) — ohne Standorte gibt es keine Standortleitung,
+und der Pilotbetrieb startet mit Administrator und Mitarbeitern. Der Bereich erscheint im Web
+von selbst, sobald T-062 ihn oeffnet.
+**Grenze:** Wird im Pilotbetrieb doch eine Standortleitung gebraucht, rueckt T-062 vor den
+Pilotstart; die Reihenfolge ist eine Entscheidung des Product Owners, nicht des Technical Lead.
