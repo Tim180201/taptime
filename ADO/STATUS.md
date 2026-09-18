@@ -1,7 +1,7 @@
 # TapTim.e — Status
 
 **Stand:** 18.09.2026 · Produktion läuft auf `939b4ba` (Deploy 10:47 Uhr, vier Belege nach
-DEPLOY.md erbracht); `main` steht auf `3daa09b` (T-058, noch nicht ausgeliefert). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
+DEPLOY.md erbracht); `main` steht auf `b68e48b` (T-058, T-043; noch nicht ausgeliefert). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
 einen vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -13,6 +13,8 @@ einen vollständigen Monatsabschluss übersteht.
   Abgleich v2, Leases v3; Queue-Löschung erst nach Archivnachweis (T-052). **Seit `3daa09b`
   (T-058, auf `main`):** Reiter je Rolle, Abgleich hinter dem Statuspunkt, Tap-Moment mit
   Serverentscheidung, Meine Zeiten als Monatskalender in Europe/Berlin, Tags, Manrope, Taptura.
+  **Seit `b68e48b` (T-043):** „Tag zuordnen“ schreibt NDEF-URI `https://tb-infra.de/tag` plus
+  App-Kennung auf den Tag (D-061); Android öffnet die App ohne Auswahldialog.
 - Verwaltung: Beschäftigte mit Kontoeinladung (T-047), Standorte, Arbeitsziele, Tags, Korrektur,
   Prüfentscheidung, Pausen, CSV V3; eine Zeitzone Europe/Berlin (T-036); Anmeldefehler mit
   Ursache (T-040); strikte CSP; Deploy-Tor auf den Backend-Aussteller (T-039).
@@ -46,7 +48,7 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Offen bis zum Pilotbetrieb
 
-- **Neue APK** (EAS `production-validation`) erst nach T-043/T-060/T-059: Die installierte App
+- **Neue APK** (EAS `production-validation`) erst nach T-060/T-059: Die installierte App
   ist der Stand vor T-052 — sie bestätigt im Hintergrund-Takt statt im Tap. Link nur
   persönlich an den PO.
 - Tagesfreigabe, Kalender, Pausenautomatik: T-048–T-050. T-055 Wiederaufnahme nach Restore.
@@ -56,6 +58,11 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 ## Bekannte Kleinigkeiten und offene Risiken
 
 - **P1 T-055:** Lease-Bindung und Reihenfolge über Installationen nach Restore (D-055).
+- **Bekannt, nicht behebbar (T-043):** Android 17 zeigt für Tags mit Web-Adresse eine
+  Mitteilung, die angetippt werden muss — ein Tap plus Bestätigung wie auf iOS (D-037). Ob der
+  Android Application Record das umgeht, ist offen; wird am ersten Android-17-Gerät geprüft.
+  Test-Tags müssen nach der nächsten APK einmal neu zugeordnet werden (alte Tags ohne NDEF
+  zeigen weiter den Auswahldialog).
 - **P2 App (18.09., aus T-058):** Meine Zeiten summiert nur den geladenen Abfragezeitraum;
   Schichten davor fehlen im Kalender (wird als „—“ gezeigt, nicht erfunden). „Zuletzt“ zeigt
   bei einem Abruffehler weiter „Laden“. „Abmelden“ liegt nur auf der Abgleich-Seite.
