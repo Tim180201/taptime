@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('react-native', () => ({
   Pressable: () => null,
@@ -14,15 +14,20 @@ const {
   resolveDisplayTimeZone,
 } = await import('../../src/screens/OwnTimeScreen');
 
+afterEach(() => vi.restoreAllMocks());
+
 describe('OwnTimeScreen presentation', () => {
-  it('uses the named valid device IANA timezone and falls back visibly to UTC', () => {
-    expect(resolveDisplayTimeZone(() => 'Europe/Berlin')).toBe('Europe/Berlin');
-    expect(resolveDisplayTimeZone(() => 'Not/A-Timezone')).toBe('UTC');
-    expect(resolveDisplayTimeZone(() => undefined)).toBe('UTC');
-    expect(formatOwnTimeTimestamp(
-      '2026-07-24T10:00:00.000Z',
-      'Europe/Berlin',
-    )).not.toBe(formatOwnTimeTimestamp('2026-07-24T10:00:00.000Z', 'UTC'));
+  it.each(['America/Los_Angeles', 'UTC', 'Not/A-Timezone', undefined])(
+    'keeps Berlin and the month boundary with device timezone %s', (deviceZone) => {
+      const NativeDateTimeFormat = Intl.DateTimeFormat;
+      vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locales, options) {
+        return new NativeDateTimeFormat(locales, {
+          ...options, timeZone: options?.timeZone ?? deviceZone,
+        });
+      });
+      expect(resolveDisplayTimeZone()).toBe('Europe/Berlin');
+      expect(formatOwnTimeTimestamp('2026-09-30T22:30:00.000Z')).toBe('01.10.26, 00:30');
+      expect(formatOwnTimeTimestamp('2026-07-24T10:00:00.000Z')).toBe('24.07.26, 12:00');
   });
 
   it('distinguishes loaded history from complete history', () => {

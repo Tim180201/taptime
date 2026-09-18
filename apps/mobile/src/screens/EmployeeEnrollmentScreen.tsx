@@ -41,7 +41,7 @@ export function EmployeeEnrollmentScreen({
   return <View style={styles.container}>
     <Text style={styles.title}>Als Beschäftigter beitreten</Text>
     <Text style={styles.description}>
-      Du bist sicher beim Anmeldedienst angemeldet, hast aber noch keinen TapTim.e-Zugang.
+      Du bist sicher beim Anmeldedienst angemeldet, hast aber noch keinen Taptura-Zugang.
     </Text>
     <TextField
       value={invitationSecret}

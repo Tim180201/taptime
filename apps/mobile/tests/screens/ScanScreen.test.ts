@@ -30,6 +30,15 @@ const {
 } = await import('../../src/screens/ScanScreen');
 
 describe('ScanScreen presentation', () => {
+  it('explains local storage protection without claiming a membership mismatch', () => {
+    const local = presentScanState({ status: 'protected_pending', reason: 'local_evidence_protected' });
+    const identity = presentScanState({ status: 'protected_pending', reason: 'identity_mismatch' });
+    const legacy = presentScanState({ status: 'protected_pending', reason: 'legacy_membership_unknown' });
+    expect(local.message).toContain('lokalen Speicher');
+    expect(local.message).not.toContain('Mitgliedschaft');
+    expect(new Set([local.message, identity.message, legacy.message]).size).toBe(3);
+  });
+
   it('labels offline capture without disclosing a retained account identity', () => {
     expect(presentActor('administrator')).toBe('Administrator');
     expect(presentActor('employee')).toBe('Beschäftigter');

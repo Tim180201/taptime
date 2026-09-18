@@ -167,3 +167,32 @@ describe('DefaultProductMobileRuntime lifecycle', () => {
     expect(context.appState.start).not.toHaveBeenCalled();
   });
 });
+
+describe('account-scoped scan protection', () => {
+  it('re-evaluates a protected scanner for a new account, without changing evidence through the UI', async () => {
+    const context = setup();
+    const listeners = new Set<() => void>();
+    let sessionState: MobileSessionState = { status: 'signed_out' };
+    let scanState: ProductScanState = { status: 'protected_pending', reason: 'local_evidence_protected' };
+    vi.spyOn(context.session, 'getState').mockImplementation(() => sessionState);
+    vi.spyOn(context.scan, 'getState').mockImplementation(() => scanState);
+    context.session.subscribe.mockImplementation((listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; });
+    context.scan.start.mockImplementation(async () => {
+      if (sessionState.status === 'authenticated') scanState = { status: 'ready', outcome: null };
+    });
+    await context.runtime.start();
+    expect(context.runtime.scan.getState().status).toBe('protected_pending');
+    sessionState = { status: 'authenticated', session: {
+      userId: 'person-B', organizationId: 'business', membershipId: 'membership-B', role: 'employee',
+    } };
+    for (const listener of listeners) listener();
+    await vi.waitFor(() => expect(context.runtime.scan.getState()).toEqual({ status: 'ready', outcome: null }));
+    expect(context.scan.stop).toHaveBeenCalledTimes(1);
+    expect(context.scan.start).toHaveBeenCalledTimes(2);
+    expect(context.scan.scan).not.toHaveBeenCalled();
+    expect(context.scan.retry).not.toHaveBeenCalled();
+    for (const listener of listeners) listener();
+    expect(context.scan.start).toHaveBeenCalledTimes(2);
+    context.runtime.stop();
+  });
+});

@@ -33,7 +33,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
       if (result.status === 'invalid_credentials') {
         setMessage('E-Mail-Adresse oder Passwort ist nicht gültig.');
       } else if (result.status === 'authority_rejected') {
-        setMessage('Für dieses Konto ist kein aktiver TapTim.e-Zugang verfügbar.');
+        setMessage('Für dieses Konto ist kein aktiver Taptura-Zugang verfügbar.');
       } else if (result.status === 'context_unavailable') {
         setMessage('Der Sitzungskontext ist vorübergehend nicht verfügbar.');
       } else if (result.status === 'infrastructure_error') {
@@ -61,7 +61,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>TapTim.e — Anmeldung</Text>
+      <Text style={styles.title}>Taptura — Anmeldung</Text>
       <TextField
         style={styles.input}
         value={email}

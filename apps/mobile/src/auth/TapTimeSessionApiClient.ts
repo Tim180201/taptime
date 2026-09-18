@@ -131,7 +131,7 @@ function parseSession(value: unknown): ProductSessionContext | null {
 }
 
 function isMembershipRole(value: unknown): value is ProductMembershipRole {
-  return value === 'administrator' || value === 'employee';
+  return value === 'administrator' || value === 'standortleitung' || value === 'employee';
 }
 
 function withTrailingSlash(value: string): string {

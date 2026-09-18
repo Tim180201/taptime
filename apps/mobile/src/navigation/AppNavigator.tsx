@@ -1,6 +1,6 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
-import type { MobileSessionCapability } from '../auth/contracts';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { BackHandler, Linking, Platform, StyleSheet, View } from 'react-native';
+import type { MobileSessionCapability, ProductMembershipRole } from '../auth/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
 import { AdminSetupScreen } from '../screens/AdminSetupScreen';
@@ -19,8 +19,10 @@ import {
   canPresentOfflineCaptureShell,
   OFFLINE_PRODUCT_DESTINATIONS,
 } from './offlineCaptureShell';
+import { LineIcon } from '../design/LineIcon';
+import { destinationLabels, productDestinations, syncIndicator, type ProductDestination } from './presentation';
 import { mobileTokens } from '../design/tokens';
-import { ActionButton, AppText as Text, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, TouchTarget, EmbeddedScreenContext, TextField } from '../design/primitives';
 
 export function AppNavigator({
   session,
@@ -35,7 +37,6 @@ export function AppNavigator({
   readonly work?: MobileWorkCapability;
   readonly offlineManual: OfflineManualCaptureCapability;
 }) {
-  const [administratorView, setAdministratorView] = useState<'scan' | 'setup'>('scan');
   const state = useSyncExternalStore(
     (listener) => session.subscribe(listener),
     () => session.getState(),
@@ -63,37 +64,9 @@ export function AppNavigator({
   }, [session]);
 
   if (state.status === 'authenticated') {
-    if (work !== undefined) {
-      return <AuthenticatedProductShell
-        role={state.session.role}
-        session={session}
-        scan={scan}
-        administration={administration}
-        work={work}
-      />;
-    }
-    if (state.session.role === 'administrator') {
-      return (
-        <View style={styles.administratorShell}>
-          <View style={styles.tabs}>
-            <ActionButton title="Zeiterfassung" tone="secondary"
-              onPress={() => { void administration.cancel(); setAdministratorView('scan'); }} />
-            <ActionButton title="NFC-Einrichtung" tone="secondary"
-              onPress={() => { void scan.cancel(); setAdministratorView('setup'); }} />
-          </View>
-          {administratorView === 'setup'
-            ? <AdminSetupScreen administration={administration} />
-            : <ScanScreen actor={state.session.role} scan={scan} signOut={() => session.signOut()} />}
-        </View>
-      );
-    }
-    return (
-      <ScanScreen
-        actor={state.session.role}
-        scan={scan}
-        signOut={() => session.signOut()}
-      />
-    );
+    const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
+    return <ProductShell key={accountKey} role={state.session.role} session={session}
+      scan={scan} administration={administration} work={work} offlineManual={offlineManual} />;
   }
   if (state.status === 'enrollment_only') {
     return <EmployeeEnrollmentScreen
@@ -109,11 +82,8 @@ export function AppNavigator({
   if (state.status === 'context_unavailable') {
     if (canPresentOfflineCaptureShell(state, scanState)) {
       return (
-        <OfflineProductShell
-          session={session}
-          scan={scan}
-          manual={offlineManual}
-        />
+        <ProductShell key="offline" role="offline" session={session} scan={scan}
+          administration={administration} offlineManual={offlineManual} />
       );
     }
     return (
@@ -124,7 +94,7 @@ export function AppNavigator({
     );
   }
   if (state.status === 'runtime_unavailable') {
-    return <MessageScreen title="TapTim.e ist derzeit nicht verfügbar." />;
+    return <MessageScreen title="Taptura ist derzeit nicht verfügbar." />;
   }
   if (state.status === 'initializing') {
     return <MessageScreen title="Sitzung wird sicher wiederhergestellt …" />;
@@ -161,127 +131,94 @@ function PasswordRecoveryScreen({ session, completing, notice }: {
   </View>;
 }
 
-type ProductDestination = 'capture' | 'manual' | 'times' | 'sync' | 'setup';
-function OfflineProductShell({
-  session,
-  scan,
-  manual,
-}: {
-  readonly session: MobileSessionCapability;
-  readonly scan: ProductScanCapability;
-  readonly manual: OfflineManualCaptureCapability;
-}) {
-  const [destination, setDestination] = useState<
-    (typeof OFFLINE_PRODUCT_DESTINATIONS)[number]
-  >('capture');
-  const labels = {
-    capture: 'Erfassen',
-    manual: 'Manuell',
-    sync: 'Abgleich',
-  } as const;
-  const navigate = (next: (typeof OFFLINE_PRODUCT_DESTINATIONS)[number]): void => {
-    if (next !== 'capture') void scan.cancel();
-    setDestination(next);
-  };
-  return <View style={styles.productShell}>
-    <View style={styles.sessionBar}>
-      <Text style={styles.sessionRole}>Offline-Erfassung</Text>
-      <ActionButton
-        title="Abmelden"
-        tone="quiet"
-        style={styles.signOutAction}
-        onPress={() => session.signOut()}
-      />
-    </View>
-    <View style={styles.productContent}>
-      {destination === 'capture'
-        ? <ScanScreen actor="offline" scan={scan} signOut={() => session.signOut()} embedded />
-        : null}
-      {destination === 'manual'
-        ? <OfflineManualCaptureScreen manual={manual} restorationKey="offline" />
-        : null}
-      {destination === 'sync' ? <SynchronizationScreen scan={scan} /> : null}
-    </View>
-    <View style={styles.destinationBar} accessibilityRole="tablist">
-      {OFFLINE_PRODUCT_DESTINATIONS.map((item) => <ActionButton
-        key={item}
-        title={labels[item]}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: item === destination }}
-        onPress={() => navigate(item)}
-        tone={item === destination ? 'primary' : 'quiet'}
-        style={styles.destination}
-      />)}
-    </View>
-  </View>;
-}
-
-function AuthenticatedProductShell({
-  role,
-  session,
-  scan,
-  administration,
-  work,
-}: {
-  readonly role: 'employee' | 'administrator';
+function ProductShell({ role, session, scan, administration, work, offlineManual }: {
+  readonly role: ProductMembershipRole | 'offline';
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
   readonly administration: AdminSetupCapability;
-  readonly work: MobileWorkCapability;
+  readonly work?: MobileWorkCapability;
+  readonly offlineManual: OfflineManualCaptureCapability;
 }) {
   const [destination, setDestination] = useState<ProductDestination>('capture');
-  const destinations: readonly {
-    readonly id: ProductDestination;
-    readonly label: string;
-  }[] = [
-    { id: 'capture', label: 'Erfassen' },
-    { id: 'manual', label: 'Manuell' },
-    { id: 'times', label: 'Meine Zeiten' },
-    { id: 'sync', label: 'Abgleich' },
-    ...(role === 'administrator'
-      ? [{ id: 'setup' as const, label: 'NFC-Einrichtung' }]
-      : []),
-  ];
-
-  const navigate = (next: ProductDestination): void => {
+  const [showSync, setShowSync] = useState(false);
+  const scanState = useSyncExternalStore((listener) => scan.subscribe(listener),
+    () => scan.getState(), () => scan.getState());
+  const previousCount = useRef<number | null>(null);
+  const status = syncIndicator(scanState, previousCount.current);
+  useEffect(() => {
+    if ('queueCount' in scanState) previousCount.current = scanState.queueCount;
+    else if (scanState.status === 'ready' && scanState.outcome === null) previousCount.current = 0;
+  }, [scanState]);
+  const destinations = role === 'offline' ? OFFLINE_PRODUCT_DESTINATIONS : productDestinations(role);
+  const navigate = (next: ProductDestination) => {
     if (next !== 'capture') void scan.cancel();
     if (next !== 'setup') void administration.cancel();
+    setShowSync(false);
     setDestination(next);
   };
-
+  const openSync = () => {
+    void scan.cancel();
+    void administration.cancel();
+    setShowSync(true);
+  };
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (showSync) { setShowSync(false); return true; }
+      if (destination !== 'capture') { navigate('capture'); return true; }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [showSync, destination, scan, administration]);
+  const roleLabel = role === 'administrator' ? 'Administrator' : role === 'standortleitung'
+    ? 'Standortleitung' : role === 'offline' ? 'Offline-Erfassung' : 'Deine Arbeitszeit';
   return <View style={styles.productShell}>
-    <View style={styles.sessionBar}>
-      <Text style={styles.sessionRole}>
-        {role === 'administrator' ? 'Administrator' : 'Beschäftigter'}
-      </Text>
-      <ActionButton
-        title="Abmelden"
-        tone="quiet"
-        style={styles.signOutAction}
-        onPress={() => session.signOut()}
-      />
+    <View style={styles.header}>
+      {showSync ? <TouchTarget accessibilityRole="button" accessibilityLabel="Zurück"
+        onPress={() => setShowSync(false)} style={styles.iconAction}>
+        <LineIcon name="back" color={mobileTokens.color.text} />
+      </TouchTarget> : null}
+      <View style={styles.heading}>
+        <Text accessibilityRole="header" style={styles.title}>{showSync ? 'Abgleich' : destinationLabels[destination]}</Text>
+        <Text style={styles.subtitle}>{roleLabel}</Text>
+      </View>
+      <TouchTarget accessibilityRole="button" accessibilityLabel={status.label}
+        onPress={openSync} style={styles.iconAction}>
+        {status.kind === 'confirmed' ? <View style={styles.confirmedDot} />
+          : <View style={styles.pendingBadge}><Text style={styles.badgeText}>
+            {status.count !== null && status.count > 0 ? status.count
+              : status.kind === 'checking' ? '…' : '!'}
+          </Text></View>}
+      </TouchTarget>
     </View>
-    <View style={styles.productContent}>
-      {destination === 'capture'
-        ? <ScanScreen actor={role} scan={scan} signOut={() => session.signOut()} embedded />
-        : null}
-      {destination === 'manual' ? <ManualCaptureScreen work={work} /> : null}
-      {destination === 'times' ? <OwnTimeScreen work={work} /> : null}
-      {destination === 'sync' ? <SynchronizationScreen scan={scan} /> : null}
-      {destination === 'setup' && role === 'administrator'
-        ? <AdminSetupScreen administration={administration} />
-        : null}
-    </View>
+    <EmbeddedScreenContext.Provider value>
+      <View style={styles.productContent}>
+        <View style={{ flex: 1, display: !showSync && destination === 'capture' ? 'flex' : 'none' }}
+          accessibilityElementsHidden={showSync || destination !== 'capture'}
+          importantForAccessibility={showSync || destination !== 'capture' ? 'no-hide-descendants' : 'auto'}>
+          <ScanScreen actor={role} scan={scan} work={work} signOut={() => session.signOut()} embedded />
+        </View>
+        {showSync ? <SynchronizationScreen scan={scan} indicator={status} signOut={() => session.signOut()} />
+          : destination === 'capture' ? null
+          : destination === 'manual' ? role === 'offline'
+              ? <OfflineManualCaptureScreen manual={offlineManual} restorationKey="offline" />
+              : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
+          : destination === 'times' ? work ? <OwnTimeScreen work={work} />
+              : <MessageScreen title="Deine Zeiten sind derzeit nicht verfügbar." />
+          : role === 'administrator' ? <AdminSetupScreen administration={administration} /> : null}
+      </View>
+    </EmbeddedScreenContext.Provider>
     <View style={styles.destinationBar} accessibilityRole="tablist">
-      {destinations.map((item) => <ActionButton
-        key={item.id}
-        title={item.label}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: item.id === destination }}
-        onPress={() => navigate(item.id)}
-        tone={item.id === destination ? 'primary' : 'quiet'}
-        style={styles.destination}
-      />)}
+      {destinations.map((item) => <TouchTarget key={item} accessibilityRole="tab"
+        accessibilityLabel={destinationLabels[item]}
+        accessibilityState={{ selected: !showSync && item === destination }}
+        onPress={() => navigate(item)}
+        style={({ pressed }) => [styles.destination, pressed && styles.pressed]}>
+        <LineIcon name={item} size={24} color={!showSync && item === destination
+          ? mobileTokens.color.accent : mobileTokens.color.textMuted} />
+        <Text style={[styles.tabLabel, !showSync && item === destination && styles.activeLabel]}>
+          {destinationLabels[item]}
+        </Text>
+      </TouchTarget>)}
     </View>
   </View>;
 }
@@ -302,57 +239,28 @@ function MessageScreen({
 }
 
 const styles = StyleSheet.create({
-  productShell: { flex: 1, backgroundColor: mobileTokens.color.canvas },
+  productShell: { flex: 1, backgroundColor: mobileTokens.color.canvas,
+    paddingTop: Platform.OS === 'android' ? 32 : 48 },
   productContent: { flex: 1 },
-  sessionBar: {
-    minHeight: mobileTokens.touchMinimum,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: mobileTokens.spacing.md,
-    paddingTop: mobileTokens.spacing.xs,
-  },
-  sessionRole: { color: mobileTokens.color.inkMuted, fontSize: 13, fontWeight: '700' },
-  signOutAction: {
-    minHeight: mobileTokens.touchMinimum,
-    paddingHorizontal: mobileTokens.spacing.sm,
-  },
-  destinationBar: {
-    minHeight: 68,
-    flexDirection: 'row',
-    backgroundColor: mobileTokens.color.surface,
-    borderTopColor: mobileTokens.color.border,
-    borderTopWidth: 1,
-    paddingHorizontal: mobileTokens.spacing.xs,
-    paddingBottom: mobileTokens.spacing.sm,
-  },
-  destination: {
-    flex: 1,
-    minHeight: mobileTokens.touchMinimum,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: mobileTokens.radius.control,
-    paddingHorizontal: mobileTokens.spacing.xs,
-  },
-  administratorShell: { flex: 1, backgroundColor: mobileTokens.color.ground },
-  tabs: {
-    flexDirection: 'row',
-    gap: mobileTokens.spacing.sm,
-    paddingTop: 40,
-    paddingHorizontal: mobileTokens.spacing.md,
-    paddingBottom: mobileTokens.spacing.xs,
-    backgroundColor: mobileTokens.color.surface,
-  },
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: mobileTokens.spacing.sm,
-    paddingHorizontal: mobileTokens.spacing.lg,
-    backgroundColor: mobileTokens.color.ground,
-  },
-  title: {
-    color: mobileTokens.color.text,
-    fontSize: 18,
-    fontWeight: '600',
-  },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20,
+    paddingTop: 16, paddingBottom: 8, gap: 8 },
+  heading: { flex: 1 },
+  title: { color: mobileTokens.color.text, fontSize: 22, lineHeight: 28, fontWeight: '800' },
+  subtitle: { color: mobileTokens.color.textMuted, fontSize: 13, fontWeight: '600' },
+  iconAction: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  confirmedDot: { width: 10, height: 10, borderRadius: 999, backgroundColor: mobileTokens.color.accent },
+  pendingBadge: { minWidth: 24, height: 24, paddingHorizontal: 4, borderRadius: 999,
+    backgroundColor: mobileTokens.color.notice, alignItems: 'center', justifyContent: 'center' },
+  badgeText: { color: mobileTokens.color.onAccent, fontSize: 12, fontWeight: '800' },
+  destinationBar: { flexDirection: 'row', backgroundColor: mobileTokens.color.surface,
+    borderTopColor: mobileTokens.color.border, borderTopWidth: 1,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12 },
+  destination: { flex: 1, height: 56, justifyContent: 'center', alignItems: 'center', gap: 2 },
+  tabLabel: { color: mobileTokens.color.textMuted, fontSize: 11, lineHeight: 16, fontWeight: '600' },
+  activeLabel: { color: mobileTokens.color.accent },
+  pressed: { backgroundColor: mobileTokens.color.surfaceRaised },
+  focused: { outlineWidth: 3, outlineColor: mobileTokens.color.focus, outlineStyle: 'solid' },
+  administratorShell: { flex: 1, backgroundColor: mobileTokens.color.ground, padding: 24, gap: 16 },
+  container: { flex: 1, justifyContent: 'center', gap: 8, paddingHorizontal: 24,
+    backgroundColor: mobileTokens.color.ground },
 });

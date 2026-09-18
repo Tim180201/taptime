@@ -21,10 +21,10 @@ if (!validVariantPair) {
 const configuration = {
   ...base.expo,
   name: productionValidation
-    ? 'TapTim.e Produktionstest'
+    ? 'Taptura Produktionstest'
     : physicalValidation
-      ? 'TapTim.e Validation'
-      : 'TapTim.e',
+      ? 'Taptura Validation'
+      : 'Taptura',
   slug: 'mobile',
   scheme: physicalValidation
     ? 'taptime-validation'

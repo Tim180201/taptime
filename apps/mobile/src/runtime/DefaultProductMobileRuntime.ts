@@ -1,6 +1,6 @@
 import type { MobileSessionCapability } from '../auth/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
-import type { ProductScanCapability } from '../scan/contracts';
+import type { ProductScanCapability, ProductScanState } from '../scan/contracts';
 import type { ProductServerTransport } from '../transport/contracts';
 import type { MobileWorkCapability, MobileWorkState } from '../work/contracts';
 import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
@@ -71,6 +71,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   private readonly administrationCapability: AdminSetupCapability;
   private readonly workCapability: MobileWorkCapability;
   private readonly offlineManualCapability: OfflineManualCaptureCapability;
+  private unsubscribeProtection: (() => void) | null = null;
+  private lastAccount: string | null = null;
+  private protectionRevision = 0;
+  private protectionFlight: Promise<void> = Promise.resolve();
+  private protectionState: ProductScanState | null = null;
+  private readonly protectionListeners = new Set<() => void>();
 
   constructor(
     private readonly coordinator: ProductSessionRuntimeOwner,
@@ -119,9 +125,13 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     });
     // React receives state/actions only: no native manager, C2 client, token or raw UID.
     this.scanCapability = Object.freeze({
-      getState: () => this.scanOrchestrator.getState(),
-      subscribe: (listener: () => void) => this.scanOrchestrator.subscribe(listener),
-      scan: () => this.scanOrchestrator.scan(),
+      getState: () => this.protectionState ?? this.scanOrchestrator.getState(),
+      subscribe: (listener: () => void) => {
+        this.protectionListeners.add(listener);
+        const unsubscribe = this.scanOrchestrator.subscribe(listener);
+        return () => { unsubscribe(); this.protectionListeners.delete(listener); };
+      },
+      scan: () => this.protectionState === null ? this.scanOrchestrator.scan() : Promise.resolve(),
       cancel: () => this.scanOrchestrator.cancel(),
       retry: () => this.scanOrchestrator.retry(),
     });
@@ -204,6 +214,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       return;
     }
     if (!this.isCurrentRuntime(runtimeGeneration)) return;
+    this.lastAccount = this.accountKey();
+    this.unsubscribeProtection = this.coordinator.subscribe(() => this.onProtectionAccountChanged());
     try {
       await this.coordinator.start();
     } catch (error) {
@@ -227,6 +239,10 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     }
     this.started = false;
     this.runtimeGeneration += 1;
+    this.protectionRevision += 1;
+    this.unsubscribeProtection?.();
+    this.unsubscribeProtection = null;
+    this.protectionState = null;
     this.appStateLifecycle.stop();
     this.offlineSchedulingLifecycle.stop();
     this.mobileWorkCoordinator.stop();
@@ -239,6 +255,44 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
 
   private isCurrentRuntime(runtimeGeneration: number): boolean {
     return this.started && runtimeGeneration === this.runtimeGeneration;
+  }
+
+  private accountKey(): string | null {
+    const state = this.coordinator.getState();
+    return state.status === 'authenticated'
+      ? `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}/${state.session.role}`
+      : null;
+  }
+
+  private onProtectionAccountChanged(): void {
+    const account = this.accountKey();
+    if (account === this.lastAccount) return;
+    this.lastAccount = account;
+    const revision = ++this.protectionRevision;
+    if (account === null) return;
+    const state = this.scanOrchestrator.getState();
+    if (this.protectionState === null && state.status !== 'protected_pending'
+      && state.status !== 'secure_storage_unavailable') return;
+    const runtimeGeneration = this.runtimeGeneration;
+    this.publishProtection({ status: 'checking' });
+    // Reopen through the existing lifecycle: owner checks and retained evidence stay authoritative.
+    // In particular, no owner, lease ID or queued event is reassigned here (D-055).
+    this.protectionFlight = this.protectionFlight.then(async () => {
+      if (!this.isCurrentRuntime(runtimeGeneration) || revision !== this.protectionRevision) return;
+      await this.scanOrchestrator.stop();
+      if (!this.isCurrentRuntime(runtimeGeneration) || revision !== this.protectionRevision) return;
+      await this.scanOrchestrator.start();
+      if (this.isCurrentRuntime(runtimeGeneration) && revision === this.protectionRevision) this.publishProtection(null);
+    }).catch(() => {
+      if (this.isCurrentRuntime(runtimeGeneration) && revision === this.protectionRevision) {
+        this.publishProtection({ status: 'secure_storage_unavailable' });
+      }
+    });
+  }
+
+  private publishProtection(state: ProductScanState | null): void {
+    this.protectionState = state === null ? null : Object.freeze(state);
+    for (const listener of this.protectionListeners) listener();
   }
 }
 

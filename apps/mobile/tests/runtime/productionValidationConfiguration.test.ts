@@ -120,7 +120,7 @@ describe('production validation build configuration', () => {
         eas: { projectId: 'a585d394-130a-41d9-af16-53038ce2e7ff' },
         taptimeBuild: { sourceCommit: commit },
       },
-      name: 'TapTim.e Produktionstest',
+      name: 'Taptura Produktionstest',
       packageName: 'com.tim180201.mobile.productionvalidation',
       scheme: 'taptime-production-validation',
     });

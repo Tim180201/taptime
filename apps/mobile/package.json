@@ -4,6 +4,7 @@
   "description": "TapTim.e Mobile app with C1 authentication, C2 private transport, C3E1 Employee enrollment, and an explicit development-only demo path.",
   "main": "index.ts",
   "dependencies": {
+    "@expo-google-fonts/manrope": "^0.4.2",
     "@noble/hashes": "2.2.0",
     "@supabase/supabase-js": "^2.110.3",
     "@taptime/core": "*",

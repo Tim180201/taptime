@@ -1,13 +1,11 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import {
-  AccessibilityInfo,
-  Animated,
-  Easing,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import type { ProductMembershipRole } from '../auth/contracts';
-import { ActionButton, AppText as Text } from '../design/primitives';
+import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/primitives';
+import { ScanRing } from '../design/ScanRing';
+import { RecentTimeCard } from './RecentTimeCard';
+import { connectTapMoment, TapMomentPresenter } from './tapMoment';
+import type { MobileWorkCapability } from '../work/contracts';
 import { mobileTokens } from '../design/tokens';
 import {
   type ProductScanCapability,
@@ -19,6 +17,7 @@ interface ScanScreenProps {
   readonly scan: ProductScanCapability;
   readonly signOut: () => Promise<void>;
   readonly embedded?: boolean;
+  readonly work?: MobileWorkCapability;
 }
 
 export interface ScanScreenPresentation {
@@ -27,161 +26,65 @@ export interface ScanScreenPresentation {
   readonly tone: 'neutral' | 'success' | 'warning' | 'error';
 }
 
-export function ScanScreen({ actor, scan, signOut, embedded = false }: ScanScreenProps) {
-  const state = useSyncExternalStore(
-    (listener) => scan.subscribe(listener),
-    () => scan.getState(),
-    () => scan.getState(),
-  );
+export function ScanScreen({ actor, scan, signOut, embedded = false, work }: ScanScreenProps) {
+  const state = useSyncExternalStore((listener) => scan.subscribe(listener),
+    () => scan.getState(), () => scan.getState());
+  const presenter = useMemo(() => new TapMomentPresenter(), []);
+  const moment = useSyncExternalStore(presenter.subscribe, presenter.getState, presenter.getState);
+  useEffect(() => {
+    const unsubscribe = connectTapMoment(scan, presenter, work);
+    return () => { unsubscribe(); presenter.dispose(); };
+  }, [scan, presenter, work]);
+  const showMoment = moment !== null;
+  const ready = isScanReadyState(state);
+  const resting = (ready && (state.status === 'saved_locally' || state.status === 'server_decision' && presentScanState(state).tone === 'success' || ('outcome' in state && (state.outcome === null || presentScanState(state).tone === 'success'))))
+    || state.status === 'scanning';
   const presentation = presentScanState(state);
-
-
-  return (
-    <View style={[styles.container, embedded && styles.embeddedContainer]}>
-      {embedded ? null : <View style={styles.header}>
-        <Text style={styles.brand}>TapTim.e</Text>
-        <Text style={styles.role}>{presentActor(actor)}</Text>
-      </View>}
-
-      <View
-        style={[styles.statusCard, styles[`status_${presentation.tone}`]]}
-        accessibilityLiveRegion="polite"
-        testID="scan-status"
-      >
-        <BreathingScanIndicator state={state} tone={presentation.tone} />
-        <Text style={styles.statusTitle}>{presentation.title}</Text>
-        <Text style={styles.statusMessage}>{presentation.message}</Text>
+  return <View style={[styles.container, embedded && styles.embeddedContainer]}>
+    {embedded ? null : <View style={styles.header}><Text style={styles.brand}>Taptura</Text>
+      <Text style={styles.role}>{presentActor(actor)}</Text></View>}
+    <ScrollView contentContainerStyle={styles.content}>
+      <View style={styles.scene} accessibilityLiveRegion="polite" testID="scan-status">
+        <TouchTarget accessibilityRole="button" accessibilityLabel="NFC-Tag jetzt scannen"
+          accessibilityState={{ disabled: !ready }} disabled={!ready}
+          onPress={() => scan.scan()} testID="scan-button">
+          <ScanRing animate={!showMoment && resting} scanning={state.status === 'scanning'}
+            result={showMoment ? moment.confirmed ? 'confirmed' : 'pending' : null} />
+        </TouchTarget>
+        <Text style={[styles.statusTitle, showMoment && { color: moment.confirmed
+          ? mobileTokens.color.accent : mobileTokens.color.notice }]}>
+          {showMoment ? moment.title : resting ? 'Tag antippen' : presentation.title}
+        </Text>
+        <Text style={styles.statusMessage}>
+          {showMoment ? moment.confirmed ? 'Vom Server bestätigt'
+            : 'Sicher gespeichert, wird nachgereicht'
+            : resting ? state.status === 'scanning'
+              ? 'Halte dein Handy an den Tag.'
+              : 'Tippe auf den Kreis und halte dein Handy an den Tag. Start und Stopp erkennt Taptura selbst.'
+              : presentation.message}
+        </Text>
+        {showMoment ? <Text style={styles.statusMessage}>Bereit für den nächsten Tap</Text> : null}
+        {state.status === 'scanning' ? <ActionButton title="Scan abbrechen" tone="quiet"
+          onPress={() => scan.cancel()} testID="cancel-scan-button" /> : null}
+        {state.status === 'retry_pending' ? <ActionButton title="Unveränderte Daten erneut senden"
+          onPress={() => scan.retry()} testID="retry-same-evidence-button" /> : null}
       </View>
-
-      <View style={styles.actions}>
-        <ActionButton
-          title="NFC-Tag scannen"
-          onPress={() => scan.scan()}
-          disabled={!isScanReadyState(state)}
-          accessibilityLabel="NFC-Tag jetzt scannen"
-          testID="scan-button"
-        />
-        {state.status === 'scanning' ? (
-          <ActionButton
-            title="Scan abbrechen"
-            tone="secondary"
-            onPress={() => scan.cancel()}
-            accessibilityLabel="Aktiven NFC-Scan abbrechen"
-            testID="cancel-scan-button"
-          />
-        ) : null}
-        {state.status === 'retry_pending' || state.status === 'saved_locally' ? (
-          <ActionButton
-            title="Unveränderte Daten erneut senden"
-            onPress={() => scan.retry()}
-            accessibilityLabel="Dieselben Scan-Daten erneut senden"
-            testID="retry-same-evidence-button"
-          />
-        ) : null}
-      </View>
-
-      {embedded ? null : <View style={styles.signOut}>
-        <ActionButton
-          title="Abmelden"
-          tone="quiet"
-          onPress={signOut}
-          accessibilityLabel="Von TapTim.e abmelden"
-          testID="sign-out-button"
-        />
-      </View>}
-    </View>
-  );
+      {work ? <RecentTimeCard work={work} /> : <Card><Text style={styles.role}>Zuletzt</Text>
+        <Text>Bestätigte Zeiten siehst du nach dem Abgleich.</Text></Card>}
+    </ScrollView>
+    {embedded ? null : <ActionButton title="Abmelden" tone="quiet" onPress={signOut} />}
+  </View>;
 }
 
 export function presentActor(actor: ProductMembershipRole | 'offline'): string {
-  if (actor === 'administrator') return 'Administrator';
-  if (actor === 'employee') return 'Beschäftigter';
-  return 'Offline-Erfassung';
+  return actor === 'administrator' ? 'Administrator' : actor === 'standortleitung' ? 'Standortleitung'
+    : actor === 'offline' ? 'Offline-Erfassung' : 'Beschäftigter';
 }
 
-function BreathingScanIndicator({
-  state,
-  tone,
-}: {
-  readonly state: ProductScanState;
-  readonly tone: ScanScreenPresentation['tone'];
-}) {
-  const reducedMotion = useReducedMotion();
-  const progress = useRef(new Animated.Value(1)).current;
-  const active = shouldAnimateScanIndicator(state, reducedMotion);
-
-  useEffect(() => {
-    if (!active) {
-      progress.stopAnimation();
-      progress.setValue(1);
-      return;
-    }
-    const animation = Animated.loop(Animated.sequence([
-      Animated.timing(progress, {
-        toValue: 0,
-        duration: 1_400,
-        easing: Easing.inOut(Easing.sin),
-        useNativeDriver: true,
-      }),
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: 1_400,
-        easing: Easing.inOut(Easing.sin),
-        useNativeDriver: true,
-      }),
-    ]));
-    animation.start();
-    return () => animation.stop();
-  }, [active, progress]);
-
-  const symbol = state.status === 'submitting' || state.status === 'synchronizing'
-    ? '···'
-    : tone === 'success' ? '✓' : tone === 'error' || tone === 'warning' ? '!' : 'NFC';
-  return <Animated.View
-    accessibilityElementsHidden
-    importantForAccessibility="no-hide-descendants"
-    style={[
-      styles.scanIndicator,
-      styles[`indicator_${tone}`],
-      active && {
-        opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.62, 1] }),
-        transform: [{
-          scale: progress.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.04] }),
-        }],
-      },
-    ]}
-  >
-    <Text style={styles.scanIndicatorText}>{symbol}</Text>
-  </Animated.View>;
-}
-
-export function shouldAnimateScanIndicator(
-  state: ProductScanState,
-  reducedMotion: boolean,
-): boolean {
+export function shouldAnimateScanIndicator(state: ProductScanState, reducedMotion: boolean): boolean {
   if (reducedMotion) return false;
-  return state.status === 'scanning'
-    || (state.status === 'ready' && state.outcome === null)
+  return state.status === 'scanning' || (state.status === 'ready' && state.outcome === null)
     || (state.status === 'offline_ready' && state.outcome === null);
-}
-
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(true);
-  useEffect(() => {
-    let active = true;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
-      if (active) setReduced(enabled);
-    });
-    const subscription = AccessibilityInfo.addEventListener(
-      'reduceMotionChanged',
-      setReduced,
-    );
-    return () => {
-      active = false;
-      subscription.remove();
-    };
-  }, []);
-  return reduced;
 }
 
 export function presentScanState(state: ProductScanState): ScanScreenPresentation {
@@ -264,6 +167,11 @@ export function presentScanState(state: ProductScanState): ScanScreenPresentatio
         tone: 'error',
       };
     case 'protected_pending':
+      if (state.reason === 'local_evidence_protected') return {
+        title: 'Lokaler Speicher geschützt',
+        message: 'Die Vorgänge im lokalen Speicher können gerade nicht sicher gelesen oder verarbeitet werden. Lösche weder die App noch ihre Daten und wende dich an den Support.',
+        tone: 'warning',
+      };
       return state.reason === 'legacy_membership_unknown'
         ? {
             title: 'Älterer Vorgang geschützt',
@@ -346,91 +254,13 @@ function isScanReadyState(state: ProductScanState): boolean {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingTop: 56,
-    paddingHorizontal: mobileTokens.spacing.md,
-    backgroundColor: mobileTokens.color.ground,
-  },
-  embeddedContainer: { paddingTop: mobileTokens.spacing.lg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: mobileTokens.spacing.xl,
-  },
-  brand: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: mobileTokens.color.text,
-  },
-  role: {
-    fontSize: 14,
-    color: mobileTokens.color.textMuted,
-  },
-  statusCard: {
-    minHeight: 160,
-    justifyContent: 'center',
-    borderRadius: mobileTokens.radius.card,
-    borderWidth: 1,
-    padding: mobileTokens.spacing.lg,
-    alignItems: 'center',
-  },
-  status_neutral: {
-    backgroundColor: mobileTokens.color.surface,
-    borderColor: mobileTokens.color.line,
-  },
-  status_success: {
-    backgroundColor: mobileTokens.color.surface,
-    borderColor: mobileTokens.color.success,
-  },
-  status_warning: {
-    backgroundColor: mobileTokens.color.surface,
-    borderColor: mobileTokens.color.warning,
-  },
-  status_error: {
-    backgroundColor: mobileTokens.color.surface,
-    borderColor: mobileTokens.color.danger,
-  },
-  statusTitle: {
-    fontSize: 21,
-    fontWeight: '700',
-    color: mobileTokens.color.text,
-    marginBottom: mobileTokens.spacing.sm,
-    textAlign: 'center',
-  },
-  statusMessage: {
-    fontSize: 16,
-    lineHeight: 23,
-    color: mobileTokens.color.textMuted,
-    textAlign: 'center',
-  },
-  scanIndicator: {
-    width: 72,
-    height: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: mobileTokens.radius.pill,
-    borderWidth: 3,
-    marginBottom: mobileTokens.spacing.md,
-    backgroundColor: mobileTokens.color.surfaceRaised,
-  },
-  indicator_neutral: { borderColor: mobileTokens.color.accent },
-  indicator_success: { borderColor: mobileTokens.color.success },
-  indicator_warning: { borderColor: mobileTokens.color.warning },
-  indicator_error: { borderColor: mobileTokens.color.danger },
-  scanIndicatorText: {
-    color: mobileTokens.color.text,
-    fontSize: 16,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-  },
-  actions: {
-    gap: mobileTokens.spacing.sm,
-    marginTop: mobileTokens.spacing.lg,
-  },
-  signOut: {
-    marginTop: 'auto',
-    marginBottom: mobileTokens.spacing.lg,
-  },
+  container: { flex: 1, paddingTop: 56, paddingHorizontal: 20, backgroundColor: mobileTokens.color.ground },
+  embeddedContainer: { paddingTop: 0 },
+  content: { flexGrow: 1, paddingBottom: 16, gap: 16 },
+  scene: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  brand: { fontSize: 22, fontWeight: '800' },
+  role: { fontSize: 13, color: mobileTokens.color.textMuted },
+  statusTitle: { fontSize: 24, fontWeight: '800', textAlign: 'center' },
+  statusMessage: { fontSize: 15, lineHeight: 22, color: mobileTokens.color.textMuted, textAlign: 'center', maxWidth: 320 },
 });

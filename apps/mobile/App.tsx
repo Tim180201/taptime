@@ -2,9 +2,11 @@ import { StatusBar } from 'expo-status-bar';
 import { lazy, Suspense } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { ProductMobileApp } from './src/ProductMobileApp';
-import { AppText as Text } from './src/design/primitives';
+import { AppText as Text, FontReadyContext } from './src/design/primitives';
 import { mobileTokens } from './src/design/tokens';
 import { selectMobileCompositionMode } from './src/runtime/compositionMode';
+
+import { useFonts, Manrope_400Regular, Manrope_600SemiBold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
 
 const DevelopmentDemoMobileApp = lazy(async () => {
   const module = await import('./src/demo/DemoMobileApp');
@@ -17,13 +19,14 @@ const PhysicalValidationMobileApp = lazy(async () => {
 });
 
 export default function App() {
+  const [fontsLoaded] = useFonts({ Manrope_400Regular, Manrope_600SemiBold, Manrope_800ExtraBold });
   const mode = selectMobileCompositionMode(
     process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT === 'physical-validation',
     process.env.EXPO_PUBLIC_TAPTIME_DEMO_MODE === 'true',
     __DEV__,
   );
   return (
-    <>
+    <FontReadyContext.Provider value={fontsLoaded}>
       {mode === 'physical_validation'
         ? (
             <Suspense fallback={<View />}>
@@ -40,7 +43,7 @@ export default function App() {
           ? <ProductMobileApp />
           : <ForbiddenConfiguration />}
       <StatusBar style="light" />
-    </>
+    </FontReadyContext.Provider>
   );
 }
 

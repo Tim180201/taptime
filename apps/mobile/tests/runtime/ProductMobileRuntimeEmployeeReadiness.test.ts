@@ -65,6 +65,31 @@ const expiresAt = '2026-08-13T20:00:00.000Z';
 const wallClock = Date.parse(issuedAt);
 
 describe('Product Mobile runtime Employee readiness', () => {
+  it('reopens protected infrastructure on login without rewriting the retained owner or leases', async () => {
+    const secureStore = memorySecureStore();
+    const database = new MemoryOfflineDatabase();
+    const first = productRuntimeHarness(session(ids.employee, ids.membership), secureStore.port, database);
+    await first.runtime.start();
+    await first.runtime.session.signIn('first@example.invalid', 'password');
+    await vi.waitFor(() => expect(first.runtime.scan.getState().status).toBe('ready'));
+    first.runtime.stop();
+    await vi.waitFor(() => expect(database.closed).toBe(true));
+    const owner = structuredClone(database.owner);
+    const leases = structuredClone(database.leases);
+    let opens = 0;
+    const next = productRuntimeHarness(session(ids.employee, ids.membership),
+      secureStore.port, database, () => { if (++opens === 1) throw new Error('transient open failure'); });
+    try {
+      await next.runtime.start();
+      expect(next.runtime.scan.getState()).toMatchObject({ status: 'protected_pending', reason: 'local_evidence_protected' });
+      await next.runtime.session.signIn('second@example.invalid', 'password');
+      await vi.waitFor(() => expect(next.runtime.scan.getState()).toEqual({ status: 'ready', outcome: null }));
+      expect(opens).toBeGreaterThan(1);
+      expect(database.owner).toEqual(owner);
+      expect(database.leases).toEqual(leases);
+    } finally { next.runtime.stop(); }
+  });
+
   it('starts empty infrastructure before login, activates an exact v3 Employee lease, and protects a retained different owner',
     async () => {
       const secureStore = memorySecureStore();
@@ -156,6 +181,7 @@ function productRuntimeHarness(
   productSession: ProductSessionContext,
   secureStore: OfflineSecureStorePort,
   nativeDatabase: MemoryOfflineDatabase,
+  beforeDatabaseOpen: () => void = () => {},
 ) {
   const provider = new MemoryProvider();
   const sessionCoordinator = new MobileSessionCoordinator(
@@ -198,6 +224,7 @@ function productRuntimeHarness(
   );
   const leaseRequests = new V2LeaseRequest(productSession);
   const databaseFactory = (key: Uint8Array) => new OfflineCaptureDatabase(async () => {
+    beforeDatabaseOpen();
     nativeDatabase.closed = false;
     return nativeDatabase;
   }, key);
@@ -242,6 +269,8 @@ function productRuntimeHarness(
       async clear() {},
     },
     () => ids.command,
+    { bind() {} },
+    () => new Date(wallClock),
   );
   const runtime = new DefaultProductMobileRuntime(
     sessionCoordinator,
@@ -317,6 +346,7 @@ class V2LeaseRequest implements AuthenticatedJsonPostPort {
 }
 
 function leasePage(productSession: ProductSessionContext): OfflineCaptureLeasePageV3 {
+  if (productSession.role === 'standortleitung') throw new Error('This fixture covers employee/admin lease roles.');
   const items = [{
     itemType: 'nfc_assignment' as const,
     subjectType: 'work' as const,

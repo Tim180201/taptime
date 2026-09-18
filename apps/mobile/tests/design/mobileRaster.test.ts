@@ -95,8 +95,10 @@ describe('mobile color and control raster', () => {
     );
     expect(source).not.toMatch(/\bAlert\b|\bModal\b|title=["'](?:OK|Bestätigen|Schließen)["']/);
     expect(source).toContain('if (reducedMotion) return false');
-    expect(source).toContain('progress.stopAnimation()');
-    expect(source).toContain("'reduceMotionChanged'");
+    const ring = await readFile(new URL('../../src/design/ScanRing.tsx', import.meta.url), 'utf8');
+    expect(ring).toContain('if (reducedMotion) return');
+    expect(ring).toContain('value.stopAnimation()');
+    expect(ring).toContain("'reduceMotionChanged'");
   });
 });
 

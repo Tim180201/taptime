@@ -31,7 +31,7 @@
       [
         "react-native-nfc-manager",
         {
-          "nfcPermission": "TapTim.e uses NFC to detect scanned tags.",
+          "nfcPermission": "Taptura uses NFC to detect scanned tags.",
           "selectIdentifiers": [],
           "systemCodes": []
         }

@@ -7,6 +7,7 @@ import {
 import type { SafeWorkTarget, WorkTargetType } from '@taptime/mobile-work-contract';
 import type { MobileWorkCapability } from '../work/contracts';
 import { ActionButton, AppText as Text, Card, Screen, TextField } from '../design/primitives';
+import { RecentTime } from './RecentTimeCard';
 import { mobileTokens } from '../design/tokens';
 
 export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapability }) {
@@ -16,7 +17,9 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
     () => work.getState(),
   );
   const [search, setSearch] = useState('');
+  const [selectionError, setSelectionError] = useState(false);
   const [selected, setSelected] = useState<SafeWorkTarget | null>(null);
+  const [pauseTag, setPauseTag] = useState(false);
   const visible = useMemo(() => state.status === 'ready'
     ? state.targets.targets.filter((target) => (
         target.displayName.toLocaleLowerCase('de-DE')
@@ -40,21 +43,10 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
 
   return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
     <Text style={styles.explanation}>
-      Ziel auswählen und einmal auslösen. TapTim.e entscheidet sicher über Start oder Stopp.
+      Wähle dein Arbeitsziel. Taptura entscheidet über Start oder Stopp. Die Zeit bleibt als manuell erfasst gekennzeichnet.
     </Text>
-    <Card>
-      <Text style={styles.selection}>Pause</Text>
-      <Text style={styles.explanation}>
-        Einmal auslösen. TapTim.e entscheidet, ob die Pause beginnt oder endet.
-      </Text>
-      <ActionButton
-        title={state.submitting ? 'Wird sicher ausgelöst …' : 'Pause auslösen'}
-        disabled={state.submitting}
-        loading={state.submitting}
-        onPress={() => work.triggerBreak()}
-        accessibilityHint="Der Server entscheidet, ob die Pause beginnt oder endet."
-      />
-    </Card>
+    <Text style={styles.selection}>Arbeitsziel</Text>
+    {selectionError && selected === null && !pauseTag ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten.</Text> : null}
     <TextField
       value={search}
       onChangeText={setSearch}
@@ -73,27 +65,38 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
             title={target.displayName}
             tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
             accessibilityState={{ selected: selected?.targetId === target.targetId }}
-            onPress={() => setSelected(target)}
+            onPress={() => { setSelected(target); setPauseTag(false); setSelectionError(false); }}
           />)}
         </View>;
       })}
+      <ActionButton
+        title="Pause"
+        tone={pauseTag ? 'primary' : 'quiet'}
+        accessibilityState={{ selected: pauseTag }}
+        accessibilityHint="Der Server entscheidet, ob die Pause beginnt oder endet."
+        onPress={() => { setSelected(null); setPauseTag(true); setSelectionError(false); }}
+      />
     </ScrollView>
     <Card>
       <Text style={styles.selection}>
-        {selected === null ? 'Noch kein Arbeitsziel ausgewählt' : selected.displayName}
+        {pauseTag ? 'Pause' : selected === null ? 'Noch kein Arbeitsziel ausgewählt' : selected.displayName}
       </Text>
       <ActionButton
-        title={state.submitting ? 'Wird sicher ausgelöst …' : 'Arbeitszeit auslösen'}
-        disabled={selected === null || state.submitting}
+        tone="cta"
+        title={state.submitting ? 'Wird erfasst …' : 'Jetzt erfassen'}
+        disabled={state.submitting}
         loading={state.submitting}
-        onPress={() => selected === null ? undefined : work.triggerManual(selected)}
-        accessibilityHint="Der Server entscheidet, ob die Arbeitszeit startet oder stoppt."
+        onPress={() => pauseTag ? work.triggerBreak()
+          : selected === null ? setSelectionError(true) : work.triggerManual(selected)}
+        accessibilityHint={pauseTag ? 'Der Server entscheidet, ob die Pause beginnt oder endet.'
+          : 'Der Server entscheidet, ob die Arbeitszeit startet oder stoppt.'}
       />
       {state.outcome === null ? null
         : <Text accessibilityLiveRegion="polite" style={styles.outcome}>
             {outcomeLabel(state.outcome)}
           </Text>}
     </Card>
+    <RecentTime ownTime={state.ownTime} />
   </Screen>;
 }
 

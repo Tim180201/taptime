@@ -9,6 +9,12 @@ const session = {
 };
 
 describe('TapTimeSessionApiClient', () => {
+  it('accepts the server-issued Standortleitung role without promoting it to administrator', async () => {
+    const body = { ...session, role: 'standortleitung' };
+    const client = new TapTimeSessionApiClient('https://api.example/', async () => Response.json(body));
+    await expect(client.resolve('token')).resolves.toEqual({ status: 'resolved', session: body });
+  });
+
   it('records password reset completion with the recovery token and exact response', async () => {
     const requests: Array<[URL | RequestInfo, RequestInit | undefined]> = [];
     const client = new TapTimeSessionApiClient('https://api.example/base/', async (input, init) => {

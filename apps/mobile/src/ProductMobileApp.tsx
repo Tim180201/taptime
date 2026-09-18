@@ -62,7 +62,7 @@ function ReadyProductMobileApp({
 function UnavailableProductRuntime() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>TapTim.e ist nicht verfügbar.</Text>
+      <Text style={styles.title}>Taptura ist nicht verfügbar.</Text>
       <Text>Die sichere Laufzeitkonfiguration konnte nicht geladen werden.</Text>
       <AppBuildIdentity style={styles.buildIdentity} />
     </View>

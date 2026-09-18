@@ -30,6 +30,7 @@ export const mobileTokens = Object.freeze({
   radius: Object.freeze({ card: 12, control: 10, pill: 999 }),
   spacing: Object.freeze({ xs: 4, sm: 8, md: 16, lg: 24, xl: 32 }),
   touchMinimum: 44,
+  font: Object.freeze({ regular: 'Manrope_400Regular', semibold: 'Manrope_600SemiBold', bold: 'Manrope_800ExtraBold' }),
 });
 
 export type MobileColorToken = keyof typeof mobileTokens.color;

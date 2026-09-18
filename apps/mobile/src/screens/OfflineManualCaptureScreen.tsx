@@ -71,7 +71,7 @@ export function OfflineManualCaptureScreen({
       <Card>
         <Text accessibilityRole={projection.status === 'loading' ? undefined : 'alert'}>
           {projection.status === 'loading'
-            ? 'Sicher geleaste Arbeitsziele werden geladen …'
+            ? 'Offline-Arbeitsziele werden geladen …'
             : projection.status === 'protected'
               ? 'Die lokale Zielzuordnung ist geschützt und kann nicht verwendet werden.'
               : 'Offline-Arbeitsziele sind derzeit nicht verfügbar.'}
@@ -114,8 +114,9 @@ export function OfflineManualCaptureScreen({
 
   return <Screen title="Manuell erfassen" eyebrow="OFFLINE">
     <Text style={styles.explanation}>
-      Nur sicher geleaste Ziele sind offline verfügbar. Start oder Stopp entscheidet der Server.
+      Wähle dein Arbeitsziel. Der Vorgang wird sicher gespeichert; Start oder Stopp entscheidet der Server beim Abgleich.
     </Text>
+    <Text style={styles.group}>Arbeitsziel</Text>
     <TextField
       value={search}
       onChangeText={setSearch}
@@ -145,7 +146,8 @@ export function OfflineManualCaptureScreen({
     <Card>
       <Text>{selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
       <ActionButton
-        title={submitting ? 'Wird sicher gespeichert …' : 'Arbeitszeit auslösen'}
+        tone="cta"
+        title={submitting ? 'Wird sicher gespeichert …' : 'Jetzt erfassen'}
         disabled={
           selected === null
           || submitting
@@ -160,6 +162,9 @@ export function OfflineManualCaptureScreen({
             {offlineOutcomeLabel(outcome)}
           </Text>}
     </Card>
+    <Card><Text style={styles.group}>Zuletzt</Text><Text>
+      {outcome === null ? 'Bestätigte Zeiten siehst du nach dem Abgleich.' : offlineOutcomeLabel(outcome)}
+    </Text></Card>
   </Screen>;
 }
 

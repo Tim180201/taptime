@@ -1,4 +1,4 @@
-import { useState, type PropsWithChildren } from 'react';
+import { createContext, useContext, useState, type PropsWithChildren } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,13 +9,25 @@ import {
   type PressableProps,
   type TextInputProps,
   type TextProps,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { mobileTokens } from './tokens';
 import { resolveControlVisualState } from './controlState';
 
+export const FontReadyContext = createContext(false);
+export const EmbeddedScreenContext = createContext(false);
+
+export function manropeStyle(weight: TextStyle['fontWeight']): TextStyle {
+  const value = weight === 'bold' ? 800 : Number(weight ?? 400);
+  return { fontFamily: value >= 700 ? mobileTokens.font.bold
+    : value >= 500 ? mobileTokens.font.semibold : mobileTokens.font.regular, fontWeight: 'normal' };
+}
+
 export function AppText({ style, ...props }: TextProps) {
-  return <Text {...props} style={[styles.bodyText, style]} />;
+  const loaded = useContext(FontReadyContext);
+  return <Text {...props} style={[styles.bodyText, style,
+    loaded && manropeStyle(StyleSheet.flatten(style)?.fontWeight)]} />;
 }
 
 export function Screen({
@@ -23,11 +35,12 @@ export function Screen({
   eyebrow,
   children,
 }: PropsWithChildren<{ readonly title: string; readonly eyebrow?: string }>) {
-  return <View style={styles.screen}>
-    <View style={styles.heading}>
-      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-      <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-    </View>
+  const embedded = useContext(EmbeddedScreenContext);
+  return <View style={[styles.screen, embedded && { paddingTop: 8 }]}>
+    {embedded ? null : <View style={styles.heading}>
+      {eyebrow ? <AppText style={styles.eyebrow}>{eyebrow}</AppText> : null}
+      <AppText accessibilityRole="header" style={styles.title}>{title}</AppText>
+    </View>}
     {children}
   </View>;
 }
@@ -45,6 +58,15 @@ export function Card({
   </View>;
 }
 
+export function TouchTarget({ style, ...props }: PressableProps) {
+  const [focused, setFocused] = useState(false);
+  return <Pressable {...props}
+    onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
+    onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
+    style={(state) => [typeof style === 'function' ? style(state) : style,
+      focused && styles.focused, state.pressed && { opacity: 0.75 }]} />;
+}
+
 export function ActionButton({
   title,
   tone = 'primary',
@@ -52,7 +74,7 @@ export function ActionButton({
   ...props
 }: PressableProps & {
   readonly title: string;
-  readonly tone?: 'primary' | 'secondary' | 'quiet';
+  readonly tone?: 'primary' | 'secondary' | 'quiet' | 'cta';
   readonly loading?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
@@ -94,7 +116,7 @@ export function ActionButton({
       });
       return [
         styles.action,
-        tone === 'primary' ? styles.primary : tone === 'secondary'
+        tone === 'cta' ? styles.cta : tone === 'primary' ? styles.primary : tone === 'secondary'
           ? styles.secondary : styles.quiet,
         styles[visualState],
         typeof props.style === 'function' ? props.style({ pressed }) : props.style,
@@ -102,15 +124,16 @@ export function ActionButton({
     }}
   >
     {loading
-      ? <ActivityIndicator color={tone === 'primary'
+      ? <ActivityIndicator color={tone === 'primary' || tone === 'cta'
           ? mobileTokens.color.onAccent : mobileTokens.color.accent} />
-      : <Text style={tone === 'primary' ? styles.primaryLabel : styles.secondaryLabel}>
+      : <AppText style={tone === 'primary' || tone === 'cta' ? styles.primaryLabel : styles.secondaryLabel}>
           {title}
-        </Text>}
+        </AppText>}
   </Pressable>;
 }
 
 export function TextField({ style, editable = true, ...props }: TextInputProps) {
+  const loaded = useContext(FontReadyContext);
   const [focused, setFocused] = useState(false);
   return <TextInput
     {...props}
@@ -130,6 +153,7 @@ export function TextField({ style, editable = true, ...props }: TextInputProps) 
       focused && styles.fieldFocused,
       !editable && styles.disabled,
       style,
+      loaded && manropeStyle(StyleSheet.flatten(style)?.fontWeight),
     ]}
   />;
 }
@@ -138,7 +162,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: mobileTokens.color.canvas,
-    paddingHorizontal: mobileTokens.spacing.md,
+    paddingHorizontal: 20,
     paddingTop: 56,
     gap: mobileTokens.spacing.md,
   },
@@ -151,8 +175,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: mobileTokens.color.ink,
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '800',
   },
   bodyText: {
@@ -178,6 +202,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   primary: { backgroundColor: mobileTokens.color.accent },
+  cta: { backgroundColor: mobileTokens.color.callToAction },
   secondary: {
     backgroundColor: mobileTokens.color.surfaceRaised,
     borderColor: mobileTokens.color.textMuted,

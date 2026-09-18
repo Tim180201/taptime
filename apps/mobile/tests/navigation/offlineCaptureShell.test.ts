@@ -45,8 +45,8 @@ describe('offline capture shell', () => {
     },
   );
 
-  it('defines only Scan, leased Manual and Sync destinations for the offline shell', () => {
-    expect(OFFLINE_PRODUCT_DESTINATIONS).toEqual(['capture', 'manual', 'sync']);
+  it('defines only Scan and leased Manual tabs for the offline shell', () => {
+    expect(OFFLINE_PRODUCT_DESTINATIONS).toEqual(['capture', 'manual']);
     expect(OFFLINE_PRODUCT_DESTINATIONS).not.toContain('times');
     expect(OFFLINE_PRODUCT_DESTINATIONS).not.toContain('setup');
   });

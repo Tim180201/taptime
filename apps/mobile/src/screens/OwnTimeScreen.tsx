@@ -1,113 +1,104 @@
-import { ScrollView, StyleSheet } from 'react-native';
-import { useSyncExternalStore } from 'react';
-import type { SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import type { MobileWorkCapability } from '../work/contracts';
-import { ActionButton, AppText as Text, Card, Screen } from '../design/primitives';
+import { ActionButton, AppText as Text, TouchTarget, Card, Screen } from '../design/primitives';
+import { LineIcon } from '../design/LineIcon';
 import { mobileTokens } from '../design/tokens';
+import { businessDay, dayStart, formatClock, formatDuration, formatHours, intervalMilliseconds,
+  monthDays, provenance, rangeSummary, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
 
 export function OwnTimeScreen({ work }: { readonly work: MobileWorkCapability }) {
-  const state = useSyncExternalStore(
-    (listener) => work.subscribe(listener),
-    () => work.getState(),
-    () => work.getState(),
-  );
-  if (state.status !== 'ready') {
-    return <Screen title="Meine Zeiten" eyebrow="31 TAGE">
-      <Card>
-        <Text>{state.status === 'unavailable' ? state.message : 'Arbeitszeiten werden geladen …'}</Text>
-        <ActionButton title="Aktualisieren" onPress={() => work.refresh()} />
-      </Card>
-    </Screen>;
-  }
-  const timeZone = resolveDisplayTimeZone();
-  return <Screen title="Meine Zeiten" eyebrow="31 TAGE">
-    <ActionButton title="Aktualisieren" tone="secondary" onPress={() => work.refresh()} />
-    <Text style={styles.zone}>Zeitzone: {timeZone}</Text>
-    <ScrollView contentContainerStyle={styles.list}>
-      {state.ownTime.activeRecord === null ? null
-        : <TimeCard record={state.ownTime.activeRecord} active timeZone={timeZone} />}
-      {state.ownTime.records.map((record) =>
-        <TimeCard
-          key={record.timeRecordId}
-          record={record}
-          active={false}
-          timeZone={timeZone}
-        />)}
-      {state.ownTime.activeRecord === null && state.ownTime.records.length === 0
-        ? <Card><Text>Im sicheren Zeitfenster sind keine Arbeitszeiten vorhanden.</Text></Card>
-        : null}
-      <Text accessibilityLiveRegion="polite">
-        {ownTimeLoadStatus(state.ownTime.records.length, state.ownTime.nextCursor)}
-      </Text>
-      {state.ownTime.nextCursor === null ? null
-        : <ActionButton
-            title={state.loadingMore ? 'Weitere Zeiten werden geladen …' : 'Weitere Zeiten laden'}
-            disabled={state.loadingMore}
-            loading={state.loadingMore}
-            onPress={() => work.loadMoreOwnTime()}
-          />}
-    </ScrollView>
-  </Screen>;
+  const state = useSyncExternalStore((listener) => work.subscribe(listener), () => work.getState(), () => work.getState());
+  const [selected, setSelected] = useState(() => businessDay(Date.now()));
+  const [month, setMonth] = useState(() => selected.slice(0, 7));
+  useEffect(() => {
+    if (state.status === 'ready' && state.ownTime.nextCursor !== null && !state.loadingMore) {
+      void work.loadMoreOwnTime();
+    }
+  }, [state, work]);
+  if (state.status !== 'ready') return <Screen title="Meine Zeiten"><Card>
+    <Text accessibilityRole={state.status === 'unavailable' ? 'alert' : undefined}>
+      {state.status === 'unavailable' ? state.message : 'Arbeitszeiten werden geladen …'}</Text>
+    <ActionButton title="Aktualisieren" onPress={() => work.refresh()} />
+  </Card></Screen>;
+  const ownTime = state.ownTime;
+  const today = businessDay(ownTime.windowEndedAt);
+  const thisWeek = weekStart(today);
+  const monthSummary = rangeSummary(ownTime, `${month}-01`, `${shiftMonth(month, 1)}-01`);
+  const weekSummary = rangeSummary(ownTime, thisWeek, shiftDay(thisWeek, 7));
+  const daily = rangeSummary(ownTime, selected, shiftDay(selected, 1));
+  const records = recordsForDay(ownTime, selected);
+  const monthTitle = new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE, month: 'long', year: 'numeric' })
+    .format(new Date(`${month}-15T12:00:00Z`));
+  const changeMonth = (offset: number) => { const next = shiftMonth(month, offset); setMonth(next); setSelected(`${next}-01`); };
+  return <Screen title="Meine Zeiten"><ScrollView contentContainerStyle={styles.content}>
+    <View style={styles.summaries}>
+      <Card style={styles.summary}><Text style={styles.muted}>{monthTitle}</Text>
+        <Text style={styles.number} numberOfLines={1} adjustsFontSizeToFit>{monthSummary.complete ? `${formatHours(monthSummary.milliseconds)} h` : '—'}</Text></Card>
+      <Card style={styles.summary}><Text style={styles.muted}>Diese Woche</Text>
+        <Text style={styles.number} numberOfLines={1} adjustsFontSizeToFit>{weekSummary.complete ? `${formatHours(weekSummary.milliseconds)} h` : '—'}</Text></Card>
+    </View>
+    <Card>
+      <View style={styles.monthHeading}>
+        <TouchTarget accessibilityRole="button" accessibilityLabel="Voriger Monat" style={styles.arrow} onPress={() => changeMonth(-1)}>
+          <LineIcon name="back" color={mobileTokens.color.text} /></TouchTarget>
+        <Text style={styles.monthTitle}>{monthTitle}</Text>
+        <TouchTarget accessibilityRole="button" accessibilityLabel="Nächster Monat" style={styles.arrow} onPress={() => changeMonth(1)}>
+          <View style={{ transform: [{ rotate: '180deg' }] }}><LineIcon name="back" color={mobileTokens.color.text} /></View></TouchTarget>
+      </View>
+      <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}><View style={{ flex: 1, minWidth: 308 }}>
+      <View style={styles.grid}>{['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day) =>
+        <Text key={day} style={styles.weekday}>{day}</Text>)}</View>
+      <View style={styles.grid}>{monthDays(month).map((day, index) => {
+        if (day === null) return <View key={`space-${index}`} style={styles.daySpace} />;
+        const summary = rangeSummary(ownTime, day, shiftDay(day, 1));
+        return <TouchTarget key={day} accessibilityRole="button"
+          accessibilityLabel={`${day.split('-').reverse().join('.')}, ${summary.complete ? `${formatHours(summary.milliseconds)} Stunden` : 'nicht vollständig geladen'}`}
+          accessibilityState={{ selected: day === selected }} onPress={() => setSelected(day)}
+          style={[styles.daySpace, day === selected && styles.selected]}>
+          <Text style={[styles.dayNumber, day === selected && styles.selectedText]}>{Number(day.slice(8))}</Text>
+          <Text style={[styles.dayHours, day === selected && styles.selectedText]}>
+            {summary.complete ? summary.milliseconds > 0 ? formatHours(summary.milliseconds) : '' : '—'}
+          </Text>
+        </TouchTarget>;
+      })}</View></View></ScrollView>
+    </Card>
+    <Text style={styles.monthTitle}>{new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE,
+      weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${selected}T12:00:00Z`))}</Text>
+    {records.map((record) => <Card key={record.timeRecordId}>
+      <Text style={{ fontWeight: '800' }}>{record.targetDisplayName}</Text>
+      <Text style={styles.muted}>{formatClock(Math.max(dayStart(selected), Date.parse(record.startedAt)))} – {
+        record.stoppedAt === null ? 'läuft' : formatClock(Math.min(dayStart(shiftDay(selected, 1)), Date.parse(record.stoppedAt)))} · {provenance(record)}</Text>
+      <Text style={styles.duration}>{formatDuration(intervalMilliseconds(record, dayStart(selected),
+        Math.min(dayStart(shiftDay(selected, 1)), Date.parse(ownTime.windowEndedAt))))}</Text>
+    </Card>)}
+    {records.length === 0 ? <Card><Text>{daily.complete ? 'Für diesen Tag sind keine Zeiten erfasst.'
+      : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</Text></Card> : null}
+    <Text style={styles.muted}>Zeitspannen ohne Pausenabzug · Europe/Berlin</Text>
+    <Text style={styles.muted}>{ownTimeLoadStatus(ownTime.records.length, ownTime.nextCursor)}</Text>
+    {ownTime.nextCursor !== null ? <Text style={styles.muted}>Weitere Zeiten werden geladen …</Text> : null}
+    <Text style={styles.muted}>Geladener Zeitraum: {formatOwnTimeTimestamp(ownTime.windowStartedAt)} – {formatOwnTimeTimestamp(ownTime.windowEndedAt)}</Text>
+    <ActionButton title="Aktualisieren" tone="quiet" onPress={() => work.refresh()} />
+  </ScrollView></Screen>;
 }
-
-function TimeCard({ record, active, timeZone }: {
-  readonly record: SafeOwnTimeRecord;
-  readonly active: boolean;
-  readonly timeZone: string;
-}) {
-  return <Card accessibilityLabel={`${record.targetDisplayName}, ${active ? 'läuft' : 'beendet'}`}>
-    <Text style={styles.target}>{record.targetDisplayName}</Text>
-    <Text style={styles.meta}>{targetLabel(record.targetType)} · {active ? 'Läuft' : 'Beendet'}</Text>
-    <Text style={styles.time}>{formatOwnTimeTimestamp(record.startedAt, timeZone)} – {
-      record.stoppedAt === null ? 'jetzt' : formatOwnTimeTimestamp(record.stoppedAt, timeZone)
-    }</Text>
-    <Text style={styles.provenance}>
-      Auslöser: {record.startedVia === null ? 'Wiederhergestellt' : provenance(record.startedVia)}
-      {record.stoppedVia === null ? '' : ` → ${provenance(record.stoppedVia)}`}
-    </Text>
-  </Card>;
+export function formatOwnTimeTimestamp(value: string): string {
+  return new Intl.DateTimeFormat('de-DE', { dateStyle: 'short', timeStyle: 'short', timeZone: BUSINESS_TIME_ZONE }).format(new Date(value));
 }
-
-export function formatOwnTimeTimestamp(value: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('de-DE', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-    timeZone,
-  }).format(new Date(value));
-}
-
-export function resolveDisplayTimeZone(
-  resolved: () => string | undefined = () => (
-    Intl.DateTimeFormat().resolvedOptions().timeZone
-  ),
-): string {
-  try {
-    const candidate = resolved();
-    if (candidate === undefined || candidate.length === 0) return 'UTC';
-    new Intl.DateTimeFormat('de-DE', { timeZone: candidate }).format(new Date(0));
-    return candidate;
-  } catch {
-    return 'UTC';
-  }
-}
-
+export function resolveDisplayTimeZone(): string { return BUSINESS_TIME_ZONE; }
 export function ownTimeLoadStatus(count: number, nextCursor: string | null): string {
-  return nextCursor === null
-    ? `${count} Einträge geladen · vollständig`
-    : `${count} Einträge geladen · weitere verfügbar`;
+  return nextCursor === null ? `${count} Einträge geladen · vollständig im Abfragezeitraum`
+    : `${count} Einträge geladen · weitere verfügbar; Summen noch unvollständig`;
 }
-function targetLabel(type: SafeOwnTimeRecord['targetType']): string {
-  return type === 'customer' ? 'Kunde' : type === 'project' ? 'Projekt' : 'Allgemeine Arbeit';
-}
-function provenance(value: 'nfc' | 'manual'): string {
-  return value === 'nfc' ? 'NFC' : 'Manuell';
-}
-
 const styles = StyleSheet.create({
-  list: { gap: mobileTokens.spacing.sm, paddingBottom: mobileTokens.spacing.xl },
-  target: { color: mobileTokens.color.ink, fontSize: 18, fontWeight: '700' },
-  meta: { color: mobileTokens.color.inkMuted, fontSize: 14 },
-  time: { color: mobileTokens.color.ink, fontSize: 16 },
-  provenance: { color: mobileTokens.color.inkMuted, fontSize: 13 },
-  zone: { color: mobileTokens.color.inkMuted, fontSize: 13 },
+  content: { gap: 16, paddingBottom: 24 }, summaries: { flexDirection: 'row', gap: 12 },
+  summary: { flex: 1, padding: 12 }, number: { fontSize: 40, lineHeight: 48, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  muted: { fontSize: 12, lineHeight: 18, color: mobileTokens.color.textMuted },
+  monthHeading: { flexDirection: 'row', alignItems: 'center' }, monthTitle: { flex: 1, fontSize: 15, fontWeight: '800' },
+  arrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap' }, weekday: { width: '14.285714%', textAlign: 'center', fontSize: 11, color: mobileTokens.color.textMuted },
+  daySpace: { width: '14.285714%', minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  dayNumber: { fontSize: 13, fontWeight: '600' }, dayHours: { fontSize: 10, lineHeight: 16, color: mobileTokens.color.textMuted },
+  selected: { backgroundColor: mobileTokens.color.accent }, selectedText: { color: mobileTokens.color.onAccent },
+  duration: { fontSize: 18, fontWeight: '800', fontVariant: ['tabular-nums'] },
 });

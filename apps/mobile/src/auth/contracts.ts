@@ -1,4 +1,4 @@
-export type ProductMembershipRole = 'administrator' | 'employee';
+export type ProductMembershipRole = 'administrator' | 'standortleitung' | 'employee';
 
 export interface ProductSessionContext {
   readonly userId: string;
