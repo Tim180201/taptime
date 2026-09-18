@@ -1,7 +1,7 @@
 # TapTim.e — Status
 
 **Stand:** 18.09.2026 · Produktion läuft auf `939b4ba` (Deploy 10:47 Uhr, vier Belege nach
-DEPLOY.md erbracht); `main` steht auf `b68e48b` (T-058, T-043; noch nicht ausgeliefert). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
+DEPLOY.md erbracht); `main` steht auf `1d0a4e9` (T-058, T-043, T-060; noch nicht ausgeliefert). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
 einen vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -15,6 +15,8 @@ einen vollständigen Monatsabschluss übersteht.
   Serverentscheidung, Meine Zeiten als Monatskalender in Europe/Berlin, Tags, Manrope, Taptura.
   **Seit `b68e48b` (T-043):** „Tag zuordnen“ schreibt NDEF-URI `https://tb-infra.de/tag` plus
   App-Kennung auf den Tag (D-061); Android öffnet die App ohne Auswahldialog.
+  **Seit `1d0a4e9` (T-060):** Eine Standortleitung ordnet Tags im eigenen Standort zu — die
+  Grenze entscheidet die Datenbank (Migration 027), der Reiter „Tags" folgt der Sitzung.
 - Verwaltung: Beschäftigte mit Kontoeinladung (T-047), Standorte, Arbeitsziele, Tags, Korrektur,
   Prüfentscheidung, Pausen, CSV V3; eine Zeitzone Europe/Berlin (T-036); Anmeldefehler mit
   Ursache (T-040); strikte CSP; Deploy-Tor auf den Backend-Aussteller (T-039).
@@ -56,6 +58,12 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
+
+- **P2 Entwicklung (T-060):** Der Root-Build kann mit veralteten Workspace-Deklarationen
+  scheitern; betroffene Abhängigkeiten vor ihren Verbrauchern bauen (Identity → Administration → API).
+- **Bekannt (T-060):** Eine Standortleitung ohne Kunden im eigenen Standort sieht keinen Reiter
+  „Tags", bis dort ein Arbeitsziel zugeordnet ist; Tags ganz ohne Zuordnung sieht nur der
+  Administrator. Beides folgt aus der Standortgrenze und ist so gewollt.
 
 - **P1 T-055:** Lease-Bindung und Reihenfolge über Installationen nach Restore (D-055).
 - **Bekannt, nicht behebbar (T-043):** Android 17 zeigt für Tags mit Web-Adresse eine

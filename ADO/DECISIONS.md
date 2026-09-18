@@ -1194,3 +1194,18 @@ Einbahnstrasse aus D-037 vermeidbar: Ein Domainwechsel ergaenzt einen Host, stat
 entwerten. Die Tag-Identitaet bleibt die UID-Evidenz; die URI ist nur der Android-Dispatch.
 **Grenze:** iOS braucht spaeter einen von Apple verifizierten https-Host (D-037) — jeder eigene
 Host erfuellt das, tb-infra.de eingeschlossen.
+
+---
+
+## D-062 · Fremde Zeiten liest ein Zugang, den Handy und Web teilen · 18.09.2026 · Claude (TL), bestaetigt Tim
+**Entscheidung:** Die Zeiten einer anderen Person liest genau ein neuer Serverzugang
+(`read_managed_person_time_v1`, Migration 028), begrenzt durch
+`has_membership_management_authority_v1`: Administrator im Betrieb, Standortleitung in ihrem
+Standort. Seine Antwortform ist die der eigenen Zeiten, damit Handy-Kalender (T-059) und
+Web-Personenseite (T-049) dieselben Bausteine benutzen. Dazu eine Zusammenfassung der
+laufenden Buchungen je Umfang fuer die Kachel „x / y gerade aktiv".
+**Warum:** Heute liest fremde Zeiten nur der administrator-only, betriebsweite Pruefweg
+(`read_effective_time_records_v2`); fuer eine Standortleitung gibt es keinen. Zwei getrennte
+Loesungen fuer Handy und Web waeren zwei Mandantengrenzen zum Pruefen statt einer.
+**Grenze:** Kein Lesen ueber den eigenen Umfang hinaus, Fenster wie 025 begrenzt, keine
+Personendaten in Fehlermeldungen; Rotnachweis ueber die Standortgrenze und ein zweiter Betrieb.

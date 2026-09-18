@@ -1,81 +1,92 @@
 # Aktuelle Aufgabe
 
-> **Stand 18.09.2026:** T-058 (`3daa09b`) und T-043 (`b68e48b`) sind auf `main`, CI grün.
-> Reihenfolge: **T-060 → T-059 → APK → Geräteabnahme (D-044) → T-049.**
+> **Stand 18.09.2026:** T-058 (`3daa09b`), T-043 (`b68e48b`) und T-060 (`1d0a4e9`) sind auf
+> `main`, CI grün. Reihenfolge: **T-059 → APK → Geräteabnahme (D-044) → T-049 → Pilot.**
+> Der Product Owner hat entschieden: T-059 wird vollständig gebaut, einschließlich des
+> Personen-Kalenders; die APK kommt danach.
 
-## T-060 · Standortleitung darf im eigenen Standort Tags zuordnen — und einladen kann sie schon
+## T-059 · Mitarbeiter im Handy — wer ist da, wer war wann da, wer kommt dazu
 
-**Für:** Development · **Risiko:** Mandantentrennung, Standortgrenze, SECURITY DEFINER, RLS
-**Zeitbox:** drei Sitzungen. **Grundlage:** D-059, D-021, Migrationen 007/009/019/020/021/026.
-Auftrag vom 18.09.2026.
+**Für:** Development · **Risiko:** neuer Lesezugang auf fremde Zeiten, Standortgrenze, RLS
+**Zeitbox:** vier Sitzungen. **Grundlage:** D-058, D-059, D-062,
+`ADO/01_Architecture/Mobile_Entwurf/` (Bildschirme 12, 13, 14, 21, 22). Auftrag vom 18.09.2026.
 
 ### Befund (am Quelltext geprüft)
 
-- **Einladen ist bereits offen.** `has_membership_management_authority_v1` (020, Zeile 208) gibt
-  der Standortleitung `invite` nur für Rolle `employee` und nur im gewährten Standort;
-  `change_role` ist ihr verwehrt (sie kann keine Standortleitung anlegen oder befördern).
-  `employee_account_invitation_v1` (026) und `EmployeeMembershipEnrollmentCoordinator` prüfen
-  genau diese Funktion, nichts Administrator-spezifisches. Belegt durch
-  `C3E1PostgresEmployeeEnrollment.test.ts:609` und `T047AccountInvitation.test.ts:195`.
-  **Hier wird nichts geöffnet, nur bewiesen** (Rotnachweis unten).
-- **Tags sind die Mauer.** `has_current_admin_setup_authority` (007, Zeile 336) und
-  `has_current_assignment_reassignment_authority` (009, Zeile 210) verlangen Rolle
-  `administrator`; `AdminWriteSessionCoordinator.runWithAuthority` (Zeile 868, 896) und
-  `NfcTagReassignmentCoordinator.runWithAuthority` (Zeile 353, 379) ebenso, und sie setzen
-  `app.membership_role` wörtlich auf `administrator`. Das Sitzungsfeld `setup_available`
-  (021, Zeile 69) hängt an derselben Funktion. Die App prüft in `AdminSetupCoordinator`
-  (Zeilen 48, 69, 108, 169, 175) auf `role === 'administrator'`.
-- Ein Kunde hat keinen Standort; sein Standort ist die Zuordnung seines Arbeitsziels in
-  `work_target_location_assignments` (019, Zeile 107). Standortleitung ist nur mit
-  `locations_enabled` und einem lebenden Eintrag in `membership_management_location_grants`
-  eine Autorität (020, Zeile 286).
+- `read_managed_memberships_v2` (021) liefert Personen je Umfang — Administrator den Betrieb,
+  Standortleitung ihren Standort — aber **nichts über laufende Arbeit**. Es gibt nirgends eine
+  Zählung laufender Buchungen.
+- Zeiten **anderer** Personen liest heute nur `read_effective_time_records_v2` (013/025), und
+  zwar administrator-only (`has_current_time_review_administrator_v1`, 012), betriebsweit, ohne
+  Personenfilter und ohne Standortbegriff. Für eine Standortleitung existiert kein Weg.
+  `read_mobile_own_time_v1` ist ausdrücklich nur für die eigene Person.
+- Die Handy-Sitzung kennt den eigenen Standort nicht (`ProductSessionContext` hat ihn nicht);
+  die Einladung (T-047) verlangt ihn aber, sobald Standorte eingeschaltet sind.
+- Die Kalenderhilfen in `screens/ownTimeCalendar.ts` sind rein und wiederverwendbar; drei
+  davon (`timeRecords`, `rangeSummary`, `recordsForDay`) sind auf die Antwortform der eigenen
+  Zeiten typisiert.
 
 ### Umsetzung
 
-1. **Migration 027 — Tag-Autorität mit Standortgrenze.** Neue Funktion
-   `has_current_nfc_setup_authority_v1(organization_id, customer_id)`: wahr für einen
-   Administrator (wie bisher, unabhängig vom Kunden); wahr für eine Standortleitung nur, wenn
-   `locations_enabled`, ein gültiger Verwaltungs-Grant besteht **und** der Kunde ein lebendes
-   Arbeitsziel in genau diesem Standort hat. `customer_id = NULL` bedeutet „irgendein Kunde im
-   Umfang" (für Lesen und Pausen-Tags). `insert_admin_setup_nfc_tag_v1` und
-   `lock_admin_setup_active_customer_v1` (007), die Pausen-Tag-Funktion (017) und
-   `lock_assignment_reassignment_target_v1` (009) prüfen die neue Funktion mit dem
-   betroffenen Kunden. Die RLS-Policies der Rollen `taptime_admin_setup` und
-   `taptime_assignment_reassigner` auf `nfc_tags`, `nfc_assignments`, `admin_setup_receipts`
-   folgen ihr; `customers`-SELECT für die Standortleitung nur Kunden im eigenen Standort.
-   **Unverändert administrator-only:** `customers`-INSERT, alle Standort-Lebenszyklus-Befehle
-   (022), `has_current_admin_setup_authority` selbst. Kein DROP, kein Umschreiben von Daten.
-2. **Backend.** Beide `runWithAuthority` akzeptieren `administrator` und `standortleitung`
-   und setzen `app.membership_role` auf die **tatsächliche** Rolle des Aufrufers (Vorbild
-   `withMembershipManagementAuthority`, Zeilen 666–678). Die Entscheidung trifft die
-   Datenbank, nicht TypeScript. Keine neuen Routen.
-3. **Sitzungsvertrag.** `read_administration_session_v2` bekommt additiv
-   `nfc_setup_available` (wahr, wenn die neue Funktion für `NULL`-Kunden wahr ist);
-   `setup_available` bleibt, wie es ist (Standorte und Arbeitsziele bleiben Administrator).
-   Die Mobile-Sitzung (`/v1/session`, `TapTimeSessionApiClient`, `contracts.ts`) trägt
-   `nfcSetupAvailable: boolean`; fehlt das Feld (alter Server), gilt `false`.
-4. **App.** `AdminSetupCoordinator` prüft `nfcSetupAvailable` statt der Rolle;
-   `productDestinations` zeigt „Tags" nach diesem Feld — Administrator wie heute,
-   Standortleitung nur mit Feld. Der Bildschirm zeigt der Standortleitung nur Kunden ihres
-   Standorts (Projektion kommt aus dem Backend, nichts wird in der App gefiltert).
-5. **Admin-Web:** keine Änderung in dieser Aufgabe. Die Standortleitung ordnet Tags am Handy
-   zu (D-058); das Web folgt mit T-049. Bestehende Web-Gates bleiben.
+1. **Migration 028 — ein Lesezugang für fremde Zeiten (D-062).**
+   `read_managed_person_time_v1(target_membership_id, from_inclusive, to_exclusive, cursor…)`:
+   Autorität ist `has_membership_management_authority_v1(… 'read' …)` — also Administrator im
+   Betrieb, Standortleitung in ihrem Standort; die Zielperson muss im selben Umfang liegen
+   (Heimatstandort). Fenster wie 025 begrenzt (`maximum_calendar_month_range`), Keyset wie
+   `read_effective_time_records_v2`, Antwortform **gleich der eigenen Zeiten**
+   (`MobileOwnTimeQueryResponse`: `activeRecord`, `records`, `windowStartedAt`,
+   `windowEndedAt`, `nextCursor`), damit Kalender und Web dieselben Bausteine nutzen.
+   Dazu `read_managed_active_summary_v1(location_id?)`: je Umfang die Zahl der Personen mit
+   laufender Buchung und die Gesamtzahl aktiver Mitgliedschaften, plus je Person
+   `is_running`, `running_since`, `running_target_display_name` — genau so viel, wie die
+   Kachel und die Liste zeigen. Keine neue Rolle, keine Änderung an bestehenden Funktionen;
+   RLS und SECURITY DEFINER wie in 021/027. Ein fremder Betrieb sieht nichts.
+2. **Backend.** Zwei Routen in `apps/backend-api`, beide über den vorhandenen
+   Mitgliedschafts-Manager-Weg (`withMembershipManagementAuthority`, echte Rolle):
+   `POST /v1/administration/managed-person-time` und
+   `POST /v1/administration/managed-active-summary`. Antworten disclosure-sicher wie C3E1.
+3. **Sitzung.** Die Handy-Sitzung trägt zusätzlich `managementScope`
+   (`{kind:'organization'}` oder `{kind:'location', locationId, locationName}`) aus
+   `read_administration_session_v2`. Die Erweiterung geht in dieselbe ausdrücklich
+   angeforderte Antwortform wie `nfcSetupAvailable` — **sie hat noch keinen installierten
+   Nutzer**, die APK mit diesem Feld ist noch nicht gebaut. Die alte Antwortform bleibt
+   unverändert. Fehlt das Feld, gilt `{kind:'organization'}` nicht als Annahme, sondern der
+   Reiter Mitarbeiter bleibt aus.
+4. **App — Reiter Mitarbeiter** für Administrator und Standortleitung (neues Ziel
+   `employees` in `productDestinations`, Icon und Beschriftung wie die anderen; sichtbar,
+   wenn die Sitzung einen Verwaltungsumfang trägt). Drei Ansichten nach dem Entwurf:
+   - **Liste (12):** Kachel „x / y gerade aktiv" mit Stand der Serverzeit und Umfang
+     („Betrieb" oder Standortname); Umschalter Aktiv/Inaktiv; Zeilen mit Initialen, Name,
+     „seit hh:mm · Ziel" bei laufender Arbeit, Punkt mint/aus. Weitere Seiten über den Cursor.
+   - **Person (13):** Kopf mit Rolle, Standort, laufender Arbeit; Monatskalender und Tagesliste
+     **mit denselben Helfern** wie „Meine Zeiten" (Berlin-Zone, D-056); wo der geladene
+     Zeitraum nicht reicht, „—" statt erfundener Summe.
+   - **Einladen (14):** Name, E-Mail, Rolle, Standort, „Einladung senden" über die T-047-Route
+     (`POST /v1/administration/employee-account-invitations`). Der Server kennt keine Rolle im
+     Aufruf — die Eingeladenen sind immer Mitarbeiter; die Rollenzeile zeigt das an und ist
+     nicht wählbar, solange es keinen Vertrag dafür gibt (nichts erfinden). Standort:
+     Administrator wählt aus der Liste, Standortleitung sieht ihren festgeschrieben. Alle
+     Ergebnisse der Route bekommen einen eigenen deutschen Text; bei Fehlern bleiben die
+     Eingaben stehen.
+   - Ein neuer API-Client nach dem Muster von `TapTimeAdministrationApiClient` (strikte
+     Prüfung, 401/403 → `authority_rejected`), ein Coordinator wie `AdminSetupCoordinator`.
+5. **Nicht in dieser Aufgabe:** Web (T-049 nutzt dieselben Routen), Rollenwahl beim Einladen,
+   Zugang entziehen, Korrektur oder Prüfung am Handy.
 
 ### Verifikation und Abschluss
 
-Rotnachweise, jeder zuerst rot: (a) Standortleitung A ordnet einen Tag einem Kunden mit
-Arbeitsziel in Standort B zu → `forbidden`, kein Receipt, kein Tag; (b) dieselbe Zuordnung
-für einen Kunden in Standort A → Erfolg, Receipt trägt die echte Rolle; (c) Standortleitung
-ohne Grant oder mit `locations_enabled = false` → `forbidden`; (d) Standortleitung legt einen
-Kunden an oder ruft einen Standort-Befehl → weiterhin `forbidden`
-(`C3CPostgresAdministration.test.ts:1961` bleibt grün); (e) Umhängen (009) über die
-Standortgrenze → `forbidden`, innerhalb → Erfolg; (f) Einladen: Standortleitung lädt
-`employee` im eigenen Standort ein → Erfolg; in Standort B → `forbidden`; mit Rolle
-`standortleitung` → `forbidden`; (g) Sitzung: `nfc_setup_available` wahr/falsch je Fall,
-`setup_available` unverändert; (h) App: Reiter „Tags" nur mit `nfcSetupAvailable`,
-`AdminSetupCoordinator.test.ts:122` um `standortleitung` erweitert. Mandantentrennung: ein
-zweiter Betrieb sieht nichts (bestehende Muster in C3C/C3E2). Suiten: B3, B4, C3C/C3E1/C3E2,
-C2, Mobile; Typecheck; Migration lokal gegen den Erstlaufpfad und gegen einen Bestand mit
-Daten. Unabhängiges Review (Schwerpunkt Standortgrenze in SQL, Rolle nicht mehr wörtlich),
-maximal zwei Runden. Umsetzung nicht vor Technical-Lead-APPROVED committen. Deploy erst
-gemeinsam mit T-059 (D-044). Bericht nach AGENTS.md §8, ausgelassene Prüfungen mit Grund.
+Rotnachweise, jeder zuerst rot: (a) Standortleitung A liest die Zeiten einer Person aus
+Standort B → `forbidden`; im eigenen Standort → Erfolg; (b) Administrator liest jede Person
+des Betriebs, aber keine eines zweiten Betriebs; (c) Mitarbeiter ruft beide neuen Routen →
+`forbidden`; (d) Aktiv-Zusammenfassung: Zahlen stimmen mit den laufenden Buchungen überein,
+je Umfang getrennt, eine laufende Buchung einer Person aus Standort B zählt bei
+Standortleitung A nicht mit; (e) Fensterprüfung und Keyset wie 025 (Monatsgrenze,
+Zeitumstellung Europe/Berlin); (f) Sitzung trägt den Umfang; ohne Umfang kein Reiter; (g)
+Einladen vom Handy: Administrator und Standortleitung im eigenen Standort erfolgreich,
+fremder Standort `forbidden`, jedes Fehlerergebnis mit eigenem Text; (h) Kalender einer
+fremden Person nutzt dieselben Helfer und zeigt „—" außerhalb des geladenen Zeitraums.
+Mandantentrennung wie in C3C/C3E1. Suiten: B3, B4, C3C/C3E1/C3E2, C2, Mobile; Typecheck;
+Migration ab 001 und auf befülltem 027 mit Daten. Unabhängiges Review (Schwerpunkt: fremde
+Zeiten, Standortgrenze, keine Personendaten in Fehlermeldungen), maximal zwei Runden.
+Umsetzung nicht vor Technical-Lead-APPROVED committen. Danach APK und Geräteabnahme (D-044).
+Bericht nach AGENTS.md §8, ausgelassene Prüfungen mit Grund.
