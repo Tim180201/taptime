@@ -1,7 +1,7 @@
 # TapTim.e — Status
 
 **Stand:** 18.09.2026 · Produktion läuft auf `939b4ba` (Deploy 10:47 Uhr, vier Belege nach
-DEPLOY.md erbracht). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
+DEPLOY.md erbracht); `main` steht auf `3daa09b` (T-058, noch nicht ausgeliefert). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
 einen vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -10,7 +10,9 @@ einen vollständigen Monatsabschluss übersteht.
 - Backend: 11 `apps/backend-*`-Workspaces; 52 registrierte HTTP-Pfade aus `BACKEND_HTTP_ROUTES`,
   jede Route mit Schutzklasse (T-053). 26 Migrationen, in Produktion vollständig angewendet.
 - Mobile: Anmeldung, Einladungseinlösung, NFC, manuelle Erfassung, eigene Zeiten, Offline v4,
-  Abgleich v2, Leases v3; Queue-Löschung erst nach Archivnachweis (T-052).
+  Abgleich v2, Leases v3; Queue-Löschung erst nach Archivnachweis (T-052). **Seit `3daa09b`
+  (T-058, auf `main`):** Reiter je Rolle, Abgleich hinter dem Statuspunkt, Tap-Moment mit
+  Serverentscheidung, Meine Zeiten als Monatskalender in Europe/Berlin, Tags, Manrope, Taptura.
 - Verwaltung: Beschäftigte mit Kontoeinladung (T-047), Standorte, Arbeitsziele, Tags, Korrektur,
   Prüfentscheidung, Pausen, CSV V3; eine Zeitzone Europe/Berlin (T-036); Anmeldefehler mit
   Ursache (T-040); strikte CSP; Deploy-Tor auf den Backend-Aussteller (T-039).
@@ -44,8 +46,9 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Offen bis zum Pilotbetrieb
 
-- **Neue APK aus `939b4ba`** (EAS `production-validation`): Die installierte App ist der Stand
-  vor T-052 — sie bestätigt im Hintergrund-Takt statt im Tap. Link nur persönlich an den PO.
+- **Neue APK** (EAS `production-validation`) erst nach T-043/T-060/T-059: Die installierte App
+  ist der Stand vor T-052 — sie bestätigt im Hintergrund-Takt statt im Tap. Link nur
+  persönlich an den PO.
 - Tagesfreigabe, Kalender, Pausenautomatik: T-048–T-050. T-055 Wiederaufnahme nach Restore.
 - T-056 CI baut die Images; T-057 Deploy-Härtung; T-037; T-043/T-044; T-016; T-024.
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
@@ -53,15 +56,16 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 ## Bekannte Kleinigkeiten und offene Risiken
 
 - **P1 T-055:** Lease-Bindung und Reihenfolge über Installationen nach Restore (D-055).
-- **P2 App (18.09.):** `ScanScreen` zeigt „Mitgliedschaft stimmt nicht überein“ auch für
-  `local_evidence_protected`; der Schutzzustand blieb nach einem Kontowechsel bis zum
-  App-Neustart stehen (`adb logcat` danach ohne `protectionClass`-Zeile, nicht reproduziert).
+- **P2 App (18.09., aus T-058):** Meine Zeiten summiert nur den geladenen Abfragezeitraum;
+  Schichten davor fehlen im Kalender (wird als „—“ gezeigt, nicht erfunden). „Zuletzt“ zeigt
+  bei einem Abruffehler weiter „Laden“. „Abmelden“ liegt nur auf der Abgleich-Seite.
   Ein zweites Konto auf demselben Gerät ist per `bindOwner` dauerhaft gesperrt — gewollt.
+  Erledigt mit `3daa09b`: Schutztext je Ursache; Schutzzustand beim Kontowechsel.
 - **P2 Betrieb:** `[7/7] Archivvertrag ist aktiv`-Meldung erscheint auch, wenn nur der Cutover
   aktiv war; Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge.
 - **P2 Sicherheit:** `*.supabase.co` in der CSP auf den Aussteller verengen; SECURITY-DEFINER-
   Pfade und Policy-Prädikate prüfen; Supabase-Anmeldung außerhalb eigener Ratenbegrenzung.
 - **P2 Fachlich:** Geräteuhr bei manueller Erfassung, unbegrenzter vergessener Stopp, Offline-
-  Pausenkonflikte ohne aktive Zeitreferenz. Mobile OwnTimeScreen zeigt die Gerätezone.
+  Pausenkonflikte ohne aktive Zeitreferenz.
 - **P2/P3 Oberfläche und Pflege:** keine APK-Meldung, Prüfposten-Abweisung ohne Erklärung,
   ungeteiltes Web-Bündel, Fachdokumente in T-019, PostgreSQL-Suiten seriell.

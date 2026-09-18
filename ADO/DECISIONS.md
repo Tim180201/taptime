@@ -1168,3 +1168,16 @@ den Unterschied nur an der Rollenauswahl.
 begrenzt geoeffnet — in der Datenbank (RLS, SECURITY DEFINER), nicht nur in der Oberflaeche.
 **Grenze:** Mandantentrennung und Standortgrenze brauchen den Rotnachweis ueber die Grenze hinweg
 und ein unabhaengiges Review; die Oberflaeche zeigt nur, was die Datenbank erlaubt.
+
+---
+
+## D-060 · Das Web gehoert allen Rollen und spricht dieselbe Sprache wie die App · 18.09.2026 · Tim
+**Entscheidung:** Das Admin-Web bekommt die Gestaltung der App (Tokens, Manrope, Kacheln, Karten)
+in der Sie-Form. Administrator: Uebersicht, Beschaeftigte, Pruefungen, Einrichtung, Lohnexport.
+Standortleitung: dasselbe fuer den eigenen Standort (D-059). Mitarbeiter bekommen erstmals einen
+Web-Zugang: Meine Zeiten und Manuell erfassen, sonst nichts. Die Uebersicht zeigt zuerst, was
+laeuft und was eine Entscheidung braucht; die Entscheidung steht am Fall, nicht in einem Formular.
+**Massstab:** der Entwurf vom 18.09. (ADO/01_Architecture/Web_Entwurf). Er ersetzt die Reiter-
+Beschreibung in T-049; die Einzelbefunde dort bleiben.
+**Warum:** Eine Oberflaeche aus einem Guss ist billiger zu bauen und zu erklaeren als zwei; ein
+Mitarbeiter ohne Web-Zugang muss fuer jede Frage zur Standortleitung. Reihenfolge: nach T-058.

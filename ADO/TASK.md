@@ -1,10 +1,12 @@
 # Aktuelle Aufgabe
 
-> **Stand 18.09.2026:** Produktion `939b4ba`; T-047 am Gerät abgenommen. Der Product Owner hat
-> den App-Entwurf abgenommen (D-058, D-059) und will die App vor der nächsten APK fertig sehen.
-> Reihenfolge: **T-058 → T-043 → T-060 → T-059 → APK → Geräteabnahme (D-044).**
+> **Stand 18.09.2026:** T-058 ist auf `main` (`3daa09b`, CI grün, Review in einer Runde).
+> Nächste Aufgabe ist **T-043** (Android-Auswahldialog, NDEF-Nachricht auf dem Tag). Ihr
+> Brief folgt, sobald der Product Owner die Adresse festlegt, die auf die Tags geschrieben
+> wird (D-037: genau einmal, ein Formatwechsel heißt jeden Tag neu beschreiben).
+> Reihenfolge: **T-043 → T-060 → T-059 → APK → Geräteabnahme (D-044) → T-049.**
 
-## T-058 · Die App, wie sie gemeint ist — Navigation je Rolle und der Tap-Moment
+## T-058 · Die App, wie sie gemeint ist — abgeschlossen `3daa09b`
 
 **Für:** Development · **Risiko:** Scan-Bildschirm, Sitzungswechsel, Offline-Zustände
 **Zeitbox:** drei Sitzungen. **Grundlage:** D-058, `ADO/01_Architecture/Mobile_Entwurf/`
