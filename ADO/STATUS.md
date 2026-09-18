@@ -1,9 +1,10 @@
 # TapTim.e — Status
 
 **Stand:** 18.09.2026 · Produktion läuft auf `91441c8` (Deploy 17:05 Uhr im ersten Anlauf, Migration 027
-und 028 angewendet; sechs bewiesene Wiederherstellungen an diesem Tag); `main` steht auf `91441c8` (T-058, T-043, T-060, T-059) — **vier Aufgaben vor der Produktion;
-der Deploy ist der naechste Schritt und geht der APK voraus.** Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
-einen vollständigen Monatsabschluss übersteht.
+und 028 angewendet; sechs bewiesene Wiederherstellungen an diesem Tag). Produktion und `main`
+tragen denselben Anwendungsstand (T-058, T-043, T-060, T-059); offen sind nur noch Dokumente
+(`e6efe86`). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
+vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
 
@@ -34,9 +35,15 @@ einen vollständigen Monatsabschluss übersteht.
   „Taptura“, `/willkommen`, Passwort, App-Anmeldung, Mitgliedschaft ohne Code. Danach als
   Administrator getippt: Vorgang im Admin-Web sichtbar — Rundlauf durch den Archivvertrag.
 
-## Deploy am 18.09. — was er gekostet hat
+## Die zwei Deploys am 18.09.
 
-Fünf Anläufe für den ersten T-035-Deploy; jeder Fehler ein Erstlauf-Fehler, jeder mit
+**Abends, 17:05 Uhr — `939b4ba` → `91441c8`: ein Anlauf, ohne Zwischenfall.** Migration 027
+und 028 wurden erst in einem Wegwerf-Container aus der letzten Sicherung geprobt, dann
+transaktional eingespielt; danach eine frische Basissicherung, extern verschlüsselt abgelegt
+und wiederhergestellt. Die engere Vorprüfung (Sicherung am Zeitstempel der Einheit statt an der
+Statusdatei) hat sich bewährt und gehört nach T-057 ins Skript.
+
+**Morgens — fünf Anläufe für den ersten T-035-Deploy;** jeder Fehler ein Erstlauf-Fehler, jeder mit
 Regressionstest behoben, jeder vorwärts repariert, kein Container von Hand gestartet:
 
 1. `taptime-backup`: `tar --list | grep --quiet` starb an EPIPE bei 280 KB Liste; dazu ein

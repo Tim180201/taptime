@@ -5,8 +5,9 @@
 **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
 **Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007),
 mit getrennten Uhren für reine Wartezeiten (D-011).
-**Stand:** 18.09.2026, Produktion auf `91441c8`, `main` auf `d8a770a` (T-058, T-043, T-060,
-T-059) — vier Aufgaben vor der Produktion. APK VersionCode 7 am Geraet abgenommen (D-044).
+**Stand:** 18.09.2026, Produktion und `main` auf demselben Anwendungsstand `91441c8`
+(T-058, T-043, T-060, T-059); Dokumente bis `e6efe86`. APK VersionCode 7 am Geraet
+abgenommen (D-044).
 Naechste Reihenfolge: **T-061** (Feinschliff am Geraet) → T-049 → Pilot Monat 1; waehrend Monat 1 T-048 und T-050, Freigabe zu
 Monat 2 (D-063). Grundlage weiterhin die Anforderungspruefung gegen den Code (D-012).
 
