@@ -1,8 +1,71 @@
 # Aktuelle Aufgabe
 
-> **Stand 18.09.2026:** Produktion läuft auf `91441c8` (Deploy 17:0x Uhr, im ersten Anlauf;
-> Migration 027 und 028 angewendet, zwei weitere Wiederherstellungen bewiesen). Die APK aus
-> `91441c8` wird gebaut. Reihenfolge: **Geräteabnahme (D-044) → T-049 → Pilot Monat 1.**
+> **Stand 18.09.2026:** Produktion läuft auf `91441c8`; die APK (VersionCode 7, aus `b300b14`,
+> App-Code gleich `91441c8`) ist vom Product Owner **am Gerät abgenommen — alle acht Punkte
+> bestanden**, einschließlich „App geschlossen, Tag dranhalten, kein Auswahldialog" (T-043).
+> Reihenfolge: **T-061 → T-049 → Pilot Monat 1.**
+
+## T-061 · Feinschliff am Gerät — Rand, Symbole, Tap-Moment
+
+**Für:** Development · **Risiko:** gering (nur `apps/mobile`), zwei neue native Abhängigkeiten
+**Zeitbox:** zwei Sitzungen. **Grundlage:** Gerätetest vom 18.09., D-058, D-031,
+`UI_Leitlinien.md` §13. Auftrag vom 18.09.2026.
+
+### Befund des Product Owners am Gerät
+
+1. Die Android-Systemleiste unten stört — sie steht als Fremdkörper unter unserer Reiterleiste.
+2. Einige Symbole „sehen komisch zusammengebaut aus". Sie sind es auch: `design/LineIcon.tsx`
+   setzt jedes Symbol aus `View`-Strichen und -Rechtecken zusammen.
+3. Der Kreis beim Erfassen darf stärker und heller pulsieren. **Entschieden: Variante B**
+   (größerer Ausschlag, schneller, mit Leuchten) — der Product Owner hat drei Varianten
+   verglichen und B gewählt.
+
+Anspruch des Product Owners für diese Aufgabe: **modern und futuristisch, aber professionell.**
+Was das konkret heißt, steht in `UI_Leitlinien.md` §13; es gilt gegen Geschmack.
+
+### Umsetzung
+
+1. **Randlos zeichnen.** `react-native-safe-area-context` aufnehmen; die App zeichnet bis zum
+   Rand, die Systemleisten sind durchsichtig und tragen unseren Grundton (Expo-Konfiguration
+   `androidNavigationBar`/`androidStatusBar` plus `expo-status-bar` hell). Reiterleiste und
+   Kopfzeile nehmen ihren Abstand aus den **Sicherheitsabständen des Geräts**, nicht aus festen
+   Pixeln (heute `Platform.OS === 'ios' ? 24 : 12` und `paddingTop: 32/48` in
+   `navigation/AppNavigator.tsx`). Die Systemleiste wird **nicht** versteckt — die Zurück-Geste
+   bleibt.
+2. **Echte Vektor-Symbole.** `react-native-svg` aufnehmen; `design/LineIcon.tsx` wird ein
+   Satz echter Pfade (Strichstärke 1,75 px, runde Enden und Ecken, 24 px Raster, `currentColor`).
+   Vorlage sind die Umrisse einer freien Linien-Familie (Lucide, ISC-Lizenz) — Herkunft und
+   Lizenz im Dateikopf nennen. **Keine zusammengesetzten `View`-Striche mehr**, auch nicht als
+   Rückfall. Symbole: Erfassen, Manuell, Meine Zeiten, Mitarbeiter, Tags, Zurück, Haken,
+   Wartend, Person, Pfeil.
+3. **Tap-Moment, Variante B.** `design/ScanRing.tsx`: Ausschlag 0,94 → 1,10, Takt ~2,0 s,
+   Leuchten am Scheitel (Rand heller, weicher Schein in Akzentfarbe), zwei Wellen mit ~650 ms
+   Versatz, Wellenrand kräftiger. **Unverändert:** bei „Bewegung reduzieren" steht alles still;
+   der Erfolgsmoment bleibt der stärkere Moment — er wechselt die Farbe und zeigt den Haken.
+4. **Durchgang durch alle Bildschirme.** Jeden der Bildschirme gegen §13 prüfen und Abweichungen
+   beheben: Seitenabstand 20 px, Kartenabstand 16 px, Innenabstand 12 px, Titel 22/800,
+   Abschnitt 15/800, Fließtext 15, gedämpft 13, Zahlen tabellarisch. Abweichungen, die bleiben,
+   im Bericht mit Grund nennen.
+5. **Grenzen:** nur `apps/mobile`; kein Backend, keine Migration, keine Vertragsänderung, keine
+   neuen Funktionen, keine Farbänderung an den Tokens. Der Erfassen-Bildschirm behält seine
+   Logik unverändert (D-052/D-055).
+
+### Verifikation und Abschluss
+
+Rotnachweise: (a) kein Symbol wird mehr aus `View`-Strichen gebaut — Test über die Quelle von
+`design/`, der heute fehlschlägt; (b) Reiterleiste und Kopfzeile lesen Sicherheitsabstände statt
+fester Pixel; (c) `ScanRing` trägt die Werte der Variante B und bleibt bei reduzierter Bewegung
+still; (d) die bestehenden Farb- und Kontrastprüfungen (`mobileRaster`, `contrastRatio`) bleiben
+grün und werden um die neuen Symbolfarben erweitert. Typecheck und volle Mobile-Suite.
+`npx expo prebuild --platform android --no-install` in einem Wegwerfverzeichnis, um die beiden
+nativen Abhängigkeiten zu belegen; kein `android/` im Repository. Unabhängiges Review
+(Schwerpunkt: keine Logikänderung am Erfassen, reduzierte Bewegung, Lizenzvermerk). Umsetzung
+nicht vor Technical-Lead-APPROVED committen. **Abnahme durch den Product Owner am Gerät mit
+einer neuen APK** — diese Aufgabe ist erst damit fertig.
+
+---
+
+## Danach
 
 ## T-049 · Das Web, wie es gemeint ist — alle drei Rollen, eine Sprache
 

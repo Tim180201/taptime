@@ -1,7 +1,7 @@
 # TapTim.e — Status
 
-**Stand:** 18.09.2026 · Produktion läuft auf `939b4ba` (Deploy 10:47 Uhr, vier Belege nach
-DEPLOY.md erbracht); `main` steht auf `91441c8` (T-058, T-043, T-060, T-059) — **vier Aufgaben vor der Produktion;
+**Stand:** 18.09.2026 · Produktion läuft auf `91441c8` (Deploy 17:05 Uhr im ersten Anlauf, Migration 027
+und 028 angewendet; sechs bewiesene Wiederherstellungen an diesem Tag); `main` steht auf `91441c8` (T-058, T-043, T-060, T-059) — **vier Aufgaben vor der Produktion;
 der Deploy ist der naechste Schritt und geht der APK voraus.** Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
 einen vollständigen Monatsabschluss übersteht.
 
@@ -55,12 +55,11 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Offen bis zum Pilotbetrieb
 
-- **Deploy vor der APK.** Die neue App fragt Migration 027/028, zwei neue Routen und die
-  erweiterte Sitzung ab; ohne Deploy blieben die Reiter Tags und Mitarbeiter aus. Zwei
-  Migrationen in einem Deploy, T-057 noch offen — engere Vorprüfung.
-- **Neue APK** (EAS `production-validation`) nach dem Deploy: Die installierte App ist der
-  Stand vor T-052 — sie bestätigt im Hintergrund-Takt statt im Tap. Link nur persönlich an
-  den PO. Test-Tags danach einmal neu zuordnen (T-043).
+- **APK VersionCode 7 am Gerät abgenommen (D-044):** alle acht Punkte bestanden — vier Reiter,
+  Tags neu beschrieben, **App geschlossen plus Dranhalten öffnet ohne Auswahldialog** (T-043),
+  Tap-Moment, Offline in Bernstein, Aktiv-Kachel, Einladen vom Handy, eigener Kalender.
+  Befunde daraus: Systemleiste stört, Symbole zusammengesetzt, Ring soll stärker pulsieren
+  (Variante B gewählt) — zusammen als **T-061** beauftragt.
 - Tagesfreigabe und Pausenautomatik (T-048, T-050): während Pilotmonat 1 bauen, Freigabe zu
   Monat 2 zuschalten (D-063). T-055 Wiederaufnahme nach Restore.
 - T-056 CI baut die Images; T-057 Deploy-Härtung; T-037; T-043/T-044; T-016; T-024.

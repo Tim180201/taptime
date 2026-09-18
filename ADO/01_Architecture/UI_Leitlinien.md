@@ -224,3 +224,33 @@ geprüft; der vorhandene `contrastRatio`-Test wird dafür erweitert, nicht neu e
 
 **Ausdruck:** Eine gedruckte Zeitliste ist schwarz auf weiß, ohne Flächen und Verläufe. Ein
 Lohnnachweis, der als dunkler Block aus dem Drucker kommt, ist unbrauchbar.
+
+
+---
+
+## 13 · Modern, futuristisch, professionell — was das heißt (18.09.2026)
+
+Der Product Owner hat es nach dem Gerätetest so verlangt. Damit daraus keine Geschmacksfrage
+wird, hier die Regeln, gegen die gebaut und geprüft wird.
+
+**Symbole.** Echte Vektorpfade, eine einzige Familie, 24-px-Raster, Strichstärke 1,75 px, runde
+Enden und Ecken, Farbe geerbt (`currentColor`). Kein Symbol wird aus Rechtecken und Strichen
+zusammengesetzt; kein Mischen zweier Familien. Aktiv in Akzent, sonst gedämpft.
+
+**Rand.** Die App zeichnet bis zum Bildschirmrand; Systemleisten sind durchsichtig und tragen
+den Grundton. Abstände kommen aus den Sicherheitsabständen des Geräts, nie aus festen Pixeln.
+Systemleisten werden nicht versteckt — wer die Zurück-Geste nimmt, nimmt Vertrauen.
+
+**Zurückhaltung ist das Futuristische.** Genau eine Akzentfarbe. Leuchten gibt es an genau einer
+Stelle: am Kreis im Moment des Tippens. Keine Verläufe auf Text, keine Schatten auf Karten,
+keine zweite Zierfarbe. Flächen sind flach, Linien 1 px, Rundungen wie im Farbraster.
+
+**Bewegung.** Der Erfassen-Kreis atmet sichtbar (Variante B vom 18.09.). Alles andere bewegt
+sich in 150–200 ms oder gar nicht. Der stärkste Moment gehört der Entscheidung des Servers —
+nichts darf ihn überstrahlen. Bei „Bewegung reduzieren" steht alles still.
+
+**Schrift und Zahlen.** Manrope 400/600/800. Titel 22/800, Abschnitt 15/800, Fließtext 15,
+gedämpft 13, große Zahlen 40–44/800 tabellarisch. Zahlen sind das Produkt; sie stehen groß,
+ruhig und ohne Zierde.
+
+**Abstände.** Seitenrand 20, zwischen Karten 16, in Karten 12, Berührziel mindestens 44.
