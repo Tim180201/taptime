@@ -85,7 +85,8 @@ describe('production validation build configuration', () => {
       'node scripts/buildProductionValidationAndroid.mjs',
     );
     expect(packageJson.scripts['eas-build-post-install']).toBe(
-      'npm run build --workspace=@taptime/mobile-work-contract'
+      'npm run build --workspace=@taptime/administration-contract'
+      + ' && npm run build --workspace=@taptime/mobile-work-contract'
       + ' && npm run build --workspace=@taptime/offline-sync-contract'
       + ' && npm run build --workspace=@taptime/time-review-contract',
     );

@@ -46,6 +46,8 @@ export class B4SessionAuthorityResolver implements SessionAuthorityResolver {
         organizationId: resolution.membership.organizationId,
         role: resolution.membership.role,
         nfcSetupAvailable: projected.projection.nfcSetupAvailable,
+        locationsEnabled: projected.projection.locationsEnabled,
+        managementScope: mobileManagementScope(projected.projection),
       }),
     };
   }
@@ -82,4 +84,13 @@ implements AdministrationSessionAuthorityResolver {
       }),
     };
   }
+}
+
+function mobileManagementScope(projection: import('@taptime/backend-identity').AdministrationSessionProjection) {
+  if (!projection.availableSections.includes('employees')) return null;
+  if (projection.managementScope.kind === 'organization') return { kind: 'organization' as const };
+  // The Mobile contract represents one location. Never broaden or choose a grant arbitrarily.
+  const locations = projection.managementScope.locations;
+  if (locations.length !== 1) return null;
+  return { kind: 'location' as const, locationId: locations[0]!.id, locationName: locations[0]!.name };
 }

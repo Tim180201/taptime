@@ -1,3 +1,5 @@
+import type { EmployeesCapability } from '../employees/contracts';
+import type { EmployeesCoordinator } from '../employees/EmployeesCoordinator';
 import type { MobileSessionCapability } from '../auth/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
 import type { ProductScanCapability, ProductScanState } from '../scan/contracts';
@@ -10,6 +12,7 @@ import type {
 import type { ScanFeedbackLifecycle } from '../feedback/ScanFeedbackCoordinator';
 
 export interface ProductMobileRuntime {
+  readonly employees?: EmployeesCapability;
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
   readonly administration: AdminSetupCapability;
@@ -99,7 +102,17 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       start() {},
       stop() {},
     },
+    private readonly employeesCoordinator?: EmployeesCoordinator,
   ) {
+    const employees = this.employeesCoordinator;
+    this.employeesCapability = employees ? Object.freeze({
+      getState: () => employees.getState(), subscribe: (listener: ()=>void) => employees.subscribe(listener),
+      refresh: () => employees.refresh(), filter: (running: boolean) => employees.filter(running),
+      loadMore: () => employees.loadMore(), openPerson: (person: import('../employees/contracts').ManagedPerson) => employees.openPerson(person),
+      loadPersonMonth: (month: string) => employees.loadPersonMonth(month),
+      openInvitation: () => employees.openInvitation(), invite: (name: string,email: string,location: string|null) => employees.invite(name,email,location),
+      back: () => employees.back(), leave: () => employees.leave(),
+    }) : undefined;
     // React receives a real narrow facade, not the coordinator object that owns C2 token access.
     this.sessionCapability = Object.freeze({
       getState: () => this.coordinator.getState(),
@@ -166,6 +179,9 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     });
   }
 
+  get employees(): EmployeesCapability | undefined { return this.employeesCapability; }
+  private readonly employeesCapability: EmployeesCapability | undefined;
+
   get session(): MobileSessionCapability {
     return this.sessionCapability;
   }
@@ -230,6 +246,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     this.appStateLifecycle.start();
     this.offlineSchedulingLifecycle.start();
     this.mobileWorkCoordinator.start();
+    this.employeesCoordinator?.start();
     this.nativeIngressLifecycle.start();
   }
 
@@ -246,6 +263,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     this.appStateLifecycle.stop();
     this.offlineSchedulingLifecycle.stop();
     this.mobileWorkCoordinator.stop();
+    this.employeesCoordinator?.stop();
     this.nativeIngressLifecycle.stop();
     this.scanFeedbackLifecycle.stop();
     void this.administrationCoordinator.stop();

@@ -111,8 +111,10 @@ function parseSession(value: unknown): ProductSessionContext | null {
   }
   const record = value as Record<string, unknown>;
   if (
-    !['membershipId,organizationId,role,userId', 'membershipId,nfcSetupAvailable,organizationId,role,userId']
+    !['membershipId,organizationId,role,userId', 'membershipId,nfcSetupAvailable,organizationId,role,userId',
+      'locationsEnabled,managementScope,membershipId,nfcSetupAvailable,organizationId,role,userId']
       .includes(Object.keys(record).sort().join(','))
+    || ('managementScope' in record && (!validManagementScope(record.managementScope) || typeof record.locationsEnabled !== 'boolean'))
     || ('nfcSetupAvailable' in record && typeof record.nfcSetupAvailable !== 'boolean')
     || typeof record.userId !== 'string'
     || typeof record.membershipId !== 'string'
@@ -130,6 +132,7 @@ function parseSession(value: unknown): ProductSessionContext | null {
     organizationId: record.organizationId,
     role: record.role,
     nfcSetupAvailable: record.nfcSetupAvailable === true,
+    ...('managementScope' in record ? { managementScope: record.managementScope as ProductSessionContext['managementScope'], locationsEnabled: record.locationsEnabled as boolean } : {}),
   });
 }
 
@@ -139,4 +142,14 @@ function isMembershipRole(value: unknown): value is ProductMembershipRole {
 
 function withTrailingSlash(value: string): string {
   return value.endsWith('/') ? value : `${value}/`;
+}
+
+function validManagementScope(value: unknown): boolean {
+  if (value === null) return true;
+  if (typeof value !== 'object' || Array.isArray(value)) return false;
+  const v = value as Record<string, unknown>;
+  return v.kind === 'organization' ? Object.keys(v).join(',') === 'kind'
+    : v.kind === 'location' && Object.keys(v).sort().join(',') === 'kind,locationId,locationName'
+      && typeof v.locationId === 'string' && uuidPattern.test(v.locationId)
+      && typeof v.locationName === 'string' && v.locationName.trim().length > 0 && [...v.locationName].length <= 120;
 }

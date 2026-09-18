@@ -590,9 +590,10 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build C3C/C3E1/C3E2 contract, Core, schema, identity, and B6 dependencies
+      - name: Build C3C/C3E1/C3E2 contracts, Core, schema, identity, and B6 dependencies
         run: |
           npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity

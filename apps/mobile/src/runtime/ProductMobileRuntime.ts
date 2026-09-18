@@ -1,3 +1,5 @@
+import { EmployeesCoordinator } from '../employees/EmployeesCoordinator';
+import { TapTimeEmployeesApiClient } from '../employees/TapTimeEmployeesApiClient';
 import { Platform } from 'react-native';
 import { fetch as expoFetch } from 'expo/fetch';
 import { randomUUID } from 'expo-crypto';
@@ -189,6 +191,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       nativeNfcIngressLifecycle,
       scanOrchestrator,
       scanFeedback,
+      new EmployeesCoordinator(scanSessionContext, new TapTimeEmployeesApiClient(configuration.configuration.tapTimeApiBaseUrl, new AuthenticatedHttpRequestExecutor(coordinator, expoFetch, undefined, true)), randomUUID),
     ),
   };
 }

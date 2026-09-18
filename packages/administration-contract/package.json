@@ -17,15 +17,20 @@
     "./setup-projection": {
       "types": "./dist/setupProjection.d.ts",
       "import": "./dist/setupProjection.js"
+    },
+    "./managed-people": {
+      "types": "./dist/managedPeople.d.ts",
+      "import": "./dist/managedPeople.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/setupProjection.ts --bundle --platform=node --target=node24 --format=esm --sourcemap --outdir=dist",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/setupProjection.ts src/managedPeople.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/core --sourcemap --outdir=dist",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@unicode/unicode-15.1.0": "1.6.17"
+    "@unicode/unicode-15.1.0": "1.6.17",
+    "@taptime/core": "*"
   },
   "devDependencies": {
     "@types/node": "^24.10.13",

@@ -1,3 +1,4 @@
+import { readManagedPerson, readManagedSummary, validPersonCommand, validSummaryCommand, type ManagedPersonTimeCommand, type ManagedActiveSummaryCommand, type ManagedPersonTimeResult, type ManagedActiveSummaryResult } from './ManagedPeopleReader.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   normalizeCustomerNameV1,
@@ -119,6 +120,18 @@ export class EmployeeMembershipEnrollmentCoordinator {
     private readonly accessTokenVerifier: AccessTokenVerifier,
     private readonly accountInviter?: SupabaseAccountInviter,
   ) {}
+
+  async readManagedPersonTime(command: ManagedPersonTimeCommand, controls: EmployeeEnrollmentCoordinatorControls = {}): Promise<ManagedPersonTimeResult> {
+    if (!validPersonCommand(command)) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority(command.accessToken, MembershipId(command.expectedMembershipId), randomUUID(), controls,
+      client => readManagedPerson(client, command));
+  }
+
+  async readManagedActiveSummary(command: ManagedActiveSummaryCommand, controls: EmployeeEnrollmentCoordinatorControls = {}): Promise<ManagedActiveSummaryResult> {
+    if (!validSummaryCommand(command)) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority(command.accessToken, MembershipId(command.expectedMembershipId), randomUUID(), controls,
+      client => readManagedSummary(client, command));
+  }
 
   async createAccountInvitation(
     command: { readonly accessToken: string; readonly expectedMembershipId: MembershipId;

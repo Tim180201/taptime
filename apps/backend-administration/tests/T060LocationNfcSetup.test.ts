@@ -251,7 +251,7 @@ it('migration 027: upgrades a populated 026 database without rewriting existing 
   )).rows));
   const before = await snapshot();
   const result = await migrate(pool);
-  expect(result.applied).toEqual(['027']);
+  expect(result.applied).toEqual(migrations.filter(m => m.version >= '027').map(m => m.version));
   expect(await snapshot()).toEqual(before);
   expect((await pool.query(`SELECT actor_membership_role FROM taptime_server.admin_setup_command_receipts
     WHERE command_id = $1`, [historicalCommand.commandId])).rows).toEqual([{ actor_membership_role: null }]);

@@ -29,6 +29,18 @@ afterEach(async () => {
 });
 
 describe('C3E1 Employee enrollment HTTP contract', () => {
+  it.each(['managed-person-time', 'managed-active-summary'])('T059 c: rejects employee access to %s without disclosure', async (route) => {
+    const apiOrigin = await origin(coordinator({
+      async readManagedPersonTime() { return { status: 'forbidden' }; },
+      async readManagedActiveSummary() { return { status: 'forbidden' }; },
+    }));
+    const response = await post(apiOrigin, `/v1/administration/${route}`, route === 'managed-person-time'
+      ? { expectedMembershipId: membershipId, targetMembershipId: membershipId, fromInclusive: '2026-10-01T00:00:00.000Z', toExclusive: '2026-11-01T00:00:00.000Z', cursor: null, limit: 20 }
+      : { expectedMembershipId: membershipId, locationId: null, isRunning: null, cursor: null, limit: 20 });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({error:{code:'forbidden'}});
+  });
+
   it.each([
     ['account_creation_not_configured', 503], ['email_exists', 409], ['membership_exists', 409],
     ['former_membership', 409], ['invitation_delivery_failed', 503], ['invitation_rate_limited', 429],

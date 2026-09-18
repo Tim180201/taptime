@@ -56,6 +56,7 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
     private readonly authentication: AuthenticatedRequestCapability,
     private readonly fetchRequest: AuthenticatedFetchPort = fetch,
     private readonly requestTimeoutMilliseconds = DEFAULT_REQUEST_TIMEOUT_MILLISECONDS,
+    private readonly preserveAccountInvitationErrors = false,
   ) {
     if (!Number.isSafeInteger(requestTimeoutMilliseconds) || requestTimeoutMilliseconds <= 0) {
       throw new Error('Authenticated request timeout must be a positive safe integer');
@@ -104,7 +105,11 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
           ) {
             return { status: 'completed', value: { status: 'unavailable' } };
           }
-          if (response.status === 429 || response.status >= 500) {
+          // T-047 has named business outcomes on 429/503. Only its dedicated client
+          // opts into reading their bounded bodies; existing transport behavior is unchanged.
+          const accountInvitation = this.preserveAccountInvitationErrors
+            && endpoint.pathname === '/v1/administration/employee-account-invitations';
+          if ((response.status === 429 || response.status >= 500) && !accountInvitation) {
             const retryAfter = parseRetryAfter(response.headers.get('retry-after'));
             if (retryAfter.status === 'invalid') {
               return { status: 'completed', value: { status: 'unavailable' } };

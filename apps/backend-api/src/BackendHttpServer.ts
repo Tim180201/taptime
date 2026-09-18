@@ -1,3 +1,4 @@
+import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
@@ -104,6 +105,8 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/administration/employee-account-invitations': 'admin_create_employee_account_invitation',
   '/v1/administration/employee-invitations': 'admin_create_employee_invitation',
   '/v1/administration/employee-memberships-projection': 'admin_employee_memberships_projection',
+  '/v1/administration/managed-person-time': 'admin_managed_person_time',
+  '/v1/administration/managed-active-summary': 'admin_managed_active_summary',
   '/v2/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v2',
   '/v1/administration/memberships/revoke': 'admin_revoke_membership',
   '/v1/administration/memberships/change-role': 'admin_change_membership_role',
@@ -522,6 +525,26 @@ async function handleRequest(
       correlationId,
       timeoutMilliseconds,
     );
+    return;
+  }
+  if (route === 'admin_managed_person_time') {
+    if (!isManagedPersonTimeRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
+    await handleAdministrationOperation(response, options, correlationId, timeoutMilliseconds,
+      async (deadlineEpochMilliseconds) => {
+        const operation = dependencies.employeeEnrollment.readManagedPersonTime;
+        if (!operation) throw new Error('Managed time unavailable');
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body }, { deadlineEpochMilliseconds });
+      }, result => result.value);
+    return;
+  }
+  if (route === 'admin_managed_active_summary') {
+    if (!isManagedActiveSummaryRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
+    await handleAdministrationOperation(response, options, correlationId, timeoutMilliseconds,
+      async (deadlineEpochMilliseconds) => {
+        const operation = dependencies.employeeEnrollment.readManagedActiveSummary;
+        if (!operation) throw new Error('Managed summary unavailable');
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body }, { deadlineEpochMilliseconds });
+      }, result => result.value);
     return;
   }
   if (route === 'admin_employee_memberships_projection_v2') {
@@ -2582,6 +2605,8 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':
     case 'admin_employee_memberships_projection_v2':
+    case 'admin_managed_person_time':
+    case 'admin_managed_active_summary':
     case 'admin_revoke_membership':
     case 'admin_change_membership_role':
     case 'auth_password_reset_audit':
@@ -2651,6 +2676,8 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'
     || route === 'admin_employee_memberships_projection_v2'
+    || route === 'admin_managed_person_time'
+    || route === 'admin_managed_active_summary'
     || route === 'admin_revoke_membership'
     || route === 'admin_change_membership_role'
     || route === 'auth_password_reset_audit'

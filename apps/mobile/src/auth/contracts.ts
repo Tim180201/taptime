@@ -1,6 +1,11 @@
 export type ProductMembershipRole = 'administrator' | 'standortleitung' | 'employee';
 
+export type MobileManagementScope = { readonly kind: 'organization' }
+  | { readonly kind: 'location'; readonly locationId: string; readonly locationName: string };
+
 export interface ProductSessionContext {
+  readonly managementScope?: MobileManagementScope | null;
+  readonly locationsEnabled?: boolean;
   readonly nfcSetupAvailable: boolean;
   readonly userId: string;
   readonly membershipId: string;

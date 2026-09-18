@@ -1,7 +1,7 @@
 import { View, type ViewStyle } from 'react-native';
 import { mobileTokens } from './tokens';
 
-export type IconName = 'capture' | 'manual' | 'times' | 'setup' | 'back' | 'check' | 'pending';
+export type IconName = 'employees' | 'capture' | 'manual' | 'times' | 'setup' | 'back' | 'check' | 'pending';
 
 /** Small code-native line icons; text labels provide their accessible meaning. */
 export function LineIcon({ name, size = 24, color = mobileTokens.color.textMuted }: {
@@ -12,6 +12,8 @@ export function LineIcon({ name, size = 24, color = mobileTokens.color.textMuted
   ]} />;
   let parts;
   switch (name) {
+    case 'employees': parts = <>{line({ width: 8, height: 8, borderRadius: 8, left: 8, top: 1 }, 'head')}
+      {line({ width: 18, height: 10, borderTopLeftRadius: 12, borderTopRightRadius: 12, left: 3, top: 13 }, 'people')}</>; break;
     case 'capture':
       parts = <>{[18, 12, 6].map((width) => line({ width, height: width,
         left: (24 - width) / 2, top: 2 + (18 - width) / 2,

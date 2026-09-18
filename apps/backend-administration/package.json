@@ -10,7 +10,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/administration-contract --external:@taptime/backend-identity --external:@taptime/core --external:pg --sourcemap --outfile=dist/index.js",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/administration-contract --external:@taptime/backend-identity --external:@taptime/core --external:@taptime/mobile-work-contract --external:@taptime/administration-contract/managed-people --external:pg --sourcemap --outfile=dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -18,7 +18,8 @@
     "@taptime/administration-contract": "*",
     "@taptime/backend-identity": "*",
     "@taptime/core": "*",
-    "pg": "^8.22.0"
+    "pg": "^8.22.0",
+    "@taptime/mobile-work-contract": "*"
   },
   "devDependencies": {
     "@taptime/backend-lifecycle": "*",

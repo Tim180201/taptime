@@ -26,7 +26,8 @@
     "react-native": "0.86.0",
     "react-native-nfc-manager": "^3.17.2",
     "react-native-url-polyfill": "^3.0.0",
-    "react-native-web": "^0.21.2"
+    "react-native-web": "^0.21.2",
+    "@taptime/administration-contract": "*"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
@@ -36,7 +37,7 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "eas-build-post-install": "npm run build --workspace=@taptime/mobile-work-contract && npm run build --workspace=@taptime/offline-sync-contract && npm run build --workspace=@taptime/time-review-contract",
+    "eas-build-post-install": "npm run build --workspace=@taptime/administration-contract && npm run build --workspace=@taptime/mobile-work-contract && npm run build --workspace=@taptime/offline-sync-contract && npm run build --workspace=@taptime/time-review-contract",
     "android:production-validation:build": "node scripts/buildProductionValidationAndroid.mjs",
     "android:offline-storage-boundary:verify": "node scripts/verifyOfflineStorageAndroidBoundary.mjs",
     "ios": "expo start --ios",

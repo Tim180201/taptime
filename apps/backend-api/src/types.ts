@@ -1,3 +1,4 @@
+import type { ManagedPersonTimeCommand, ManagedActiveSummaryCommand, ManagedPersonTimeResult, ManagedActiveSummaryResult } from '@taptime/backend-administration';
 import type {
   AssignmentTarget,
   MembershipId,
@@ -65,6 +66,8 @@ import type {
 } from '@taptime/backend-lifecycle';
 
 export interface ResolvedProductSession {
+  readonly managementScope?: { readonly kind: 'organization' } | { readonly kind: 'location'; readonly locationId: string; readonly locationName: string } | null;
+  readonly locationsEnabled?: boolean;
   readonly nfcSetupAvailable: boolean;
   readonly userId: UserId;
   readonly membershipId: MembershipId;
@@ -187,6 +190,8 @@ export interface AdministrationCoordinator {
 }
 
 export interface EmployeeMembershipEnrollmentCoordinator {
+  readManagedPersonTime?(command: ManagedPersonTimeCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedPersonTimeResult>;
+  readManagedActiveSummary?(command: ManagedActiveSummaryCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedActiveSummaryResult>;
   createAccountInvitation?(
     command: { readonly accessToken: string; readonly expectedMembershipId: MembershipId;
       readonly commandId: string; readonly displayName: string; readonly email: string;
@@ -263,6 +268,8 @@ export type BackendApiRoute =
   | 'admin_create_employee_account_invitation'
   | 'admin_employee_memberships_projection'
   | 'admin_employee_memberships_projection_v2'
+  | 'admin_managed_person_time'
+  | 'admin_managed_active_summary'
   | 'admin_revoke_membership'
   | 'admin_change_membership_role'
   | 'auth_password_reset_audit'

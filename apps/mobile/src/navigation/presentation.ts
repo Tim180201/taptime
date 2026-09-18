@@ -1,13 +1,14 @@
 import type { ProductSessionContext } from '../auth/contracts';
 import type { ProductScanState } from '../scan/contracts';
 
-export type ProductDestination = 'capture' | 'manual' | 'times' | 'setup';
+export type ProductDestination = 'capture' | 'manual' | 'times' | 'employees' | 'setup';
 export const destinationLabels: Record<ProductDestination, string> = {
-  capture: 'Erfassen', manual: 'Manuell', times: 'Meine Zeiten', setup: 'Tags',
+  capture: 'Erfassen', manual: 'Manuell', times: 'Meine Zeiten', employees: 'Mitarbeiter', setup: 'Tags',
 };
-export function productDestinations(session: Pick<ProductSessionContext, 'role' | 'nfcSetupAvailable'>): readonly ProductDestination[] {
-  return session.nfcSetupAvailable === true ? ['capture', 'manual', 'times', 'setup']
-    : ['capture', 'manual', 'times'];
+export function productDestinations(session: Pick<ProductSessionContext, 'role' | 'nfcSetupAvailable' | 'managementScope'>): readonly ProductDestination[] {
+  const people = session.managementScope != null ? 'employees' : 'times';
+  return session.nfcSetupAvailable === true ? ['capture', 'manual', people, 'setup']
+    : ['capture', 'manual', people];
 }
 
 export interface SyncIndicator {

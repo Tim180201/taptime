@@ -1,6 +1,8 @@
+import type { EmployeesCapability } from '../employees/contracts';
+import { EmployeesScreen } from '../screens/EmployeesScreen';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { BackHandler, Linking, Platform, StyleSheet, View } from 'react-native';
-import type { MobileSessionCapability, ProductMembershipRole } from '../auth/contracts';
+import type { MobileSessionCapability, ProductMembershipRole, MobileManagementScope } from '../auth/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
 import { AdminSetupScreen } from '../screens/AdminSetupScreen';
@@ -30,10 +32,12 @@ export function AppNavigator({
   administration,
   work,
   offlineManual,
+  employees,
 }: {
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
   readonly administration: AdminSetupCapability;
+  readonly employees?: EmployeesCapability;
   readonly work?: MobileWorkCapability;
   readonly offlineManual: OfflineManualCaptureCapability;
 }) {
@@ -65,7 +69,7 @@ export function AppNavigator({
 
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
-    return <ProductShell key={accountKey} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} session={session}
+    return <ProductShell key={accountKey} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
       scan={scan} administration={administration} work={work} offlineManual={offlineManual} />;
   }
   if (state.status === 'enrollment_only') {
@@ -131,12 +135,15 @@ function PasswordRecoveryScreen({ session, completing, notice }: {
   </View>;
 }
 
-function ProductShell({ role, nfcSetupAvailable = false, session, scan, administration, work, offlineManual }: {
+function ProductShell({ role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, offlineManual }: {
   readonly role: ProductMembershipRole | 'offline';
   readonly nfcSetupAvailable?: boolean;
+  readonly managementScope?: MobileManagementScope | null;
+  readonly locationsEnabled?: boolean;
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
   readonly administration: AdminSetupCapability;
+  readonly employees?: EmployeesCapability;
   readonly work?: MobileWorkCapability;
   readonly offlineManual: OfflineManualCaptureCapability;
 }) {
@@ -150,7 +157,8 @@ function ProductShell({ role, nfcSetupAvailable = false, session, scan, administ
     if ('queueCount' in scanState) previousCount.current = scanState.queueCount;
     else if (scanState.status === 'ready' && scanState.outcome === null) previousCount.current = 0;
   }, [scanState]);
-  const destinations = role === 'offline' ? OFFLINE_PRODUCT_DESTINATIONS : productDestinations({ role, nfcSetupAvailable });
+  const destinations = role === 'offline' ? OFFLINE_PRODUCT_DESTINATIONS : productDestinations({ role, nfcSetupAvailable, managementScope });
+  useEffect(() => { if (!destinations.includes(destination)) setDestination('capture'); }, [destination, managementScope, nfcSetupAvailable]);
   const navigate = (next: ProductDestination) => {
     if (next !== 'capture') void scan.cancel();
     if (next !== 'setup') void administration.cancel();
@@ -203,6 +211,7 @@ function ProductShell({ role, nfcSetupAvailable = false, session, scan, administ
           : destination === 'manual' ? role === 'offline'
               ? <OfflineManualCaptureScreen manual={offlineManual} restorationKey="offline" />
               : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
+          : destination === 'employees' ? managementScope && employees ? <EmployeesScreen employees={employees} scope={managementScope} locationsEnabled={locationsEnabled} /> : null
           : destination === 'times' ? work ? <OwnTimeScreen work={work} />
               : <MessageScreen title="Deine Zeiten sind derzeit nicht verfügbar." />
           : nfcSetupAvailable ? <AdminSetupScreen administration={administration} /> : null}

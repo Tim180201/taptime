@@ -198,6 +198,7 @@ describe('server-authoritative GET /v1/session', () => {
       .resolves.toEqual({ status: 'resolved', session: {
         userId: c1Ids.administratorA, membershipId: c1Ids.administratorAMembership,
         organizationId: c1Ids.organizationA, role: 'administrator', nfcSetupAvailable: true,
+        managementScope: { kind: 'organization' }, locationsEnabled: false,
       } });
   });
 
@@ -330,7 +331,7 @@ describe('server-authoritative GET /v1/session', () => {
         membershipId: c1Ids.employeeBMembership,
         organizationId: c1Ids.organizationB,
         role: 'employee',
-        nfcSetupAvailable: false,
+        nfcSetupAvailable: false, locationsEnabled:false, managementScope:null,
       },
     });
   });
@@ -406,7 +407,7 @@ describe('server-authoritative GET /v2/session', () => {
       membershipId: c1Ids.administratorAMembership,
       organizationId: c1Ids.organizationA,
       role: 'administrator',
-      nfcSetupAvailable: true,
+      nfcSetupAvailable: true, locationsEnabled:false, managementScope:{kind:'organization'},
     });
     const response = await administrationSessionRequest(token);
     expect(response.status).toBe(200);
@@ -511,7 +512,8 @@ describe('server-authoritative GET /v2/session', () => {
     const token = await accessToken(jwks);
     const before = await administrationSessionRequest(token);
     expect(JSON.parse((await sessionRequest(token)).text)).toMatchObject({
-      role: 'standortleitung', nfcSetupAvailable: true,
+      role: 'standortleitung', nfcSetupAvailable: true, locationsEnabled:true,
+      managementScope:{kind:'location',locationId,locationName:'Berlin'},
     });
     expect(JSON.parse(before.text)).toEqual({
       userId: c1Ids.employeeA,
@@ -533,7 +535,7 @@ describe('server-authoritative GET /v2/session', () => {
     );
     const after = await administrationSessionRequest(token);
     expect(JSON.parse((await sessionRequest(token)).text)).toMatchObject({
-      role: 'standortleitung', nfcSetupAvailable: false,
+      role: 'standortleitung', nfcSetupAvailable: false, managementScope:null,
     });
     expect(JSON.parse(after.text)).toEqual({
       userId: c1Ids.employeeA,
@@ -936,9 +938,10 @@ async function rawRequest(
 
 function expectSuccess(response: HttpResult, expected: Readonly<Record<string, string | boolean>>): void {
   expect(response.status).toBe(200);
-  expect(JSON.parse(response.text)).toEqual(expected);
+  expect(JSON.parse(response.text)).toEqual({...expected, locationsEnabled:false,
+    managementScope:expected.role==='administrator' ? {kind:'organization'} : null});
   expect(Object.keys(JSON.parse(response.text)).sort()).toEqual([
-    'membershipId', 'nfcSetupAvailable', 'organizationId', 'role', 'userId',
+    'locationsEnabled', 'managementScope', 'membershipId', 'nfcSetupAvailable', 'organizationId', 'role', 'userId',
   ]);
   expect(response.headers['cache-control']).toBe('no-store');
   expect(response.headers['content-type']).toBe('application/vnd.taptime.mobile-session.v2+json; charset=utf-8');
