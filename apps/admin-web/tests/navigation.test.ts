@@ -9,13 +9,15 @@ import {
 } from '../src/navigation';
 
 describe('Admin Web address navigation', () => {
-  it('allows exactly the five accepted slugs', () => {
+  it('allows exactly the accepted area slugs', () => {
     expect(adminViews.map((view) => view.slug)).toEqual([
       'uebersicht',
-      'einrichtung',
       'beschaeftigte',
-      'arbeitszeiten',
       'pruefungen',
+      'meine-zeiten',
+      'manuell',
+      'einrichtung',
+      'lohnexport',
     ]);
     for (const view of adminViews) {
       expect(routeFromLocation(canonicalRoutePath(defaultRoute(view.slug)), '').view)
@@ -39,7 +41,7 @@ describe('Admin Web address navigation', () => {
       '?monat=2026-08&status=abgeschlossen&erfassungsart=gescannt',
     );
     expect(canonicalRoutePath(route)).toBe(
-      '/arbeitszeiten?monat=2026-08&status=abgeschlossen&erfassungsart=gescannt',
+      '/lohnexport?monat=2026-08&status=abgeschlossen&erfassungsart=gescannt',
     );
     expect(monthTimeWindow('2026-08')).toEqual({
       fromInclusive: '2026-07-31T22:00:00.000Z',

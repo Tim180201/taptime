@@ -76,8 +76,7 @@ implements AdministrationSessionAuthorityResolver {
         userId: resolution.membership.userId,
         membershipId: resolution.membership.membershipId,
         organizationId: resolution.membership.organizationId,
-        // Admin-Web v2 deliberately rejects unknown JSON fields. Keep its drawing
-        // contract intact while Mobile receives the separate NFC capability.
+        role: projected.projection.role,
         locationsEnabled: projected.projection.locationsEnabled,
         availableSections: projected.projection.availableSections,
         managementScope: projected.projection.managementScope,

@@ -19,6 +19,7 @@ export class EmployeeAccountInvitationClient implements EmployeeAccountInvitatio
         const session = await this.api.session(token);
         if (session.status !== 'succeeded') return session.status === 'rejected'
           ? { status: 'rejected' } : { status: 'unreachable' };
+        if (!session.value.availableSections.includes('employees')) return {status:'rejected'};
         return this.api.createEmployeeAccountInvitation(token, session.value.membershipId,
           crypto.randomUUID(), displayName, email, locationId);
       }) ?? { status: 'rejected' };
@@ -42,12 +43,26 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
   const submitting = useRef(false);
   const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (open) nameInput.current?.focus(); }, [open]);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const wasOpen = useRef(false);
+  const nativeDialog = typeof HTMLDialogElement !== 'undefined' && typeof HTMLDialogElement.prototype.showModal === 'function';
+  const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const panel=dialog.current;
+    if(open) {if(nativeDialog) panel?.showModal();nameInput.current?.focus();}
+    else if(wasOpen.current) requestAnimationFrame(()=>trigger.current?.focus());
+    wasOpen.current=open;
+    return ()=>{if(nativeDialog && panel?.open) panel.close();};
+  }, [open,nativeDialog]);
 
   return <>
-    {notice === null ? null : <p role={notice.error ? 'alert' : 'status'}>{notice.text}</p>}
-    {!open ? <button onClick={() => setOpen(true)}>Mitarbeiter hinzufügen</button>
-      : <form className="inline-form" onSubmit={(event) => {
+    {!open ? <button ref={trigger} onClick={() => setOpen(true)}>Mitarbeiter hinzufügen</button>
+      : <dialog ref={dialog} className="invitation-panel" aria-label="Beschäftigte Person einladen"
+        open={nativeDialog ? undefined : true} onCancel={event=>{event.preventDefault();if(!busy) setOpen(false);}}>
+        <h2>Beschäftigte Person einladen</h2>
+        {notice === null ? null : <p role={notice.error ? 'alert' : 'status'}>{notice.text}</p>}
+        <button className="quiet" disabled={busy} onClick={()=>{setOpen(false);requestAnimationFrame(()=>trigger.current?.focus());}}>Einladen schließen</button>
+        <form className="inline-form" onSubmit={(event) => {
         event.preventDefault();
         if (submitting.current) return;
         submitting.current = true;
@@ -82,6 +97,6 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
           </select>
         </> : null}
         <button disabled={busy}>{busy ? 'Einladung wird versendet …' : 'Einladung senden'}</button>
-      </form>}
+      </form></dialog>}
   </>;
 }

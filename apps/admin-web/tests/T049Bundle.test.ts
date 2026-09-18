@@ -1,0 +1,20 @@
+import { readFile, readdir } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { expect, it } from 'vitest';
+it('T049 f/g: Vite creates a lazy chunk per area and the entry does not preload them all',async()=>{
+  execFileSync(process.execPath,[resolve('../../node_modules/vite/bin/vite.js'),'build','--manifest'],{cwd:process.cwd(),stdio:'pipe'});
+  const manifest=JSON.parse(await readFile('dist/.vite/manifest.json','utf8'));
+  const dynamic=Object.values(manifest).filter((entry:any)=>entry.isDynamicEntry) as {file:string}[];
+  const source=await readFile('src/App.tsx','utf8');
+  const modules=[...source.matchAll(/lazy\(\(\)=>import\('(.+?)'\)\)/g)].map(match=>match[1].replace('./','src/')+'.tsx');
+  expect(modules.length).toBeGreaterThan(0);
+  for(const module of modules) expect(manifest[module]?.isDynamicEntry).toBe(true);
+  const initial=new Set<string>();
+  const visit=(key:string)=>{if(initial.has(key))return;initial.add(key);for(const child of manifest[key]?.imports ?? [])visit(child);};
+  for(const [key,entry] of Object.entries(manifest)) if((entry as {isEntry?:boolean}).isEntry) visit(key);
+  for(const module of modules) expect(initial.has(module)).toBe(false);
+  const html=await readFile('dist/index.html','utf8');
+  for(const entry of dynamic) expect(html).not.toContain(entry.file);
+  expect((await readdir('dist/assets')).filter(name=>name.endsWith('.js')).length).toBeGreaterThan(1);
+},30000);

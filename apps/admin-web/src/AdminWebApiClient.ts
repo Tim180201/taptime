@@ -1,18 +1,33 @@
-import { ACCOUNT_INVITATION_NOTICES, type AccountInvitationApiResult, type AccountInvitationFailureCode } from './accountInvitation';
-import type {
-  AdministrationLocation,
-  AdministrationManagementScope,
-  AdministrationSection,
-  CursorPage,
-  SafeEmployeeProjection,
-  SafeProjection,
-  SafeProject,
-  SafeReviewItem,
-  SafeTimeRecord,
-  VolatileInvitationSecret,
-} from './contracts';
+import { isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
+import {
+	validateManualBreakLifecycleRequest,
+	validateManualLifecycleRequest,
+	validateMobileOwnTimeQueryRequest,
+	validateMobileWorkTargetQueryRequest,
+	validateOwnTimeResponse,validateWorkTargetResponse,
+	type ManualBreakLifecycleRequest,
+	type ManualLifecycleRequest,
+	type MobileOwnTimeQueryRequest,
+	type MobileOwnTimeQueryResponse,
+	type MobileWorkTargetQueryRequest,
+	type MobileWorkTargetQueryResponse,
+} from '@taptime/mobile-work-contract';
+import { ACCOUNT_INVITATION_NOTICES,type AccountInvitationApiResult,type AccountInvitationFailureCode } from './accountInvitation';
+import type {
+	AdministrationLocation,
+	AdministrationManagementScope,
+	AdministrationSection,
+	CursorPage,
+	SafeEmployeeProjection,
+	SafeProject,
+	SafeProjection,
+	SafeReviewItem,
+	SafeTimeRecord,
+	VolatileInvitationSecret,
+} from './contracts';
 import { isSafeEmployeeProjectionPage } from './employeeProjectionSafety';
+import { parseManualResult,type ManualResult } from './manualCapture';
 import { isCanonicalSafeTapTimeName } from './safeTapTimeName';
 
 const maximumJsonBodyBytes = 16 * 1024;
@@ -30,6 +45,7 @@ const projectCursor = /^v1:[A-Za-z0-9_-]{1,252}$/;
 const locationCursor = /^v1:l:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const locationSetupCursor = /^v1:(?:l|m|w:(?:customer|project|general_work)|g:[0-4]):[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export type Session = {
+  readonly role: 'administrator' | 'standortleitung' | 'employee';
   readonly membershipId: string;
   readonly organizationId: string;
   readonly locationsEnabled: boolean;
@@ -69,6 +85,11 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  ownTime?(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
+  workTargets?(token: string, request: MobileWorkTargetQueryRequest): Promise<ApiResult<MobileWorkTargetQueryResponse>>;
+  manualLifecycle?(token: string, request: ManualLifecycleRequest | ManualBreakLifecycleRequest): Promise<ApiResult<ManualResult>>;
+  managedPersonTime?(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
+  managedActiveSummary?(token: string, request: ManagedActiveSummaryRequest): Promise<ApiResult<ManagedActiveSummary>>;
   createEmployeeAccountInvitation?(token: string, membershipId: string, commandId: string,
     displayName: string, email: string, locationId: string | null): Promise<AccountInvitationApiResult>;
   recordPasswordReset(token: string): Promise<ApiResult<true>>;
@@ -186,6 +207,37 @@ export interface AdminWebApiPort {
 
 export class AdminWebApiClient implements AdminWebApiPort {
   constructor(private readonly fetchRequest: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
+  async ownTime(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>> {
+    if (!validateMobileOwnTimeQueryRequest(request)) return {status:'invalid_response'};
+    return this.request('/v1/mobile/own-time/query',token,'POST',request,
+      value => validCalendarPage(value,request.limit) ? value : null,
+      false,false,false,maximumTimeReviewBodyBytes);
+  }
+  async workTargets(token: string, request: MobileWorkTargetQueryRequest): Promise<ApiResult<MobileWorkTargetQueryResponse>> {
+    if (!validateMobileWorkTargetQueryRequest(request)) return {status:'invalid_response'};
+    return this.request('/v1/mobile/work-targets/query',token,'POST',request,
+      value => validateWorkTargetResponse(value) && value.targets.length <= request.limit
+        && new Set(value.targets.map(target=>`${target.targetType}:${target.targetId}`)).size === value.targets.length
+        ? value : null,false,false,false,maximumTimeReviewBodyBytes);
+  }
+  async manualLifecycle(token: string, request: ManualLifecycleRequest | ManualBreakLifecycleRequest): Promise<ApiResult<ManualResult>> {
+    const isBreak=validateManualBreakLifecycleRequest(request);
+    if (!isBreak && !validateManualLifecycleRequest(request)) return {status:'invalid_response'};
+    return this.request(isBreak ? '/v1/lifecycle-events/manual-break' : '/v1/lifecycle-events/manual',token,'POST',request,
+      value => parseManualResult(value,request),false,false,false,maximumJsonBodyBytes,false,false,false,false,[200,202]);
+  }
+  async managedPersonTime(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>> {
+    if (!isManagedPersonTimeRequest(request)) return { status: 'invalid_response' };
+    return this.request('/v1/administration/managed-person-time', token, 'POST', request,
+      value => validCalendarPage(value,request.limit) && value.windowStartedAt === request.fromInclusive
+        && value.windowEndedAt === request.toExclusive ? value : null,
+      false, false, false, maximumTimeReviewBodyBytes);
+  }
+  async managedActiveSummary(token: string, request: ManagedActiveSummaryRequest): Promise<ApiResult<ManagedActiveSummary>> {
+    if (!isManagedActiveSummaryRequest(request)) return { status: 'invalid_response' };
+    return this.request('/v1/administration/managed-active-summary', token, 'POST', request,
+      value => isManagedActiveSummary(value) ? value : null, false, false, false, maximumTimeReviewBodyBytes);
+  }
   async recordPasswordReset(token: string): Promise<ApiResult<true>> {
     return this.request('/v1/auth/password-reset/audit', token, 'POST', {}, (value) => (
       isRecord(value) && exact(value, ['status']) && value.status === 'succeeded' ? true : null
@@ -588,6 +640,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     exposeMembershipErrors = false,
     exposeLocationScopeError = false,
     exposeLocationSetupErrors = false,
+    acceptedStatuses: readonly number[] = [200],
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
@@ -667,7 +720,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
         const code = parseMembershipError(JSON.parse(conflictText));
         return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
-      if (response.status !== 200 || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'invalid_response' };
+      if (!acceptedStatuses.includes(response.status) || response.redirected || !isJsonContentType(response.headers.get('content-type'))) return { status: 'invalid_response' };
       if (!hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'invalid_response' };
       const text = await readBoundedResponseText(response, maximumResponseBytes);
       if (text === null) return { status: 'invalid_response' };
@@ -694,18 +747,19 @@ function parseSession(value: unknown): Session | null {
   if (
     !isRecord(value)
     || !exact(value, [
-      'userId', 'membershipId', 'organizationId', 'locationsEnabled',
+      'userId', 'membershipId', 'organizationId', 'role', 'locationsEnabled',
       'availableSections', 'managementScope',
     ])
     || !uuid.test(String(value.userId))
     || !uuid.test(String(value.membershipId))
     || !uuid.test(String(value.organizationId))
+    || !['administrator', 'standortleitung', 'employee'].includes(String(value.role))
     || typeof value.locationsEnabled !== 'boolean'
     || !Array.isArray(value.availableSections)
     || !isRecord(value.managementScope)
   ) return null;
   const allowedSections = new Set<AdministrationSection>([
-    'setup', 'employees', 'time_records', 'time_export', 'review_items',
+    'setup', 'employees', 'time_records', 'time_export', 'review_items', 'own_time', 'manual_capture',
   ]);
   const sections = value.availableSections;
   if (
@@ -740,6 +794,7 @@ function parseSession(value: unknown): Session | null {
     };
   } else return null;
   return Object.freeze({
+    role: value.role as Session['role'],
     membershipId: String(value.membershipId),
     organizationId: String(value.organizationId),
     locationsEnabled: value.locationsEnabled,
@@ -1265,4 +1320,18 @@ function isCanonicalTimestamp(value: unknown): value is string {
 
 function isNonNegativeInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= 0;
+}
+
+function validCalendarPage(value: unknown, limit: number): value is MobileOwnTimeQueryResponse {
+  if (!validateOwnTimeResponse(value) || value.records.length > limit
+    || Date.parse(value.windowStartedAt) >= Date.parse(value.windowEndedAt)) return false;
+  const ids=value.records.map(record=>record.timeRecordId);
+  return new Set(ids).size === ids.length
+    && value.records.every(record=>record.status === 'stopped' && record.stoppedAt !== null
+      && Date.parse(record.startedAt) < Date.parse(record.stoppedAt)
+      && Date.parse(record.startedAt) < Date.parse(value.windowEndedAt)
+      && Date.parse(record.stoppedAt) > Date.parse(value.windowStartedAt))
+    && (value.activeRecord === null || (value.activeRecord.status === 'started'
+      && value.activeRecord.stoppedAt === null && value.activeRecord.stoppedVia === null
+      && !ids.includes(value.activeRecord.timeRecordId)));
 }

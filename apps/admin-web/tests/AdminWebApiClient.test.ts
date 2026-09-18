@@ -16,6 +16,7 @@ const ids = {
 
 function validSession() {
   return {
+    role: 'administrator',
     userId: ids.user,
     membershipId: ids.membership,
     organizationId: ids.organization,
@@ -136,6 +137,7 @@ describe('AdminWebApiClient', () => {
 
     await expect(client.session('secret-token')).resolves.toEqual({
       status: 'succeeded', value: {
+        role: 'administrator',
         membershipId: ids.membership,
         organizationId: ids.organization,
         locationsEnabled: false,
@@ -148,7 +150,7 @@ describe('AdminWebApiClient', () => {
     expect(calls[0]?.init?.headers).toMatchObject({ Authorization: 'Bearer secret-token' });
   });
 
-  it('strictly accepts the located session contract without a role', async () => {
+  it('strictly accepts the located session contract with a known role', async () => {
     const located = {
       ...validSession(),
       locationsEnabled: true,
@@ -158,12 +160,13 @@ describe('AdminWebApiClient', () => {
         locations: [{ id: ids.location, name: 'Berlin' }],
       },
     };
-    const responses = [located, { ...located, role: 'standortleitung' }];
+    const responses = [located, { ...located, role: 'unknown' }];
     const client = new AdminWebApiClient(async () => json(responses.shift()));
 
     await expect(client.session('token')).resolves.toEqual({
       status: 'succeeded',
       value: {
+        role: 'administrator',
         membershipId: ids.membership,
         organizationId: ids.organization,
         locationsEnabled: true,
@@ -177,7 +180,7 @@ describe('AdminWebApiClient', () => {
     await expect(client.session('token')).resolves.toEqual({ status: 'invalid_response' });
   });
 
-  it('bounds worst-case Location sessions at 488 entries', async () => {
+  it('bounds Location sessions at the actual JSON byte limit', async () => {
     const sessionWithLocations = (count: number) => ({
       ...validSession(),
       locationsEnabled: true,
@@ -189,10 +192,12 @@ describe('AdminWebApiClient', () => {
         })),
       },
     });
-    const lastFitting = sessionWithLocations(488);
-    const firstTooLarge = sessionWithLocations(489);
-    expect(new TextEncoder().encode(JSON.stringify(lastFitting)).byteLength).toBe(261_890);
-    expect(new TextEncoder().encode(JSON.stringify(firstTooLarge)).byteLength).toBe(262_426);
+    let count=0;
+    const bytes=(value:unknown)=>new TextEncoder().encode(JSON.stringify(value)).byteLength;
+    while(bytes(sessionWithLocations(count+1)) <= 256*1024) count++;
+    const lastFitting=sessionWithLocations(count),firstTooLarge=sessionWithLocations(count+1);
+    expect(bytes(lastFitting)).toBeLessThanOrEqual(256*1024);
+    expect(bytes(firstTooLarge)).toBeGreaterThan(256*1024);
     const responses = [json(lastFitting), json(firstTooLarge)];
     const client = new AdminWebApiClient(async () => responses.shift()!);
 
@@ -209,7 +214,8 @@ describe('AdminWebApiClient', () => {
     try {
       await expect(new AdminWebApiClient().session('secret-token')).resolves.toEqual({
         status: 'succeeded', value: {
-          membershipId: ids.membership,
+          role: 'administrator',
+        membershipId: ids.membership,
           organizationId: ids.organization,
           locationsEnabled: false,
           availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],

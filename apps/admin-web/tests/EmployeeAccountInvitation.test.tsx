@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import '@testing-library/jest-dom/vitest';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { EmployeeAccountInvitationForm } from '../src/EmployeeAccountInvitationForm';
+import { EmployeeAccountInvitationForm, EmployeeAccountInvitationClient } from '../src/EmployeeAccountInvitationForm';
 import type { EmployeeAccountInvitationCapability } from '../src/EmployeeAccountInvitationForm';
 import { ACCOUNT_INVITATION_NOTICES, ACCOUNT_INVITATION_SUCCESS_NOTICES } from '../src/accountInvitation';
 import { AdminWebApiClient } from '../src/AdminWebApiClient';
@@ -48,7 +48,9 @@ describe('T-047 employee account interface', () => {
   it('describes email_exists only as belonging to another organization', async () => {
     render(<Harness capability={{ invite: async () => ({ status: 'failed', code: 'email_exists' }) }} />);
     fill();
-    expect(await screen.findByRole('alert')).toHaveTextContent('Diese Adresse gehört bereits zu einem anderen Betrieb.');
+    const error=await screen.findByRole('alert');
+    expect(error).toHaveTextContent('Diese Adresse gehört bereits zu einem anderen Betrieb.');
+    expect(screen.getByRole('dialog',{name:'Beschäftigte Person einladen'})).toContainElement(error);
   });
   it.each(Object.entries(ACCOUNT_INVITATION_NOTICES))('shows %s by name and retains the inputs', async (code, text) => {
     render(<Harness capability={{ invite: async () => ({ status: 'failed', code: code as keyof typeof ACCOUNT_INVITATION_NOTICES }) }} />);
@@ -71,4 +73,12 @@ describe('T-047 employee account interface', () => {
       'Neue Person', 'person@example.test', null)).toEqual({ status });
     expect(request.mock.calls[0]?.[0]).toBe('/v1/administration/employee-account-invitations');
   });
+});
+
+it('T049: an employee cannot submit invitations through the capability directly',async()=>{
+ const request=vi.fn<typeof fetch>(async()=>Response.json({userId:membershipId,membershipId,organizationId:membershipId,
+   role:'employee',locationsEnabled:false,availableSections:['own_time','manual_capture'],managementScope:{kind:'locations',locations:[]}}));
+ const client=new EmployeeAccountInvitationClient({withAccessToken:async operation=>operation('token')},new AdminWebApiClient(request));
+ expect(await client.invite('Neue Person','person@example.test',null)).toEqual({status:'rejected'});
+ expect(request).toHaveBeenCalledOnce();expect(request.mock.calls[0]![0]).toBe('/v2/session');
 });

@@ -10,6 +10,7 @@ import type { SafeEmployeeProjection, SafeProjection, SafeReviewItem, SafeTimeRe
 
 const membershipId = '20000000-0000-4000-8000-000000000001';
 const administratorSession: Session = {
+  role: 'administrator',
   membershipId,
   organizationId: '30000000-0000-4000-8000-000000000001',
   locationsEnabled: false,
@@ -31,6 +32,7 @@ const employeeProjection: SafeEmployeeProjection = {
 };
 const fixedNow = Date.parse('2026-07-21T12:00:00.000Z');
 const readyTimeReviewState = {
+  role: 'administrator',
   assignableLocations: [],
   locationSetup: null,
   locationSetupBusy: false,
@@ -1564,4 +1566,75 @@ describe('T-040 sign-in names its cause', () => {
     const notices = failures.map((outcome) => SIGN_IN_FAILURE_NOTICES[outcome]);
     expect(new Set(notices).size).toBe(failures.length);
   });
+});
+
+it('T049 a: opens a live employee session without loading any administration projection', async () => {
+  const {api,coordinator}=setup();
+  api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,
+    role:'employee',availableSections:['own_time','manual_capture'],managementScope:{kind:'locations',locations:[]}}});
+  await coordinator.signIn('employee@example.test','password');
+  expect(coordinator.getState()).toMatchObject({status:'ready',role:'employee',availableSections:['own_time','manual_capture']});
+  expect(api.projection).not.toHaveBeenCalled();
+  expect(api.employeeProjection).not.toHaveBeenCalled();
+  expect(api.reviewItems).not.toHaveBeenCalled();
+});
+
+it('T049 manual: retries uncertain acknowledgement with exactly the same event and receipt', async () => {
+  const auth = new FakeAuth();
+  const api = new FakeApi();
+  api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role:'employee',availableSections:['own_time','manual_capture']}});
+  const target = {targetType:'customer' as const,targetId:'40000000-0000-4000-8000-000000000001',displayName:'Werkstatt'};
+  const workTargets = vi.fn(async()=>({status:'succeeded' as const,value:{targets:[target],nextCursor:null}}));
+  const manualLifecycle = vi.fn(async()=>({status:'unreachable' as const}));
+  const coordinator = new AdminWebCoordinator(auth, {...api,workTargets,manualLifecycle},()=>fixedNow);
+  await coordinator.signIn('employee@example.test','secret');
+  await coordinator.loadWorkTargets();
+  await coordinator.captureManual(target);
+  await coordinator.refresh();
+  await coordinator.captureManual('break');
+  expect(manualLifecycle).toHaveBeenCalledTimes(2);
+  expect(manualLifecycle.mock.calls[1]).toEqual(manualLifecycle.mock.calls[0]);
+  expect(coordinator.getState()).toMatchObject({status:'ready',manual:{pending:true,busy:false}});
+  await coordinator.signOut();
+  await coordinator.captureManual(target);
+  expect(manualLifecycle).toHaveBeenCalledTimes(2);
+});
+
+it('T049 b: own-only sessions issue no administration request even through direct commands',async()=>{
+ const auth=new FakeAuth(),api=new FakeApi();
+ api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role:'employee',availableSections:['own_time','manual_capture']}});
+ const assignableLocations=vi.fn(),locationSetupPage=vi.fn(),mutateLocationSetup=vi.fn();
+ const coordinator=new AdminWebCoordinator(auth,{...api,assignableLocations,locationSetupPage,mutateLocationSetup},()=>fixedNow);
+ await coordinator.signIn('a@example.test','secret');
+ await coordinator.refreshLocationSetup();await coordinator.refreshProjects();await coordinator.createLocation('Halle');
+ await coordinator.createCustomer('Kunde');await coordinator.createEmployeeInvitation('Name','employee');
+ await coordinator.refreshManagedPeople();await coordinator.loadPersonTime(membershipId,'2026-07');
+ await coordinator.exportTimeRecords();coordinator.prepareReassignment('tag','target');await coordinator.confirmReassignment();
+ for(const call of [assignableLocations,locationSetupPage,mutateLocationSetup,api.projection,api.employeeProjection,api.timeRecords,api.reviewItems,api.createCustomer,api.createEmployeeInvitation,api.reassignNfcTag,api.exportTimeEntries]) expect(call).not.toHaveBeenCalled();
+ expect(coordinator.getState()).toMatchObject({status:'ready',role:'employee',notice:null});
+});
+it('T049 own-time: a changing active record during pagination never yields a complete sum',async()=>{
+ const auth=new FakeAuth(),api=new FakeApi();
+ api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role:'employee',availableSections:['own_time','manual_capture']}});
+ const active={timeRecordId:'90000000-0000-4000-8000-000000000003',source:'canonical' as const,targetType:'customer' as const,targetDisplayName:'Werkstatt',status:'started' as const,startedAt:'2026-07-21T08:00:00.000Z',stoppedAt:null,startedVia:'manual' as const,stoppedVia:null};
+ const closed={...active,timeRecordId:stoppedRecord.timeRecordId,status:'stopped' as const,startedAt:stoppedRecord.startedAt,stoppedAt:stoppedRecord.stoppedAt,stoppedVia:'manual' as const};
+ const frame={windowStartedAt:'2026-06-20T12:00:00.000Z',windowEndedAt:'2026-07-21T12:00:00.000Z'};
+ const ownTime=vi.fn().mockResolvedValueOnce({status:'succeeded',value:{...frame,activeRecord:active,records:[closed],nextCursor:'next'}})
+  .mockResolvedValueOnce({status:'succeeded',value:{...frame,activeRecord:null,records:[],nextCursor:null}});
+ const coordinator=new AdminWebCoordinator(auth,{...api,ownTime},()=>fixedNow);
+ await coordinator.signIn('a@example.test','secret');await coordinator.loadOwnTime('2026-07');
+ expect(coordinator.getState()).toMatchObject({status:'ready',calendar:{status:'unavailable',value:null}});
+ expect(ownTime).toHaveBeenCalledTimes(2);
+});
+
+it('T049 refresh: the shell refresh reloads opened own-time data',async()=>{
+ const auth=new FakeAuth(),api=new FakeApi();
+ api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role:'employee',availableSections:['own_time','manual_capture']}});
+ const ownTime=vi.fn(async()=>({status:'succeeded' as const,value:{activeRecord:null,records:[],nextCursor:null,
+  windowStartedAt:'2026-06-20T12:00:00.000Z',windowEndedAt:'2026-07-21T12:00:00.000Z'}}));
+ const coordinator=new AdminWebCoordinator(auth,{...api,ownTime},()=>fixedNow);
+ await coordinator.signIn('a@example.test','secret');await coordinator.loadOwnTime('2026-07');
+ await coordinator.refresh();
+ expect(ownTime).toHaveBeenCalledTimes(2);
+ expect(coordinator.getState()).toMatchObject({status:'ready',calendar:{status:'ready',month:'2026-07',targetMembershipId:null}});
 });

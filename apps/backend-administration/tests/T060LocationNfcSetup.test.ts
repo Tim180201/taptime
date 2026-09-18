@@ -117,7 +117,7 @@ describe('T060 SQL NFC authority and coordinator seam', () => {
     else await pool.query(`UPDATE taptime_server.organizations SET locations_enabled = false, row_version = row_version + 1 WHERE id = $1`, [ids.organizationA]);
     await expect(setup.provisionNfcTag(command)).resolves.toEqual({ status: 'forbidden' });
     await expect(setup.readSetupProjection({ ...manager, cursor: null, limit: 20 })).resolves.toEqual({ status: 'forbidden' });
-    await expect(session()).resolves.toMatchObject({ projection: { nfcSetupAvailable: false, availableSections: [] } });
+    await expect(session()).resolves.toMatchObject({ projection: { nfcSetupAvailable: false, availableSections: ['own_time', 'manual_capture'] } });
     await sql('taptime_admin_setup', async (client) => {
       for (const table of ['customers', 'nfc_tags', 'nfc_assignments', 'admin_setup_command_receipts', 'admin_break_tag_command_receipts']) {
         expect((await client.query(`SELECT 1 FROM taptime_server.${table}`)).rows).toEqual([]);
@@ -187,7 +187,7 @@ describe('T060 SQL NFC authority and coordinator seam', () => {
     await expect(enrollment.createInvitation({ ...manager, commandId: randomUUID(), displayName: 'Neue Person', role, locationId })).resolves.toMatchObject({ status });
   });
   it('g: SQL and backend session separate NFC from general setup for manager/admin/employee', async () => {
-    await expect(session()).resolves.toMatchObject({ projection: { nfcSetupAvailable: true, availableSections: ['employees'] } });
+    await expect(session()).resolves.toMatchObject({ projection: { nfcSetupAvailable: true, availableSections: ['employees', 'own_time', 'manual_capture'] } });
     await expect(session(admin)).resolves.toMatchObject({ projection: { nfcSetupAvailable: true, availableSections: expect.arrayContaining(['setup']) } });
     await sql('taptime_identity_resolver', async (client) => {
       expect((await client.query(`SELECT setup_available, nfc_setup_available FROM taptime_server.read_administration_session_v2($1, $2, $3)`,

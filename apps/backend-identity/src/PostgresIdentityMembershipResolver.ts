@@ -25,6 +25,9 @@ interface ResolvedActorRow {
 }
 
 interface AdministrationSessionRow {
+  readonly role: string;
+  readonly own_time_available: boolean;
+  readonly manual_capture_available: boolean;
   readonly locations_enabled: boolean;
   readonly setup_available: boolean;
   readonly nfc_setup_available: boolean;
@@ -89,7 +92,8 @@ export class PostgresIdentityMembershipResolver implements IdentityMembershipRes
       await client.query('BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY');
       await client.query(`SET LOCAL ROLE ${B4_IDENTITY_RESOLVER_ROLE}`);
       const result = await client.query<AdministrationSessionRow>(
-        `SELECT locations_enabled, setup_available, nfc_setup_available, employees_available,
+        `SELECT role, own_time_available, manual_capture_available,
+                locations_enabled, setup_available, nfc_setup_available, employees_available,
                 time_records_available, time_export_available, review_items_available,
                 management_scope_kind, management_location_id, management_location_name
          FROM ${B4_SCHEMA}.read_administration_session_v2($1, $2, $3)`,
@@ -132,6 +136,7 @@ export class PostgresIdentityMembershipResolver implements IdentityMembershipRes
       return {
         status: 'resolved',
         projection: Object.freeze({
+          role: isMembershipRole(first.role) ? first.role : (() => { throw new Error("Invalid session role"); })(),
           locationsEnabled: first.locations_enabled,
           nfcSetupAvailable: first.nfc_setup_available,
           availableSections: Object.freeze(sections),
@@ -157,6 +162,8 @@ function availableSections(row: AdministrationSessionRow): AdministrationSection
   if (row.time_records_available) sections.push('time_records');
   if (row.time_export_available) sections.push('time_export');
   if (row.review_items_available) sections.push('review_items');
+  if (row.own_time_available) sections.push('own_time');
+  if (row.manual_capture_available) sections.push('manual_capture');
   if (row.management_scope_kind !== 'organization' && row.management_scope_kind !== 'locations') {
     throw new Error('Administration session returned an invalid management scope');
   }
@@ -165,7 +172,10 @@ function availableSections(row: AdministrationSessionRow): AdministrationSection
 
 function assertBooleanSessionFields(row: AdministrationSessionRow): void {
   if (
-    typeof row.locations_enabled !== 'boolean'
+    !isMembershipRole(row.role)
+    || typeof row.own_time_available !== 'boolean'
+    || typeof row.manual_capture_available !== 'boolean'
+    || typeof row.locations_enabled !== 'boolean'
     || typeof row.setup_available !== 'boolean'
     || typeof row.nfc_setup_available !== 'boolean'
     || typeof row.employees_available !== 'boolean'
@@ -183,7 +193,10 @@ function assertConsistentSessionRow(
 ): void {
   assertBooleanSessionFields(row);
   if (
-    row.locations_enabled !== first.locations_enabled
+    row.role !== first.role
+    || row.own_time_available !== first.own_time_available
+    || row.manual_capture_available !== first.manual_capture_available
+    || row.locations_enabled !== first.locations_enabled
     || row.setup_available !== first.setup_available
     || row.nfc_setup_available !== first.nfc_setup_available
     || row.employees_available !== first.employees_available

@@ -84,6 +84,7 @@ export interface SessionAuthorityResolver {
 }
 
 export interface ResolvedAdministrationSession {
+  readonly role: MembershipRole;
   readonly userId: UserId;
   readonly membershipId: MembershipId;
   readonly organizationId: OrganizationId;
@@ -94,6 +95,8 @@ export interface ResolvedAdministrationSession {
     | 'time_records'
     | 'time_export'
     | 'review_items'
+    | 'own_time'
+    | 'manual_capture'
   )[];
   readonly managementScope:
     | { readonly kind: 'organization' }

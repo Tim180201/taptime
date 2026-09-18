@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { describe, expect, it, vi } from 'vitest';
 import { AdminWebApiClient } from '../src/AdminWebApiClient';
 import { readAdminWebConfiguration } from '../src/runtimeConfiguration';
@@ -33,7 +33,8 @@ describe('C3D Admin Web security boundaries', () => {
   });
 
   it('keeps browser UI and state free from canonical NFC capture data', async () => {
-    const source = await Promise.all(['../src/App.tsx', '../src/contracts.ts', '../src/AdminWebCoordinator.ts'].map((path) => readFile(new URL(path, import.meta.url), 'utf8')));
+    const viewFiles=await readdir(new URL('../src/views/',import.meta.url));
+    const source = await Promise.all(['../src/App.tsx', '../src/contracts.ts', '../src/AdminWebCoordinator.ts',...viewFiles.map(file=>'../src/views/'+file)].map((path) => readFile(new URL(path, import.meta.url), 'utf8')));
     expect(source.join('\n')).not.toMatch(/canonicalPayload|NfcManager|registerTagEvent|nfc:uid/i);
     const auth = await readFile(new URL('../src/SupabaseMemoryAuth.ts', import.meta.url), 'utf8');
     expect(auth).toContain('persistSession: false'); expect(auth).toContain('detectSessionInUrl: false');
@@ -104,14 +105,15 @@ describe('C3D Admin Web security boundaries', () => {
     expect(implementation).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
   });
 
-  it('bundles Inter locally, embeds navigation icons, and defines black-on-white print', async () => {
+  it('bundles Manrope locally, embeds navigation icons, and defines black-on-white print', async () => {
     const [app, styles, packageJson] = await Promise.all([
       readFile(new URL('../src/App.tsx', import.meta.url), 'utf8'),
       readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
       readFile(new URL('../package.json', import.meta.url), 'utf8'),
     ]);
-    expect(app.match(/@fontsource\/inter\/latin-(400|600|700)\.css/g)).toHaveLength(3);
-    expect(JSON.parse(packageJson).dependencies['@fontsource/inter']).toBe('5.3.0');
+    expect(styles.match(/@font-face/g)).toHaveLength(3);
+    expect(styles).toContain('@expo-google-fonts/manrope/400Regular/Manrope_400Regular.ttf');
+    expect(JSON.parse(packageJson).dependencies['@expo-google-fonts/manrope']).toBe('^0.4.2');
     expect(app).toContain("className: 'section-icon'");
     expect(app).not.toMatch(/<img|<use|href=.*\.svg|https?:\/\//i);
     expect(styles).toMatch(/@media print \{[\s\S]*color: var\(--color-print-text\) !important;/);

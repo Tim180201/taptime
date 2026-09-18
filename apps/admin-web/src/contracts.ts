@@ -1,3 +1,5 @@
+import type { MobileOwnTimeQueryResponse, SafeWorkTarget } from '@taptime/mobile-work-contract';
+import type { ManagedActiveSummary } from '@taptime/administration-contract/managed-people';
 import type {
   ParsedAdministrationSetupProjectionV2,
 } from '@taptime/administration-contract/setup-projection';
@@ -20,7 +22,9 @@ export type AdministrationSection =
   | 'employees'
   | 'time_records'
   | 'time_export'
-  | 'review_items';
+  | 'review_items'
+  | 'own_time'
+  | 'manual_capture';
 export interface AdministrationLocation {
   readonly id: string;
   readonly name: string;
@@ -129,6 +133,12 @@ export interface ReviewAdjudicationIntent {
   readonly stoppedAt: string | null;
   readonly reason: string;
 }
+export type RemoteValue<T> =
+  | { readonly status: 'loading'; readonly value: null }
+  | { readonly status: 'ready'; readonly value: T }
+  | { readonly status: 'unavailable'; readonly value: null; readonly message: string };
+export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null };
+export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string };
 export type AdminWebState =
   | { readonly status: 'signed_out'; readonly notice?: string }
   | { readonly status: 'signing_in' }
@@ -138,6 +148,11 @@ export type AdminWebState =
   | { readonly status: 'unavailable'; readonly message: string }
   | {
       readonly status: 'ready';
+      readonly role: 'administrator' | 'standortleitung' | 'employee';
+      readonly calendar?: CalendarState;
+      readonly workTargets?: RemoteValue<readonly SafeWorkTarget[]>;
+      readonly manual?: { readonly busy: boolean; readonly pending: boolean; readonly message: string | null; };
+      readonly managedPeople?: ManagedPeopleState;
       readonly locationsEnabled: boolean;
       readonly availableSections: readonly AdministrationSection[];
       readonly managementScope: AdministrationManagementScope;
@@ -168,6 +183,11 @@ export type AdminWebState =
       readonly completedAction?: CompletedAdminAction | null;
     };
 export interface AdminWebCapability {
+  readonly loadOwnTime?: (month: string) => Promise<void>;
+  readonly loadWorkTargets?: () => Promise<void>;
+  readonly captureManual?: (target: SafeWorkTarget | 'break') => Promise<void>;
+  readonly refreshManagedPeople?: (isRunning?: boolean | null, append?: boolean) => Promise<void>;
+  readonly loadPersonTime?: (targetMembershipId: string, month: string) => Promise<void>;
   getState(): AdminWebState;
   subscribe(listener: () => void): () => void;
   signIn(email: string, password: string): Promise<void>;

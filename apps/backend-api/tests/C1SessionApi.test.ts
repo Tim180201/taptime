@@ -400,7 +400,7 @@ describe('server-authoritative GET /v1/session', () => {
 });
 
 describe('server-authoritative GET /v2/session', () => {
-  it('adds the NFC capability to v1 while keeping the Admin-Web v2 contract unchanged', async () => {
+  it('keeps v1 stable and adds role and own areas to v2', async () => {
     const token = await accessToken(jwks, { subject: c1Ids.administratorSubject });
     expect(JSON.parse((await sessionRequest(token)).text)).toEqual({
       userId: c1Ids.administratorA,
@@ -416,10 +416,11 @@ describe('server-authoritative GET /v2/session', () => {
       membershipId: c1Ids.administratorAMembership,
       organizationId: c1Ids.organizationA,
       locationsEnabled: false,
-      availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items'],
+      role: 'administrator',
+      availableSections: ['setup', 'employees', 'time_records', 'time_export', 'review_items', 'own_time', 'manual_capture'],
       managementScope: { kind: 'organization' },
     });
-    expect(response.text).not.toContain('role');
+    expect(JSON.parse(response.text).role).toBe('administrator');
   });
 
   it('removes both employee-management section and scope when the same grant is revoked', async () => {
@@ -520,7 +521,8 @@ describe('server-authoritative GET /v2/session', () => {
       membershipId: c1Ids.employeeAMembership,
       organizationId: c1Ids.organizationA,
       locationsEnabled: true,
-      availableSections: ['employees'],
+      role: 'standortleitung',
+      availableSections: ['employees', 'own_time', 'manual_capture'],
       managementScope: {
         kind: 'locations',
         locations: [{ id: locationId, name: 'Berlin' }],
@@ -542,7 +544,8 @@ describe('server-authoritative GET /v2/session', () => {
       membershipId: c1Ids.employeeAMembership,
       organizationId: c1Ids.organizationA,
       locationsEnabled: true,
-      availableSections: [],
+      role: 'standortleitung',
+      availableSections: ['own_time', 'manual_capture'],
       managementScope: { kind: 'locations', locations: [] },
     });
   });
@@ -1090,3 +1093,12 @@ function unavailableEmployeeEnrollment() {
     async recordPasswordReset() { return { status: 'unauthorized' as const }; },
   };
 }
+
+// T-049: a live employee needs the Web's own capabilities, without management authority.
+it('T049 a: exposes employee role and own Web sections without administration rights', async () => {
+  const response = await administrationSessionRequest(await accessToken(jwks));
+  expect(response.status).toBe(200);
+  expect(JSON.parse(response.text)).toMatchObject({ role: 'employee',
+    availableSections: ['own_time', 'manual_capture'],
+    managementScope: { kind: 'locations', locations: [] } });
+});

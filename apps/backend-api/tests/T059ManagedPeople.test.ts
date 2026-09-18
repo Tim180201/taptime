@@ -1,3 +1,4 @@
+import { AdminWebApiClient } from '../../admin-web/src/AdminWebApiClient.js';
 import { rangeSummary } from '../../mobile/src/screens/ownTimeCalendar.js';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -215,6 +216,23 @@ describe('T059 SQL scope and migration', () => {
     expect(await client.personTime({...command,cursor:first.value.nextCursor})).toEqual({status:'authority_rejected'});
     expect(await client.summary({expectedMembershipId:ids.membershipEmployeeA,locationId:null,isRunning:null,cursor:null,limit:20})).toEqual({status:'authority_rejected'});
   });
+  it('T049 b/c/d: Web reads only the authorised location and uses real running counts',async()=>{
+    const web=new AdminWebApiClient((path,init)=>fetch(`${origin}${path}`,init));
+    const token=`header.${fixtureTokens.employeeA}.signature`;
+    const query={expectedMembershipId:ids.membershipEmployeeA,locationId:a,isRunning:null,cursor:null,limit:20};
+    const result=await web.managedActiveSummary(token,query);
+    expect(result).toMatchObject({status:'succeeded',value:{runningCount:1,totalCount:3}});
+    if(result.status !== 'succeeded') throw new Error('Missing scoped summary');
+    expect(Number.isFinite(Date.parse(result.value.serverTime))).toBe(true);
+    expect(result.value.people.every(person=>person.location?.id === a)).toBe(true);
+    const request={expectedMembershipId:ids.membershipEmployeeA,targetMembershipId:ids.membershipAdminA2,
+      fromInclusive:new Date(from).toISOString(),toExclusive:new Date(to).toISOString(),cursor:null,limit:20};
+    expect(await web.managedPersonTime(token,request)).toMatchObject({status:'succeeded'});
+    expect(await web.managedPersonTime(token,{...request,targetMembershipId:targetB})).toEqual({status:'rejected'});
+    expect(await web.managedActiveSummary(token,{...query,locationId:b})).toEqual({status:'rejected'});
+    expect(await web.managedPersonTime(`header.${fixtureTokens.adminB}.signature`,{...request,expectedMembershipId:ids.membershipAdminB})).toEqual({status:'rejected'});
+    expect(await web.managedActiveSummary(`header.${fixtureTokens.orphan}.signature`,{...query,expectedMembershipId:targetB})).toEqual({status:'rejected'});
+  });
   it('c: real employee HTTP responses contain only a generic forbidden code on both routes',async()=>{
     for(const [path,body] of [
       ['managed-person-time',{expectedMembershipId:targetB,targetMembershipId:ids.membershipAdminA2,fromInclusive:new Date(from).toISOString(),toExclusive:new Date(to).toISOString(),cursor:null,limit:20}],
@@ -250,10 +268,10 @@ describe('T059 SQL scope and migration', () => {
     expect(new Set(records.map(r=>r.timeRecordId)).size).toBe(records.length);
     expect(rangeSummary({...first.value,records,nextCursor:null},'2026-10-01','2026-10-02')).toEqual({complete:true,milliseconds:6*60*60*1000});
   });
-  it('migrates populated 027 without changing any application row and enforces RLS on every table', async () => {
+  it.each(['027','028'])('migrates populated %s without changing data or existing session authority', async (baseline) => {
     await pool.query(`DROP SCHEMA ${B3_SCHEMA} CASCADE; DROP TABLE ${B3_MIGRATION_TABLE}`);
     const migrations = await loadMigrations();
-    await applyMigrationSet(pool,migrations.filter(m=>m.version<='027'));
+    await applyMigrationSet(pool,migrations.filter(m=>m.version<=baseline));
     await seed();
     const snapshot = async () => {
       const tables = (await pool.query(`SELECT tablename FROM pg_tables WHERE schemaname='taptime_server' ORDER BY tablename`)).rows;
@@ -261,9 +279,44 @@ describe('T059 SQL scope and migration', () => {
       for (const {tablename} of tables) rows[tablename] = (await pool.query(`SELECT to_jsonb(t) AS row FROM taptime_server.${tablename} t ORDER BY to_jsonb(t)::text`)).rows;
       return rows;
     };
-    const before = await snapshot();
-    expect((await migrate(pool)).applied).toEqual(migrations.filter(m=>m.version>'027').map(m=>m.version));
+    const sessionSnapshot=async()=>{
+      const client=await pool.connect();
+      try {
+        await client.query('BEGIN');await client.query('SET LOCAL ROLE taptime_identity_resolver');
+        const results=[];
+        for(const params of [[ids.organizationA,ids.adminA,ids.membershipAdminA],
+          [ids.organizationA,ids.employeeA,ids.membershipEmployeeA],[ids.organizationA,ids.orphan,targetB],
+          [ids.organizationB,ids.employeeA,ids.membershipEmployeeA]]) {
+          results.push(await client.query('SELECT * FROM taptime_server.read_administration_session_v2($1,$2,$3)',params));
+        }
+        return results;
+      } finally {await client.query('ROLLBACK');client.release();}
+    };
+    const functionProtection=async()=> (await pool.query(`SELECT pg_get_userbyid(proowner) AS owner,
+      proacl::text,prosecdef,provolatile,proconfig,proargtypes::text
+      FROM pg_proc WHERE oid='taptime_server.read_administration_session_v2(uuid,uuid,uuid)'::regprocedure`)).rows;
+    const otherFunctions=async()=> (await pool.query(`SELECT p.proname,pg_get_functiondef(p.oid) AS definition,
+      pg_get_userbyid(p.proowner) AS owner,p.proacl::text
+      FROM pg_proc p JOIN pg_namespace n ON p.pronamespace=n.oid
+      WHERE n.nspname='taptime_server' AND p.proname <> 'read_administration_session_v2'
+      ORDER BY p.proname,p.proargtypes::text`)).rows;
+    const before = await snapshot(), oldSessions=await sessionSnapshot(), protection=await functionProtection();
+    const functions=baseline === '028' ? await otherFunctions() : null;
+    expect((await migrate(pool)).applied).toEqual(migrations.filter(m=>m.version>baseline).map(m=>m.version));
     expect(await snapshot()).toEqual(before);
+    expect(await functionProtection()).toEqual(protection);
+    if(functions !== null) expect(await otherFunctions()).toEqual(functions);
+    const sessions=await sessionSnapshot();
+    for(const [index,old] of oldSessions.entries()) {
+      const oldColumns=old.fields.map(field=>field.name);
+      expect(sessions[index]!.rows.map(row=>Object.fromEntries(oldColumns.map(name=>[name,row[name]])))).toEqual(old.rows);
+    }
+    for(const [index,role] of ['administrator','standortleitung','employee'].entries()) {
+      expect(sessions[index]!.rows.length).toBeGreaterThan(0);
+      for(const row of sessions[index]!.rows) expect(row).toMatchObject({role,own_time_available:true,manual_capture_available:true});
+    }
+    expect(sessions[1]!.rows[0]).toMatchObject({review_items_available:false});
+    expect(sessions[3]!.rows).toEqual([]);
     expect((await pool.query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='taptime_server' AND c.relkind='r' AND NOT(c.relrowsecurity AND c.relforcerowsecurity)`)).rows).toEqual([]);
     expect((await summary('manager'))[0]).toMatchObject({running_count:'1',total_count:'3'});

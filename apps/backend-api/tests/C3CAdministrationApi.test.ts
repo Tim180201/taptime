@@ -342,6 +342,7 @@ describe('C3C exact administration transport', () => {
               userId: UserId('11000000-0000-4000-8000-000000000301'),
               membershipId: MembershipId(ids.membership),
               organizationId: OrganizationId(ids.organization),
+              role: 'standortleitung',
               locationsEnabled: true,
               availableSections: ['employees'],
               managementScope: { kind: 'locations', locations: [

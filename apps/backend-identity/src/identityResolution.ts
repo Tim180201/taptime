@@ -34,7 +34,9 @@ export type AdministrationSection =
   | 'employees'
   | 'time_records'
   | 'time_export'
-  | 'review_items';
+  | 'review_items'
+  | 'own_time'
+  | 'manual_capture';
 
 export type AdministrationManagementScope =
   | { readonly kind: 'organization' }
@@ -47,6 +49,7 @@ export type AdministrationManagementScope =
     };
 
 export interface AdministrationSessionProjection {
+  readonly role: MembershipRole;
   readonly nfcSetupAvailable: boolean;
   readonly locationsEnabled: boolean;
   readonly availableSections: readonly AdministrationSection[];

@@ -18,7 +18,9 @@
     "@taptime/time-review-contract": "*",
     "@unicode/unicode-15.1.0": "1.6.17",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "@taptime/mobile-work-contract": "*",
+    "@expo-google-fonts/manrope": "^0.4.2"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",

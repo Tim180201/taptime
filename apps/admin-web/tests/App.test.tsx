@@ -1,11 +1,20 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App';
+import { visibleAdminViews } from '../src/navigation';
+import type { ReactElement } from 'react';
+beforeAll(async()=>{await Promise.all([
+  import('../src/views/Overview'),import('../src/views/SetupView'),import('../src/views/EmployeesView'),
+  import('../src/views/PersonView'),import('../src/views/TimeRecordsView'),import('../src/views/ReviewsView'),
+  import('../src/views/OwnTimeView'),import('../src/views/ManualView'),
+]);});
+async function render(ui:ReactElement) {let result!:ReturnType<typeof testingRender>;await act(async()=>{result=testingRender(ui);});return result;}
+
 import type { AdminWebCapability, AdminWebState } from '../src/contracts';
 
 const organization = { id: '30000000-0000-4000-8000-000000000001', name: 'TapTim.e' };
@@ -65,7 +74,7 @@ it.each([
     await refresh.promise;
     capability.emit({ ...readyState, availableSections: ['employees'] });
   });
-  render(<App administration={capability} accountInvitations={{ invite: async () => ({ status }) }} />);
+  await render(<App administration={capability} accountInvitations={{ invite: async () => ({ status }) }} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Mitarbeiter hinzufügen' }));
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Neue Person' } });
   fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'person@example.test' } });
@@ -87,6 +96,7 @@ function deferred<Value>() {
 }
 
 const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
+  role: 'administrator',
   status: 'ready',
   projection: {
     organization,
@@ -261,8 +271,9 @@ describe('professional Admin Web shell', () => {
         ],
       },
     });
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
+    await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
     expect(screen.getByText('Zugehörigkeit:')).toBeInTheDocument();
     expect(screen.getAllByText('Employee Alpha')).toHaveLength(2);
     expect(screen.getByText('Kunde:')).toBeInTheDocument();
@@ -274,24 +285,24 @@ describe('professional Admin Web shell', () => {
 
   it('changes the sidebar when only availableSections changes', async () => {
     const capability = new FakeCapability(readyState);
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     expect(screen.getByRole('link', { name: 'Einrichtung' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Arbeitszeiten' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Lohnexport' })).toBeInTheDocument();
 
     act(() => capability.emit({ ...readyState, availableSections: ['employees'] }));
 
     expect(screen.getByRole('link', { name: 'Beschäftigte' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Einrichtung' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Arbeitszeiten' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Lohnexport' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Prüfungen' })).not.toBeInTheDocument();
   });
 
   it('shows a located administration without requesting closed projections or drawing their cards', async () => {
     const capability = new FakeCapability(locationReadyState());
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     expect((await screen.findAllByText('Berlin')).length).toBeGreaterThan(0);
-    expect(screen.getByText('Beschäftigte am Standort Berlin')).toBeInTheDocument();
+    expect(await screen.findByText('Gerade aktiv · Standort Berlin')).toBeInTheDocument();
     expect(screen.queryByText('Arbeitszeiten geladen')).not.toBeInTheDocument();
     expect(screen.queryByText('Prüfungen geladen')).not.toBeInTheDocument();
     expect(screen.queryByText('Zeitfenster')).not.toBeInTheDocument();
@@ -302,7 +313,7 @@ describe('professional Admin Web shell', () => {
   it('puts the selected Location into addresses and keeps it in navigation links', async () => {
     window.history.replaceState(null, '', '/beschaeftigte');
     const capability = new FakeCapability(locationReadyState());
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     await waitFor(() => expect(window.location.href).toContain(`standort=${berlin.id}`));
     expect(screen.getByRole('heading', { level: 1, name: 'Beschäftigte' })).toBeInTheDocument();
@@ -313,7 +324,7 @@ describe('professional Admin Web shell', () => {
   it('leads an empty Location to invitation and hides role assignment', async () => {
     window.history.replaceState(null, '', `/beschaeftigte?standort=${berlin.id}`);
     const capability = new FakeCapability(locationReadyState([]));
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     expect(screen.getByText('Noch keine Beschäftigten am Standort Berlin')).toBeInTheDocument();
     expect(screen.queryByLabelText('Rolle')).not.toBeInTheDocument();
@@ -324,7 +335,7 @@ describe('professional Admin Web shell', () => {
   it('shows the required invitation Location only while the feature is enabled', async () => {
     window.history.replaceState(null, '', '/beschaeftigte');
     const capability = new FakeCapability(readyState);
-    const { rerender } = render(<App administration={capability} />);
+    const { rerender } = await render(<App administration={capability} />);
     await userEvent.click(screen.getByRole('button', { name: 'Mitarbeiter hinzufügen' }));
     expect(screen.queryByLabelText('Heimatstandort')).not.toBeInTheDocument();
 
@@ -341,7 +352,7 @@ describe('professional Admin Web shell', () => {
 
   it('renders an explicitly labelled memory-only sign-in form', async () => {
     const capability = new FakeCapability({ status: 'signed_out' });
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     expect(screen.getByLabelText('E-Mail')).toHaveAttribute('autocomplete', 'username');
     expect(screen.getByLabelText('Passwort')).toHaveAttribute('autocomplete', 'current-password');
     await userEvent.type(screen.getByLabelText('E-Mail'), 'admin@example.test');
@@ -357,7 +368,7 @@ describe('professional Admin Web shell', () => {
       capability.emit({ status: 'signing_in' });
       return pending.promise;
     });
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     await userEvent.type(screen.getByLabelText('E-Mail'), 'admin@example.test');
     await userEvent.type(screen.getByLabelText('Passwort'), 'memory-only-secret');
 
@@ -375,7 +386,7 @@ describe('professional Admin Web shell', () => {
 
   it('offers password recovery from the entered email without adding another decision', async () => {
     const capability = new FakeCapability({ status: 'signed_out' });
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     await userEvent.type(screen.getByLabelText('E-Mail'), 'admin@example.test');
     await userEvent.click(screen.getByRole('button', { name: 'Passwort vergessen' }));
     expect(capability.requestPasswordReset).toHaveBeenCalledWith('admin@example.test');
@@ -385,39 +396,39 @@ describe('professional Admin Web shell', () => {
     const capability = new FakeCapability({
       status: 'password_recovery', completing: false, notice: null,
     });
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     await userEvent.type(screen.getByLabelText('Neues Passwort'), 'new-memory-secret');
     await userEvent.click(screen.getByRole('button', { name: 'Passwort ändern' }));
     expect(capability.completePasswordRecovery).toHaveBeenCalledWith('new-memory-secret');
     expect(screen.getByLabelText('Neues Passwort')).toHaveValue('');
   });
 
-  it('exposes exactly five allow-listed paths with deterministic browser navigation', async () => {
+  it('exposes the permitted area paths with deterministic browser navigation', async () => {
     const capability = new FakeCapability(readyState);
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     const navigation = screen.getByRole('navigation', { name: 'Hauptnavigation' });
-    expect(navigation.querySelectorAll('a')).toHaveLength(5);
-    expect(navigation.querySelectorAll('svg.section-icon')).toHaveLength(5);
+    expect(navigation.querySelectorAll('a')).toHaveLength(visibleAdminViews(readyState.availableSections).length);
+    expect(navigation.querySelectorAll('svg.section-icon')).toHaveLength(visibleAdminViews(readyState.availableSections).length);
     for (const icon of navigation.querySelectorAll('svg.section-icon')) {
       expect(icon).toHaveAttribute('width', '20');
       expect(icon).toHaveAttribute('height', '20');
       expect(icon).toHaveAttribute('aria-hidden', 'true');
       expect(icon.querySelector('use')).toBeNull();
     }
-    await userEvent.click(screen.getByRole('link', { name: 'Arbeitszeiten' }));
-    expect(window.location.pathname).toBe('/arbeitszeiten');
-    expect(await screen.findByRole('heading', { name: 'Arbeitszeiten', level: 1 })).toHaveFocus();
-    expect(screen.getByText('Wiederhergestellt')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('link', { name: 'Lohnexport' }));
+    expect(window.location.pathname).toBe('/lohnexport');
+    expect(await screen.findByRole('heading', { name: 'Lohnexport', level: 1 })).toHaveFocus();
+    expect(await screen.findByText('Wiederhergestellt')).toBeInTheDocument();
   });
 
   it('opens a navigation area with the keyboard and returns focus to its heading', async () => {
     const capability = new FakeCapability(readyState);
     const user = userEvent.setup();
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     expect(screen.getByRole('heading', { name: 'Übersicht', level: 1 })).toHaveFocus();
-    await user.keyboard('{Shift>}{Tab}{/Shift}');
     const setup = screen.getByRole('link', { name: 'Prüfungen' });
+    setup.focus();
     expect(setup).toHaveFocus();
     await user.keyboard('{Enter}');
 
@@ -432,7 +443,7 @@ describe('professional Admin Web shell', () => {
       '',
       '/arbeitszeiten?monat=2026-08&status=abgeschlossen&erfassungsart=manuell-erfasst',
     );
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     expect(screen.getByLabelText('Monat')).toHaveValue('2026-08');
     expect(screen.getByLabelText('Status')).toHaveValue('abgeschlossen');
@@ -444,9 +455,9 @@ describe('professional Admin Web shell', () => {
     ));
   });
 
-  it('shows no loading indicator below one second and a skeleton at the threshold', () => {
+  it('shows no loading indicator below one second and a skeleton at the threshold', async () => {
     vi.useFakeTimers();
-    render(<App administration={new FakeCapability({ status: 'loading' })} />);
+    await render(<App administration={new FakeCapability({ status: 'loading' })} />);
     expect(screen.queryByText('Verwaltung wird geladen')).toBeNull();
     act(() => vi.advanceTimersByTime(999));
     expect(screen.queryByText('Verwaltung wird geladen')).toBeNull();
@@ -455,7 +466,7 @@ describe('professional Admin Web shell', () => {
     expect(document.querySelector('.skeleton')).not.toBeNull();
   });
 
-  it('guides a new Betrieb with one primary next action', () => {
+  it('guides a new Betrieb with one primary next action', async () => {
     const emptyState = {
       ...readyState,
       projection: {
@@ -468,7 +479,7 @@ describe('professional Admin Web shell', () => {
       timeRecords: [],
       reviewItems: [],
     };
-    render(<App administration={new FakeCapability(emptyState)} />);
+    await render(<App administration={new FakeCapability(emptyState)} />);
 
     expect(screen.getByRole('heading', { name: 'Ihr Betrieb ist bereit' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Erstes Arbeitsziel anlegen' }))
@@ -476,32 +487,32 @@ describe('professional Admin Web shell', () => {
     expect(document.querySelectorAll('.first-empty .button-link')).toHaveLength(1);
   });
 
-  it('shows the Berlin calendar date at midnight even in a New York browser', () => {
+  it('shows the Berlin calendar date at midnight even in a New York browser', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-31T22:30:00.000Z'));
     const nativeDateTimeFormat = Intl.DateTimeFormat;
     vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locales, options) {
       return new nativeDateTimeFormat(locales, { timeZone: 'America/New_York', ...options });
     });
-    render(<App administration={new FakeCapability(readyState)} />);
+    await render(<App administration={new FakeCapability(readyState)} />);
     const date = document.querySelector('.overview-greeting time');
     expect(date).toHaveTextContent('Dienstag, 1. September 2026');
     expect(date).toHaveAttribute('datetime', '2026-09-01');
   });
 
-  it('keeps the overview greeting truthful and puts metric labels below their numbers', () => {
-    render(<App administration={new FakeCapability(readyState)} />);
+  it('keeps the overview greeting truthful and unavailable activity separate from real counts', async () => {
+    await render(<App administration={new FakeCapability(readyState)} />);
 
     const greeting = document.querySelector('.overview-greeting');
     expect(greeting).toHaveTextContent('Guten Tag.');
     expect(greeting?.querySelector('time')).toHaveAttribute('datetime');
     expect(greeting).not.toHaveTextContent(/Aufmerksamkeit|braucht|erledigen/i);
     const firstMetric = document.querySelector('.metric-card');
-    expect(firstMetric?.children[0]?.tagName).toBe('STRONG');
-    expect(firstMetric?.children[1]?.tagName).toBe('SPAN');
+    expect(firstMetric).toHaveTextContent('Aktivübersicht wird geladen');
+    expect(firstMetric?.querySelector('strong')).toBeNull();
   });
 
-  it('does not disguise a failed initial section as a new Betrieb', () => {
+  it('does not disguise a failed initial section as a new Betrieb', async () => {
     const failedEmptyState = {
       ...readyState,
       projection: {
@@ -521,14 +532,14 @@ describe('professional Admin Web shell', () => {
         },
       },
     };
-    render(<App administration={new FakeCapability(failedEmptyState)} />);
+    await render(<App administration={new FakeCapability(failedEmptyState)} />);
 
     expect(screen.queryByRole('heading', { name: 'Ihr Betrieb ist bereit' })).toBeNull();
     expect(screen.queryByText('Arbeitszeiten geladen')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Bereich erneut laden' })).not.toBeInTheDocument();
   });
 
-  it('does not treat a Betrieb with only an existing project as new', () => {
+  it('does not treat a Betrieb with only an existing project as new', async () => {
     const projectOnlyState = {
       ...readyState,
       projection: {
@@ -546,13 +557,13 @@ describe('professional Admin Web shell', () => {
       timeRecords: [],
       reviewItems: [],
     };
-    render(<App administration={new FakeCapability(projectOnlyState)} />);
+    await render(<App administration={new FakeCapability(projectOnlyState)} />);
 
     expect(screen.queryByRole('heading', { name: 'Ihr Betrieb ist bereit' })).toBeNull();
-    expect(screen.getByText('Geladene Daten ohne unbestätigte Gesamtsummen.')).toBeInTheDocument();
+    expect(screen.getByText('Aktivübersicht wird geladen …')).toBeInTheDocument();
   });
 
-  it('marks damaged setup row counts incomplete and identifies a valid Break Tag truthfully', () => {
+  it('marks damaged setup row counts incomplete and identifies a valid Break Tag truthfully', async () => {
     const breakTag = {
       id: '50000000-0000-4000-8000-000000000002',
       displayName: 'Pause',
@@ -573,7 +584,7 @@ describe('professional Admin Web shell', () => {
     });
     window.history.replaceState(null, '', '/einrichtung');
 
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     expect(screen.getByText('Kunden bisher geladen')).toBeInTheDocument();
     expect(screen.getByText('NFC-Tags bisher geladen')).toBeInTheDocument();
@@ -589,7 +600,7 @@ describe('professional Admin Web shell', () => {
       projectBusy: false,
     });
     window.history.replaceState(null, '', '/einrichtung');
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     const customerInput = screen.getByLabelText('Neuen Kunden anlegen');
     const projectInput = screen.getByLabelText('Neues Projekt anlegen');
     await userEvent.type(customerInput, 'Kunde bleibt unabhängig vom Text');
@@ -627,7 +638,7 @@ describe('professional Admin Web shell', () => {
     const capability = new FakeCapability(readyState);
     const nativeConfirm = vi.spyOn(window, 'confirm');
     window.history.replaceState(null, '', '/beschaeftigte');
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     await userEvent.click(screen.getByRole('button', { name: 'Zugang entziehen' }));
     const confirmation = screen.getByRole('alertdialog', {
@@ -653,18 +664,18 @@ describe('professional Admin Web shell', () => {
   it('distinguishes an empty filter result and resets it without an illustration', async () => {
     const emptyState = { ...readyState, timeRecords: [] };
     window.history.replaceState(null, '', '/arbeitszeiten?monat=2026-08');
-    render(<App administration={new FakeCapability(emptyState)} />);
+    await render(<App administration={new FakeCapability(emptyState)} />);
 
     expect(screen.getByText('Keine Arbeitszeiten in dieser Auswahl')).toBeInTheDocument();
     expect(document.querySelector('.filter-empty .empty-illustration')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Filter zurücksetzen' }));
-    expect(window.location.pathname).toBe('/arbeitszeiten');
+    expect(window.location.pathname).toBe('/lohnexport');
     expect(window.location.search).toBe('');
   });
 
   it('resolves an invalid path to Übersicht without retaining unsafe content', async () => {
     window.history.replaceState(null, '', '/record=secret-value');
-    render(<App administration={new FakeCapability(readyState)} />);
+    await render(<App administration={new FakeCapability(readyState)} />);
     await waitFor(() => expect(window.location.pathname).toBe('/uebersicht'));
     expect(screen.getByRole('heading', { name: 'Übersicht', level: 1 })).toBeInTheDocument();
     expect(window.location.href).not.toContain('secret-value');
@@ -677,7 +688,7 @@ describe('professional Admin Web shell', () => {
       invitation: { value: secret, expiresAt: '2099-07-15T12:34:56.789Z' },
     });
     window.history.replaceState(null, '', '/beschaeftigte');
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     expect(screen.queryByText(secret)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/clipboard/i);
     await userEvent.click(screen.getByRole('link', { name: 'Übersicht' }));
@@ -692,7 +703,7 @@ describe('professional Admin Web shell', () => {
       invitation: null,
     });
     window.history.replaceState(null, '', '/beschaeftigte');
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     await userEvent.click(screen.getByRole('link', { name: 'Übersicht' }));
     await waitFor(() => expect(capability.dismissInvitation).toHaveBeenCalledOnce());
@@ -708,8 +719,8 @@ describe('professional Admin Web shell', () => {
       timeRecordsNextCursor: 'cursor_page_2',
       reviewItemsNextCursor: 'review_page_2',
     });
-    window.history.replaceState(null, '', '/arbeitszeiten');
-    render(<App administration={capability} />);
+    window.history.replaceState(null, '', '/lohnexport');
+    await render(<App administration={capability} />);
     expect(screen.getByText('Arbeitszeiten bisher geladen')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Weitere Arbeitszeiten laden' }));
     expect(capability.loadMoreTimeRecords).toHaveBeenCalledOnce();
@@ -720,7 +731,7 @@ describe('professional Admin Web shell', () => {
     expect(capability.loadMoreReviewItems).toHaveBeenCalledOnce();
   });
 
-  it('renders every Engine escalation reason as an explicit administrator message', () => {
+  it('renders every Engine escalation reason as an explicit administrator message', async () => {
     const reasons = [
       ['active_time_entry_organization_mismatch', 'Laufende Arbeitszeit gehört zu einem anderen Betrieb'],
       ['active_time_entry_user_mismatch', 'Laufende Arbeitszeit gehört zu einer anderen Person'],
@@ -739,10 +750,10 @@ describe('professional Admin Web shell', () => {
       })),
     };
     window.history.replaceState(null, '', '/pruefungen');
-    render(<App administration={new FakeCapability(state)} />);
+    await render(<App administration={new FakeCapability(state)} />);
     for (const [, label] of reasons) {
       expect(screen.getByText((_content, element) => (
-        element?.tagName === 'SPAN' && element.textContent?.startsWith(label) === true
+        element?.tagName === 'P' && element.textContent?.startsWith(label) === true
       ))).toBeInTheDocument();
     }
   });
@@ -756,21 +767,21 @@ describe('professional Admin Web shell', () => {
       },
     });
     window.history.replaceState(null, '', '/einrichtung');
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
     expect(screen.getByRole('alert')).toHaveTextContent('Einrichtung nicht erreichbar.');
     expect(screen.queryByText(/Noch keine|Keine Kunden/)).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Bereich erneut laden' }));
     expect(capability.retrySection).toHaveBeenCalledWith('setup');
   });
 
-  it('renders safe fingerprints and never raw NFC payload labels', () => {
+  it('renders safe fingerprints and never raw NFC payload labels', async () => {
     window.history.replaceState(null, '', '/einrichtung');
-    render(<App administration={new FakeCapability(readyState)} />);
+    await render(<App administration={new FakeCapability(readyState)} />);
     expect(screen.getAllByText(/Prüffingerabdruck A1B2C3D4E5F6/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toMatch(/nfc:uid|canonicalPayload/i);
   });
 
-  it('renders append-only correction confirmation with before, after and verbatim reason', () => {
+  it('renders append-only correction confirmation with before, after and verbatim reason', async () => {
     const capability = new FakeCapability({
       ...readyState,
       correctionIntent: {
@@ -781,8 +792,8 @@ describe('professional Admin Web shell', () => {
         reason: 'Beleg geprüft.',
       },
     });
-    window.history.replaceState(null, '', '/arbeitszeiten');
-    render(<App administration={capability} />);
+    window.history.replaceState(null, '', '/lohnexport');
+    await render(<App administration={capability} />);
     const confirmation = screen.getByRole('alertdialog', { name: 'Korrektur ausdrücklich bestätigen' });
     expect(confirmation).toHaveTextContent('Vorher');
     expect(confirmation).toHaveTextContent('Nachher');
@@ -817,8 +828,8 @@ describe('professional Admin Web shell', () => {
         notice: 'Die Arbeitszeit wurde zwischenzeitlich geändert.',
       });
     });
-    window.history.replaceState(null, '', '/arbeitszeiten');
-    render(<App administration={capability} />);
+    window.history.replaceState(null, '', '/lohnexport');
+    await render(<App administration={capability} />);
     fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
       target: { value: record.timeRecordId },
     });
@@ -889,10 +900,8 @@ describe('professional Admin Web shell', () => {
       });
     });
     window.history.replaceState(null, '', '/pruefungen');
-    render(<App administration={capability} />);
-    fireEvent.change(screen.getByLabelText('Prüffall'), {
-      target: { value: reviewItem.reviewItemId },
-    });
+    await render(<App administration={capability} />);
+    await userEvent.click(screen.getByRole('button',{name:'Freigeben'}));
     fireEvent.change(screen.getByLabelText('Entscheidung'), {
       target: { value: 'create_recovered_time_record' },
     });
@@ -974,7 +983,8 @@ describe('professional Admin Web shell', () => {
       });
     });
     window.history.replaceState(null, '', '/einrichtung');
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
+    await userEvent.click(screen.getByRole('button',{name:'Tags'}));
     fireEvent.change(screen.getByLabelText('NFC-Tag'), {
       target: { value: tag.id },
     });
@@ -1028,7 +1038,7 @@ describe('professional Admin Web shell', () => {
       });
     });
     window.history.replaceState(null, '', '/einrichtung');
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     await userEvent.click(screen.getByRole('button', {
       name: 'Änderung ausdrücklich bestätigen',
@@ -1064,8 +1074,8 @@ describe('professional Admin Web shell', () => {
         notice: 'Die Arbeitszeit wurde zwischenzeitlich geändert.',
       });
     });
-    window.history.replaceState(null, '', '/arbeitszeiten');
-    render(<App administration={capability} />);
+    window.history.replaceState(null, '', '/lohnexport');
+    await render(<App administration={capability} />);
 
     await userEvent.click(screen.getByRole('button', {
       name: 'Korrektur ausdrücklich bestätigen',
@@ -1104,7 +1114,7 @@ describe('professional Admin Web shell', () => {
       });
     });
     window.history.replaceState(null, '', '/pruefungen');
-    render(<App administration={capability} />);
+    await render(<App administration={capability} />);
 
     await userEvent.click(screen.getByRole('button', {
       name: 'Entscheidung protokollieren',
@@ -1116,15 +1126,15 @@ describe('professional Admin Web shell', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
-  it('keeps Berlin display, local inputs and open intent when the browser zone changes', () => {
+  it('keeps Berlin display, local inputs and open intent when the browser zone changes', async () => {
     const nativeDateTimeFormat = Intl.DateTimeFormat;
     let browserZone = 'America/New_York';
     vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locales, options) {
       return new nativeDateTimeFormat(locales, { timeZone: browserZone, ...options });
     });
     const capability = new FakeCapability(readyState);
-    window.history.replaceState(null, '', '/arbeitszeiten');
-    render(<App administration={capability} />);
+    window.history.replaceState(null, '', '/lohnexport');
+    await render(<App administration={capability} />);
     expect(screen.getByText('Zeitdarstellung: Europe/Berlin')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
       target: { value: record.timeRecordId },
@@ -1162,8 +1172,8 @@ describe('professional Admin Web shell', () => {
     capability.cancelCorrection.mockImplementation(() => {
       capability.emit({ ...readyState, correctionIntent: null });
     });
-    window.history.replaceState(null, '', '/arbeitszeiten');
-    render(<App administration={capability} />);
+    window.history.replaceState(null, '', '/lohnexport');
+    await render(<App administration={capability} />);
     await userEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
     expect(capability.cancelCorrection).toHaveBeenCalledOnce();
     const correctionTrigger = screen.getByRole('button', { name: 'Korrektur prüfen' });
@@ -1172,11 +1182,113 @@ describe('professional Admin Web shell', () => {
   });
 
   it('has no automatically detectable WCAG A/AA violation in the overview shell', async () => {
-    render(<App administration={new FakeCapability(readyState)} />);
+    await render(<App administration={new FakeCapability(readyState)} />);
     const result = await axe.run(document.body, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
       rules: { 'color-contrast': { enabled: false } },
     });
     expect(result.violations).toEqual([]);
   });
+});
+
+// T-049: these assertions describe observable behaviour missing from the old Web.
+it('T049 b: employee shell has exactly own time and manual, even at an administration address', async () => {
+  window.history.replaceState(null,'','/einrichtung');
+  await render(<App administration={new FakeCapability({...readyState,role:'employee',
+    availableSections:['own_time','manual_capture'],managementScope:{kind:'locations',locations:[]}})} />);
+  const navigation=screen.getByRole('navigation',{name:'Hauptnavigation'});
+  await waitFor(()=>expect(navigation.textContent).toBe('Meine ZeitenManuell'));
+  expect(screen.queryByRole('heading',{name:'Einrichtung'})).not.toBeInTheDocument();
+});
+it('T049 d: activity tile uses server counts and time, not the loaded employee page', async () => {
+  await render(<App administration={new FakeCapability({...readyState,role:'administrator',
+    managedPeople:{status:'ready',value:{serverTime:'2026-09-18T14:07:00.000Z',runningCount:7,totalCount:12,people:[],nextCursor:null},isRunning:null}})} />);
+  expect(await screen.findByText('7 / 12')).toBeVisible();
+  expect(screen.getByText('16:07').closest('small')).toHaveTextContent('Stand 16:07 · Serverzeit');
+});
+it('T049 f: payroll exposes exactly one CSV action', async () => {
+  window.history.replaceState(null,'','/lohnexport');
+  await render(<App administration={new FakeCapability(readyState)} />);
+  expect(await screen.findByRole('heading',{name:'Lohnexport',level:1})).toBeVisible();
+  expect(screen.getAllByRole('button',{name:'CSV herunterladen'})).toHaveLength(1);
+});
+it('T049 f: status filters apply as soon as selected', async () => {
+  window.history.replaceState(null,'','/lohnexport');
+  await render(<App administration={new FakeCapability(readyState)} />);
+  await userEvent.selectOptions(await screen.findByLabelText('Status'),'laufend');
+  expect(window.location.search).toContain('status=laufend');
+  expect(screen.queryByRole('button',{name:'Filter anwenden'})).not.toBeInTheDocument();
+});
+it('T049 f: role changes are opened deliberately instead of selecting a role in every row', async () => {
+  window.history.replaceState(null,'','/beschaeftigte');
+  await render(<App administration={new FakeCapability(readyState)} />);
+  await userEvent.click(await screen.findByText('Zugänge verwalten'));
+  expect(await screen.findByText('Employee Alpha')).toBeVisible();
+  expect(screen.queryByLabelText('Rolle für Employee Alpha')).not.toBeInTheDocument();
+});
+it('T049 f: each review row owns its keyboard-accessible decision', async () => {
+  window.history.replaceState(null,'','/pruefungen');
+  await render(<App administration={new FakeCapability(readyState)} />);
+  const reject=await screen.findByRole('button',{name:'Ablehnen'});
+  reject.focus();
+  await userEvent.keyboard('{Enter}');
+  expect(reject.closest('li')).toContainElement(screen.getByLabelText('Begründung'));
+  expect(screen.queryByLabelText('Prüffall')).not.toBeInTheDocument();
+});
+it('T049 c: location people open their server-backed calendar without showing another scope', async () => {
+  window.history.replaceState(null,'','/beschaeftigte');
+  const capability=new FakeCapability({...locationReadyState(),role:'standortleitung',
+    managedPeople:{status:'ready',isRunning:null,value:{serverTime:'2026-09-18T14:07:00.000Z',runningCount:1,totalCount:1,nextCursor:null,
+      people:[{membershipId:'70000000-0000-4000-8000-000000000001',displayName:'Employee Alpha',role:'employee',location:berlin,isRunning:true,runningSince:'2026-09-18T06:00:00.000Z',runningTargetDisplayName:'Werkstatt'}]}}});
+  await render(<App administration={capability} />);
+  const person=await screen.findByRole('link',{name:/Employee Alpha/});
+  await userEvent.click(person);
+  expect(window.location.pathname).toBe('/beschaeftigte/70000000-0000-4000-8000-000000000001');
+  expect(screen.queryByRole('link',{name:'Prüfungen'})).not.toBeInTheDocument();
+  expect(screen.queryByText('Süd')).not.toBeInTheDocument();
+});
+
+const calendarValue={activeRecord:null,records:[{
+  timeRecordId:'90000000-0000-4000-8000-000000000003',source:'canonical' as const,targetType:'customer' as const,
+  targetDisplayName:'Werkstatt',status:'stopped' as const,startedAt:'2026-10-25T00:00:00.000Z',stoppedAt:'2026-10-25T03:00:00.000Z',
+  startedVia:'manual' as const,stoppedVia:'manual' as const,
+}],nextCursor:null,windowStartedAt:'2026-09-30T22:00:00.000Z',windowEndedAt:'2026-10-31T23:00:00.000Z'};
+it.each([
+  '/uebersicht','/beschaeftigte','/beschaeftigte/70000000-0000-4000-8000-000000000001?monat=2026-10',
+  '/pruefungen','/einrichtung','/lohnexport','/meine-zeiten?monat=2026-10','/manuell',
+])('T049 axe: no WCAG A/AA violations on %s',async path=>{
+  window.history.replaceState(null,'',path);
+  const own=path.startsWith('/meine-zeiten') || path === '/manuell';
+  const state:ReadyStateForTest={...readyState,role:own?'employee':'administrator',
+    availableSections:own?['own_time','manual_capture']:[...readyState.availableSections,'own_time','manual_capture'],
+    calendar:{status:'ready',value:calendarValue,month:'2026-10',targetMembershipId:own?null:'70000000-0000-4000-8000-000000000001'},
+    workTargets:{status:'ready',value:[{targetId:customer.id,targetType:'customer',displayName:'Werkstatt'}]},
+    managedPeople:{status:'ready',isRunning:null,value:{serverTime:'2026-10-25T14:07:00.000Z',runningCount:1,totalCount:2,nextCursor:null,
+      people:[{membershipId:'70000000-0000-4000-8000-000000000001',displayName:'Employee Alpha',role:'employee',location:null,isRunning:true,runningSince:'2026-10-25T08:00:00.000Z',runningTargetDisplayName:'Werkstatt'}]}}};
+  await render(<App administration={new FakeCapability(state)}/>);
+  if(path.includes('monat=')) expect(await screen.findByRole('region',{name:'Zeitkalender'})).toBeVisible();
+  if(path === '/manuell') expect(await screen.findByRole('button',{name:'Jetzt erfassen'})).toBeVisible();
+  if(path === '/pruefungen') await userEvent.click(await screen.findByRole('button',{name:'Ablehnen'}));
+  const result=await axe.run(document.body,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}});
+  expect(result.violations).toEqual([]);
+});
+it('T049 own/manual: keyboard selects Pause and sends one event through the main action',async()=>{
+  window.history.replaceState(null,'','/manuell');
+  const capability=new FakeCapability({...readyState,role:'employee',availableSections:['own_time','manual_capture'],
+    workTargets:{status:'ready',value:[{targetId:customer.id,targetType:'customer',displayName:'Werkstatt'}]}});
+  const captureManual=vi.fn(async()=>{});
+  await render(<App administration={{...capability,getState:capability.getState,subscribe:capability.subscribe,captureManual}}/>);
+  const pause=await screen.findByRole('radio',{name:'Pause'});
+  pause.focus();await userEvent.keyboard(' ');await userEvent.tab();await userEvent.keyboard('{Enter}');
+  expect(captureManual).toHaveBeenCalledExactlyOnceWith('break');
+});
+it('T049 review: locks prepared decisions and retains keyboard focus after the resolved row disappears',async()=>{
+ window.history.replaceState(null,'','/pruefungen');
+ const intent={commandId:'a0000000-0000-4000-8000-000000000007',reviewItem,resolution:'no_time_record_change' as const,timeRecord:null,startedAt:null,stoppedAt:null,reason:'Beleg geprüft.'};
+ const capability=new FakeCapability({...readyState,adjudicationIntent:intent});
+ capability.confirmAdjudication.mockImplementation(async()=>{capability.emit({...readyState,adjudicationIntent:null,reviewItems:[]});});
+ await render(<App administration={capability}/>);
+ for(const name of ['Freigeben','Korrigieren','Ablehnen']) expect(screen.getByRole('button',{name})).toBeDisabled();
+ await userEvent.click(screen.getByRole('button',{name:'Entscheidung protokollieren'}));
+ expect(screen.getByRole('region',{name:'Prüfungen'})).toHaveFocus();
 });
