@@ -5,6 +5,10 @@ readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
 readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
 
+# The staging directory must stay visible to the EXIT trap after main() returns; a
+# function-local variable is already gone when that trap runs under `set -u`.
+stage=''
+
 require_file() {
   if [[ ! -f "$1" ]]; then
     printf 'Required file is missing: %s\n' "$1" >&2
@@ -88,6 +92,23 @@ validate_offsite_borg_repository() {
   }
 }
 
+# A physical base backup lists thousands of members. `tar --list | grep --quiet` lets grep
+# exit at the first match while tar is still writing, so tar dies with EPIPE and
+# `pipefail` turns a complete backup into a failed one. Read the listing exactly once and
+# search it in memory instead.
+require_base_backup_members() {
+  local base_tar="$1"
+  local members member
+
+  members="$(tar --list --file "$base_tar")"
+  for member in backup_manifest backup_label; do
+    grep --fixed-strings --line-regexp --quiet "$member" <<< "$members" || {
+      printf 'Physical base backup lacks the required member %s.\n' "$member" >&2
+      return 1
+    }
+  done
+}
+
 write_status() {
   local state="$1"
   local temporary
@@ -102,7 +123,7 @@ write_status() {
 }
 
 main() {
-  local stage archive backup_label start_time start_wal_lsn start_wal_file switch_evidence
+  local archive backup_label start_time start_wal_lsn start_wal_file switch_evidence
   local cluster_evidence cluster_system_identifier cluster_archive_identifier
   local migration_ledger version recorded_checksum source_file source_checksum
   local -a source_matches
@@ -137,7 +158,7 @@ main() {
 
   stage="$(mktemp -d "$STAGING_ROOT/backup.XXXXXX")"
   cleanup() {
-    rm -rf -- "$stage"
+    [[ -z "$stage" ]] || rm -rf -- "$stage"
   }
   trap cleanup EXIT
 
@@ -161,8 +182,7 @@ main() {
     pg_basebackup --dbname="dbname=$DATABASE_NAME" --format=tar --pgdata=- \
       --wal-method=fetch --checkpoint=fast --manifest-checksums=SHA256 \
       > "$stage/base.tar"
-  tar --list --file "$stage/base.tar" | grep --fixed-strings --line-regexp --quiet backup_manifest
-  tar --list --file "$stage/base.tar" | grep --fixed-strings --line-regexp --quiet backup_label
+  require_base_backup_members "$stage/base.tar"
   backup_label="$(tar --extract --to-stdout --file "$stage/base.tar" backup_label)"
   start_time="$(sed -n 's/^START TIME: //p' <<< "$backup_label")"
   start_time="$(date --utc --date="$start_time" +%Y-%m-%dT%H:%M:%S.%NZ)"
@@ -239,4 +259,6 @@ main() {
     "$archive" "$start_wal_file"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

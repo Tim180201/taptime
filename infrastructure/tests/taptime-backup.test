@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+readonly REPOSITORY_ROOT
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+
+# shellcheck source=../backup/taptime-backup
+source "$REPOSITORY_ROOT/infrastructure/backup/taptime-backup"
+
+fail() {
+  printf 'FAIL: %s\n' "$*" >&2
+  exit 1
+}
+
+# A production base backup lists several thousand relation files. The listing must exceed
+# the pipe buffer (64 KiB) so that a reader quitting early would kill tar with EPIPE.
+make_base_tar() {
+  local target="$1"
+  local with_label="$2"
+  local tree="$TEST_ROOT/tree-$RANDOM"
+  local index
+
+  mkdir -p "$tree/base/16384"
+  for index in $(seq 1 6000); do
+    : > "$tree/base/16384/relation_file_number_$index"
+  done
+  : > "$tree/backup_manifest"
+  if [[ "$with_label" == '1' ]]; then
+    : > "$tree/backup_label"
+  fi
+  local -a members=(backup_manifest base)
+  if [[ "$with_label" == '1' ]]; then
+    members+=(backup_label)
+  fi
+  tar --create --file "$target" -C "$tree" "${members[@]}"
+  rm -rf -- "$tree"
+}
+
+# Regression for 18.09.2026: `tar --list | grep --quiet` failed with `tar: stdout: write
+# error` on the first production base backup because grep stopped reading after the first
+# match. The check must consume the whole listing.
+make_base_tar "$TEST_ROOT/complete.tar" 1
+listing_bytes="$(tar --list --file "$TEST_ROOT/complete.tar" | wc -c)"
+(( listing_bytes > 65536 )) || fail "test tar listing is too small to exercise EPIPE: $listing_bytes"
+if ! (set -euo pipefail; require_base_backup_members "$TEST_ROOT/complete.tar"); then
+  fail 'a complete base backup with a large listing was rejected'
+fi
+
+# The old pipeline must still be provably broken on the same tar, so the test guards the
+# fix rather than the environment. Only GNU tar (the production tar) is held to this; a
+# BSD tar on a developer machine may swallow EPIPE differently.
+if tar --version 2>/dev/null | grep --quiet 'GNU tar'; then
+  if (set -euo pipefail; tar --list --file "$TEST_ROOT/complete.tar" \
+      | grep --fixed-strings --line-regexp --quiet backup_manifest) 2>/dev/null; then
+    fail 'the tar listing did not exceed the pipe buffer; the regression is not exercised'
+  fi
+fi
+
+# A base backup without backup_label carries no START WAL LOCATION and must be refused.
+make_base_tar "$TEST_ROOT/incomplete.tar" 0
+if (set -euo pipefail; require_base_backup_members "$TEST_ROOT/incomplete.tar") 2>/dev/null; then
+  fail 'a base backup without backup_label was accepted'
+fi
+
+# The EXIT trap must be able to remove the staging directory after main() has returned;
+# `stage` therefore has to live outside main().
+# shellcheck disable=SC2154
+[[ "$(declare -p stage 2>/dev/null)" == 'declare -- stage=""' ]] \
+  || fail 'stage is not a global variable initialised to the empty string'
+grep --quiet '^  local archive backup_label' \
+  "$REPOSITORY_ROOT/infrastructure/backup/taptime-backup" \
+  || fail 'main() declares stage as a local variable again'
+
+printf 'taptime-backup: base listing and staging cleanup checks passed.\n'

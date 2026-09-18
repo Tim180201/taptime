@@ -51,6 +51,7 @@ jobs:
             infrastructure/tests/taptime-pitr.test \
             infrastructure/tests/taptime-operations-install.test \
             infrastructure/tests/taptime-bootstrap.test \
+            infrastructure/tests/taptime-backup.test \
             infrastructure/monitoring/taptime-immediate-monitor \
             infrastructure/monitoring/taptime-daily-monitor \
             infrastructure/backup/taptime-backup \
@@ -76,6 +77,7 @@ jobs:
           bash infrastructure/tests/taptime-wal-archiver.test
           bash infrastructure/tests/taptime-operations-install.test
           bash infrastructure/tests/taptime-bootstrap.test
+          bash infrastructure/tests/taptime-backup.test
           bash infrastructure/monitoring/tests/taptime-monitor.test
 
       - name: Verify GHCR retention protects deployed versions
