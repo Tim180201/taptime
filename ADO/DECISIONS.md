@@ -1209,3 +1209,18 @@ laufenden Buchungen je Umfang fuer die Kachel „x / y gerade aktiv".
 Loesungen fuer Handy und Web waeren zwei Mandantengrenzen zum Pruefen statt einer.
 **Grenze:** Kein Lesen ueber den eigenen Umfang hinaus, Fenster wie 025 begrenzt, keine
 Personendaten in Fehlermeldungen; Rotnachweis ueber die Standortgrenze und ein zweiter Betrieb.
+
+---
+
+## D-063 · Der Pilot laeuft ueber zwei Monate; die Tagesfreigabe kommt zum zweiten · 18.09.2026 · Tim
+**Entscheidung:** Monat 1 laeuft ohne Tagesfreigabe: Tippen, Zeiten, CSV und eine bewiesene
+Wiederherstellung im echten Betrieb. Waehrend Monat 1 werden T-048 (Freigabe, Backend) und
+T-050 (Pausenabzug) gebaut und zu Monat 2 zugeschaltet; der Pilotkunde probiert die Freigabe
+dann real aus. Den Abschluss von Monat 1 macht der Product Owner selbst ueber die CSV.
+**Warum:** Freigegeben heisst gesperrt (D-046) — eine falsche Regel im ersten Monat blockiert
+die Lohnabrechnung eines echten Betriebs. Ausserdem aendert T-050 die Stunden je Tag; wer
+vorher freigibt, gibt eine Zahl frei, die das System neu rechnet. Zugleich laesst sich am
+Schreibtisch nicht beurteilen, ob Menschen ihren Tag abends freigeben — das sagt nur ein
+echter Betrieb. Zwei Monate loesen beides.
+**Grenze:** Vor dem Zuschalten wird der Pilotkunde gefragt; die Freigabe gilt erst ab einem
+vereinbarten Stichtag, nie rueckwirkend fuer schon abgerechnete Tage.

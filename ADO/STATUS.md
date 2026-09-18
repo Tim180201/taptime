@@ -1,7 +1,8 @@
 # TapTim.e — Status
 
 **Stand:** 18.09.2026 · Produktion läuft auf `939b4ba` (Deploy 10:47 Uhr, vier Belege nach
-DEPLOY.md erbracht); `main` steht auf `1d0a4e9` (T-058, T-043, T-060; noch nicht ausgeliefert). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
+DEPLOY.md erbracht); `main` steht auf `91441c8` (T-058, T-043, T-060, T-059) — **vier Aufgaben vor der Produktion;
+der Deploy ist der naechste Schritt und geht der APK voraus.** Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System
 einen vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -17,6 +18,10 @@ einen vollständigen Monatsabschluss übersteht.
   App-Kennung auf den Tag (D-061); Android öffnet die App ohne Auswahldialog.
   **Seit `1d0a4e9` (T-060):** Eine Standortleitung ordnet Tags im eigenen Standort zu — die
   Grenze entscheidet die Datenbank (Migration 027), der Reiter „Tags" folgt der Sitzung.
+  **Seit `91441c8` (T-059):** Reiter Mitarbeiter mit Kachel „x / y gerade aktiv", Liste
+  Aktiv/Inaktiv, Kalender je Person und Einladen vom Handy (Migration 028, D-062). Bei
+  Administrator und Standortleitung ersetzt er „Meine Zeiten" (D-058) — die eigenen Zeiten
+  stehen dort unter der eigenen Person.
 - Verwaltung: Beschäftigte mit Kontoeinladung (T-047), Standorte, Arbeitsziele, Tags, Korrektur,
   Prüfentscheidung, Pausen, CSV V3; eine Zeitzone Europe/Berlin (T-036); Anmeldefehler mit
   Ursache (T-040); strikte CSP; Deploy-Tor auf den Backend-Aussteller (T-039).
@@ -50,14 +55,26 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Offen bis zum Pilotbetrieb
 
-- **Neue APK** (EAS `production-validation`) erst nach T-060/T-059: Die installierte App
-  ist der Stand vor T-052 — sie bestätigt im Hintergrund-Takt statt im Tap. Link nur
-  persönlich an den PO.
-- Tagesfreigabe, Kalender, Pausenautomatik: T-048–T-050. T-055 Wiederaufnahme nach Restore.
+- **Deploy vor der APK.** Die neue App fragt Migration 027/028, zwei neue Routen und die
+  erweiterte Sitzung ab; ohne Deploy blieben die Reiter Tags und Mitarbeiter aus. Zwei
+  Migrationen in einem Deploy, T-057 noch offen — engere Vorprüfung.
+- **Neue APK** (EAS `production-validation`) nach dem Deploy: Die installierte App ist der
+  Stand vor T-052 — sie bestätigt im Hintergrund-Takt statt im Tap. Link nur persönlich an
+  den PO. Test-Tags danach einmal neu zuordnen (T-043).
+- Tagesfreigabe und Pausenautomatik (T-048, T-050): während Pilotmonat 1 bauen, Freigabe zu
+  Monat 2 zuschalten (D-063). T-055 Wiederaufnahme nach Restore.
 - T-056 CI baut die Images; T-057 Deploy-Härtung; T-037; T-043/T-044; T-016; T-024.
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
+
+- **P2 T-059:** Mehrere gleichzeitige Standort-Grants sind im Handy-Vertrag (ein Standort)
+  nicht darstellbar; dann bleibt der Reiter Mitarbeiter aus — es wird kein Standort geraten
+  und keine Betriebsberechtigung angenommen. Eine Oberfläche dafür braucht eine
+  Produktentscheidung.
+- **P3 T-059:** Die Handy-Sitzung vergleicht den Verwaltungsumfang nicht mit, wenn sie prüft,
+  ob es dieselbe Sitzung ist; eine laufende Abfrage kann nach einem Entzug noch zurückkommen.
+  Der Server weist sie ab — die Autorität wird je Seite neu geprüft.
 
 - **P2 Entwicklung (T-060):** Der Root-Build kann mit veralteten Workspace-Deklarationen
   scheitern; betroffene Abhängigkeiten vor ihren Verbrauchern bauen (Identity → Administration → API).
