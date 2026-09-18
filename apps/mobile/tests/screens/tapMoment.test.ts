@@ -48,7 +48,7 @@ describe('tap scene lifecycle', () => {
 
   it('retains the manual acknowledgement while its read is in flight and refreshes a later NFC decision', async () => {
     const snapshot = { generation: 1, session: { userId: 'user', membershipId: 'member',
-      organizationId: 'organization', role: 'employee' as const } };
+      organizationId: 'organization', nfcSetupAvailable: false, role: 'employee' as const } };
     const target = { targetType: 'general_work' as const, targetId: 'target', displayName: 'Arbeit' };
     const projection: MobileWorkReadResult = { status: 'ready', targets: { targets: [target], nextCursor: null },
       ownTime: { activeRecord: null, records: [], nextCursor: null,

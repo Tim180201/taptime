@@ -19,9 +19,9 @@ vi.mock('react-native', () => {
     Easing: {}, AccessibilityInfo: {}, Linking: {}, BackHandler: {} };
 });
 const { AppNavigator } = await import('../../src/navigation/AppNavigator');
-function markup(role: ProductMembershipRole) {
+function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'administrator') {
   const session = { getState: () => ({ status: 'authenticated', session: {
-    userId: 'user', organizationId: 'business', membershipId: 'membership', role,
+    userId: 'user', organizationId: 'business', membershipId: 'membership', role, nfcSetupAvailable,
   } }), subscribe: () => () => {}, signOut: async () => {}, signIn: async () => ({ status: 'authenticated' }),
     signInForEmployeeEnrollment: async () => ({ status: 'authenticated' }),
     redeemEmployeeInvitation: async () => ({ status: 'enrolled' }), retryContext: async () => {}, refresh: async () => {} } satisfies MobileSessionCapability;
@@ -36,6 +36,10 @@ function markup(role: ProductMembershipRole) {
   }));
 }
 describe('rendered navigation', () => {
+  it.each(['standortleitung', 'administrator'] as const)('T060 h: renders Tags only with NFC capability (%s)', role => {
+    expect(markup(role, true)).toContain('aria-label="Tags"');
+    expect(markup(role, false)).not.toContain('aria-label="Tags"');
+  });
   it.each(['employee', 'standortleitung', 'administrator'] as const)('renders the role-specific bottom tabs for %s', (role) => {
     const html = markup(role);
     const tabs = [...html.matchAll(/role="tab"[^>]*aria-label="([^"]+)"/g)].map((match) => match[1]);

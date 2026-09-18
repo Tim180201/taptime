@@ -12,7 +12,7 @@ const snapshot: InternalAuthenticatedSessionSnapshot = {
     userId: '10000000-0000-4000-8000-000000000001',
     membershipId: '20000000-0000-4000-8000-000000000001',
     organizationId: '30000000-0000-4000-8000-000000000001',
-    role: 'employee',
+    nfcSetupAvailable: false, role: 'employee',
   },
 };
 const target = {

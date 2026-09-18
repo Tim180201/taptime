@@ -47,6 +47,7 @@ export type AdministrationManagementScope =
     };
 
 export interface AdministrationSessionProjection {
+  readonly nfcSetupAvailable: boolean;
   readonly locationsEnabled: boolean;
   readonly availableSections: readonly AdministrationSection[];
   readonly managementScope: AdministrationManagementScope;

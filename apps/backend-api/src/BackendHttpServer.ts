@@ -375,6 +375,7 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
+      request.headers.accept === 'application/vnd.taptime.mobile-session.v2+json',
     );
     return;
   }
@@ -891,6 +892,7 @@ async function handleSession(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  includeNfcSetup: boolean,
 ): Promise<void> {
   try {
     const resolution = await withTimeout(
@@ -901,7 +903,16 @@ async function handleSession(
       respondError(response, 401, 'unauthorized');
       return;
     }
-    respondJson(response, 200, resolution.session);
+    // Installed Mobile clients reject extra JSON fields. Representation opt-in
+    // must never be used as authority; the capability always comes from SQL.
+    response.setHeader('Vary', 'Accept');
+    if (includeNfcSetup) {
+      response.setHeader('Content-Type', 'application/vnd.taptime.mobile-session.v2+json; charset=utf-8');
+      respondJson(response, 200, resolution.session);
+    } else {
+      const { userId, membershipId, organizationId, role } = resolution.session;
+      respondJson(response, 200, { userId, membershipId, organizationId, role });
+    }
   } catch {
     emitDiagnostic(options.onDiagnostic, {
       code: 'session_resolution_failed',

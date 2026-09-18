@@ -65,7 +65,7 @@ export function AppNavigator({
 
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
-    return <ProductShell key={accountKey} role={state.session.role} session={session}
+    return <ProductShell key={accountKey} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} session={session}
       scan={scan} administration={administration} work={work} offlineManual={offlineManual} />;
   }
   if (state.status === 'enrollment_only') {
@@ -131,8 +131,9 @@ function PasswordRecoveryScreen({ session, completing, notice }: {
   </View>;
 }
 
-function ProductShell({ role, session, scan, administration, work, offlineManual }: {
+function ProductShell({ role, nfcSetupAvailable = false, session, scan, administration, work, offlineManual }: {
   readonly role: ProductMembershipRole | 'offline';
+  readonly nfcSetupAvailable?: boolean;
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
   readonly administration: AdminSetupCapability;
@@ -149,7 +150,7 @@ function ProductShell({ role, session, scan, administration, work, offlineManual
     if ('queueCount' in scanState) previousCount.current = scanState.queueCount;
     else if (scanState.status === 'ready' && scanState.outcome === null) previousCount.current = 0;
   }, [scanState]);
-  const destinations = role === 'offline' ? OFFLINE_PRODUCT_DESTINATIONS : productDestinations(role);
+  const destinations = role === 'offline' ? OFFLINE_PRODUCT_DESTINATIONS : productDestinations({ role, nfcSetupAvailable });
   const navigate = (next: ProductDestination) => {
     if (next !== 'capture') void scan.cancel();
     if (next !== 'setup') void administration.cancel();
@@ -204,7 +205,7 @@ function ProductShell({ role, session, scan, administration, work, offlineManual
               : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
           : destination === 'times' ? work ? <OwnTimeScreen work={work} />
               : <MessageScreen title="Deine Zeiten sind derzeit nicht verfügbar." />
-          : role === 'administrator' ? <AdminSetupScreen administration={administration} /> : null}
+          : nfcSetupAvailable ? <AdminSetupScreen administration={administration} /> : null}
       </View>
     </EmbeddedScreenContext.Provider>
     <View style={styles.destinationBar} accessibilityRole="tablist">

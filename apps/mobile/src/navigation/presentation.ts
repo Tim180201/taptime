@@ -1,13 +1,12 @@
-import type { ProductMembershipRole } from '../auth/contracts';
+import type { ProductSessionContext } from '../auth/contracts';
 import type { ProductScanState } from '../scan/contracts';
 
 export type ProductDestination = 'capture' | 'manual' | 'times' | 'setup';
 export const destinationLabels: Record<ProductDestination, string> = {
   capture: 'Erfassen', manual: 'Manuell', times: 'Meine Zeiten', setup: 'Tags',
 };
-export function productDestinations(role: ProductMembershipRole): readonly ProductDestination[] {
-  // Standortleitung gets Tags with the scoped authority in T-060, not before it exists.
-  return role === 'administrator' ? ['capture', 'manual', 'times', 'setup']
+export function productDestinations(session: Pick<ProductSessionContext, 'role' | 'nfcSetupAvailable'>): readonly ProductDestination[] {
+  return session.nfcSetupAvailable === true ? ['capture', 'manual', 'times', 'setup']
     : ['capture', 'manual', 'times'];
 }
 

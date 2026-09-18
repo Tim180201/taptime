@@ -96,7 +96,8 @@ export class MobileSessionCoordinator implements
       && current.session.userId === snapshot.session.userId
       && current.session.organizationId === snapshot.session.organizationId
       && current.session.membershipId === snapshot.session.membershipId
-      && current.session.role === snapshot.session.role;
+      && current.session.role === snapshot.session.role
+      && current.session.nfcSetupAvailable === snapshot.session.nfcSetupAvailable;
   }
 
   isOfflineCaptureRestorationAllowed(): boolean {

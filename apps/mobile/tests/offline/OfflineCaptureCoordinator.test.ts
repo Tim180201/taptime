@@ -52,7 +52,7 @@ const session: ProductSessionContext = {
   userId: ids.user,
   organizationId: ids.organization,
   membershipId: ids.membership,
-  role: 'employee',
+  nfcSetupAvailable: false, role: 'employee',
 };
 const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));

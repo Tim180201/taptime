@@ -21,6 +21,7 @@ export function copyFrozenProductScanSessionSnapshot(
       organizationId: snapshot.session.organizationId,
       membershipId: snapshot.session.membershipId,
       role: snapshot.session.role,
+      nfcSetupAvailable: snapshot.session.nfcSetupAvailable,
     }),
   });
 }

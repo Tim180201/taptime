@@ -65,6 +65,7 @@ import type {
 } from '@taptime/backend-lifecycle';
 
 export interface ResolvedProductSession {
+  readonly nfcSetupAvailable: boolean;
   readonly userId: UserId;
   readonly membershipId: MembershipId;
   readonly organizationId: OrganizationId;

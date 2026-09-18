@@ -19,6 +19,7 @@ export class B4SessionAuthorityResolver implements SessionAuthorityResolver {
   constructor(
     private readonly verifier: AccessTokenVerifier,
     private readonly membershipResolver: IdentityMembershipResolver,
+    private readonly projectionResolver: AdministrationSessionProjectionResolver,
   ) {}
 
   async resolve(accessToken: string): Promise<SessionAuthorityResolution> {
@@ -35,6 +36,8 @@ export class B4SessionAuthorityResolver implements SessionAuthorityResolver {
       return { status: 'rejected' };
     }
 
+    const projected = await this.projectionResolver.resolveAdministrationSession(resolution.membership);
+    if (projected.status !== 'resolved') return { status: 'rejected' };
     return {
       status: 'resolved',
       session: Object.freeze({
@@ -42,6 +45,7 @@ export class B4SessionAuthorityResolver implements SessionAuthorityResolver {
         membershipId: resolution.membership.membershipId,
         organizationId: resolution.membership.organizationId,
         role: resolution.membership.role,
+        nfcSetupAvailable: projected.projection.nfcSetupAvailable,
       }),
     };
   }
@@ -70,7 +74,11 @@ implements AdministrationSessionAuthorityResolver {
         userId: resolution.membership.userId,
         membershipId: resolution.membership.membershipId,
         organizationId: resolution.membership.organizationId,
-        ...projected.projection,
+        // Admin-Web v2 deliberately rejects unknown JSON fields. Keep its drawing
+        // contract intact while Mobile receives the separate NFC capability.
+        locationsEnabled: projected.projection.locationsEnabled,
+        availableSections: projected.projection.availableSections,
+        managementScope: projected.projection.managementScope,
       }),
     };
   }

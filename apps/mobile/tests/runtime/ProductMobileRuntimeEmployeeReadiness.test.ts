@@ -388,6 +388,7 @@ function session(userId: string, membershipId: string): ProductSessionContext {
     membershipId,
     organizationId: ids.organization,
     role: 'employee',
+    nfcSetupAvailable: false,
   };
 }
 

@@ -39,7 +39,7 @@ export class TapTimeSessionApiClient implements BackendSessionPort {
       const response = await this.fetchRequest(this.endpoint.href, {
         method: 'GET',
         headers: {
-          Accept: 'application/json',
+          Accept: 'application/vnd.taptime.mobile-session.v2+json',
           Authorization: `Bearer ${accessToken}`,
         },
         cache: 'no-store',
@@ -111,7 +111,9 @@ function parseSession(value: unknown): ProductSessionContext | null {
   }
   const record = value as Record<string, unknown>;
   if (
-    Object.keys(record).sort().join(',') !== 'membershipId,organizationId,role,userId'
+    !['membershipId,organizationId,role,userId', 'membershipId,nfcSetupAvailable,organizationId,role,userId']
+      .includes(Object.keys(record).sort().join(','))
+    || ('nfcSetupAvailable' in record && typeof record.nfcSetupAvailable !== 'boolean')
     || typeof record.userId !== 'string'
     || typeof record.membershipId !== 'string'
     || typeof record.organizationId !== 'string'
@@ -127,6 +129,7 @@ function parseSession(value: unknown): ProductSessionContext | null {
     membershipId: record.membershipId,
     organizationId: record.organizationId,
     role: record.role,
+    nfcSetupAvailable: record.nfcSetupAvailable === true,
   });
 }
 

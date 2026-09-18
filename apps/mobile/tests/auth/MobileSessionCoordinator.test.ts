@@ -18,7 +18,7 @@ const productSession: ProductSessionContext = {
   userId: '10000000-0000-4000-8000-000000000101',
   membershipId: '12000000-0000-4000-8000-000000000101',
   organizationId: '00000000-0000-4000-8000-000000000101',
-  role: 'employee',
+  nfcSetupAvailable: false, role: 'employee',
 };
 
 function deferred<Value>() {

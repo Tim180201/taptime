@@ -437,6 +437,9 @@ describe('migration 007, roles and database contracts', () => {
           'enforce_current_location_relation_v1',
           'enforce_enabled_location_setup_v1',
           'enforce_work_location_is_additional_v1',
+          'has_current_nfc_setup_authority_v1',
+          'has_current_nfc_tag_setup_authority_v1',
+          'insert_admin_setup_nfc_tag_v1',
           'insert_admin_setup_nfc_tag_v1',
           'location_setup_is_complete_v1',
           'lock_admin_setup_active_customer_v1',
@@ -585,7 +588,7 @@ describe('migration 007, roles and database contracts', () => {
       'command_type', 'request_hash_version', 'request_hash', 'result_status',
       'result_customer_id', 'result_nfc_tag_id', 'result_nfc_assignment_id', 'created_at',
       'result_replaced_assignment_id', 'result_target_customer_id',
-      'result_assignment_changed', 'result_effective_at',
+      'result_assignment_changed', 'result_effective_at', 'actor_membership_role',
     ]);
     expect(columns.rows.map(({ column_name }) => column_name).join(' ')).not.toMatch(
       /token|issuer|subject|payload_value|display_name|email/i,

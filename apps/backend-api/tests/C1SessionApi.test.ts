@@ -27,6 +27,7 @@ import {
   type SyntheticJwksInfrastructure,
 } from './fixtures.js';
 import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
+import { TapTimeSessionApiClient } from '../../mobile/src/auth/TapTimeSessionApiClient.js';
 
 const installerConnectionString = process.env.C2_DATABASE_URL
   ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c2';
@@ -178,6 +179,28 @@ describe('versioned C1 foundation', () => {
 });
 
 describe('server-authoritative GET /v1/session', () => {
+  it.each([undefined, 'application/json', '*/*'])('keeps the installed strict Mobile parser working without opt-in (%s)', async (accept) => {
+    const response = await rawRequest(apiOrigin, {
+      method: 'GET', path: '/v1/session',
+      headers: { authorization: `Bearer ${await accessToken(jwks)}`, ...(accept ? { accept } : {}) },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
+    expect(parsePreT060MobileSession(JSON.parse(response.text))).toEqual({
+      userId: c1Ids.employeeA, membershipId: c1Ids.employeeAMembership,
+      organizationId: c1Ids.organizationA, role: 'employee',
+    });
+  });
+
+  it('lets the real new Mobile client request the additive NFC session on the existing route', async () => {
+    const client = new TapTimeSessionApiClient(apiOrigin);
+    await expect(client.resolve(await accessToken(jwks, { subject: c1Ids.administratorSubject })))
+      .resolves.toEqual({ status: 'resolved', session: {
+        userId: c1Ids.administratorA, membershipId: c1Ids.administratorAMembership,
+        organizationId: c1Ids.organizationA, role: 'administrator', nfcSetupAvailable: true,
+      } });
+  });
+
   it('returns exactly the active employee session from PostgreSQL provenance', async () => {
     const response = await sessionRequest(await accessToken(jwks));
     expectSuccess(response, {
@@ -185,6 +208,7 @@ describe('server-authoritative GET /v1/session', () => {
       membershipId: c1Ids.employeeAMembership,
       organizationId: c1Ids.organizationA,
       role: 'employee',
+      nfcSetupAvailable: false,
     });
   });
 
@@ -198,6 +222,7 @@ describe('server-authoritative GET /v1/session', () => {
       membershipId: c1Ids.administratorAMembership,
       organizationId: c1Ids.organizationA,
       role: 'administrator',
+      nfcSetupAvailable: true,
     });
   });
 
@@ -236,6 +261,7 @@ describe('server-authoritative GET /v1/session', () => {
       membershipId: c1Ids.employeeAMembership,
       organizationId: c1Ids.organizationA,
       role: 'standortleitung',
+      nfcSetupAvailable: false,
     });
   });
 
@@ -253,7 +279,7 @@ describe('server-authoritative GET /v1/session', () => {
         };
       },
     };
-    const authority = new B4SessionAuthorityResolver(verifier, unsafeResolver);
+    const authority = new B4SessionAuthorityResolver(verifier, unsafeResolver, resolver);
 
     await expect(authority.resolve(await accessToken(jwks))).resolves.toEqual({
       status: 'rejected',
@@ -279,6 +305,7 @@ describe('server-authoritative GET /v1/session', () => {
       membershipId: c1Ids.employeeAMembership,
       organizationId: c1Ids.organizationA,
       role: 'employee',
+      nfcSetupAvailable: false,
     });
   });
 
@@ -295,7 +322,7 @@ describe('server-authoritative GET /v1/session', () => {
       jwksUrl: new URL(`${jwks.issuerB}/.well-known/jwks.json`),
       allowedAlgorithms: ['RS256'],
     });
-    const authority = new B4SessionAuthorityResolver(issuerBVerifier, resolver);
+    const authority = new B4SessionAuthorityResolver(issuerBVerifier, resolver, resolver);
     await expect(authority.resolve(await accessToken(jwks, { issuer: jwks.issuerB }))).resolves.toEqual({
       status: 'resolved',
       session: {
@@ -303,6 +330,7 @@ describe('server-authoritative GET /v1/session', () => {
         membershipId: c1Ids.employeeBMembership,
         organizationId: c1Ids.organizationB,
         role: 'employee',
+        nfcSetupAvailable: false,
       },
     });
   });
@@ -371,13 +399,14 @@ describe('server-authoritative GET /v1/session', () => {
 });
 
 describe('server-authoritative GET /v2/session', () => {
-  it('keeps v1 exact while v2 reports all current Administrator section authorities', async () => {
+  it('adds the NFC capability to v1 while keeping the Admin-Web v2 contract unchanged', async () => {
     const token = await accessToken(jwks, { subject: c1Ids.administratorSubject });
     expect(JSON.parse((await sessionRequest(token)).text)).toEqual({
       userId: c1Ids.administratorA,
       membershipId: c1Ids.administratorAMembership,
       organizationId: c1Ids.organizationA,
       role: 'administrator',
+      nfcSetupAvailable: true,
     });
     const response = await administrationSessionRequest(token);
     expect(response.status).toBe(200);
@@ -437,6 +466,11 @@ describe('server-authoritative GET /v2/session', () => {
       [c1Ids.organizationA, locationId],
     );
     await installerPool.query(
+      `INSERT INTO ${B3_SCHEMA}.customers (id, organization_id, display_name, active)
+       VALUES ('94000000-0000-4000-8000-000000000201', $1, 'Kunde in Berlin', true)`,
+      [c1Ids.organizationA],
+    );
+    await installerPool.query(
       `INSERT INTO ${B3_SCHEMA}.work_target_location_assignments
          (id, organization_id, target_type, target_id, location_id)
        SELECT gen_random_uuid(), target.organization_id, target.target_type, target.target_id, $2
@@ -476,6 +510,9 @@ describe('server-authoritative GET /v2/session', () => {
     }
     const token = await accessToken(jwks);
     const before = await administrationSessionRequest(token);
+    expect(JSON.parse((await sessionRequest(token)).text)).toMatchObject({
+      role: 'standortleitung', nfcSetupAvailable: true,
+    });
     expect(JSON.parse(before.text)).toEqual({
       userId: c1Ids.employeeA,
       membershipId: c1Ids.employeeAMembership,
@@ -495,6 +532,9 @@ describe('server-authoritative GET /v2/session', () => {
       [grantId],
     );
     const after = await administrationSessionRequest(token);
+    expect(JSON.parse((await sessionRequest(token)).text)).toMatchObject({
+      role: 'standortleitung', nfcSetupAvailable: false,
+    });
     expect(JSON.parse(after.text)).toEqual({
       userId: c1Ids.employeeA,
       membershipId: c1Ids.employeeAMembership,
@@ -603,7 +643,7 @@ describe('strict HTTP transport boundary', () => {
   it('sets disclosure-safe JSON, no-store, nosniff and a server request ID', async () => {
     const response = await sessionRequest(await accessToken(jwks));
     expect(response.headers['cache-control']).toBe('no-store');
-    expect(response.headers['content-type']).toBe('application/json; charset=utf-8');
+    expect(response.headers['content-type']).toBe('application/vnd.taptime.mobile-session.v2+json; charset=utf-8');
     expect(response.headers['x-content-type-options']).toBe('nosniff');
     expect(response.headers['x-request-id']).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
@@ -628,7 +668,7 @@ describe('generic infrastructure handling', () => {
       jwksUrl: new URL(`${issuer}/.well-known/jwks.json`),
       allowedAlgorithms: ['RS256'],
     });
-    const authority = new B4SessionAuthorityResolver(unavailableVerifier, resolver);
+    const authority = new B4SessionAuthorityResolver(unavailableVerifier, resolver, resolver);
     const server = createSessionRegressionServer(authority);
     await listen(server);
     try {
@@ -662,7 +702,7 @@ describe('generic infrastructure handling', () => {
     });
     const failingAuthority = new B4SessionAuthorityResolver(verifier, {
       resolve: async () => { throw new Error(forbiddenPersonalContent.join(' | ')); },
-    });
+    }, resolver);
     const server = createSessionRegressionServer(failingAuthority, {
       onDiagnostic: (diagnostic) => {
         safeDiagnostics.push(diagnostic);
@@ -809,6 +849,7 @@ describe('least-privilege identity resolver runtime', () => {
   });
 
   it('cleans role and transaction-local context on a reused max-one connection', async () => {
+    expect((await sessionRequest(await accessToken(jwks))).status).toBe(200);
     await expect(resolver.resolve({ issuer: jwks.issuerA, subject: c1Ids.sharedSubject }))
       .resolves.toMatchObject({ status: 'resolved' });
     await expect(resolver.resolve({ issuer: jwks.issuerA, subject: c1Ids.unknownSubject }))
@@ -820,11 +861,13 @@ describe('least-privilege identity resolver runtime', () => {
       organization_context: string | null;
       user_context: string | null;
       membership_context: string | null;
+      membership_role_context: string | null;
     }>(
       `SELECT current_user, session_user, current_role,
-        current_setting('app.organization_id', true) AS organization_context,
-        current_setting('app.user_id', true) AS user_context,
-        current_setting('app.membership_id', true) AS membership_context`,
+        NULLIF(current_setting('app.organization_id', true), '') AS organization_context,
+        NULLIF(current_setting('app.user_id', true), '') AS user_context,
+        NULLIF(current_setting('app.membership_id', true), '') AS membership_context,
+        NULLIF(current_setting('app.membership_role', true), '') AS membership_role_context`,
     );
     expect(state.rows[0]).toEqual({
       current_user: C2_SESSION_RUNTIME_LOGIN,
@@ -833,6 +876,7 @@ describe('least-privilege identity resolver runtime', () => {
       organization_context: null,
       user_context: null,
       membership_context: null,
+      membership_role_context: null,
     });
   });
 });
@@ -841,7 +885,7 @@ async function sessionRequest(token: string): Promise<HttpResult> {
   return rawRequest(apiOrigin, {
     method: 'GET',
     path: '/v1/session',
-    headers: { authorization: `Bearer ${token}` },
+    headers: { authorization: `Bearer ${token}`, accept: 'application/vnd.taptime.mobile-session.v2+json' },
   });
 }
 
@@ -890,13 +934,31 @@ async function rawRequest(
   });
 }
 
-function expectSuccess(response: HttpResult, expected: Readonly<Record<string, string>>): void {
+function expectSuccess(response: HttpResult, expected: Readonly<Record<string, string | boolean>>): void {
   expect(response.status).toBe(200);
   expect(JSON.parse(response.text)).toEqual(expected);
   expect(Object.keys(JSON.parse(response.text)).sort()).toEqual([
-    'membershipId', 'organizationId', 'role', 'userId',
+    'membershipId', 'nfcSetupAvailable', 'organizationId', 'role', 'userId',
   ]);
   expect(response.headers['cache-control']).toBe('no-store');
+  expect(response.headers['content-type']).toBe('application/vnd.taptime.mobile-session.v2+json; charset=utf-8');
+  expect(response.headers.vary).toBe('Accept');
+}
+
+// Frozen pre-T060 parser contract: the installed APK rejects every extra field.
+function parsePreT060MobileSession(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (
+    Object.keys(record).sort().join(',') !== 'membershipId,organizationId,role,userId'
+    || typeof record.userId !== 'string' || !uuid.test(record.userId)
+    || typeof record.membershipId !== 'string' || !uuid.test(record.membershipId)
+    || typeof record.organizationId !== 'string' || !uuid.test(record.organizationId)
+    || (record.role !== 'administrator' && record.role !== 'standortleitung' && record.role !== 'employee')
+  ) return null;
+  return Object.freeze({ userId: record.userId, membershipId: record.membershipId,
+    organizationId: record.organizationId, role: record.role });
 }
 
 function expectGenericError(response: HttpResult, status: number, code: string): void {

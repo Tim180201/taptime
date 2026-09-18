@@ -46,7 +46,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     const current = this.state;
     const snapshot = this.session.capture();
     if (!this.active || current.status !== 'ready' || current.projection.nextCursor === null
-      || snapshot === null || snapshot.session.role !== 'administrator') return;
+      || snapshot === null || snapshot.session.nfcSetupAvailable !== true) return;
     const requestedCursor = current.projection.nextCursor;
     const generation = ++this.generation;
     this.setState({ status: 'loading' });
@@ -69,7 +69,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
   async provision(customerId: string, displayName: string): Promise<void> {
     const current = this.state;
     const snapshot = this.session.capture();
-    if (current.status !== 'ready' || snapshot === null || snapshot.session.role !== 'administrator') return;
+    if (current.status !== 'ready' || snapshot === null || snapshot.session.nfcSetupAvailable !== true) return;
     if (!current.projection.customers.some((customer) => customer.id === customerId && customer.active)
       || displayName.trim().length < 1 || Array.from(displayName.normalize('NFC').trim()).length > 80) {
       this.setState({ status: 'ready', projection: current.projection, outcome: { status: 'invalid_input' } });
@@ -109,7 +109,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     const current = this.state;
     const snapshot = this.session.capture();
     if (current.status !== 'ready' || snapshot === null
-      || snapshot.session.role !== 'administrator') return;
+      || snapshot.session.nfcSetupAvailable !== true) return;
     if (displayName.trim().length < 1
       || Array.from(displayName.normalize('NFC').trim()).length > 80) {
       this.finish(current.projection, { status: 'invalid_input' }); return;
@@ -166,13 +166,13 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     await this.nfc.cancelCapture();
     const snapshot = this.session.capture();
     if (snapshot === null) { this.setState({ status: 'inactive' }); return; }
-    if (snapshot.session.role !== 'administrator') { this.setState({ status: 'not_administrator' }); return; }
+    if (snapshot.session.nfcSetupAvailable !== true) { this.setState({ status: 'not_authorized' }); return; }
     await this.loadProjection(null, snapshot, this.generation);
   }
 
   private async loadProjection(outcome: AdminSetupOutcome | null, supplied = this.session.capture(), suppliedGeneration = ++this.generation): Promise<void> {
     const snapshot = supplied;
-    if (!this.active || snapshot === null || snapshot.session.role !== 'administrator') return;
+    if (!this.active || snapshot === null || snapshot.session.nfcSetupAvailable !== true) return;
     const generation = suppliedGeneration;
     this.setState({ status: 'loading' });
     const result = await this.api.readProjection(snapshot.session.membershipId, null);

@@ -334,8 +334,8 @@ export class AdminWriteSessionCoordinator {
           `SELECT
              inserted_nfc_tag_id AS id,
              validation_fingerprint
-           FROM taptime_server.insert_admin_setup_nfc_tag_v1($1, $2, $3, $4)`,
-          [tagId, actor.organization_id, digest.canonical_name, command.canonicalPayload],
+           FROM taptime_server.insert_admin_setup_nfc_tag_v1($1, $2, $3, $4, $5)`,
+          [tagId, actor.organization_id, digest.canonical_name, command.canonicalPayload, command.customerId],
         );
         if (insertedTag.rowCount !== 1) {
           const racedReceipt = await findReceipt(
@@ -431,6 +431,7 @@ export class AdminWriteSessionCoordinator {
           ),
         };
       },
+      command.customerId,
     );
   }
 
@@ -475,7 +476,7 @@ export class AdminWriteSessionCoordinator {
         const tagId = randomUUID();
         const insertedTag = await client.query<InsertedTagRow>(
           `SELECT inserted_nfc_tag_id AS id, validation_fingerprint
-           FROM taptime_server.insert_admin_setup_nfc_tag_v1($1, $2, $3, $4)`,
+           FROM taptime_server.insert_admin_setup_nfc_tag_v1($1, $2, $3, $4, NULL)`,
           [tagId, actor.organization_id, digest.canonical_name, command.canonicalPayload]);
         if (insertedTag.rowCount !== 1) {
           return { disposition: 'rollback', value: { status: 'tag_payload_already_registered' } };
@@ -506,7 +507,7 @@ export class AdminWriteSessionCoordinator {
         await afterWrite('receipt', controls, assertActive);
         return { disposition: 'commit', value: breakTagSuccess(tagId, assignmentId,
           normalized.canonicalName, insertedTag.rows[0]!.validation_fingerprint, false) };
-      });
+      }, null);
   }
 
   async readAssignableLocations(
@@ -806,6 +807,7 @@ export class AdminWriteSessionCoordinator {
           }),
         };
       },
+      null,
     );
   }
 
@@ -819,6 +821,7 @@ export class AdminWriteSessionCoordinator {
       actor: ResolvedActorRow,
       assertActive: () => void,
     ) => Promise<TransactionOutcome<Value>>,
+    nfcCustomerId?: string | null,
   ): Promise<Value | { readonly status: 'unauthorized' } | { readonly status: 'forbidden' }> {
     const deadline = controls.deadlineEpochMilliseconds
       ?? Date.now() + DEFAULT_INTERNAL_DEADLINE_MILLISECONDS;
@@ -866,7 +869,7 @@ export class AdminWriteSessionCoordinator {
         throw new Error('Locked identity resolver returned an unsupported Membership role');
       }
       if (
-        actor.membership_role !== 'administrator'
+        !['administrator', 'standortleitung'].includes(actor.membership_role)
         || actor.membership_id !== expectedMembershipId
       ) {
         await client.query('ROLLBACK');
@@ -893,12 +896,23 @@ export class AdminWriteSessionCoordinator {
            set_config('app.user_id', $1, true),
            set_config('app.organization_id', $2, true),
            set_config('app.membership_id', $3, true),
-           set_config('app.membership_role', 'administrator', true),
+           set_config('app.membership_role', $5, true),
            set_config('app.correlation_id', $4, true)`,
-        [actor.user_id, actor.organization_id, actor.membership_id, commandId ?? randomUUID()],
+        [actor.user_id, actor.organization_id, actor.membership_id, commandId ?? randomUUID(), actor.membership_role],
       );
       await client.query(`SET LOCAL ROLE ${C3C_ADMIN_SETUP_ROLE}`);
 
+      const capability = await client.query<{ allowed: boolean }>(
+        nfcCustomerId === undefined
+          ? 'SELECT taptime_server.has_current_admin_setup_authority($1) AS allowed'
+          : 'SELECT taptime_server.has_current_nfc_setup_authority_v1($1, $2) AS allowed',
+        nfcCustomerId === undefined ? [actor.organization_id] : [actor.organization_id, nfcCustomerId],
+      );
+      if (capability.rows[0]?.allowed !== true) {
+        await client.query('ROLLBACK');
+        transactionOpen = false;
+        return { status: 'forbidden' };
+      }
       const outcome = await operation(client, actor, assertActive);
       assertActive();
       if (outcome.disposition === 'rollback') {
@@ -915,6 +929,7 @@ export class AdminWriteSessionCoordinator {
       if (transactionOpen) {
         await rollbackPreservingOriginalError(client);
       }
+      if (isPostgresError(error, '42501')) return { status: 'forbidden' };
       throw error;
     } finally {
       client.off('error', recordConnectionFailure);

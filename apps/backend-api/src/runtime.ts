@@ -197,6 +197,7 @@ export function createBackendApiRuntime(
       sessionAuthority: new B4SessionAuthorityResolver(
         verifier,
         sessionMembershipResolver,
+        sessionMembershipResolver,
       ),
       administrationSessionAuthority: new B4AdministrationSessionAuthorityResolver(
         verifier,

@@ -4,11 +4,11 @@ import { createCanonicalNfcUidPayload, createTimestamp } from '@taptime/core';
 import { AdminSetupCoordinator } from '../../src/administration/AdminSetupCoordinator';
 import type { AdminSessionSnapshot, AdminSetupApiPort } from '../../src/administration/contracts';
 
-const snapshot: AdminSessionSnapshot = { generation: 1, session: { userId: '10000000-0000-4000-8000-000000000001', membershipId: '20000000-0000-4000-8000-000000000001', organizationId: '30000000-0000-4000-8000-000000000001', role: 'administrator' } };
+const snapshot: AdminSessionSnapshot = { generation: 1, session: { userId: '10000000-0000-4000-8000-000000000001', membershipId: '20000000-0000-4000-8000-000000000001', organizationId: '30000000-0000-4000-8000-000000000001', role: 'administrator', nfcSetupAvailable: true } };
 const projection = { status: 'succeeded' as const, organization: { id: snapshot.session.organizationId, name: 'TapTim.e' }, customers: [{ id: '40000000-0000-4000-8000-000000000001', displayName: 'Werkstatt', active: true }], nfcTags: [], nextCursor: null };
 
-function setup(role: 'administrator' | 'employee' = 'administrator') {
-  let current = { ...snapshot, session: { ...snapshot.session, role } } as AdminSessionSnapshot; let listener: () => void = () => undefined;
+function setup(role: 'administrator' | 'standortleitung' | 'employee' = 'administrator', nfcSetupAvailable = role !== 'employee') {
+  let current = { ...snapshot, session: { ...snapshot.session, role, nfcSetupAvailable } } as AdminSessionSnapshot; let listener: () => void = () => undefined;
   const session = { capture: vi.fn(() => current), isCurrent: vi.fn((candidate: AdminSessionSnapshot) => candidate === current), subscribe: vi.fn((next: () => void) => { listener = next; return () => undefined; }) };
   const nfc = { checkCapability: vi.fn(async () => 'ready' as const), scan: vi.fn(async () => ({ status: 'captured' as const, payload: createCanonicalNfcUidPayload('B55E8B6AEB30'), capturedAt: createTimestamp('2026-07-15T07:00:00.000Z') })), cancelCapture: vi.fn(async () => undefined), stop: vi.fn(async () => undefined) };
   const api: AdminSetupApiPort = {
@@ -119,10 +119,18 @@ describe('AdminSetupCoordinator', () => {
     );
   });
 
-  it('never offers capture to an employee', async () => {
-    const context = setup('employee'); await context.coordinator.start();
-    expect(context.coordinator.getState()).toEqual({ status: 'not_administrator' });
+  it.each(['employee', 'standortleitung', 'administrator'] as const)('T060 h: never offers capture without capability (%s)', async (role) => {
+    const context = setup(role, false); await context.coordinator.start();
+    expect(context.coordinator.getState()).toEqual({ status: 'not_authorized' });
     await context.coordinator.provision(projection.customers[0]!.id, 'Eingang'); expect(context.nfc.scan).not.toHaveBeenCalled();
+  });
+
+  it.each(provisions)('T060 h: Standortleitung can provision $name with capability', async ({ run, method }) => {
+    const context = setup('standortleitung', true);
+    await context.coordinator.start();
+    await run(context.coordinator);
+    expect(context.api[method]).toHaveBeenCalled();
+    expect(context.coordinator.getState()).toMatchObject({ status: 'ready', outcome: { status: 'tag_provisioned' } });
   });
 
   it('invalidates an in-flight operation when exact Membership changes', async () => {

@@ -3,12 +3,12 @@ import { productDestinations, syncIndicator } from '../../src/navigation/present
 
 describe('role navigation and synchronization status', () => {
   it.each([
-    ['employee', ['capture', 'manual', 'times']],
-    ['standortleitung', ['capture', 'manual', 'times']],
-    ['administrator', ['capture', 'manual', 'times', 'setup']],
-  ] as const)('offers the authorized destinations for %s, starting at capture', (role, destinations) => {
-    expect(productDestinations(role)).toEqual(destinations);
-    expect(productDestinations(role)).not.toContain('sync');
+    ['employee', false], ['standortleitung', false], ['administrator', false],
+    ['standortleitung', true], ['administrator', true],
+  ] as const)('T060 h: Tags follows capability for %s (%s)', (role, nfcSetupAvailable) => {
+    expect(productDestinations({ role, nfcSetupAvailable })).toEqual(
+      nfcSetupAvailable ? ['capture', 'manual', 'times', 'setup'] : ['capture', 'manual', 'times'],
+    );
   });
   it('distinguishes no pending transmissions from pending transmissions, even while scanning', () => {
     expect(syncIndicator({ status: 'server_decision', outcome: { status: 'time_entry_started' }, queueCount: 0 }))

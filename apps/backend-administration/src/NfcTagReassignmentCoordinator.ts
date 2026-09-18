@@ -97,6 +97,14 @@ export class NfcTagReassignmentCoordinator {
       command.commandId,
       controls,
       async (client, actor, assertActive) => {
+        const capability = await client.query<{ allowed: boolean }>(
+          `SELECT taptime_server.has_current_nfc_setup_authority_v1($1, $2)
+             AND taptime_server.has_current_nfc_tag_setup_authority_v1($1, $3) AS allowed`,
+          [actor.organization_id, command.targetCustomerId, command.nfcTagId],
+        );
+        if (capability.rows[0]?.allowed !== true) {
+          return { disposition: 'rollback', value: { status: 'forbidden' } };
+        }
         const requestHash = await commandDigest(client, actor, command);
         const nodeHash = reassignNfcTagCommandDigestV1(
           actor.organization_id,
@@ -351,7 +359,7 @@ export class NfcTagReassignmentCoordinator {
         throw new Error('Locked identity resolver returned an unsupported Membership role');
       }
       if (
-        actor.membership_role !== 'administrator'
+        !['administrator', 'standortleitung'].includes(actor.membership_role)
         || actor.membership_id !== expectedMembershipId
       ) {
         await client.query('ROLLBACK');
@@ -376,9 +384,9 @@ export class NfcTagReassignmentCoordinator {
            pg_catalog.set_config('app.user_id', $1, true),
            pg_catalog.set_config('app.organization_id', $2, true),
            pg_catalog.set_config('app.membership_id', $3, true),
-           pg_catalog.set_config('app.membership_role', 'administrator', true),
+           pg_catalog.set_config('app.membership_role', $5, true),
            pg_catalog.set_config('app.correlation_id', $4, true)`,
-        [actor.user_id, actor.organization_id, actor.membership_id, commandId],
+        [actor.user_id, actor.organization_id, actor.membership_id, commandId, actor.membership_role],
       );
       await client.query(`SET LOCAL ROLE ${C3E2_ASSIGNMENT_REASSIGNER_ROLE}`);
 
@@ -398,6 +406,8 @@ export class NfcTagReassignmentCoordinator {
       if (transactionOpen) {
         await rollbackPreservingOriginalError(client);
       }
+      if (typeof error === 'object' && error !== null && 'code' in error
+        && error.code === '42501') return { status: 'forbidden' };
       throw error;
     } finally {
       client.off('error', recordConnectionFailure);

@@ -27,7 +27,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
     return () => subscription.remove();
   }, [assigning, administration]);
   if (state.status === 'inactive' || state.status === 'loading') return <Message title="Tags werden geladen …" />;
-  if (state.status === 'not_administrator') return <Message title="Diese Funktion ist nur für Administratoren verfügbar." />;
+  if (state.status === 'not_authorized') return <Message title="Du hast keine Berechtigung zum Zuordnen von Tags." />;
   const projection = state.projection;
   const busy = state.status === 'capturing' || state.status === 'writing' || state.status === 'submitting';
   const presentation = presentAdminSetupState(state);

@@ -34,7 +34,7 @@ export type AdminSetupOutcome =
 export type AdminSetupState =
   | { readonly status: 'inactive' }
   | { readonly status: 'loading' }
-  | { readonly status: 'not_administrator' }
+  | { readonly status: 'not_authorized' }
   | { readonly status: 'ready'; readonly projection: AdminSetupProjection; readonly outcome: AdminSetupOutcome | null }
   | { readonly status: 'capturing'; readonly projection: AdminSetupProjection }
   | { readonly status: 'writing'; readonly projection: AdminSetupProjection }

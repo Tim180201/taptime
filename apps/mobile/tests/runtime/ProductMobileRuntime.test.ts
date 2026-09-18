@@ -183,7 +183,7 @@ describe('account-scoped scan protection', () => {
     await context.runtime.start();
     expect(context.runtime.scan.getState().status).toBe('protected_pending');
     sessionState = { status: 'authenticated', session: {
-      userId: 'person-B', organizationId: 'business', membershipId: 'membership-B', role: 'employee',
+      userId: 'person-B', organizationId: 'business', membershipId: 'membership-B', nfcSetupAvailable: false, role: 'employee',
     } };
     for (const listener of listeners) listener();
     await vi.waitFor(() => expect(context.runtime.scan.getState()).toEqual({ status: 'ready', outcome: null }));

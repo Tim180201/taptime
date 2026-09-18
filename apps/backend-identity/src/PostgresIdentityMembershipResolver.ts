@@ -27,6 +27,7 @@ interface ResolvedActorRow {
 interface AdministrationSessionRow {
   readonly locations_enabled: boolean;
   readonly setup_available: boolean;
+  readonly nfc_setup_available: boolean;
   readonly employees_available: boolean;
   readonly time_records_available: boolean;
   readonly time_export_available: boolean;
@@ -88,7 +89,7 @@ export class PostgresIdentityMembershipResolver implements IdentityMembershipRes
       await client.query('BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY');
       await client.query(`SET LOCAL ROLE ${B4_IDENTITY_RESOLVER_ROLE}`);
       const result = await client.query<AdministrationSessionRow>(
-        `SELECT locations_enabled, setup_available, employees_available,
+        `SELECT locations_enabled, setup_available, nfc_setup_available, employees_available,
                 time_records_available, time_export_available, review_items_available,
                 management_scope_kind, management_location_id, management_location_name
          FROM ${B4_SCHEMA}.read_administration_session_v2($1, $2, $3)`,
@@ -132,6 +133,7 @@ export class PostgresIdentityMembershipResolver implements IdentityMembershipRes
         status: 'resolved',
         projection: Object.freeze({
           locationsEnabled: first.locations_enabled,
+          nfcSetupAvailable: first.nfc_setup_available,
           availableSections: Object.freeze(sections),
           managementScope: first.management_scope_kind === 'organization'
             ? Object.freeze({ kind: 'organization' as const })
@@ -165,6 +167,7 @@ function assertBooleanSessionFields(row: AdministrationSessionRow): void {
   if (
     typeof row.locations_enabled !== 'boolean'
     || typeof row.setup_available !== 'boolean'
+    || typeof row.nfc_setup_available !== 'boolean'
     || typeof row.employees_available !== 'boolean'
     || typeof row.time_records_available !== 'boolean'
     || typeof row.time_export_available !== 'boolean'
@@ -182,6 +185,7 @@ function assertConsistentSessionRow(
   if (
     row.locations_enabled !== first.locations_enabled
     || row.setup_available !== first.setup_available
+    || row.nfc_setup_available !== first.nfc_setup_available
     || row.employees_available !== first.employees_available
     || row.time_records_available !== first.time_records_available
     || row.time_export_available !== first.time_export_available

@@ -6,9 +6,21 @@ const session = {
   membershipId: '12000000-0000-4000-8000-000000000101',
   organizationId: '00000000-0000-4000-8000-000000000101',
   role: 'employee',
+  nfcSetupAvailable: false,
 };
 
 describe('TapTimeSessionApiClient', () => {
+  it.each([true, false])('T060 g: accepts the explicit NFC capability %s', async (nfcSetupAvailable) => {
+    const body = { ...session, role: 'standortleitung', nfcSetupAvailable };
+    const client = new TapTimeSessionApiClient('https://api.example/', async () => Response.json(body));
+    await expect(client.resolve('token')).resolves.toEqual({ status: 'resolved', session: body });
+  });
+  it('T060 g: defaults a missing legacy NFC capability to false', async () => {
+    const { nfcSetupAvailable: _, ...legacy } = session;
+    const client = new TapTimeSessionApiClient('https://api.example/', async () => Response.json(legacy));
+    await expect(client.resolve('token')).resolves.toEqual({ status: 'resolved', session });
+  });
+
   it('accepts the server-issued Standortleitung role without promoting it to administrator', async () => {
     const body = { ...session, role: 'standortleitung' };
     const client = new TapTimeSessionApiClient('https://api.example/', async () => Response.json(body));
@@ -65,7 +77,7 @@ describe('TapTimeSessionApiClient', () => {
     expect(String(url)).toBe('https://api.taptime.example/base/v1/session');
     expect(init).toEqual({
       method: 'GET',
-      headers: { Accept: 'application/json', Authorization: 'Bearer memory-only-access' },
+      headers: { Accept: 'application/vnd.taptime.mobile-session.v2+json', Authorization: 'Bearer memory-only-access' },
       cache: 'no-store',
       credentials: 'omit',
       redirect: 'error',
@@ -95,6 +107,8 @@ describe('TapTimeSessionApiClient', () => {
   it.each([
     null,
     [],
+    { ...session, nfcSetupAvailable: 'true' },
+    { ...session, nfcSetupAvailable: null },
     { ...session, role: 'owner' },
     { ...session, userId: 'not-a-uuid' },
     { ...session, providerSubject: 'must-not-escape' },

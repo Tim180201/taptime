@@ -1,6 +1,7 @@
 export type ProductMembershipRole = 'administrator' | 'standortleitung' | 'employee';
 
 export interface ProductSessionContext {
+  readonly nfcSetupAvailable: boolean;
   readonly userId: string;
   readonly membershipId: string;
   readonly organizationId: string;
