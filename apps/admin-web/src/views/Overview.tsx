@@ -50,4 +50,3 @@ export default function Overview({state,administration,navigate}: {
     {reviewsAvailable ? <Suspense fallback={<DelayedSkeleton label="Prüfungen werden geladen"/>}><ReviewsView state={state} administration={administration}/></Suspense> : null}
   </>;
 }
-

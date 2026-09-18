@@ -1,4 +1,4 @@
-import { BUSINESS_TIME_ZONE } from './BusinessTimeZone.js';
+import { BUSINESS_TIME_ZONE } from './BusinessTimeZone';
 /** Structural inputs keep Core independent of transport contracts. */
 export interface CalendarInterval {
   readonly timeRecordId: string;

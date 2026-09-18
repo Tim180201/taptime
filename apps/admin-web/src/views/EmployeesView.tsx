@@ -143,4 +143,3 @@ export default function EmployeesView({ state, administration, accountInvitation
     </Panel>
   </SectionBoundary></>;
 }
-

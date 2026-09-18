@@ -31,4 +31,3 @@ export default function PersonView({state,administration,route,navigate}: {reado
         ? <div role="alert"><p>{calendar.message}</p><button onClick={()=>void administration.loadPersonTime?.(personId,month)}>Monat erneut laden</button></div>
         : <DelayedSkeleton label="Zeiten werden geladen"/>}</>;
 }
-

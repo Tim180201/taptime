@@ -86,4 +86,4 @@ export * from './infrastructure/repositories/InMemoryMembershipRepository';
 
 export * from './cli/runScan';
 
-export * from './domain/TimeCalendar.js';
+export * from './domain/TimeCalendar';

@@ -34,4 +34,3 @@ export function PeopleTable({people,navigate,locationId}: {readonly people:reado
         : 'Inaktiv'}</td></tr>)}</tbody>
   </table>{people.length === 0 ? <p className="empty">Keine Personen in dieser Auswahl.</p> : null}</div>;
 }
-

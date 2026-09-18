@@ -169,4 +169,3 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
     <button className="quiet" disabled={state.timeReviewBusy} onClick={()=>{administration.cancelAdjudication();setOpen(false);rowTrigger.current?.focus();}}>Entscheidung schließen</button>
   </div> : null}</li>;
 }
-

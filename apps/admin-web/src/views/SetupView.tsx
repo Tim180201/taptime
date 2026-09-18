@@ -352,4 +352,3 @@ function LocationSetupPanel({
     </section>
   </Panel>;
 }
-
