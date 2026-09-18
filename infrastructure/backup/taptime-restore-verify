@@ -7,6 +7,12 @@ readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
 RESTORE_SYSTEM_IDENTIFIER=''
 RESTORE_ARCHIVE_IDENTIFIER=''
 MATERIALIZED_VOLUME_IN_PROGRESS=''
+# State read by the EXIT trap (finish/cleanup). The trap runs after main() has returned,
+# so under `set -u` these must be globals, never function-local variables.
+restore_state='failed'
+stage=''
+container=''
+write_canonical_status=1
 
 require_file() {
   if [[ ! -f "$1" ]]; then
@@ -712,13 +718,11 @@ materialize_verified_restore() {
 }
 
 main() {
-  local restore_state='failed'
-  local stage='' container='' archive start_wal_lsn start_wal_file
+  local archive start_wal_lsn start_wal_file
   local latest_wal_file latest_record_lsn
   local manifest_system_identifier manifest_archive_identifier restored_system_identifier
   local recovery_complete target_reached
   local rehearsal_only recovery_deadline container_running
-  local write_canonical_status=1
   local materialize_volume=''
 
   if (( $# == 0 )); then

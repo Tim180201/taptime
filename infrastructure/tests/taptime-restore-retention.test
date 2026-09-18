@@ -29,6 +29,21 @@ if grep --quiet --extended-regexp "glob-archives ['\"]sh:" \
   exit 1
 fi
 
+# The EXIT trap (finish/cleanup) runs after main() has returned. Everything it reads must
+# therefore be a global; a function-local variable is unbound there under `set -u`
+# (production failure on 18.09.2026: `line 791: container: unbound variable`).
+for trap_variable in restore_state stage container write_canonical_status; do
+  if ! declare -p "$trap_variable" >/dev/null 2>&1; then
+    printf 'restore-verify: %s must be a global for the EXIT trap.\n' "$trap_variable" >&2
+    exit 1
+  fi
+  if grep --quiet --extended-regexp "^  local .*\b${trap_variable}\b" \
+      "$(dirname "$0")/../backup/taptime-restore-verify"; then
+    printf 'restore-verify: main() declares %s as a local variable again.\n' "$trap_variable" >&2
+    exit 1
+  fi
+done
+
 borg() {
   printf '%s\n' "$*" >> "$CALL_LOG"
   case "$1" in
