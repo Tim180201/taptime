@@ -19,6 +19,9 @@ einen vollständigen Monatsabschluss übersteht.
   18.09. viermal aus dem externen Archiv bewiesen (zuletzt `base-…-20260918T084325Z`, 26
   Migrationen, RLS erzwungen). Rückweg auf ein Image vor 023 ist keiner mehr.
 - Mail: Supabase → Brevo (D-057) mit DKIM/DMARC bei INWX; Zurücksetzungs-Mail zugestellt.
+- **T-047 am 18.09. am Gerät abgenommen (D-044):** Einladung aus dem Admin-Web, Mail von
+  „Taptura“, `/willkommen`, Passwort, App-Anmeldung, Mitgliedschaft ohne Code. Danach als
+  Administrator getippt: Vorgang im Admin-Web sichtbar — Rundlauf durch den Archivvertrag.
 
 ## Deploy am 18.09. — was er gekostet hat
 
@@ -41,8 +44,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Offen bis zum Pilotbetrieb
 
-- PO-Schritt 5 (D-049): `SUPABASE_SERVICE_ROLE_KEY` und Redirect-URL in `/opt/taptime/.env`;
-  echte Einladung an echtes Postfach, am Handy gelesen = Abnahme T-047. Neue APK für T-052.
+- **Neue APK aus `939b4ba`** (EAS `production-validation`): Die installierte App ist der Stand
+  vor T-052 — sie bestätigt im Hintergrund-Takt statt im Tap. Link nur persönlich an den PO.
 - Tagesfreigabe, Kalender, Pausenautomatik: T-048–T-050. T-055 Wiederaufnahme nach Restore.
 - T-056 CI baut die Images; T-057 Deploy-Härtung; T-037; T-043/T-044; T-016; T-024.
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
@@ -50,6 +53,10 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 ## Bekannte Kleinigkeiten und offene Risiken
 
 - **P1 T-055:** Lease-Bindung und Reihenfolge über Installationen nach Restore (D-055).
+- **P2 App (18.09.):** `ScanScreen` zeigt „Mitgliedschaft stimmt nicht überein“ auch für
+  `local_evidence_protected`; der Schutzzustand blieb nach einem Kontowechsel bis zum
+  App-Neustart stehen (`adb logcat` danach ohne `protectionClass`-Zeile, nicht reproduziert).
+  Ein zweites Konto auf demselben Gerät ist per `bindOwner` dauerhaft gesperrt — gewollt.
 - **P2 Betrieb:** `[7/7] Archivvertrag ist aktiv`-Meldung erscheint auch, wenn nur der Cutover
   aktiv war; Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge.
 - **P2 Sicherheit:** `*.supabase.co` in der CSP auf den Aussteller verengen; SECURITY-DEFINER-

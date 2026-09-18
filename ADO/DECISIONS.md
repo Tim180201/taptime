@@ -1141,3 +1141,30 @@ mit. Weniger Code, ein Weg, die Lehre aus dem Audit.
 **Zwei Geheimnisse, zwei Orte:** Der Brevo-SMTP-Schluessel liegt im Supabase-Dashboard und nie
 auf unserem Server. Der service-role-Schluessel (D-049) liegt in `/opt/taptime/.env` und nie im
 Dashboard-Umfeld. Beide traegt der Product Owner selbst ein.
+
+---
+
+## D-058 · Das Handy ist fuer alle Rollen das Werkzeug, die Navigation folgt der Rolle · 18.09.2026 · Tim
+**Entscheidung:** Die App beginnt bei jeder Rolle mit *Erfassen*. Mitarbeiter: Erfassen, Manuell,
+Meine Zeiten. Administrator und Standortleitung: Erfassen, Manuell, Mitarbeiter, Tags.
+Der Abgleich ist kein Reiter, sondern ein Statuspunkt oben rechts (mint: alles bestaetigt,
+bernstein mit Zahl: etwas wartet), der die Abgleich-Seite oeffnet. „NFC-Einrichtung" heisst Tags.
+Der Moment nach dem Tap ist ein eigener Bildschirm: Entscheidung, Uhrzeit, Ziel, „vom Server
+bestaetigt", dann sofort wieder bereit; ohne Netz dieselbe Szene in Bernstein mit „wird nachgereicht".
+**Massstab:** der klickbare Entwurf vom 18.09. (ADO/01_Architecture/Mobile_Entwurf) und die
+Scan-Animation des Vergleichsprojekts frogs-zeiterfassung. Farben bleiben die heutigen Tokens.
+**Warum:** Der Product Owner will die App vor der naechsten APK fertig sehen; ein Handy, das
+Fuehrungskraefte nicht benutzen, ist fuer einen Fuenf-Personen-Betrieb keine Fuehrung.
+
+---
+
+## D-059 · Standortleitung ist Administrator im eigenen Standort · 18.09.2026 · Tim
+**Entscheidung:** Eine Standortleitung darf im eigenen Standort alles, was ein Administrator darf:
+Mitarbeiter einladen, sehen, pruefen, Tags zuordnen. Sie darf keine Standortleitungen und keine
+Administratoren anlegen und sieht keinen anderen Standort. Ein Betrieb mit einem Standort merkt
+den Unterschied nur an der Rollenauswahl.
+**Was es ersetzt:** T-046 gab der Standortleitung Lesen und Pruefen im eigenen Standort; Einladen
+(T-047) und Tag-Zuordnung blieben Administratoren vorbehalten. Beides wird auf den Standort
+begrenzt geoeffnet — in der Datenbank (RLS, SECURITY DEFINER), nicht nur in der Oberflaeche.
+**Grenze:** Mandantentrennung und Standortgrenze brauchen den Rotnachweis ueber die Grenze hinweg
+und ein unabhaengiges Review; die Oberflaeche zeigt nur, was die Datenbank erlaubt.
