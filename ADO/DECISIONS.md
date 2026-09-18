@@ -1181,3 +1181,16 @@ laeuft und was eine Entscheidung braucht; die Entscheidung steht am Fall, nicht 
 Beschreibung in T-049; die Einzelbefunde dort bleiben.
 **Warum:** Eine Oberflaeche aus einem Guss ist billiger zu bauen und zu erklaeren als zwei; ein
 Mitarbeiter ohne Web-Zugang muss fuer jede Frage zur Standortleitung. Reihenfolge: nach T-058.
+
+---
+
+## D-061 · Die Tag-Adresse: tb-infra.de zum Testen, die offizielle Domain vor dem ersten Pilot-Tag · 18.09.2026 · Tim
+**Entscheidung:** Auf die Tags wird eine NDEF-URI `https://<Host>/tag` geschrieben (T-043). Bis zum
+Pilot ist der Host `tb-infra.de`. Vor dem ersten Tag beim Pilotkunden legt der Product Owner die
+offizielle Domain fest und sichert sie (INWX); danach werden neue Tags mit ihr beschrieben.
+**Bauweise:** Die Hostliste steht an genau einer Stelle in der App; Manifest und App lesen sie
+gemeinsam, und die App nimmt mehrere Hosts an. Tags werden nicht schreibgeschuetzt. So bleibt die
+Einbahnstrasse aus D-037 vermeidbar: Ein Domainwechsel ergaenzt einen Host, statt jeden Tag zu
+entwerten. Die Tag-Identitaet bleibt die UID-Evidenz; die URI ist nur der Android-Dispatch.
+**Grenze:** iOS braucht spaeter einen von Apple verifizierten https-Host (D-037) — jeder eigene
+Host erfuellt das, tb-infra.de eingeschlossen.

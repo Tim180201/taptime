@@ -1,53 +1,57 @@
 # Aktuelle Aufgabe
 
 > **Stand 18.09.2026:** T-058 ist auf `main` (`3daa09b`, CI grün, Review in einer Runde).
-> Nächste Aufgabe ist **T-043** (Android-Auswahldialog, NDEF-Nachricht auf dem Tag). Ihr
-> Brief folgt, sobald der Product Owner die Adresse festlegt, die auf die Tags geschrieben
-> wird (D-037: genau einmal, ein Formatwechsel heißt jeden Tag neu beschreiben).
+> Der Product Owner hat die Tag-Adresse entschieden (D-061): `tb-infra.de` zum Testen, die
+> offizielle Domain vor dem ersten Pilot-Tag; die App nimmt eine Liste von Hosts an.
 > Reihenfolge: **T-043 → T-060 → T-059 → APK → Geräteabnahme (D-044) → T-049.**
 
-## T-058 · Die App, wie sie gemeint ist — abgeschlossen `3daa09b`
+## T-043 · Der Android-Auswahldialog verschwindet — NDEF-Adresse auf dem Tag
 
-**Für:** Development · **Risiko:** Scan-Bildschirm, Sitzungswechsel, Offline-Zustände
-**Zeitbox:** drei Sitzungen. **Grundlage:** D-058, `ADO/01_Architecture/Mobile_Entwurf/`
-(README und 15 Bildschirme), `UI_Leitlinien.md`. Auftrag vom 18.09.2026.
+**Für:** Development · **Risiko:** Tag-Zuordnung (schreibt jetzt), Android-Dispatch, Evidenz
+**Zeitbox:** zwei Sitzungen. **Grundlage:** D-037, D-061, PLAN-Eintrag T-043, Vorbild
+`frogs-zeiterfassung/plugins/withNfcIntentFilters`. Auftrag vom 18.09.2026.
 
-### Ergebnis und Grenzen
+### Befund
 
-Die App sieht aus und verhält sich wie der Entwurf. Nur `apps/mobile` und geteilte Design-
-Tokens; kein Backend, keine Migration, keine neuen Routen. Kein Reiter „Mitarbeiter" (T-059),
-keine Rechteänderung (T-060), kein NDEF-Filter (T-043). Farben sind die heutigen Tokens.
+Bei geschlossener App öffnet Android beim Dranhalten einen Auswahldialog (T-033, Schritt 11):
+Unser TECH-Filter (`NfcA`, `plugins/withNfcTagDispatch.js`) und Androids System-App treffen
+denselben Tag; Androids Reihenfolge ist NDEF vor TECH, und `NDEF_DISCOVERED` beansprucht auf dem
+Testgerät niemand. Trägt der Tag eine NDEF-URI mit unserem Host und beansprucht die App genau
+diese, geht der Intent ohne Dialog an uns.
 
 ### Umsetzung
 
-1. **Reiterleiste je Rolle** (Icon + Beschriftung, 56 px, aktiv mint): Mitarbeiter *Erfassen,
-   Manuell, Meine Zeiten*; Administrator und Standortleitung *Erfassen, Manuell, Meine Zeiten,
-   Tags* (bis T-059). Erfassen ist immer der Startbildschirm.
-2. **Abgleich ist kein Reiter.** Ein Statuspunkt in der Kopfzeile: mint bei „alles bestätigt",
-   bernstein mit Zahl bei wartenden Vorgängen; er öffnet die Abgleich-Seite mit Zurück-Pfeil.
-3. **Tap-Moment.** Kreis 236 px mit NFC-Symbol, Atem-Skalierung und zwei Wellen (Vorbild
-   `frogs-zeiterfassung/app/scan.jsx`, nur die Animation, keine Logik). Nach der Serverantwort
-   ein eigener Zustand: Kreis mint, Haken, GESTARTET/GESTOPPT, Uhrzeit, Ziel, „Vom Server
-   bestätigt", nach ~2 s wieder bereit. Ohne Netz dieselbe Szene in Bernstein mit „sicher
-   gespeichert, wird nachgereicht". T-052 liefert die Entscheidung; hier wird sie gezeigt.
-4. **Meine Zeiten:** Kacheln Monat/Woche, Monatskalender mit Stunden je Tag, Tagesliste mit
-   Ziel, Zeitraum, Herkunft, Dauer. Berlin-Zone aus `packages/core` (D-056), nicht die Geräte-
-   zone — das schließt den P2-Befund aus T-036.
-5. **Manuell, Abgleich, Tags** im neuen Kleid; „NFC-Einrichtung" heißt Tags; App-Name Taptura;
-   Schrift Manrope über das Expo-Google-Fonts-Paket.
-6. **Zwei Befunde vom 18.09.:** `ScanScreen` sagt je Schutzursache etwas anderes —
-   `identity_mismatch` (Mitgliedschaft), `local_evidence_protected` (lokaler Speicher),
-   `legacy_membership_unknown`; und der Schutzzustand einer Sitzung wird beim Kontowechsel
-   verworfen und neu bestimmt, ohne Evidenz zu verändern (D-055: nie Evidenz umschreiben).
-7. Bestehende Coordinatoren, Offline-Datenbank und Verträge bleiben unverändert; nur Screens,
-   Navigation, Design-Primitive. Wo der Entwurf etwas zeigt, das die App heute nicht weiß
-   (z. B. „0,4 s"), wird es weggelassen, nicht erfunden.
+1. **Adresse an einer Stelle.** `apps/mobile/src/nfc/tagAddress.ts` exportiert die Liste der
+   Hosts (heute genau `tb-infra.de`) und baut die URI `https://<erster Host>/tag`. Kein Tag-
+   Kennzeichen in der URI: Die Identität des Tags bleibt die heutige UID-Evidenz
+   (`canonicalPayload`, Prüf-Fingerprint); die URI dient nur dem Android-Dispatch. Das Config-
+   Plugin liest dieselbe Liste (über `app.config` extra), damit Manifest und App nie auseinander-
+   laufen; ein Test belegt das.
+2. **Manifest.** `NDEF_DISCOVERED` mit `<data android:scheme="https" android:host="…" android:pathPrefix="/tag">`
+   je Host, zusätzlich zum bestehenden TECH-Filter (alte Test-Tags ohne NDEF funktionieren
+   weiter, mit Dialog, bis sie neu beschrieben sind). Kein `autoVerify`, keine App-Links-
+   Verifikation in dieser Aufgabe (Android braucht sie für NFC nicht; iOS-Universal-Links kommen,
+   wenn die offizielle Domain steht).
+3. **Tag zuordnen schreibt.** `AdminSetupCoordinator.provision`/`provisionBreak`: nach der
+   Erfassung und **vor** der Server-Registrierung die NDEF-URI schreiben (`Ndef`-Technologie,
+   ein URI-Record). Schreibfehler → eigenes Ergebnis `tag_write_failed` („Tag konnte nicht
+   beschrieben werden, nichts wurde registriert"); erneutes Zuordnen desselben Tags schreibt
+   dieselbe URI erneut (idempotent). **Tags werden nicht schreibgeschützt** (D-061: der Wechsel
+   auf die offizielle Domain muss möglich bleiben). Ein Tag, der nicht NDEF-formatierbar ist,
+   liefert `tag_write_failed` mit Grund.
+4. **Lesen bleibt, wie es ist.** Der Scan-Pfad (`RnNfcScanAdapter`, `NativeNfcIngress`,
+   `ExclusiveNfcCaptureArbiter`) wertet die NDEF-Nachricht nicht aus; Evidenz und Verträge
+   unverändert (D-052/D-055). Ein Tag mit fremder oder fehlender URI wird wie heute behandelt.
+5. **Text.** „Tag zuordnen" sagt, dass der Tag beschrieben wird; `Tags`-Liste zeigt nichts Neues.
+   Kein Backend, keine Migration, keine neue Route.
 
 ### Verifikation und Abschluss
 
-Rotnachweise: Rolle → Reiter (drei Rollen); Statuspunkt bei 0 und n wartenden Vorgängen; die
-drei Schutztexte; Sitzungswechsel verwirft den Schutzzustand; Kalender an Monats- und
-Zeitumstellungsgrenzen in Europe/Berlin. Testsinklusiver Typecheck und volle Mobile-Suite.
-Unabhängiges Review (Sitzungs- und Schutzlogik), maximal zwei Runden. Umsetzung nicht vor
-Technical-Lead-APPROVED committen. Geräteabnahme durch den Product Owner erst mit der APK nach
-T-059 (D-044). Bericht nach AGENTS.md §8, ausgelassene Prüfungen mit Grund.
+Rotnachweise: Plugin-Test — Manifest enthält `NDEF_DISCOVERED` mit Daten-Filter für jeden Host
+aus `tagAddress.ts` und weiterhin den TECH-Filter; Coordinator-Test — Schreiben passiert vor der
+Registrierung, mit der URI aus `tagAddress.ts`, Schreibfehler registriert nichts und meldet
+`tag_write_failed`; Adapter-Test — Evidenz eines Tags mit und ohne NDEF-Nachricht ist identisch.
+Typecheck, volle Mobile-Suite, `expo prebuild`-Manifest im Bericht zeigen. Unabhängiges Review
+(Evidenz unverändert, Schreibreihenfolge). Umsetzung nicht vor Technical-Lead-APPROVED committen.
+Gerätenachweis durch den Product Owner erst mit der APK nach T-059 (D-044): App geschlossen,
+Tag dranhalten, App öffnet ohne Auswahldialog und bucht. Bericht nach AGENTS.md §8.
