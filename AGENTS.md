@@ -85,6 +85,9 @@ Annahmen ersetzt.
   Warnsignal, wird untersucht und bei nicht blockierenden Ursachen als P2 festgehalten.
 - **`[skip ci]` ist bei Code-Änderungen verboten.** Nur bei reinen Dokumentänderungen erlaubt.
 - Nicht ausgeführte Prüfungen werden mit Grund gemeldet.
+- Nachgebaute Fremdwerkzeuge in Tests (Borg, Docker, tar) folgen der dokumentierten Semantik
+  der produktiv installierten Version. Ein Test, der dem Skript sein eigenes falsches Muster
+  bestätigt, prüft nichts — am 18.09. hat genau das drei Produktions-Deploys gekostet.
 
 ---
 
@@ -152,6 +155,11 @@ Alles unter `ADO/99_Archive/` ist Historie und wird nicht gelesen.
   Zufall.
 - Dass `AGENTS.md` dazugehört, ist Absicht: Ein Regelwerk, das sich selbst nicht ändern lässt,
   ist eine Sackgasse. Diese Zeile existiert, weil die erste Fassung genau das war.
+- Ein Deploy wird aus einer interaktiven Terminalsitzung des Product Owners gestartet
+  (SSH-Agent geladen, `caffeinate`, Ausgabe per `tee` in eine Log-Datei außerhalb des
+  Repositorys). Codex' Werkzeugumgebung beendet Hintergrundprozesse beim Ende eines Befehls und
+  ist dafür ungeeignet; Codex liest hinterher das Log. Root-Arbeiten laufen über die Hetzner-
+  Konsole mit US-Tastaturbelegung und ohne Einfügefunktion — kurze Befehle, Foto als Beleg.
 - Betriebsdokumentation wie `infrastructure/DEPLOY.md`, `RESTORE.md` oder `MONITORING.md`
   gehört **nicht** in einen Dokumentations-Commit, sondern zur Umsetzung. Grund: Sie
   beschreibt, wie sich das System verhält. Vorab committet beschreibt sie ein Verhalten,
