@@ -87,6 +87,29 @@ bestätigten Archiven den Takt nicht verlängert. Der Speicherbedarf aus Runde 1
 Tag zusätzlich, etwa 1 GiB im Aufbewahrungsbeispiel) bleibt mit 30 s entsprechend höher — neu
 ausrechnen und nennen.
 
+### Korrektur vom 20.09., zweite Runde (Entscheidung Technical Lead)
+
+Die inkrementelle Kettenprüfung ist angenommen. Gestoppt wurde an der Zeitreserve: gemessen
+`30 + 60 + 7,166 = 97,166 s` gegen 120 s, also 19,03 % statt der geforderten 20 %. **Der Stopp
+war richtig, die Regel war falsch.** Eine Prozentmarke auf eine Summe einzufordern, deren
+Bestandteile einzeln verstellbar sind, lädt zum Feilen an der falschen Schraube ein. Deshalb:
+
+8. **`archive_timeout = 15s`** statt 30 s. Rechnung: `15 + 60 + 7,2 = 82,2 s` gegen 120 s,
+   **32 % Reserve**. Der größte Posten der Summe ist nicht der Dateiwechsel, sondern die
+   Wartezeit auf den nächsten Archivierer-Takt; den halbiert man nur über
+   `/etc/taptime-backup/config` auf dem Server, und dieser Weg (Hetzner-Konsole, US-Belegung,
+   kein Einfügen) ist den Gewinn nicht wert, solange `archive_timeout` allein genügt. Die
+   Alternative bleibt als Reserve notiert: Takt 30 s **und** `WAL_ARCHIVE_MISSED_CYCLES` 4,
+   damit das Fenster bei 120 s bleibt — falls die Segmentzahl je stört.
+9. **Die Regel für künftige Zeitbudgets:** Der ungünstigste Weg bleibt unter 70 % des
+   Alarmfensters. Reicht es nicht, wird der größte Posten verkleinert oder gemeldet — nie das
+   Fenster geweitet und nie eine Zahl geschönt.
+
+Die Segmentrechnung mit 15 s neu nennen (theoretische Obergrenze bei Dauerlast, dazu die
+realistische Zahl für einen Betrieb mit einigen Dutzend Taps am Tag, weil PostgreSQL nur nach
+Schreibzugriffen wechselt), dazu Archivgröße je Tag und im Aufbewahrungsbeispiel. Spricht eine
+Zahl dagegen: stoppen und melden.
+
 ### Verifikation und Abschluss
 
 Rotnachweis: Der neue Monitor-Test schlägt ohne die Compose-Einstellung fehl. Lokal mit
