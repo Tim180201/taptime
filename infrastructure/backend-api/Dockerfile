@@ -5,11 +5,7 @@ COPY . .
 
 RUN npm ci
 RUN npm run build --workspace=@taptime/core \
-  && npm run build --workspace=@taptime/administration-contract \
-  && npm run build --workspace=@taptime/mobile-work-contract \
-  && npm run build --workspace=@taptime/offline-sync-contract \
-  && npm run build --workspace=@taptime/time-entry-export-contract \
-  && npm run build --workspace=@taptime/time-review-contract \
+  && npm run build:contracts \
   && npm run build --workspace=@taptime/backend-schema \
   && npm run build --workspace=@taptime/backend-identity \
   && npm run build --workspace=@taptime/backend-administration \

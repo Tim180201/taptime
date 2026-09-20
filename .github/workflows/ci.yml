@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
+      - name: Verify image workspace build dependencies
+        run: node --test infrastructure/tests/taptime-image-build-dependencies.test.mjs
+
       - name: Verify operational monitoring scripts
         run: |
           shellcheck -e SC1091 \
@@ -87,12 +90,7 @@ jobs:
         run: bash infrastructure/caddy/tests/taptime-caddy-forwarding.test
 
       - name: Build shared contracts for workspace type resolution
-        run: |
-          npm run build --workspace=@taptime/administration-contract
-          npm run build --workspace=@taptime/mobile-work-contract
-          npm run build --workspace=@taptime/offline-sync-contract
-          npm run build --workspace=@taptime/time-entry-export-contract
-          npm run build --workspace=@taptime/time-review-contract
+        run: npm run build:contracts
 
       - name: Typecheck and test the neutral Mobile work contract
         run: |

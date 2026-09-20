@@ -16,9 +16,7 @@ WORKDIR /app
 COPY . .
 
 RUN npm ci
-RUN npm run build --workspace=@taptime/administration-contract \
-  && npm run build --workspace=@taptime/time-entry-export-contract \
-  && npm run build --workspace=@taptime/time-review-contract \
+RUN npm run build:contracts \
   && npm run build --workspace=@taptime/admin-web -- --base="/releases/$TAPTIME_VERSION/"
 RUN printf '%s\n' "$TAPTIME_VERSION" > /app/apps/admin-web/dist/version.txt
 
