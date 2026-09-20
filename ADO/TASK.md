@@ -64,6 +64,38 @@ wird nicht gebaut.
 - Kein echter Supabase-Wert in Skripten, Tests, Protokollen oder Berichten. Für den
   Probebau werden offensichtlich synthetische Werte verwendet.
 
+### Korrektur vom 20.09. (Entscheidung Technical Lead)
+
+Der Wächter steht, die Listen sind zusammengeführt, der Probebau beweist das Abbild. Eine
+Lücke bleibt genau dort, wo dieser Wächter dicht sein muss.
+
+4. **Am Wurzelknoten zählen auch die `devDependencies`.** Der Entwurf überspringt
+   `devDependencies` auf allen Ebenen. Für ein **konsumiertes** Paket ist das richtig — dessen
+   Testwerkzeuge (`backend-bootstrap`) gehören nicht ins Abbild, der Befund aus
+   `guard-development.log` war korrekt. Für die **Anwendung selbst** ist es falsch: Der Bauweg
+   des Admin-Web-Abbilds ist `tsc --noEmit` gegen `apps/admin-web/tsconfig.json`, und das
+   schließt `tests` ein — mit `tsc --showConfig` selbst nachgewiesen. Bekäme `admin-web` morgen
+   eine `@taptime/*`-Entwicklungsabhängigkeit mit `dist`-Einstieg und ein Test importierte
+   daraus, bräche der Abbildbau genau wie heute — und der Wächter bliebe grün. Das ist die
+   Fehlerklasse, für die T-064 existiert, eine Ebene höher.
+
+   Also: Der Wurzelknoten folgt zusätzlich seinen `devDependencies`; jeder tiefere Knoten
+   folgt ihnen weiterhin nicht. Der Kommentar im Test sagt, warum die beiden Ebenen
+   unterschiedlich behandelt werden.
+
+   **Folge für `backend-api`, die hinzunehmen ist:** Dessen Abbild übersetzt gegen
+   `tsconfig.build.json` (`include: ["src"]`, `exclude: ["tests"]`), braucht seine
+   Entwicklungsabhängigkeit `@taptime/backend-schema` also nicht. Der Wächter fordert sie
+   künftig trotzdem — und ist grün, weil das Dockerfile sie ohnehin vor `backend-api` baut.
+   Diese Richtung ist die sichere: zu streng meldet sich laut und wird mit einer Bauzeile
+   beantwortet, zu locker liefert ein kaputtes Abbild aus.
+
+**Nachweis:** ein Fixture-Fall, der beides zeigt — eine `dist`-Entwicklungsabhängigkeit der
+Wurzelanwendung wird gefordert, dieselbe Abhängigkeit an einem konsumierten Paket nicht. Der
+Wächter läuft danach grün; die heutige Pflichtmenge ändert sich nicht, weil `admin-web` keine
+`@taptime/*`-Entwicklungsabhängigkeit hat. Der Docker-Probebau muss dafür nicht wiederholt
+werden.
+
 ### Verifikation und Abschluss
 
 - **Rotnachweis zuerst:** Der neue Wächter ist mit dem heutigen Dockerfile rot und nennt
