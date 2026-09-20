@@ -145,3 +145,244 @@ printf 'WAL archive failure evidence: no receipt and local segment retained.\n'
 printf 'WAL receiver failure evidence: inactive slot rejected before backlog processing.\n'
 printf 'WAL cluster evidence: a spool from another PostgreSQL cluster was rejected.\n'
 printf 'Offsite repository evidence: local paths, localhost and local aliases were rejected.\n'
+
+# Isolate these mocks from the receiver/read-back cases above. Count the real reconciliation
+# path's external work, not elapsed time: confirmed history must not cost one call per file.
+bash -euo pipefail -s -- "$REPOSITORY_ROOT" "$TEST_ROOT" <<'CHAIN_TESTS'
+source "$1/infrastructure/backup/taptime-wal-archiver"
+trace="$2/chain-calls"
+inventory="$2/chain-inventory"
+CLUSTER_ARCHIVE_IDENTIFIER='0123456789abcdef'
+base="base-$CLUSTER_ARCHIVE_IDENTIFIER-20260920T000000Z"
+selected_base="$base"
+mark=''
+fault=''
+start_wal='000000010000000000000001'
+
+wal() { printf '00000001%08X%08X' "$(( $1 / 256 ))" "$(( $1 % 256 ))"; }
+fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+count() { awk -v kind="$1" '$1 == kind { n++ } END { print n+0 }' "$trace"; }
+expect_count() { [[ "$(count "$1")" == "$2" ]] || fail "$1: expected $2 calls, got $(count "$1")"; }
+latest_verified_base_marker() { printf 'verified-%s\n' "$selected_base"; }
+registered_base_evidence() { printf '0/1000028|%s\n' "$start_wal"; }
+ensure_base_evidence() { printf 'full-base\n' >> "$trace"; registered_base_evidence; }
+database_query() {
+  # Exercise the actual watermark reader and its exact cluster/base binding.
+  [[ "$1" == *'current_offsite_archive_cluster_identifier_v1()'* \
+    && "$1" == *"watermark.base_archive_name = '$selected_base'"* \
+    && "$1" == *'ORDER BY watermark.wal_file DESC'* \
+    && "$1" != *'SET ROLE'* ]] || fail 'watermark query lost its cluster/base binding'
+  printf 'watermark-query\n' >> "$trace"
+  [[ "$fault" != query ]] || return 1
+  [[ "$selected_base" != "$base" ]] || printf '%s\n' "$mark"
+  return 0
+}
+registered_wal_checksum() {
+  printf 'receipt %s\n' "$1" >> "$trace"
+  [[ "$fault" != receipt ]] || return 1
+  printf '%064d\n' 0
+}
+advance_watermark() {
+  printf 'advance %s %s\n' "$1" "$2" >> "$trace"
+  [[ "$fault" != advance ]]
+}
+wal_files_are_adjacent() {
+  printf 'adjacent %s %s\n' "$1" "$2" >> "$trace"
+  local left right
+  left=$((16#${1:8:8} * 256 + 16#${1:16:8}))
+  right=$((16#${2:8:8} * 256 + 16#${2:16:8}))
+  if (( right == left + 1 )); then printf 't\n'; else printf 'f\n'; fi
+}
+borg() {
+  printf 'borg-%s\n' "$1" >> "$trace"
+  case "$1" in
+    list)
+      [[ "$fault" != list ]] || return 1
+      # Borg 1.2 --glob-archives takes the shell glob WITHOUT a literal sh: prefix.
+      [[ "$2" == --glob-archives && "$3" == "wal-$CLUSTER_ARCHIVE_IDENTIFIER-*" ]] || return 1
+      cat "$inventory"
+      ;;
+    info)
+      [[ "$fault" != info ]] || return 1
+      if [[ "$2" == *"::$selected_base" ]]; then return 0; fi
+      grep -Fxq "${2#*::}" "$inventory"
+      ;;
+    *) return 1 ;;
+  esac
+}
+prepare() {
+  local history="$1" added="$2" i
+  selected_base="$base"; mark="$(wal "$history")"; fault=''
+  : > "$trace"; : > "$inventory"
+  for ((i=1; i<=history+added; i++)); do
+    printf 'wal-%s-%s\n' "$CLUSTER_ARCHIVE_IDENTIFIER" "$(wal "$i")" >> "$inventory"
+  done
+}
+for added in 0 1 3; do
+  reference=''
+  for history in 512 1; do
+    prepare "$history" "$added"
+    reconcile_contiguous_watermark
+    expect_count receipt "$added"
+    expect_count advance "$added"
+    expect_count adjacent "$added"
+    expect_count full-base 0
+    work="$(sort "$trace" | sed -E 's/ (.*)//' | sort | uniq -c)"
+    if [[ -n "$reference" ]]; then [[ "$work" == "$reference" ]] || fail 'confirmed history increased external call count'; fi
+    reference="$work"
+    printf 'Incremental work: confirmed=%s new=%s receipt=%s advance=%s adjacency=%s\n' \
+      "$history" "$added" "$(count receipt)" "$(count advance)" "$(count adjacent)"
+  done
+done
+
+# Restore/lost mark and a newly verified base must both rebuild from their own first WAL.
+for reason in missing-mark changed-base; do
+  prepare 3 1
+  if [[ "$reason" == missing-mark ]]; then mark=''; else selected_base="base-$CLUSTER_ARCHIVE_IDENTIFIER-20260920T010000Z"; fi
+  reconcile_contiguous_watermark
+  expect_count full-base 1
+  expect_count receipt 4
+  expect_count advance 4
+done
+
+# Both a missing first successor and an internal new gap must force a full scan AND fail.
+for missing in 4 5 3; do
+  prepare 3 3
+  missing_archive="wal-$CLUSTER_ARCHIVE_IDENTIFIER-$(wal "$missing")"
+  grep -Fvx "$missing_archive" "$inventory" > "$inventory.next"
+  mv "$inventory.next" "$inventory"
+  if reconcile_contiguous_watermark > "$2/gap-$missing.log" 2>&1; then fail 'a WAL gap was accepted'; fi
+  expect_count full-base 1
+  if grep -q "^advance .*$(wal "$((missing+1))")$" "$trace"; then fail 'advanced across a WAL gap'; fi
+done
+
+# A missing watermark at the end is also a gap, even with no newer archive to expose it.
+prepare 3 0
+grep -Fvx "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$mark" "$inventory" > "$inventory.next"
+mv "$inventory.next" "$inventory"
+if reconcile_contiguous_watermark > "$2/missing-tail.log" 2>&1; then fail 'a truncated confirmed tail was accepted'; fi
+expect_count full-base 1
+
+# An error must remain an error even when the reconciler is called as an if-condition
+# (Bash disables errexit throughout that call tree).
+for fault_case in query list receipt advance info; do
+  prepare 3 1; fault="$fault_case"
+  if reconcile_contiguous_watermark > "$2/fault-$fault_case.log" 2>&1; then fail "$fault_case error was swallowed"; fi
+done
+for invalid_mark in invalid 000000020000000000000003 000000010000000000000000; do
+  prepare 3 1; mark="$invalid_mark"
+  if reconcile_contiguous_watermark >/dev/null 2>&1; then fail 'invalid watermark was trusted'; fi
+  expect_count advance 0
+done
+printf 'Incremental chain evidence: constant calls for confirmed history, full rebuild on absent/base-changed mark, gaps and dependency failures rejected.\n'
+CHAIN_TESTS
+
+# Exercise the real main loop, archive_once and status writer. The clock and sleeps are
+# controlled: assert ordering and fresh evidence, without a wall-clock timing assertion.
+bash -euo pipefail -s -- "$REPOSITORY_ROOT" "$TEST_ROOT" <<'CADENCE_TESTS'
+root="$2/cadence"
+mkdir -p "$root/spool"
+export TAPTIME_BACKUP_CONFIG="$root/config"
+export TAPTIME_BORG_LOCK_FILE="$root/borg.lock"
+source "$1/infrastructure/backup/taptime-wal-archiver"
+trace="$root/trace"
+fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+validate_offsite_borg_repository() { :; }
+load_cluster_identity() { CLUSTER_ARCHIVE_IDENTIFIER='0123456789abcdef'; }
+receiver_is_active() { printf 'receiver\n' >> "$trace"; printf 't\n'; }
+pending_wal_files() { printf 'pending\n' >> "$trace"; printf 'required-wal\n'; }
+database_query() { [[ "$1" == *pg_switch_wal* ]] || return 1; printf 'switch\n' >> "$trace"; }
+archive_file() {
+  printf 'upload %s\n' "$1" >> "$trace"
+  printf '%s\n' "$1" > "$root/watermark"
+  rm "$WAL_SPOOL_DIRECTORY/$1"
+}
+latest_base_has_offsite_start_wal() { printf 'base\n' >> "$trace"; }
+latest_verified_base_marker() { printf 'verified-base-%s-20260920T000000Z\n' "$CLUSTER_ARCHIVE_IDENTIFIER"; }
+reconcile_contiguous_watermark() {
+  printf 'chain\n' >> "$trace"
+  [[ "$(cat "$root/watermark")" != "$fault_wal" ]]
+}
+backlog_status() {
+  printf 'backlog\n' >> "$trace"
+  printf '||%s|2026-09-20T00:00:00Z|0\n' "$(cat "$root/watermark")"
+}
+date() { cat "$root/clock"; }
+eval "$(declare -f write_status | sed '1s/write_status/real_write_status/')"
+write_status() {
+  real_write_status "$@"
+  cat "$WAL_ARCHIVE_STATUS_FILE" >> "$root/statuses"
+  printf 'status %s\n' "$1" >> "$trace"
+}
+sleep() {
+  # Reaching this point also proves that the subshell released the Borg lock.
+  flock --nonblock "$LOCK_FILE" true || fail 'Borg lock was held during sleep'
+  [[ "$TAPTIME_WAL_ARCHIVE_RUN_ONCE" != 1 ]] || fail 'run-once slept'
+  [[ "$WAL_ARCHIVE_INTERVAL_SECONDS" == "$interval" ]] || fail 'configured interval changed'
+  awk -v pause="$1" -v interval="$interval" 'BEGIN { exit pause * 2 != interval }' \
+    || fail "expected half of $interval seconds, got $1"
+  sleep_count=$((sleep_count + 1))
+  if (( sleep_count == 3 )); then exit 0; fi
+  printf 'sleep %s\n' "$1" >> "$trace"
+  # The third pass has an empty spool: it must still re-check evidence and write status.
+  if (( sleep_count == 1 )) && [[ "$scenario" != empty ]]; then : > "$root/spool/000000010000000000000002"; fi
+  printf '2026-09-20T00:0%s:00Z\n' "$sleep_count" > "$root/clock"
+}
+for interval in 60 61 1; do
+  for scenario in upload gap empty; do
+    fault_wal=''
+    if [[ "$scenario" == gap ]]; then fault_wal='000000010000000000000002'; fi
+    for run_once in 0 1; do
+      : > "$trace"; : > "$root/statuses"
+      printf '2026-09-20T00:00:00Z\n' > "$root/clock"
+      : > "$root/passphrase"
+      : > "$root/spool/000000010000000000000001"
+      cat > "$CONFIG_FILE" <<CONFIG
+BORG_REPOSITORY='ssh://synthetic@offsite.invalid/./repository'
+BORG_RSH='synthetic'
+BORG_PASSPHRASE_FILE='$root/passphrase'
+DATABASE_CONTAINER='synthetic'
+DATABASE_NAME='synthetic'
+WAL_SPOOL_DIRECTORY='$root/spool'
+WAL_ARCHIVE_STATUS_FILE='$root/status.json'
+WAL_ARCHIVE_INTERVAL_SECONDS='$interval'
+WAL_ARCHIVE_MISSED_CYCLES='2'
+WAL_ARCHIVE_CACHE_DIRECTORY='$root/cache'
+WAL_REPLICATION_SLOT='synthetic'
+CONFIG
+      export TAPTIME_WAL_ARCHIVE_RUN_ONCE="$run_once"
+      sleep_count=0
+      ( main )
+      node - "$trace" "$root/statuses" "$run_once" "$fault_wal" "$scenario" <<'ASSERT'
+const fs = require('node:fs');
+const [tracePath, statusesPath, once, fault, scenario] = process.argv.slice(2);
+const trace = fs.readFileSync(tracePath, 'utf8').trim().split('\n');
+const statuses = fs.readFileSync(statusesPath, 'utf8').trim().split('\n').map(JSON.parse);
+const assert = (condition, message) => { if (!condition) throw new Error(message); };
+const full = ['receiver', 'pending', 'switch', 'upload 000000010000000000000001', 'base', 'chain', 'backlog', 'status ok'];
+assert(JSON.stringify(trace.slice(0, full.length)) === JSON.stringify(full), 'first pass must be full and write checked status');
+if (once === '1') {
+  assert(trace.length === full.length && statuses.length === 1, 'run-once must return after one full pass');
+} else {
+  const passes = [[]];
+  for (const entry of trace) { if (entry.startsWith('sleep ')) passes.push([]); else passes.at(-1).push(entry); }
+  assert(passes.length === 3, 'expected full, spool, full separated by two half pauses');
+  assert(!passes[1].includes('pending') && !passes[1].includes('switch'), 'spool pass must not force a segment switch');
+  assert(passes[1].includes('receiver') && passes[1].includes('base') && passes[1].includes('chain'), 'spool pass must check receiver, base and chain even when empty');
+  assert(passes[1].includes('upload 000000010000000000000002') === (scenario !== 'empty'), 'spool pass must collect every completed segment');
+  assert(passes[2].includes('pending') && passes[2].includes('chain'), 'empty full pass must recheck the chain');
+  assert(fault ? !passes[2].includes('backlog') : passes[2].includes('backlog'), 'a failed chain must abort before the backlog read');
+  assert(statuses.length === passes.length, 'every pass must write status');
+  assert(statuses.map(s => s.observed_at_utc).join() === '2026-09-20T00:00:00Z,2026-09-20T00:01:00Z,2026-09-20T00:02:00Z', 'status observations must be fresh in both modes');
+  assert(statuses.map(s => s.state).join() === (fault ? 'ok,failed,failed' : 'ok,ok,ok'), 'chain failure must not become fresh ok');
+  if (!fault) {
+    assert(passes[1].includes('backlog'), 'empty spool pass must still read current backlog');
+    assert(statuses[1].last_archived_wal_file === (scenario === 'empty' ? '000000010000000000000001' : '000000010000000000000002'), 'spool status must contain newly read progress');
+  }
+}
+ASSERT
+    done
+  done
+done
+printf 'Cadence evidence: full/half-pause/spool/half-pause/full; fresh checked status in both modes, failure stays failed, run-once unchanged, odd intervals exact, lock free during pauses.\n'
+CADENCE_TESTS

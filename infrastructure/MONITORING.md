@@ -34,6 +34,37 @@ benötigte WAL-Datei und der letzte externe Archivstand gemeinsam ausgewertet; e
 Archiv hinter einer älteren Lücke ist ausdrücklich nicht gesund. Auch bei leerer
 Ereigniswarteschlange löst ein stehender Empfänger oder veralteter Status aus.
 
+`WAL-Archivierung steht` bedeutet: Der externe Archivnachweis fehlt oder ist nicht rechtzeitig
+aktuell. Drei mögliche Ursachen sind ein ausgefallener WAL-Empfänger/Archivierer, ein nicht
+erreichbares Borg-Repository oder eine noch nicht abgeschlossene WAL-Datei. Der Empfänger
+überträgt bereits laufend, Borg archiviert aber nur abgeschlossene Dateien. Beide
+Compose-Dateien setzen deshalb beim Datenbankstart `archive_timeout=15s`: Nach WAL-Aktivität
+wird das Segment auch bei geringer Last zeitgesteuert geschlossen, ohne auf einen weiteren
+Tap oder volle 16 MiB zu warten. Reiner Leerlauf ohne WAL-Aktivität erzwingt keinen Wechsel;
+auch Checkpoints und Archivquittungen können allerdings WAL erzeugen. Der Archivierer fordert
+bei offenen Anforderungen zusätzlich selbst einen Wechsel an. Das Alarmfenster bleibt
+unverändert; Segmentabschluss allein ist noch kein externer Archivnachweis. Bei einem Alarm
+Empfänger/Archivierer, Repository-Erreichbarkeit und die älteste offene Anforderung samt
+lückenlosem Archivstand prüfen.
+
+Zwischen zwei vollen Archivierer-Durchläufen liegt ein zusätzlicher Spool-Durchlauf: voller
+Durchlauf, halbe konfigurierte Pause, Spool-Durchlauf, halbe Pause. Der Spool-Durchlauf fordert
+keinen weiteren WAL-Wechsel an; Empfänger-, Archiv-, Basis-, Ketten- und Rückstandsprüfung
+bleiben gleich. Beide Durchläufe schreiben den Status frisch aus geprüfter Evidenz, auch bei
+leerem Spool; ein Fehler ergibt `failed`. Der Konfigurationswert bleibt die gesamte Pause
+zwischen vollen Durchläufen, die Laufzeiten kommen hinzu. Das Alarmfenster wird weiterhin
+aus dem unveränderten Intervall mal zulässigen verpassten Zyklen berechnet. Ein Einmallauf
+führt weiterhin genau einen vollen Durchlauf aus.
+
+Im laufenden Takt beginnt die Kettenprüfung bei der in PostgreSQL bestätigten Wassermarke
+der aktuellen verifizierten Basis: Geprüft werden Anschluss und Lückenfreiheit der neuen
+Archive, danach ihre Quittung und Fortschreibung. Bereits bestätigte Vorgänger werden dabei
+nicht einzeln erneut abgefragt. Ohne eine Marke für diese Basis (auch nach Basiswechsel oder
+Restore) wird vollständig ab Basis geprüft. Ein fehlender Anschluss oder eine Lücke erzwingt
+ebenfalls diese vollständige Prüfung; eine verbleibende Lücke bleibt ein Fehler. Die tiefe
+Prüfung durch `taptime-restore-verify` bleibt unverändert. Der Takt inventarisiert weiterhin
+die Archivnamen; er ersetzt weder die Wiederherstellungsprüfung noch die Aufbewahrung.
+
 ## Geheimnisse und Telefon
 
 `/etc/taptime-monitor/ntfy.curl` und `/etc/taptime-monitor/healthchecks.curl` gehören `root`,

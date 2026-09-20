@@ -3,6 +3,7 @@ name: taptime-prod
 services:
   database:
     image: postgres:17.10-bookworm
+    command: ["postgres", "-c", "archive_timeout=15s"]
     environment:
       POSTGRES_DB: taptime
       POSTGRES_USER: postgres

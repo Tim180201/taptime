@@ -209,6 +209,21 @@ registered_base_evidence() {
      FROM taptime_server.read_offsite_base_backup_receipt_v1('$archive_name');"
 }
 
+registered_chain_watermark() {
+  local base_archive="$1"
+  [[ "$base_archive" =~ ^base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || return 1
+  # The existing local postgres connection may read this operational metadata. The narrow
+  # archiver role has no table SELECT grant; every write still uses its versioned functions.
+  # Never use the global backlog watermark: it can belong to a different verified base.
+  database_query \
+    "SELECT watermark.wal_file
+     FROM taptime_server.offsite_wal_archive_watermarks AS watermark
+     WHERE watermark.cluster_system_identifier = (
+       SELECT taptime_server.current_offsite_archive_cluster_identifier_v1()
+     ) AND watermark.base_archive_name = '$base_archive'
+     ORDER BY watermark.wal_file DESC LIMIT 1;"
+}
+
 registered_wal_checksum() {
   local wal_file="$1"
   database_query \
@@ -287,25 +302,25 @@ ensure_base_evidence() {
   local evidence recorded_archive start_wal_lsn start_wal_file
   local marker_system_identifier marker_archive_identifier
 
-  borg check --verify-data "$BORG_REPOSITORY::$marker_archive"
+  borg check --verify-data "$BORG_REPOSITORY::$marker_archive" || return 1
   recorded_archive="$(borg extract --stdout \
-    "$BORG_REPOSITORY::$marker_archive" base-archive-name | tr -d '\r\n')"
+    "$BORG_REPOSITORY::$marker_archive" base-archive-name | tr -d '\r\n')" || return 1
   start_wal_lsn="$(borg extract --stdout \
-    "$BORG_REPOSITORY::$marker_archive" base-start-wal-lsn | tr -d '\r\n')"
+    "$BORG_REPOSITORY::$marker_archive" base-start-wal-lsn | tr -d '\r\n')" || return 1
   start_wal_file="$(borg extract --stdout \
-    "$BORG_REPOSITORY::$marker_archive" base-start-wal-file | tr -d '\r\n')"
+    "$BORG_REPOSITORY::$marker_archive" base-start-wal-file | tr -d '\r\n')" || return 1
   marker_system_identifier="$(borg extract --stdout \
-    "$BORG_REPOSITORY::$marker_archive" cluster-system-identifier | tr -d '\r\n')"
+    "$BORG_REPOSITORY::$marker_archive" cluster-system-identifier | tr -d '\r\n')" || return 1
   marker_archive_identifier="$(borg extract --stdout \
-    "$BORG_REPOSITORY::$marker_archive" cluster-archive-identifier | tr -d '\r\n')"
+    "$BORG_REPOSITORY::$marker_archive" cluster-archive-identifier | tr -d '\r\n')" || return 1
   [[ "$recorded_archive" == "$archive_name" \
     && "$marker_system_identifier" == "$CLUSTER_SYSTEM_IDENTIFIER" \
     && "$marker_archive_identifier" == "$CLUSTER_ARCHIVE_IDENTIFIER" \
     && "$start_wal_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ \
     && "$start_wal_file" =~ ^[0-9A-F]{24}$ ]] || return 1
-  borg info "$BORG_REPOSITORY::$archive_name" >/dev/null
+  borg info "$BORG_REPOSITORY::$archive_name" >/dev/null || return 1
 
-  evidence="$(registered_base_evidence "$archive_name")"
+  evidence="$(registered_base_evidence "$archive_name")" || return 1
   if [[ -n "$evidence" ]]; then
     [[ "$evidence" == "$start_wal_lsn|$start_wal_file" ]] || {
       printf 'Registered base evidence differs from the offsite marker: %s\n' \
@@ -316,7 +331,7 @@ ensure_base_evidence() {
     return 0
   fi
 
-  record_base_receipt "$archive_name" "$start_wal_lsn" "$start_wal_file"
+  record_base_receipt "$archive_name" "$start_wal_lsn" "$start_wal_file" || return 1
   printf '%s|%s\n' "$start_wal_lsn" "$start_wal_file"
 }
 
@@ -324,13 +339,13 @@ ensure_wal_receipt() {
   local wal_file="$1"
   local checksum
 
-  checksum="$(registered_wal_checksum "$wal_file")"
+  checksum="$(registered_wal_checksum "$wal_file")" || return 1
   if [[ -n "$checksum" ]]; then
-    [[ "$checksum" =~ ^[0-9a-f]{64}$ ]]
-    borg info "$BORG_REPOSITORY::wal-$CLUSTER_ARCHIVE_IDENTIFIER-$wal_file" >/dev/null
+    [[ "$checksum" =~ ^[0-9a-f]{64}$ ]] || return 1
+    borg info "$BORG_REPOSITORY::wal-$CLUSTER_ARCHIVE_IDENTIFIER-$wal_file" >/dev/null || return 1
     return
   fi
-  checksum="$(archived_checksum "$wal_file")"
+  checksum="$(archived_checksum "$wal_file")" || return 1
   [[ "$checksum" =~ ^[0-9a-f]{64}$ ]] || return 1
   record_archive_receipt "$wal_file" \
     "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$wal_file" "$checksum"
@@ -338,22 +353,60 @@ ensure_wal_receipt() {
 
 reconcile_contiguous_watermark() {
   local marker_archive base_archive evidence start_wal_lsn start_wal_file timeline
-  local wal_archive wal_file previous_wal_file='' wal_archives
+  local watermark wal_archives chain_status
 
-  marker_archive="$(latest_verified_base_marker)"
+  marker_archive="$(latest_verified_base_marker)" || return 1
   [[ "$marker_archive" =~ ^verified-base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || {
     printf 'No restore-verified physical base is available offsite.\n' >&2
     return 1
   }
   base_archive="${marker_archive#verified-}"
-  evidence="$(ensure_base_evidence "$marker_archive")"
+  watermark="$(registered_chain_watermark "$base_archive")" || return 1
+  if [[ -n "$watermark" ]]; then
+    # A persisted, base-bound watermark already certifies this immutable base and its prefix.
+    # Re-read PostgreSQL on every cycle (also after restart/PITR); no local cache is authority.
+    evidence="$(registered_base_evidence "$base_archive")" || return 1
+    borg info "$BORG_REPOSITORY::$base_archive" >/dev/null || return 1
+  else
+    # This also covers a newly verified base: marks for the old base cannot match the query.
+    evidence="$(ensure_base_evidence "$marker_archive")" || return 1
+  fi
   IFS='|' read -r start_wal_lsn start_wal_file <<< "$evidence"
   [[ "$start_wal_lsn" =~ ^[0-9A-F]+/[0-9A-F]+$ \
     && "$start_wal_file" =~ ^[0-9A-F]{24}$ ]] || return 1
   timeline="${start_wal_file:0:8}"
+  if [[ -n "$watermark" ]]; then
+    [[ "$watermark" =~ ^[0-9A-F]{24}$ && "${watermark:0:8}" == "$timeline" \
+      && ! "$watermark" < "$start_wal_file" ]] || return 1
+  fi
   wal_archives="$(borg list \
     --glob-archives "wal-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
-    --format '{archive}{NL}' "$BORG_REPOSITORY" | sort)"
+    --format '{archive}{NL}' "$BORG_REPOSITORY" | sort)" || return 1
+
+  if [[ -z "$watermark" ]]; then
+    reconcile_wal_sequence "$base_archive" "$start_wal_file" '' "$wal_archives"
+    return $?
+  fi
+  if grep --fixed-strings --line-regexp --quiet \
+    "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$watermark" <<< "$wal_archives"; then
+    if reconcile_wal_sequence "$base_archive" "$start_wal_file" "$watermark" "$wal_archives"; then
+      return 0
+    else
+      chain_status=$?
+    fi
+    # Only a connection/gap failure needs a full scan; transport/SQL errors remain failures.
+    (( chain_status == 2 )) || return 1
+  fi
+  printf 'Offsite WAL connection failed; checking the complete chain from the verified base.\n' >&2
+  evidence="$(ensure_base_evidence "$marker_archive")" || return 1
+  [[ "$evidence" == "$start_wal_lsn|$start_wal_file" ]] || return 1
+  reconcile_wal_sequence "$base_archive" "$start_wal_file" '' "$wal_archives" "$watermark"
+}
+
+reconcile_wal_sequence() {
+  local base_archive="$1" start_wal_file="$2" previous_wal_file="$3" wal_archives="$4"
+  local timeline="${start_wal_file:0:8}" wal_archive wal_file adjacent
+  local minimum_end_wal="${5:-$start_wal_file}"
 
   while IFS= read -r wal_archive; do
     [[ -n "$wal_archive" ]] || continue
@@ -361,27 +414,31 @@ reconcile_contiguous_watermark() {
     [[ "$wal_file" =~ ^[0-9A-F]{24}$ ]] || continue
     [[ "${wal_file:0:8}" == "$timeline" && ! "$wal_file" < "$start_wal_file" ]] \
       || continue
+    [[ -z "$previous_wal_file" || "$wal_file" > "$previous_wal_file" ]] || continue
     if [[ -z "$previous_wal_file" ]]; then
       [[ "$wal_file" == "$start_wal_file" ]] || {
         printf 'Offsite WAL chain does not begin at the verified base: %s\n' \
           "$start_wal_file" >&2
-        return 1
+        return 2
       }
     else
-      [[ "$(wal_files_are_adjacent "$previous_wal_file" "$wal_file")" == 't' ]] || {
+      adjacent="$(wal_files_are_adjacent "$previous_wal_file" "$wal_file")" || return 1
+      [[ "$adjacent" == 't' ]] || {
         printf 'Offsite WAL chain contains a gap after %s.\n' "$previous_wal_file" >&2
-        return 1
+        return 2
       }
     fi
-    ensure_wal_receipt "$wal_file"
+    # Explicit propagation is required: the incremental caller uses this function in `if`,
+    # where Bash disables errexit throughout the call tree.
+    ensure_wal_receipt "$wal_file" || return 1
     # PostgreSQL accepts the advancement only when its exact predecessor already belongs to
     # this base's chain. A later archive can therefore never bridge a missing segment.
-    advance_watermark "$base_archive" "$wal_file"
+    advance_watermark "$base_archive" "$wal_file" || return 1
     previous_wal_file="$wal_file"
   done <<< "$wal_archives"
-  [[ -n "$previous_wal_file" ]] || {
-    printf 'No WAL segment exists for the restore-verified physical base.\n' >&2
-    return 1
+  [[ -n "$previous_wal_file" && ! "$previous_wal_file" < "$minimum_end_wal" ]] || {
+    printf 'Offsite WAL chain does not reach its required confirmed end: %s.\n' "$minimum_end_wal" >&2
+    return 2
   }
 }
 
@@ -416,10 +473,13 @@ archive_file() {
 }
 
 archive_once() {
+  local mode="${1:-full}"
   local pending=''
   local path file
   local oldest_required_at oldest_required_wal_file marker_archive
   local last_archived_wal_file last_archived_at pending_count
+
+  [[ "$mode" == full || "$mode" == spool ]] || return 1
 
   exec 9>"$LOCK_FILE"
   flock 9
@@ -428,7 +488,9 @@ archive_once() {
     printf 'The physical WAL receiver slot is not active.\n' >&2
     return 1
   }
-  if [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" != '1' ]]; then
+  # The intermediate pass collects completed segments without requesting another switch.
+  # It still follows the same receiver, archive, chain, backlog and status checks below.
+  if [[ "$mode" == full && "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" != '1' ]]; then
     pending="$(pending_wal_files)"
     if [[ -n "$pending" ]]; then
       database_query 'SELECT pg_catalog.pg_switch_wal();' >/dev/null
@@ -471,6 +533,7 @@ archive_once() {
 }
 
 main() {
+  local mode='full' half_interval_seconds
   require_file "$CONFIG_FILE"
   # shellcheck source=/etc/taptime-backup/config
   source "$CONFIG_FILE"
@@ -487,6 +550,9 @@ main() {
     printf 'WAL_ARCHIVE_INTERVAL_SECONDS must be a positive integer.\n' >&2
     return 1
   }
+  # Preserve the configured total pause, including odd intervals and the minimum of 1s.
+  printf -v half_interval_seconds '%d.%d' \
+    "$((WAL_ARCHIVE_INTERVAL_SECONDS / 2))" "$((WAL_ARCHIVE_INTERVAL_SECONDS % 2 * 5))"
   [[ "$WAL_REPLICATION_SLOT" =~ ^[a-z0-9_]+$ ]] || {
     printf 'WAL_REPLICATION_SLOT contains unsafe characters.\n' >&2
     return 1
@@ -512,7 +578,7 @@ main() {
 
   while true; do
     set +e
-    ( set -e; archive_once )
+    ( set -e; archive_once "$mode" )
     archive_status=$?
     set -e
     if (( archive_status != 0 )); then
@@ -521,7 +587,8 @@ main() {
     if [[ "${TAPTIME_WAL_ARCHIVE_RUN_ONCE:-0}" == '1' ]]; then
       return "$archive_status"
     fi
-    sleep "$WAL_ARCHIVE_INTERVAL_SECONDS"
+    sleep "$half_interval_seconds"
+    if [[ "$mode" == full ]]; then mode='spool'; else mode='full'; fi
   done
 }
 

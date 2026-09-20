@@ -24,6 +24,20 @@ epoch_for() {
   node -e 'process.stdout.write(String(Date.parse(process.argv[1]) / 1000))' "$1"
 }
 
+# A quiet database must close a written segment without waiting for another tap or 16 MiB.
+# Guard the database service in both deployed and local configuration, not an unrelated command.
+for compose_file in docker-compose.server.yml docker-compose.local.yml; do
+  database_service="$(awk '
+    /^  database:/ { database = 1; next }
+    database && /^  [^ ]/ { exit }
+    database { print }
+  ' "$REPOSITORY_ROOT/infrastructure/$compose_file")"
+  printf '%s\n' "$database_service" \
+    | grep --fixed-strings --line-regexp --quiet \
+      '    command: ["postgres", "-c", "archive_timeout=15s"]' \
+    || fail "$compose_file database must configure archive_timeout=15s"
+done
+
 mkdir -p "$test_root/bin" "$test_root/config" "$test_root/state" "$test_root/messages"
 chmod 0700 "$test_root/config" "$test_root/state"
 
@@ -124,6 +138,34 @@ assert_equals 'WAL-Archivierung steht' "$({ find "$test_root/messages" -type f -
 printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":null,"oldest_required_wal_file":null,"last_archived_wal_file":null,"last_archived_at_utc":null,"pending_count":0}\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WAL_ARCHIVE_STATUS"
 FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+rm -f "$test_root/messages"/*
+
+# Fresh status must not hide an overdue requirement, and an old archive timestamp must
+# not alarm on a new requirement. Derive the boundary from the monitor's actual config.
+# shellcheck source=/dev/null
+source "$BACKUP_CONFIG"
+archive_window=$((WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES))
+required_at='2026-08-24T12:00:00Z'
+required_epoch="$(epoch_for "$required_at")"
+for age in "$((archive_window - 1))" "$archive_window" "$((archive_window + 1))" "$((archive_window + 2))"; do
+  observed_at="$(node -e 'process.stdout.write(new Date(Number(process.argv[1]) * 1000).toISOString().replace(".000Z", "Z"))' \
+    "$((required_epoch + age))")"
+  printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":"%s","oldest_required_wal_file":"000000010000000000000002","last_archived_wal_file":"000000010000000000000001","last_archived_at_utc":"2026-08-23T12:00:00Z","pending_count":1}\n' \
+    "$observed_at" "$required_at" > "$WAL_ARCHIVE_STATUS"
+  TAPTIME_MONITOR_NOW_EPOCH="$((required_epoch + age))" \
+    FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+  expected_alerts=0
+  (( age <= archive_window )) || expected_alerts=1
+  assert_equals "$expected_alerts" "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
+    "a requirement aged $age seconds must respect the configured window and alert once"
+done
+assert_equals 'WAL-Archivierung steht' "$(< "$test_root/messages/0")" \
+  'only the overdue requirement must raise the fixed WAL alert'
+
+# Recovery clears the latch before exercising the existing stale-status case.
+printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' \
+  "$observed_at" > "$WAL_ARCHIVE_STATUS"
+TAPTIME_MONITOR_NOW_EPOCH="$((required_epoch + age))" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
 rm -f "$test_root/messages"/*
 
 printf '%s\n' '{"state":"ok","observed_at_utc":"2026-08-24T11:50:00Z","oldest_required_at_utc":"2026-08-24T11:49:00Z","oldest_required_wal_file":"000000010000000000000002","last_archived_wal_file":"000000010000000000000001","last_archived_at_utc":"2026-08-24T11:48:00Z","pending_count":1}' \
