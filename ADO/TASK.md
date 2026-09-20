@@ -1,67 +1,68 @@
 # Aktuelle Aufgabe
 
-> **Stand 18.09.2026:** Produktion läuft auf `91441c8`; die APK (VersionCode 7, aus `b300b14`,
-> App-Code gleich `91441c8`) ist vom Product Owner **am Gerät abgenommen — alle acht Punkte
-> bestanden**, einschließlich „App geschlossen, Tag dranhalten, kein Auswahldialog" (T-043).
-> Reihenfolge: **T-061 → T-049 → Pilot Monat 1.**
+> **Stand 18.09.2026:** Produktion läuft auf `91441c8`. Auf `main` liegen zusätzlich T-061
+> (`d5a58a6`) und T-049 (`adc7258`, Metro-Reparatur `dcdaebb`), CI grün. Offen: T-063, dann
+> **ein** Deploy für alle drei, dann Web-Abnahme und neue APK.
+> Reihenfolge: **T-063 → Deploy → Abnahme Web und Gerät → Pilot Monat 1.**
 
-## T-061 · Feinschliff am Gerät — Rand, Symbole, Tap-Moment
+## T-063 · Ein Tap ist binnen Minuten extern gesichert, nicht binnen Tagen
 
-**Für:** Development · **Risiko:** gering (nur `apps/mobile`), zwei neue native Abhängigkeiten
-**Zeitbox:** zwei Sitzungen. **Grundlage:** Gerätetest vom 18.09., D-058, D-031,
-`UI_Leitlinien.md` §13. Auftrag vom 18.09.2026.
+**Für:** Development · **Risiko:** Produktionskonfiguration der Datenbank, Sicherungskette
+**Zeitbox:** eine Sitzung. **Grundlage:** Befund vom 18.09. (ntfy-Alarm beim Product Owner),
+D-051, T-035, T-052. Auftrag vom 18.09.2026.
 
-### Befund des Product Owners am Gerät
+### Befund (am Quelltext geprüft)
 
-1. Die Android-Systemleiste unten stört — sie steht als Fremdkörper unter unserer Reiterleiste.
-2. Einige Symbole „sehen komisch zusammengebaut aus". Sie sind es auch: `design/LineIcon.tsx`
-   setzt jedes Symbol aus `View`-Strichen und -Rechtecken zusammen.
-3. Der Kreis beim Erfassen darf stärker und heller pulsieren. **Entschieden: Variante B**
-   (größerer Ausschlag, schneller, mit Leuchten) — der Product Owner hat drei Varianten
-   verglichen und B gewählt.
+Der Product Owner bekommt wiederholt „WAL-Archivierung steht" von ntfy. Die Meldung ist formal
+richtig und die Ursache ist eine fehlende Einstellung:
 
-Anspruch des Product Owners für diese Aufgabe: **modern und futuristisch, aber professionell.**
-Was das konkret heißt, steht in `UI_Leitlinien.md` §13; es gilt gegen Geschmack.
+- Jeder Tap legt eine Archivanforderung an (`lifecycle_event_archive_requirements`,
+  Migration 023). Erfüllt ist sie erst, wenn die WAL-Datei, die den Vorgang enthält, extern
+  im Archiv liegt.
+- PostgreSQL schließt eine WAL-Datei aber erst ab, wenn sie **voll** ist (16 MB), solange
+  `archive_timeout` nicht gesetzt ist. **Es ist nirgends gesetzt** — die Datenbank läuft mit
+  den Standardwerten (`infrastructure/docker-compose.server.yml`, Dienst `database`, kein
+  `command`; kein `ALTER SYSTEM`, keine `postgresql.conf` im Repository).
+- Der Wächter (`infrastructure/monitoring/taptime-immediate-monitor`,
+  `wal_archive_is_current`) erwartet eine Erfüllung binnen
+  `WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES` = 120 s. Im ruhigen Testbetrieb
+  füllt sich die Datei nie, also meldet er — zu Recht — Stillstand.
+- **Die wichtigere Folge:** T-052 löscht die Warteschlange des Handys erst nach Archivnachweis.
+  Ohne `archive_timeout` liegt Evidenz tagelang auf dem Gerät statt Minuten. Beim Pilotkunden
+  wäre das der eigentliche Schaden; der Alarm ist nur der Bote.
 
 ### Umsetzung
 
-1. **Randlos zeichnen.** `react-native-safe-area-context` aufnehmen; die App zeichnet bis zum
-   Rand, die Systemleisten sind durchsichtig und tragen unseren Grundton (Expo-Konfiguration
-   `androidNavigationBar`/`androidStatusBar` plus `expo-status-bar` hell). Reiterleiste und
-   Kopfzeile nehmen ihren Abstand aus den **Sicherheitsabständen des Geräts**, nicht aus festen
-   Pixeln (heute `Platform.OS === 'ios' ? 24 : 12` und `paddingTop: 32/48` in
-   `navigation/AppNavigator.tsx`). Die Systemleiste wird **nicht** versteckt — die Zurück-Geste
-   bleibt.
-2. **Echte Vektor-Symbole.** `react-native-svg` aufnehmen; `design/LineIcon.tsx` wird ein
-   Satz echter Pfade (Strichstärke 1,75 px, runde Enden und Ecken, 24 px Raster, `currentColor`).
-   Vorlage sind die Umrisse einer freien Linien-Familie (Lucide, ISC-Lizenz) — Herkunft und
-   Lizenz im Dateikopf nennen. **Keine zusammengesetzten `View`-Striche mehr**, auch nicht als
-   Rückfall. Symbole: Erfassen, Manuell, Meine Zeiten, Mitarbeiter, Tags, Zurück, Haken,
-   Wartend, Person, Pfeil.
-3. **Tap-Moment, Variante B.** `design/ScanRing.tsx`: Ausschlag 0,94 → 1,10, Takt ~2,0 s,
-   Leuchten am Scheitel (Rand heller, weicher Schein in Akzentfarbe), zwei Wellen mit ~650 ms
-   Versatz, Wellenrand kräftiger. **Unverändert:** bei „Bewegung reduzieren" steht alles still;
-   der Erfolgsmoment bleibt der stärkere Moment — er wechselt die Farbe und zeigt den Haken.
-4. **Durchgang durch alle Bildschirme.** Jeden der Bildschirme gegen §13 prüfen und Abweichungen
-   beheben: Seitenabstand 20 px, Kartenabstand 16 px, Innenabstand 12 px, Titel 22/800,
-   Abschnitt 15/800, Fließtext 15, gedämpft 13, Zahlen tabellarisch. Abweichungen, die bleiben,
-   im Bericht mit Grund nennen.
-5. **Grenzen:** nur `apps/mobile`; kein Backend, keine Migration, keine Vertragsänderung, keine
-   neuen Funktionen, keine Farbänderung an den Tokens. Der Erfassen-Bildschirm behält seine
-   Logik unverändert (D-052/D-055).
+1. **`archive_timeout = 60s`** für die Produktionsdatenbank, gesetzt an genau einer Stelle und
+   versioniert: `command` des Dienstes `database` in `infrastructure/docker-compose.server.yml`
+   (`postgres -c archive_timeout=60s`), damit die Einstellung mit dem Deploy kommt und nicht
+   von Hand am Server. Dieselbe Einstellung in `docker-compose.local.yml`, damit lokal dasselbe
+   Verhalten herrscht. PostgreSQL wechselt die Datei nur, **wenn seit dem letzten Wechsel
+   geschrieben wurde** — im Leerlauf entsteht keine Last.
+2. **Prüfen, was der Wechsel für die Kette bedeutet**, und im Bericht beantworten: Wie oft
+   entsteht im ungünstigsten Fall eine fast leere 16-MB-Datei, was kostet sie nach Borg-
+   Komprimierung im Archiv, und reicht die Aufbewahrung (`WAL_KEEP_*` in
+   `/etc/taptime-backup/config`) dafür weiter? Wenn eine Kennzahl dagegen spricht: stoppen und
+   melden, statt die Zahl zu ändern.
+3. **Test:** Die vorhandene Monitor-Suite (`infrastructure/monitoring/tests/taptime-monitor.test`)
+   um einen Fall erweitern, der belegt: eine Anforderung, die jünger als das Fenster ist, löst
+   keinen Alarm aus; eine ältere löst genau einen aus. Dazu ein Test, der die
+   Compose-Einstellung festhält, damit sie nicht stillschweigend verschwindet.
+4. **`infrastructure/MONITORING.md`** ergänzen: was „WAL-Archivierung steht" bedeutet, welche
+   drei Ursachen es hat (Archivierer tot, Repository nicht erreichbar, Datei noch nicht
+   abgeschlossen) und dass die dritte seit dieser Aufgabe nicht mehr durch Untätigkeit entsteht.
+5. **Grenzen:** keine Änderung an Migration, Archivvertrag, Aufbewahrungswerten oder am
+   Alarmfenster. Der Wächter bleibt streng — wir machen die Wirklichkeit ehrlich, nicht die
+   Messlatte niedriger.
 
 ### Verifikation und Abschluss
 
-Rotnachweise: (a) kein Symbol wird mehr aus `View`-Strichen gebaut — Test über die Quelle von
-`design/`, der heute fehlschlägt; (b) Reiterleiste und Kopfzeile lesen Sicherheitsabstände statt
-fester Pixel; (c) `ScanRing` trägt die Werte der Variante B und bleibt bei reduzierter Bewegung
-still; (d) die bestehenden Farb- und Kontrastprüfungen (`mobileRaster`, `contrastRatio`) bleiben
-grün und werden um die neuen Symbolfarben erweitert. Typecheck und volle Mobile-Suite.
-`npx expo prebuild --platform android --no-install` in einem Wegwerfverzeichnis, um die beiden
-nativen Abhängigkeiten zu belegen; kein `android/` im Repository. Unabhängiges Review
-(Schwerpunkt: keine Logikänderung am Erfassen, reduzierte Bewegung, Lizenzvermerk). Umsetzung
-nicht vor Technical-Lead-APPROVED committen. **Abnahme durch den Product Owner am Gerät mit
-einer neuen APK** — diese Aufgabe ist erst damit fertig.
+Rotnachweis: Der neue Monitor-Test schlägt ohne die Compose-Einstellung fehl. Lokal mit
+`docker-compose.local.yml` belegen: ein einzelner Schreibvorgang, danach innerhalb von zwei
+Minuten eine abgeschlossene, extern archivierte WAL-Datei und `pending_count = 0` — mit
+Protokoll im Bericht. Vorhandene Infrastruktur-Tests und die PITR-Suite bleiben grün.
+Unabhängiges Review (Schwerpunkt: keine Absenkung der Sicherungsansprüche). Nicht vor
+Technical-Lead-APPROVED committen. **Der Deploy trägt danach T-061, T-049 und T-063 gemeinsam.**
 
 ---
 

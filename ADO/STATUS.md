@@ -74,6 +74,11 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P1 T-063 (Befund 18.09.):** `archive_timeout` ist nicht gesetzt; PostgreSQL schließt eine
+  WAL-Datei erst bei 16 MB. Deshalb meldet ntfy wiederholt „WAL-Archivierung steht" — formal
+  zu Recht — und T-052 hält die Warteschlange des Handys weit länger als nötig. Behebung mit
+  T-063 vor dem Pilot, im selben Deploy wie T-049 und T-061.
+
 - **P2 T-059:** Mehrere gleichzeitige Standort-Grants sind im Handy-Vertrag (ein Standort)
   nicht darstellbar; dann bleibt der Reiter Mitarbeiter aus — es wird kein Standort geraten
   und keine Betriebsberechtigung angenommen. Eine Oberfläche dafür braucht eine
