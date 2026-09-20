@@ -1,241 +1,82 @@
 # Aktuelle Aufgabe
 
-> **Stand 18.09.2026:** Produktion läuft auf `91441c8`. Auf `main` liegen zusätzlich T-061
-> (`d5a58a6`) und T-049 (`adc7258`, Metro-Reparatur `dcdaebb`), CI grün. Offen: T-063, dann
-> **ein** Deploy für alle drei, dann Web-Abnahme und neue APK.
-> Reihenfolge: **T-063 → Deploy → Abnahme Web und Gerät → Pilot Monat 1.**
+> **Stand 20.09.2026:** Auf `main` liegen T-061 (`d5a58a6`), T-049 (`adc7258`, Metro-Reparatur
+> `dcdaebb`) und T-063 (`3e089fb`), CI grün. Produktion läuft weiter auf `91441c8`.
+> **Der Deploy ist blockiert:** Der Bildworkflow baut das Admin-Web-Abbild nicht mehr.
+> Reihenfolge: **T-064 → Deploy (T-061, T-049, T-063, T-064) → Abnahme Web und Gerät →
+> Pilot Monat 1.**
 
-## T-063 · Ein Tap ist binnen Minuten extern gesichert, nicht binnen Tagen
+## T-064 · Das Abbild baut, was die Anwendung braucht — nicht, was jemand aufgeschrieben hat
 
-**Für:** Development · **Risiko:** Produktionskonfiguration der Datenbank, Sicherungskette
-**Zeitbox:** eine Sitzung. **Grundlage:** Befund vom 18.09. (ntfy-Alarm beim Product Owner),
-D-051, T-035, T-052. Auftrag vom 18.09.2026.
+**Für:** Development · **Risiko:** Auslieferung (ohne Abbild kein Deploy)
+**Zeitbox:** eine Sitzung. **Grundlage:** roter Bildworkflow vom 20.09.2026 nach `3e089fb`.
 
 ### Befund (am Quelltext geprüft)
 
-Der Product Owner bekommt wiederholt „WAL-Archivierung steht" von ntfy. Die Meldung ist formal
-richtig und die Ursache ist eine fehlende Einstellung:
+`apps/admin-web` hängt seit T-049 von `@taptime/mobile-work-contract` ab — fünf Quelldateien
+importieren daraus (`AdminWebApiClient.ts`, `AdminWebCoordinator.ts`, `contracts.ts`,
+`manualCapture.ts`, `TimeCalendar.tsx`). Das Paket liefert seine Typen aus `./dist`, muss also
+vor dem Web gebaut werden.
 
-- Jeder Tap legt eine Archivanforderung an (`lifecycle_event_archive_requirements`,
-  Migration 023). Erfüllt ist sie erst, wenn die WAL-Datei, die den Vorgang enthält, extern
-  im Archiv liegt.
-- PostgreSQL schließt eine WAL-Datei aber erst ab, wenn sie **voll** ist (16 MB), solange
-  `archive_timeout` nicht gesetzt ist. **Es ist nirgends gesetzt** — die Datenbank läuft mit
-  den Standardwerten (`infrastructure/docker-compose.server.yml`, Dienst `database`, kein
-  `command`; kein `ALTER SYSTEM`, keine `postgresql.conf` im Repository).
-- Der Wächter (`infrastructure/monitoring/taptime-immediate-monitor`,
-  `wal_archive_is_current`) erwartet eine Erfüllung binnen
-  `WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES` = 120 s. Im ruhigen Testbetrieb
-  füllt sich die Datei nie, also meldet er — zu Recht — Stillstand.
-- **Die wichtigere Folge:** T-052 löscht die Warteschlange des Handys erst nach Archivnachweis.
-  Ohne `archive_timeout` liegt Evidenz tagelang auf dem Gerät statt Minuten. Beim Pilotkunden
-  wäre das der eigentliche Schaden; der Alarm ist nur der Bote.
+`infrastructure/admin-web/Dockerfile` baut vor dem Web nur drei Vertragspakete:
+`administration-contract`, `time-entry-export-contract`, `time-review-contract`. Das vierte
+fehlt. Deshalb bricht `tsc --noEmit` im Abbild ab — und nur dort.
+
+Der Grund, warum CI trotzdem grün ist: `.github/workflows/ci.yml` hat unter „Build shared
+contracts for workspace type resolution" eine **zweite, eigene Liste** derselben Pakete, und
+die ist vollständig. `infrastructure/backend-api/Dockerfile` hat eine **dritte**. Drei
+handgepflegte Listen derselben Sache; eine ist abgedriftet. Das ist der eigentliche Befund.
+Die bestehende Prüfung `infrastructure/tests/taptime-admin-web-image.test` konnte das nicht
+sehen: Sie baut das Abbild absichtlich ohne Build-Argumente und erwartet den Abbruch an der
+Argumentprüfung — sie kommt nie bis zum Übersetzen.
+
+Die vollständige Hülle für das Web ist: `administration-contract`, `mobile-work-contract`,
+`time-entry-export-contract`, `time-review-contract`. `@taptime/core` zeigt auf `./src` und
+wird nicht gebaut.
 
 ### Umsetzung
 
-1. **`archive_timeout = 60s`** für die Produktionsdatenbank, gesetzt an genau einer Stelle und
-   versioniert: `command` des Dienstes `database` in `infrastructure/docker-compose.server.yml`
-   (`postgres -c archive_timeout=60s`), damit die Einstellung mit dem Deploy kommt und nicht
-   von Hand am Server. Dieselbe Einstellung in `docker-compose.local.yml`, damit lokal dasselbe
-   Verhalten herrscht. PostgreSQL wechselt die Datei nur, **wenn seit dem letzten Wechsel
-   geschrieben wurde** — im Leerlauf entsteht keine Last.
-2. **Prüfen, was der Wechsel für die Kette bedeutet**, und im Bericht beantworten: Wie oft
-   entsteht im ungünstigsten Fall eine fast leere 16-MB-Datei, was kostet sie nach Borg-
-   Komprimierung im Archiv, und reicht die Aufbewahrung (`WAL_KEEP_*` in
-   `/etc/taptime-backup/config`) dafür weiter? Wenn eine Kennzahl dagegen spricht: stoppen und
-   melden, statt die Zahl zu ändern.
-3. **Test:** Die vorhandene Monitor-Suite (`infrastructure/monitoring/tests/taptime-monitor.test`)
-   um einen Fall erweitern, der belegt: eine Anforderung, die jünger als das Fenster ist, löst
-   keinen Alarm aus; eine ältere löst genau einen aus. Dazu ein Test, der die
-   Compose-Einstellung festhält, damit sie nicht stillschweigend verschwindet.
-4. **`infrastructure/MONITORING.md`** ergänzen: was „WAL-Archivierung steht" bedeutet, welche
-   drei Ursachen es hat (Archivierer tot, Repository nicht erreichbar, Datei noch nicht
-   abgeschlossen) und dass die dritte seit dieser Aufgabe nicht mehr durch Untätigkeit entsteht.
-5. **Grenzen:** keine Änderung an Migration, Archivvertrag, Aufbewahrungswerten oder am
-   Alarmfenster. Der Wächter bleibt streng — wir machen die Wirklichkeit ehrlich, nicht die
-   Messlatte niedriger.
-
-### Korrektur vom 20.09. (Befund Development, Entscheidung Technical Lead)
-
-Der erste Anlauf ist zu Recht an einem P1 gestoppt: Mit `archive_timeout` wächst die Zahl der
-Archive, und die Kettenprüfung in `taptime-wal-archiver` läuft **in jedem Takt die gesamte Kette
-ab der verifizierten Basis** ab — `ensure_wal_receipt` und `advance_watermark` für jedes Archiv,
-auch für längst bestätigte. Gemessen: 66,6 s bei 128 Archiven. Mit 1.440 Segmenten am Tag wären
-es Minuten, und der Takt selbst würde den Alarm auslösen.
-
-**Entschieden wird nicht das Fenster, sondern die Prüfung.** Zwei Änderungen am Auftrag:
-
-6. **Die Kettenprüfung wird inkrementell.** Die Wassermarke trägt bereits die Aussage „lückenlos
-   bestätigt bis hierher" — PostgreSQL nimmt eine Fortschreibung nur an, wenn der exakte
-   Vorgänger zur Kette gehört. Der Takt prüft deshalb nur Archive **nach** der Marke: Anschluss
-   an die Marke, dann Lückenfreiheit der neuen, dann Quittung und Fortschreibung. Die
-   vollständige Kette ab Basis läuft nur, wenn (a) keine Marke vorliegt, (b) die verifizierte
-   Basis gewechselt hat — dann ist die Kette gerade erst entstanden und kurz —, oder (c) eine
-   Lücke oder ein Anschlussfehler auftritt. Der Aufwand je Takt hängt damit am Neuzugang, nicht
-   am Archivbestand. **Nichts an der Strenge ändert sich:** Eine Lücke bleibt ein Fehler, eine
-   fehlende Marke führt zur vollen Prüfung, und die tiefe Prüfung in `taptime-restore-verify`
-   bleibt unverändert.
-7. **`archive_timeout = 30s` statt 60 s.** Der ungünstigste Weg ist: bis zu einem Abschluss-
-   intervall bis zum Dateiwechsel, plus bis zu einem Archivierer-Takt bis zum Abholen, plus
-   Borg-Laufzeit. Mit 60 s landet das genau auf der 120-s-Schwelle; mit 30 s bleibt Abstand.
-   Belege die Rechnung im Bericht mit gemessenen Zahlen. **Bleibt weniger als 20 Prozent
-   Abstand zur Schwelle, wird nicht gefeilt, sondern gemeldet.**
-
-Zusätzlicher Nachweis: ein Test, der die Arbeit je Takt an der Zahl der **neuen** Archive misst
-(gezählte Aufrufe, keine Zeitmessung) und belegt, dass ein Bestand von mindestens 500 bereits
-bestätigten Archiven den Takt nicht verlängert. Der Speicherbedarf aus Runde 1 (rund 6 MiB je
-Tag zusätzlich, etwa 1 GiB im Aufbewahrungsbeispiel) bleibt mit 30 s entsprechend höher — neu
-ausrechnen und nennen.
-
-### Korrektur vom 20.09., zweite Runde (Entscheidung Technical Lead)
-
-Die inkrementelle Kettenprüfung ist angenommen. Gestoppt wurde an der Zeitreserve: gemessen
-`30 + 60 + 7,166 = 97,166 s` gegen 120 s, also 19,03 % statt der geforderten 20 %. **Der Stopp
-war richtig, die Regel war falsch.** Eine Prozentmarke auf eine Summe einzufordern, deren
-Bestandteile einzeln verstellbar sind, lädt zum Feilen an der falschen Schraube ein. Deshalb:
-
-8. **`archive_timeout = 15s`** statt 30 s. Rechnung: `15 + 60 + 7,2 = 82,2 s` gegen 120 s,
-   **32 % Reserve**. Der größte Posten der Summe ist nicht der Dateiwechsel, sondern die
-   Wartezeit auf den nächsten Archivierer-Takt; den halbiert man nur über
-   `/etc/taptime-backup/config` auf dem Server, und dieser Weg (Hetzner-Konsole, US-Belegung,
-   kein Einfügen) ist den Gewinn nicht wert, solange `archive_timeout` allein genügt. Die
-   Alternative bleibt als Reserve notiert: Takt 30 s **und** `WAL_ARCHIVE_MISSED_CYCLES` 4,
-   damit das Fenster bei 120 s bleibt — falls die Segmentzahl je stört.
-9. **Die Regel für künftige Zeitbudgets:** Der ungünstigste Weg bleibt unter 70 % des
-   Alarmfensters. Reicht es nicht, wird der größte Posten verkleinert oder gemeldet — nie das
-   Fenster geweitet und nie eine Zahl geschönt.
-
-Die Segmentrechnung mit 15 s neu nennen (theoretische Obergrenze bei Dauerlast, dazu die
-realistische Zahl für einen Betrieb mit einigen Dutzend Taps am Tag, weil PostgreSQL nur nach
-Schreibzugriffen wechselt), dazu Archivgröße je Tag und im Aufbewahrungsbeispiel. Spricht eine
-Zahl dagegen: stoppen und melden.
-
-### Korrektur vom 20.09., dritte Runde (Entscheidung Technical Lead)
-
-Das unabhängige Review hat den ungünstigsten Weg genauer gefasst: Erscheint die Datei knapp nach
-dem Spoolscan, kommen der Rest des laufenden Durchlaufs **und** die volle Pause dazu:
-`15 + 6,695 + 60 + 7,079 = 88,774 s` = 73,98 % des Fensters. Die Regel aus Punkt 9 gilt, also
-wird geändert — aber nicht der Timeout und nicht das Fenster.
-
-10. **Die Abholfrequenz wird verdoppelt, ohne den konfigurierten Takt anzufassen.** Der Aufwand
-    je Durchlauf ist seit Punkt 6 an den Neuzugang gebunden, also ist ein zweiter, kurzer
-    Durchlauf billig. Der Archivierer wartet künftig nicht einmal `WAL_ARCHIVE_INTERVAL_SECONDS`,
-    sondern zweimal die Hälfte und sieht dazwischen im Spool nach. **Unverändert bleiben:**
-    der Wert in `/etc/taptime-backup/config`, das Alarmfenster
-    (`WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES` = 120 s), die Bedeutung der
-    Statusdatei und die Strenge der Kettenprüfung. Die Statusdatei wird in **beiden** Durchläufen
-    frisch geschrieben, damit `observed_at_utc` nie älter wird als bisher.
-    Neue Rechnung: `15 + 6,7 + 30 + 7,1 = 58,8 s` = **49 %** des Fensters.
-11. **Rückfallweg, falls Punkt 10 die Bedeutung des Takts oder der Statusdatei berührt:** nicht
-    improvisieren, sondern melden. Dann gehen wir den Weg über den Server
-    (`WAL_ARCHIVE_INTERVAL_SECONDS` 30 **und** `WAL_ARCHIVE_MISSED_CYCLES` 4, Fenster bleibt
-    120 s) — das kostet einen Konsolengang des Product Owners und wird nur dafür in Kauf genommen.
-
-Nachweis zusätzlich: ein Test, der belegt, dass zwischen zwei vollen Durchläufen ein
-Spool-Durchlauf liegt und beide die Statusdatei schreiben; sowie die neue Rechnung mit gemessenen
-Zahlen. Die Speicherzahlen aus dieser Runde (realistisch 1.848–3.288 Segmente je Tag,
-7,67–13,64 MiB je Tag, 1,29–2,30 GiB im Aufbewahrungsbeispiel) sind angenommen und bleiben.
-
-### Verifikation und Abschluss
-
-Rotnachweis: Der neue Monitor-Test schlägt ohne die Compose-Einstellung fehl. Lokal mit
-`docker-compose.local.yml` belegen: ein einzelner Schreibvorgang, danach innerhalb von zwei
-Minuten eine abgeschlossene, extern archivierte WAL-Datei und `pending_count = 0` — mit
-Protokoll im Bericht. Vorhandene Infrastruktur-Tests und die PITR-Suite bleiben grün.
-Unabhängiges Review (Schwerpunkt: keine Absenkung der Sicherungsansprüche). Nicht vor
-Technical-Lead-APPROVED committen. **Der Deploy trägt danach T-061, T-049 und T-063 gemeinsam.**
-
----
-
-## Danach
-
-## T-049 · Das Web, wie es gemeint ist — alle drei Rollen, eine Sprache
-
-**Für:** Development · **Risiko:** Sitzungsvertrag des Webs, Rollenschale, Mandantengrenze
-**Zeitbox:** fünf Sitzungen. **Grundlage:** D-060, D-059, D-062, D-031 (Farbrollen),
-`ADO/01_Architecture/Web_Entwurf/` (README und 10 Bildschirme). Auftrag vom 18.09.2026.
-
-### Befund (am Quelltext geprüft)
-
-- **Ein Mitarbeiter kommt heute nicht ins Web.** `/v2/session` antwortet `401`, wenn die
-  Verwaltungsautorität leer ist (`BackendHttpServer.ts:965`); der Coordinator wirft bei
-  `availableSections.length === 0` eine Sackgasse (`AdminWebCoordinator.ts:1789`). Der
-  Web-Sitzungstyp hat **kein Rollenfeld** (`AdminWebApiClient.ts:32`), und sein Parser weist
-  zusätzliche Felder ab.
-- Die T-059-Routen (`/v1/administration/managed-active-summary`,
-  `/v1/administration/managed-person-time`) sind Verwaltungsrouten mit derselben Anmeldung wie
-  alle Web-Aufrufe — **das Web kann sie unverändert rufen**; die Verträge liegen in
-  `@taptime/administration-contract/managed-people`.
-- „Meine Zeiten" und „Manuell" brauchen keine neue Route: `/v1/mobile/own-time/query`,
-  `/v1/mobile/work-targets/query`, `/v1/lifecycle-events/manual` existieren, werden vom Web
-  aber nie gerufen.
-- Es gibt heute **keine Übersicht mit lebenden Zahlen** (nur „geladen"-Zähler), **keine
-  Personenseite** und **keinen Kalender** im Web. `App.tsx` ist eine Datei mit 1.462 Zeilen;
-  Navigation ist handgeschrieben (`navigation.ts`), Gestaltung sind CSS-Variablen in
-  `styles.css` (D-031). Kein Router, kein `React.lazy`, ein einziges Bündel (bekannter P2).
-- Prüfwerkzeug ist vorhanden: Vitest mit jsdom, Testing Library **und `axe-core`** — Rot-
-  nachweise sind auf jeder Ebene verlangbar.
-
-### Umsetzung, in dieser Reihenfolge
-
-1. **Die Sitzung lernt die Rolle.** Migration 029 erweitert `read_administration_session_v2`
-   additiv um `role` und um zwei Bereiche, die jede lebende Mitgliedschaft hat:
-   `own_time` und `manual_capture`. `/v2/session` liefert sie; die Sackgasse entfällt, solange
-   mindestens ein Bereich vorhanden ist. Ein Konto ganz ohne Mitgliedschaft bleibt abgewiesen.
-   Nichts an bestehenden Bereichen ändert sich; `setup_available` und die Standortlogik aus
-   027 bleiben, wie sie sind.
-2. **Rollenschale und Leiste je Rolle** (`navigation.ts`, `App.tsx`): Mitarbeiter sieht
-   *Meine Zeiten, Manuell*; Standortleitung *Übersicht, Beschäftigte, Meine Zeiten, Manuell*
-   im eigenen Standort; Administrator zusätzlich *Prüfungen*, *Einrichtung* und *Lohnexport*.
-   **Korrektur vom 18.09. (Befund Development):** Prüfen ist seit Migration 012
-   (`has_current_time_review_administrator_v1`) administrator-only. D-059 sieht es für die
-   Standortleitung vor, gebaut ist es nie worden — das ist **T-062**, nicht T-049. Die Leiste
-   zeigt *Prüfungen* deshalb weiterhin genau dann, wenn die Sitzung den Bereich `review_items`
-   nennt; wenn T-062 ihn öffnet, erscheint er von selbst. Jeder Bereich wird weiterhin bei jedem
-   Befehl gegen die Sitzung geprüft, nicht nur beim Zeichnen.
-3. **Übersicht (Entwurf 01/11)** mit Aktiv-Kachel aus `managed-active-summary`: „x / y gerade
-   aktiv", Stand der **Serverzeit**, Umfang benannt (Betrieb oder Standort). Die Kachel „offene
-   Prüfungen" erscheint nur, wenn die Sitzung `review_items` nennt — für eine Standortleitung
-   heute also nicht. Keine Zahl ohne Herkunft; was der Server nicht liefert, wird weggelassen,
-   und keine Kachel zeigt eine Zahl, die der Aufrufer nicht lesen darf.
-4. **Beschäftigte und Person (02/03)**: Liste mit Aktiv/Inaktiv, Zeile mit Initialen, Name,
-   „seit hh:mm · Ziel"; Person öffnet Monatskalender und Tagesliste aus
-   `managed-person-time`. **Die Kalenderlogik wird geteilt, nicht kopiert:** die reinen Helfer
-   aus `apps/mobile/src/screens/ownTimeCalendar.ts` (`businessDay`, `monthDays`, `weekStart`,
-   `rangeSummary`, `recordsForDay`, `intervalMilliseconds`, `formatHours`, `formatDuration`)
-   ziehen nach `packages/core` (Berlin-Zone liegt dort schon, D-056); Handy und Web importieren
-   dieselbe Datei. Kein Verhaltenswechsel — die Mobile-Tests bleiben unverändert grün.
-5. **Prüfungen, Einrichtung, Lohnexport (05/06/07)** im neuen Kleid, dabei die alten Befunde
-   abräumen: **ein** CSV-Knopf statt zwei (`App.tsx:883` und `:962`), Filter wirken sofort statt
-   erst nach „Anwenden", Rollenwechsel nicht als Auswahlfeld in jeder Zeile, Prüfentscheidung
-   (Freigeben/Korrigieren/Ablehnen) **in der Zeile** statt im getrennten Formular darunter.
-6. **Mitarbeiter im Web (21/22)**: *Meine Zeiten* mit denselben Kalenderbausteinen wie Punkt 4;
-   *Manuell* mit Zielwahl, Pause und einer Haupttaste über die vorhandenen Routen. Kein NFC im
-   Web. Ein Mitarbeiter sieht ausschließlich sich selbst — der Server entscheidet das, das Web
-   filtert nichts.
-7. **Ein Bündel je Bereich.** Weil die Schale ohnehin neu geschnitten wird: die Ansichten über
-   `React.lazy` trennen und den bekannten P2 damit schließen. Nachweis: nach `vite build` liegen
-   mehrere Bündel vor, und der erste Aufruf lädt nicht alle.
+1. **Die fehlende Zeile.** `@taptime/mobile-work-contract` wird im Admin-Web-Dockerfile vor
+   dem Bauen des Webs gebaut. Das allein macht den Bildworkflow wieder grün.
+2. **Eine Liste statt drei, wo das ohne Umbau geht.** Die Vertragspakete werden an **einer**
+   Stelle aufgezählt und von CI und den Dockerfiles von dort verwendet. Ob das ein
+   Wurzel-Skript (`npm run …`) oder ein anderer Weg ist, entscheidet Development; die
+   Bedingung ist, dass eine neue Vertragsabhängigkeit künftig an genau einer Stelle
+   nachgetragen wird. **Berührt das die Baureihenfolge von `backend-api`** (dessen Liste
+   zusätzlich die `backend-*`-Pakete in Abhängigkeitsreihenfolge enthält und heute vollständig
+   ist): nicht umbauen, sondern melden — dann bleibt dort die eigene Liste und Punkt 3 schützt
+   sie.
+3. **Ein Wächter, der die Drift vor dem Merge fängt.** Ein neuer Test leitet für `admin-web`
+   und `backend-api` aus den Paketdateien die transitive Hülle der `@taptime/*`-Abhängigkeiten
+   ab, behält davon die, deren `main` oder `types` auf `./dist` zeigt, und verlangt, dass jedes
+   davon im Bauweg des zugehörigen Abbilds vorkommt — und **vor** dem Bauen der Anwendung
+   selbst. Fehlt eines, ist der Test rot und nennt Paket und Datei im Klartext. Der Test läuft
+   in CI, nicht nur lokal.
 
 ### Grenzen
 
-Kein neues Datenmodell, keine Änderung an Evidenz, Scan oder Offline (D-052/D-055). Keine
-Tagesfreigabe (T-048, D-063), keine Pausenautomatik (T-050), kein Soll-Modell (T-051). Die
-Rolle der Eingeladenen bleibt, was die Route kennt. Farben und Radien bleiben die Tokens aus
-D-031; der Web-Entwurf benutzt genau sie.
+- Kein Umbau der Dockerfiles auf einen Wurzel-Build (`npm run build --workspaces`): der würde
+  auch Mobile/Expo mitziehen.
+- Keine Änderung an Paketen, an Abhängigkeiten, am `package-lock.json` oder am Anwendungscode.
+  Wenn eine Abhängigkeit falsch erscheint: melden, nicht ändern.
+- Die bestehende Prüfung `taptime-admin-web-image.test` bleibt erhalten und behält ihren Zweck
+  (Abbruch ohne öffentliche Build-Konfiguration). Sie wird nicht durch den Wächter ersetzt.
+- Kein echter Supabase-Wert in Skripten, Tests, Protokollen oder Berichten. Für den
+  Probebau werden offensichtlich synthetische Werte verwendet.
 
 ### Verifikation und Abschluss
 
-Rotnachweise, jeder zuerst rot: (a) Mitarbeiter meldet sich am Web an und sieht *Meine Zeiten*
-und *Manuell* — heute eine Sackgasse; (b) Mitarbeiter ruft eine Verwaltungsroute → abgewiesen,
-und die Leiste zeigt sie nicht; (c) Standortleitung sieht in Übersicht, Beschäftigte und
-Person nur den eigenen Standort, ein zweiter Betrieb gar nichts; (d) Aktiv-Kachel stimmt mit
-den laufenden Buchungen überein und nennt die Serverzeit; (e) Personenkalender an Monats- und
-Zeitumstellungsgrenzen (Europe/Berlin) — dieselben Helfer wie am Handy, belegt durch den
-gemeinsamen Import; (f) die fünf alten Befunde aus Punkt 5 sind weg, je ein Test; (g)
-`vite build` erzeugt getrennte Bündel. Dazu **axe ohne Verstöße** auf jedem neuen Bildschirm
-und Tastaturbedienbarkeit der Zeilenentscheidung. Suiten: Admin-Web, B3, B4, C3C/C3E1/C3E2,
-C2, Mobile (wegen des Umzugs der Kalenderhelfer); Typecheck; Migration ab 001 und auf
-befülltem 028. Unabhängiges Review (Schwerpunkt: Rollenschale, Standortgrenze, keine Zahl ohne
-Herkunft), maximal zwei Runden. Umsetzung nicht vor Technical-Lead-APPROVED committen. Deploy
-danach gemeinsam mit der Abnahme des Product Owners im Web.
+- **Rotnachweis zuerst:** Der neue Wächter ist mit dem heutigen Dockerfile rot und nennt
+  `@taptime/mobile-work-contract`. Danach grün.
+- **Der echte Beweis:** das Admin-Web-Abbild lokal **erfolgreich** bauen (`docker build` mit
+  `TAPTIME_VERSION` und beiden `VITE_…`-Argumenten als synthetische Werte), Protokoll
+  beilegen. Vorher scheitert derselbe Bau am Übersetzen; beides zeigen.
+- Die bestehenden Infrastruktur-Tests, die Admin-Web-Suiten und die Typechecks laufen erneut.
+- Unabhängiges read-only Review, höchstens zwei Runden.
+- Nichts committen, nichts pushen, kein Deploy. Review-Dateien nach `.t064-review/`
+  (`tracked.diff`, `untracked.txt`, `report.md`); das Verzeichnis wird vor dem Commit gelöscht.
+
+## Danach
+
+Ein Deploy für T-061, T-049, T-063 und T-064; anschließend Abnahme des Webs im Browser
+(Mitarbeiter, Standortleitung, Administrator) und der neuen APK auf dem Gerät.
