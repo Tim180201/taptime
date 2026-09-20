@@ -55,6 +55,38 @@ richtig und die Ursache ist eine fehlende Einstellung:
    Alarmfenster. Der Wächter bleibt streng — wir machen die Wirklichkeit ehrlich, nicht die
    Messlatte niedriger.
 
+### Korrektur vom 20.09. (Befund Development, Entscheidung Technical Lead)
+
+Der erste Anlauf ist zu Recht an einem P1 gestoppt: Mit `archive_timeout` wächst die Zahl der
+Archive, und die Kettenprüfung in `taptime-wal-archiver` läuft **in jedem Takt die gesamte Kette
+ab der verifizierten Basis** ab — `ensure_wal_receipt` und `advance_watermark` für jedes Archiv,
+auch für längst bestätigte. Gemessen: 66,6 s bei 128 Archiven. Mit 1.440 Segmenten am Tag wären
+es Minuten, und der Takt selbst würde den Alarm auslösen.
+
+**Entschieden wird nicht das Fenster, sondern die Prüfung.** Zwei Änderungen am Auftrag:
+
+6. **Die Kettenprüfung wird inkrementell.** Die Wassermarke trägt bereits die Aussage „lückenlos
+   bestätigt bis hierher" — PostgreSQL nimmt eine Fortschreibung nur an, wenn der exakte
+   Vorgänger zur Kette gehört. Der Takt prüft deshalb nur Archive **nach** der Marke: Anschluss
+   an die Marke, dann Lückenfreiheit der neuen, dann Quittung und Fortschreibung. Die
+   vollständige Kette ab Basis läuft nur, wenn (a) keine Marke vorliegt, (b) die verifizierte
+   Basis gewechselt hat — dann ist die Kette gerade erst entstanden und kurz —, oder (c) eine
+   Lücke oder ein Anschlussfehler auftritt. Der Aufwand je Takt hängt damit am Neuzugang, nicht
+   am Archivbestand. **Nichts an der Strenge ändert sich:** Eine Lücke bleibt ein Fehler, eine
+   fehlende Marke führt zur vollen Prüfung, und die tiefe Prüfung in `taptime-restore-verify`
+   bleibt unverändert.
+7. **`archive_timeout = 30s` statt 60 s.** Der ungünstigste Weg ist: bis zu einem Abschluss-
+   intervall bis zum Dateiwechsel, plus bis zu einem Archivierer-Takt bis zum Abholen, plus
+   Borg-Laufzeit. Mit 60 s landet das genau auf der 120-s-Schwelle; mit 30 s bleibt Abstand.
+   Belege die Rechnung im Bericht mit gemessenen Zahlen. **Bleibt weniger als 20 Prozent
+   Abstand zur Schwelle, wird nicht gefeilt, sondern gemeldet.**
+
+Zusätzlicher Nachweis: ein Test, der die Arbeit je Takt an der Zahl der **neuen** Archive misst
+(gezählte Aufrufe, keine Zeitmessung) und belegt, dass ein Bestand von mindestens 500 bereits
+bestätigten Archiven den Takt nicht verlängert. Der Speicherbedarf aus Runde 1 (rund 6 MiB je
+Tag zusätzlich, etwa 1 GiB im Aufbewahrungsbeispiel) bleibt mit 30 s entsprechend höher — neu
+ausrechnen und nennen.
+
 ### Verifikation und Abschluss
 
 Rotnachweis: Der neue Monitor-Test schlägt ohne die Compose-Einstellung fehl. Lokal mit
