@@ -105,7 +105,11 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   Ein zweites Konto auf demselben Gerät ist per `bindOwner` dauerhaft gesperrt — gewollt.
   Erledigt mit `3daa09b`: Schutztext je Ursache; Schutzzustand beim Kontowechsel.
 - **P2 Betrieb:** `[7/7] Archivvertrag ist aktiv`-Meldung erscheint auch, wenn nur der Cutover
-  aktiv war; Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge.
+  aktiv war; Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge;
+  Caddy-Negativprüfung: EXIT-Trap verliert `holder`, Validator-Cleanup kann ausfallen (T-063-Beleg).
+- **P3 Betrieb:** `registered_chain_watermark` liest `offsite_wal_archive_watermarks`
+  direkt ueber die Superuser-Verbindung statt ueber eine versionierte Lesefunktion mit
+  enger Archivierer-Rolle; spaeter mit einer eigenen Migration schliessen (T-063-Befund).
 - **P2 Sicherheit:** `*.supabase.co` in der CSP auf den Aussteller verengen; SECURITY-DEFINER-
   Pfade und Policy-Prädikate prüfen; Supabase-Anmeldung außerhalb eigener Ratenbegrenzung.
 - **P2 Fachlich:** Geräteuhr bei manueller Erfassung, unbegrenzter vergessener Stopp, Offline-

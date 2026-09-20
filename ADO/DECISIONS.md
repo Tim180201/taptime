@@ -1240,3 +1240,16 @@ und der Pilotbetrieb startet mit Administrator und Mitarbeitern. Der Bereich ers
 von selbst, sobald T-062 ihn oeffnet.
 **Grenze:** Wird im Pilotbetrieb doch eine Standortleitung gebraucht, rueckt T-062 vor den
 Pilotstart; die Reihenfolge ist eine Entscheidung des Product Owners, nicht des Technical Lead.
+
+---
+
+## D-065 · Zeitbudget der Archivierung und Abholtakt · 20.09.2026 · Claude (TL)
+**Entscheidung:** Der ungünstigste Weg vom Tap bis zum bestätigten externen Archivnachweis
+muss unter **70 %** des Alarmfensters bleiben (`WAL_ARCHIVE_INTERVAL_SECONDS *
+WAL_ARCHIVE_MISSED_CYCLES`). Erreicht wird das über zwei Schrauben: `archive_timeout=15s` in
+beiden Compose-Dateien und ein zusätzlicher Spool-Durchlauf des Archivierers je halber Pause.
+Gemessen: 58,7 s = 48,9 %.
+**Warum:** Das Fenster und der Konfigurationswert sind Betriebsversprechen; an ihnen wird nicht
+gedreht, um eine Rechnung passend zu machen. Eine feste Reserve macht Messungen entscheidbar.
+**Grenze:** Der Konfigurationswert bleibt die gesamte Pause zwischen zwei vollen Durchläufen;
+das Alarmfenster wird weiter unverändert aus Intervall mal verpassten Zyklen berechnet.
