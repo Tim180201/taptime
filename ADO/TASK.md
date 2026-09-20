@@ -110,6 +110,32 @@ realistische Zahl für einen Betrieb mit einigen Dutzend Taps am Tag, weil Postg
 Schreibzugriffen wechselt), dazu Archivgröße je Tag und im Aufbewahrungsbeispiel. Spricht eine
 Zahl dagegen: stoppen und melden.
 
+### Korrektur vom 20.09., dritte Runde (Entscheidung Technical Lead)
+
+Das unabhängige Review hat den ungünstigsten Weg genauer gefasst: Erscheint die Datei knapp nach
+dem Spoolscan, kommen der Rest des laufenden Durchlaufs **und** die volle Pause dazu:
+`15 + 6,695 + 60 + 7,079 = 88,774 s` = 73,98 % des Fensters. Die Regel aus Punkt 9 gilt, also
+wird geändert — aber nicht der Timeout und nicht das Fenster.
+
+10. **Die Abholfrequenz wird verdoppelt, ohne den konfigurierten Takt anzufassen.** Der Aufwand
+    je Durchlauf ist seit Punkt 6 an den Neuzugang gebunden, also ist ein zweiter, kurzer
+    Durchlauf billig. Der Archivierer wartet künftig nicht einmal `WAL_ARCHIVE_INTERVAL_SECONDS`,
+    sondern zweimal die Hälfte und sieht dazwischen im Spool nach. **Unverändert bleiben:**
+    der Wert in `/etc/taptime-backup/config`, das Alarmfenster
+    (`WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES` = 120 s), die Bedeutung der
+    Statusdatei und die Strenge der Kettenprüfung. Die Statusdatei wird in **beiden** Durchläufen
+    frisch geschrieben, damit `observed_at_utc` nie älter wird als bisher.
+    Neue Rechnung: `15 + 6,7 + 30 + 7,1 = 58,8 s` = **49 %** des Fensters.
+11. **Rückfallweg, falls Punkt 10 die Bedeutung des Takts oder der Statusdatei berührt:** nicht
+    improvisieren, sondern melden. Dann gehen wir den Weg über den Server
+    (`WAL_ARCHIVE_INTERVAL_SECONDS` 30 **und** `WAL_ARCHIVE_MISSED_CYCLES` 4, Fenster bleibt
+    120 s) — das kostet einen Konsolengang des Product Owners und wird nur dafür in Kauf genommen.
+
+Nachweis zusätzlich: ein Test, der belegt, dass zwischen zwei vollen Durchläufen ein
+Spool-Durchlauf liegt und beide die Statusdatei schreiben; sowie die neue Rechnung mit gemessenen
+Zahlen. Die Speicherzahlen aus dieser Runde (realistisch 1.848–3.288 Segmente je Tag,
+7,67–13,64 MiB je Tag, 1,29–2,30 GiB im Aufbewahrungsbeispiel) sind angenommen und bleiben.
+
 ### Verifikation und Abschluss
 
 Rotnachweis: Der neue Monitor-Test schlägt ohne die Compose-Einstellung fehl. Lokal mit
