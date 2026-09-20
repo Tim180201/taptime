@@ -104,6 +104,9 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   bei einem Abruffehler weiter „Laden“. „Abmelden“ liegt nur auf der Abgleich-Seite.
   Ein zweites Konto auf demselben Gerät ist per `bindOwner` dauerhaft gesperrt — gewollt.
   Erledigt mit `3daa09b`: Schutztext je Ursache; Schutzzustand beim Kontowechsel.
+- **P2 lokale Verifikation (T-064):** PITR scheitert auf einem macOS/Colima-Bind-Mount beim
+  Rechteerhalt durch `cp -a`; isoliert reproduziert, unveränderter Test auf nativem Linux-Volume grün.
+
 - **P2 Betrieb:** `[7/7] Archivvertrag ist aktiv`-Meldung erscheint auch, wenn nur der Cutover
   aktiv war; Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge;
   Caddy-Negativprüfung: EXIT-Trap verliert `holder`, Validator-Cleanup kann ausfallen (T-063-Beleg).
