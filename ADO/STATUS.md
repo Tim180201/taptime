@@ -107,6 +107,10 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   Erledigt mit `3daa09b`: Schutztext je Ursache; Schutzzustand beim Kontowechsel.
 - **P2 lokale Verifikation (T-064):** PITR scheitert auf einem macOS/Colima-Bind-Mount beim
   Rechteerhalt durch `cp -a`; isoliert reproduziert, unveränderter Test auf nativem Linux-Volume grün.
+- **P2 lokale Verifikation (T-067):** Der neue Messaufbau scheiterte vor dem Messfenster an
+  getrennten Borg-Cachepfaden und am Statusverzeichnisrecht; beides im Aufbau korrigiert.
+  Image-Abhängigkeitstest mit Node 18 (`globSync` fehlt) und Caddy-Test ohne `curl` scheiterten
+  im Helfer; mit CI-Node 24 bzw. vollständiger Linux-Testumgebung grün.
 
 - **P2 Betrieb:** `[7/7] Archivvertrag ist aktiv`-Meldung erscheint auch, wenn nur der Cutover
   aktiv war; Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge;
