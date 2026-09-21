@@ -26,6 +26,7 @@ export interface SafeWorkTarget {
 }
 
 export interface SafeOwnTimeRecord {
+  readonly details?: import('./timeSupplement.js').TimeRecordDetails;
   readonly timeRecordId: string;
   readonly source: TimeRecordSource;
   readonly targetType: WorkTargetType;
@@ -313,3 +314,5 @@ function isIsoTimestamp(value: unknown): value is string {
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+
+export * from "./timeSupplement.js";

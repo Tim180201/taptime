@@ -406,3 +406,52 @@ async function close(server: Server): Promise<void> {
     server.close((error) => error === undefined ? resolve() : reject(error));
   });
 }
+
+it('T-066 keeps old own-time bytes and exposes details only after explicit negotiation',async()=>{
+  const legacy={activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-08-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'};
+  const query=vi.fn(async (command: {includeTimeDetails?:boolean})=>({status:'succeeded' as const,response:command.includeTimeDetails
+    ? {...legacy,records:[{timeRecordId:ids.timeEntry,source:'recovered' as const,targetType:'customer' as const,targetDisplayName:'Kunde',status:'stopped' as const,
+      startedAt:'2026-09-20T08:00:00.000Z',stoppedAt:'2026-09-20T09:00:00.000Z',startedVia:null,stoppedVia:null,
+      details:{origin:'backfilled' as const,baseRowVersion:0,effectiveRevisionNumber:1,changed:false,comment:null,change:null,overlapsAnotherRecord:false}}]} : legacy}));
+  const origin=await start({mobileWorkReader:{queryOwnTime:query,async queryWorkTargets(){return {status:'forbidden'};}}});
+  for (const accept of [undefined,'application/json','application/vnd.taptime.unknown+json']) {
+    const response=await fetch(`${origin}/v1/mobile/own-time/query`,{method:'POST',headers:{authorization:'Bearer abc.def.ghi','content-type':'application/json',...(accept?{accept}:{})},body:JSON.stringify({expectedMembershipId:ids.membership,limit:20,cursor:null})});
+    expect(await response.text()).toBe(JSON.stringify(legacy)); expect(response.headers.get('vary')).toBe('Accept');
+    expect(query.mock.lastCall?.[0].includeTimeDetails).toBeUndefined();
+  }
+  const response=await fetch(`${origin}/v1/mobile/own-time/query`,{method:'POST',headers:{authorization:'Bearer abc.def.ghi','content-type':'application/json',accept:'application/vnd.taptime.time-details.v2+json'},body:JSON.stringify({expectedMembershipId:ids.membership,limit:20,cursor:null})});
+  expect(await response.json()).toMatchObject({records:[{details:{origin:'backfilled'}}]}); expect(query.mock.lastCall?.[0].includeTimeDetails).toBe(true);
+});
+
+it.each(['backfill','comment'] as const)('T-066 validates and authenticates the HTTP %s command before dispatch',async kind=>{
+  const execute=vi.fn(async()=>({status:'committed' as const,timeRecordId:ids.timeEntry,idempotentRetry:false}));
+  const origin=await start({timeSupplement:{execute}});
+  const body=kind==='comment'?{expectedMembershipId:ids.membership,commandId:ids.command,timeRecordId:ids.timeEntry,comment:'Notiz'}
+    :{expectedMembershipId:ids.membership,commandId:ids.command,targetMembershipId:ids.membership,targetType:'project',targetId:ids.project,
+      startedAt:'2026-09-20T08:00:00.000Z',stoppedAt:'2026-09-20T09:00:00.000Z',reason:null,comment:null};
+  const path=`/v1/time-records/${kind}`;
+  const unauthenticated=await fetch(`${origin}${path}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  expect(unauthenticated.status).toBe(401);expect(execute).not.toHaveBeenCalled();
+  const malformed=await post(origin,path,{...body,role:'administrator'});expect(malformed.status).toBe(400);expect(execute).not.toHaveBeenCalled();
+  const response=await post(origin,path,body);expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('no-store');expect(execute).toHaveBeenCalledWith('abc.def.ghi',kind,body);
+});
+
+it('T-066 serves a bounded negotiated person page with maximum Unicode comments and reasons',async()=>{
+  const details={origin:'backfilled' as const,baseRowVersion:0,effectiveRevisionNumber:2,changed:true,comment:'😀'.repeat(500),change:{at:'2026-09-21T10:00:00.000Z',reason:'😀'.repeat(500),actor:'administration' as const},overlapsAnotherRecord:false};
+  const records=Array.from({length:20},(_,i)=>({timeRecordId:`60000000-0000-4000-8000-${String(i).padStart(12,'0')}`,source:'recovered' as const,targetType:'customer' as const,targetDisplayName:'Kunde',status:'stopped' as const,startedAt:'2026-09-20T08:00:00.000Z',stoppedAt:'2026-09-20T09:00:00.000Z',startedVia:null,stoppedVia:null}));
+  const legacy={activeRecord:null,records,nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-10-01T00:00:00.000Z'};
+  const origin=await start({employeeEnrollment:{
+    async readManagedPersonTime(command){return {status:'succeeded',value:command.includeTimeDetails?{...legacy,records:records.map(r=>({...r,details}))}:legacy};},
+    async createInvitation(){return {status:'unauthorized'};},async redeemInvitation(){return {status:'unauthorized'};},
+    async readEmployeeMembershipsProjection(){return {status:'unauthorized'};},async revokeMembership(){return {status:'unauthorized'};},
+    async changeMembershipRole(){return {status:'unauthorized'};},async recordPasswordReset(){return {status:'unauthorized'};},
+  }});
+  for(const accept of ['application/json','application/vnd.taptime.time-details.v2+json']) {
+    const response=await fetch(`${origin}/v1/administration/managed-person-time`,{method:'POST',headers:{authorization:'Bearer abc.def.ghi','content-type':'application/json',accept},body:JSON.stringify({expectedMembershipId:ids.membership,targetMembershipId:ids.membership,fromInclusive:legacy.windowStartedAt,toExclusive:legacy.windowEndedAt,cursor:null,limit:20})});
+    expect(response.status).toBe(200);
+    const text=await response.text();
+    if(accept==='application/json') expect(text).toBe(JSON.stringify(legacy));
+    else expect(JSON.parse(text)).toEqual({...legacy,records:records.map(r=>({...r,details}))});
+  }
+});

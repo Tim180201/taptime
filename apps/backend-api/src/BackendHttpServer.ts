@@ -1,3 +1,4 @@
+import { TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -82,6 +83,9 @@ import {
 // Shared registration for dispatch and request protection. Health alone bypasses the API budget.
 export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
+  '/v1/time-records/backfill': 'time_backfill',
+  '/v1/time-records/comment': 'time_comment',
+  '/v4/time-entries/export': 'time_entry_export_v4',
   '/v1/mobile/own-time/query': 'mobile_own_time',
   '/v1/mobile/work-targets/query': 'mobile_work_targets',
   '/v1/lifecycle-events/manual': 'manual_lifecycle',
@@ -334,6 +338,8 @@ async function handleRequest(
       || isOfflineRoute(route)
       || route === 'manual_lifecycle'
       || route === 'manual_break_lifecycle'
+      || route === 'time_backfill'
+      || route === 'time_comment'
       || route === 'mobile_own_time'
       || route === 'mobile_work_targets'
     )
@@ -414,9 +420,21 @@ async function handleRequest(
     return;
   }
 
+  if (route === 'time_backfill' || route === 'time_comment') {
+    if (!(route==='time_backfill' ? isBackfillTimeRequest(body) : isCommentTimeRequest(body))) {
+      respondError(response,400,'invalid_request'); return;
+    }
+    try {
+      if (!dependencies.timeSupplement) { respondError(response,503,'service_unavailable'); return; }
+      const result=await withTimeout(dependencies.timeSupplement.execute(accessToken,route==='time_backfill'?'backfill':'comment',body),timeoutMilliseconds);
+      respondJson(response,result.status==='committed'?200:result.status==='authority_rejected'?403:result.status==='unavailable'?503:422,result);
+    } catch { respondError(response,503,'service_unavailable'); }
+    return;
+  }
   if (route === 'mobile_own_time') {
+    response.setHeader('Vary','Accept');
     await handleMobileOwnTime(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds);
+      correlationId, timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'mobile_work_targets') {
@@ -528,13 +546,14 @@ async function handleRequest(
     return;
   }
   if (route === 'admin_managed_person_time') {
+    response.setHeader('Vary','Accept');
     if (!isManagedPersonTimeRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
     await handleAdministrationOperation(response, options, correlationId, timeoutMilliseconds,
       async (deadlineEpochMilliseconds) => {
         const operation = dependencies.employeeEnrollment.readManagedPersonTime;
         if (!operation) throw new Error('Managed time unavailable');
-        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body }, { deadlineEpochMilliseconds });
-      }, result => result.value);
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === TIME_DETAILS_ACCEPT ? {includeTimeDetails:true} : {}) }, { deadlineEpochMilliseconds });
+      }, result => result.value, request.headers.accept === TIME_DETAILS_ACCEPT ? TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES : undefined);
     return;
   }
   if (route === 'admin_managed_active_summary') {
@@ -683,6 +702,9 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'time_entry_export_v4') {
+    await handleTimeEntryExport(response,accessToken,body,dependencies,options,correlationId,timeoutMilliseconds,4); return;
+  }
   if (route === 'time_entry_export_v3') {
     await handleTimeEntryExport(
       response,
@@ -703,7 +725,7 @@ async function handleRequest(
   }
   if (route === 'admin_time_record_query_v2') {
     await handleTimeRecordQuery(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, true);
+      correlationId, timeoutMilliseconds, true, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'admin_time_record_correction') {
@@ -983,6 +1005,7 @@ async function handleMobileOwnTime(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  includeTimeDetails = false,
 ): Promise<void> {
   if (!validateMobileOwnTimeQueryRequest(body)) {
     respondError(response, 400, 'invalid_request');
@@ -995,7 +1018,7 @@ async function handleMobileOwnTime(
   }
   try {
     const result = await withTimeout(
-      reader.queryOwnTime({ accessToken, request: body }),
+      reader.queryOwnTime({ accessToken, request: body, ...(includeTimeDetails ? {includeTimeDetails:true} : {}) }),
       timeoutMilliseconds,
     );
     respondMobileReadResult(response, result);
@@ -1638,7 +1661,7 @@ async function handleTimeEntryExport(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
-  schemaVersion: 1 | 2 | 3 = 1,
+  schemaVersion: 1 | 2 | 3 | 4 = 1,
 ): Promise<void> {
   const validation = validateTimeEntryExportRequest(body);
   if (validation.status === 'invalid_request') {
@@ -1646,7 +1669,8 @@ async function handleTimeEntryExport(
     return;
   }
   if (
-    (schemaVersion === 2 && dependencies.timeEntryExporter.exportTimeEntriesV2 === undefined)
+    (schemaVersion === 4 && dependencies.timeEntryExporter.exportTimeEntriesV4 === undefined)
+    || (schemaVersion === 2 && dependencies.timeEntryExporter.exportTimeEntriesV2 === undefined)
     || (schemaVersion === 3 && dependencies.timeEntryExporter.exportTimeEntriesV3 === undefined)
   ) {
     respondError(response, 503, 'service_unavailable');
@@ -1661,7 +1685,9 @@ async function handleTimeEntryExport(
     });
     const exportCommand = { accessToken, correlationId, request: coordinatorRequest };
     const controls = { deadlineEpochMilliseconds };
-    const result = schemaVersion === 3
+    const result = schemaVersion === 4
+      ? await withTimeout(dependencies.timeEntryExporter.exportTimeEntriesV4!(exportCommand, controls),timeoutMilliseconds)
+      : schemaVersion === 3
       ? await withTimeout(
           dependencies.timeEntryExporter.exportTimeEntriesV3!(exportCommand, controls),
           timeoutMilliseconds,
@@ -1718,7 +1744,9 @@ async function handleTimeRecordQuery(
   correlationId: string,
   timeoutMilliseconds: number,
   version2 = false,
+  includeTimeDetails = false,
 ): Promise<void> {
+  if(version2) response.setHeader('Vary','Accept');
   const validation = validateTimeRecordQueryRequest(body);
   if (validation.status === 'invalid_request') {
     respondError(response, 400, 'invalid_request');
@@ -1732,7 +1760,7 @@ async function handleTimeRecordQuery(
     await handleTimeReviewRead(
       response, options, correlationId, timeoutMilliseconds,
       (deadlineEpochMilliseconds) => dependencies.timeReview.queryTimeRecordsV2!(
-        { accessToken, request: validation.request }, { deadlineEpochMilliseconds },
+        { accessToken, request: validation.request, ...(includeTimeDetails?{includeTimeDetails:true}:{}) }, { deadlineEpochMilliseconds },
       ),
     );
     return;
@@ -2105,6 +2133,7 @@ async function handleAdministrationOperation<Result extends { readonly status: s
   timeoutMilliseconds: number,
   operation: (deadlineEpochMilliseconds: number) => Promise<Result>,
   successResponse: (result: Extract<Result, { readonly status: 'succeeded' }>) => unknown,
+  maximumResponseBytes?: number,
 ): Promise<void> {
   try {
     const deadlineEpochMilliseconds = Date.now() + timeoutMilliseconds;
@@ -2121,6 +2150,7 @@ async function handleAdministrationOperation<Result extends { readonly status: s
           response,
           200,
           successResponse(result as Extract<Result, { readonly status: 'succeeded' }>),
+          maximumResponseBytes,
         );
         return;
       case 'invalid_request':
@@ -2624,10 +2654,13 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
       return 'administration_failed';
     case 'admin_time_entry_export':
     case 'time_entry_export_v2':
+    case 'time_entry_export_v4':
     case 'time_entry_export_v3':
       return 'time_entry_export_failed';
     case 'admin_time_record_query':
     case 'admin_time_record_query_v2':
+    case 'time_backfill':
+    case 'time_comment':
     case 'admin_time_record_correction':
     case 'admin_review_item_query':
     case 'admin_review_item_query_v2':
@@ -2688,6 +2721,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_setup_projection_v2'
     || route === 'admin_time_entry_export'
     || route === 'time_entry_export_v2'
+    || route === 'time_entry_export_v4'
     || route === 'time_entry_export_v3'
     || route === 'admin_time_record_query'
     || route === 'admin_time_record_query_v2'

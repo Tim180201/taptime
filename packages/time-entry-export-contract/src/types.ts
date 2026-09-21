@@ -70,3 +70,8 @@ export interface SerializedTimeEntryExport {
   readonly byteCount: number;
   readonly rowCount: number;
 }
+
+export interface TimeEntryExportRowV4 extends TimeEntryExportRowV3 {
+  readonly origin: 'nfc'|'manual'|'backfilled'|'recovered';
+  readonly changed: boolean; readonly comment: string|null;
+}

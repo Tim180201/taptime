@@ -686,7 +686,7 @@ describe('AdminWebApiClient', () => {
     expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
       expectedMembershipId: ids.membership,
       fromInclusive: '2026-07-01T00:00:00.000Z',
-      toExclusive: '2026-07-21T00:00:00.000Z', limit: 100, cursor: null,
+      toExclusive: '2026-07-21T00:00:00.000Z', limit: 20, cursor: null,
     });
   });
 

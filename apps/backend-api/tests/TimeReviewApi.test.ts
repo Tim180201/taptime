@@ -423,3 +423,15 @@ async function close(server: Server): Promise<void> {
     server.close((error) => error === undefined ? resolve() : reject(error));
   });
 }
+
+it('T066 negotiates payroll details explicitly and preserves the prior response bytes',async()=>{
+  const legacy={status:'ready',records:[],nextCursor:null};
+  const queryTimeRecordsV2=vi.fn(async(command:{includeTimeDetails?:boolean})=>({status:'ready' as const,value:{records:command.includeTimeDetails?[{timeRecordId:ids.record,employeeMembershipId:ids.employeeMembership,employeeDisplayName:'Name',targetType:'customer' as const,targetId:ids.customer,targetDisplayName:'Kunde',source:'recovered' as const,status:'stopped' as const,startedVia:null,stoppedVia:null,startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-20T10:00:00.000Z',baseRowVersion:0,effectiveRevisionNumber:1,overlapsAnotherRecord:false,details:{origin:'backfilled'}}]:[],nextCursor:null}}));
+  const origin=await start({timeReview:{...unavailableOfflineDependencies().timeReview,queryTimeRecordsV2}});
+  for(const accept of ['application/json','application/vnd.unknown+json','application/vnd.taptime.time-details.v2+json']) {
+    const response=await fetch(`${origin}/v2/administration/time-records/query`,{method:'POST',headers:{authorization:'Bearer abc.def.ghi','content-type':'application/json',accept},body:JSON.stringify({expectedMembershipId:ids.membership,fromInclusive:'2026-07-01T00:00:00.000Z',toExclusive:'2026-07-21T00:00:00.000Z',limit:20,cursor:null})});
+    expect(response.status).toBe(200);expect(response.headers.get('vary')).toBe('Accept');
+    if(accept==='application/vnd.taptime.time-details.v2+json'){expect(queryTimeRecordsV2.mock.lastCall?.[0].includeTimeDetails).toBe(true);expect(await response.json()).toMatchObject({records:[{details:{origin:'backfilled'}}]});}
+    else {expect(queryTimeRecordsV2.mock.lastCall?.[0].includeTimeDetails).toBeUndefined();expect(await response.text()).toBe(JSON.stringify(legacy));}
+  }
+});

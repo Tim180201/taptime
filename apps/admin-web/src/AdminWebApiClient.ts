@@ -1,3 +1,4 @@
+import { TIME_DETAILS_ACCEPT, isTimeRecordDetails, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import {
@@ -85,6 +86,7 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  supplementTime?(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>>;
   ownTime?(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
   workTargets?(token: string, request: MobileWorkTargetQueryRequest): Promise<ApiResult<MobileWorkTargetQueryResponse>>;
   manualLifecycle?(token: string, request: ManualLifecycleRequest | ManualBreakLifecycleRequest): Promise<ApiResult<ManualResult>>;
@@ -166,6 +168,7 @@ export interface AdminWebApiPort {
     membershipId: string,
     fromInclusive: string,
     toExclusive: string,
+    version?: 3 | 4,
   ): Promise<ApiResult<{ readonly blob: Blob; readonly filename: string }>>;
   readonly projects?: (
     token: string,
@@ -207,6 +210,12 @@ export interface AdminWebApiPort {
 
 export class AdminWebApiClient implements AdminWebApiPort {
   constructor(private readonly fetchRequest: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
+  async supplementTime(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>> {
+    if (!(kind === 'backfill' ? isBackfillTimeRequest(request) : isCommentTimeRequest(request))) return {status:'invalid_response'};
+    return this.request(`/v1/time-records/${kind}`,token,'POST',request as object,
+      value => isTimeSupplementResult(value) ? value : null,false,false,false,maximumJsonBodyBytes,
+      false,false,false,false,[200,422]);
+  }
   async ownTime(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>> {
     if (!validateMobileOwnTimeQueryRequest(request)) return {status:'invalid_response'};
     return this.request('/v1/mobile/own-time/query',token,'POST',request,
@@ -404,7 +413,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'invalid_response' };
     return this.request(
       '/v2/administration/time-records/query', token, 'POST',
-      { expectedMembershipId: membershipId, fromInclusive, toExclusive, limit: 100, cursor: nextCursor },
+      { expectedMembershipId: membershipId, fromInclusive, toExclusive, limit: 20, cursor: nextCursor },
       parseTimeRecords,
       false,
       false,
@@ -483,11 +492,12 @@ export class AdminWebApiClient implements AdminWebApiPort {
     membershipId: string,
     fromInclusive: string,
     toExclusive: string,
+    version: 3 | 4 = 3,
   ): Promise<ApiResult<{ readonly blob: Blob; readonly filename: string }>> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest('/v3/time-entries/export', {
+      const response = await this.fetchRequest(`/v${version}/time-entries/export`, {
         method: 'POST',
         headers: {
           Accept: 'text/csv', Authorization: `Bearer ${token}`,
@@ -498,7 +508,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
       });
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
       const disposition = response.headers.get('content-disposition');
-      const match = /^attachment; filename="(taptime-time-entries_v3_[0-9TZ]+_[0-9TZ]+\.csv)"$/.exec(
+      const match = new RegExp(`^attachment; filename="(taptime-time-entries_v${version}_[0-9TZ]+_[0-9TZ]+\\.csv)"$`).exec(
         disposition ?? '',
       );
       if (
@@ -644,7 +654,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest(path, { method, headers: { Accept: 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
+      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/mobile/own-time/query' || path === '/v1/administration/managed-person-time' || path === '/v2/administration/time-records/query' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
       if (exposeLocationScopeError && response.status === 403) {
         if (
           response.redirected
@@ -1039,6 +1049,7 @@ function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
       'targetId', 'targetDisplayName', 'source', 'status', 'startedVia', 'stoppedVia',
       'startedAt', 'stoppedAt',
       'baseRowVersion', 'effectiveRevisionNumber', 'overlapsAnotherRecord',
+      ...(isRecord(entry) && Object.hasOwn(entry,'details')?['details']:[]),
     ]) || !uuid.test(String(entry.timeRecordId)) || !uuid.test(String(entry.employeeMembershipId))
       || !uuid.test(String(entry.targetId)) || typeof entry.employeeDisplayName !== 'string'
       || typeof entry.targetDisplayName !== 'string'
@@ -1056,8 +1067,10 @@ function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
       || (entry.status === 'started' ? entry.stoppedAt !== null : entry.stoppedAt === null)
       || !isNonNegativeInteger(entry.baseRowVersion)
       || !isNonNegativeInteger(entry.effectiveRevisionNumber)
-      || typeof entry.overlapsAnotherRecord !== 'boolean') return null;
+      || typeof entry.overlapsAnotherRecord !== 'boolean'
+      || (Object.hasOwn(entry,'details') && !isTimeRecordDetails(entry.details))) return null;
     return Object.freeze({
+      ...(Object.hasOwn(entry,'details')?{details:entry.details as import('@taptime/mobile-work-contract').TimeRecordDetails}:{}),
       timeRecordId: String(entry.timeRecordId),
       employeeDisplayName: entry.employeeDisplayName,
       targetType: entry.targetType as SafeTimeRecord['targetType'],
@@ -1323,7 +1336,7 @@ function isNonNegativeInteger(value: unknown): value is number {
 }
 
 function validCalendarPage(value: unknown, limit: number): value is MobileOwnTimeQueryResponse {
-  if (!validateOwnTimeResponse(value) || value.records.length > limit
+  if (!(isDetailedTimeResponse(value) || validateOwnTimeResponse(value)) || value.records.length > limit
     || Date.parse(value.windowStartedAt) >= Date.parse(value.windowEndedAt)) return false;
   const ids=value.records.map(record=>record.timeRecordId);
   return new Set(ids).size === ids.length

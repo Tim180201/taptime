@@ -1,3 +1,4 @@
+import { TimeEditingProvider } from '../TimeEditingControls';
 import { businessDay } from '@taptime/core';
 import {
 	useEffect
@@ -21,7 +22,7 @@ export default function PersonView({state,administration,route,navigate}: {reado
   useEffect(()=>{ void administration.loadPersonTime?.(personId,month); },[administration,personId,month,state.selectedLocation?.id]);
   const calendar=state.calendar;
   const person=state.managedPeople?.status === 'ready' ? state.managedPeople.value.people.find(person=>person.membershipId === personId) : null;
-  return <><a href={canonicalRoutePath(defaultRoute('beschaeftigte',route.locationId))}
+  return <TimeEditingProvider key={personId} state={state} administration={administration} targetMembershipId={personId}><a href={canonicalRoutePath(defaultRoute('beschaeftigte',route.locationId))}
     onClick={event=>navigateFromLink(event,defaultRoute('beschaeftigte',route.locationId),navigate)}>Zurück zu Beschäftigte</a>
     <h2>{person?.displayName ?? 'Zeiten der Person'}</h2>
     {calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'ready'
@@ -29,5 +30,5 @@ export default function PersonView({state,administration,route,navigate}: {reado
         onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/>
       : calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'unavailable'
         ? <div role="alert"><p>{calendar.message}</p><button onClick={()=>void administration.loadPersonTime?.(personId,month)}>Monat erneut laden</button></div>
-        : <DelayedSkeleton label="Zeiten werden geladen"/>}</>;
+        : <DelayedSkeleton label="Zeiten werden geladen"/>}</TimeEditingProvider>;
 }

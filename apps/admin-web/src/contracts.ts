@@ -1,3 +1,4 @@
+import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import type { MobileOwnTimeQueryResponse, SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type { ManagedActiveSummary } from '@taptime/administration-contract/managed-people';
 import type {
@@ -79,6 +80,7 @@ export interface SafeProject {
   readonly rowVersion: number;
 }
 export interface SafeTimeRecord {
+  readonly details?: import('@taptime/mobile-work-contract').TimeRecordDetails;
   readonly timeRecordId: string;
   readonly employeeDisplayName: string;
   readonly targetType: 'customer' | 'project' | 'general_work';
@@ -148,6 +150,8 @@ export type AdminWebState =
   | { readonly status: 'unavailable'; readonly message: string }
   | {
       readonly status: 'ready';
+      readonly membershipId?: string;
+      readonly timeEditBusy?: boolean;
       readonly role: 'administrator' | 'standortleitung' | 'employee';
       readonly calendar?: CalendarState;
       readonly workTargets?: RemoteValue<readonly SafeWorkTarget[]>;
@@ -183,6 +187,7 @@ export type AdminWebState =
       readonly completedAction?: CompletedAdminAction | null;
     };
 export interface AdminWebCapability {
+  readonly saveTimeEdit?: (input: TimeEditInput) => Promise<TimeEditResult>;
   readonly loadOwnTime?: (month: string) => Promise<void>;
   readonly loadWorkTargets?: () => Promise<void>;
   readonly captureManual?: (target: SafeWorkTarget | 'break') => Promise<void>;
@@ -229,7 +234,7 @@ export interface AdminWebCapability {
   ): void;
   cancelAdjudication(): void;
   confirmAdjudication(): Promise<void>;
-  exportTimeRecords(): Promise<void>;
+  exportTimeRecords(version?: 3 | 4): Promise<void>;
   loadMoreTimeRecords(): Promise<void>;
   loadMoreReviewItems(): Promise<void>;
   readonly refreshProjects?: () => Promise<void>;

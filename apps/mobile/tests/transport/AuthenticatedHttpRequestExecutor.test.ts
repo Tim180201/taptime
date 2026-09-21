@@ -224,3 +224,17 @@ describe('AuthenticatedHttpRequestExecutor', () => {
       .toThrow('positive safe integer');
   });
 });
+
+it.each(['/v1/mobile/own-time/query','/v1/administration/managed-person-time'])('T-066 permits long Unicode time details only on opted-in time reads: %s',async path=>{
+  const records=Array.from({length:20},(_,index)=>({timeRecordId:`10000000-0000-4000-8000-${String(index).padStart(12,'0')}`,source:'recovered',targetType:'customer',targetDisplayName:'Kunde',status:'stopped',
+    startedAt:'2026-09-20T08:00:00.000Z',stoppedAt:'2026-09-20T09:00:00.000Z',startedVia:null,stoppedVia:null,
+    details:{origin:'backfilled',baseRowVersion:0,effectiveRevisionNumber:2,changed:true,comment:'😀'.repeat(500),change:{at:'2026-09-21T08:00:00.000Z',reason:'😀'.repeat(500),actor:'administration'},overlapsAnotherRecord:false}}));
+  const value={activeRecord:null,records,nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'};
+  const {isDetailedTimeResponse}=await import('@taptime/mobile-work-contract');expect(isDetailedTimeResponse(value)).toBe(true);
+  const executor=new AuthenticatedHttpRequestExecutor(new FixedAuthentication(),async()=>Response.json(value));
+  expect((await executor.post(new URL(`https://example.invalid${path}`),'{}',{includeTimeDetails:true})).status).toBe('response');
+  expect((await executor.post(new URL(`https://example.invalid${path}`),'{}')).status).toBe('unavailable');
+  expect((await executor.post(new URL('https://example.invalid/v2/offline-events'),'{}',{includeTimeDetails:true})).status).toBe('unavailable');
+  const excessive=new AuthenticatedHttpRequestExecutor(new FixedAuthentication(),async()=>new Response('x'.repeat(256*1024+1)));
+  expect((await excessive.post(new URL(`https://example.invalid${path}`),'{}',{includeTimeDetails:true})).status).toBe('unavailable');
+});

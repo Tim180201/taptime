@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
-import { B3_MIGRATION_TABLE, B3_SCHEMA, loadMigrations, migrate } from '@taptime/backend-schema';
+import { B3_MIGRATION_TABLE, B3_SCHEMA, loadMigrations, applyMigrationSet } from '@taptime/backend-schema';
 import type { AccessTokenVerifier, AccessTokenVerificationResult } from '@taptime/backend-identity';
 
 export const DA3_ISSUER = 'https://synthetic.invalid/auth';
@@ -56,11 +56,13 @@ export const verifier: AccessTokenVerifier = Object.freeze({
 export async function resetMigratePrepareAndSeed(
   installerPool: Pool,
   runtimePassword: string,
+  throughVersion?: string,
 ): Promise<void> {
   await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE`);
   await installerPool.query(`DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
-  const migrated = await migrate(installerPool);
-  const expected = (await loadMigrations()).map(({ version }) => version);
+  const migrations = (await loadMigrations()).filter(m => throughVersion === undefined || m.version <= throughVersion);
+  const migrated = await applyMigrationSet(installerPool, migrations);
+  const expected = migrations.map(({ version }) => version);
   if (migrated.applied.join(',') !== expected.join(',')) {
     throw new Error('DA3 requires every source migration in order');
   }

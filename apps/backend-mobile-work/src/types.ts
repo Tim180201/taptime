@@ -10,6 +10,7 @@ import type {
 } from '@taptime/mobile-work-contract';
 
 export interface MobileReadCommand<Request> {
+  readonly includeTimeDetails?: boolean;
   readonly accessToken: string;
   readonly request: Request;
 }

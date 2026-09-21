@@ -1,3 +1,4 @@
+import { AddTimeControl,TimeRecordControls } from './TimeEditingControls';
 import {
 	BUSINESS_TIME_ZONE,businessDay,dayStart,formatClock,formatDuration,formatHours,
 	intervalMilliseconds,monthDays,provenance,rangeSummary,recordsForDay,shiftDay,shiftMonth,weekStart
@@ -37,10 +38,11 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
             ? summary.milliseconds > 0 ? formatHours(summary.milliseconds) : '' : '—'}</small></button>;
       })}</div>
     </Panel><Panel title={new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,weekday:'long',day:'numeric',month:'long'}).format(new Date(`${selected}T12:00:00Z`))}>
-      <ul className="time-day-list">{records.map(record=><li key={record.timeRecordId}><strong>{record.targetDisplayName}</strong>
+      <AddTimeControl day={selected}/><ul className="time-day-list">{records.map(record=><li key={record.timeRecordId}><strong>{record.targetDisplayName}</strong>
         <p>{formatClock(Math.max(dayStart(selected),Date.parse(record.startedAt)))} – {record.stoppedAt === null ? 'läuft'
-          : formatClock(Math.min(dayStart(shiftDay(selected,1)),Date.parse(record.stoppedAt)))} · {provenance(record)}</p>
+          : formatClock(Math.min(dayStart(shiftDay(selected,1)),Date.parse(record.stoppedAt)))} · {record.details?({nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin]):provenance(record)}</p>
         <strong>{formatDuration(intervalMilliseconds(record,dayStart(selected),Math.min(dayStart(shiftDay(selected,1)),Date.parse(value.windowEndedAt))))}</strong>
+        <TimeRecordControls record={record}/>
       </li>)}</ul>
       {records.length === 0 ? <p>{rangeSummary(value,selected,shiftDay(selected,1)).complete
         ? 'Für diesen Tag sind keine Zeiten erfasst.' : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</p> : null}

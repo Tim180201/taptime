@@ -1,3 +1,4 @@
+import { TimeRecordControls } from '../TimeEditingControls';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import {
 	useEffect,
@@ -33,6 +34,7 @@ export default function TimeRecordsView({
   readonly route: AdminRoute;
   readonly navigate: (route: AdminRoute) => void;
 }) {
+  const [exportVersion,setExportVersion]=useState<3|4>(4);
   const [recordId, setRecordId] = useState('');
   const [startedAt, setStartedAt] = useState('');
   const [stoppedAt, setStoppedAt] = useState('');
@@ -57,9 +59,9 @@ export default function TimeRecordsView({
   }, [route.captureType, route.month, route.status]);
   const format = formatZonedDateTime;
   const formatExact = formatExactZonedDateTime;
-  const exportAction=state.availableSections.includes('time_export') ? <button className="header-primary"
+  const exportAction=state.availableSections.includes('time_export') ? <div className="export-options"><label>CSV-Fassung<select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4)}><option value={4}>v4 · Herkunft und Kommentar</option><option value={3}>v3 · Bisheriges Format</option></select></label><button className="header-primary"
     disabled={state.timeReviewBusy} aria-busy={state.timeReviewBusy}
-    onClick={()=>void administration.exportTimeRecords()}>CSV herunterladen</button> : null;
+    onClick={()=>void administration.exportTimeRecords(exportVersion)}>CSV herunterladen</button></div> : null;
   if (!state.availableSections.includes('time_records')) {
     return <Panel title="Arbeitszeiten herunterladen"
       description="Die vollständige CSV-Datei steht für die Lohnbuchhaltung bereit.">
@@ -141,8 +143,8 @@ export default function TimeRecordsView({
             <td>{record.employeeDisplayName}</td><td>{targetLabel(record.targetType)} · {record.targetDisplayName}</td>
             <td>{format(record.startedAt)} – {record.stoppedAt === null ? 'läuft' : format(record.stoppedAt)}</td>
             <td>{captureLabel(record.startedVia, record.stoppedVia)}</td>
-            <td>{record.source === 'canonical' ? 'Regulär' : 'Wiederhergestellt'}</td>
-            <td>{record.effectiveRevisionNumber}</td>
+            <td>{record.details ? {nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin] : record.source === 'canonical' ? 'Regulär' : 'Wiederhergestellt'}</td>
+            <td>{record.effectiveRevisionNumber}<TimeRecordControls record={record}/></td>
             <td>{record.status === 'started' ? 'Läuft' : 'Abgeschlossen'}
               {record.overlapsAnotherRecord ? ' · Überschneidung' : ''}</td>
           </tr>)}</tbody>

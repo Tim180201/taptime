@@ -96,11 +96,12 @@ const summary = (actor: Parameters<typeof context>[0], location: string | null =
   (await c.query(`SELECT * FROM taptime_server.read_managed_active_summary_v1($1,$2,$3,$4)`, [location,running,cursor,limit])).rows);
 
 let rateNow=Date.now();
+let runtimePassword:string;
 let invitations: Pool, enrollment: Pool, coordinator: EmployeeMembershipEnrollmentCoordinator, server: Server, origin: string;
 beforeAll(async () => {
   await pool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE; DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
   await migrate(pool);
-  const password=syntheticPassword();
+  const password=runtimePassword=syntheticPassword();
   await ensureC3E1RuntimeLogins(pool,password,password);
   const database=process.env.C2_DATABASE_URL ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_c2';
   invitations=new Pool({connectionString:c3e1RuntimeConnectionString(database,C3E1_INVITATION_RUNTIME_LOGIN,password)});
@@ -122,7 +123,7 @@ beforeAll(async () => {
   await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
   origin=`http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
-beforeEach(async () => { await truncateC3C(pool); await seed(); });
+beforeEach(async () => { await migrate(pool); await truncateC3C(pool); await seed(); });
 afterAll(async () => {
   if(server) await new Promise<void>(resolve=>server.close(()=>resolve()));
   await invitations?.end(); await enrollment?.end();
@@ -302,7 +303,9 @@ describe('T059 SQL scope and migration', () => {
       ORDER BY p.proname,p.proargtypes::text`)).rows;
     const before = await snapshot(), oldSessions=await sessionSnapshot(), protection=await functionProtection();
     const functions=baseline === '028' ? await otherFunctions() : null;
-    expect((await migrate(pool)).applied).toEqual(migrations.filter(m=>m.version>baseline).map(m=>m.version));
+    // This regression owns the 028/029 upgrade; later additive tables have their own upgrade tests.
+    const upgrade=migrations.filter(m=>m.version<= '029');
+    expect((await applyMigrationSet(pool,upgrade)).applied).toEqual(upgrade.filter(m=>m.version>baseline).map(m=>m.version));
     expect(await snapshot()).toEqual(before);
     expect(await functionProtection()).toEqual(protection);
     if(functions !== null) expect(await otherFunctions()).toEqual(functions);
@@ -320,5 +323,50 @@ describe('T059 SQL scope and migration', () => {
     expect((await pool.query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='taptime_server' AND c.relkind='r' AND NOT(c.relrowsecurity AND c.relforcerowsecurity)`)).rows).toEqual([]);
     expect((await summary('manager'))[0]).toMatchObject({running_count:'1',total_count:'3'});
+  });
+});
+
+it('T-066 negotiates person details explicitly, keeps legacy bytes, and scopes detail reads by live location',async()=>{
+  await ensureC3E1RuntimeLogins(pool,runtimePassword,runtimePassword);
+  const body={expectedMembershipId:ids.membershipEmployeeA,targetMembershipId:ids.membershipAdminA2,
+    fromInclusive:'2026-09-30T22:00:00.000Z',toExclusive:'2026-10-31T23:00:00.000Z',cursor:null,limit:20};
+  const query=async(accept?:string)=>{
+    rateNow+=60_001;
+    return fetch(`${origin}/v1/administration/managed-person-time`,{method:'POST',headers:{
+      authorization:`Bearer header.${fixtureTokens.employeeA}.signature`,'content-type':'application/json',...(accept?{accept}:{})},body:JSON.stringify(body)});
+  };
+  const legacyResponse=await query();expect(legacyResponse.status).toBe(200);
+  const legacy=await legacyResponse.text();
+  for (const accept of ['application/json','application/vnd.taptime.unknown+json']) {
+    const response=await query(accept);expect(response.headers.get('vary')).toBe('Accept');expect(await response.text()).toBe(legacy);
+  }
+  const response=await query('application/vnd.taptime.time-details.v2+json');expect(response.status).toBe(200);
+  const detailed=await response.json() as {records:Array<{timeRecordId:string;details:{origin:string;overlapsAnotherRecord:boolean}}>};
+  expect(detailed.records).toHaveLength(2);expect(detailed.records.every(r=>r.details.origin==='manual'&&r.details.overlapsAnotherRecord)).toBe(true);
+  const detailIds=async()=>context('manager',async c=>(await c.query('SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[])',[records])).rows.map(r=>r.time_record_id));
+  expect((await detailIds()).sort()).toEqual(records.slice(0,3).sort());
+  await pool.query(`UPDATE taptime_server.membership_management_location_grants SET revoked_at=transaction_timestamp() WHERE membership_id=$1`,[ids.membershipEmployeeA]);
+  expect(await detailIds()).toEqual([]);
+});
+
+it('T-066 returns times and correction versions from one snapshot during a concurrent correction',async()=>{
+  const {readManagedPerson}=await import('../../backend-administration/src/ManagedPeopleReader.js');
+  await context('manager',async c=>{
+    const query=c.query.bind(c);let injected=false;
+    const wrapped=new Proxy(c,{get(target,key){if(key!=='query') return Reflect.get(target,key);return async(text:string,args?:unknown[])=>{
+      const result=await query(text,args);
+      if(!injected && text.includes('read_managed_person_time_v1')) {
+        injected=true;
+        await pool.query(`INSERT INTO taptime_server.time_record_revisions
+          (organization_id,time_record_id,revision_number,canonical_time_entry_id,user_id,target_type,target_customer_id,
+           effective_started_at,effective_stopped_at,base_row_version,actor_user_id,actor_membership_id,reason,command_id,request_hash)
+          SELECT organization_id,id,1,id,user_id,target_type,target_customer_id,started_at+interval '1 hour',stopped_at+interval '1 hour',row_version,$2,$3,'Parallel berichtigt',$4,repeat('a',64)
+          FROM taptime_server.time_entries WHERE id=$1`,[records[0],ids.adminA,ids.membershipAdminA,randomUUID()]);
+      }
+      return result;
+    };}});
+    const response=await readManagedPerson(wrapped,{accessToken:'synthetic',expectedMembershipId:ids.membershipEmployeeA,targetMembershipId:ids.membershipAdminA2,fromInclusive:new Date(from).toISOString(),toExclusive:new Date(to).toISOString(),cursor:null,limit:20,includeTimeDetails:true});
+    expect(response.status).toBe('succeeded');if(response.status!=='succeeded') throw new Error('Expected person time');
+    expect(response.value.records.find(r=>r.timeRecordId===records[0])).toMatchObject({startedAt:'2026-10-05T08:00:00.000Z',details:{effectiveRevisionNumber:0}});
   });
 });

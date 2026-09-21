@@ -1,3 +1,5 @@
+import type { TimeEditInput,TimeEditResult } from './timeEditing';
+import { isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import type { ManualBreakLifecycleRequest,ManualLifecycleRequest,MobileOwnTimeQueryResponse,SafeWorkTarget } from '@taptime/mobile-work-contract';
 import { TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS } from '@taptime/time-entry-export-contract';
 import { isValidTimeReviewReason } from '@taptime/time-review-contract';
@@ -94,6 +96,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private targetsEpoch = 0;
   // Volatile, session-bound retry identity. A lost acknowledgement can follow a committed event.
   private pendingManual: {generation:number;request:ManualLifecycleRequest | ManualBreakLifecycleRequest} | null = null;
+  private pendingTimeEdit: {generation:number;key:string;commandId:string} | null = null;
   private refreshEpoch = 0;
   private timeWindowPinned = false;
   private readonly sectionEpochs: Record<AdminSection, number> = {
@@ -126,6 +129,62 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   getState(): AdminWebState { return this.state; }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+
+  async saveTimeEdit(input: TimeEditInput): Promise<TimeEditResult> {
+    const current=this.state,session=this.session,generation=this.generation;
+    const calendarEpoch=this.calendarEpoch;
+    if(current.status!=='ready' || !session || session.role==='standortleitung') return {status:'authority_rejected'};
+    if(current.timeEditBusy) return {status:'busy'};
+    if(typeof navigator!=='undefined' && navigator.onLine===false) return {status:'offline'};
+    const calendar=current.calendar;
+    if(calendar?.status!=='ready' || (calendar.targetMembershipId??session.membershipId)!==input.targetMembershipId
+      || (session.role==='employee' && input.targetMembershipId!==session.membershipId)
+      || (input.kind==='comment' && input.targetMembershipId!==session.membershipId)
+      || (input.kind==='correct' && session.role!=='administrator')) return {status:'authority_rejected'};
+    if(input.kind!=='backfill' && ![...calendar.value.records,...(calendar.value.activeRecord?[calendar.value.activeRecord]:[])]
+      .some(r=>r.timeRecordId===input.record.timeRecordId)) return {status:'authority_rejected'};
+    if(input.kind==='correct' && (input.record.status!=='stopped' || !input.record.details)) return {status:'not_adjustable'};
+    if(input.kind==='correct' && !isValidTimeReviewReason(input.reason)) return {status:'invalid_request'};
+    const key=JSON.stringify(input);
+    if(this.pendingTimeEdit?.generation!==generation || this.pendingTimeEdit.key!==key)
+      this.pendingTimeEdit={generation,key,commandId:crypto.randomUUID()};
+    const commandId=this.pendingTimeEdit.commandId;
+    this.setState({...current,timeEditBusy:true,notice:null});
+    let outcome:TimeEditResult={status:'unavailable'};
+    try {
+      if(input.kind==='correct') {
+        const record:SafeTimeRecord={...input.record,employeeDisplayName:'',...input.record.details!};
+        const result=await this.auth.withAccessToken(token=>this.api.correctTimeRecord(token,session.membershipId,
+          commandId,record,input.startedAt,input.stoppedAt,input.reason));
+        if(result?.status==='succeeded') outcome={status:'committed',timeRecordId:input.record.timeRecordId,idempotentRetry:false};
+        else if(result===null || result.status==='rejected') outcome={status:'authority_rejected'};
+        else if(result.status==='conflict') outcome={status:result.code==='not_adjustable'?'not_adjustable':result.code==='command_id_conflict'?'command_id_conflict':'conflict'};
+      } else {
+        const request=input.kind==='backfill'?{expectedMembershipId:session.membershipId,commandId,targetMembershipId:input.targetMembershipId,
+          targetType:input.target.targetType,targetId:input.target.targetId,startedAt:input.startedAt,stoppedAt:input.stoppedAt,reason:input.reason,comment:input.comment}
+          :{expectedMembershipId:session.membershipId,commandId,timeRecordId:input.record.timeRecordId,comment:input.comment};
+        if(!(input.kind==='backfill'?isBackfillTimeRequest(request):isCommentTimeRequest(request))) outcome={status:'invalid_request'};
+        else {
+          const result=await this.auth.withAccessToken(token=>this.api.supplementTime?.(token,input.kind as 'backfill'|'comment',request)??Promise.resolve({status:'unreachable' as const}));
+          if(result?.status==='succeeded') outcome=result.value;
+          else if(result===null || result.status==='rejected') outcome={status:'authority_rejected'};
+        }
+      }
+    } catch { outcome={status:'unavailable'}; }
+    if(generation!==this.generation || this.state.status!=='ready') return {status:'authority_rejected'};
+    this.setState({...this.state,timeEditBusy:false});
+    if(outcome.status==='committed') {
+      this.pendingTimeEdit=null;
+      if(calendarEpoch!==this.calendarEpoch) return outcome;
+      this.setState({...this.state as Extract<AdminWebState,{status:'ready'}>,notice:'Gespeichert.'});
+      if(this.state.status==='ready' && this.state.calendar?.targetMembershipId===calendar.targetMembershipId
+        && this.state.calendar.month===calendar.month) {
+        if(calendar.targetMembershipId===null) await this.loadOwnTime(calendar.month);
+        else await this.loadPersonTime(calendar.targetMembershipId,calendar.month);
+      }
+    }
+    return outcome;
+  }
 
   async loadOwnTime(month: string): Promise<void> {
     const current=this.state, session=this.session;
@@ -1693,7 +1752,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     await this.loadMoreCursorSection('reviewItems');
   }
 
-  async exportTimeRecords(): Promise<void> {
+  async exportTimeRecords(version: 3 | 4 = 3): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
     if (
@@ -1708,7 +1767,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     let result;
     try {
       result = await this.auth.withAccessToken((token) => this.api.exportTimeEntries(
-        token, membershipId, current.timeWindow.fromInclusive, current.timeWindow.toExclusive,
+        token, membershipId, current.timeWindow.fromInclusive, current.timeWindow.toExclusive, ...(version===3?[]:[version] as const),
       ));
     } catch {
       result = { status: 'unreachable' as const };
@@ -2258,6 +2317,7 @@ function readyState(
   return {
     status: 'ready',
     role: session.role,
+    membershipId: session.membershipId,
     locationsEnabled: session.locationsEnabled,
     availableSections: session.availableSections,
     managementScope: session.managementScope,
@@ -2738,5 +2798,12 @@ function signInFailureNotice(outcome: Exclude<AdminWebSignInOutcome, 'signed_in'
 
 function sameActiveRecord(a:MobileOwnTimeQueryResponse['activeRecord'],b:MobileOwnTimeQueryResponse['activeRecord']):boolean {
   if(a === null || b === null) return a === b;
-  return (Object.keys(a) as (keyof typeof a)[]).every(key=>a[key] === b[key]);
+  const ad=a.details,bd=b.details;
+  if(ad===undefined || bd===undefined) {if(ad!==bd) return false;}
+  else {
+    if(['origin','baseRowVersion','effectiveRevisionNumber','comment','changed','overlapsAnotherRecord'].some(key=>ad[key as keyof typeof ad]!==bd[key as keyof typeof bd])) return false;
+    if(ad.change===null || bd.change===null) {if(ad.change!==bd.change) return false;}
+    else if(ad.change.at!==bd.change.at || ad.change.reason!==bd.change.reason || ad.change.actor!==bd.change.actor) return false;
+  }
+  return (Object.keys(a) as (keyof typeof a)[]).every(key=>key==='details' || a[key]===b[key]);
 }

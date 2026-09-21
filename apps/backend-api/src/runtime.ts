@@ -1,3 +1,4 @@
+import { TimeSupplementCoordinator } from '@taptime/backend-time-review';
 import {
   AdminWriteSessionCoordinator,
   EmployeeMembershipEnrollmentCoordinator,
@@ -234,6 +235,7 @@ export function createBackendApiRuntime(
       ),
       tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
       timeEntryExporter: new TimeEntryExportCoordinator(timeEntryExportPool, verifier),
+      timeSupplement: new TimeSupplementCoordinator(timeReviewWritePool, verifier),
       timeReview: new TimeReviewCoordinator(timeReviewReadPool, timeReviewWritePool, verifier),
       ...(manualLifecyclePool === undefined ? {} : {
         manualLifecycleIngestor: new ManualLifecycleIngestionCoordinator(

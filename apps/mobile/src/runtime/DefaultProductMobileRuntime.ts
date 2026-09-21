@@ -1,3 +1,4 @@
+import type { TimeEditingCapability, TimeEditingCoordinator } from '../timeEditing/TimeEditingCoordinator';
 import type { EmployeesCapability } from '../employees/contracts';
 import type { EmployeesCoordinator } from '../employees/EmployeesCoordinator';
 import type { MobileSessionCapability } from '../auth/contracts';
@@ -12,6 +13,7 @@ import type {
 import type { ScanFeedbackLifecycle } from '../feedback/ScanFeedbackCoordinator';
 
 export interface ProductMobileRuntime {
+  readonly timeEditing?: TimeEditingCapability;
   readonly employees?: EmployeesCapability;
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
@@ -103,6 +105,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       stop() {},
     },
     private readonly employeesCoordinator?: EmployeesCoordinator,
+    private readonly timeEditingCoordinator?: TimeEditingCoordinator,
   ) {
     const employees = this.employeesCoordinator;
     this.employeesCapability = employees ? Object.freeze({
@@ -179,6 +182,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     });
   }
 
+  get timeEditing(): TimeEditingCapability | undefined {
+    const c=this.timeEditingCoordinator;
+    return c ? this.timeEditingFacade ??= Object.freeze({getState:c.getState,subscribe:c.subscribe,save:(kind:import('../timeEditing/TimeEditingCoordinator').TimeEditKind,input:Record<string,unknown>)=>c.save(kind,input)}) : undefined;
+  }
+  private timeEditingFacade: TimeEditingCapability | undefined;
+
   get employees(): EmployeesCapability | undefined { return this.employeesCapability; }
   private readonly employeesCapability: EmployeesCapability | undefined;
 
@@ -210,6 +219,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     const runtimeGeneration = ++this.runtimeGeneration;
     // Keep the private capability graph owned for the complete product-runtime lifetime.
     void this.serverTransport;
+    void this.timeEditingCoordinator?.start();
     this.scanFeedbackLifecycle.start();
     try {
       await this.scanOrchestrator.start();
@@ -251,6 +261,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   }
 
   stop(): void {
+    this.timeEditingCoordinator?.stop();
     if (!this.started) {
       return;
     }

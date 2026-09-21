@@ -1292,3 +1292,20 @@ it('T049 review: locks prepared decisions and retains keyboard focus after the r
  await userEvent.click(screen.getByRole('button',{name:'Entscheidung protokollieren'}));
  expect(screen.getByRole('region',{name:'Prüfungen'})).toHaveFocus();
 });
+
+it('T066 keeps both export formats reachable from the payroll view',async()=>{
+ window.history.replaceState(null,'','/lohnexport');const capability=new FakeCapability(readyState);
+ await render(<App administration={capability}/>);
+ expect(await screen.findByLabelText('CSV-Fassung')).toHaveValue('4');
+ fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
+ fireEvent.change(screen.getByLabelText('CSV-Fassung'),{target:{value:'3'}});fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
+});
+it('T066 exposes the own-comment form through the actual own-time route',async()=>{
+ const membershipId='20000000-0000-4000-8000-000000000001';
+ const ownRecord={...record,details:{origin:'backfilled' as const,baseRowVersion:0,effectiveRevisionNumber:1,changed:false,change:null,comment:null,overlapsAnotherRecord:false}};
+ window.history.replaceState(null,'','/meine-zeiten?monat=2026-07');
+ const capability=Object.assign(new FakeCapability({...readyState,membershipId,role:'administrator',availableSections:['own_time','manual_capture'],calendar:{status:'ready',targetMembershipId:null,month:'2026-07',value:{records:[ownRecord],activeRecord:null,nextCursor:null,windowStartedAt:'2026-07-01T00:00:00.000Z',windowEndedAt:'2026-07-20T20:00:00.000Z'}}}),{saveTimeEdit:vi.fn(async()=>({status:'committed' as const,timeRecordId:record.timeRecordId,idempotentRetry:false})),loadOwnTime:vi.fn(async()=>{}),loadWorkTargets:vi.fn(async()=>{})});
+ await render(<App administration={capability}/>);fireEvent.click(await screen.findByRole('button',{name:'Kommentar schreiben'}));
+ fireEvent.change(screen.getByLabelText('Kommentar'),{target:{value:'Eigene Verwaltungszeit'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ await waitFor(()=>expect(capability.saveTimeEdit).toHaveBeenCalledWith(expect.objectContaining({kind:'comment',targetMembershipId:membershipId,comment:'Eigene Verwaltungszeit'})));
+});

@@ -116,11 +116,14 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
   it('uses the offline fallback with no cached identity and reveals management only after confirmation', async () => {
     const h = harness('offline');
     await act(async () => root.render(createElement(AppNavigator, h.props)));
-    expect(container.textContent).toContain('Offline-Erfassung');
+    expect(container.textContent).toContain('Offline');
+    expect(container.textContent).toContain('Nachtragen ist nur online möglich.');
+    expect(button('Zeit hinzufügen').disabled).toBe(true);
     expect(container.querySelector('[aria-label="Mitarbeiter"]')).toBeNull();
     await act(async () => h.publish({ status: 'authenticated', identityLabel: 'confirmed@example.invalid', session: {
       role: 'administrator', userId: 'user', membershipId: 'membership', organizationId: 'business', nfcSetupAvailable: true, managementScope: { kind: 'organization' },
     } }));
+    expect(container.textContent).toContain('confirmed@example.invalid · Administrator');
     expect(container.querySelector('[aria-label="Mitarbeiter"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Tags"]')).not.toBeNull();
     await act(async () => h.publish({ status: 'signed_out' }));

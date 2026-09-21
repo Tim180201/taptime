@@ -79,7 +79,7 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
     if (!validateMobileOwnTimeQueryRequest(command.request)) {
       return { status: 'invalid_request' };
     }
-    const cursor = decodeOwnTimeCursor(command.request.cursor);
+    const cursor = decodeOwnTimeCursor(command.request.cursor, command.includeTimeDetails);
     if (cursor === undefined) return { status: 'invalid_request' };
 
     return this.withActor<MobileOwnTimeQueryResponse>(
@@ -98,7 +98,7 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
           `SELECT row_kind, time_record_id, source, target_type, target_display_name,
                   status, started_at, stopped_at, started_via, stopped_via,
                   window_started_at, window_ended_at
-           FROM taptime_server.read_mobile_own_time_v1(
+           FROM taptime_server.${command.includeTimeDetails ? 'read_mobile_own_time_v2' : 'read_mobile_own_time_v1'}(
              $1::uuid, $2::uuid, $3::uuid, $4::timestamptz, $5::timestamptz,
              $6::timestamptz, $7::uuid, $8
            )`,
@@ -119,13 +119,23 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
             command.request.limit + 1,
           ],
         );
+        const detailRows = command.includeTimeDetails
+          ? (await client.query<{time_record_id:string; details: import('@taptime/mobile-work-contract').TimeRecordDetails}>(
+              'SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[])', [rows.rows.map(r=>r.time_record_id)])).rows : [];
+        const detailed = (row: OwnTimeRow): SafeOwnTimeRecord => {
+          const base = mapOwnTimeRecord(row);
+          if (!command.includeTimeDetails) return base;
+          const details = detailRows.find(d=>d.time_record_id===row.time_record_id)?.details;
+          if (!details) throw new Error('Missing time details');
+          return {...base, details};
+        };
         const active = rows.rows.find((row) => row.row_kind === 'active');
         const history = rows.rows.filter((row) => row.row_kind === 'history');
         const hasMore = history.length > command.request.limit;
         const page = history.slice(0, command.request.limit);
         const last = page.at(-1);
-        const fallback = await client.query<{ now: Date }>(
-          'SELECT transaction_timestamp() AS now',
+        const fallback = await client.query<{ now: Date; window_start: Date }>(
+          `SELECT transaction_timestamp() AS now, (date_trunc('month',transaction_timestamp() AT TIME ZONE 'Europe/Berlin')-interval '1 month') AT TIME ZONE 'Europe/Berlin' AS window_start`,
         );
         const endedAt = rows.rows[0]?.window_ended_at
           ?? (cursor === null
@@ -133,13 +143,13 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
             : new Date(cursor.windowEndedAtMilliseconds));
         const startedAt = rows.rows[0]?.window_started_at
           ?? (cursor === null
-            ? new Date(endedAt.getTime() - OWN_TIME_WINDOW_MILLISECONDS)
+            ? (command.includeTimeDetails ? fallback.rows[0]!.window_start : new Date(endedAt.getTime() - OWN_TIME_WINDOW_MILLISECONDS))
             : new Date(cursor.windowStartedAtMilliseconds));
         return {
           status: 'succeeded',
           response: {
-            activeRecord: active === undefined ? null : mapOwnTimeRecord(active),
-            records: page.map(mapOwnTimeRecord),
+            activeRecord: active === undefined ? null : detailed(active),
+            records: page.map(detailed),
             nextCursor: hasMore && last !== undefined
               ? encodeOwnTimeCursor({
                   windowStartedAtMilliseconds: startedAt.getTime(),
@@ -308,7 +318,7 @@ function encodeOwnTimeCursor(
   return cursor;
 }
 
-function decodeOwnTimeCursor(value: string | null): OwnTimeCursor | null | undefined {
+function decodeOwnTimeCursor(value: string | null, includeTimeDetails = false): OwnTimeCursor | null | undefined {
   if (value === null) return null;
   const match = /^v1:([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{43})$/.exec(value);
   if (match === null) return undefined;
@@ -320,7 +330,7 @@ function decodeOwnTimeCursor(value: string | null): OwnTimeCursor | null | undef
       || !parsed.slice(0, 3).every(isValidDateMilliseconds)
       || typeof parsed[3] !== 'string'
       || !CANONICAL_UUID_PATTERN.test(parsed[3])
-      || parsed[1] - parsed[0] !== OWN_TIME_WINDOW_MILLISECONDS
+      || (includeTimeDetails ? parsed[1]<=parsed[0] || parsed[1]-parsed[0]>63*86400000 : parsed[1] - parsed[0] !== OWN_TIME_WINDOW_MILLISECONDS)
       || parsed[2] < parsed[0]
       || parsed[2] >= parsed[1]
     ) return undefined;

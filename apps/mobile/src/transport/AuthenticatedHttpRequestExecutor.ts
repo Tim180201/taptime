@@ -1,3 +1,4 @@
+import { TIME_DETAILS_ACCEPT } from '@taptime/mobile-work-contract';
 import type { AuthenticatedRequestCapability } from '../auth/contracts';
 import {
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
@@ -9,6 +10,7 @@ import { utf8ByteLength } from './strictJson';
 
 const DEFAULT_REQUEST_TIMEOUT_MILLISECONDS = 10_000;
 const MAXIMUM_JSON_BODY_BYTES = OFFLINE_REQUEST_MAXIMUM_BYTES;
+const TIME_DETAILS_RESPONSE_MAXIMUM_BYTES = 256 * 1024;
 
 export interface AuthenticatedFetchRequestInit {
   readonly method: 'POST';
@@ -45,6 +47,7 @@ export interface AuthenticatedJsonPostPort {
 }
 
 export interface AuthenticatedJsonPostOptions {
+  readonly includeTimeDetails?: boolean;
   /** Compare-only lifecycle expectation. No caller can inject arbitrary headers through this port. */
   readonly expectedMembershipId?: string;
   /** Closed response-size exception used only by the immutable offline lease-page route. */
@@ -83,7 +86,7 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
           const response = await this.fetchRequest(endpoint.href, {
             method: 'POST',
             headers: {
-              Accept: 'application/json',
+              Accept: options?.includeTimeDetails === true ? TIME_DETAILS_ACCEPT : 'application/json',
               Authorization: `Bearer ${accessToken()}`,
               'Cache-Control': 'no-store',
               'Content-Type': 'application/json',
@@ -125,11 +128,15 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
             };
           }
 
-          const maximumResponseBytes = options?.maximumResponseBytes
-            ?? OFFLINE_RESPONSE_MAXIMUM_BYTES;
+          const timeDetails = options?.includeTimeDetails === true
+            && (endpoint.pathname === '/v1/mobile/own-time/query'
+              || endpoint.pathname === '/v1/administration/managed-person-time');
+          const maximumResponseBytes = timeDetails ? TIME_DETAILS_RESPONSE_MAXIMUM_BYTES
+            : options?.maximumResponseBytes ?? OFFLINE_RESPONSE_MAXIMUM_BYTES;
           if (
             maximumResponseBytes !== OFFLINE_RESPONSE_MAXIMUM_BYTES
             && maximumResponseBytes !== OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES
+            && !(timeDetails && maximumResponseBytes === TIME_DETAILS_RESPONSE_MAXIMUM_BYTES)
           ) {
             return { status: 'completed', value: { status: 'unavailable' } };
           }

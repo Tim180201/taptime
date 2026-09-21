@@ -245,6 +245,7 @@ export interface NfcTagReassignmentPort {
 }
 
 export interface BackendApiDependencies {
+  readonly timeSupplement?: Pick<import('@taptime/backend-time-review').TimeSupplementCoordinator, 'execute'>;
   readonly healthCheck?: () => Promise<void>;
   readonly sessionAuthority: SessionAuthorityResolver;
   readonly administrationSessionAuthority?: AdministrationSessionAuthorityResolver;
@@ -283,7 +284,10 @@ export type BackendApiRoute =
   | 'admin_setup_projection_v2'
   | 'admin_time_entry_export'
   | 'time_entry_export_v2'
+  | 'time_entry_export_v4'
   | 'time_entry_export_v3'
+  | 'time_backfill'
+  | 'time_comment'
   | 'admin_time_record_query'
   | 'admin_time_record_query_v2'
   | 'admin_time_record_correction'

@@ -1,3 +1,4 @@
+import { AddTimeControl, TimeRecordControls } from '../timeEditing/TimeEditingControls';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
@@ -8,7 +9,7 @@ import { mobileTokens } from '../design/tokens';
 import { businessDay, dayStart, formatClock, formatDuration, formatHours, intervalMilliseconds,
   monthDays, provenance, rangeSummary, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
 
-export function TimeCalendar({value: ownTime,onRefresh,onMonthChange}: {readonly value: MobileOwnTimeQueryResponse; readonly onRefresh: ()=>Promise<void>; readonly onMonthChange?: (month: string)=>void}) {
+export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembershipId}: {readonly targetMembershipId?: string; readonly value: MobileOwnTimeQueryResponse; readonly onRefresh: ()=>Promise<void>; readonly onMonthChange?: (month: string)=>void}) {
   const [selected,setSelected]=useState(()=>businessDay(Date.parse(ownTime.windowEndedAt)-1));
   const [month,setMonth]=useState(()=>selected.slice(0,7));
   const today = businessDay(Date.parse(ownTime.windowEndedAt)-1);
@@ -54,12 +55,14 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange}: {readonly
     </Card>
     <Text style={styles.monthTitle}>{new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE,
       weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${selected}T12:00:00Z`))}</Text>
+    <AddTimeControl day={selected} targetMembershipId={targetMembershipId} onSaved={onRefresh} />
     {records.map((record) => <Card key={record.timeRecordId}>
       <Text style={{ fontWeight: '800' }}>{record.targetDisplayName}</Text>
       <Text style={styles.muted}>{formatClock(Math.max(dayStart(selected), Date.parse(record.startedAt)))} – {
-        record.stoppedAt === null ? 'läuft' : formatClock(Math.min(dayStart(shiftDay(selected, 1)), Date.parse(record.stoppedAt)))} · {provenance(record)}</Text>
+        record.stoppedAt === null ? 'läuft' : formatClock(Math.min(dayStart(shiftDay(selected, 1)), Date.parse(record.stoppedAt)))} · {record.details ? ({nfc:'gescannt',manual:'manuell erfasst',backfilled:'nachgetragen',recovered:'wiederhergestellt'} as const)[record.details.origin] : provenance(record)}</Text>
       <Text style={styles.duration}>{formatDuration(intervalMilliseconds(record, dayStart(selected),
         Math.min(dayStart(shiftDay(selected, 1)), Date.parse(ownTime.windowEndedAt))))}</Text>
+      <TimeRecordControls record={record} targetMembershipId={targetMembershipId} onSaved={onRefresh} />
     </Card>)}
     {records.length === 0 ? <Card><Text>{daily.complete ? 'Für diesen Tag sind keine Zeiten erfasst.'
       : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</Text></Card> : null}

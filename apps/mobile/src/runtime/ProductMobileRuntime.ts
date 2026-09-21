@@ -1,3 +1,5 @@
+import * as Network from 'expo-network';
+import { TimeEditingCoordinator } from '../timeEditing/TimeEditingCoordinator';
 import { EmployeesCoordinator } from '../employees/EmployeesCoordinator';
 import { TapTimeEmployeesApiClient } from '../employees/TapTimeEmployeesApiClient';
 import { Platform } from 'react-native';
@@ -192,6 +194,10 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       scanOrchestrator,
       scanFeedback,
       new EmployeesCoordinator(scanSessionContext, new TapTimeEmployeesApiClient(configuration.configuration.tapTimeApiBaseUrl, new AuthenticatedHttpRequestExecutor(coordinator, expoFetch, undefined, true)), randomUUID),
+      new TimeEditingCoordinator(new URL(configuration.configuration.tapTimeApiBaseUrl),authenticatedRequests,scanSessionContext,randomUUID,{
+        get:async()=>{const state=await Network.getNetworkStateAsync();return state.isConnected===true && state.isInternetReachable!==false;},
+        subscribe:listener=>{const subscription=Network.addNetworkStateListener(state=>listener(state.isConnected===true && state.isInternetReachable!==false));return ()=>subscription.remove();},
+      }),
     ),
   };
 }

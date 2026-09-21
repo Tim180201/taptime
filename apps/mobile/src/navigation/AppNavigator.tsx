@@ -1,3 +1,5 @@
+import { TimeEditingProvider } from '../timeEditing/TimeEditingControls';
+import type { TimeEditingCapability } from '../timeEditing/TimeEditingCoordinator';
 import type { EmployeesCapability } from '../employees/contracts';
 import { EmployeesScreen } from '../screens/EmployeesScreen';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -34,7 +36,9 @@ export function AppNavigator({
   work,
   offlineManual,
   employees,
+  timeEditing,
 }: {
+  readonly timeEditing?: TimeEditingCapability;
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
   readonly administration: AdminSetupCapability;
@@ -70,8 +74,8 @@ export function AppNavigator({
 
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
-    return <ProductShell key={accountKey} identityLabel={state.identityLabel} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
-      scan={scan} administration={administration} work={work} offlineManual={offlineManual} />;
+    return <TimeEditingProvider key={accountKey} capability={timeEditing} work={work} membershipId={state.session.membershipId} role={state.session.role}><ProductShell key={accountKey} identityLabel={state.identityLabel} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
+      scan={scan} administration={administration} work={work} offlineManual={offlineManual} /></TimeEditingProvider>;
   }
   if (state.status === 'enrollment_only') {
     return <EmployeeEnrollmentScreen
@@ -182,7 +186,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
     return () => subscription.remove();
   }, [showSync, destination, scan, administration]);
   const roleLabel = role === 'administrator' ? 'Administrator' : role === 'standortleitung'
-    ? 'Standortleitung' : role === 'offline' ? 'Offline-Erfassung' : 'Deine Arbeitszeit';
+    ? 'Standortleitung' : role === 'offline' ? 'Offline' : 'Mitarbeiter';
   return <View style={[styles.productShell, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]}>
     <View style={styles.header}>
       {showSync || destination === 'manual' ? <TouchTarget accessibilityRole="button" accessibilityLabel="Zurück"
@@ -191,7 +195,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
       </TouchTarget> : null}
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={styles.title}>{showSync ? 'Abgleich' : destinationLabels[destination]}</Text>
-        <Text style={styles.subtitle} numberOfLines={1} accessibilityLabel={identityLabel}>{identityLabel ?? roleLabel}</Text>
+        <Text style={styles.subtitle} numberOfLines={1} accessibilityLabel={identityLabel ? `${identityLabel} · ${roleLabel}` : roleLabel}>{identityLabel ? `${identityLabel} · ${roleLabel}` : roleLabel}</Text>
       </View>
       <TouchTarget accessibilityRole="button" accessibilityLabel={status.label}
         onPress={openSync} style={styles.iconAction}>
@@ -207,6 +211,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
         <View style={{ flex: 1, display: !showSync && destination === 'capture' ? 'flex' : 'none' }}
           accessibilityElementsHidden={showSync || destination !== 'capture'}
           importantForAccessibility={showSync || destination !== 'capture' ? 'no-hide-descendants' : 'auto'}>
+          {role==='offline'?<View><ActionButton title="Zeit hinzufügen" disabled onPress={()=>{}} /><Text>Nachtragen ist nur online möglich.</Text></View>:null}
           <ScanScreen actor={role} scan={scan} work={work} signOut={() => session.signOut()} onManualCapture={() => navigate('manual')} embedded />
         </View>
         {showSync ? <SynchronizationScreen scan={scan} indicator={status} signOut={() => session.signOut()} />

@@ -1,3 +1,4 @@
+import { isTimeRecordDetails } from '@taptime/mobile-work-contract';
 import { createHash } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
@@ -196,15 +197,20 @@ export class TimeReviewCoordinator implements TimeReviewPort {
       TIME_REVIEW_READER_ROLE,
       controls,
       async (client, actor) => {
-        const result = await client.query<TimeRecordRowV2>(
-          `SELECT time_record_id, employee_membership_id, employee_display_name,
+        const baseQuery = `SELECT time_record_id, employee_membership_id, employee_display_name,
                   target_type, target_id, target_display_name, source, status,
                   started_via, stopped_via, started_at, stopped_at, base_row_version,
                   effective_revision_number, overlaps_another_record
            FROM taptime_server.read_effective_time_records_v2(
              $1, $2, $3, $4::timestamptz, $5::timestamptz,
              $6::timestamptz, $7::uuid, $8
-           )`,
+           )`;
+        const result = await client.query<TimeRecordRowV2 & {details?:unknown}>(
+          command.includeTimeDetails ? `WITH page AS MATERIALIZED (${baseQuery}),
+            details AS MATERIALIZED (SELECT * FROM taptime_server.read_time_record_details_v1(
+              ARRAY(SELECT time_record_id FROM page)))
+            SELECT page.*,details.details FROM page LEFT JOIN details USING(time_record_id)
+            ORDER BY page.started_at,page.time_record_id` : baseQuery,
           [
             actor.organization_id,
             actor.user_id,
@@ -221,7 +227,12 @@ export class TimeReviewCoordinator implements TimeReviewPort {
         return {
           status: 'ready' as const,
           value: Object.freeze({
-            records: Object.freeze(visible.map(mapTimeRecordV2)),
+            records: Object.freeze(visible.map(row=>{
+              const record=mapTimeRecordV2(row);
+              if(!command.includeTimeDetails) return record;
+              if(!isTimeRecordDetails(row.details)) throw new Error('Missing time details');
+              return Object.freeze({...record,details:row.details});
+            })),
             nextCursor: result.rows.length > validation.request.limit && last !== undefined
               ? encodeCursor(last.started_at, last.time_record_id)
               : null,

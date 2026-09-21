@@ -58,6 +58,26 @@ describe('DA2 PostgreSQL export security and truth', () => {
     timeout?: number,
   ) => testCases.push({ name, run, timeout });
 
+  registerExportTest('T-066 v4 exposes all origins and current comment without changing v3 bytes',async()=>{
+    const recovered='60000000-0000-4000-8000-000000000166';
+    const backfilled='60000000-0000-4000-8000-000000000167';
+    for (const id of [recovered,backfilled]) await insertRecoveredRevision({timeEntryId:id,userId:ids.employeeA,startedAt:'2026-07-19T08:00:00Z',stoppedAt:'2026-07-19T09:00:00Z'});
+    await installerPool.query("INSERT INTO taptime_server.time_record_origins(organization_id,time_record_id,origin,created_by) VALUES($1,$2,'backfilled','self')",[ids.organizationA,backfilled]);
+    await installerPool.query(`INSERT INTO taptime_server.time_record_comments(organization_id,time_record_id,comment_number,user_id,actor_membership_id,comment,command_id)
+      VALUES($1,$2,1,$3,$4,'=Kommentar',gen_random_uuid())`,[ids.organizationA,backfilled,ids.employeeA,ids.membershipEmployeeA]);
+    await insertStoppedEntry({entryId:'60000000-0000-4000-8000-000000000168',startEventId:'50000000-0000-4000-8000-000000000168',stopEventId:'50000000-0000-4000-8000-000000000169',userId:ids.employeeA,
+      startedAt:'2026-07-18T08:00:00Z',stoppedAt:'2026-07-18T09:00:00Z',startedVia:'manual',stoppedVia:'nfc'});
+    const old=await exportV3As(tokens.adminA);
+    const current=await coordinator.exportTimeEntriesV4(command(tokens.adminA,request));
+    expect(current.status).toBe('succeeded');
+    if(current.status!=='succeeded' || old.status!=='succeeded') return;
+    const csv=Buffer.from(current.bytes).toString('utf8');
+    for(const label of ['gescannt','manuell','nachgetragen','wiederhergestellt',"'=Kommentar"]) expect(csv).toContain(label);
+    const after=await exportV3As(tokens.adminA); expect(after.status).toBe('succeeded');
+    if(after.status==='succeeded') expect(after.bytes).toEqual(old.bytes);
+    expect(current.filename).toContain('_v4_');
+  });
+
   registerExportTest('exports only the derived tenant snapshot and appends one exact hash-bound audit', async () => {
     const result = await exportAs(tokens.adminA);
     expect(result.status).toBe('succeeded');

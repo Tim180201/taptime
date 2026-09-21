@@ -7,6 +7,7 @@ import {
   serializeTimeEntryExportCsv,
   serializeTimeEntryExportCsvV2,
   serializeTimeEntryExportCsvV3,
+  serializeTimeEntryExportCsvV4,
   validateTimeEntryExportRequest,
   type TimeEntryExportRow,
   type TimeEntryExportRowV2,
@@ -114,10 +115,14 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
     return this.exportVersion(command, controls, 3);
   }
 
+  async exportTimeEntriesV4(command: TimeEntryExportCommand, controls: TimeEntryExportCoordinatorControls = {}): Promise<TimeEntryExportResult> {
+    return this.exportVersion(command, controls, 4);
+  }
+
   private async exportVersion(
     command: TimeEntryExportCommand,
     controls: TimeEntryExportCoordinatorControls,
-    schemaVersion: 1 | 2 | 3,
+    schemaVersion: 1 | 2 | 3 | 4,
   ): Promise<TimeEntryExportResult> {
     const validation = validateTimeEntryExportRequest(command.request);
     if (
@@ -256,9 +261,19 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
             transactionOpen = false;
             return { status: 'export_limit_exceeded' };
           }
+          if (schemaVersion === 4) {
+            const details = (await client.query<{time_record_id:string;details:{origin:'nfc'|'manual'|'backfilled'|'recovered';changed:boolean;comment:string|null}}>(
+              'SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[])', [snapshot.map(row=>row.time_entry_id)])).rows;
+            serialized = serializeTimeEntryExportCsvV4(snapshot.map(row=> {
+              const extra = details.find(d=>d.time_record_id===row.time_entry_id)?.details;
+              if (!extra) throw new Error('Missing export details');
+              return {...mapExportRowV3(row,actor),...extra};
+            }));
+          } else {
           serialized = serializeTimeEntryExportCsvV3(
             snapshot.map((row): TimeEntryExportRowV3 => mapExportRowV3(row, actor)),
           );
+          }
         }
       } catch (error) {
         if (error instanceof TimeEntryExportLimitError) {
@@ -537,7 +552,7 @@ function mapExportRowV3(
 function exportFilename(
   fromInclusive: string,
   toExclusive: string,
-  schemaVersion: 1 | 2 | 3,
+  schemaVersion: 1 | 2 | 3 | 4,
 ): string {
   const sanitize = (value: string): string => value.replaceAll(/[-:.]/g, '');
   const version = schemaVersion === 1 ? '' : `_v${schemaVersion}`;

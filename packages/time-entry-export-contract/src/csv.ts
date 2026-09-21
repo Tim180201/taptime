@@ -12,6 +12,7 @@ import type {
   TimeEntryExportRow,
   TimeEntryExportRowV2,
   TimeEntryExportRowV3,
+  TimeEntryExportRowV4,
 } from './types.js';
 import { isCanonicalTimeEntryExportUuid } from './validation.js';
 
@@ -137,6 +138,44 @@ export function serializeTimeEntryExportCsvV3(
       neutralizeSpreadsheetFormula(`${row.targetType}: ${row.targetDisplayName}`),
       `start=${row.startedVia}; end=${row.stoppedVia}`,
       row.revisionNumber === '0' ? 'no' : `yes; revision=${row.revisionNumber}`,
+    ])),
+  ];
+  const bytes = new TextEncoder().encode(`\uFEFF${lines.join('\r\n')}\r\n`);
+  if (bytes.byteLength > TIME_ENTRY_EXPORT_MAXIMUM_BYTES) {
+    throw new TimeEntryExportLimitError('bytes');
+  }
+  return Object.freeze({ bytes, byteCount: bytes.byteLength, rowCount: rows.length });
+}
+
+export function serializeTimeEntryExportCsvV4(
+  rows: readonly TimeEntryExportRowV4[],
+): SerializedTimeEntryExport {
+  if (rows.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
+    throw new TimeEntryExportLimitError('rows');
+  }
+  for (const row of rows) assertValidRowV3(row);
+  const orderedRows = [...rows].sort((left, right) => (
+    left.startedAtUtc.localeCompare(right.startedAtUtc)
+    || left.timeEntryId.localeCompare(right.timeEntryId)
+  ));
+  const lines = [
+    serializeCells([...TIME_ENTRY_EXPORT_HEADERS_V3,'origin','changed','comment']),
+    ...orderedRows.map((row) => serializeCells([
+      row.personIdentifier,
+      neutralizeSpreadsheetFormula(row.employeeDisplayName),
+      row.localDate,
+      row.startedAtLocal,
+      row.stoppedAtLocal,
+      row.startedAtUtc,
+      row.stoppedAtUtc,
+      row.breakDurationSeconds,
+      row.effectiveWorkDurationSeconds,
+      neutralizeSpreadsheetFormula(`${row.targetType}: ${row.targetDisplayName}`),
+      `start=${row.startedVia}; end=${row.stoppedVia}`,
+      row.revisionNumber === '0' ? 'no' : `yes; revision=${row.revisionNumber}`,
+      ({nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'} as const)[row.origin],
+      row.changed ? 'yes' : 'no',
+      neutralizeSpreadsheetFormula(row.comment ?? ''),
     ])),
   ];
   const bytes = new TextEncoder().encode(`\uFEFF${lines.join('\r\n')}\r\n`);

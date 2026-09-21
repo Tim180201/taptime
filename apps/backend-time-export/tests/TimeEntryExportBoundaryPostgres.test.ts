@@ -70,6 +70,14 @@ describe('DA2 export size boundaries in an isolated database run', () => {
     expect(await exportAuditCount()).toBe(0);
   }, 120_000);
 
+  it('serves v4 for a large valid page within the production deadline', async () => {
+    await insertBulkStoppedEntries(installerPool, 7_500);
+    const started = performance.now();
+    const result = await coordinator.exportTimeEntriesV4(command());
+    console.info(`[T-066 v4 boundary] export=${format(performance.now()-started)}ms status=${result.status}`);
+    expect(result.status).toBe('succeeded');
+  }, 120_000);
+
   it('fails payroll v3 closed above 8 MiB within a runner-relative budget', async () => {
     await truncateDa2DataTables(installerPool);
     await seedDa2(installerPool, true);

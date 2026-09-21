@@ -51,7 +51,7 @@ function ReadyProductMobileApp({
   if (startFailed) {
     return <UnavailableProductRuntime />;
   }
-  return <AppNavigator employees={runtime.employees}
+  return <AppNavigator timeEditing={runtime.timeEditing} employees={runtime.employees}
     session={runtime.session}
     scan={runtime.scan}
     administration={runtime.administration}

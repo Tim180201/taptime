@@ -14,6 +14,7 @@ import type {
 } from '@taptime/time-review-contract';
 
 export interface AuthenticatedTimeReviewCommand<T> {
+  readonly includeTimeDetails?: boolean;
   readonly accessToken: string;
   readonly request: T;
 }

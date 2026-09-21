@@ -18,6 +18,6 @@ export function PersonTimeScreen({person,value,onBack,onRefresh,busy=false,faile
           : value ? 'Gerade inaktiv' : 'Arbeitszeiten werden geladen …'}</Text></Card>
       {failed ? <Text accessibilityRole="alert">Die Zeiten konnten nicht vollständig geladen werden. Bitte aktualisiere die Ansicht.</Text> : null}
     </View>
-    {value ? <TimeCalendar value={value} onRefresh={onRefresh} onMonthChange={onMonthChange} /> : <ActionButton title={busy ? 'Wird geladen …' : 'Erneut versuchen'} disabled={busy} onPress={onRefresh} />}
+    {value ? <TimeCalendar targetMembershipId={person.membershipId} value={value} onRefresh={onRefresh} onMonthChange={onMonthChange} /> : <ActionButton title={busy ? 'Wird geladen …' : 'Erneut versuchen'} disabled={busy} onPress={onRefresh} />}
   </Screen>;
 }

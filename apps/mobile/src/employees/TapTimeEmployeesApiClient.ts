@@ -1,5 +1,5 @@
 import { isManagedActiveSummary, isManagedActiveSummaryRequest, isManagedPersonTimeRequest, type ManagedActiveSummaryRequest, type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
-import { validateOwnTimeResponse, type MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
+import { isDetailedTimeResponse, validateOwnTimeResponse, type MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import { hasExactKeys, isJsonContentType, isObject, isUuid, parseJsonObject } from '../transport/strictJson';
 import type { EmployeesApiPort, InvitationCommand, InvitationStatus, ReadResult } from './contracts';
@@ -17,7 +17,7 @@ export class TapTimeEmployeesApiClient implements EmployeesApiPort {
   personTime(request: ManagedPersonTimeRequest) {
     if (!isManagedPersonTimeRequest(request)) return Promise.resolve({status:'unavailable'} as const);
     return this.read('managed-person-time',request,(value): value is MobileOwnTimeQueryResponse =>
-      validateOwnTimeResponse(value) && value.records.length <= request.limit
+      (isDetailedTimeResponse(value) || validateOwnTimeResponse(value)) && value.records.length <= request.limit
       && value.windowStartedAt === request.fromInclusive && value.windowEndedAt === request.toExclusive
       && (value.activeRecord === null || (value.activeRecord.status === 'started' && value.activeRecord.stoppedAt === null))
       && value.records.every(record => record.status === 'stopped' && record.stoppedAt !== null
@@ -48,7 +48,7 @@ export class TapTimeEmployeesApiClient implements EmployeesApiPort {
     return {status:'unavailable'};
   }
   private async read<T>(path: string, request: unknown, validate: (v: unknown)=>v is T): Promise<ReadResult<T>> {
-    const response = await this.requests.post(new URL(`v1/administration/${path}`,this.base),JSON.stringify(request));
+    const response = await this.requests.post(new URL(`v1/administration/${path}`,this.base),JSON.stringify(request),path==='managed-person-time'?{includeTimeDetails:true}:undefined);
     if (response.status !== 'response') return response;
     if (response.statusCode === 401 || response.statusCode === 403) return {status:'authority_rejected'};
     if (response.statusCode !== 200 || !isJsonContentType(response.contentType)) return {status:'unavailable'};

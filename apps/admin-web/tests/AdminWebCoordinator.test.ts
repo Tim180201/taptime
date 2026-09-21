@@ -32,6 +32,7 @@ const employeeProjection: SafeEmployeeProjection = {
 };
 const fixedNow = Date.parse('2026-07-21T12:00:00.000Z');
 const readyTimeReviewState = {
+  membershipId,
   role: 'administrator',
   assignableLocations: [],
   locationSetup: null,
@@ -1637,4 +1638,57 @@ it('T049 refresh: the shell refresh reloads opened own-time data',async()=>{
  await coordinator.refresh();
  expect(ownTime).toHaveBeenCalledTimes(2);
  expect(coordinator.getState()).toMatchObject({status:'ready',calendar:{status:'ready',month:'2026-07',targetMembershipId:null}});
+});
+
+function t066Setup(role:Session['role']='employee') {
+ const auth=new FakeAuth(),api=new FakeApi();
+ api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role,availableSections:['own_time','manual_capture','employees']}});
+ const details={origin:'backfilled' as const,baseRowVersion:0,effectiveRevisionNumber:1,comment:null,changed:false,change:null,overlapsAnotherRecord:false};
+ const record={...stoppedRecord,details};
+ const page={activeRecord:null,records:[record],nextCursor:null,windowStartedAt:'2026-07-01T00:00:00.000Z',windowEndedAt:'2026-07-21T12:00:00.000Z'};
+ const ownTime=vi.fn(async()=>({status:'succeeded' as const,value:page}));
+ const managedPersonTime=vi.fn(async()=>({status:'succeeded' as const,value:{...page,windowStartedAt:'2026-06-30T22:00:00.000Z'}}));
+ const supplementTime=vi.fn<NonNullable<AdminWebApiPort['supplementTime']>>(async()=>({status:'succeeded',value:{status:'committed',timeRecordId:record.timeRecordId,idempotentRetry:false}}));
+ const coordinator=new AdminWebCoordinator(auth,{...api,ownTime,managedPersonTime,supplementTime},()=>fixedNow);
+ return {auth,api,coordinator,record,page,ownTime,managedPersonTime,supplementTime};
+}
+it('T066 retains an uncertain command, releases confirmed identity and refuses foreign or manager comments',async()=>{
+ const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ const input={kind:'comment' as const,targetMembershipId:membershipId,record:h.record,comment:'Eigene Notiz'};
+ h.supplementTime.mockResolvedValueOnce({status:'unreachable'});
+ expect(await h.coordinator.saveTimeEdit(input)).toEqual({status:'unavailable'});
+ expect((await h.coordinator.saveTimeEdit(input)).status).toBe('committed');
+ expect(h.supplementTime.mock.calls[0]![2]).toEqual(h.supplementTime.mock.calls[1]![2]);
+ await h.coordinator.saveTimeEdit(input);expect(h.supplementTime.mock.calls[2]![2]).not.toEqual(h.supplementTime.mock.calls[1]![2]);
+ expect((await h.coordinator.saveTimeEdit({...input,targetMembershipId:'20000000-0000-4000-8000-000000000002'})).status).toBe('authority_rejected');
+ const manager=t066Setup('standortleitung');await manager.coordinator.signIn('a@example.test','secret');await manager.coordinator.loadOwnTime('2026-07');
+ expect((await manager.coordinator.saveTimeEdit({...input,record:manager.record})).status).toBe('authority_rejected');expect(manager.supplementTime).not.toHaveBeenCalled();
+});
+it('T066 does not adopt an edit after logout',async()=>{
+ const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ const pending=deferred<ApiResult<import('@taptime/mobile-work-contract').TimeSupplementResult>>();h.supplementTime.mockReturnValueOnce(pending.promise);
+ const writing=h.coordinator.saveTimeEdit({kind:'comment',targetMembershipId:membershipId,record:h.record,comment:'Notiz'});
+ await h.coordinator.signOut();pending.resolve({status:'succeeded',value:{status:'committed',timeRecordId:h.record.timeRecordId,idempotentRetry:false}});
+ expect((await writing).status).toBe('authority_rejected');expect(h.coordinator.getState()).toEqual({status:'signed_out'});
+});
+it('T066 sends calendar correction versions through the unchanged correction API',async()=>{
+ const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ expect((await h.coordinator.saveTimeEdit({kind:'correct',record:h.record,targetMembershipId:membershipId,startedAt:h.record.startedAt,stoppedAt:h.record.stoppedAt!,reason:'Prüfung'})).status).toBe('committed');
+ expect(h.api.correctTimeRecord).toHaveBeenCalledWith('memory-only-token',membershipId,expect.any(String),expect.objectContaining({baseRowVersion:0,effectiveRevisionNumber:1}),h.record.startedAt,h.record.stoppedAt,'Prüfung');
+});
+it('T066 accepts structurally identical active details across pages',async()=>{
+ const h=t066Setup();const active={...h.record,timeRecordId:'90000000-0000-4000-8000-000000000003',status:'started' as const,stoppedAt:null};
+ h.ownTime.mockResolvedValueOnce({status:'succeeded',value:{...h.page,activeRecord:active,nextCursor:'next'}} as never)
+  .mockResolvedValueOnce({status:'succeeded',value:{...h.page,activeRecord:JSON.parse(JSON.stringify(active)),records:[]}});
+ await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ expect(h.coordinator.getState()).toMatchObject({status:'ready',calendar:{status:'ready',value:{activeRecord:active,nextCursor:null}}});
+});
+
+it('T066 leaves a newly opened person untouched by the prior edit acknowledgement',async()=>{
+ const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ const pending=deferred<ApiResult<import('@taptime/mobile-work-contract').TimeSupplementResult>>();h.supplementTime.mockReturnValueOnce(pending.promise);
+ const writing=h.coordinator.saveTimeEdit({kind:'comment',targetMembershipId:membershipId,record:h.record,comment:'Notiz'});
+ const another='20000000-0000-4000-8000-000000000002';await h.coordinator.loadPersonTime(another,'2026-07');
+ pending.resolve({status:'succeeded',value:{status:'committed',timeRecordId:h.record.timeRecordId,idempotentRetry:false}});await writing;
+ expect(h.coordinator.getState()).toMatchObject({status:'ready',notice:null,timeEditBusy:false,calendar:{targetMembershipId:another}});expect(h.managedPersonTime).toHaveBeenCalledTimes(1);expect(h.ownTime).toHaveBeenCalledTimes(1);
 });
