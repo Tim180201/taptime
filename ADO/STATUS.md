@@ -62,9 +62,9 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Offen bis zum Pilotbetrieb
 
-- **T-066 Arbeitsstand (22.09., nicht committet):** Server/App vom TL abgenommen; Web und
-  eigener Administrator-Kommentar ergänzt. Lokale Prüfungen und unabhängiges Review APPROVED;
-  Nachweise unter `.t066-review/`. Ergänzung bereit zur TL-Abnahme; kein Deploy und keine APK.
+- **T-066 (22.09.):** vom TL abgenommen und gepusht; CI scheiterte an v4-Exportlaufzeit,
+  Images deshalb übersprungen. Laufzeitkorrektur lokal umgesetzt, noch nicht committet;
+  Rot-/Grün- und EXPLAIN-Nachweise unter `.t066-review/`. Kein Deploy und keine APK.
 - **APK VersionCode 7 am Gerät abgenommen (D-044):** alle acht Punkte bestanden — vier Reiter,
   Tags neu beschrieben, **App geschlossen plus Dranhalten öffnet ohne Auswahldialog** (T-043),
   Tap-Moment, Offline in Bernstein, Aktiv-Kachel, Einladen vom Handy, eigener Kalender.
@@ -80,7 +80,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 - **P2 lokale Verifikation (T-066, behoben):** Erstläufe scheiterten auch an Testaufbau
   (fehlende lokale DB-Variable, nicht erfasste `.tsx`-Tests, veraltete Schema-/Status-Erwartungen
   und nach Schema-Neuaufbau fehlende Test-Login-Grants). Web-Fortsetzung: Rollen-/Seitenlimit-
-  Testdaten aktualisiert. Ursachen und grüne Nachweise im Review-Bericht.
+  Testdaten aktualisiert. Laufzeitkorrektur: falsche Status-Erwartung im neuen Test berichtigt;
+  SQL-NULL-Grenze mit frischer Verbindung belegt. Ursachen/Nachweise im Review-Bericht.
 - **P1 T-068 (Befund 21.09.):** Kein gangbarer Weg, einen Kunden als eigenen Betrieb
   anzulegen: nur das C3B-Werkzeug `taptime-bootstrap`, in keinem Produktionsabbild, ohne
   aktuelle Anleitung. Blockiert den Pilot; Betreiber-Bereich nach D-068.
