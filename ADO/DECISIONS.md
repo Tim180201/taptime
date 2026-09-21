@@ -1253,3 +1253,28 @@ Gemessen: 58,7 s = 48,9 %.
 gedreht, um eine Rechnung passend zu machen. Eine feste Reserve macht Messungen entscheidbar.
 **Grenze:** Der Konfigurationswert bleibt die gesamte Pause zwischen zwei vollen Durchläufen;
 das Alarmfenster wird weiter unverändert aus Intervall mal verpassten Zyklen berechnet.
+
+---
+
+## D-066 · Kein archive_timeout; die Sicherung pausiert die Archivierung begrenzt · 21.09.2026 · Claude (TL)
+**Entscheidung:** Berichtigt D-065. `archive_timeout` entfällt wieder; den Segmentwechsel
+fordert der Archivierer selbst an, in jedem Durchlauf, sobald eine offene Anforderung im noch
+offenen Segment liegt. Die 70-%-Regel bleibt. Neu: Während der Basissicherung ruht die
+Archivierung gewollt; der Wächter zählt ab dem späteren von Anforderung und Sicherungsende und
+alarmiert, wenn eine Sicherung länger als zehn Minuten läuft oder wartet.
+**Warum:** `archive_timeout` ließ den Archivierer seine eigenen Quittungen archivieren, rund
+200 Archive je Stunde ohne Taps; die Durchläufe wuchsen auf Stunden (Journal 20./21.09.).
+**Grenze:** Eine Messung gilt erst, wenn sie auch den stundenlangen Leerlauf abdeckt.
+
+---
+
+## D-067 · Zeit nachtragen und Kommentar · 21.09.2026 · Tim (PO), vorbereitet Claude (TL)
+**Entscheidung:** Ein Mitarbeiter trägt Zeiten nach (Arbeitsziel, Datum, von–bis, optional
+Kommentar), im laufenden Monat und im Vormonat. Nachgetragenes zählt sofort und ist überall
+als „nachgetragen" markiert; Administrator und Standortleitung sehen es und korrigieren mit
+Grund. Beide dürfen ohne Zeitgrenze nachtragen, immer mit Grund. Jeder Zeiteintrag kann einen
+Kommentar des Mitarbeiters tragen; frühere Fassungen bleiben erhalten; der Kommentar steht im
+Export. Kommt vor dem Pilotstart (T-066).
+**Warum:** Ein vergessener Tag ist heute von niemandem reparierbar. Der Tap bleibt der
+Normalfall; alles andere ist sichtbar die Ausnahme.
+

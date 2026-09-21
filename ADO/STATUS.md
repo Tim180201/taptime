@@ -1,9 +1,9 @@
 # TapTim.e — Status
 
-**Stand:** 18.09.2026 · Produktion läuft auf `91441c8` (Deploy 17:05 Uhr im ersten Anlauf, Migration 027
-und 028 angewendet; sechs bewiesene Wiederherstellungen an diesem Tag). Produktion und `main`
-tragen denselben Anwendungsstand (T-058, T-043, T-060, T-059); offen sind nur noch Dokumente
-(`e6efe86`). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
+**Stand:** 21.09.2026 · Produktion läuft auf `7f0012e` (Deploy 20.09., 15:06–15:11 Uhr, ein
+Anlauf, Migration 029; zwei weitere bewiesene Wiederherstellungen). Produktion und `main`
+tragen denselben Anwendungsstand (T-061, T-049, T-063, T-064). Offen vor dem Pilot: T-067,
+T-065, T-066. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
 vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -74,10 +74,11 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
-- **P1 T-063 (Befund 18.09.):** `archive_timeout` ist nicht gesetzt; PostgreSQL schließt eine
-  WAL-Datei erst bei 16 MB. Deshalb meldet ntfy wiederholt „WAL-Archivierung steht" — formal
-  zu Recht — und T-052 hält die Warteschlange des Handys weit länger als nötig. Behebung mit
-  T-063 vor dem Pilot, im selben Deploy wie T-049 und T-061.
+- **P1 T-067 (Befund 21.09.):** `archive_timeout=15s` (T-063, ausgeliefert 20.09.) lässt den
+  Archivierer seine eigenen Quittungen archivieren — rund 200 Archive je Stunde ohne Taps. Die
+  Durchläufe wachsen auf Stunden, die stündliche Sicherung verhungert, der Spool wächst auf der
+  Datenbankplatte (6,0 → 17 GB in 20 h). Archivierer bis zum Deploy von T-067 angehalten;
+  Basissicherungen laufen weiter. Kein Datenverlust. Berichtigung in D-066.
 
 - **P2 T-059:** Mehrere gleichzeitige Standort-Grants sind im Handy-Vertrag (ein Standort)
   nicht darstellbar; dann bleibt der Reiter Mitarbeiter aus — es wird kein Standort geraten
