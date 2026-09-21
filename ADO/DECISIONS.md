@@ -1300,3 +1300,16 @@ Standortleitung und App folgen mit T-062.
 **Grenze (TL):** Das Original bleibt erhalten, und der Mitarbeiter sieht an seinem Eintrag,
 dass, wann und warum geändert wurde.
 
+---
+
+## D-070 · Nachgetragene Zeit ist kein WorkEvent · 21.09.2026 · Claude (TL)
+**Entscheidung:** Ein nachgetragener Eintrag entsteht als Revision 1 eines neuen Zeiteintrags
+ohne kanonischen Eintrag, mit dauerhaft gespeicherter Herkunft „nachgetragen". Er durchläuft
+weder Trigger noch WorkEvent noch Business Engine.
+**Warum:** Der Weg `Trigger → WorkEvent → Engine → TimeEntry` beschreibt, was in dem Moment
+geschah, in dem es geschah. Eine Zeit, die jemand später aufschreibt, ist eine andere Art von
+Beleg und muss als solche erkennbar bleiben — in App, Web und Export. Das Modell trägt solche
+Einträge schon (Migration 012/013); sie bekommen nur ihre eigene Herkunft.
+**Grenze:** Nachgetragenes überschneidet sich nie mit einem anderen wirksamen Eintrag derselben
+Person und liegt nie in der Zukunft.
+

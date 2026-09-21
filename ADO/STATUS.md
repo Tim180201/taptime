@@ -2,8 +2,8 @@
 
 **Stand:** 21.09.2026 · Produktion läuft auf `7f0012e` (Deploy 20.09., 15:06–15:11 Uhr, ein
 Anlauf, Migration 029; zwei weitere bewiesene Wiederherstellungen). Produktion trägt T-061,
-T-049, T-063 und T-064; auf `main` zusätzlich T-067 (`d75fd56`), Deploy läuft. Offen vor dem
-Pilot: T-065, T-066, T-068. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
+T-049, T-063 und T-064; auf `main` zusätzlich T-067 (`d75fd56`, Deploy läuft) und T-065 (`ae6e0bf`).
+Offen vor dem Pilot: T-066, T-068. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
 vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
