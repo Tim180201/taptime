@@ -77,6 +77,24 @@ stoppen und melden. **Grundlage:** D-067, D-069, D-070, Geräteabnahme vom 21.09
 - v3-Export, bisherige Antwortformen und alte App-Versionen bleiben unverändert funktionsfähig.
 - Kein Deploy, kein APK-Bau.
 
+### Korrektur vom 21.09. (Befund Development, Entscheidung Technical Lead, D-071)
+
+Richtig gestoppt: `correct_time_record_v1` weist alles außer `stopped` als `not_adjustable` ab
+(Migration 012, Zeile 820), und die Leser der Engine lesen den laufenden Zustand direkt aus
+`time_entries`. Eine laufende Zeit durch die Verwaltung zu beenden ist eine Änderung am
+Lebenszyklus — die habe ich mit „jeden Eintrag" versehentlich mitbestellt.
+
+9. **„Ändern" gilt für abgeschlossene Einträge.** An einem laufenden Eintrag gibt es keinen
+   Ändern-Knopf, sondern den sichtbaren Hinweis „Läuft noch — erst beenden, dann ändern".
+   Der Weg bis T-069: Der Mitarbeiter beendet per Tap oder von Hand, danach korrigiert der
+   Administrator das Ende.
+10. **Später entstehende Überschneidungen werden sichtbar gemacht, nicht verhindert.** Beim
+    Nachtragen gilt die Prüfung aus Punkt 2. Überschneidet sich ein Eintrag später — etwa durch
+    einen verspätet abgeglichenen Offline-Tap oder eine Korrektur —, markieren Eigenzeit- und
+    Personenzeitansicht (in der neuen Antwortfassung) beide Einträge als „überschneidet sich".
+    Keine Sperre in Abgleich, Engine oder Korrektur.
+11. Alles andere aus diesem Auftrag gilt unverändert; Reihenfolge Server → App → Web.
+
 ### Verifikation und Abschluss
 
 - **Rotnachweise zuerst**, je Grenze: Mitarbeiter für andere; außerhalb des Fensters; in der
@@ -88,6 +106,8 @@ stoppen und melden. **Grundlage:** D-067, D-069, D-070, Geräteabnahme vom 21.09
 - Alte Clients: bisherige Antworten byteweise gleich, wenn die neue Fassung nicht angefordert
   wird.
 - Export v4 mit allen vier Herkünften und Kommentar; v3 unverändert.
+- Laufender Eintrag: kein Ändern angeboten, Hinweis sichtbar; die bestehende Korrektur bleibt
+  unverändert. Überschneidungsmarke: Rot-/Grünnachweis mit einem verspätet eingespielten Eintrag.
 - App und Web: Tests für jeden Knopf und jede Marke; Typechecks einschließlich Tests;
   `npx expo export --platform android`; Barrierefreiheit (axe im Web).
 - Unabhängiges read-only Review, höchstens zwei Runden. Nichts committen, nichts pushen.

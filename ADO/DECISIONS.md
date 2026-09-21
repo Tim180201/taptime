@@ -1313,3 +1313,14 @@ Einträge schon (Migration 012/013); sie bekommen nur ihre eigene Herkunft.
 **Grenze:** Nachgetragenes überschneidet sich nie mit einem anderen wirksamen Eintrag derselben
 Person und liegt nie in der Zukunft.
 
+---
+
+## D-071 · Ändern heißt abgeschlossene Einträge ändern · 21.09.2026 · Claude (TL)
+**Entscheidung:** Präzisiert D-069. Administrator und Standortleitung ändern abgeschlossene
+Einträge; ein laufender Eintrag wird zuerst beendet (Tap oder von Hand), dann korrigiert.
+Dass die Verwaltung eine laufende Zeit selbst beendet, ist eine Änderung am Lebenszyklus und
+eine eigene Aufgabe (T-069). Überschneidungen, die nach dem Nachtragen entstehen, werden
+markiert, nicht gesperrt.
+**Warum:** Die bestehende Korrektur und die Leser der Engine kennen nur geschlossene
+Revisionen; ein laufender Eintrag hat seine Wahrheit im Lebenszyklus, nicht in einer Revision.
+
