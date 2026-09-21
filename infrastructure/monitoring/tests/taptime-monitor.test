@@ -24,19 +24,24 @@ epoch_for() {
   node -e 'process.stdout.write(String(Date.parse(process.argv[1]) / 1000))' "$1"
 }
 
-# A quiet database must close a written segment without waiting for another tap or 16 MiB.
-# Guard the database service in both deployed and local configuration, not an unrelated command.
+# D-066: archive_timeout archives the archiver's own receipts even without taps.
+# Only explicit demand in the open segment may request an early switch.
 for compose_file in docker-compose.server.yml docker-compose.local.yml; do
   database_service="$(awk '
     /^  database:/ { database = 1; next }
     database && /^  [^ ]/ { exit }
     database { print }
   ' "$REPOSITORY_ROOT/infrastructure/$compose_file")"
-  printf '%s\n' "$database_service" \
-    | grep --fixed-strings --line-regexp --quiet \
-      '    command: ["postgres", "-c", "archive_timeout=15s"]' \
-    || fail "$compose_file database must configure archive_timeout=15s"
+  [[ -n "$database_service" ]] || fail "$compose_file has no database service"
+  if grep --quiet 'archive_timeout' <<< "$database_service"; then
+    fail "$compose_file database must not configure archive_timeout (D-066)"
+  fi
 done
+
+# systemctl reads the local systemd socket; the deployed sandbox must permit that family.
+grep '^RestrictAddressFamilies=.*AF_UNIX' \
+  "$REPOSITORY_ROOT/infrastructure/monitoring/taptime-immediate-monitor.service" >/dev/null \
+  || fail 'the immediate monitor must be able to read systemd through AF_UNIX'
 
 mkdir -p "$test_root/bin" "$test_root/config" "$test_root/state" "$test_root/messages"
 chmod 0700 "$test_root/config" "$test_root/state"
@@ -69,7 +74,16 @@ set -euo pipefail
 printf 'Use%%\n%s%%\n' "${FAKE_DISK_PERCENT:-0}"
 FAKE_DF
 
-chmod 0755 "$test_root/bin/curl" "$test_root/bin/df"
+cat > "$test_root/bin/systemctl" <<'FAKE_SYSTEMCTL'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == 'show taptime-backup.service --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp' ]]
+[[ "${FAKE_SYSTEMCTL_FAILURE:-0}" == 0 ]] || exit 1
+printf 'LoadState=loaded\nActiveState=%s\nInactiveExitTimestamp=%s\nInactiveEnterTimestamp=%s\n' \
+  "${FAKE_BACKUP_STATE:-inactive}" "${FAKE_BACKUP_STARTED:-}" "${FAKE_BACKUP_ENDED:-}"
+FAKE_SYSTEMCTL
+
+chmod 0755 "$test_root/bin/curl" "$test_root/bin/df" "$test_root/bin/systemctl"
 
 cat > "$test_root/config/ntfy.curl" <<'EOF_NTFY'
 url = "https://ntfy.sh/test-only-secret-topic"
@@ -234,4 +248,64 @@ for expected_alert in \
     || fail "missing operational alert: $expected_alert"
 done
 
-printf 'Monitoring tests passed: heartbeat, derived WAL backlog, fixed messages, two priorities, no secret argv.\n'
+# systemd Type=oneshot remains activating while ExecStart waits on flock. The start
+# belongs to that activation, never the monitor's observation or a stale success file.
+export FAKE_BACKUP_STATE FAKE_BACKUP_STARTED FAKE_BACKUP_ENDED
+backup_start="$(epoch_for '2026-08-24T12:00:00Z')"
+iso_for() { node -e 'process.stdout.write(new Date(Number(process.argv[1])*1000).toISOString().replace(".000Z","Z"))' "$1"; }
+check_backup_alert() {
+  local now="$1" expected="$2" description="$3"
+  rm -f "$test_root/messages"/* "$test_root/state/wal-archive-down"
+  TAPTIME_MONITOR_NOW_EPOCH="$now" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+  assert_equals "$expected" "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" "$description"
+  if (( expected )); then
+    assert_equals 'WAL-Archivierung steht' "$(< "$test_root/messages/0")" "$description message"
+  fi
+}
+FAKE_BACKUP_STARTED="$(iso_for "$backup_start")"
+FAKE_BACKUP_ENDED="$(iso_for "$((backup_start - 3600))")"
+for FAKE_BACKUP_STATE in activating active deactivating; do
+  for duration in 599 600 601; do
+    # Even a fresh empty status cannot hide a backup exceeding the fixed ten minutes.
+    printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' \
+      "$(iso_for "$((backup_start + duration))")" > "$WAL_ARCHIVE_STATUS"
+    expected=0; (( duration <= 600 )) || expected=1
+    check_backup_alert "$((backup_start + duration))" "$expected" "$FAKE_BACKUP_STATE for $duration seconds"
+  done
+done
+FAKE_BACKUP_STATE=activating
+rm "$WAL_ARCHIVE_STATUS"
+check_backup_alert "$((backup_start + 599))" 0 'a waiting backup pauses missing status at 9:59'
+check_backup_alert "$((backup_start + 601))" 1 'a backup that never acquired the lock alarms at 10:01'
+
+backup_end=$((backup_start + 120))
+FAKE_BACKUP_STATE=inactive
+FAKE_BACKUP_ENDED="$(iso_for "$backup_end")"
+for requirement in "$((backup_start - 10))" "$((backup_start + 60))" "$((backup_end + 30))"; do
+  for elapsed in "$((archive_window - 1))" "$archive_window" "$((archive_window + 1))"; do
+    now=$((backup_end + elapsed))
+    # Observe freshly to isolate requirement age; requirements after backup keep their own clock.
+    printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":"%s","oldest_required_wal_file":"000000010000000000000002","last_archived_wal_file":"000000010000000000000001","pending_count":1}\n' \
+      "$(iso_for "$now")" "$(iso_for "$requirement")" > "$WAL_ARCHIVE_STATUS"
+    age_from=$backup_end; (( requirement <= backup_end )) || age_from=$requirement
+    expected=0; (( now - age_from <= archive_window )) || expected=1
+    check_backup_alert "$now" "$expected" "requirement=$requirement after backup elapsed=$elapsed"
+  done
+done
+for observed_epoch in "$((backup_start - 10))" "$((backup_start + 60))" "$((backup_end + 30))"; do
+  for elapsed in "$((archive_window - 1))" "$((archive_window + 1))"; do
+    printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' \
+      "$(iso_for "$observed_epoch")" > "$WAL_ARCHIVE_STATUS"
+    age_from=$backup_end; (( observed_epoch <= backup_end )) || age_from=$observed_epoch
+    expected=0; (( backup_end + elapsed - age_from <= archive_window )) || expected=1
+    check_backup_alert "$((backup_end + elapsed))" "$expected" "status=$observed_epoch after backup elapsed=$elapsed"
+  done
+done
+# Grace changes age only: neither a failed status nor a gap becomes healthy after backup.
+printf '{"state":"failed"}\n' > "$WAL_ARCHIVE_STATUS"
+check_backup_alert "$((backup_end + 1))" 1 'backup end does not hide failed archive status'
+printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":"%s","oldest_required_wal_file":"000000010000000000000002","last_archived_wal_file":"000000010000000000000003","pending_count":1}\n' \
+  "$(iso_for "$backup_end")" "$(iso_for "$backup_start")" > "$WAL_ARCHIVE_STATUS"
+check_backup_alert "$((backup_end + 1))" 1 'backup end does not hide a WAL gap'
+
+printf 'Monitoring tests passed: heartbeat, derived WAL backlog, bounded backup pause including lock waits, fixed messages, two priorities, no secret argv.\n'

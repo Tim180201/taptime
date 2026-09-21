@@ -9,6 +9,8 @@ readonly NTFY_CURL_CONFIG="$CONFIG_DIRECTORY/ntfy.curl"
 readonly HEALTHCHECKS_CURL_CONFIG="$CONFIG_DIRECTORY/healthchecks.curl"
 readonly API_DOWN_STATE="$STATE_DIRECTORY/api-down"
 readonly WAL_ARCHIVE_DOWN_STATE="$STATE_DIRECTORY/wal-archive-down"
+# D-066: includes the oneshot's wait for the shared Borg lock; no configurable extension.
+readonly BACKUP_PAUSE_MAX_SECONDS=600
 
 file_mode() {
   if stat --format='%a' "$1" >/dev/null 2>&1; then
@@ -50,7 +52,39 @@ send_urgent_notification() {
 wal_archive_is_current() {
   local content observed oldest oldest_wal last_archived_wal last_archived pending_count
   local now_epoch observed_epoch oldest_epoch last_archived_epoch
-  local maximum_age
+  local maximum_age backup_properties key value backup_state='' backup_loaded=''
+  local backup_started='' backup_ended='' backup_start_epoch=0 backup_end_epoch=0
+
+  now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
+  # Type=oneshot stays activating throughout ExecStart, including flock. ActiveEnter
+  # would miss that entire interval. InactiveEnter also covers a failed/aborted run.
+  backup_properties="$(systemctl show taptime-backup.service \
+    --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp)" || return 1
+  while IFS='=' read -r key value; do
+    case "$key" in
+      LoadState) backup_loaded="$value" ;;
+      ActiveState) backup_state="$value" ;;
+      InactiveExitTimestamp) backup_started="$value" ;;
+      InactiveEnterTimestamp) backup_ended="$value" ;;
+    esac
+  done <<< "$backup_properties"
+  [[ "$backup_loaded" == loaded ]] || return 1
+  if [[ -n "$backup_started" ]]; then
+    backup_start_epoch="$(utc_epoch "$backup_started")" || return 1
+    (( backup_start_epoch <= now_epoch )) || return 1
+  fi
+  case "$backup_state" in
+    activating|active|deactivating)
+      (( backup_start_epoch > 0 && now_epoch - backup_start_epoch <= BACKUP_PAUSE_MAX_SECONDS ))
+      return $?
+      ;;
+    inactive|failed) ;;
+    *) return 1 ;;
+  esac
+  if (( backup_start_epoch > 0 )) && [[ -n "$backup_ended" ]]; then
+    backup_end_epoch="$(utc_epoch "$backup_ended")" || return 1
+    (( backup_end_epoch >= backup_start_epoch && backup_end_epoch <= now_epoch )) || return 1
+  fi
 
   [[ -f "$WAL_ARCHIVE_STATUS_FILE" ]] || return 1
   content="$(< "$WAL_ARCHIVE_STATUS_FILE")"
@@ -59,8 +93,8 @@ wal_archive_is_current() {
   observed="${BASH_REMATCH[1]}"
   [[ "$content" =~ \"pending_count\":([0-9]+) ]] || return 1
   pending_count="${BASH_REMATCH[1]}"
-  now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
   observed_epoch="$(utc_epoch "$observed")" || return 1
+  (( observed_epoch >= backup_end_epoch )) || observed_epoch=$backup_end_epoch
   maximum_age=$((WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES))
   (( now_epoch - observed_epoch <= maximum_age )) || return 1
   (( pending_count == 0 )) && return 0
@@ -70,6 +104,7 @@ wal_archive_is_current() {
   [[ "$content" =~ \"oldest_required_wal_file\":\"([0-9A-F]{24})\" ]] || return 1
   oldest_wal="${BASH_REMATCH[1]}"
   oldest_epoch="$(utc_epoch "$oldest")" || return 1
+  (( oldest_epoch >= backup_end_epoch )) || oldest_epoch=$backup_end_epoch
   if [[ "$content" =~ \"last_archived_wal_file\":\"([0-9A-F]{24})\" ]]; then
     last_archived_wal="${BASH_REMATCH[1]}"
     # A later externally archived segment with an earlier hole is never a healthy sequence.

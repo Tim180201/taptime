@@ -16,4 +16,4 @@ ProtectSystem=strict
 StateDirectory=taptime-monitor
 StateDirectoryMode=0700
 ReadWritePaths=/var/lib/taptime-monitor
-RestrictAddressFamilies=AF_INET AF_INET6
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6

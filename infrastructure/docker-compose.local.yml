@@ -5,7 +5,6 @@ services:
     build:
       context: ..
       dockerfile: infrastructure/postgres/Dockerfile
-    command: ["postgres", "-c", "archive_timeout=15s"]
     environment:
       POSTGRES_DB: taptime
       POSTGRES_USER: postgres

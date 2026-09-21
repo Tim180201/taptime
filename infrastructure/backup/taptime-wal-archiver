@@ -5,6 +5,9 @@ readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
 CLUSTER_SYSTEM_IDENTIFIER=''
 CLUSTER_ARCHIVE_IDENTIFIER=''
+uploaded_segments=0
+reconciled_archives=0
+switch_requested=0
 
 require_file() {
   [[ -f "$1" ]] || { printf 'Required file is missing: %s\n' "$1" >&2; return 1; }
@@ -149,6 +152,28 @@ load_cluster_identity() {
 pending_wal_files() {
   database_query \
     "SET ROLE taptime_wal_archiver; SELECT wal_file FROM taptime_server.read_pending_offsite_wal_files_v1();"
+}
+
+close_required_segment() {
+  local pending current closed deadline
+  pending="$(pending_wal_files)" || return 1
+  [[ -n "$pending" ]] || return 0
+  # PostgreSQL 17 names the current segment also at an exact segment boundary.
+  current="$(database_query 'SELECT pg_catalog.pg_walfile_name(pg_catalog.pg_current_wal_insert_lsn());')" || return 1
+  [[ "$current" =~ ^[0-9A-F]{24}$ ]] || return 1
+  grep --fixed-strings --line-regexp --quiet "$current" <<< "$pending" || return 0
+  # Recheck at the switch: a naturally closed segment must not cause another switch.
+  closed="$(database_query "SELECT pg_catalog.pg_walfile_name(pg_catalog.pg_switch_wal())
+    WHERE pg_catalog.pg_walfile_name(pg_catalog.pg_current_wal_insert_lsn()) = '$current';")" || return 1
+  [[ -n "$closed" ]] || return 0
+  [[ "$closed" =~ ^[0-9A-F]{24}$ ]] || return 1
+  switch_requested=1
+  # pg_receivewal renames .partial only after the complete segment is durable. Give it
+  # at most ten seconds, then process the available spool and retry on the next pass.
+  deadline=$((SECONDS + 10))
+  while [[ ! -f "$WAL_SPOOL_DIRECTORY/$closed" ]] && (( SECONDS < deadline )); do
+    sleep 1
+  done
 }
 
 receiver_is_active() {
@@ -342,8 +367,10 @@ ensure_wal_receipt() {
   checksum="$(registered_wal_checksum "$wal_file")" || return 1
   if [[ -n "$checksum" ]]; then
     [[ "$checksum" =~ ^[0-9a-f]{64}$ ]] || return 1
-    borg info "$BORG_REPOSITORY::wal-$CLUSTER_ARCHIVE_IDENTIFIER-$wal_file" >/dev/null || return 1
-    return
+    # archive_file records this receipt only after byte-exact read-back (D-066).
+    # Another remote existence check adds no evidence; restore-verify does the deep check.
+    # Without a receipt (including after restore), keep the read-back path below.
+    return 0
   fi
   checksum="$(archived_checksum "$wal_file")" || return 1
   [[ "$checksum" =~ ^[0-9a-f]{64}$ ]] || return 1
@@ -434,6 +461,7 @@ reconcile_wal_sequence() {
     # PostgreSQL accepts the advancement only when its exact predecessor already belongs to
     # this base's chain. A later archive can therefore never bridge a missing segment.
     advance_watermark "$base_archive" "$wal_file" || return 1
+    reconciled_archives=$((reconciled_archives + 1))
     previous_wal_file="$wal_file"
   done <<< "$wal_archives"
   [[ -n "$previous_wal_file" && ! "$previous_wal_file" < "$minimum_end_wal" ]] || {
@@ -448,11 +476,13 @@ archive_file() {
   local local_checksum offsite_checksum
 
   if ! borg info "$BORG_REPOSITORY::$archive_name" >/dev/null 2>&1; then
-    printf 'Writing encrypted offsite WAL archive %s.\n' "$archive_name"
     (
       cd "$WAL_SPOOL_DIRECTORY"
       borg create --compression zstd,6 "$BORG_REPOSITORY::$archive_name" "$file"
     )
+    if [[ "$file" =~ ^[0-9A-F]{24}$ ]]; then
+      uploaded_segments=$((uploaded_segments + 1))
+    fi
   fi
 
   if [[ "$file" =~ ^[0-9A-F]{24}$ ]]; then
@@ -473,13 +503,9 @@ archive_file() {
 }
 
 archive_once() {
-  local mode="${1:-full}"
-  local pending=''
   local path file
   local oldest_required_at oldest_required_wal_file marker_archive
   local last_archived_wal_file last_archived_at pending_count
-
-  [[ "$mode" == full || "$mode" == spool ]] || return 1
 
   exec 9>"$LOCK_FILE"
   flock 9
@@ -488,13 +514,8 @@ archive_once() {
     printf 'The physical WAL receiver slot is not active.\n' >&2
     return 1
   }
-  # The intermediate pass collects completed segments without requesting another switch.
-  # It still follows the same receiver, archive, chain, backlog and status checks below.
-  if [[ "$mode" == full && "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" != '1' ]]; then
-    pending="$(pending_wal_files)"
-    if [[ -n "$pending" ]]; then
-      database_query 'SELECT pg_catalog.pg_switch_wal();' >/dev/null
-    fi
+  if [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" != '1' ]]; then
+    close_required_segment
   fi
 
   for path in "$WAL_SPOOL_DIRECTORY"/*; do
@@ -532,8 +553,19 @@ archive_once() {
     "$last_archived_wal_file" "$last_archived_at" "$pending_count"
 }
 
+run_archive_cycle() (
+  # shellcheck disable=SC2034 # Read by the EXIT trap, including failed cycles.
+  cycle_started=$SECONDS
+  uploaded_segments=0
+  reconciled_archives=0
+  switch_requested=0
+  trap 'printf "WAL cycle: duration_seconds=%s uploaded_segments=%s reconciled_archives=%s switch_requested=%s result=%s\n" "$((SECONDS - cycle_started))" "$uploaded_segments" "$reconciled_archives" "$switch_requested" "$?"' EXIT
+  set -e
+  archive_once
+)
+
 main() {
-  local mode='full' half_interval_seconds
+  local half_interval_seconds archive_status
   require_file "$CONFIG_FILE"
   # shellcheck source=/etc/taptime-backup/config
   source "$CONFIG_FILE"
@@ -578,7 +610,7 @@ main() {
 
   while true; do
     set +e
-    ( set -e; archive_once "$mode" )
+    run_archive_cycle
     archive_status=$?
     set -e
     if (( archive_status != 0 )); then
@@ -588,7 +620,6 @@ main() {
       return "$archive_status"
     fi
     sleep "$half_interval_seconds"
-    if [[ "$mode" == full ]]; then mode='spool'; else mode='full'; fi
   done
 }
 

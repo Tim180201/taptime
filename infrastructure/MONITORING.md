@@ -37,28 +37,42 @@ Ereigniswarteschlange löst ein stehender Empfänger oder veralteter Status aus.
 `WAL-Archivierung steht` bedeutet: Der externe Archivnachweis fehlt oder ist nicht rechtzeitig
 aktuell. Drei mögliche Ursachen sind ein ausgefallener WAL-Empfänger/Archivierer, ein nicht
 erreichbares Borg-Repository oder eine noch nicht abgeschlossene WAL-Datei. Der Empfänger
-überträgt bereits laufend, Borg archiviert aber nur abgeschlossene Dateien. Beide
-Compose-Dateien setzen deshalb beim Datenbankstart `archive_timeout=15s`: Nach WAL-Aktivität
-wird das Segment auch bei geringer Last zeitgesteuert geschlossen, ohne auf einen weiteren
-Tap oder volle 16 MiB zu warten. Reiner Leerlauf ohne WAL-Aktivität erzwingt keinen Wechsel;
-auch Checkpoints und Archivquittungen können allerdings WAL erzeugen. Der Archivierer fordert
-bei offenen Anforderungen zusätzlich selbst einen Wechsel an. Das Alarmfenster bleibt
+überträgt bereits laufend, Borg archiviert aber nur abgeschlossene Dateien. Die Compose-Dateien
+setzen kein `archive_timeout` (D-066): Sonst erzeugen die Archivquittungen selbst fortlaufend
+neue Segmente. Der Archivierer fordert in jedem Durchlauf einen Wechsel an, wenn eine offene
+Anforderung im noch offenen Segment liegt. Er wartet danach höchstens zehn Sekunden auf die
+vollständige Datei im Spool und archiviert sie im selben Durchlauf. Trifft sie später ein,
+wird sie im nächsten Durchlauf abgeholt; eine `.partial`-Datei wird nie archiviert. Eine
+Anforderung in einem schon geschlossenen Segment löst keinen weiteren Wechsel aus. Das Alarmfenster bleibt
 unverändert; Segmentabschluss allein ist noch kein externer Archivnachweis. Bei einem Alarm
 Empfänger/Archivierer, Repository-Erreichbarkeit und die älteste offene Anforderung samt
 lückenlosem Archivstand prüfen.
 
-Zwischen zwei vollen Archivierer-Durchläufen liegt ein zusätzlicher Spool-Durchlauf: voller
-Durchlauf, halbe konfigurierte Pause, Spool-Durchlauf, halbe Pause. Der Spool-Durchlauf fordert
-keinen weiteren WAL-Wechsel an; Empfänger-, Archiv-, Basis-, Ketten- und Rückstandsprüfung
-bleiben gleich. Beide Durchläufe schreiben den Status frisch aus geprüfter Evidenz, auch bei
-leerem Spool; ein Fehler ergibt `failed`. Der Konfigurationswert bleibt die gesamte Pause
-zwischen vollen Durchläufen, die Laufzeiten kommen hinzu. Das Alarmfenster wird weiterhin
-aus dem unveränderten Intervall mal zulässigen verpassten Zyklen berechnet. Ein Einmallauf
-führt weiterhin genau einen vollen Durchlauf aus.
+Alle Durchläufe sind gleich; zwischen ihnen liegt jeweils die halbe konfigurierte Pause.
+Empfänger-, Archiv-, Basis-, Ketten- und Rückstandsprüfung schreiben den Status frisch aus
+geprüfter Evidenz, auch bei leerem Spool; ein Fehler ergibt `failed`. Die Laufzeiten kommen
+zu den Pausen hinzu. Intervall, verpasste Zyklen und das daraus berechnete Alarmfenster bleiben
+unverändert. Ein Einmallauf führt weiterhin genau einen Durchlauf aus. Eine Journalzeile
+`WAL cycle` nennt Dauer in Sekunden, neu hochgeladene Segmente, abgeglichene Archive,
+angeforderten Wechsel (0/1) und Exit-Status. Sie enthält weder Speicherpfade noch Adressen.
+
+Basissicherung und Archivierer halten dieselbe Borg-Sperre. Solange die Sicherung läuft oder
+auf diese Sperre wartet, pausiert der Wächter die WAL-Altersprüfung für höchstens zehn Minuten
+(feste Konstante, keine neue Einstellung). Danach meldet er `WAL-Archivierung steht`, auch
+bei frischem Status ohne offene Anforderung. Der Beginn folgt dem Verlassen des inaktiven
+Zustands der Sicherungseinheit (`InactiveExitTimestamp`); ein `oneshot` ist während
+`ExecStart` einschließlich Sperrwartezeit noch `activating`. Nach dem Ende
+(`InactiveEnterTimestamp`, auch bei Abbruch) zählt Status- bzw. Anforderungsalter ab dem
+späteren Zeitpunkt von Beobachtung bzw. Anforderung und Sicherungsende. Ein fehlender oder
+fehlgeschlagener Archivstatus und eine Lücke bleiben nach der Sicherung Fehler. Der Monitor
+liest die Einheitsdaten über die lokale systemd-Verbindung; sein Sandboxprofil erlaubt dafür
+`AF_UNIX`. Die Sicherungshäufigkeit bleibt unverändert.
 
 Im laufenden Takt beginnt die Kettenprüfung bei der in PostgreSQL bestätigten Wassermarke
 der aktuellen verifizierten Basis: Geprüft werden Anschluss und Lückenfreiheit der neuen
-Archive, danach ihre Quittung und Fortschreibung. Bereits bestätigte Vorgänger werden dabei
+Archive, danach ihre Quittung und Fortschreibung. Bei registrierter Quittung entfällt eine
+weitere `borg info`-Abfrage: Die Quittung entstand erst nach bytegenauem Read-back. Ohne
+Quittung bleibt der Read-back über `archived_checksum` unverändert. Bereits bestätigte Vorgänger werden dabei
 nicht einzeln erneut abgefragt. Ohne eine Marke für diese Basis (auch nach Basiswechsel oder
 Restore) wird vollständig ab Basis geprüft. Ein fehlender Anschluss oder eine Lücke erzwingt
 ebenfalls diese vollständige Prüfung; eine verbleibende Lücke bleibt ein Fehler. Die tiefe

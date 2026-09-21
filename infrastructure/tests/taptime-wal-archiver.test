@@ -227,6 +227,7 @@ for added in 0 1 3; do
     expect_count advance "$added"
     expect_count adjacent "$added"
     expect_count full-base 0
+    expect_count borg-info 1 # Only the base; receipted WAL adds no remote call.
     work="$(sort "$trace" | sed -E 's/ (.*)//' | sort | uniq -c)"
     if [[ -n "$reference" ]]; then [[ "$work" == "$reference" ]] || fail 'confirmed history increased external call count'; fi
     reference="$work"
@@ -290,7 +291,7 @@ fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 validate_offsite_borg_repository() { :; }
 load_cluster_identity() { CLUSTER_ARCHIVE_IDENTIFIER='0123456789abcdef'; }
 receiver_is_active() { printf 'receiver\n' >> "$trace"; printf 't\n'; }
-pending_wal_files() { printf 'pending\n' >> "$trace"; printf 'required-wal\n'; }
+pending_wal_files() { printf 'pending\n' >> "$trace"; }
 database_query() { [[ "$1" == *pg_switch_wal* ]] || return 1; printf 'switch\n' >> "$trace"; }
 archive_file() {
   printf 'upload %s\n' "$1" >> "$trace"
@@ -352,37 +353,117 @@ WAL_REPLICATION_SLOT='synthetic'
 CONFIG
       export TAPTIME_WAL_ARCHIVE_RUN_ONCE="$run_once"
       sleep_count=0
-      ( main )
-      node - "$trace" "$root/statuses" "$run_once" "$fault_wal" "$scenario" <<'ASSERT'
+      ( main ) > "$root/cycles"
+      node - "$trace" "$root/statuses" "$run_once" "$fault_wal" "$scenario" "$root/cycles" <<'ASSERT'
 const fs = require('node:fs');
-const [tracePath, statusesPath, once, fault, scenario] = process.argv.slice(2);
+const [tracePath, statusesPath, once, fault, scenario, cyclesPath] = process.argv.slice(2);
 const trace = fs.readFileSync(tracePath, 'utf8').trim().split('\n');
 const statuses = fs.readFileSync(statusesPath, 'utf8').trim().split('\n').map(JSON.parse);
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
-const full = ['receiver', 'pending', 'switch', 'upload 000000010000000000000001', 'base', 'chain', 'backlog', 'status ok'];
-assert(JSON.stringify(trace.slice(0, full.length)) === JSON.stringify(full), 'first pass must be full and write checked status');
+const full = ['receiver', 'pending', 'upload 000000010000000000000001', 'base', 'chain', 'backlog', 'status ok'];
+assert(JSON.stringify(trace.slice(0, full.length)) === JSON.stringify(full), 'first pass must check evidence and write status');
 if (once === '1') {
-  assert(trace.length === full.length && statuses.length === 1, 'run-once must return after one full pass');
+  assert(trace.length === full.length && statuses.length === 1, 'run-once must return after one pass');
 } else {
   const passes = [[]];
   for (const entry of trace) { if (entry.startsWith('sleep ')) passes.push([]); else passes.at(-1).push(entry); }
-  assert(passes.length === 3, 'expected full, spool, full separated by two half pauses');
-  assert(!passes[1].includes('pending') && !passes[1].includes('switch'), 'spool pass must not force a segment switch');
-  assert(passes[1].includes('receiver') && passes[1].includes('base') && passes[1].includes('chain'), 'spool pass must check receiver, base and chain even when empty');
-  assert(passes[1].includes('upload 000000010000000000000002') === (scenario !== 'empty'), 'spool pass must collect every completed segment');
-  assert(passes[2].includes('pending') && passes[2].includes('chain'), 'empty full pass must recheck the chain');
+  assert(passes.length === 3, 'expected three identical passes separated by two half pauses');
+  assert(passes.every(pass => pass.includes('pending') && !pass.includes('switch')), 'every pass must check demand; no demand means no switch');
+  assert(passes[1].includes('receiver') && passes[1].includes('base') && passes[1].includes('chain'), 'every pass must check receiver, base and chain even when empty');
+  assert(passes[1].includes('upload 000000010000000000000002') === (scenario !== 'empty'), 'every pass must collect every completed segment');
+  assert(passes[2].includes('pending') && passes[2].includes('chain'), 'empty pass must recheck the chain');
   assert(fault ? !passes[2].includes('backlog') : passes[2].includes('backlog'), 'a failed chain must abort before the backlog read');
   assert(statuses.length === passes.length, 'every pass must write status');
-  assert(statuses.map(s => s.observed_at_utc).join() === '2026-09-20T00:00:00Z,2026-09-20T00:01:00Z,2026-09-20T00:02:00Z', 'status observations must be fresh in both modes');
+  assert(statuses.map(s => s.observed_at_utc).join() === '2026-09-20T00:00:00Z,2026-09-20T00:01:00Z,2026-09-20T00:02:00Z', 'status observations must be fresh each time');
   assert(statuses.map(s => s.state).join() === (fault ? 'ok,failed,failed' : 'ok,ok,ok'), 'chain failure must not become fresh ok');
   if (!fault) {
-    assert(passes[1].includes('backlog'), 'empty spool pass must still read current backlog');
-    assert(statuses[1].last_archived_wal_file === (scenario === 'empty' ? '000000010000000000000001' : '000000010000000000000002'), 'spool status must contain newly read progress');
+    assert(passes[1].includes('backlog'), 'empty pass must still read current backlog');
+    assert(statuses[1].last_archived_wal_file === (scenario === 'empty' ? '000000010000000000000001' : '000000010000000000000002'), 'status must contain newly read progress');
   }
 }
+const cycles = fs.readFileSync(cyclesPath, 'utf8').trim().split('\n');
+assert(cycles.length === statuses.length, 'exactly one journal summary per cycle');
+assert(cycles.every(line => /^WAL cycle: duration_seconds=\d+ uploaded_segments=\d+ reconciled_archives=\d+ switch_requested=[01] result=\d+$/.test(line)), 'journal fields must be bounded metrics only');
 ASSERT
     done
   done
 done
-printf 'Cadence evidence: full/half-pause/spool/half-pause/full; fresh checked status in both modes, failure stays failed, run-once unchanged, odd intervals exact, lock free during pauses.\n'
+printf 'Cadence evidence: identical demand-driven passes at half pauses; fresh checked status each time, failure stays failed, run-once unchanged, odd intervals exact, lock free during pauses.\n'
 CADENCE_TESTS
+
+bash -euo pipefail -s -- "$REPOSITORY_ROOT" "$TEST_ROOT" <<'SWITCH_TESTS'
+source "$1/infrastructure/backup/taptime-wal-archiver"
+WAL_SPOOL_DIRECTORY="$2/switch-spool"
+mkdir "$WAL_SPOOL_DIRECTORY"
+fixture_current='000000010000000000000003'
+older='000000010000000000000002'
+trace="$2/switch-trace"
+fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+pending_wal_files() { printf '%s\n' "$fixture_pending"; }
+database_query() {
+  if [[ "$1" == *pg_switch_wal* ]]; then
+    [[ "$1" == *"WHERE pg_catalog.pg_walfile_name(pg_catalog.pg_current_wal_insert_lsn()) = '$fixture_current'"* ]] || return 1
+    printf 'switch\n' >> "$trace"
+    [[ "$scenario" == race ]] || printf '%s\n' "$fixture_current"
+  else
+    [[ "$1" == 'SELECT pg_catalog.pg_walfile_name(pg_catalog.pg_current_wal_insert_lsn());' ]] || return 1
+    printf '%s\n' "$fixture_current"
+  fi
+}
+sleep() {
+  [[ "$1" == 1 ]] || fail 'receiver wait must use one-second polls'
+  polls=$((polls + 1)); SECONDS=$((SECONDS + 1))
+  if [[ "$scenario" == arrives ]] && (( polls == 3 )); then
+    mv "$WAL_SPOOL_DIRECTORY/$fixture_current.partial" "$WAL_SPOOL_DIRECTORY/$fixture_current"
+  fi
+}
+for scenario in idle closed arrives timeout race; do
+  : > "$trace"; rm -f "$WAL_SPOOL_DIRECTORY/"*
+  : > "$WAL_SPOOL_DIRECTORY/$fixture_current.partial"
+  fixture_pending="$fixture_current"; polls=0; switch_requested=0
+  if [[ "$scenario" == idle ]]; then fixture_pending=''; fi
+  if [[ "$scenario" == closed ]]; then fixture_pending="$older"; fi
+  close_required_segment
+  case "$scenario" in
+    idle|closed) [[ ! -s "$trace" && "$switch_requested" == 0 && "$polls" == 0 ]] || fail 'no open demand must not switch or wait' ;;
+    arrives) [[ "$switch_requested" == 1 && "$polls" == 3 && -f "$WAL_SPOOL_DIRECTORY/$fixture_current" ]] || fail 'must wait for renamed complete segment' ;;
+    timeout) [[ "$switch_requested" == 1 && "$polls" == 10 ]] || fail 'partial segment must stop waiting at ten seconds' ;;
+    race) [[ "$switch_requested" == 0 && "$polls" == 0 ]] || fail 'natural closure before switch must not wait' ;;
+  esac
+done
+printf 'Segment-switch evidence: no idle/closed-demand switch, partial files await completion, bounded ten-second wait, natural closure rechecked.\n'
+SWITCH_TESTS
+
+bash -euo pipefail -s -- "$REPOSITORY_ROOT" "$TEST_ROOT" <<'RECEIPT_TESTS'
+source "$1/infrastructure/backup/taptime-wal-archiver"
+trace="$2/receipt-trace"
+CLUSTER_ARCHIVE_IDENTIFIER='0123456789abcdef'
+WAL_FILE='000000010000000000000001'
+BORG_REPOSITORY='unused-local-fixture'
+registered_wal_checksum() { if [[ "$scenario" == receipted ]]; then printf '%064d\n' 0; fi; }
+borg() {
+  printf '%s\n' "$1" >> "$trace"
+  [[ "$1" == extract && "$2" == --stdout && "$4" == "$WAL_FILE" ]] || return 1
+  [[ "$scenario" != unreadable ]] || return 1
+  printf 'synthetic WAL bytes\n'
+}
+record_archive_receipt() {
+  [[ "$1" == "$WAL_FILE" && "$2" == "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$WAL_FILE" \
+    && "$3" == "$(printf 'synthetic WAL bytes\n' | sha256sum | cut -d ' ' -f 1)" ]]
+  printf 'receipt\n' >> "$trace"
+}
+for scenario in receipted missing unreadable; do
+  : > "$trace"
+  if ensure_wal_receipt "$WAL_FILE" > "$2/receipt-output" 2>&1; then
+    [[ "$scenario" != unreadable ]]
+  else
+    [[ "$scenario" == unreadable ]]
+  fi
+  case "$scenario" in
+    receipted) [[ ! -s "$trace" ]] ;;
+    missing) [[ "$(cat "$trace")" == $'extract\nreceipt' ]] ;;
+    unreadable) [[ "$(cat "$trace")" == extract ]] ;;
+  esac
+done
+printf 'Receipt evidence: zero remote calls with receipt; missing receipt still requires read-back, unreadable bytes never create a receipt.\n'
+RECEIPT_TESTS
