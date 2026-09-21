@@ -13,9 +13,11 @@ vi.mock('expo-crypto', () => ({
 import { MobileSessionCoordinator } from '../../src/auth/MobileSessionCoordinator';
 import type {
   BackendSessionPort,
+  BackendSessionResolution,
   ProductSessionContext,
   ProviderAuthEvent,
   ProviderAuthPort,
+  ProviderRefreshResult,
   RefreshTokenStore,
 } from '../../src/auth/contracts';
 import { AndroidMonotonicClock } from '../../src/offline/AndroidMonotonicClock';
@@ -44,6 +46,8 @@ import {
   memorySecureStore,
 } from '../support/MemoryOfflinePlatform';
 
+import { canPresentOfflineCaptureShell } from '../../src/navigation/offlineCaptureShell';
+
 const ids = {
   organization: '00000000-0000-4000-8000-000000000051',
   employee: '10000000-0000-4000-8000-000000000051',
@@ -65,6 +69,51 @@ const expiresAt = '2026-08-13T20:00:00.000Z';
 const wallClock = Date.parse(issuedAt);
 
 describe('Product Mobile runtime Employee readiness', () => {
+  it('T-065 restores the actual offline capture shell within three seconds while auth hangs, then promotes only after confirmation', async () => {
+    const secureStore = memorySecureStore();
+    const database = new MemoryOfflineDatabase();
+    const first = productRuntimeHarness(session(ids.employee, ids.membership), secureStore.port, database);
+    await first.runtime.start();
+    await first.runtime.session.signIn('ignored@example.invalid', 'password');
+    await vi.waitFor(() => expect(first.runtime.scan.getState().status).toBe('ready'));
+    first.runtime.stop();
+    await vi.waitFor(() => expect(database.closed).toBe(true));
+    const provider = new MemoryProvider();
+    let confirm!: (result: ProviderRefreshResult) => void;
+    provider.refreshImplementation = () => new Promise(resolve => { confirm = resolve; });
+    let confirmBackend!: (value: BackendSessionResolution) => void;
+    const resolveBackend = vi.fn(() => new Promise<BackendSessionResolution>(resolve => { confirmBackend = resolve; }));
+    const cold = productRuntimeHarness(session(ids.employee, ids.membership), secureStore.port, database,
+      () => {}, { provider, store: first.store, resolveBackend });
+    const startedAt = performance.now();
+    let visibleAt: number | null = null;
+    cold.runtime.scan.subscribe(() => {
+      if (visibleAt === null && canPresentOfflineCaptureShell(cold.runtime.session.getState(), cold.runtime.scan.getState())) {
+        visibleAt = performance.now() - startedAt;
+      }
+    });
+    try {
+      await cold.runtime.start();
+      await vi.waitFor(() => expect(canPresentOfflineCaptureShell(cold.runtime.session.getState(), cold.runtime.scan.getState())).toBe(true));
+      console.info('T-065 actual capture runtime:', JSON.stringify({ offlineShellMilliseconds: Math.round(visibleAt!) }));
+      expect(visibleAt).not.toBeNull();
+      expect(visibleAt!).toBeLessThanOrEqual(3000);
+      expect(cold.runtime.session.getState()).toEqual({ status: 'context_unavailable', identityLabel: 'server@example.invalid' });
+      expect(cold.sessionCoordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+      expect(cold.leaseRequests.paths).toEqual([]);
+      confirm({ status: 'refreshed', tokens: { accessToken: 'restored-access', refreshToken: 'restored-refresh',
+        identity: { providerUserId: 'provider-user', email: 'server@example.invalid' } } });
+      await vi.waitFor(() => expect(resolveBackend).toHaveBeenCalled());
+      // Provider has answered, product backend has not: the real offline target path still works.
+      await expect(cold.scanCoordinator.readOfflineManualTargets()).resolves.toMatchObject({ status: 'ready' });
+      expect(cold.sessionCoordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+      confirmBackend({ status: 'resolved', session: session(ids.employee, ids.membership) });
+      await vi.waitFor(() => expect(cold.runtime.session.getState().status).toBe('authenticated'));
+      await vi.waitFor(() => expect(cold.runtime.scan.getState().status).toBe('ready'));
+      expect(cold.sessionCoordinator.captureAuthenticatedSessionSnapshot()).not.toBeNull();
+    } finally { cold.runtime.stop(); }
+  });
+
   it('reopens protected infrastructure on login without rewriting the retained owner or leases', async () => {
     const secureStore = memorySecureStore();
     const database = new MemoryOfflineDatabase();
@@ -182,14 +231,16 @@ function productRuntimeHarness(
   secureStore: OfflineSecureStorePort,
   nativeDatabase: MemoryOfflineDatabase,
   beforeDatabaseOpen: () => void = () => {},
+  auth?: { provider: MemoryProvider; store: MemoryRefreshTokenStore; resolveBackend?: () => Promise<BackendSessionResolution> },
 ) {
-  const provider = new MemoryProvider();
+  const provider = auth?.provider ?? new MemoryProvider();
+  const store = auth?.store ?? new MemoryRefreshTokenStore();
   const sessionCoordinator = new MobileSessionCoordinator(
     provider,
-    new MemoryRefreshTokenStore(),
+    store,
     {
       async resolve() {
-        return { status: 'resolved' as const, session: productSession };
+        return auth?.resolveBackend ? auth.resolveBackend() : { status: 'resolved' as const, session: productSession };
       },
       async recordPasswordReset() { return { status: 'unavailable' as const }; },
     } satisfies BackendSessionPort,
@@ -289,7 +340,7 @@ function productRuntimeHarness(
       async stop() {},
     },
   );
-  return { leaseRequests, runtime };
+  return { leaseRequests, runtime, store, sessionCoordinator, scanCoordinator: scan };
 }
 
 class MemoryProvider implements ProviderAuthPort {
@@ -298,13 +349,13 @@ class MemoryProvider implements ProviderAuthPort {
   async signInWithPassword() {
     return {
       status: 'authenticated' as const,
-      tokens: { accessToken: 'access-token', refreshToken: 'refresh-token' },
+      tokens: { accessToken: 'access-token', refreshToken: 'refresh-token',
+        identity: { providerUserId: 'provider-user', email: 'server@example.invalid' } },
     };
   }
 
-  async refreshSession() {
-    return { status: 'rejected' as const };
-  }
+  refreshImplementation: () => Promise<ProviderRefreshResult> = async () => ({ status: 'rejected' });
+  async refreshSession() { return this.refreshImplementation(); }
 
   async signOutLocal() {}
 
@@ -318,11 +369,15 @@ class MemoryProvider implements ProviderAuthPort {
 }
 
 class MemoryRefreshTokenStore implements RefreshTokenStore {
+  identity: import('../../src/auth/contracts').ConfirmedSessionIdentity | null = null;
+  async readIdentity() { return this.identity; }
+  async writeIdentity(identity: import('../../src/auth/contracts').ConfirmedSessionIdentity | null) { this.identity = identity; }
+
   private value: string | null = null;
   async isAvailable() { return true; }
   async read() { return this.value; }
   async write(value: string) { this.value = value; }
-  async clear() { this.value = null; }
+  async clear() { this.value = null; this.identity = null; }
 }
 
 class V2LeaseRequest implements AuthenticatedJsonPostPort {

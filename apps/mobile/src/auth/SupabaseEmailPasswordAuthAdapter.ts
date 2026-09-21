@@ -121,7 +121,11 @@ function sessionTokens(session: Session | null): ProviderSessionTokens {
   ) {
     throw new Error('Authentication provider returned an incomplete session');
   }
-  return { accessToken: session.access_token, refreshToken: session.refresh_token };
+  return { accessToken: session.access_token, refreshToken: session.refresh_token,
+    ...(typeof session.user?.id === 'string' && session.user.id.trim()
+      && typeof session.user.email === 'string' && session.user.email.trim()
+      ? { identity: { providerUserId: session.user.id, email: session.user.email } } : {}),
+  };
 }
 
 function isRefreshRejection(code: string | undefined): boolean {

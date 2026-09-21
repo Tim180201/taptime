@@ -151,3 +151,12 @@ describe('SupabaseEmailPasswordAuthAdapter', () => {
     expect(auth.updateUser).toHaveBeenCalledWith({ password: 'new-password' });
   });
 });
+
+
+it('takes the display identity from the provider response, never from the sign-in input', async () => {
+  const auth = fakeAuth({ signInWithPassword: vi.fn(async () => ({
+    data: { session: { ...providerSession(), user: { id: 'provider-user', email: 'confirmed@example.invalid' } } }, error: null,
+  })) });
+  await expect(new SupabaseEmailPasswordAuthAdapter(auth as never).signInWithPassword('input@example.invalid', 'password'))
+    .resolves.toMatchObject({ tokens: { identity: { providerUserId: 'provider-user', email: 'confirmed@example.invalid' } } });
+});

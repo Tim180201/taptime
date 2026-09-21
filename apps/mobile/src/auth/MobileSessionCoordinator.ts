@@ -1,4 +1,5 @@
 import type {
+  ConfirmedSessionIdentity,
   AuthenticatedRequestAttempt,
   AuthenticatedRequestCapability,
   AuthenticatedRequestExecution,
@@ -44,14 +45,18 @@ export class MobileSessionCoordinator implements
   private state: MobileSessionState = Object.freeze({ status: 'initializing' });
   private readonly listeners = new Set<() => void>();
   private started = false;
+  private expiredColdStartGeneration: number | null = null;
   private unsubscribeProvider: (() => void) | null = null;
   private generation = 0;
+  private confirmedIdentity: ConfirmedSessionIdentity | null = null;
+  private providerIdentity: ConfirmedSessionIdentity | null = null;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private recoveryAccessToken: string | null = null;
   private providerSessionAllowed = false;
   private offlineCaptureRestorationAllowed = false;
   private offlineRestorationRevision = 0;
+  private offlineCredentialsChanged = false;
   private contextUnavailableSource:
     | InternalOfflineRestorationSnapshot['source']
     | null = null;
@@ -176,11 +181,38 @@ export class MobileSessionCoordinator implements
       if (!this.started || generation !== this.generation) {
         return;
       }
-      await this.refresh();
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          this.refresh(),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(() => {
+              if (this.started && generation === this.generation) {
+                this.expiredColdStartGeneration = generation;
+                this.presentPendingOfflineRestoration(generation);
+              }
+              resolve();
+            }, 2000);
+          }),
+        ]);
+      } finally { clearTimeout(timer); }
     } catch {
       if (this.started && generation === this.generation) {
         this.setState({ status: 'runtime_unavailable', reason: 'storage_unavailable' });
       }
+    }
+  }
+
+  private presentPendingOfflineRestoration(generation: number): void {
+    if (this.started && generation === this.generation
+      && this.expiredColdStartGeneration === generation
+      && this.state.status === 'initializing'
+      && this.offlineCaptureRestorationAllowed && this.refreshToken !== null) {
+      // This is only a display deadline. Preserve the pending request's tokenRevision.
+      this.offlineRestorationRevision += 1;
+      this.contextUnavailableSource = this.providerSessionAllowed
+        ? 'backend_context_unavailable' : 'provider_suspended';
+      this.setState({ status: 'context_unavailable' });
     }
   }
 
@@ -389,6 +421,7 @@ export class MobileSessionCoordinator implements
     this.refreshFlight = null;
     this.signInFlight = null;
     this.contextFlight = null;
+    this.setState({ status: 'signed_out' });
     let storageFailed = false;
     try {
       await this.enqueueStorageClear(generation);
@@ -400,7 +433,7 @@ export class MobileSessionCoordinator implements
     } catch {
       // Local product authority is still removed; provider/network details are never surfaced.
     }
-    if (generation === this.generation) {
+    if (generation === this.generation && (storageFailed || this.state.status !== 'signed_out')) {
       this.setState(storageFailed
         ? { status: 'runtime_unavailable', reason: 'storage_unavailable' }
         : { status: 'signed_out' });
@@ -639,8 +672,20 @@ export class MobileSessionCoordinator implements
       }
       return;
     }
+    if (generation !== this.generation) return;
     if (this.state.status === 'initializing') {
+      let identity: ConfirmedSessionIdentity | null;
+      try { identity = await this.refreshTokenStore.readIdentity(); }
+      catch {
+        if (generation === this.generation) this.setState({ status: 'runtime_unavailable', reason: 'storage_unavailable' });
+        return;
+      }
+      if (generation !== this.generation) return;
+      this.confirmedIdentity = identity;
+      this.refreshToken = storedRefreshToken;
       this.offlineCaptureRestorationAllowed = true;
+      // Secure storage may finish after the timer; never lose the expired deadline.
+      this.presentPendingOfflineRestoration(generation);
     }
 
     const tokenRevisionBeforeProviderRefresh = this.tokenRevision;
@@ -720,6 +765,18 @@ export class MobileSessionCoordinator implements
       return { status: 'infrastructure_error' };
     }
     if (result.status === 'resolved') {
+      const identity = this.providerIdentity;
+      try {
+        await this.enqueueStorage(generation, () => this.refreshTokenStore.writeIdentity(identity));
+      } catch {
+        if (generation === this.generation) await this.handleStorageFailure();
+        return { status: 'infrastructure_error' };
+      }
+      if (generation !== this.generation || tokenRevision !== this.tokenRevision) {
+        return { status: 'infrastructure_error' };
+      }
+      this.confirmedIdentity = identity;
+      this.offlineCredentialsChanged = false;
       this.enrollmentIntentGeneration = null;
       this.offlineCaptureRestorationAllowed = true;
       this.offlineRestorationRevision += 1;
@@ -747,6 +804,7 @@ export class MobileSessionCoordinator implements
     reason: 'authority_rejected' | 'not_signed_in',
   ): Promise<void> {
     const generation = this.invalidateInMemorySession();
+    this.setState({ status: 'unauthenticated', reason });
     let storageFailed = false;
     try {
       await this.enqueueStorageClear(generation);
@@ -758,10 +816,8 @@ export class MobileSessionCoordinator implements
     } catch {
       // Product state remains fail-closed even when the provider cannot complete local cleanup.
     }
-    if (generation === this.generation) {
-      this.setState(storageFailed
-        ? { status: 'runtime_unavailable', reason: 'storage_unavailable' }
-        : { status: 'unauthenticated', reason });
+    if (generation === this.generation && storageFailed) {
+      this.setState({ status: 'runtime_unavailable', reason: 'storage_unavailable' });
     }
   }
 
@@ -771,9 +827,10 @@ export class MobileSessionCoordinator implements
         return;
       }
       const generation = this.invalidateInMemorySession();
+      this.setState({ status: 'signed_out' });
       const operation = this.enqueueStorageClear(generation).then(
         () => {
-          if (generation === this.generation) {
+          if (generation === this.generation && this.state.status !== 'signed_out') {
             this.setState({ status: 'signed_out' });
           }
         },
@@ -803,8 +860,21 @@ export class MobileSessionCoordinator implements
   }
 
   private acceptProviderTokens(tokens: ProviderSessionTokens): number {
-    this.offlineRestorationRevision += 1;
-    this.contextUnavailableSource = null;
+    const identity = tokens.identity ?? null;
+    if (this.confirmedIdentity !== null
+      && this.confirmedIdentity.providerUserId !== identity?.providerUserId) {
+      this.confirmedIdentity = null;
+      this.offlineCaptureRestorationAllowed = false;
+      this.setState({ status: 'context_unavailable' });
+    }
+    this.providerIdentity = identity;
+    // Renewing the same retained account does not end its offline window. The backend
+    // may still be pending; keep in-flight NFC/manual captures valid until it answers.
+    this.offlineCredentialsChanged = this.captureOfflineRestorationSnapshot() !== null;
+    if (!this.offlineCredentialsChanged) {
+      this.offlineRestorationRevision += 1;
+      this.contextUnavailableSource = null;
+    }
     this.providerSessionAllowed = true;
     this.accessToken = tokens.accessToken;
     this.refreshToken = tokens.refreshToken;
@@ -814,6 +884,10 @@ export class MobileSessionCoordinator implements
 
   private invalidateInMemorySession(): number {
     this.generation += 1;
+    this.expiredColdStartGeneration = null;
+    this.offlineCredentialsChanged = false;
+    this.confirmedIdentity = null;
+    this.providerIdentity = null;
     this.offlineRestorationRevision += 1;
     this.contextUnavailableSource = null;
     this.providerSessionAllowed = false;
@@ -828,15 +902,20 @@ export class MobileSessionCoordinator implements
   }
 
   private publishBackendContextUnavailable(): void {
-    if (this.contextUnavailableSource !== 'backend_context_unavailable') {
+    if (this.offlineCredentialsChanged || this.contextUnavailableSource !== 'backend_context_unavailable') {
       this.offlineRestorationRevision += 1;
     }
+    this.offlineCredentialsChanged = false;
     this.contextUnavailableSource = 'backend_context_unavailable';
     this.setState({ status: 'context_unavailable' });
   }
 
   private enqueueTokenWrite(refreshToken: string, generation: number): Promise<void> {
-    return this.enqueueStorage(generation, () => this.refreshTokenStore.write(refreshToken));
+    return this.enqueueStorage(generation, async () => {
+      // Clear the old account before persisting any new account's token.
+      if (this.confirmedIdentity === null) await this.refreshTokenStore.writeIdentity(null);
+      await this.refreshTokenStore.write(refreshToken);
+    });
   }
 
   private enqueueStorageClear(generation: number): Promise<void> {
@@ -878,7 +957,8 @@ export class MobileSessionCoordinator implements
   }
 
   private setState(state: MobileSessionState): void {
-    this.state = Object.freeze(state);
+    this.state = Object.freeze((state.status === 'authenticated' || state.status === 'context_unavailable')
+      && this.confirmedIdentity !== null ? { ...state, identityLabel: this.confirmedIdentity.email } : state);
     for (const listener of this.listeners) {
       listener();
     }

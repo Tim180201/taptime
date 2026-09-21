@@ -70,8 +70,7 @@ export function TouchTarget({ style, ...props }: PressableProps) {
   return <Pressable {...props}
     onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
     onBlur={(event) => { setFocused(false); props.onBlur?.(event); }}
-    style={(state) => [typeof style === 'function' ? style(state) : style,
-      styles.touchTarget, focused && styles.focused, state.pressed && styles.focused]} />;
+    style={(state) => [styles.touchTarget, typeof style === 'function' ? style(state) : style, focused && styles.focused, state.pressed && styles.focused]} />;
 }
 
 export function ActionButton({

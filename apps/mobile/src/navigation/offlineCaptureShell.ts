@@ -3,7 +3,6 @@ import type { ProductScanState } from '../scan/contracts';
 
 export const OFFLINE_PRODUCT_DESTINATIONS = Object.freeze([
   'capture',
-  'manual',
 ] as const);
 
 export function canPresentOfflineCaptureShell(

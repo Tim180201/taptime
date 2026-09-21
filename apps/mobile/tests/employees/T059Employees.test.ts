@@ -21,7 +21,7 @@ describe('T059 Mobile red proofs',()=>{
       const client=new TapTimeSessionApiClient('https://example.test',async()=>Response.json({...session,managementScope:scope,locationsEnabled:true}));
       expect(await client.resolve('token')).toMatchObject({status:'resolved',session:{managementScope:scope,locationsEnabled:true}});
     }
-    expect(productDestinations({...session,managementScope:{kind:'organization'}})).toEqual(['capture','manual','employees','setup']);
+    expect(productDestinations({...session,managementScope:{kind:'organization'}})).toEqual(['capture','employees','setup']);
     expect(productDestinations(session)).not.toContain('employees');
   });
   it('g: invitation client uses exactly T047 fields, rejects authority, and every outcome has distinct German text',async()=>{

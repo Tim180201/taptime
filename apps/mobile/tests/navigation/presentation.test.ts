@@ -7,7 +7,7 @@ describe('role navigation and synchronization status', () => {
     ['standortleitung', true], ['administrator', true],
   ] as const)('T060 h: Tags follows capability for %s (%s)', (role, nfcSetupAvailable) => {
     expect(productDestinations({ role, nfcSetupAvailable })).toEqual(
-      nfcSetupAvailable ? ['capture', 'manual', 'times', 'setup'] : ['capture', 'manual', 'times'],
+      nfcSetupAvailable ? ['capture', 'times', 'setup'] : ['capture', 'times'],
     );
   });
   it('distinguishes no pending transmissions from pending transmissions, even while scanning', () => {

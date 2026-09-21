@@ -110,6 +110,10 @@ class FakeProvider implements ProviderAuthPort {
 }
 
 class FakeRefreshTokenStore implements RefreshTokenStore {
+  identity: import('../../src/auth/contracts').ConfirmedSessionIdentity | null = null;
+  async readIdentity() { return this.identity; }
+  async writeIdentity(identity: import('../../src/auth/contracts').ConfirmedSessionIdentity | null) { this.identity = identity; }
+
   value: string | null;
   readonly writes: string[] = [];
   clearCalls = 0;
@@ -142,6 +146,7 @@ class FakeRefreshTokenStore implements RefreshTokenStore {
   }
 
   async clear(): Promise<void> {
+    this.identity = null;
     this.clearCalls += 1;
     await this.clearImplementation();
     this.value = null;
@@ -1008,7 +1013,8 @@ describe('MobileSessionCoordinator', () => {
       .resolves.toEqual({ status: 'authenticated' });
     eventResolution.resolve({ status: 'resolved', session: productSession });
 
-    await expect(oldOperation).resolves.toEqual({ status: 'unavailable' });
+    // Logout now hides identity and authority immediately, before provider cleanup finishes.
+    await expect(oldOperation).resolves.toEqual({ status: 'authority_rejected' });
     expect(seenTokens).toEqual(['signed-in-access']);
     expect(store.value).toBe('user-b-refresh');
     expect(coordinator.getState()).toEqual({ status: 'authenticated', session: productSession });
@@ -1135,4 +1141,238 @@ describe('MobileSessionCoordinator', () => {
     expect(coordinator.captureAuthenticatedSessionSnapshot()!.session.organizationId)
       .toBe('00000000-0000-4000-8000-000000000202');
   });
+});
+
+
+describe('T-065 cold start deadline', () => {
+  it('opens offline capture within three seconds while the provider remains pending', async () => {
+    const { coordinator, provider } = setup('retained-refresh');
+    const pending = deferred<ProviderRefreshResult>();
+    provider.refreshImplementation = () => pending.promise;
+    const startedAt = performance.now();
+    let offlineAt: number | null = null;
+    coordinator.subscribe(() => {
+      if (coordinator.captureOfflineRestorationSnapshot() !== null && offlineAt === null) {
+        offlineAt = performance.now() - startedAt;
+      }
+    });
+    const starting = coordinator.start();
+    try {
+      await new Promise(resolve => setTimeout(resolve, 3100));
+      console.info('T-065 cold start measurement:', JSON.stringify({ observedMilliseconds: Math.round(performance.now() - startedAt), offlineAt, state: coordinator.getState().status }));
+      expect(coordinator.getState().status).toBe('context_unavailable');
+      expect(offlineAt).not.toBeNull();
+      expect(offlineAt!).toBeLessThanOrEqual(3000);
+      expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+      pending.resolve({ status: 'refreshed', tokens: { accessToken: 'confirmed-access', refreshToken: 'rotated-refresh' } });
+      await starting;
+      await vi.waitFor(() => expect(coordinator.getState().status).toBe('authenticated'));
+    } finally {
+      pending.resolve({ status: 'rejected' });
+      coordinator.stop();
+    }
+  });
+});
+
+
+describe('T-065 confirmed identity lifecycle', () => {
+  const identity = { providerUserId: 'provider-a', email: 'server-a@example.invalid' };
+  const tokens = { accessToken: 'identity-access', refreshToken: 'identity-refresh', identity };
+
+  it('stores only the provider email after the product server has confirmed the session', async () => {
+    const { coordinator, provider, backend, store } = setup();
+    const confirmation = deferred<BackendSessionResolution>();
+    provider.signInImplementation = async () => ({ status: 'authenticated', tokens });
+    backend.implementation = () => confirmation.promise;
+    await coordinator.start();
+    const signingIn = coordinator.signIn('untrusted-input@example.invalid', 'password');
+    await vi.waitFor(() => expect(backend.accessTokens).toContain(tokens.accessToken));
+    expect(store.identity).toBeNull();
+    expect(coordinator.getState()).not.toHaveProperty('identityLabel');
+    confirmation.resolve({ status: 'resolved', session: productSession });
+    await signingIn;
+    expect(store.identity).toEqual(identity);
+    expect(coordinator.getState()).toMatchObject({ identityLabel: identity.email });
+    await coordinator.signOut();
+    expect(store.identity).toBeNull();
+    expect(store.value).toBeNull();
+    expect(coordinator.getState()).not.toHaveProperty('identityLabel');
+  });
+
+  it.each(['unavailable', 'authority_rejected'] as const)('does not store an identity on backend %s', async status => {
+    const { coordinator, provider, backend, store } = setup();
+    provider.signInImplementation = async () => ({ status: 'authenticated', tokens });
+    backend.implementation = async () => ({ status });
+    await coordinator.start();
+    await coordinator.signIn('input@example.invalid', 'password');
+    expect(store.identity).toBeNull();
+    expect(coordinator.getState()).not.toHaveProperty('identityLabel');
+  });
+
+  it('clears the previous identity before an account switch and rejects its late confirmation', async () => {
+    const { coordinator, provider, backend, store } = setup();
+    provider.signInImplementation = async () => ({ status: 'authenticated', tokens });
+    await coordinator.start();
+    await coordinator.signIn('a@example.invalid', 'password');
+    const oldConfirmation = deferred<BackendSessionResolution>();
+    backend.implementation = () => oldConfirmation.promise;
+    provider.emit({ type: 'token_refreshed', tokens: { ...tokens, accessToken: 'old-late' } });
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('old-late'));
+    const newSignIn = deferred<ProviderSignInResult>();
+    provider.signInImplementation = () => newSignIn.promise;
+    const switching = coordinator.signIn('b@example.invalid', 'password');
+    await vi.waitFor(() => expect(store.identity).toBeNull());
+    expect(coordinator.getState()).not.toHaveProperty('identityLabel');
+    oldConfirmation.resolve({ status: 'resolved', session: productSession });
+    const identityB = { providerUserId: 'provider-b', email: 'server-b@example.invalid' };
+    backend.implementation = async () => ({ status: 'resolved', session: { ...productSession, userId: 'user-b' } });
+    newSignIn.resolve({ status: 'authenticated', tokens: { ...tokens, identity: identityB } });
+    await switching;
+    expect(store.identity).toEqual(identityB);
+    expect(coordinator.getState()).toMatchObject({ identityLabel: identityB.email });
+    coordinator.stop();
+  });
+
+  it('hides identity immediately on a provider account change until the new server confirmation', async () => {
+    const { coordinator, provider, backend, store } = setup();
+    provider.signInImplementation = async () => ({ status: 'authenticated', tokens });
+    await coordinator.start();
+    await coordinator.signIn('a@example.invalid', 'password');
+    const pending = deferred<BackendSessionResolution>();
+    backend.implementation = () => pending.promise;
+    provider.emit({ type: 'token_refreshed', tokens: { ...tokens,
+      identity: { providerUserId: 'provider-b', email: 'b@example.invalid' } } });
+    await vi.waitFor(() => expect(store.identity).toBeNull());
+    expect(coordinator.getState()).not.toHaveProperty('identityLabel');
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    expect(coordinator.captureOfflineRestorationSnapshot()).toBeNull();
+    pending.resolve({ status: 'authority_rejected' });
+    await vi.waitFor(() => expect(coordinator.getState().status).toBe('unauthenticated'));
+    coordinator.stop();
+  });
+
+  it('restores only the confirmed label offline, and logout prevents a late refresh from restoring it', async () => {
+    vi.useFakeTimers();
+    const { coordinator, provider, store } = setup('retained-refresh');
+    store.identity = identity;
+    const pending = deferred<ProviderRefreshResult>();
+    provider.refreshImplementation = () => pending.promise;
+    try {
+      const starting = coordinator.start();
+      await vi.advanceTimersByTimeAsync(3000);
+      await starting;
+      expect(coordinator.getState()).toEqual({ status: 'context_unavailable', identityLabel: identity.email });
+      expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+      expect(coordinator.captureOfflineRestorationSnapshot()).not.toBeNull();
+      const signOut = coordinator.signOut();
+      expect(coordinator.getState()).toEqual({ status: 'signed_out' });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(store.identity).toBeNull();
+      pending.resolve({ status: 'refreshed', tokens });
+      await signOut;
+      expect(store.identity).toBeNull();
+      expect(coordinator.getState()).toEqual({ status: 'signed_out' });
+    } finally { coordinator.stop(); vi.useRealTimers(); }
+  });
+
+  it('also opens offline while the backend is pending and accepts its eventual confirmation', async () => {
+    vi.useFakeTimers();
+    const { coordinator, provider, backend, store } = setup('retained-refresh');
+    store.identity = identity;
+    provider.refreshImplementation = async () => ({ status: 'refreshed', tokens });
+    const pending = deferred<BackendSessionResolution>();
+    backend.implementation = () => pending.promise;
+    try {
+      const starting = coordinator.start();
+      await vi.advanceTimersByTimeAsync(3000);
+      await starting;
+      expect(coordinator.getState()).toEqual({ status: 'context_unavailable', identityLabel: identity.email });
+      expect(coordinator.captureOfflineRestorationSnapshot()?.source).toBe('backend_context_unavailable');
+      const request = vi.fn();
+      await expect(coordinator.executeAuthenticatedRequest(request)).resolves.toEqual({ status: 'unavailable' });
+      expect(request).not.toHaveBeenCalled();
+      pending.resolve({ status: 'resolved', session: productSession });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(coordinator.getState()).toMatchObject({ status: 'authenticated', identityLabel: identity.email });
+    } finally { coordinator.stop(); vi.useRealTimers(); }
+  });
+
+  it('cancels the display deadline on stop and never opens offline without a retained token', async () => {
+    vi.useFakeTimers();
+    try {
+      const missing = setup();
+      await missing.coordinator.start();
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(missing.coordinator.captureOfflineRestorationSnapshot()).toBeNull();
+      missing.coordinator.stop();
+      const stopped = setup('retained-refresh');
+      const pending = deferred<ProviderRefreshResult>();
+      stopped.provider.refreshImplementation = () => pending.promise;
+      void stopped.coordinator.start();
+      await vi.advanceTimersByTimeAsync(1000);
+      stopped.coordinator.stop();
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(stopped.coordinator.captureOfflineRestorationSnapshot()).toBeNull();
+      pending.resolve({ status: 'refreshed', tokens });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(stopped.coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    } finally { vi.useRealTimers(); }
+  });
+});
+
+
+it('T-065 preserves usable offline capture between a late provider response and a late backend response', async () => {
+  vi.useFakeTimers();
+  const { coordinator, provider, backend, store } = setup('retained-refresh');
+  const identity = { providerUserId: 'provider-a', email: 'server@example.invalid' };
+  store.identity = identity;
+  const auth = deferred<ProviderRefreshResult>();
+  const context = deferred<BackendSessionResolution>();
+  provider.refreshImplementation = () => auth.promise;
+  backend.implementation = () => context.promise;
+  try {
+    const starting = coordinator.start();
+    await vi.advanceTimersByTimeAsync(3000);
+    await starting;
+    const offline = coordinator.captureOfflineRestorationSnapshot()!;
+    expect(offline).not.toBeNull();
+    auth.resolve({ status: 'refreshed', tokens: { accessToken: 'renewed-access', refreshToken: 'renewed-refresh', identity } });
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(backend.accessTokens).toContain('renewed-access');
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    // The same retained account remains usable while only its provider, not the backend,
+    // has answered. Invalidating this snapshot silently disables every offline trigger.
+    expect(coordinator.isOfflineRestorationSnapshotCurrent(offline)).toBe(true);
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable', identityLabel: identity.email });
+    context.resolve({ status: 'resolved', session: productSession });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(coordinator.getState().status).toBe('authenticated');
+    expect(coordinator.isOfflineRestorationSnapshotCurrent(offline)).toBe(false);
+  } finally { coordinator.stop(); vi.useRealTimers(); }
+});
+
+
+it('T-065 applies an expired display deadline when secure identity storage completes late', async () => {
+  vi.useFakeTimers();
+  const { coordinator, provider, store } = setup('retained-refresh');
+  const identity = { providerUserId: 'provider-a', email: 'server@example.invalid' };
+  const reading = deferred<typeof identity>();
+  const auth = deferred<ProviderRefreshResult>();
+  vi.spyOn(store, 'readIdentity').mockImplementation(() => reading.promise);
+  provider.refreshImplementation = () => auth.promise;
+  try {
+    const starting = coordinator.start();
+    await vi.advanceTimersByTimeAsync(2100);
+    await starting;
+    expect(provider.refreshCalls).toEqual([]);
+    reading.resolve(identity);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(coordinator.getState()).toEqual({ status: 'context_unavailable', identityLabel: identity.email });
+    expect(coordinator.captureOfflineRestorationSnapshot()).not.toBeNull();
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    auth.resolve({ status: 'rejected' });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.identity).toBeNull();
+    expect(coordinator.getState()).not.toHaveProperty('identityLabel');
+  } finally { coordinator.stop(); vi.useRealTimers(); }
 });

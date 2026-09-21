@@ -29,6 +29,7 @@ export function OfflineManualCaptureScreen({
 }) {
   const [projection, setProjection] = useState<ProjectionState>({ status: 'loading' });
   const [selected, setSelected] = useState<SafeWorkTarget | null>(null);
+  const [pause, setPause] = useState(false);
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [outcome, setOutcome] = useState<OfflineManualOutcome | null>(null);
@@ -85,14 +86,13 @@ export function OfflineManualCaptureScreen({
 
   const trigger = async (): Promise<void> => {
     if (
-      selected === null
+      (selected === null && !pause)
       || submitting
-      || outcome === 'pending'
-      || pendingWorkEventId !== null
     ) return;
-    if (!projection.targets.some((target) => sameTarget(target, selected))) return;
+    if (!pause && (selected === null || !projection.targets.some((target) => sameTarget(target, selected)))) return;
     setSubmitting(true);
-    const result = await manual.captureManual(selected);
+    const result = pause ? await manual.captureBreak?.() ?? { status: 'unavailable' as const }
+      : await manual.captureManual(selected!);
     setSubmitting(false);
     if (result.status !== 'saved') {
       setPendingWorkEventId(null);
@@ -135,27 +135,33 @@ export function OfflineManualCaptureScreen({
               key={`${target.targetType}:${target.targetId}`}
               title={target.displayName}
               tone={selected !== null && sameTarget(selected, target) ? 'primary' : 'secondary'}
-              disabled={pendingWorkEventId !== null}
+              disabled={submitting}
+              accessibilityState={{ selected: selected !== null && sameTarget(selected, target) }}
               onPress={() => {
                 setSelected(target);
+                setPause(false);
                 setOutcome(null);
               }}
             />)}
           </View>;
         })}
+        <ActionButton title="Pause" tone={pause ? 'primary' : 'quiet'}
+          disabled={submitting} accessibilityState={{ selected: pause }}
+          accessibilityHint="Der Server entscheidet beim Abgleich, ob die Pause beginnt oder endet."
+          onPress={() => { setSelected(null); setPause(true); setOutcome(null); }} />
       </View>
       <Card>
-        <Text>{selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
+        <Text>{pause ? 'Pause' : selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
         <ActionButton
           tone="cta"
           title={submitting ? 'Wird sicher gespeichert …' : 'Jetzt erfassen'}
           disabled={
-            selected === null
+            (selected === null && !pause)
             || submitting
-            || outcome === 'pending'
-            || pendingWorkEventId !== null
           }
           loading={submitting}
+          accessibilityHint={pause ? 'Der Server entscheidet beim Abgleich, ob die Pause beginnt oder endet.'
+            : 'Der Server entscheidet beim Abgleich, ob die Arbeitszeit startet oder stoppt.'}
           onPress={trigger}
         />
         {outcome === null ? null
@@ -176,6 +182,10 @@ function offlineOutcomeLabel(outcome: OfflineManualOutcome): string {
   }
   if (outcome === 'time_entry_started') return 'Arbeitszeit vom Server gestartet';
   if (outcome === 'time_entry_stopped') return 'Arbeitszeit vom Server gestoppt';
+  if (outcome === 'break_started') return 'Pause vom Server begonnen';
+  if (outcome === 'break_stopped') return 'Pause vom Server beendet';
+  if (outcome === 'break_without_active_time_entry_rejected') return 'Ohne laufende Arbeitszeit ist keine Pause möglich.';
+  if (outcome === 'work_trigger_during_break_rejected') return 'Die Pause muss zuerst mit dem Pausenauslöser beendet werden.';
   if (outcome === 'duplicate_scan_ignored') return 'Doppelter Auslöser vom Server ignoriert';
   if (outcome === 'active_entry_for_other_target_rejected') {
     return 'Eine andere Arbeitszeit ist aktiv.';

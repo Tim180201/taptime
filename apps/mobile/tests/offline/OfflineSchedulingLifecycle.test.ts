@@ -305,6 +305,10 @@ class OfflineProvider implements ProviderAuthPort {
 }
 
 class MemoryRefreshTokenStore implements RefreshTokenStore {
+  identity: import('../../src/auth/contracts').ConfirmedSessionIdentity | null = null;
+  async readIdentity() { return this.identity; }
+  async writeIdentity(identity: import('../../src/auth/contracts').ConfirmedSessionIdentity | null) { this.identity = identity; }
+
   constructor(private value: string | null) {}
 
   async isAvailable(): Promise<boolean> {
@@ -321,6 +325,7 @@ class MemoryRefreshTokenStore implements RefreshTokenStore {
 
   async clear(): Promise<void> {
     this.value = null;
+    this.identity = null;
   }
 }
 

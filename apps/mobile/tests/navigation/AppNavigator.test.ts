@@ -44,7 +44,7 @@ describe('rendered navigation', () => {
     const html = markup(role);
     const tabs = [...html.matchAll(/role="tab"[^>]*aria-label="([^"]+)"/g)].map((match) => match[1]);
     expect(tabs).toEqual(role === 'administrator'
-      ? ['Erfassen', 'Manuell', 'Meine Zeiten', 'Tags'] : ['Erfassen', 'Manuell', 'Meine Zeiten']);
+      ? ['Erfassen', 'Meine Zeiten', 'Tags'] : ['Erfassen', 'Meine Zeiten']);
     expect(html).toContain('aria-label="Abgleich: alles bestätigt"');
   });
 });

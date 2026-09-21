@@ -18,6 +18,7 @@ interface ScanScreenProps {
   readonly scan: ProductScanCapability;
   readonly signOut: () => Promise<void>;
   readonly embedded?: boolean;
+  readonly onManualCapture?: () => void;
   readonly work?: MobileWorkCapability;
 }
 
@@ -27,7 +28,7 @@ export interface ScanScreenPresentation {
   readonly tone: 'neutral' | 'success' | 'warning' | 'error';
 }
 
-export function ScanScreen({ actor, scan, signOut, embedded = false, work }: ScanScreenProps) {
+export function ScanScreen({ actor, scan, signOut, embedded = false, work, onManualCapture }: ScanScreenProps) {
   const state = useSyncExternalStore((listener) => scan.subscribe(listener),
     () => scan.getState(), () => scan.getState());
   const presenter = useMemo(() => new TapMomentPresenter(), []);
@@ -73,6 +74,9 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work }: Sca
       {work ? <RecentTimeCard work={work} /> : <Card><Text style={styles.role}>Zuletzt</Text>
         <Text>Bestätigte Zeiten siehst du nach dem Abgleich.</Text></Card>}
     </ScrollView>
+    {onManualCapture ? <ActionButton title="Manuell starten" tone="secondary"
+      accessibilityLabel="Manuell starten" accessibilityHint="Arbeitsziel oder Pause auswählen. Start, Pause, Fortsetzen und Stopp von Hand erfassen."
+      onPress={onManualCapture} /> : null}
     {embedded ? null : <ActionButton title="Abmelden" tone="quiet" onPress={signOut} />}
   </SafeAreaView>;
 }

@@ -70,7 +70,7 @@ export function AppNavigator({
 
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
-    return <ProductShell key={accountKey} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
+    return <ProductShell key={accountKey} identityLabel={state.identityLabel} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
       scan={scan} administration={administration} work={work} offlineManual={offlineManual} />;
   }
   if (state.status === 'enrollment_only') {
@@ -87,7 +87,7 @@ export function AppNavigator({
   if (state.status === 'context_unavailable') {
     if (canPresentOfflineCaptureShell(state, scanState)) {
       return (
-        <ProductShell key="offline" role="offline" session={session} scan={scan}
+        <ProductShell key="offline" identityLabel={state.identityLabel} role="offline" session={session} scan={scan}
           administration={administration} offlineManual={offlineManual} />
       );
     }
@@ -136,8 +136,9 @@ function PasswordRecoveryScreen({ session, completing, notice }: {
   </ScrollView></Screen>;
 }
 
-function ProductShell({ role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, offlineManual }: {
+function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, offlineManual }: {
   readonly role: ProductMembershipRole | 'offline';
+  readonly identityLabel?: string;
   readonly nfcSetupAvailable?: boolean;
   readonly managementScope?: MobileManagementScope | null;
   readonly locationsEnabled?: boolean;
@@ -160,7 +161,7 @@ function ProductShell({ role, nfcSetupAvailable = false, managementScope, locati
     else if (scanState.status === 'ready' && scanState.outcome === null) previousCount.current = 0;
   }, [scanState]);
   const destinations = role === 'offline' ? OFFLINE_PRODUCT_DESTINATIONS : productDestinations({ role, nfcSetupAvailable, managementScope });
-  useEffect(() => { if (!destinations.includes(destination)) setDestination('capture'); }, [destination, managementScope, nfcSetupAvailable]);
+  useEffect(() => { if (destination !== 'manual' && !destinations.includes(destination)) setDestination('capture'); }, [destination, managementScope, nfcSetupAvailable]);
   const navigate = (next: ProductDestination) => {
     if (next !== 'capture') void scan.cancel();
     if (next !== 'setup') void administration.cancel();
@@ -174,7 +175,7 @@ function ProductShell({ role, nfcSetupAvailable = false, managementScope, locati
   };
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (showSync) { setShowSync(false); return true; }
+      if (showSync) { navigate('capture'); return true; }
       if (destination !== 'capture') { navigate('capture'); return true; }
       return false;
     });
@@ -184,13 +185,13 @@ function ProductShell({ role, nfcSetupAvailable = false, managementScope, locati
     ? 'Standortleitung' : role === 'offline' ? 'Offline-Erfassung' : 'Deine Arbeitszeit';
   return <View style={[styles.productShell, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]}>
     <View style={styles.header}>
-      {showSync ? <TouchTarget accessibilityRole="button" accessibilityLabel="Zurück"
-        onPress={() => setShowSync(false)} style={styles.iconAction}>
+      {showSync || destination === 'manual' ? <TouchTarget accessibilityRole="button" accessibilityLabel="Zurück"
+        onPress={() => navigate('capture')} style={styles.iconAction}>
         <LineIcon name="back" />
       </TouchTarget> : null}
       <View style={styles.heading}>
         <Text accessibilityRole="header" style={styles.title}>{showSync ? 'Abgleich' : destinationLabels[destination]}</Text>
-        <Text style={styles.subtitle}>{roleLabel}</Text>
+        <Text style={styles.subtitle} numberOfLines={1} accessibilityLabel={identityLabel}>{identityLabel ?? roleLabel}</Text>
       </View>
       <TouchTarget accessibilityRole="button" accessibilityLabel={status.label}
         onPress={openSync} style={styles.iconAction}>
@@ -206,7 +207,7 @@ function ProductShell({ role, nfcSetupAvailable = false, managementScope, locati
         <View style={{ flex: 1, display: !showSync && destination === 'capture' ? 'flex' : 'none' }}
           accessibilityElementsHidden={showSync || destination !== 'capture'}
           importantForAccessibility={showSync || destination !== 'capture' ? 'no-hide-descendants' : 'auto'}>
-          <ScanScreen actor={role} scan={scan} work={work} signOut={() => session.signOut()} embedded />
+          <ScanScreen actor={role} scan={scan} work={work} signOut={() => session.signOut()} onManualCapture={() => navigate('manual')} embedded />
         </View>
         {showSync ? <SynchronizationScreen scan={scan} indicator={status} signOut={() => session.signOut()} />
           : destination === 'capture' ? null
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
   productContent: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20,
     paddingTop: 16, paddingBottom: 8, gap: 8 },
-  heading: { flex: 1 },
+  heading: { flex: 1, minWidth: 0 },
   title: { color: mobileTokens.color.text, fontSize: 22, lineHeight: 28, fontWeight: '800' },
   subtitle: { color: mobileTokens.color.textMuted, fontSize: 13, fontWeight: '600' },
   iconAction: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },

@@ -7,8 +7,8 @@ export const destinationLabels: Record<ProductDestination, string> = {
 };
 export function productDestinations(session: Pick<ProductSessionContext, 'role' | 'nfcSetupAvailable' | 'managementScope'>): readonly ProductDestination[] {
   const people = session.managementScope != null ? 'employees' : 'times';
-  return session.nfcSetupAvailable === true ? ['capture', 'manual', people, 'setup']
-    : ['capture', 'manual', people];
+  return session.nfcSetupAvailable === true ? ['capture', people, 'setup']
+    : ['capture', people];
 }
 
 export interface SyncIndicator {

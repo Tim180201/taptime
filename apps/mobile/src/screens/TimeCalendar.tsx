@@ -35,7 +35,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange}: {readonly
         <TouchTarget accessibilityRole="button" accessibilityLabel="Nächster Monat" style={styles.arrow} onPress={() => changeMonth(1)}>
           <LineIcon name="arrow" /></TouchTarget>
       </View>
-      <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}><View style={{ flex: 1, minWidth: 308 }}>
+      <View>
       <View style={styles.grid}>{['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day) =>
         <Text key={day} style={styles.weekday}>{day}</Text>)}</View>
       <View style={styles.grid}>{monthDays(month).map((day, index) => {
@@ -46,11 +46,11 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange}: {readonly
           accessibilityState={{ selected: day === selected }} onPress={() => setSelected(day)}
           style={[styles.daySpace, day === selected && styles.selected]}>
           <Text style={[styles.dayNumber, day === selected && styles.selectedText]}>{Number(day.slice(8))}</Text>
-          <Text style={[styles.dayHours, day === selected && styles.selectedText]}>
+          <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.dayHours, day === selected && styles.selectedText]}>
             {summary.complete ? summary.milliseconds > 0 ? formatHours(summary.milliseconds) : '' : '—'}
           </Text>
         </TouchTarget>;
-      })}</View></View></ScrollView>
+      })}</View></View>
     </Card>
     <Text style={styles.monthTitle}>{new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE,
       weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${selected}T12:00:00Z`))}</Text>
@@ -85,8 +85,8 @@ const styles = StyleSheet.create({
   monthHeading: { flexDirection: 'row', alignItems: 'center' }, monthTitle: { flex: 1, fontSize: 15, fontWeight: '800' },
   arrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' }, weekday: { width: '14.285714%', textAlign: 'center', fontSize: 13, color: mobileTokens.color.textMuted },
-  daySpace: { width: '14.285714%', minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  dayNumber: { fontSize: 13, fontWeight: '600' }, dayHours: { fontSize: 13, lineHeight: 16, color: mobileTokens.color.textMuted },
+  daySpace: { width: '14.285714%', minWidth: 0, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  dayNumber: { fontSize: 13, fontWeight: '600' }, dayHours: { maxWidth: '100%', fontSize: 13, lineHeight: 16, color: mobileTokens.color.textMuted },
   selected: { backgroundColor: mobileTokens.color.accent }, selectedText: { color: mobileTokens.color.onAccent },
   duration: { fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },
 });

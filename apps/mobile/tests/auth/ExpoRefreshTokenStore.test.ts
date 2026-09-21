@@ -10,7 +10,7 @@ const secureStore = vi.hoisted(() => ({
 
 vi.mock('expo-secure-store', () => secureStore);
 
-const { ExpoRefreshTokenStore, REFRESH_TOKEN_STORAGE_KEY } = await import(
+const { ExpoRefreshTokenStore, REFRESH_TOKEN_STORAGE_KEY, CONFIRMED_IDENTITY_STORAGE_KEY } = await import(
   '../../src/auth/ExpoRefreshTokenStore'
 );
 
@@ -44,5 +44,24 @@ describe('ExpoRefreshTokenStore', () => {
   it('rejects an empty refresh token before native storage', async () => {
     await expect(new ExpoRefreshTokenStore().write('')).rejects.toThrow('non-empty');
     expect(secureStore.setItemAsync).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('T-065 secure identity storage', () => {
+  it('uses device-only secure storage for the confirmed identity and deletes it alongside the token', async () => {
+    const store = new ExpoRefreshTokenStore();
+    const identity = { providerUserId: 'subject', email: 'server@example.invalid' };
+    await store.writeIdentity(identity);
+    const options = { keychainAccessible: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY' };
+    expect(secureStore.setItemAsync).toHaveBeenCalledWith(CONFIRMED_IDENTITY_STORAGE_KEY, JSON.stringify(identity), options);
+    secureStore.getItemAsync.mockResolvedValue(JSON.stringify(identity));
+    await expect(store.readIdentity()).resolves.toEqual(identity);
+    await store.clear();
+    expect(secureStore.deleteItemAsync).toHaveBeenCalledWith(CONFIRMED_IDENTITY_STORAGE_KEY, options);
+  });
+  it.each([null, '{}', 'null', 'invalid', '{"email":"", "providerUserId":"subject"}'])('ignores missing or malformed identity %s', async value => {
+    secureStore.getItemAsync.mockResolvedValue(value);
+    await expect(new ExpoRefreshTokenStore().readIdentity()).resolves.toBeNull();
   });
 });

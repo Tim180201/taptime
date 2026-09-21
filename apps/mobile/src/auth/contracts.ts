@@ -13,7 +13,14 @@ export interface ProductSessionContext {
   readonly role: ProductMembershipRole;
 }
 
+/** Display-only identity returned by the authentication server; never an authority. */
+export interface ConfirmedSessionIdentity {
+  readonly providerUserId: string;
+  readonly email: string;
+}
+
 export interface ProviderSessionTokens {
+  readonly identity?: ConfirmedSessionIdentity;
   readonly accessToken: string;
   readonly refreshToken: string;
 }
@@ -46,7 +53,10 @@ export interface RefreshTokenStore {
   isAvailable(): Promise<boolean>;
   read(): Promise<string | null>;
   write(refreshToken: string): Promise<void>;
+  /** Clears both the token and its confirmed display identity. */
   clear(): Promise<void>;
+  readIdentity(): Promise<ConfirmedSessionIdentity | null>;
+  writeIdentity(identity: ConfirmedSessionIdentity | null): Promise<void>;
 }
 
 export type BackendSessionResolution =
@@ -87,12 +97,12 @@ export type MobileSessionState =
     }
   | { readonly status: 'signing_in' }
   | { readonly status: 'password_recovery'; readonly completing: boolean; readonly notice: string | null }
-  | { readonly status: 'authenticated'; readonly session: ProductSessionContext }
+  | { readonly status: 'authenticated'; readonly session: ProductSessionContext; readonly identityLabel?: string }
   | {
       readonly status: 'enrollment_only';
       readonly notice: 'enrollment_unavailable' | 'invalid_request' | 'request_failed' | null;
     }
-  | { readonly status: 'context_unavailable' }
+  | { readonly status: 'context_unavailable'; readonly identityLabel?: string }
   | {
       readonly status: 'runtime_unavailable';
       readonly reason: 'authentication_unavailable' | 'storage_unavailable';
