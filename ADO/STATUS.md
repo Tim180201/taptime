@@ -1,9 +1,9 @@
 # TapTim.e — Status
 
 **Stand:** 21.09.2026 · Produktion läuft auf `7f0012e` (Deploy 20.09., 15:06–15:11 Uhr, ein
-Anlauf, Migration 029; zwei weitere bewiesene Wiederherstellungen). Produktion und `main`
-tragen denselben Anwendungsstand (T-061, T-049, T-063, T-064). Offen vor dem Pilot: T-067,
-T-065, T-066. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
+Anlauf, Migration 029; zwei weitere bewiesene Wiederherstellungen). Produktion trägt T-061,
+T-049, T-063 und T-064; auf `main` zusätzlich T-067 (`d75fd56`), Deploy läuft. Offen vor dem
+Pilot: T-065, T-066, T-068. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
 vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -74,6 +74,14 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P1 T-068 (Befund 21.09.):** Kein gangbarer Weg, einen Kunden als eigenen Betrieb
+  anzulegen: nur das C3B-Werkzeug `taptime-bootstrap`, in keinem Produktionsabbild, ohne
+  aktuelle Anleitung. Blockiert den Pilot; Betreiber-Bereich nach D-068.
+- **P2 Sicherheit (Befund 21.09.):** Der WAL-Spool `/var/lib/taptime-wal` gehört auf dem Host
+  `dnsmasq:systemd-journal` — Kollision der Benutzernummer aus dem Datenbankcontainer mit einem
+  Hostbenutzer. Prüfen, ob `dnsmasq` läuft; feste eigene Nummer für den Spool (T-057).
+- **Beobachten (21.09.):** Dauer der stündlichen Basissicherung gegen die Zehn-Minuten-Grenze
+  des Wächters (D-066); ein Lauf endete 16:13 UTC nach bis zu acht Minuten.
 - **P1 T-067 (Befund 21.09.):** `archive_timeout=15s` (T-063, ausgeliefert 20.09.) lässt den
   Archivierer seine eigenen Quittungen archivieren — rund 200 Archive je Stunde ohne Taps. Die
   Durchläufe wachsen auf Stunden, die stündliche Sicherung verhungert, der Spool wächst auf der

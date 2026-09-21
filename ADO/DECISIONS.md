@@ -1278,3 +1278,25 @@ Export. Kommt vor dem Pilotstart (T-066).
 **Warum:** Ein vergessener Tag ist heute von niemandem reparierbar. Der Tap bleibt der
 Normalfall; alles andere ist sichtbar die Ausnahme.
 
+---
+
+## D-068 · Betreiber-Bereich vor dem Pilot · 21.09.2026 · Tim (PO), vorbereitet Claude (TL)
+**Entscheidung:** Vor dem Pilot entsteht ein Betreiber-Bereich über allen Betrieben: Betrieb
+anlegen samt Einladung des ersten Administrators, Betrieb pausieren, Übersicht über alle
+Betriebe. Getrennt vom Kunden-Web, eigene Autorität (keine Rolle innerhalb eines Betriebs),
+zweiter Faktor, jede Aktion protokolliert.
+**Grenze:** Der Betreiber sieht über einen Betrieb (Status, Zahlen, letzte Aktivität,
+Betriebszustand), nie hinein: keine Namen, keine Arbeitszeiten von Mitarbeitern der Kunden.
+**Warum:** Einen Kunden als eigenen Betrieb anzulegen geht heute nur mit dem C3B-Werkzeug
+`taptime-bootstrap`, das in keinem Produktionsabbild steckt und keine aktuelle Anleitung hat.
+
+---
+
+## D-069 · Administrator und Standortleitung ändern jeden Zeiteintrag · 21.09.2026 · Tim (PO)
+**Entscheidung:** Ergänzt D-067. Der Administrator (ganzer Betrieb) und die Standortleitung
+(eigener Standort) ändern jeden Zeiteintrag jedes Mitarbeiters in ihrem Umfang, nicht nur
+Nachgetragenes — append-only, immer mit Grund. Der Administrator kann das heute im Web (DA3);
+Standortleitung und App folgen mit T-062.
+**Grenze (TL):** Das Original bleibt erhalten, und der Mitarbeiter sieht an seinem Eintrag,
+dass, wann und warum geändert wurde.
+
