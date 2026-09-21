@@ -195,6 +195,13 @@ REVOKE ALL ON FUNCTION taptime_server.backfill_time_record_v1(jsonb),taptime_ser
 GRANT EXECUTE ON FUNCTION taptime_server.backfill_time_record_v1(jsonb),taptime_server.comment_time_record_v1(jsonb) TO taptime_time_review_writer;
 
 -- Separate opt-in metadata: the old views, representations and v3 export remain untouched.
+-- The effective view's COALESCE start cannot use a base-table range index. The detail
+-- reader separates unrevised entries from latest revisions without changing the old view.
+CREATE INDEX time_entries_person_started ON taptime_server.time_entries
+  (organization_id,user_id,started_at);
+CREATE INDEX time_record_revisions_person_started ON taptime_server.time_record_revisions
+  (organization_id,user_id,effective_started_at);
+
 CREATE FUNCTION taptime_server.read_time_record_details_v1(requested_ids uuid[])
 RETURNS TABLE(time_record_id uuid, details jsonb)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog
@@ -204,8 +211,30 @@ DECLARE
   actor_user uuid := nullif(current_setting('app.user_id',true),'')::uuid;
   actor_id uuid := nullif(current_setting('app.membership_id',true),'')::uuid;
   runtime_role text := current_setting('role',true);
+  actor_role text;
+  own_only boolean := false;
+  location_scope uuid[];
 BEGIN
   IF requested_ids IS NULL OR cardinality(requested_ids)>10001 THEN RETURN; END IF;
+  SELECT m.role INTO actor_role FROM taptime_server.memberships m
+    WHERE m.organization_id=org AND m.id=actor_id AND m.user_id=actor_user AND m.revoked_at IS NULL;
+  IF NOT FOUND THEN RETURN; END IF;
+  -- Resolve row-independent authority once, including when PostgreSQL uses a generic plan.
+  CASE runtime_role
+    WHEN 'taptime_mobile_own_time_reader' THEN own_only := true;
+    WHEN 'taptime_time_review_reader' THEN
+      IF actor_role <> 'administrator' THEN RETURN; END IF;
+    WHEN 'taptime_time_exporter' THEN
+      IF taptime_server.has_current_time_export_authority(org) IS NOT TRUE THEN RETURN; END IF;
+    WHEN 'taptime_membership_manager' THEN
+      SELECT CASE WHEN coalesce(bool_or(s.scope_kind='organization'),false) THEN NULL::uuid[]
+        ELSE coalesce(array_agg(s.location_id) FILTER (WHERE s.scope_kind='location' AND s.location_id IS NOT NULL),ARRAY[]::uuid[]) END
+        INTO location_scope
+        FROM taptime_server.has_membership_management_authority_v1(org,actor_user,actor_id,'read',NULL,NULL,NULL) s
+        WHERE s.scope_kind IN ('organization','location');
+      IF cardinality(location_scope)=0 THEN RETURN; END IF;
+    ELSE RETURN;
+  END CASE;
   RETURN QUERY
   SELECT r.time_record_id,jsonb_build_object(
     'origin',CASE WHEN o.origin='backfilled' THEN 'backfilled' WHEN r.source='recovered' THEN 'recovered'
@@ -217,28 +246,35 @@ BEGIN
       'at',to_char(rev.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
       'reason',rev.reason,'actor',CASE WHEN o.origin='backfilled' AND rev.revision_number=1
         THEN o.created_by ELSE 'administration' END) END,
-    'overlapsAnotherRecord',EXISTS(SELECT 1 FROM taptime_server.effective_time_records_v2 other
+    'overlapsAnotherRecord',EXISTS(
+      -- Unrevised canonical entries can use their indexed original start directly.
+      SELECT 1 FROM taptime_server.time_entries other
+      WHERE other.organization_id=r.organization_id AND other.user_id=r.user_id AND other.id<>r.time_record_id
+        AND other.started_at < coalesce(r.effective_stopped_at,'infinity'::timestamptz)
+        AND (other.status='started' OR other.stopped_at>r.effective_started_at)
+        AND NOT EXISTS (SELECT 1 FROM taptime_server.time_record_revisions revised
+          WHERE revised.organization_id=other.organization_id AND revised.time_record_id=other.id)
+      UNION ALL
+      -- A revision in the interval counts only if no newer revision exists, even outside it.
+      SELECT 1 FROM taptime_server.time_record_revisions other
+      LEFT JOIN taptime_server.time_entries canonical
+        ON canonical.organization_id=other.organization_id AND canonical.id=other.canonical_time_entry_id
       WHERE other.organization_id=r.organization_id AND other.user_id=r.user_id AND other.time_record_id<>r.time_record_id
         AND other.effective_started_at < coalesce(r.effective_stopped_at,'infinity'::timestamptz)
-        AND coalesce(other.effective_stopped_at,'infinity'::timestamptz)>r.effective_started_at))
+        AND (canonical.status='started' OR other.effective_stopped_at>r.effective_started_at)
+        AND NOT EXISTS (SELECT 1 FROM taptime_server.time_record_revisions newer
+          WHERE newer.organization_id=other.organization_id AND newer.time_record_id=other.time_record_id
+            AND newer.revision_number>other.revision_number)))
   FROM taptime_server.effective_time_records_v2 r
   LEFT JOIN taptime_server.time_record_origins o ON o.organization_id=r.organization_id AND o.time_record_id=r.time_record_id
   LEFT JOIN taptime_server.time_record_revisions rev ON rev.organization_id=r.organization_id AND rev.time_record_id=r.time_record_id AND rev.revision_number=r.effective_revision_number
-  LEFT JOIN taptime_server.memberships m ON m.organization_id=rev.organization_id AND m.id=rev.actor_membership_id
   LEFT JOIN LATERAL (SELECT c.comment FROM taptime_server.time_record_comments c WHERE c.organization_id=r.organization_id AND c.time_record_id=r.time_record_id ORDER BY c.comment_number DESC LIMIT 1) c ON true
   WHERE r.organization_id=org AND r.time_record_id=ANY(requested_ids)
-    AND EXISTS (SELECT 1 FROM taptime_server.memberships live WHERE live.organization_id=org AND live.id=actor_id AND live.user_id=actor_user AND live.revoked_at IS NULL)
-    AND CASE runtime_role
-      WHEN 'taptime_mobile_own_time_reader' THEN r.user_id=actor_user
-      WHEN 'taptime_time_review_reader' THEN EXISTS (SELECT 1 FROM taptime_server.memberships m WHERE m.organization_id=org AND m.id=actor_id AND m.user_id=actor_user AND m.role='administrator' AND m.revoked_at IS NULL)
-      WHEN 'taptime_time_exporter' THEN taptime_server.has_current_time_export_authority(org)
-      WHEN 'taptime_membership_manager' THEN EXISTS (
-        SELECT 1 FROM taptime_server.has_membership_management_authority_v1(org,actor_user,actor_id,'read',NULL,NULL,NULL) s
-        WHERE s.scope_kind='organization' OR (s.scope_kind='location' AND EXISTS (
-          SELECT 1 FROM taptime_server.memberships target JOIN taptime_server.membership_home_location_assignments h
-            ON h.organization_id=target.organization_id AND h.membership_id=target.id AND h.revoked_at IS NULL
-          WHERE target.organization_id=org AND target.user_id=r.user_id AND h.location_id=s.location_id)))
-      ELSE false END;
+    AND (NOT own_only OR r.user_id=actor_user)
+    AND (location_scope IS NULL OR EXISTS (
+      SELECT 1 FROM taptime_server.memberships target JOIN taptime_server.membership_home_location_assignments h
+        ON h.organization_id=target.organization_id AND h.membership_id=target.id AND h.revoked_at IS NULL
+      WHERE target.organization_id=org AND target.user_id=r.user_id AND h.location_id=ANY(location_scope)));
 END
 $details$;
 GRANT EXECUTE ON FUNCTION taptime_server.has_current_time_export_authority(uuid),
@@ -248,6 +284,36 @@ ALTER FUNCTION taptime_server.read_time_record_details_v1(uuid[]) OWNER TO tapti
 REVOKE ALL ON FUNCTION taptime_server.read_time_record_details_v1(uuid[]) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION taptime_server.read_time_record_details_v1(uuid[])
   TO taptime_mobile_own_time_reader,taptime_membership_manager,taptime_time_exporter,taptime_time_review_reader;
+
+-- CSV v4 does not need change explanations, versions or overlap scans. Its caller reads
+-- this projection in the same REPEATABLE READ transaction as the unchanged v3 row reader.
+CREATE FUNCTION taptime_server.read_time_record_export_details_v1(requested_ids uuid[])
+RETURNS TABLE(time_record_id uuid,details jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog
+AS $export_details$
+DECLARE
+  org uuid := nullif(current_setting('app.organization_id',true),'')::uuid;
+BEGIN
+  IF current_setting('role',true) IS DISTINCT FROM 'taptime_time_exporter'
+    OR requested_ids IS NULL OR cardinality(requested_ids)>10001 THEN RETURN; END IF;
+  IF taptime_server.has_current_time_export_authority(org) IS NOT TRUE THEN RETURN; END IF;
+  RETURN QUERY
+  SELECT r.time_record_id,jsonb_build_object(
+    'origin',CASE WHEN o.origin='backfilled' THEN 'backfilled' WHEN r.source='recovered' THEN 'recovered'
+      WHEN r.started_via='manual' OR r.stopped_via='manual' THEN 'manual' ELSE 'nfc' END,
+    'changed',r.effective_revision_number > CASE WHEN r.source='recovered' THEN 1 ELSE 0 END,
+    'comment',c.comment)
+  FROM taptime_server.effective_time_records_v2 r
+  LEFT JOIN taptime_server.time_record_origins o ON o.organization_id=r.organization_id AND o.time_record_id=r.time_record_id
+  LEFT JOIN LATERAL (SELECT c.comment FROM taptime_server.time_record_comments c
+    WHERE c.organization_id=r.organization_id AND c.time_record_id=r.time_record_id
+    ORDER BY c.comment_number DESC LIMIT 1) c ON true
+  WHERE r.organization_id=org AND r.time_record_id=ANY(requested_ids);
+END
+$export_details$;
+ALTER FUNCTION taptime_server.read_time_record_export_details_v1(uuid[]) OWNER TO taptime_time_review_read_function_owner;
+REVOKE ALL ON FUNCTION taptime_server.read_time_record_export_details_v1(uuid[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION taptime_server.read_time_record_export_details_v1(uuid[]) TO taptime_time_exporter;
 
 CREATE FUNCTION taptime_server.append_time_entry_export_audit_v4(
   requested_audit_id uuid,

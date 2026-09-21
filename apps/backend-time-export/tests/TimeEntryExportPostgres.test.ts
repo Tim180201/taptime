@@ -78,6 +78,105 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect(current.filename).toContain('_v4_');
   });
 
+  registerExportTest('T-066 export metadata is exporter-only, tenant-bound and checks live authority once', async () => {
+    const reader = 'taptime_server.read_time_record_export_details_v1(uuid[])';
+    for (const role of ['taptime_mobile_own_time_reader', 'taptime_time_review_reader', 'taptime_membership_manager']) {
+      expect((await installerPool.query('SELECT has_function_privilege($1,$2,\'EXECUTE\') AS allowed', [role, reader])).rows[0].allowed).toBe(false);
+    }
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SET LOCAL track_functions='all'; SET LOCAL plan_cache_mode='force_generic_plan'");
+      await client.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),
+        set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true)`,
+      [ids.organizationA, ids.adminA, ids.membershipAdminA]);
+      await client.query('SET LOCAL ROLE taptime_time_exporter');
+      const read = () => client.query(`SELECT * FROM taptime_server.read_time_record_export_details_v1($1::uuid[])`,
+        [[ids.stoppedEntryA, ids.activeEntryA, ids.activeEntryB, '60000000-0000-4000-8000-999999999999']]);
+      const rows = (await read()).rows;
+      expect(rows).toHaveLength(2);
+      expect(rows.map(row => row.time_record_id).sort()).toEqual([ids.stoppedEntryA, ids.activeEntryA].sort());
+      for (const row of rows) expect(row.details).toEqual({origin:'nfc',changed:false,comment:null});
+      await client.query('RESET ROLE');
+      expect((await client.query(`SELECT calls FROM pg_stat_xact_user_functions
+        WHERE funcid='taptime_server.has_current_time_export_authority(uuid)'::regprocedure`)).rows).toEqual([{calls:'1'}]);
+      await client.query('SET LOCAL ROLE taptime_time_exporter');
+      await client.query("SELECT set_config('app.membership_role','',true)");
+      expect((await read()).rows).toEqual([]);
+      await client.query("SELECT set_config('app.membership_role','administrator',true)");
+      await client.query("SELECT set_config('app.membership_id',$1,true),set_config('app.user_id',$2,true)", [ids.membershipEmployeeA, ids.employeeA]);
+      expect((await read()).rows).toEqual([]); // Even a forged administrator context cannot grant authority.
+      await client.query("SELECT set_config('app.membership_id',$1,true),set_config('app.user_id',$2,true)", [ids.membershipAdminA, ids.adminA]);
+      await client.query('RESET ROLE');
+      await client.query('UPDATE taptime_server.memberships SET revoked_at=now(),row_version=row_version+1 WHERE id=$1', [ids.membershipAdminA]);
+      await client.query('SET LOCAL ROLE taptime_time_exporter');
+      expect((await read()).rows).toEqual([]);
+    } finally { await client.query('ROLLBACK'); client.release(); }
+  });
+
+  registerExportTest('T-066 rejects SQL-NULL authority on a fresh connection with an unset role context', async () => {
+    const freshPool = new Pool({connectionString:installerConnectionString,max:1});
+    const client = await freshPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),
+        set_config('app.membership_id',$3,true)`,[ids.organizationA,ids.adminA,ids.membershipAdminA]);
+      expect((await client.query("SELECT current_setting('app.membership_role',true) AS role")).rows).toEqual([{role:null}]);
+      await client.query('SET LOCAL ROLE taptime_time_exporter');
+      expect((await client.query('SELECT taptime_server.has_current_time_export_authority($1) AS allowed',[ids.organizationA])).rows)
+        .toEqual([{allowed:null}]);
+      for (const reader of ['read_time_record_export_details_v1','read_time_record_details_v1']) {
+        expect((await client.query(`SELECT * FROM taptime_server.${reader}($1::uuid[])`,[[ids.stoppedEntryA]])).rows).toEqual([]);
+      }
+    } finally {await client.query('ROLLBACK');client.release();await freshPool.end();}
+  });
+
+  registerExportTest('T-066 v4 keeps times, change mark and comment in the same snapshot', async () => {
+    const comment = (number: number, text: string) => installerPool.query(`INSERT INTO taptime_server.time_record_comments
+      (organization_id,time_record_id,comment_number,user_id,actor_membership_id,comment,command_id)
+      VALUES($1,$2,$3,$4,$5,$6,gen_random_uuid())`,
+    [ids.organizationA,ids.stoppedEntryA,number,ids.employeeA,ids.membershipEmployeeA,text]);
+    await comment(1,'Vorher');
+    const raced = await coordinator.exportTimeEntriesV4(command(tokens.adminA,request), {afterSnapshotRead:async()=>{
+      await insertEffectiveRevision(); await comment(2,'Nachher');
+    }});
+    expect(raced.status).toBe('succeeded');
+    if (raced.status !== 'succeeded') return;
+    const old = Buffer.from(raced.bytes).toString('utf8');
+    expect(old).toContain('"2026-07-21T08:00:00.123456Z"');
+    expect(old).toContain('"gescannt";"no";"Vorher"');
+    expect(old).not.toContain('Nachher');
+    const next = await coordinator.exportTimeEntriesV4(command(tokens.adminA,request));
+    expect(next.status).toBe('succeeded');
+    if (next.status !== 'succeeded') return;
+    const current = Buffer.from(next.bytes).toString('utf8');
+    expect(current).toContain('"2026-07-21T08:15:00.000000Z"');
+    expect(current).toContain('"gescannt";"yes";"Nachher"');
+    expect(current).not.toContain('Vorher');
+  });
+
+  registerExportTest('T-066 v4 fails closed without audit when one metadata row is missing', async () => {
+    const droppingPool = new Proxy(runtimePool, {get(target, key) {
+      if (key === 'connect') return async () => {
+        const client = await target.connect();
+        return new Proxy(client, {get(target, key) {
+          if (key === 'query') return async (...args: unknown[]) => {
+            const result = await Reflect.apply(target.query, target, args);
+            return typeof args[0] === 'string' && args[0].includes('read_time_record_export_details_v1')
+              ? {...result,rows:result.rows.slice(1)} : result;
+          };
+          const value = Reflect.get(target,key,target);
+          return typeof value === 'function' ? value.bind(target) : value;
+        }});
+      };
+      return Reflect.get(target,key,target);
+    }});
+    const incomplete = new TimeEntryExportCoordinator(droppingPool,verifier);
+    expect(await incomplete.exportTimeEntriesV4(command(tokens.adminA,request))).toEqual({status:'service_unavailable'});
+    expect(await exportAuditCount()).toBe(0);
+    expect((await coordinator.exportTimeEntriesV4(command(tokens.adminA,request))).status).toBe('succeeded');
+  });
+
   registerExportTest('exports only the derived tenant snapshot and appends one exact hash-bound audit', async () => {
     const result = await exportAs(tokens.adminA);
     expect(result.status).toBe('succeeded');

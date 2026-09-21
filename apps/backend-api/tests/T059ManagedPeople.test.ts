@@ -138,6 +138,20 @@ function mobile(token:string) {
 }
 
 describe('T059 SQL scope and migration', () => {
+  it('T-066 details retain every granted location and exclude ungranted locations', async () => {
+    const all=(await person('admin',ids.membershipAdminA2)).concat(await person('admin',targetB))
+      .filter(row=>row.time_record_id).map(row=>row.time_record_id as string);
+    const read=()=>context('manager',async client=>(await client.query(
+      'SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[])',[all])).rows);
+    const first=await read();
+    expect(first.length).toBeGreaterThan(0); expect(first.length).toBeLessThan(all.length);
+    await pool.query(`INSERT INTO taptime_server.membership_management_location_grants
+      (id,organization_id,membership_id,location_id) VALUES(gen_random_uuid(),$1,$2,$3)`,[ids.organizationA,ids.membershipEmployeeA,b]);
+    expect((await read()).map(row=>row.time_record_id).sort()).toEqual([...new Set(all)].sort());
+    await pool.query(`UPDATE taptime_server.membership_management_location_grants SET revoked_at=now()
+      WHERE organization_id=$1 AND membership_id=$2 AND location_id=$3`,[ids.organizationA,ids.membershipEmployeeA,a]);
+    expect((await read()).every(row=>!first.some(previous=>previous.time_record_id===row.time_record_id))).toBe(true);
+  });
   it('a: location A reads its person, never B or a person without a home', async () => {
     expect((await person('manager', ids.membershipAdminA2)).filter(r=>r.row_kind==='history')).toHaveLength(2);
     expect(await person('manager',targetB)).toMatchObject([{row_kind:'forbidden',time_record_id:null}]);

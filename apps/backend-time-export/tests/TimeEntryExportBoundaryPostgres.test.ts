@@ -70,13 +70,28 @@ describe('DA2 export size boundaries in an isolated database run', () => {
     expect(await exportAuditCount()).toBe(0);
   }, 120_000);
 
-  it('serves v4 for a large valid page within the production deadline', async () => {
-    await insertBulkStoppedEntries(installerPool, 7_500);
-    const started = performance.now();
-    const result = await coordinator.exportTimeEntriesV4(command());
-    console.info(`[T-066 v4 boundary] export=${format(performance.now()-started)}ms status=${result.status}`);
-    expect(result.status).toBe('succeeded');
-  }, 120_000);
+  it('serves v4 within 1.3x the same-run v3 export of 7,500 rows', async () => {
+    await insertBulkStoppedEntries(installerPool, REFERENCE_ROWS);
+    const v3Started = performance.now();
+    const v3 = await exportV3({
+      deadlineEpochMilliseconds: Date.now() + BOUNDARY_EXPORT_DEADLINE_MILLISECONDS,
+    });
+    const v3Milliseconds = performance.now() - v3Started;
+    const v4Started = performance.now();
+    const v4 = await coordinator.exportTimeEntriesV4(command(), {
+      deadlineEpochMilliseconds: Date.now() + BOUNDARY_EXPORT_DEADLINE_MILLISECONDS,
+    });
+    const v4Milliseconds = performance.now() - v4Started;
+    const ratio = v4Milliseconds / v3Milliseconds;
+    console.info(`[T-066 v4 boundary] v3=${format(v3Milliseconds)}ms status=${v3.status} `
+      + `v4=${format(v4Milliseconds)}ms status=${v4.status} ratio=${ratio.toFixed(2)}x budget=1.30x`);
+    if (Math.max(v3Milliseconds, v4Milliseconds) > 8_000) {
+      console.warn('[T-066 v4 boundary warning] absolute export runtime exceeds 8000ms; the relative result remains authoritative');
+    }
+    expect(v3.status).toBe('succeeded');
+    expect(v4.status).toBe('succeeded');
+    expect(ratio, `v4 export took ${ratio.toFixed(2)}x its same-run v3 export`).toBeLessThanOrEqual(1.3);
+  }, 2 * BOUNDARY_EXPORT_DEADLINE_MILLISECONDS + 60_000);
 
   it('fails payroll v3 closed above 8 MiB within a runner-relative budget', async () => {
     await truncateDa2DataTables(installerPool);

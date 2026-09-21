@@ -263,9 +263,10 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
           }
           if (schemaVersion === 4) {
             const details = (await client.query<{time_record_id:string;details:{origin:'nfc'|'manual'|'backfilled'|'recovered';changed:boolean;comment:string|null}}>(
-              'SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[])', [snapshot.map(row=>row.time_entry_id)])).rows;
+              'SELECT * FROM taptime_server.read_time_record_export_details_v1($1::uuid[])', [snapshot.map(row=>row.time_entry_id)])).rows;
+            const detailsById = new Map(details.map(row => [row.time_record_id, row.details]));
             serialized = serializeTimeEntryExportCsvV4(snapshot.map(row=> {
-              const extra = details.find(d=>d.time_record_id===row.time_entry_id)?.details;
+              const extra = detailsById.get(row.time_entry_id);
               if (!extra) throw new Error('Missing export details');
               return {...mapExportRowV3(row,actor),...extra};
             }));

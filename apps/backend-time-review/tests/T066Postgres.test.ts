@@ -194,3 +194,41 @@ it('negotiates distinct provenance in payroll reads without changing the legacy 
     expect(JSON.stringify(await coordinator.queryTimeRecordsV2(command))).toBe(before);
   } finally {await readPool.end();await writePool.end();}
 });
+
+it('keeps overlap truth when the latest canonical or recovered revision moves outside the old interval',async()=>{
+  const canonical=(await pool.query(`SELECT * FROM taptime_server.effective_time_records_v2
+    WHERE time_record_id=$1`,[ids.stoppedEntryA])).rows[0];
+  const recovered=randomUUID();
+  await pool.query(`INSERT INTO taptime_server.time_record_revisions
+    (organization_id,time_record_id,revision_number,user_id,target_type,target_customer_id,effective_started_at,effective_stopped_at,
+    base_row_version,actor_user_id,actor_membership_id,reason,command_id,request_hash)
+    VALUES($1,$2,1,$3,'customer',$4,$5,$6,0,$7,$8,'Overlap probe',gen_random_uuid(),repeat('e',64))`,
+  [admin.org,recovered,canonical.user_id,ids.customerA,canonical.effective_started_at,canonical.effective_stopped_at,admin.user,admin.membership]);
+  const recordIds=[ids.stoppedEntryA,recovered];
+  const compare=async()=>{
+    const expected=(await pool.query(`SELECT r.time_record_id,EXISTS(
+      SELECT 1 FROM taptime_server.effective_time_records_v2 other
+      WHERE other.organization_id=r.organization_id AND other.user_id=r.user_id AND other.time_record_id<>r.time_record_id
+        AND other.effective_started_at<coalesce(r.effective_stopped_at,'infinity'::timestamptz)
+        AND coalesce(other.effective_stopped_at,'infinity'::timestamptz)>r.effective_started_at) AS overlaps
+      FROM taptime_server.effective_time_records_v2 r WHERE r.time_record_id=ANY($1::uuid[]) ORDER BY r.time_record_id`,[recordIds])).rows;
+    const actual=await actor(admin,'taptime_time_review_reader',async c=>(await c.query(
+      'SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[]) ORDER BY time_record_id',[recordIds])).rows);
+    expect(actual.map(r=>({time_record_id:r.time_record_id,overlaps:r.details.overlapsAnotherRecord}))).toEqual(expected);
+    return actual;
+  };
+  expect((await compare()).every(r=>r.details.overlapsAnotherRecord)).toBe(true);
+  const correct=async(recordId:string,start:string,end:string)=>{
+    const current=(await pool.query('SELECT * FROM taptime_server.effective_time_records_v2 WHERE time_record_id=$1',[recordId])).rows[0];
+    const result=await actor(admin,'taptime_time_review_writer',async c=>(await c.query(
+      `SELECT * FROM taptime_server.correct_time_record_v1($1,$2,$3,$4,repeat('e',64),$5,$6,$7,$8,$9,'Moved interval')`,
+      [admin.org,admin.user,admin.membership,randomUUID(),recordId,current.base_row_version,current.effective_revision_number,start,end])).rows);
+    expect(result[0].result_status).toBe('committed');
+  };
+  await correct(ids.stoppedEntryA,'2026-06-01T08:00:00Z','2026-06-01T09:00:00Z');
+  await compare();
+  await correct(recovered,'2026-06-01T08:30:00Z','2026-06-01T09:30:00Z');
+  expect((await compare()).every(r=>r.details.overlapsAnotherRecord)).toBe(true);
+  await correct(recovered,'2026-06-01T09:00:00Z','2026-06-01T10:00:00Z');
+  expect((await compare()).every(r=>!r.details.overlapsAnotherRecord)).toBe(true);
+});
