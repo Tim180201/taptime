@@ -82,7 +82,19 @@ append-only; Routen-Guard mit `operator_api`; `taptime-operator-grant` mit Stub-
 
 ### Nicht Teil
 
-Keine Web-App, kein Caddy, kein Deploy-Controller (T-068b). Kein Server, keine Secrets. Kein Deploy.
+Keine Web-App, kein Caddy (T-068b). Kein Server, keine Secrets. Kein Deploy.
+
+**Abgrenzung 22.09. (TL):** Am Deploy-Controller darf T-068a **ausschließlich** die Inventar-,
+Rechte-, Syntax- und Abgleichlisten um `taptime-operator-grant` und `taptime-operator-db-login`
+erweitern (`operations_paths()` und die Prüfungen darum), dazu Operations-Dockerfile und
+-Bootstrap. **Keine Änderung am Ablauf** des Deploys: keine neuen Schritte, keine geänderte
+Reihenfolge, keine neuen Aufrufe der Werkzeuge im Deploy. T-068b erweitert den Controller
+danach um das Betreiber-Web.
+
+**Zwei P2 aus dem Review vorher beheben:** (1) Die E-Mail-Sperre benutzt denselben Hash wie der
+bestehende 026-Weg (gemeinsame Hilfsfunktion, kein zweites Präfix); Rotnachweis über den
+gleichzeitigen Anlageversuch. (2) Der neue Weg meldet wie 026 `inviter.needsAttention()`, wenn
+extern eingeladen wurde und der lokale Abschluss scheitert oder unklar bleibt.
 
 ### Bericht
 
