@@ -55,10 +55,9 @@ Regressionstest behoben, jeder vorwärts repariert, kein Container von Hand gest
 4. Barriere-Fenster 120 s zu knapp für die erste Basis-Registrierung des Archivierers
    (Quittung 08:31:27, Fenster bis 08:30:45); zweiter Aufruf lief durch.
 
-Offen daraus (T-057): Das Deploy-Skript läuft nach gescheiterter Sicherung weiter, weil die
-zweite Prüfung die alte Statusdatei liest; Barriere-Fenster oder Reihenfolge beim Erstlauf;
-DEPLOY.md beschreibt eine Einfügefunktion der Hetzner-Konsole, die es nicht gibt (US-Belegung,
-Tippregeln nötig); der Deploy läuft aus dem Terminal des Product Owners, nicht aus Codex.
+Mit T-057 lokal behoben und vom TL **APPROVED**: alte Statusdatei nach gescheiterter Sicherung,
+Basisregistrierung vor dem Barriere-Fenster und falsche Cutover-Meldung. DEPLOY.md beschreibt
+jetzt US-Tippregeln ohne Einfügefunktion und den Deploy aus dem Terminal des Product Owners.
 Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Offen bis zum Pilotbetrieb
@@ -73,13 +72,26 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   (Variante B gewählt) — zusammen als **T-061** beauftragt.
 - Tagesfreigabe und Pausenautomatik (T-048, T-050): während Pilotmonat 1 bauen, Freigabe zu
   Monat 2 zuschalten (D-063). T-055 Wiederaufnahme nach Restore.
-- T-056 CI baut die Images; T-057 Deploy-Härtung; T-037; T-043/T-044; T-016; T-024.
+- **T-057:** Deploy-Härtung vom TL **APPROVED**; Timer während des Deploys angehalten,
+  begrenztes Warten, eigene Basis je Probe, Vorprüfung und argumentloser Diagnosezugang.
+  Lokale Tests und unabhängiges Review grün; Review-Artefakte auf Auftrag entfernt.
+  CI und Images werden nach dem Push geprüft. Controller-Konsolenschritt gemeinsam mit T-068b;
+  kein Deploy. Nächste Aufgabe: T-068a.
+- T-056 CI baut die Images; T-037; T-043/T-044; T-016; T-024.
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P2 lokale Verifikation (T-057, behoben):** Erste Signaltests liefen mit macOS-Bash ohne
+  `BASHPID`; der erste Linux-Lauf hatte kein Node, der sudo-Test noch kein `/usr/local/sbin`.
+  Auf vollständiger Linux-Testumgebung sind Signal-, Deploy-, Backup-, Restore- und
+  Installerprüfungen grün. Frühe Erfolg-/Rücknahmemeldungen im neuen EXIT-Pfad durch Rotnachweise
+  korrigiert. Review Runde 1 fand den verworfenen numerischen WAL-Ergebniscode im Diagnosefilter;
+  mit echten Archivierer-Ausgabezeilen rot belegt und korrigiert. Prozesslücke: Rotnachweise für
+  Vorprüfung/Barriere erst nach erster Änderung; Gegenprüfung ersetzt diese Reihenfolge nicht.
+  Unabhängiges Code-Review Runde 2 und TL-Abnahme **APPROVED**; kein Deploy.
 - **P2 T-069 (geklärt durch D-076):** Verwaltungsstopps umgehen das Duplikatfenster und schließen eine offene Pause zusammen mit der Zeit; lokal geprüft.
-- **T-069:** Server/App/Web einschließlich D-078 umgesetzt und vom TL **APPROVED**; unabhängiges Review Runde 2 sowie lokale Tests/Typechecks grün. Review-Artefakte auf Auftrag entfernt; CI und Images werden nach dem Push geprüft. Kein Deploy, keine APK; T-057 wartet auf ausdrücklichen Start.
+- **T-069:** Server/App/Web einschließlich D-078 umgesetzt und vom TL **APPROVED**; unabhängiges Review Runde 2 sowie lokale Tests/Typechecks grün. Review-Artefakte auf Auftrag entfernt; CI und Images werden nach dem Push geprüft. Kein Deploy, keine APK.
 - **P2 T-069 CI-Bauanbindung (behoben):** B6/DA3 scheiterten nach dem Push an fehlenden Builds neuer Testabhängigkeiten; lokale `dist`-Ausgaben hatten die Lücke verdeckt. CI baut jetzt die transitive Workspace-Hülle einschließlich Entwicklungsabhängigkeiten vor den Prüfungen; dynamischer Guard mit Rotnachweis und frische Builds/Typechecks je Job grün. Unabhängiges Review `APPROVED`; `actionlint` lokal nicht installiert.
 - **P2 T-069 (Review Runde 2):** Die Dreiminutenmeldung kann sich um die Restlaufzeit der letzten Archivnachfrage verzögern; kein verfrühter Erfolg.
 - **P2 T-066 (D-078):** Nachtragen/Korrektur ohne externen Archivnachweis bis T-016.
@@ -101,7 +113,9 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   aktuelle Anleitung. Blockiert den Pilot; Betreiber-Bereich nach D-068.
 - **P2 Sicherheit (Befund 21.09.):** Der WAL-Spool `/var/lib/taptime-wal` gehört auf dem Host
   `dnsmasq:systemd-journal` — Kollision der Benutzernummer aus dem Datenbankcontainer mit einem
-  Hostbenutzer. Prüfen, ob `dnsmasq` läuft; feste eigene Nummer für den Spool (T-057).
+  Hostbenutzer. T-057: Container und Empfänger schreiben fest als 999:999; Änderung braucht
+  einen eigenen Auftrag für Container-/Restore-Identität oder Host-Benutzerbereinigung.
+  Ob `dnsmasq` läuft, wurde ohne Serverzugriff nicht geprüft.
 - **Beobachten (21.09.):** Dauer der stündlichen Basissicherung gegen die Zehn-Minuten-Grenze
   des Wächters (D-066); ein Lauf endete 16:13 UTC nach bis zu acht Minuten.
 - **T-070 lokal behoben und TL-APPROVED; Produktion offen (22.09.):** Über 20 Alarme „WAL-Archivierung steht" in einer Nacht, ohne
@@ -148,8 +162,7 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   Image-Abhängigkeitstest mit Node 18 (`globSync` fehlt) und Caddy-Test ohne `curl` scheiterten
   im Helfer; mit CI-Node 24 bzw. vollständiger Linux-Testumgebung grün.
 
-- **P2 Betrieb:** `[7/7] Archivvertrag ist aktiv`-Meldung erscheint auch, wenn nur der Cutover
-  aktiv war; Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge;
+- **P2 Betrieb:** Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge;
   Caddy-Negativprüfung: EXIT-Trap verliert `holder`, Validator-Cleanup kann ausfallen (T-063-Beleg).
 - **P3 Betrieb:** `registered_chain_watermark` liest `offsite_wal_archive_watermarks`
   direkt ueber die Superuser-Verbindung statt ueber eine versionierte Lesefunktion mit
