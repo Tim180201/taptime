@@ -1,0 +1,170 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+root="$(mktemp -d)"
+trap 'rm -rf -- "$root"' EXIT
+export TAPTIME_BORG_LOCK_FILE="$root/lock"
+# The override runs these exact regression assertions against the pre-change script.
+# shellcheck source=../backup/taptime-wal-archiver
+source "${TAPTIME_TEST_ARCHIVER:-$REPOSITORY_ROOT/infrastructure/backup/taptime-wal-archiver}"
+WAL_SPOOL_DIRECTORY="$root/spool"
+WAL_ARCHIVE_CACHE_DIRECTORY="$root/cache"
+WAL_ARCHIVE_STATUS_FILE="$root/status/status.json"
+export WAL_ARCHIVE_RECONCILE_INTERVAL_SECONDS=900
+CLUSTER_ARCHIVE_IDENTIFIER=0123456789abcdef
+CLUSTER_SYSTEM_IDENTIFIER=81985529216486895
+export BORG_REPOSITORY='synthetic-unused'
+mkdir -p "$WAL_SPOOL_DIRECTORY" "$WAL_ARCHIVE_CACHE_DIRECTORY"
+base="base-$CLUSTER_ARCHIVE_IDENTIFIER-20260920T000000Z"
+first=000000010000000000000001
+second=000000010000000000000002
+third=000000010000000000000003
+trace="$root/trace"
+inventory="$root/inventory"
+printf '%s\n' "$base" "verified-$base" "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$first" > "$inventory"
+printf '%s\n' "$first" > "$root/mark"
+fixture_now=1800000000
+pending=0
+fault=''
+fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+count() { awk -v kind="$1" '$1 == kind { n++ } END { print n+0 }' "$trace"; }
+date() { if [[ "$*" == +%s ]]; then printf '%s\n' "$fixture_now"; else command date "$@"; fi; }
+receiver_is_active() { [[ "$fault" != receiver ]] || return 1; printf 't\n'; }
+pending_wal_files() { [[ "$pending" == 0 ]] || printf '%s\n' "$second"; }
+close_required_segment() { :; }
+backlog_status() {
+  [[ "$fault" != database ]] || return 1
+  if (( pending )); then printf '2026-09-20T00:00:00Z|%s|' "$second"; else printf '||'; fi
+  printf '%s|2026-09-20T00:00:00Z|%s\n' "$(cat "$root/mark")" "$pending"
+}
+registered_chain_watermark() { cat "$root/mark"; }
+registered_base_evidence() { printf '0/1000028|%s\n' "$first"; }
+ensure_base_evidence() { registered_base_evidence; }
+registered_wal_checksum() {
+  [[ "$fault" != receipt ]] || return 1
+  if [[ "$1" > "$(cat "$root/mark")" ]]; then return 0; fi
+  printf 'known bytes\n' | sha256sum | cut -d ' ' -f 1
+}
+wal_files_are_adjacent() { if [[ "$1" == "$first" && "$2" == "$second" || "$1" == "$second" && "$2" == "$third" ]]; then printf 't\n'; else printf 'f\n'; fi; }
+advance_watermark() {
+  # The real append-only table retains old marks; SELECT max never moves backwards.
+  if [[ "$2" > "$(cat "$root/mark")" ]]; then printf '%s\n' "$2" > "$root/mark"; fi
+}
+record_archive_receipt() { :; }
+borg() {
+  printf '%s\n' "$1" >> "$trace"
+  case "$1" in
+    list)
+      [[ "$fault" != list ]] || return 1
+      if [[ "$2" == --glob-archives ]]; then
+        # Borg 1.x shell globs have no sh: prefix.
+        # shellcheck disable=SC2053 # Intentionally emulate Borg's shell-glob filter.
+        while IFS= read -r name; do [[ "$name" != $3 ]] || printf '%s\n' "$name"; done < "$inventory"
+      else cat "$inventory"; fi ;;
+    info) [[ "$fault" != info ]] && grep -Fxq "${2#*::}" "$inventory" ;;
+    create) printf '%s\n' "${4#*::}" >> "$inventory" ;;
+    extract)
+      case "${4:-}" in
+        manifest/cluster-system-identifier) printf '%s\n' "$CLUSTER_SYSTEM_IDENTIFIER" ;;
+        manifest/cluster-archive-identifier) printf '%s\n' "$CLUSTER_ARCHIVE_IDENTIFIER" ;;
+        manifest/base-start-wal-file) printf '%s\n' "$first" ;;
+        *) printf 'known bytes\n' ;;
+      esac ;;
+    *) fail "unexpected Borg command: $1" ;;
+  esac
+}
+cycle() {
+  : > "$trace"
+  # Do not put the cycle in an if: production relies on errexit in its subshell.
+  set +e
+  run_archive_cycle > "$root/journal" 2>&1
+  result=$?
+  set -e
+}
+cycle
+[[ "$result" == 0 ]] || { cat "$root/journal"; fail 'initial reconciliation'; }
+case "${TAPTIME_TEST_CASE:-all}" in
+  idle|all)
+    fixture_now=$((fixture_now + 30)); cycle
+    [[ "$result" == 0 && ! -s "$trace" ]] || fail "idle must make zero Borg calls; got $(wc -l < "$trace")"
+    grep -q '"state":"ok"' "$WAL_ARCHIVE_STATUS_FILE"
+    ;;
+esac
+case "${TAPTIME_TEST_CASE:-all}" in
+  interval|all)
+    fixture_now=$((1800000000 + 899)); cycle
+    [[ "$result" == 0 && ! -s "$trace" ]] || fail 'must not reconcile before the interval'
+    fixture_now=$((1800000000 + 900)); cycle
+    [[ "$result" == 0 && "$(count list)" == 1 ]] || fail 'due reconciliation must use exactly one archive list'
+    ;;
+esac
+[[ "${TAPTIME_TEST_CASE:-all}" == all ]] || exit 0
+# Several hours of idle: the deadline belongs to the last FULL success, not each status.
+for ((tick=930; tick<=10800; tick+=30)); do
+  fixture_now=$((1800000000 + tick)); cycle
+  expected=0; (( tick % 900 )) || expected=1
+  [[ "$result" == 0 && "$(count list)" == "$expected" ]] || fail "idle cadence at $tick"
+done
+# Work and fresh external progress each require a full check, regardless of the interval.
+pending=1; fixture_now=$((fixture_now+1)); cycle
+[[ "$result" == 0 && "$(count list)" == 1 ]] || fail 'pending demand must force reconciliation'
+pending=0
+printf 'known bytes\n' > "$WAL_SPOOL_DIRECTORY/$second"
+cycle
+[[ "$result" == 0 && "$(count list)" == 1 && ! -f "$WAL_SPOOL_DIRECTORY/$second" ]] || fail 'completed spool work must reconcile'
+printf '%s\n' "$first" > "$root/mark"
+cycle
+[[ "$result" == 0 && "$(count list)" == 1 ]] || fail 'changed watermark must reconcile'
+# Already receipted bytes can be removed locally; partial files never request remote work.
+printf 'known bytes\n' > "$WAL_SPOOL_DIRECTORY/$second"
+printf 'partial\n' > "$WAL_SPOOL_DIRECTORY/$third.partial"
+cycle
+[[ "$result" == 0 && ! -s "$trace" && ! -f "$WAL_SPOOL_DIRECTORY/$second" && -f "$WAL_SPOOL_DIRECTORY/$third.partial" ]] || fail 'receipted spool cleanup must stay local'
+printf 'history\n' > "$WAL_SPOOL_DIRECTORY/00000002.history"
+cycle
+[[ "$result" == 0 && "$(count list)" == 1 && ! -f "$WAL_SPOOL_DIRECTORY/00000002.history" ]] || fail 'timeline history is work'
+# An explicit gap at full reconciliation stays failed on the following idle pass.
+grep -Fvx "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$second" "$inventory" > "$inventory.next"
+mv "$inventory.next" "$inventory"
+fixture_now=$((fixture_now+900)); cycle
+[[ "$result" != 0 ]] || fail 'missing confirmed tail must fail'
+cycle
+[[ "$result" != 0 && "$(count list)" == 1 ]] || fail 'failed reconciliation must not turn into idle ok'
+printf '%s\n' "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$second" >> "$inventory"
+cycle
+[[ "$result" == 0 ]] || fail 'repaired inventory must recover'
+for fault in database receiver receipt; do
+  [[ "$fault" != receipt ]] || printf 'known bytes\n' > "$WAL_SPOOL_DIRECTORY/$second"
+  cycle
+  [[ "$result" != 0 ]] || fail "$fault error was swallowed by idle path"
+done
+fault=''; cycle
+[[ "$result" == 0 && "$(count list)" == 1 ]] || fail 'recovery after local failure requires full reconciliation'
+fixture_now=$((fixture_now+900)); fault=list; cycle
+[[ "$result" != 0 ]] || fail 'list transport failure accepted'
+fault=''; cycle
+[[ "$result" == 0 && "$(count list)" == 1 ]] || fail 'failed full interval must retry'
+for reason in missing malformed leading-zero future other-cluster changed-progress failed-status missing-status; do
+  case "$reason" in
+    missing) rm "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state" ;;
+    malformed) printf 'invalid\n' > "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state" ;;
+    leading-zero) printf '08 %s %s|2026-09-20T00:00:00Z\n' "$CLUSTER_ARCHIVE_IDENTIFIER" "$second" > "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state" ;;
+    future) fixture_now=$((fixture_now-1)) ;;
+    other-cluster) sed -i "s/$CLUSTER_ARCHIVE_IDENTIFIER/fedcba9876543210/" "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state" ;;
+    changed-progress) sed -i "s/$second/$first/" "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state" ;;
+    failed-status) printf '{"state":"failed"}\n' > "$WAL_ARCHIVE_STATUS_FILE" ;;
+    missing-status) rm "$WAL_ARCHIVE_STATUS_FILE" ;;
+  esac
+  cycle
+  [[ "$result" == 0 && "$(count list)" == 1 ]] || fail "$reason hint/status must require full reconciliation"
+done
+WAL_ARCHIVE_RECONCILE_INTERVAL_SECONDS=17
+fixture_now=$((fixture_now+16)); cycle
+[[ "$result" == 0 && ! -s "$trace" ]] || fail 'custom interval must keep idle local'
+fixture_now=$((fixture_now+1)); cycle
+[[ "$result" == 0 && "$(count list)" == 1 ]] || fail 'custom interval must expire'
+printf 'different local bytes\n' > "$WAL_SPOOL_DIRECTORY/$second"
+cycle
+[[ "$result" != 0 && ! -s "$trace" && -f "$WAL_SPOOL_DIRECTORY/$second" ]] || fail 'receipt mismatch must preserve local file and fail'
+printf 'Idle evidence: zero Borg calls; three hours at 900s cadence; demand/spool/watermark/history trigger one list; failures remain red.\n'

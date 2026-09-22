@@ -54,6 +54,7 @@ wal_archive_is_current() {
   local now_epoch observed_epoch oldest_epoch last_archived_epoch
   local maximum_age backup_properties key value backup_state='' backup_loaded=''
   local backup_started='' backup_ended='' backup_start_epoch=0 backup_end_epoch=0
+  local catchup_deadline=0 heartbeat_deadline data_deadline
 
   now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
   # Type=oneshot stays activating throughout ExecStart, including flock. ActiveEnter
@@ -84,6 +85,7 @@ wal_archive_is_current() {
   if (( backup_start_epoch > 0 )) && [[ -n "$backup_ended" ]]; then
     backup_end_epoch="$(utc_epoch "$backup_ended")" || return 1
     (( backup_end_epoch >= backup_start_epoch && backup_end_epoch <= now_epoch )) || return 1
+    catchup_deadline=$((backup_end_epoch + WAL_ARCHIVE_CATCHUP_SECONDS))
   fi
 
   [[ -f "$WAL_ARCHIVE_STATUS_FILE" ]] || return 1
@@ -94,9 +96,10 @@ wal_archive_is_current() {
   [[ "$content" =~ \"pending_count\":([0-9]+) ]] || return 1
   pending_count="${BASH_REMATCH[1]}"
   observed_epoch="$(utc_epoch "$observed")" || return 1
-  (( observed_epoch >= backup_end_epoch )) || observed_epoch=$backup_end_epoch
   maximum_age=$((WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES))
-  (( now_epoch - observed_epoch <= maximum_age )) || return 1
+  heartbeat_deadline=$((observed_epoch + maximum_age))
+  (( heartbeat_deadline >= catchup_deadline )) || heartbeat_deadline=$catchup_deadline
+  (( now_epoch <= heartbeat_deadline )) || return 1
   (( pending_count == 0 )) && return 0
 
   [[ "$content" =~ \"oldest_required_at_utc\":\"([^\"]+)\" ]] || return 1
@@ -104,7 +107,6 @@ wal_archive_is_current() {
   [[ "$content" =~ \"oldest_required_wal_file\":\"([0-9A-F]{24})\" ]] || return 1
   oldest_wal="${BASH_REMATCH[1]}"
   oldest_epoch="$(utc_epoch "$oldest")" || return 1
-  (( oldest_epoch >= backup_end_epoch )) || oldest_epoch=$backup_end_epoch
   if [[ "$content" =~ \"last_archived_wal_file\":\"([0-9A-F]{24})\" ]]; then
     last_archived_wal="${BASH_REMATCH[1]}"
     # A later externally archived segment with an earlier hole is never a healthy sequence.
@@ -115,7 +117,10 @@ wal_archive_is_current() {
     last_archived_epoch="$(utc_epoch "$last_archived")" || return 1
     (( last_archived_epoch >= 0 )) || return 1
   fi
-  (( now_epoch - oldest_epoch <= maximum_age ))
+  # One fixed deadline per backup, never extended by another monitor invocation.
+  data_deadline=$((oldest_epoch + maximum_age))
+  (( data_deadline >= catchup_deadline )) || data_deadline=$catchup_deadline
+  (( now_epoch <= data_deadline ))
 }
 
 require_private_file "$NTFY_CURL_CONFIG"
@@ -128,6 +133,12 @@ source "$BACKUP_CONFIG"
 : "${WAL_ARCHIVE_MISSED_CYCLES:?WAL_ARCHIVE_MISSED_CYCLES must be configured}"
 [[ "$WAL_ARCHIVE_INTERVAL_SECONDS" =~ ^[1-9][0-9]*$ ]]
 [[ "$WAL_ARCHIVE_MISSED_CYCLES" =~ ^[1-9][0-9]*$ ]]
+WAL_ARCHIVE_CATCHUP_SECONDS="${WAL_ARCHIVE_CATCHUP_SECONDS:-300}"
+if [[ ! "$WAL_ARCHIVE_CATCHUP_SECONDS" =~ ^[1-9][0-9]{0,2}$ ]] \
+  || (( WAL_ARCHIVE_CATCHUP_SECONDS > 600 )); then
+    printf 'WAL_ARCHIVE_CATCHUP_SECONDS must be between 1 and 600.\n' >&2
+    exit 1
+fi
 install -d -m 0700 "$STATE_DIRECTORY"
 
 result=0

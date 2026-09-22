@@ -16,6 +16,10 @@ WAL_CONTAINER_DIRECTORY='/var/lib/postgresql/wal-archive'
 WAL_REPLICATION_SLOT='taptime_offsite_archive'
 WAL_ARCHIVE_INTERVAL_SECONDS='60'
 WAL_ARCHIVE_MISSED_CYCLES='2'
+# Idle full reconciliation; work always reconciles immediately. Defaults apply on old installs.
+WAL_ARCHIVE_RECONCILE_INTERVAL_SECONDS='900'
+# One deadline after backup end, not added to the usual age window; maximum 600 seconds.
+WAL_ARCHIVE_CATCHUP_SECONDS='300'
 WAL_ARCHIVE_STATUS_FILE='/var/lib/taptime-monitor/wal-archive-status.json'
 WAL_ARCHIVE_CACHE_DIRECTORY='/var/cache/taptime-wal-archive'
 MIGRATIONS_DIRECTORY='/opt/taptime/source/apps/backend-schema/migrations'

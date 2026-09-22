@@ -281,23 +281,25 @@ check_backup_alert "$((backup_start + 601))" 1 'a backup that never acquired the
 backup_end=$((backup_start + 120))
 FAKE_BACKUP_STATE=inactive
 FAKE_BACKUP_ENDED="$(iso_for "$backup_end")"
-for requirement in "$((backup_start - 10))" "$((backup_start + 60))" "$((backup_end + 30))"; do
-  for elapsed in "$((archive_window - 1))" "$archive_window" "$((archive_window + 1))"; do
+for requirement in "$((backup_start - 10))" "$((backup_start + 60))" "$((backup_end + 30))" "$((backup_end + 280))"; do
+  for elapsed in 119 121 299 300 301 421; do
     now=$((backup_end + elapsed))
     # Observe freshly to isolate requirement age; requirements after backup keep their own clock.
     printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":"%s","oldest_required_wal_file":"000000010000000000000002","last_archived_wal_file":"000000010000000000000001","pending_count":1}\n' \
       "$(iso_for "$now")" "$(iso_for "$requirement")" > "$WAL_ARCHIVE_STATUS"
-    age_from=$backup_end; (( requirement <= backup_end )) || age_from=$requirement
-    expected=0; (( now - age_from <= archive_window )) || expected=1
+    deadline=$((requirement + archive_window))
+    (( deadline >= backup_end + 300 )) || deadline=$((backup_end + 300))
+    expected=0; (( now <= deadline )) || expected=1
     check_backup_alert "$now" "$expected" "requirement=$requirement after backup elapsed=$elapsed"
   done
 done
-for observed_epoch in "$((backup_start - 10))" "$((backup_start + 60))" "$((backup_end + 30))"; do
-  for elapsed in "$((archive_window - 1))" "$((archive_window + 1))"; do
+for observed_epoch in "$((backup_start - 10))" "$((backup_start + 60))" "$((backup_end + 30))" "$((backup_end + 280))"; do
+  for elapsed in 119 121 299 300 301 421; do
     printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' \
       "$(iso_for "$observed_epoch")" > "$WAL_ARCHIVE_STATUS"
-    age_from=$backup_end; (( observed_epoch <= backup_end )) || age_from=$observed_epoch
-    expected=0; (( backup_end + elapsed - age_from <= archive_window )) || expected=1
+    deadline=$((observed_epoch + archive_window))
+    (( deadline >= backup_end + 300 )) || deadline=$((backup_end + 300))
+    expected=0; (( backup_end + elapsed <= deadline )) || expected=1
     check_backup_alert "$((backup_end + elapsed))" "$expected" "status=$observed_epoch after backup elapsed=$elapsed"
   done
 done
@@ -307,5 +309,22 @@ check_backup_alert "$((backup_end + 1))" 1 'backup end does not hide failed arch
 printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":"%s","oldest_required_wal_file":"000000010000000000000002","last_archived_wal_file":"000000010000000000000003","pending_count":1}\n' \
   "$(iso_for "$backup_end")" "$(iso_for "$backup_start")" > "$WAL_ARCHIVE_STATUS"
 check_backup_alert "$((backup_end + 1))" 1 'backup end does not hide a WAL gap'
+
+# The grace is bounded configuration and cannot slide on repeated monitor calls.
+for grace in 1 300 600; do
+  printf "\nWAL_ARCHIVE_CATCHUP_SECONDS='%s'\n" "$grace" >> "$BACKUP_CONFIG"
+  printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":"%s","oldest_required_wal_file":"000000010000000000000002","last_archived_wal_file":"000000010000000000000001","pending_count":1}\n' \
+    "$(iso_for "$((backup_start - 1000))")" "$(iso_for "$((backup_start - 1000))")" > "$WAL_ARCHIVE_STATUS"
+  check_backup_alert "$((backup_end + grace - 1))" 0 "catch-up $grace before deadline"
+  check_backup_alert "$((backup_end + grace + 1))" 1 "catch-up $grace after deadline"
+  : > "$FAKE_CURL_ARGUMENT_LOG"
+  TAPTIME_MONITOR_NOW_EPOCH="$((backup_end + grace + 2))" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+  assert_equals 1 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" 'catch-up alarm remains edge-triggered'
+done
+for invalid in 0 601 999999999999999999999 -1 invalid; do
+  printf "\nWAL_ARCHIVE_CATCHUP_SECONDS='%s'\n" "$invalid" >> "$BACKUP_CONFIG"
+  if FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR" > "$test_root/invalid-grace.log" 2>&1; then fail 'invalid grace accepted'; fi
+  grep -q 'between 1 and 600' "$test_root/invalid-grace.log" || fail 'invalid grace diagnostic missing'
+done
 
 printf 'Monitoring tests passed: heartbeat, derived WAL backlog, bounded backup pause including lock waits, fixed messages, two priorities, no secret argv.\n'

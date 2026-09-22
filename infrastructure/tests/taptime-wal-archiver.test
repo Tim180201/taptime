@@ -97,6 +97,7 @@ grep --quiet 'resolves to a local interface address' \
 export BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'
 validate_offsite_borg_repository
 export WAL_SPOOL_DIRECTORY="$TEST_ROOT/spool"
+export WAL_ARCHIVE_CACHE_DIRECTORY="$TEST_ROOT/cache"
 export DATABASE_CONTAINER='synthetic-database'
 export DATABASE_NAME='synthetic'
 export CLUSTER_SYSTEM_IDENTIFIER='81985529216486895'
@@ -199,7 +200,7 @@ borg() {
     list)
       [[ "$fault" != list ]] || return 1
       # Borg 1.2 --glob-archives takes the shell glob WITHOUT a literal sh: prefix.
-      [[ "$2" == --glob-archives && "$3" == "wal-$CLUSTER_ARCHIVE_IDENTIFIER-*" ]] || return 1
+      [[ "$2" == --format && "$3" == '{archive}{NL}' ]] || return 1
       cat "$inventory"
       ;;
     info)
@@ -212,7 +213,7 @@ borg() {
 }
 prepare() {
   local history="$1" added="$2" i
-  selected_base="$base"; mark="$(wal "$history")"; fault=''
+  selected_base="$base"; mark="$(wal "$history")"; fault=''; archive_inventory_loaded=0
   : > "$trace"; : > "$inventory"
   for ((i=1; i<=history+added; i++)); do
     printf 'wal-%s-%s\n' "$CLUSTER_ARCHIVE_IDENTIFIER" "$(wal "$i")" >> "$inventory"
@@ -292,6 +293,8 @@ validate_offsite_borg_repository() { :; }
 load_cluster_identity() { CLUSTER_ARCHIVE_IDENTIFIER='0123456789abcdef'; }
 receiver_is_active() { printf 'receiver\n' >> "$trace"; printf 't\n'; }
 pending_wal_files() { printf 'pending\n' >> "$trace"; }
+registered_wal_checksum() { :; }
+load_archive_inventory() { :; }
 database_query() { [[ "$1" == *pg_switch_wal* ]] || return 1; printf 'switch\n' >> "$trace"; }
 archive_file() {
   printf 'upload %s\n' "$1" >> "$trace"
@@ -308,7 +311,7 @@ backlog_status() {
   printf 'backlog\n' >> "$trace"
   printf '||%s|2026-09-20T00:00:00Z|0\n' "$(cat "$root/watermark")"
 }
-date() { cat "$root/clock"; }
+date() { if [[ "$*" == +%s ]]; then command date --date="$(cat "$root/clock")" +%s; else cat "$root/clock"; fi; }
 eval "$(declare -f write_status | sed '1s/write_status/real_write_status/')"
 write_status() {
   real_write_status "$@"
@@ -335,6 +338,7 @@ for interval in 60 61 1; do
     if [[ "$scenario" == gap ]]; then fault_wal='000000010000000000000002'; fi
     for run_once in 0 1; do
       : > "$trace"; : > "$root/statuses"
+      : > "$root/watermark"
       printf '2026-09-20T00:00:00Z\n' > "$root/clock"
       : > "$root/passphrase"
       : > "$root/spool/000000010000000000000001"
@@ -360,7 +364,7 @@ const [tracePath, statusesPath, once, fault, scenario, cyclesPath] = process.arg
 const trace = fs.readFileSync(tracePath, 'utf8').trim().split('\n');
 const statuses = fs.readFileSync(statusesPath, 'utf8').trim().split('\n').map(JSON.parse);
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
-const full = ['receiver', 'pending', 'upload 000000010000000000000001', 'base', 'chain', 'backlog', 'status ok'];
+const full = ['receiver', 'pending', 'backlog', 'upload 000000010000000000000001', 'base', 'chain', 'backlog', 'status ok'];
 assert(JSON.stringify(trace.slice(0, full.length)) === JSON.stringify(full), 'first pass must check evidence and write status');
 if (once === '1') {
   assert(trace.length === full.length && statuses.length === 1, 'run-once must return after one pass');
@@ -369,10 +373,11 @@ if (once === '1') {
   for (const entry of trace) { if (entry.startsWith('sleep ')) passes.push([]); else passes.at(-1).push(entry); }
   assert(passes.length === 3, 'expected three identical passes separated by two half pauses');
   assert(passes.every(pass => pass.includes('pending') && !pass.includes('switch')), 'every pass must check demand; no demand means no switch');
-  assert(passes[1].includes('receiver') && passes[1].includes('base') && passes[1].includes('chain'), 'every pass must check receiver, base and chain even when empty');
+  assert(passes[1].includes('receiver'), 'every pass must check receiver');
+  assert(passes[1].includes('chain') === (scenario !== 'empty'), 'new work must reconcile; idle must stay local');
   assert(passes[1].includes('upload 000000010000000000000002') === (scenario !== 'empty'), 'every pass must collect every completed segment');
-  assert(passes[2].includes('pending') && passes[2].includes('chain'), 'empty pass must recheck the chain');
-  assert(fault ? !passes[2].includes('backlog') : passes[2].includes('backlog'), 'a failed chain must abort before the backlog read');
+  assert(passes[2].includes('pending') && passes[2].includes('chain') === Boolean(fault), 'idle must retry a failed full check');
+  assert(passes[2].includes('backlog'), 'every pass must read fresh local backlog');
   assert(statuses.length === passes.length, 'every pass must write status');
   assert(statuses.map(s => s.observed_at_utc).join() === '2026-09-20T00:00:00Z,2026-09-20T00:01:00Z,2026-09-20T00:02:00Z', 'status observations must be fresh each time');
   assert(statuses.map(s => s.state).join() === (fault ? 'ok,failed,failed' : 'ok,ok,ok'), 'chain failure must not become fresh ok');
@@ -383,7 +388,7 @@ if (once === '1') {
 }
 const cycles = fs.readFileSync(cyclesPath, 'utf8').trim().split('\n');
 assert(cycles.length === statuses.length, 'exactly one journal summary per cycle');
-assert(cycles.every(line => /^WAL cycle: duration_seconds=\d+ uploaded_segments=\d+ reconciled_archives=\d+ switch_requested=[01] result=\d+$/.test(line)), 'journal fields must be bounded metrics only');
+assert(cycles.every(line => /^WAL cycle: duration_seconds=\d+ uploaded_segments=\d+ reconciled_archives=\d+ switch_requested=[01] result=\d+ database_seconds=\d+ archive_list_seconds=\d+ base_seconds=\d+ upload_seconds=\d+ reconcile_seconds=\d+ lock_seconds=\d+$/.test(line)), 'journal fields must be bounded metrics only');
 ASSERT
     done
   done
@@ -467,3 +472,6 @@ for scenario in receipted missing unreadable; do
 done
 printf 'Receipt evidence: zero remote calls with receipt; missing receipt still requires read-back, unreadable bytes never create a receipt.\n'
 RECEIPT_TESTS
+
+# T-070 regressions also run in the existing infrastructure CI entry point.
+bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-idle.test"

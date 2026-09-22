@@ -8,6 +8,31 @@ CLUSTER_ARCHIVE_IDENTIFIER=''
 uploaded_segments=0
 reconciled_archives=0
 switch_requested=0
+archive_inventory=''
+archive_inventory_loaded=0
+cycle_phase=database
+phase_started=0
+database_seconds=0
+archive_list_seconds=0
+base_seconds=0
+upload_seconds=0
+reconcile_seconds=0
+lock_seconds=0
+
+set_cycle_phase() {
+  local now=$SECONDS variable="${cycle_phase}_seconds"
+  printf -v "$variable" '%s' "$((${!variable} + now - phase_started))"
+  phase_started=$now
+  cycle_phase="$1"
+}
+
+load_archive_inventory() {
+  (( archive_inventory_loaded == 0 )) || return 0
+  set_cycle_phase archive_list
+  # One snapshot serves physical bases, verification markers and the WAL chain.
+  archive_inventory="$(borg list --format '{archive}{NL}' "$BORG_REPOSITORY" | sort)" || return 1
+  archive_inventory_loaded=1
+}
 
 require_file() {
   [[ -f "$1" ]] || { printf 'Required file is missing: %s\n' "$1" >&2; return 1; }
@@ -281,15 +306,13 @@ archived_checksum() {
 }
 
 latest_verified_base_marker() {
-  borg list --glob-archives "verified-base-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
-    --format '{archive}{NL}' "$BORG_REPOSITORY" \
-    | sort | tail -n 1
+  awk -v prefix="verified-base-$CLUSTER_ARCHIVE_IDENTIFIER-" \
+    'index($0, prefix) == 1 { last=$0 } END { print last }' <<< "$archive_inventory"
 }
 
 latest_physical_base_archive() {
-  borg list --glob-archives "base-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
-    --format '{archive}{NL}' "$BORG_REPOSITORY" \
-    | sort | tail -n 1
+  awk -v prefix="base-$CLUSTER_ARCHIVE_IDENTIFIER-" \
+    'index($0, prefix) == 1 { last=$0 } END { print last }' <<< "$archive_inventory"
 }
 
 latest_base_has_offsite_start_wal() {
@@ -382,6 +405,8 @@ reconcile_contiguous_watermark() {
   local marker_archive base_archive evidence start_wal_lsn start_wal_file timeline
   local watermark wal_archives chain_status
 
+  load_archive_inventory || return 1
+  set_cycle_phase base
   marker_archive="$(latest_verified_base_marker)" || return 1
   [[ "$marker_archive" =~ ^verified-base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || {
     printf 'No restore-verified physical base is available offsite.\n' >&2
@@ -406,9 +431,9 @@ reconcile_contiguous_watermark() {
     [[ "$watermark" =~ ^[0-9A-F]{24}$ && "${watermark:0:8}" == "$timeline" \
       && ! "$watermark" < "$start_wal_file" ]] || return 1
   fi
-  wal_archives="$(borg list \
-    --glob-archives "wal-$CLUSTER_ARCHIVE_IDENTIFIER-*" \
-    --format '{archive}{NL}' "$BORG_REPOSITORY" | sort)" || return 1
+  wal_archives="$(awk -v prefix="wal-$CLUSTER_ARCHIVE_IDENTIFIER-" \
+    'index($0, prefix) == 1' <<< "$archive_inventory")" || return 1
+  set_cycle_phase reconcile
 
   if [[ -z "$watermark" ]]; then
     reconcile_wal_sequence "$base_archive" "$start_wal_file" '' "$wal_archives"
@@ -503,21 +528,65 @@ archive_file() {
 }
 
 archive_once() {
-  local path file
+  local path file checksum local_checksum backlog previous now full_at full_cluster full_progress
+  local work=0 progress schedule_file="$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state"
   local oldest_required_at oldest_required_wal_file marker_archive
   local last_archived_wal_file last_archived_at pending_count
 
+  set_cycle_phase lock
   exec 9>"$LOCK_FILE"
   flock 9
-
+  set_cycle_phase database
   [[ "$(receiver_is_active)" == 't' ]] || {
     printf 'The physical WAL receiver slot is not active.\n' >&2
     return 1
   }
   if [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" != '1' ]]; then
     close_required_segment
+    # Explicit assignment preserves SQL failure; process substitution would hide it.
+    backlog="$(backlog_status)"
+    IFS='|' read -r oldest_required_at oldest_required_wal_file \
+      last_archived_wal_file last_archived_at pending_count <<< "$backlog"
+    [[ "$pending_count" =~ ^[0-9]+$ ]] || return 1
+    progress="$last_archived_wal_file|$last_archived_at"
+    (( pending_count == 0 )) || work=1
+    # Receipt-backed spool leftovers need no remote read. Verify the local bytes before
+    # deleting them; a differing file must never be silently discarded.
+    for path in "$WAL_SPOOL_DIRECTORY"/*; do
+      [[ -f "$path" ]] || continue
+      file="${path##*/}"
+      if [[ "$file" =~ ^[0-9A-F]{24}$ ]]; then
+        checksum="$(registered_wal_checksum "$file")"
+        if [[ -n "$checksum" ]]; then
+          [[ "$checksum" =~ ^[0-9a-f]{64}$ ]] || return 1
+          local_checksum="$(sha256sum "$path")"
+          [[ "${local_checksum%% *}" == "$checksum" ]] || return 1
+          rm -f -- "$path"
+        else
+          work=1
+        fi
+      elif [[ "$file" =~ ^[0-9A-F]{8}\.history$ ]]; then
+        work=1
+      fi
+    done
+    now="$(date +%s)"
+    if (( work == 0 )) && [[ -f "$schedule_file" ]]; then
+      IFS=' ' read -r full_at full_cluster full_progress < "$schedule_file" || true
+      previous=''
+      [[ ! -f "$WAL_ARCHIVE_STATUS_FILE" ]] || previous="$(< "$WAL_ARCHIVE_STATUS_FILE")"
+      if [[ "$full_at" =~ ^[1-9][0-9]{0,11}$ && "$full_cluster" == "$CLUSTER_ARCHIVE_IDENTIFIER" \
+        && "$full_progress" == "$progress" && "$previous" == *'"state":"ok"'* ]] \
+        && (( now >= full_at && now - full_at < ${WAL_ARCHIVE_RECONCILE_INTERVAL_SECONDS:-900} )); then
+        write_status ok "$oldest_required_at" "$oldest_required_wal_file" \
+          "$last_archived_wal_file" "$last_archived_at" "$pending_count"
+        return 0
+      fi
+    fi
   fi
 
+  # Invalidate before fallible work: a failed full check cannot become an idle success.
+  rm -f -- "$schedule_file"
+  set_cycle_phase upload
   for path in "$WAL_SPOOL_DIRECTORY"/*; do
     [[ -f "$path" ]] || continue
     file="${path##*/}"
@@ -525,6 +594,8 @@ archive_once() {
     archive_file "$file"
   done
 
+  load_archive_inventory
+  set_cycle_phase base
   latest_base_has_offsite_start_wal
   if [[ "${TAPTIME_WAL_ARCHIVE_UPLOAD_ONLY:-0}" == '1' ]]; then
     write_status awaiting_migration '' '' '' '' 0
@@ -533,8 +604,10 @@ archive_once() {
   fi
   marker_archive="$(latest_verified_base_marker)"
   if [[ ! "$marker_archive" =~ ^verified-base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]]; then
+    set_cycle_phase database
+    backlog="$(backlog_status)"
     IFS='|' read -r oldest_required_at oldest_required_wal_file \
-      last_archived_wal_file last_archived_at pending_count < <(backlog_status)
+      last_archived_wal_file last_archived_at pending_count <<< "$backlog"
     [[ "$pending_count" =~ ^[0-9]+$ ]] || return 1
     write_status awaiting_verified_base "$oldest_required_at" "$oldest_required_wal_file" \
       "$last_archived_wal_file" "$last_archived_at" "$pending_count"
@@ -546,11 +619,29 @@ archive_once() {
   # and advance only the gap-free chain rooted in a verified physical base.
   reconcile_contiguous_watermark
 
+  set_cycle_phase database
+  backlog="$(backlog_status)"
   IFS='|' read -r oldest_required_at oldest_required_wal_file \
-    last_archived_wal_file last_archived_at pending_count < <(backlog_status)
+    last_archived_wal_file last_archived_at pending_count <<< "$backlog"
   [[ "$pending_count" =~ ^[0-9]+$ ]] || return 1
   write_status ok "$oldest_required_at" "$oldest_required_wal_file" \
     "$last_archived_wal_file" "$last_archived_at" "$pending_count"
+  install -d -m 0700 "$WAL_ARCHIVE_CACHE_DIRECTORY"
+  # This is only a scheduling hint, created/replaced by successful full checks, removed on
+  # failure and on service start. PostgreSQL remains the authority for every status.
+  printf '%s %s %s|%s\n' "$(date +%s)" "$CLUSTER_ARCHIVE_IDENTIFIER" \
+    "$last_archived_wal_file" "$last_archived_at" > "$schedule_file"
+}
+
+finish_archive_cycle() {
+  local result="$1"
+  set_cycle_phase database
+  if (( result != 0 )); then
+    rm -f -- "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state"
+  fi
+  printf 'WAL cycle: duration_seconds=%s uploaded_segments=%s reconciled_archives=%s switch_requested=%s result=%s database_seconds=%s archive_list_seconds=%s base_seconds=%s upload_seconds=%s reconcile_seconds=%s lock_seconds=%s\n' \
+    "$((SECONDS - cycle_started))" "$uploaded_segments" "$reconciled_archives" "$switch_requested" "$result" \
+    "$database_seconds" "$archive_list_seconds" "$base_seconds" "$upload_seconds" "$reconcile_seconds" "$lock_seconds"
 }
 
 run_archive_cycle() (
@@ -559,7 +650,12 @@ run_archive_cycle() (
   uploaded_segments=0
   reconciled_archives=0
   switch_requested=0
-  trap 'printf "WAL cycle: duration_seconds=%s uploaded_segments=%s reconciled_archives=%s switch_requested=%s result=%s\n" "$((SECONDS - cycle_started))" "$uploaded_segments" "$reconciled_archives" "$switch_requested" "$?"' EXIT
+  archive_inventory=''
+  archive_inventory_loaded=0
+  cycle_phase=database; phase_started=$SECONDS
+  database_seconds=0; archive_list_seconds=0; base_seconds=0
+  upload_seconds=0; reconcile_seconds=0; lock_seconds=0
+  trap 'finish_archive_cycle "$?"' EXIT
   set -e
   archive_once
 )
@@ -580,6 +676,11 @@ main() {
   : "${WAL_REPLICATION_SLOT:?WAL_REPLICATION_SLOT must be configured}"
   [[ "$WAL_ARCHIVE_INTERVAL_SECONDS" =~ ^[1-9][0-9]*$ ]] || {
     printf 'WAL_ARCHIVE_INTERVAL_SECONDS must be a positive integer.\n' >&2
+    return 1
+  }
+  WAL_ARCHIVE_RECONCILE_INTERVAL_SECONDS="${WAL_ARCHIVE_RECONCILE_INTERVAL_SECONDS:-900}"
+  [[ "$WAL_ARCHIVE_RECONCILE_INTERVAL_SECONDS" =~ ^[1-9][0-9]{0,8}$ ]] || {
+    printf 'WAL_ARCHIVE_RECONCILE_INTERVAL_SECONDS must be a positive integer.\n' >&2
     return 1
   }
   # Preserve the configured total pause, including odd intervals and the minimum of 1s.
@@ -606,6 +707,7 @@ main() {
   export BORG_CACHE_DIR="$WAL_ARCHIVE_CACHE_DIRECTORY/cache"
   export BORG_CONFIG_DIR="$WAL_ARCHIVE_CACHE_DIRECTORY/config"
   install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+  rm -f -- "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state"
   load_cluster_identity
 
   while true; do
