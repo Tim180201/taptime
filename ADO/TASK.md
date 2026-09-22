@@ -36,6 +36,17 @@ jeder andere geändert werden (T-066), und der nächste Tap des Mitarbeiters sta
    Zeitpunkt · Grund". Mitarbeiter sieht das in Meine Zeiten. Export v4: `changed` ist wahr.
    Alte App-Versionen erhalten unveränderte Antwortkörper.
 5. **Audit:** jede Aktion mit Akteur, Zielperson, Eintrag, Endzeit, Grund.
+6. **Offene Pause (D-076):** Läuft beim Beenden eine Pause, beendet dasselbe Verwaltungs-WorkEvent
+   in der Engine **erst die Pause und dann die Zeit**, beide zur gewählten Endzeit, in einer
+   Transaktion. Neue Engine-Regel nur für die Quelle `administration`; für Geräte-Trigger bleibt
+   `work_trigger_during_break_rejected` unverändert.
+7. **Untergrenze der Endzeit (D-076):** Endzeit > Beginn **und** ≥ letzter Pausengrenze des
+   Eintrags (Ende der letzten geschlossenen Pause bzw. Beginn der offenen Pause). Sonst
+   `end_before_break` mit verständlicher Meldung („Die Endzeit liegt vor einer erfassten Pause").
+   Eine frühere Endzeit setzt der Administrator danach über die Korrektur (T-066).
+8. **Kein Duplikatfenster (D-076):** Das 5-Sekunden-Duplikatfenster gilt nur für Gerätetrigger.
+   Ein Verwaltungs-WorkEvent wird nie als `duplicate_scan_ignored` verworfen; Endzeit 1 s nach
+   Beginn stoppt.
 
 ### Oberfläche
 
@@ -51,7 +62,10 @@ Admin beendet → Eintrag geschlossen, WorkEvent vorhanden, nächster Tap starte
 Mitarbeiter, fremder Betrieb, bereits gestoppt, falsche Version, Zukunft, vor Beginn, > 24 h,
 ohne Grund → abgewiesen; gleichzeitiger Tap und Verwaltungsaktion → genau ein Stopp;
 Offline-Trigger vor der Aktion → Prüffall, kein Eintrag; Offline-Trigger nach der Aktion → normal;
-idempotente Wiederholung; alte Clients bytegleich; Export v4 `changed`. App- und Web-Tests inkl. axe.
+idempotente Wiederholung; alte Clients bytegleich; Export v4 `changed`; offene Pause → Pause und
+Zeit geschlossen; Endzeit vor Pausenbeginn / vor Ende einer geschlossenen Pause → `end_before_break`;
+Endzeit 1 s nach Beginn → Stopp; Gerätetrigger während Pause weiter abgewiesen, Gerätetrigger im
+Duplikatfenster weiter ignoriert. App- und Web-Tests inkl. axe.
 
 ### Nicht Teil
 

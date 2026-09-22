@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Betreiber-Bereich · Entwurf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ground:#0E1512;--surface:#141C19;--raised:#1A2320;--line:#24302C;
+  --text:#F2F5F4;--muted:#97A5A0;--accent:#7EE0C0;--on-accent:#0E1512;
+  --cta:#C9F24D;--notice:#E0A44C;--r-card:12px;--r-ctl:10px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:#070B09;color:var(--text);font:15px/1.5 Manrope,system-ui,sans-serif}
+button,input,textarea{font:inherit;color:inherit}
+.meta{max-width:1200px;margin:0 auto;padding:20px 16px 8px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.meta h1{font-size:15px;font-weight:800;margin:0;color:var(--muted)}
+.meta h1 b{color:var(--text)}
+.tabs{display:flex;gap:6px}
+.tab{background:transparent;border:1px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;color:var(--muted);min-height:40px}
+.tab[aria-selected=true]{background:var(--raised);color:var(--text);border-color:var(--accent)}
+/* Browserrahmen */
+.browser{max-width:1200px;margin:8px auto 40px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--ground)}
+.chrome{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0A100D;border-bottom:1px solid var(--line)}
+.dots{display:flex;gap:6px}.dots i{width:10px;height:10px;border-radius:50%;background:#24302C;display:block}
+.url{flex:1;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--muted);min-width:0}
+.url b{color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.url svg{flex:none}
+/* App */
+.app{padding:20px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px}
+.pill{font-size:12px;font-weight:600;border:1px solid var(--accent);color:var(--accent);border-radius:999px;padding:2px 10px}
+.who{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}
+.who .shield{display:flex;align-items:center;gap:6px;color:var(--accent)}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:var(--r-ctl);padding:8px 12px;cursor:pointer;min-height:40px}
+h2{font-size:22px;font-weight:800;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 20px;font-size:13px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);padding:16px}
+.tile .label{color:var(--muted);font-size:13px}
+.tile .num{font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px}
+.tile .hint{color:var(--muted);font-size:12px}
+.row2{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+.health{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.hitem{display:flex;gap:10px;align-items:flex-start}
+.hitem .ico{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:rgba(126,224,192,.12);color:var(--accent)}
+.hitem.warn .ico{background:rgba(224,164,76,.14);color:var(--notice)}
+.hitem strong{display:block;font-weight:600}
+.hitem span{color:var(--muted);font-size:13px}
+.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.section-head h3{font-size:15px;font-weight:800;margin:0}
+.cta{background:var(--cta);color:var(--on-accent);border:0;border-radius:var(--r-ctl);padding:10px 16px;font-weight:800;cursor:pointer;min-height:44px;display:inline-flex;align-items:center;gap:8px}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.filters button{background:transparent;border:1px solid var(--line);border-radius:999px;padding:6px 12px;color:var(--muted);cursor:pointer;min-height:36px}
+.filters button[aria-pressed=true]{color:var(--text);border-color:var(--accent)}
+.search{flex:1;min-width:160px;max-width:280px;background:var(--raised);border:1px solid var(--line);border-radius:var(--r-ctl);padding:8px 12px;min-height:40px}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{text-align:left;font-weight:600;font-size:12px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:12px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:var(--raised)}
+td.name{font-weight:600}
+td .own{color:var(--muted);font-weight:400;font-size:12px}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;border:1px solid var(--line)}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.b-aktiv{color:var(--accent)}.b-pilot{color:var(--cta)}.b-eingeladen{color:var(--notice)}.b-pausiert{color:var(--muted)}
+.num-r{text-align:right}
+.log li{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.log li:last-child{border-bottom:0}
+.log time{color:var(--muted);flex:none;width:92px}
+.log ul{list-style:none;margin:0;padding:0}
+.boundary{display:flex;gap:10px;align-items:flex-start;color:var(--muted);font-size:13px;margin-top:14px}
+/* Drawer */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--surface);border-left:1px solid var(--line);padding:22px;overflow-y:auto;transform:translateX(100%);transition:transform .18s ease}
+.open .scrim{display:block}.open .drawer{transform:none}
+.drawer h3{font-size:20px;font-weight:800;margin:0 0 4px}
+.field{display:flex;flex-direction:column;gap:6px;margin:16px 0}
+.field label{font-size:13px;color:var(--muted)}
+.field input,.field textarea{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-ctl);padding:10px 12px;min-height:44px}
+.seg{display:flex;gap:8px}
+.seg label{flex:1;border:1px solid var(--line);border-radius:var(--r-ctl);padding:10px;display:flex;gap:8px;align-items:center;cursor:pointer;min-height:44px}
+.seg input{accent-color:var(--accent)}
+.note{color:var(--muted);font-size:13px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:14px;margin:14px 0}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.spark{position:relative;margin:8px 0 4px}
+.spark svg{width:100%;height:80px;display:block}
+.tip{position:absolute;pointer-events:none;background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12px;white-space:nowrap;transform:translate(-50%,-110%);display:none}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+/* Anmeldung */
+.login{min-height:560px;display:grid;place-items:center;padding:24px}
+.login .card{width:min(400px,100%);padding:24px}
+.codes{display:flex;gap:8px;margin-top:6px}
+.codes input{width:44px;height:52px;text-align:center;font-size:22px;font-weight:800;background:var(--raised);border:1px solid var(--line);border-radius:var(--r-ctl)}
+.codes input.f{border-color:var(--accent)}
+.step{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-bottom:14px}
+.step b{color:var(--accent)}
+.full{width:100%;justify-content:center;margin-top:18px}
+.explain{max-width:1200px;margin:0 auto 60px;padding:0 16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.explain .card h4{margin:0 0 6px;font-size:15px;font-weight:800}
+.explain .card p{margin:0;color:var(--muted);font-size:13px}
+@media (max-width:900px){.grid4{grid-template-columns:repeat(2,minmax(0,1fr))}.row2{grid-template-columns:1fr}.explain{grid-template-columns:1fr}}
+@media (max-width:560px){.health{grid-template-columns:1fr}.tile .num{font-size:32px}.app{padding:16px}.hide-s{display:none}}
+</style>
+</head>
+<body>
+
+<div class="meta">
+  <h1><b>Entwurf T-068</b> · Betreiber-Bereich · Beispieldaten, alle Betriebe erfunden</h1>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="false" data-view="login">1 · So kommst du rein</button>
+    <button class="tab" role="tab" aria-selected="true" data-view="overview">2 · Übersicht</button>
+  </div>
+</div>
+
+<div class="browser">
+  <div class="chrome">
+    <div class="dots"><i></i><i></i><i></i></div>
+    <div class="url">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      <b>betreiber.tb-infra.de</b>
+    </div>
+  </div>
+
+  <!-- Anmeldung -->
+  <section id="view-login" class="login" hidden>
+    <div class="card">
+      <div class="brand" style="margin-bottom:18px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.75" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+        Taptura <span class="pill">Betreiber</span>
+      </div>
+      <div class="step"><b>Schritt 1 von 2</b> · Konto</div>
+      <div class="field"><label for="le">E-Mail des Betreiberkontos</label><input id="le" value="betrieb@taptura.example" readonly></div>
+      <div class="field"><label for="lp">Passwort</label><input id="lp" type="password" value="xxxxxxxxxxxx" readonly></div>
+      <div class="step" style="margin-top:20px"><b>Schritt 2 von 2</b> · Zweiter Faktor</div>
+      <label class="note" for="c1">Code aus deiner Authenticator-App</label>
+      <div class="codes">
+        <input id="c1" class="f" value="4" readonly aria-label="Ziffer 1"><input value="8" readonly aria-label="Ziffer 2"><input value="1" readonly aria-label="Ziffer 3"><input value="" readonly aria-label="Ziffer 4"><input value="" readonly aria-label="Ziffer 5"><input value="" readonly aria-label="Ziffer 6">
+      </div>
+      <button class="cta full" type="button" data-go="overview">Anmelden</button>
+      <p class="note" style="margin-top:14px">Ein eigenes Konto, getrennt von deinem Administrator-Konto in deinem eigenen Betrieb. Nach 30 Minuten ohne Aktivität wirst du abgemeldet.</p>
+    </div>
+  </section>
+
+  <!-- Übersicht -->
+  <section id="view-overview" class="app">
+    <div class="top">
+      <div class="brand">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.75" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+        Taptura <span class="pill">Betreiber</span>
+      </div>
+      <div class="who">
+        <span class="shield"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>Zwei Faktoren</span>
+        <span>Tim Bartz</span>
+        <button class="ghost" type="button" data-go="login">Abmelden</button>
+      </div>
+    </div>
+
+    <h2>Guten Abend, Tim</h2>
+    <p class="sub">Montag, 21. September · Stand vor wenigen Sekunden</p>
+
+    <div class="grid4">
+      <div class="card tile"><div class="label">Betriebe aktiv</div><div class="num">3</div><div class="hint">davon 1 im Pilot · 1 pausiert</div></div>
+      <div class="card tile"><div class="label">Mitarbeiter gesamt</div><div class="num">27</div><div class="hint">in allen aktiven Betrieben</div></div>
+      <div class="card tile"><div class="label">Heute aktiv</div><div class="num">12</div><div class="hint">mindestens ein Tap heute</div></div>
+      <div class="card tile"><div class="label">Taps heute</div><div class="num">41</div><div class="hint">alle bestätigt</div></div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <div class="section-head"><h3>Betriebszustand</h3><span class="note">Letzte Auslieferung d75fd56 · 21.09.</span></div>
+        <div class="health">
+          <div class="hitem"><div class="ico">✓</div><div><strong>Server läuft</strong><span>antwortet in 42 ms</span></div></div>
+          <div class="hitem"><div class="ico">✓</div><div><strong>Externe Archivierung aktuell</strong><span>letzter Nachweis vor 38 s</span></div></div>
+          <div class="hitem"><div class="ico">✓</div><div><strong>Sicherung erfolgreich</strong><span>vor 23 min · Probe-Wiederherstellung So</span></div></div>
+          <div class="hitem warn"><div class="ico">!</div><div><strong>Speicher 46 % belegt</strong><span>17,4 von 38 GB · Warnung ab 80 %</span></div></div>
+        </div>
+      </div>
+      <div class="card log">
+        <div class="section-head"><h3>Protokoll</h3><span class="note">jede Aktion</span></div>
+        <ul>
+          <li><time>heute 18:02</time><span>Betrieb „Malerbetrieb Weiß“ angelegt, Einladung versendet</span></li>
+          <li><time>heute 09:14</time><span>Anmeldung mit zwei Faktoren</span></li>
+          <li><time>12.09. 16:40</time><span>„Gärtnerei Grünfink“ pausiert</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-head">
+        <h3>Betriebe</h3>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <input class="search" type="search" placeholder="Betrieb suchen" aria-label="Betrieb suchen" id="q">
+          <button class="cta" type="button" id="new">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Betrieb anlegen</button>
+        </div>
+      </div>
+      <div class="filters" id="filters">
+        <button aria-pressed="true" data-f="alle">Alle</button>
+        <button aria-pressed="false" data-f="aktiv">Aktiv</button>
+        <button aria-pressed="false" data-f="pilot">Pilot</button>
+        <button aria-pressed="false" data-f="eingeladen">Eingeladen</button>
+        <button aria-pressed="false" data-f="pausiert">Pausiert</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>Betrieb</th><th>Status</th><th class="num-r">Mitarbeiter</th><th class="num-r">Heute aktiv</th>
+            <th class="hide-s">Letzter Tap</th><th class="num-r hide-s">Tags</th><th class="hide-s">Einladungen</th><th class="hide-s">Angelegt</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="boundary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none;margin-top:2px"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+        <span>Du siehst Zahlen <b>über</b> jeden Betrieb, nie <b>hinein</b>: keine Namen und keine Arbeitszeiten von Mitarbeitern deiner Kunden. Die bleiben beim Administrator des Betriebs.</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="explain">
+  <div class="card"><h4>Eigene Adresse</h4><p>Der Bereich hat eine eigene Adresse, heute <b>betreiber.tb-infra.de</b>, später unter eurer echten Domain. Er ist von keiner Kundenseite und nicht aus der App verlinkt.</p></div>
+  <div class="card"><h4>Eigenes Konto, zwei Faktoren</h4><p>Ein Betreiberkonto, getrennt von deinem Administrator-Konto im eigenen Betrieb. Du meldest dich mit Passwort und einem Code aus einer Authenticator-App an. Wer nur das Passwort kennt, kommt nicht rein.</p></div>
+  <div class="card"><h4>Über, nicht hinein</h4><p>Status, Zahlen und letzte Aktivität je Betrieb, dazu der Betriebszustand des Servers. Namen und Arbeitszeiten der Mitarbeiter deiner Kunden siehst du hier nie.</p></div>
+</div>
+
+<div id="overlay">
+  <div class="scrim" data-close></div>
+  <aside class="drawer" aria-label="Seitenleiste" id="drawer"></aside>
+</div>
+
+<script>
+const data=[
+  {n:"Tischlerei Holzwerk Nord",s:"pilot",m:9,h:5,t:"vor 4 min",g:6,e:"—",a:"14.09.",admin:"k.berger@holzwerk-nord.example",loc:"aus",spark:[0,0,31,38,35,40,29,0,0,33,36,41]},
+  {n:"Muster Reinigung GmbH",s:"aktiv",m:14,h:6,t:"vor 12 min",g:11,e:"1 offen",a:"02.09.",admin:"betrieb@muster-reinigung.example",loc:"an · 2 Standorte",spark:[44,47,12,0,46,51,49,45,50,14,0,48]},
+  {n:"Malerbetrieb Weiß",s:"eingeladen",m:0,h:0,t:"noch keiner",g:0,e:"Administrator wartet",a:"heute",admin:"info@maler-weiss.example",loc:"aus",spark:[0,0,0,0,0,0,0,0,0,0,0,0]},
+  {n:"Taptura Demo",own:true,s:"aktiv",m:4,h:1,t:"vor 2 h",g:3,e:"—",a:"05.08.",admin:"tim@taptura.example",loc:"aus",spark:[3,6,0,2,8,4,5,0,1,7,3,2]},
+  {n:"Gärtnerei Grünfink",s:"pausiert",m:6,h:0,t:"vor 9 Tagen",g:4,e:"—",a:"20.08.",admin:"hallo@gruenfink.example",loc:"aus",spark:[21,24,23,19,0,0,0,0,0,0,0,0]}
+];
+const label={aktiv:"Aktiv",pilot:"Pilot",eingeladen:"Eingeladen",pausiert:"Pausiert"};
+let filter="alle";
+const rows=document.getElementById("rows");
+function render(){
+  const q=document.getElementById("q").value.toLowerCase();
+  rows.innerHTML="";
+  data.filter(d=>(filter==="alle"||d.s===filter)&&d.n.toLowerCase().includes(q)).forEach((d,i)=>{
+    const tr=document.createElement("tr");tr.tabIndex=0;
+    tr.innerHTML=`<td class="name">${d.n}${d.own?' <span class="own">· dein Testbetrieb</span>':''}</td>
+      <td><span class="badge b-${d.s}">${label[d.s]}</span></td>
+      <td class="num-r">${d.m}</td><td class="num-r">${d.h}</td>
+      <td class="hide-s">${d.t}</td><td class="num-r hide-s">${d.g}</td><td class="hide-s">${d.e}</td><td class="hide-s">${d.a}</td>`;
+    tr.onclick=()=>detail(d);tr.onkeydown=e=>{if(e.key==="Enter")detail(d)};
+    rows.appendChild(tr);
+  });
+}
+document.getElementById("q").oninput=render;
+document.querySelectorAll("#filters button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#filters button").forEach(x=>x.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true");filter=b.dataset.f;render();
+});
+const overlay=document.getElementById("overlay"),drawer=document.getElementById("drawer");
+function openDrawer(html){drawer.innerHTML=html;overlay.classList.add("open");drawer.querySelectorAll("[data-close]").forEach(x=>x.onclick=close);}
+function close(){overlay.classList.remove("open")}
+overlay.querySelector(".scrim").onclick=close;
+document.addEventListener("keydown",e=>{if(e.key==="Escape")close()});
+document.getElementById("new").onclick=()=>openDrawer(`
+  <h3>Betrieb anlegen</h3>
+  <p class="note">Der erste Administrator bekommt eine Einladung per E-Mail. Mitarbeiter, Kunden und Tags richtet er danach selbst ein.</p>
+  <div class="field"><label for="f1">Name des Betriebs</label><input id="f1" placeholder="z. B. Malerbetrieb Weiß"></div>
+  <div class="field"><label for="f2">E-Mail des ersten Administrators</label><input id="f2" type="email" placeholder="name@betrieb.de"></div>
+  <div class="field"><label>Art</label><div class="seg">
+    <label><input type="radio" name="art" checked> Pilot</label><label><input type="radio" name="art"> Regulär</label></div></div>
+  <div class="field"><label for="f3">Notiz (nur für dich)</label><textarea id="f3" rows="3" placeholder="z. B. Vertrag ab 01.10., 12 Tags bestellt"></textarea></div>
+  <div class="actions"><button class="cta" type="button" data-close>Anlegen und einladen</button><button class="ghost" type="button" data-close>Abbrechen</button></div>
+  <p class="note" style="margin-top:14px">Wird protokolliert: wer, wann, welcher Betrieb, an welche Adresse eingeladen.</p>`);
+function sparkSvg(v){
+  const w=360,h=80,p=6,max=Math.max(...v,1),step=(w-2*p)/(v.length-1);
+  const pts=v.map((x,i)=>[p+i*step,h-p-(x/max)*(h-2*p)]);
+  const d=pts.map((q,i)=>(i?"L":"M")+q[0].toFixed(1)+" "+q[1].toFixed(1)).join(" ");
+  const dots=pts.map((q,i)=>`<circle cx="${q[0]}" cy="${q[1]}" r="10" fill="transparent" data-i="${i}"/>`).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="Taps pro Tag, letzte 12 Tage">
+    <line x1="${p}" x2="${w-p}" y1="${h-p}" y2="${h-p}" stroke="var(--line)" stroke-width="1"/>
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+    ${dots}</svg>`;
+}
+function detail(d){
+  openDrawer(`
+    <span class="badge b-${d.s}">${label[d.s]}</span>
+    <h3 style="margin-top:10px">${d.n}</h3>
+    <p class="note">Angelegt ${d.a}</p>
+    <dl class="kv">
+      <dt>Administrator</dt><dd>${d.admin}</dd>
+      <dt>Mitarbeiter</dt><dd>${d.m} · heute aktiv ${d.h}</dd>
+      <dt>Tags</dt><dd>${d.g}</dd>
+      <dt>Standorte</dt><dd>${d.loc}</dd>
+      <dt>Letzter Tap</dt><dd>${d.t}</dd>
+      <dt>Einladungen</dt><dd>${d.e}</dd>
+    </dl>
+    <div class="section-head" style="margin-top:6px"><h3 style="font-size:14px">Taps pro Tag · letzte 12 Tage</h3></div>
+    <div class="spark" id="sp">${sparkSvg(d.spark)}<div class="tip" id="tip"></div></div>
+    <div class="actions">
+      ${d.s==="eingeladen"?'<button class="ghost" type="button">Einladung erneut senden</button>':''}
+      ${d.s==="pausiert"?'<button class="ghost" type="button">Wieder aktivieren</button>':'<button class="ghost" type="button">Betrieb pausieren</button>'}
+      <button class="ghost" type="button" data-close>Schließen</button>
+    </div>
+    <div class="boundary"><span>Namen und Arbeitszeiten der Mitarbeiter sind hier bewusst nicht sichtbar.</span></div>`);
+  const sp=drawer.querySelector("#sp"),tip=drawer.querySelector("#tip");
+  sp.querySelectorAll("circle").forEach(c=>{
+    c.onmouseenter=()=>{const r=sp.getBoundingClientRect(),b=c.getBoundingClientRect();
+      const i=+c.dataset.i,day=12-i;tip.textContent=`vor ${day} ${day===1?"Tag":"Tagen"}: ${d.spark[i]} Taps`;
+      tip.style.left=(b.left+b.width/2-r.left)+"px";tip.style.top=(b.top+b.height/2-r.top)+"px";tip.style.display="block";};
+    c.onmouseleave=()=>tip.style.display="none";
+  });
+}
+function show(v){
+  document.getElementById("view-login").hidden=v!=="login";
+  document.getElementById("view-overview").hidden=v!=="overview";
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.view===v));
+}
+document.querySelectorAll("[data-view]").forEach(t=>t.onclick=()=>show(t.dataset.view));
+document.querySelectorAll("[data-go]").forEach(t=>t.onclick=()=>show(t.dataset.go));
+render();
+</script>
+</body>
+</html>

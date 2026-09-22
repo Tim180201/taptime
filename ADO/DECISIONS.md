@@ -1341,3 +1341,27 @@ Tap (Stopp, `stopped_via='administration'`). Endzeit nach Beginn, nicht in der Z
 Aktion der Verwaltung liegt, erzeugt keinen Eintrag, sondern einen Prüffall. Standortleitung mit T-062.
 **Warum:** Ein Weg durch die Engine hält die Kette Trigger → WorkEvent → Engine → TimeEntry; ein
 spät eintreffender Offline-Tap war als Stopp gemeint und darf nicht still eine neue Zeit starten.
+
+## D-074 · Betreiber sind keine Mitglieder und melden sich nur mit zweitem Faktor an · 22.09.2026 · Claude (TL)
+Betreiber sind eigene Supabase-Konten ohne Mitgliedschaft in einem Betrieb; beides schließt die
+Datenbank gegenseitig aus. Freigeschaltet wird nur als root auf dem Server (`taptime-operator-grant`),
+nie über HTTP. Jede Betreiber-Route außer der Sitzungsabfrage verlangt `aal2` (TOTP). Eigene Adresse
+`betreiber.tb-infra.de`, eigene App, eigenes Protokoll; Caddy leitet `/v1/operator/*` nur dort weiter.
+Betreiber-Funktionen liefern Zählungen, nie Namen, E-Mails oder einzelne Zeiten (D-068).
+**Warum:** Wer alle Betriebe sieht, braucht eine stärkere Anmeldung als jeder Kunde und darf
+nicht zugleich in einen Betrieb hineinschauen können. Entwurf: `ADO/01_Architecture/Betreiber_Entwurf`.
+
+## D-075 · Pausieren sperrt den Zugang, nicht die Daten · 22.09.2026 · Claude (TL)
+Ein pausierter Betrieb erhält an der zentralen Auflösung (`resolve_request_actor`/`lock_request_actor`)
+`organization_paused`; App und Web zeigen „Ihr Betrieb ist pausiert". Nichts wird gelöscht,
+Offline-Taps bleiben auf dem Gerät und werden nach dem Fortsetzen normal abgeglichen. Pausieren und
+Fortsetzen nur mit Grund, beides im Betreiber-Protokoll.
+**Warum:** Pausieren ist eine vertragliche Maßnahme; sie muss vollständig umkehrbar sein.
+
+## D-076 · Verwaltungsstopp bei offener Pause und kurzer Endzeit · 22.09.2026 · Claude (TL)
+Präzisiert D-073 nach dem Befund von T-069. Läuft beim Beenden durch die Verwaltung eine Pause, schließt
+dasselbe WorkEvent erst die Pause, dann die Zeit, beide zur gewählten Endzeit. Die Endzeit darf nicht
+vor der letzten Pausengrenze liegen (sonst Abweisung; früher geht danach über die Korrektur). Das
+Duplikatfenster von fünf Sekunden gilt nur für Gerätetrigger, nie für die Verwaltung.
+**Warum:** Wer die Pause vergisst, vergisst meist auch den Stopp; genau dann muss die Verwaltung
+beenden können. Das Duplikatfenster schützt vor doppeltem Scannen, nicht vor bewussten Eingaben.
