@@ -78,6 +78,13 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P2 T-069 (geklärt durch D-076):** Verwaltungsstopps umgehen das Duplikatfenster und schließen eine offene Pause zusammen mit der Zeit; lokal geprüft.
+- **T-069:** Server/App/Web einschließlich D-078 umgesetzt und vom TL **APPROVED**; unabhängiges Review Runde 2 sowie lokale Tests/Typechecks grün. Review-Artefakte auf Auftrag entfernt; CI und Images werden nach dem Push geprüft. Kein Deploy, keine APK; T-057 wartet auf ausdrücklichen Start.
+- **P2 T-069 (Review Runde 2):** Die Dreiminutenmeldung kann sich um die Restlaufzeit der letzten Archivnachfrage verzögern; kein verfrühter Erfolg.
+- **P2 T-066 (D-078):** Nachtragen/Korrektur ohne externen Archivnachweis bis T-016.
+- **P2 T-069 (Review):** Frühere Offline-Prüfgründe behalten Vorrang vor `administration_stopped`; Scan-Rückmeldung der App bleibt trotz bekanntem Grund allgemein. Detailmarke ist vorhanden.
+- **P2 lokale Verifikation (T-069, behoben):** Lokale Datenbank zunächst nicht gestartet; SQL-Stopptest scheiterte an verzögerter Prüfung unter der Laufzeitrolle, anschließend Prüfung innerhalb der Schreibfunktion. Syntaxfehler im Review-Nachweis sowie Testannahmen zu SQL-Zeitpräzision, Projektgrenzen, Prüffall-Feld und CSV-Format korrigiert; Tabellen- und Archivfunktionsinventar um 031 ergänzt. Export-Grenztest: absolute Warnschwelle knapp überschritten, relative Grenzen grün. Schlussläufe grün; Review-Artefakte nach TL-Abnahme auf Auftrag entfernt.
+
 - **P2 lokale Verifikation (T-070, behoben):** Messaufbau brauchte Borg-Logging und persistente
   Testquittungen; der neue Wasserstands-Stub musste append-only abbilden. Linux-Testcontainer
   anfangs ohne Docker-CLI, nachgerüstet. Schlussläufe einschließlich PITR und unabhängiges

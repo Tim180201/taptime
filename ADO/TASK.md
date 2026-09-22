@@ -99,3 +99,68 @@ und melden**, nicht umgehen.
 
 `.t069-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review vor dem Bericht.
 Kein Commit, kein Push.
+
+---
+
+## Danach (erst nach Abschluss von T-069): T-057 · Der Deploy wird robuster
+
+**Für:** Development · **Risiko:** Deploy-Controller, Sicherungskette, Root-Zugänge
+**Zeitbox:** eine Sitzung. **Grundlage:** PLAN T-057 (Befunde 1–4 vom 18.09.), Deploys 21./22.09., D-066, D-072.
+
+### Befunde (zusätzlich zu PLAN T-057, Punkte 1–4)
+
+5. **Sicherung mitten im Deploy:** Erster Anlauf `d75fd56` (21.09.) scheiterte bei `[1/7]` mit
+   „No complete offsite WAL segment exists for the physical base": Die stündliche Sicherung legte
+   nach der `[Archiv]`-Prüfung eine neue Basis an, die Probe nahm die neueste. Produktion blieb heil.
+6. **Vorprüfung von Hand:** Vor jedem Deploy prüft der PO per SSH, ob eine Sicherung läuft
+   (`InactiveEnterTimestamp`, nicht `ActiveEnterTimestamp` — Oneshot).
+7. **Diagnose nur über die Hetzner-Konsole:** Der Deploy-Benutzer darf das Journal nicht lesen
+   (richtig so, T-024: Schlüssel ohne Passphrase). Jede Diagnose kostet eine Konsolensitzung mit
+   US-Tastatur.
+8. **Spool-Besitzer:** `/var/lib/taptime-wal` gehört auf dem Host `dnsmasq:systemd-journal`
+   (UID-Kollision mit dem Container, STATUS P2).
+
+### Auftrag
+
+1. **PLAN-Punkte 1–4** wie beschrieben (alte Statusdatei, Barriere beim Erstlauf, ehrliche
+   `[7/7]`-Meldung, DEPLOY.md-Tippregeln und Terminal-Ablauf).
+2. **Sicherungs-Timer während des Deploys anhalten:** Der Controller stoppt `taptime-backup.timer`
+   zu Beginn und stellt ihn in **jedem** Ausgang wieder her (EXIT-Trap, auch bei Fehler und
+   Abbruch; Test mit Signal). Läuft gerade eine Sicherung, wartet er begrenzt (Standard 20 min,
+   sichtbare Fortschrittszeile je Minute) und bricht sonst **vor** jeder Änderung ab.
+3. **Die Probe nimmt die eigene Basis:** Die Generalprobe `[1/7]` stellt genau die Basis wieder
+   her, die `[2/7]` in diesem Lauf erzeugt hat (Name festhalten und übergeben), nicht „die neueste".
+4. **Vorprüfung eingebaut:** Vor `[Vorbereitung]` eine Zeile je Befund: laufende Version, Ziel,
+   Sicherung (Zustand, letztes Ende, Ergebnis), Archivierer/Empfänger aktiv, freier Platz.
+   Bei rotem Befund Abbruch ohne Änderung.
+5. **Lesender Diagnosebefehl für den Deploy-Benutzer:** `/usr/local/sbin/taptime-status`
+   (root-eigen, ohne Argumente, nur lesen). Gibt aus: Versionen, Dienstzustände, letzte 30
+   `WAL cycle`-Zeilen, letzte Sicherungen (Start/Ende/Ergebnis), Monitor-Zustand, freien Platz.
+   **Keine Geheimnisse, keine Adressen:** Speicherbox-Adresse, Repository-Pfade und E-Mails werden
+   maskiert; nur feste Filter, keine freien Journalabfragen. sudoers-Zeile genau für diesen Befehl
+   ohne Argumente. Test: Ausgabe enthält nie `your-storagebox`, `ssh://`, `@`-Adressen oder
+   Werte aus `/etc/taptime-backup/*`.
+6. **Spool-Besitzer (untersuchen, dann entscheiden):** feste eigene UID/GID für den Spool, die
+   zum schreibenden Container passt. Nur umsetzen, wenn es ohne Änderung an Compose-Semantik
+   und Wiederherstellung geht; sonst Befund und Vorschlag im Bericht, nicht bauen.
+7. **Root-Schritt einmal:** Controller-Update und die neue sudoers-Zeile brauchen die Konsole.
+   DEPLOY.md bekommt dafür **einen** kurzen Block, der mit US-Belegung tippbar ist (keine `~`,
+   möglichst wenige Sonderzeichen; Tippregeln daneben). T-068b erweitert den Controller später
+   noch einmal; beide Änderungen werden in **einer** Konsolensitzung vor dem großen Deploy
+   installiert.
+
+### Tests
+
+Signal-/Fehlertest: Timer danach wieder aktiv; laufende Sicherung → Warten, Zeitüberschreitung →
+Abbruch vor Änderung; Probe nutzt die eigene Basis, auch wenn eine neuere existiert; alte
+Statusdatei führt nicht mehr zu „ok"; Diagnosebefehl maskiert (Rotnachweis mit Beispielzeilen,
+die Adressen enthalten); `shellcheck`; bestehende Deploy-, Backup- und Restore-Tests grün.
+
+### Nicht Teil
+
+Keine Änderung an Basissicherung, `borg check`, Aufbewahrung, Archivierer-Logik (T-070), Wächter.
+Kein Zugriff auf Server oder Secrets. Kein Deploy.
+
+### Bericht
+
+`.t057-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit, kein Push.
