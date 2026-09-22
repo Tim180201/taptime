@@ -3,7 +3,8 @@
 **Stand:** 22.09.2026 · Produktion läuft auf `d75fd56` (T-067; Deploy 21./22.09., zweiter Anlauf,
 keine neue Migration, zwei bewiesene Wiederherstellungen; Platte danach 6,2 GB belegt, stabil).
 Auf `main` zusätzlich T-065 (`ae6e0bf`) und T-066 (`e7eb0c6`, Korrektur `fd9b5ef`, Migration 030).
-Offen vor dem Pilot: T-070, T-068. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
+T-070 ist vom Technical Lead **APPROVED**; Auslieferung weiterhin offen.
+Offen vor dem Pilot: Auslieferung T-066/T-070, T-068. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
 vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -77,6 +78,11 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P2 lokale Verifikation (T-070, behoben):** Messaufbau brauchte Borg-Logging und persistente
+  Testquittungen; der neue Wasserstands-Stub musste append-only abbilden. Linux-Testcontainer
+  anfangs ohne Docker-CLI, nachgerüstet. Schlussläufe einschließlich PITR und unabhängiges
+  read-only Review grün; Review-Artefakte nach TL-Abnahme auf Auftrag entfernt.
+
 - **P2 lokale Verifikation (T-066, behoben):** Erstläufe scheiterten auch an Testaufbau
   (fehlende lokale DB-Variable, nicht erfasste `.tsx`-Tests, veraltete Schema-/Status-Erwartungen
   und nach Schema-Neuaufbau fehlende Test-Login-Grants). Web-Fortsetzung: Rollen-/Seitenlimit-
@@ -90,7 +96,7 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   Hostbenutzer. Prüfen, ob `dnsmasq` läuft; feste eigene Nummer für den Spool (T-057).
 - **Beobachten (21.09.):** Dauer der stündlichen Basissicherung gegen die Zehn-Minuten-Grenze
   des Wächters (D-066); ein Lauf endete 16:13 UTC nach bis zu acht Minuten.
-- **P1 T-070 (Befund 22.09.):** Über 20 Alarme „WAL-Archivierung steht" in einer Nacht, ohne
+- **T-070 lokal behoben und TL-APPROVED; Produktion offen (22.09.):** Über 20 Alarme „WAL-Archivierung steht" in einer Nacht, ohne
   fehlende Daten. Ein Leerlauf-Durchlauf dauert 67–68 s (Storage-Box-Zugriffe ohne Arbeit), das
   Alarmfenster ist 120 s; das Nachholen nach der Sicherung dauerte 451 s (08:05–08:13 UTC,
   Sicherung selbst 7:20 min). Berichtigung in D-072.
