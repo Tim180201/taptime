@@ -100,8 +100,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   fehlende Daten. Ein Leerlauf-Durchlauf dauert 67–68 s (Storage-Box-Zugriffe ohne Arbeit), das
   Alarmfenster ist 120 s; das Nachholen nach der Sicherung dauerte 451 s (08:05–08:13 UTC,
   Sicherung selbst 7:20 min). Berichtigung in D-072.
-- **Aufräumen (root, 22.09.):** Journal-Auszug `/home/taptime-deploy/j.txt` vom 21.09. liegt im
-  Heimverzeichnis des Deploy-Benutzers (Schlüssel ohne Passphrase, T-024) — löschen.
+- **Geprüft 22.09.:** Das Heimverzeichnis des Deploy-Benutzers enthält nur Standarddateien;
+  der Journal-Auszug vom 21.09. ist entfernt.
 - **Erledigt 22.09. — T-067 (Befund 21.09.):** `archive_timeout=15s` (T-063, ausgeliefert 20.09.) lässt den
   Archivierer seine eigenen Quittungen archivieren — rund 200 Archive je Stunde ohne Taps. Die
   Durchläufe wachsen auf Stunden, die stündliche Sicherung verhungert, der Spool wächst auf der

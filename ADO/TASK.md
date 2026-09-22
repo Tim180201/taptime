@@ -1,58 +1,65 @@
 # Aktuelle Aufgabe
 
-> **Stand 22.09.2026:** Produktion auf `d75fd56` (T-067). Auf `main` T-065 und T-066 (`fd9b5ef`).
-> Reihenfolge: **T-070 → Deploy (T-066 + T-070, Migration 030) → APK → Geräteabnahme → T-068**
-> (D-072). T-068 ist nur Web und braucht keine neue APK.
+> **Stand 22.09.2026:** Produktion auf `d75fd56`. Auf `main` T-065, T-066 und T-070 (`5868a6e`,
+> CI und Images grün, noch nicht ausgeliefert). PO-Entscheid: alles in **einen** Deploy.
+> Reihenfolge: **T-069 → T-057 → T-068 → Deploy → APK → Geräteabnahme → Pilot Monat 1**.
 
-## T-070 · Der Archivierer ruht billig; der Wächter lässt nach der Sicherung Luft
+## T-069 · Die Verwaltung beendet eine vergessene laufende Zeit
 
-**Für:** Development · **Risiko:** Sicherungskette T-035 (WAL-Archiv, Wächter), keine Daten
-**Zeitbox:** eine Sitzung. **Grundlage:** D-066, D-072, Journal der Produktion vom 22.09.
+**Für:** Development · **Risiko:** Lebenszyklus, Offline-Abgleich, Rechte
+**Zeitbox:** zwei Sitzungen; Reihenfolge Server → App → Web. Reicht die Zeit nicht, nach der App
+stoppen und melden. **Grundlage:** D-069, D-071, D-073; bekannter P2 „unbegrenzter vergessener Stopp".
 
-### Befund (Produktion, 22.09., am Journal geprüft)
+### Ziel
 
-- Über 20 ntfy-Alarme „WAL-Archivierung steht" in einer Nacht (00:31 … 04:40 Ortszeit), ohne
-  fehlende Daten; die Platte ist stabil (6,2 GB belegt), T-067 wirkt.
-- **Ein Durchlauf ohne Arbeit dauert 67–68 s** (`uploaded_segments=0 reconciled_archives=0`,
-  gleichmäßig über Stunden). Mit 30 s Pause liegen ~98 s zwischen zwei Statusschreibungen; das
-  Fenster des Wächters ist 120 s. Jede Verzögerung der Storage Box reißt es (08:24:57: 147 s ohne
-  Arbeit).
-- **Nachholen nach der Sicherung:** Sicherung 08:05:01–08:12:21 UTC (7:20 min, unter der
-  Zehn-Minuten-Grenze). Der Durchlauf, der auf die Sperre wartete, endete 08:13:51 nach 451 s mit
-  3 Segmenten; Alarm um 08:16 Ortszeit-Minute. Der Wächter zählt ab Sicherungsende, das Nachholen
-  braucht länger als 120 s.
-- Vermutung (belegen!): Der Leerlauf ruft je Durchlauf Borg über SSH auf (`borg info` der Basis,
-  `borg list --glob-archives wal-*` über das ganze Repository); das Repository trägt noch die
-  Archive der Flut bis zur nächsten Aufräumung (sonntags, `taptime-restore-verify`).
+Ein Mitarbeiter vergisst den Stopp. Der Administrator öffnet die Person (Handy: Reiter
+Mitarbeiter; Web: Personenkalender), tippt beim laufenden Eintrag **„Beenden"**, wählt die
+Endzeit (Europe/Berlin) und schreibt einen Grund. Danach ist der Eintrag geschlossen, kann wie
+jeder andere geändert werden (T-066), und der nächste Tap des Mitarbeiters startet korrekt neu.
 
-### Auftrag
+### Regeln (D-073)
 
-1. **Erst belegen:** Aus dem Code alle Borg-/SSH-Aufrufe eines Leerlauf-Durchlaufs auflisten und
-   lokal mit einem synthetischen Repository (mindestens 5.000 WAL-Archive) messen, welche Phase
-   dominiert. Journalzeile um die Dauer je Phase ergänzen (Datenbank, Archivliste, Basis,
-   Hochladen, Abgleich) — keine Adressen, keine Geheimnisse.
-2. **Leerlauf ohne Fernzugriff (D-072):** Gibt es keine offene Anforderung, keine vollständige
-   Spool-Datei ohne Quittung und keinen neuen Wasserstand, schreibt der Durchlauf den Status
-   `ok` allein aus Datenbank und Spool. Der Vollabgleich mit der Storage Box (Liste, Basis,
-   Lückenprüfung) läuft, sobald Arbeit ansteht, und sonst höchstens alle 15 Minuten
-   (konfigurierbar, Standard 900 s). Eine Lücke oder ein Fehler im Vollabgleich bleibt ein
-   Fehler wie heute. Pro Durchlauf höchstens eine Archivliste.
-3. **Nachholzeit (D-072):** Nach dem Ende einer Sicherung zählen Herzschlag und Datenalter im
-   Wächter erst nach einer einmaligen, begrenzten Nachholzeit (Standard 300 s, konfigurierbar;
-   Obergrenze im Code, nicht über 600 s). Sicherung über zehn Minuten alarmiert weiter.
-   Alles andere am Wächter bleibt (120 s, Flankenmeldung, AF_UNIX).
-4. **Tests:** Leerlauf ohne einen einzigen Borg-Aufruf (Stub zählt); Vollabgleich nach Ablauf
-   des Intervalls und bei Arbeit; Lücke im Vollabgleich bleibt rot; Wächter: Alarm 301 s nach
-   Sicherungsende mit offener Anforderung, keiner bei 299 s; bestehende T-035/T-063/T-067-Tests
-   grün. Rotnachweis für die ersten beiden mit dem alten Code.
-5. **Messung vorher/nachher** (lokal, synthetisch): Dauer eines Leerlauf-Durchlaufs und eines
-   Nachholens von drei Segmenten.
+1. **Durch die Engine:** Die Aktion erzeugt ein WorkEvent der neuen Quelle `administration` im
+   Namen des Mitarbeiters mit `occurred_at` = gewählte Endzeit. Die Engine entscheidet wie bei
+   jedem Tap. Kein direktes UPDATE am Eintrag an der Engine vorbei. Ergebnis:
+   `stopped_via='administration'` (neue Migration 031; 001–030 unverändert).
+2. **Grenzen serverseitig:** nur Administrator (Standortleitung abgewiesen, kommt mit T-062);
+   nur im eigenen Betrieb; nur ein Eintrag mit Status `started`, erwartete `row_version`
+   (sonst `conflict`); Endzeit > Beginn, ≤ jetzt, ≤ Beginn + 24 h; Grund 1–500 Zeichen, Pflicht;
+   idempotent über `commandId`; gleiche Personensperre wie Lebenszyklus und Nachtragen.
+3. **Spät eintreffende Gerätetrigger:** Trifft nach der Aktion ein Gerätetrigger (online oder
+   aus der Offline-Warteschlange, T-052) derselben Person ein, dessen `occurred_at` nach dem Beginn
+   des beendeten Eintrags und **vor dem Zeitpunkt der Verwaltungsaktion** liegt, entsteht **kein**
+   Eintrag, sondern ein Prüffall (bestehender Weg aus 015) mit verständlichem Grund
+   („Zeit wurde von der Verwaltung beendet"). Trigger nach der Aktion laufen normal.
+4. **Sichtbarkeit:** Details (T-066-Vertrag `time-details.v2`) zeigen „Beendet durch Verwaltung ·
+   Zeitpunkt · Grund". Mitarbeiter sieht das in Meine Zeiten. Export v4: `changed` ist wahr.
+   Alte App-Versionen erhalten unveränderte Antwortkörper.
+5. **Audit:** jede Aktion mit Akteur, Zielperson, Eintrag, Endzeit, Grund.
+
+### Oberfläche
+
+- **App (Admin, Person):** beim laufenden Eintrag „Beenden" statt „Läuft noch — erst beenden,
+  dann ändern"; Formular mit Datum/Uhrzeit (Standard: jetzt) und Grund; nur online; nach Erfolg
+  Kalender neu laden. Für den Mitarbeiter selbst bleibt der Hinweis (er beendet per Tap).
+- **Web (Admin, Personenkalender):** dasselbe.
+- **Mitarbeiter-App:** Marke „Beendet durch Verwaltung" mit Grund.
+
+### Tests (Rotnachweis zuerst)
+
+Admin beendet → Eintrag geschlossen, WorkEvent vorhanden, nächster Tap startet neu; Standortleitung,
+Mitarbeiter, fremder Betrieb, bereits gestoppt, falsche Version, Zukunft, vor Beginn, > 24 h,
+ohne Grund → abgewiesen; gleichzeitiger Tap und Verwaltungsaktion → genau ein Stopp;
+Offline-Trigger vor der Aktion → Prüffall, kein Eintrag; Offline-Trigger nach der Aktion → normal;
+idempotente Wiederholung; alte Clients bytegleich; Export v4 `changed`. App- und Web-Tests inkl. axe.
 
 ### Nicht Teil
 
-Keine Änderung an Basissicherung, `borg check`, Aufbewahrung, Wiederherstellung, Migrationen,
-Deploy-Skript. Kein Zugriff auf den Server, auf `/opt/taptime/.env` oder `/etc/taptime-backup/*`.
+Keine Änderung an Nachtragen/Kommentar außer der neuen Marke, keine Standortleitungsrechte, kein
+Deploy. Passt eine Regel nicht zum Code (z. B. Engine kann keine Quelle ohne Gerät), **stoppen
+und melden**, nicht umgehen.
 
 ### Bericht
 
-`.t070-review/report.md`, `tracked.diff`, `untracked.txt`. Kein Commit, kein Push, kein Deploy.
+`.t069-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review vor dem Bericht.
+Kein Commit, kein Push.

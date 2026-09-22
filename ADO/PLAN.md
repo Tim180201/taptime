@@ -7,9 +7,9 @@
 mit getrennten Uhren für reine Wartezeiten (D-011).
 **Stand:** 22.09.2026, Produktion auf `d75fd56` (T-067 ausgeliefert 22.09. nachts). Auf `main`
 T-065 und T-066 (`fd9b5ef`). Befund Waechter: T-070.
-Naechste Reihenfolge: **T-070** → Deploy (T-066 + T-070, Migration 030) → APK → Geraeteabnahme →
-**T-068** → Deploy →
-Geraeteabnahme → Pilot Monat 1;
+Naechste Reihenfolge (PO 22.09.: alles in einen Deploy): T-070 ✓ (`5868a6e`) → **T-069** →
+**T-057** → **T-068** → ein Deploy (T-066, T-070, T-069, T-057, T-068; Migrationen 030 ff.) →
+APK → Geraeteabnahme → Pilot Monat 1;
 waehrend Monat 1 T-062, T-048 und T-050, Freigabe zu Monat 2 (D-063). Grundlage weiterhin die Anforderungspruefung gegen den Code (D-012).
 
 ---

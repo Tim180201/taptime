@@ -1332,3 +1332,12 @@ Der Wächter behält 120 Sekunden für Herzschlag und Datenalter; nach dem Ende 
 bekommt das Nachholen einmalig bis zu fünf Minuten. Jede Journalzeile nennt die Dauer je Phase.
 **Warum:** Am 22.09. dauerte ein Leerlauf-Durchlauf 67–68 s bei 120 s Alarmfenster; jede Verzögerung
 der Storage Box löste über 20 Alarme aus, obwohl nichts fehlte (08:13 Nachholen nach Sicherung: 451 s).
+
+## D-073 · Die Verwaltung beendet eine laufende Zeit als WorkEvent · 22.09.2026 · Claude (TL)
+Der Administrator beendet die laufende Zeit eines Mitarbeiters mit Endzeit und Grund. Das ist ein
+WorkEvent der Quelle „Verwaltung" im Namen des Mitarbeiters; die Engine entscheidet wie bei jedem
+Tap (Stopp, `stopped_via='administration'`). Endzeit nach Beginn, nicht in der Zukunft, höchstens
+24 h nach Beginn. Ein Gerätetrigger derselben Person, der danach eintrifft und zeitlich vor der
+Aktion der Verwaltung liegt, erzeugt keinen Eintrag, sondern einen Prüffall. Standortleitung mit T-062.
+**Warum:** Ein Weg durch die Engine hält die Kette Trigger → WorkEvent → Engine → TimeEntry; ein
+spät eintreffender Offline-Tap war als Stopp gemeint und darf nicht still eine neue Zeit starten.
