@@ -1390,3 +1390,12 @@ deshalb muss es nicht gesondert verwahrt werden; nach einer Wiederherstellung l�
 Fehlt die Angabe, antworten die Betreiber-Routen `503 operator_not_configured`, alles andere läuft normal.
 **Warum:** Ein Laufzeit-Login schützt keine Daten wie die Borg-Passphrase; was jederzeit neu entstehen kann,
 braucht keinen zweiten Aufbewahrungsort und kann nicht über Chat oder Screenshot auslaufen.
+
+## D-080 · Pausieren gilt auch für den Offline-Abgleich · 22.09.2026 · Claude (TL)
+Ergänzt D-075 nach dem Befund von T-068a: Auch `lock_offline_active_actor_v1` und
+`lock_offline_historical_actor_v1` weisen einen pausierten Betrieb ab; bei aktivem Betrieb bleibt ihr
+Verhalten unverändert, einschließlich entzogener Mitgliedschaften im historischen Weg. Die Antwort ist
+dieselbe wie überall (`organization_paused`) und gilt als vorübergehend: Kein Gerät darf deswegen
+etwas aus seiner Warteschlange löschen — auch ältere APKs nicht; das ist nachzuweisen.
+**Warum:** Ein pausierter Betrieb darf keine neuen Buchungen aufnehmen, egal über welchen Weg.
+Die Taps der Mitarbeiter bleiben auf dem Gerät und kommen nach dem Fortsetzen vollständig an.

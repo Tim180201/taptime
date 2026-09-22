@@ -59,7 +59,11 @@ Reicht die Zeit nicht, nach „Fähigkeiten" stoppen und melden.
 6. **Übersicht nur Zahlen (D-068):** Test mit Erlaubnisliste der Spalten/Schlüssel jeder
    Betreiber-Funktion; nie Namen, E-Mails, `display_name`, Personen-IDs oder einzelne Zeiten
    (einzige Ausnahme: letzter Tap je Betrieb).
-7. **Pausieren (D-075):** An der zentralen Auflösung (`resolve_request_actor`,
+7. **Pausieren (D-075, D-080):** Auch die beiden Offline-Resolver `lock_offline_active_actor_v1`
+   und `lock_offline_historical_actor_v1` weisen pausierte Betriebe ab; bei aktivem Betrieb bleibt
+   ihr Verhalten unverändert (auch entzogene Mitgliedschaften im historischen Weg). Nachweis, dass
+   weder neue noch alte Clients deswegen etwas aus der Warteschlange löschen.
+   Weiter gilt: An der zentralen Auflösung (`resolve_request_actor`,
    `lock_request_actor`) wird ein pausierter Betrieb erkannt; das Backend antwortet überall
    `403 organization_paused`. Die Unterscheidung „pausiert" vs. „unbekannt" darf nur dem
    betroffenen, sonst gültigen Mitglied gegenüber sichtbar werden. App und Admin-Web zeigen
