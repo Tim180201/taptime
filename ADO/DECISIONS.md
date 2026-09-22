@@ -1365,3 +1365,11 @@ vor der letzten Pausengrenze liegen (sonst Abweisung; früher geht danach über 
 Duplikatfenster von fünf Sekunden gilt nur für Gerätetrigger, nie für die Verwaltung.
 **Warum:** Wer die Pause vergisst, vergisst meist auch den Stopp; genau dann muss die Verwaltung
 beenden können. Das Duplikatfenster schützt vor doppeltem Scannen, nicht vor bewussten Eingaben.
+
+## D-077 · Alte Apps sehen einen Verwaltungsstopp als „manuell" · 22.09.2026 · Claude (TL)
+Gespeichert wird die wahre Herkunft `administration`. Wer keine neue Version aushandelt (ältere APKs),
+bekommt `manual` und beim späten Gerätetrigger den bestehenden allgemeinen Prüfgrund; das Format
+bleibt bytegleich. `time-details.v2` ist noch nicht ausgeliefert und trägt die neue Herkunft samt
+Marke „Beendet durch Verwaltung". Das Admin-Web wird mit dem Server ausgeliefert und zeigt alles.
+**Warum:** Ein unbekannter Wert ließe den Kalender alter Apps nicht mehr laden. „Manuell" ist aus Sicht
+des Mitarbeiters wahr (nicht per Tag beendet); die volle Wahrheit steht in Daten, Audit und neuen Clients.

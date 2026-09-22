@@ -47,6 +47,17 @@ jeder andere geändert werden (T-066), und der nächste Tap des Mitarbeiters sta
 8. **Kein Duplikatfenster (D-076):** Das 5-Sekunden-Duplikatfenster gilt nur für Gerätetrigger.
    Ein Verwaltungs-WorkEvent wird nie als `duplicate_scan_ignored` verworfen; Endzeit 1 s nach
    Beginn stoppt.
+9. **Alte Clients (D-077):** Gespeichert wird `stopped_via='administration'`. Antworten ohne
+   ausgehandelte neue Version (alte APKs) erhalten dafür `stoppedVia='manual'` — bytegleich im
+   Format, nur der Wert ist ein bekannter. `time-details.v2` ist noch nirgends ausgeliefert und
+   darf erweitert werden: dort stehen `stoppedVia='administration'` und die Marke „Beendet durch
+   Verwaltung · Zeitpunkt · Grund". Keine neue Aushandlungsversion.
+10. **Neuer Prüfgrund (D-077):** Überall, wo ein Client mit geschlossener Grundliste eine alte
+    APK sein kann (Geräte-, Offline- und Abgleichsantworten), wird der Prüffall mit dem bestehenden,
+    allgemeinsten Prüf-/Eskalationsgrund gemeldet. Den neuen Grund `administration_stopped` sehen
+    nur Oberflächen, die mit dem Server gemeinsam ausgeliefert werden (Admin-Web), und neue Clients
+    über `time-details.v2` bzw. eine bereits vorhandene ausgehandelte Version. Welcher bestehende
+    Grund das ist, benennt der Bericht mit Fundstelle.
 
 ### Oberfläche
 
