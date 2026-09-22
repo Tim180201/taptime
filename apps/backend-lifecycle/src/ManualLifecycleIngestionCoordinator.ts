@@ -105,7 +105,7 @@ interface PreviousEventRow extends QueryResultRow {
   readonly target_customer_id: string | null;
   readonly triggered_by_user_id: string;
   readonly occurred_at: Date;
-  readonly trigger_type: 'nfc' | 'manual';
+  readonly trigger_type: 'nfc' | 'manual' | 'administration';
 }
 
 interface DecisionRow extends QueryResultRow {
@@ -285,6 +285,10 @@ export class ManualLifecycleIngestionCoordinator {
       const activeBreak = await findActiveBreak(client, actor, active);
       const previous = await findPreviousEvent(client, event);
       const decision = this.engine.evaluate(event, {
+        administrationStoppedBeforeTrigger: (await client.query(
+          'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
+          [event.occurredAt],
+        )).rows[0]?.stopped === true,
         activeTimeEntryForUser: active,
         activeBreakIntervalForUser: activeBreak,
         previousAcceptedWorkEventForUserAndTarget: previous,
@@ -623,6 +627,7 @@ async function findPreviousEvent(
       active: true,
     }),
   };
+  if (row.trigger_type === 'administration') return { ...workCommon, trigger: { type: 'administration' } };
   if (row.trigger_type === 'manual') {
     return { ...workCommon, trigger: { type: 'manual' } };
   }

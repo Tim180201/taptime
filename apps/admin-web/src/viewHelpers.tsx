@@ -13,6 +13,7 @@ export function reviewReasonLabel(value: string): string {
     previous_work_event_organization_mismatch: 'Vorherige Erfassung gehört zu einem anderen Betrieb',
     previous_work_event_user_mismatch: 'Vorherige Erfassung gehört zu einer anderen Person',
     previous_work_event_target_mismatch: 'Vorherige Erfassung gehört zu einem anderen Ziel',
+    administration_stopped: 'Zeit wurde von der Verwaltung beendet',
     work_event_precedes_active_time_entry: 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit',
     work_event_precedes_previous_accepted_work_event: 'Erfassung liegt vor der vorherigen bestätigten Erfassung',
   };
@@ -31,16 +32,16 @@ export function targetLabel(value: 'customer' | 'project' | 'general_work'): str
   return 'Allgemeine Arbeitszeit';
 }
 
-export function triggerLabel(value: 'nfc' | 'manual'): string {
-  return value === 'nfc' ? 'Gescannt' : 'Manuell erfasst';
+export function triggerLabel(value: 'nfc' | 'manual' | 'administration'): string {
+  return value === 'administration' ? 'Beendet durch Verwaltung' : value === 'nfc' ? 'Gescannt' : 'Manuell erfasst';
 }
 
 export function captureLabel(
   startedVia: 'nfc' | 'manual' | null,
-  stoppedVia: 'nfc' | 'manual' | null,
+  stoppedVia: 'nfc' | 'manual' | 'administration' | null,
 ): string {
   const labels = [startedVia, stoppedVia]
-    .filter((value): value is 'nfc' | 'manual' => value !== null)
+    .filter((value): value is 'nfc' | 'manual' | 'administration' => value !== null)
     .map(triggerLabel);
   return labels.length === 0 ? 'Nicht überliefert' : [...new Set(labels)].join(' / ');
 }

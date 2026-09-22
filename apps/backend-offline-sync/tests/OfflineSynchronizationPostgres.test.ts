@@ -1801,3 +1801,48 @@ function runtimeConnectionString(login: string): string {
   url.password = runtimePassword;
   return url.href;
 }
+
+it('T-069 reviews a late offline trigger and lets the following trigger start anew',async()=>{
+  const {AdministrationStopCoordinator}=await import('@taptime/backend-time-review');
+  const adminUser=randomUUID(),adminMember=randomUUID(),adminSubject='t069-administrator';
+  await installerPool.query('INSERT INTO taptime_server.users(id) VALUES($1)',[adminUser]);
+  await installerPool.query("INSERT INTO taptime_server.memberships(id,organization_id,user_id,role,display_name) VALUES($1,$2,$3,'administrator','Admin')",[adminMember,ids.organization,adminUser]);
+  await installerPool.query('INSERT INTO taptime_server.identity_bindings(id,user_id,issuer,subject) VALUES($1,$2,$3,$4)',[randomUUID(),adminUser,issuer,adminSubject]);
+  const login='taptime_t069_admin_test_login';
+  await ensureLogin(login,['taptime_identity_resolver','taptime_time_review_writer']);
+  const adminPool=new Pool({connectionString:runtimeConnectionString(login)});
+  const adminVerifier:AccessTokenVerifier={async verify(){return {status:'verified',identity:{issuer,subject:adminSubject}};}};
+  try {
+    const lease=await issueLease(),item=lease.items[0]!;
+    const start=await eventCoordinator.ingest({accessToken:'valid',command:eventCommand(lease,item.itemId,ids.event1,ids.receipt1,1,lease.issuedAt)});
+    expect(start).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+    if(start.status!=='synchronized'||start.decision.status!=='time_entry_started') throw new Error('Expected started time');
+    const end=(await installerPool.query('SELECT clock_timestamp() AS now')).rows[0].now.toISOString();
+    expect(await new AdministrationStopCoordinator(adminPool,adminVerifier).execute('admin',{
+      expectedMembershipId:adminMember,targetMembershipId:ids.membership,timeRecordId:start.decision.timeEntryId,expectedRowVersion:1,
+      commandId:randomUUID(),stoppedAt:end,reason:'Stopp vergessen',
+    })).toMatchObject({status:'committed'});
+    const action=(await installerPool.query('SELECT action_at FROM taptime_server.administration_stop_commands')).rows[0].action_at;
+    const lateAt=new Date(Date.parse(lease.issuedAt)+1).toISOString();
+    expect(Date.parse(lateAt)).toBeLessThan(+action);
+    const late=eventCommand(lease,item.itemId,ids.event2,ids.receipt2,2,lateAt);
+    const expected={status:'synchronized',decision:{status:'escalation_required',reason:'administration_stopped'}};
+    expect(await eventCoordinator.ingest({accessToken:'valid',command:late})).toMatchObject(expected);
+    expect(await eventCoordinator.ingest({accessToken:'valid',command:late})).toMatchObject({...expected,idempotentRetry:true});
+    expect((await installerPool.query('SELECT status FROM taptime_server.time_entries')).rows).toEqual([{status:'stopped'}]);
+    expect((await installerPool.query('SELECT result_status,review_reason,decision_work_event_id FROM taptime_server.offline_event_reconciliations WHERE work_event_id=$1',[ids.event2])).rows)
+      .toEqual([{result_status:'review_pending',review_reason:'business_engine_escalation',decision_work_event_id:ids.event2}]);
+    expect(await reconciliationCoordinator.reconcile({accessToken:'valid',command:{workEventIds:[ids.event2]}})).toMatchObject({status:'ready',records:[{result:expected}]});
+    const c=await installerPool.connect();
+    try {
+      await c.query('BEGIN');await c.query('SET LOCAL ROLE taptime_time_review_reader');
+      await c.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true)`,[ids.organization,adminUser,adminMember]);
+      expect((await c.query('SELECT review_reason FROM taptime_server.read_time_review_items_v1($1,$2,$3,NULL,NULL,20)',[ids.organization,adminUser,adminMember])).rows).toEqual([{review_reason:'administration_stopped'}]);
+      await c.query('ROLLBACK');
+    } finally {await c.query('ROLLBACK');c.release();}
+    const after=new Date(+action+6000).toISOString();
+    expect(await eventCoordinator.ingest({accessToken:'valid',command:eventCommand(lease,item.itemId,ids.event3,ids.receipt3,3,after)}))
+      .toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+    expect((await installerPool.query('SELECT status FROM taptime_server.time_entries ORDER BY started_at')).rows).toEqual([{status:'stopped'},{status:'started'}]);
+  } finally {await adminPool.end();}
+});

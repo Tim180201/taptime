@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import axe from 'axe-core';
 import { act, createElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -50,7 +51,7 @@ it('administrator corrects a completed entry with reason and concurrency version
   expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({timeRecordId:id,expectedBaseRowVersion:0,expectedRevisionNumber:2,reason:'Prüfung'}));
 });
 it('running entries have the D-071 hint and no change action',async()=>{
-  await render('administrator',true,{...record,status:'started',stoppedAt:null});
+  await render('administrator',true,{...record,status:'started',stoppedAt:null},id);
   expect(button('Ändern')).toBeUndefined();expect(container.textContent).toContain('Läuft noch — erst beenden, dann ändern');
 });
 it('location managers see marks but have no write actions',async()=>{
@@ -92,4 +93,66 @@ it('administrator can comment their own entry, never another person’s',async()
   await press('Kommentar schreiben');await fill('Kommentar','Eigene Notiz');await press('Speichern');
   expect(save).toHaveBeenCalledWith('comment',{timeRecordId:id,comment:'Eigene Notiz'});
   await render('administrator');expect(button('Kommentar schreiben')).toBeUndefined();
+});
+
+
+it('T-069 lets an administrator stop another person online, preserves errors and reloads on success',async()=>{
+  const active={...record,source:'canonical' as const,status:'started' as const,stoppedAt:null,details:{...record.details!,baseRowVersion:3}};
+  await render('administrator',true,active);
+  expect(container.textContent).not.toContain('Läuft noch — erst beenden');
+  await press('Beenden');
+  expect(container.querySelector('input[aria-label="Von (JJJJ-MM-TTTHH:MM)"]')).toBeNull();
+  await fill('Bis (JJJJ-MM-TTTHH:MM)','2026-09-21T14:00');await press('Zeit beenden');
+  expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Grund');
+  await fill('Grund','Pause vergessen');save.mockResolvedValueOnce({status:'end_before_break'} as never);
+  await press('Zeit beenden');expect(container.textContent).toContain('Die Endzeit liegt vor einer erfassten Pause');
+  expect((container.querySelector('input[aria-label="Grund"]') as HTMLInputElement).value).toBe('Pause vergessen');
+  save.mockResolvedValueOnce({status:'committed',timeRecordId:id,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:true} as never);
+  await press('Zeit beenden');
+  expect(save).toHaveBeenLastCalledWith('stop',{targetMembershipId:'10000000-0000-4000-8000-000000000002',timeRecordId:id,
+    expectedRowVersion:3,stoppedAt:'2026-09-21T12:00:00.000Z',reason:'Pause vergessen'});
+  expect(refresh).toHaveBeenCalled();
+});
+it('T-069 retains own running hint and prevents offline stopping',async()=>{
+  const active={...record,status:'started' as const,stoppedAt:null};
+  await render('employee',true,active);expect(button('Beenden')).toBeUndefined();expect(container.textContent).toContain('Läuft noch');
+  await render('administrator',false,active);expect(button('Beenden')?.disabled).toBe(true);
+  await press('Beenden');expect(save).not.toHaveBeenCalled();
+});
+it('T-069 shows the employee the administration mark independently of later corrections',async()=>{
+  await render('employee',true,{...record,stoppedVia:'administration',details:{...record.details!,administrationStop:{at:'2026-09-21T10:00:00.000Z',reason:'Stopp vergessen'}}});
+  expect(container.textContent).toContain('Beendet durch Verwaltung');expect(container.textContent).toContain('Stopp vergessen');
+  expect(container.textContent).toContain('Ende berichtigt');
+});
+
+
+it('T-069 stop form has no axe violations in the accessible native-control DOM harness',async()=>{
+  await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');
+  expect((await axe.run(container,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}})).violations).toEqual([]);
+});
+
+it('D-078 keeps the form pending and polls before reloading the calendar',async()=>{
+  vi.useFakeTimers();
+  try {
+    await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');
+    await fill('Grund','Vergessen');
+    const pending={status:'committed',timeRecordId:id,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
+    save.mockResolvedValueOnce(pending as never).mockResolvedValueOnce({...pending,idempotentRetry:true,offsiteArchived:true} as never);
+    await press('Zeit beenden');
+    expect(container.textContent).toContain('Wird gesichert …');expect(refresh).not.toHaveBeenCalled();
+    await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+    expect(save.mock.calls[0]).toEqual(save.mock.calls[1]);expect(refresh).toHaveBeenCalled();
+  } finally {vi.useRealTimers();}
+});
+it('D-078 stops polling after three minutes, retains the command inputs and permits checking again',async()=>{
+  vi.useFakeTimers();
+  try {
+    await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');await fill('Grund','Vergessen');
+    save.mockResolvedValue({status:'committed',timeRecordId:id,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:false} as never);
+    await press('Zeit beenden');await act(async()=>{await vi.advanceTimersByTimeAsync(180000);});
+    expect(container.textContent).toContain('Noch nicht extern gesichert — bitte später prüfen');expect(refresh).not.toHaveBeenCalled();
+    const calls=save.mock.calls.length;await act(async()=>{await vi.advanceTimersByTimeAsync(60000);});expect(save).toHaveBeenCalledTimes(calls);
+    save.mockResolvedValue({status:'committed',timeRecordId:id,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:true} as never);
+    await press('Erneut prüfen');expect(refresh).toHaveBeenCalled();
+  } finally {save.mockResolvedValue({status:'committed',timeRecordId:id,idempotentRetry:false});vi.useRealTimers();}
 });

@@ -13,6 +13,7 @@ import { breakIntervalStopped } from '../domain/events/BreakIntervalStopped';
 import type { BusinessEngineDecision, BusinessEngineEscalationReason } from './BusinessEngineDecision';
 
 export interface BusinessEngineEvaluationContext {
+  readonly administrationStoppedBeforeTrigger?: boolean;
   readonly activeTimeEntryForUser: StartedTimeEntry | null;
   readonly activeBreakIntervalForUser?: StartedBreakInterval | null;
   readonly previousAcceptedWorkEventForUserAndTarget: WorkEvent | null;
@@ -37,6 +38,9 @@ export class BusinessEngine {
   ) {}
 
   evaluate(workEvent: WorkEvent, context: BusinessEngineEvaluationContext): BusinessEngineDecision {
+    if (context.administrationStoppedBeforeTrigger && workEventTriggerType(workEvent) !== 'administration') {
+      return { status: 'escalation_required', reason: 'administration_stopped', workEvent };
+    }
     const inconsistency = this.findInconsistency(workEvent, context);
     if (inconsistency !== null) {
       return { status: 'escalation_required', reason: inconsistency, workEvent };
@@ -44,6 +48,7 @@ export class BusinessEngine {
 
     const previousWorkEvent = context.previousAcceptedWorkEventForUserAndTarget;
     if (
+      workEventTriggerType(workEvent) !== 'administration' &&
       previousWorkEvent !== null &&
       milliseconds(workEvent.occurredAt) - milliseconds(previousWorkEvent.occurredAt) <
         DUPLICATE_WINDOW_MILLISECONDS
@@ -95,7 +100,8 @@ export class BusinessEngine {
       };
     }
 
-    if (activeTimeEntry !== null && activeBreakInterval !== null) {
+    if (activeTimeEntry !== null && activeBreakInterval !== null
+      && workEventTriggerType(workEvent) !== 'administration') {
       return {
         status: 'work_trigger_during_break_rejected',
         workEvent,
@@ -117,6 +123,15 @@ export class BusinessEngine {
           status: 'time_entry_stopped',
           timeEntry: stoppedTimeEntry,
           event: timeEntryStopped(stoppedTimeEntry),
+          ...(activeBreakInterval === null ? {} : {
+            closedBreakInterval: {
+              ...activeBreakInterval,
+              status: 'stopped' as const,
+              stoppedAt: workEvent.occurredAt,
+              stoppedByWorkEventId: workEvent.id,
+              stoppedVia: 'administration' as const,
+            },
+          }),
         };
       }
 

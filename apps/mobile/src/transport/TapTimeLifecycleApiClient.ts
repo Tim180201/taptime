@@ -21,6 +21,7 @@ import {
 } from './strictJson';
 
 const escalationReasons = new Set<BusinessEngineEscalationReason>([
+  'administration_stopped',
   'active_time_entry_organization_mismatch',
   'active_time_entry_user_mismatch',
   'previous_work_event_organization_mismatch',
@@ -53,7 +54,7 @@ export class TapTimeLifecycleApiClient implements LifecycleEventApiPort {
     const response = await this.request.post(
       submission.mode === 'canonical' ? this.canonicalEndpoint : this.deferredEndpoint,
       serializeCommand(command),
-      { expectedMembershipId: submission.expectedMembershipId },
+      { expectedMembershipId: submission.expectedMembershipId, includeTimeDetails: true },
     );
     if (response.status !== 'response') {
       return response;

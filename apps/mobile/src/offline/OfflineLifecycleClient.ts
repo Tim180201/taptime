@@ -50,6 +50,7 @@ const conflictReasons = new Set([
   'receipt_metadata_conflict',
 ] as const);
 const escalationReasons = new Set<BusinessEngineEscalationReason>([
+  'administration_stopped',
   'active_time_entry_organization_mismatch',
   'active_time_entry_user_mismatch',
   'previous_work_event_organization_mismatch',
@@ -223,7 +224,7 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
 
   private async post(endpoint: URL, body: string): Promise<AuthenticatedHttpResult> {
     try {
-      return await this.requests.post(endpoint, body);
+      return await this.requests.post(endpoint, body, { includeTimeDetails: true });
     } catch {
       return { status: 'unavailable' };
     }

@@ -1,4 +1,4 @@
-import { TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
+import { isAdministrationStopRequest, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -83,6 +83,7 @@ import {
 // Shared registration for dispatch and request protection. Health alone bypasses the API budget.
 export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
+  '/v1/time-records/stop': 'administration_stop',
   '/v1/time-records/backfill': 'time_backfill',
   '/v1/time-records/comment': 'time_comment',
   '/v4/time-entries/export': 'time_entry_export_v4',
@@ -338,6 +339,7 @@ async function handleRequest(
       || isOfflineRoute(route)
       || route === 'manual_lifecycle'
       || route === 'manual_break_lifecycle'
+      || route === 'administration_stop'
       || route === 'time_backfill'
       || route === 'time_comment'
       || route === 'mobile_own_time'
@@ -420,6 +422,16 @@ async function handleRequest(
     return;
   }
 
+  if (route === 'administration_stop') {
+    if (!isAdministrationStopRequest(body)) { respondError(response,400,'invalid_request'); return; }
+    try {
+      if (!dependencies.administrationStop) { respondError(response,503,'service_unavailable'); return; }
+      const result=await withTimeout(dependencies.administrationStop.execute(accessToken,body),timeoutMilliseconds);
+      respondJson(response,result.status==='committed'?200:result.status==='authority_rejected'?403
+        :result.status==='unavailable'?503:result.status==='conflict'||result.status==='command_id_conflict'?409:422,result);
+    } catch { respondError(response,503,'service_unavailable'); }
+    return;
+  }
   if (route === 'time_backfill' || route === 'time_comment') {
     if (!(route==='time_backfill' ? isBackfillTimeRequest(body) : isCommentTimeRequest(body))) {
       respondError(response,400,'invalid_request'); return;
@@ -444,12 +456,12 @@ async function handleRequest(
   }
   if (route === 'manual_lifecycle') {
     await handleManualLifecycle(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds);
+      correlationId, timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'manual_break_lifecycle') {
     await handleManualBreakLifecycle(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds);
+      correlationId, timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'admin_project_query') {
@@ -829,8 +841,7 @@ async function handleRequest(
       dependencies,
       options,
       correlationId,
-      timeoutMilliseconds,
-    );
+      timeoutMilliseconds, 1, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'offline_lifecycle_v2') {
@@ -842,18 +853,17 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      2,
-    );
+      2, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'offline_lifecycle_v3') {
     await handleOfflineLifecycle(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, 3);
+      correlationId, timeoutMilliseconds, 3, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'offline_lifecycle_v4') {
     await handleOfflineLifecycle(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, 4);
+      correlationId, timeoutMilliseconds, 4, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'offline_reconciliation') {
@@ -864,8 +874,7 @@ async function handleRequest(
       dependencies,
       options,
       correlationId,
-      timeoutMilliseconds,
-    );
+      timeoutMilliseconds, 1, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'offline_reconciliation_v2') {
@@ -877,8 +886,7 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      2,
-    );
+      2, request.headers.accept === TIME_DETAILS_ACCEPT);
     return;
   }
   if (route === 'offline_review_state') {
@@ -911,8 +919,7 @@ async function handleRequest(
     dependencies,
     options,
     correlationId,
-    timeoutMilliseconds,
-  );
+    timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT);
 }
 
 async function handleHealth(
@@ -1066,7 +1073,9 @@ async function handleManualLifecycle(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  includeTimeDetails = false,
 ): Promise<void> {
+  response.setHeader('Vary','Accept');
   if (!validateManualLifecycleRequest(body)) {
     respondError(response, 400, 'invalid_request');
     return;
@@ -1098,9 +1107,9 @@ async function handleManualLifecycle(
       timeoutMilliseconds,
     );
     switch (result.status) {
-      case 'synchronized': respondJson(response, 200, result); return;
-      case 'deferred': respondJson(response, 202, result); return;
-      case 'conflict': respondJson(response, 409, result); return;
+      case 'synchronized': respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails)); return;
+      case 'deferred': respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails)); return;
+      case 'conflict': respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails)); return;
       case 'rejected': respondError(response, 401, 'unauthorized'); return;
       default: return result satisfies never;
     }
@@ -1121,7 +1130,9 @@ async function handleManualBreakLifecycle(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  includeTimeDetails = false,
 ): Promise<void> {
+  response.setHeader('Vary','Accept');
   if (!validateManualBreakLifecycleRequest(body)) {
     respondError(response, 400, 'invalid_request');
     return;
@@ -1145,9 +1156,9 @@ async function handleManualBreakLifecycle(
       timeoutMilliseconds,
     );
     switch (result.status) {
-      case 'synchronized': respondJson(response, 200, result); return;
-      case 'deferred': respondJson(response, 202, result); return;
-      case 'conflict': respondJson(response, 409, result); return;
+      case 'synchronized': respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails)); return;
+      case 'deferred': respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails)); return;
+      case 'conflict': respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails)); return;
       case 'rejected': respondError(response, 401, 'unauthorized'); return;
       default: return result satisfies never;
     }
@@ -2270,7 +2281,9 @@ async function handleLifecycle(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
+  includeTimeDetails = false,
 ): Promise<void> {
+  response.setHeader('Vary','Accept');
   const command = parseLifecycleBody(accessToken, body);
   if (command === null) {
     respondError(response, 400, 'invalid_request');
@@ -2284,13 +2297,13 @@ async function handleLifecycle(
     );
     switch (result.status) {
       case 'synchronized':
-        respondJson(response, 200, result);
+        respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails));
         return;
       case 'deferred':
-        respondJson(response, 202, result);
+        respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails));
         return;
       case 'conflict':
-        respondJson(response, 409, result);
+        respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails));
         return;
       case 'rejected':
         respondError(response, 401, 'unauthorized');
@@ -2483,7 +2496,9 @@ async function handleOfflineLifecycle(
   correlationId: string,
   timeoutMilliseconds: number,
   version: 1 | 2 | 3 | 4 = 1,
+  includeTimeDetails = false,
 ): Promise<void> {
+  response.setHeader('Vary','Accept');
   const command = version === 4
     ? parseOfflineLifecycleBodyV4(body)
     : version === 3
@@ -2503,10 +2518,10 @@ async function handleOfflineLifecycle(
     const responseResult = version === 4 ? result : legacyOfflineLifecycleResult(result);
     switch (responseResult.status) {
       case 'synchronized':
-        respondJson(response, 200, responseResult);
+        respondJson(response, 200, negotiatedLifecycleResult(responseResult, includeTimeDetails));
         return;
       case 'review_pending':
-        respondJson(response, 202, responseResult);
+        respondJson(response, 202, negotiatedLifecycleResult(responseResult, includeTimeDetails));
         return;
       case 'pending':
         if (
@@ -2515,10 +2530,10 @@ async function handleOfflineLifecycle(
         ) {
           response.setHeader('Retry-After', String(responseResult.retryAfterSeconds));
         }
-        respondJson(response, 202, responseResult);
+        respondJson(response, 202, negotiatedLifecycleResult(responseResult, includeTimeDetails));
         return;
       case 'conflict':
-        respondJson(response, 409, responseResult);
+        respondJson(response, 409, negotiatedLifecycleResult(responseResult, includeTimeDetails));
         return;
       case 'authority_rejected':
         respondError(response, 401, 'unauthorized');
@@ -2554,7 +2569,9 @@ async function handleOfflineReconciliation(
   correlationId: string,
   timeoutMilliseconds: number,
   version: 1 | 2 = 1,
+  includeTimeDetails = false,
 ): Promise<void> {
+  response.setHeader('Vary','Accept');
   const command = parseOfflineReconciliationBody(body);
   if (command === null) {
     respondError(response, 400, 'invalid_request');
@@ -2571,7 +2588,7 @@ async function handleOfflineReconciliation(
     );
     switch (result.status) {
       case 'ready':
-        respondJson(response, 200, result);
+        respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails));
         return;
       case 'authority_rejected':
         respondError(response, 401, 'unauthorized');
@@ -2659,6 +2676,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
       return 'time_entry_export_failed';
     case 'admin_time_record_query':
     case 'admin_time_record_query_v2':
+    case 'administration_stop':
     case 'time_backfill':
     case 'time_comment':
     case 'admin_time_record_correction':
@@ -3830,4 +3848,18 @@ function respondJson(
   response.statusCode = statusCode;
   response.setHeader('Content-Length', String(Buffer.byteLength(payload, 'utf8')));
   response.end(payload);
+}
+
+// D-077: old closed reason enums understand this temporal escalation. Keep every
+// key/status/archive byte unchanged; the precise reason stays persisted internally.
+function negotiatedLifecycleResult<T>(value: T, includeTimeDetails: boolean): T {
+  if (includeTimeDetails) return value;
+  const map = (item: unknown): unknown => {
+    if (Array.isArray(item)) return item.map(map);
+    if (item === null || typeof item !== 'object') return item;
+    return Object.fromEntries(Object.entries(item).map(([key, value]) =>
+      [key, key === 'reason' && value === 'administration_stopped'
+        ? 'work_event_precedes_previous_accepted_work_event' : map(value)]));
+  };
+  return map(value) as T;
 }

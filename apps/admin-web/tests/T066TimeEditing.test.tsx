@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup,fireEvent,render,screen,waitFor } from '@testing-library/react';
+import { act,cleanup,fireEvent,render,screen,waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import axe from 'axe-core';
 import { afterEach,expect,it,vi } from 'vitest';
@@ -39,7 +39,7 @@ it.each(['employee','administrator'] as const)('%s comments only their own entry
 it('administrator corrects completed time with the original versions and sees the running hint',async()=>{
  const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Prüfung'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'correct',record,reason:'Prüfung'})));
- cleanup();show('administrator',other,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Ändern'})).not.toBeInTheDocument();expect(screen.getByText('Läuft noch — erst beenden, dann ändern')).toBeInTheDocument();
+ cleanup();show('administrator',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Ändern'})).not.toBeInTheDocument();expect(screen.getByText('Läuft noch — erst beenden, dann ändern')).toBeInTheDocument();
 });
 it('administrator backfills another person with reason, while managers only read',async()=>{
  const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
@@ -79,4 +79,60 @@ it('posts a closed supplemental command, maps overlap and rejects extra request 
  expect(await api.supplementTime('token','backfill',request)).toEqual({status:'succeeded',value:{status:'overlap'}});
  expect(fetcher.mock.lastCall?.[0]).toBe('/v1/time-records/backfill');expect(JSON.parse(String(fetcher.mock.lastCall?.[1]?.body))).toEqual(request);
  expect(await api.supplementTime('token','backfill',{...request,role:'administrator'})).toEqual({status:'invalid_response'});expect(fetcher).toHaveBeenCalledTimes(1);
+});
+
+it('T-069 stops another person, retains errors and waits for the archive acknowledgement',async()=>{
+ vi.useFakeTimers();
+ try {
+  const {save}=show('administrator',other,{...record,status:'started',stoppedAt:null,details:{...record.details!,baseRowVersion:2}});
+  fireEvent.click(screen.getByRole('button',{name:'Beenden'}));
+  expect(screen.queryByLabelText('Von')).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'2026-09-21T14:00'}});
+  fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Vergessen'}});
+  save.mockResolvedValueOnce({status:'end_before_break'} as never);
+  await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
+  expect(screen.getByRole('alert')).toHaveTextContent('Die Endzeit liegt vor einer erfassten Pause');
+  const pending={status:'committed',timeRecordId:other,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
+  save.mockResolvedValueOnce(pending as never).mockResolvedValueOnce({...pending,idempotentRetry:true,offsiteArchived:true} as never);
+  await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
+  expect(screen.getByRole('alert')).toHaveTextContent('Wird gesichert …');expect(screen.getByLabelText('Grund')).toBeDisabled();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
+  expect(save.mock.calls.at(-1)).toEqual(save.mock.calls.at(-2));
+  expect(save).toHaveBeenLastCalledWith(expect.objectContaining({kind:'stop',targetMembershipId:other,stoppedAt:'2026-09-21T12:00:00.000Z',reason:'Vergessen'}));
+  expect(screen.queryByRole('form',{name:'Zeit beenden'})).not.toBeInTheDocument();
+ } finally {vi.useRealTimers();}
+});
+it('D-078 limits archive polling to three minutes and cancels it when the form unmounts',async()=>{
+ vi.useFakeTimers();
+ try {
+  const {save,unmount}=show('administrator',other,{...record,status:'started',stoppedAt:null});
+  fireEvent.click(screen.getByRole('button',{name:'Beenden'}));fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Vergessen'}});
+  save.mockResolvedValue({status:'committed',timeRecordId:other,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:false} as never);
+  await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
+  await act(async()=>{await vi.advanceTimersByTimeAsync(180000);});
+  expect(screen.getByRole('alert')).toHaveTextContent('Noch nicht extern gesichert — bitte später prüfen');
+  const count=save.mock.calls.length;await act(async()=>{await vi.advanceTimersByTimeAsync(60000);});expect(save).toHaveBeenCalledTimes(count);
+  await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Erneut prüfen'}));});unmount();
+  const after=save.mock.calls.length;await act(async()=>{await vi.advanceTimersByTimeAsync(10000);});expect(save).toHaveBeenCalledTimes(after);
+ } finally {vi.useRealTimers();}
+});
+it('T-069 shows the administration mark to the employee and keeps offline stopping disabled',()=>{
+ show('employee',own,{...record,stoppedVia:'administration',details:{...record.details!,administrationStop:{at:'2026-09-21T10:00:00.000Z',reason:'Stopp vergessen'}}});
+ expect(screen.getByText(/Beendet durch Verwaltung.*Stopp vergessen/)).toBeInTheDocument();
+ cleanup();vi.spyOn(navigator,'onLine','get').mockReturnValue(false);show('administrator',other,{...record,status:'started',stoppedAt:null});
+ expect(screen.getByRole('button',{name:'Beenden'})).toBeDisabled();expect(screen.getByText(/um die Zeit zu beenden/)).toBeInTheDocument();
+});
+it('T-069 stop form has no axe violations',async()=>{
+ show('administrator',other,{...record,status:'started',stoppedAt:null});fireEvent.click(screen.getByRole('button',{name:'Beenden'}));
+ expect((await axe.run(document.body,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}})).violations).toEqual([]);
+});
+it('T-069 validates archive metadata and details v2 representation at the HTTP boundary',async()=>{
+ const pending={status:'committed',timeRecordId:other,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
+ const fetcher=vi.fn<typeof fetch>(async()=>Response.json(pending));const api=new AdminWebApiClient(fetcher);
+ const request={expectedMembershipId:own,targetMembershipId:other,timeRecordId:other,expectedRowVersion:1,commandId:own,stoppedAt:record.stoppedAt,reason:'Vergessen'};
+ expect(await api.stopTime('token',request)).toEqual({status:'succeeded',value:pending});expect(fetcher.mock.lastCall?.[0]).toBe('/v1/time-records/stop');
+ fetcher.mockResolvedValueOnce(Response.json({status:'conflict'},{status:409}));expect(await api.stopTime('token',request)).toEqual({status:'succeeded',value:{status:'conflict'}});
+ fetcher.mockResolvedValueOnce(Response.json({status:'committed',timeRecordId:other,idempotentRetry:false}));expect(await api.stopTime('token',request)).toEqual({status:'invalid_response'});
+ const current={...page,records:[{...record,stoppedVia:'administration',details:{...record.details!,administrationStop:{at:'2026-09-21T10:00:00.000Z',reason:'Vergessen'}}}]};
+ fetcher.mockResolvedValueOnce(Response.json(current));expect(await api.ownTime('token',{expectedMembershipId:own,cursor:null,limit:20})).toMatchObject({status:'succeeded',value:current});
 });

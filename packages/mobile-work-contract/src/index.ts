@@ -35,7 +35,7 @@ export interface SafeOwnTimeRecord {
   readonly startedAt: string;
   readonly stoppedAt: string | null;
   readonly startedVia: TriggerProvenance | null;
-  readonly stoppedVia: TriggerProvenance | null;
+  readonly stoppedVia: TriggerProvenance | 'administration' | null;
 }
 
 export interface MobileOwnTimeQueryResponse {
@@ -316,3 +316,5 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 export * from "./timeSupplement.js";
+export * from './administrationStop.js';
+export * from './administrationStopArchive.js';

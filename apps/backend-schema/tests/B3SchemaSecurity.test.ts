@@ -877,6 +877,7 @@ describe('B3 deterministic migration system', () => {
     expect(result.rows.map((row) => row.table_name)).toEqual([
       'admin_break_tag_command_receipts',
       'admin_setup_command_receipts',
+      'administration_stop_commands',
       'audit_events',
       'bootstrap_receipts',
       'break_intervals',
@@ -1212,6 +1213,8 @@ describe('B3 least-privilege roles and request context', () => {
           configuration: ['search_path=pg_catalog'] },
         { name: 'read_pending_offsite_wal_files_v1', security_definer: true,
           configuration: ['search_path=pg_catalog'] },
+        { name: 'record_administration_stop_archive_requirement_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
         { name: 'record_lifecycle_event_archive_requirement_v1', security_definer: true,
           configuration: ['search_path=pg_catalog'] },
         { name: 'record_offsite_base_backup_v1', security_definer: true,
@@ -1251,6 +1254,9 @@ describe('B3 least-privilege roles and request context', () => {
         CROSS JOIN unnest(ARRAY[
           'taptime_employee',
           'taptime_server_lifecycle',
+          'taptime_time_review_writer',
+          'taptime_time_review_reader',
+          'taptime_offline_event_ingestor',
           'taptime_wal_archiver'
         ]) AS caller(role_name)
         WHERE namespace.nspname = '${B3_SCHEMA}'
@@ -1259,8 +1265,12 @@ describe('B3 least-privilege roles and request context', () => {
         ORDER BY caller.role_name, procedure.proname
       `);
       expect(callable.rows).toEqual([
+        { role_name: 'taptime_offline_event_ingestor',
+          name: 'offline_wal_requirement_is_archived_v1' },
         { role_name: 'taptime_server_lifecycle',
           name: 'record_lifecycle_event_archive_requirement_v1' },
+        { role_name: 'taptime_time_review_writer',
+          name: 'record_administration_stop_archive_requirement_v1' },
         { role_name: 'taptime_wal_archiver',
           name: 'advance_offsite_wal_archive_watermark_v1' },
         { role_name: 'taptime_wal_archiver', name: 'read_offsite_base_backup_receipt_v1' },

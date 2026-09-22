@@ -1,13 +1,15 @@
-import type { SafeOwnTimeRecord, SafeWorkTarget, TimeSupplementResult } from '@taptime/mobile-work-contract';
+import type { AdministrationStopResult, SafeOwnTimeRecord, SafeWorkTarget, TimeSupplementResult } from '@taptime/mobile-work-contract';
 
 export type TimeEditInput =
+  | { readonly kind: 'stop'; readonly targetMembershipId: string; readonly record: SafeOwnTimeRecord; readonly stoppedAt: string; readonly reason: string }
   | { readonly kind: 'backfill'; readonly targetMembershipId: string; readonly target: SafeWorkTarget;
       readonly startedAt: string; readonly stoppedAt: string; readonly reason: string | null; readonly comment: string | null }
   | { readonly kind: 'comment'; readonly targetMembershipId: string; readonly record: SafeOwnTimeRecord; readonly comment: string }
   | { readonly kind: 'correct'; readonly targetMembershipId: string; readonly record: SafeOwnTimeRecord;
       readonly startedAt: string; readonly stoppedAt: string; readonly reason: string };
-export type TimeEditResult = TimeSupplementResult | { readonly status: 'offline' | 'busy' | 'conflict' | 'not_adjustable' };
+export type TimeEditResult = TimeSupplementResult | AdministrationStopResult | { readonly status: 'offline' | 'busy' | 'conflict' | 'not_adjustable' };
 export const timeEditMessages: Record<TimeEditResult['status'], string> = {
+  end_before_break: 'Die Endzeit liegt vor einer erfassten Pause.',
   committed: 'Gespeichert.', offline: 'Nur online möglich. Ihre Eingaben bleiben erhalten.', busy: 'Ein Eintrag wird noch gespeichert.',
   authority_rejected: 'Ihre Berechtigung wurde nicht bestätigt. Aktualisieren Sie Ihre Sitzung.',
   invalid_request: 'Prüfen Sie die Eingaben. Texte dürfen höchstens 500 Zeichen enthalten.',

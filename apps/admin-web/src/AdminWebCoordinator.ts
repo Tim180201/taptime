@@ -1,5 +1,5 @@
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
-import { isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
+import { isAdministrationStopRequest, isAdministrationStopResult, isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import type { ManualBreakLifecycleRequest,ManualLifecycleRequest,MobileOwnTimeQueryResponse,SafeWorkTarget } from '@taptime/mobile-work-contract';
 import { TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS } from '@taptime/time-entry-export-contract';
 import { isValidTimeReviewReason } from '@taptime/time-review-contract';
@@ -96,6 +96,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private targetsEpoch = 0;
   // Volatile, session-bound retry identity. A lost acknowledgement can follow a committed event.
   private pendingManual: {generation:number;request:ManualLifecycleRequest | ManualBreakLifecycleRequest} | null = null;
+  private readonly pendingStops=new Map<string,{generation:number;commandId:string}>();
   private pendingTimeEdit: {generation:number;key:string;commandId:string} | null = null;
   private refreshEpoch = 0;
   private timeWindowPinned = false;
@@ -121,7 +122,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.refreshEpoch += 1;
       this.membershipId = null;
       this.session = null;
-    this.pendingManual = null;
+    this.pendingManual = null;this.pendingStops.clear();
       this.clearInvitationExpiryTimer();
       this.setState({ status: 'password_recovery', completing: false, notice: null });
     });
@@ -140,19 +141,36 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if(calendar?.status!=='ready' || (calendar.targetMembershipId??session.membershipId)!==input.targetMembershipId
       || (session.role==='employee' && input.targetMembershipId!==session.membershipId)
       || (input.kind==='comment' && input.targetMembershipId!==session.membershipId)
-      || (input.kind==='correct' && session.role!=='administrator')) return {status:'authority_rejected'};
+      || ((input.kind==='correct'||input.kind==='stop') && session.role!=='administrator')) return {status:'authority_rejected'};
     if(input.kind!=='backfill' && ![...calendar.value.records,...(calendar.value.activeRecord?[calendar.value.activeRecord]:[])]
       .some(r=>r.timeRecordId===input.record.timeRecordId)) return {status:'authority_rejected'};
     if(input.kind==='correct' && (input.record.status!=='stopped' || !input.record.details)) return {status:'not_adjustable'};
     if(input.kind==='correct' && !isValidTimeReviewReason(input.reason)) return {status:'invalid_request'};
+    if(input.kind==='stop' && (input.record.status!=='started' || !input.record.details || input.targetMembershipId===session.membershipId)) return {status:'not_adjustable'};
     const key=JSON.stringify(input);
-    if(this.pendingTimeEdit?.generation!==generation || this.pendingTimeEdit.key!==key)
-      this.pendingTimeEdit={generation,key,commandId:crypto.randomUUID()};
-    const commandId=this.pendingTimeEdit.commandId;
+    let commandId:string;
+    if(input.kind==='stop') {
+      let pending=this.pendingStops.get(key);
+      if(pending?.generation!==generation) {pending={generation,commandId:crypto.randomUUID()};this.pendingStops.set(key,pending);}
+      commandId=pending.commandId;
+    } else {
+      if(this.pendingTimeEdit?.generation!==generation || this.pendingTimeEdit.key!==key)
+        this.pendingTimeEdit={generation,key,commandId:crypto.randomUUID()};
+      commandId=this.pendingTimeEdit.commandId;
+    }
     this.setState({...current,timeEditBusy:true,notice:null});
     let outcome:TimeEditResult={status:'unavailable'};
     try {
-      if(input.kind==='correct') {
+      if(input.kind==='stop') {
+        const request={expectedMembershipId:session.membershipId,commandId,targetMembershipId:input.targetMembershipId,
+          timeRecordId:input.record.timeRecordId,expectedRowVersion:input.record.details!.baseRowVersion,stoppedAt:input.stoppedAt,reason:input.reason};
+        if(!isAdministrationStopRequest(request)) outcome={status:'invalid_request'};
+        else {
+          const result=await this.auth.withAccessToken(token=>this.api.stopTime?.(token,request)??Promise.resolve({status:'unreachable' as const}));
+          if(result?.status==='succeeded') outcome=result.value;
+          else if(result===null || result.status==='rejected') outcome={status:'authority_rejected'};
+        }
+      } else if(input.kind==='correct') {
         const record:SafeTimeRecord={...input.record,employeeDisplayName:'',...input.record.details!};
         const result=await this.auth.withAccessToken(token=>this.api.correctTimeRecord(token,session.membershipId,
           commandId,record,input.startedAt,input.stoppedAt,input.reason));
@@ -173,8 +191,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch { outcome={status:'unavailable'}; }
     if(generation!==this.generation || this.state.status!=='ready') return {status:'authority_rejected'};
     this.setState({...this.state,timeEditBusy:false});
-    if(outcome.status==='committed') {
-      this.pendingTimeEdit=null;
+    if(outcome.status==='committed' && (input.kind!=='stop' || (isAdministrationStopResult(outcome) && outcome.offsiteArchived))) {
+      if(input.kind==='stop') this.pendingStops.delete(key);else this.pendingTimeEdit=null;
       if(calendarEpoch!==this.calendarEpoch) return outcome;
       this.setState({...this.state as Extract<AdminWebState,{status:'ready'}>,notice:'Gespeichert.'});
       if(this.state.status==='ready' && this.state.calendar?.targetMembershipId===calendar.targetMembershipId
@@ -351,7 +369,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.refreshEpoch += 1;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;
+    this.pendingManual = null;this.pendingStops.clear();
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signing_in' });
     await this.enqueueAuthentication(() => this.completeSignIn(generation, email, password));
@@ -400,7 +418,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.refreshEpoch += 1;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;
+    this.pendingManual = null;this.pendingStops.clear();
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signed_out' });
     await this.enqueueAuthentication(() => this.safeSignOut());
@@ -2127,7 +2145,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (generation === this.generation) {
         this.membershipId = null;
         this.session = null;
-    this.pendingManual = null;
+    this.pendingManual = null;this.pendingStops.clear();
         this.setState({ status: 'unavailable', message: 'Die Anmeldung konnte nicht abgeschlossen werden. Der Anmeldedienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
       }
     }
@@ -2137,7 +2155,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (generation !== this.generation) { await this.safeSignOut(); return; }
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;
+    this.pendingManual = null;this.pendingStops.clear();
     const invalidatedGeneration = ++this.generation;
     await this.safeSignOut();
     if (invalidatedGeneration === this.generation) this.setState({ status: forbidden ? 'forbidden' : 'unavailable', message });
@@ -2147,7 +2165,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (generation !== this.generation) return;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;
+    this.pendingManual = null;this.pendingStops.clear();
     this.generation += 1;
     this.setState({ status: 'unavailable', message });
     await this.enqueueAuthentication(() => this.safeSignOut());
@@ -2802,6 +2820,7 @@ function sameActiveRecord(a:MobileOwnTimeQueryResponse['activeRecord'],b:MobileO
   if(ad===undefined || bd===undefined) {if(ad!==bd) return false;}
   else {
     if(['origin','baseRowVersion','effectiveRevisionNumber','comment','changed','overlapsAnotherRecord'].some(key=>ad[key as keyof typeof ad]!==bd[key as keyof typeof bd])) return false;
+    if(ad.administrationStop?.at!==bd.administrationStop?.at || ad.administrationStop?.reason!==bd.administrationStop?.reason) return false;
     if(ad.change===null || bd.change===null) {if(ad.change!==bd.change) return false;}
     else if(ad.change.at!==bd.change.at || ad.change.reason!==bd.change.reason || ad.change.actor!==bd.change.actor) return false;
   }

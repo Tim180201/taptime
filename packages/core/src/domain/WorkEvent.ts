@@ -35,6 +35,13 @@ export interface ManualWorkEvent extends WorkTargetEventBase {
   readonly nfcTagId?: never;
 }
 
+/** Server-authorized stop on behalf of a person; actor/reason are retained in the audit. */
+export interface AdministrationWorkEvent extends WorkTargetEventBase {
+  readonly trigger: { readonly type: 'administration' };
+  readonly assignmentId?: never;
+  readonly nfcTagId?: never;
+}
+
 export interface NfcBreakWorkEvent extends WorkEventBase {
   readonly subject: { readonly type: 'break' };
   readonly target?: never;
@@ -55,12 +62,12 @@ export interface ManualBreakWorkEvent extends WorkEventBase {
   readonly nfcTagId?: never;
 }
 
-export type WorkTargetEvent = NfcWorkEvent | ManualWorkEvent;
+export type WorkTargetEvent = NfcWorkEvent | ManualWorkEvent | AdministrationWorkEvent;
 export type BreakWorkEvent = NfcBreakWorkEvent | ManualBreakWorkEvent;
 export type WorkEvent = WorkTargetEvent | BreakWorkEvent;
 export type WorkEventSubjectType = 'work' | 'break';
 
-export type WorkEventTriggerType = 'nfc' | 'manual';
+export type WorkEventTriggerType = 'nfc' | 'manual' | 'administration';
 
 export function workEventTriggerType(workEvent: WorkEvent): WorkEventTriggerType {
   return workEvent.trigger?.type ?? 'nfc';

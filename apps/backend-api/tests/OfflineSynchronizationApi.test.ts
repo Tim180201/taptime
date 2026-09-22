@@ -653,3 +653,25 @@ async function close(server: Server): Promise<void> {
     server.close((error) => error === undefined ? resolve() : reject(error));
   });
 }
+
+it.each([1,4] as const)('T-069 protects old offline v%s clients with the closed legacy reason',async version=>{
+  const result:OfflineLifecycleEventResultV4={status:'synchronized',archiveStatus:'offsite_archived',idempotentRetry:false,
+    workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,decision:{status:'escalation_required',reason:'administration_stopped'}};
+  const origin=await start({offlineLifecycleIngestor:{async ingest(){return result;}}});
+  for(const accept of ['application/json','application/vnd.taptime.time-details.v2+json']) {
+    const response=await post(origin,`/v${version}/lifecycle-events/offline`,version===1?offlineEventBody():offlineEventBodyV2(),{accept});
+    expect(response.status).toBe(200);expect(response.headers.get('vary')).toBe('Accept');
+    const expected={...(version===4?result:legacyLifecycleResult(result) as object),decision:{status:'escalation_required',reason:accept==='application/json'?'work_event_precedes_previous_accepted_work_event':'administration_stopped'}};
+    expect(await response.text()).toBe(JSON.stringify(expected));
+  }
+});
+it.each([1,2] as const)('T-069 maps reconciliation v%s only without detail negotiation',async version=>{
+  const result={status:'ready' as const,records:[{workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,archiveStatus:'offsite_archived' as const,
+    result:{status:'synchronized' as const,decision:{status:'escalation_required' as const,reason:'administration_stopped'}}}]};
+  const origin=await start({offlineEventReconciliationReader:{async reconcile(){return result;},async reconcileV2(){return result;},async readReviewState(){return {status:'unavailable'};}}});
+  for(const accept of ['application/json','application/vnd.taptime.time-details.v2+json']) {
+    const response=await post(origin,`/v${version}/lifecycle-events/reconcile`,{workEventIds:[ids.event]},{accept});
+    expect(response.status).toBe(200);expect(response.headers.get('vary')).toBe('Accept');
+    expect(await response.json()).toMatchObject({records:[{result:{decision:{reason:accept==='application/json'?'work_event_precedes_previous_accepted_work_event':'administration_stopped'}}}]});
+  }
+});

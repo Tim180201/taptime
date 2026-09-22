@@ -29,3 +29,31 @@ it('uses a fresh command for an intentional identical edit after confirmed succe
   expect(JSON.parse(post.mock.calls[0]![1]).commandId).not.toBe(JSON.parse(post.mock.calls[1]![1]).commandId);
   coordinator.stop();
 });
+
+
+it('T-069 posts a validated stop, retains its command on uncertain retry and reports the pause boundary',async()=>{
+  const admin={...snapshot,session:{...snapshot.session,role:'administrator' as const}};
+  const post=vi.fn(async(_url:URL,_body:string)=>({status:'response' as const,statusCode:422,contentType:'application/json',body:JSON.stringify({status:'end_before_break'})}));
+  const coordinator=new TimeEditingCoordinator(new URL('https://example.invalid'),{post},{capture:()=>admin,isCurrent:()=>true,subscribe:()=>()=>{}},()=> '50000000-0000-4000-8000-000000000001',{get:async()=>true,subscribe:()=>()=>{}});
+  await coordinator.start();
+  const stop={targetMembershipId:data.targetMembershipId,timeRecordId:data.targetId,expectedRowVersion:2,stoppedAt:data.stoppedAt,reason:'Vergessen'};
+  expect(await coordinator.save('stop',stop)).toEqual({status:'end_before_break'});
+  expect(await coordinator.save('stop',stop)).toEqual({status:'end_before_break'});
+  expect(post.mock.calls[0]![0].pathname).toBe('/v1/time-records/stop');expect(post.mock.calls[0]).toEqual(post.mock.calls[1]);
+  coordinator.stop();
+});
+
+it('D-078 preserves the stop command while awaiting archival, including an intervening edit',async()=>{
+ const admin={...snapshot,session:{...snapshot.session,role:'administrator' as const}};
+ let archived=false;
+ const post=vi.fn(async(url:URL,_body:string)=>({status:'response' as const,statusCode:200,contentType:'application/json',
+  body:JSON.stringify(url.pathname.endsWith('/stop')?{status:'committed',timeRecordId:data.targetId,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:archived}:{status:'committed',timeRecordId:data.targetId,idempotentRetry:false})}));
+ let sequence=0;
+ const coordinator=new TimeEditingCoordinator(new URL('https://example.invalid'),{post},{capture:()=>admin,isCurrent:()=>true,subscribe:()=>()=>{}},()=>`50000000-0000-4000-8000-${String(++sequence).padStart(12,'0')}`,{get:async()=>true,subscribe:()=>()=>{}});
+ await coordinator.start();
+ const stop={targetMembershipId:data.targetMembershipId,timeRecordId:data.targetId,expectedRowVersion:2,stoppedAt:data.stoppedAt,reason:'Vergessen'};
+ expect(await coordinator.save('stop',stop)).toMatchObject({offsiteArchived:false});
+ await coordinator.save('comment',{timeRecordId:data.targetId,comment:'Notiz'});
+ archived=true;expect(await coordinator.save('stop',stop)).toMatchObject({offsiteArchived:true});
+ expect(post.mock.calls[0]).toEqual(post.mock.calls[2]);coordinator.stop();
+});

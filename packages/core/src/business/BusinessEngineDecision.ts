@@ -8,6 +8,7 @@ import type { BreakIntervalStarted } from '../domain/events/BreakIntervalStarted
 import type { BreakIntervalStopped } from '../domain/events/BreakIntervalStopped';
 
 export type BusinessEngineEscalationReason =
+  | 'administration_stopped'
   | 'active_time_entry_organization_mismatch'
   | 'active_time_entry_user_mismatch'
   | 'previous_work_event_organization_mismatch'
@@ -23,7 +24,7 @@ export type BusinessEngineEscalationReason =
 
 export type BusinessEngineDecision =
   | { readonly status: 'time_entry_started'; readonly timeEntry: StartedTimeEntry; readonly event: TimeEntryStarted }
-  | { readonly status: 'time_entry_stopped'; readonly timeEntry: StoppedTimeEntry; readonly event: TimeEntryStopped }
+  | { readonly status: 'time_entry_stopped'; readonly timeEntry: StoppedTimeEntry; readonly event: TimeEntryStopped; readonly closedBreakInterval?: StoppedBreakInterval }
   | {
       readonly status: 'break_started';
       readonly timeEntry: StartedTimeEntry;

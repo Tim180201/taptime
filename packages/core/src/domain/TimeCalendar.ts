@@ -5,7 +5,7 @@ export interface CalendarInterval {
   readonly startedAt: string;
   readonly stoppedAt: string | null;
   readonly startedVia: 'nfc' | 'manual' | null;
-  readonly stoppedVia: 'nfc' | 'manual' | null;
+  readonly stoppedVia: 'nfc' | 'manual' | 'administration' | null;
 }
 export interface CalendarWindow<Record extends CalendarInterval> {
   readonly activeRecord: Record | null;

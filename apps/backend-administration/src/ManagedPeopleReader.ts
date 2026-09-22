@@ -42,10 +42,10 @@ const timestamp = (value: unknown): string => {
   if (!(value instanceof Date) && typeof value !== 'string') throw new Error('Invalid managed timestamp');
   return new Date(value).toISOString();
 };
-function record(row: QueryResultRow) {
+function record(row: QueryResultRow, includeTimeDetails = false) {
   return { timeRecordId:row.time_record_id,source:row.source,targetType:row.target_type,targetDisplayName:row.target_display_name,
     status:row.status,startedAt:timestamp(row.started_at),stoppedAt:row.stopped_at===null?null:timestamp(row.stopped_at),
-    startedVia:row.started_via,stoppedVia:row.stopped_via };
+    startedVia:row.started_via,stoppedVia:!includeTimeDetails && row.stopped_via==='administration'?'manual':row.stopped_via };
 }
 export async function readManagedPerson(client: PoolClient, command: ManagedPersonTimeCommand): Promise<ManagedPersonTimeResult> {
   const cursor=personCursor(command);
@@ -69,7 +69,7 @@ export async function readManagedPerson(client: PoolClient, command: ManagedPers
   if (active.length>1 || result.rows.length !== history.length+active.length+1) throw new Error('Invalid managed time rows');
   const page=history.slice(0,command.limit),last=page.at(-1);
   const detailed=(row:QueryResultRow)=> {
-    const base=record(row);
+    const base=record(row,command.includeTimeDetails);
     if (!command.includeTimeDetails) return base;
     const details=row.details;
     if (!details) throw new Error('Missing managed time details');

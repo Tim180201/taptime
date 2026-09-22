@@ -62,7 +62,7 @@ interface ExportRowV2 extends QueryResultRow {
   readonly target_display_name: string;
   readonly status: 'started' | 'stopped';
   readonly started_via: 'nfc' | 'manual' | null;
-  readonly stopped_via: 'nfc' | 'manual' | null;
+  readonly stopped_via: 'nfc' | 'manual' | 'administration' | null;
   readonly started_at_utc: string;
   readonly stopped_at_utc: string | null;
   readonly duration_seconds: string | null;
@@ -77,7 +77,7 @@ interface ExportRowV3 extends QueryResultRow {
   readonly target_display_name: string;
   readonly status: 'started' | 'stopped';
   readonly started_via: 'nfc' | 'manual';
-  readonly stopped_via: 'nfc' | 'manual' | null;
+  readonly stopped_via: 'nfc' | 'manual' | 'administration' | null;
   readonly local_date: string;
   readonly started_at_local: string;
   readonly stopped_at_local: string | null;
@@ -512,7 +512,7 @@ function mapExportRowV2(
     targetDisplayName: row.target_display_name,
     status: row.status,
     startedVia: row.started_via ?? '',
-    stoppedVia: row.stopped_via ?? '',
+    stoppedVia: row.stopped_via === 'administration' ? 'manual' : row.stopped_via ?? '',
     startedAtUtc: row.started_at_utc,
     stoppedAtUtc: row.stopped_at_utc ?? '',
     durationSeconds: row.duration_seconds ?? '',
@@ -545,7 +545,7 @@ function mapExportRowV3(
     targetType: row.target_type,
     targetDisplayName: row.target_display_name,
     startedVia: row.started_via,
-    stoppedVia: row.stopped_via ?? '',
+    stoppedVia: row.stopped_via === 'administration' ? 'manual' : row.stopped_via ?? '',
     revisionNumber: row.effective_revision_number,
   });
 }

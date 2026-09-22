@@ -114,7 +114,7 @@ interface WorkEventRow extends QueryResultRow {
   readonly target_customer_id: string | null;
   readonly triggered_by_user_id: string;
   readonly occurred_at: Date;
-  readonly trigger_type: 'nfc' | 'manual';
+  readonly trigger_type: 'nfc' | 'manual' | 'administration';
 }
 
 interface DecisionRow extends QueryResultRow {
@@ -409,6 +409,10 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
       const previousWorkEvent = await findPreviousCanonicalWorkEvent(client, workEvent);
       await controls.beforeEngineEvaluation?.();
       const decision = this.businessEngine.evaluate(workEvent, {
+        administrationStoppedBeforeTrigger: (await client.query(
+          'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
+          [workEvent.occurredAt],
+        )).rows[0]?.stopped === true,
         activeTimeEntryForUser: activeTimeEntry,
         activeBreakIntervalForUser: activeBreakInterval,
         previousAcceptedWorkEventForUserAndTarget: previousWorkEvent,
@@ -805,6 +809,7 @@ async function findPreviousCanonicalWorkEvent(
     throw new Error('Persisted Work WorkEvent has no WorkTarget');
   }
   const workBase = { ...base, target: targetFromStored(row.target_type, row.target_customer_id) };
+  if (row.trigger_type === 'administration') return { ...workBase, trigger: { type: 'administration' } };
   if (row.trigger_type === 'manual') {
     return { ...workBase, trigger: { type: 'manual' } };
   }
@@ -1365,6 +1370,7 @@ function isEscalationReason(value: string | null): value is BusinessEngineEscala
     'previous_work_event_organization_mismatch',
     'previous_work_event_user_mismatch',
     'previous_work_event_target_mismatch',
+    'administration_stopped',
     'previous_work_event_subject_mismatch',
     'active_break_organization_mismatch',
     'active_break_user_mismatch',

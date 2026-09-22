@@ -62,7 +62,7 @@ interface TimeRecordRowV2 extends QueryResultRow {
   readonly source: 'canonical' | 'recovered';
   readonly status: 'started' | 'stopped';
   readonly started_via: 'nfc' | 'manual' | null;
-  readonly stopped_via: 'nfc' | 'manual' | null;
+  readonly stopped_via: 'nfc' | 'manual' | 'administration' | null;
   readonly started_at: Date;
   readonly stopped_at: Date | null;
   readonly base_row_version: string;
@@ -228,7 +228,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
           status: 'ready' as const,
           value: Object.freeze({
             records: Object.freeze(visible.map(row=>{
-              const record=mapTimeRecordV2(row);
+              const record=mapTimeRecordV2(row,command.includeTimeDetails);
               if(!command.includeTimeDetails) return record;
               if(!isTimeRecordDetails(row.details)) throw new Error('Missing time details');
               return Object.freeze({...record,details:row.details});
@@ -522,7 +522,7 @@ function mapTimeRecord(row: TimeRecordRow): TimeRecordProjection {
   });
 }
 
-function mapTimeRecordV2(row: TimeRecordRowV2): TimeRecordProjectionV2 {
+function mapTimeRecordV2(row: TimeRecordRowV2, includeTimeDetails = false): TimeRecordProjectionV2 {
   if (
     row.employee_membership_id === null
     || row.employee_display_name === null
@@ -545,7 +545,7 @@ function mapTimeRecordV2(row: TimeRecordRowV2): TimeRecordProjectionV2 {
     source: row.source,
     status: row.status,
     startedVia: row.started_via,
-    stoppedVia: row.stopped_via,
+    stoppedVia: !includeTimeDetails && row.stopped_via === 'administration' ? 'manual' : row.stopped_via,
     startedAt: row.started_at.toISOString(),
     stoppedAt: row.stopped_at?.toISOString() ?? null,
     baseRowVersion: safeInteger(row.base_row_version),

@@ -2,6 +2,7 @@ import { validateOwnTimeResponse, type SafeOwnTimeRecord, type MobileOwnTimeQuer
 
 export const TIME_DETAILS_ACCEPT = 'application/vnd.taptime.time-details.v2+json';
 export interface TimeRecordDetails {
+  readonly administrationStop?: { readonly at: string; readonly reason: string };
   readonly origin: 'nfc' | 'manual' | 'backfilled' | 'recovered';
   readonly baseRowVersion: number;
   readonly effectiveRevisionNumber: number;
@@ -48,7 +49,10 @@ export function isCommentTimeRequest(v:unknown):v is CommentTimeRequest {
     && uuid(v.expectedMembershipId) && uuid(v.commandId) && uuid(v.timeRecordId) && text(v.comment);
 }
 export function isTimeRecordDetails(v:unknown):v is TimeRecordDetails {
-  return object(v) && keys(v,['origin','baseRowVersion','effectiveRevisionNumber','comment','changed','change','overlapsAnotherRecord'])
+  return object(v) && keys(v,['origin','baseRowVersion','effectiveRevisionNumber','comment','changed','change','overlapsAnotherRecord',
+      ...(Object.hasOwn(v,'administrationStop')?['administrationStop']:[])])
+    && (!Object.hasOwn(v,'administrationStop') || (object(v.administrationStop) && keys(v.administrationStop,['at','reason'])
+      && timestamp(v.administrationStop.at) && historicalReason(v.administrationStop.reason)))
     && ['nfc','manual','backfilled','recovered'].includes(String(v.origin))
     && Number.isSafeInteger(v.baseRowVersion) && Number(v.baseRowVersion)>=0
     && Number.isSafeInteger(v.effectiveRevisionNumber) && Number(v.effectiveRevisionNumber)>=0
@@ -60,7 +64,7 @@ export function isDetailedTimeResponse(v:unknown):v is DetailedTimeResponse {
   if (!object(v) || !Array.isArray(v.records)) return false;
   const records=[...v.records,...(v.activeRecord===null?[]:[v.activeRecord])];
   if (!records.every(r=>object(r) && isTimeRecordDetails(r.details))) return false;
-  const base=(r:Record<string,unknown>)=>{const {details,...rest}=r;return rest;};
+  const base=(r:Record<string,unknown>)=>{const {details,...rest}=r;return {...rest,stoppedVia:rest.stoppedVia==='administration'?'manual':rest.stoppedVia};};
   return validateOwnTimeResponse({...v,records:v.records.map(base),activeRecord:v.activeRecord===null?null:base(v.activeRecord as Record<string,unknown>)});
 }
 export function isTimeSupplementResult(v:unknown):v is TimeSupplementResult {

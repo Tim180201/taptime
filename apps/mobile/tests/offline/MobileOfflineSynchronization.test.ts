@@ -1240,3 +1240,14 @@ async function archiveHarness(filename?: string, status: 'synchronized' | 'revie
     async close() { scheduler.stop(); await database.close(); },
   };
 }
+
+it('T-069 negotiates and parses the administration reason through offline ingestion and reconciliation',async()=>{
+  const decision={status:'escalation_required',reason:'administration_stopped'};
+  const request=new FakeRequest(async endpoint=>response(200,endpoint.pathname.includes('reconcile')
+    ? {status:'ready',records:[{workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,archiveStatus:'offsite_archived',result:{status:'synchronized',decision}}]}
+    : {status:'synchronized',idempotentRetry:false,workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,archiveStatus:'offsite_archived',decision}));
+  const client=new OfflineLifecycleClient(new URL('https://api.example/'),request);
+  expect(await client.ingest(offlineCommand())).toMatchObject({status:'synchronized',decision});
+  expect(await client.reconcile([ids.event])).toMatchObject({status:'ready',records:[{result:{decision}}]});
+  expect(request.calls.every(c=>(c.options as {includeTimeDetails?:boolean}).includeTimeDetails)).toBe(true);
+});

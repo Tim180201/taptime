@@ -1,3 +1,4 @@
+import { WorkEventId } from '@taptime/core';
 import type { Server } from 'node:http';
 import { LifecycleArchivePendingError } from '@taptime/backend-lifecycle';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -453,5 +454,30 @@ it('T-066 serves a bounded negotiated person page with maximum Unicode comments 
     const text=await response.text();
     if(accept==='application/json') expect(text).toBe(JSON.stringify(legacy));
     else expect(JSON.parse(text)).toEqual({...legacy,records:records.map(r=>({...r,details}))});
+  }
+});
+
+it('T-069 authenticates, validates and dispatches an administrative stop and its domain errors',async()=>{
+  const execute=vi.fn(async()=>({status:'committed' as const,timeRecordId:ids.timeEntry,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false}));
+  const origin=await start({administrationStop:{execute}});
+  const body={expectedMembershipId:ids.membership,targetMembershipId:ids.project,commandId:ids.command,timeRecordId:ids.timeEntry,
+    expectedRowVersion:1,stoppedAt:'2026-09-21T12:00:00.000Z',reason:'Stopp vergessen'};
+  const path='/v1/time-records/stop';
+  expect((await fetch(`${origin}${path}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)})).status).toBe(401);
+  expect(execute).not.toHaveBeenCalled();
+  expect((await post(origin,path,{...body,role:'administrator'})).status).toBe(400);
+  expect(execute).not.toHaveBeenCalled();
+  expect((await post(origin,path,body)).status).toBe(200);
+  expect(execute).toHaveBeenCalledWith('abc.def.ghi',body);
+});
+it.each(['/v1/lifecycle-events/manual','/v1/lifecycle-events/manual-break'])('T-069 maps new review reasons for legacy clients on %s',async path=>{
+  const result={status:'synchronized' as const,idempotentRetry:false,workEventId:WorkEventId(ids.event),receiptId:ids.receipt,
+    serverTimeEntryId:null,decision:{status:'escalation_required' as const,reason:'administration_stopped' as const}};
+  const origin=await start({manualLifecycleIngestor:{async ingestManual(){return result;},async ingestManualBreak(){return result;}}});
+  const body={expectedMembershipId:ids.membership,workEvent:{id:ids.event,...(path.endsWith('manual-break')?{subject:{type:'break'}}:{target:{targetType:'project',targetId:ids.project}})},receipt:{id:ids.receipt,attemptNumber:1}};
+  for(const accept of ['application/json','application/vnd.taptime.time-details.v2+json']) {
+    const response=await fetch(`${origin}${path}`,{method:'POST',headers:{authorization:'Bearer abc.def.ghi','content-type':'application/json',accept},body:JSON.stringify(body)});
+    expect(response.status).toBe(200);expect(response.headers.get('vary')).toBe('Accept');
+    expect(await response.text()).toBe(JSON.stringify({...result,decision:{...result.decision,reason:accept==='application/json'?'work_event_precedes_previous_accepted_work_event':'administration_stopped'}}));
   }
 });

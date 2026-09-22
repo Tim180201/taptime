@@ -167,7 +167,7 @@ interface WorkEventRow extends QueryResultRow {
   readonly assignment_id: string | null;
   readonly nfc_tag_id: string | null;
   readonly subject_type: 'work' | 'break';
-  readonly trigger_type: 'nfc' | 'manual';
+  readonly trigger_type: 'nfc' | 'manual' | 'administration';
   readonly target_type: 'customer' | 'project' | 'general_work' | null;
   readonly target_customer_id: string | null;
   readonly triggered_by_user_id: string;
@@ -454,7 +454,11 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         const activeBreak = await findActiveBreak(client, actor, activeTimeEntry);
         const previousWorkEvent = await findPreviousCanonicalWorkEvent(client, workEvent);
         const decision = this.businessEngine.evaluate(workEvent, {
-          activeTimeEntryForUser: activeTimeEntry,
+          administrationStoppedBeforeTrigger: (await client.query(
+          'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
+          [workEvent.occurredAt],
+        )).rows[0]?.stopped === true,
+        activeTimeEntryForUser: activeTimeEntry,
           activeBreakIntervalForUser: activeBreak,
           previousAcceptedWorkEventForUserAndTarget: previousWorkEvent,
         });
@@ -1183,6 +1187,7 @@ async function findPreviousCanonicalWorkEvent(
   }
   const workBase = { ...base, subject: { type: 'work' as const },
     target: workTarget(row.target_type, row.target_customer_id) };
+  if (row.trigger_type === 'administration') return { ...workBase, trigger: { type: 'administration' } };
   return row.assignment_id === null || row.nfc_tag_id === null
     ? { ...workBase, trigger: { type: 'manual' as const } }
     : {

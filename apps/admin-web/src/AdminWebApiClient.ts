@@ -1,4 +1,4 @@
-import { TIME_DETAILS_ACCEPT, isTimeRecordDetails, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
+import { isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_DETAILS_ACCEPT, isTimeRecordDetails, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import {
@@ -86,6 +86,7 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  stopTime?(token: string, request: unknown): Promise<ApiResult<AdministrationStopResult>>;
   supplementTime?(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>>;
   ownTime?(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
   workTargets?(token: string, request: MobileWorkTargetQueryRequest): Promise<ApiResult<MobileWorkTargetQueryResponse>>;
@@ -210,6 +211,13 @@ export interface AdminWebApiPort {
 
 export class AdminWebApiClient implements AdminWebApiPort {
   constructor(private readonly fetchRequest: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
+  async stopTime(token: string, request: unknown): Promise<ApiResult<AdministrationStopResult>> {
+    if(!isAdministrationStopRequest(request)) return {status:'invalid_response'};
+    return this.request('/v1/time-records/stop',token,'POST',request as unknown as Record<string,unknown>,
+      value=>isAdministrationStopResult(value)?value:null,false,false,false,maximumJsonBodyBytes,
+      false,false,false,false,[200,409,422]);
+  }
+
   async supplementTime(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>> {
     if (!(kind === 'backfill' ? isBackfillTimeRequest(request) : isCommentTimeRequest(request))) return {status:'invalid_response'};
     return this.request(`/v1/time-records/${kind}`,token,'POST',request as object,
@@ -1057,7 +1065,7 @@ function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
       || (entry.source !== 'canonical' && entry.source !== 'recovered')
       || (entry.status !== 'started' && entry.status !== 'stopped')
       || !(entry.startedVia === null || entry.startedVia === 'nfc' || entry.startedVia === 'manual')
-      || !(entry.stoppedVia === null || entry.stoppedVia === 'nfc' || entry.stoppedVia === 'manual')
+      || !(entry.stoppedVia === null || entry.stoppedVia === 'nfc' || entry.stoppedVia === 'manual' || entry.stoppedVia === 'administration')
       || (entry.source === 'recovered'
         ? entry.startedVia !== null || entry.stoppedVia !== null
         : entry.startedVia === null
@@ -1104,7 +1112,7 @@ function parseReviewItems(value: unknown): CursorPage<SafeReviewItem> | null {
     'active_time_entry_organization_mismatch', 'active_time_entry_user_mismatch',
     'previous_work_event_organization_mismatch', 'previous_work_event_user_mismatch',
     'previous_work_event_target_mismatch', 'work_event_precedes_active_time_entry',
-    'work_event_precedes_previous_accepted_work_event',
+    'work_event_precedes_previous_accepted_work_event', 'administration_stopped',
   ]);
   const items = value.items.map((entry) => {
     if (!isRecord(entry) || !exact(entry, [

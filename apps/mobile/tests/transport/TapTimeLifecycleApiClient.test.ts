@@ -131,7 +131,7 @@ describe('TapTimeLifecycleApiClient', () => {
     });
     expect(request.calls).toHaveLength(1);
     expect(request.calls[0]?.endpoint).toBe('https://api.example/base/v1/lifecycle-events');
-    expect(request.calls[0]?.options).toEqual({ expectedMembershipId: ids.membership });
+    expect(request.calls[0]?.options).toEqual({ expectedMembershipId: ids.membership, includeTimeDetails: true });
     expect(JSON.parse(request.calls[0]!.body)).toEqual({
       organizationId: ids.organization,
       workEvent: {
@@ -358,6 +358,13 @@ describe('TapTimeLifecycleApiClient', () => {
     expect(request.calls[0]?.endpoint).toBe(
       'https://api.example/base/v1/lifecycle-events/deferred',
     );
-    expect(request.calls[0]?.options).toEqual({ expectedMembershipId: ids.membership });
+    expect(request.calls[0]?.options).toEqual({ expectedMembershipId: ids.membership, includeTimeDetails: true });
   });
+});
+
+it('T-069 negotiates and accepts the precise administration escalation reason',async()=>{
+  const {request,client}=setup();
+  request.result=synchronized({status:'escalation_required',reason:'administration_stopped'},null);
+  expect(await client.ingest(submission())).toMatchObject({status:'synchronized',decision:{reason:'administration_stopped'}});
+  expect(request.calls[0]?.options).toMatchObject({includeTimeDetails:true});
 });

@@ -1640,17 +1640,18 @@ it('T049 refresh: the shell refresh reloads opened own-time data',async()=>{
  expect(coordinator.getState()).toMatchObject({status:'ready',calendar:{status:'ready',month:'2026-07',targetMembershipId:null}});
 });
 
-function t066Setup(role:Session['role']='employee') {
+function t066Setup(role:Session['role']='employee',running=false) {
  const auth=new FakeAuth(),api=new FakeApi();
  api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role,availableSections:['own_time','manual_capture','employees']}});
  const details={origin:'backfilled' as const,baseRowVersion:0,effectiveRevisionNumber:1,comment:null,changed:false,change:null,overlapsAnotherRecord:false};
- const record={...stoppedRecord,details};
- const page={activeRecord:null,records:[record],nextCursor:null,windowStartedAt:'2026-07-01T00:00:00.000Z',windowEndedAt:'2026-07-21T12:00:00.000Z'};
+ const record:import('@taptime/mobile-work-contract').SafeOwnTimeRecord=running?{...stoppedRecord,status:'started',stoppedAt:null,stoppedVia:null,details:{...details,origin:'nfc',baseRowVersion:1,effectiveRevisionNumber:0}}:{...stoppedRecord,details};
+ const page:import('@taptime/mobile-work-contract').MobileOwnTimeQueryResponse={activeRecord:running?record:null,records:running?[]:[record],nextCursor:null,windowStartedAt:'2026-07-01T00:00:00.000Z',windowEndedAt:'2026-07-21T12:00:00.000Z'};
  const ownTime=vi.fn(async()=>({status:'succeeded' as const,value:page}));
  const managedPersonTime=vi.fn(async()=>({status:'succeeded' as const,value:{...page,windowStartedAt:'2026-06-30T22:00:00.000Z'}}));
  const supplementTime=vi.fn<NonNullable<AdminWebApiPort['supplementTime']>>(async()=>({status:'succeeded',value:{status:'committed',timeRecordId:record.timeRecordId,idempotentRetry:false}}));
- const coordinator=new AdminWebCoordinator(auth,{...api,ownTime,managedPersonTime,supplementTime},()=>fixedNow);
- return {auth,api,coordinator,record,page,ownTime,managedPersonTime,supplementTime};
+ const stopTime=vi.fn<NonNullable<AdminWebApiPort['stopTime']>>();
+ const coordinator=new AdminWebCoordinator(auth,{...api,ownTime,managedPersonTime,supplementTime,stopTime},()=>fixedNow);
+ return {auth,api,coordinator,record,page,ownTime,managedPersonTime,supplementTime,stopTime};
 }
 it('T066 retains an uncertain command, releases confirmed identity and refuses foreign or manager comments',async()=>{
  const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
@@ -1691,4 +1692,36 @@ it('T066 leaves a newly opened person untouched by the prior edit acknowledgemen
  const another='20000000-0000-4000-8000-000000000002';await h.coordinator.loadPersonTime(another,'2026-07');
  pending.resolve({status:'succeeded',value:{status:'committed',timeRecordId:h.record.timeRecordId,idempotentRetry:false}});await writing;
  expect(h.coordinator.getState()).toMatchObject({status:'ready',notice:null,timeEditBusy:false,calendar:{targetMembershipId:another}});expect(h.managedPersonTime).toHaveBeenCalledTimes(1);expect(h.ownTime).toHaveBeenCalledTimes(1);
+});
+
+it('D-078 retains a stop command through pending archive replies and reloads only after evidence',async()=>{
+ const h=t066Setup('administrator',true),target='20000000-0000-4000-8000-000000000002';
+ await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadPersonTime(target,'2026-07');
+ const input={kind:'stop' as const,targetMembershipId:target,record:h.record,stoppedAt:'2026-07-21T12:00:00.000Z',reason:'Vergessen'};
+ const pending={status:'committed' as const,timeRecordId:h.record.timeRecordId,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
+ h.stopTime.mockResolvedValueOnce({status:'succeeded',value:pending}).mockResolvedValueOnce({status:'succeeded',value:{...pending,idempotentRetry:true,offsiteArchived:true}});
+ expect(await h.coordinator.saveTimeEdit(input)).toEqual(pending);expect(h.managedPersonTime).toHaveBeenCalledTimes(1);
+ expect(h.coordinator.getState()).not.toMatchObject({notice:'Gespeichert.'});
+ expect(await h.coordinator.saveTimeEdit(input)).toMatchObject({offsiteArchived:true});expect(h.managedPersonTime).toHaveBeenCalledTimes(2);
+ expect(h.stopTime.mock.calls[0]).toEqual(h.stopTime.mock.calls[1]);
+ expect(h.stopTime.mock.calls[0]![1]).toMatchObject({expectedMembershipId:membershipId,targetMembershipId:target,expectedRowVersion:1});
+ expect(h.coordinator.getState()).toMatchObject({notice:'Gespeichert.'});
+});
+it.each(['employee','standortleitung'] as const)('T-069 rejects %s administrative stops',async role=>{
+ const h=t066Setup(role,true);await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ expect(await h.coordinator.saveTimeEdit({kind:'stop',targetMembershipId:membershipId,record:h.record,stoppedAt:'2026-07-21T12:00:00.000Z',reason:'Vergessen'})).toEqual({status:'authority_rejected'});
+ expect(h.stopTime).not.toHaveBeenCalled();
+});
+it('D-078 does not adopt archive acknowledgements after logout or a calendar switch',async()=>{
+ for(const action of ['logout','switch'] as const) {
+  const h=t066Setup('administrator',true),target='20000000-0000-4000-8000-000000000002';
+  await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadPersonTime(target,'2026-07');
+  const pending=deferred<ApiResult<import('@taptime/mobile-work-contract').AdministrationStopResult>>();h.stopTime.mockReturnValueOnce(pending.promise);
+  const writing=h.coordinator.saveTimeEdit({kind:'stop',targetMembershipId:target,record:h.record,stoppedAt:'2026-07-21T12:00:00.000Z',reason:'Vergessen'});
+  if(action==='logout') await h.coordinator.signOut();else await h.coordinator.loadOwnTime('2026-07');
+  pending.resolve({status:'succeeded',value:{status:'committed',timeRecordId:h.record.timeRecordId,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:true}});
+  await writing;
+  expect(h.coordinator.getState()).toMatchObject(action==='logout'?{status:'signed_out'}:{status:'ready',notice:null,calendar:{targetMembershipId:null}});
+  expect(h.managedPersonTime).toHaveBeenCalledTimes(1);
+ }
 });

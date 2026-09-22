@@ -35,7 +35,7 @@ interface OwnTimeRow extends QueryResultRow {
   readonly started_at: Date;
   readonly stopped_at: Date | null;
   readonly started_via: 'nfc' | 'manual' | null;
-  readonly stopped_via: 'nfc' | 'manual' | null;
+  readonly stopped_via: 'nfc' | 'manual' | 'administration' | null;
   readonly window_started_at: Date;
   readonly window_ended_at: Date;
 }
@@ -123,7 +123,7 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
           ? (await client.query<{time_record_id:string; details: import('@taptime/mobile-work-contract').TimeRecordDetails}>(
               'SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[])', [rows.rows.map(r=>r.time_record_id)])).rows : [];
         const detailed = (row: OwnTimeRow): SafeOwnTimeRecord => {
-          const base = mapOwnTimeRecord(row);
+          const base = mapOwnTimeRecord(row, command.includeTimeDetails);
           if (!command.includeTimeDetails) return base;
           const details = detailRows.find(d=>d.time_record_id===row.time_record_id)?.details;
           if (!details) throw new Error('Missing time details');
@@ -265,7 +265,7 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
   }
 }
 
-function mapOwnTimeRecord(row: OwnTimeRow): SafeOwnTimeRecord {
+function mapOwnTimeRecord(row: OwnTimeRow, includeTimeDetails = false): SafeOwnTimeRecord {
   return {
     timeRecordId: row.time_record_id,
     source: row.source,
@@ -275,7 +275,7 @@ function mapOwnTimeRecord(row: OwnTimeRow): SafeOwnTimeRecord {
     startedAt: row.started_at.toISOString(),
     stoppedAt: row.stopped_at?.toISOString() ?? null,
     startedVia: row.source === 'recovered' ? null : row.started_via,
-    stoppedVia: row.source === 'recovered' ? null : row.stopped_via,
+    stoppedVia: row.source === 'recovered' ? null : !includeTimeDetails && row.stopped_via === 'administration' ? 'manual' : row.stopped_via,
   };
 }
 

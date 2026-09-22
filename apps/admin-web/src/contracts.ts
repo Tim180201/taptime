@@ -86,7 +86,7 @@ export interface SafeTimeRecord {
   readonly targetType: 'customer' | 'project' | 'general_work';
   readonly targetDisplayName: string;
   readonly startedVia: 'nfc' | 'manual' | null;
-  readonly stoppedVia: 'nfc' | 'manual' | null;
+  readonly stoppedVia: 'nfc' | 'manual' | 'administration' | null;
   readonly source: 'canonical' | 'recovered';
   readonly status: 'started' | 'stopped';
   readonly startedAt: string;

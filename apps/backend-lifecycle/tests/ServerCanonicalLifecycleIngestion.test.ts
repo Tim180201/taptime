@@ -2598,3 +2598,51 @@ describe('DA5 manual trigger provenance and shared duplicate rule', () => {
     })).resolves.toEqual({ status: 'conflict', reason: 'receipt_metadata_conflict' });
   });
 });
+
+describe('T-069 administration stop and device lifecycle',()=>{
+  async function setupStop() {
+    const {AdministrationStopCoordinator}=await import('@taptime/backend-time-review');
+    await installerPool.query("UPDATE taptime_server.memberships SET role='administrator',row_version=row_version+1 WHERE id=$1",[ids.membershipA2]);
+    const first=await coordinator.ingest(await command());
+    expect(first).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+    if(first.status!=='synchronized' || first.serverTimeEntryId===null) throw new Error('Expected initial entry');
+    return {stopper:new AdministrationStopCoordinator(installerPool,verifier),token:await accessToken({subject:ids.subjectA2}),
+      request:{expectedMembershipId:ids.membershipA2,targetMembershipId:ids.membershipA,timeRecordId:first.serverTimeEntryId,
+        expectedRowVersion:1,commandId:'90000000-0000-4000-8000-000000000690',stoppedAt:'2026-07-13T12:00:00.000Z',reason:'Vergessener Stopp'}};
+  }
+  it('escalates late online device events, keeps the 015 review path and starts again on the next tap',async()=>{
+    const {stopper,token,request}=await setupStop();
+    expect(await stopper.execute(token,request)).toMatchObject({status:'committed'});
+    const late=await command({eventNumber:2,occurredAt:'2026-07-13T13:00:00.000Z'});
+    expect(await coordinator.ingest(late)).toMatchObject({status:'synchronized',serverTimeEntryId:null,
+      decision:{status:'escalation_required',reason:'administration_stopped'}});
+    expect(await coordinator.ingest(late)).toMatchObject({status:'synchronized',idempotentRetry:true,
+      decision:{status:'escalation_required',reason:'administration_stopped'}});
+    expect((await installerPool.query('SELECT count(*)::int AS n FROM taptime_server.time_entries')).rows[0].n).toBe(1);
+    const c=await installerPool.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true)`,[ids.organizationA,ids.userA2,ids.membershipA2]);
+      await c.query('SET LOCAL ROLE taptime_time_review_reader');
+      const cases=await c.query('SELECT * FROM taptime_server.read_time_review_items_v2($1,$2,$3,NULL,NULL,20)',[ids.organizationA,ids.userA2,ids.membershipA2]);
+      expect(cases.rows).toMatchObject([{review_item_id:late.workEvent.id,review_reason:'administration_stopped'}]);
+      await c.query('ROLLBACK');
+    } finally {await c.query('ROLLBACK');c.release();}
+    const next=await manualCoordinator.ingestManual({accessToken:await accessToken(),expectedMembershipId:MembershipId(ids.membershipA),
+      workEvent:{id:WorkEventId(uuid('5',3)),target:customerAssignmentTarget(CustomerId(ids.customerA))},receipt:{id:uuid('6',3),attemptNumber:1}});
+    expect(next).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+    expect((await installerPool.query('SELECT status FROM taptime_server.time_entries ORDER BY started_at')).rows)
+      .toEqual([{status:'stopped'},{status:'started'}]);
+  });
+  it('serializes a concurrent device stop and administration action into exactly one stop',async()=>{
+    const {stopper,token,request}=await setupStop();
+    const tap=await command({eventNumber:2,occurredAt:'2026-07-13T13:00:00.000Z'});
+    const [administration,device]=await Promise.all([stopper.execute(token,request),coordinator.ingest(tap)]);
+    expect(device.status).toBe('synchronized');
+    expect(['committed','conflict']).toContain(administration.status);
+    if(administration.status==='committed') expect(device).toMatchObject({decision:{status:'escalation_required',reason:'administration_stopped'}});
+    else expect(device).toMatchObject({decision:{status:'time_entry_stopped'}});
+    expect((await installerPool.query('SELECT status FROM taptime_server.time_entries')).rows).toEqual([{status:'stopped'}]);
+    expect((await installerPool.query("SELECT count(*)::int AS n FROM taptime_server.canonical_decisions WHERE decision_type='time_entry_stopped'")).rows[0].n).toBe(1);
+  });
+});

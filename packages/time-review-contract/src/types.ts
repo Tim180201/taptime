@@ -2,6 +2,7 @@ export type TimeRecordSource = 'canonical' | 'recovered';
 export type TimeRecordStatus = 'started' | 'stopped';
 export type ReviewItemSource = 'offline_v2' | 'server_legacy';
 export type TimeReviewReason =
+  | 'administration_stopped'
   | 'identity_or_membership_not_current'
   | 'capture_time_out_of_bounds'
   | 'automatic_window_elapsed'
@@ -54,7 +55,7 @@ export interface TimeRecordProjectionV2 {
   readonly source: TimeRecordSource;
   readonly status: TimeRecordStatus;
   readonly startedVia: 'nfc' | 'manual' | null;
-  readonly stoppedVia: 'nfc' | 'manual' | null;
+  readonly stoppedVia: 'nfc' | 'manual' | 'administration' | null;
   readonly startedAt: string;
   readonly stoppedAt: string | null;
   readonly baseRowVersion: number;

@@ -1,9 +1,9 @@
-import { isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
+import { isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { validateTimeRecordCorrectionRequest } from '@taptime/time-review-contract';
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import type { MobileWorkSessionReader } from '../work/contracts';
-export type TimeEditKind = 'backfill'|'comment'|'correct';
-export type TimeEditResult = TimeSupplementResult | {readonly status:'offline'|'busy'|'conflict'|'not_adjustable'};
+export type TimeEditKind = 'backfill'|'comment'|'correct'|'stop';
+export type TimeEditResult = TimeSupplementResult | AdministrationStopResult | {readonly status:'offline'|'busy'|'conflict'|'not_adjustable'};
 export interface TimeEditingState { readonly online: boolean; readonly busy: boolean }
 export interface TimeEditingCapability {
   getState(): TimeEditingState;
@@ -15,6 +15,7 @@ export class TimeEditingCoordinator implements TimeEditingCapability {
   private listeners=new Set<()=>void>();
   private unsubscribe:(()=>void)|undefined;
   private generation=0;
+  private readonly pendingStops=new Map<string,string>();
   private last:{key:string;commandId:string}|undefined;
   constructor(private readonly base:URL,private readonly requests:AuthenticatedJsonPostPort,
     private readonly session:MobileWorkSessionReader,private readonly createUuid:()=>string,
@@ -28,10 +29,11 @@ export class TimeEditingCoordinator implements TimeEditingCapability {
     try { const online=await this.network.get(); if(generation===this.generation) this.publish({...this.state,online}); }
     catch { if(generation===this.generation) this.publish({...this.state,online:false}); }
   }
-  stop() { ++this.generation; this.unsubscribe?.();this.unsubscribe=undefined;this.last=undefined;this.publish({online:false,busy:false}); }
+  stop() { ++this.generation; this.unsubscribe?.();this.unsubscribe=undefined;this.last=undefined;this.pendingStops.clear();this.publish({online:false,busy:false}); }
   async save(kind:TimeEditKind,input:Record<string,unknown>):Promise<TimeEditResult> {
     const snapshot=this.session.capture();
     if(!snapshot || !this.session.isCurrent(snapshot)) return {status:'authority_rejected'};
+    if(kind==='stop' && snapshot.session.role!=='administrator') return {status:'authority_rejected'};
     if(this.state.busy) return {status:'busy'};
     const generation=this.generation;
     this.publish({...this.state,busy:true});
@@ -41,16 +43,26 @@ export class TimeEditingCoordinator implements TimeEditingCapability {
       this.publish({online,busy:true});
       if(!online) return {status:'offline'};
       const key=JSON.stringify([snapshot.generation,snapshot.session.membershipId,kind,input]);
-      if(this.last?.key!==key) this.last={key,commandId:this.createUuid()};
-      const request={...input,expectedMembershipId:snapshot.session.membershipId,commandId:this.last.commandId};
-      if(!(kind==='backfill'?isBackfillTimeRequest(request):kind==='comment'?isCommentTimeRequest(request):validateTimeRecordCorrectionRequest(request).status==='valid')) return {status:'invalid_request'};
+      let commandId:string;
+      if(kind==='stop') {
+        commandId=this.pendingStops.get(key)??this.createUuid();this.pendingStops.set(key,commandId);
+      } else {
+        if(this.last?.key!==key) this.last={key,commandId:this.createUuid()};
+        commandId=this.last.commandId;
+      }
+      const request={...input,expectedMembershipId:snapshot.session.membershipId,commandId};
+      if(!(kind==='backfill'?isBackfillTimeRequest(request):kind==='comment'?isCommentTimeRequest(request):kind==='stop'?isAdministrationStopRequest(request):validateTimeRecordCorrectionRequest(request).status==='valid')) return {status:'invalid_request'};
       const path=kind==='correct'?'/v1/administration/time-records/correct':`/v1/time-records/${kind}`;
       const result=await this.requests.post(new URL(path,this.base),JSON.stringify(request));
       if(generation!==this.generation || !this.session.isCurrent(snapshot)) return {status:'authority_rejected'};
       if(result.status==='authority_rejected') return result;
       if(result.status!=='response' || !result.contentType?.startsWith('application/json')) return {status:'unavailable'};
       const value:unknown=JSON.parse(result.body);
-      if(kind!=='correct' && isTimeSupplementResult(value)) {
+      if(kind==='stop' && isAdministrationStopResult(value)) {
+        if(value.status==='committed' && value.offsiteArchived) this.pendingStops.delete(key);
+        return value;
+      }
+      if(kind!=='correct' && kind!=='stop' && isTimeSupplementResult(value)) {
         if(value.status==='committed') this.last=undefined;
         return value;
       }
