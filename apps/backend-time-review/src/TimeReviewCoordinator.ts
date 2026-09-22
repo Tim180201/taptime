@@ -1,3 +1,4 @@
+import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isTimeRecordDetails } from '@taptime/mobile-work-contract';
 import { createHash } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
@@ -489,8 +490,9 @@ export class TimeReviewCoordinator implements TimeReviewPort {
       await client.query('COMMIT');
       transactionOpen = false;
       return value;
-    } catch {
+    } catch (error) {
       if (transactionOpen) await rollback(client);
+      if (isOrganizationPausedError(error)) throw error;
       return { status: 'unavailable' };
     } finally {
       client.off('error', onError);

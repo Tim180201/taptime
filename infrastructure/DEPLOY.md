@@ -388,6 +388,37 @@ docker compose --file /opt/taptime/source/infrastructure/docker-compose.server.y
 unset postgres_volume
 ```
 
+## Betreiber-Zugang (ab Migration 032)
+
+Die Operations-Dateien installieren `taptime-operator-db-login` und `taptime-operator-grant`
+root-eigen mit Modus 0700. Root ruft sie nach dem freigegebenen Deploy in der Konsole auf;
+der Deploy ruft sie nicht auf. Ohne Betreiber-Datenbankzugang startet das Backend normal,
+Betreiber-Routen melden `503 operator_not_configured`.
+
+`/usr/local/sbin/taptime-operator-db-login` legt den separaten Login an. `--rotate` erneuert
+sein Passwort, auch nach einem Restore. Das Werkzeug liest nur die eindeutige root:root/0600
+`.env`, erwartet die installierte Compose-Datenbank `database:5432/taptime`, erzeugt das Passwort
+intern, übergibt es ausschließlich auf PostgreSQL-stdin und ersetzt `.env` atomar. Ein vorhandener
+Login oder Konfigurationsschlüssel wird ohne `--rotate` niemals überschrieben. Fehler vor dem
+Dateitausch rollen die Datenbanktransaktion zurück. Bei einem unklaren Transaktionsabschluss
+oder fehlgeschlagenem Neustart meldet es einen Fehler; root gleicht ausdrücklich mit `--rotate`
+ab. Nur `backend-api` wird mit seinem derzeit laufenden Abbild neu erstellt und die Betreiber-
+Session geprüft. Weder Shell-Tracing noch das Ausgeben oder Kopieren der `.env` ist erforderlich.
+
+`/usr/local/sbin/taptime-operator-grant <Supabase-UUID>` schaltet ein bereits vorhandenes
+Supabase-Konto frei; `--revoke <Supabase-UUID>` entzieht es. Der Aussteller kommt aus
+`SUPABASE_ISSUER`. Aktive Mitgliedschaft und Betreiber-Freigabe schließen sich in der Datenbank
+aus. Jede tatsächliche Änderung erhält einen unveränderlichen Eintrag mit `root@<Rechner>`
+und dem betroffenen Betreiber-Datensatz. Erneutes Freischalten nach Entzug erzeugt einen neuen
+Datensatz; die vorherige Freigabe und ihr Protokoll bleiben erhalten.
+
+Zum vollständigen Abschalten entzieht root zunächst die Betreiber-Freigaben, entfernt den
+Schlüssel `TAPTIME_OPERATOR_DATABASE_URL` atomar aus der root:root/0600-Konfiguration und erstellt
+nur `backend-api` mit derselben Version neu. Danach entfernt root den Login in einer lokalen
+PostgreSQL-Sitzung mit `DROP ROLE taptime_operator_runtime`; die NOLOGIN-Fähigkeit und die
+Audit-Historie bleiben bestehen. Eine spätere Anlage erfolgt wieder mit dem argumentlosen
+Werkzeug. Die Skripte selbst werden mit dem Operations-Stand installiert bzw. zurückgenommen.
+
 ## Was dieser Weg weiterhin nicht aktualisiert
 
 | Bestandteil | Wie er heute auf den Server kommt | Folge eines veralteten Stands |

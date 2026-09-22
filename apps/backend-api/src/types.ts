@@ -245,6 +245,8 @@ export interface NfcTagReassignmentPort {
 }
 
 export interface BackendApiDependencies {
+  readonly checkTenantAccess?: (accessToken: string) => Promise<void>;
+  readonly operator?: Pick<import('./OperatorCoordinator.js').OperatorCoordinator,'execute'>;
   readonly administrationStop?: Pick<import('@taptime/backend-time-review').AdministrationStopCoordinator, 'execute'>;
   readonly timeSupplement?: Pick<import('@taptime/backend-time-review').TimeSupplementCoordinator, 'execute'>;
   readonly healthCheck?: () => Promise<void>;
@@ -267,6 +269,7 @@ export interface BackendApiDependencies {
 }
 
 export type BackendApiRoute =
+  | `operator_${import('./OperatorCoordinator.js').OperatorAction}`
   | 'health'
   | 'admin_create_customer'
   | 'admin_create_employee_invitation'
@@ -329,6 +332,7 @@ export type BackendApiRoute =
 
 export interface BackendApiDiagnostic {
   readonly code:
+    | 'operator_failed'
     | 'administration_failed'
     | 'account_invitation_provider_request'
     | 'account_invitation_needs_attention'
@@ -345,6 +349,7 @@ export interface BackendApiDiagnostic {
   readonly organizationId?: string;
   readonly administratorMembershipId?: string;
   readonly targetAccount?: string;
+  readonly operatorId?: string;
 }
 
 export type BackendApiDiagnosticSink = (diagnostic: BackendApiDiagnostic) => void;

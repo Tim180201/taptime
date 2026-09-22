@@ -310,6 +310,8 @@ pull_image() {
 
 operations_paths() {
   printf '%s\n' \
+    'usr/local/sbin/taptime-operator-grant' \
+    'usr/local/sbin/taptime-operator-db-login' \
     'usr/local/sbin/taptime-backup' \
     'usr/local/sbin/taptime-restore-verify' \
     'usr/local/sbin/taptime-restore-activate' \
@@ -436,6 +438,8 @@ validate_operations_scripts() {
   local script
 
   for script in \
+    taptime-operator-grant \
+    taptime-operator-db-login \
     taptime-backup \
     taptime-restore-verify \
     taptime-restore-activate \
@@ -489,6 +493,8 @@ validate_operations_release() {
       return 1
     }
   done <<'EOF_OPERATIONS_MODES'
+700 usr/local/sbin/taptime-operator-grant
+700 usr/local/sbin/taptime-operator-db-login
 700 usr/local/sbin/taptime-backup
 700 usr/local/sbin/taptime-restore-verify
 700 usr/local/sbin/taptime-restore-activate

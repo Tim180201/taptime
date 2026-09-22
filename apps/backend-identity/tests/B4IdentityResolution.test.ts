@@ -337,6 +337,7 @@ describe('Supabase access-token verification boundary', () => {
 
     expect(result).toEqual({
       status: 'verified',
+      aal: 'aal1',
       identity: { issuer: issuerA, subject: b4Ids.sharedSubject },
     });
     if (result.status === 'verified') {
@@ -803,7 +804,7 @@ describe('least-privilege resolver database boundary', () => {
     );
     expect(result.rows).toEqual([{
       security_definer: true,
-      configuration: ['search_path=pg_catalog, taptime_server, pg_temp'],
+      configuration: ['search_path=pg_catalog'],
       public_execute: false,
     }]);
   });

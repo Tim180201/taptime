@@ -29,6 +29,7 @@ services:
       - /opt/taptime/.env
     environment:
       TAPTIME_CLIENT_ADDRESS_MODE: trusted_proxy
+      TAPTIME_VERSION: ${TAPTIME_VERSION:?TAPTIME_VERSION must be an explicit commit short hash}
     secrets:
       - taptime_proxy_shared_secret
     depends_on:

@@ -276,6 +276,12 @@ Backend gestoppt; der WAL-Weg läuft zunächst ausschließlich im Upload-Modus. 
 versionierten Migration startet der normale Archivierer und erst ein archivfähiges Backend nimmt
 wieder Verkehr an.
 
+Nach der Wiederherstellung eines Stands mit Migration 032 gleicht root den Betreiber-Zugang
+mit `/usr/local/sbin/taptime-operator-db-login --rotate` ab. Das erzeugt das Passwort neu,
+schreibt die lokale `.env` atomar und erstellt ausschließlich den laufenden `backend-api`-Dienst
+mit derselben Anwendungsversion neu. Die Session-Prüfung muss erfolgreich sein; der erzeugte
+Wert wird weder angezeigt noch aus einer gesonderten Verwahrung eingespielt (D-079).
+
 Der Deploy erzeugt und prüft unmittelbar eine neue physische Basis samt Start-WAL. Anschließend
 sind `/health`, öffentliche `/version.txt`, der Archivstatus und der vollständige Smoke-Test aus
 `ADO/04_Operations/Smoke_Test_Checkliste.md` durch den Product Owner zu belegen. Alarmzeit,

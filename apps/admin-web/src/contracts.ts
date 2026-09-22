@@ -142,6 +142,7 @@ export type RemoteValue<T> =
 export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null };
 export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string };
 export type AdminWebState =
+  | { readonly status: 'organization_paused' }
   | { readonly status: 'signed_out'; readonly notice?: string }
   | { readonly status: 'signing_in' }
   | { readonly status: 'password_recovery'; readonly completing: boolean; readonly notice: string | null }

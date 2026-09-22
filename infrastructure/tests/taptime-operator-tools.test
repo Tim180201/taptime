@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Real PostgreSQL 17; Docker discovery/recreation is stubbed. Only disposable local
+# data is used, and the test needs neither host root nor a host database login.
+if [[ "${1:-}" != --inside ]]; then
+  exec docker run --rm --volume "$PWD:/repo:ro" postgres:17.10-bookworm \
+    bash /repo/infrastructure/tests/taptime-operator-tools.test --inside "${1:-all}"
+fi
+cd /repo
+readonly TEST_ROOT=/tmp/operator-test
+mkdir -p "$TEST_ROOT/bin" "$TEST_ROOT/pg"
+chown postgres:postgres "$TEST_ROOT/pg"
+gosu postgres initdb -D "$TEST_ROOT/pg" --auth-local=trust --auth-host=scram-sha-256 >/dev/null
+gosu postgres pg_ctl -D "$TEST_ROOT/pg" -l "$TEST_ROOT/pg/server.log" start >/dev/null
+trap 'gosu postgres pg_ctl -D "$TEST_ROOT/pg" -m immediate stop >/dev/null' EXIT
+createdb -U postgres taptime
+for migration in apps/backend-schema/migrations/*.sql; do
+  psql -Xq -U postgres -d taptime -v ON_ERROR_STOP=1 -1 -f "$migration" >/dev/null 2>"$TEST_ROOT/migration.log"
+done
+export TAPTIME_OPERATOR_ENV_FILE="$TEST_ROOT/.env"
+export TAPTIME_OPERATOR_LOCK_FILE="$TEST_ROOT/operator.lock"
+export TAPTIME_OPERATOR_COMPOSE_FILE="$TEST_ROOT/compose.yml"
+export OPERATOR_TEST_ROOT="$TEST_ROOT"
+cat > "$TEST_ROOT/bin/docker" <<'DOCKER'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$OPERATOR_TEST_ROOT/argv.log"
+case "$1" in
+  ps)
+    if [[ "$*" == *service=database* ]]; then printf 'db000001\n'; else printf 'be000001\n'; fi ;;
+  inspect) printf 'ghcr.io/tim180201/taptime-backend-api:abcdef0\n' ;;
+  compose)
+    [[ "$*" == *'--no-deps'* && "$*" == *'--force-recreate backend-api' ]]
+    [[ "${FAIL_RESTART:-0}" != 1 ]] ;;
+  exec)
+    if [[ "$*" == *db000001* ]]; then
+      while [[ "$1" != psql ]]; do shift; done
+      exec "$@" -U postgres
+    else
+      cat > "$OPERATOR_TEST_ROOT/probe.js"
+      [[ "${FAIL_PROBE:-0}" != 1 ]]
+    fi ;;
+  *) exit 1 ;;
+esac
+DOCKER
+cat > "$TEST_ROOT/bin/mv" <<'MV'
+#!/usr/bin/env bash
+if [[ "${FAIL_ENV_WRITE:-0}" == 1 && "${*: -1}" == "$TAPTIME_OPERATOR_ENV_FILE" ]]; then exit 1; fi
+exec /bin/mv "$@"
+MV
+chmod 755 "$TEST_ROOT/bin/"*
+export PATH="$TEST_ROOT/bin:$PATH"
+sql() { psql -XqAt -U postgres -d taptime -v ON_ERROR_STOP=1 -c "$1"; }
+env_fixture() {
+  printf '%s\n' 'SUPABASE_ISSUER=https://synthetic.invalid/auth/v1' \
+    'TAPTIME_SESSION_DATABASE_URL=postgresql://session:synthetic@database:5432/taptime' > "$TAPTIME_OPERATOR_ENV_FILE"
+  chmod 600 "$TAPTIME_OPERATOR_ENV_FILE"
+}
+grant() { bash infrastructure/operations/taptime-operator-grant "$@" > "$TEST_ROOT/output" 2>&1; }
+login() { bash infrastructure/operations/taptime-operator-db-login "$@" > "$TEST_ROOT/output" 2>&1; }
+env_fixture
+# Force statement logging in the fixture: the tool must switch it off before SQL
+# containing the generated password, even if the cluster default is verbose.
+sql "ALTER SYSTEM SET log_statement='all'"
+sql 'SELECT pg_reload_conf()' >/dev/null
+trap 'cat "$TEST_ROOT/output" 2>/dev/null || true' ERR
+
+if [[ "${2:-}" != login ]]; then
+  printf 'Grant: strict arguments, audited create/revoke/regrant, database exclusion\n'
+  grant invalid-uuid && exit 1
+  grant --revoke && exit 1
+  grant 90000000-0000-4000-8000-000000000001
+  test "$(sql 'SELECT count(*) FROM taptime_server.platform_operators WHERE revoked_at IS NULL')" = 1
+  test "$(sql "SELECT count(*) FROM taptime_server.platform_audit_events WHERE operator_principal LIKE 'root@%' AND operator_id IS NOT NULL AND action='operator_granted'")" = 1
+  grant 90000000-0000-4000-8000-000000000001
+  test "$(sql 'SELECT count(*) FROM taptime_server.platform_audit_events')" = 1
+  test "$(sql "BEGIN; SET LOCAL ROLE taptime_platform_operator; SELECT taptime_server.read_operator_session_v1('https://synthetic.invalid/auth/v1','90000000-0000-4000-8000-000000000001')->>'status'; SELECT taptime_server.read_platform_audit_v1(NULL,20)->'events'->-1->>'actor'; ROLLBACK" | tail -n 1)" = root
+  grant --revoke 90000000-0000-4000-8000-000000000001
+  test "$(sql 'SELECT count(*) FROM taptime_server.platform_operators WHERE revoked_at IS NULL')" = 0
+  grant 90000000-0000-4000-8000-000000000001
+  test "$(sql 'SELECT count(*) FROM taptime_server.platform_operators')" = 2
+  sql "INSERT INTO taptime_server.organizations(id,name) VALUES('91000000-0000-4000-8000-000000000001','Fixture'); INSERT INTO taptime_server.users(id) VALUES('92000000-0000-4000-8000-000000000001'); INSERT INTO taptime_server.identity_bindings(id,user_id,issuer,subject) VALUES(gen_random_uuid(),'92000000-0000-4000-8000-000000000001','https://synthetic.invalid/auth/v1','90000000-0000-4000-8000-000000000002'); INSERT INTO taptime_server.memberships(id,organization_id,user_id,role) VALUES(gen_random_uuid(),'91000000-0000-4000-8000-000000000001','92000000-0000-4000-8000-000000000001','employee')"
+  grant 90000000-0000-4000-8000-000000000002 && exit 1
+  test "$(sql 'SELECT count(*) FROM taptime_server.platform_operators')" = 2
+fi
+if [[ "${2:-}" == grant ]]; then exit 0; fi
+
+printf 'Login: create, minimum privileges, rotation, no implicit rotation\n'
+login
+test "$(stat -c '%u:%g:%a' "$TAPTIME_OPERATOR_ENV_FILE")" = 0:0:600
+test "$(sql "SELECT rolcanlogin AND NOT (rolinherit OR rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication) FROM pg_roles WHERE rolname='taptime_operator_runtime'")" = t
+test "$(sql "SELECT r.rolname||':'||m.inherit_option||':'||m.set_option||':'||m.admin_option FROM pg_auth_members m JOIN pg_roles r ON r.oid=m.roleid WHERE m.member='taptime_operator_runtime'::regrole")" = taptime_platform_operator:false:true:false
+old_url="$(sed -n 's/^TAPTIME_OPERATOR_DATABASE_URL=//p' "$TAPTIME_OPERATOR_ENV_FILE")"
+[[ "$old_url" =~ ^postgresql://taptime_operator_runtime:[0-9a-f]{64}@database:5432/taptime$ ]]
+login && exit 1
+test "$(sed -n 's/^TAPTIME_OPERATOR_DATABASE_URL=//p' "$TAPTIME_OPERATOR_ENV_FILE")" = "$old_url"
+login --rotate
+new_url="$(sed -n 's/^TAPTIME_OPERATOR_DATABASE_URL=//p' "$TAPTIME_OPERATOR_ENV_FILE")"
+test "$new_url" != "$old_url"
+password="${new_url#*:}"; password="${password#*:}"; password="${password%%@*}"
+grep -Fq "$password" "$TEST_ROOT/output" "$TEST_ROOT/argv.log" "$TEST_ROOT/pg/server.log" && exit 1
+PGPASSWORD="$password" psql -h 127.0.0.1 -XqAt -U taptime_operator_runtime -d taptime -v ON_ERROR_STOP=1 \
+  -c 'BEGIN; SET LOCAL ROLE taptime_platform_operator; SELECT current_user; ROLLBACK' > "$TEST_ROOT/login-role"
+test "$(cat "$TEST_ROOT/login-role")" = taptime_platform_operator
+unset password old_url new_url
+printf 'Login: reject duplicate/divergent keys and unsafe privileges without mutation\n'
+cp "$TAPTIME_OPERATOR_ENV_FILE" "$TEST_ROOT/before.env"
+printf 'SUPABASE_ISSUER=https://duplicate.invalid/auth/v1\n' >> "$TAPTIME_OPERATOR_ENV_FILE"
+login --rotate && exit 1
+cp "$TEST_ROOT/before.env" "$TAPTIME_OPERATOR_ENV_FILE"
+sed -i 's/taptime_operator_runtime:/wrong_login:/' "$TAPTIME_OPERATOR_ENV_FILE"
+login --rotate && exit 1
+cp "$TEST_ROOT/before.env" "$TAPTIME_OPERATOR_ENV_FILE"
+sql 'ALTER ROLE taptime_operator_runtime CREATEDB'
+login --rotate && exit 1
+sql 'ALTER ROLE taptime_operator_runtime NOCREATEDB'
+cmp -s "$TEST_ROOT/before.env" "$TAPTIME_OPERATOR_ENV_FILE"
+printf 'Login: rollback database password if atomic environment write fails\n'
+sql "SELECT rolpassword FROM pg_authid WHERE rolname='taptime_operator_runtime'" > "$TEST_ROOT/before.password"
+FAIL_ENV_WRITE=1 login --rotate && exit 1
+sql "SELECT rolpassword FROM pg_authid WHERE rolname='taptime_operator_runtime'" > "$TEST_ROOT/after.password"
+cmp -s "$TEST_ROOT/before.password" "$TEST_ROOT/after.password"
+cmp -s "$TEST_ROOT/before.env" "$TAPTIME_OPERATOR_ENV_FILE"
+printf 'Login: restart/probe failures are failures; explicit retry recovers\n'
+FAIL_RESTART=1 login --rotate && exit 1
+FAIL_PROBE=1 login --rotate && exit 1
+login --rotate
+printf 'Login: failed first creation leaves no role; xtrace cannot reveal password\n'
+sql 'DROP ROLE taptime_operator_runtime'
+env_fixture
+FAIL_ENV_WRITE=1 login && exit 1
+test "$(sql "SELECT count(*) FROM pg_roles WHERE rolname='taptime_operator_runtime'")" = 0
+bash -x infrastructure/operations/taptime-operator-db-login > "$TEST_ROOT/trace-output" 2>&1
+new_url="$(sed -n 's/^TAPTIME_OPERATOR_DATABASE_URL=//p' "$TAPTIME_OPERATOR_ENV_FILE")"
+password="${new_url#*:}"; password="${password#*:}"; password="${password%%@*}"
+grep -Fq "$password" "$TEST_ROOT/trace-output" "$TEST_ROOT/argv.log" "$TEST_ROOT/pg/server.log" && exit 1
+unset password new_url
+printf 'Operator tools: all checks passed.\n' 

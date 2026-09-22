@@ -45,6 +45,8 @@ const supabaseIssuer = requiredEnvironmentValue('SUPABASE_ISSUER');
 const clientAddressMode = readClientAddressMode(process.env.TAPTIME_CLIENT_ADDRESS_MODE);
 const port = parsePort(process.env.PORT ?? '3000');
 const runtime = createBackendApiRuntime({
+  operatorDatabaseUrl: process.env.TAPTIME_OPERATOR_DATABASE_URL,
+  operatorVersion: process.env.TAPTIME_VERSION,
   sessionDatabaseUrl,
   readModelDatabaseUrl,
   lifecycleDatabaseUrl,
@@ -67,6 +69,7 @@ const runtime = createBackendApiRuntime({
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   employeeInvitationRedirectUrl: process.env.TAPTIME_EMPLOYEE_INVITATION_REDIRECT_URL,
 }, {
+  operatorHost: process.env.TAPTIME_OPERATOR_HOST,
   clientAddressMode,
   onDiagnostic: createBackendApiDiagnosticLogSink(),
 });

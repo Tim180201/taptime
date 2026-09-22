@@ -9,14 +9,16 @@ export type AccountInvitationResult = { readonly status: 'succeeded' | 'succeede
 export interface AccountInvitationDiagnostic {
   readonly code: 'account_invitation_provider_request' | 'account_invitation_needs_attention';
   readonly correlationId: string;
-  readonly organizationId: string;
-  readonly administratorMembershipId: string;
+  readonly organizationId?: string;
+  readonly administratorMembershipId?: string;
+  readonly operatorId?: string;
   readonly targetAccount: string;
 }
 export interface AccountInvitationContext {
   readonly correlationId: string;
-  readonly organizationId: string;
-  readonly administratorMembershipId: string;
+  readonly organizationId?: string;
+  readonly administratorMembershipId?: string;
+  readonly operatorId?: string;
   readonly deadlineEpochMilliseconds: number;
 }
 export type SupabaseInvitationResult = { readonly status: 'invited'; readonly subject: string }
@@ -100,6 +102,7 @@ export class SupabaseAccountInviter {
     this.#diagnostic({ code: 'account_invitation_needs_attention',
       correlationId: context.correlationId, organizationId: context.organizationId,
       administratorMembershipId: context.administratorMembershipId,
+      ...(context.operatorId === undefined ? {} : { operatorId: context.operatorId }),
       targetAccount: subject ?? emailFingerprint(email) });
   }
 
@@ -109,7 +112,8 @@ export class SupabaseAccountInviter {
     // Log BEFORE every use; a failing diagnostic sink prevents the credential use.
     this.#diagnostic({ code: 'account_invitation_provider_request',
       correlationId: context.correlationId, organizationId: context.organizationId,
-      administratorMembershipId: context.administratorMembershipId, targetAccount: emailFingerprint(email) });
+      administratorMembershipId: context.administratorMembershipId,
+      ...(context.operatorId === undefined ? {} : { operatorId: context.operatorId }), targetAccount: emailFingerprint(email) });
     const response = await this.#fetch(`${this.issuer}${path}`, {
       method: body === undefined ? 'GET' : 'POST',
       headers: { apikey: this.#key, Authorization: `Bearer ${this.#key}`, 'Content-Type': 'application/json' },
@@ -137,6 +141,10 @@ export function normalizeInvitationEmail(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const email = value.trim().toLowerCase();
   return email.length <= 254 && /^[^\s@<>\x00-\x1f\x7f]+@[^\s@<>\x00-\x1f\x7f]+\.[^\s@<>\x00-\x1f\x7f]+$/.test(email) ? email : null;
+}
+/** Both account-creation paths must lock the same normalized email in PostgreSQL. */
+export function accountInvitationEmailHash(normalizedEmail: string): Buffer {
+  return createHash('sha256').update(normalizedEmail).digest();
 }
 function emailFingerprint(email: string): string {
   return createHash('sha256').update('taptime:invitation-email:v1\0').update(email).digest('hex');

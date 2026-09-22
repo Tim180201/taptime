@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+set +x
+set -euo pipefail
+umask 077
+fail() { printf '%s\n' "$1" >&2; exit 1; }
+[[ "$EUID" == 0 ]] || fail 'Dieses Werkzeug benötigt root.'
+readonly ENV_FILE="${TAPTIME_OPERATOR_ENV_FILE:-/opt/taptime/.env}"
+readonly PROJECT="${TAPTIME_OPERATOR_PROJECT:-taptime-prod}"
+[[ "$PROJECT" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || fail 'Ungültiges Compose-Projekt.'
+[[ -f "$ENV_FILE" && ! -L "$ENV_FILE" && "$(stat -c '%u:%g:%a' "$ENV_FILE")" == 0:0:600 ]] ||
+  fail 'Die Konfiguration muss eine reguläre Datei mit root:root und 0600 sein.'
+exec {lock_fd}>"${TAPTIME_OPERATOR_LOCK_FILE:-/run/lock/taptime-operator.lock}"
+flock -n "$lock_fd" || fail 'Ein Betreiber-Werkzeug läuft bereits.'
+# Parse data, never source/eval server configuration. Duplicate keys fail closed,
+# including unrelated keys: Compose and the backend must see one unambiguous file.
+declare -A config=()
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+  [[ "$line" =~ ^([A-Z_][A-Z_0-9]*)=(.*)$ && "$line" != *$'\r'* ]] || fail 'Ungültige Konfigurationszeile.'
+  key="${BASH_REMATCH[1]}"; value="${BASH_REMATCH[2]}"
+  [[ ! -v "config[$key]" ]] || fail 'Doppelter Konfigurationsschlüssel.'
+  if [[ "$value" == \"*\" || "$value" == \'*\' ]]; then value="${value:1:${#value}-2}"; fi
+  config["$key"]="$value"
+done < "$ENV_FILE"
+unset line key value
+container_for() {
+  local container
+  container="$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=$1")"
+  [[ "$container" =~ ^[a-z0-9]+$ ]] || return 1
+  printf '%s\n' "$container"
+}
+DATABASE_CONTAINER="$(container_for database)" || fail 'Genau ein laufender Datenbank-Container wird benötigt.'
+readonly DATABASE_CONTAINER
+rotate=false
+case "$#:${1:-}" in 0:) ;; 1:--rotate) rotate=true ;; *) fail 'Aufruf: taptime-operator-db-login [--rotate]' ;; esac
+readonly COMPOSE_FILE="${TAPTIME_OPERATOR_COMPOSE_FILE:-/opt/taptime/source/infrastructure/docker-compose.server.yml}"
+session_url="${config[TAPTIME_SESSION_DATABASE_URL]:-}"
+# The installed Compose database is deliberately fixed. Do not change credentials
+# in one database while pointing the backend at another host, database or option.
+[[ "$session_url" =~ ^postgresql://[^/@:]+:[^/@]+@database:5432/taptime$ ]] ||
+  fail 'Der Sitzungszugang passt nicht zur installierten Compose-Datenbank.'
+operator_url="${config[TAPTIME_OPERATOR_DATABASE_URL]:-}"
+if [[ -v config[TAPTIME_OPERATOR_DATABASE_URL] ]]; then
+  [[ "$operator_url" =~ ^postgresql://taptime_operator_runtime:[^/@]+@database:5432/taptime$ ]] ||
+    fail 'Der vorhandene Betreiber-Zugang weicht von der erwarteten Konfiguration ab.'
+  [[ "$rotate" == true ]] || fail 'Der Betreiber-Zugang existiert bereits; Rotation verlangt --rotate.'
+fi
+unset session_url operator_url config
+BACKEND_CONTAINER="$(container_for backend-api)" || fail 'Genau ein laufender Backend-Container wird benötigt.'
+image="$(docker inspect --format '{{.Config.Image}}' "$BACKEND_CONTAINER")"
+[[ "$image" =~ ^ghcr.io/tim180201/taptime-backend-api:([0-9a-f]{7})$ ]] || fail 'Die laufende Backend-Version ist nicht eindeutig.'
+readonly VERSION="${BASH_REMATCH[1]}"
+stage="$(mktemp -d "${ENV_FILE%/*}/.operator-login.XXXXXX")"
+env_written=false
+committed=false
+sql_pid=''
+sql_read=''
+sql_write=''
+# Closing an uncommitted psql session rolls PostgreSQL back. The old environment
+# remains in place until the prepared SQL transaction and staged file are ready.
+# shellcheck disable=SC2317,SC2329
+cleanup() {
+  if [[ -n "$sql_write" ]]; then
+    if [[ "$committed" == false ]]; then printf 'ROLLBACK;\n' 1>&"$sql_write" 2>/dev/null || true; fi
+    exec {sql_write}>&-
+  fi
+  if [[ -n "$sql_read" ]]; then exec {sql_read}<&-; fi
+  if [[ -n "$sql_pid" ]]; then wait "$sql_pid" 2>/dev/null || true; fi
+  if [[ "$env_written" == true && "$committed" == false ]]; then
+    /bin/mv -f -- "$stage/original" "$ENV_FILE" || printf 'Konfiguration bitte mit --rotate abgleichen.\n' >&2
+  fi
+  rm -rf -- "$stage"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
+cp --preserve=mode,ownership -- "$ENV_FILE" "$stage/original"
+password="$(od -An -v -N32 -tx1 /dev/urandom | tr -d ' \n')"
+[[ "$password" =~ ^[0-9a-f]{64}$ ]] || fail 'Passworterzeugung fehlgeschlagen.'
+# Builtin printf: neither the password nor the URL is ever a process argument.
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ "$line" == TAPTIME_OPERATOR_DATABASE_URL=* ]] || printf '%s\n' "$line"
+done < "$ENV_FILE" > "$stage/environment"
+printf 'TAPTIME_OPERATOR_DATABASE_URL=postgresql://taptime_operator_runtime:%s@database:5432/taptime\n' "$password" >> "$stage/environment"
+chmod 600 "$stage/environment"
+chown root:root "$stage/environment"
+# No secret enters argv, environment, client diagnostics or server statement logs.
+# One live transaction spans preparing the role and atomically replacing .env.
+coproc SQL { docker exec -i --user postgres "$DATABASE_CONTAINER" psql -XqAt --dbname=taptime --set ON_ERROR_STOP=on 2>/dev/null; }
+# Bash assigns SQL_PID when starting the named coprocess.
+# shellcheck disable=SC2153
+sql_pid="$SQL_PID"
+exec {sql_read}<&"${SQL[0]}"
+exec {sql_write}>&"${SQL[1]}"
+original_read="${SQL[0]}"; exec {original_read}<&-
+original_write="${SQL[1]}"; exec {original_write}>&-
+printf '%s\n' "BEGIN;
+SET LOCAL log_statement='none';
+SET LOCAL log_min_error_statement='panic';
+SET LOCAL log_min_duration_statement=-1;
+SET LOCAL log_min_duration_sample=-1;
+SET LOCAL log_duration=off;
+SET LOCAL track_activities=off;
+SET LOCAL statement_timeout='15s';
+SET LOCAL lock_timeout='10s';
+SET LOCAL idle_in_transaction_session_timeout='30s';
+SET LOCAL password_encryption='scram-sha-256';
+DO \$login\$
+BEGIN
+  IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='taptime_platform_operator'
+    AND NOT (rolcanlogin OR rolsuper OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication OR rolinherit)) THEN
+    RAISE EXCEPTION 'Operator capability missing or unsafe';
+  END IF;
+  IF EXISTS(SELECT FROM pg_roles WHERE rolname='taptime_operator_runtime') THEN
+    IF NOT $rotate THEN RAISE EXCEPTION 'Login already exists'; END IF;
+    IF EXISTS(SELECT FROM pg_roles WHERE rolname='taptime_operator_runtime'
+      AND (NOT rolcanlogin OR rolsuper OR rolinherit OR rolbypassrls OR rolcreatedb OR rolcreaterole OR rolreplication))
+      OR (SELECT count(*) FROM pg_auth_members WHERE member='taptime_operator_runtime'::regrole)<>1
+      OR NOT EXISTS(SELECT FROM pg_auth_members WHERE member='taptime_operator_runtime'::regrole
+        AND roleid='taptime_platform_operator'::regrole AND NOT inherit_option AND set_option AND NOT admin_option) THEN
+      RAISE EXCEPTION 'Existing login has unexpected privileges';
+    END IF;
+    ALTER ROLE taptime_operator_runtime PASSWORD '$password';
+  ELSE
+    CREATE ROLE taptime_operator_runtime LOGIN NOINHERIT NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '$password';
+    GRANT taptime_platform_operator TO taptime_operator_runtime WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;
+  END IF;
+END \$login\$;
+\echo T068A_READY" >&"$sql_write"
+unset password line
+if ! IFS= read -r -t 30 -u "$sql_read" marker || [[ "$marker" != T068A_READY ]]; then fail 'Datenbank-Vorbereitung fehlgeschlagen; keine Konfigurationsänderung.'; fi
+cmp -s "$ENV_FILE" "$stage/original" || fail 'Die Konfiguration wurde zwischenzeitlich geändert.'
+mv -f -- "$stage/environment" "$ENV_FILE" || fail 'Konfiguration nicht geschrieben; Datenbankänderung wird zurückgenommen.'
+env_written=true
+printf 'COMMIT;\n\\echo T068A_COMMITTED\n' >&"$sql_write"
+if ! IFS= read -r -t 30 -u "$sql_read" marker || [[ "$marker" != T068A_COMMITTED ]]; then fail 'Datenbank-Abschluss unklar; Zugang ausdrücklich mit --rotate abgleichen.'; fi
+committed=true
+# Recreate only this service so env_file is re-read; keep the currently running image.
+TAPTIME_VERSION="$VERSION" docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" --file "$COMPOSE_FILE"   up -d --no-deps --pull never --force-recreate backend-api >/dev/null 2>&1 ||
+  fail 'Zugang gespeichert; Backend-Neustart fehlgeschlagen. Mit --rotate erneut abgleichen.'
+BACKEND_CONTAINER="$(container_for backend-api)" || fail 'Backend nach Neustart nicht gefunden.'
+if ! docker exec -i "$BACKEND_CONTAINER" node --input-type=module >/dev/null 2>&1 <<'NODE'
+import { readFileSync } from 'node:fs';
+import { setTimeout } from 'node:timers/promises';
+const headers = {
+  'x-taptime-proxy-secret': readFileSync('/run/secrets/taptime_proxy_shared_secret', 'utf8'),
+  'x-forwarded-for': '127.0.0.1',
+  'x-forwarded-host': process.env.TAPTIME_OPERATOR_HOST ?? 'betreiber.tb-infra.de',
+};
+for (let attempt = 0; attempt < 10; attempt++) {
+  try {
+    const response = await fetch(`http://127.0.0.1:${process.env.PORT ?? 3000}/v1/operator/session`,
+      { headers, signal: AbortSignal.timeout(2000), redirect: 'error' });
+    const body = await response.json();
+    // Without a JWT, 401 proves the optional operator coordinator is configured.
+    if (response.status === 401 && body.error?.code === 'unauthorized') process.exit(0);
+  } catch { /* startup may still be in progress */ }
+  await setTimeout(1000);
+}
+process.exit(1);
+NODE
+then fail 'Zugang gespeichert; Betreiber-Session noch nicht bereit. Mit --rotate erneut abgleichen.'; fi
+printf 'Betreiber-Datenbankzugang eingerichtet; Backend-Session geprüft.\n'

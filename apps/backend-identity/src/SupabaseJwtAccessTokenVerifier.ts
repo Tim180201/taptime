@@ -120,6 +120,7 @@ export class SupabaseJwtAccessTokenVerifier implements AccessTokenVerifier {
 
       return {
         status: 'verified',
+        aal: payload.aal,
         identity: Object.freeze({ issuer: this.issuer, subject: payload.sub }),
       };
     } catch (error) {

@@ -43,6 +43,8 @@ export class MobileSessionCoordinator implements
   MobileSessionCapability,
   AuthenticatedRequestCapability {
   private state: MobileSessionState = Object.freeze({ status: 'initializing' });
+  private pausedOrganization = false;
+  private pauseRevision = 0;
   private readonly listeners = new Set<() => void>();
   private started = false;
   private expiredColdStartGeneration: number | null = null;
@@ -83,6 +85,16 @@ export class MobileSessionCoordinator implements
 
   getState(): MobileSessionState {
     return this.state;
+  }
+
+  organizationPaused(accessToken: string): void {
+    if (this.accessToken !== accessToken || !this.providerSessionAllowed) return;
+    this.pausedOrganization = true;
+    this.pauseRevision += 1;
+    this.offlineCaptureRestorationAllowed = false;
+    this.offlineRestorationRevision += 1;
+    this.contextUnavailableSource = null;
+    this.setState({ status: 'context_unavailable', organizationPaused: true });
   }
 
   captureAuthenticatedSessionSnapshot(): InternalAuthenticatedSessionSnapshot | null {
@@ -752,16 +764,19 @@ export class MobileSessionCoordinator implements
     generation: number,
     tokenRevision: number,
   ): Promise<SignInResult> {
+    const pauseRevision = this.pauseRevision;
+    const contextIsCurrent = () => generation === this.generation
+      && tokenRevision === this.tokenRevision && pauseRevision === this.pauseRevision;
     let result;
     try {
       result = await this.backendSession.resolve(accessToken);
     } catch {
-      if (generation === this.generation && tokenRevision === this.tokenRevision) {
+      if (contextIsCurrent()) {
         this.publishBackendContextUnavailable();
       }
       return { status: 'context_unavailable' };
     }
-    if (generation !== this.generation || tokenRevision !== this.tokenRevision) {
+    if (!contextIsCurrent()) {
       return { status: 'infrastructure_error' };
     }
     if (result.status === 'resolved') {
@@ -772,9 +787,10 @@ export class MobileSessionCoordinator implements
         if (generation === this.generation) await this.handleStorageFailure();
         return { status: 'infrastructure_error' };
       }
-      if (generation !== this.generation || tokenRevision !== this.tokenRevision) {
+      if (!contextIsCurrent()) {
         return { status: 'infrastructure_error' };
       }
+      this.pausedOrganization = false;
       this.confirmedIdentity = identity;
       this.offlineCredentialsChanged = false;
       this.enrollmentIntentGeneration = null;
@@ -783,6 +799,10 @@ export class MobileSessionCoordinator implements
       this.contextUnavailableSource = null;
       this.setState({ status: 'authenticated', session: result.session });
       return { status: 'authenticated' };
+    }
+    if (result.status === 'organization_paused') {
+      this.organizationPaused(accessToken);
+      return { status: 'context_unavailable' };
     }
     if (result.status === 'unavailable') {
       this.publishBackendContextUnavailable();
@@ -883,6 +903,7 @@ export class MobileSessionCoordinator implements
   }
 
   private invalidateInMemorySession(): number {
+    this.pausedOrganization = false;
     this.generation += 1;
     this.expiredColdStartGeneration = null;
     this.offlineCredentialsChanged = false;
@@ -957,6 +978,7 @@ export class MobileSessionCoordinator implements
   }
 
   private setState(state: MobileSessionState): void {
+    if (state.status === 'context_unavailable' && this.pausedOrganization) state = { ...state, organizationPaused: true };
     this.state = Object.freeze((state.status === 'authenticated' || state.status === 'context_unavailable')
       && this.confirmedIdentity !== null ? { ...state, identityLabel: this.confirmedIdentity.email } : state);
     for (const listener of this.listeners) {

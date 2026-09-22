@@ -246,8 +246,14 @@ it('migration 027: upgrades a populated 026 database without rewriting existing 
   const tables = ['organizations', 'memberships', 'customers', 'work_targets', 'locations',
     'work_target_location_assignments', 'membership_management_location_grants', 'nfc_tags', 'nfc_assignments',
     'admin_setup_command_receipts', 'audit_events'];
-  const snapshot = async () => Promise.all(tables.map(async table => (await pool.query(
-    `SELECT to_jsonb(r) - 'actor_membership_role' AS row FROM taptime_server.${table} r ORDER BY to_jsonb(r)::text`,
+  // Compare the columns that existed before the upgrade; additive migrations may
+  // introduce new defaults without rewriting any of the original values.
+  const columns = await Promise.all(tables.map(async table => (await pool.query<{column_name:string}>(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema='taptime_server'
+      AND table_name=$1 ORDER BY ordinal_position`,[table],
+  )).rows.map(row => `"${row.column_name.replaceAll('"','""')}"`).join(',')));
+  const snapshot = async () => Promise.all(tables.map(async (table,index) => (await pool.query(
+    `SELECT to_jsonb(r) AS row FROM (SELECT ${columns[index]} FROM taptime_server.${table}) r ORDER BY to_jsonb(r)::text`,
   )).rows));
   const before = await snapshot();
   const result = await migrate(pool);

@@ -82,6 +82,8 @@ printf 'PostgreSQL volume-state evidence: invalid state fails without a compose 
 BROKEN_OPERATIONS_RELEASE="$TEST_ROOT/broken-operations"
 readonly BROKEN_OPERATIONS_RELEASE
 mkdir -p "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin"
+printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-operator-grant"
+printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-operator-db-login"
 printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-backup"
 printf '#!/usr/bin/env bash\nif (\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-restore-verify"
 printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-immediate-monitor"

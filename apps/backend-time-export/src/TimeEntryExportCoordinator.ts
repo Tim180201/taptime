@@ -1,3 +1,4 @@
+import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
@@ -319,10 +320,11 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
           schemaVersion,
         ),
       });
-    } catch {
+    } catch (error) {
       if (transactionOpen) {
         await rollbackPreservingOriginalError(client);
       }
+      if (isOrganizationPausedError(error)) throw error;
       return { status: 'service_unavailable' };
     } finally {
       client.off('error', recordConnectionFailure);

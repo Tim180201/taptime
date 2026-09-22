@@ -4,6 +4,7 @@ export const REQUEST_RATE_LIMIT_POLICIES = {
   enrollment_redemption: 5,
   employee_account_invitation: 3,
   general_api: 300,
+  operator_api: 30,
 } as const;
 export type RequestRateLimitScope = keyof typeof REQUEST_RATE_LIMIT_POLICIES;
 

@@ -1,3 +1,4 @@
+import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isAdministrationStopRequest, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
@@ -83,6 +84,12 @@ import {
 // Shared registration for dispatch and request protection. Health alone bypasses the API budget.
 export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
+  '/v1/operator/session': 'operator_session',
+  '/v1/operator/overview': 'operator_overview',
+  '/v1/operator/organizations/create': 'operator_create',
+  '/v1/operator/organizations/status': 'operator_status',
+  '/v1/operator/audit': 'operator_audit',
+  '/v1/operator/health': 'operator_health',
   '/v1/time-records/stop': 'administration_stop',
   '/v1/time-records/backfill': 'time_backfill',
   '/v1/time-records/comment': 'time_comment',
@@ -165,6 +172,10 @@ const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 const isoTimestampPattern = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 type ErrorCode =
+  | 'operator_not_configured'
+  | 'organization_paused'
+  | 'mfa_required'
+  | 'identity_unavailable'
   | AccountInvitationFailure
   | 'assignment_conflict'
   | 'assignment_in_use'
@@ -203,6 +214,7 @@ type ErrorCode =
 type Route = BackendApiRoute;
 
 export interface BackendHttpServerOptions {
+  readonly operatorHost?: string;
   readonly clientAddressMode?:
     | { readonly mode: 'direct' }
     | { readonly mode: 'trusted_proxy'; readonly sharedSecret: string };
@@ -237,7 +249,10 @@ export function createBackendHttpServer(
       clientAddress,
       rateLimiter,
     )
-      .catch(() => {
+      .catch((error: unknown) => {
+        if (isOrganizationPausedError(error)) {
+          request.resume(); respondError(response, 403, 'organization_paused'); return;
+        }
         const route = requestRoute(request.url);
         const code = diagnosticCodeForRoute(route);
         if (code !== null) {
@@ -315,9 +330,16 @@ async function handleRequest(
     respondError(response, 404, 'not_found');
     return;
   }
+  if (route.startsWith('operator_')) {
+    const hosts = rawHeaderValues(request,'x-forwarded-host');
+    if (hosts.length !== 1 || hosts[0] !== (options.operatorHost ?? 'betreiber.tb-infra.de')) {
+      request.resume(); respondError(response,404,'not_found'); return;
+    }
+    if (!dependencies.operator) { request.resume(); respondError(response,503,'operator_not_configured'); return; }
+  }
   options = optionsWithDiagnosticRoute(options, route);
 
-  const expectedMethod = route === 'health' || route === 'session' || route === 'session_v2'
+  const expectedMethod = route === 'health' || route === 'operator_session' || route === 'session' || route === 'session_v2'
     ? 'GET'
     : 'POST';
   if (request.method !== expectedMethod) {
@@ -352,13 +374,13 @@ async function handleRequest(
     return;
   }
 
-  if ((route === 'health' || route === 'session' || route === 'session_v2')
+  if ((route === 'health' || route === 'operator_session' || route === 'session' || route === 'session_v2')
     && requestHasBody(request)) {
     request.resume();
     respondError(response, 400, 'invalid_request');
     return;
   }
-  if (route !== 'health' && route !== 'session' && route !== 'session_v2'
+  if (route !== 'health' && route !== 'operator_session' && route !== 'session' && route !== 'session_v2'
     && !hasValidJsonBodyHeaders(request)) {
     response.setHeader('Connection', 'close');
     request.resume();
@@ -378,6 +400,13 @@ async function handleRequest(
     return;
   }
 
+  if (route === 'operator_session') {
+    const result = await dependencies.operator!.execute(accessToken,'session',{});
+    respondOperatorResult(response,result); return;
+  }
+  // Uniform gate also covers legacy routes that reject their payload before resolving authority.
+  // Each operation still resolves/locks its own authority inside its database transaction.
+  if (!route.startsWith('operator_')) await dependencies.checkTenantAccess?.(accessToken);
   if (route === 'session') {
     await handleSession(
       response,
@@ -422,6 +451,11 @@ async function handleRequest(
     return;
   }
 
+  if (route.startsWith('operator_')) {
+    const result = await dependencies.operator!.execute(accessToken,route.slice(9) as import('./OperatorCoordinator.js').OperatorAction,body);
+    respondOperatorResult(response,result); return;
+  }
+
   if (route === 'administration_stop') {
     if (!isAdministrationStopRequest(body)) { respondError(response,400,'invalid_request'); return; }
     try {
@@ -429,7 +463,10 @@ async function handleRequest(
       const result=await withTimeout(dependencies.administrationStop.execute(accessToken,body),timeoutMilliseconds);
       respondJson(response,result.status==='committed'?200:result.status==='authority_rejected'?403
         :result.status==='unavailable'?503:result.status==='conflict'||result.status==='command_id_conflict'?409:422,result);
-    } catch { respondError(response,503,'service_unavailable'); }
+    } catch (error) {
+      if (isOrganizationPausedError(error)) { respondError(response,403,'organization_paused'); return; }
+      respondError(response,503,'service_unavailable');
+    }
     return;
   }
   if (route === 'time_backfill' || route === 'time_comment') {
@@ -440,7 +477,10 @@ async function handleRequest(
       if (!dependencies.timeSupplement) { respondError(response,503,'service_unavailable'); return; }
       const result=await withTimeout(dependencies.timeSupplement.execute(accessToken,route==='time_backfill'?'backfill':'comment',body),timeoutMilliseconds);
       respondJson(response,result.status==='committed'?200:result.status==='authority_rejected'?403:result.status==='unavailable'?503:422,result);
-    } catch { respondError(response,503,'service_unavailable'); }
+    } catch (error) {
+      if (isOrganizationPausedError(error)) { respondError(response,403,'organization_paused'); return; }
+      respondError(response,503,'service_unavailable');
+    }
     return;
   }
   if (route === 'mobile_own_time') {
@@ -965,7 +1005,8 @@ async function handleSession(
       const { userId, membershipId, organizationId, role } = resolution.session;
       respondJson(response, 200, { userId, membershipId, organizationId, role });
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'session_resolution_failed',
       correlationId,
@@ -995,7 +1036,8 @@ async function handleAdministrationSession(
       return;
     }
     respondJson(response, 200, resolution.session);
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'session_resolution_failed',
       correlationId,
@@ -1029,7 +1071,8 @@ async function handleMobileOwnTime(
       timeoutMilliseconds,
     );
     respondMobileReadResult(response, result);
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'mobile_work_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -1059,7 +1102,8 @@ async function handleMobileWorkTargets(
       timeoutMilliseconds,
     );
     respondMobileReadResult(response, result);
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'mobile_work_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -1113,7 +1157,8 @@ async function handleManualLifecycle(
       case 'rejected': respondError(response, 401, 'unauthorized'); return;
       default: return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'lifecycle_ingestion_failed',
       correlationId,
@@ -1162,7 +1207,8 @@ async function handleManualBreakLifecycle(
       case 'rejected': respondError(response, 401, 'unauthorized'); return;
       default: return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'lifecycle_ingestion_failed',
       correlationId,
@@ -1195,7 +1241,8 @@ async function handleProjectQuery(
       timeoutMilliseconds,
     );
     respondMobileReadResult(response, result);
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'administration_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -1275,7 +1322,8 @@ async function handleProjectMutation(
       case 'stale_row_version': respondError(response, 409, 'stale_row_version'); return;
       default: return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'administration_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -1348,7 +1396,8 @@ async function handleAssignableLocations(
       case 'forbidden': respondError(response, 403, 'forbidden'); return;
       default: return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'administration_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -1420,7 +1469,8 @@ async function handleLocationSetupMutation(
       case 'stale_row_version': respondError(response, 409, result.status); return;
       default: return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'administration_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -1737,7 +1787,8 @@ async function handleTimeEntryExport(
       default:
         return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'time_entry_export_failed',
       correlationId,
@@ -1892,7 +1943,8 @@ async function handleTimeReviewRead<Value>(
       case 'unavailable': respondError(response, 503, 'service_unavailable'); return;
       default: return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'time_review_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -1924,7 +1976,8 @@ async function handleTimeReviewWrite<Value>(
       case 'unavailable': respondError(response, 503, 'service_unavailable'); return;
       default: return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'time_review_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -2069,7 +2122,8 @@ async function handleEmployeeEnrollmentRedemption(
       default:
         return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, { code: 'employee_enrollment_failed', correlationId });
     respondError(response, 503, 'service_unavailable');
   }
@@ -2212,7 +2266,8 @@ async function handleAdministrationOperation<Result extends { readonly status: s
       default:
         throw new Error('Administration coordinator returned an unsupported result');
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'administration_failed',
       correlationId,
@@ -2263,7 +2318,8 @@ async function handleScanContext(
       return;
     }
     respondJson(response, 200, resolution.context);
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'scan_context_resolution_failed',
       correlationId,
@@ -2311,7 +2367,8 @@ async function handleLifecycle(
       default:
         return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'lifecycle_ingestion_failed',
       correlationId,
@@ -2354,7 +2411,8 @@ async function handleDeferredLifecycle(
       default:
         return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitDiagnostic(options.onDiagnostic, {
       code: 'lifecycle_ingestion_failed',
       correlationId,
@@ -2419,7 +2477,8 @@ async function handleOfflineCaptureLease(
       default:
         return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitOfflineDiagnostic(options.onDiagnostic, correlationId);
     respondError(response, 503, 'service_unavailable');
   }
@@ -2481,7 +2540,8 @@ async function handleOfflineCaptureLeasePage(
       default:
         return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitOfflineDiagnostic(options.onDiagnostic, correlationId);
     respondError(response, 503, 'service_unavailable');
   }
@@ -2541,7 +2601,8 @@ async function handleOfflineLifecycle(
       default:
         return responseResult satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitOfflineDiagnostic(options.onDiagnostic, correlationId);
     respondError(response, 503, 'service_unavailable');
   }
@@ -2599,7 +2660,8 @@ async function handleOfflineReconciliation(
       default:
         return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitOfflineDiagnostic(options.onDiagnostic, correlationId);
     respondError(response, 503, 'service_unavailable');
   }
@@ -2633,7 +2695,8 @@ async function handleOfflineReviewState(
       case 'unavailable': respondError(response, 503, 'service_unavailable'); return;
       default: return result satisfies never;
     }
-  } catch {
+  } catch (error) {
+    if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
     emitOfflineDiagnostic(options.onDiagnostic, correlationId);
     respondError(response, 503, 'service_unavailable');
   }
@@ -2647,6 +2710,9 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
   switch (route) {
     case 'health':
       return null;
+    case 'operator_session': case 'operator_overview': case 'operator_create':
+    case 'operator_status': case 'operator_audit': case 'operator_health':
+      return 'operator_failed';
     case 'admin_create_customer':
     case 'admin_create_employee_account_invitation':
     case 'admin_create_employee_invitation':
@@ -2837,6 +2903,7 @@ export function requestRateLimitScope(requestUrl: string | undefined): RequestRa
   if (route === 'health') {
     return null;
   }
+  if (route?.startsWith('operator_')) return 'operator_api';
   if (route === 'admin_create_employee_account_invitation') return 'employee_account_invitation';
   if (route === 'employee_enrollment_redeem') {
     return 'enrollment_redemption';
@@ -3862,4 +3929,14 @@ function negotiatedLifecycleResult<T>(value: T, includeTimeDetails: boolean): T 
         ? 'work_event_precedes_previous_accepted_work_event' : map(value)]));
   };
   return map(value) as T;
+}
+
+function respondOperatorResult(response: ServerResponse, result: Record<string,unknown> & {status:string}): void {
+  if (['active','succeeded'].includes(result.status) || (result.status==='mfa_required' && result.aal==='aal1')) {
+    respondJson(response,200,result); return;
+  }
+  const status = result.status==='unauthorized'?401 : ['forbidden','mfa_required'].includes(result.status)?403
+    : result.status==='not_found'?404 : ['conflict','command_id_conflict','identity_unavailable'].includes(result.status)?409
+    : result.status==='invitation_rate_limited'?429 : ['invalid_request','invalid_email'].includes(result.status)?400:503;
+  respondJson(response,status,{error:{code:result.status}});
 }

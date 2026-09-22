@@ -49,6 +49,9 @@ jobs:
             infrastructure/deploy \
             infrastructure/operations/taptime-bootstrap \
             infrastructure/operations/taptime-status \
+            infrastructure/operations/taptime-operator-grant \
+            infrastructure/operations/taptime-operator-db-login \
+            infrastructure/tests/taptime-operator-tools.test \
             infrastructure/tests/taptime-deploy.test \
             infrastructure/tests/taptime-deploy-hardening.test \
             infrastructure/tests/taptime-status.test \
@@ -86,6 +89,7 @@ jobs:
           bash infrastructure/tests/taptime-restore-retention.test
           bash infrastructure/tests/taptime-restore-activate.test
           bash infrastructure/tests/taptime-wal-archiver.test
+          bash infrastructure/tests/taptime-operator-tools.test
           bash infrastructure/tests/taptime-operations-install.test
           bash infrastructure/tests/taptime-bootstrap.test
           bash infrastructure/tests/taptime-backup.test

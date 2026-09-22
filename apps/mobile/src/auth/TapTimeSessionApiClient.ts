@@ -1,3 +1,4 @@
+import { isOrganizationPausedResponse, readBoundedResponseText } from '../transport/AuthenticatedHttpRequestExecutor';
 import type {
   BackendSessionPort,
   BackendSessionResolution,
@@ -52,6 +53,9 @@ export class TapTimeSessionApiClient implements BackendSessionPort {
       }
       if (response.status === 401) {
         return { status: 'authority_rejected' };
+      }
+      if (response.status === 403 && isOrganizationPausedResponse(403, await readBoundedResponseText(response, 4096))) {
+        return { status: 'organization_paused' };
       }
       if (response.status !== 200) {
         return { status: 'unavailable' };

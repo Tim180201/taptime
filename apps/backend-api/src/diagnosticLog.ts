@@ -32,6 +32,7 @@ function invitationFields(diagnostic: BackendApiDiagnostic) {
     ...(uuid.test(diagnostic.organizationId ?? '') ? { organization_id: diagnostic.organizationId } : {}),
     ...(uuid.test(diagnostic.administratorMembershipId ?? '')
       ? { administrator_membership_id: diagnostic.administratorMembershipId } : {}),
+    ...(uuid.test(diagnostic.operatorId ?? '') ? { operator_id: diagnostic.operatorId } : {}),
     ...(uuid.test(target) || /^[0-9a-f]{64}$/.test(target) ? { target_account: target } : {}),
   };
 }

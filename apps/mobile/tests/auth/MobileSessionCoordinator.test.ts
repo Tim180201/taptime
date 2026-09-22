@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MobileSessionCoordinator } from '../../src/auth/MobileSessionCoordinator';
+import { AuthenticatedHttpRequestExecutor } from '../../src/transport/AuthenticatedHttpRequestExecutor';
 import type {
   BackendSessionPort,
   BackendSessionResolution,
@@ -203,6 +204,48 @@ function setup(storedRefreshToken: string | null = null) {
 }
 
 describe('MobileSessionCoordinator', () => {
+  it('T068a ignores an older successful context response after a newer pause signal', async () => {
+    const { coordinator, backend, store, provider } = setup();
+    await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+    const pending = deferred<BackendSessionResolution>();
+    backend.implementation = () => pending.promise;
+    const refresh = coordinator.refresh();
+    await vi.waitFor(() => expect(backend.accessTokens).toContain('rotated-access'));
+    const clearsBefore = store.clearCalls;
+    coordinator.organizationPaused('rotated-access');
+    expect(coordinator.getState()).toMatchObject({status:'context_unavailable',organizationPaused:true});
+    pending.resolve({status:'resolved',session:productSession});
+    await refresh;
+    expect(coordinator.getState()).toMatchObject({status:'context_unavailable',organizationPaused:true});
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(false);
+    expect(store.clearCalls).toBe(clearsBefore);
+    expect(provider.signOutCalls).toBe(0);
+    backend.implementation = async () => ({status:'resolved',session:productSession});
+    await coordinator.retryContext();
+    expect(coordinator.getState().status).toBe('authenticated');
+  });
+
+  it('T068a retains credentials, blocks capture during a pause and restores the session after resuming', async () => {
+    const { coordinator, provider, store, backend } = setup();
+    await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+    const clearedBefore = store.clearCalls;
+    const tokenBefore = store.value;
+    const executor = new AuthenticatedHttpRequestExecutor(coordinator,
+      async () => Response.json({ error: { code: 'organization_paused' } }, { status: 403 }));
+    expect(await executor.post(new URL('https://api.example/v4/lifecycle-events/offline'), '{}'))
+      .toEqual({ status: 'transient_failure' });
+    expect(coordinator.getState()).toMatchObject({ status: 'context_unavailable', organizationPaused: true });
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(false);
+    expect(store.value).toBe(tokenBefore);
+    expect(store.clearCalls).toBe(clearedBefore);
+    expect(provider.signOutCalls).toBe(0);
+    backend.implementation = async () => ({ status: 'unavailable' });
+    await coordinator.retryContext();
+    expect(coordinator.getState()).toMatchObject({ organizationPaused: true });
+    backend.implementation = async () => ({ status: 'resolved', session: productSession });
+    await coordinator.retryContext();
+    expect(coordinator.getState()).toMatchObject({ status: 'authenticated', session: productSession });
+  });
   it('requests reset with the single allowlisted app return and strictly consumes recovery URLs', async () => {
     const { coordinator, provider, store, backend } = setup();
     await expect(coordinator.requestPasswordReset('employee@example.invalid'))

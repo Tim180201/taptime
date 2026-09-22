@@ -1,3 +1,4 @@
+import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
@@ -23,7 +24,8 @@ export class AdministrationStopCoordinator {
       const actors = (await client.query('SELECT * FROM taptime_server.lock_request_actor($1,$2)', [identity.identity.issuer, identity.identity.subject])).rows;
       const actor = actors[0];
       if (actors.length !== 1 || actor.membership_id !== request.expectedMembershipId || actor.membership_role !== 'administrator') {
-        await client.query('ROLLBACK'); return { status: 'authority_rejected' };
+        await client.query('ROLLBACK');
+        return { status: 'authority_rejected' };
       }
       await client.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),
         set_config('app.membership_id',$3,true),set_config('app.membership_role',$4,true)`,
@@ -66,8 +68,10 @@ export class AdministrationStopCoordinator {
       const acknowledged = { ...result, requiredWalFile: archive?.required_wal_file, offsiteArchived: archive?.offsite_archived };
       if (!isAdministrationStopResult(acknowledged)) throw new Error('Invalid archive acknowledgement');
       await client.query('COMMIT'); return acknowledged;
-    } catch {
-      await client.query('ROLLBACK'); return { status: 'unavailable' };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (isOrganizationPausedError(error)) throw error;
+      return { status: 'unavailable' };
     } finally { client.release(); }
   }
 }

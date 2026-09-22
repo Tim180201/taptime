@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+set +x
+set -euo pipefail
+umask 077
+fail() { printf '%s\n' "$1" >&2; exit 1; }
+[[ "$EUID" == 0 ]] || fail 'Dieses Werkzeug benötigt root.'
+readonly ENV_FILE="${TAPTIME_OPERATOR_ENV_FILE:-/opt/taptime/.env}"
+readonly PROJECT="${TAPTIME_OPERATOR_PROJECT:-taptime-prod}"
+[[ "$PROJECT" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || fail 'Ungültiges Compose-Projekt.'
+[[ -f "$ENV_FILE" && ! -L "$ENV_FILE" && "$(stat -c '%u:%g:%a' "$ENV_FILE")" == 0:0:600 ]] ||
+  fail 'Die Konfiguration muss eine reguläre Datei mit root:root und 0600 sein.'
+exec {lock_fd}>"${TAPTIME_OPERATOR_LOCK_FILE:-/run/lock/taptime-operator.lock}"
+flock -n "$lock_fd" || fail 'Ein Betreiber-Werkzeug läuft bereits.'
+# Parse data, never source/eval server configuration. Duplicate keys fail closed,
+# including unrelated keys: Compose and the backend must see one unambiguous file.
+declare -A config=()
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+  [[ "$line" =~ ^([A-Z_][A-Z_0-9]*)=(.*)$ && "$line" != *$'\r'* ]] || fail 'Ungültige Konfigurationszeile.'
+  key="${BASH_REMATCH[1]}"; value="${BASH_REMATCH[2]}"
+  [[ ! -v "config[$key]" ]] || fail 'Doppelter Konfigurationsschlüssel.'
+  if [[ "$value" == \"*\" || "$value" == \'*\' ]]; then value="${value:1:${#value}-2}"; fi
+  config["$key"]="$value"
+done < "$ENV_FILE"
+unset line key value
+container_for() {
+  local container
+  container="$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=$1")"
+  [[ "$container" =~ ^[a-z0-9]+$ ]] || return 1
+  printf '%s\n' "$container"
+}
+DATABASE_CONTAINER="$(container_for database)" || fail 'Genau ein laufender Datenbank-Container wird benötigt.'
+readonly DATABASE_CONTAINER
+revoke=false
+if [[ "${1:-}" == --revoke ]]; then revoke=true; shift; fi
+[[ "$#" == 1 && "$1" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] ||
+  fail 'Aufruf: taptime-operator-grant [--revoke] <Supabase-UUID>'
+subject="${1,,}"
+issuer="${config[SUPABASE_ISSUER]:-}"
+[[ "$issuer" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]+)?/auth/v1$ ]] || fail 'Der konfigurierte Aussteller ist ungültig.'
+principal="root@$(hostname)"
+[[ "$principal" =~ ^root@[a-zA-Z0-9._-]+$ ]] || fail 'Der lokale Rechnername ist ungültig.'
+# Root is the actor; operator_id identifies the granted/revoked operator record.
+# The immutable audit never needs the external UUID in free text.
+if ! docker exec -i --user postgres "$DATABASE_CONTAINER" psql -XqAt --dbname=taptime --set ON_ERROR_STOP=on >/dev/null 2>&1 <<SQL
+BEGIN;
+SET LOCAL statement_timeout='15s';
+SET LOCAL lock_timeout='10s';
+DO \$grant\$
+DECLARE target uuid;
+BEGIN
+  IF $revoke THEN
+    UPDATE taptime_server.platform_operators SET revoked_at=transaction_timestamp()
+      WHERE issuer='$issuer' AND subject='$subject' AND revoked_at IS NULL RETURNING id INTO target;
+  ELSE
+    INSERT INTO taptime_server.platform_operators(issuer,subject) VALUES('$issuer','$subject')
+      ON CONFLICT(issuer,subject) WHERE revoked_at IS NULL DO NOTHING RETURNING id INTO target;
+  END IF;
+  IF target IS NOT NULL THEN
+    INSERT INTO taptime_server.platform_audit_events(operator_id,operator_principal,action)
+      VALUES(target,'$principal',CASE WHEN $revoke THEN 'operator_revoked' ELSE 'operator_granted' END);
+  END IF;
+END \$grant\$;
+COMMIT;
+SQL
+then fail 'Betreiber-Freigabe fehlgeschlagen; die Transaktion wurde zurückgenommen.'; fi
+printf 'Betreiber-Freigabe abgeglichen.\n'

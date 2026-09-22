@@ -9,7 +9,7 @@ export function canPresentOfflineCaptureShell(
   session: MobileSessionState,
   scan: ProductScanState,
 ): boolean {
-  if (session.status !== 'context_unavailable') return false;
+  if (session.status !== 'context_unavailable' || session.organizationPaused) return false;
   return scan.status === 'offline_ready'
     || scan.status === 'saved_locally'
     || scan.status === 'scanning'

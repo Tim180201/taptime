@@ -162,6 +162,13 @@ export function App({
       <DelayedSkeleton label="Verwaltung wird geladen" rows={5} />
     </main>;
   }
+  if (state.status === 'organization_paused') {
+    return <main className="center"><Brand />
+      <p role="alert">Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.</p>
+      <button onClick={() => void administration.refresh()}>Erneut versuchen</button>
+      <button onClick={() => void administration.signOut()}>Abmelden</button>
+    </main>;
+  }
   if (state.status === 'forbidden' || state.status === 'unavailable') {
     return <main className="center">
       <Brand />

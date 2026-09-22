@@ -96,7 +96,9 @@ export function AppNavigator({
       );
     }
     return (
-      <MessageScreen title="Sitzungskontext vorübergehend nicht verfügbar.">
+      <MessageScreen title={state.organizationPaused
+        ? 'Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.'
+        : 'Sitzungskontext vorübergehend nicht verfügbar.'}>
         <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />
         <ActionButton title="Abmelden" tone="quiet" onPress={() => session.signOut()} />
       </MessageScreen>

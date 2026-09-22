@@ -1,4 +1,5 @@
 export * from './accessToken.js';
+export * from './organizationPause.js';
 export * from './identityResolution.js';
 export * from './PostgresIdentityMembershipResolver.js';
 export * from './RequestActorResolutionService.js';

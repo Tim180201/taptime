@@ -109,6 +109,26 @@ afterAll(async () => {
 });
 
 describe('migration 008 Employee invitation and enrollment boundary', () => {
+  it('T068a rejects redemption into a paused organization without names or mutations, then resumes normally', async () => {
+    const invitation = await createInvitation(randomUUID(), 'Invited while active');
+    if (invitation.status !== 'succeeded') throw new Error('Expected invitation success');
+    const command = { accessToken: fixtureTokens.prospectiveA, commandId: randomUUID(), invitationSecret: invitation.invitationSecret };
+    const snapshot = async () => (await installerPool.query(`SELECT
+      (SELECT count(*) FROM taptime_server.users) users,
+      (SELECT count(*) FROM taptime_server.identity_bindings) bindings,
+      (SELECT count(*) FROM taptime_server.memberships) memberships,
+      (SELECT count(*) FROM taptime_server.employee_enrollment_redemption_receipts) receipts,
+      (SELECT count(*) FROM taptime_server.employee_membership_invitations WHERE consumed_at IS NOT NULL) consumed`)).rows;
+    const before = await snapshot();
+    await installerPool.query(`UPDATE taptime_server.organizations SET status='paused', paused_at=now(),
+      pause_reason='Fixture pause', row_version=row_version+1 WHERE id=$1`, [ids.organizationA]);
+    expect(await coordinator.redeemInvitation(command)).toEqual({status:'enrollment_unavailable'});
+    expect(await snapshot()).toEqual(before);
+    await installerPool.query(`UPDATE taptime_server.organizations SET status='active', paused_at=NULL,
+      pause_reason=NULL, row_version=row_version+1 WHERE id=$1`, [ids.organizationA]);
+    expect(await coordinator.redeemInvitation(command)).toMatchObject({status:'succeeded'});
+  });
+
   it('records migration 008 and keeps creator and redeemer capabilities separated', async () => {
     const expectedVersions = (await loadMigrations()).map(({ version }) => version);
     await expect(migrate(installerPool)).resolves.toEqual({

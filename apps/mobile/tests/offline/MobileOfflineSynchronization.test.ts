@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { NodeSqliteOfflineConnection } from '../support/NodeSqliteOfflineConnection';
 import { describe, expect, it, vi } from 'vitest';
 import { TimeEntryId } from '@taptime/core';
+import { AuthenticatedHttpRequestExecutor } from '../../src/transport/AuthenticatedHttpRequestExecutor';
+import { AuthenticatedHttpRequestExecutor as PreT068aExecutor } from '../support/PreT068aAuthenticatedHttpRequestExecutor';
+import type { AuthenticatedRequestCapability } from '../../src/auth/contracts';
 import { OFFLINE_RECONCILIATION_MAXIMUM_EVENT_IDS, OFFLINE_QUEUE_MAXIMUM_EVENTS } from '@taptime/offline-sync-contract';
 import type {
   OfflineCaptureLeasePage,
@@ -70,6 +73,53 @@ const installationBinding = 'B'.repeat(43);
 const lookupKey = 'K'.repeat(43);
 
 describe('Mobile complete offline clients', () => {
+  it.each([
+    ['current, valid member', AuthenticatedHttpRequestExecutor, 403],
+    ['before T068a, valid member', PreT068aExecutor, 403],
+    ['current, hidden historical denial', AuthenticatedHttpRequestExecutor, 503],
+    ['before T068a, hidden historical denial', PreT068aExecutor, 503],
+  ] as const)(
+    'T068a retains every SQLite row during pause and completes transmission/archive cleanup after resume (%s)', async (_version, Executor, pauseStatus) => {
+      const h = await archiveHarness();
+      let paused = false;
+      const serverIngest = h.ingest.getMockImplementation()!;
+      const serverReconcile = h.reconcile.getMockImplementation()!;
+      const authentication: AuthenticatedRequestCapability = {
+        executeAuthenticatedRequest: async attempt => attempt(() => 'synthetic'),
+      };
+      const executor = new Executor(authentication, async (url, init) => {
+        if (paused) return Response.json({ error: { code: pauseStatus === 403 ? 'organization_paused' : 'service_unavailable' } }, { status: pauseStatus });
+        const body = JSON.parse(init.body);
+        return Response.json(url.includes('/reconcile') ? await serverReconcile(body.workEventIds) : await serverIngest(body));
+      });
+      const client = new OfflineLifecycleClient(new URL('https://api.example/'), executor);
+      h.ingest.mockImplementation(command => client.ingest(command));
+      h.reconcile.mockImplementation(eventIds => client.reconcile(eventIds));
+      try {
+        await h.append(1); await h.append(2);
+        await h.scheduler.trigger('event_append');
+        expect(await h.rows()).toEqual([1, 2].map(n => ({ work_event_id: eventId(n), queue_state: 'confirmed_awaiting_archive' })));
+        await h.append(3);
+        const before = await h.rows();
+        const evidence = () => h.connection.getAllAsync('SELECT work_event_id, receipt_id, command_json FROM offline_event_queue ORDER BY device_sequence');
+        const beforeEvidence = await evidence();
+        paused = true;
+        await h.scheduler.trigger('event_append');
+        await h.poll();
+        await h.scheduler.trigger('network_hint');
+        expect((await h.rows()).map(row => row.work_event_id)).toEqual(before.map(row => row.work_event_id));
+        expect(await evidence()).toEqual(beforeEvidence);
+        expect(h.records.has(eventId(3))).toBe(false);
+        paused = false;
+        await h.poll();
+        await h.scheduler.trigger('session_restored');
+        expect([...h.records.keys()].sort()).toEqual([1, 2, 3].map(eventId));
+        expect(await h.rows()).toHaveLength(3);
+        for (const [id, record] of h.records) h.records.set(id, { ...record, archiveStatus: 'offsite_archived' });
+        for (let remaining = before.length + 1; (await h.rows()).length > 0 && remaining > 0; remaining -= 1) await h.poll();
+        expect(await h.rows()).toEqual([]);
+      } finally { await h.close(); }
+    });
   it('assembles strict immutable lease pages and verifies the total manifest before returning',
     async () => {
       const complete = leasePageV3();

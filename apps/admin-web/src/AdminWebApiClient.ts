@@ -86,6 +86,7 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  onOrganizationPaused?(listener: (token: string) => Promise<void>): () => void;
   stopTime?(token: string, request: unknown): Promise<ApiResult<AdministrationStopResult>>;
   supplementTime?(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>>;
   ownTime?(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
@@ -210,7 +211,26 @@ export interface AdminWebApiPort {
 }
 
 export class AdminWebApiClient implements AdminWebApiPort {
-  constructor(private readonly fetchRequest: typeof fetch = (input, init) => globalThis.fetch(input, init)) {}
+  private readonly pauseListeners = new Set<(token: string) => Promise<void>>();
+  private readonly fetchRequest: typeof fetch;
+  onOrganizationPaused(listener: (token: string) => Promise<void>): () => void {
+    this.pauseListeners.add(listener); return () => this.pauseListeners.delete(listener);
+  }
+  constructor(fetchRequest: typeof fetch = (input, init) => globalThis.fetch(input, init)) {
+    this.fetchRequest = async (input, init) => {
+      const response = await fetchRequest(input, init);
+      if (response.status === 403 && !response.redirected) {
+        const body = await readBoundedResponseText(response.clone(), 4096);
+        let paused = false;
+        try { paused = body !== null && JSON.parse(body)?.error?.code === 'organization_paused'; } catch { /* malformed denial */ }
+        if (paused) {
+          const token = new Headers(init?.headers).get('authorization')?.replace(/^Bearer /, '');
+          if (token) for (const listener of this.pauseListeners) await listener(token);
+        }
+      }
+      return response;
+    };
+  }
   async stopTime(token: string, request: unknown): Promise<ApiResult<AdministrationStopResult>> {
     if(!isAdministrationStopRequest(request)) return {status:'invalid_response'};
     return this.request('/v1/time-records/stop',token,'POST',request as unknown as Record<string,unknown>,

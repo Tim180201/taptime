@@ -1,6 +1,7 @@
 import { EmployeeAccountInvitationClient } from './EmployeeAccountInvitationForm';
 import { App } from './App';
 import { AdminWebCoordinator } from './AdminWebCoordinator';
+import { AdminWebApiClient } from './AdminWebApiClient';
 import { SupabaseMemoryAuth } from './SupabaseMemoryAuth';
 import { SupabaseInviteAuth } from './SupabaseInviteAuth';
 import { WelcomePage } from './WelcomePage';
@@ -23,6 +24,7 @@ export function createApplicationPage(configuration: AdminWebConfiguration | nul
       Prüfen Sie die Konfiguration und laden Sie die Seite anschließend neu.</p>
   </main>;
   const auth = new SupabaseMemoryAuth(configuration.supabaseUrl, configuration.supabasePublishableKey);
-  return <App administration={new AdminWebCoordinator(auth)}
-    accountInvitations={new EmployeeAccountInvitationClient(auth)} />;
+  const api = new AdminWebApiClient();
+  return <App administration={new AdminWebCoordinator(auth, api)}
+    accountInvitations={new EmployeeAccountInvitationClient(auth, api)} />;
 }

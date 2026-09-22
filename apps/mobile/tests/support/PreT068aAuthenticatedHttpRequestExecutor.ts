@@ -1,12 +1,13 @@
+// Frozen production transport before T-068a, used only for old-client compatibility tests.
 import { TIME_DETAILS_ACCEPT } from '@taptime/mobile-work-contract';
-import type { AuthenticatedRequestCapability } from '../auth/contracts';
+import type { AuthenticatedRequestCapability } from '../../src/auth/contracts';
 import {
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
   OFFLINE_REQUEST_MAXIMUM_BYTES,
   OFFLINE_RESPONSE_MAXIMUM_BYTES,
   isValidRetryAfterSeconds,
 } from '@taptime/offline-sync-contract';
-import { utf8ByteLength } from './strictJson';
+import { utf8ByteLength } from '../../src/transport/strictJson';
 
 const DEFAULT_REQUEST_TIMEOUT_MILLISECONDS = 10_000;
 const MAXIMUM_JSON_BODY_BYTES = OFFLINE_REQUEST_MAXIMUM_BYTES;
@@ -155,10 +156,6 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
           if (responseBody === null) {
             return { status: 'completed', value: { status: 'unavailable' } };
           }
-          if (isOrganizationPausedResponse(response.status, responseBody)) {
-            this.authentication.organizationPaused?.(accessToken());
-            return { status: 'completed', value: { status: 'transient_failure' } };
-          }
           const retryAfter = parseRetryAfter(response.headers.get('retry-after'));
           if (retryAfter.status === 'invalid') {
             return { status: 'completed', value: { status: 'unavailable' } };
@@ -197,7 +194,7 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
   }
 }
 
-export async function readBoundedResponseText(
+async function readBoundedResponseText(
   response: Response,
   maximumBytes: number,
 ): Promise<string | null> {
@@ -237,11 +234,6 @@ export async function readBoundedResponseText(
       // A failed or canceled stream cannot provide application data regardless of lock cleanup.
     }
   }
-}
-
-export function isOrganizationPausedResponse(status: number, body: string | null): boolean {
-  if (status !== 403 || body === null) return false;
-  try { return JSON.parse(body)?.error?.code === 'organization_paused'; } catch { return false; }
 }
 
 type ParsedRetryAfter =

@@ -10,6 +10,11 @@ const session = {
 };
 
 describe('TapTimeSessionApiClient', () => {
+  it('T068a preserves the named temporary pause response', async () => {
+    const client = new TapTimeSessionApiClient('https://api.example/',
+      async () => Response.json({ error: { code: 'organization_paused' } }, { status: 403 }));
+    expect(await client.resolve('synthetic')).toEqual({ status: 'organization_paused' });
+  });
   it.each([true, false])('T060 g: accepts the explicit NFC capability %s', async (nfcSetupAvailable) => {
     const body = { ...session, role: 'standortleitung', nfcSetupAvailable };
     const client = new TapTimeSessionApiClient('https://api.example/', async () => Response.json(body));

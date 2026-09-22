@@ -60,6 +60,7 @@ export interface RefreshTokenStore {
 }
 
 export type BackendSessionResolution =
+  | { readonly status: 'organization_paused' }
   | { readonly status: 'resolved'; readonly session: ProductSessionContext }
   | { readonly status: 'authority_rejected' }
   | { readonly status: 'unavailable' };
@@ -102,7 +103,7 @@ export type MobileSessionState =
       readonly status: 'enrollment_only';
       readonly notice: 'enrollment_unavailable' | 'invalid_request' | 'request_failed' | null;
     }
-  | { readonly status: 'context_unavailable'; readonly identityLabel?: string }
+  | { readonly status: 'context_unavailable'; readonly identityLabel?: string; readonly organizationPaused?: boolean }
   | {
       readonly status: 'runtime_unavailable';
       readonly reason: 'authentication_unavailable' | 'storage_unavailable';
@@ -176,6 +177,7 @@ export type AuthenticatedRequestExecution<Value> =
 
 /** Internal infrastructure capability. It is deliberately absent from MobileSessionCapability. */
 export interface AuthenticatedRequestCapability {
+  organizationPaused?(accessToken: string): void;
   executeAuthenticatedRequest<Value>(
     attempt: (
       accessToken: EphemeralAccessTokenReader,

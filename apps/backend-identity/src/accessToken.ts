@@ -20,6 +20,8 @@ export type AccessTokenVerificationResult =
   | {
       readonly status: 'verified';
       readonly identity: VerifiedProviderIdentity;
+      /** Only a verifier may assert assurance. Missing means no operator authority. */
+      readonly aal?: 'aal1' | 'aal2';
     }
   | {
       readonly status: 'rejected';

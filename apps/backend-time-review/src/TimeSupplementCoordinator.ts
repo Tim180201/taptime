@@ -1,3 +1,4 @@
+import { isOrganizationPausedError } from '@taptime/backend-identity';
 import type { Pool } from 'pg';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import { isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult,
@@ -19,7 +20,8 @@ export class TimeSupplementCoordinator {
       await client.query('SET LOCAL ROLE taptime_identity_resolver');
       const actor=(await client.query(`SELECT * FROM taptime_server.lock_request_actor($1,$2)`,[identity.identity.issuer,identity.identity.subject])).rows;
       if (actor.length!==1 || actor[0].membership_id!==expectedMembershipId) {
-        await client.query('ROLLBACK'); return {status:'authority_rejected'};
+        await client.query('ROLLBACK');
+        return {status:'authority_rejected'};
       }
       const a=actor[0];
       await client.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),
@@ -29,8 +31,10 @@ export class TimeSupplementCoordinator {
       const result=(await client.query(`SELECT taptime_server.${kind==='backfill'?'backfill_time_record_v1':'comment_time_record_v1'}($1::jsonb) AS result`,[JSON.stringify(request)])).rows[0]?.result;
       if (!isTimeSupplementResult(result)) throw new Error('Invalid supplemental result');
       await client.query('COMMIT'); return result;
-    } catch {
-      await client.query('ROLLBACK'); return {status:'unavailable'};
+    } catch (error) {
+      await client.query('ROLLBACK');
+      if (isOrganizationPausedError(error)) throw error;
+      return {status:'unavailable'};
     } finally { client.release(); }
   }
 }

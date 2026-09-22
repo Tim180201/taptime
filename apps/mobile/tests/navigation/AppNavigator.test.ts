@@ -19,8 +19,8 @@ vi.mock('react-native', () => {
     Easing: {}, AccessibilityInfo: {}, Linking: {}, BackHandler: {} };
 });
 const { AppNavigator } = await import('../../src/navigation/AppNavigator');
-function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'administrator') {
-  const session = { getState: () => ({ status: 'authenticated', session: {
+function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'administrator', paused = false) {
+  const session = { getState: () => paused ? {status: 'context_unavailable', organizationPaused: true} : ({ status: 'authenticated', session: {
     userId: 'user', organizationId: 'business', membershipId: 'membership', role, nfcSetupAvailable,
   } }), subscribe: () => () => {}, signOut: async () => {}, signIn: async () => ({ status: 'authenticated' }),
     signInForEmployeeEnrollment: async () => ({ status: 'authenticated' }),
@@ -36,6 +36,11 @@ function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'admin
   }));
 }
 describe('rendered navigation', () => {
+  it('T068a shows the pause notice even when an offline capture shell was ready', () => {
+    const html = markup('employee', false, true);
+    expect(html).toContain('Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.');
+    expect(html).not.toContain('role="tab"');
+  });
   it.each(['standortleitung', 'administrator'] as const)('T060 h: renders Tags only with NFC capability (%s)', role => {
     expect(markup(role, true)).toContain('aria-label="Tags"');
     expect(markup(role, false)).not.toContain('aria-label="Tags"');

@@ -1,3 +1,4 @@
+import { OperatorCoordinator } from './OperatorCoordinator.js';
 import { AdministrationStopCoordinator, TimeSupplementCoordinator } from '@taptime/backend-time-review';
 import {
   AdminWriteSessionCoordinator,
@@ -39,6 +40,8 @@ import {
 } from './BackendHttpServer.js';
 
 export interface BackendApiRuntimeConfiguration {
+  readonly operatorDatabaseUrl?: string;
+  readonly operatorVersion?: string;
   readonly sessionDatabaseUrl: string;
   readonly readModelDatabaseUrl: string;
   readonly lifecycleDatabaseUrl: string;
@@ -90,6 +93,7 @@ export function createBackendApiRuntime(
   options: BackendApiRuntimeOptions = {},
 ): BackendApiRuntime {
   const { lifecycleArchiveDurability, ...httpServerOptions } = options;
+  const operatorDatabase = optionalDatabaseUrl(configuration.operatorDatabaseUrl);
   const sessionDatabase = validateDatabaseUrl(configuration.sessionDatabaseUrl);
   const readModelDatabase = validateDatabaseUrl(configuration.readModelDatabaseUrl);
   const lifecycleDatabase = validateDatabaseUrl(configuration.lifecycleDatabaseUrl);
@@ -138,6 +142,7 @@ export function createBackendApiRuntime(
     timeReviewReadDatabase,
     timeReviewWriteDatabase,
     ...[
+      operatorDatabase,
       manualLifecycleDatabase,
       mobileOwnTimeDatabase,
       mobileTargetDatabase,
@@ -152,6 +157,7 @@ export function createBackendApiRuntime(
     allowedAlgorithms: ['ES256', 'RS256'],
   });
 
+  const operatorPool = createOptionalPool(operatorDatabase);
   const sessionPool = createRuntimePool(sessionDatabase.connectionString);
   const healthPool = createHealthPool(sessionDatabase.connectionString);
   const readModelPool = createRuntimePool(readModelDatabase.connectionString);
@@ -190,8 +196,16 @@ export function createBackendApiRuntime(
         mobileOwnTimeCursorHmacKey,
       );
   const sessionMembershipResolver = new PostgresIdentityMembershipResolver(sessionPool);
+  const inviter = configuration.supabaseServiceRoleKey && configuration.employeeInvitationRedirectUrl
+    ? new SupabaseAccountInviter(issuer, configuration.supabaseServiceRoleKey, configuration.employeeInvitationRedirectUrl,
+      options.onDiagnostic ?? createBackendApiDiagnosticLogSink()) : undefined;
   const server = createBackendHttpServer(
     {
+      checkTenantAccess: async (accessToken) => {
+        const verified = await verifier.verify(accessToken);
+        if (verified.status === 'verified') await sessionMembershipResolver.resolve(verified.identity);
+      },
+      ...(operatorPool === undefined ? {} : { operator: new OperatorCoordinator(operatorPool,verifier,inviter,configuration.operatorVersion ?? null) }),
       healthCheck: async () => {
         await healthPool.query('SELECT 1');
       },
@@ -227,11 +241,7 @@ export function createBackendApiRuntime(
         employeeInvitationPool,
         employeeEnrollmentPool,
         verifier,
-        configuration.supabaseServiceRoleKey && configuration.employeeInvitationRedirectUrl
-          ? new SupabaseAccountInviter(issuer, configuration.supabaseServiceRoleKey,
-            configuration.employeeInvitationRedirectUrl,
-            options.onDiagnostic ?? createBackendApiDiagnosticLogSink())
-          : undefined,
+        inviter,
       ),
       tagReassignment: new NfcTagReassignmentCoordinator(reassignmentPool, verifier),
       timeEntryExporter: new TimeEntryExportCoordinator(timeEntryExportPool, verifier),
@@ -270,6 +280,7 @@ export function createBackendApiRuntime(
         }
       }
       const results = await Promise.allSettled([
+        ...(operatorPool === undefined ? [] : [operatorPool.end()]),
         healthPool.end(),
         sessionPool.end(),
         readModelPool.end(),

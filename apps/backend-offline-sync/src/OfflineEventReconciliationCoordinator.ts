@@ -1,3 +1,4 @@
+import { isOrganizationPausedError } from '@taptime/backend-identity';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   OFFLINE_RECONCILIATION_MAXIMUM_EVENT_IDS,
@@ -137,6 +138,7 @@ implements OfflineEventReconciliationReader {
         records: Object.freeze(result.rows.map((row) => reconciliationRecord(row))),
       };
     } catch (error) {
+      if (isOrganizationPausedError(error)) { if (transactionOpen) await rollback(client); throw error; }
       if (transactionOpen) await rollback(client);
       return postgresErrorCode(error) === '42501'
         ? { status: 'authority_rejected' }
@@ -192,6 +194,7 @@ implements OfflineEventReconciliationReader {
       transactionOpen = false;
       return { status: 'ready', value: state };
     } catch (error) {
+      if (isOrganizationPausedError(error)) { if (transactionOpen) await rollback(client); throw error; }
       if (transactionOpen) await rollback(client);
       return postgresErrorCode(error) === '42501'
         ? { status: 'authority_rejected' }

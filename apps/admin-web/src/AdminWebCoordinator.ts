@@ -117,6 +117,17 @@ export class AdminWebCoordinator implements AdminWebCapability {
     private readonly api: AdminWebApiPort = new AdminWebApiClient(),
     private readonly now: () => number = () => Date.now(),
   ) {
+    this.api.onOrganizationPaused?.(async (token) => {
+      await this.auth.withAccessToken(async current => {
+        if (current !== token) return;
+        this.generation += 1;
+        this.refreshEpoch += 1;
+        this.membershipId = null;
+        this.session = null;
+        this.clearInvitationExpiryTimer();
+        this.setState({ status: 'organization_paused' });
+      });
+    });
     this.auth.subscribePasswordRecovery?.(() => {
       this.generation += 1;
       this.refreshEpoch += 1;
@@ -425,6 +436,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 
   async refresh(): Promise<void> {
+    if (this.state.status === 'organization_paused') {
+      const generation = ++this.generation;
+      this.setState({ status: 'loading' });
+      await this.enqueueAuthentication(() => this.completeSignIn(generation, '', '', true));
+      return;
+    }
     const membershipId = this.membershipId;
     const current = this.state;
     if (membershipId === null || current.status !== 'ready') return;
@@ -2035,9 +2052,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
-  private async completeSignIn(generation: number, email: string, password: string): Promise<void> {
+  private async completeSignIn(generation: number, email: string, password: string, resume = false): Promise<void> {
     try {
-      const outcome = await this.auth.signIn(email, password);
+      const outcome = resume ? 'signed_in' : await this.auth.signIn(email, password);
       if (outcome !== 'signed_in') {
         await this.safeSignOut();
         if (generation === this.generation) this.setState({
@@ -2178,6 +2195,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 
   private async safeSignOut(): Promise<void> {
+    // A pause invalidates in-flight projections but retains provider credentials for retry.
+    // Explicit signOut() sets signed_out first and still clears the provider session.
+    if (this.state.status === 'organization_paused') return;
     try { await this.auth.signOut(); } catch { /* local state remains invalidated */ }
   }
 

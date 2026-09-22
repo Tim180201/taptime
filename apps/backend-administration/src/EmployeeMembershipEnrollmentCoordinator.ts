@@ -1,3 +1,4 @@
+import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { readManagedPerson, readManagedSummary, validPersonCommand, validSummaryCommand, type ManagedPersonTimeCommand, type ManagedActiveSummaryCommand, type ManagedPersonTimeResult, type ManagedActiveSummaryResult } from './ManagedPeopleReader.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -12,7 +13,7 @@ import {
   type MembershipRole,
 } from '@taptime/core';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
-import { normalizeInvitationEmail, type AccountInvitationContext, type AccountInvitationResult,
+import { accountInvitationEmailHash, normalizeInvitationEmail, type AccountInvitationContext, type AccountInvitationResult,
   type SupabaseAccountInviter } from './SupabaseAccountInviter.js';
 import type {
   CreateEmployeeMembershipInvitationCommand,
@@ -151,7 +152,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
     const requestHash = createHash('sha256').update(JSON.stringify([
       'account-invitation-v1', name.canonicalName, email, command.locationId,
     ])).digest();
-    const emailHash = createHash('sha256').update(email).digest();
+    const emailHash = accountInvitationEmailHash(email);
     let context: AccountInvitationContext | undefined;
     let externalSubject: string | undefined;
     try {
@@ -193,7 +194,8 @@ export class EmployeeMembershipEnrollmentCoordinator {
           if (completed.status !== 'succeeded') throw new Error('Account invitation completion rejected');
           return completed;
         });
-    } catch {
+    } catch (error) {
+      if (isOrganizationPausedError(error)) throw error;
       if (externalSubject !== undefined && context !== undefined) {
         inviter?.needsAttention(email, context, externalSubject);
         return { status: 'invitation_needs_attention' };
@@ -728,7 +730,7 @@ async function withTransaction<Value>(
     if (transactionOpen) {
       try {
         await client.query('ROLLBACK');
-      } catch {
+      } catch (error) {
         // Preserve the original verifier, database, deadline or mapping failure.
       }
     }

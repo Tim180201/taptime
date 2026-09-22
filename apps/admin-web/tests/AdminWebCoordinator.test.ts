@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AdminWebApiPort, ApiResult, Session } from '../src/AdminWebApiClient';
+import { AdminWebApiClient } from '../src/AdminWebApiClient';
 import {
   AdminWebCoordinator,
   SIGN_IN_FAILURE_NOTICES,
@@ -178,6 +179,20 @@ function setup() {
 }
 
 describe('AdminWebCoordinator', () => {
+  it('T068a shows a pause without signing out the provider session', async () => {
+    const auth = new FakeAuth();
+    const api = new AdminWebApiClient(async () => Response.json({ error: { code: 'organization_paused' } }, { status: 403 }));
+    const coordinator = new AdminWebCoordinator(auth, api);
+    await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+    expect(coordinator.getState()).toEqual({ status: 'organization_paused' });
+    expect(auth.signOut).not.toHaveBeenCalled();
+    Object.assign(api, new FakeApi(), { assignableLocations: undefined, locationSetupPage: undefined });
+    await coordinator.refresh();
+    expect(coordinator.getState().status).toBe('ready');
+    expect(auth.signOut).not.toHaveBeenCalled();
+    await coordinator.signOut();
+    expect(auth.signOut).toHaveBeenCalledOnce();
+  });
   it('moves only an explicit provider recovery into password replacement and signs out afterward', async () => {
     const { auth, api, coordinator } = setup();
     auth.emitPasswordRecovery();

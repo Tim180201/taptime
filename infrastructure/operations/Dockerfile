@@ -13,6 +13,8 @@ FROM alpine:3.22.1
 
 RUN apk add --no-cache bash sudo
 
+COPY --chmod=0700 infrastructure/operations/taptime-operator-grant /operations/usr/local/sbin/taptime-operator-grant
+COPY --chmod=0700 infrastructure/operations/taptime-operator-db-login /operations/usr/local/sbin/taptime-operator-db-login
 COPY --chmod=0700 infrastructure/backup/taptime-backup /operations/usr/local/sbin/taptime-backup
 COPY --chmod=0700 infrastructure/backup/taptime-restore-verify /operations/usr/local/sbin/taptime-restore-verify
 COPY --chmod=0700 infrastructure/backup/taptime-restore-activate /operations/usr/local/sbin/taptime-restore-activate
