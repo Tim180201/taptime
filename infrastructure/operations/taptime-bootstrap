@@ -9,11 +9,17 @@ readonly HOST_DEPLOY_SCRIPT="$HOST_ROOT/usr/local/sbin/taptime-deploy"
 readonly HOST_PREVIOUS_SCRIPT="$HOST_DEPLOY_SCRIPT.previous"
 readonly HOST_STATE_DIRECTORY="$HOST_ROOT/var/lib/taptime-deploy"
 readonly HOST_VERSION_FILE="$HOST_STATE_DIRECTORY/operations-version"
+readonly IMAGE_STATUS_SCRIPT='/bootstrap/taptime-status'
+readonly IMAGE_STATUS_SUDOERS='/bootstrap/taptime-status.sudoers'
+readonly HOST_STATUS_SCRIPT="$HOST_ROOT/usr/local/sbin/taptime-status"
+readonly HOST_STATUS_SUDOERS="$HOST_ROOT/etc/sudoers.d/taptime-status"
 
 SNAPSHOT_DIRECTORY=''
 STAGED_DEPLOY=''
 STAGED_PREVIOUS=''
 STAGED_VERSION=''
+STAGED_STATUS=''
+STAGED_SUDOERS=''
 STATE_DIRECTORY_CREATED=0
 MUTATION_STARTED=0
 
@@ -35,6 +41,11 @@ validate_image_payload() {
   read_image_revision || return 1
   [[ -f "$IMAGE_DEPLOY_SCRIPT" && ! -L "$IMAGE_DEPLOY_SCRIPT" ]] || return 1
   bash -n "$IMAGE_DEPLOY_SCRIPT" || return 1
+  [[ -f "$IMAGE_STATUS_SCRIPT" && ! -L "$IMAGE_STATUS_SCRIPT" ]] || return 1
+  [[ -f "$IMAGE_STATUS_SUDOERS" && ! -L "$IMAGE_STATUS_SUDOERS" ]] || return 1
+  bash -n "$IMAGE_STATUS_SCRIPT" || return 1
+  visudo -cf "$IMAGE_STATUS_SUDOERS" || return 1
+  [[ "$(cat "$IMAGE_STATUS_SUDOERS")" == 'taptime-deploy ALL=(root) NOPASSWD: /usr/local/sbin/taptime-status ""' ]] || return 1
 }
 
 validate_host_mount() {
@@ -45,6 +56,10 @@ validate_host_mount() {
   [[ ! -e "$HOST_PREVIOUS_SCRIPT" || -f "$HOST_PREVIOUS_SCRIPT" ]] || return 1
   [[ ! -L "$HOST_PREVIOUS_SCRIPT" ]] || return 1
   [[ ! -e "$HOST_VERSION_FILE" || -f "$HOST_VERSION_FILE" || -L "$HOST_VERSION_FILE" ]] || return 1
+  [[ -d "$HOST_ROOT/etc/sudoers.d" && ! -L "$HOST_ROOT/etc/sudoers.d" ]] || return 1
+  [[ ! -L "$HOST_STATUS_SCRIPT" && ! -L "$HOST_STATUS_SUDOERS" ]] || return 1
+  [[ ! -e "$HOST_STATUS_SCRIPT" || -f "$HOST_STATUS_SCRIPT" ]] || return 1
+  [[ ! -e "$HOST_STATUS_SUDOERS" || -f "$HOST_STATUS_SUDOERS" ]] || return 1
 }
 
 read_host_version() {
@@ -67,6 +82,10 @@ read_host_version() {
 already_installed() {
   [[ -f "$HOST_DEPLOY_SCRIPT" ]] || return 1
   cmp -s "$IMAGE_DEPLOY_SCRIPT" "$HOST_DEPLOY_SCRIPT" || return 1
+  cmp -s "$IMAGE_STATUS_SCRIPT" "$HOST_STATUS_SCRIPT" || return 1
+  cmp -s "$IMAGE_STATUS_SUDOERS" "$HOST_STATUS_SUDOERS" || return 1
+  [[ "$(stat -c '%u:%g:%a' "$HOST_STATUS_SCRIPT")" == '0:0:755' ]] || return 1
+  [[ "$(stat -c '%u:%g:%a' "$HOST_STATUS_SUDOERS")" == '0:0:440' ]] || return 1
   [[ "$(read_host_version)" == "$EXPECTED_REVISION" ]]
 }
 
@@ -129,6 +148,8 @@ remove_staged_files() {
   [[ -z "$STAGED_DEPLOY" ]] || rm -f -- "$STAGED_DEPLOY"
   [[ -z "$STAGED_PREVIOUS" ]] || rm -f -- "$STAGED_PREVIOUS"
   [[ -z "$STAGED_VERSION" ]] || rm -f -- "$STAGED_VERSION"
+  [[ -z "$STAGED_STATUS" ]] || rm -f -- "$STAGED_STATUS"
+  [[ -z "$STAGED_SUDOERS" ]] || rm -f -- "$STAGED_SUDOERS"
 }
 
 rollback() {
@@ -139,9 +160,13 @@ rollback() {
     restore_target "$HOST_DEPLOY_SCRIPT" deploy || result=1
     restore_target "$HOST_PREVIOUS_SCRIPT" previous || result=1
     restore_target "$HOST_VERSION_FILE" version || result=1
+    restore_target "$HOST_STATUS_SCRIPT" status || result=1
+    restore_target "$HOST_STATUS_SUDOERS" sudoers || result=1
     target_matches_snapshot "$HOST_DEPLOY_SCRIPT" deploy || result=1
     target_matches_snapshot "$HOST_PREVIOUS_SCRIPT" previous || result=1
     target_matches_snapshot "$HOST_VERSION_FILE" version || result=1
+    target_matches_snapshot "$HOST_STATUS_SCRIPT" status || result=1
+    target_matches_snapshot "$HOST_STATUS_SUDOERS" sudoers || result=1
   fi
   if (( STATE_DIRECTORY_CREATED == 1 )); then
     rmdir "$HOST_STATE_DIRECTORY" 2>/dev/null || result=1
@@ -162,6 +187,8 @@ install_controller() {
   snapshot_target "$HOST_DEPLOY_SCRIPT" deploy || return 1
   snapshot_target "$HOST_PREVIOUS_SCRIPT" previous || return 1
   snapshot_target "$HOST_VERSION_FILE" version || return 1
+  snapshot_target "$HOST_STATUS_SCRIPT" status || return 1
+  snapshot_target "$HOST_STATUS_SUDOERS" sudoers || return 1
 
   if [[ ! -d "$HOST_STATE_DIRECTORY" ]]; then
     install -d -m 0755 "$HOST_STATE_DIRECTORY" || return 1
@@ -170,6 +197,11 @@ install_controller() {
 
   STAGED_DEPLOY="$(mktemp "$HOST_ROOT/usr/local/sbin/.taptime-deploy.XXXXXX")" || return 1
   STAGED_VERSION="$(mktemp "$HOST_STATE_DIRECTORY/.operations-version.XXXXXX")" || return 1
+  STAGED_STATUS="$(mktemp "$HOST_ROOT/usr/local/sbin/.taptime-status.XXXXXX")" || return 1
+  STAGED_SUDOERS="$(mktemp "$HOST_ROOT/etc/sudoers.d/.taptime-status.XXXXXX")" || return 1
+  install -o root -g root -m 0755 "$IMAGE_STATUS_SCRIPT" "$STAGED_STATUS" || return 1
+  install -o root -g root -m 0440 "$IMAGE_STATUS_SUDOERS" "$STAGED_SUDOERS" || return 1
+  visudo -cf "$STAGED_SUDOERS" || return 1
   cp "$IMAGE_DEPLOY_SCRIPT" "$STAGED_DEPLOY" || return 1
   chmod 0755 "$STAGED_DEPLOY" || return 1
   printf '%s\n' "$EXPECTED_REVISION" > "$STAGED_VERSION" || return 1
@@ -184,6 +216,10 @@ install_controller() {
   fi
 
   MUTATION_STARTED=1
+  mv -f "$STAGED_STATUS" "$HOST_STATUS_SCRIPT" || return 1
+  STAGED_STATUS=''
+  mv -f "$STAGED_SUDOERS" "$HOST_STATUS_SUDOERS" || return 1
+  STAGED_SUDOERS=''
   if [[ "$previous_kind" == 'file' ]]; then
     mv -f "$STAGED_PREVIOUS" "$HOST_PREVIOUS_SCRIPT" || return 1
     STAGED_PREVIOUS=''
@@ -196,6 +232,8 @@ install_controller() {
   STAGED_DEPLOY=''
 
   cmp -s "$IMAGE_DEPLOY_SCRIPT" "$HOST_DEPLOY_SCRIPT" || return 1
+  cmp -s "$IMAGE_STATUS_SCRIPT" "$HOST_STATUS_SCRIPT" || return 1
+  cmp -s "$IMAGE_STATUS_SUDOERS" "$HOST_STATUS_SUDOERS" || return 1
   [[ "$(read_host_version)" == "$EXPECTED_REVISION" ]] || return 1
 }
 

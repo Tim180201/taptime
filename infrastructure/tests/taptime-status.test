@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Functions and variables are consumed by the sourced production script.
+# shellcheck disable=SC2329
+set -euo pipefail
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+readonly REPO
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+
+# shellcheck source=../operations/taptime-status
+source "$REPO/infrastructure/operations/taptime-status"
+
+# Exercise the actual producer, without running its main or accessing any config.
+(
+  # shellcheck source=../backup/taptime-wal-archiver
+  source "$REPO/infrastructure/backup/taptime-wal-archiver"
+  # shellcheck disable=SC2034
+  WAL_ARCHIVE_CACHE_DIRECTORY="$TEST_ROOT"
+  # shellcheck disable=SC2034
+  cycle_started=$SECONDS
+  # shellcheck disable=SC2034
+  phase_started=$SECONDS
+  finish_archive_cycle 0
+  finish_archive_cycle 1
+) | filter_wal_cycles > "$TEST_ROOT/real-cycles"
+for result in 0 1; do
+  grep -q "result=$result" "$TEST_ROOT/real-cycles" || {
+    printf 'Actual WAL producer result=%s was discarded.\n' "$result"
+    cat "$TEST_ROOT/real-cycles"
+    exit 1
+  }
+done
+
+# Allowlisting must discard whole unrecognized fields, not merely familiar domains.
+printf '%s\n' \
+  'WAL cycle: duration_seconds=3 uploaded_segments=0 reconciled_archives=1 switch_requested=0 result=0 database_seconds=1 archive_list_seconds=1 base_seconds=1 upload_seconds=0 reconcile_seconds=0 lock_seconds=0' \
+  'WAL cycle: duration_seconds=3 result=1 repository=ssh://user@your-storagebox/./private recipient=tim@example.test password=fixture-secret-from-backup-config' \
+  'WAL cycle: result=ssh://your-storagebox duration_seconds=fixture-secret-from-backup-config' \
+  'WAL cycle: unknown=/etc/taptime-backup/passphrase secret=unstructured-secret' \
+  | filter_wal_cycles > "$TEST_ROOT/wal"
+grep -q 'duration_seconds=3' "$TEST_ROOT/wal"
+grep -q 'result=1' "$TEST_ROOT/wal"
+if grep -Eq 'your-storagebox|ssh://|@|private|secret|/etc/taptime-backup' "$TEST_ROOT/wal"; then
+  cat "$TEST_ROOT/wal"; exit 1
+fi
+
+printf '%s\n' \
+  '2026-09-22T12:00:00+0000 host systemd[1]: Starting taptime-backup.service - TapTim.e encrypted PostgreSQL backup to Storage Box...' \
+  '2026-09-22T12:03:00+0000 host systemd[1]: Finished taptime-backup.service - backup ssh://user@your-storagebox/private fixture-secret.' \
+  '2026-09-22T13:03:00+0000 host systemd[1]: taptime-backup.service: Failed with result exit-code. mail@secret.test' \
+  | filter_backup_history > "$TEST_ROOT/backups"
+grep -q 'Start' "$TEST_ROOT/backups"
+grep -q 'Erfolg' "$TEST_ROOT/backups"
+grep -q 'Fehler' "$TEST_ROOT/backups"
+if grep -Eq 'your-storagebox|ssh://|@|secret|private' "$TEST_ROOT/backups"; then exit 1; fi
+
+if main unexpected > "$TEST_ROOT/argument" 2>&1; then exit 1; fi
+grep -q 'without arguments' "$TEST_ROOT/argument"
+printf 'Status output: allowlisted WAL and backup fields; secret/address fixtures absent; arguments rejected.\n'

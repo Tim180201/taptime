@@ -25,7 +25,7 @@ docker build --quiet \
 docker volume create "$HOST_VOLUME" >/dev/null
 docker run --rm --volume "$HOST_VOLUME:/h" "$TEST_IMAGE" bash -c '
   set -e
-  mkdir -p /h/usr/local/sbin /h/var/lib/taptime-deploy
+  mkdir -p /h/usr/local/sbin /h/var/lib/taptime-deploy /h/etc/sudoers.d
   printf "#!/usr/bin/env bash\n:\n# old-controller\n" > /h/usr/local/sbin/taptime-deploy
   printf "#!/usr/bin/env bash\n:\n# older-controller\n" > /h/usr/local/sbin/taptime-deploy.previous
   chmod 0755 /h/usr/local/sbin/taptime-deploy /h/usr/local/sbin/taptime-deploy.previous
@@ -48,10 +48,14 @@ host_fingerprint() {
     stat -c "%a:%u:%g" \
       /h/usr/local/sbin/taptime-deploy \
       /h/usr/local/sbin/taptime-deploy.previous \
+      /h/usr/local/sbin/taptime-status \
+      /h/etc/sudoers.d/taptime-status \
       /h/var/lib/taptime-deploy/operations-version
     cksum \
       /h/usr/local/sbin/taptime-deploy \
       /h/usr/local/sbin/taptime-deploy.previous \
+      /h/usr/local/sbin/taptime-status \
+      /h/etc/sudoers.d/taptime-status \
       /h/var/lib/taptime-deploy/operations-version
   '
 }
@@ -62,6 +66,11 @@ assert_one_line "$first_output"
 docker run --rm --volume "$HOST_VOLUME:/h" "$TEST_IMAGE" bash -c '
   set -e
   cmp -s /bootstrap/taptime-deploy /h/usr/local/sbin/taptime-deploy
+  cmp -s /bootstrap/taptime-status /h/usr/local/sbin/taptime-status
+  test "$(stat -c %u:%g:%a /h/usr/local/sbin/taptime-status)" = 0:0:755
+  test "$(stat -c %u:%g:%a /h/etc/sudoers.d/taptime-status)" = 0:0:440
+  visudo -cf /h/etc/sudoers.d/taptime-status
+  grep -Fx '\''taptime-deploy ALL=(root) NOPASSWD: /usr/local/sbin/taptime-status ""'\'' /h/etc/sudoers.d/taptime-status
   grep -Fq old-controller /h/usr/local/sbin/taptime-deploy.previous
   grep -Fxq abcdef0 /h/var/lib/taptime-deploy/operations-version
 '
@@ -103,3 +112,41 @@ assert_one_line "$mismatch_output"
 [[ "$mismatch_output" == 'FEHLER: Bootstrap abgebrochen; nichts wurde veraendert.' ]]
 [[ "$(host_fingerprint)" == "$first_fingerprint" ]]
 printf 'Revision mismatch evidence: image rejected before changing any host file.\n'
+
+# Verify sudo itself, rather than only matching text in the rule.
+docker run --rm "$TEST_IMAGE" bash -c '
+  set -e
+  adduser -D taptime-deploy
+  mkdir -p /usr/local/sbin /etc/sudoers.d
+  install -m 0755 /bootstrap/taptime-status /usr/local/sbin/taptime-status
+  install -m 0440 /bootstrap/taptime-status.sudoers /etc/sudoers.d/taptime-status
+  sudo -l -U taptime-deploy /usr/local/sbin/taptime-status >/dev/null
+  if sudo -l -U taptime-deploy /usr/local/sbin/taptime-status unexpected >/dev/null 2>&1; then exit 1; fi
+  if sudo -l -U taptime-deploy /bin/sh >/dev/null 2>&1; then exit 1; fi
+'
+printf 'sudo authorization: status without arguments allowed; arguments and shell denied.\n'
+
+# Failure after installing the diagnostic files must restore their predecessors too.
+cat > "$TEST_ROOT/mv" <<'FAIL_MV'
+#!/bin/sh
+for target do
+  if test "$target" = /h/usr/local/sbin/taptime-deploy; then exit 1; fi
+done
+exec /bin/mv "$@"
+FAIL_MV
+chmod 0755 "$TEST_ROOT/mv"
+docker create --name "$IMAGE_HOLDER" "$TEST_IMAGE" >/dev/null
+docker cp "$TEST_ROOT/mv" "$IMAGE_HOLDER:/usr/local/bin/mv"
+# Force an update instead of the idempotent early return.
+printf '#!/bin/bash\nexit 0\n' > "$TEST_ROOT/replacement-status"
+docker cp "$TEST_ROOT/replacement-status" "$IMAGE_HOLDER:/bootstrap/taptime-status"
+docker commit "$IMAGE_HOLDER" "$BROKEN_IMAGE" >/dev/null
+docker rm "$IMAGE_HOLDER" >/dev/null
+set +e
+rollback_output="$(run_bootstrap "$BROKEN_IMAGE" 2>&1)"
+rollback_status=$?
+set -e
+[[ "$rollback_status" == 1 ]]
+[[ "$rollback_output" == 'FEHLER: Bootstrap abgebrochen; nichts wurde veraendert.' ]]
+[[ "$(host_fingerprint)" == "$first_fingerprint" ]]
+printf 'Installer failure restores controller, status command, sudoers and version.\n'

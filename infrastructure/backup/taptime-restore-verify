@@ -249,6 +249,7 @@ select_restore_cluster_identity() {
 
 select_base_archive() {
   local target="${TAPTIME_RESTORE_TARGET_TIME:-}"
+  local requested="${TAPTIME_RESTORE_BASE_ARCHIVE:-}"
   local target_nanos='' archive started_at started_nanos selected='' base_archives
 
   if [[ -n "$target" ]]; then
@@ -260,6 +261,17 @@ select_base_archive() {
       printf 'Could not inventory physical bases for the selected cluster.\n' >&2
       return 1
     }
+  if [[ -n "$requested" ]]; then
+    [[ -z "$target" && "$requested" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || {
+      printf 'Pinned base must belong to the selected cluster and cannot set a recovery time.\n' >&2
+      return 1
+    }
+    grep --fixed-strings --line-regexp --quiet "$requested" <<< "$base_archives" || {
+      printf 'Pinned physical base does not exist.\n' >&2; return 1;
+    }
+    printf '%s\n' "$requested"
+    return 0
+  fi
   while IFS= read -r archive; do
     [[ "$archive" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] \
       || continue

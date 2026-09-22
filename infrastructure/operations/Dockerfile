@@ -11,7 +11,7 @@ RUN printf '%s\n' "$TAPTIME_VERSION" | grep -Eq '^[0-9a-f]{7}$' \
 
 FROM alpine:3.22.1
 
-RUN apk add --no-cache bash
+RUN apk add --no-cache bash sudo
 
 COPY --chmod=0700 infrastructure/backup/taptime-backup /operations/usr/local/sbin/taptime-backup
 COPY --chmod=0700 infrastructure/backup/taptime-restore-verify /operations/usr/local/sbin/taptime-restore-verify
@@ -35,6 +35,8 @@ COPY --from=metadata /version.txt /operations/var/lib/taptime-deploy/operations-
 # by the same immutable image, but an authorized operator replaces it from the
 # Hetzner Console for each approved controller change; it never overwrites itself.
 COPY --chmod=0755 infrastructure/deploy /bootstrap/taptime-deploy
+COPY --chmod=0755 infrastructure/operations/taptime-status /bootstrap/taptime-status
+COPY --chmod=0440 infrastructure/operations/taptime-status.sudoers /bootstrap/taptime-status.sudoers
 COPY --from=metadata /version.txt /bootstrap/version.txt
 COPY --from=metadata /taptime-bootstrap /bootstrap/taptime-bootstrap
 

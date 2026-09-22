@@ -21,7 +21,15 @@ Der Produktionsserver ist `taptime-prod` unter `46.225.58.30`. Ausliefern darf n
 Owner oder eine von ihm ausdrücklich beauftragte Person mit dem privaten SSH-Schlüssel, dessen
 öffentlicher Teil beim Unix-Benutzer `taptime-deploy` hinterlegt ist. Der Schlüssel und andere
 Geheimnisse gehören weder in Git noch in Befehlsargumente. `taptime-deploy` hat kein allgemeines
-`sudo`; erlaubt ist ausschließlich `/usr/local/sbin/taptime-deploy`.
+`sudo`; erlaubt sind `/usr/local/sbin/taptime-deploy` mit einer geprüften Zielversion und
+`/usr/local/sbin/taptime-status` **ohne Argumente**. Der Diagnosebefehl zeigt Versionen,
+Dienstzustände, die letzten 30 WAL-Durchläufe, Sicherungsanfänge/-enden, gespeicherte
+Monitor-Alarme und freien Platz. Er lädt keine Geheimnisdatei und gibt aus dem Journal nur
+fest erlaubte Felder aus. Aufruf im eigenen Terminal:
+
+```sh
+ssh taptime-deploy@46.225.58.30 'sudo -n /usr/local/sbin/taptime-status'
+```
 
 Der unabhängige Rückweg ist die **Hetzner Console**: Projekt *Taptime* → Server
 *taptime-prod* → *Aktionen* → *Konsole*. Mit `root` und dem im Passwortmanager verwahrten
@@ -29,9 +37,10 @@ Server-Root-Passwort anmelden. Diese Konsole verwendet eine **US-Tastaturbelegun
 Passworteingabe bleibt vollständig unsichtbar. Auf einer deutschen Tastatur erzeugt
 `Shift` + `Ö` den Doppelpunkt `:`, die Taste `-` unten rechts neben dem Punkt den Schrägstrich
 `/` und die Taste `ß` oben rechts neben der `0` den Bindestrich `-`; außerdem sind `y` und `z`
-vertauscht. Die Einfügefunktion oben rechts in der Console übernimmt einen Befehl aus der
-Zwischenablage und vermeidet das Tippen mit dieser abweichenden Belegung vollständig. Dieser Weg
-umgeht SSH und wurde vor dem Sperren des Root-SSH-Logins praktisch geprüft.
+vertauscht. **Es gibt keine Einfügefunktion.** Jeden Befehl von Hand tippen, vor Enter lesen
+und die Abschlussmeldung als Foto sichern. Für den kurzen Block unten außerdem: `=` liegt auf
+der deutschen Taste `´`, `$` auf `Shift` + `4`. Keine Tilde erforderlich. Dieser Weg umgeht SSH
+und wurde vor dem Sperren des Root-SSH-Logins praktisch geprüft.
 
 ## Einmalige Einrichtung
 
@@ -67,13 +76,28 @@ nach separater Produktionsfreigabe die Hetzner Console als `root`. `abcdef0` wir
 freigegebene siebenstellige Revision ersetzt:
 
 ```sh
-controller_version=abcdef0
-controller_image="ghcr.io/tim180201/taptime-backend-api:operations-$controller_version"
-docker pull "$controller_image"
-docker run --rm --volume /:/h "$controller_image"
-test "$(tr -d '\r\n' < /var/lib/taptime-deploy/operations-version)" = \
-  "$controller_version"
+v=abcdef0
+i=ghcr.io/tim180201/taptime-backend-api:operations-$v
+docker pull $i
+docker run --rm -v /:/h $i
+cat /var/lib/taptime-deploy/operations-version
 ```
+
+Bei einem Fehler keine weitere Zeile ausführen. Die Abschlussmeldung und die letzte Ausgabe
+müssen die technisch freigegebene Revision nennen. **T-057 und die spätere
+Controller-Erweiterung T-068b werden gemeinsam in einer einzigen Konsolensitzung vor dem großen
+Deploy installiert.** Dafür erst das gemeinsame, geprüfte Operations-Abbild verwenden.
+Der Block installiert auch den root-eigenen Diagnosebefehl (0755) und die geprüfte Regel
+(root:root, 0440) in `/etc/sudoers.d/taptime-status`:
+
+```sudoers
+taptime-deploy ALL=(root) NOPASSWD: /usr/local/sbin/taptime-status ""
+```
+
+Die leeren Anführungszeichen verbieten Argumente. Der Installer legt beide Dateien an,
+aktualisiert sie bei einem weiteren Controller-Update und nimmt sie bei einem Installationsfehler
+zusammen mit dem Controller zurück. Bei dauerhafter Entfernung dieses Diagnosezugangs entfernt
+root zuerst die sudoers-Datei und dann den Befehl in einer gesondert freigegebenen Konsolensitzung.
 
 Die vollständige Einbindung des Server-Dateisystems mit `-v /:/h` ist nur hier vertretbar:
 bewusst, durch `root` in der Hetzner Console und mit dem eigenen, exakt versionierten Abbild. Sie
@@ -85,8 +109,9 @@ Freigabenachweis für eine Controlleraktualisierung. Das exakte Abbild trägt se
 Revision zusätzlich fest im Installer und in einer getrennten Versionsdatei; der Installer
 vergleicht beide, bevor er den eingebundenen Server berührt. Das beweist nur, dass das Abbild in
 sich stimmig ist. Danach prüft der Installer die
-Shell-Syntax, sichert eine vorhandene Vorgängerfassung und ersetzt Controller und aufgezeichnete
-Betriebsversion mit vollständiger Rücknahme bei einem Fehler. Derselbe Befehl ist wiederholbar
+Shell-Syntax und sudoers-Regel, sichert eine vorhandene Vorgängerfassung und ersetzt Controller,
+Diagnosebefehl, Diagnose-Regel und aufgezeichnete Betriebsversion mit Rücknahme bei einem Fehler.
+Derselbe Befehl ist wiederholbar
 und gilt unverändert auf einem Ersatzserver ohne vorhandenes Deploy-Skript.
 
 Docker kann vor der Abschlussmeldung mehrere Ladezeilen ausgeben; für die Bedienung zählt die
@@ -191,19 +216,35 @@ RESTORE_RECOVERY_POLL_SECONDS='5'
 
 ## Ausliefern
 
-Der folgende vollständige Befehl läuft auf dem Rechner der ausliefernden Person, nicht auf dem
-Server. Er setzt voraus, dass der bestehende Schlüssel im SSH-Agenten geladen ist; nach
-Schlüsselverlust ist stattdessen die zweite Variante mit dem neu erzeugten Schlüssel zu
-verwenden. `abcdef0` ist durch den geprüften, in CI grünen Ziel-Commit zu ersetzen:
+Der folgende Ablauf läuft in einer **interaktiven Terminalsitzung des Product Owners** auf
+seinem Mac. Codex startet keinen Deploy; seine Werkzeugumgebung kann Hintergrundprozesse
+beenden. Der bestehende Schlüssel muss im SSH-Agenten geladen sein (`ssh-add -l` prüfen;
+gegebenenfalls den verwahrten Schlüssel mit `ssh-add` laden). Nach Schlüsselverlust beim
+SSH-Aufruf zusätzlich `-i "$HOME/.ssh/taptime-deploy"` verwenden. `abcdef0` ist durch den
+geprüften, in CI grünen Ziel-Commit zu ersetzen. Das Log liegt außerhalb des Repositorys:
 
 ```sh
-# Bestehender, geladener SSH-Agent:
-ssh taptime-deploy@46.225.58.30 'sudo /usr/local/sbin/taptime-deploy abcdef0'
-
-# Nach Schlüsselverlust mit der neu erzeugten Datei:
-ssh -i ~/.ssh/taptime-deploy taptime-deploy@46.225.58.30 \
-  'sudo /usr/local/sbin/taptime-deploy abcdef0'
+mkdir -p "$HOME/taptime-logs"
+ssh-add -l
+set -o pipefail
+caffeinate -i ssh -t taptime-deploy@46.225.58.30 \
+  'sudo /usr/local/sbin/taptime-deploy abcdef0' 2>&1 \
+  | tee "$HOME/taptime-logs/deploy-$(date +%Y%m%d-%H%M%S).log"
 ```
+
+Bei fehlendem Agent-Schlüssel vor dem letzten Befehl stoppen. Terminal und Mac bleiben bis
+zum Abschluss offen. Danach liest Codex bei Bedarf das gesicherte Log.
+
+Vor der ersten `[Vorbereitung]`-Zeile hält der Controller den Sicherungs-Timer an und wartet
+auf eine laufende Sicherung, höchstens 20 Minuten mit einer Fortschrittszeile je Minute.
+Er zeigt laufende und Zielversion, Sicherungszustand samt letztem Ende (`InactiveEnterTimestamp`,
+bei Oneshot nicht `ActiveEnterTimestamp`) und Ergebnis, Archivierer/Empfänger sowie freien Platz.
+Die Plattengrenze stammt aus dem installierten Tagesmonitor. Bei rotem Befund beginnt keine
+Abbildvorbereitung oder Änderung an Anwendung/Betriebsdateien. Nur beim erkannten erstmaligen
+Archiv-Cutover dürfen die noch nicht eingerichteten Archivdienste inaktiv sein.
+Der EXIT-Trap startet den zuvor aktiven Timer wieder, auch bei Fehler, `INT`, `TERM` und `HUP`.
+`SIGKILL`, Stromausfall und Kernelabbruch können keinen Shell-Trap ausführen; nach einem solchen
+Abbruch prüft root den Timer über den bestehenden Konsolenweg, bevor weiter ausgeliefert wird.
 
 Ohne genau einen siebenstelligen Commit-Kurzschlüssel bricht das Skript ab. Es lädt Backend und
 Admin-Web für Ziel und Rücknahme. Unterscheidet sich das Ziel vom laufenden Stand und ist noch
@@ -238,9 +279,14 @@ Es prüft WAL-Mount und Datenbankvertrag getrennt. Fehlt einer von beiden, stopp
 Backend, richtet den physischen Empfänger ein und lädt vorhandenes WAL zunächst ohne
 Datenbankquittung extern hoch. Vor der Migration erzeugt es eine frische physische Basis, belegt
 deren Start-WAL extern und probt die Wiederherstellung samt ausstehenden Migrationen in einem
-isolierten Container. Nach der Migration wiederholt es Basis, WAL-Nachweis und Restore mit dem
+isolierten Container. Beide Proben erhalten jeweils den exakten Namen ihrer eigenen, gerade
+erzeugten Basis aus der abgeschlossenen Sicherungsmeldung nach einer Journalmarke vor dem Start.
+Eine inzwischen neuere Basis wird nicht ausgewählt; eine fehlende oder mehrdeutige Meldung
+bricht ab. Nach der Migration wiederholt es Basis, WAL-Nachweis und Restore mit dem
 aktiven versionierten Archivvertrag. Erst danach aktiviert es Backend und Oberfläche. Ein
 serverbestätigtes WorkEvent kann daher nicht in einem unarchivierten Umschaltfenster entstehen.
+Beim ersten Cutover registriert ein synchroner Archiviererlauf die verifizierte Basis, bevor
+das unveränderte Zeitfenster für die WAL-Barriere beginnt.
 Die Oberfläche wechselt durch genau eine
 Symlink-Umbenennung. Ihre `index.html` verweist ausschließlich auf
 `/releases/<version>/assets/...`; die vorherigen Releases bleiben erreichbar. Deshalb lädt auch
@@ -263,11 +309,9 @@ Migrationsabbild bringt die eingefrorenen SQL-Dateien selbst mit; das Skript hä
 geprüfte lokale Quelle dazu synchron. Wegwerf-Container sowie die nur im tmpfs entpackte Basis
 und WAL-Kette existieren nach der Probe nicht mehr.
 
-Für den T-035-Pfad liegt vor dem freigegebenen Produktivdeploy noch keine reale Laufzeitmessung
-vor. Basis- und WAL-Upload sowie beide Restore-Proben können minutenlang keine neue Ausgabe
+Basis- und WAL-Upload sowie beide Restore-Proben können minutenlang keine neue Ausgabe
 erzeugen; das ist kein Hänger und kein Grund zum Abbrechen. Maßgeblich ist die abschließende
-Zeile `[7/7] Auslieferung abgeschlossen: <vorher> -> <ziel>`. Die Laufzeit wird beim ersten
-freigegebenen Lauf gemessen.
+Zeile `[7/7] Auslieferung abgeschlossen: <vorher> -> <ziel>` und ein erfolgreicher Prozessausgang.
 
 Danach vom eigenen Rechner aus alle vier Belege prüfen:
 
@@ -314,10 +358,13 @@ Image verweigert die Offline-Ingestion bewusst. Weder ein unverändertes `curren
 ein manueller Containerstart heben diesen Zaun auf. Bei einem Fehler den archivfähigen Stand
 vorwärts reparieren und erneut geprüft ausliefern, statt das ältere Image zu starten.
 
-Der aktuelle T-035-Controller nimmt nach einem fehlgeschlagenen Start keine automatische
+Der Controller nimmt nach einem fehlgeschlagenen Start keine automatische
 Rücknahme vor: Jeder erreichbare Start folgt bereits auf Archiv-Cutover oder aktiven
-Archivvertrag. Er meldet `[7/7] Archivvertrag ist aktiv; das alte Backend bleibt zur
-Verlustvermeidung gestoppt.` Vollständige Ausgabe sichern, keine Container von Hand starten,
+Archivvertrag. Bei aktivem Vertrag meldet er
+`[7/7] Archivvertrag ist aktiv; keine automatische Rücknahme auf das alte Backend.`
+Hat nur der Cutover begonnen, meldet er
+`[7/7] Archiv-Cutover begonnen; das alte Backend bleibt zur Verlustvermeidung gestoppt.`
+Vollständige Ausgabe sichern, keine Container von Hand starten,
 Ursache beheben und den Deploy kontrolliert wiederholen. Der ältere automatische Vor-Archiv-Zweig
 ist im T-035-Ablauf nicht erreichbar.
 
@@ -346,7 +393,7 @@ unset postgres_volume
 | Bestandteil | Wie er heute auf den Server kommt | Folge eines veralteten Stands |
 |---|---|---|
 | `/opt/taptime/.env` und Dateien unter `/opt/taptime/secrets` | getrennte Verwahrung und bewusste Installation durch den Product Owner | Anwendung startet mit alten Zugangsdaten oder nach einer Rotation gar nicht; eine automatische Verteilung wäre selbst ein Geheimnisweg |
-| `/usr/local/sbin/taptime-deploy` | bei jeder ausdrücklich freigegebenen Controlleränderung separater Konsolenschritt aus dem exakten Operations-Abbild | der Controller kann sich nicht sicher selbst ersetzen; ohne den Schritt läuft ein neuer Betriebsvertrag unter einem alten Controller nicht an |
+| `/usr/local/sbin/taptime-deploy`, `taptime-status` und dessen argumentlose sudoers-Regel | gemeinsamer Konsolenschritt aus dem exakten Operations-Abbild | der Controller kann sich nicht sicher selbst ersetzen; Diagnosezugang und Controller bleiben an die ausdrücklich installierte Fassung gebunden |
 | `/etc/taptime-backup/config`, Borg-Schlüssel und Passphrase-Datei | getrennte Verwahrung und bewusste Installation durch den Product Owner | Sicherung oder Restore können ohne betriebliche Zugangswerte nicht laufen; ein Operations-Abbild darf sie nicht enthalten |
 | `/etc/taptime-monitor/*.curl` | getrennte geheime Einrichtung nach `MONITORING.md` | Alarmziele fehlen oder zeigen auf alte Endpunkte; sie dürfen nicht in Git oder einem öffentlichen Abbild stehen |
 | SSH-Härtung, Deploy-Schlüssel und sudoers-Regel | bewusster Konsolen-/Root-Schritt nach dieser Anleitung | verlorene oder zu breite Zugänge bleiben bestehen; ein automatisches Deploy darf diese Rückwege nicht selbst verändern |

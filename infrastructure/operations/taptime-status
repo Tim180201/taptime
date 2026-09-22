@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# This root-installed, argument-free command never loads backup/monitor configuration.
+# Journal text is untrusted: reconstruct the output from a closed set of safe fields.
+filter_wal_cycles() {
+  awk '
+    /^WAL cycle: / {
+      out="WAL cycle:"
+      for (i=3; i<=NF; i++) {
+        split($i, part, "=")
+        if (part[1] ~ /^(duration_seconds|uploaded_segments|reconciled_archives|switch_requested|database_seconds|archive_list_seconds|base_seconds|upload_seconds|reconcile_seconds|lock_seconds)$/ && part[2] ~ /^[0-9]+$/ && $i == part[1] "=" part[2])
+          out=out " " $i
+        else if ($i ~ /^result=[0-9]+$/) out=out " " $i
+      }
+      print out
+    }'
+}
+
+filter_backup_history() {
+  awk '
+    $1 ~ /^[0-9T:+.-]+$/ {
+      event=""
+      if ($0 ~ /Starting taptime-backup.service/) event="Start"
+      else if ($0 ~ /Finished taptime-backup.service/) event="Ende Erfolg"
+      else if ($0 ~ /taptime-backup.service: Failed with result/) event="Ende Fehler"
+      if (event != "") print $1 " " event
+    }'
+}
+
+show_version() {
+  local label="$1" file="$2" value
+  value="$(cat "$file" 2>/dev/null)" || value=''
+  if [[ "$value" =~ ^[0-9a-f]{7}$ ]]; then
+    printf '%s: %s\n' "$label" "$value"
+  else printf '%s: unbekannt\n' "$label"; fi
+}
+
+show_service() {
+  local unit="$1" state
+  state="$(systemctl show "$unit" --property=ActiveState --value 2>/dev/null)" || state=''
+  case "$state" in
+    active|inactive|failed|activating|deactivating|reloading) ;;
+    *) state=unbekannt;;
+  esac
+  printf '%s: %s\n' "$unit" "$state"
+}
+
+main() {
+  (( $# == 0 )) || { printf 'Invoke taptime-status without arguments.\n' >&2; return 64; }
+  export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C SYSTEMD_PAGER=cat
+  local unit marker
+  show_version Anwendung /var/lib/taptime-deploy/current-version
+  show_version Betrieb /var/lib/taptime-deploy/operations-version
+  for unit in taptime-backup.timer taptime-backup.service \
+    taptime-wal-archiver.service taptime-wal-receiver.service \
+    taptime-restore-verify.service taptime-immediate-monitor.timer taptime-daily-monitor.timer; do
+    show_service "$unit"
+  done
+  printf 'Letzte WAL-Durchläufe (höchstens 30):\n'
+  journalctl --quiet --no-pager --unit=taptime-wal-archiver.service \
+    --output=cat --lines=30 --grep='^WAL cycle: ' 2>/dev/null | filter_wal_cycles ||
+    printf 'Journal nicht verfügbar.\n'
+  printf 'Letzte Sicherungen (höchstens 30 Start-/Endmeldungen):\n'
+  journalctl --quiet --no-pager --unit=taptime-backup.service \
+    --output=short-iso --lines=30 \
+    --grep='Starting taptime-backup.service|Finished taptime-backup.service|taptime-backup.service: Failed with result' \
+    2>/dev/null | filter_backup_history || printf 'Journal nicht verfügbar.\n'
+  for marker in api-down wal-archive-down; do
+    if [[ -f "/var/lib/taptime-monitor/$marker" ]]; then
+      printf 'Monitor %s: Alarm offen\n' "$marker"
+    else printf 'Monitor %s: kein gespeicherter Alarm\n' "$marker"; fi
+  done
+  df -Pk / /var/lib/docker 2>/dev/null | awk 'NR > 1 && $2 ~ /^[0-9]+$/ && $4 ~ /^[0-9]+$/ {print "Plattenplatz: " $4 " KiB frei von " $2 " KiB"}' ||
+    printf 'Plattenplatz unbekannt.\n'
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

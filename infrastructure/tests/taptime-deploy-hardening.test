@@ -1,0 +1,253 @@
+#!/usr/bin/env bash
+# Production functions consume these stub functions and state variables.
+# shellcheck disable=SC2034,SC2329
+set -euo pipefail
+
+# Only synthetic files and commands. Never source the machine's backup configuration.
+TEST_ROOT="$(mktemp -d)"
+readonly TEST_ROOT
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+export TAPTIME_DEPLOY_BACKUP_CONFIG="$TEST_ROOT/config"
+export TAPTIME_DEPLOY_VERSION_STATE_FILE="$TEST_ROOT/current"
+export TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE="$TEST_ROOT/operations"
+export TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE="$TEST_ROOT/known"
+export TAPTIME_DEPLOY_BACKUP_WAIT_SECONDS=2
+printf 'STATUS_FILE=%s/status\n' "$TEST_ROOT" > "$TEST_ROOT/config"
+printf 'aaaaaaa\n' > "$TEST_ROOT/current"
+printf 'bbbbbbb\n' > "$TEST_ROOT/operations"
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+readonly REPO
+export TAPTIME_DEPLOY_DAILY_MONITOR_COMMAND="$REPO/infrastructure/monitoring/taptime-daily-monitor"
+# shellcheck source=../deploy
+source "$REPO/infrastructure/deploy"
+failures=0
+check() {
+  local name="$1" result
+  shift
+  set +e
+  ( set -e; "$@" ) > "$TEST_ROOT/output" 2>&1
+  result=$?
+  set -e
+  if (( result == 0 )); then
+    printf 'PASS %s\n' "$name"
+  else
+    printf 'FAIL %s\n' "$name"
+    cat "$TEST_ROOT/output"
+    failures=$((failures + 1))
+  fi
+}
+
+stale_oneshot() {
+  printf '{"state":"ok"}\n' > "$TEST_ROOT/status"
+  status_fingerprint() { printf 'unchanged\n'; }
+  systemctl() { return 1; }
+  if run_fresh_oneshot taptime-backup.service "$TEST_ROOT/status"; then
+    printf 'Failed service plus old success was accepted.\n'; return 1
+  fi
+}
+unchanged_oneshot() {
+  printf '{"state":"ok"}\n' > "$TEST_ROOT/status"
+  status_fingerprint() { printf 'unchanged\n'; }
+  systemctl() { return 0; }
+  if run_fresh_oneshot taptime-backup.service "$TEST_ROOT/status"; then
+    printf 'Unchanged success was accepted.\n'; return 1
+  fi
+}
+check 'failed oneshot cannot reuse old success' stale_oneshot
+check 'successful start cannot reuse old status' unchanged_oneshot
+
+backup_identity() {
+  run_fresh_oneshot() { :; }
+  # A successfully finished unit may be unloaded while its timer is stopped.
+  systemctl() { return 1; }
+  journalctl() {
+    case "$*" in
+      *--show-cursor*) printf '%s\n' 'irrelevant old message' '-- cursor: synthetic-cursor';;
+      *--after-cursor=synthetic-cursor*)
+        printf '%s\n' 'Physical base backup completed: base-0123456789abcdef-20260922T100000Z (starts at WAL 000000010000000000000001)';;
+      *) return 1;;
+    esac
+  }
+  run_backup
+  [[ "$DEPLOY_BASE_ARCHIVE" == base-0123456789abcdef-20260922T100000Z ]]
+}
+check 'own backup identity survives systemd unit garbage collection' backup_identity
+
+exact_base() {
+  # shellcheck source=../backup/taptime-restore-verify
+  source "$REPO/infrastructure/backup/taptime-restore-verify"
+  RESTORE_ARCHIVE_IDENTIFIER=0123456789abcdef
+  BORG_REPOSITORY=synthetic
+  TAPTIME_RESTORE_BASE_ARCHIVE=base-0123456789abcdef-20260922T100000Z
+  borg() {
+    [[ "$1" == list ]] || return 1
+    printf '%s\n' base-0123456789abcdef-20260922T100000Z base-0123456789abcdef-20260922T110000Z
+  }
+  [[ "$(select_base_archive)" == "$TAPTIME_RESTORE_BASE_ARCHIVE" ]]
+  TAPTIME_RESTORE_BASE_ARCHIVE=base-0123456789abcdef-20260922T090000Z
+  if select_base_archive; then return 1; fi
+  TAPTIME_RESTORE_BASE_ARCHIVE=base-fedcba9876543210-20260922T100000Z
+  if select_base_archive; then return 1; fi
+}
+check 'restore pins its own base despite a newer archive; missing/foreign rejected' exact_base
+
+cutover_message() {
+  local result
+  set +e
+  ( ARCHIVE_CUTOVER_ACTIVE=1; ARCHIVE_CONTRACT_ACTIVE=0; rollback_started_image 1 ) > "$TEST_ROOT/cutover" 2>&1
+  result=$?
+  set -e
+  (( result == 1 ))
+  if grep -q 'Archivvertrag ist aktiv' "$TEST_ROOT/cutover"; then return 1; fi
+  grep -q 'Cutover' "$TEST_ROOT/cutover"
+}
+check 'cutover alone does not claim an active contract' cutover_message
+
+barrier_after_registration() {
+  WAL_ARCHIVE_BOOTSTRAP=1
+  WAL_ARCHIVE_INTERVAL_SECONDS=1
+  WAL_ARCHIVE_MISSED_CYCLES=2
+  DATABASE_CONTAINER=synthetic
+  DATABASE_NAME=synthetic
+  ensure_wal_archive_runtime() { :; }
+  prepare_offsite_wal_for_restore() { [[ "$1" == 0 ]]; touch "$TEST_ROOT/registered"; }
+  docker() {
+    [[ -f "$TEST_ROOT/registered" ]] || return 1
+    if [[ "$*" == *pg_switch_wal* ]]; then
+      printf '123456789|0/FFFFFF|000000010000000000000001\n'
+    else printf 't\n'; fi
+  }
+  complete_wal_archive_cutover
+}
+check 'first-run base registration precedes the timed WAL barrier' barrier_after_registration
+
+preflight_case() {
+  local scenario="$1" limit
+  limit="$(sed -n 's/^readonly DISK_USAGE_THRESHOLD_PERCENT=//p' "$DAILY_MONITOR_COMMAND")"
+  PREVIOUS_VERSION=aaaaaaa
+  DESIRED_VERSION=bbbbbbb
+  systemctl() {
+    case "$*" in
+      *backup.service*ActiveState*) printf 'inactive\n';;
+      *InactiveEnterTimestamp*) printf 'Tue 2026-09-22 10:00:00 UTC\n';;
+      *Result*) if [[ "$scenario" == failed ]]; then printf 'exit-code\n'; else printf 'success\n'; fi;;
+      *ExecMainStatus*) printf '0\n';;
+      *ActiveState*) if [[ "$scenario" == stopped ]]; then printf 'failed\n'; else printf 'active\n'; fi;;
+      *) return 1;;
+    esac
+  }
+  df() {
+    printf 'Filesystem 1024-blocks Used Available Capacity Mounted\n'
+    if [[ "$scenario" == disk ]]; then
+      printf 'synthetic 100000 90000 10000 %s%% /\n' "$limit"
+    else printf 'synthetic 100000 20000 80000 20%% /\n'; fi
+  }
+  if [[ "$scenario" == healthy ]]; then preflight_deploy
+  elif preflight_deploy; then return 1; fi
+}
+for scenario in healthy failed stopped disk; do
+  check "preflight $scenario (disk boundary comes from the monitor)" preflight_case "$scenario"
+done
+
+# Main is exercised through preparation failure, success and real signals. Every external
+# operation is replaced, but the controller's timer ownership and EXIT traps remain real.
+controller_case() {
+  local scenario="$1" result
+  : > "$TEST_ROOT/calls"
+  set +e
+  (
+    set -e
+    require_root() { :; }
+    acquire_deploy_lock() { :; }
+    validate_wal_archive_configuration() { :; }
+    archive_contract_is_active() { return 0; }
+    wal_archive_mount_state() { printf 'active\n'; }
+    preflight_deploy() { [[ "$scenario" != preflight_failure ]]; }
+    systemctl() {
+      printf '%s\n' "$*" >> "$TEST_ROOT/calls"
+      case "$*" in
+        'show taptime-backup.service --property=ActiveState --value')
+          if [[ "$scenario" == wait_timeout ]]; then printf 'activating\n'; else printf 'inactive\n'; fi;;
+        'show taptime-backup.timer --property=ActiveState --value') printf 'active\n';;
+        'is-active --quiet taptime-backup.timer') return 0;;
+        start*) [[ "$scenario" != timer_failure ]];;
+        stop*) return 0;;
+        *) return 1;;
+      esac
+    }
+    pull_image() {
+      printf 'pull\n' >> "$TEST_ROOT/calls"
+      case "$scenario" in
+        failure) return 1;;
+        TERM) kill -TERM "$BASHPID";;
+        INT) kill -INT "$BASHPID";;
+        HUP) kill -HUP "$BASHPID";;
+      esac
+    }
+    image_supports_archive_ack_contract() { :; }
+    prepare_admin_web_release() { :; }
+    deploy_operations_release() { :; }
+    require_file() { :; }
+    select_migration_version() { printf '%s\n' "$DESIRED_VERSION"; }
+    ensure_wal_archive_runtime() { :; }
+    sync_migration_sources() { :; }
+    run_backup() { DEPLOY_BASE_ARCHIVE=base-0123456789abcdef-20260922T100000Z; }
+    prepare_offsite_wal_for_restore() { :; }
+    run_restore_verification() { [[ "$3" == "$DEPLOY_BASE_ARCHIVE" ]]; }
+    migrate_production() { :; }
+    complete_wal_archive_cutover() { :; }
+    mark_known_version() { :; }
+    activate_admin_web_release() { :; }
+    start_backend() { :; }
+    restart_caddy() { :; }
+    wait_for_health() { :; }
+    publish_protected_versions() { :; }
+    write_current_version() { :; }
+    main ccccccc
+  ) > "$TEST_ROOT/controller" 2>&1
+  result=$?
+  set -e
+  if [[ "$scenario" == success ]]; then
+    (( result == 0 )) || { cat "$TEST_ROOT/controller"; return 1; }
+  else
+    (( result != 0 )) || return 1
+  fi
+  if [[ "$scenario" == failure ]] && grep -q 'Manual recovery' "$TEST_ROOT/controller"; then
+    cat "$TEST_ROOT/controller"; return 1
+  fi
+  if [[ "$scenario" == timer_failure ]] && grep -q 'Auslieferung abgeschlossen' "$TEST_ROOT/controller"; then
+    cat "$TEST_ROOT/controller"; return 1
+  fi
+  if [[ "$scenario" == preflight_failure || "$scenario" == wait_timeout ]] && grep -q '^pull$' "$TEST_ROOT/calls"; then
+    printf 'Preparation started despite a failed preflight or running backup.\n'; return 1
+  fi
+  [[ "$(head -n 2 "$TEST_ROOT/calls" | tail -n 1)" == 'stop taptime-backup.timer' ]] || {
+    cat "$TEST_ROOT/controller" "$TEST_ROOT/calls"; return 1;
+  }
+  [[ "$(tail -n 1 "$TEST_ROOT/calls")" == 'start taptime-backup.timer' ]]
+}
+for scenario in failure TERM INT HUP success timer_failure preflight_failure wait_timeout; do
+  check "timer restored after $scenario; own base passed to restore" controller_case "$scenario"
+done
+
+wait_case() {
+  local scenario="$1"
+  declare -F wait_for_running_backup >/dev/null || return 1
+  systemctl() {
+    if [[ "$*" == 'show taptime-backup.service --property=ActiveState --value' ]]; then
+      if [[ "$scenario" == timeout || ! -f "$TEST_ROOT/finished" ]]; then
+        printf 'activating\n'
+      else printf 'inactive\n'; fi
+    else return 1; fi
+  }
+  sleep() { touch "$TEST_ROOT/finished"; command sleep 1; }
+  rm -f "$TEST_ROOT/finished"
+  if [[ "$scenario" == timeout ]]; then
+    if wait_for_running_backup; then return 1; fi
+  else wait_for_running_backup; fi
+}
+check 'running oneshot is awaited' wait_case success
+check 'running oneshot has a bounded deadline' wait_case timeout
+
+printf 'Hardening failures: %s\n' "$failures"
+(( failures == 0 ))

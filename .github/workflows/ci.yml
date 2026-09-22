@@ -48,7 +48,10 @@ jobs:
           shellcheck -e SC1091 \
             infrastructure/deploy \
             infrastructure/operations/taptime-bootstrap \
+            infrastructure/operations/taptime-status \
             infrastructure/tests/taptime-deploy.test \
+            infrastructure/tests/taptime-deploy-hardening.test \
+            infrastructure/tests/taptime-status.test \
             infrastructure/tests/taptime-admin-web-image.test \
             infrastructure/tests/taptime-restore-verify.test \
             infrastructure/tests/taptime-restore-retention.test \
@@ -76,6 +79,8 @@ jobs:
           bash -n infrastructure/deploy
           bash -n infrastructure/operations/taptime-bootstrap
           bash infrastructure/tests/taptime-deploy.test
+          bash infrastructure/tests/taptime-deploy-hardening.test
+          bash infrastructure/tests/taptime-status.test
           bash infrastructure/tests/taptime-admin-web-image.test
           bash infrastructure/tests/taptime-restore-verify.test
           bash infrastructure/tests/taptime-restore-retention.test

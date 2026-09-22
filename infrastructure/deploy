@@ -21,6 +21,8 @@ readonly RESTORE_STATUS_FILE_DEFAULT='/var/lib/taptime-monitor/restore-status.js
 readonly RESTORE_VERIFY_COMMAND="${TAPTIME_DEPLOY_RESTORE_VERIFY_COMMAND:-/usr/local/sbin/taptime-restore-verify}"
 readonly WAL_ARCHIVER_COMMAND="${TAPTIME_DEPLOY_WAL_ARCHIVER_COMMAND:-/usr/local/sbin/taptime-wal-archiver}"
 readonly DEPLOY_LOCK_FILE="${TAPTIME_DEPLOY_LOCK_FILE:-/run/lock/taptime-deploy.lock}"
+readonly BACKUP_WAIT_SECONDS="${TAPTIME_DEPLOY_BACKUP_WAIT_SECONDS:-1200}"
+readonly DAILY_MONITOR_COMMAND="${TAPTIME_DEPLOY_DAILY_MONITOR_COMMAND:-/usr/local/sbin/taptime-daily-monitor}"
 
 DESIRED_VERSION=''
 PREVIOUS_VERSION=''
@@ -30,6 +32,9 @@ OPERATIONS_VERSION=''
 WAL_ARCHIVE_BOOTSTRAP=0
 ARCHIVE_CUTOVER_ACTIVE=0
 ARCHIVE_CONTRACT_ACTIVE=0
+BACKUP_TIMER_HELD=0
+DEPLOY_SUCCEEDED=0
+DEPLOY_BASE_ARCHIVE=''
 
 say() {
   printf '%s\n' "$*"
@@ -209,11 +214,82 @@ run_fresh_oneshot() {
   local status_file="$2"
   local before after
 
-  before="$(status_fingerprint "$status_file")"
-  systemctl start "$service"
-  after="$(status_fingerprint "$status_file")"
-  [[ "$after" != "$before" ]] || fail "$service did not produce a fresh status record."
+  before="$(status_fingerprint "$status_file")" || return
+  systemctl start "$service" || return
+  after="$(status_fingerprint "$status_file")" || return
+  [[ "$after" != "$before" ]] || {
+    fail "$service did not produce a fresh status record."
+    return 1
+  }
   grep --quiet '"state":"ok"' "$status_file" || fail "$service did not finish successfully."
+}
+
+wait_for_running_backup() {
+  local state deadline next_notice now
+  [[ "$BACKUP_WAIT_SECONDS" =~ ^[1-9][0-9]*$ ]] || {
+    fail 'Backup wait must be a positive number of seconds.'; return 1;
+  }
+  now="$(date +%s)"
+  deadline=$((now + BACKUP_WAIT_SECONDS))
+  next_notice=$now
+  while true; do
+    state="$(systemctl show taptime-backup.service --property=ActiveState --value)" || return
+    case "$state" in
+      inactive|failed) return 0;;
+      activating|active|deactivating|reloading) ;;
+      *) fail 'Unknown backup service state.'; return 1;;
+    esac
+    now="$(date +%s)"
+    (( now < deadline )) || { fail 'Running backup exceeded the deploy wait deadline.'; return 1; }
+    if (( now >= next_notice )); then
+      say "[Vorprüfung] Sicherung läuft; warte noch höchstens $((deadline - now)) Sekunden."
+      next_notice=$((now + 60))
+    fi
+    sleep 1
+  done
+}
+
+hold_backup_timer() {
+  local state
+  state="$(systemctl show taptime-backup.timer --property=ActiveState --value)" || return
+  [[ "$state" == active ]] || { fail 'Backup timer is not active.'; return 1; }
+  # Arm cleanup before the stop: a signal or partially failed stop still restores the timer.
+  BACKUP_TIMER_HELD=1
+  trap 'finish_deploy $?' EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+  trap 'exit 129' HUP
+  systemctl stop taptime-backup.timer || return
+  wait_for_running_backup
+}
+
+preflight_deploy() {
+  local state ended result exit_status unit available total used disk_limit
+  local failed=0
+  say "[Vorprüfung] Laufende Version: $PREVIOUS_VERSION."
+  say "[Vorprüfung] Ziel: $DESIRED_VERSION."
+  state="$(systemctl show taptime-backup.service --property=ActiveState --value)" || return
+  ended="$(systemctl show taptime-backup.service --property=InactiveEnterTimestamp --value)" || return
+  result="$(systemctl show taptime-backup.service --property=Result --value)" || return
+  exit_status="$(systemctl show taptime-backup.service --property=ExecMainStatus --value)" || return
+  say "[Vorprüfung] Sicherung: Zustand=$state; letztes Ende=${ended:-unbekannt}; Ergebnis=$result/$exit_status."
+  [[ "$state" == inactive && -n "$ended" && "$result" == success && "$exit_status" == 0 ]] || failed=1
+  for unit in taptime-wal-archiver.service taptime-wal-receiver.service; do
+    state="$(systemctl show "$unit" --property=ActiveState --value)" || return
+    say "[Vorprüfung] $unit: $state."
+    # Missing archive services are expected only on the explicitly detected first cutover.
+    [[ "$state" == active || "$WAL_ARCHIVE_BOOTSTRAP" == 1 ]] || failed=1
+  done
+  disk_limit="$(sed -n 's/^readonly DISK_USAGE_THRESHOLD_PERCENT=\([0-9][0-9]*\)$/\1/p' "$DAILY_MONITOR_COMMAND")" || return
+  read -r total available used < <(df -Pk / | awk 'NR == 2 {gsub(/%/, "", $5); print $2, $4, $5}')
+  say "[Vorprüfung] Plattenplatz: ${available:-unbekannt} KiB frei von ${total:-unbekannt} KiB."
+  [[ "$total" =~ ^[1-9][0-9]*$ && "$available" =~ ^[0-9]+$ \
+    && "$used" =~ ^[0-9]+$ && "$disk_limit" =~ ^[1-9][0-9]*$ ]] || failed=1
+  if (( failed == 0 )); then
+    # Derive the existing red condition from the installed daily monitor, without running it.
+    (( used < disk_limit )) || failed=1
+  fi
+  (( failed == 0 )) || { fail 'Deploy preflight failed before preparation.'; return 1; }
 }
 
 pull_image() {
@@ -790,6 +866,7 @@ run_restore_verification() (
 
   local image="$1"
   local rehearsal_only="${2:-0}"
+  local base_archive="${3:?A deployment must pin its own physical base}"
   local restore_status hook_directory hook_status hook_log before after real_docker script_path
   local verify_status=0 hook_state duration_ms
 
@@ -820,7 +897,7 @@ run_restore_verification() (
   trap cleanup_hook EXIT
 
   before="$(status_fingerprint "$restore_status")"
-  say '[1/7] T-007 stellt den letzten Sicherungsstand wieder her; Migrationen laufen vor dessen Cleanup.'
+  say "[1/7] T-007 stellt die eigene Basis $base_archive wieder her; Migrationen laufen vor deren Cleanup."
   set +e
   PATH="$hook_directory:$PATH" \
     TAPTIME_REAL_DOCKER="$real_docker" \
@@ -829,6 +906,7 @@ run_restore_verification() (
     TAPTIME_HOOK_STATUS="$hook_status" \
     TAPTIME_HOOK_LOG="$hook_log" \
     TAPTIME_RESTORE_REHEARSAL_ONLY="$rehearsal_only" \
+    TAPTIME_RESTORE_BASE_ARCHIVE="$base_archive" \
     "$RESTORE_VERIFY_COMMAND"
   verify_status=$?
   set -e
@@ -921,9 +999,6 @@ begin_wal_archive_cutover() {
   # shellcheck disable=SC1090
   source "$BACKUP_CONFIG"
   ARCHIVE_CUTOVER_ACTIVE=1
-  trap 'rollback_started_image $?' EXIT
-  trap 'exit 130' INT
-  trap 'exit 143' TERM
   say '[Archiv] Halte das bisherige Backend an, bevor die neue Sicherungskette beginnt.'
   compose "$PREVIOUS_VERSION" stop backend-api
   docker exec --user postgres "$DATABASE_CONTAINER" \
@@ -1007,6 +1082,10 @@ complete_wal_archive_cutover() {
   ensure_wal_archive_runtime
   (( WAL_ARCHIVE_BOOTSTRAP == 1 )) || return 0
 
+  # The restore just created the verification marker. Register it synchronously before
+  # starting the barrier's normal archive window; do not charge first registration to it.
+  prepare_offsite_wal_for_restore 0 || return
+
   barrier="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
     --tuples-only --no-align --dbname="$DATABASE_NAME" --command \
     "WITH switched AS (SELECT pg_catalog.pg_switch_wal() AS next_lsn)
@@ -1036,13 +1115,28 @@ complete_wal_archive_cutover() {
 }
 
 run_backup() {
-  local status_file
+  local status_file cursor completed
 
   # shellcheck disable=SC1090
   source "$BACKUP_CONFIG"
   status_file="${STATUS_FILE:?STATUS_FILE must be configured}"
+  # Capture a journal boundary before starting. A stopped timer no longer pins the
+  # completed service in systemd's memory, so its InvocationID may already be gone.
+  cursor="$(journalctl --quiet --no-pager --unit=taptime-backup.service \
+    --lines=1 --show-cursor --output=cat | sed -n 's/^-- cursor: //p')" || return
+  [[ -n "$cursor" && "$cursor" != *$'\n'* ]] || {
+    fail 'No backup journal boundary is available.'; return 1;
+  }
   say '[2/7] Erzeuge eine frische Sicherung und warte auf ihren Erfolg.'
   run_fresh_oneshot taptime-backup.service "$status_file" || return
+  completed="$(journalctl --quiet --no-pager --output=cat \
+    --unit=taptime-backup.service "--after-cursor=$cursor" \
+    --grep='^Physical base backup completed: ' | \
+    sed -n 's/^Physical base backup completed: \(base-[0-9a-f]\{16\}-[0-9]\{8\}T[0-9]\{6\}Z\) (starts at WAL [0-9A-F]\{24\})$/\1/p')" || return
+  [[ "$completed" =~ ^base-[0-9a-f]{16}-[0-9]{8}T[0-9]{6}Z$ ]] || {
+    fail 'Fresh backup did not report exactly one completed physical base.'; return 1;
+  }
+  DEPLOY_BASE_ARCHIVE="$completed"
 }
 
 prepare_offsite_wal_for_restore() {
@@ -1322,9 +1416,12 @@ acquire_deploy_lock() {
 rollback_started_image() {
   local status="$1"
 
-  trap - EXIT INT TERM
   if (( ARCHIVE_CUTOVER_ACTIVE == 1 || ARCHIVE_CONTRACT_ACTIVE == 1 )); then
-    say '[7/7] Archivvertrag ist aktiv; das alte Backend bleibt zur Verlustvermeidung gestoppt.' >&2
+    if (( ARCHIVE_CONTRACT_ACTIVE == 1 )); then
+      say '[7/7] Archivvertrag ist aktiv; keine automatische Rücknahme auf das alte Backend.' >&2
+    else
+      say '[7/7] Archiv-Cutover begonnen; das alte Backend bleibt zur Verlustvermeidung gestoppt.' >&2
+    fi
     say 'ERROR: Manual recovery with the current image is required before traffic resumes.' >&2
   elif (( NEW_IMAGE_STARTED == 1 )); then
     say "[7/7] Neuer Stand fehlgeschlagen; setze Backend und Admin-Web auf $PREVIOUS_VERSION zurück." >&2
@@ -1335,6 +1432,25 @@ rollback_started_image() {
     else
       say "ERROR: Automatic image rollback to $PREVIOUS_VERSION also failed." >&2
     fi
+  fi
+  exit "$status"
+}
+
+finish_deploy() {
+  local status="$1"
+  trap - EXIT INT TERM HUP
+  if (( BACKUP_TIMER_HELD == 1 )); then
+    if ! systemctl start taptime-backup.timer; then
+      fail 'Could not restore backup timer; operator intervention required.'
+      status=1
+    fi
+    BACKUP_TIMER_HELD=0
+  fi
+  if (( status != 0 && DEPLOY_SUCCEEDED == 0 && (NEW_IMAGE_STARTED == 1 || ARCHIVE_CUTOVER_ACTIVE == 1) )); then
+    rollback_started_image "$status"
+  fi
+  if (( status == 0 && DEPLOY_SUCCEEDED == 1 )); then
+    say "[7/7] Auslieferung abgeschlossen: $PREVIOUS_VERSION -> $DESIRED_VERSION."
   fi
   exit "$status"
 }
@@ -1394,6 +1510,13 @@ main() {
   fi
 
   acquire_deploy_lock
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+
+  hold_backup_timer
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  preflight_deploy
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
 
@@ -1472,7 +1595,7 @@ main() {
   prepare_offsite_wal_for_restore "$WAL_ARCHIVE_BOOTSTRAP"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
-  run_restore_verification "$rehearsal_image" 1
+  run_restore_verification "$rehearsal_image" 1 "$DEPLOY_BASE_ARCHIVE"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   migrate_production
@@ -1485,7 +1608,7 @@ main() {
   prepare_offsite_wal_for_restore 0
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
-  run_restore_verification "$rehearsal_image" 0
+  run_restore_verification "$rehearsal_image" 0 "$DEPLOY_BASE_ARCHIVE"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   complete_wal_archive_cutover
@@ -1512,9 +1635,6 @@ main() {
 
   say "[5/7] Aktiviere Backend und Admin-Web für Version $DESIRED_VERSION."
   NEW_IMAGE_STARTED=1
-  trap 'rollback_started_image $?' EXIT
-  trap 'exit 130' INT
-  trap 'exit 143' TERM
   activate_admin_web_release "$admin_web_version_to_activate"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
@@ -1538,8 +1658,7 @@ main() {
   if (( step_status != 0 )); then return "$step_status"; fi
   NEW_IMAGE_STARTED=0
   ARCHIVE_CUTOVER_ACTIVE=0
-  trap - EXIT INT TERM
-  say "[7/7] Auslieferung abgeschlossen: $PREVIOUS_VERSION -> $DESIRED_VERSION."
+  DEPLOY_SUCCEEDED=1
 }
 
 if [[ "${0##*/}" == 'docker' ]]; then
