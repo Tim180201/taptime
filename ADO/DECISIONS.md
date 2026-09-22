@@ -1373,3 +1373,11 @@ bleibt bytegleich. `time-details.v2` ist noch nicht ausgeliefert und trägt die 
 Marke „Beendet durch Verwaltung". Das Admin-Web wird mit dem Server ausgeliefert und zeigt alles.
 **Warum:** Ein unbekannter Wert ließe den Kalender alter Apps nicht mehr laden. „Manuell" ist aus Sicht
 des Mitarbeiters wahr (nicht per Tag beendet); die volle Wahrheit steht in Daten, Audit und neuen Clients.
+
+## D-078 · Auch der Verwaltungsstopp wird erst nach externer Archivierung bestätigt · 22.09.2026 · Claude (TL)
+Der Verwaltungsstopp (D-073) ist ein WorkEvent ohne Gerätekopie; D-051 gilt ohne Ausnahme. Der Server
+registriert nach dem COMMIT den Archivbedarf, gebunden an Befehl, WorkEvent und Zielperson. Die
+Oberfläche meldet „Gespeichert" erst bei externem Archivnachweis, vorher „Wird gesichert …"; die
+Wiederholung mit derselben Befehlskennung ist idempotent. Nachtragen und Korrektur (kein WorkEvent,
+D-070) bleiben vorerst ohne diesen Nachweis; offen als P2 bis T-016.
+**Warum:** Die D-052-Ausnahme trägt nur, weil das Telefon eine Kopie behält. Die Verwaltung hat keine.

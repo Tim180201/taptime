@@ -58,6 +58,17 @@ jeder andere geändert werden (T-066), und der nächste Tap des Mitarbeiters sta
     nur Oberflächen, die mit dem Server gemeinsam ausgeliefert werden (Admin-Web), und neue Clients
     über `time-details.v2` bzw. eine bereits vorhandene ausgehandelte Version. Welcher bestehende
     Grund das ist, benennt der Bericht mit Fundstelle.
+11. **Quittung erst nach externer Archivierung (D-078):** Der Verwaltungsstopp ist ein WorkEvent und
+    fällt unter D-051. Nach dem lokalen COMMIT registriert der Server den Archivbedarf nach dem
+    Muster von `record_lifecycle_event_archive_requirement_v1` (023) — neue, schmale Funktion in 031,
+    gebunden an Befehlsquittung, WorkEvent und Zielperson, ausführbar nur für
+    `taptime_time_review_writer`. Die Antwort heißt `committed` mit `requiredWalFile` und
+    `offsiteArchived`. Die Oberfläche (App und Web) zeigt erst bei `offsiteArchived=true`
+    „Gespeichert"; bis dahin „Wird gesichert …" und fragt mit derselben `commandId` bzw. über den
+    bestehenden Lesezugang für Archivquittungen (023) nach, höchstens drei Minuten. Danach:
+    „Noch nicht extern gesichert — bitte später prüfen"; eine Wiederholung mit derselben
+    `commandId` ist idempotent und meldet den aktuellen Stand. Kein Wasserstandscheck ohne
+    registrierten Bedarf.
 
 ### Oberfläche
 
