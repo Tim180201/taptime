@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Production functions consume these stub functions and state variables.
-# shellcheck disable=SC2034,SC2329
+# Production functions consume these state variables.
+# shellcheck disable=SC2034
 set -euo pipefail
 
 # Only synthetic files and commands. Never source the machine's backup configuration.
@@ -39,7 +39,11 @@ check() {
 
 stale_oneshot() {
   printf '{"state":"ok"}\n' > "$TEST_ROOT/status"
+  # Invoked by run_fresh_oneshot.
+  # shellcheck disable=SC2317,SC2329
   status_fingerprint() { printf 'unchanged\n'; }
+  # Invoked by run_fresh_oneshot.
+  # shellcheck disable=SC2317,SC2329
   systemctl() { return 1; }
   if run_fresh_oneshot taptime-backup.service "$TEST_ROOT/status"; then
     printf 'Failed service plus old success was accepted.\n'; return 1
@@ -47,7 +51,11 @@ stale_oneshot() {
 }
 unchanged_oneshot() {
   printf '{"state":"ok"}\n' > "$TEST_ROOT/status"
+  # Invoked by run_fresh_oneshot.
+  # shellcheck disable=SC2317,SC2329
   status_fingerprint() { printf 'unchanged\n'; }
+  # Invoked by run_fresh_oneshot.
+  # shellcheck disable=SC2317,SC2329
   systemctl() { return 0; }
   if run_fresh_oneshot taptime-backup.service "$TEST_ROOT/status"; then
     printf 'Unchanged success was accepted.\n'; return 1
@@ -57,9 +65,15 @@ check 'failed oneshot cannot reuse old success' stale_oneshot
 check 'successful start cannot reuse old status' unchanged_oneshot
 
 backup_identity() {
+  # Invoked by run_backup.
+  # shellcheck disable=SC2317,SC2329
   run_fresh_oneshot() { :; }
   # A successfully finished unit may be unloaded while its timer is stopped.
+  # Invoked by run_backup.
+  # shellcheck disable=SC2317,SC2329
   systemctl() { return 1; }
+  # Invoked by run_backup.
+  # shellcheck disable=SC2317,SC2329
   journalctl() {
     case "$*" in
       *--show-cursor*) printf '%s\n' 'irrelevant old message' '-- cursor: synthetic-cursor';;
@@ -79,6 +93,8 @@ exact_base() {
   RESTORE_ARCHIVE_IDENTIFIER=0123456789abcdef
   BORG_REPOSITORY=synthetic
   TAPTIME_RESTORE_BASE_ARCHIVE=base-0123456789abcdef-20260922T100000Z
+  # Invoked by select_base_archive.
+  # shellcheck disable=SC2317,SC2329
   borg() {
     [[ "$1" == list ]] || return 1
     printf '%s\n' base-0123456789abcdef-20260922T100000Z base-0123456789abcdef-20260922T110000Z
@@ -109,8 +125,14 @@ barrier_after_registration() {
   WAL_ARCHIVE_MISSED_CYCLES=2
   DATABASE_CONTAINER=synthetic
   DATABASE_NAME=synthetic
+  # Invoked by complete_wal_archive_cutover.
+  # shellcheck disable=SC2317,SC2329
   ensure_wal_archive_runtime() { :; }
+  # Invoked by complete_wal_archive_cutover.
+  # shellcheck disable=SC2317,SC2329
   prepare_offsite_wal_for_restore() { [[ "$1" == 0 ]]; touch "$TEST_ROOT/registered"; }
+  # Invoked by complete_wal_archive_cutover.
+  # shellcheck disable=SC2317,SC2329
   docker() {
     [[ -f "$TEST_ROOT/registered" ]] || return 1
     if [[ "$*" == *pg_switch_wal* ]]; then
@@ -126,6 +148,8 @@ preflight_case() {
   limit="$(sed -n 's/^readonly DISK_USAGE_THRESHOLD_PERCENT=//p' "$DAILY_MONITOR_COMMAND")"
   PREVIOUS_VERSION=aaaaaaa
   DESIRED_VERSION=bbbbbbb
+  # Invoked by preflight_deploy.
+  # shellcheck disable=SC2317,SC2329
   systemctl() {
     case "$*" in
       *backup.service*ActiveState*) printf 'inactive\n';;
@@ -136,6 +160,8 @@ preflight_case() {
       *) return 1;;
     esac
   }
+  # Invoked by preflight_deploy.
+  # shellcheck disable=SC2317,SC2329
   df() {
     printf 'Filesystem 1024-blocks Used Available Capacity Mounted\n'
     if [[ "$scenario" == disk ]]; then
@@ -157,12 +183,26 @@ controller_case() {
   set +e
   (
     set -e
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     require_root() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     acquire_deploy_lock() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     validate_wal_archive_configuration() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     archive_contract_is_active() { return 0; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     wal_archive_mount_state() { printf 'active\n'; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     preflight_deploy() { [[ "$scenario" != preflight_failure ]]; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     systemctl() {
       printf '%s\n' "$*" >> "$TEST_ROOT/calls"
       case "$*" in
@@ -175,6 +215,8 @@ controller_case() {
         *) return 1;;
       esac
     }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     pull_image() {
       printf 'pull\n' >> "$TEST_ROOT/calls"
       case "$scenario" in
@@ -184,24 +226,62 @@ controller_case() {
         HUP) kill -HUP "$BASHPID";;
       esac
     }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     image_supports_archive_ack_contract() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     prepare_admin_web_release() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     deploy_operations_release() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     require_file() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     select_migration_version() { printf '%s\n' "$DESIRED_VERSION"; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     ensure_wal_archive_runtime() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     sync_migration_sources() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     run_backup() { DEPLOY_BASE_ARCHIVE=base-0123456789abcdef-20260922T100000Z; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     prepare_offsite_wal_for_restore() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     run_restore_verification() { [[ "$3" == "$DEPLOY_BASE_ARCHIVE" ]]; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     migrate_production() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     complete_wal_archive_cutover() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     mark_known_version() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     activate_admin_web_release() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     start_backend() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     restart_caddy() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     wait_for_health() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     publish_protected_versions() { :; }
+    # Invoked by the sourced deploy controller.
+    # shellcheck disable=SC2317,SC2329
     write_current_version() { :; }
     main ccccccc
   ) > "$TEST_ROOT/controller" 2>&1
@@ -233,6 +313,8 @@ done
 wait_case() {
   local scenario="$1"
   declare -F wait_for_running_backup >/dev/null || return 1
+  # Invoked by wait_for_running_backup.
+  # shellcheck disable=SC2317,SC2329
   systemctl() {
     if [[ "$*" == 'show taptime-backup.service --property=ActiveState --value' ]]; then
       if [[ "$scenario" == timeout || ! -f "$TEST_ROOT/finished" ]]; then
@@ -240,6 +322,8 @@ wait_case() {
       else printf 'inactive\n'; fi
     else return 1; fi
   }
+  # Invoked by wait_for_running_backup.
+  # shellcheck disable=SC2317,SC2329
   sleep() { touch "$TEST_ROOT/finished"; command sleep 1; }
   rm -f "$TEST_ROOT/finished"
   if [[ "$scenario" == timeout ]]; then
