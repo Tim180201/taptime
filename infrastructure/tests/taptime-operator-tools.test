@@ -136,4 +136,4 @@ new_url="$(sed -n 's/^TAPTIME_OPERATOR_DATABASE_URL=//p' "$TAPTIME_OPERATOR_ENV_
 password="${new_url#*:}"; password="${password#*:}"; password="${password%%@*}"
 grep -Fq "$password" "$TEST_ROOT/trace-output" "$TEST_ROOT/argv.log" "$TEST_ROOT/pg/server.log" && exit 1
 unset password new_url
-printf 'Operator tools: all checks passed.\n' 
+printf 'Operator tools: all checks passed.\n'

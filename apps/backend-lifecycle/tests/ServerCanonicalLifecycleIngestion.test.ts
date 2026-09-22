@@ -529,7 +529,7 @@ describe('B6 migration and least-privilege runtime boundary', () => {
     expect(result.rows).toEqual([{
       security_definer: true,
       volatility: 'v',
-      configuration: ['search_path=pg_catalog, taptime_server, pg_temp'],
+      configuration: ['search_path=pg_catalog'],
       public_execute: false,
       resolver_execute: true,
       table_grants: '0',
