@@ -12,5 +12,9 @@
     "build": "npm run build --workspaces --if-present",
     "build:contracts": "npm run build --workspace=@taptime/administration-contract && npm run build --workspace=@taptime/mobile-work-contract && npm run build --workspace=@taptime/offline-sync-contract && npm run build --workspace=@taptime/time-entry-export-contract && npm run build --workspace=@taptime/time-review-contract",
     "typecheck": "npm run typecheck --workspace=@taptime/core && npm run typecheck --workspace=@taptime/mobile && npm run typecheck --workspace=@taptime/admin-web"
+  },
+  "devDependencies": {
+    "shell-quote": "1.9.0",
+    "yaml": "2.9.0"
   }
 }

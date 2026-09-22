@@ -37,6 +37,9 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
+      - name: Verify CI workspace build dependencies
+        run: node --test infrastructure/tests/taptime-ci-workspace-dependencies.test.mjs
+
       - name: Verify image workspace build dependencies
         run: node --test infrastructure/tests/taptime-image-build-dependencies.test.mjs
 
@@ -89,8 +92,14 @@ jobs:
       - name: Verify Caddy replaces untrusted forwarding headers
         run: bash infrastructure/caddy/tests/taptime-caddy-forwarding.test
 
-      - name: Build shared contracts for workspace type resolution
-        run: npm run build:contracts
+      - name: Build transitive workspace dependencies before checks
+        run: |
+          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/mobile-work-contract
+          npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/time-review-contract
+          npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/time-entry-export-contract
 
       - name: Typecheck and test the neutral Mobile work contract
         run: |
@@ -117,9 +126,6 @@ jobs:
 
       - name: Test core, mobile, and Admin Web
         run: npm test
-
-      - name: Build core
-        run: npm run build --workspace=@taptime/core
 
       - name: Build Admin Web
         run: npm run build --workspace=@taptime/admin-web
@@ -240,6 +246,10 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
+      - name: Build transitive workspace dependencies before checks
+        run: |
+          npm run build --workspace=@taptime/core
+
       - name: Apply current schema migrations for B4
         run: npm run migrate --workspace=@taptime/backend-schema
 
@@ -298,8 +308,10 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build the approved B4 identity dependency
-        run: npm run build --workspace=@taptime/backend-identity
+      - name: Build transitive workspace dependencies before checks
+        run: |
+          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/backend-identity
 
       - name: Apply current schema migrations for B5
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -359,11 +371,21 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build approved Core, schema, and identity dependencies
+      - name: Build transitive workspace dependencies before checks
         run: |
           npm run build --workspace=@taptime/core
-          npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/time-review-contract
+          npm run build --workspace=@taptime/mobile-work-contract
+          npm run build --workspace=@taptime/backend-time-review
+          npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/time-entry-export-contract
+          npm run build --workspace=@taptime/backend-time-export
+          npm run build --workspace=@taptime/backend-bootstrap
+          npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/backend-offline-sync
 
       - name: Apply current schema migrations
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -431,23 +453,24 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build required contract, Core, schema, identity, lifecycle, administration, export, review, and offline dependencies
+      - name: Build transitive workspace dependencies before checks
         run: |
-          npm run build --workspace=@taptime/administration-contract
-          npm run build --workspace=@taptime/mobile-work-contract
-          npm run build --workspace=@taptime/offline-sync-contract
-          npm run build --workspace=@taptime/time-entry-export-contract
-          npm run build --workspace=@taptime/time-review-contract
           npm run build --workspace=@taptime/core
-          npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/time-review-contract
+          npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/mobile-work-contract
+          npm run build --workspace=@taptime/backend-time-review
+          npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/time-entry-export-contract
+          npm run build --workspace=@taptime/backend-time-export
+          npm run build --workspace=@taptime/backend-bootstrap
+          npm run build --workspace=@taptime/backend-offline-sync
           npm run build --workspace=@taptime/backend-mobile-work
           npm run build --workspace=@taptime/backend-read-model
-          npm run build --workspace=@taptime/backend-lifecycle
-          npm run build --workspace=@taptime/backend-administration
-          npm run build --workspace=@taptime/backend-time-export
-          npm run build --workspace=@taptime/backend-time-review
-          npm run build --workspace=@taptime/backend-offline-sync
 
       - name: Apply current schema migrations to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -521,12 +544,12 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build C3B type dependencies
+      - name: Build transitive workspace dependencies before checks
         run: |
-          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/core
-          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-schema
 
       - name: Apply current schema migrations to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -588,14 +611,21 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build C3C/C3E1/C3E2 contracts, Core, schema, identity, and B6 dependencies
+      - name: Build transitive workspace dependencies before checks
         run: |
-          npm run build --workspace=@taptime/administration-contract
-          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/core
-          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/mobile-work-contract
+          npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/time-review-contract
+          npm run build --workspace=@taptime/backend-time-review
+          npm run build --workspace=@taptime/time-entry-export-contract
+          npm run build --workspace=@taptime/backend-time-export
+          npm run build --workspace=@taptime/backend-bootstrap
+          npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/backend-offline-sync
 
       - name: Apply current schema migrations to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -658,23 +688,24 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build DA2 contract and backend dependencies
+      - name: Build transitive workspace dependencies before checks
         run: |
+          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/mobile-work-contract
-          npm run build --workspace=@taptime/offline-sync-contract
-          npm run build --workspace=@taptime/time-entry-export-contract
-          npm run build --workspace=@taptime/time-review-contract
-          npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/backend-administration
           npm run build --workspace=@taptime/backend-schema
-          npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/time-review-contract
+          npm run build --workspace=@taptime/backend-time-review
+          npm run build --workspace=@taptime/backend-bootstrap
+          npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/backend-offline-sync
+          npm run build --workspace=@taptime/backend-time-export
           npm run build --workspace=@taptime/backend-mobile-work
           npm run build --workspace=@taptime/backend-read-model
-          npm run build --workspace=@taptime/backend-lifecycle
-          npm run build --workspace=@taptime/backend-administration
-          npm run build --workspace=@taptime/backend-bootstrap
-          npm run build --workspace=@taptime/backend-offline-sync
-          npm run build --workspace=@taptime/backend-time-review
 
       - name: Typecheck DA2 export production and test sources
         run: npm run typecheck --workspace=@taptime/backend-time-export
@@ -730,12 +761,21 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build DA2 boundary dependencies
+      - name: Build transitive workspace dependencies before checks
         run: |
-          npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/core
-          npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
+          npm run build --workspace=@taptime/time-entry-export-contract
+          npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/mobile-work-contract
+          npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/time-review-contract
+          npm run build --workspace=@taptime/backend-time-review
+          npm run build --workspace=@taptime/backend-bootstrap
+          npm run build --workspace=@taptime/offline-sync-contract
+          npm run build --workspace=@taptime/backend-offline-sync
 
       - name: Test isolated DA2 export size boundaries against PostgreSQL 17
         run: npm run test:boundary --workspace=@taptime/backend-time-export
@@ -781,23 +821,24 @@ jobs:
       - name: Install dependencies from lockfile
         run: npm ci
 
-      - name: Build DA3 contracts and backend dependencies
+      - name: Build transitive workspace dependencies before checks
         run: |
-          npm run build --workspace=@taptime/administration-contract
-          npm run build --workspace=@taptime/mobile-work-contract
-          npm run build --workspace=@taptime/offline-sync-contract
-          npm run build --workspace=@taptime/time-entry-export-contract
-          npm run build --workspace=@taptime/time-review-contract
           npm run build --workspace=@taptime/core
-          npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-identity
-          npm run build --workspace=@taptime/backend-mobile-work
-          npm run build --workspace=@taptime/backend-read-model
-          npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/time-review-contract
+          npm run build --workspace=@taptime/mobile-work-contract
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/backend-administration
+          npm run build --workspace=@taptime/backend-schema
+          npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/time-entry-export-contract
+          npm run build --workspace=@taptime/backend-time-export
           npm run build --workspace=@taptime/backend-bootstrap
+          npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/backend-offline-sync
           npm run build --workspace=@taptime/backend-time-review
+          npm run build --workspace=@taptime/backend-mobile-work
+          npm run build --workspace=@taptime/backend-read-model
 
       - name: Typecheck and test the neutral DA3 contract
         run: |

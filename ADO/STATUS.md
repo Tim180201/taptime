@@ -80,6 +80,7 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 - **P2 T-069 (geklärt durch D-076):** Verwaltungsstopps umgehen das Duplikatfenster und schließen eine offene Pause zusammen mit der Zeit; lokal geprüft.
 - **T-069:** Server/App/Web einschließlich D-078 umgesetzt und vom TL **APPROVED**; unabhängiges Review Runde 2 sowie lokale Tests/Typechecks grün. Review-Artefakte auf Auftrag entfernt; CI und Images werden nach dem Push geprüft. Kein Deploy, keine APK; T-057 wartet auf ausdrücklichen Start.
+- **P2 T-069 CI-Bauanbindung (behoben):** B6/DA3 scheiterten nach dem Push an fehlenden Builds neuer Testabhängigkeiten; lokale `dist`-Ausgaben hatten die Lücke verdeckt. CI baut jetzt die transitive Workspace-Hülle einschließlich Entwicklungsabhängigkeiten vor den Prüfungen; dynamischer Guard mit Rotnachweis und frische Builds/Typechecks je Job grün. Unabhängiges Review `APPROVED`; `actionlint` lokal nicht installiert.
 - **P2 T-069 (Review Runde 2):** Die Dreiminutenmeldung kann sich um die Restlaufzeit der letzten Archivnachfrage verzögern; kein verfrühter Erfolg.
 - **P2 T-066 (D-078):** Nachtragen/Korrektur ohne externen Archivnachweis bis T-016.
 - **P2 T-069 (Review):** Frühere Offline-Prüfgründe behalten Vorrang vor `administration_stopped`; Scan-Rückmeldung der App bleibt trotz bekanntem Grund allgemein. Detailmarke ist vorhanden.
