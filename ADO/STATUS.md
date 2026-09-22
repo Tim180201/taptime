@@ -76,12 +76,15 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   begrenztes Warten, eigene Basis je Probe, Vorprüfung und argumentloser Diagnosezugang.
   Lokale Tests und unabhängiges Review grün; Review-Artefakte auf Auftrag entfernt.
   CI und Images werden nach dem Push geprüft. Controller-Konsolenschritt gemeinsam mit T-068b;
-  kein Deploy. Nächste Aufgabe: T-068a.
+  kein Deploy. Nächste Aufgabe: T-068b.
 - T-056 CI baut die Images; T-037; T-043/T-044; T-016; T-024.
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **T-068a (22.09.):** Server-Umsetzung und unabhängiges Gesamt-Review Runde 2 vom TL **APPROVED**: Migration 032, Betreiber-Konten/MFA/Fähigkeiten, Pause einschließlich Offline/Einlösung, beide Root-Werkzeuge und erlaubte Installationslisten. Lokal 1.062 Backend-, 648 Mobile- und 271 Web-Tests, tests-inklusive Typechecks und ShellCheck 0.9.0 mit `-e SC1091` grün. Review-Artefakte auf Auftrag entfernt; Commit/Push freigegeben, CI und Images werden anschließend geprüft. Kein Deploy; T-068b ist der nächste Brief.
+- **T-068a Review-Korrekturen (behoben):** Runde 1: gemeinsamer 026-E-Mail-Sperrhash und `needsAttention`. Runde 2: pausierte Einladungseinlösung ohne Mitgliedschaft, gemeinsamer Web-API-Client und verspätete mobile Kontextantwort. Jeweils Rotnachweis vor Korrektur; keine dritte Runde.
+- **P2 lokale Verifikation (T-068a, behoben):** Fixture-/Workspace-Aufbau, SQL-Sperrrechte, Spalten-/search_path-Erwartungen, asynchrone Queue-Proben und Linux-Werkzeuge korrigiert; alle Schlussläufe grün. Ein früher Login-Test hielt den psql-Pipe offen, behoben und Rücknahme erneut geprüft. Review-Artefakte nach TL-Abnahme auf Auftrag entfernt. Export-Grenzlasttest ausgelassen (Lastlogik unverändert); bestehende Web-Bündelwarnung bleibt.
 - **P2 lokale Verifikation (T-057, behoben):** Erste Signaltests liefen mit macOS-Bash ohne
   `BASHPID`; der erste Linux-Lauf hatte kein Node, der sudo-Test noch kein `/usr/local/sbin`.
   Auf vollständiger Linux-Testumgebung sind Signal-, Deploy-, Backup-, Restore- und
