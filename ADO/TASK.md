@@ -30,10 +30,20 @@ Reicht die Zeit nicht, nach „Fähigkeiten" stoppen und melden.
    unverändert). Betreiber-Auflösung über (issuer, subject) → `app.operator_id`. Jede Route
    `/v1/operator/*` außer `GET /v1/operator/session` verlangt `aal2` und ein aktives Konto.
    Die Session-Route antwortet `mfa_required` bei `aal1`.
-3. **Verbindung zur Datenbank:** nach dem bestehenden Muster „eine Fähigkeit, eine Verbindung".
-   **Braucht das eine neue Zugangsangabe in `/opt/taptime/.env`: vor der Umsetzung dieses Punkts
-   stoppen und melden**, mit Vorschlag, wie sie auf dem Server erzeugt wird, ohne dass sie jemand
-   sieht (Muster T-035), und wie der PO die Verwahrung bestätigt.
+3. **Verbindung zur Datenbank (D-079, entschieden 22.09.):** Vorschlag aus dem Stopp-Bericht
+   angenommen: Login `taptime_operator_runtime` (NOINHERIT, NOSUPERUSER, NOBYPASSRLS, NOCREATEDB,
+   NOCREATEROLE, NOREPLICATION), nur Mitglied von `taptime_platform_operator`; Variable
+   `TAPTIME_OPERATOR_DATABASE_URL`, eigener Pool, Aufnahme in die Prüfung auf getrennte
+   Datenbanknutzer. **Optional wie der Einlader:** fehlt die Variable, startet das Backend normal
+   und die Betreiber-Routen antworten `503 operator_not_configured` (Test). Dazu das Root-Werkzeug
+   `taptime-operator-db-login` (mit den Betriebsdateien installiert, ohne Argumente = anlegen,
+   `--rotate` = neu erzeugen): Passwort kryptografisch im Prozess, an PostgreSQL nur über stdin
+   (nie argv, `log_statement` für diese Sitzung aus), `.env` atomar (root:root, 0600, doppelte
+   oder abweichende Schlüssel → Abbruch, Anlegen rotiert nie still), danach nur `backend-api` neu
+   starten und prüfen, dass `/v1/operator/session` nicht mehr `operator_not_configured` meldet.
+   Keine Ausgabe des Werts, kein Tracing. Rücknahme bei Fehler vor dem Schreiben der `.env`.
+   Keine gesonderte Verwahrung nötig (D-079); RESTORE.md bekommt den Schritt „nach
+   Wiederherstellung `taptime-operator-db-login --rotate`".
 4. **Routen und Schutz:** `GET /v1/operator/session`, `POST /v1/operator/overview`,
    `/organizations/create`, `/organizations/status`, `/audit`, `/health` (Inhalte laut Entwurf
    Abschnitt 4). Eigene Schutzklasse `operator_api` (30/min) im Routen-Guard (T-053).

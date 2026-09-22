@@ -1381,3 +1381,12 @@ Oberfläche meldet „Gespeichert" erst bei externem Archivnachweis, vorher „W
 Wiederholung mit derselben Befehlskennung ist idempotent. Nachtragen und Korrektur (kein WorkEvent,
 D-070) bleiben vorerst ohne diesen Nachweis; offen als P2 bis T-016.
 **Warum:** Die D-052-Ausnahme trägt nur, weil das Telefon eine Kopie behält. Die Verwaltung hat keine.
+
+## D-079 · Der Betreiber-Zugang zur Datenbank wird erzeugt, nicht verwahrt · 22.09.2026 · Claude (TL)
+Der Betreiber-Bereich bekommt ein eigenes Datenbank-Login (`taptime_operator_runtime`, nur Mitglied von
+`taptime_platform_operator`). Sein Passwort erzeugt ein Root-Werkzeug auf dem Server im Prozess, setzt es in
+Datenbank und `/opt/taptime/.env` (0600) und zeigt es nie an. Es ist jederzeit neu erzeugbar (`--rotate`),
+deshalb muss es nicht gesondert verwahrt werden; nach einer Wiederherstellung läuft das Werkzeug erneut.
+Fehlt die Angabe, antworten die Betreiber-Routen `503 operator_not_configured`, alles andere läuft normal.
+**Warum:** Ein Laufzeit-Login schützt keine Daten wie die Borg-Passphrase; was jederzeit neu entstehen kann,
+braucht keinen zweiten Aufbewahrungsort und kann nicht über Chat oder Screenshot auslaufen.
