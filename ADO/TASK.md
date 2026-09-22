@@ -1,118 +1,58 @@
 # Aktuelle Aufgabe
 
-> **Stand 21.09.2026, abends:** Auf `main` liegen T-067 (`d75fd56`, Deploy läuft) und T-065
-> (`ae6e0bf`, CI grün, noch keine APK). Die nächste APK und die nächste Geräteabnahme kommen
-> **gemeinsam** nach T-066 und einem Deploy.
-> Reihenfolge: **T-066 → T-068 → Deploy → APK → Geräteabnahme → Pilot Monat 1**
-> (D-067, D-068, D-069, D-070).
+> **Stand 22.09.2026:** Produktion auf `d75fd56` (T-067). Auf `main` T-065 und T-066 (`fd9b5ef`).
+> Reihenfolge: **T-070 → Deploy (T-066 + T-070, Migration 030) → APK → Geräteabnahme → T-068**
+> (D-072). T-068 ist nur Web und braucht keine neue APK.
 
-## T-066 · Zeit nachtragen, Kommentar, Ändern durch den Administrator
+## T-070 · Der Archivierer ruht billig; der Wächter lässt nach der Sicherung Luft
 
-**Für:** Development · **Risiko:** Zeitdaten, Rechte, Export, Kompatibilität alter App-Versionen
-**Zeitbox:** zwei Sitzungen; Reihenfolge Server → App → Web. Reicht die Zeit nicht, nach der App
-stoppen und melden. **Grundlage:** D-067, D-069, D-070, Geräteabnahme vom 21.09.2026.
+**Für:** Development · **Risiko:** Sicherungskette T-035 (WAL-Archiv, Wächter), keine Daten
+**Zeitbox:** eine Sitzung. **Grundlage:** D-066, D-072, Journal der Produktion vom 22.09.
 
-### Befund (am Quelltext geprüft)
+### Befund (Produktion, 22.09., am Journal geprüft)
 
-- **Ein vergessener Tag ist heute von niemandem reparierbar.** Die Korrektur (DA3,
-  `/v1/administration/time-records/correct`, Migration 012) ändert nur einen vorhandenen
-  Eintrag; neu anlegen kann niemand.
-- **Das Modell trägt einen Eintrag ohne Tap schon:** `time_record_revisions` erlaubt
-  `canonical_time_entry_id IS NULL`; `effective_time_records_v2` (Migration 013) führt solche
-  Einträge heute als Quelle `recovered` (aus der Prüfung von Offline-Konflikten). Die App
-  zeigt sie als „wiederhergestellt", der Export v3 als `manual` (Migration 018, Zeile 166).
-- **Kommentare gibt es nirgends.** Der Grund einer Korrektur ist der Grund des Verwalters, kein
-  Kommentar des Mitarbeiters.
-- **Der Mitarbeiter sieht nicht, dass sein Eintrag geändert wurde.** Die Antwort von
-  `/v1/mobile/own-time/query` kennt nur `startedVia`/`stoppedVia`.
-- **Beide Clients prüfen Antworten streng** (T-060: das Admin-Web weist zusätzliche Felder ab;
-  der Mobile-Vertrag prüft Felder einzeln). Neue Felder brechen alte App-Versionen im Feld.
-- **Administrator und Standortleitung haben in der App keinen Reiter „Meine Zeiten"** (D-058);
-  ihre eigenen Zeiten erreichen sie über Mitarbeiter.
-- Die Kopfzeile der App zeigt seit T-065 die E-Mail statt der Rolle.
+- Über 20 ntfy-Alarme „WAL-Archivierung steht" in einer Nacht (00:31 … 04:40 Ortszeit), ohne
+  fehlende Daten; die Platte ist stabil (6,2 GB belegt), T-067 wirkt.
+- **Ein Durchlauf ohne Arbeit dauert 67–68 s** (`uploaded_segments=0 reconciled_archives=0`,
+  gleichmäßig über Stunden). Mit 30 s Pause liegen ~98 s zwischen zwei Statusschreibungen; das
+  Fenster des Wächters ist 120 s. Jede Verzögerung der Storage Box reißt es (08:24:57: 147 s ohne
+  Arbeit).
+- **Nachholen nach der Sicherung:** Sicherung 08:05:01–08:12:21 UTC (7:20 min, unter der
+  Zehn-Minuten-Grenze). Der Durchlauf, der auf die Sperre wartete, endete 08:13:51 nach 451 s mit
+  3 Segmenten; Alarm um 08:16 Ortszeit-Minute. Der Wächter zählt ab Sicherungsende, das Nachholen
+  braucht länger als 120 s.
+- Vermutung (belegen!): Der Leerlauf ruft je Durchlauf Borg über SSH auf (`borg info` der Basis,
+  `borg list --glob-archives wal-*` über das ganze Repository); das Repository trägt noch die
+  Archive der Flut bis zur nächsten Aufräumung (sonntags, `taptime-restore-verify`).
 
-### Umsetzung
+### Auftrag
 
-1. **Nachtragen nach D-070 — kein WorkEvent.** Ein nachgetragener Eintrag ist ein neuer
-   Zeiteintrag als Revision 1 ohne kanonischen Eintrag, mit eigener, dauerhaft gespeicherter
-   Herkunft „nachgetragen" (Migration 030, append-only), getrennt von `recovered`. Geschlossenes
-   Intervall mit Arbeitsziel. Keine Pausen im nachgetragenen Eintrag; wer eine Pause hatte,
-   trägt zwei Einträge nach. Idempotent über `commandId` wie die bestehenden Befehle.
-2. **Grenzen, serverseitig geprüft:** Ende nicht in der Zukunft; Beginn vor Ende; höchstens
-   24 Stunden; keine Überschneidung mit einem anderen wirksamen Eintrag derselben Person
-   (kanonisch, nachgetragen, wiederhergestellt oder laufend).
-   - **Mitarbeiter:** nur für sich selbst; Beginn im laufenden oder im Vormonat
-     (Europe/Berlin); Kommentar optional.
-   - **Administrator:** für jedes Mitglied seines Betriebs, ohne Zeitgrenze; Grund Pflicht.
-   - **Standortleitung:** in dieser Aufgabe abgewiesen — ihre Rechte kommen mit T-062.
-3. **Kommentar je Zeiteintrag.** Der Mitarbeiter kommentiert jeden eigenen Eintrag, jederzeit;
-   append-only, die jüngste Fassung gilt, frühere bleiben erhalten; 1 bis 500 Zeichen.
-   Administrator (und später Standortleitung) lesen mit, schreiben aber keine Kommentare —
-   ihr Wort ist der Grund einer Korrektur.
-4. **Der Mitarbeiter sieht Änderungen an seinem Eintrag** (D-069): dass, wann und warum er
-   geändert wurde, ob von ihm selbst nachgetragen oder durch die Verwaltung. Kein Name des
-   Verwalters nötig.
-5. **Kompatibel:** Neue Felder in Eigenzeit-, Personenzeit- und Sitzungsantworten nur für
-   Clients, die die neue Fassung ausdrücklich anfordern — Muster aus T-060 (`Accept` mit
-   versioniertem Medientyp, `Vary: Accept`). Alte App-Versionen bekommen die bisherige Antwort
-   unverändert.
-6. **Export:** Neue Fassung v4 mit Herkunft (gescannt, manuell, nachgetragen, wiederhergestellt),
-   Änderungsmarke und aktuellem Kommentar. v3 bleibt in Form und Bedeutung unverändert.
-7. **App:**
-   - Mitarbeiter: Knopf „Zeit hinzufügen" in Meine Zeiten → Kunde/Projekt → Datum, von, bis →
-     Kommentar (optional) → speichern. Nur online; offline sichtbar gesperrt mit Hinweis.
-   - Tagesansicht: an jedem eigenen Eintrag Kommentar schreiben und lesen; Marken
-     „nachgetragen" und „geändert" mit Zeitpunkt und Grund.
-   - Administrator: in Mitarbeiter → Person → Tagesansicht „Zeit hinzufügen" und an jedem
-     Eintrag „Ändern" (von, bis, Grund) über die bestehende Korrektur.
-   - Kopfzeile: E-Mail **und** Rolle („tim@… · Administrator"; offline „… · Offline").
-8. **Web:** dieselben Fähigkeiten für dieselben Rollen: Zeit hinzufügen und Kommentar in
-   Meine Zeiten; der Administrator trägt für Personen nach und ändert wie heute; Marken wie in
-   der App; Export v4 im Verwaltungsbereich.
+1. **Erst belegen:** Aus dem Code alle Borg-/SSH-Aufrufe eines Leerlauf-Durchlaufs auflisten und
+   lokal mit einem synthetischen Repository (mindestens 5.000 WAL-Archive) messen, welche Phase
+   dominiert. Journalzeile um die Dauer je Phase ergänzen (Datenbank, Archivliste, Basis,
+   Hochladen, Abgleich) — keine Adressen, keine Geheimnisse.
+2. **Leerlauf ohne Fernzugriff (D-072):** Gibt es keine offene Anforderung, keine vollständige
+   Spool-Datei ohne Quittung und keinen neuen Wasserstand, schreibt der Durchlauf den Status
+   `ok` allein aus Datenbank und Spool. Der Vollabgleich mit der Storage Box (Liste, Basis,
+   Lückenprüfung) läuft, sobald Arbeit ansteht, und sonst höchstens alle 15 Minuten
+   (konfigurierbar, Standard 900 s). Eine Lücke oder ein Fehler im Vollabgleich bleibt ein
+   Fehler wie heute. Pro Durchlauf höchstens eine Archivliste.
+3. **Nachholzeit (D-072):** Nach dem Ende einer Sicherung zählen Herzschlag und Datenalter im
+   Wächter erst nach einer einmaligen, begrenzten Nachholzeit (Standard 300 s, konfigurierbar;
+   Obergrenze im Code, nicht über 600 s). Sicherung über zehn Minuten alarmiert weiter.
+   Alles andere am Wächter bleibt (120 s, Flankenmeldung, AF_UNIX).
+4. **Tests:** Leerlauf ohne einen einzigen Borg-Aufruf (Stub zählt); Vollabgleich nach Ablauf
+   des Intervalls und bei Arbeit; Lücke im Vollabgleich bleibt rot; Wächter: Alarm 301 s nach
+   Sicherungsende mit offener Anforderung, keiner bei 299 s; bestehende T-035/T-063/T-067-Tests
+   grün. Rotnachweis für die ersten beiden mit dem alten Code.
+5. **Messung vorher/nachher** (lokal, synthetisch): Dauer eines Leerlauf-Durchlaufs und eines
+   Nachholens von drei Segmenten.
 
-### Grenzen
+### Nicht Teil
 
-- Keine Änderung an Trigger, WorkEvent, Business Engine, Offline-Abgleich oder T-052-Warteschlange.
-- Keine Rechte für die Standortleitung (T-062). Keine Änderung an bestehenden Migrationen 001–029.
-- v3-Export, bisherige Antwortformen und alte App-Versionen bleiben unverändert funktionsfähig.
-- Kein Deploy, kein APK-Bau.
+Keine Änderung an Basissicherung, `borg check`, Aufbewahrung, Wiederherstellung, Migrationen,
+Deploy-Skript. Kein Zugriff auf den Server, auf `/opt/taptime/.env` oder `/etc/taptime-backup/*`.
 
-### Korrektur vom 21.09. (Befund Development, Entscheidung Technical Lead, D-071)
+### Bericht
 
-Richtig gestoppt: `correct_time_record_v1` weist alles außer `stopped` als `not_adjustable` ab
-(Migration 012, Zeile 820), und die Leser der Engine lesen den laufenden Zustand direkt aus
-`time_entries`. Eine laufende Zeit durch die Verwaltung zu beenden ist eine Änderung am
-Lebenszyklus — die habe ich mit „jeden Eintrag" versehentlich mitbestellt.
-
-9. **„Ändern" gilt für abgeschlossene Einträge.** An einem laufenden Eintrag gibt es keinen
-   Ändern-Knopf, sondern den sichtbaren Hinweis „Läuft noch — erst beenden, dann ändern".
-   Der Weg bis T-069: Der Mitarbeiter beendet per Tap oder von Hand, danach korrigiert der
-   Administrator das Ende.
-10. **Später entstehende Überschneidungen werden sichtbar gemacht, nicht verhindert.** Beim
-    Nachtragen gilt die Prüfung aus Punkt 2. Überschneidet sich ein Eintrag später — etwa durch
-    einen verspätet abgeglichenen Offline-Tap oder eine Korrektur —, markieren Eigenzeit- und
-    Personenzeitansicht (in der neuen Antwortfassung) beide Einträge als „überschneidet sich".
-    Keine Sperre in Abgleich, Engine oder Korrektur.
-11. Alles andere aus diesem Auftrag gilt unverändert; Reihenfolge Server → App → Web.
-
-### Verifikation und Abschluss
-
-- **Rotnachweise zuerst**, je Grenze: Mitarbeiter für andere; außerhalb des Fensters; in der
-  Zukunft; Überschneidung mit kanonischem, nachgetragenem, wiederhergestelltem und laufendem
-  Eintrag; Administrator ohne Grund; Standortleitung; fremder Betrieb; Kommentar auf fremden
-  Eintrag; Wiederholung mit gleicher und abweichender `commandId`.
-- Migration 030 ab leerem Schema und auf befülltem Stand 029; vorhandene Werte vorher/nachher
-  unverändert; RLS auf jeder neuen Tabelle aktiviert und erzwungen.
-- Alte Clients: bisherige Antworten byteweise gleich, wenn die neue Fassung nicht angefordert
-  wird.
-- Export v4 mit allen vier Herkünften und Kommentar; v3 unverändert.
-- Laufender Eintrag: kein Ändern angeboten, Hinweis sichtbar; die bestehende Korrektur bleibt
-  unverändert. Überschneidungsmarke: Rot-/Grünnachweis mit einem verspätet eingespielten Eintrag.
-- App und Web: Tests für jeden Knopf und jede Marke; Typechecks einschließlich Tests;
-  `npx expo export --platform android`; Barrierefreiheit (axe im Web).
-- Unabhängiges read-only Review, höchstens zwei Runden. Nichts committen, nichts pushen.
-  Review-Dateien nach `.t066-review/`.
-
-## Danach
-
-**T-068** Betreiber-Bereich (D-068) — Entwurf durch den Technical Lead folgt.
+`.t070-review/report.md`, `tracked.diff`, `untracked.txt`. Kein Commit, kein Push, kein Deploy.

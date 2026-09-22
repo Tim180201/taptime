@@ -5,9 +5,10 @@
 **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
 **Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007),
 mit getrennten Uhren für reine Wartezeiten (D-011).
-**Stand:** 21.09.2026, Produktion auf `7f0012e` (T-061, T-049, T-063, T-064). Web abgenommen,
-Geraet abgenommen bis auf den Kalender. Befund Archivierung: T-067.
-Naechste Reihenfolge: **T-067** (Deploy laeuft) → **T-066** → **T-068** → Deploy → APK →
+**Stand:** 22.09.2026, Produktion auf `d75fd56` (T-067 ausgeliefert 22.09. nachts). Auf `main`
+T-065 und T-066 (`fd9b5ef`). Befund Waechter: T-070.
+Naechste Reihenfolge: **T-070** → Deploy (T-066 + T-070, Migration 030) → APK → Geraeteabnahme →
+**T-068** → Deploy →
 Geraeteabnahme → Pilot Monat 1;
 waehrend Monat 1 T-062, T-048 und T-050, Freigabe zu Monat 2 (D-063). Grundlage weiterhin die Anforderungspruefung gegen den Code (D-012).
 
@@ -103,7 +104,8 @@ Datenbankrechten eingreifen muss.
 | **T-063** | **Ein Tap ist binnen Minuten extern gesichert (Befund 18.09.)** | `archive_timeout` ist nirgends gesetzt; PostgreSQL schliesst die WAL-Datei erst bei 16 MB. Folge: der Waechter meldet „WAL-Archivierung steht", und T-052 haelt die Warteschlange des Handys tagelang. `archive_timeout=60s` versioniert in beiden Compose-Dateien, Monitor-Test, MONITORING.md. Keine Absenkung des Alarmfensters. Brief in TASK.md. | 1 |
 | **T-069** | **Die Verwaltung beendet eine vergessene laufende Zeit (D-071)** | Aenderung am Lebenszyklus: Administrator (spaeter Standortleitung) beendet die laufende Zeit eines Mitarbeiters mit Endzeit und Grund; der naechste Tap beginnt danach korrekt neu; Offline-Abgleich und T-052 beruecksichtigt. Loest auch den bekannten P2 „unbegrenzter vergessener Stopp". Pilotmonat 1, neben T-050. | 2 |
 | **T-068** | **Betreiber-Bereich: Betriebe anlegen und ueberblicken (D-068)** | Eigener Zugang ueber allen Betrieben, eigene Autoritaet, zweiter Faktor, jede Aktion protokolliert. Betrieb anlegen mit Einladung des ersten Administrators; Betrieb pausieren; Uebersicht (Status, Zahl der Mitarbeiter, heute aktiv, letzter Tap, Tags, offene Einladungen, Betriebszustand). Nie Namen oder Zeiten von Mitarbeitern der Kunden. Vor dem Pilot. Entwurf durch den Technical Lead vor dem Brief. | 3 |
-| **T-067** | **Die Archivierung erzeugt ihre Arbeit nicht mehr selbst (Befund 21.09., D-066)** | `archive_timeout` wieder heraus; der Archivierer wechselt selbst, wenn eine Anforderung im offenen Segment liegt; keine doppelte Fernabfrage fuer quittierte Archive; Waechter zaehlt ab Sicherungsende und alarmiert bei Sicherung ueber zehn Minuten; eine Journalzeile je Durchlauf. Brief in TASK.md. | 1 |
+| **T-070** | **Der Archivierer ruht billig; der Waechter laesst nach der Sicherung Luft (Befund 22.09., D-072)** | Leerlauf ohne Storage-Box-Zugriff; Vollabgleich bei Arbeit, sonst hoechstens alle 15 min; einmalige Nachholzeit von fuenf Minuten nach Sicherungsende; Journal mit Dauer je Phase. Brief in TASK.md. | 1 |
+| **T-067 ✓** | **Die Archivierung erzeugt ihre Arbeit nicht mehr selbst (Befund 21.09., D-066)** | `archive_timeout` wieder heraus; der Archivierer wechselt selbst, wenn eine Anforderung im offenen Segment liegt; keine doppelte Fernabfrage fuer quittierte Archive; Waechter zaehlt ab Sicherungsende und alarmiert bei Sicherung ueber zehn Minuten; eine Journalzeile je Durchlauf. Brief in TASK.md. | 1 |
 | **T-066** | **Zeit nachtragen, Kommentar, Aendern durch den Administrator (D-067, D-069, D-070)** | Nachtragen ohne WorkEvent als eigene Herkunft; Mitarbeiter im laufenden und Vormonat, Administrator ohne Grenze mit Grund; Kommentar je Eintrag; Mitarbeiter sieht Aenderungen; Administrator aendert und traegt nach auch im Handy; Kopfzeile E-Mail und Rolle; Export v4; neue Felder nur fuer neue Clients. Server, App, Web. Standortleitung mit T-062. | 2 |
 | **T-065 ✓** | **Abnahme am Geraet 21.09.: Kalender, Offline-Start, Manuell-Knopf — umgesetzt `ae6e0bf`** | Monat ohne Wischen; Offline-Erfassung nach zwei statt sechzig Sekunden, Identitaet aus der letzten bestaetigten Sitzung; „Manuell starten" auf Erfassen, offline auch Pause. Geraeteabnahme gemeinsam mit T-066. | ✓ |
 | **T-064 ✓** | **Das Abbild baut, was die Anwendung braucht — abgeschlossen `7f0012e`** | Eine Liste der Vertragspakete (`build:contracts`) fuer CI und beide Dockerfiles; Waechter leitet die Pflichtmenge aus den Paketdateien ab. | ✓ |

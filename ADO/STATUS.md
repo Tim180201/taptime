@@ -1,9 +1,9 @@
 # TapTim.e — Status
 
-**Stand:** 21.09.2026 · Produktion läuft auf `7f0012e` (Deploy 20.09., 15:06–15:11 Uhr, ein
-Anlauf, Migration 029; zwei weitere bewiesene Wiederherstellungen). Produktion trägt T-061,
-T-049, T-063 und T-064; auf `main` zusätzlich T-067 (`d75fd56`, Deploy läuft) und T-065 (`ae6e0bf`).
-Offen vor dem Pilot: T-066, T-068. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
+**Stand:** 22.09.2026 · Produktion läuft auf `d75fd56` (T-067; Deploy 21./22.09., zweiter Anlauf,
+keine neue Migration, zwei bewiesene Wiederherstellungen; Platte danach 6,2 GB belegt, stabil).
+Auf `main` zusätzlich T-065 (`ae6e0bf`) und T-066 (`e7eb0c6`, Korrektur `fd9b5ef`, Migration 030).
+Offen vor dem Pilot: T-070, T-068. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
 vollständigen Monatsabschluss übersteht.
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -90,7 +90,13 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
   Hostbenutzer. Prüfen, ob `dnsmasq` läuft; feste eigene Nummer für den Spool (T-057).
 - **Beobachten (21.09.):** Dauer der stündlichen Basissicherung gegen die Zehn-Minuten-Grenze
   des Wächters (D-066); ein Lauf endete 16:13 UTC nach bis zu acht Minuten.
-- **P1 T-067 (Befund 21.09.):** `archive_timeout=15s` (T-063, ausgeliefert 20.09.) lässt den
+- **P1 T-070 (Befund 22.09.):** Über 20 Alarme „WAL-Archivierung steht" in einer Nacht, ohne
+  fehlende Daten. Ein Leerlauf-Durchlauf dauert 67–68 s (Storage-Box-Zugriffe ohne Arbeit), das
+  Alarmfenster ist 120 s; das Nachholen nach der Sicherung dauerte 451 s (08:05–08:13 UTC,
+  Sicherung selbst 7:20 min). Berichtigung in D-072.
+- **Aufräumen (root, 22.09.):** Journal-Auszug `/home/taptime-deploy/j.txt` vom 21.09. liegt im
+  Heimverzeichnis des Deploy-Benutzers (Schlüssel ohne Passphrase, T-024) — löschen.
+- **Erledigt 22.09. — T-067 (Befund 21.09.):** `archive_timeout=15s` (T-063, ausgeliefert 20.09.) lässt den
   Archivierer seine eigenen Quittungen archivieren — rund 200 Archive je Stunde ohne Taps. Die
   Durchläufe wachsen auf Stunden, die stündliche Sicherung verhungert, der Spool wächst auf der
   Datenbankplatte (6,0 → 17 GB in 20 h). Archivierer bis zum Deploy von T-067 angehalten;

@@ -1324,3 +1324,11 @@ markiert, nicht gesperrt.
 **Warum:** Die bestehende Korrektur und die Leser der Engine kennen nur geschlossene
 Revisionen; ein laufender Eintrag hat seine Wahrheit im Lebenszyklus, nicht in einer Revision.
 
+
+## D-072 · Der Archivierer ruht billig, der Wächter lässt nach der Sicherung Luft · 22.09.2026 · Claude (TL)
+Ein Durchlauf ohne Arbeit fragt die Storage Box nicht: nur Datenbank und Spool. Den Vollabgleich
+(Archivliste, Basis, Lückenprüfung) macht er, sobald Arbeit ansteht, sonst höchstens alle 15 Minuten.
+Der Wächter behält 120 Sekunden für Herzschlag und Datenalter; nach dem Ende einer Sicherung
+bekommt das Nachholen einmalig bis zu fünf Minuten. Jede Journalzeile nennt die Dauer je Phase.
+**Warum:** Am 22.09. dauerte ein Leerlauf-Durchlauf 67–68 s bei 120 s Alarmfenster; jede Verzögerung
+der Storage Box löste über 20 Alarme aus, obwohl nichts fehlte (08:13 Nachholen nach Sicherung: 451 s).
