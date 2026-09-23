@@ -95,6 +95,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P2 T-031 Faktenprobe (behoben):** Erster lokaler Caddy-Echttest las Docker-Logs nur auf stdout; die Meldung lag auf stderr. Beide Kanäle werden jetzt geprüft, vollständiger Folgelauf grün. Erstfehler und Befund in `.t031-review/`; keine Umsetzung begonnen.
+
 - **T-072 (23.09.):** iPhone Stufe 1 umgesetzt (Core-NFC-Scan in der offenen App, Tag-Zuordnung auf dem iPhone, iOS-Uhr nach D-082, Datenschutz-Manifest 35F9.1); Technical Lead **APPROVED**. Review-Artefakte entfernt; Commit/Push freigegeben. Kein App-Build durch Codex; erster iOS-Build und TestFlight durch den PO nach `apps/mobile/README.md`, danach Geräteabnahme Android und iPhone.
 - **P2 T-072 Feedback:** Der vorhandene native Ton-/Vibrationscode ist Android-only; iOS Stufe 1 zeigt die Serverentscheidung, hat aber noch keinen eigenen Feedback-Port. Geräteabnahme nach separat freigegebenem Build steht aus.
 - **P2 T-072 Verifikation:** Privacy-Rotlauf scheiterte zuerst am plist-Testimport; korrekter Gegenbeleg gegen Altquelle erst nach Änderung (Prozesslücke). Weitere Mock-/Typ-/Xcode-Prüfannahmen und erster Interop-Aufbau der Reviewer-Probe korrigiert. Schlusslauf: gesamte Mobile-Suite und tests-inklusiver Typecheck grün; Belege in `.t072-review/`. Review-P1 zur nativen Abbruchreihenfolge mit vorgezogenem Rotnachweis behoben. Runde 2 formal CHANGES REQUIRED allein wegen P2; keine offenen P0/P1, Technical Lead hat die Abweichung am 23.09. akzeptiert (nachträglicher Gegenbeleg genügt für eine reine Konfigurationsangabe; Suite und Typecheck vom TL unabhängig nachgelaufen), keine dritte Runde.
