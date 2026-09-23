@@ -49,6 +49,7 @@ make_release() {
   while IFS='|' read -r source relative mode; do
     copy_release_file "$release" "$source" "$relative" "$mode"
   done <<'EOF_RELEASE_FILES'
+infrastructure/operations/taptime-landing-password|usr/local/sbin/taptime-landing-password|700
 infrastructure/operations/taptime-operator-grant|usr/local/sbin/taptime-operator-grant|700
 infrastructure/operations/taptime-operator-db-login|usr/local/sbin/taptime-operator-db-login|700
 infrastructure/backup/taptime-backup|usr/local/sbin/taptime-backup|700

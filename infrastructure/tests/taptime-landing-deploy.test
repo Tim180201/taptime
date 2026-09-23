@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# shellcheck disable=SC2034,SC2317,SC2329
+set -euo pipefail
+TEST_ROOT="$(mktemp -d)"
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+export TAPTIME_DEPLOY_LANDING_WEB_ROOT="$TEST_ROOT/web"
+export TAPTIME_LANDING_AUTH_DIRECTORY="$TEST_ROOT/auth"
+# shellcheck source=../deploy
+source infrastructure/deploy
+DESIRED_VERSION=bbbbbbb
+PREVIOUS_VERSION=aaaaaaa
+fixture() {
+  local root="$LANDING_WEB_ROOT/releases/$1"
+  mkdir -p "$root/assets" "$root/tag-assets"
+  printf '%s\n' "$1" > "$root/version.txt"
+  printf '<!doctype html><script type="module" src="/releases/%s/assets/main.js"></script>\n' "$1" > "$root/index.html"
+  for file in assets/main.js tag.html robots.txt tag-assets/fonts.css tag-assets/tag.css; do printf 'fixture\n' > "$root/$file"; done
+}
+fixture aaaaaaa; fixture bbbbbbb
+select_landing_web_release bbbbbbb 1 >/dev/null
+[[ "$(readlink "$LANDING_WEB_ROOT/current")" == releases/bbbbbbb ]]
+select_landing_web_release aaaaaaa 1 >/dev/null
+[[ "$(readlink "$LANDING_WEB_ROOT/current")" == releases/aaaaaaa ]]
+select_landing_web_release aaaaaaa 0 >/dev/null
+[[ ! -L "$LANDING_WEB_ROOT/current" && -f "$LANDING_WEB_ROOT/releases/bbbbbbb/index.html" ]]
+printf 'PASS landing activation, rollback and historical deactivation retain releases\n'
+(
+  DESIRED_LANDING_WEB=0; PREVIOUS_LANDING_WEB=1
+  pull_image() { printf '%s\n' "$1" >> "$TEST_ROOT/pulls"; }
+  prepare_landing_web_release() { [[ "$2" == aaaaaaa ]]; }
+  prepare_landing_web_versions
+  [[ "$(cat "$TEST_ROOT/pulls")" == "$IMAGE_REPOSITORY:landing-web-aaaaaaa" ]]
+)
+printf 'PASS historical target uses metadata, not failed pulls\n'
+(
+  docker() { printf '<no value>\n'; }
+  [[ "$(landing_web_capability fixture)" == 0 ]]
+  docker() { return 32; }
+  status=0; landing_web_capability fixture || status=$?; [[ "$status" == 32 ]]
+)
+printf 'PASS absent capability is distinct from an inspection failure\n'
+(
+  docker() { cat >/dev/null; printf 'synthetic-hash\n'; }
+  initialize_landing_auth
+  [[ "$(file_mode "$LANDING_AUTH_DIRECTORY")" == 700 && "$(file_mode "$LANDING_AUTH_DIRECTORY/password.hash")" == 600 ]]
+  docker() { return 88; }
+  initialize_landing_auth
+  [[ "$(cat "$LANDING_AUTH_DIRECTORY/password.hash")" == synthetic-hash ]]
+)
+printf 'PASS missing hash is initialized privately once, existing access is preserved\n'
+(
+  DESIRED_LANDING_WEB=1; calls=0
+  landing_web_health() { calls=$((calls+1)); (( calls >= 3 )); }
+  sleep() { :; }
+  verify_landing_or_disable
+  [[ "$calls" == 3 && "$LANDING_ONLY_FAILURE" == 0 ]]
+)
+printf 'PASS landing TLS may become ready within its bounded budget\n'
+for archive in 0 1; do
+  status=0
+  (
+    ARCHIVE_CONTRACT_ACTIVE="$archive"; ARCHIVE_CUTOVER_ACTIVE=0; NEW_IMAGE_STARTED=1
+    select_landing_web_release bbbbbbb 1 >/dev/null
+    landing_web_health() { return 1; }
+    sleep() { :; }
+    rollback_started_image() { printf 'unexpected backend rollback\n' > "$TEST_ROOT/rollback"; exit 91; }
+    recover_caddy_edge() { printf 'unexpected Caddy rollback\n' > "$TEST_ROOT/rollback"; return 92; }
+    verify_landing_or_disable || status=$?
+    [[ "$status" == 1 && "$LANDING_ONLY_FAILURE" == 1 && ! -L "$LANDING_WEB_ROOT/current" ]]
+    finish_deploy "$status"
+  ) >/dev/null 2>&1 || status=$?
+  [[ "$status" == 1 && ! -e "$TEST_ROOT/rollback" ]]
+done
+printf 'PASS landing-only failure deactivates only landing, with or without archive contract\n'

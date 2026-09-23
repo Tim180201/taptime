@@ -3,7 +3,7 @@
 import { readFile } from 'node:fs/promises';
 
 const VERSION_PATTERN = /^[0-9a-f]{7}$/;
-const WEB_TAG_PREFIXES = ['admin-web-', 'operator-web-'];
+const WEB_TAG_PREFIXES = ['admin-web-', 'operator-web-', 'landing-web-'];
 const OPERATIONS_TAG_PREFIX = 'operations-';
 const OPERATIONS_SHORTCUT_TAG = 'ops';
 

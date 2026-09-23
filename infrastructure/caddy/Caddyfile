@@ -163,3 +163,75 @@ betreiber.tb-infra.de {
 		respond 404
 	}
 }
+
+(landing_headers) {
+	header {
+		-Server
+		-Via
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		X-Robots-Tag "noindex, nofollow"
+		Cache-Control "no-store"
+	}
+}
+
+http://tb-infra.de {
+	import landing_headers
+	redir https://tb-infra.de{uri} 301
+}
+
+www.tb-infra.de, http://www.tb-infra.de {
+	import landing_headers
+	redir https://tb-infra.de{uri} 301
+}
+
+tb-infra.de {
+	import landing_headers
+	# Authentication and file-server errors use Caddy's error route.
+	handle_errors {
+		import landing_headers
+		respond "" {err.status_code}
+	}
+	@landingEnabled file {
+		root /srv/landing-web/current
+		try_files index.html
+	}
+	handle @landingEnabled {
+		@landingApi path_regexp ^/(v[0-9]+(/|$)|health(/|$))
+		handle @landingApi {
+			respond 404
+		}
+		@landingPublic path /tag /robots.txt /version.txt
+		handle @landingPublic {
+			root * /srv/landing-web/current
+			@tag path /tag
+			rewrite @tag /tag.html
+			file_server
+		}
+		# Only the tag page's styles and local fonts bypass authentication.
+		@tagAsset path_regexp ^/releases/[0-9a-f]{7}/tag-assets/(fonts\.css|tag\.css|fonts/(manrope-(400|500|600|700|800)|jetbrains-mono-(400|500))\.ttf)$
+		handle @tagAsset {
+			root * /srv/landing-web
+			file_server
+		}
+		handle {
+			basic_auth {
+				pilot {file./srv/landing-auth/password.hash}
+			}
+			handle /releases/* {
+				root * /srv/landing-web
+				file_server
+			}
+			handle {
+				root * /srv/landing-web/current
+				file_server
+			}
+		}
+	}
+	handle {
+		respond 404
+	}
+}

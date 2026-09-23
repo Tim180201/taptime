@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Source real orchestration; external effects below are isolated synthetic functions.
+# shellcheck disable=SC2034,SC2317,SC2329
+set -euo pipefail
+TEST_ROOT="$(mktemp -d)"
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+export TAPTIME_DEPLOY_CADDY_STATE_DIRECTORY="$TEST_ROOT/state"
+# shellcheck source=../deploy
+source "$(dirname "$0")/../deploy"
+failures=0
+check() {
+  local name="$1" status=0
+  shift
+  set +e
+  (set -e; "$@") > "$TEST_ROOT/output" 2>&1
+  status=$?
+  set -e
+  if (( status == 0 )); then printf 'PASS %s\n' "$name";
+  else printf 'FAIL %s\n' "$name"; cat "$TEST_ROOT/output"; failures=$((failures+1)); fi
+}
+scenario() {
+  local kind="$1" status=0
+  declare -F activate_caddy_edge >/dev/null
+  ARCHIVE_CONTRACT_ACTIVE=1; ARCHIVE_CUTOVER_ACTIVE=0
+  DESIRED_VERSION=bbbbbbb; PREVIOUS_VERSION=aaaaaaa; PREVIOUS_OPERATOR_WEB=1; DESIRED_OPERATOR_WEB=1
+  CADDY_RECOVERY_READY=1
+  local config=old admin=bbbbbbb operator=bbbbbbb recovery=0 backend=unchanged
+  restart_caddy() {
+    config=new
+    case "$kind" in invalid) return 23;; stopped) config=stopped; return 24;; esac
+  }
+  wait_for_edge() {
+    if [[ "$1" == bbbbbbb ]]; then
+      [[ "$kind" == success ]] || return 29
+    else
+      [[ "$config" == old && "$admin" == aaaaaaa && "$operator" == aaaaaaa ]]
+    fi
+  }
+  activate_admin_web_release() { admin="$1"; }
+  select_operator_web_release() { operator="$1"; }
+  select_landing_web_release() { :; }
+  restore_caddy_configuration() {
+    recovery=$((recovery+1))
+    [[ "$kind" != recovery_failed ]] || return 1
+    config=old
+  }
+  start_backend() { backend=changed; return 99; }
+  activate_caddy_edge bbbbbbb || status=$?
+  [[ "$backend" == unchanged && "$ARCHIVE_CONTRACT_ACTIVE" == 1 && "$CADDY_SWITCH_STARTED" == 0 ]]
+  if [[ "$kind" == success ]]; then
+    [[ "$status" == 0 && "$recovery" == 0 && "$config" == new ]]
+  elif [[ "$kind" == recovery_failed ]]; then
+    [[ "$status" == 29 && "$recovery" == 1 ]]
+  else
+    case "$kind" in invalid) [[ "$status" == 23 ]];; stopped) [[ "$status" == 24 ]];; *) [[ "$status" == 29 ]];; esac
+    [[ "$recovery" == 1 && "$config" == old && "$admin" == aaaaaaa && "$operator" == aaaaaaa ]]
+  fi
+}
+for kind in invalid stopped wrong_edge success recovery_failed; do
+  check "archive-active edge recovery: $kind" scenario "$kind"
+  if [[ "$kind" == recovery_failed ]]; then
+    if ! grep -q 'Caddy-Ruecknahme fehlgeschlagen' "$TEST_ROOT/output"; then failures=$((failures+1)); fi
+  fi
+done
+
+snapshot_case() {
+  local kind="$1" status=0
+  declare -F save_running_caddy >/dev/null
+  mkdir -p "$CADDY_STATE_DIRECTORY"
+  printf 'previous-proof\n' > "$CADDY_STATE_DIRECTORY/running.json"
+  compose() { printf 'local-caddy\n'; }
+  read_running_caddy() {
+    [[ "$kind" != read_failure ]] || return 12
+    printf '{"apps":{}}\n'
+  }
+  validate_caddy_snapshot() { [[ "$kind" != invalid ]]; }
+  if [[ "$kind" == write_failure ]]; then mv() { return 72; }; fi
+  save_running_caddy || status=$?
+  if [[ "$kind" == success ]]; then
+    [[ "$status" == 0 && "$CADDY_RECOVERY_READY" == 1 ]]
+    [[ "$(file_mode "$CADDY_STATE_DIRECTORY/running.json")" == 600 ]]
+    [[ "$(file_mode "$CADDY_STATE_DIRECTORY")" == 700 ]]
+  else
+    [[ "$status" != 0 && "$CADDY_RECOVERY_READY" == 0 ]]
+    [[ "$(cat "$CADDY_STATE_DIRECTORY/running.json")" == previous-proof ]]
+  fi
+}
+for kind in read_failure write_failure invalid success; do check "snapshot gate: $kind" snapshot_case "$kind"; done
+(( failures == 0 ))

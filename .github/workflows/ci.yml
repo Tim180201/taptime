@@ -41,7 +41,7 @@ jobs:
         run: node --test infrastructure/tests/taptime-ci-workspace-dependencies.test.mjs
 
       - name: Verify image workspace build dependencies
-        run: node --test infrastructure/tests/taptime-image-build-dependencies.test.mjs infrastructure/tests/taptime-operator-image.test.mjs
+        run: node --test infrastructure/tests/taptime-image-build-dependencies.test.mjs infrastructure/tests/taptime-operator-image.test.mjs infrastructure/tests/taptime-landing-image.test.mjs
 
       - name: Verify operational monitoring scripts
         run: |
@@ -49,11 +49,14 @@ jobs:
             infrastructure/deploy \
             infrastructure/operations/taptime-bootstrap \
             infrastructure/operations/taptime-status \
+            infrastructure/operations/taptime-landing-password \
             infrastructure/operations/taptime-operator-grant \
             infrastructure/operations/taptime-operator-db-login \
             infrastructure/tests/taptime-operator-tools.test \
             infrastructure/tests/taptime-deploy.test \
             infrastructure/tests/taptime-deploy-hardening.test \
+            infrastructure/tests/taptime-caddy-recovery.test \
+            infrastructure/tests/taptime-landing-deploy.test \
             infrastructure/tests/taptime-status.test \
             infrastructure/tests/taptime-admin-web-image.test \
             infrastructure/tests/taptime-operator-web-image.test \
@@ -85,6 +88,8 @@ jobs:
           bash -n infrastructure/operations/taptime-bootstrap
           bash infrastructure/tests/taptime-deploy.test
           bash infrastructure/tests/taptime-deploy-hardening.test
+          bash infrastructure/tests/taptime-caddy-recovery.test
+          bash infrastructure/tests/taptime-landing-deploy.test
           bash infrastructure/tests/taptime-status.test
           bash infrastructure/tests/taptime-admin-web-image.test
           bash infrastructure/tests/taptime-operator-web-image.test
@@ -105,7 +110,15 @@ jobs:
       - name: Verify Caddy replaces untrusted forwarding headers
         run: |
           bash infrastructure/caddy/tests/taptime-caddy-forwarding.test
-          node --test infrastructure/caddy/tests/taptime-operator-web.test.mjs
+          node --test infrastructure/caddy/tests/taptime-operator-web.test.mjs infrastructure/caddy/tests/taptime-caddy-recovery.test.mjs
+
+      - name: Verify landing authentication and the root password tool with real Caddy
+        run: |
+          docker build -f infrastructure/caddy/tests/landing-tools.Dockerfile -t taptime-t031-tools:local infrastructure/caddy/tests
+          node --test infrastructure/caddy/tests/taptime-landing-web.test.mjs
+
+      - name: Verify landing accessibility and motion in Chrome
+        run: npm run test:browser --workspace=@taptime/landing-web
 
       - name: Build transitive workspace dependencies before checks
         run: |
@@ -142,10 +155,11 @@ jobs:
       - name: Test core, mobile, and Admin Web
         run: npm test
 
-      - name: Build both Web applications
+      - name: Build Web applications
         run: |
           npm run build --workspace=@taptime/admin-web
           npm run build --workspace=@taptime/operator-web
+          npm run build --workspace=@taptime/landing-web
 
       - name: Bundle Android product graph
         working-directory: apps/mobile

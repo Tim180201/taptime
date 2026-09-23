@@ -84,6 +84,7 @@ printf 'PostgreSQL volume-state evidence: invalid state fails without a compose 
 BROKEN_OPERATIONS_RELEASE="$TEST_ROOT/broken-operations"
 readonly BROKEN_OPERATIONS_RELEASE
 mkdir -p "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin"
+printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-landing-password"
 printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-operator-grant"
 printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-operator-db-login"
 printf '#!/usr/bin/env bash\n:\n' > "$BROKEN_OPERATIONS_RELEASE/usr/local/sbin/taptime-backup"
@@ -126,6 +127,7 @@ activate_admin_web_release aaaaaaa >/dev/null
 test "$(readlink "$TAPTIME_DEPLOY_ADMIN_WEB_ROOT/current")" = 'releases/aaaaaaa'
 
 printf 'aaaaaaa\nccccccc\n' > "$TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE"
+test "$(select_operations_version bbbbbbb aaaaaaa ddddddd 0)" = ddddddd
 test "$(select_operations_version bbbbbbb aaaaaaa ddddddd)" = bbbbbbb
 test "$(select_operations_version ccccccc aaaaaaa ddddddd)" = ddddddd
 test "$(select_operations_version aaaaaaa aaaaaaa ddddddd)" = ddddddd
@@ -193,6 +195,15 @@ activate_admin_web_release() {
   ACTIVE_ADMIN_WEB_VERSION="$1"
   record "activate-web $1"
 }
+landing_web_capability() { printf "%s\n" "${TEST_LANDING_CAPABILITY:-1}"; }
+initialize_landing_auth() { :; }
+prepare_landing_web_versions() { :; }
+select_landing_web_release() { :; }
+verify_landing_or_disable() { :; }
+# shellcheck disable=SC2034
+save_running_caddy() { [[ "${FAIL_CADDY_SNAPSHOT:-0}" != 1 ]] || return 61; CADDY_RECOVERY_READY=1; }
+# shellcheck disable=SC2317,SC2329
+wait_for_edge() { :; }
 restart_caddy() { record "restart-caddy $1"; }
 wait_for_health() {
   record "health $1"
@@ -389,6 +400,25 @@ printf 'WAL barrier evidence: the cluster-bound three-argument SQL contract was 
 
 expect_status 0 run_real_wal_preparation
 printf 'WAL bootstrap evidence: upload-only keeps the normal archiver stopped until migration.\n'
+
+: > "$LOG_FILE"
+TEST_LANDING_CAPABILITY=0 expect_status 0 main bbbbbbb
+# bbbbbbb is not in known-versions. Its already published old operations image is unusable;
+# the controller must select the installed current operations before any old image pull.
+grep --quiet '^install-operations ghcr.io/tim180201/taptime-backend-api:operations-ddddddd ddddddd$' "$LOG_FILE"
+if grep --quiet 'operations-bbbbbbb' "$LOG_FILE"; then
+  printf 'Historical target attempted its incompatible immutable operations image.\n' >&2
+  exit 1
+fi
+printf 'Historical target without landing keeps compatible operations even when not previously deployed.\n'
+
+: > "$LOG_FILE"
+FAIL_CADDY_SNAPSHOT=1 expect_status 61 main bbbbbbb
+if grep --quiet -E '^(install-operations|migrate-production|start|restart-caddy|activate-web) ' "$LOG_FILE"; then
+  printf 'Snapshot failure allowed a switch.\n' >&2
+  exit 1
+fi
+printf 'Caddy snapshot failure stops before operations, migrations and traffic switches.\n'
 
 : > "$LOG_FILE"
 TEST_IMAGE_ARCHIVE_CAPABLE=0 expect_status 1 main bbbbbbb
@@ -629,6 +659,12 @@ select_operator_web_release() { ACTIVE_OPERATOR_WEB_VERSION="$1"; record "activa
     migrate_production() { record migrate-production; }
     start_backend() { record "start $1"; }
     activate_admin_web_release() { record "activate-web $1"; }
+    landing_web_capability() { printf "%s\n" "${TEST_LANDING_CAPABILITY:-1}"; }
+initialize_landing_auth() { :; }
+prepare_landing_web_versions() { :; }
+select_landing_web_release() { :; }
+verify_landing_or_disable() { :; }
+save_running_caddy() { [[ "${FAIL_CADDY_SNAPSHOT:-0}" != 1 ]] || return 61; CADDY_RECOVERY_READY=1; }
     restart_caddy() { record "restart-caddy $1"; }
     wait_for_health() { record "health $1"; }
     write_current_version() { record "write-version $1"; }

@@ -281,6 +281,20 @@ controller_case() {
     start_backend() { :; }
     # Invoked by the sourced deploy controller.
     # shellcheck disable=SC2317,SC2329
+    landing_web_capability() { printf '1\n'; }
+# shellcheck disable=SC2317,SC2329
+    initialize_landing_auth() { :; }
+# shellcheck disable=SC2317,SC2329
+    prepare_landing_web_versions() { :; }
+# shellcheck disable=SC2317,SC2329
+    select_landing_web_release() { :; }
+# shellcheck disable=SC2317,SC2329
+    verify_landing_or_disable() { :; }
+# shellcheck disable=SC2317,SC2329
+    save_running_caddy() { CADDY_RECOVERY_READY=1; }
+    # shellcheck disable=SC2317,SC2329
+    wait_for_edge() { :; }
+    # shellcheck disable=SC2317,SC2329
     restart_caddy() { :; }
     # Invoked by the sourced deploy controller.
     # shellcheck disable=SC2317,SC2329

@@ -1,22 +1,26 @@
 # Wiederholbar ausliefern
 
-Backend, Admin-Web, Betreiber-Web und Betriebsdateien werden nach grüner `CI` einmal von
-`Release container images` gebaut. Jeder geprüfte Stand mit Betreiber-Web erzeugt vier unveränderliche Abbilder,
+Backend, Admin-Web, Betreiber-Web, Startseite und Betriebsdateien werden nach grüner `CI` einmal von
+`Release container images` gebaut. Jeder geprüfte Stand erzeugt die zu seinen Fähigkeiten gehörenden unveränderlichen Abbilder,
 zum Beispiel
 `ghcr.io/tim180201/taptime-backend-api:abcdef0`,
 `ghcr.io/tim180201/taptime-backend-api:admin-web-abcdef0`,
-`ghcr.io/tim180201/taptime-backend-api:operator-web-abcdef0` und
+`ghcr.io/tim180201/taptime-backend-api:operator-web-abcdef0`,
+`ghcr.io/tim180201/taptime-backend-api:landing-web-abcdef0` und
 `ghcr.io/tim180201/taptime-backend-api:operations-abcdef0`. Sie liegen getrennt im selben
 öffentlichen GHCR-Paket und bleiben ohne Registry-Geheimnis anonym lesbar. Es gibt bewusst kein
 `latest` und keinen Build auf dem Server. Nur der kurze Tag `ops` zeigt als Tippabkürzung auf das
 neueste automatisch veröffentlichte Operations-Abbild; dessen Revision wird im Abbild selbst
 geprüft. Ein manueller Bau für eine alte Rücknahmeversion verschiebt `ops` ausdrücklich nicht.
-Backend und beide Weboberflächen werden gemeinsam auf die gewünschte Anwendungsversion geschaltet.
+Backend und die vorhandenen Weboberflächen werden gemeinsam auf die gewünschte Anwendungsversion geschaltet.
 Historische Quellen ohne `apps/operator-web` erzeugen kein Betreiber-Abbild. Das Backend-Abbild
 trägt dafür das aus der Quelle abgeleitete Label `io.taptime.operator-web`; ein fehlendes Label
 älterer Abbilder bedeutet ebenfalls, dass diese Version kein Betreiber-Web enthält.
+Entsprechend kennzeichnet `io.taptime.landing-web` die Startseite. Historische Quellen ohne
+`apps/landing-web` erzeugen kein Startseiten-Abbild; fehlende Fähigkeit deaktiviert die
+Startseite, ein fehlgeschlagenes Herunterladen gilt niemals als fehlende Fähigkeit.
 Ein neuer Anwendungsstand nimmt automatisch sein
-gleich markiertes Operations-Abbild mit; eine Rücknahme auf eine bereits bekannte Anwendung
+gleich markiertes Operations-Abbild mit; eine Rücknahme auf eine bereits bekannte Anwendung oder ein historisches Ziel ohne Startseiten-Fähigkeit
 behält dagegen den zuletzt installierten, neueren Betriebsstand.
 
 ## Zugang und Berechtigung
@@ -102,7 +106,7 @@ cat /var/lib/taptime-deploy/operations-version
 
 Bei einem Fehler keine weitere Zeile ausführen. Die Abschlussmeldung und die letzte Ausgabe
 müssen die technisch freigegebene Revision nennen. **T-057 und die
-Controller-Erweiterung T-068b werden gemeinsam in einer einzigen Konsolensitzung vor dem großen
+Controller-Erweiterungen T-068b, T-071 und T-031 werden gemeinsam in einer einzigen Konsolensitzung vor dem großen
 Deploy installiert.** Dafür erst das gemeinsame, geprüfte Operations-Abbild verwenden.
 Der Block installiert auch den root-eigenen Diagnosebefehl (0755) und die geprüfte Regel
 (root:root, 0440) in `/etc/sudoers.d/taptime-status`:
@@ -134,7 +138,7 @@ und gilt unverändert auf einem Ersatzserver ohne vorhandenes Deploy-Skript.
 Docker kann vor der Abschlussmeldung mehrere Ladezeilen ausgeben; für die Bedienung zählt die
 **letzte Zeile**. Erfolg lautet `ERFOLG: Deploy-Controller <revision> installiert.`. Die
 ausführende Person vergleicht die dort genannte Revision mit dem technisch freigegebenen Commit, aus dem
-die vier Abbilder gebaut wurden, und fährt nur bei Gleichheit fort — nicht mit der Spitze von `main`, auf der inzwischen
+die zugehörigen Abbilder gebaut wurden, und fährt nur bei Gleichheit fort — nicht mit der Spitze von `main`, auf der inzwischen
 ein `[skip ci]`-Dokumentations-Commit liegen kann. Die gesuchte Revision steht im erfolgreichen
 GitHub-Actions-Lauf *Release container images* oben beim Commit; eindeutig auslesen lässt sie
 sich mit der Run-ID aus dessen URL über
@@ -269,16 +273,18 @@ Admin-Web für Ziel und Rücknahme und bereitet deren Releases vor. Danach liest
 Betreiber-Fähigkeit aus den beiden Backend-Abbildern und bereitet die jeweils vorhandenen
 Betreiber-Releases vor. Bei Erstinstallation lädt es nur das Betreiber-Ziel und protokolliert
 `Betreiber-Web wird erstmals installiert; keine Rücknahmeversion`. Ein fehlgeschlagener
-Download eines laut Label erforderlichen Abbilds bricht ab. Unterscheidet sich das Ziel vom laufenden Stand und ist noch
-nicht als ausgeliefert bekannt, wählt es dessen gleich markiertes Operations-Abbild. Beim
-erneuten Deploy des laufenden Stands oder einer bekannten Rücknahme behält es den Stand aus
-`operations-version`. Noch vor der Generalprobe extrahiert es dieses Abbild nach
+Download eines laut Label erforderlichen Abbilds bricht ab. Ein bisher unbekanntes Ziel mit
+Startseiten-Fähigkeit wählt sein gleich markiertes Operations-Abbild. Beim erneuten Deploy des
+laufenden Stands, einer bekannten Rücknahme **oder einem historischen Ziel ohne Startseite**
+behält es den Stand aus `operations-version`. So bleibt auch ein bereits veröffentlichtes
+Alt-Abbild ohne das neue Passwortwerkzeug unverändert auslieferbar. Noch vor der Generalprobe extrahiert es dieses Abbild nach
 `/opt/taptime/operations/releases/<operations-version>` und prüft Dateibestand,
 Dateimodi, Shell-Syntax, systemd-Einheiten, Compose und Caddy. Ein ungültiger Caddyfile wird in
 einem getrennten Wegwerf-Container abgewiesen; der laufende Caddy wird dabei weder neu geladen
 noch ersetzt. Erst nach vollständig grüner Prüfung wechselt
 `/opt/taptime/operations/current` atomar und diese Ziele verweisen auf den ausgewählten Stand:
 
+- `/usr/local/sbin/taptime-operator-grant`, `taptime-operator-db-login` und `taptime-landing-password`
 - `/usr/local/sbin/taptime-backup`, `taptime-restore-verify`,
   `taptime-restore-activate`, `taptime-wal-receiver` und `taptime-wal-archiver`
 - `/usr/local/sbin/taptime-immediate-monitor` und `taptime-daily-monitor`
@@ -295,9 +301,10 @@ stellt das Skript sämtliche bisherigen Ziele einschließlich Migrationsquellen 
 sowie den bisherigen Operations-Zeiger wieder her.
 Das geschieht vollständig **vor** Generalprobe, Sicherung und Migration.
 
-Bereits vor der Operations-Auswahl weist das Skript nach, dass das Zielabbild den
-versionierten Vertrag für verzögerte Archivquittungen trägt. Nach der Operations-Installation
-prüft es WAL-Mount und Datenbankvertrag getrennt. Fehlt einer von beiden, stoppt es das alte
+Nach Operations-Auswahl und Download, aber vor der Installation weist das Skript nach, dass
+das Zielabbild den versionierten Vertrag für verzögerte Archivquittungen trägt. WAL-Mount und
+Datenbankvertrag wurden in der Vorprüfung getrennt erfasst. Fehlt einer von beiden, beginnt
+nach der geprüften Operations-Installation der Archiv-Cutover: das Skript stoppt das alte
 Backend, richtet den physischen Empfänger ein und lädt vorhandenes WAL zunächst ohne
 Datenbankquittung extern hoch. Vor der Migration erzeugt es eine frische physische Basis, belegt
 deren Start-WAL extern und probt die Wiederherstellung samt ausstehenden Migrationen in einem
@@ -374,6 +381,86 @@ aber kein Beleg dafür, dass der alte Container noch läuft. Vollständige Ausga
 korrigieren und den Deploy kontrolliert wiederholen. Niemals eine veröffentlichte Migration
 umschreiben oder das alte Backend am Archivtor vorbei manuell starten.
 
+## Startseite: Konsole → Deploy → Zugang → Browser (T-031)
+
+Den gemeinsamen Controller aus T-071 und T-031 **einmal** mit dem Konsolenblock oben installieren,
+danach den normalen, separat freigegebenen Deploy im interaktiven Terminal des Product Owners
+mit geladenem SSH-Agent, `caffeinate` und Log außerhalb des Repositorys ausführen (Abschnitt
+„Deploy ausführen“). Keine zweite Controllerinstallation zwischen beiden Aufgaben.
+`tb-infra.de` und `www.tb-infra.de` müssen auf denselben Server zeigen. Zertifikate werden beim
+Deploy geprüft; läuft allein das Startseitenbudget ab, entfernt der Controller deren `current`-Link
+und beendet sich mit Fehler. API, Verwaltung, Betreiber-Web und Backend bleiben dabei aktiv.
+Die Ursache vorwärts korrigieren und denselben Deploy wiederholen; der Versionszustand wird
+bei diesem Fehler noch nicht fortgeschrieben.
+
+Nach erfolgreichem Deploy in der Hetzner-Konsole als root eingeben:
+
+```sh
+taptime-landing-password
+```
+
+Das Passwort zweimal eingeben, jede Eingabe mit Enter abschließen. Es wird weder angezeigt noch
+als Befehlsargument eingegeben. US-Tastatur: **16 bis 64 Kleinbuchstaben ohne y/z und Ziffern**;
+im Passwortmanager aufbewahren. Es gibt keine Eingabeaufforderung; Erfolg ist ausschließlich
+`gesetzt`. Benutzername im Browser: **pilot**. Zum Sperren:
+
+```sh
+taptime-landing-password --disable
+```
+
+Erfolg ist `gesperrt`. Ein verworfener Zufallswert ersetzt den Zugang; ein späterer normaler
+Aufruf setzt einen neuen. Jeder Wechsel ersetzt die Datei atomar und lädt die laufende
+Konfiguration erzwungen neu. Fehler beim Reload oder bei den anschließenden Prüfungen stellen
+Datei **und** geladenen Zugang wieder her. Meldet auch dieser Rückweg einen Fehler, keinen Erfolg
+annehmen; Konsolensitzung offen halten und an den Technical Lead melden. Das Werkzeug teilt
+sich die Auslieferungssperre mit dem Controller.
+
+Browserprüfung: `https://tb-infra.de/` fragt in einem neuen privaten Fenster nach dem Zugang;
+mit `pilot` und Passwort erscheint die Seite. `https://tb-infra.de/tag`, `/robots.txt` und
+`/version.txt` bleiben ohne Zugang erreichbar. `www` leitet mit 301 auf die Hauptdomain um.
+Nach `--disable` muss auch der zuvor gültige Zugang abgewiesen werden. Die Anfrage-Adresse ist
+noch leer; öffentliches Freischalten und Rechtstexte sind T-031b.
+
+Lebenszyklus: Der Controller legt `/opt/taptime/landing-web/releases/<version>` unveränderlich an
+und wechselt oder entfernt nur `current`. Historische Stände bleiben dadurch auslieferbar.
+Root entfernt nicht mehr benötigte Release-Verzeichnisse erst nach Abgleich mit den geschützten
+Anwendungsständen; GHCR bewahrt deren `landing-web-`-Abbilder mit auf. Der Controller legt
+`/opt/taptime/landing-auth` (0700) und bei fehlender Datei `password.hash` (0600) **vor der
+Caddy-Vorprüfung** mit gesperrtem Zugang an. Das root-eigene Werkzeug (0700) wird mit den
+Betriebsdateien installiert und ersetzt den Hash. Das gesamte Verzeichnis ist read-only in Caddy
+eingebunden, damit atomare Dateiwechsler sichtbar bleiben. Bei endgültiger Entfernung: root nimmt
+zuerst den Caddy-Block samt Einbindungen über eine geprüfte Betriebsänderung heraus und löscht erst
+danach Zugang, Werkzeug und nicht mehr geschützte Releases. Hash-Dateien nie ausgeben oder sichern,
+indem sie in einen Bericht kopiert werden.
+
+### Caddy-Rückweg unabhängig vom Backend
+
+Vor jeder Umschaltung validiert der Controller den Kandidaten mit den echten Diensteinbindungen.
+Er liest zusätzlich die tatsächlich laufende JSON-Konfiguration über die lokale Admin-Schnittstelle
+im Container und legt sie atomar als `/var/lib/taptime-deploy/caddy/running.json` ab (Verzeichnis 0700,
+Datei 0600). Die Ladbarkeitsprüfung verwendet die laufenden Einbindungen. Ein Fehler bei Lesen,
+Speichern oder Prüfen beendet den Deploy vor der Umschaltung. Die Sicherung wird beim nächsten
+Deploy ersetzt; root entfernt den Zustand erst nach endgültiger Stilllegung des Caddy-Rückwegs.
+
+Nach dem Caddy-Wechsel werden zuerst API sowie Versionen von Verwaltung und Betreiber-Web geprüft.
+Bei Fehlern stellt der Controller die vorherigen Web-Verweise wieder her und lädt ausdrücklich die
+gesicherte JSON-Datei mit erzwungenem Reload. Ein anschließendes GET muss bytegleich zur Sicherung
+sein. Anschließend wird ausschließlich Caddy mit dieser Datei als explizitem `--config` neu
+erzeugt (`--no-deps`), damit auch ein späterer Container- oder Host-Neustart den Rückweg erhält.
+Bei gestopptem Dienst, Neustartschleife oder nicht nachweisbarem Reload geschieht dieser
+JSON-Rückstart direkt. Danach wird die laufende JSON erneut abgeglichen. Die dafür angelegte private
+`recovery.compose.yml` bleibt bis zum nächsten normalen Deploy bestehen; dann wird wieder die
+normale Dienstdefinition verwendet. Die drei bestehenden Oberflächen werden erneut geprüft;
+der ursprüngliche Fehlercode bleibt erhalten. Backend und Archivvertragssperre bleiben unberührt.
+
+Meldet der Controller `Caddy-Ruecknahme fehlgeschlagen`, ist die alte Kante nicht nachgewiesen.
+Den gespeicherten Zustand nicht überschreiben, keinen weiteren normalen Deploy beginnen und
+keine gesamte Compose-Gruppe starten. Root und Technical Lead prüfen in einer separat freigegebenen
+Konsolensitzung die Caddy-Einbindungen sowie `running.json`; der manuelle Rückweg verwendet genau
+sie mit `recovery.compose.yml`, nur für den Dienst `caddy`, ohne Abhängigkeiten. Danach lokale
+Admin-Antwort mit der Sicherung vergleichen und API/admin/betreiber prüfen. Ein zurückgesetzter
+Caddy ist keine Erlaubnis, das ältere Backend am Archivtor vorbei zu starten.
+
 ## Rücknahme und Unterbrechung
 
 Rücknahme ist derselbe Befehl mit der ausdrücklich gewünschten früheren Anwendungsversion. Sie
@@ -392,8 +479,8 @@ Image verweigert die Offline-Ingestion bewusst. Weder ein unverändertes `curren
 ein manueller Containerstart heben diesen Zaun auf. Bei einem Fehler den archivfähigen Stand
 vorwärts reparieren und erneut geprüft ausliefern, statt das ältere Image zu starten.
 
-Der Controller nimmt nach einem fehlgeschlagenen Start keine automatische
-Rücknahme vor: Jeder erreichbare Start folgt bereits auf Archiv-Cutover oder aktiven
+Der Controller nimmt nach einem fehlgeschlagenen Backend-Start keine automatische
+Backend-Rücknahme vor: Jeder erreichbare Start folgt bereits auf Archiv-Cutover oder aktiven
 Archivvertrag. Bei aktivem Vertrag meldet er
 `[7/7] Archivvertrag ist aktiv; keine automatische Rücknahme auf das alte Backend.`
 Hat nur der Cutover begonnen, meldet er

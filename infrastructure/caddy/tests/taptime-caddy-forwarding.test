@@ -57,6 +57,9 @@ printf 'release\n' > "$test_directory/admin-web/releases/abcdef0/assets/release.
 docker create --name "$validation_name" caddy:2.10.2-alpine \
   caddy validate --config /tmp/T026-Caddyfile --adapter caddyfile >/dev/null
 docker cp infrastructure/caddy/Caddyfile "$validation_name:/tmp/T026-Caddyfile"
+mkdir -p "$test_directory/landing-auth"
+printf 'test-only-discarded-value\n' | docker run --rm -i caddy:2.10.2-alpine caddy hash-password > "$test_directory/landing-auth/password.hash"
+docker cp "$test_directory/landing-auth" "$validation_name:/srv/landing-auth"
 docker start --attach "$validation_name"
 
 docker create --name "$cache_name" \

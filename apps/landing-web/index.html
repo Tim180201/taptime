@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Taptura – NFC-Zeiterfassung für Reinigung und Handwerk</title>
+<meta name="description" content="Arbeitszeiten am Einsatzort per NFC-Tag erfassen – auch ohne Netz. Verwaltung im Browser und Export für die Lohnabrechnung.">
+<link rel="stylesheet" href="%BASE_URL%tag-assets/fonts.css">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+<a class="skip" href="#inhalt">Zum Inhalt</a>
+
+<header class="nav" aria-label="Hauptnavigation">
+  <div class="wrap">
+    <a class="brand" href="#inhalt" aria-label="Taptura, zum Seitenanfang">
+      <svg class="brand-mark" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#7ee0c0" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#7ee0c0"/></svg>
+      Taptura
+    </a>
+    <nav class="nav-links" aria-label="Bereiche">
+      <a href="#so-gehts">So funktioniert es</a>
+      <a href="#verwaltung">Verwaltung</a>
+      <a href="#offline">Ohne Netz</a>
+      <a href="#sicherheit">Sicherheit</a>
+      <a href="#fragen">Fragen</a>
+    </nav>
+    <a class="btn btn-primary" href="#anfrage">Pilot anfragen</a>
+  </div>
+</header>
+
+<main id="inhalt">
+  <!-- Hero -->
+  <section class="hero" id="start" aria-labelledby="hero-title">
+    <canvas class="hero-field" id="field" aria-hidden="true"></canvas>
+    <div class="wrap">
+      <div class="hero-copy">
+        <p class="kicker"><svg viewBox="0 0 20 20" fill="none" stroke="#7ee0c0" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M7 14V6l6 8V6"/><path d="M3.5 16a9 9 0 0 1 0-12M16.5 4a9 9 0 0 1 0 12" opacity=".55"/></svg>NFC-Zeiterfassung für Reinigung, Handwerk und Außeneinsätze</p>
+        <h1 class="headline" id="hero-title"><span class="l1">One Tap.</span><span class="l2">One Decision.</span></h1>
+        <p class="lead">Am Einsatzort hängt ein NFC-Tag. Ihre Beschäftigten halten das Handy kurz daran – und die Arbeitszeit ist erfasst. Sie sehen alles im Browser und exportieren die Zeiten für die Lohnabrechnung.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#anfrage">Pilot anfragen</a>
+          <a class="btn btn-ghost" href="#so-gehts">So funktioniert es</a>
+        </div>
+        <div class="hero-facts" aria-label="Kurz zusammengefasst">
+          <span>Funktioniert auch ohne Netz</span>
+          <span>Server in Deutschland</span>
+          <span>Android · iPhone in Vorbereitung</span>
+        </div>
+      </div>
+      <div class="stage-wrap">
+        <div class="stage" aria-hidden="true">
+          <div class="ripple r1"></div><div class="ripple r2"></div><div class="ripple r3"></div>
+          <div class="tag">
+            <svg viewBox="0 0 44 44" fill="none" stroke="#7ee0c0" stroke-width="2.2" stroke-linecap="round"><path d="M14 30V14l16 16V14"/><path d="M8 34a20 20 0 0 1 0-24M36 10a20 20 0 0 1 0 24" opacity=".5"/></svg>
+          </div>
+          <div class="tag-label">NFC-Tag · Kunde Müller</div>
+          <div class="phone">
+            <div class="screen">
+              <div class="notch"></div>
+              <div class="scr scr-idle">
+                <div class="ring"><i></i></div>
+                <div class="scr-title">Tag antippen</div>
+                <div class="scr-sub">Bereit</div>
+              </div>
+              <div class="scr scr-done">
+                <div class="check"><svg viewBox="0 0 44 44" fill="none" stroke="#0a100e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 23l7 7 15-16"/></svg></div>
+                <div class="scr-title">Arbeit gestartet</div>
+                <div class="scr-time">07:58</div>
+                <div class="scr-meta">
+                  <div><span>Kunde</span><b>Müller</b></div>
+                  <div><span>Erfassung</span><b>gescannt</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button class="pause-btn" id="pauseBtn" type="button" aria-pressed="false" aria-label="Animation anhalten">
+          <svg class="i-pause" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="2" width="3.5" height="12" rx="1"/><rect x="9.5" y="2" width="3.5" height="12" rx="1"/></svg>
+          <svg class="i-play" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11a.8.8 0 0 0 1.2.7l9-5.5a.8.8 0 0 0 0-1.4l-9-5.5A.8.8 0 0 0 4 2.5z"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Statement -->
+  <section class="statement" aria-label="Worum es geht">
+    <div class="wrap">
+      <p id="statement"><span class="w">Keine</span> <span class="w">Stundenzettel.</span> <span class="w">Keine</span> <span class="w">Liste</span> <span class="w">am</span> <span class="w">Monatsende.</span> <span class="w">Nur</span> <span class="w">ein</span> <span class="w accent">Tippen</span> <span class="w">–</span> <span class="w">und</span> <span class="w">eine</span> <span class="w accent">klare</span> <span class="w accent">Entscheidung.</span></p>
+    </div>
+  </section>
+
+  <!-- Scroll story -->
+  <section class="story" id="so-gehts" data-step="0" aria-labelledby="story-title">
+    <div class="story-sticky">
+      <div class="wrap">
+        <div class="story-grid">
+          <div class="story-device" aria-hidden="true">
+            <div class="ripple r1"></div><div class="ripple r2"></div><div class="ripple r3"></div>
+            <div class="phone">
+              <div class="screen">
+                <div class="notch"></div>
+                <div class="scr sstate s0">
+                  <div class="ring"><i></i></div>
+                  <div class="scr-title">Tag erkannt</div>
+                  <div class="scr-sub">Kunde Müller · Eingang Hauptstraße</div>
+                </div>
+                <div class="scr sstate s1">
+                  <div class="check"><svg viewBox="0 0 44 44" fill="none" stroke="#0a100e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M11 23l7 7 15-16"/></svg></div>
+                  <div class="scr-title">Arbeit gestartet</div>
+                  <div class="scr-time">07:58</div>
+                  <div class="confirm">✓ Vom Server bestätigt</div>
+                </div>
+                <div class="scr sstate s2">
+                  <div class="scr-title today">Heute</div>
+                  <div class="scr-sub">Mittwoch, 23. September</div>
+                  <div class="daylist">
+                    <div><span class="dot"></span><span>Kunde Müller</span><span class="live">läuft</span></div>
+                    <div><span class="t">06:30</span><span>Projekt Umbau</span><span class="t">1:12</span></div>
+                    <div><span class="t">05:45</span><span>Büro Schmitt</span><span class="t">0:38</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <p class="eyebrow">So funktioniert es</p>
+            <h2 id="story-title">Handy dran. Zeit erfasst.</h2>
+            <div class="steps">
+              <div class="step st0"><h3><small>TIPPEN</small> Handy an den Tag</h3><p>Der NFC-Tag hängt dort, wo gearbeitet wird: am Objekt, im Fahrzeug, an der Baustellentür. Beschäftigte halten ihr Handy kurz daran – ohne Code, ohne Liste, ohne Suchen.</p></div>
+              <div class="step st1"><h3><small>ENTSCHEIDEN</small> Eine klare Antwort</h3><p>Mit Netz entscheidet der Server sofort, ob die Arbeitszeit beginnt oder endet. Beschäftigte sehen genau eine Rückmeldung. Ohne Netz wird das Tippen sicher gespeichert und nachgereicht.</p></div>
+              <div class="step st2"><h3><small>FERTIG</small> Die Zeit steht</h3><p>Der Zeiteintrag erscheint bei den Beschäftigten und in der Verwaltung. Korrekturen werden ergänzt, nie überschrieben.</p></div>
+            </div>
+            <div class="progress" aria-hidden="true"><svg viewBox="0 0 1000 2" preserveAspectRatio="none"><rect id="storyProgress" width="0" height="2"/></svg></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Zwei Wege -->
+  <section class="section" id="ohne-tag" aria-labelledby="modes-title">
+    <div class="wrap">
+      <div class="modes-head reveal">
+        <p class="eyebrow">Zwei Wege, ein Zeiteintrag</p>
+        <h2 id="modes-title">Am Einsatzort per Tag. Im Büro per Klick.</h2>
+        <p class="lead">Nicht jeder Arbeitsplatz braucht einen NFC-Tag. Wer im Büro arbeitet oder einmal keinen Tag zur Hand hat, erfasst seine Zeit manuell – in der App oder im Browser. Der Server entscheidet genauso, der Zeiteintrag landet am selben Ort.</p>
+      </div>
+      <div class="modes reveal">
+        <article class="mode mode-nfc">
+          <div class="mode-top">
+            <span class="mode-icon"><svg viewBox="0 0 26 26" fill="none" stroke="#7ee0c0" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 18V8l8 10V8"/><path d="M4.5 21a12 12 0 0 1 0-16M21.5 5a12 12 0 0 1 0 16" opacity=".55"/></svg></span>
+            <span class="mode-badge">Empfohlen am Einsatzort</span>
+          </div>
+          <h3>Mit NFC-Tag</h3>
+          <p>Ein Tippen direkt dort, wo der Tag hängt. Keine Auswahl, kein Nachdenken – One Tap. One Decision.</p>
+          <ul>
+            <li>Ein Tippen, keine Eingabe</li>
+            <li>Erfasst genau am Einsatzort</li>
+            <li><span>Gekennzeichnet als <code>gescannt</code></span></li>
+          </ul>
+        </article>
+        <article class="mode">
+          <div class="mode-top">
+            <span class="mode-icon"><svg viewBox="0 0 26 26" fill="none" stroke="#93a39d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="19" height="13" rx="2.5"/><path d="M9 22h8M13 18v4"/></svg></span>
+          </div>
+          <h3>Manuell</h3>
+          <p>Für Büro, Verwaltung und Ausnahmen: Arbeitsziel wählen und erfassen.</p>
+          <ul>
+            <li>Ohne NFC-Tag nutzbar</li>
+            <li>In der App und im Browser</li>
+            <li><span>Gekennzeichnet als <code>manuell erfasst</code></span></li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Verwaltung -->
+  <section class="section" id="verwaltung" aria-labelledby="admin-title">
+    <div class="wrap split">
+      <div class="reveal">
+        <div class="window" role="img" aria-label="Beispielansicht der Verwaltung mit erfundenen Daten">
+          <div class="window-bar"><i></i><i></i><i></i><span>Verwaltung · Übersicht</span></div>
+          <div class="window-body">
+            <div class="side"><div class="act">Übersicht</div><div>Beschäftigte</div><div>Prüfungen</div><div>Einrichtung</div><div>Lohnexport</div></div>
+            <div class="main">
+              <div class="tiles">
+                <div class="tile"><small>Gerade aktiv</small><b><em>7</em> / 12</b></div>
+                <div class="tile"><small>Offene Prüfungen</small><b>2</b></div>
+                <div class="tile"><small>Beschäftigte</small><b>12</b></div>
+              </div>
+              <div class="rows">
+                <div><span>A. Yilmaz</span><span class="t">07:58 · Kunde Müller</span><span class="tagx">läuft</span></div>
+                <div><span>M. Becker</span><span class="t">06:30 – 14:15</span><span class="tagx off">beendet</span></div>
+                <div><span>J. Nowak</span><span class="t">manuell · 3:00</span><span class="tagx rev">Prüfung</span></div>
+                <div><span>S. Krämer</span><span class="t">08:12 · Projekt Nord</span><span class="tagx">läuft</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="caption">Beispielansicht mit erfundenen Daten</p>
+      </div>
+      <div class="reveal">
+        <p class="eyebrow">Für die Verwaltung</p>
+        <h2 id="admin-title">Alle Zeiten im Blick. Direkt im Browser.</h2>
+        <div class="feature-list">
+          <div><svg viewBox="0 0 22 22" fill="none" stroke="#7ee0c0" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M11 7v4l3 2"/></svg><p><b>Wer arbeitet gerade – und wo?</b><span>Die Übersicht zeigt alle laufenden Zeiten mit ihrem Arbeitsziel: Kunde, Projekt oder allgemeine Arbeitszeit.</span></p></div>
+          <div><svg viewBox="0 0 22 22" fill="none" stroke="#7ee0c0" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 11l4 4 10-10"/></svg><p><b>Prüfung statt Rätselraten</b><span>Unklare Fälle landen in der Prüfung. Sie entscheiden mit Grund – jede Entscheidung wird lückenlos protokolliert.</span></p></div>
+          <div><svg viewBox="0 0 22 22" fill="none" stroke="#7ee0c0" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 3h7l4 4v12H6z"/><path d="M13 3v4h4M9 12h5M9 15h5"/></svg><p><b>Bereit für die Lohnabrechnung</b><span>CSV-Export für einen frei wählbaren Zeitraum – mit Pausen, Arbeitsdauer und Erfassungsart jedes Zeiteintrags.</span></p></div>
+          <div><svg viewBox="0 0 22 22" fill="none" stroke="#7ee0c0" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="6" y="2.5" width="10" height="17" rx="2.5"/><path d="M10 16.5h2"/></svg><p><b>Stopp vergessen?</b><span>Die Verwaltung beendet eine vergessene Zeit mit Grund – nachvollziehbar für beide Seiten.</span></p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Offline -->
+  <section class="section" id="offline" aria-labelledby="offline-title">
+    <div class="wrap split">
+      <div class="reveal">
+        <p class="eyebrow">Ohne Netz</p>
+        <h2 id="offline-title">Im Keller zählt die Zeit trotzdem.</h2>
+        <p class="lead">Kein Empfang in der Tiefgarage oder auf der Baustelle? Die App speichert jedes Tippen sicher auf dem Handy. Sobald wieder Netz da ist, wird alles nachgereicht und vom Server entschieden. Die Kopie auf dem Handy wird erst entfernt, wenn sie nachweislich gesichert ist.</p>
+      </div>
+      <div class="reveal">
+        <div class="offline-card" id="offlineCard" role="img" aria-label="Beispiel: drei Taps ohne Netz werden gespeichert und später vom Server bestätigt">
+          <div class="lane">
+            <div class="lane-col"><div class="bubble"><b>07:58</b>gespeichert</div><span>ohne Netz</span></div>
+            <div class="lane-col"><div class="bubble"><b>12:02</b>gespeichert</div><span>ohne Netz</span></div>
+            <div class="lane-col"><div class="bubble"><b>12:31</b>gespeichert</div><span>ohne Netz</span></div>
+            <div class="lane-col sync"><div class="bubble"><b>3 / 3</b>bestätigt</div><span>Netz wieder da</span></div>
+          </div>
+          <div class="status-row">
+            <span class="pill off">● Ohne Netz erfasst</span>
+            <span class="pill on">✓ Extern gesichert</span>
+            <span>Auf dem Handy: <b>0 offen</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sicherheit -->
+  <section class="section" id="sicherheit" aria-labelledby="trust-title">
+    <div class="wrap">
+      <div class="trust-head reveal">
+        <p class="eyebrow">Sicherheit</p>
+        <h2 id="trust-title">Arbeitszeit ist ein Nachweis. Wir behandeln sie so.</h2>
+      </div>
+      <div class="trust-grid reveal">
+        <div class="trust"><span class="k">Standort</span><h3>Server in Deutschland</h3><p>Die Zeitdaten liegen auf Servern in Nürnberg.</p></div>
+        <div class="trust"><span class="k">Nachvollziehbar</span><h3>Nichts wird überschrieben</h3><p>Korrekturen werden ergänzt, mit Zeitpunkt und Grund. Der ursprüngliche Zeiteintrag bleibt erhalten.</p></div>
+        <div class="trust"><span class="k">Gesichert</span><h3>Bestätigt heißt gesichert</h3><p>Ein Tippen gilt erst als bestätigt, wenn es außerhalb des Servers gesichert ist. Die Wiederherstellung wird jede Woche automatisch geprüft.</p></div>
+        <div class="trust"><span class="k">Getrennt</span><h3>Jeder Betrieb für sich</h3><p>Die Datenbank trennt Betriebe strikt voneinander – nicht erst die Oberfläche.</p></div>
+      </div>
+      <p class="law reveal"><b>Pflicht zur Arbeitszeiterfassung:</b> Arbeitgeber müssen grundsätzlich Beginn, Ende und Dauer der täglichen Arbeitszeit ihrer Beschäftigten erfassen. Das Bundesarbeitsgericht hat diese Pflicht am 13. September 2022 bestätigt (<a href="https://www.bundesarbeitsgericht.de/entscheidung/1-abr-22-21/" target="_blank" rel="noopener">1 ABR 22/21</a>).</p>
+    </div>
+  </section>
+
+  <!-- Branchen -->
+  <section class="section branchen" aria-labelledby="branchen-title">
+    <div class="wrap reveal">
+      <p class="eyebrow">Für wen</p>
+      <h2 id="branchen-title">Gemacht für den Einsatzort. Und fürs Büro.</h2>
+      <ul class="chipgrid">
+        <li>Gebäudereinigung</li><li>Handwerk</li><li>Pflegedienste</li><li>Sicherheitsdienste</li><li>Gebäudemanagement</li><li>Hausmeisterservice</li><li>Garten- und Landschaftsbau</li><li>Logistik</li><li>Büro und Verwaltung</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Pilot -->
+  <section class="section" id="pilot" aria-labelledby="pilot-title">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow">Pilotphase</p>
+        <h2 id="pilot-title">Werden Sie einer der ersten Betriebe.</h2>
+        <p class="lead pilot-lead">Wir starten mit wenigen Pilotbetrieben. So läuft es ab:</p>
+      </div>
+      <ol class="pilot-steps reveal">
+        <li><b>Anfrage</b><span>Sie schreiben uns kurz, wer Sie sind und wie viele Beschäftigte unterwegs arbeiten.</span></li>
+        <li><b>Gespräch</b><span>Wir klären gemeinsam, ob Taptura zu Ihrem Alltag passt, und besprechen Dauer und Bedingungen.</span></li>
+        <li><b>Einrichtung</b><span>Wir richten Ihren Betrieb gemeinsam ein: Beschäftigte, Arbeitsziele und NFC-Tags.</span></li>
+        <li><b>Erprobung</b><span>Ihr Team erfasst im Alltag. Ihre Rückmeldungen nehmen wir direkt auf.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" id="fragen" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="reveal">
+        <p class="eyebrow">Häufige Fragen</p>
+        <h2 id="faq-title">Kurz beantwortet.</h2>
+      </div>
+      <div class="faq">
+        <details><summary>Welche Handys werden unterstützt?</summary><p>Android-Handys mit NFC. Die iPhone-Version ist in Vorbereitung; dort wird zunächst mit geöffneter App erfasst.</p></details>
+        <details><summary>Geht es auch ohne NFC-Tags?</summary><p>Ja. Beschäftigte können ihre Zeit auch manuell erfassen – in der App oder im Browser, zum Beispiel im Büro. Diese Zeiten sind als „manuell erfasst“ gekennzeichnet, und Sie sehen in der Verwaltung jederzeit, was gescannt und was manuell erfasst wurde. Am Einsatzort empfehlen wir den NFC-Tag: ein Tippen, keine Eingabe.</p></details>
+        <details><summary>Was passiert ohne Empfang?</summary><p>Die App speichert jedes Tippen sicher auf dem Handy und reicht es nach, sobald wieder Netz da ist. Dann entscheidet der Server. Die Kopie auf dem Handy wird erst entfernt, wenn sie nachweislich gesichert ist.</p></details>
+        <details><summary>Wie bleiben Korrekturen nachvollziehbar?</summary><p>Korrekturen werden ergänzt, nicht überschrieben – jeweils mit Zeitpunkt und Grund. Der ursprüngliche Zeiteintrag bleibt erhalten.</p></details>
+        <details><summary>Wie kommen die Zeiten zur Lohnabrechnung?</summary><p>Über einen CSV-Export für einen frei wählbaren Zeitraum, den Sie an Ihr Lohnbüro weitergeben können. Direkte Schnittstellen zu Lohnprogrammen gibt es noch nicht.</p></details>
+        <details><summary>Wie läuft der Pilot ab?</summary><p>Nach Ihrer Anfrage sprechen wir über Ihren Betrieb. Passt es, richten wir Taptura gemeinsam ein und erproben es in Ihrem Alltag. Dauer und Bedingungen besprechen wir vorab.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Anfrage -->
+  <section class="section" id="anfrage" aria-labelledby="contact-title">
+    <div class="wrap">
+      <div class="contact-card reveal">
+        <div>
+          <p class="eyebrow">Pilot anfragen</p>
+          <h2 id="contact-title">Passt Taptura zu Ihrem Betrieb?</h2>
+          <p class="lead">Schreiben Sie uns eine kurze E-Mail: Name, Betrieb und wie viele Beschäftigte unterwegs arbeiten. Wir melden uns persönlich.</p>
+        </div>
+        <div class="contact-box" id="contact"><div class="mail-slot">E-Mail-Adresse folgt</div></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Taptura (Arbeitsname)</span>
+  </div>
+</footer>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

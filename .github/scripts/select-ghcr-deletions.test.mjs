@@ -98,3 +98,10 @@ test('every known operator web image is protected, unknown ones can expire',()=>
   const versions=[...known.map((value,index)=>packageVersion(index+1,`operator-web-${value}`,20)),packageVersion(99,'operator-web-ddddddd',30)];
   assert.deepEqual(selectGhcrDeletions(snapshot,versions,0).map(value=>value.id),[99]);
 });
+
+test('every known landing web image is protected, unknown ones can expire',()=>{
+  const known=['aaaaaaa','bbbbbbb','ccccccc'];
+  const snapshot={schema_version:1,current_version:known[0],previous_version:known[1],known_versions:known};
+  const versions=[...known.map((value,index)=>packageVersion(index+1,`landing-web-${value}`,20)),packageVersion(99,'landing-web-ddddddd',30)];
+  assert.deepEqual(selectGhcrDeletions(snapshot,versions,0).map(value=>value.id),[99]);
+});

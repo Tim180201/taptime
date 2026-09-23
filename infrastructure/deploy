@@ -16,6 +16,10 @@ readonly ADMIN_WEB_VERSION_URL="${TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL:-https://
 readonly ADMIN_WEB_ROOT="${TAPTIME_DEPLOY_ADMIN_WEB_ROOT:-/opt/taptime/admin-web}"
 readonly OPERATOR_WEB_VERSION_URL="${TAPTIME_DEPLOY_OPERATOR_WEB_VERSION_URL:-https://betreiber.tb-infra.de/version.txt}"
 readonly OPERATOR_WEB_ROOT="${TAPTIME_DEPLOY_OPERATOR_WEB_ROOT:-/opt/taptime/operator-web}"
+readonly LANDING_WEB_ROOT="${TAPTIME_DEPLOY_LANDING_WEB_ROOT:-/opt/taptime/landing-web}"
+readonly LANDING_AUTH_DIRECTORY="${TAPTIME_LANDING_AUTH_DIRECTORY:-/opt/taptime/landing-auth}"
+readonly LANDING_WEB_ORIGIN="${TAPTIME_DEPLOY_LANDING_WEB_ORIGIN:-https://tb-infra.de}"
+readonly CADDY_STATE_DIRECTORY="${TAPTIME_DEPLOY_CADDY_STATE_DIRECTORY:-/var/lib/taptime-deploy/caddy}"
 readonly OPERATIONS_ROOT="${TAPTIME_DEPLOY_OPERATIONS_ROOT:-/opt/taptime/operations}"
 readonly OPERATIONS_TARGET_ROOT="${TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT:-}"
 readonly OPERATIONS_RUNTIME_ROOT="${TAPTIME_DEPLOY_OPERATIONS_RUNTIME_ROOT:-/run/taptime-operations}"
@@ -39,6 +43,11 @@ DEPLOY_SUCCEEDED=0
 DEPLOY_BASE_ARCHIVE=''
 DESIRED_OPERATOR_WEB=0
 PREVIOUS_OPERATOR_WEB=0
+CADDY_RECOVERY_READY=0
+CADDY_SWITCH_STARTED=0
+DESIRED_LANDING_WEB=0
+PREVIOUS_LANDING_WEB=0
+LANDING_ONLY_FAILURE=0
 
 say() {
   printf '%s\n' "$*"
@@ -153,8 +162,13 @@ select_operations_version() {
   local desired="$1"
   local current_application="$2"
   local current_operations="$3"
+  local landing_capability="${4:-1}"
 
-  if [[ "$desired" == "$current_application" ]] || {
+  # Sources before landing cannot satisfy this controller's operations inventory.
+  # Keep the explicitly installed operations even for a previously unknown old target.
+  if [[ "$landing_capability" == 0 ]]; then
+    printf '%s\n' "$current_operations"
+  elif [[ "$desired" == "$current_application" ]] || {
     [[ -f "$KNOWN_VERSIONS_FILE" ]] &&
       grep --fixed-strings --line-regexp --quiet "$desired" "$KNOWN_VERSIONS_FILE"
   }; then
@@ -306,6 +320,7 @@ pull_image() {
   version="${image##*:}"
   version="${version#admin-web-}"
   version="${version#operator-web-}"
+  version="${version#landing-web-}"
   version="${version#operations-}"
   validate_version "$version" || return
   revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" || return
@@ -315,6 +330,7 @@ pull_image() {
 
 operations_paths() {
   printf '%s\n' \
+    'usr/local/sbin/taptime-landing-password' \
     'usr/local/sbin/taptime-operator-grant' \
     'usr/local/sbin/taptime-operator-db-login' \
     'usr/local/sbin/taptime-backup' \
@@ -371,22 +387,16 @@ read_operations_release_version() {
 
 validate_caddy_candidate() (
   set -euo pipefail
-
-  local candidate="$1"
-  local holder=''
-
-  require_file "$candidate"
-  docker image inspect caddy:2.10.2-alpine >/dev/null 2>&1 || docker pull caddy:2.10.2-alpine
-  holder="$(docker create caddy:2.10.2-alpine \
-    caddy validate --config /tmp/T028-Caddyfile --adapter caddyfile)"
-  # Invoked by the EXIT trap below.
-  # shellcheck disable=SC2317,SC2329
-  cleanup_caddy_validation() {
-    [[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true
-  }
-  trap cleanup_caddy_validation EXIT
-  docker cp "$candidate" "$holder:/tmp/T028-Caddyfile"
-  docker start --attach "$holder"
+  local candidate="$1" version="$2" postgres_volume
+  require_file "$candidate" || return
+  postgres_volume="$(selected_postgres_volume)" || return
+  # Derive every mount from the candidate service itself, including its relative Caddyfile.
+  # No service ports and no dependencies are started by this disposable validation.
+  TAPTIME_VERSION="$version" TAPTIME_POSTGRES_VOLUME="$postgres_volume" \
+    docker compose --file "$candidate" run --rm --no-deps --entrypoint caddy \
+      caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 || {
+        fail 'Caddy candidate with service mounts could not be validated.'; return 1;
+      }
 )
 
 validate_compose_candidate() {
@@ -443,6 +453,7 @@ validate_operations_scripts() {
   local script
 
   for script in \
+    taptime-landing-password \
     taptime-operator-grant \
     taptime-operator-db-login \
     taptime-backup \
@@ -498,6 +509,7 @@ validate_operations_release() {
       return 1
     }
   done <<'EOF_OPERATIONS_MODES'
+700 usr/local/sbin/taptime-landing-password
 700 usr/local/sbin/taptime-operator-grant
 700 usr/local/sbin/taptime-operator-db-login
 700 usr/local/sbin/taptime-backup
@@ -513,7 +525,7 @@ EOF_OPERATIONS_MODES
   validate_systemd_candidates "$release"
   validate_compose_candidate \
     "$release/opt/taptime/source/infrastructure/docker-compose.server.yml" "$version"
-  validate_caddy_candidate "$release/opt/taptime/source/infrastructure/caddy/Caddyfile"
+  validate_caddy_candidate "$release/opt/taptime/source/infrastructure/docker-compose.server.yml" "$version"
 }
 
 prepare_operations_release() (
@@ -1320,6 +1332,146 @@ restart_caddy() {
   compose "$version" up --detach --no-deps --force-recreate caddy
 }
 
+read_running_caddy() {
+  docker exec "$1" wget -q -T 5 -Y off -O - http://127.0.0.1:2019/config/ 2>/dev/null
+}
+
+validate_caddy_snapshot() (
+  local snapshot="$1" container="$2" holder=''
+  # Validate JSON with the running service's mounted files; never print its contents.
+  trap '[[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true' EXIT
+  holder="$(docker create --volumes-from "$container:ro" caddy:2.10.2-alpine \
+    caddy validate --config /tmp/taptime-running.json)" || return
+  docker cp "$snapshot" "$holder:/tmp/taptime-running.json" >/dev/null 2>&1 || return
+  docker start --attach "$holder" >/dev/null 2>&1
+)
+
+save_running_caddy() {
+  local container temporary
+  CADDY_RECOVERY_READY=0
+  install -d -m 0700 "$CADDY_STATE_DIRECTORY" || return
+  container="$(compose "$PREVIOUS_VERSION" ps --all --quiet caddy)" || return
+  [[ -n "$container" && "$container" != *$'\n'* ]] || {
+    fail 'Running Caddy could not be identified before switching.'; return 1;
+  }
+  temporary="$(mktemp "$CADDY_STATE_DIRECTORY/.running.XXXXXX")" || return
+  if ! read_running_caddy "$container" > "$temporary" || [[ ! -s "$temporary" ]] ||
+    ! chmod 0600 "$temporary" || ! validate_caddy_snapshot "$temporary" "$container" ||
+    ! mv -f "$temporary" "$CADDY_STATE_DIRECTORY/running.json"; then
+    rm -f -- "$temporary"
+    fail 'Running Caddy configuration could not be saved and validated; nothing switched.'
+    return 1
+  fi
+  CADDY_RECOVERY_READY=1
+  say '[Vorbereitung] Laufende Caddy-Konfiguration privat gesichert und auf Ladbarkeit geprueft.'
+}
+
+caddy_snapshot_matches() (
+  local container="$1" snapshot="$CADDY_STATE_DIRECTORY/running.json" actual
+  actual="$(mktemp "$CADDY_STATE_DIRECTORY/.readback.XXXXXX")" || return
+  trap 'rm -f -- "$actual"' EXIT
+  # GET serializes the raw config deterministically, including its trailing newline.
+  for _ in $(seq 1 10); do
+    if read_running_caddy "$container" > "$actual" && cmp -s "$snapshot" "$actual"; then return 0; fi
+    sleep 1
+  done
+  return 1
+)
+
+restore_caddy_configuration() {
+  local container running snapshot="$CADDY_STATE_DIRECTORY/running.json" override
+  (( CADDY_RECOVERY_READY == 1 )) && [[ -s "$snapshot" ]] || return 1
+  container="$(compose "$DESIRED_VERSION" ps --all --quiet caddy)" || return
+  [[ "$container" != *$'\n'* ]] || return 1
+  running='false'
+  if [[ -n "$container" ]]; then
+    running="$(docker inspect --format '{{.State.Running}}' "$container")" || return
+  fi
+  if [[ "$running" == true ]]; then
+    # Transport errors and restart loops are ambiguous: only GET/cmp proves recovery.
+    docker exec -i "$container" caddy reload --config - --force < "$snapshot" >/dev/null 2>&1 || true
+    caddy_snapshot_matches "$container" || true
+    # Reload changes only the running config. Persist the same verified recovery input
+    # in the service command too, so a later daemon/host restart cannot undo recovery.
+  fi
+  # Also recover a running/restarting container whose admin API cannot be reached.
+  # The override persists until the next ordinary deploy. Never restart a dependency.
+  override="$CADDY_STATE_DIRECTORY/recovery.compose.yml"
+  (umask 077; cat > "$override" <<'EOF_CADDY_RECOVERY'
+services:
+  caddy:
+    command: ["caddy", "run", "--config", "/etc/caddy/taptime-recovery.json"]
+    volumes:
+      - type: bind
+        source: ${TAPTIME_CADDY_RECOVERY_FILE:?}
+        target: /etc/caddy/taptime-recovery.json
+        read_only: true
+EOF_CADDY_RECOVERY
+  ) || return
+  TAPTIME_CADDY_RECOVERY_FILE="$snapshot" compose "$DESIRED_VERSION" --file "$override" \
+    up --detach --no-deps --force-recreate caddy >/dev/null 2>&1 || return
+  container="$(compose "$DESIRED_VERSION" ps --all --quiet caddy)" || return
+  [[ -n "$container" && "$container" != *$'\n'* ]] || return 1
+  caddy_snapshot_matches "$container"
+}
+
+edge_is_healthy() {
+  local version="$1" available="$2" actual status path base_url
+  curl --fail --silent --show-error --max-time 5 "$HEALTH_URL" >/dev/null || return
+  actual="$(curl --fail --silent --show-error --max-time 5 \
+    --header 'Cache-Control: no-cache' "$ADMIN_WEB_VERSION_URL")" || return
+  [[ "$actual" == "$version" ]] || return 1
+  if (( available == 1 )); then
+    actual="$(curl --fail --silent --show-error --max-time 5 \
+      --header 'Cache-Control: no-cache' "$OPERATOR_WEB_VERSION_URL")" || return
+    [[ "$actual" == "$version" ]] || return 1
+  else
+    base_url="${OPERATOR_WEB_VERSION_URL%version.txt}"
+    for path in '' version.txt v1/operator/session; do
+      status="$(curl --silent --show-error --max-time 5 --output /dev/null \
+        --write-out '%{http_code}' "${base_url}${path}")" || return
+      [[ "$status" == 404 ]] || return 1
+    done
+  fi
+}
+
+wait_for_edge() {
+  # All three hosts share this retry budget, including a delayed certificate (T-071).
+  for _ in $(seq 1 30); do
+    if edge_is_healthy "$1" "$2"; then return 0; fi
+    sleep 2
+  done
+  fail 'Caddy edge did not serve the expected API/Admin/Operator responses.'
+}
+
+recover_caddy_edge() {
+  # Independent of the backend/archive rollback fence. Do not start/stop the backend.
+  CADDY_SWITCH_STARTED=0
+  if activate_admin_web_release "$PREVIOUS_VERSION" &&
+    select_operator_web_release "$PREVIOUS_VERSION" "$PREVIOUS_OPERATOR_WEB" &&
+    select_landing_web_release "$PREVIOUS_VERSION" "$PREVIOUS_LANDING_WEB" &&
+    restore_caddy_configuration && wait_for_edge "$PREVIOUS_VERSION" "$PREVIOUS_OPERATOR_WEB"; then
+    say '[Ruecknahme] Alte Caddy-Kante wiederhergestellt und geprueft; Backend unveraendert.' >&2
+  else
+    fail 'Caddy-Ruecknahme fehlgeschlagen; manuelle Wiederherstellung erforderlich.'
+    return 1
+  fi
+}
+
+activate_caddy_edge() {
+  local status=0
+  (( CADDY_RECOVERY_READY == 1 )) || { fail 'No validated running Caddy snapshot.'; return 1; }
+  CADDY_SWITCH_STARTED=1
+  restart_caddy "$1" || status=$?
+  if (( status == 0 )); then wait_for_edge "$1" "$DESIRED_OPERATOR_WEB" || status=$?; fi
+  if (( status != 0 )); then
+    recover_caddy_edge || true
+    return "$status"
+  fi
+  CADDY_SWITCH_STARTED=0
+  say '[6/7] Caddy-Kante fuer API, Verwaltung und Betreiber geprueft.'
+}
+
 # T-039: derive the Supabase project origin the backend actually trusts from SUPABASE_ISSUER.
 # Reads that one key only; never prints or exports anything else from the environment file.
 trusted_supabase_origin() {
@@ -1513,6 +1665,7 @@ rollback_started_image() {
     say "[7/7] Neuer Stand fehlgeschlagen; setze Backend und Admin-Web auf $PREVIOUS_VERSION zurück." >&2
     if activate_admin_web_release "$PREVIOUS_VERSION" &&
       select_operator_web_release "$PREVIOUS_VERSION" "$PREVIOUS_OPERATOR_WEB" &&
+      select_landing_web_release "$PREVIOUS_VERSION" "$PREVIOUS_LANDING_WEB" &&
       start_backend "$PREVIOUS_VERSION" && restart_caddy "$PREVIOUS_VERSION" &&
       wait_for_health "$PREVIOUS_VERSION" "$PREVIOUS_OPERATOR_WEB"; then
       say "[7/7] Rücknahme erfolgreich; Backend und Admin-Web belegen Version $PREVIOUS_VERSION." >&2
@@ -1526,6 +1679,9 @@ rollback_started_image() {
 finish_deploy() {
   local status="$1"
   trap - EXIT INT TERM HUP
+  if (( CADDY_SWITCH_STARTED == 1 )); then
+    recover_caddy_edge || true
+  fi
   if (( BACKUP_TIMER_HELD == 1 )); then
     if ! systemctl start taptime-backup.timer; then
       fail 'Could not restore backup timer; operator intervention required.'
@@ -1533,7 +1689,7 @@ finish_deploy() {
     fi
     BACKUP_TIMER_HELD=0
   fi
-  if (( status != 0 && DEPLOY_SUCCEEDED == 0 && (NEW_IMAGE_STARTED == 1 || ARCHIVE_CUTOVER_ACTIVE == 1) )); then
+  if (( status != 0 && DEPLOY_SUCCEEDED == 0 && LANDING_ONLY_FAILURE == 0 && (NEW_IMAGE_STARTED == 1 || ARCHIVE_CUTOVER_ACTIVE == 1) )); then
     rollback_started_image "$status"
   fi
   if (( status == 0 && DEPLOY_SUCCEEDED == 1 )); then
@@ -1624,6 +1780,172 @@ operator_web_health() {
   fi
 }
 
+prepare_landing_web_release() (
+  set -euo pipefail
+
+  local image="$1"
+  local version="$2"
+  local releases_directory release_directory staged holder=''
+
+  releases_directory="$LANDING_WEB_ROOT/releases"
+  release_directory="$releases_directory/$version"
+  install -d -m 0755 "$LANDING_WEB_ROOT" "$releases_directory" || return
+
+  if [[ -d "$release_directory" ]]; then
+    [[ "$(read_web_release_version "$release_directory")" == "$version" ]] ||
+      { fail "Prepared Landing Web release $release_directory has the wrong version."; return 1; }
+    validate_landing_release_bundle "$release_directory" "$version" || return
+    say "[Vorbereitung] Startseite $version liegt bereits unveränderlich bereit."
+    return 0
+  fi
+
+  staged="$(mktemp -d "$releases_directory/.deploy-landing-web.XXXXXX")" || return
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2317,SC2329
+  cleanup_landing_web_stage() {
+    [[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true
+    if [[ "$staged" == "$releases_directory"/.deploy-landing-web.* && -d "$staged" ]]; then
+      rm -rf -- "$staged"
+    fi
+  }
+  trap cleanup_landing_web_stage EXIT
+
+  holder="$(docker create "$image")" || return
+  docker cp "$holder:/landing-web/." "$staged" || return
+  require_file "$staged/index.html" || return
+  [[ "$(read_web_release_version "$staged")" == "$version" ]] ||
+    { fail "Landing Web image $image does not contain version $version."; return 1; }
+  validate_landing_release_bundle "$staged" "$version" || return
+  chmod -R u=rwX,go=rX "$staged" || return
+  chmod -R a-w "$staged" || return
+  mv "$staged" "$release_directory" || return
+  staged=''
+  say "[Vorbereitung] Startseite $version liegt vollständig und unveränderlich bereit."
+)
+
+activate_landing_web_release() {
+  local version="$1"
+  local release_directory switch_directory moved=0
+
+  release_directory="$LANDING_WEB_ROOT/releases/$version"
+  [[ "$(read_web_release_version "$release_directory")" == "$version" ]] ||
+    { fail "Landing Web release $version is not prepared correctly."; return 1; }
+
+  validate_landing_release_bundle "$release_directory" "$version" || return
+  switch_directory="$(mktemp -d "$LANDING_WEB_ROOT/.deploy-switch.XXXXXX")" || return
+  ln -s "releases/$version" "$switch_directory/current" || return
+  if mv --help 2>&1 | grep --quiet -- '--no-target-directory'; then
+    if mv -Tf "$switch_directory/current" "$LANDING_WEB_ROOT/current"; then moved=1; fi
+  else
+    if mv -fh "$switch_directory/current" "$LANDING_WEB_ROOT/current"; then moved=1; fi
+  fi
+  if (( moved == 0 )) || [[ "$(readlink "$LANDING_WEB_ROOT/current" 2>/dev/null || true)" != "releases/$version" ]]; then
+    rm -rf -- "$switch_directory"
+    fail "Could not activate Landing Web release $version."
+    return 1
+  fi
+  rmdir "$switch_directory" || return
+  say "[5/7] Startseite $version wurde in einem Zug aktiviert."
+}
+
+landing_web_capability() {
+  local label
+  label="$(docker image inspect --format '{{index .Config.Labels "io.taptime.landing-web"}}' "$1")" || return
+  case "$label" in
+    true) printf '1\n';;
+    false|''|'<no value>') printf '0\n';;
+    *) fail 'Invalid landing-web capability in backend image.'; return 1;;
+  esac
+}
+
+prepare_landing_web_versions() {
+  local image
+  if (( PREVIOUS_LANDING_WEB == 0 && DESIRED_LANDING_WEB == 1 )); then
+    say '[Vorbereitung] Startseite wird erstmals installiert; keine Rücknahmeversion'
+  fi
+  if (( DESIRED_LANDING_WEB == 1 )); then
+    image="$IMAGE_REPOSITORY:landing-web-$DESIRED_VERSION"
+    pull_image "$image" || return
+    prepare_landing_web_release "$image" "$DESIRED_VERSION" || return
+  fi
+  if (( PREVIOUS_LANDING_WEB == 1 )); then
+    image="$IMAGE_REPOSITORY:landing-web-$PREVIOUS_VERSION"
+    pull_image "$image" || return
+    prepare_landing_web_release "$image" "$PREVIOUS_VERSION" || return
+  fi
+}
+
+deactivate_landing_web() {
+  [[ ! -e "$LANDING_WEB_ROOT/current" || -L "$LANDING_WEB_ROOT/current" ]] ||
+    { fail 'Landing Web current is not a managed symlink.'; return 1; }
+  rm -f -- "$LANDING_WEB_ROOT/current" || return
+  [[ ! -e "$LANDING_WEB_ROOT/current" && ! -L "$LANDING_WEB_ROOT/current" ]] ||
+    { fail 'Landing Web could not be deactivated.'; return 1; }
+  say '[5/7] Startseite deaktiviert; keine Oberfläche für diese Version.'
+}
+
+select_landing_web_release() {
+  if (( $2 == 1 )); then activate_landing_web_release "$1"; else deactivate_landing_web; fi
+}
+
+validate_landing_release_bundle() {
+  local directory="$1" version="$2" file
+  validate_web_release_bundle "$directory" "$version" || return
+  for file in tag.html robots.txt tag-assets/tag.css tag-assets/fonts.css; do
+    [[ -s "$directory/$file" ]] || { fail "Landing Web file missing: $file"; return 1; }
+  done
+}
+
+initialize_landing_auth() (
+  set +x
+  umask 077
+  local temporary password
+  install -d -m 0755 "$LANDING_WEB_ROOT" || return
+  [[ ! -L "$LANDING_AUTH_DIRECTORY" ]] || return 1
+  install -d -m 0700 "$LANDING_AUTH_DIRECTORY" || return
+  if [[ -e "$LANDING_AUTH_DIRECTORY/password.hash" ]]; then
+    [[ -f "$LANDING_AUTH_DIRECTORY/password.hash" && ! -L "$LANDING_AUTH_DIRECTORY/password.hash" \
+      && "$(file_mode "$LANDING_AUTH_DIRECTORY/password.hash")" == 600 ]] || return 1
+    return 0
+  fi
+  temporary="$(mktemp "$LANDING_AUTH_DIRECTORY/.locked.XXXXXX")" || return
+  trap 'rm -f -- "$temporary"' EXIT
+  password="$(od -An -v -N32 -tx1 /dev/urandom | tr -d ' \n')" || return
+  [[ "$password" =~ ^[0-9a-f]{64}$ ]] || return 1
+  printf '%s\n' "$password" | docker run --rm -i caddy:2.10.2-alpine caddy hash-password > "$temporary" 2>/dev/null || return
+  unset password
+  [[ -s "$temporary" ]] || return 1
+  chmod 600 "$temporary" || return
+  mv -f -- "$temporary" "$LANDING_AUTH_DIRECTORY/password.hash"
+)
+
+landing_web_health() {
+  local version="$1" available="$2" status path actual
+  if (( available == 0 )); then
+    [[ ! -e "$LANDING_WEB_ROOT/current" && ! -L "$LANDING_WEB_ROOT/current" ]]
+    return
+  fi
+  actual="$(curl --fail --silent --max-time 5 --header 'Cache-Control: no-cache' "$LANDING_WEB_ORIGIN/version.txt")" || return
+  [[ "$actual" == "$version" ]] || return 1
+  for path in / /tag /robots.txt; do
+    status="$(curl --silent --max-time 5 --output /dev/null --write-out '%{http_code}' "$LANDING_WEB_ORIGIN$path")" || return
+    if [[ "$path" == / ]]; then [[ "$status" == 401 ]] || return 1;
+    else [[ "$status" == 200 ]] || return 1; fi
+  done
+}
+
+verify_landing_or_disable() {
+  local attempt
+  for (( attempt=0; attempt<30; attempt++ )); do
+    if landing_web_health "$DESIRED_VERSION" "$DESIRED_LANDING_WEB"; then return 0; fi
+    sleep 2
+  done
+  # Separate failure domain: keep the already verified api/admin/operator edge and backend.
+  LANDING_ONLY_FAILURE=1
+  deactivate_landing_web || { fail 'Startseite konnte nicht deaktiviert werden.'; return 1; }
+  fail 'Startseiten-Prüfung fehlgeschlagen; nur die Startseite wurde deaktiviert.'
+}
+
 main() {
   local step_status admin_web_version_to_activate wal_mount_state
 
@@ -1660,8 +1982,6 @@ main() {
   validate_version "$OPERATIONS_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
-  OPERATIONS_VERSION="$(select_operations_version \
-    "$DESIRED_VERSION" "$PREVIOUS_VERSION" "$OPERATIONS_VERSION")"
 
   validate_wal_archive_configuration
   step_status=$?
@@ -1698,7 +2018,6 @@ main() {
   previous_image="$(image_for_version "$PREVIOUS_VERSION")"
   desired_admin_web_image="$(admin_web_image_for_version "$DESIRED_VERSION")"
   previous_admin_web_image="$(admin_web_image_for_version "$PREVIOUS_VERSION")"
-  desired_operations_image="$(operations_image_for_version "$OPERATIONS_VERSION")"
 
   pull_image "$desired_image"
   step_status=$?
@@ -1712,6 +2031,10 @@ main() {
   pull_image "$previous_admin_web_image"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
+  DESIRED_LANDING_WEB="$(landing_web_capability "$desired_image")" || return
+  OPERATIONS_VERSION="$(select_operations_version \
+    "$DESIRED_VERSION" "$PREVIOUS_VERSION" "$OPERATIONS_VERSION" "$DESIRED_LANDING_WEB")" || return
+  desired_operations_image="$(operations_image_for_version "$OPERATIONS_VERSION")"
   pull_image "$desired_operations_image"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
@@ -1730,6 +2053,12 @@ main() {
   DESIRED_OPERATOR_WEB="$(operator_web_capability "$desired_image")" || return
   PREVIOUS_OPERATOR_WEB="$(operator_web_capability "$previous_image")" || return
   prepare_operator_web_versions
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  PREVIOUS_LANDING_WEB="$(landing_web_capability "$previous_image")" || return
+  prepare_landing_web_versions || return
+  initialize_landing_auth || return
+  save_running_caddy
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   deploy_operations_release "$desired_operations_image" "$OPERATIONS_VERSION"
@@ -1818,15 +2147,17 @@ main() {
   select_operator_web_release "$DESIRED_VERSION" "$DESIRED_OPERATOR_WEB"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
+  select_landing_web_release "$DESIRED_VERSION" "$DESIRED_LANDING_WEB" || return
   start_backend "$DESIRED_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
-  restart_caddy "$DESIRED_VERSION"
+  activate_caddy_edge "$DESIRED_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   wait_for_health "$DESIRED_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
+  verify_landing_or_disable || return
   mark_known_version "$DESIRED_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi

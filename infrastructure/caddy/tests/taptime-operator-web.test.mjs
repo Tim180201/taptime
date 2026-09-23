@@ -14,8 +14,11 @@ function request(host,path){return new Promise((resolve,reject)=>{const req=http
 before(async()=>{
   const production=readFileSync(process.env.TAPTIME_TEST_CADDY_SOURCE??'infrastructure/caddy/Caddyfile','utf8');
   // Test the production routes verbatim; only transport/listen port changes for local HTTP.
-  const config='{\n auto_https off\n}\n'+production.replace(/^(api|admin|betreiber)\.tb-infra\.de \{/gm,'http://$1.tb-infra.de:8080 {');
+  const config='{\n auto_https off\n}\n'+production.replace(/^(api|admin|betreiber)\.tb-infra\.de \{/gm,'http://$1.tb-infra.de:8080 {').replace(/^tb-infra\.de \{/gm,'http://tb-infra.de:8080 {').replace(/^www\.tb-infra\.de, http:\/\/www\.tb-infra\.de \{/gm,'http://www.tb-infra.de:8080 {');
   writeFileSync(join(root,'Caddyfile'),config);
+  mkdirSync(join(root,'landing-auth'));
+  const hash=execFileSync('docker',['run','--rm','-i','caddy:2.10.2-alpine','caddy','hash-password'],{input:'test-only-discarded-value\n',encoding:'utf8'});
+  writeFileSync(join(root,'landing-auth/password.hash'),hash);
   writeFileSync(join(root,'secret'),'synthetic-proxy-proof');
   for(const web of ['admin-web','operator-web']){
     mkdirSync(join(root,web,'current'),{recursive:true});mkdirSync(join(root,web,'releases','abcdef0','assets'),{recursive:true});
@@ -30,6 +33,7 @@ before(async()=>{
   docker('cp',join(root,'Caddyfile'),`${id}:/tmp/Caddyfile`);
   // docker cp requires the destination parent, so use existing /srv for web data.
   docker('cp',join(root,'admin-web'),`${id}:/srv/admin-web`);docker('cp',join(root,'operator-web'),`${id}:/srv/operator-web`);
+  docker('cp',join(root,'landing-auth'),`${id}:/srv/landing-auth`);
   docker('start',id);docker('exec',id,'mkdir','-p','/run/secrets');docker('cp',join(root,'secret'),`${id}:/run/secrets/taptime_proxy_shared_secret`);
   port=docker('inspect','--format','{{(index (index .NetworkSettings.Ports "8080/tcp") 0).HostPort}}',id);
   for(let attempt=0;attempt<30;attempt++){try{await request('admin.tb-infra.de','/');return;}catch{await new Promise(resolve=>setTimeout(resolve,100));}}
