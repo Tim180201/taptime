@@ -82,6 +82,9 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **T-068b (23.09.):** Betreiber-Web, Auslieferung und Runbook umgesetzt; unabhängiges Review Runde 2 und Technical Lead **APPROVED**. Review-Artefakte auf Auftrag entfernt; Commit/Push freigegeben, CI und alle vier Abbilder werden anschließend geprüft. Kein Deploy. Gemeinsamer Controller-Konsolenblock T-057/T-068b in `infrastructure/DEPLOY.md`.
+- **P2 T-068b Verifikation:** Erste Testharness-/axe-Fehler korrigiert; echter Caddy-Rotnachweis gegen Altquelle erst nach erster Änderung erbracht (Prozesslücke). SDK-/Idle-Befunde aus Review 1 mit Rotnachweis behoben; alle lokalen Schlussläufe grün; CI und Images werden nach dem freigegebenen Push geprüft.
+
 - **T-068a (22.09.):** Server-Umsetzung und unabhängiges Gesamt-Review Runde 2 vom TL **APPROVED**: Migration 032, Betreiber-Konten/MFA/Fähigkeiten, Pause einschließlich Offline/Einlösung, beide Root-Werkzeuge und erlaubte Installationslisten. Lokal 1.062 Backend-, 648 Mobile- und 271 Web-Tests, tests-inklusive Typechecks und ShellCheck 0.9.0 mit `-e SC1091` grün. Review-Artefakte auf Auftrag entfernt; Commit/Push freigegeben, CI und Images werden anschließend geprüft. Kein Deploy; T-068b ist der nächste Brief.
 - **P2 T-068a CI-Testabgleich (behoben):** Erster CI-Lauf scheiterte im B6-Test an der alten `search_path`-Erwartung für `lock_request_actor`; auf den vollständig qualifizierten Resolver aus 032 angepasst. Servercode unverändert. Lokal alle 103 B6-Tests und Typecheck grün. Ein nachlaufendes Leerzeichen im Werkzeugtest ebenfalls entfernt; erneute CI-/Image-Prüfung folgt.
 - **T-068a Review-Korrekturen (behoben):** Runde 1: gemeinsamer 026-E-Mail-Sperrhash und `needsAttention`. Runde 2: pausierte Einladungseinlösung ohne Mitgliedschaft, gemeinsamer Web-API-Client und verspätete mobile Kontextantwort. Jeweils Rotnachweis vor Korrektur; keine dritte Runde.
