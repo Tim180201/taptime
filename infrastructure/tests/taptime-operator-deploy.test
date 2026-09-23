@@ -176,6 +176,7 @@ bundle_probe() {
 for kind in valid missing foreign no-key multi; do check "operator served bundle $kind" bundle_probe "$kind"; done
 combined_health() {
   local kind="$1"
+  sleep(){ :; }
   fixture "$OPERATOR_WEB_ROOT" bbbbbbb
   if [[ "$kind" == disabled || "$kind" == exposed ]]; then deactivate_operator_web; else activate_operator_web_release bbbbbbb; fi
   compose(){ printf 'backend-container\n'; }
@@ -205,6 +206,50 @@ combined_health() {
   elif wait_for_health bbbbbbb 1; then return 1; fi
 }
 for kind in valid wrong-version missing disabled exposed; do check "combined backend/admin/operator health $kind" combined_health "$kind"; done
+
+health_retry() {
+  local kind="$1" log="$TEST_ROOT/health-$1"
+  mkdir -p "$log"
+  compose(){ printf 'backend-container\n'; }
+  docker(){
+    if [[ "$*" == *'.Config.Image'* ]]; then image_for_version bbbbbbb;
+    else printf 'poll\n' >> "$log/backend"; printf 'healthy\n'; fi
+  }
+  # Record the real controller's budget instead of duplicating its retry limit.
+  seq(){ command seq "$@" | tee "$log/budget"; }
+  sleep(){ printf '%s\n' "$1" >> "$log/sleeps"; }
+  admin_web_bundle_is_startable(){ :; }
+  operator_web_bundle_is_startable(){ printf 'bundle\n' >> "$log/bundle"; }
+  curl(){
+    local url="${!#}"
+    case "$url" in
+      "$HEALTH_URL") printf 'ok';;
+      "$ADMIN_WEB_VERSION_URL") printf 'poll\n' >> "$log/admin"; printf 'bbbbbbb';;
+      "$OPERATOR_WEB_VERSION_URL")
+        printf 'poll\n' >> "$log/operator"
+        if [[ "$kind" == unavailable ]] || (( $(wc -l < "$log/operator") <= 2 )); then
+          printf 'curl: (35) TLS certificate not available yet\n' >&2
+          return 35
+        fi
+        printf 'bbbbbbb';;
+      *) return 1;;
+    esac
+  }
+  if [[ "$kind" == delayed ]]; then
+    wait_for_health bbbbbbb 1 || return 1
+    [[ -s "$log/sleeps" && -s "$log/bundle" ]] || return 1
+    (( $(wc -l < "$log/operator") > 2 )) || return 1
+  else
+    if wait_for_health bbbbbbb 1; then return 1; fi
+    [[ ! -e "$log/bundle" ]] || return 1
+    [[ "$(wc -l < "$log/operator")" == "$(wc -l < "$log/budget")" ]] || return 1
+  fi
+  # Every attempt checks all surfaces in the same shared loop.
+  cmp "$log/backend" "$log/admin" || return 1
+  cmp "$log/admin" "$log/operator"
+}
+check 'operator TLS becomes available after repeated shared health checks' health_retry delayed
+check 'operator TLS failure exhausts only the shared health budget' health_retry unavailable
 
 legacy_target() {
   DESIRED_OPERATOR_WEB=0; PREVIOUS_OPERATOR_WEB=1; DESIRED_VERSION=aaaaaaa; PREVIOUS_VERSION=bbbbbbb

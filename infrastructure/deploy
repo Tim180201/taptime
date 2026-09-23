@@ -1418,7 +1418,6 @@ wait_for_health() {
         say "[6/7] Betreiber-Web: Version $version oder geprüfte Deaktivierung belegt."
         return 0
       fi
-      break
     fi
     [[ "$health" == 'unhealthy' || "$health" == 'exited' || "$health" == 'dead' ]] && break
     sleep 2

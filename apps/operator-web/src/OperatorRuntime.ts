@@ -36,7 +36,7 @@ export class OperatorRuntime {
   constructor(
     private auth: OperatorAuth,
     private storage: Storage,
-    private fetcher: typeof fetch = fetch,
+    private fetcher: typeof fetch = (input, init) => globalThis.fetch(input, init),
     private now = Date.now,
   ) {}
   getSnapshot = () => this.state;
