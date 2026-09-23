@@ -14,6 +14,8 @@ readonly BACKEND_ENV_FILE="${TAPTIME_DEPLOY_BACKEND_ENV_FILE:-/opt/taptime/.env}
 readonly HEALTH_URL="${TAPTIME_DEPLOY_HEALTH_URL:-https://api.tb-infra.de/health}"
 readonly ADMIN_WEB_VERSION_URL="${TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL:-https://admin.tb-infra.de/version.txt}"
 readonly ADMIN_WEB_ROOT="${TAPTIME_DEPLOY_ADMIN_WEB_ROOT:-/opt/taptime/admin-web}"
+readonly OPERATOR_WEB_VERSION_URL="${TAPTIME_DEPLOY_OPERATOR_WEB_VERSION_URL:-https://betreiber.tb-infra.de/version.txt}"
+readonly OPERATOR_WEB_ROOT="${TAPTIME_DEPLOY_OPERATOR_WEB_ROOT:-/opt/taptime/operator-web}"
 readonly OPERATIONS_ROOT="${TAPTIME_DEPLOY_OPERATIONS_ROOT:-/opt/taptime/operations}"
 readonly OPERATIONS_TARGET_ROOT="${TAPTIME_DEPLOY_OPERATIONS_TARGET_ROOT:-}"
 readonly OPERATIONS_RUNTIME_ROOT="${TAPTIME_DEPLOY_OPERATIONS_RUNTIME_ROOT:-/run/taptime-operations}"
@@ -35,6 +37,8 @@ ARCHIVE_CONTRACT_ACTIVE=0
 BACKUP_TIMER_HELD=0
 DEPLOY_SUCCEEDED=0
 DEPLOY_BASE_ARCHIVE=''
+DESIRED_OPERATOR_WEB=0
+PREVIOUS_OPERATOR_WEB=0
 
 say() {
   printf '%s\n' "$*"
@@ -297,13 +301,14 @@ pull_image() {
   local version revision
 
   say "[Vorbereitung] Lade ausdrücklich angefordertes Abbild $image."
-  docker pull "$image"
-  docker image inspect "$image" >/dev/null
+  docker pull "$image" || return
+  docker image inspect "$image" >/dev/null || return
   version="${image##*:}"
   version="${version#admin-web-}"
+  version="${version#operator-web-}"
   version="${version#operations-}"
-  validate_version "$version"
-  revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")"
+  validate_version "$version" || return
+  revision="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" || return
   [[ "$revision" == "$version"* ]] ||
     fail "Image revision label does not match requested version $version."
 }
@@ -724,7 +729,7 @@ deploy_operations_release() {
   prepare_operations_release "$image" "$version" && install_operations_release "$version"
 }
 
-read_admin_web_release_version() {
+read_web_release_version() {
   local version_file="$1/version.txt"
   local actual
 
@@ -746,7 +751,7 @@ prepare_admin_web_release() (
   install -d -m 0755 "$ADMIN_WEB_ROOT" "$releases_directory"
 
   if [[ -d "$release_directory" ]]; then
-    [[ "$(read_admin_web_release_version "$release_directory")" == "$version" ]] ||
+    [[ "$(read_web_release_version "$release_directory")" == "$version" ]] ||
       fail "Prepared Admin Web release $release_directory has the wrong version."
     require_file "$release_directory/index.html"
     say "[Vorbereitung] Admin-Web $version liegt bereits unveränderlich bereit."
@@ -767,7 +772,7 @@ prepare_admin_web_release() (
   holder="$(docker create "$image")"
   docker cp "$holder:/admin-web/." "$staged"
   require_file "$staged/index.html"
-  [[ "$(read_admin_web_release_version "$staged")" == "$version" ]] ||
+  [[ "$(read_web_release_version "$staged")" == "$version" ]] ||
     fail "Admin Web image $image does not contain version $version."
   chmod -R u=rwX,go=rX "$staged"
   chmod -R a-w "$staged"
@@ -782,7 +787,7 @@ activate_admin_web_release() {
 
   release_directory="$ADMIN_WEB_ROOT/releases/$version"
   [[ -d "$ADMIN_WEB_ROOT/status" ]] || fail "Admin Web status directory is missing: $ADMIN_WEB_ROOT/status"
-  [[ "$(read_admin_web_release_version "$release_directory")" == "$version" ]] ||
+  [[ "$(read_web_release_version "$release_directory")" == "$version" ]] ||
     fail "Admin Web release $version is not prepared correctly."
 
   switch_directory="$(mktemp -d "$ADMIN_WEB_ROOT/.deploy-switch.XXXXXX")"
@@ -799,6 +804,75 @@ activate_admin_web_release() {
   rmdir "$switch_directory"
   say "[5/7] Admin-Web $version wurde in einem Zug aktiviert."
 }
+
+prepare_operator_web_release() (
+  set -euo pipefail
+
+  local image="$1"
+  local version="$2"
+  local releases_directory release_directory staged holder=''
+
+  releases_directory="$OPERATOR_WEB_ROOT/releases"
+  release_directory="$releases_directory/$version"
+  install -d -m 0755 "$OPERATOR_WEB_ROOT" "$releases_directory" || return
+
+  if [[ -d "$release_directory" ]]; then
+    [[ "$(read_web_release_version "$release_directory")" == "$version" ]] ||
+      { fail "Prepared Operator Web release $release_directory has the wrong version."; return 1; }
+    validate_web_release_bundle "$release_directory" "$version" || return
+    say "[Vorbereitung] Betreiber-Web $version liegt bereits unveränderlich bereit."
+    return 0
+  fi
+
+  staged="$(mktemp -d "$releases_directory/.deploy-operator-web.XXXXXX")" || return
+  # Invoked by the EXIT trap below.
+  # shellcheck disable=SC2317,SC2329
+  cleanup_operator_web_stage() {
+    [[ -z "$holder" ]] || docker rm --force "$holder" >/dev/null 2>&1 || true
+    if [[ "$staged" == "$releases_directory"/.deploy-operator-web.* && -d "$staged" ]]; then
+      rm -rf -- "$staged"
+    fi
+  }
+  trap cleanup_operator_web_stage EXIT
+
+  holder="$(docker create "$image")" || return
+  docker cp "$holder:/operator-web/." "$staged" || return
+  require_file "$staged/index.html" || return
+  [[ "$(read_web_release_version "$staged")" == "$version" ]] ||
+    { fail "Operator Web image $image does not contain version $version."; return 1; }
+  validate_web_release_bundle "$staged" "$version" || return
+  chmod -R u=rwX,go=rX "$staged" || return
+  chmod -R a-w "$staged" || return
+  mv "$staged" "$release_directory" || return
+  staged=''
+  say "[Vorbereitung] Betreiber-Web $version liegt vollständig und unveränderlich bereit."
+)
+
+activate_operator_web_release() {
+  local version="$1"
+  local release_directory switch_directory moved=0
+
+  release_directory="$OPERATOR_WEB_ROOT/releases/$version"
+  [[ "$(read_web_release_version "$release_directory")" == "$version" ]] ||
+    { fail "Operator Web release $version is not prepared correctly."; return 1; }
+
+  validate_web_release_bundle "$release_directory" "$version" || return
+  switch_directory="$(mktemp -d "$OPERATOR_WEB_ROOT/.deploy-switch.XXXXXX")" || return
+  ln -s "releases/$version" "$switch_directory/current" || return
+  if mv --help 2>&1 | grep --quiet -- '--no-target-directory'; then
+    if mv -Tf "$switch_directory/current" "$OPERATOR_WEB_ROOT/current"; then moved=1; fi
+  else
+    if mv -fh "$switch_directory/current" "$OPERATOR_WEB_ROOT/current"; then moved=1; fi
+  fi
+  if (( moved == 0 )) || [[ "$(readlink "$OPERATOR_WEB_ROOT/current" 2>/dev/null || true)" != "releases/$version" ]]; then
+    rm -rf -- "$switch_directory"
+    fail "Could not activate Operator Web release $version."
+    return 1
+  fi
+  rmdir "$switch_directory" || return
+  say "[5/7] Betreiber-Web $version wurde in einem Zug aktiviert."
+}
+
 
 verify_local_rehearsal_image() {
   local image="$1"
@@ -1266,19 +1340,19 @@ trusted_supabase_origin() {
 # Runs as an `if` condition, where bash ignores errexit — so every refusal exits explicitly.
 # Before T-039 the gate relied on errexit here and only rejected a bundle when its LAST check
 # failed; a wrong-but-present origin with a valid key slipped through.
-admin_web_bundle_is_startable() (
+web_bundle_is_startable() (
   set -uo pipefail
 
-  local version="$1"
+  local version="$1" label="$2" version_url="$3"
   local base_url script_path
   local temporary_directory index_file bundle_file
   local trusted_origin bundle_origins
 
   refuse() { fail "$@"; exit 1; }
 
-  base_url="${ADMIN_WEB_VERSION_URL%version.txt}"
-  [[ "$base_url" != "$ADMIN_WEB_VERSION_URL" ]] ||
-    refuse 'Admin Web version URL must end in version.txt.'
+  base_url="${version_url%version.txt}"
+  [[ "$base_url" != "$version_url" ]] ||
+    refuse "$label version URL must end in version.txt."
 
   temporary_directory="$(mktemp -d)"
   trap 'rm -rf -- "$temporary_directory"' EXIT
@@ -1287,35 +1361,41 @@ admin_web_bundle_is_startable() (
 
   curl --fail --silent --show-error --max-time 5 \
     --header 'Cache-Control: no-cache' "$base_url" > "$index_file" ||
-    refuse 'Admin Web index could not be fetched.'
+    refuse "$label index could not be fetched."
+  [[ "$(grep -Eo '<script([[:space:]>])' "$index_file" | wc -l | tr -d ' ')" == 1 ]] ||
+    refuse "$label index must load exactly one application bundle."
   script_path="$(sed -n 's/.*<script[^>]* src="\([^"]*\)"[^>]*>.*/\1/p' "$index_file")"
   [[ -n "$script_path" && "$script_path" != *$'\n'* ]] ||
-    refuse 'Admin Web index must load exactly one application bundle.'
+    refuse "$label index must load exactly one application bundle."
   [[ "$script_path" =~ ^/releases/$version/assets/[A-Za-z0-9._-]+\.js$ ]] ||
-    refuse "Admin Web index does not load the application bundle for version $version."
+    refuse "$label index does not load the application bundle for version $version."
 
   curl --fail --silent --show-error --max-time 5 \
     --header 'Cache-Control: no-cache' \
     "${base_url%/}$script_path" > "$bundle_file" ||
-    refuse 'Admin Web bundle could not be fetched.'
+    refuse "$label bundle could not be fetched."
   LC_ALL=C grep --extended-regexp --quiet \
     'https://[a-z0-9]+[.]supabase[.]co([^A-Za-z0-9._~:/?#@!$&()*+,;=%-]|$)' \
     "$bundle_file" ||
-    refuse 'Admin Web bundle has no valid configured Supabase origin.'
+    refuse "$label bundle has no valid configured Supabase origin."
   # T-039: any Supabase origin is not enough — it must be the one the backend trusts, and
   # nothing else. A bundle built against a second project passes tokens the backend rejects.
   trusted_origin="$(trusted_supabase_origin)" || exit 1
   bundle_origins="$(LC_ALL=C grep --extended-regexp --only-matching \
     'https://[a-z0-9]+[.]supabase[.]co' "$bundle_file" | sort -u)"
   [[ "$bundle_origins" == "$trusted_origin" ]] ||
-    refuse "Admin Web bundle is built for a Supabase origin the backend does not trust (bundle: $(tr '\n' ' ' <<< "$bundle_origins")| backend: $trusted_origin)."
+    refuse "$label bundle is built for a Supabase origin the backend does not trust (bundle: $(tr '\n' ' ' <<< "$bundle_origins")| backend: $trusted_origin)."
   LC_ALL=C grep --extended-regexp --quiet \
     'sb_publishable_[A-Za-z0-9_-]{20,}([^A-Za-z0-9_-]|$)' "$bundle_file" ||
-    refuse 'Admin Web bundle has no valid configured public application key.'
+    refuse "$label bundle has no valid configured public application key."
 )
+
+admin_web_bundle_is_startable() { web_bundle_is_startable "$1" 'Admin Web' "$ADMIN_WEB_VERSION_URL"; }
+operator_web_bundle_is_startable() { web_bundle_is_startable "$1" 'Operator Web' "$OPERATOR_WEB_VERSION_URL"; }
 
 wait_for_health() {
   local version="$1"
+  local operator_available="${2:-$DESIRED_OPERATOR_WEB}"
   local container health running_image admin_web_version
 
   say "[6/7] Prüfe Backend und ausgeliefertes Admin-Web für Version $version."
@@ -1333,8 +1413,9 @@ wait_for_health() {
       admin_web_version="$(curl --fail --silent --show-error --max-time 5 \
         --header 'Cache-Control: no-cache' "$ADMIN_WEB_VERSION_URL")" &&
       [[ "$admin_web_version" == "$version" ]]; then
-      if admin_web_bundle_is_startable "$version"; then
+      if admin_web_bundle_is_startable "$version" && operator_web_health "$version" "$operator_available"; then
         say "[6/7] Backend und startfähiges Admin-Web belegen gemeinsam Version $version."
+        say "[6/7] Betreiber-Web: Version $version oder geprüfte Deaktivierung belegt."
         return 0
       fi
       break
@@ -1432,8 +1513,9 @@ rollback_started_image() {
   elif (( NEW_IMAGE_STARTED == 1 )); then
     say "[7/7] Neuer Stand fehlgeschlagen; setze Backend und Admin-Web auf $PREVIOUS_VERSION zurück." >&2
     if activate_admin_web_release "$PREVIOUS_VERSION" &&
+      select_operator_web_release "$PREVIOUS_VERSION" "$PREVIOUS_OPERATOR_WEB" &&
       start_backend "$PREVIOUS_VERSION" && restart_caddy "$PREVIOUS_VERSION" &&
-      wait_for_health "$PREVIOUS_VERSION"; then
+      wait_for_health "$PREVIOUS_VERSION" "$PREVIOUS_OPERATOR_WEB"; then
       say "[7/7] Rücknahme erfolgreich; Backend und Admin-Web belegen Version $PREVIOUS_VERSION." >&2
     else
       say "ERROR: Automatic image rollback to $PREVIOUS_VERSION also failed." >&2
@@ -1461,6 +1543,88 @@ finish_deploy() {
   exit "$status"
 }
 
+# Missing historical capability metadata denotes source before operator-web existed.
+# A failed inspect/pull is never interpreted as absence; known new images must be complete.
+operator_web_capability() {
+  local label
+  label="$(docker image inspect --format '{{index .Config.Labels "io.taptime.operator-web"}}' "$1")" || return
+  case "$label" in
+    true) printf '1\n';;
+    false|''|'<no value>') printf '0\n';;
+    *) fail 'Invalid operator-web capability in backend image.'; return 1;;
+  esac
+}
+
+preflight_operator_dns() {
+  local host addresses
+  [[ "$OPERATOR_WEB_VERSION_URL" =~ ^https://([a-zA-Z0-9.-]+)/version[.]txt$ ]] ||
+    { fail 'Invalid Operator Web version URL.'; return 1; }
+  host="${BASH_REMATCH[1]}"
+  addresses="$(getent ahosts "$host" 2>/dev/null)" ||
+    { fail "DNS-Eintrag für $host fehlt"; return 1; }
+  [[ -n "$addresses" ]] || { fail "DNS-Eintrag für $host fehlt"; return 1; }
+  say "[Vorprüfung] DNS-Eintrag für $host vorhanden."
+}
+
+prepare_operator_web_versions() {
+  local image
+  if (( PREVIOUS_OPERATOR_WEB == 0 && DESIRED_OPERATOR_WEB == 1 )); then
+    say '[Vorbereitung] Betreiber-Web wird erstmals installiert; keine Rücknahmeversion'
+  fi
+  if (( DESIRED_OPERATOR_WEB == 1 )); then
+    image="$IMAGE_REPOSITORY:operator-web-$DESIRED_VERSION"
+    pull_image "$image" || return
+    prepare_operator_web_release "$image" "$DESIRED_VERSION" || return
+  fi
+  if (( PREVIOUS_OPERATOR_WEB == 1 )); then
+    image="$IMAGE_REPOSITORY:operator-web-$PREVIOUS_VERSION"
+    pull_image "$image" || return
+    prepare_operator_web_release "$image" "$PREVIOUS_VERSION" || return
+  fi
+}
+
+validate_web_release_bundle() {
+  local directory="$1" version="$2" script_path count
+  [[ -s "$directory/index.html" ]] || { fail 'Operator Web index is missing.'; return 1; }
+  count="$(grep -Eo '<script([[:space:]>])' "$directory/index.html" | wc -l | tr -d ' ')" || return
+  [[ "$count" == 1 ]] || { fail 'Operator Web requires exactly one application bundle.'; return 1; }
+  script_path="$(sed -n 's/.*<script[^>]* src="\([^" ]*\)"[^>]*>.*/\1/p' "$directory/index.html")"
+  [[ "$script_path" =~ ^/releases/$version/assets/[A-Za-z0-9._-]+[.]js$ ]] ||
+    { fail 'Operator Web bundle path does not match the release.'; return 1; }
+  [[ -s "$directory/${script_path#/releases/"$version"/}" ]] ||
+    { fail 'Operator Web bundle is missing.'; return 1; }
+}
+
+deactivate_operator_web() {
+  [[ ! -e "$OPERATOR_WEB_ROOT/current" || -L "$OPERATOR_WEB_ROOT/current" ]] ||
+    { fail 'Operator Web current is not a managed symlink.'; return 1; }
+  rm -f -- "$OPERATOR_WEB_ROOT/current" || return
+  [[ ! -e "$OPERATOR_WEB_ROOT/current" && ! -L "$OPERATOR_WEB_ROOT/current" ]] ||
+    { fail 'Operator Web could not be deactivated.'; return 1; }
+  say '[5/7] Betreiber-Web deaktiviert; keine Oberfläche für diese Version.'
+}
+
+select_operator_web_release() {
+  if (( $2 == 1 )); then activate_operator_web_release "$1"; else deactivate_operator_web; fi
+}
+
+operator_web_health() {
+  local version="$1" available="$2" actual status path base_url
+  if (( available == 1 )); then
+    actual="$(curl --fail --silent --show-error --max-time 5 --header 'Cache-Control: no-cache' "$OPERATOR_WEB_VERSION_URL")" || return
+    [[ "$actual" == "$version" ]] || { fail 'Operator Web serves the wrong version.'; return 1; }
+    operator_web_bundle_is_startable "$version" || return
+  else
+    [[ ! -e "$OPERATOR_WEB_ROOT/current" && ! -L "$OPERATOR_WEB_ROOT/current" ]] ||
+      { fail 'Operator Web is unexpectedly active.'; return 1; }
+    base_url="${OPERATOR_WEB_VERSION_URL%version.txt}"
+    for path in '' version.txt v1/operator/session; do
+      status="$(curl --silent --show-error --max-time 5 --output /dev/null --write-out '%{http_code}' "${base_url}${path}")" || return
+      [[ "$status" == 404 ]] || { fail 'Operator Web must return 404 when deactivated.'; return 1; }
+    done
+  fi
+}
+
 main() {
   local step_status admin_web_version_to_activate wal_mount_state
 
@@ -1474,6 +1638,9 @@ main() {
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   require_root
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  preflight_operator_dns
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   require_file "$BACKUP_CONFIG"
@@ -1561,6 +1728,11 @@ main() {
   prepare_admin_web_release "$previous_admin_web_image" "$PREVIOUS_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
+  DESIRED_OPERATOR_WEB="$(operator_web_capability "$desired_image")" || return
+  PREVIOUS_OPERATOR_WEB="$(operator_web_capability "$previous_image")" || return
+  prepare_operator_web_versions
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
   deploy_operations_release "$desired_operations_image" "$OPERATIONS_VERSION"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
@@ -1642,6 +1814,9 @@ main() {
   say "[5/7] Aktiviere Backend und Admin-Web für Version $DESIRED_VERSION."
   NEW_IMAGE_STARTED=1
   activate_admin_web_release "$admin_web_version_to_activate"
+  step_status=$?
+  if (( step_status != 0 )); then return "$step_status"; fi
+  select_operator_web_release "$DESIRED_VERSION" "$DESIRED_OPERATOR_WEB"
   step_status=$?
   if (( step_status != 0 )); then return "$step_status"; fi
   start_backend "$DESIRED_VERSION"

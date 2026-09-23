@@ -1,0 +1,241 @@
+#!/usr/bin/env bash
+# Only isolated synthetic files and fake external commands; never server configuration.
+# shellcheck disable=SC2034,SC2317
+set -euo pipefail
+TEST_ROOT="$(mktemp -d)"
+trap 'rm -rf -- "$TEST_ROOT"' EXIT
+export TAPTIME_DEPLOY_OPERATOR_WEB_ROOT="$TEST_ROOT/operator-web"
+export TAPTIME_DEPLOY_ADMIN_WEB_ROOT="$TEST_ROOT/admin-web"
+export TAPTIME_DEPLOY_OPERATOR_WEB_VERSION_URL='https://betreiber.invalid/version.txt'
+export TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL='https://admin.invalid/version.txt'
+export TAPTIME_DEPLOY_BACKEND_ENV_FILE="$TEST_ROOT/backend.env"
+printf 'SUPABASE_ISSUER=https://syntheticproject.supabase.co/auth/v1\n' > "$TAPTIME_DEPLOY_BACKEND_ENV_FILE"
+# shellcheck source=../deploy
+source "$(dirname "$0")/../deploy"
+failures=0
+check() {
+  local name="$1" result
+  shift
+  set +e
+  (set -e; "$@") > "$TEST_ROOT/output" 2>&1
+  result=$?
+  set -e
+  if (( result == 0 )); then printf 'PASS %s\n' "$name"; else printf 'FAIL %s\n' "$name"; cat "$TEST_ROOT/output"; failures=$((failures+1)); fi
+}
+fixture() {
+  local root="$1" version="$2"
+  mkdir -p "$root/releases/$version/assets"
+  printf '%s\n' "$version" > "$root/releases/$version/version.txt"
+  printf '<script type="module" src="/releases/%s/assets/app.js"></script>\n' "$version" > "$root/releases/$version/index.html"
+  printf 'const a="https://syntheticproject.supabase.co",k="sb_publishable_synthetic_public_value";\n' > "$root/releases/$version/assets/app.js"
+}
+
+first_install() {
+  DESIRED_OPERATOR_WEB=1; PREVIOUS_OPERATOR_WEB=0
+  DESIRED_VERSION=bbbbbbb; PREVIOUS_VERSION=aaaaaaa
+  local log="$TEST_ROOT/first"
+  pull_image(){ printf 'pull %s\n' "$1" >> "$log"; }
+  prepare_operator_web_release(){ printf 'prepare %s %s\n' "$1" "$2" >> "$log"; }
+  prepare_operator_web_versions > "$TEST_ROOT/first-message"
+  [[ "$(cat "$log")" == "pull $IMAGE_REPOSITORY:operator-web-bbbbbbb
+prepare $IMAGE_REPOSITORY:operator-web-bbbbbbb bbbbbbb" ]]
+  grep -q 'Betreiber-Web wird erstmals installiert; keine Rücknahmeversion' "$TEST_ROOT/first-message"
+}
+check 'first installation needs no previous operator image' first_install
+
+subsequent_install() {
+  DESIRED_OPERATOR_WEB=1; PREVIOUS_OPERATOR_WEB=1; DESIRED_VERSION=bbbbbbb; PREVIOUS_VERSION=aaaaaaa
+  local log="$TEST_ROOT/subsequent"
+  pull_image(){ printf 'pull %s\n' "$1" >> "$log"; }
+  prepare_operator_web_release(){ printf 'prepare %s %s\n' "$1" "$2" >> "$log"; }
+  prepare_operator_web_versions
+  grep -q 'operator-web-aaaaaaa' "$log"; grep -q 'operator-web-bbbbbbb' "$log"
+}
+check 'subsequent installation prepares both versions' subsequent_install
+
+capability() {
+  docker(){ printf '%s\n' "${LABEL:-}"; }
+  LABEL=true; [[ "$(operator_web_capability synthetic)" == 1 ]]
+  LABEL=false; [[ "$(operator_web_capability synthetic)" == 0 ]]
+  LABEL='<no value>'; [[ "$(operator_web_capability synthetic)" == 0 ]]
+  LABEL='corrupt'; if operator_web_capability synthetic; then return 1; fi
+  docker(){ return 1; }; if operator_web_capability synthetic; then return 1; fi
+}
+check 'capability comes from backend metadata, never a failed pull' capability
+
+missing_image() {
+  DESIRED_OPERATOR_WEB=1; PREVIOUS_OPERATOR_WEB=1; DESIRED_VERSION=bbbbbbb; PREVIOUS_VERSION=aaaaaaa
+  pull_image(){ return 1; }
+  prepare_operator_web_release(){ printf 'unexpected\n' > "$TEST_ROOT/unexpected-prepare"; }
+  if prepare_operator_web_versions; then return 1; fi
+  [[ ! -e "$TEST_ROOT/unexpected-prepare" ]]
+}
+check 'missing required image aborts, not an initial-install fallback' missing_image
+
+prepare_and_switch() {
+  fixture "$TEST_ROOT/image" bbbbbbb
+  docker(){
+    case "$1" in
+      create) printf 'synthetic-holder\n';;
+      cp) [[ "$2" == 'synthetic-holder:/operator-web/.' ]]; cp -R "$TEST_ROOT/image/releases/bbbbbbb/." "$3";;
+      rm) :;;
+      *) return 1;;
+    esac
+  }
+  prepare_operator_web_release synthetic bbbbbbb
+  [[ -f "$OPERATOR_WEB_ROOT/releases/bbbbbbb/assets/app.js" ]]
+  activate_operator_web_release bbbbbbb
+  [[ "$(readlink "$OPERATOR_WEB_ROOT/current")" == releases/bbbbbbb ]]
+  deactivate_operator_web
+  [[ ! -e "$OPERATOR_WEB_ROOT/current" && ! -L "$OPERATOR_WEB_ROOT/current" ]]
+  [[ -f "$OPERATOR_WEB_ROOT/releases/bbbbbbb/assets/app.js" ]]
+}
+check 'prepare, activate and deactivate preserve immutable releases' prepare_and_switch
+
+missing_bundle() {
+  fixture "$OPERATOR_WEB_ROOT" ccccccc
+  rm "$OPERATOR_WEB_ROOT/releases/ccccccc/assets/app.js"
+  if prepare_operator_web_release synthetic ccccccc; then return 1; fi
+}
+check 'missing bundle in a prepared release aborts' missing_bundle
+
+rollback_without_previous() {
+  fixture "$OPERATOR_WEB_ROOT" bbbbbbb; activate_operator_web_release bbbbbbb
+  PREVIOUS_OPERATOR_WEB=0; PREVIOUS_VERSION=aaaaaaa; NEW_IMAGE_STARTED=1; ARCHIVE_CONTRACT_ACTIVE=0; ARCHIVE_CUTOVER_ACTIVE=0
+  local log="$TEST_ROOT/rollback"
+  activate_admin_web_release(){ printf 'admin %s\n' "$1" >> "$log"; }
+  start_backend(){ printf 'backend %s\n' "$1" >> "$log"; }
+  restart_caddy(){ printf 'caddy %s\n' "$1" >> "$log"; }
+  wait_for_health(){ [[ ! -e "$OPERATOR_WEB_ROOT/current" && "$2" == 0 ]]; printf 'checked\n' >> "$log"; }
+  local result=0
+  (rollback_started_image 9) > "$TEST_ROOT/rollback-output" 2>&1 || result=$?
+  [[ "$result" == 9 && ! -L "$OPERATOR_WEB_ROOT/current" ]]
+  grep -q 'deaktiviert' "$TEST_ROOT/rollback-output"
+  [[ "$(cat "$log")" == "admin aaaaaaa
+backend aaaaaaa
+caddy aaaaaaa
+checked" ]]
+}
+check 'rollback without operator predecessor disables only that surface' rollback_without_previous
+
+rollback_with_previous() {
+  fixture "$OPERATOR_WEB_ROOT" aaaaaaa; fixture "$OPERATOR_WEB_ROOT" bbbbbbb; activate_operator_web_release bbbbbbb
+  PREVIOUS_OPERATOR_WEB=1; PREVIOUS_VERSION=aaaaaaa; NEW_IMAGE_STARTED=1; ARCHIVE_CONTRACT_ACTIVE=0; ARCHIVE_CUTOVER_ACTIVE=0
+  activate_admin_web_release(){ :; };start_backend(){ :; };restart_caddy(){ :; }
+  wait_for_health(){ [[ "$2" == 1 && "$(readlink "$OPERATOR_WEB_ROOT/current")" == releases/aaaaaaa ]]; }
+  local result=0
+  (rollback_started_image 9) || result=$?
+  [[ "$result" == 9 && "$(readlink "$OPERATOR_WEB_ROOT/current")" == releases/aaaaaaa ]]
+}
+check 'rollback with operator predecessor restores it' rollback_with_previous
+
+missing_dns() {
+  local log="$TEST_ROOT/dns-mutations"
+  require_root(){ :; };require_file(){ :; };acquire_deploy_lock(){ touch "$log"; };hold_backup_timer(){ touch "$log"; };pull_image(){ touch "$log"; }
+  getent(){ return 2; }
+  if main bbbbbbb > "$TEST_ROOT/dns-error" 2>&1; then return 1; fi
+  grep -q 'DNS-Eintrag für betreiber.invalid fehlt' "$TEST_ROOT/dns-error"
+  [[ ! -e "$log" ]]
+  getent(){ printf '192.0.2.1 STREAM betreiber.invalid\n'; }
+  preflight_operator_dns
+}
+check 'missing DNS aborts main before any mutation' missing_dns
+
+bundle_probe() {
+  local kind="$1"
+  curl(){
+    local url="${!#}"
+    if [[ "$url" == 'https://betreiber.invalid/' ]]; then
+      if [[ "$kind" == multi ]]; then printf '<script src="/releases/bbbbbbb/assets/a.js"></script><script src="/releases/bbbbbbb/assets/b.js"></script>\n';
+      else printf '<script src="/releases/bbbbbbb/assets/app.js"></script>\n'; fi
+    else
+      case "$kind" in
+        missing) return 22;;
+        foreign) printf 'https://otherproject.supabase.co sb_publishable_synthetic_public_value';;
+        no-key) printf 'https://syntheticproject.supabase.co';;
+        *) printf 'https://syntheticproject.supabase.co sb_publishable_synthetic_public_value';;
+      esac
+    fi
+  }
+  if [[ "$kind" == valid ]]; then operator_web_bundle_is_startable bbbbbbb;
+  elif operator_web_bundle_is_startable bbbbbbb; then return 1; fi
+}
+for kind in valid missing foreign no-key multi; do check "operator served bundle $kind" bundle_probe "$kind"; done
+combined_health() {
+  local kind="$1"
+  fixture "$OPERATOR_WEB_ROOT" bbbbbbb
+  if [[ "$kind" == disabled || "$kind" == exposed ]]; then deactivate_operator_web; else activate_operator_web_release bbbbbbb; fi
+  compose(){ printf 'backend-container\n'; }
+  docker(){ if [[ "$*" == *'.Config.Image'* ]]; then image_for_version bbbbbbb; else printf 'healthy\n'; fi; }
+  curl(){
+    local url="${!#}"
+    case "$url" in
+      "$HEALTH_URL") printf 'ok';;
+      "$ADMIN_WEB_VERSION_URL") printf 'bbbbbbb';;
+      https://admin.invalid/) printf '<script src="/releases/bbbbbbb/assets/app.js"></script>\n';;
+      https://admin.invalid/releases/*) printf 'https://syntheticproject.supabase.co sb_publishable_synthetic_public_value';;
+      https://betreiber.invalid/*)
+        if [[ "$kind" == disabled ]]; then printf '404'; return; fi
+        if [[ "$kind" == exposed ]]; then printf '200'; return; fi
+        case "$url" in
+          "$OPERATOR_WEB_VERSION_URL") if [[ "$kind" == wrong-version ]]; then printf 'aaaaaaa'; else printf 'bbbbbbb'; fi;;
+          https://betreiber.invalid/) printf '<script src="/releases/bbbbbbb/assets/app.js"></script>\n';;
+          *) if [[ "$kind" == missing ]]; then return 22; fi
+             printf 'https://syntheticproject.supabase.co sb_publishable_synthetic_public_value';;
+        esac;;
+      *) return 1;;
+    esac
+  }
+  if [[ "$kind" == valid ]]; then wait_for_health bbbbbbb 1;
+  elif [[ "$kind" == disabled ]]; then wait_for_health bbbbbbb 0;
+  elif [[ "$kind" == exposed ]]; then if wait_for_health bbbbbbb 0; then return 1; fi
+  elif wait_for_health bbbbbbb 1; then return 1; fi
+}
+for kind in valid wrong-version missing disabled exposed; do check "combined backend/admin/operator health $kind" combined_health "$kind"; done
+
+legacy_target() {
+  DESIRED_OPERATOR_WEB=0; PREVIOUS_OPERATOR_WEB=1; DESIRED_VERSION=aaaaaaa; PREVIOUS_VERSION=bbbbbbb
+  local log="$TEST_ROOT/legacy"
+  pull_image(){ printf '%s\n' "$1" >> "$log"; }
+  prepare_operator_web_release(){ :; }
+  prepare_operator_web_versions
+  [[ "$(cat "$log")" == "$IMAGE_REPOSITORY:operator-web-bbbbbbb" ]]
+  fixture "$OPERATOR_WEB_ROOT" bbbbbbb; activate_operator_web_release bbbbbbb
+  select_operator_web_release aaaaaaa 0
+  [[ ! -L "$OPERATOR_WEB_ROOT/current" ]]
+}
+check 'a requested historical target prepares only the available previous surface and disables current' legacy_target
+preparation_failure() {
+  local kind="$1" version
+  case "$kind" in pull) version=1111111;; create) version=2222222;; copy) version=3333333;; version) version=4444444;; missing-version) version=5555555;; chmod) version=6666666;; move) version=7777777;; esac
+  DESIRED_OPERATOR_WEB=1; PREVIOUS_OPERATOR_WEB=0; DESIRED_VERSION="$version"
+  local image_root="$TEST_ROOT/failure-$kind"
+  fixture "$image_root" "$version"
+  if [[ "$kind" == version ]]; then printf 'eeeeeee\n' > "$image_root/releases/$version/version.txt"; fi
+  if [[ "$kind" == missing-version ]]; then rm "$image_root/releases/$version/version.txt"; fi
+  docker(){
+    case "$1" in
+      pull) [[ "$kind" != pull ]];;
+      image) if [[ "$*" == *'--format'* ]]; then printf '%s\n' "$version"; fi;;
+      create) [[ "$kind" != create ]] || return 1; printf 'holder\n';;
+      cp) cp -R "$image_root/releases/$version/." "$3"; [[ "$kind" != copy ]];;
+      rm) :;;
+      *) return 1;;
+    esac
+  }
+  chmod(){ [[ "$kind" != chmod ]] || return 1; command chmod "$@"; }
+  mv(){ [[ "$kind" != move ]] || return 1; command mv "$@"; }
+  # Deliberately run the real preparation in a conditional: failure propagation
+  # must not depend on errexit, which Bash disables throughout this call graph.
+  if prepare_operator_web_versions; then return 1; fi
+  [[ ! -e "$OPERATOR_WEB_ROOT/releases/$version" ]]
+}
+for kind in pull create copy version missing-version chmod move; do check "real preparation propagates $kind failure" preparation_failure "$kind"; done
+
+activation_failure() {
+  fixture "$OPERATOR_WEB_ROOT" eeeeeee
+  printf 'fffffff\n' > "$OPERATOR_WEB_ROOT/releases/eeeeeee/version.txt"
+  if select_operator_web_release eeeeeee 1; then return 1; fi
+}
+check 'activation rejects wrong release version even in rollback conditional' activation_failure
+(( failures == 0 ))

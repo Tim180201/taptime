@@ -1,16 +1,20 @@
 # Wiederholbar ausliefern
 
-Backend, Admin-Web und Betriebsdateien werden nach grüner `CI` einmal von
-`Release container images` gebaut. Jeder geprüfte Stand erzeugt drei unveränderliche Abbilder,
+Backend, Admin-Web, Betreiber-Web und Betriebsdateien werden nach grüner `CI` einmal von
+`Release container images` gebaut. Jeder geprüfte Stand mit Betreiber-Web erzeugt vier unveränderliche Abbilder,
 zum Beispiel
 `ghcr.io/tim180201/taptime-backend-api:abcdef0`,
-`ghcr.io/tim180201/taptime-backend-api:admin-web-abcdef0` und
+`ghcr.io/tim180201/taptime-backend-api:admin-web-abcdef0`,
+`ghcr.io/tim180201/taptime-backend-api:operator-web-abcdef0` und
 `ghcr.io/tim180201/taptime-backend-api:operations-abcdef0`. Sie liegen getrennt im selben
 öffentlichen GHCR-Paket und bleiben ohne Registry-Geheimnis anonym lesbar. Es gibt bewusst kein
 `latest` und keinen Build auf dem Server. Nur der kurze Tag `ops` zeigt als Tippabkürzung auf das
 neueste automatisch veröffentlichte Operations-Abbild; dessen Revision wird im Abbild selbst
 geprüft. Ein manueller Bau für eine alte Rücknahmeversion verschiebt `ops` ausdrücklich nicht.
-Backend und Admin-Web werden immer gemeinsam auf die gewünschte Anwendungsversion geschaltet.
+Backend und beide Weboberflächen werden gemeinsam auf die gewünschte Anwendungsversion geschaltet.
+Historische Quellen ohne `apps/operator-web` erzeugen kein Betreiber-Abbild. Das Backend-Abbild
+trägt dafür das aus der Quelle abgeleitete Label `io.taptime.operator-web`; ein fehlendes Label
+älterer Abbilder bedeutet ebenfalls, dass diese Version kein Betreiber-Web enthält.
 Ein neuer Anwendungsstand nimmt automatisch sein
 gleich markiertes Operations-Abbild mit; eine Rücknahme auf eine bereits bekannte Anwendung
 behält dagegen den zuletzt installierten, neueren Betriebsstand.
@@ -44,6 +48,13 @@ und wurde vor dem Sperren des Root-SSH-Logins praktisch geprüft.
 
 ## Einmalige Einrichtung
 
+Vor dem ersten T-068b-Deploy muss `betreiber.tb-infra.de` per DNS-A-Eintrag auf
+`46.225.58.30` zeigen. Ein AAAA-Eintrag ist nur mit tatsächlich eingerichtetem IPv6-Zugang
+zulässig. Der Controller löst den Namen vor Sperre, Timeränderung und Downloads auf. Ohne
+Auflösung endet er mit `DNS-Eintrag für betreiber.tb-infra.de fehlt`; die übrigen Schritte
+bleiben aus. Die Vorprüfung prüft die Auflösung, nicht die korrekte Zieladresse. Diese wird
+bei der DNS-Einrichtung kontrolliert; HTTPS und ausgelieferte Inhalte prüft das spätere Tor.
+
 Schreibe den tatsächlich laufenden Commit-Kurzschlüssel nach
 `/var/lib/taptime-deploy/current-version`. Diese Datei ist die Rücknahme-Referenz und darf nicht
 geraten werden. Das öffentliche Repository erzeugt über GitHub Actions ein öffentliches,
@@ -51,6 +62,12 @@ anonym lesbares GHCR-Paket; ein Registry-Passwort wird auf dem Server daher nich
 Lege `/opt/taptime/admin-web/status` an. Daneben verwaltet das Deploy-Skript künftig
 `releases/<version>` und den atomar gewechselten Symlink `current`; es verändert den
 `status`-Ordner bei der Umschaltung nicht.
+Für das Betreiber-Web legt der Controller `/opt/taptime/operator-web/releases/<version>`
+selbst an und schaltet `current` atomar. Caddy bindet diesen Baum nur lesbar ein.
+Alte Releases bleiben für noch geöffnete Browser erhalten; es gibt keine automatische
+lokale Löschung. Bei endgültiger Stilllegung entfernt root nach gesonderter Freigabe
+den `current`-Link, prüft HTTP 404 und entfernt anschließend den Release-Baum. Bei einer
+Rücknahme entfernt der Controller ausschließlich den Link, nicht die Release-Dateien.
 
 Auf einem frischen Server richtet `root` den begrenzten Weg ein. Hetzner muss den öffentlichen
 Deploy-Schlüssel zuvor bei der Servererstellung für `root` hinterlegt haben:
@@ -84,7 +101,7 @@ cat /var/lib/taptime-deploy/operations-version
 ```
 
 Bei einem Fehler keine weitere Zeile ausführen. Die Abschlussmeldung und die letzte Ausgabe
-müssen die technisch freigegebene Revision nennen. **T-057 und die spätere
+müssen die technisch freigegebene Revision nennen. **T-057 und die
 Controller-Erweiterung T-068b werden gemeinsam in einer einzigen Konsolensitzung vor dem großen
 Deploy installiert.** Dafür erst das gemeinsame, geprüfte Operations-Abbild verwenden.
 Der Block installiert auch den root-eigenen Diagnosebefehl (0755) und die geprüfte Regel
@@ -117,7 +134,7 @@ und gilt unverändert auf einem Ersatzserver ohne vorhandenes Deploy-Skript.
 Docker kann vor der Abschlussmeldung mehrere Ladezeilen ausgeben; für die Bedienung zählt die
 **letzte Zeile**. Erfolg lautet `ERFOLG: Deploy-Controller <revision> installiert.`. Die
 ausführende Person vergleicht die dort genannte Revision mit dem technisch freigegebenen Commit, aus dem
-die drei Abbilder gebaut wurden, und fährt nur bei Gleichheit fort — nicht mit der Spitze von `main`, auf der inzwischen
+die vier Abbilder gebaut wurden, und fährt nur bei Gleichheit fort — nicht mit der Spitze von `main`, auf der inzwischen
 ein `[skip ci]`-Dokumentations-Commit liegen kann. Die gesuchte Revision steht im erfolgreichen
 GitHub-Actions-Lauf *Release container images* oben beim Commit; eindeutig auslesen lässt sie
 sich mit der Run-ID aus dessen URL über
@@ -161,7 +178,7 @@ Jede erfolgreiche Auslieferung veröffentlicht `current`, `previous` und die vol
 `known-versions` sowie die ausgewählte Operations-Version atomar als nicht sensitiven
 Schutzsatz unter
 `/opt/taptime/admin-web/status/ghcr-protected-versions.json`. Die Veröffentlichungs-Workflow
-lädt und validiert diesen Satz fail-closed. Sie schützt Backend und Admin-Web für alle bekannten
+lädt und validiert diesen Satz fail-closed. Sie schützt Backend, Admin-Web und vorhandene Betreiber-Web-Abbilder für alle bekannten
 Anwendungsversionen sowie genau das ausgewählte Operations-Abbild. Vor einem neuen Push behält
 sie die neuesten Abbilder bis zu insgesamt zwanzig Paketversionen. Laufende Anwendung,
 Rücknahmeversion und Betriebsfassung können dadurch nie von der Aufräumung gelöscht werden.
@@ -170,7 +187,8 @@ Vor dem ersten T-028-Deploy müssen Backend und Admin-Web für Ziel und Rücknah
 Operations-Abbilder des freigegebenen T-028-Controllers und der Zielanwendung vorhanden sein.
 Starte `Release container images` bei Bedarf manuell mit `source_ref` gleich dem vollständigen
 Commit der gewünschten Version. Bereits vorhandene unveränderliche Abbilder werden geprüft und
-nicht neu gebaut; fehlende Backend-, Admin-Web- oder Operations-Abbilder werden ergänzt. Ein
+nicht neu gebaut; fehlende Backend-, Admin-Web-, Betreiber-Web- oder Operations-Abbilder werden ergänzt.
+Betreiber-Web wird dabei nur gebaut, wenn es in der ausgewählten Quelle vorhanden ist. Ein
 Operations-Abbild einer alten Rücknahmeversion wird zwar vollständig reproduzierbar gebaut, vom
 Deploy aber nicht ausgewählt. Für den noch ausstehenden Deploy gilt der dann aktuelle, eigens
 freigegebene Commit; die Rücknahmeversion steht in
@@ -247,7 +265,11 @@ Der EXIT-Trap startet den zuvor aktiven Timer wieder, auch bei Fehler, `INT`, `T
 Abbruch prüft root den Timer über den bestehenden Konsolenweg, bevor weiter ausgeliefert wird.
 
 Ohne genau einen siebenstelligen Commit-Kurzschlüssel bricht das Skript ab. Es lädt Backend und
-Admin-Web für Ziel und Rücknahme. Unterscheidet sich das Ziel vom laufenden Stand und ist noch
+Admin-Web für Ziel und Rücknahme und bereitet deren Releases vor. Danach liest es die
+Betreiber-Fähigkeit aus den beiden Backend-Abbildern und bereitet die jeweils vorhandenen
+Betreiber-Releases vor. Bei Erstinstallation lädt es nur das Betreiber-Ziel und protokolliert
+`Betreiber-Web wird erstmals installiert; keine Rücknahmeversion`. Ein fehlgeschlagener
+Download eines laut Label erforderlichen Abbilds bricht ab. Unterscheidet sich das Ziel vom laufenden Stand und ist noch
 nicht als ausgeliefert bekannt, wählt es dessen gleich markiertes Operations-Abbild. Beim
 erneuten Deploy des laufenden Stands oder einer bekannten Rücknahme behält es den Stand aus
 `operations-version`. Noch vor der Generalprobe extrahiert es dieses Abbild nach
@@ -273,9 +295,9 @@ stellt das Skript sämtliche bisherigen Ziele einschließlich Migrationsquellen 
 sowie den bisherigen Operations-Zeiger wieder her.
 Das geschieht vollständig **vor** Generalprobe, Sicherung und Migration.
 
-Danach legt das Skript die vollständigen Admin-Web-Releases für Ziel und Rücknahme daneben und
-weist nach, dass das Zielabbild den versionierten Vertrag für verzögerte Archivquittungen trägt.
-Es prüft WAL-Mount und Datenbankvertrag getrennt. Fehlt einer von beiden, stoppt es das alte
+Bereits vor der Operations-Auswahl weist das Skript nach, dass das Zielabbild den
+versionierten Vertrag für verzögerte Archivquittungen trägt. Nach der Operations-Installation
+prüft es WAL-Mount und Datenbankvertrag getrennt. Fehlt einer von beiden, stoppt es das alte
 Backend, richtet den physischen Empfänger ein und lädt vorhandenes WAL zunächst ohne
 Datenbankquittung extern hoch. Vor der Migration erzeugt es eine frische physische Basis, belegt
 deren Start-WAL extern und probt die Wiederherstellung samt ausstehenden Migrationen in einem
@@ -283,17 +305,17 @@ isolierten Container. Beide Proben erhalten jeweils den exakten Namen ihrer eige
 erzeugten Basis aus der abgeschlossenen Sicherungsmeldung nach einer Journalmarke vor dem Start.
 Eine inzwischen neuere Basis wird nicht ausgewählt; eine fehlende oder mehrdeutige Meldung
 bricht ab. Nach der Migration wiederholt es Basis, WAL-Nachweis und Restore mit dem
-aktiven versionierten Archivvertrag. Erst danach aktiviert es Backend und Oberfläche. Ein
+aktiven versionierten Archivvertrag. Erst danach aktiviert es beide Weboberflächen im bisherigen Aktivierungsschritt und startet das Backend. Ein
 serverbestätigtes WorkEvent kann daher nicht in einem unarchivierten Umschaltfenster entstehen.
 Beim ersten Cutover registriert ein synchroner Archiviererlauf die verifizierte Basis, bevor
 das unveränderte Zeitfenster für die WAL-Barriere beginnt.
-Die Oberfläche wechselt durch genau eine
+Jede Oberfläche wechselt durch eine atomare
 Symlink-Umbenennung. Ihre `index.html` verweist ausschließlich auf
 `/releases/<version>/assets/...`; die vorherigen Releases bleiben erreichbar. Deshalb lädt auch
 ein Browser an der Umschaltgrenze alle Bausteine aus der Version seiner `index.html`. Der
 Caddy-Pfad liefert die kleine `index.html` immer mit `Cache-Control: no-store` aus. Dateien unter
 `/releases/*` tragen den Commit-Kurzschlüssel im Pfad und dürfen deshalb ein Jahr lang als
-`immutable` zwischengespeichert werden. `/assets/*` bedient weiterhin ausschließlich die
+`immutable` zwischengespeichert werden. Nur im Admin-Web bedient `/assets/*` weiterhin ausschließlich die
 unversionierten T-006-Bausteine aus dem bisherigen Wurzelverzeichnis, damit auch eine unmittelbar
 vor der ersten T-026-Umschaltung geladene alte `index.html` ihre Dateien noch vollständig erhält;
 diese Übergangsdateien dürfen nur fünf Minuten im Cache bleiben und müssen danach neu validiert
@@ -302,8 +324,8 @@ Minuten produktiv ist und keine vor der Umschaltung geöffnete T-006-Seite mehr 
 muss. Der
 Caddy-Container wird ohne seine Daten- und Konfigurationsvolumes zu verändern neu erzeugt, damit
 auch eine neu installierte Caddyfile sicher eingelesen wird. Erst wenn das laufende
-Backend-Abbild, die öffentliche `/version.txt` und die vollständige öffentliche
-Anmeldekonfiguration im tatsächlich ausgelieferten Anwendungsbündel gemeinsam das Ziel belegen,
+Backend-Abbild, beide öffentlichen `/version.txt` und die vollständige öffentliche
+Anmeldekonfiguration in beiden tatsächlich ausgelieferten Anwendungsbündeln gemeinsam das Ziel belegen,
 schreibt das Skript `current-version` fort. Das
 Migrationsabbild bringt die eingefrorenen SQL-Dateien selbst mit; das Skript hält die von T-007
 geprüfte lokale Quelle dazu synchron. Wegwerf-Container sowie die nur im tmpfs entpackte Basis
@@ -313,7 +335,7 @@ Basis- und WAL-Upload sowie beide Restore-Proben können minutenlang keine neue 
 erzeugen; das ist kein Hänger und kein Grund zum Abbrechen. Maßgeblich ist die abschließende
 Zeile `[7/7] Auslieferung abgeschlossen: <vorher> -> <ziel>` und ein erfolgreicher Prozessausgang.
 
-Danach vom eigenen Rechner aus alle vier Belege prüfen:
+Danach vom eigenen Rechner aus die Versions- und Gesundheitsbelege prüfen:
 
 ```sh
 # Genau eine der beiden current-Prüfungen passend zum Zugangsweg ausführen:
@@ -324,13 +346,20 @@ ssh -i ~/.ssh/taptime-deploy taptime-deploy@46.225.58.30 \
 curl --fail --silent --show-error https://api.tb-infra.de/health
 curl --fail --silent --show-error \
   --header 'Cache-Control: no-cache' https://admin.tb-infra.de/version.txt
+curl --fail --silent --show-error \
+  --header 'Cache-Control: no-cache' https://betreiber.tb-infra.de/version.txt
 ```
 
-`current-version` und `/version.txt` müssen exakt den Ziel-Commit nennen; `/health` muss
+`current-version` und beide `/version.txt` müssen exakt den Ziel-Commit nennen; `/health` muss
 erfolgreich antworten. Die gesicherte Deploy-Ausgabe muss zusätzlich
 `Backend und startfähiges Admin-Web belegen gemeinsam Version <ziel>` enthalten; diese Prüfung
 hat die ausgelieferte `index.html` und ihr versionsgebundenes Anwendungsbündel geladen und darin
 Supabase-Herkunft und öffentlichen Anwendungsschlüssel nachgewiesen, ohne deren Werte auszugeben.
+Zusätzlich muss `Betreiber-Web: Version <ziel> oder geprüfte Deaktivierung belegt.` erscheinen.
+Für eine Version mit Betreiber-Web prüft dieses Tor exakt ein Skript im Release-Pfad,
+dessen Erreichbarkeit, die erwartete Supabase-Herkunft und den öffentlichen
+`sb_publishable_`-Schlüssel. Für eine historische Version prüft es den fehlenden `current`-Link
+und HTTP 404 für Startseite, Versionsdatei und Betreiber-Session.
 Der Ledger-Nachweis steht ebenfalls in der Deploy-Ausgabe: Die Zeile
 `B3 migrations complete: applied=... existing=...` muss sämtliche Migrationen entweder als neu
 angewendet oder vorhanden ausweisen. Fehlt einer dieser Belege, ist die Auslieferung nicht
@@ -349,7 +378,12 @@ umschreiben oder das alte Backend am Archivtor vorbei manuell starten.
 
 Rücknahme ist derselbe Befehl mit der ausdrücklich gewünschten früheren Anwendungsversion. Sie
 behält die separat freigegebene Betriebsfassung und aktiviert Backend und Admin-Web der älteren
-Anwendung gemeinsam. Das Schema wird nie zurückgedreht; Migrationen müssen deshalb zur
+Anwendung gemeinsam. Hat die Zielversion ein Betreiber-Web, aktiviert der Controller auch
+dessen Release. Ohne Betreiber-Web entfernt er `operator-web/current`, prüft die deaktivierte
+Oberfläche und schreibt `Betreiber-Web deaktiviert; keine Oberfläche für diese Version.`.
+Caddy gibt dann auch für Betreiber-API und archivierte Betreiber-Assets 404 zurück. Derselbe
+Zweig gilt für die automatische Rücknahme ohne Vorversion, sofern der bestehende Archiv-Schutz
+eine automatische Rücknahme überhaupt erlaubt. Das Schema wird nie zurückgedreht; Migrationen müssen deshalb zur
 vorherigen Anwendung kompatibel bleiben.
 
 **Nach Migration 023 ist ein Rückbau auf ein älteres Backend-Image kein gangbarer Rollback.**
@@ -390,6 +424,20 @@ unset postgres_volume
 
 ## Betreiber-Zugang (ab Migration 032)
 
+Nach erfolgreichem Deploy wird ein eigenes Supabase-Konto ohne aktive Betriebsmitgliedschaft
+verwendet. Root führt in der Konsole zuerst `/usr/local/sbin/taptime-operator-db-login` aus,
+danach `/usr/local/sbin/taptime-operator-grant <Supabase-UUID>` mit der UUID dieses Kontos.
+Ein bereits vorhandener Datenbanklogin wird nicht erneut angelegt; für einen bewussten
+Passwortwechsel gilt `--rotate` wie unten beschrieben.
+
+Anschließend öffnet der Betreiber `https://betreiber.tb-infra.de`, meldet sich mit E-Mail und
+Passwort an und richtet beim ersten Mal TOTP ein: QR-Code mit der Authenticator-App scannen
+oder den angezeigten Schlüssel von Hand übernehmen, dann den aktuellen Code bestätigen.
+Bei späteren Anmeldungen wird der vorhandene Faktor abgefragt. Erst nach serverbestätigtem
+zweiten Faktor erscheinen Betriebsdaten. Zur Verhaltensabnahme Übersicht, Protokoll und
+Betriebszustand prüfen und abmelden. Die Sitzung bleibt nur im Tab-Speicher und endet auch
+nach 30 Minuten ohne Aktivität; ein Neuladen setzt diese Frist nicht zurück.
+
 Die Operations-Dateien installieren `taptime-operator-db-login` und `taptime-operator-grant`
 root-eigen mit Modus 0700. Root ruft sie nach dem freigegebenen Deploy in der Konsole auf;
 der Deploy ruft sie nicht auf. Ohne Betreiber-Datenbankzugang startet das Backend normal,
@@ -429,6 +477,6 @@ Werkzeug. Die Skripte selbst werden mit dem Operations-Stand installiert bzw. zu
 | `/etc/taptime-monitor/*.curl` | getrennte geheime Einrichtung nach `MONITORING.md` | Alarmziele fehlen oder zeigen auf alte Endpunkte; sie dürfen nicht in Git oder einem öffentlichen Abbild stehen |
 | SSH-Härtung, Deploy-Schlüssel und sudoers-Regel | bewusster Konsolen-/Root-Schritt nach dieser Anleitung | verlorene oder zu breite Zugänge bleiben bestehen; ein automatisches Deploy darf diese Rückwege nicht selbst verändern |
 
-Diese Grenze ist ausdrücklich inventarisiert. Backend, Admin-Web, Backup- und Monitoring-Skripte,
-deren Einheiten, journald-Grenzen, Compose und Caddy kommen dagegen ausschließlich über die drei
+Diese Grenze ist ausdrücklich inventarisiert. Backend, Admin-Web, Betreiber-Web, Backup- und Monitoring-Skripte,
+deren Einheiten, journald-Grenzen, Compose und Caddy kommen dagegen ausschließlich über die vier
 gleich markierten Abbilder.

@@ -90,7 +90,7 @@ function verifyImage(application, dockerfile, source, scripts, manifests) {
   assert.ok(foundApplication, `${dockerfile}: Baubefehl für ${application} fehlt`);
 }
 
-for (const application of ['admin-web', 'backend-api']) {
+for (const application of ['admin-web', 'operator-web', 'backend-api']) {
   const dockerfile = `infrastructure/${application}/Dockerfile`;
   test(`${dockerfile}: alle transitiven dist-Abhängigkeiten vor der Anwendung`, () => {
     verifyImage(`@taptime/${application}`, dockerfile, readFileSync(resolve(root, dockerfile), 'utf8'),

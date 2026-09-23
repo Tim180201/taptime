@@ -4,6 +4,8 @@ http://api.tb-infra.de {
 }
 
 api.tb-infra.de {
+	respond /v1/operator 404
+	respond /v1/operator/* 404
 	header {
 		-Server
 		-Via
@@ -26,6 +28,10 @@ http://admin.tb-infra.de {
 }
 
 admin.tb-infra.de {
+	respond /v1/operator 404
+	handle /v1/operator/* {
+		respond 404
+	}
 	header {
 		-Server
 		-Via
@@ -100,5 +106,60 @@ admin.tb-infra.de {
 		header Cache-Control "no-store"
 		try_files {path} /index.html
 		file_server
+	}
+}
+
+http://betreiber.tb-infra.de {
+	header -Server
+	redir https://betreiber.tb-infra.de{uri} permanent
+}
+
+betreiber.tb-infra.de {
+	header {
+		-Server
+		-Via
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.supabase.co; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+	}
+
+	# Removing current during an initial-install rollback closes the whole surface,
+	# including its API and retained immutable releases.
+	@operatorEnabled file {
+		root /srv/operator-web/current
+		try_files index.html
+	}
+	handle @operatorEnabled {
+		handle /v1/operator/* {
+			reverse_proxy backend-api:3000 {
+				header_up X-Forwarded-For {remote_host}
+				header_up X-Forwarded-Host {host}
+				header_up X-TapTime-Proxy-Secret {file./run/secrets/taptime_proxy_shared_secret}
+				header_down -Server
+			}
+		}
+		@otherApi path_regexp ^/(v[0-9]+(/|$)|health(/|$))
+		handle @otherApi {
+			respond 404
+		}
+		handle /releases/* {
+			root * /srv/operator-web
+			@releaseDocument path /releases/*/index.html /releases/*/version.txt
+			@releaseAsset not path /releases/*/index.html /releases/*/version.txt
+			header @releaseDocument Cache-Control "no-store"
+			header @releaseAsset Cache-Control "public, max-age=31536000, immutable"
+			file_server
+		}
+		handle {
+			root * /srv/operator-web/current
+			header Cache-Control "no-store"
+			try_files {path} /index.html
+			file_server
+		}
+	}
+	handle {
+		respond 404
 	}
 }

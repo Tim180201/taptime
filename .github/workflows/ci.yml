@@ -41,7 +41,7 @@ jobs:
         run: node --test infrastructure/tests/taptime-ci-workspace-dependencies.test.mjs
 
       - name: Verify image workspace build dependencies
-        run: node --test infrastructure/tests/taptime-image-build-dependencies.test.mjs
+        run: node --test infrastructure/tests/taptime-image-build-dependencies.test.mjs infrastructure/tests/taptime-operator-image.test.mjs
 
       - name: Verify operational monitoring scripts
         run: |
@@ -56,6 +56,8 @@ jobs:
             infrastructure/tests/taptime-deploy-hardening.test \
             infrastructure/tests/taptime-status.test \
             infrastructure/tests/taptime-admin-web-image.test \
+            infrastructure/tests/taptime-operator-web-image.test \
+            infrastructure/tests/taptime-operator-deploy.test \
             infrastructure/tests/taptime-restore-verify.test \
             infrastructure/tests/taptime-restore-retention.test \
             infrastructure/tests/taptime-restore-activate.test \
@@ -85,6 +87,8 @@ jobs:
           bash infrastructure/tests/taptime-deploy-hardening.test
           bash infrastructure/tests/taptime-status.test
           bash infrastructure/tests/taptime-admin-web-image.test
+          bash infrastructure/tests/taptime-operator-web-image.test
+          bash infrastructure/tests/taptime-operator-deploy.test
           bash infrastructure/tests/taptime-restore-verify.test
           bash infrastructure/tests/taptime-restore-retention.test
           bash infrastructure/tests/taptime-restore-activate.test
@@ -99,7 +103,9 @@ jobs:
         run: node --test .github/scripts/select-ghcr-deletions.test.mjs
 
       - name: Verify Caddy replaces untrusted forwarding headers
-        run: bash infrastructure/caddy/tests/taptime-caddy-forwarding.test
+        run: |
+          bash infrastructure/caddy/tests/taptime-caddy-forwarding.test
+          node --test infrastructure/caddy/tests/taptime-operator-web.test.mjs
 
       - name: Build transitive workspace dependencies before checks
         run: |
@@ -136,8 +142,10 @@ jobs:
       - name: Test core, mobile, and Admin Web
         run: npm test
 
-      - name: Build Admin Web
-        run: npm run build --workspace=@taptime/admin-web
+      - name: Build both Web applications
+        run: |
+          npm run build --workspace=@taptime/admin-web
+          npm run build --workspace=@taptime/operator-web
 
       - name: Bundle Android product graph
         working-directory: apps/mobile

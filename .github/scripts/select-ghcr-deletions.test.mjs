@@ -91,3 +91,10 @@ test('cleanup accepts the pre-T-028 snapshot but rejects a malformed operations 
     /invalid operations version/,
   );
 });
+
+test('every known operator web image is protected, unknown ones can expire',()=>{
+  const known=['aaaaaaa','bbbbbbb','ccccccc'];
+  const snapshot={schema_version:1,current_version:known[0],previous_version:known[1],known_versions:known};
+  const versions=[...known.map((value,index)=>packageVersion(index+1,`operator-web-${value}`,20)),packageVersion(99,'operator-web-ddddddd',30)];
+  assert.deepEqual(selectGhcrDeletions(snapshot,versions,0).map(value=>value.id),[99]);
+});

@@ -17,6 +17,8 @@ export TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE="$TEST_ROOT/ghcr-protected-version
 export TAPTIME_DEPLOY_HEALTH_URL='https://health.invalid/health'
 export TAPTIME_DEPLOY_ADMIN_WEB_VERSION_URL='https://admin.invalid/version.txt'
 export TAPTIME_DEPLOY_ADMIN_WEB_ROOT="$TEST_ROOT/admin-web"
+export TAPTIME_DEPLOY_OPERATOR_WEB_ROOT="$TEST_ROOT/operator-web"
+export TAPTIME_DEPLOY_OPERATOR_WEB_VERSION_URL="https://operator.invalid/version.txt"
 printf 'services: {}\n' > "$TAPTIME_DEPLOY_COMPOSE_FILE"
 printf '%s\n' \
   "BORG_REPOSITORY='ssh://synthetic@offsite.invalid:23/./taptime'" \
@@ -146,8 +148,12 @@ require_root() { :; }
 acquire_deploy_lock() { :; }
 hold_backup_timer() { trap 'finish_deploy $?' EXIT; }
 preflight_deploy() { :; }
+preflight_operator_dns() { :; }
 pull_image() { record "pull $1"; }
 prepare_admin_web_release() { record "prepare-web $1 $2"; }
+operator_web_capability() { printf "1\n"; }
+prepare_operator_web_versions() { record "prepare-operator-versions $DESIRED_VERSION $PREVIOUS_VERSION"; }
+select_operator_web_release() { ACTIVE_OPERATOR_WEB_VERSION="$1"; record "activate-operator $1 $2"; }
 deploy_operations_release() {
   record "install-operations $1 $2"
   if [[ "${INSTALL_MISSING_COMPOSE:-0}" == '1' ]]; then
@@ -182,6 +188,7 @@ sync_migration_sources() { record "sync $1"; }
 migrate_production() { record migrate-production; }
 start_backend() { record "start $1"; }
 ACTIVE_ADMIN_WEB_VERSION='aaaaaaa'
+ACTIVE_OPERATOR_WEB_VERSION='aaaaaaa'
 activate_admin_web_release() {
   ACTIVE_ADMIN_WEB_VERSION="$1"
   record "activate-web $1"
@@ -189,7 +196,7 @@ activate_admin_web_release() {
 restart_caddy() { record "restart-caddy $1"; }
 wait_for_health() {
   record "health $1"
-  [[ "$ACTIVE_ADMIN_WEB_VERSION" == "$1" && "$1" != "${FAIL_HEALTH_VERSION:-}" ]]
+  [[ "$ACTIVE_ADMIN_WEB_VERSION" == "$1" && "$ACTIVE_OPERATOR_WEB_VERSION" == "$1" && "$1" != "${FAIL_HEALTH_VERSION:-}" ]]
 }
 write_current_version() { record "write-version $1"; }
 mark_known_version() { :; }
@@ -304,7 +311,9 @@ run_real_health_probe() {
     }
     curl() {
       local url="${!#}"
-      if [[ "$url" == "$ADMIN_WEB_VERSION_URL" ]]; then
+      if [[ "$url" == https://operator.invalid/* ]]; then
+        printf "404"
+      elif [[ "$url" == "$ADMIN_WEB_VERSION_URL" ]]; then
         printf "%s\n" "$SERVED_ADMIN_WEB_VERSION"
       elif [[ "$url" == "${ADMIN_WEB_VERSION_URL%version.txt}" ]]; then
         printf "<script type=\"module\" src=\"/releases/bbbbbbb/assets/application.js\"></script>\n"
@@ -406,6 +415,7 @@ if grep --quiet '^ensure-wal-runtime$' "$LOG_FILE"; then
 fi
 printf 'Historical-contract bootstrap evidence: active mount still stops old ingestion and uploads WAL before migration.\n'
 ACTIVE_ADMIN_WEB_VERSION='aaaaaaa'
+ACTIVE_OPERATOR_WEB_VERSION='aaaaaaa'
 
 : > "$LOG_FILE"
 rm -f "$TAPTIME_DEPLOY_COMPOSE_FILE"
@@ -419,6 +429,7 @@ pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+prepare-operator-versions bbbbbbb aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb"
 printf 'Broken operations script evidence: rejected before rehearsal, backup, and migration.\n'
 printf 'Fresh-server evidence: operations installation supplied the initially missing Compose file.\n'
@@ -433,6 +444,7 @@ pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+prepare-operator-versions bbbbbbb aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb"
 
 : > "$LOG_FILE"
@@ -446,6 +458,7 @@ pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+prepare-operator-versions bbbbbbb aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 verify-local local-bad bbbbbbb
 ensure-wal-runtime
@@ -463,6 +476,7 @@ pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+prepare-operator-versions bbbbbbb aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 ensure-wal-runtime
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
@@ -479,6 +493,7 @@ pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:operations-ddddddd
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-ccccccc ccccccc
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+prepare-operator-versions ccccccc aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-ddddddd ddddddd
 ensure-wal-runtime
 sync ghcr.io/tim180201/taptime-backend-api:ccccccc
@@ -496,6 +511,7 @@ pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+prepare-operator-versions bbbbbbb aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 ensure-wal-runtime
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
@@ -508,6 +524,7 @@ prepare-offsite-wal 0
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 0
 complete-wal-cutover
 activate-web bbbbbbb
+activate-operator bbbbbbb 1
 start bbbbbbb
 restart-caddy bbbbbbb
 health bbbbbbb"
@@ -522,6 +539,7 @@ pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+prepare-operator-versions bbbbbbb aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 ensure-wal-runtime
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
@@ -534,6 +552,7 @@ prepare-offsite-wal 0
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 0
 complete-wal-cutover
 activate-web bbbbbbb
+activate-operator bbbbbbb 1
 start bbbbbbb
 restart-caddy bbbbbbb
 health bbbbbbb
@@ -542,6 +561,7 @@ write-version bbbbbbb"
 
 : > "$LOG_FILE"
 ACTIVE_ADMIN_WEB_VERSION='aaaaaaa'
+ACTIVE_OPERATOR_WEB_VERSION='aaaaaaa'
 TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
   TAPTIME_DEPLOY_TEST_WRONG_ADMIN_WEB_VERSION=1 expect_status 1 main bbbbbbb
 assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
@@ -551,6 +571,7 @@ pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb bbbbbbb
 prepare-web ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa aaaaaaa
+prepare-operator-versions bbbbbbb aaaaaaa
 install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbbbbb
 ensure-wal-runtime
 sync ghcr.io/tim180201/taptime-backend-api:bbbbbbb
@@ -563,6 +584,7 @@ prepare-offsite-wal 0
 restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 0
 complete-wal-cutover
 activate-web aaaaaaa
+activate-operator bbbbbbb 1
 start bbbbbbb
 restart-caddy bbbbbbb
 health bbbbbbb"
@@ -586,8 +608,12 @@ expect_status 137 env \
     acquire_deploy_lock() { :; }
     hold_backup_timer() { :; }
     preflight_deploy() { :; }
+preflight_operator_dns() { :; }
     pull_image() { record "pull $1"; }
     prepare_admin_web_release() { record "prepare-web $1 $2"; }
+operator_web_capability() { printf "1\n"; }
+prepare_operator_web_versions() { record "prepare-operator-versions $DESIRED_VERSION $PREVIOUS_VERSION"; }
+select_operator_web_release() { ACTIVE_OPERATOR_WEB_VERSION="$1"; record "activate-operator $1 $2"; }
     deploy_operations_release() { record "install-operations $1 $2"; }
     verify_local_rehearsal_image() { record "verify-local $1 $2"; }
     image_supports_archive_ack_contract() { return 0; }

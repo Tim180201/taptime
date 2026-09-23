@@ -186,6 +186,14 @@ controller_case() {
     # Invoked by the sourced deploy controller.
     # shellcheck disable=SC2317,SC2329
     require_root() { :; }
+    # shellcheck disable=SC2317,SC2329
+    preflight_operator_dns() { :; }
+    # shellcheck disable=SC2317,SC2329
+    operator_web_capability() { printf "0\n"; }
+    # shellcheck disable=SC2317,SC2329
+    prepare_operator_web_versions() { :; }
+    # shellcheck disable=SC2317,SC2329
+    select_operator_web_release() { :; }
     # Invoked by the sourced deploy controller.
     # shellcheck disable=SC2317,SC2329
     acquire_deploy_lock() { :; }
