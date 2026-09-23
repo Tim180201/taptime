@@ -1429,3 +1429,14 @@ angetippt werden. Keine Cookies, kein Tracking, keine fremden Server (Schriften 
 Erfassung für Büro und Ausnahmen wird gezeigt, eine Freigabe (D-014) wird nicht versprochen.
 **Warum:** Eine öffentliche Seite braucht Impressum und Datenschutzhinweise (§ 5 DDG, Art. 13 DSGVO); hinter
 einem Passwort können Pilot-Interessenten sie schon jetzt sehen, ohne private Anschrift und Abmahnrisiko.
+
+## D-085 · Caddy hat einen eigenen Rückweg, unabhängig vom Archivvertrag · 23.09.2026 · Claude (TL)
+Befund T-031: Der Deploy erneuert den gemeinsamen Caddy; bei aktivem Archivvertrag gibt es danach keinen
+automatischen Rückweg — auch nicht für Caddy, dessen Konfiguration mit dem Archiv nichts zu tun hat. Ab jetzt
+prüft der Controller neue Caddy-Konfiguration vorab mit denselben Einbindungen wie im Betrieb, sichert vor dem
+Umschalten die laufende Konfiguration und stellt sie wieder her, wenn api, admin oder betreiber danach nicht wie
+erwartet antworten — unabhängig vom Archivvertrag; der Deploy endet dann mit Fehler. Das Backend bleibt bei der
+Vorwärtsreparatur (`DEPLOY.md`), die Archivvertragssperre unverändert. Neue Oberflächen fallen gesperrt aus,
+nie offen und nie so, dass Caddy nicht lädt.
+**Warum:** Eine neue Webseite darf api, Verwaltung und Betreiber-Bereich nie mitreißen; die Sperre schützt
+Arbeitszeitdaten, nicht eine Proxy-Konfiguration.
