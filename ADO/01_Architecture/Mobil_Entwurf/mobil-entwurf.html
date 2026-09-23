@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verwaltung am Handy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Single dark look on purpose: the product itself is dark-only (D-031 colour roles). */
+:root {
+  color-scheme: dark;
+  --page: #0a100e;
+  --ground: #0E1512;
+  --surface: #141C19;
+  --raised: #1A2320;
+  --line: #24302C;
+  --text: #F2F5F4;
+  --muted: #97A5A0;
+  --accent: #7EE0C0;
+  --on-accent: #0E1512;
+  --cta: #C9F24D;
+  --notice: #E0A44C;
+  --font: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--text); font-family: var(--font); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+.page { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 40px 72px; }
+@media (min-width: 700px) { .page { padding-inline: 32px; padding-block: 56px 96px; } }
+.kicker { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+h1 { margin: 0; font-size: clamp(34px, 5vw, 56px); font-weight: 800; letter-spacing: -.035em; line-height: 1.02; text-wrap: balance; }
+.intro { margin: 18px 0 0; max-width: 44em; color: var(--muted); font-size: 17px; }
+.intro b { color: var(--text); font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 22px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
+
+/* ---------- gallery of phones ---------- */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr)); gap: 44px 28px; margin-top: 48px; justify-items: center; }
+figure { margin: 0; width: min(360px, 100%); display: grid; gap: 16px; align-content: start; }
+figcaption h2 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: -.015em; }
+figcaption .app { font-family: var(--mono); font-size: 11.5px; color: var(--accent); letter-spacing: .08em; text-transform: uppercase; }
+figcaption ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 14.5px; display: grid; gap: 4px; }
+
+.phone { position: relative; width: 100%; height: 740px; border-radius: 40px; padding: 9px; background: linear-gradient(160deg, #2a3833, #121916 60%); box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 0 1px #33433d; }
+.screen { position: relative; height: 100%; border-radius: 32px; overflow: hidden; background: var(--ground); display: flex; flex-direction: column; }
+.status { flex: none; height: 44px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px 0 26px; font-size: 13px; font-weight: 700; }
+.status i { display: inline-block; width: 22px; height: 11px; border: 1.5px solid var(--text); border-radius: 3px; position: relative; opacity: .9; }
+.status i::after { content: ""; position: absolute; inset: 1.5px 5px 1.5px 1.5px; background: var(--text); border-radius: 1px; }
+.island { position: absolute; top: 10px; left: 50%; width: 92px; height: 26px; margin-left: -46px; background: #000; border-radius: 14px; }
+
+/* top bar of the web app on a phone */
+.topbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 14px 10px; border-bottom: 1px solid var(--line); background: rgba(14,21,18,.94); }
+.mark { width: 26px; height: 26px; flex: none; }
+.who { min-width: 0; flex: 1; line-height: 1.2; }
+.who small { display: block; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.who b { display: block; font-size: 15.5px; font-weight: 800; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iconbtn { width: 40px; height: 40px; flex: none; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; color: var(--text); }
+.iconbtn svg { width: 18px; height: 18px; }
+
+.content { flex: 1; overflow: hidden; padding: 14px 14px 96px; display: grid; gap: 12px; align-content: start; }
+.hello { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.hello h3 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -.03em; }
+.hello span { font-size: 13px; color: var(--muted); }
+.card { border-radius: 14px; background: var(--surface); border: 1px solid var(--line); padding: 14px; display: grid; gap: 6px; }
+.card .label { font-size: 12.5px; color: var(--muted); }
+.big { font-size: 30px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; }
+.big em { font-style: normal; color: var(--accent); }
+.card small { font-size: 12px; color: var(--muted); }
+.link { font-size: 14px; font-weight: 700; color: var(--accent); }
+.section-title { margin: 6px 2px 0; font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+.list { border-radius: 14px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.row { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 11px 12px; min-height: 56px; }
+.row + .row { border-top: 1px solid var(--line); }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--raised); display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--muted); }
+.avatar.on { background: rgba(126,224,192,.16); color: var(--accent); }
+.row b { display: block; font-size: 14.5px; font-weight: 700; }
+.row small { display: block; font-size: 12.5px; color: var(--muted); }
+.chev { color: var(--muted); font-size: 18px; }
+
+.pill { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.pill.run { background: rgba(126,224,192,.14); color: var(--accent); }
+.pill.done { background: var(--raised); color: var(--muted); }
+.pill.warn { background: rgba(224,164,76,.14); color: var(--notice); }
+
+/* bottom tab bar */
+.tabbar { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 8px 4px 26px; border-top: 1px solid var(--line); background: rgba(14,21,18,.97); }
+.tab { display: grid; justify-items: center; gap: 3px; min-width: 0; font-size: 10px; font-weight: 600; letter-spacing: -.01em; color: var(--muted); position: relative; min-height: 44px; }
+.tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab svg { width: 22px; height: 22px; }
+.tab.act { color: var(--accent); }
+.badge { position: absolute; top: -3px; left: calc(50% + 6px); min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--notice); color: #1b1305; font-size: 10.5px; font-weight: 800; display: grid; place-items: center; }
+
+/* sheets */
+.scrim { position: absolute; inset: 0; background: rgba(5,8,7,.62); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 22px 22px 0 0; background: var(--surface); border-top: 1px solid var(--line); padding: 10px 16px 30px; display: grid; gap: 12px; }
+.grabber { justify-self: center; width: 38px; height: 5px; border-radius: 3px; background: #33433d; }
+.sheet h4 { margin: 4px 0 0; font-size: 18px; font-weight: 800; letter-spacing: -.02em; }
+.sheet p { margin: 0; font-size: 14px; color: var(--muted); }
+.menu { display: grid; }
+.menu div { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 4px; font-size: 16px; font-weight: 600; }
+.menu div + div { border-top: 1px solid var(--line); }
+.menu svg { width: 22px; height: 22px; color: var(--muted); }
+.menu .meta { display: grid; gap: 2px; padding: 10px 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
+.menu .meta b { color: var(--text); font-size: 15px; }
+.btn { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 12px; font-weight: 800; font-size: 15.5px; }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.quiet { border: 1px solid var(--line); color: var(--text); }
+.btn.danger { border: 1px solid rgba(224,164,76,.5); color: var(--notice); }
+
+/* export screen */
+.toolbar { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.month { white-space: nowrap; font-size: 14.5px; display: flex; align-items: center; justify-content: space-between; height: 44px; padding: 0 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); font-weight: 700; }
+.month span { color: var(--muted); font-size: 20px; width: 28px; text-align: center; }
+.filter { display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-weight: 700; font-size: 14px; }
+.filter i { font-style: normal; min-width: 20px; height: 20px; border-radius: 10px; background: var(--accent); color: var(--on-accent); font-size: 11.5px; display: grid; place-items: center; }
+.count { font-size: 12.5px; color: var(--muted); margin: 0 2px; }
+.rec { display: grid; gap: 7px; }
+.rec-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.rec-head b { font-size: 15px; font-weight: 800; }
+.rec .when { font-size: 14px; }
+.rec .when span { color: var(--muted); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { height: 22px; padding: 0 8px; border-radius: 6px; background: var(--raised); color: var(--muted); font-size: 11.5px; font-weight: 600; display: inline-flex; align-items: center; }
+.tag.man { color: var(--notice); background: rgba(224,164,76,.1); }
+.rec .link { justify-self: start; }
+
+/* review sheet */
+.seg { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.seg div { display: grid; place-items: center; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); font-size: 14px; font-weight: 700; color: var(--muted); }
+.seg .on { border-color: var(--accent); color: var(--accent); background: rgba(126,224,192,.08); }
+.field { display: grid; gap: 6px; }
+.field label { font-size: 13px; font-weight: 700; }
+.input { min-height: 72px; border-radius: 10px; border: 1px solid var(--accent); background: var(--ground); padding: 10px 12px; font-size: 16px; color: var(--text); box-shadow: 0 0 0 3px rgba(126,224,192,.14); }
+.hint { font-size: 12px; color: var(--muted); }
+
+/* operator */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tiles .card { padding: 12px; }
+.tiles .big { font-size: 26px; }
+.segctl { display: grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.segctl div { display: grid; place-items: center; min-height: 38px; border-radius: 9px; font-size: 13px; font-weight: 700; color: var(--muted); }
+.segctl .on { background: var(--raised); color: var(--text); }
+.org { display: grid; gap: 8px; }
+.org-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.org-head b { font-size: 15.5px; font-weight: 800; }
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; font-size: 13px; color: var(--muted); }
+.facts b { color: var(--text); font-weight: 700; }
+
+.note { font-family: var(--mono); font-size: 11.5px; color: #808f8a; margin-top: 18px; }
+
+/* ---------- rules ---------- */
+.rules { display: grid; grid-template-columns: 1.15fr .85fr; gap: 20px; margin-top: 72px; }
+@media (max-width: 900px) { .rules { grid-template-columns: 1fr; } }
+.panel { border-radius: 20px; background: var(--surface); border: 1px solid var(--line); padding: clamp(20px, 3vw, 32px); }
+.panel h2 { margin: 0 0 16px; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.panel ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.panel ul li { display: grid; grid-template-columns: 20px 1fr; gap: 10px; color: var(--muted); font-size: 15px; }
+.panel ul li::before { content: "✓"; color: var(--accent); font-weight: 800; }
+.panel ul li b { color: var(--text); font-weight: 700; }
+.panel ol { margin: 0; padding-left: 20px; display: grid; gap: 10px; color: var(--muted); font-size: 15px; }
+.panel ol b { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <p class="kicker">Entwurf · T-074 · zur Abnahme durch den PO</p>
+  <h1>Verwaltung und Betreiber-Bereich am Handy</h1>
+  <p class="intro">So sollen <b>admin.tb-infra.de</b> und <b>betreiber.tb-infra.de</b> auf dem Smartphone aussehen: gleiche Funktionen wie am PC, aber für den Daumen gebaut. <b>Am PC bleibt alles wie heute.</b> Die Startseite ist bereits fürs Handy gebaut (T-031).</p>
+  <div class="legend"><span>Ansicht bei 360 px Breite</span><span>Beispielansichten mit erfundenen Daten</span><span>Farben und Schrift wie die Verwaltung heute</span></div>
+
+  <div class="gallery">
+
+    <!-- 1 Übersicht -->
+    <figure>
+      <div class="phone" aria-label="Verwaltung, Übersicht am Handy">
+        <div class="screen">
+          <div class="island"></div>
+          <div class="status"><span>9:41</span><i></i></div>
+          <div class="topbar">
+            <svg class="mark" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#7ee0c0" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#7ee0c0"/></svg>
+            <div class="who"><small>Beispiel Gebäudereinigung</small><b>Übersicht</b></div>
+            <div class="iconbtn" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg></div>
+          </div>
+          <div class="content">
+            <div class="hello"><h3>Guten Tag.</h3><span>Mi., 23. September</span></div>
+            <div class="card"><span class="label">Gerade aktiv · Betrieb</span><span class="big"><em>7</em> / 12</span><small>Stand 09:41 · Serverzeit</small></div>
+            <div class="card"><span class="label">Braucht Ihre Entscheidung</span><span class="big">2</span><span class="link">Prüfungen öffnen →</span></div>
+            <p class="section-title">Gerade aktiv</p>
+            <div class="list">
+              <div class="row"><span class="avatar on">AY</span><span><b>A. Yilmaz</b><small>seit 07:58 · Kunde Müller</small></span><span class="chev">›</span></div>
+              <div class="row"><span class="avatar on">SK</span><span><b>S. Krämer</b><small>seit 08:12 · Projekt Nord</small></span><span class="chev">›</span></div>
+              <div class="row"><span class="avatar">MB</span><span><b>M. Becker</b><small>Inaktiv</small></span><span class="chev">›</span></div>
+            </div>
+          </div>
+          <nav class="tabbar" aria-label="Bereiche">
+            <div class="tab act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z"/></svg><span>Übersicht</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="3.2"/><path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"/><circle cx="17" cy="8.5" r="2.6"/><path d="M16 13.6c2.4 0 4 1.3 4.5 3.9"/></svg><span>Beschäftigte</span></div>
+            <div class="tab"><span class="badge">2</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 20 7v5c0 4.3-3.3 7.7-8 8.5-4.7-.8-8-4.2-8-8.5V7z"/><path d="m8.8 12 2.2 2.2 4.2-4.4"/></svg><span>Prüfungen</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5v4h4M10 12.5h5M10 16h5"/></svg><span>Lohnexport</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg><span>Mehr</span></div>
+          </nav>
+        </div>
+      </div>
+      <figcaption>
+        <span class="app">Verwaltung</span>
+        <h2>Übersicht mit Leiste unten</h2>
+        <ul>
+          <li>Statt der Spalte links: eine Leiste unten mit den vier wichtigsten Bereichen und „Mehr“.</li>
+          <li>Oben: Betrieb, aktueller Bereich, Aktualisieren als Symbol.</li>
+          <li>Kacheln untereinander, Personen als Liste zum Antippen.</li>
+        </ul>
+      </figcaption>
+    </figure>
+
+    <!-- 2 Mehr -->
+    <figure>
+      <div class="phone" aria-label="Verwaltung, Menü Mehr geöffnet">
+        <div class="screen">
+          <div class="island"></div>
+          <div class="status"><span>9:41</span><i></i></div>
+          <div class="topbar">
+            <svg class="mark" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#7ee0c0" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#7ee0c0"/></svg>
+            <div class="who"><small>Beispiel Gebäudereinigung</small><b>Übersicht</b></div>
+            <div class="iconbtn" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg></div>
+          </div>
+          <div class="content">
+            <div class="hello"><h3>Guten Tag.</h3><span>Mi., 23. September</span></div>
+            <div class="card"><span class="label">Gerade aktiv · Betrieb</span><span class="big"><em>7</em> / 12</span></div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet" role="dialog" aria-label="Mehr">
+            <span class="grabber"></span>
+            <div class="menu">
+              <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 9.5h16M8.5 3v4M15.5 3v4"/></svg>Meine Zeiten</div>
+              <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="11.5" rx="2"/><path d="M9 20h6M12 16.5V20"/></svg>Manuell erfassen</div>
+              <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/></svg>Einrichtung</div>
+              <div class="meta"><span>Angemeldet für</span><b>Beispiel Gebäudereinigung</b><span>Administrator · Zeitdarstellung Europe/Berlin</span></div>
+            </div>
+            <div class="btn quiet">Abmelden</div>
+          </div>
+          <nav class="tabbar" aria-label="Bereiche">
+            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z"/></svg><span>Übersicht</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="3.2"/><path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"/><circle cx="17" cy="8.5" r="2.6"/><path d="M16 13.6c2.4 0 4 1.3 4.5 3.9"/></svg><span>Beschäftigte</span></div>
+            <div class="tab"><span class="badge">2</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 20 7v5c0 4.3-3.3 7.7-8 8.5-4.7-.8-8-4.2-8-8.5V7z"/><path d="m8.8 12 2.2 2.2 4.2-4.4"/></svg><span>Prüfungen</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5v4h4M10 12.5h5M10 16h5"/></svg><span>Lohnexport</span></div>
+            <div class="tab act"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg><span>Mehr</span></div>
+          </nav>
+        </div>
+      </div>
+      <figcaption>
+        <span class="app">Verwaltung</span>
+        <h2>„Mehr“ als Blatt von unten</h2>
+        <ul>
+          <li>Die übrigen Bereiche, Betrieb, Rolle und Abmelden an einem Ort.</li>
+          <li>Wer weniger Bereiche hat (z. B. Beschäftigte), sieht alle direkt in der Leiste, ohne „Mehr“.</li>
+        </ul>
+      </figcaption>
+    </figure>
+
+    <!-- 3 Lohnexport -->
+    <figure>
+      <div class="phone" aria-label="Verwaltung, Lohnexport als Karten">
+        <div class="screen">
+          <div class="island"></div>
+          <div class="status"><span>9:41</span><i></i></div>
+          <div class="topbar">
+            <svg class="mark" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#7ee0c0" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#7ee0c0"/></svg>
+            <div class="who"><small>Beispiel Gebäudereinigung</small><b>Lohnexport</b></div>
+            <div class="iconbtn" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg></div>
+          </div>
+          <div class="content">
+            <div class="toolbar">
+              <div class="month"><span>‹</span>September 2026<span>›</span></div>
+              <div class="filter">Filter <i>1</i></div>
+            </div>
+            <div class="btn primary">CSV herunterladen</div>
+            <p class="count">24 Arbeitszeiten · vollständig geladen · Filter: Manuell erfasst</p>
+            <div class="card rec">
+              <div class="rec-head"><b>J. Nowak</b><span class="pill warn">Prüfung</span></div>
+              <div class="when">Di., 22.09. · 06:00 – 09:00 <span>· 3:00</span></div>
+              <div class="tags"><span class="tag">Kunde Müller</span><span class="tag man">manuell erfasst</span><span class="tag">Stand 1</span></div>
+              <span class="link">Korrigieren</span>
+            </div>
+            <div class="card rec">
+              <div class="rec-head"><b>M. Becker</b><span class="pill done">Abgeschlossen</span></div>
+              <div class="when">Mo., 21.09. · 06:30 – 14:15 <span>· 7:15</span></div>
+              <div class="tags"><span class="tag">Projekt Nord</span><span class="tag man">manuell erfasst</span><span class="tag">Stand 2</span></div>
+              <span class="link">Korrigieren</span>
+            </div>
+          </div>
+          <nav class="tabbar" aria-label="Bereiche">
+            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 11.5 12 5l8 6.5V19a1 1 0 0 1-1 1h-4v-5H9v5H5a1 1 0 0 1-1-1z"/></svg><span>Übersicht</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="9" cy="9" r="3.2"/><path d="M3.5 19c.6-3 2.8-4.6 5.5-4.6s4.9 1.6 5.5 4.6"/><circle cx="17" cy="8.5" r="2.6"/><path d="M16 13.6c2.4 0 4 1.3 4.5 3.9"/></svg><span>Beschäftigte</span></div>
+            <div class="tab"><span class="badge">2</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 20 7v5c0 4.3-3.3 7.7-8 8.5-4.7-.8-8-4.2-8-8.5V7z"/><path d="m8.8 12 2.2 2.2 4.2-4.4"/></svg><span>Prüfungen</span></div>
+            <div class="tab act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5v4h4M10 12.5h5M10 16h5"/></svg><span>Lohnexport</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="6" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="18" cy="12" r="1.7"/></svg><span>Mehr</span></div>
+          </nav>
+        </div>
+      </div>
+      <figcaption>
+        <span class="app">Verwaltung</span>
+        <h2>Tabellen werden Karten</h2>
+        <ul>
+          <li>Die Tabelle mit sieben Spalten wird am Handy zu je einer Karte pro Arbeitszeit, ohne seitliches Wischen.</li>
+          <li>Monat blättern, Filter als Blatt, CSV-Knopf über die volle Breite.</li>
+          <li>Gleiches gilt für Beschäftigte, Prüfungen und Einrichtung.</li>
+        </ul>
+      </figcaption>
+    </figure>
+
+    <!-- 4 Prüfung -->
+    <figure>
+      <div class="phone" aria-label="Verwaltung, Prüfung entscheiden">
+        <div class="screen">
+          <div class="island"></div>
+          <div class="status"><span>9:41</span><i></i></div>
+          <div class="topbar">
+            <svg class="mark" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#7ee0c0" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#7ee0c0"/></svg>
+            <div class="who"><small>Beispiel Gebäudereinigung</small><b>Prüfungen</b></div>
+            <div class="iconbtn" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.2h-3.2"/></svg></div>
+          </div>
+          <div class="content">
+            <div class="card rec">
+              <div class="rec-head"><b>J. Nowak</b><span class="pill warn">Prüffall</span></div>
+              <div class="when">Di., 22.09. · 06:00 – 09:00</div>
+            </div>
+          </div>
+          <div class="scrim"></div>
+          <div class="sheet" role="dialog" aria-label="Entscheidung">
+            <span class="grabber"></span>
+            <h4>Entscheidung lückenlos protokollieren?</h4>
+            <p>J. Nowak · Di., 22.09. · 06:00 – 09:00 · Kunde Müller</p>
+            <div class="seg"><div class="on">Freigeben</div><div>Korrigieren</div><div>Ablehnen</div></div>
+            <div class="field"><label for="grund-demo">Begründung</label><div class="input" id="grund-demo">Tag am Objekt war defekt, Einsatz durch Kunden bestätigt.</div><span class="hint">Pflichtfeld · bleibt mit der Entscheidung erhalten</span></div>
+            <div class="btn primary">Entscheidung speichern</div>
+            <div class="btn quiet">Abbrechen</div>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <span class="app">Verwaltung</span>
+        <h2>Bestätigen als Blatt von unten</h2>
+        <ul>
+          <li>Entscheidungen, Korrekturen, Einladen und Zugang entziehen öffnen sich als Blatt von unten.</li>
+          <li>Knöpfe über die volle Breite, erreichbar mit dem Daumen.</li>
+          <li>Eingabefelder mit 16 px Schrift, damit das iPhone nicht ungefragt heranzoomt.</li>
+        </ul>
+      </figcaption>
+    </figure>
+
+    <!-- 5 Betreiber -->
+    <figure>
+      <div class="phone" aria-label="Betreiber-Bereich, Übersicht am Handy">
+        <div class="screen">
+          <div class="island"></div>
+          <div class="status"><span>9:41</span><i></i></div>
+          <div class="topbar">
+            <svg class="mark" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11" fill="none" stroke="#7ee0c0" stroke-width="2.4"/><circle cx="13" cy="13" r="4.2" fill="#7ee0c0"/></svg>
+            <div class="who"><small>Taptura</small><b>Betreiber</b></div>
+            <div class="iconbtn" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M13 4h3v12h-3M8.5 13.5 12 10 8.5 6.5M12 10H3.5"/></svg></div>
+          </div>
+          <div class="content">
+            <div class="segctl"><div class="on">Betriebe</div><div>Protokoll</div><div>Zustand</div></div>
+            <div class="tiles">
+              <div class="card"><span class="label">Betriebe</span><span class="big">3</span></div>
+              <div class="card"><span class="label">Beschäftigte</span><span class="big">27</span></div>
+              <div class="card"><span class="label">Jetzt aktiv</span><span class="big"><em>9</em></span></div>
+              <div class="card"><span class="label">Taps heute</span><span class="big">41</span></div>
+            </div>
+            <div class="btn primary">Betrieb anlegen</div>
+            <div class="card org">
+              <div class="org-head"><b>Beispiel Gebäudereinigung</b><span class="pill run">Aktiv</span></div>
+              <div class="facts"><span>Beschäftigte <b>12</b></span><span>Jetzt aktiv <b>7</b></span><span>Tags <b>18</b></span><span>Letzter Tap <b>09:38</b></span></div>
+            </div>
+            <div class="card org">
+              <div class="org-head"><b>Beispiel Hausmeisterdienst</b><span class="pill done">Pausiert</span></div>
+              <div class="facts"><span>Beschäftigte <b>6</b></span><span>Jetzt aktiv <b>0</b></span><span>Tags <b>9</b></span><span>Letzter Tap <b>Mo.</b></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        <span class="app">Betreiber-Bereich</span>
+        <h2>Kacheln 2 × 2, Betriebe als Karten</h2>
+        <ul>
+          <li>Reiter oben als Umschalter: Betriebe, Protokoll, Zustand.</li>
+          <li>Jeder Betrieb eine Karte; Pausieren und Fortsetzen darin, mit Blatt zur Bestätigung.</li>
+          <li>Anmeldung mit Code aus der Authenticator-App passt ohne Zoomen auf den Bildschirm.</li>
+        </ul>
+      </figcaption>
+    </figure>
+  </div>
+  <p class="note">Alle Namen, Betriebe und Zahlen sind erfunden.</p>
+
+  <div class="rules">
+    <section class="panel" aria-labelledby="rules-title">
+      <h2 id="rules-title">Was für alle Webseiten gilt</h2>
+      <ul>
+        <li><span><b>Kein seitliches Wischen</b> – ab 360 px Breite passt jede Ansicht, jeder Dialog und jede Anmeldung auf den Bildschirm.</span></li>
+        <li><span><b>Gleiche Funktionen</b> wie am PC – nichts wird am Handy weggelassen, nur anders angeordnet.</span></li>
+        <li><span><b>Tabellen werden Karten</b>, Formulare einspaltig, Bestätigungen als Blatt von unten.</span></li>
+        <li><span><b>Für den Daumen:</b> Tippflächen mindestens 44 px, Hauptknöpfe über die volle Breite.</span></li>
+        <li><span><b>Eingabefelder mit 16 px Schrift</b> und passenden Tastaturen (E-Mail, Zahlen, Uhrzeit).</span></li>
+        <li><span><b>Kerbe und Home-Leiste</b> werden freigehalten; Hoch- und Querformat funktionieren.</span></li>
+        <li><span><b>Am PC bleibt alles wie heute</b> – die Umstellung greift nur auf schmalen Bildschirmen.</span></li>
+      </ul>
+    </section>
+    <section class="panel" aria-labelledby="check-title">
+      <h2 id="check-title">So wird abgenommen</h2>
+      <ol>
+        <li>Codex liefert <b>Bildschirmfotos jeder Ansicht</b> bei 390 px (iPhone) und 1440 px (PC), dazu Dialoge und Anmeldung.</li>
+        <li>Ein <b>automatischer Test</b> prüft bei 360, 390, 768 und 1440 px, dass nichts über den Rand läuft.</li>
+        <li>Ich prüfe Code und Fotos, danach <b>du</b> auf deinem iPhone und am PC.</li>
+        <li>Erst dann der nächste Deploy – zusammen mit der Startseite.</li>
+      </ol>
+    </section>
+  </div>
+</div>
+</body>
+</html>

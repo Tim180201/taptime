@@ -7,10 +7,10 @@
 mit getrennten Uhren für reine Wartezeiten (D-011).
 **Stand:** 23.09.2026, Produktion auf `ff69bfe` (T-065, T-066, T-069, T-070, T-057, T-068a/b, T-071;
 Migrationen 030–032). Betreiber-Bereich eingerichtet; T-072 (iPhone Stufe 1) APPROVED, nur App, kein Deploy.
-Naechste Reihenfolge (PO 23.09.): iOS-Build/TestFlight und neue APK (PO) → **T-031 Startseite hinter
-Passwort** (Development, parallel zur Geraeteabnahme) → Geraeteabnahme Android und iPhone → Konsole
-(T-071-Controller und T-031) und Deploy → Pilot Monat 1; T-031b (Startseite oeffentlich) und T-073 iPhone
-Stufe 2 nach dem Pilot;
+Naechste Reihenfolge (PO 23.09.): T-031 ✓ (Caddy-Rueckweg, Startseite) → **T-074 Verwaltung und Betreiber
+am Handy** (D-086, vor dem naechsten Deploy) → Konsole (T-071-Controller, T-031) und Deploy → **T-024** →
+Pilot Monat 1; Geraeteabnahme Android und iPhone parallel. In Monat 1 zusaetzlich T-075 (Paketgrenze, D-087).
+T-031b (Startseite oeffentlich) und T-073 iPhone Stufe 2 mit NTAG 424 DNA (D-088) nach dem Pilot;
 waehrend Monat 1 T-062, T-048 und T-050, Freigabe zu Monat 2 (D-063). Grundlage weiterhin die Anforderungspruefung gegen den Code (D-012).
 
 ---
@@ -106,7 +106,9 @@ Datenbankrechten eingreifen muss.
 | **T-069** | **Die Verwaltung beendet eine vergessene laufende Zeit (D-071)** | Aenderung am Lebenszyklus: Administrator (spaeter Standortleitung) beendet die laufende Zeit eines Mitarbeiters mit Endzeit und Grund; der naechste Tap beginnt danach korrekt neu; Offline-Abgleich und T-052 beruecksichtigt. Loest auch den bekannten P2 „unbegrenzter vergessener Stopp". Pilotmonat 1, neben T-050. | 2 |
 | **T-071** | **Nach dem Deploy bcd903d: Betreiber-Web sendet keine Anfragen; Deploy prueft Betreiber-Web nur einmal** | `fetch` ohne Bindung (Browser-TypeError), echter Browser-Rauchtest; Wiederholung der Betreiber-Pruefung bis zum Zertifikat. | 1 |
 | **T-072** | **iPhone Stufe 1: App auf dem iPhone mit Scan in der offenen App (D-081)** | iOS-Einstellungen (Bundle-ID, NFC-Berechtigung, Texte), Scan ueber die Tag-Seriennummer in einer Core-NFC-Sitzung bei offener App (gleiche Identitaet wie Android, kein Server- oder Tag-Umbau), Offline und Warteschlange wie Android, Build fuer TestFlight. Erst Machbarkeit am Code und an den Tag-Typen belegen, dann bauen. | 1 |
-| **T-073** | **iPhone Stufe 2: Tippen ohne App (D-037, D-081)** | Hintergrund-Lesen ueber Universal Link: pro Tag eine eigene Adresse, Apple-Datei auf der Tag-Domain, neue Tag-Evidenz neben der Seriennummer; Tags beim Pilotkunden werden dafuer neu beschrieben. Nach dem Pilot, vor dem zweiten Kunden. | 3 |
+| **T-073** | **iPhone Stufe 2 und faelschungssichere Karten (D-037, D-081, D-088)** | NFC-Karten mit NTAG 424 DNA und SUN: jede Beruehrung liefert eine einmalige, vom Server gepruefte Adresse. Dieselbe Adresse traegt das Erfassen ohne geoeffnete App auf dem iPhone (Universal Link, Apple-Datei auf der Tag-Domain). Neue Tag-Evidenz neben bzw. statt der Seriennummer, Schluesselverwaltung je Karte, Karten beim Pilotkunden werden getauscht. Nach dem Pilot, vor dem zweiten Kunden. | 3 |
+| **T-074** | **Verwaltung und Betreiber-Bereich am Handy (D-086)** | Entwurf vom PO am 23.09. abgenommen (`ADO/01_Architecture/Mobil_Entwurf/`). Ab 360 px gleiche Funktionen wie am PC: Leiste unten mit „Mehr“, Tabellen als Karten, Bestaetigungen als Blatt von unten, TOTP und Einladung `/willkommen` ohne Zoomen; am PC unveraendert. Nachweis per Layouttest im echten Browser (360/390/768/1440 px) und Bildschirmfotos. Der naechste Deploy wartet darauf. | 1 |
+| **T-075** | **Paket mit weicher Grenze (D-087)** | Paketgroesse je Betrieb im Betreiber-Bereich setzen und protokolliert aendern; alle aktiven Zugaenge zaehlen; Hinweis in der Verwaltung ueber dem Paket; Markierung und hoechste Monatszahl je Betrieb im Betreiber-Bereich fuer die Rechnung. Nichts wird gesperrt. Pilotmonat 1, vor der ersten Rechnung. | 2 |
 | **T-068** | **Betreiber-Bereich: Betriebe anlegen und ueberblicken (D-068, D-074, D-075)** | Technischer Entwurf `ADO/01_Architecture/Betreiber_Entwurf/README.md` (22.09.). **T-068a Server:** Betreiber-Konten ausserhalb der Betriebe, TOTP (`aal2`), Betrieb anlegen mit Einladung des ersten Administrators, Pausieren an der zentralen Aufloesung, Uebersicht nur mit Zahlen, eigenes Protokoll, `taptime-operator-grant`. **T-068b Web:** `apps/operator-web` auf `betreiber.tb-infra.de`, CI/Image, Caddy, Deploy. Vor dem Pilot. | 3 |
 | **T-070** | **Der Archivierer ruht billig; der Waechter laesst nach der Sicherung Luft (Befund 22.09., D-072)** | Leerlauf ohne Storage-Box-Zugriff; Vollabgleich bei Arbeit, sonst hoechstens alle 15 min; einmalige Nachholzeit von fuenf Minuten nach Sicherungsende; Journal mit Dauer je Phase. Brief in TASK.md. | 1 |
 | **T-067 ✓** | **Die Archivierung erzeugt ihre Arbeit nicht mehr selbst (Befund 21.09., D-066)** | `archive_timeout` wieder heraus; der Archivierer wechselt selbst, wenn eine Anforderung im offenen Segment liegt; keine doppelte Fernabfrage fuer quittierte Archive; Waechter zaehlt ab Sicherungsende und alarmiert bei Sicherung ueber zehn Minuten; eine Journalzeile je Durchlauf. Brief in TASK.md. | 1 |

@@ -1440,3 +1440,31 @@ Vorwärtsreparatur (`DEPLOY.md`), die Archivvertragssperre unverändert. Neue Ob
 nie offen und nie so, dass Caddy nicht lädt.
 **Warum:** Eine neue Webseite darf api, Verwaltung und Betreiber-Bereich nie mitreißen; die Sperre schützt
 Arbeitszeitdaten, nicht eine Proxy-Konfiguration.
+
+## D-086 · Jede Webseite ist am Handy so gut wie am PC · 23.09.2026 · Tim (PO), vorbereitet vom TL
+Startseite, Verwaltung und Betreiber-Bereich sind ab 360 px Breite vollständig und professionell
+bedienbar: gleiche Funktionen wie am PC, kein seitliches Scrollen, Tabellen als Karten, Menü unten,
+Bestätigungen als Blatt von unten, Tippflächen mindestens 44 px, Eingabefelder mit 16 px Schrift. Am PC
+bleibt die Oberfläche unverändert. Maßstab ist der Entwurf `ADO/01_Architecture/Mobil_Entwurf/` (PO-Abnahme
+23.09.). Nachweis durch einen Layouttest im echten Browser bei 360, 390, 768 und 1440 px und Bildschirmfotos
+jeder Ansicht. Der nächste Deploy wartet darauf (T-074).
+**Warum:** Administratoren im Außeneinsatz und eingeladene Beschäftigte öffnen die Webs auf dem Handy; eine
+Oberfläche, die dort eng oder abgeschnitten wirkt, kostet beim ersten Kunden Vertrauen.
+
+## D-087 · Pakete mit weicher Grenze, gezählt werden alle aktiven Zugänge · 23.09.2026 · Tim (PO)
+Betriebe buchen ein Paket mit einer Zahl von Zugängen. Gezählt werden alle aktiven Zugänge: Administrator,
+Standortleitung und Beschäftigte. Über dem Paket wird nichts gesperrt; die Verwaltung sieht einen Hinweis,
+der Betreiber-Bereich markiert den Betrieb, und für die Rechnung zählt die höchste Zahl aktiver Zugänge im
+Monat. Die Paketgröße setzt der Betreiber beim Anlegen und ändert sie protokolliert. Preise und Paketgrößen
+sind eine eigene Entscheidung des PO (Vorschlag: Preisrahmen vom 23.09.). Umsetzung als T-075 in Pilotmonat 1.
+**Warum:** Ein neuer Mitarbeiter muss am ersten Tag erfasst werden können, sonst landet seine Zeit auf Papier;
+die Abrechnung braucht trotzdem eine verlässliche Zahl.
+
+## D-088 · Am Einsatzort hängt eine NFC-Karte; im Produktivbetrieb fälschungssicher · 23.09.2026 · Tim (PO)
+Der Tag am Einsatzort ist eine NFC-Karte im Scheckkartenformat, auf Wunsch mit dem Logo des Kunden und dem Namen
+des Einsatzorts bedruckt. Im Pilot mit NTAG213 (heutige Identität über die Seriennummer, D-061). Ab dem
+Produktivbetrieb nach dem Pilot NTAG 424 DNA mit SUN: Jede Berührung liefert einen einmaligen, vom Server
+geprüften Code; eine Kopie der Seriennummer genügt dann nicht mehr. Dieselbe Adresse auf der Karte trägt das
+Erfassen ohne geöffnete App auf dem iPhone (T-073). Direkt auf Metall: robuster Tag oder Halter mit Abstand.
+**Warum:** Die Seriennummer eines NTAG213 lässt sich mit Spezial-Tags nachbauen; „war vor Ort“ braucht
+einen kryptografischen Nachweis. Die bedruckte 424-DNA-Karte kostet kaum mehr als die einfache.
