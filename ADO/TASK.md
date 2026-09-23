@@ -1,81 +1,61 @@
 # Aktuelle Aufgabe
 
-> **Stand 22.09.2026:** Produktion auf `d75fd56`. Auf `main` fertig und grün: T-065, T-066, T-069,
-> T-070, T-057. T-068a ist abgenommen und wird mit dieser Aufgabe zusammen committet bzw. ist
-> bereits committet. Reihenfolge: **T-068b → Konsolenschritt (Controller) → Deploy → Betreiber-Konto
-> → APK → Geräteabnahme → Pilot Monat 1**. Frühere Briefs stehen in der Git-Historie.
+> **Stand 23.09.2026:** Produktion auf `ff69bfe` (T-065, T-066, T-069, T-070, T-057, T-068a/b, T-071;
+> Migrationen 030–032). Betreiber-Bereich eingerichtet. Reihenfolge: **T-072 → APK + TestFlight →
+> Geräteabnahme Android und iPhone → Pilot Monat 1**. Frühere Briefs stehen in der Git-Historie.
 
-## T-068b · Betreiber-Bereich — Web und Auslieferung
+## T-072 · iPhone Stufe 1: die App auf dem iPhone, Scan in der offenen App
 
-**Für:** Development · **Risiko:** Trennung der Oberflächen, Auslieferung, zweiter Faktor
-**Zeitbox:** zwei Sitzungen; Reihenfolge App → Caddy/Compose → CI/Abbild → Deploy-Controller → Runbook.
-**Grundlage:** D-068, D-074, D-075, D-079, T-068a; Entwurf
-`ADO/01_Architecture/Betreiber_Entwurf/README.md` (Abschnitte 2, 6, 7) und der abgenommene
-Klick-Entwurf `betreiber-bereich-entwurf.html` im selben Ordner.
+**Für:** Development · **Risiko:** Tag-Identität, Offline-Kette, Plattformgleichheit
+**Zeitbox:** zwei Sitzungen; Reihenfolge Machbarkeit → Einstellungen → Scan → Tag zuordnen → Build.
+**Grundlage:** D-037, D-061, D-081, ADR-0009 (Android-UID), ADR-0017, D-058 (Tap-Moment).
+
+### Ziel
+
+Ein Mitarbeiter mit iPhone öffnet die App, tippt auf dem Erfassen-Bildschirm auf **„Tag scannen"**,
+hält das iPhone an den Tag (Apples Scan-Fenster erscheint) und bekommt dieselbe Entscheidung wie
+auf Android. Offline, Warteschlange, Anmeldung, Meine Zeiten, Nachtragen und Verwaltung funktionieren
+wie auf Android. Android bleibt unverändert.
 
 ### Auftrag
 
-1. **`apps/operator-web`** (neu, Muster `apps/admin-web`: Vite, React, TypeScript, dieselben
-   UI-Leitlinien, deutsch, Europe/Berlin):
-   - **Anmelden** mit E-Mail und Passwort über Supabase, danach **TOTP**: beim ersten Mal
-     einrichten (QR und Handeingabe des Schlüssels), sonst Code abfragen. Erst bei `aal2`
-     antwortet der Server; `/v1/operator/session` steuert die Anzeige (`mfa_required`).
-   - **Übersicht** mit Kacheln (Betriebe, Mitarbeiter gesamt, jetzt aktiv, Taps heute) und
-     Tabelle der Betriebe (Name, Status, Zahlen, letzter Tap) — nur die Felder aus T-068a.
-   - **Betrieb anlegen** im Seitenpanel (Name, E-Mail des ersten Administrators), Ergebnis
-     verständlich, `identity_unavailable` als eigener Text; `commandId` je Versuch stabil.
-   - **Pausieren / Fortsetzen** mit Grund und Bestätigungsschritt, erwartete Version mitgeben,
-     `conflict` heißt „Ansicht veraltet, bitte neu laden".
-   - **Protokoll** (seitenweise) und **Betriebszustand** (Version, Datenbankgröße, letzte
-     Archivierung, letzte geprüfte Basis).
-   - **Sitzung:** `sessionStorage`, kein `localStorage`; Abmelden nach 30 min ohne Aktivität;
-     Abmelden-Knopf. Keine Tenant-Funktionen, kein gemeinsamer Client mit dem Admin-Web.
-   - Tests wie im Admin-Web (Verhalten, Fehlerfälle, Rollen-/Zustandswechsel) **inklusive axe**.
-2. **Caddy und Compose:** neuer Block `betreiber.tb-infra.de` nach dem Muster von `admin.`:
-   strikte CSP (nur `self` plus Supabase in `connect-src`), HSTS, `X-Frame-Options DENY`,
-   statische Auslieferung aus `/srv/operator-web` mit `releases/<version>` und `current`,
-   `no-store` für `index.html`. **Nur `/v1/operator/*` wird zum Backend geleitet.**
-   `api.` und `admin.` beantworten `/v1/operator/*` ausdrücklich mit 404 (Test).
-   Compose bindet `/opt/taptime/operator-web` schreibgeschützt ein.
-3. **CI und Abbild:** `operator-web` wie `admin-web` bauen und als
-   `…:operator-web-<sha>` veröffentlichen (gleiche Quelle für Supabase-URL und öffentlichen
-   Schlüssel, gleiche Prüfungen). Die bestehenden Abhängigkeits-Schutztests decken den neuen
-   Workspace mit ab.
-4. **Deploy-Controller:** vorbereiten, aktivieren und prüfen wie Admin-Web
-   (`/opt/taptime/operator-web`, `https://betreiber.tb-infra.de/version.txt`, Bündelprüfung:
-   genau ein Skript, erwartete Supabase-Herkunft, `sb_publishable_`-Schlüssel), Rücknahme auf die
-   Vorversion im selben Muster. Reihenfolge und bestehende Schritte bleiben unverändert;
-   die Aktivierung beider Weboberflächen erfolgt im selben Schritt wie heute Admin-Web.
-5. **Erstinstallation und Rücknahme (TL, 23.09.):** Das Betreiber-Web gibt es in keiner früheren
-   Version. Der Controller behandelt eine fehlende Vorversion einer Weboberfläche ausdrücklich als
-   **Erstinstallation**: Er bereitet nur die Zielversion vor, bricht nicht ab und schreibt eine
-   eigene Zeile („Betreiber-Web wird erstmals installiert; keine Rücknahmeversion"). Bei einer
-   **Rücknahme** ohne Vorversion wird die Oberfläche deaktiviert (`current` entfernen, Zustand
-   prüfen, Zeile im Protokoll); Admin-Web und Backend werden wie bisher zurückgenommen.
-   Beides mit Rotnachweis. Sobald eine Vorversion existiert, gilt wieder das heutige Verhalten.
-6. **DNS als Voraussetzung:** Die Prüfung von `https://betreiber.tb-infra.de/version.txt` setzt den
-   DNS-Eintrag voraus. Die Vorprüfung löst den Namen zuerst auf und bricht **vor** jeder Änderung
-   mit einer klaren Meldung ab („DNS-Eintrag für betreiber.tb-infra.de fehlt"), statt später an der
-   Bündelprüfung zu scheitern.
-7. **Runbook:** `infrastructure/DEPLOY.md` bekommt den **einen** Konsolenblock für T-057 **und**
-   T-068b (Controller-Update aus dem Operations-Abbild, US-tippbar), den Ablauf nach dem Deploy
-   (`taptime-operator-db-login`, `taptime-operator-grant <uuid>`, Anmeldung, TOTP einrichten)
-   und den DNS-Eintrag als Voraussetzung. `RESTORE.md` bleibt wie in T-068a ergänzt.
+1. **Erst Machbarkeit belegen, dann bauen (Stop-Regel):** Am Code und an der Dokumentation von
+   `react-native-nfc-manager` belegen, dass iOS in einer Core-NFC-Sitzung (Tag-Reader, z. B.
+   `NfcTech.MifareIOS` bzw. ISO 14443) die **Seriennummer** unserer Tags liefert und dass sie nach
+   `createCanonicalNfcUidPayload` **exakt dieselbe kanonische Form** wie auf Android ergibt (Byte-
+   Reihenfolge, Groß-/Kleinschreibung, Länge). Welche Tag-Typen nutzen wir (NTAG21x o. ä.)?
+   Geht das nicht ohne Änderung an Tag-Identität, Server oder Datenmodell: **stoppen und melden.**
+2. **iOS-Einstellungen:** Bundle-ID **gleich wie das Android-Paket** (`com.tim180201.mobile`,
+   keine Namensentscheidung nötig), NFC-Berechtigung (Entitlement Tag-Lesen, nötige Formate),
+   verständlicher deutscher Nutzungstext für NFC, Hintergrundaufgaben so weit iOS sie erlaubt.
+   `eas.json`: iOS im Profil `production-validation` für TestFlight (interne Tester), ohne
+   Geheimnisse; Apple-Zugangsdaten gibt Tim beim ersten Build selbst ein.
+3. **Scan auf iOS:** Der bestehende `RnNfcScanAdapter` bekommt einen iOS-Weg: Sitzung nur auf
+   ausdrückliches Antippen von „Tag scannen", eine Sitzung zur Zeit (bestehender
+   `ExclusiveNfcCaptureArbiter`), Abbruch und Zeitüberschreitung ergeben verständliche Hinweise,
+   Ergebnis läuft durch **denselben** Pfad wie Android (gleiche Entscheidung, gleiche Offline-
+   Warteschlange, gleicher Archivnachweis). Kein Hintergrund-Lesen, keine Universal Links (T-073).
+   Android-Verhalten bytegleich; Tests für beide Plattformen.
+4. **Tag zuordnen auf iOS:** Das Beschreiben mit der NDEF-Adresse (D-061) auch auf dem iPhone,
+   damit ein Admin mit iPhone Tags einrichten kann. Geht das nicht sauber: melden, nicht umgehen.
+5. **Aufräumen aus T-071:** Die Standardwerte `= fetch` in `TapTimeSessionApiClient` und
+   `AuthenticatedHttpRequestExecutor` auf den gebundenen Wrapper wie im Admin-Web umstellen.
+6. **Anleitung für Tim** in `apps/mobile/README` oder `infrastructure/`: erster iOS-Build mit
+   `eas build -p ios --profile production-validation`, Anmeldung mit Apple-ID (Zwei-Faktor),
+   dann `eas submit -p ios` zu TestFlight, Tester hinzufügen. Schritt für Schritt, deutsch.
 
-### Tests (Rotnachweis zuerst)
+### Tests
 
-Anmeldung ohne zweiten Faktor kommt nicht über die Einrichtung hinaus; abgelaufene Sitzung führt
-zurück zur Anmeldung; Betrieb anlegen (Erfolg, bekannte E-Mail, Fehler der Einladung);
-Pausieren/Fortsetzen inkl. `conflict`; Protokollseiten; Betriebszustand; axe ohne Verstöße;
-Caddy: `/v1/operator/*` nur auf `betreiber.`, statische Pfade, Header; Deploy: Vorbereiten,
-Aktivieren, Prüfen und Rücknahme beider Weboberflächen, fehlendes Bündel bricht ab.
+Machbarkeitsnachweis (Quelle, Version, Codepfad); Einheitstests des iOS-Scanwegs (Erfolg, Abbruch,
+Zeitüberschreitung, nicht unterstützt, zweite Sitzung abgewiesen); gleiche kanonische Form für
+dieselbe UID auf beiden Plattformen; Android-Regression; `expo prebuild`/Konfigurationsprüfung für
+iOS (Entitlements und Texte im erzeugten Projekt); vollständige App-Suite und Typecheck.
 
 ### Nicht Teil
 
-Keine Änderung an T-068a-Server, Migrationen oder Werkzeugen außer echten Befunden (dann melden).
-Kein Server, keine Secrets, kein Deploy, kein APK.
+Kein Server, keine Migration, keine Änderung der Tag-Identität, kein Hintergrund-Lesen, keine
+Apple-Anmeldung durch Codex, kein Build/Submit durch Codex, kein Deploy.
 
 ### Bericht
 
-`.t068b-review/` (report.md, tracked.diff, untracked.txt) inkl. des fertigen Konsolenblocks.
-Unabhängiges Review. Kein Commit, kein Push.
+`.t072-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit, kein Push.
