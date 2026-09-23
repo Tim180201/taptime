@@ -174,7 +174,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     administrationNfc,
     serverTransport.administration,
     randomUUID,
-    new RnNfcTagWriter(Constants.expoConfig?.android?.package),
+    new RnNfcTagWriter(Constants.expoConfig?.android?.package, Platform.OS),
   );
   const scanFeedback = new ScanFeedbackCoordinator(
     scanOrchestrator,

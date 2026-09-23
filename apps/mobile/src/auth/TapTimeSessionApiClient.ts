@@ -18,7 +18,7 @@ export class TapTimeSessionApiClient implements BackendSessionPort {
 
   constructor(
     baseUrl: string,
-    private readonly fetchRequest: FetchPort = fetch,
+    private readonly fetchRequest: FetchPort = (input, init) => globalThis.fetch(input, init),
     private readonly requestTimeoutMilliseconds = DEFAULT_REQUEST_TIMEOUT_MILLISECONDS,
   ) {
     this.endpoint = new URL('v1/session', withTrailingSlash(baseUrl));

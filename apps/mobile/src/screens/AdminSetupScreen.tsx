@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import type { AdminSetupCapability, AdminSetupState } from '../administration/contracts';
 import { ActionButton, AppText as Text, TouchTarget, Card, Screen, TextField } from '../design/primitives';
 import { LineIcon } from '../design/LineIcon';
@@ -30,7 +30,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   if (state.status === 'not_authorized') return <Message title="Du hast keine Berechtigung zum Zuordnen von Tags." />;
   const projection = state.projection;
   const busy = state.status === 'capturing' || state.status === 'writing' || state.status === 'submitting';
-  const presentation = presentAdminSetupState(state);
+  const presentation = presentAdminSetupState(state, Platform.OS);
   const capture = () => {
     if (busy) return;
     if (tagName.trim().length === 0 || (!pauseTag && customerId.length === 0)) { setInvalid(true); return; }
@@ -93,8 +93,8 @@ function presentAssignment(
   return assignmentType === 'break' ? 'Pausen-Auslöser' : 'Arbeitsziel zugeordnet';
 }
 
-export function presentAdminSetupState(state: AdminSetupState): { title: string; message: string } {
-  if (state.status === 'capturing') return { title: 'Bereit zum Erfassen', message: 'Halte das Android-Gerät an den neuen NFC-Tag.' };
+export function presentAdminSetupState(state: AdminSetupState, platform = 'android'): { title: string; message: string } {
+  if (state.status === 'capturing') return { title: 'Bereit zum Erfassen', message: platform === 'ios' ? 'Halte dein iPhone an den neuen NFC-Tag.' : 'Halte das Android-Gerät an den neuen NFC-Tag.' };
   if (state.status === 'writing') return { title: 'Tag wird beschrieben', message: 'Halte dein Handy weiter an den Tag.' };
   if (state.status === 'submitting') return { title: 'Tag wird sicher eingerichtet', message: 'Registrierung und Zuordnung werden atomar vom Server geprüft.' };
   if (state.status !== 'ready' || state.outcome === null) return { title: 'Einrichtung bereit', message: 'Wähle einen Kunden und gib eine eindeutige Tag-Bezeichnung ein.' };

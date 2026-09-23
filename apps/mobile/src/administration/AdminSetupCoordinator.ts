@@ -1,4 +1,4 @@
-import type { NfcScanPort } from '@taptime/core';
+import type { NfcScanCaptureResult, NfcScanPort } from '@taptime/core';
 import type { NfcCaptureLifecyclePort } from '../nfc/RnNfcScanAdapter';
 import { TAG_URI } from '../nfc/tagAddress';
 import type { NfcTagWriter, TagWriteResult } from './NfcTagWriter';
@@ -77,14 +77,8 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     }
     const generation = ++this.generation;
     this.setState({ status: 'capturing', projection: current.projection });
-    const capture = await this.nfc.scan();
-    if (!this.isCurrent(generation, snapshot)) return;
-    if (capture.status !== 'captured') {
-      const status = capture.status === 'unavailable' ? 'nfc_unavailable' : capture.status;
-      this.finish(current.projection, { status });
-      return;
-    }
-    if (!await this.writeTag(capture.payload, current.projection, snapshot, generation)) return;
+    const capture = await this.captureAndWriteTag(current.projection, snapshot, generation);
+    if (capture === null) return;
     this.setState({ status: 'submitting', projection: current.projection });
     const result = await this.api.provisionTag({
       expectedMembershipId: snapshot.session.membershipId,
@@ -116,14 +110,8 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     }
     const generation = ++this.generation;
     this.setState({ status: 'capturing', projection: current.projection });
-    const capture = await this.nfc.scan();
-    if (!this.isCurrent(generation, snapshot)) return;
-    if (capture.status !== 'captured') {
-      this.finish(current.projection, { status: capture.status === 'unavailable'
-        ? 'nfc_unavailable' : capture.status });
-      return;
-    }
-    if (!await this.writeTag(capture.payload, current.projection, snapshot, generation)) return;
+    const capture = await this.captureAndWriteTag(current.projection, snapshot, generation);
+    if (capture === null) return;
     this.setState({ status: 'submitting', projection: current.projection });
     const result = await (this.api.provisionBreakTag?.({
       expectedMembershipId: snapshot.session.membershipId,
@@ -143,6 +131,21 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
   }
 
   async cancel(): Promise<void> { this.generation += 1; await this.writer.cancel(); await this.nfc.cancelCapture(); await this.loadProjection({ status: 'cancelled' }); }
+
+  private async captureAndWriteTag(projection: Extract<AdminSetupState, { status: 'ready' }>['projection'], snapshot: NonNullable<ReturnType<AdminSessionContextReader['capture']>>, generation: number): Promise<Extract<NfcScanCaptureResult, { status: 'captured' }> | null> {
+    let written = false;
+    const capture = this.nfc.scanWithTagAction === undefined ? await this.nfc.scan()
+      : await this.nfc.scanWithTagAction(async (captured) => {
+        if (this.isCurrent(generation, snapshot)) written = await this.writeTag(captured.payload, projection, snapshot, generation);
+      });
+    if (!this.isCurrent(generation, snapshot)) return null;
+    if (capture.status !== 'captured') {
+      this.finish(projection, { status: capture.status === 'unavailable' ? 'nfc_unavailable' : capture.status });
+      return null;
+    }
+    if (this.nfc.scanWithTagAction === undefined) written = await this.writeTag(capture.payload, projection, snapshot, generation);
+    return written && this.isCurrent(generation, snapshot) ? capture : null;
+  }
 
   private async writeTag(payload: string, projection: Extract<AdminSetupState, { status: 'ready' }>['projection'], snapshot: NonNullable<ReturnType<AdminSessionContextReader['capture']>>, generation: number): Promise<boolean> {
     this.setState({ status: 'writing', projection });

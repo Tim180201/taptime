@@ -1,5 +1,8 @@
 {
-  "platforms": ["android"],
+  "platforms": ["android", "apple"],
+  "apple": {
+    "modules": ["TapTimeMonotonicClockModule"]
+  },
   "android": {
     "modules": ["com.taptime.monotonicclock.TapTimeMonotonicClockModule"]
   }

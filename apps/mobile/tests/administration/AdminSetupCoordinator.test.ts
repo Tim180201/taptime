@@ -3,6 +3,7 @@ import { TAG_URI } from '../../src/nfc/tagAddress';
 import { createCanonicalNfcUidPayload, createTimestamp } from '@taptime/core';
 import { AdminSetupCoordinator } from '../../src/administration/AdminSetupCoordinator';
 import type { AdminSessionSnapshot, AdminSetupApiPort } from '../../src/administration/contracts';
+import type { NfcCaptureLifecyclePort } from '../../src/nfc/RnNfcScanAdapter';
 
 const snapshot: AdminSessionSnapshot = { generation: 1, session: { userId: '10000000-0000-4000-8000-000000000001', membershipId: '20000000-0000-4000-8000-000000000001', organizationId: '30000000-0000-4000-8000-000000000001', role: 'administrator', nfcSetupAvailable: true } };
 const projection = { status: 'succeeded' as const, organization: { id: snapshot.session.organizationId, name: 'TapTim.e' }, customers: [{ id: '40000000-0000-4000-8000-000000000001', displayName: 'Werkstatt', active: true }], nfcTags: [], nextCursor: null };
@@ -18,7 +19,7 @@ function setup(role: 'administrator' | 'standortleitung' | 'employee' = 'adminis
   };
   const writer = { write: vi.fn(async (_payload: string, _uri: string): Promise<{ status: 'written' } | { status: 'failed'; reason: 'write_failed' }> => ({ status: 'written' })), cancel: vi.fn(async () => undefined) };
   const coordinator = new AdminSetupCoordinator(session, nfc, api, () => '50000000-0000-4000-8000-000000000001', writer);
-  return { coordinator, session, nfc, api, writer, replace(value: AdminSessionSnapshot) { current = value; listener(); } };
+  return { coordinator, session, nfc: nfc as typeof nfc & { scanWithTagAction?: NfcCaptureLifecyclePort['scanWithTagAction'] }, api, writer, replace(value: AdminSessionSnapshot) { current = value; listener(); } };
 }
 
 describe('AdminSetupCoordinator', () => {
@@ -26,6 +27,29 @@ describe('AdminSetupCoordinator', () => {
     { name: 'work', run: (coordinator: AdminSetupCoordinator) => coordinator.provision(projection.customers[0]!.id, 'Eingang'), method: 'provisionTag' },
     { name: 'break', run: (coordinator: AdminSetupCoordinator) => coordinator.provisionBreak('Pause'), method: 'provisionBreakTag' },
   ] as const;
+
+  it.each(provisions)('keeps iOS setup writing inside capture and registers only after closure ($name)', async ({ run, method }) => {
+    const context = setup(); let open = false; let release!: () => void;
+    const closed = new Promise<void>((resolve) => { release = resolve; });
+    context.nfc.scanWithTagAction = vi.fn(async (action) => {
+      open = true;
+      const capture = await context.nfc.scan();
+      await action(capture);
+      await closed; open = false;
+      return capture;
+    });
+    context.writer.write.mockImplementation(async () => {
+      if (!open) throw new Error('iOS has no connected tag outside its session');
+      return { status: 'written' };
+    });
+    await context.coordinator.start(); const pending = run(context.coordinator);
+    await vi.waitFor(() => expect(context.writer.write).toHaveBeenCalled());
+    expect(context.nfc.scanWithTagAction).toHaveBeenCalledOnce();
+    expect(context.api[method]).not.toHaveBeenCalled();
+    release(); await pending;
+    expect(context.api[method]).toHaveBeenCalled();
+    expect(open).toBe(false);
+  });
 
   it.each(provisions)('writes the dispatch URI before registering the captured UID ($name)', async ({ run, method }) => {
     const context = setup();

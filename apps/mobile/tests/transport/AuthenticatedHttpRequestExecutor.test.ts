@@ -33,6 +33,17 @@ class CountingAuthentication implements AuthenticatedRequestCapability {
 }
 
 describe('AuthenticatedHttpRequestExecutor', () => {
+  it('binds the default browser fetch to its global receiver', async () => {
+    vi.stubGlobal('fetch', function (this: unknown) {
+      if (this !== globalThis) throw new TypeError('Illegal invocation');
+      return Promise.resolve(Response.json({ accepted: true }));
+    });
+    try {
+      await expect(new AuthenticatedHttpRequestExecutor(new FixedAuthentication())
+        .post(new URL('https://api.example/v1/test'), '{}'))
+        .resolves.toMatchObject({ status: 'response', statusCode: 200, body: '{"accepted":true}' });
+    } finally { vi.unstubAllGlobals(); }
+  });
   it('injects the access token only as Bearer and fixes JSON, cookie and redirect policy', async () => {
     const requests: Array<[URL | RequestInfo, RequestInit | undefined]> = [];
     const executor = new AuthenticatedHttpRequestExecutor(

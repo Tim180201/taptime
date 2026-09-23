@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import NfcManager, { NfcEvents, type TagEvent } from 'react-native-nfc-manager';
+import { IosNfcSession, isIosTagReaderSupported, type CapturedTagAction } from './IosNfcSession';
 import {
   createCanonicalNfcUidPayload,
   createTimestamp,
@@ -11,6 +12,8 @@ import {
 export type NfcCapabilityState = 'ready' | 'not_supported' | 'disabled';
 
 export interface NfcCaptureLifecyclePort {
+  /** iOS setup only: hold the connected tag and ownership until writing has finished. */
+  readonly scanWithTagAction?: (action: CapturedTagAction) => Promise<NfcScanCaptureResult>;
   checkCapability(): Promise<NfcCapabilityState>;
   cancelCapture(): Promise<void>;
   stop(): Promise<void>;
@@ -53,6 +56,8 @@ export function normalizeTag(tag: TagEvent, capturedAt: Timestamp): NfcScanCaptu
  * entry point: scan().
  */
 export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
+  readonly scanWithTagAction?: (action: CapturedTagAction) => Promise<NfcScanCaptureResult>;
+  private readonly iosSession: IosNfcSession | null;
   private readonly platform: string;
   private readonly timeoutMilliseconds: number;
   private readonly scheduleTimeout: NonNullable<RnNfcScanAdapterOptions['scheduleTimeout']>;
@@ -73,9 +78,18 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
     this.clearScheduledTimeout = options.clearScheduledTimeout ?? clearTimeout;
     this.captureTimestamp = options.captureTimestamp
       ?? (() => createTimestamp(new Date().toISOString()));
+    this.iosSession = this.platform === 'ios'
+      ? new IosNfcSession(() => this.ensureStarted(), (tag) => normalizeTag(tag, this.captureTimestamp()), this.timeoutMilliseconds)
+      : null;
+    if (this.iosSession !== null) this.scanWithTagAction = (action) => this.iosSession!.scan(action);
   }
 
   async checkCapability(): Promise<NfcCapabilityState> {
+    if (this.platform === 'ios') {
+      if (!await isIosTagReaderSupported()) return 'not_supported';
+      await this.ensureStarted();
+      return 'ready';
+    }
     if (this.platform !== 'android') {
       return 'not_supported';
     }
@@ -90,6 +104,7 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
   }
 
   scan(): Promise<NfcScanCaptureResult> {
+    if (this.iosSession !== null) return this.iosSession.scan();
     if (this.captureFlight !== null) {
       return this.captureFlight;
     }
@@ -108,6 +123,7 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
   }
 
   async cancelCapture(): Promise<void> {
+    if (this.iosSession !== null) return this.iosSession.cancel();
     if (this.captureFlight !== null) {
       this.cancellationVersion += 1;
     }

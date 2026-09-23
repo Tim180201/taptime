@@ -1,5 +1,6 @@
 import type { NfcScanCaptureResult, NfcScanPort } from '@taptime/core';
 import type { NfcCapabilityState, NfcCaptureLifecyclePort } from './RnNfcScanAdapter';
+import type { CapturedTagAction } from './IosNfcSession';
 
 export type NfcCaptureOwner = 'lifecycle' | 'administration';
 export type ScopedNfcCapturePort = NfcScanPort & NfcCaptureLifecyclePort;
@@ -22,6 +23,8 @@ export class ExclusiveNfcCaptureArbiter {
       scan: () => this.scan(owner),
       cancelCapture: () => this.cancel(owner),
       stop: () => this.cancel(owner),
+      ...(owner === 'administration' && this.native.scanWithTagAction !== undefined
+        ? { scanWithTagAction: (action: CapturedTagAction) => this.scan(owner, action) } : {}),
     });
   }
 
@@ -30,7 +33,7 @@ export class ExclusiveNfcCaptureArbiter {
     await this.native.stop();
   }
 
-  private async scan(owner: NfcCaptureOwner): Promise<NfcScanCaptureResult> {
+  private async scan(owner: NfcCaptureOwner, action?: CapturedTagAction): Promise<NfcScanCaptureResult> {
     if (this.activeOwner !== null) {
       return { status: 'unavailable' };
     }
@@ -40,6 +43,9 @@ export class ExclusiveNfcCaptureArbiter {
         ? this.ingress?.consume() ?? null
         : null;
       if (ingressCapture !== null) return ingressCapture;
+      if (action !== undefined && this.native.scanWithTagAction !== undefined) {
+        return await this.native.scanWithTagAction(action);
+      }
       return await this.native.scan();
     } finally {
       if (this.activeOwner === owner) {

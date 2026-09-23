@@ -57,7 +57,7 @@ export interface AuthenticatedJsonPostOptions {
 export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPort {
   constructor(
     private readonly authentication: AuthenticatedRequestCapability,
-    private readonly fetchRequest: AuthenticatedFetchPort = fetch,
+    private readonly fetchRequest: AuthenticatedFetchPort = (input, init) => globalThis.fetch(input, init),
     private readonly requestTimeoutMilliseconds = DEFAULT_REQUEST_TIMEOUT_MILLISECONDS,
     private readonly preserveAccountInvitationErrors = false,
   ) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ProductMembershipRole } from '../auth/contracts';
 import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/primitives';
@@ -29,6 +29,7 @@ export interface ScanScreenPresentation {
 }
 
 export function ScanScreen({ actor, scan, signOut, embedded = false, work, onManualCapture }: ScanScreenProps) {
+  const ios = Platform.OS === 'ios';
   const state = useSyncExternalStore((listener) => scan.subscribe(listener),
     () => scan.getState(), () => scan.getState());
   const presenter = useMemo(() => new TapMomentPresenter(), []);
@@ -41,28 +42,30 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
   const ready = isScanReadyState(state);
   const resting = (ready && (state.status === 'saved_locally' || state.status === 'server_decision' && presentScanState(state).tone === 'success' || ('outcome' in state && (state.outcome === null || presentScanState(state).tone === 'success'))))
     || state.status === 'scanning';
-  const presentation = presentScanState(state);
+  const presentation = presentScanState(state, Platform.OS);
   return <SafeAreaView edges={embedded ? [] : ['top', 'bottom', 'left', 'right']} style={[styles.container, embedded && styles.embeddedContainer]}>
     {embedded ? null : <View style={styles.header}><Text style={styles.brand}>Taptura</Text>
       <Text style={styles.role}>{presentActor(actor)}</Text></View>}
     <ScrollView contentContainerStyle={styles.content}>
       <View style={styles.scene} accessibilityLiveRegion="polite" testID="scan-status">
-        <TouchTarget accessibilityRole="button" accessibilityLabel="NFC-Tag jetzt scannen"
+        <TouchTarget accessibilityRole="button" accessibilityLabel={ios ? 'Tag scannen' : 'NFC-Tag jetzt scannen'}
           accessibilityState={{ disabled: !ready }} disabled={!ready}
           onPress={() => scan.scan()} testID="scan-button">
           <ScanRing animate={!showMoment && resting} scanning={state.status === 'scanning'}
             result={showMoment ? moment.confirmed ? 'confirmed' : 'pending' : null} />
+          {ios ? <Text style={styles.statusTitle}>Tag scannen</Text> : null}
         </TouchTarget>
         <Text style={[styles.statusTitle, showMoment && { color: moment.confirmed
           ? mobileTokens.color.accent : mobileTokens.color.notice }]}>
-          {showMoment ? moment.title : resting ? 'Tag antippen' : presentation.title}
+          {showMoment ? moment.title : resting ? ios ? 'Bereit zum Erfassen' : 'Tag antippen' : presentation.title}
         </Text>
         <Text style={styles.statusMessage}>
           {showMoment ? moment.confirmed ? 'Vom Server bestätigt'
             : 'Sicher gespeichert, wird nachgereicht'
             : resting ? state.status === 'scanning'
               ? 'Halte dein Handy an den Tag.'
-              : 'Tippe auf den Kreis und halte dein Handy an den Tag. Start und Stopp erkennt Taptura selbst.'
+              : ios ? 'Tippe auf „Tag scannen“ und halte dein iPhone an den Tag. Start und Stopp erkennt Taptura selbst.'
+                : 'Tippe auf den Kreis und halte dein Handy an den Tag. Start und Stopp erkennt Taptura selbst.'
               : presentation.message}
         </Text>
         {showMoment ? <Text style={styles.statusMessage}>Bereit für den nächsten Tap</Text> : null}
@@ -92,7 +95,7 @@ export function shouldAnimateScanIndicator(state: ProductScanState, reducedMotio
     || (state.status === 'offline_ready' && state.outcome === null);
 }
 
-export function presentScanState(state: ProductScanState): ScanScreenPresentation {
+export function presentScanState(state: ProductScanState, platform = 'android'): ScanScreenPresentation {
   switch (state.status) {
     case 'inactive':
     case 'checking':
@@ -104,7 +107,8 @@ export function presentScanState(state: ProductScanState): ScanScreenPresentatio
     case 'not_supported':
       return {
         title: 'NFC nicht unterstützt',
-        message: 'NFC-Scans sind in dieser App-Version nur auf unterstützten Android-Geräten möglich.',
+        message: platform === 'ios' ? 'Dieses iPhone unterstützt das Lesen unserer NFC-Tags nicht.'
+          : 'NFC-Scans sind in dieser App-Version nur auf unterstützten Android-Geräten möglich.',
         tone: 'warning',
       };
     case 'disabled':
@@ -122,7 +126,7 @@ export function presentScanState(state: ProductScanState): ScanScreenPresentatio
     case 'scanning':
       return {
         title: 'Bereit zum Erfassen',
-        message: 'Halte das Android-Gerät an den NFC-Tag.',
+        message: platform === 'ios' ? 'Halte dein iPhone an den NFC-Tag.' : 'Halte das Android-Gerät an den NFC-Tag.',
         tone: 'neutral',
       };
     case 'submitting':

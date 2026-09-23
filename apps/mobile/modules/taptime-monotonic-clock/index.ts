@@ -2,7 +2,7 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 
 export interface NativeMonotonicClockSample {
   readonly bootMarker: string;
-  readonly processStartElapsedRealtimeMilliseconds: number;
+  readonly processStartElapsedRealtimeMilliseconds?: number;
   readonly elapsedRealtimeMilliseconds: number;
   readonly wallClockMilliseconds: number;
 }

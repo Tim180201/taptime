@@ -40,6 +40,42 @@ function writtenUri(bytes: number[]): string {
 }
 
 describe('RnNfcTagWriter', () => {
+  it('writes the same URI and Android dispatch record inside an already connected iOS tag session', async () => {
+    manager.getTag.mockResolvedValue({ id: tag.id, type: 'mifare' });
+    await expect(new RnNfcTagWriter(packageName, 'ios').write(payload, TAG_URI)).resolves.toEqual({ status: 'written' });
+    expect(writtenUri(manager.ndefHandler.writeNdefMessage.mock.calls[0]![0])).toBe(TAG_URI);
+    expect(manager.connect).not.toHaveBeenCalled();
+    expect(manager.cancelTechnologyRequest).not.toHaveBeenCalled();
+    expect(manager.ndefFormatableHandlerAndroid.formatNdef).not.toHaveBeenCalled();
+  });
+  it.each([
+    { status: 3, capacity: 256, reason: 'read_only' },
+    { status: 1, capacity: 0, reason: 'ndef_not_supported' },
+    { status: 2, capacity: 1, reason: 'capacity_exceeded' },
+  ])('rejects iOS $reason without registering, formatting or locking', async ({ status, capacity, reason }) => {
+    manager.getTag.mockResolvedValue({ id: tag.id, type: 'mifare' });
+    manager.ndefHandler.getNdefStatus.mockResolvedValue({ status, capacity });
+    await expect(new RnNfcTagWriter(packageName, 'ios').write(payload, TAG_URI)).resolves.toEqual({ status: 'failed', reason });
+    expect(manager.ndefHandler.writeNdefMessage).not.toHaveBeenCalled();
+    expect(manager.ndefFormatableHandlerAndroid.formatNdef).not.toHaveBeenCalled();
+  });
+  it('verifies the iOS UID before writing', async () => {
+    manager.getTag.mockResolvedValue({ id: 'BAD0', type: 'mifare' });
+    await expect(new RnNfcTagWriter(packageName, 'ios').write(payload, TAG_URI)).resolves.toEqual({ status: 'failed', reason: 'tag_changed' });
+    expect(manager.ndefHandler.writeNdefMessage).not.toHaveBeenCalled();
+    expect(manager.connect).not.toHaveBeenCalled();
+  });
+  it('lets cancellation close the owning iOS session while a write callback is pending', async () => {
+    manager.getTag.mockResolvedValue({ id: tag.id, type: 'mifare' });
+    let complete!: () => void;
+    manager.ndefHandler.writeNdefMessage.mockImplementationOnce(() => new Promise<void>((resolve) => { complete = resolve; }));
+    const writer = new RnNfcTagWriter(packageName, 'ios');
+    const pending = writer.write(payload, TAG_URI);
+    await vi.waitFor(() => expect(manager.ndefHandler.writeNdefMessage).toHaveBeenCalled());
+    await writer.cancel();
+    complete();
+    await expect(pending).resolves.toEqual({ status: 'failed', reason: 'cancelled' });
+  });
   it('reuses the captured tag, writes URI then AAR idempotently and releases the native handle', async () => {
     const writer = new RnNfcTagWriter(packageName);
     await expect(writer.write(payload, TAG_URI)).resolves.toEqual({ status: 'written' });

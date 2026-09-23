@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TapTimeSessionApiClient } from '../../src/auth/TapTimeSessionApiClient';
 
 const session = {
@@ -10,6 +10,16 @@ const session = {
 };
 
 describe('TapTimeSessionApiClient', () => {
+  it('binds the default browser fetch to its global receiver', async () => {
+    vi.stubGlobal('fetch', function (this: unknown) {
+      if (this !== globalThis) throw new TypeError('Illegal invocation');
+      return Promise.resolve(Response.json(session));
+    });
+    try {
+      await expect(new TapTimeSessionApiClient('https://api.example/').resolve('synthetic'))
+        .resolves.toEqual({ status: 'resolved', session });
+    } finally { vi.unstubAllGlobals(); }
+  });
   it('T068a preserves the named temporary pause response', async () => {
     const client = new TapTimeSessionApiClient('https://api.example/',
       async () => Response.json({ error: { code: 'organization_paused' } }, { status: 403 }));

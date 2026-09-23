@@ -141,7 +141,7 @@ describe('RnNfcScanAdapter (Block D)', () => {
     await expect(capture).resolves.toEqual({ status: 'captured', payload: 'nfc:uid:v1:A1B2', capturedAt });
   });
 
-  it.each(['ios', 'web'])('reports not_supported without native capture on %s', async (platform) => {
+  it.each(['web'])('reports not_supported without native capture on %s', async (platform) => {
     const adapter = createAdapter({ platform });
     await expect(adapter.checkCapability()).resolves.toBe('not_supported');
     expect(nfcManagerMock.isSupported).not.toHaveBeenCalled();

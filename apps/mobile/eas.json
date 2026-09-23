@@ -40,6 +40,10 @@
         "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_djQqPAM3hV85UAcApKdOEg_dEWGAMZa",
         "EXPO_PUBLIC_TAPTIME_API_BASE_URL": "https://api.tb-infra.de"
       },
+      "ios": {
+        "distribution": "store",
+        "simulator": false
+      },
       "android": {
         "buildType": "apk"
       }
