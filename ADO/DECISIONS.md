@@ -1408,3 +1408,14 @@ das braucht eine eigene Adresse je Tag, weil iOS im Hintergrund nur die Adresse 
 Seriennummer (Widerspruch zu D-061 „Identität ist die UID" wird dort gelöst).
 **Warum:** Stufe 1 ist der kürzeste Weg aufs iPhone und ändert nichts, was Android trägt. Stufe 2
 berührt die Tag-Identität und gehört nicht in die Woche vor dem ersten Kunden.
+
+## D-082 · Die iPhone-Uhr erfüllt denselben Vertrag, im Zweifel zur Prüfung · 23.09.2026 · Claude (TL)
+iOS liefert keine Bootzählung wie Android. Das iOS-Uhrmodul bildet `bootMarker` so: Beim ersten Sample
+eine zufällige Kennung erzeugen und mit Bootzeit (`kern.boottime`) und fortlaufender Uhr
+(`mach_continuous_time`, zählt im Schlaf weiter) nativ speichern. Dieselbe Kennung gilt weiter, solange
+die Bootzeit höchstens um eine Toleranz abweicht (höchstens 120 s und immer kleiner als die zuletzt
+gesehene Laufzeit) und die fortlaufende Uhr nicht zurückspringt; sonst neue Kennung. App-Neustart behält
+sie, Geräte-Neustart wechselt sie, eine Änderung der Uhrzeit über die Toleranz wechselt sie ebenfalls.
+Folge ist das bestehende Verhalten: Erfassungen landen als `review_only` in der Prüfung, nie verloren.
+**Warum:** Kein Fehlalarm darf eine falsche Zeit als geprüft ausgeben; ein Fehlalarm zur Prüfung ist
+hinnehmbar. Die Offline-Zusage für Mitarbeiter bleibt unverändert, nur die Quelle ist plattformeigen.

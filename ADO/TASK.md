@@ -36,6 +36,16 @@ wie auf Android. Android bleibt unverändert.
    Ergebnis läuft durch **denselben** Pfad wie Android (gleiche Entscheidung, gleiche Offline-
    Warteschlange, gleicher Archivnachweis). Kein Hintergrund-Lesen, keine Universal Links (T-073).
    Android-Verhalten bytegleich; Tests für beide Plattformen.
+3a. **iOS-Uhrmodul (D-082, entschieden 23.09.):** `modules/taptime-monotonic-clock` bekommt eine
+   iOS-Implementierung mit demselben Vertrag wie Android (`bootMarker`, fortlaufende Millisekunden,
+   atomar gesampelte Wanduhr; `processStartElapsedRealtimeMilliseconds` entfällt auf iOS, da es kein
+   Hintergrund-NFC gibt). `bootMarker` nach D-082: zufällige Kennung, nativ gespeichert zusammen mit
+   `kern.boottime` und `mach_continuous_time`; Wechsel bei Bootzeit-Abweichung über der Toleranz
+   (≤ 120 s und < zuletzt gesehene Laufzeit) oder Rücksprung der fortlaufenden Uhr. Tests: App-Neustart
+   → gleiche Kennung; Neustart → neue; Uhrzeit um mehr als die Toleranz verstellt → neue; kleine
+   Zeitkorrektur → gleiche; Rücksprung → neue; Grenzfall kurz nach dem Start dokumentiert.
+   Apples Pflichtangabe für Bootzeit-APIs im Datenschutz-Manifest (Required Reason API) mit passendem
+   Grund eintragen und im erzeugten Projekt nachweisen. Android bleibt bytegleich.
 4. **Tag zuordnen auf iOS:** Das Beschreiben mit der NDEF-Adresse (D-061) auch auf dem iPhone,
    damit ein Admin mit iPhone Tags einrichten kann. Geht das nicht sauber: melden, nicht umgehen.
 5. **Aufräumen aus T-071:** Die Standardwerte `= fetch` in `TapTimeSessionApiClient` und
