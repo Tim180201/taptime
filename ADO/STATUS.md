@@ -95,7 +95,10 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
-- **P2 T-031 Faktenprobe (behoben):** Erster lokaler Caddy-Echttest las Docker-Logs nur auf stdout; die Meldung lag auf stderr. Beide Kanäle werden jetzt geprüft, vollständiger Folgelauf grün. Erstfehler und Befund in `.t031-review/`; keine Umsetzung begonnen.
+- **T-031 (23.09.):** Caddy-Rückweg unabhängig vom Archivvertrag (D-085) und Startseite hinter Passwort (D-083) umgesetzt; unabhängiges Review Runde 2 und Technical Lead **APPROVED**. Review-Artefakte entfernt; Commit/Push freigegeben. Kein Deploy; Konsolenblock und Passwort nach `infrastructure/DEPLOY.md`.
+- **P2 T-031 lokale Verifikation (behoben):** Faktenprobe zunächst mit unvollständigem Docker-Logkanal; Umsetzungsprüfungen mit korrigierten Fixtures, Browser-Locators, Socket-Wiederverwendung und GNU-/Docker-Helfern. Erstfehler bleiben im gemeinsamen `.t031-review/report.md` samt Logs nachvollziehbar; Schlussprüfungen und Review dort. P2 Entwurf: volle Textdeckkraft während Einblendungen für Kontrast, Bewegung bleibt erhalten.
+- **P2 T-031 Kante und Backend:** Die Kantenprüfung nach dem Caddy-Wechsel schließt die Backend-Gesundheit ein. Ein langsamer oder kranker Backend-Start löst deshalb eine unnötige Caddy-Rücknahme aus, und die Meldung nennt Caddy statt des Backends. Der Deploy scheitert dann ohnehin (Vorwärtsreparatur); später Caddy-Erreichbarkeit und Backend-Gesundheit getrennt prüfen.
+- **P2 T-031 Passwortwerkzeug:** `taptime-landing-password` zeigt keine Eingabeaufforderung (im Runbook beschrieben); später eine kurze Aufforderung ergänzen.
 
 - **T-072 (23.09.):** iPhone Stufe 1 umgesetzt (Core-NFC-Scan in der offenen App, Tag-Zuordnung auf dem iPhone, iOS-Uhr nach D-082, Datenschutz-Manifest 35F9.1); Technical Lead **APPROVED**. Review-Artefakte entfernt; Commit/Push freigegeben. Kein App-Build durch Codex; erster iOS-Build und TestFlight durch den PO nach `apps/mobile/README.md`, danach Geräteabnahme Android und iPhone.
 - **P2 T-072 Feedback:** Der vorhandene native Ton-/Vibrationscode ist Android-only; iOS Stufe 1 zeigt die Serverentscheidung, hat aber noch keinen eigenen Feedback-Port. Geräteabnahme nach separat freigegebenem Build steht aus.
