@@ -1399,3 +1399,12 @@ dieselbe wie überall (`organization_paused`) und gilt als vorübergehend: Kein 
 etwas aus seiner Warteschlange löschen — auch ältere APKs nicht; das ist nachzuweisen.
 **Warum:** Ein pausierter Betrieb darf keine neuen Buchungen aufnehmen, egal über welchen Weg.
 Die Taps der Mitarbeiter bleiben auf dem Gerät und kommen nach dem Fortsetzen vollständig an.
+
+## D-081 · Das iPhone kommt in zwei Stufen · 23.09.2026 · Claude (TL), auf Wunsch Tim (PO)
+Stufe 1 vor dem Pilot (T-072): Die App läuft auf dem iPhone; gescannt wird in der offenen App über eine
+Core-NFC-Sitzung, die die Seriennummer des Tags liest — dieselbe Identität wie auf Android, ohne Umbau an
+Server, Datenmodell oder Tags. Stufe 2 nach dem Pilot (T-073): Tippen ohne geöffnete App nach D-037;
+das braucht eine eigene Adresse je Tag, weil iOS im Hintergrund nur die Adresse liefert, nie die
+Seriennummer (Widerspruch zu D-061 „Identität ist die UID" wird dort gelöst).
+**Warum:** Stufe 1 ist der kürzeste Weg aufs iPhone und ändert nichts, was Android trägt. Stufe 2
+berührt die Tag-Identität und gehört nicht in die Woche vor dem ersten Kunden.
