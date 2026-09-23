@@ -46,7 +46,18 @@ Klick-Entwurf `betreiber-bereich-entwurf.html` im selben Ordner.
    genau ein Skript, erwartete Supabase-Herkunft, `sb_publishable_`-Schlüssel), Rücknahme auf die
    Vorversion im selben Muster. Reihenfolge und bestehende Schritte bleiben unverändert;
    die Aktivierung beider Weboberflächen erfolgt im selben Schritt wie heute Admin-Web.
-5. **Runbook:** `infrastructure/DEPLOY.md` bekommt den **einen** Konsolenblock für T-057 **und**
+5. **Erstinstallation und Rücknahme (TL, 23.09.):** Das Betreiber-Web gibt es in keiner früheren
+   Version. Der Controller behandelt eine fehlende Vorversion einer Weboberfläche ausdrücklich als
+   **Erstinstallation**: Er bereitet nur die Zielversion vor, bricht nicht ab und schreibt eine
+   eigene Zeile („Betreiber-Web wird erstmals installiert; keine Rücknahmeversion"). Bei einer
+   **Rücknahme** ohne Vorversion wird die Oberfläche deaktiviert (`current` entfernen, Zustand
+   prüfen, Zeile im Protokoll); Admin-Web und Backend werden wie bisher zurückgenommen.
+   Beides mit Rotnachweis. Sobald eine Vorversion existiert, gilt wieder das heutige Verhalten.
+6. **DNS als Voraussetzung:** Die Prüfung von `https://betreiber.tb-infra.de/version.txt` setzt den
+   DNS-Eintrag voraus. Die Vorprüfung löst den Namen zuerst auf und bricht **vor** jeder Änderung
+   mit einer klaren Meldung ab („DNS-Eintrag für betreiber.tb-infra.de fehlt"), statt später an der
+   Bündelprüfung zu scheitern.
+7. **Runbook:** `infrastructure/DEPLOY.md` bekommt den **einen** Konsolenblock für T-057 **und**
    T-068b (Controller-Update aus dem Operations-Abbild, US-tippbar), den Ablauf nach dem Deploy
    (`taptime-operator-db-login`, `taptime-operator-grant <uuid>`, Anmeldung, TOTP einrichten)
    und den DNS-Eintrag als Voraussetzung. `RESTORE.md` bleibt wie in T-068a ergänzt.
