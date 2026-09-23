@@ -3,7 +3,12 @@
 # shellcheck disable=SC2034,SC2317
 set -euo pipefail
 TEST_ROOT="$(mktemp -d)"
-trap 'rm -rf -- "$TEST_ROOT"' EXIT
+cleanup() {
+  # Releases become read-only during the test, also for an unprivileged CI runner.
+  command chmod -R u+rwX "$TEST_ROOT"
+  rm -r -- "$TEST_ROOT"
+}
+trap cleanup EXIT
 export TAPTIME_DEPLOY_OPERATOR_WEB_ROOT="$TEST_ROOT/operator-web"
 export TAPTIME_DEPLOY_ADMIN_WEB_ROOT="$TEST_ROOT/admin-web"
 export TAPTIME_DEPLOY_OPERATOR_WEB_VERSION_URL='https://betreiber.invalid/version.txt'
@@ -16,6 +21,14 @@ failures=0
 check() {
   local name="$1" result
   shift
+  # Cases must not inherit a preceding case's immutable release or current link.
+  local root
+  for root in "$OPERATOR_WEB_ROOT" "$ADMIN_WEB_ROOT"; do
+    if [[ -d "$root" ]]; then
+      command chmod -R u+rwX "$root"
+      rm -r -- "$root"
+    fi
+  done
   set +e
   (set -e; "$@") > "$TEST_ROOT/output" 2>&1
   result=$?
