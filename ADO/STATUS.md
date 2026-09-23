@@ -1,11 +1,24 @@
 # TapTim.e — Status
 
-**Stand:** 22.09.2026 · Produktion läuft auf `d75fd56` (T-067; Deploy 21./22.09., zweiter Anlauf,
-keine neue Migration, zwei bewiesene Wiederherstellungen; Platte danach 6,2 GB belegt, stabil).
-Auf `main` zusätzlich T-065 (`ae6e0bf`) und T-066 (`e7eb0c6`, Korrektur `fd9b5ef`, Migration 030).
-T-070 ist vom Technical Lead **APPROVED**; Auslieferung weiterhin offen.
-Offen vor dem Pilot: Auslieferung T-066/T-070, T-068. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
-vollständigen Monatsabschluss übersteht.
+**Stand:** 23.09.2026 · Produktion läuft auf `ff69bfe` (T-065, T-066, T-069, T-070, T-057, T-068a/b,
+T-071; Migrationen bis 032 angewendet). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt.
+Auf `main` zusätzlich T-072 (iPhone Stufe 1, nur App, kein Deploy nötig). „Taptura“ ist der
+Arbeitsname für den Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
+Offen vor dem Pilot: iOS-Build/TestFlight und neue APK (PO), Geräteabnahme Android und iPhone,
+Startseite hinter Passwort (T-031), Konsole mit T-071-Controller. Zur Entscheidung vor T-048: Freigabe
+manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
+wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+
+## Beobachten (TL, 23.09.)
+
+- Sicherung am 23.09.: ein Lauf um 02:05 UTC mit rund einer Stunde Dauer, ein Fehlschlag um 06:05 UTC;
+  Ursache offen, beim nächsten Konsolentermin im Journal ansehen.
+- Volle Archiver-Abgleiche zeigen `base_seconds=61`; beobachten, ob der Wert mit dem Archiv wächst.
+- CI: ShellCheck-Version festlegen (lokal 0.11.0, CI 0.9.0).
+- DNS: Wildcard-Eintrag bei INWX nach dem Pilot auf die benötigten Namen reduzieren (api, admin,
+  betreiber, `tb-infra.de`, www).
+- Spool-UID (P2 aus T-035) offen.
+- T-071-Controller-Korrektur ist auf `main`, aber noch nicht an der Konsole installiert.
 
 ## Vorhanden — und seit heute ausgeliefert
 

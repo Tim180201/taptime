@@ -1419,3 +1419,13 @@ sie, Geräte-Neustart wechselt sie, eine Änderung der Uhrzeit über die Toleran
 Folge ist das bestehende Verhalten: Erfassungen landen als `review_only` in der Prüfung, nie verloren.
 **Warum:** Kein Fehlalarm darf eine falsche Zeit als geprüft ausgeben; ein Fehlalarm zur Prüfung ist
 hinnehmbar. Die Offline-Zusage für Mitarbeiter bleibt unverändert, nur die Quelle ist plattformeigen.
+
+## D-083 · Die Startseite geht zuerst hinter einem Passwort online · 23.09.2026 · Tim (PO), vorbereitet vom TL
+Die Startseite (T-031) läuft vorerst unter `tb-infra.de` hinter Benutzername und Passwort, die Tim an
+Interessenten gibt. Öffentlich wird sie erst mit Impressum, Datenschutzhinweisen, Anfrage-Adresse und
+Pilotbedingungen (T-031b). Frei erreichbar ist nur `/tag` als Hilfeseite für Tags, die außerhalb der App
+angetippt werden. Keine Cookies, kein Tracking, keine fremden Server (Schriften selbst ausgeliefert),
+`noindex` bis Name und Domain feststehen. Schwerpunkt ist NFC („One Tap. One Decision.“); die manuelle
+Erfassung für Büro und Ausnahmen wird gezeigt, eine Freigabe (D-014) wird nicht versprochen.
+**Warum:** Eine öffentliche Seite braucht Impressum und Datenschutzhinweise (§ 5 DDG, Art. 13 DSGVO); hinter
+einem Passwort können Pilot-Interessenten sie schon jetzt sehen, ohne private Anschrift und Abmahnrisiko.

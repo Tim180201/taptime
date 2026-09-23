@@ -5,11 +5,12 @@
 **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
 **Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007),
 mit getrennten Uhren für reine Wartezeiten (D-011).
-**Stand:** 23.09.2026, Produktion auf `bcd903d` (T-065, T-066, T-069, T-070, T-057, T-068a/b;
-Migrationen 030–032). Betreiber-Anmeldung scheitert an einem Web-Fehler: T-071.
-Naechste Reihenfolge (PO 23.09.: iPhone so schnell wie moeglich): **T-071** → kleiner Deploy →
-Betreiber-Konto → **T-072 iPhone Stufe 1** → APK + TestFlight → Geraeteabnahme Android und iPhone →
-Pilot Monat 1; T-073 iPhone Stufe 2 nach dem Pilot;
+**Stand:** 23.09.2026, Produktion auf `ff69bfe` (T-065, T-066, T-069, T-070, T-057, T-068a/b, T-071;
+Migrationen 030–032). Betreiber-Bereich eingerichtet; T-072 (iPhone Stufe 1) APPROVED, nur App, kein Deploy.
+Naechste Reihenfolge (PO 23.09.): iOS-Build/TestFlight und neue APK (PO) → **T-031 Startseite hinter
+Passwort** (Development, parallel zur Geraeteabnahme) → Geraeteabnahme Android und iPhone → Konsole
+(T-071-Controller und T-031) und Deploy → Pilot Monat 1; T-031b (Startseite oeffentlich) und T-073 iPhone
+Stufe 2 nach dem Pilot;
 waehrend Monat 1 T-062, T-048 und T-050, Freigabe zu Monat 2 (D-063). Grundlage weiterhin die Anforderungspruefung gegen den Code (D-012).
 
 ---
@@ -119,7 +120,7 @@ Datenbankrechten eingreifen muss.
 | **T-036 ✓** | **Zeitrichtigkeit — abgeschlossen (B02, D-056)** | Technisch und unabhaengig APPROVED, `bc675d0` auf main, CI gruen. Gemeinsame Berliner Zone, korrekte Monatsgrenzen und feste Web-/CSV-Anzeige. Beide Vertrags- und SQL-Grenzen tragen 31 Tage plus eine Stunde; Live-Nahttests und Migration-025-Aufstieg geprueft. Voraussetzung fuer T-048, T-049 und T-050 erfuellt. Mobile-Geraeteanzeige bleibt P2; kein Deploy. | — |
 | **T-037** | **Reparaturweg und die ungeprüften Befunde (B06, dann B08, B09, B07)** | `container-image.yml:194–201` holt die Schutzliste mit `curl --fail` unter `set -euo pipefail` vor der Veröffentlichung bei `:268` aus der Produktion; bei deren Ausfall lässt sich kein Reparaturabbild veröffentlichen. B08 (Sicherung und Vergleichsliste aus verschiedenen Datenständen), B09 (Auth-Widerruf sperrt die eigene API nicht sofort) und B07 (kein gemeinsames Verbindungsbudget) zuerst verifizieren, dann bewerten. | — |
 | **T-030** | **iOS-Weg klären — nur Recherche, kein Code** | iOS ist nach D-037 festes Ziel; Tap plus Bestätigung ist akzeptiert. Zu klären sind NDEF-Datensatz, Universal Link, Bauprofil und die technische Einbindung in das trigger-agnostische Modell. | 1 |
-| **T-031** | Landing Page | Aus T-017 herausgelöst, damit sie unabhängig laufen kann. Eine statische Seite, ein halber Tag — aber sie braucht drei Dinge, die nicht bei der Entwicklung liegen: **Name und Domain**, **Impressum nach § 5 DDG und Datenschutzerklärung** (ohne die darf sie nicht online), und den **Werbesatz aus dem Pilotgespräch**. Vorher gebaut heißt zweimal gebaut. | 2 |
+| **T-031** | **Startseite hinter Passwort (D-083)** | Entwurf vom PO am 23.09. abgenommen (`ADO/01_Architecture/Startseite_Entwurf/`, jede Aussage am Code belegt). Unter `tb-infra.de` mit Basic Auth, Zugang gibt Tim an Interessenten; frei nur `/tag` als Hilfeseite fuer Tags ausserhalb der App. Keine Cookies, kein Tracking, Schriften selbst ausgeliefert, noindex. Eigenes Abbild und Deploy-Schritt wie Betreiber-Web; Zugang setzt root mit `taptime-landing-password`. **T-031b** danach: oeffentlich mit Impressum (§ 5 DDG), Datenschutzhinweisen, Anfrage-Adresse und Pilotbedingungen — braucht Anschrift fuers Impressum und Entscheidungen des PO. | 1 |
 | **T-018** | Installierbare App per Direktlink | Für den eigenen Test | 2 |
 | **T-023** | **Vorschlag:** Übersicht als Arbeitsvorrat statt Zustandsbericht | Die Übersicht zählt heute, was geladen ist. Sie soll zeigen, **was ohne den Administrator stehen bleibt**: offene Prüfungen, manuell erfasste Zeiten vor der Freigabe, laufende Arbeitszeiten. Summen über Projekte brauchen eine echte Auswertung im Backend auf Basis von `effective_work_duration_seconds_v1` — geladene Seiten zu addieren ergibt eine Zahl, die falsch ist und richtig aussieht. **Noch keine Entscheidung.** Der Inhalt wird vom Pilotgespräch bestimmt (D-020), nicht geraten. | 4 |
 | **T-029** | **Vorschlag:** Die Ansichten folgen der Arbeit | Die Arbeitszeiten-Tabelle zeigt sieben Spalten — darunter *Herkunft* und *Korrekturstand* aus der Systembuchhaltung — und **nicht die Dauer**, also die einzige Zahl, die ein Inhaber sonst im Kopf ausrechnet. Die Liste ist flach, die Erfassungsart steht als Wort statt als Zeichen. **Noch keine Entscheidung:** Zuerst muss beantwortet sein, was jemand dort tun will — sehen wer vergessen hat zu stempeln, Stunden einer Person prüfen, korrigieren, exportieren, oder sehen wer gerade arbeitet. Das sind fünf Bildschirme; heute versucht einer, alle fünf zu sein. | 4 |
