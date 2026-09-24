@@ -249,13 +249,13 @@ geprüften, in CI grünen Ziel-Commit zu ersetzen. Das Log liegt außerhalb des 
 mkdir -p "$HOME/taptime-logs"
 ssh-add -l
 set -o pipefail
-caffeinate -i ssh -t taptime-deploy@46.225.58.30 \
+caffeinate -i ssh -t -o ServerAliveInterval=30 -o ServerAliveCountMax=10 taptime-deploy@46.225.58.30 \
   'sudo /usr/local/sbin/taptime-deploy abcdef0' 2>&1 \
   | tee "$HOME/taptime-logs/deploy-$(date +%Y%m%d-%H%M%S).log"
 ```
 
 Bei fehlendem Agent-Schlüssel vor dem letzten Befehl stoppen. Terminal und Mac bleiben bis
-zum Abschluss offen. Danach liest Codex bei Bedarf das gesicherte Log.
+zum Abschluss offen. Die Keepalive-Optionen halten die Verbindung während langer Phasen ohne Ausgabe (Sicherung, Restore-Probe) offen; ohne sie hat am 24.09. ein Netzgerät die Verbindung still getrennt, und der Controller brach sicher ab. Danach liest Codex bei Bedarf das gesicherte Log.
 
 Vor der ersten `[Vorbereitung]`-Zeile hält der Controller den Sicherungs-Timer an und wartet
 auf eine laufende Sicherung, höchstens 20 Minuten mit einer Fortschrittszeile je Minute.

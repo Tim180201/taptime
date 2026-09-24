@@ -19,6 +19,7 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
   betreiber, `tb-infra.de`, www).
 - Spool-UID (P2 aus T-035) offen.
 - T-071-Controller-Korrektur ist auf `main`, aber noch nicht an der Konsole installiert.
+- Sicherungen dauern seit 24.09. 02:05 UTC 13–17 min statt 6–7 min (der Lauf um 02:05 70 min); der Archivierer meldet `base_seconds` 200–215 s (23.09.: 61 s). Ursache prüfen (wachsende Archivliste, `borg check --verify-data`).
 
 ## Vorhanden — und seit heute ausgeliefert
 
@@ -94,6 +95,12 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
+
+- **T-072b (24.09.):** iPhone-Scan: Der gelesene Tag wird nach erfolgreichem Schließen der Apple-Sitzung ausgeliefert; die Sitzung bleibt bis `SessionClosed` belegt, damit das späte Zurücksetzen der Bibliothek keine neue Sitzung zerstört. Diagnose `TapturaNfc` im Apple-Log (nur Phase, Millisekunden, Zahlencode). Unabhängiges Review und Technical Lead **APPROVED**. Danach iPhone-Build durch den PO und Geräteabnahme.
+
+- **P2 T-072b:** Kommt `SessionClosed` auf dem Gerät nie an, ist nach dem ersten Scan jeder weitere bis zum App-Neustart gesperrt (Hinweis in der App); der erste Scan kommt an. Die Geräteabnahme prüft mehrere Scans hintereinander und liest `TapturaNfc` in der macOS-Konsole; bei Sperre folgt eine eigene Aufgabe.
+
+- **Deploy 24.09., erster Versuch&#x20;****`b635c4a`****:** Die SSH-Verbindung wurde während der ersten Sicherung (17 min ohne Ausgabe) still getrennt; der Controller lief ohne Anzeige weiter und brach nach der zweiten Sicherung sicher ab. Produktion unverändert auf `ff69bfe`. `DEPLOY.md` verwendet jetzt SSH-Keepalive; Neustart am selben Tag.
 
 - **T-074 (24.09.):** Verwaltung und Betreiber-Bereich am Handy umgesetzt (untere Leiste mit „Mehr“, Blätter von unten, Karten statt Tabellen, Layouttest in Chrome als eigener CI-Job); unabhängiges Review und Technical Lead **APPROVED**. Review-Artefakte entfernt; Commit/Push freigegeben. Deploy durch den PO, danach Verhaltensabnahme am Handy.
 - **P3 T-074:** Am PC sind Inhaltslinks 44 px hoch; in der Personenspalte steht der Name dadurch etwas tiefer als die Nachbarzellen, die Initialen sind unterstrichen. Das Zeitbearbeitungs-Blatt hat keine sichtbare Überschrift. Untere Leiste und „Mehr“-Blatt heißen beide „Hauptnavigation“. Bei Gelegenheit bereinigen.
