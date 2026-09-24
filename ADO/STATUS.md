@@ -97,6 +97,12 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **T-076 (24.09.):** Kontowechsel am Gerät nach ADR-0012 A1: lokale Datenbank-Generationen, ein SecureStore-Wert für Zeiger und Schlüssel, Wechsel nur aus voll angemeldeter Sitzung und nur ohne jede lokale Evidenz; alte Generation erst beim nächsten Kaltstart nach Verifikation entfernt; jeder unklare Zustand → Schutzzustand ohne Löschung. Neue Installation und Lease beim Server ohne Serveränderung. Dazu `ios.config.usesNonExemptEncryption: false` (im erzeugten Projekt belegt). Unabhängiges Review und Technical Lead **APPROVED**. Danach gemeinsamer App-Build mit T-077 und Geräteabnahme.
+- **P2 T-076:** Ein Abbruch im kurzen Vorbereitungsfenster (Generation vorbereitet, noch nicht aktiviert) führt in den Schutzzustand statt zur alten Generation zurück; eine unbenutzte Vorbereitung könnte beim Kaltstart sicher verworfen werden. Später.
+- **P3 T-076:** Die Kaltstart-Dateiprüfung schützt bei jeder unbekannten `.db`-Datei im SQLite-Ordner; heute nutzt nur Taptura diesen Ordner. Bei einer weiteren SQLite-Bibliothek auf `taptime-offline*` einschränken.
+- **P3 Verwaltungsstopp-Anzeige:** Die Anzeige „wird gesichert“ eines Verwaltungsstopps liegt nur im RAM und ist nach einem App-Neustart weg; das Ereignis selbst liegt beim Server. Anzeige nach Neustart wiederherstellen: später.
+- **Beobachten, Android-Härtung (Vorschlag aus T-076):** Expo SecureStore ignoriert auf Android den Rückgabewert von SharedPreferences.commit; ein Upstream-Vorschlag (bei false eine WriteException) wäre eine kleine Härtung. Kein eigener nativer Speicher.
+
 - **T-077 (24.09.):** Reiter „Meine Zeiten“ jetzt auch für Administrator und Standortleitung (D-090): Erfassen · Meine Zeiten · Mitarbeiter · Tags; gleiche Daten und Rechte wie unter der eigenen Person (Standortleitung weiterhin ohne Schreibaktionen, T-062). „Meine Zeiten“ lädt beim Öffnen neu, ohne eine laufende manuelle Erfassung zu überholen. Unabhängiges Review und Technical Lead **APPROVED**. Geräteabnahme mit dem gemeinsamen App-Build nach T-076.
 - **P3 T-077:** „Meine Zeiten“ zeigt wie bei Beschäftigten den laufenden und vorigen Monat; ältere Monate der eigenen Person bleiben über „Mitarbeiter“ erreichbar.
 

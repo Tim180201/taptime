@@ -508,3 +508,26 @@ This ADR remains proposed until:
 
 Until all four occur, ADR-0010/E1/E2A remain the only approved offline product behavior and no
 production-code, schema, dependency or native-configuration change from this candidate may begin.
+
+## Amendment A1 (2026-09-24, Technical Lead, PO decision T-076)
+
+Section 3 ("another identity remains blocked until the original queue has received exact durable
+server acknowledgements") is now implemented by **local database generations** instead of one
+permanently bound database (T-076, D-090 era). Each generation has its own file name, installation
+binding, lookup key and database key; the active pointer and every generation's secrets live in one
+versioned SecureStore value (`taptime.offline.generations.v1`). A switch to another account or
+membership is permitted only from a fully authenticated current session and only when the bound
+database holds no local evidence at all: no queued, awaiting-archive, legacy or quarantined rows, no
+review-pending sequence, no external legacy outbox, no manual capture in flight and no running
+transmission or archive reconciliation. Administration stops held in memory are server-side events
+and are not local evidence. The new generation receives a fresh binding and lease; the server's
+unique `binding_digest` therefore creates a new installation, never reuses the old one.
+
+Crash safety: the old generation is never deleted in the process that wrote the switch. Cleanup
+runs only on a later cold start after the pointer was read afresh and the active database opened and
+verified. Any inconsistent state (retained preparation, unreferenced database file, active generation
+without secrets, apparent write lost to Android SharedPreferences memory-before-disk) enters the
+existing protected state without deletion. Three outcomes are therefore possible after a crash: old
+account unchanged, new account cleanly bound, or protected. The residual platform risk of losing
+SecureStore or platform keys is unchanged (section 5). Multi-owner queues remain excluded; this
+amendment covers sequential single ownership per generation only.
