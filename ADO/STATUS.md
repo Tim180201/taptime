@@ -5,8 +5,8 @@ Passwort mit eigenem Caddy-Rückweg, T-074 Verwaltung und Betreiber-Bereich am H
 Konsole installiert; Migrationen bis 032). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt. iPhone mit
 T-072b im TestFlight-Build vom 24.09. abgenommen; Android-APK versionCode 9. „Taptura“ ist der Arbeitsname für den
 Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
-Auf `main` zusätzlich T-077 (Meine Zeiten für Führungsrollen, D-090) und T-076 (Kontowechsel am Gerät, ADR-0012 A1).
-Offen vor dem Pilot: T-062 (Standortleitung im eigenen Standort, vorgezogen nach D-091), Deploy mit Migration 033,
+Auf `main` zusätzlich T-077 (Meine Zeiten für Führungsrollen, D-090) und T-076 (Kontowechsel am Gerät, ADR-0012 A1) und T-062 (Standortleitung im eigenen Standort, Migration 033, D-091, D-092).
+Offen vor dem Pilot: Deploy mit Migration 033,
 danach ein App-Build für iPhone und Android mit Geräteabnahme; T-024 (Zugangsdaten rotieren,
 Deploy-Schlüssel mit Passphrase); AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur
 Entscheidung vor T-048: Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das
@@ -97,6 +97,9 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
+
+- **P2 T-062 Bestandsaufnahme:** Tags sind für Standortleitung in SQL/App verfügbar, im Web aber hinter Administrator-Setup verborgen. Gemeldet; T-062 öffnet kein allgemeines Setup.
+- **P3 T-062:** Eine Standortleitung, deren eigener Heimatstandort nicht zu ihren Verwaltungsstandorten gehört, kann ihre eigenen Zeiten nicht nachtragen oder ändern; 033 prüft den Heimatstandort der Zielperson, auch bei sich selbst. Im Pilot fallen Heimat- und Verwaltungsstandort zusammen.
 
 - **T-076 (24.09.):** Kontowechsel am Gerät nach ADR-0012 A1: lokale Datenbank-Generationen, ein SecureStore-Wert für Zeiger und Schlüssel, Wechsel nur aus voll angemeldeter Sitzung und nur ohne jede lokale Evidenz; alte Generation erst beim nächsten Kaltstart nach Verifikation entfernt; jeder unklare Zustand → Schutzzustand ohne Löschung. Neue Installation und Lease beim Server ohne Serveränderung. Dazu `ios.config.usesNonExemptEncryption: false` (im erzeugten Projekt belegt). Unabhängiges Review und Technical Lead **APPROVED**. Danach gemeinsamer App-Build mit T-077 und Geräteabnahme.
 - **P2 T-076:** Ein Abbruch im kurzen Vorbereitungsfenster (Generation vorbereitet, noch nicht aktiviert) führt in den Schutzzustand statt zur alten Generation zurück; eine unbenutzte Vorbereitung könnte beim Kaltstart sicher verworfen werden. Später.
