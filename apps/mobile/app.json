@@ -8,6 +8,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
+      "config": { "usesNonExemptEncryption": false },
       "bundleIdentifier": "com.tim180201.mobile",
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [

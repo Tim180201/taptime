@@ -1,3 +1,10 @@
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { OfflineAccountStorage } from '../../src/offline/OfflineAccountStorage';
+import { decodeBase64Url32 } from '../../src/offline/encoding';
+vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'device' }));
+vi.mock('expo-crypto', () => ({ getRandomBytesAsync: vi.fn() }));
 import { NodeSqliteOfflineConnection } from '../support/NodeSqliteOfflineConnection';
 import { OfflineLifecycleClient } from '../../src/offline/OfflineLifecycleClient';
 import { mobileLookupHmac, mobileManifestDigestV3 } from '../../src/offline/MobileLookupHmac';
@@ -58,6 +65,171 @@ const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));
 
 describe('OfflineCaptureCoordinator', () => {
+  it.each(['other_account', 'new_membership'] as const)('T-076 gives %s a fresh lease and no old evidence', async kind => {
+    const h = await accountHarness();
+    try {
+      const oldBinding = h.bindings[0];
+      h.change(kind === 'other_account' ? { ...session, userId: ids.event, membershipId: ids.receipt } : { ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.bindings).toHaveLength(2));
+      await vi.waitFor(() => expect(h.coordinator.getState().status).toBe('ready'));
+      expect(h.bindings[1]).not.toBe(oldBinding);
+      expect(await h.database().queueCount()).toBe(0);
+      const result = await h.coordinator.captureManual({ targetType: 'customer', targetId: ids.customer });
+      expect(result.status).toBe('saved');
+      await h.scheduler().trigger('manual');
+      expect(h.sent.at(-1)).toMatchObject({ deviceSequence: 1, expectedMembershipId: ids.receipt });
+    } finally { await h.close(); }
+  });
+
+  it.each(['unconfirmed', 'unarchived', 'review_pending'] as const)('T-076 blocks %s and lets the original account return', async kind => {
+    const h = await accountHarness();
+    try {
+      h.mode = kind;
+      await h.coordinator.captureManual({ targetType: 'customer', targetId: ids.customer });
+      await h.scheduler().trigger('manual');
+      if (kind !== 'unconfirmed') expect(await h.database().queueCount()).toBe(0);
+      const sent = h.sent.length;
+      h.change({ ...session, userId: ids.event, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      await h.coordinator.retry();
+      await h.scheduler().reconcileArchives();
+      expect(h.sent).toHaveLength(sent);
+      expect(h.bindings).toHaveLength(1);
+      h.change(session);
+      await vi.waitFor(() => expect(h.bindings).toHaveLength(2));
+      expect(h.bindings[1]).toBe(h.bindings[0]);
+      h.mode = 'archived'; h.advance();
+      await h.scheduler().trigger('manual');
+      await h.scheduler().reconcileArchives();
+      // Review confirmation is a separate authoritative server response.
+      if (kind === 'review_pending') await h.database().clearReviewPendingSequence(1, 1);
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.bindings).toHaveLength(3));
+      expect(h.bindings[2]).not.toBe(h.bindings[0]);
+    } finally { await h.close(); }
+  });
+
+  it('T-076 blocks even an empty queue while its scheduler flight is unfinished', async () => {
+    const h = await accountHarness(); const count = deferred<number>();
+    const read = vi.spyOn(h.database(), 'queueCount').mockReturnValueOnce(count.promise);
+    try {
+      const sync = h.scheduler().trigger('manual');
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      expect(h.bindings).toHaveLength(1);
+      count.resolve(0); await sync;
+    } finally { count.resolve(0); read.mockRestore(); await h.close(); }
+  });
+
+  it('T-076 blocks an outstanding Legacy SecureStore outbox independently of SQLite', async () => {
+    const h = await accountHarness();
+    try {
+      h.legacyBlocked = true;
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      expect(h.bindings).toHaveLength(1); expect(await h.database().queueCount()).toBe(0);
+    } finally { await h.close(); }
+  });
+
+  it('T-076 keeps the foreign-account protection when an old upload later rejects authority', async () => {
+    const h = await accountHarness(); const upload = deferred<void>();
+    try {
+      h.mode = 'authority_rejected'; h.ingestGate = upload.promise;
+      await h.coordinator.captureManual({ targetType: 'customer', targetId: ids.customer });
+      await vi.waitFor(() => expect(h.sent).toHaveLength(1));
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      upload.resolve(); await h.scheduler().whenIdle();
+      expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' });
+      expect(h.bindings).toHaveLength(1);
+    } finally { upload.resolve(); await h.close(); }
+  });
+
+  it('T-076 blocks an archive flight and ignores its completion under another account', async () => {
+    const h = await accountHarness(); const archive = deferred<void>();
+    try {
+      h.mode = 'unarchived';
+      await h.coordinator.captureManual({ targetType: 'customer', targetId: ids.customer }); await h.scheduler().whenIdle();
+      h.reconcileGate = archive.promise; h.advance();
+      const flight = h.scheduler().reconcileArchives();
+      await vi.waitFor(() => expect(h.reconcileWaiting).toBe(true));
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      h.mode = 'archived'; archive.resolve(); await flight;
+      expect(await h.database().readAwaitingArchive(0, 10)).toHaveLength(1);
+      expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' });
+    } finally { archive.resolve(); await h.close(); }
+  });
+
+  it('T-076 ignores old authority rejection after its database release was paused', async () => {
+    const h = await accountHarness(); const released = deferred<void>();
+    const original = h.database().releaseHead.bind(h.database());
+    const release = vi.spyOn(h.database(), 'releaseHead').mockImplementation(async identity => {
+      await released.promise; return original(identity);
+    });
+    try {
+      h.mode = 'authority_rejected';
+      await h.coordinator.captureManual({ targetType: 'customer', targetId: ids.customer });
+      await vi.waitFor(() => expect(release).toHaveBeenCalled());
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      released.resolve(); await h.scheduler().whenIdle();
+      expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' });
+    } finally { released.resolve(); release.mockRestore(); await h.close(); }
+  });
+
+  it('T-076 keeps an in-progress authority invalidation from changing the next session', async () => {
+    const h = await accountHarness(); const cancelled = deferred<void>();
+    const cancel = vi.spyOn(h.lifecycle, 'cancelCapture').mockReturnValueOnce(cancelled.promise);
+    const invalidate = vi.spyOn(h.database(), 'invalidateCapture');
+    try {
+      h.mode = 'authority_rejected';
+      await h.coordinator.captureManual({ targetType: 'customer', targetId: ids.customer });
+      await vi.waitFor(() => expect(cancel).toHaveBeenCalled());
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      cancelled.resolve(); await h.scheduler().whenIdle();
+      expect(invalidate).not.toHaveBeenCalled();
+      expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' });
+    } finally { cancelled.resolve(); cancel.mockRestore(); invalidate.mockRestore(); await h.close(); }
+  });
+
+  it('T-076 does not publish the old NFC count when the session changes after append', async () => {
+    const h = await accountHarness(); const counted = deferred<number>();
+    const original = h.database().appendEvent.bind(h.database());
+    let count: ReturnType<typeof vi.spyOn> | undefined;
+    const append = vi.spyOn(h.database(), 'appendEvent').mockImplementation(async draft => {
+      const result = await original(draft);
+      count = vi.spyOn(h.database(), 'queueCount').mockReturnValueOnce(counted.promise);
+      return result;
+    });
+    let scan: Promise<void> | undefined;
+    try {
+      scan = h.coordinator.scan();
+      await vi.waitFor(() => expect(count).toHaveBeenCalled());
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      counted.resolve(1); await scan;
+      expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' });
+      expect(h.coordinator.getState()).not.toHaveProperty('queueCount');
+      expect(h.sent).toHaveLength(0);
+    } finally { counted.resolve(1); await scan; count?.mockRestore(); append.mockRestore(); await h.close(); }
+  });
+
+  it('T-076 blocks a manual capture that is still sampling and ignores its stale completion', async () => {
+    const h = await accountHarness();
+    try {
+      const sample = deferred<void>(); h.sampleGate = sample.promise;
+      const manual = h.coordinator.captureManual({ targetType: 'customer', targetId: ids.customer });
+      await vi.waitFor(() => expect(h.sampleWaiting).toBe(true));
+      h.change({ ...session, membershipId: ids.receipt });
+      await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
+      sample.resolve(); await manual;
+      expect(h.sent).toHaveLength(0);
+      expect(h.bindings).toHaveLength(1);
+    } finally { await h.close(); }
+  });
+
   it.each([
     ['time_entry_started', 'work_started'], ['time_entry_stopped', 'work_stopped'],
     ['break_started', 'break_changed'], ['break_stopped', 'break_changed'],
@@ -1317,4 +1489,90 @@ function activeContext() {
     activationBootMarker: 'boot-1',
     activationMonotonicMilliseconds: 100,
   };
+}
+
+async function accountHarness() {
+  const root = mkdtempSync(join(tmpdir(), 't076-coordinator-'));
+  const values = new Map<string, string>();
+  const listeners = new Set<() => void>();
+  let active: ProductScanSessionSnapshot = { generation: 1, session };
+  const reader: OfflineCaptureSessionReader = {
+    ...sessionReader({ status: 'authenticated', session }, active),
+    capture: () => active, isCurrent: candidate => candidate === active,
+    getState: () => ({ status: 'authenticated', session: active.session }),
+    subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+  };
+  let seed = 0, time = Date.parse('2026-07-18T10:00:00.000Z');
+  const databases: OfflineCaptureDatabase[] = [];
+  let currentDb!: OfflineCaptureDatabase, scheduler!: OfflineSyncScheduler;
+  const factory = (key: Uint8Array, name?: string) => {
+    const db = new OfflineCaptureDatabase(async filename => new NodeSqliteOfflineConnection(join(root, filename)), key, name);
+    databases.push(db); return db;
+  };
+  const storage = new OfflineAccountStorage({
+    isAvailableAsync: async () => true,
+    getItemAsync: async key => values.get(key) ?? null,
+    setItemAsync: async (key, value) => { values.set(key, value); },
+    deleteItemAsync: async key => { values.delete(key); },
+  }, async length => new Uint8Array(length).fill(++seed), factory, {
+    list: async () => readdirSync(root), remove: async () => { throw new Error('Same-process deletion forbidden'); },
+  });
+  const bindings: string[] = [];
+  const sent: Array<{deviceSequence: number; expectedMembershipId: string}> = [];
+  const records = new Map<string, {workEventId: string; receiptId: string; deviceSequence: number}>();
+  const h = { mode: 'archived', bindings, sent, legacyBlocked: false, ingestGate: null as Promise<void> | null, reconcileGate: null as Promise<void> | null, reconcileWaiting: false, sampleGate: null as Promise<void> | null, sampleWaiting: false,
+    advance: () => { time += OFFLINE_ARCHIVE_POLL_MILLISECONDS; },
+    change: (next: ProductSessionContext) => { active = { generation: active.generation + 1, session: next }; for (const l of listeners) l(); },
+    database: () => currentDb, scheduler: () => scheduler };
+  const decision = { status: 'time_entry_started' as const, timeEntryId: ids.event };
+  const client = {
+    async reconcile(eventIds: readonly string[]) { if (h.reconcileGate) { h.reconcileWaiting = true; await h.reconcileGate; } return { status: 'ready' as const, records: eventIds.flatMap(id => {
+      const record = records.get(id); return record ? [{ ...record, archiveStatus: h.mode === 'unarchived' ? 'archive_pending' as const : 'offsite_archived' as const,
+        result: { status: 'synchronized' as const, decision } }] : [];
+    }) }; },
+    async ingest(command: import('@taptime/offline-sync-contract').OfflineLifecycleEventCommandV3) {
+      sent.push(command);
+      if (h.ingestGate) await h.ingestGate;
+      if (h.mode === 'authority_rejected') return { status: 'authority_rejected' as const };
+      if (h.mode === 'unconfirmed') return { status: 'unavailable' as const };
+      const identity = { workEventId: command.workEvent.id, receiptId: command.receipt.id, deviceSequence: command.deviceSequence };
+      records.set(identity.workEventId, identity);
+      return h.mode === 'review_pending'
+        ? { ...identity, status: 'review_pending' as const, idempotentRetry: false, archiveStatus: 'offsite_archived' as const, reason: 'capture_clock_unverified' as const }
+        : { ...identity, status: 'synchronized' as const, idempotentRetry: false, archiveStatus: h.mode === 'unarchived' ? 'archive_pending' as const : 'offsite_archived' as const, decision };
+    },
+    async readReviewState() { return { status: 'unavailable' as const }; },
+  };
+  const lifecycle = nfcLifecycle();
+  const coordinator = new OfflineCaptureCoordinator({ async scan() { return { status: 'captured',
+    payload: createCanonicalNfcUidPayload('04AABBCC'), capturedAt: createTimestamp('2026-07-18T10:00:00.000Z') }; } }, lifecycle, reader,
+    storage, factory, { async issueCompleteV3(request) {
+      bindings.push(request.installationBinding);
+      const result = await leaseClient(true).issueCompleteV3!(request);
+      if (result.status !== 'ready') throw new Error('Invalid fixture');
+      const items = result.page.items.map(item => item.itemType === 'nfc_assignment'
+        ? { ...item, lookup: mobileLookupHmac(decodeBase64Url32(request.lookupKey)!, 'nfc:uid:v1:04AABBCC') } : item);
+      return { ...result, page: { ...result.page, organizationId: active.session.organizationId, userId: active.session.userId, membershipId: active.session.membershipId,
+        leaseId: `70000000-0000-4000-8000-${String(bindings.length).padStart(12, '0')}`,
+        items, manifestDigest: mobileManifestDigestV3(items), serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength } };
+    } }, new AndroidMonotonicClock({ async sample() {
+      if (h.sampleGate) { h.sampleWaiting = true; await h.sampleGate; h.sampleGate = null; }
+      return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100, wallClockMilliseconds: time };
+    } }), (db, authority) => {
+      currentDb = db;
+      scheduler = new OfflineSyncScheduler(db, client as import('../../src/offline/OfflineLifecycleClient').OfflineLifecycleApiPort,
+        { async ingest() { return { status: 'unavailable' }; } }, authority, () => time, () => 0.5,
+        { schedule() { return 1; }, cancel() {} }); return scheduler;
+    }, { ...emptyOutbox(), async read() {
+      return h.legacyBlocked ? { kind: 'protected_v1', binding: {organizationId: ids.organization, userId: ids.user}, command: {} } as unknown as import('../../src/scan/LifecycleEvidenceOutbox').StoredLifecycleEvidence : null;
+    } }, (() => { let id = 0; return () => `f0000000-0000-4000-8000-${String(++id).padStart(12, '0')}`; })(),
+    { bind() {} }, () => new Date(time), storage);
+  await coordinator.start(); await scheduler.whenIdle();
+  return { ...h, get mode() { return h.mode; }, set mode(value: string) { h.mode = value; },
+    get legacyBlocked() { return h.legacyBlocked; }, set legacyBlocked(value: boolean) { h.legacyBlocked = value; },
+    get ingestGate() { return h.ingestGate; }, set ingestGate(value: Promise<void> | null) { h.ingestGate = value; },
+    get reconcileGate() { return h.reconcileGate; }, set reconcileGate(value: Promise<void> | null) { h.reconcileGate = value; },
+    get reconcileWaiting() { return h.reconcileWaiting; },
+    get sampleWaiting() { return h.sampleWaiting; }, get sampleGate() { return h.sampleGate; }, set sampleGate(value: Promise<void> | null) { h.sampleGate = value; },
+    coordinator, lifecycle, async close() { await coordinator.stop(); for (const db of databases) await db.close(); rmSync(root, {recursive: true, force: true}); } };
 }

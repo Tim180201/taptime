@@ -115,6 +115,15 @@ describe('OfflineCaptureDatabase state machine', () => {
     })).resolves.toEqual({ status: 'protected', reason: 'identity_mismatch' });
   });
 
+  it('reopens the original owner after a rejected foreign owner without erasing evidence', async () => {
+    const { store } = await readyStore();
+    await store.bindOwner(owner());
+    await store.bindOwner({ ...owner(), userId: '10000000-0000-4000-8000-000000000002' });
+    await store.close();
+    await expect(store.initialize()).resolves.toEqual({ status: 'ready' });
+    await expect(store.bindOwner(owner())).resolves.toEqual({ status: 'ready' });
+  });
+
   it('activates a complete manifest atomically and preserves it on a tampered replacement',
     async () => {
       const { store } = await readyStore();

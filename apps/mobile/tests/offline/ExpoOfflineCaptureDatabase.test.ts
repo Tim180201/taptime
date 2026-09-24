@@ -1,18 +1,41 @@
+import { readDirectoryAsync, makeDirectoryAsync, deleteAsync } from 'expo-file-system/legacy';
+vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'device' }));
+vi.mock('expo-crypto', () => ({ getRandomBytesAsync: vi.fn() }));
+vi.mock('expo-file-system/legacy', () => ({ readDirectoryAsync: vi.fn(), makeDirectoryAsync: vi.fn(), deleteAsync: vi.fn() }));
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('expo-sqlite', () => ({
   openDatabaseAsync: vi.fn(),
+  defaultDatabaseDirectory: '/app/SQLite',
 }));
 
 import {
   ExpoSqliteConnection,
+  expoOfflineDatabaseFiles,
 } from '../../src/offline/ExpoOfflineCaptureDatabase';
 
 const keyHex = '1a'.repeat(32);
 const keyPragma = `PRAGMA key = "x'${keyHex}'"`;
 
 describe('ExpoOfflineCaptureDatabase native connection boundary', () => {
+  it('propagates a failed file inventory instead of treating it as empty', async () => {
+    vi.mocked(makeDirectoryAsync).mockResolvedValue();
+    vi.mocked(readDirectoryAsync).mockRejectedValueOnce(new Error('unreadable directory'));
+    await expect(expoOfflineDatabaseFiles().list()).rejects.toThrow('unreadable directory');
+    expect(readDirectoryAsync).toHaveBeenCalledWith('file:///app/SQLite');
+  });
+
+  it('removes only a validated generation and all its SQLite sidecars', async () => {
+    vi.mocked(deleteAsync).mockClear();
+    await expoOfflineDatabaseFiles().remove('taptime-offline-v1.db');
+    expect(vi.mocked(deleteAsync).mock.calls.map(call => call[0])).toEqual(
+      ['', '-wal', '-shm', '-journal'].map(s => 'file:///app/SQLite/taptime-offline-v1.db' + s),
+    );
+    await expect(expoOfflineDatabaseFiles().remove('../foreign.db')).rejects.toThrow('Invalid offline database name');
+    expect(deleteAsync).toHaveBeenCalledTimes(4);
+  });
+
   it('keeps keying, BEGIN and every schema/data statement on the same actor connection',
     async () => {
     const main = fakeDatabase();

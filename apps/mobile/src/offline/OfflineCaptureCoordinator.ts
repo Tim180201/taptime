@@ -1,3 +1,4 @@
+import type { OfflineAccountStorage } from './OfflineAccountStorage';
 import {
   isCanonicalNfcUidPayload,
   type NfcScanCaptureResult,
@@ -154,6 +155,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private visibleWorkEventId: string | null = null;
   private visibleTerminalOutcome: ProductScanOutcome | null = null;
   private protectedLegacy = false;
+  private ownerSession: ProductScanSessionSnapshot | null = null;
+  private readonly manualFlights = new Set<Promise<ManualOfflineCaptureResult>>();
   private readonly manualAcknowledgements = new Map<string, ManualOfflineAcknowledgement>();
   private readonly manualAcknowledgementListeners = new Set<() => void>();
 
@@ -161,7 +164,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     private readonly nfcScan: NfcScanPort,
     private readonly nfcLifecycle: NfcCaptureLifecyclePort,
     private readonly session: OfflineCaptureSessionReader,
-    private readonly identityStore: OfflineInstallationIdentityStore,
+    private readonly identityStore: Pick<OfflineInstallationIdentityStore, 'loadOrCreate' | 'removeActiveLookupKey'>,
     private readonly databaseFactory: OfflineDatabaseFactory,
     private readonly leaseClient: OfflineCaptureLeaseApiPort,
     private readonly monotonicClock: AndroidMonotonicClock,
@@ -170,6 +173,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     private readonly createUuid: SecureUuidGenerator,
     private readonly backgroundBinding: OfflineBackgroundSchedulerBinding = { bind() {} },
     private readonly now: () => Date = () => new Date(),
+    private readonly accountStorage?: OfflineAccountStorage,
   ) {}
 
   getState(): ProductScanState {
@@ -199,6 +203,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (!this.isCurrent(generation) || !ready) return;
     this.unsubscribeSession = this.session.subscribe(() => {
       if (this.canPreserveActiveOfflineCapture()) return;
+      this.pauseSynchronization();
+      this.captureMode = null;
+      this.visibleTerminalOutcome = null; this.visibleWorkEventId = null;
+      if (this.state.status !== 'inactive' && this.state.status !== 'checking') this.setState({ status: 'checking' });
       void this.scheduleSessionTransition(++this.generation);
     });
     await this.scheduleSessionTransition(generation);
@@ -217,6 +225,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.nativeNfcIngressRuntimeStartGeneration = null;
     this.visibleTerminalOutcome = null;
     this.visibleWorkEventId = null;
+    const transition = this.sessionTransitionFlight?.promise;
     this.sessionTransitionFlight = null;
     this.manualAcknowledgements.clear();
     this.unsubscribeSession?.();
@@ -224,9 +233,11 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.unsubscribeScheduler?.();
     this.unsubscribeScheduler = null;
     this.backgroundBinding.bind(null);
-    this.scheduler?.stop();
+    const scheduler = this.scheduler;
+    this.pauseSynchronization();
     this.scheduler = null;
     await this.nfcLifecycle.stop();
+    await Promise.all([transition, this.operationFlight, ...this.manualFlights, scheduler?.whenIdle?.()].map(p => p?.catch(() => undefined)));
     await this.database?.close().catch(() => undefined);
     this.database = null;
     this.setState({ status: 'inactive' });
@@ -342,11 +353,13 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private async initializeInfrastructure(): Promise<boolean> {
+    let opened: Awaited<ReturnType<OfflineAccountStorage['open']>> | undefined;
     let identity;
     try {
-      identity = await this.identityStore.loadOrCreate();
+      opened = await this.accountStorage?.open();
+      identity = opened ? { status: 'ready' as const, secrets: opened.secrets } : await this.identityStore.loadOrCreate();
     } catch {
-      identity = { status: 'unavailable' } as const;
+      identity = this.accountStorage ? { status: 'protected', reason: 'missing_key' } as const : { status: 'unavailable' } as const;
     }
     if (identity.status !== 'ready') {
       this.setState(identity.status === 'protected'
@@ -363,7 +376,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.secrets = identity.secrets;
     let database: OfflineCaptureDatabase;
     try {
-      database = this.databaseFactory(identity.secrets.databaseKey);
+      database = opened?.database ?? this.databaseFactory(identity.secrets.databaseKey);
     } catch {
       this.setState(classifiedScanState(
         { status: 'secure_storage_unavailable' },
@@ -423,7 +436,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       this.scheduler = this.schedulerFactory(database, {
         rejectOfflineCapture: () => this.rejectOfflineCapture(),
       });
-      this.scheduler.start();
+      this.scheduler.stop();
       this.unsubscribeScheduler = this.scheduler.subscribe(() => this.onSchedulerState());
       this.backgroundBinding.bind(this.scheduler);
     } catch {
@@ -446,7 +459,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private scheduleSessionTransition(generation: number): Promise<void> {
-    const promise = this.transitionToSession(generation);
+    const prior = this.sessionTransitionFlight?.promise;
+    const promise = (prior ?? Promise.resolve()).catch(() => undefined).then(() => this.transitionToSession(generation));
     const flight = Object.freeze({ generation, promise });
     this.sessionTransitionFlight = flight;
     void promise.then(() => {
@@ -462,7 +476,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private async transitionToSession(generation: number): Promise<void> {
-    if (!this.started || this.database === null) return;
+    if (!this.isCurrent(generation) || this.database === null) return;
     this.captureMode = null;
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
@@ -542,6 +556,36 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       ));
       return;
     }
+    if (this.accountStorage) {
+      try {
+        const old = await database.readOwner();
+        if (old !== null && (old.organizationId !== snapshot.session.organizationId
+          || old.userId !== snapshot.session.userId || old.membershipId !== snapshot.session.membershipId)) {
+          const allowed = async () => this.isCurrent(generation) && this.session.isCurrent(snapshot)
+            && this.operationFlight === null && this.manualFlights.size === 0
+            && ![...this.manualAcknowledgements.values()].some(a => a.status === 'pending')
+            && !(this.scheduler?.isBusy() ?? false) && await this.legacyOutbox.read() === null;
+          const switched = await this.accountStorage.switchOwner(database, secrets, snapshot.session, allowed);
+          if (!switched) {
+            this.setState(protectedScanState('identity_mismatch', PRODUCT_SCAN_PROTECTION_CLASS.ownerBinding));
+            return;
+          }
+          this.unsubscribeScheduler?.();
+          this.scheduler?.stop();
+          this.database = switched.database; this.secrets = switched.secrets;
+          this.manualAcknowledgements.clear(); this.visibleWorkEventId = null; this.visibleTerminalOutcome = null;
+          this.scheduler = this.schedulerFactory(switched.database, { rejectOfflineCapture: () => this.rejectOfflineCapture() });
+          this.scheduler.stop();
+          this.unsubscribeScheduler = this.scheduler.subscribe(() => this.onSchedulerState());
+          this.backgroundBinding.bind(this.scheduler);
+          if (this.isCurrent(generation) && this.session.isCurrent(snapshot)) await this.prepareAuthenticatedCapture(snapshot, generation);
+          return;
+        }
+      } catch {
+        this.setState(protectedScanState('local_evidence_protected', PRODUCT_SCAN_PROTECTION_CLASS.ownerBinding));
+        return;
+      }
+    }
     let bound;
     try {
       bound = await database.bindOwner({
@@ -567,6 +611,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       ));
       return;
     }
+    this.ownerSession = snapshot;
+    this.scheduler?.start();
     this.setState({ status: 'checking' });
     let commandId: string;
     try {
@@ -805,13 +851,18 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     }
     this.visibleWorkEventId = workEventId;
     const queueCount = await database.queueCount();
+    if (!this.isCurrent(generation)) return;
     this.setState(mode === 'offline'
       ? { status: 'saved_locally', queueCount }
       : { status: 'synchronizing', queueCount });
     void this.scheduler?.trigger('event_append');
   }
 
-  async captureManual(target: {
+  captureManual(target: { readonly targetType: 'customer' | 'project' | 'general_work'; readonly targetId: string }): Promise<ManualOfflineCaptureResult> {
+    return this.trackManual(() => this.performManual(target));
+  }
+
+  private async performManual(target: {
     readonly targetType: 'customer' | 'project' | 'general_work';
     readonly targetId: string;
   }): Promise<ManualOfflineCaptureResult> {
@@ -906,7 +957,11 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     return { status: 'saved', workEventId };
   }
 
-  async captureBreak(): Promise<ManualOfflineCaptureResult> {
+  captureBreak(): Promise<ManualOfflineCaptureResult> {
+    return this.trackManual(() => this.performBreak());
+  }
+
+  private async performBreak(): Promise<ManualOfflineCaptureResult> {
     const generation = this.generation;
     const database = this.database;
     const secrets = this.secrets;
@@ -1089,6 +1144,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private onSchedulerState(): void {
+    if (!this.canSynchronize()) return;
     if (this.operationFlight !== null) return;
     const schedulerState = this.scheduler?.getState();
     if (schedulerState === undefined) return;
@@ -1158,6 +1214,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private async invalidateCapture(removeLookupKey: boolean): Promise<void> {
+    const generation = this.generation;
+    const database = this.database;
+    this.pauseSynchronization();
     this.captureMode = null;
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
@@ -1170,13 +1229,31 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       this.updatePendingManualAcknowledgements({ status: 'rejected' });
     }
     await this.nfcLifecycle.cancelCapture().catch(() => undefined);
-    await this.database?.invalidateCapture().catch(() => undefined);
+    if (generation !== this.generation) return;
+    await database?.invalidateCapture().catch(() => undefined);
+    if (generation !== this.generation) return;
     if (removeLookupKey) {
       await this.identityStore.removeActiveLookupKey().catch(() => undefined);
+      if (generation !== this.generation) return;
       this.secrets?.lookupKey.fill(0);
       this.secrets = null;
     }
     this.setState({ status: 'inactive' });
+  }
+
+  private pauseSynchronization(): void {
+    this.ownerSession = null;
+    this.scheduler?.stop();
+  }
+
+  private canSynchronize(): boolean {
+    return this.ownerSession !== null && this.session.isCurrent(this.ownerSession);
+  }
+
+  private trackManual(operation: () => Promise<ManualOfflineCaptureResult>): Promise<ManualOfflineCaptureResult> {
+    const flight = operation(); this.manualFlights.add(flight);
+    void flight.finally(() => this.manualFlights.delete(flight)).catch(() => undefined);
+    return flight;
   }
 
   private isCurrent(generation: number): boolean {

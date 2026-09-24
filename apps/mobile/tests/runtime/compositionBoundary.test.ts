@@ -1,3 +1,4 @@
+vi.mock('expo-file-system/legacy', () => ({ readDirectoryAsync: vi.fn(), makeDirectoryAsync: vi.fn(), deleteAsync: vi.fn() }));
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';

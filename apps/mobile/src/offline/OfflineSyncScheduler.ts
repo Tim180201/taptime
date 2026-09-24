@@ -69,6 +69,7 @@ export class OfflineSyncScheduler {
   private flight: Promise<OfflineSyncSchedulerState> | null = null;
   private timerHandle: unknown | null = null;
   private stopped = false;
+  private transmissionGeneration = 0;
   private archiveTimerHandle: unknown | null = null;
   private archiveFlight: Promise<void> | null = null;
   private archiveAfterSequence = 0;
@@ -98,7 +99,7 @@ export class OfflineSyncScheduler {
     if (this.stopped) return Promise.resolve(this.state);
     if (this.flight !== null) return this.flight;
     this.cancelTimer();
-    const operation = this.drain();
+    const operation = this.drain(this.transmissionGeneration);
     let flight!: Promise<OfflineSyncSchedulerState>;
     flight = operation.finally(() => {
       if (this.flight === flight) this.flight = null;
@@ -107,8 +108,15 @@ export class OfflineSyncScheduler {
     return flight;
   }
 
+  isBusy(): boolean { return this.flight !== null || this.archiveFlight !== null; }
+
+  async whenIdle(): Promise<void> {
+    await Promise.all([this.flight, this.archiveFlight]);
+  }
+
   stop(): void {
     this.stopped = true;
+    this.transmissionGeneration += 1;
     this.cancelTimer();
     this.archiveGeneration += 1;
     if (this.archiveTimerHandle !== null) this.timer.cancel(this.archiveTimerHandle);
@@ -117,6 +125,10 @@ export class OfflineSyncScheduler {
 
   start(): void {
     this.stopped = false;
+    const generation = this.transmissionGeneration;
+    if (this.flight !== null) void this.flight.then(() => {
+      if (this.isTransmissionCurrent(generation)) void this.trigger('session_restored');
+    }).catch(() => undefined);
     this.scheduleArchiveReconciliation();
   }
 
@@ -194,7 +206,11 @@ export class OfflineSyncScheduler {
     }, Math.max(1, this.archiveNextAttemptAt - this.now()));
   }
 
-  private async drain(): Promise<OfflineSyncSchedulerState> {
+  private isTransmissionCurrent(generation: number): boolean {
+    return !this.stopped && generation === this.transmissionGeneration;
+  }
+
+  private async drain(generation: number): Promise<OfflineSyncSchedulerState> {
     let lastDurable:
       | { readonly status: 'review_pending'; readonly workEventId: string }
       | {
@@ -203,24 +219,25 @@ export class OfflineSyncScheduler {
           readonly workEventId: string;
         }
       | null = null;
-    while (!this.stopped) {
+    while (this.isTransmissionCurrent(generation)) {
       const queueCount = await this.safeQueueCount();
-      if (queueCount === null) return this.publish({ status: 'protected', queueCount: 0 });
+      if (!this.isTransmissionCurrent(generation)) return this.state;
+      if (queueCount === null) return this.publish(generation, { status: 'protected', queueCount: 0 });
       if (queueCount === 0) {
         let reviewPendingSequence = await this.safeReviewPendingSequence();
         if (reviewPendingSequence === undefined) {
-          return this.publish({ status: 'protected', queueCount: 0 });
+          return this.publish(generation, { status: 'protected', queueCount: 0 });
         }
         if (reviewPendingSequence !== null && lastDurable?.status !== 'review_pending') {
           reviewPendingSequence = await this.reconcileReviewPendingSequence(
-            reviewPendingSequence,
+            reviewPendingSequence, generation,
           );
         }
         if (
           lastDurable?.status === 'review_pending'
           || reviewPendingSequence !== null
         ) {
-          return this.publish({
+          return this.publish(generation, {
             status: 'review_pending',
             queueCount: 0,
             ...(lastDurable?.status === 'review_pending'
@@ -229,25 +246,26 @@ export class OfflineSyncScheduler {
           });
         }
         if (lastDurable?.status === 'server_decision') {
-          return this.publish({
+          return this.publish(generation, {
             status: 'server_decision',
             queueCount: 0,
             decision: lastDurable.decision,
             workEventId: lastDurable.workEventId,
           });
         }
-        return this.publish({ status: 'idle', queueCount: 0 });
+        return this.publish(generation, { status: 'idle', queueCount: 0 });
       }
-      this.publish({ status: 'synchronizing', queueCount });
+      this.publish(generation, { status: 'synchronizing', queueCount });
 
       let legacy: LegacyOfflineQueueHead | null;
       try {
         legacy = await this.database.claimLegacyHead(this.now());
       } catch {
-        return this.publish({ status: 'protected', queueCount });
+        return this.publish(generation, { status: 'protected', queueCount });
       }
       if (legacy !== null) {
-        const outcome = await this.submitLegacy(legacy, queueCount);
+        if (!this.isTransmissionCurrent(generation)) return this.state;
+        const outcome = await this.submitLegacy(legacy, queueCount, generation);
         if (outcome === null) continue;
         return outcome;
       }
@@ -256,24 +274,25 @@ export class OfflineSyncScheduler {
       try {
         head = await this.database.claimHead(this.now());
       } catch {
-        return this.publish({ status: 'protected', queueCount });
+        return this.publish(generation, { status: 'protected', queueCount });
       }
       if (head === null) {
         let nextRetryAt: number | null;
         try {
           nextRetryAt = await this.database.readNextRetryAt();
         } catch {
-          return this.publish({ status: 'protected', queueCount });
+          return this.publish(generation, { status: 'protected', queueCount });
         }
         if (nextRetryAt !== null) {
           this.scheduleRetry(nextRetryAt - this.now());
         }
-        return this.publish({ status: 'retry_wait', queueCount });
+        return this.publish(generation, { status: 'retry_wait', queueCount });
       }
-      const outcome = await this.submitOffline(head, queueCount);
+      if (!this.isTransmissionCurrent(generation)) { await this.releaseOffline(commandIdentity(head)); return this.state; }
+      const outcome = await this.submitOffline(head, queueCount, generation);
       if (outcome.status === 'continue') {
         lastDurable = outcome.durable;
-        this.publish({ ...lastDurable, queueCount: Math.max(0, queueCount - 1) });
+        this.publish(generation, { ...lastDurable, queueCount: Math.max(0, queueCount - 1) });
         continue;
       }
       return outcome.state;
@@ -284,6 +303,7 @@ export class OfflineSyncScheduler {
   private async submitLegacy(
     head: LegacyOfflineQueueHead,
     queueCount: number,
+    generation: number,
   ): Promise<OfflineSyncSchedulerState | null> {
     let result: LifecycleEventResult;
     try {
@@ -291,6 +311,7 @@ export class OfflineSyncScheduler {
     } catch {
       result = { status: 'transient_failure' };
     }
+    if (!this.isTransmissionCurrent(generation)) return this.state;
     if (isExactLegacyAcknowledgement(head.submission, result)) {
       try {
         await this.database.acknowledgeLegacyHead({
@@ -298,7 +319,7 @@ export class OfflineSyncScheduler {
           receiptId: head.submission.command.receipt.id,
         });
       } catch {
-        return this.publish({ status: 'protected', queueCount });
+        return this.publish(generation, { status: 'protected', queueCount });
       }
       return null;
     }
@@ -308,22 +329,23 @@ export class OfflineSyncScheduler {
     };
     if (result.status === 'authority_rejected') {
       await this.protectLegacy(identity);
-      await this.rejectAuthority();
-      return this.publish({ status: 'authority_rejected', queueCount });
+      await this.rejectAuthority(generation);
+      return this.publish(generation, { status: 'authority_rejected', queueCount });
     }
     if (
       result.status === 'conflict'
       || result.status === 'deferred'
     ) {
       await this.protectLegacy(identity);
-      return this.publish({ status: 'protected', queueCount });
+      return this.publish(generation, { status: 'protected', queueCount });
     }
-    return this.retryLegacy(head, identity, queueCount);
+    return this.retryLegacy(head, identity, queueCount, generation);
   }
 
   private async submitOffline(
     head: OfflineQueueHead,
     queueCount: number,
+    generation: number,
   ): Promise<
     | {
         readonly status: 'continue';
@@ -344,12 +366,16 @@ export class OfflineSyncScheduler {
     } catch {
       reconciliation = { status: 'unavailable' } as const;
     }
+    if (!this.isTransmissionCurrent(generation)) {
+      await this.releaseOffline(identity);
+      return { status: 'stop', state: this.state };
+    }
     if (reconciliation.status === 'authority_rejected') {
       await this.releaseOffline(identity);
-      await this.rejectAuthority();
+      await this.rejectAuthority(generation);
       return {
         status: 'stop',
-        state: this.publish({ status: 'authority_rejected', queueCount }),
+        state: this.publish(generation, { status: 'authority_rejected', queueCount }),
       };
     }
     if (reconciliation.status === 'unavailable') {
@@ -359,6 +385,7 @@ export class OfflineSyncScheduler {
           head,
           identity,
           queueCount,
+          generation,
           'retryAfterSeconds' in reconciliation
             ? reconciliation.retryAfterSeconds
             : undefined,
@@ -375,7 +402,7 @@ export class OfflineSyncScheduler {
         await this.protectOffline(identity);
         return {
           status: 'stop',
-          state: this.publish({ status: 'protected', queueCount }),
+          state: this.publish(generation, { status: 'protected', queueCount }),
         };
       }
       try {
@@ -388,7 +415,7 @@ export class OfflineSyncScheduler {
       } catch {
         return {
           status: 'stop',
-          state: this.publish({ status: 'protected', queueCount }),
+          state: this.publish(generation, { status: 'protected', queueCount }),
         };
       }
       return recovered.result.status === 'review_pending'
@@ -412,12 +439,16 @@ export class OfflineSyncScheduler {
     } catch {
       result = { status: 'unavailable' };
     }
+    if (!this.isTransmissionCurrent(generation)) {
+      await this.releaseOffline(identity);
+      return { status: 'stop', state: this.state };
+    }
     if (result.status === 'synchronized' || result.status === 'review_pending') {
       if (!sameDurableIdentity(identity, result)) {
         await this.protectOffline(identity);
         return {
           status: 'stop',
-          state: this.publish({ status: 'protected', queueCount }),
+          state: this.publish(generation, { status: 'protected', queueCount }),
         };
       }
       try {
@@ -430,7 +461,7 @@ export class OfflineSyncScheduler {
       } catch {
         return {
           status: 'stop',
-          state: this.publish({ status: 'protected', queueCount }),
+          state: this.publish(generation, { status: 'protected', queueCount }),
         };
       }
       return result.status === 'review_pending'
@@ -449,17 +480,17 @@ export class OfflineSyncScheduler {
     }
     if (result.status === 'authority_rejected') {
       await this.releaseOffline(identity);
-      await this.rejectAuthority();
+      await this.rejectAuthority(generation);
       return {
         status: 'stop',
-        state: this.publish({ status: 'authority_rejected', queueCount }),
+        state: this.publish(generation, { status: 'authority_rejected', queueCount }),
       };
     }
     if (result.status === 'conflict') {
       await this.protectOffline(identity);
       return {
         status: 'stop',
-        state: this.publish({ status: 'protected', queueCount }),
+        state: this.publish(generation, { status: 'protected', queueCount }),
       };
     }
     return {
@@ -468,6 +499,7 @@ export class OfflineSyncScheduler {
         head,
         identity,
         queueCount,
+        generation,
         'retryAfterSeconds' in result ? result.retryAfterSeconds : undefined,
       ),
     };
@@ -477,6 +509,7 @@ export class OfflineSyncScheduler {
     head: OfflineQueueHead,
     identity: OfflineDurableResultIdentity,
     queueCount: number,
+    generation: number,
     retryAfterSeconds?: number,
   ): Promise<OfflineSyncSchedulerState> {
     const attemptCount = head.attemptCount + 1;
@@ -492,16 +525,18 @@ export class OfflineSyncScheduler {
         this.now() + delay,
       );
     } catch {
-      return this.publish({ status: 'protected', queueCount });
+      return this.publish(generation, { status: 'protected', queueCount });
     }
+    if (!this.isTransmissionCurrent(generation)) return this.state;
     this.scheduleRetry(delay);
-    return this.publish({ status: 'retry_wait', queueCount });
+    return this.publish(generation, { status: 'retry_wait', queueCount });
   }
 
   private async retryLegacy(
     head: LegacyOfflineQueueHead,
     identity: { readonly workEventId: string; readonly receiptId: string },
     queueCount: number,
+    generation: number,
   ): Promise<OfflineSyncSchedulerState> {
     const delay = retryDelay(head.attemptCount, undefined, this.random);
     try {
@@ -511,10 +546,11 @@ export class OfflineSyncScheduler {
         this.now() + delay,
       );
     } catch {
-      return this.publish({ status: 'protected', queueCount });
+      return this.publish(generation, { status: 'protected', queueCount });
     }
+    if (!this.isTransmissionCurrent(generation)) return this.state;
     this.scheduleRetry(delay);
-    return this.publish({ status: 'retry_wait', queueCount });
+    return this.publish(generation, { status: 'retry_wait', queueCount });
   }
 
   private scheduleRetry(delay: number): void {
@@ -550,16 +586,17 @@ export class OfflineSyncScheduler {
 
   private async reconcileReviewPendingSequence(
     expectedSequence: number,
+    generation: number,
   ): Promise<number | null> {
     try {
       const context = await this.database.readActiveCaptureContext();
-      if (context === null) return expectedSequence;
+      if (context === null || !this.isTransmissionCurrent(generation)) return expectedSequence;
       const state = await this.offlineLifecycle.readReviewState({
         expectedMembershipId: context.membershipId,
         installationId: context.installationId,
       });
       if (
-        state.status !== 'clear'
+        !this.isTransmissionCurrent(generation) || state.status !== 'clear'
         || state.expectedMembershipId !== context.membershipId
         || state.installationId !== context.installationId
         || state.confirmedThroughSequence < expectedSequence
@@ -573,7 +610,8 @@ export class OfflineSyncScheduler {
     }
   }
 
-  private async rejectAuthority(): Promise<void> {
+  private async rejectAuthority(generation: number): Promise<void> {
+    if (!this.isTransmissionCurrent(generation)) return;
     try {
       await this.authorityRejection.rejectOfflineCapture();
     } catch {
@@ -607,7 +645,8 @@ export class OfflineSyncScheduler {
     }
   }
 
-  private publish(state: OfflineSyncSchedulerState): OfflineSyncSchedulerState {
+  private publish(generation: number, state: OfflineSyncSchedulerState): OfflineSyncSchedulerState {
+    if (!this.isTransmissionCurrent(generation)) return this.state;
     this.state = Object.freeze(state);
     for (const listener of this.listeners) listener();
     return this.state;

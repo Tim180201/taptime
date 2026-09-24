@@ -69,7 +69,7 @@ describe('ScanScreen presentation', () => {
       outcome: { status: 'active_entry_for_other_target_rejected' } }, 'Andere Arbeitszeit ist aktiv'],
     [{ status: 'retry_pending' }, 'Übertragung noch offen'],
     [{ status: 'secure_storage_unavailable' }, 'Sicherer Speicher nicht verfügbar'],
-    [{ status: 'protected_pending', reason: 'identity_mismatch' }, 'Ausstehender Vorgang geschützt'],
+    [{ status: 'protected_pending', reason: 'identity_mismatch' }, 'Vorgänge eines anderen Kontos offen'],
     [{ status: 'protected_pending', reason: 'legacy_membership_unknown' }, 'Älterer Vorgang geschützt'],
     [{ status: 'ready', outcome: null }, 'Bereit zum Scannen'],
     [{ status: 'ready', outcome: { status: 'unreadable' } }, 'Tag nicht lesbar'],
@@ -118,7 +118,7 @@ describe('ScanScreen presentation', () => {
     const presentation = presentScanState({
       status: 'protected_pending', reason: 'identity_mismatch',
     });
-    expect(presentation.message).toContain('nicht mit dem ausstehenden Vorgang überein');
+    expect(presentation.message).toContain('Melde dich mit diesem Konto an');
     expect(presentation.message).not.toMatch(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
     expect(presentation.message).not.toContain('nfc:uid');
   });

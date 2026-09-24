@@ -24,8 +24,7 @@ import {
 } from '../nfc/NativeNfcIngress';
 import { OfflineCaptureCoordinator } from '../offline/OfflineCaptureCoordinator';
 import { OfflineCaptureLeaseClient } from '../offline/OfflineCaptureLeaseClient';
-import { getExpoOfflineCaptureDatabase } from '../offline/ExpoOfflineCaptureDatabase';
-import { OfflineInstallationIdentityStore } from '../offline/OfflineInstallationIdentityStore';
+import { getExpoOfflineCaptureDatabase, getExpoOfflineAccountStorage } from '../offline/ExpoOfflineCaptureDatabase';
 import { OfflineLifecycleClient } from '../offline/OfflineLifecycleClient';
 import { OfflineSchedulingLifecycle } from '../offline/OfflineSchedulingLifecycle';
 import { OfflineSyncScheduler } from '../offline/OfflineSyncScheduler';
@@ -133,11 +132,12 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     new URL(configuration.configuration.tapTimeApiBaseUrl),
     authenticatedRequests,
   );
+  const accountStorage = getExpoOfflineAccountStorage();
   const scanOrchestrator = new OfflineCaptureCoordinator(
     lifecycleNfc,
     lifecycleNfc,
     offlineSessionContext,
-    new OfflineInstallationIdentityStore(),
+    accountStorage,
     getExpoOfflineCaptureDatabase,
     new OfflineCaptureLeaseClient(
       new URL(configuration.configuration.tapTimeApiBaseUrl),
@@ -153,6 +153,8 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     new ExpoSecureLifecycleEvidenceOutbox(),
     randomUUID,
     offlineBackgroundSchedulerBinding,
+    undefined,
+    accountStorage,
   );
   const offlineSchedulingLifecycle = new OfflineSchedulingLifecycle(scanOrchestrator);
   const nativeNfcIngressLifecycle = new NativeNfcIngressLifecycle(

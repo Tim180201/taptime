@@ -188,8 +188,8 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
             tone: 'warning',
           }
         : {
-            title: 'Ausstehender Vorgang geschützt',
-            message: 'Die aktuelle Mitgliedschaft stimmt nicht mit dem ausstehenden Vorgang überein. Er bleibt geschützt und kann nicht neu zugeordnet werden.',
+            title: 'Vorgänge eines anderen Kontos offen',
+            message: 'Auf diesem Gerät warten noch Vorgänge eines anderen Kontos auf den Server. Melde dich mit diesem Konto an, damit sie übertragen werden; danach kannst du wechseln.',
             tone: 'warning',
           };
     case 'ready':

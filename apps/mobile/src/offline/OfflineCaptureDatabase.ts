@@ -272,7 +272,7 @@ interface QuarantineRow {
   readonly evidence_json: string;
 }
 
-const DATABASE_NAME = 'taptime-offline-v1.db';
+export const OFFLINE_DATABASE_NAME = 'taptime-offline-v1.db';
 const lowercaseSha256Pattern = /^[0-9a-f]{64}$/;
 
 export class OfflineCaptureDatabase {
@@ -283,6 +283,7 @@ export class OfflineCaptureDatabase {
   constructor(
     private readonly openDatabase: OfflineDatabaseOpen,
     private readonly databaseKey: Uint8Array,
+    private readonly databaseName: string = OFFLINE_DATABASE_NAME,
   ) {}
 
   initialize(
@@ -290,12 +291,14 @@ export class OfflineCaptureDatabase {
   ): Promise<OfflineLocalStoreResult> {
     return this.serialized(async () => {
       if (this.connection !== null) return { status: 'ready' };
+      // Reopening rechecks physical integrity and the owner; an old identity mismatch is not corruption.
+      this.protectedReason = null;
       if (this.databaseKey.length !== 32) {
         return this.protect('wrong_key');
       }
       let database: OfflineDatabaseConnection;
       try {
-        database = await this.openDatabase(DATABASE_NAME);
+        database = await this.openDatabase(this.databaseName);
         const keyHex = bytesToLowercaseHex(this.databaseKey);
         if (!lowercaseSha256Pattern.test(keyHex)) return this.protect('wrong_key');
         await database.execAsync(`PRAGMA key = "x'${keyHex}'"`);
@@ -408,6 +411,32 @@ export class OfflineCaptureDatabase {
     });
   }
 
+  readOwner(): Promise<OfflineDatabaseOwner | null> {
+    return this.serialized(async () => {
+      const row = await this.requireReady().getFirstAsync<OwnerRow>('SELECT * FROM offline_owner WHERE singleton_id = 1');
+      return row === null ? null : {
+        organizationId: row.organization_id, userId: row.user_id, membershipId: row.membership_id,
+        installationBindingDigest: row.installation_binding_digest,
+      };
+    });
+  }
+
+  canReleaseOwner(owner: OfflineDatabaseOwner): Promise<boolean> {
+    return this.serialized(async () => {
+      const db = this.requireReady();
+      if (!await cipherAndDatabaseIntegrityPass(db)) throw new Error('Offline database protected');
+      if ((await this.validateDatabaseState()).status !== 'ready') return false;
+      const existing = await db.getFirstAsync<OwnerRow>('SELECT * FROM offline_owner WHERE singleton_id = 1');
+      if (existing === null || !sameOwner(existing, owner) || existing.review_pending_sequence !== null) return false;
+      const row = await db.getFirstAsync<{ empty: number }>(`SELECT (
+        NOT EXISTS (SELECT 1 FROM offline_event_queue)
+        AND NOT EXISTS (SELECT 1 FROM offline_legacy_queue)
+        AND NOT EXISTS (SELECT 1 FROM offline_protected_quarantine)
+      ) AS empty`);
+      return row?.empty === 1;
+    });
+  }
+
   bindOwner(owner: OfflineDatabaseOwner): Promise<OfflineLocalStoreResult> {
     return this.serialized(async () => {
       const database = this.requireReady();
@@ -418,6 +447,16 @@ export class OfflineCaptureDatabase {
           'SELECT * FROM offline_owner WHERE singleton_id = 1',
         );
         if (existing === null) {
+          const evidence = await transaction.getFirstAsync<{ count: number }>(`SELECT (
+            (SELECT count(*) FROM offline_event_queue)
+            + (SELECT count(*) FROM offline_legacy_queue)
+            + (SELECT count(*) FROM offline_protected_quarantine)
+          ) AS count`);
+          // A current login cannot establish the provenance of pre-existing evidence.
+          if (evidence?.count !== 0) {
+            result = this.protect('corrupt_row');
+            return;
+          }
           await transaction.runAsync(
             `INSERT INTO offline_owner (
                singleton_id, organization_id, user_id, membership_id,

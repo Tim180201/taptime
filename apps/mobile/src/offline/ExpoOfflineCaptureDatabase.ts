@@ -1,5 +1,10 @@
+import * as SecureStore from 'expo-secure-store';
+import { getRandomBytesAsync } from 'expo-crypto';
+import { readDirectoryAsync, makeDirectoryAsync, deleteAsync } from 'expo-file-system/legacy';
+import { OfflineAccountStorage, type OfflineDatabaseFiles } from './OfflineAccountStorage';
 import {
   openDatabaseAsync,
+  defaultDatabaseDirectory,
   type SQLiteBindParams,
   type SQLiteDatabase,
 } from 'expo-sqlite';
@@ -10,31 +15,52 @@ import {
 } from './OfflineCaptureDatabase';
 import { bytesToLowercaseHex } from './encoding';
 
-let actor:
-  | {
-      readonly keyHex: string;
-      readonly database: OfflineCaptureDatabase;
-    }
-  | null = null;
+const actors = new Map<string, { keyHex: string; database: OfflineCaptureDatabase }>();
 
-export function getExpoOfflineCaptureDatabase(
-  databaseKey: Uint8Array,
-): OfflineCaptureDatabase {
+export function getExpoOfflineCaptureDatabase(databaseKey: Uint8Array, databaseName = 'taptime-offline-v1.db'): OfflineCaptureDatabase {
   const keyHex = bytesToLowercaseHex(databaseKey);
-  if (actor !== null) {
-    if (actor.keyHex !== keyHex) {
-      throw new Error('Offline database actor is already bound to another key');
-    }
+  const actor = actors.get(databaseName);
+  if (actor !== undefined) {
+    if (actor.keyHex !== keyHex) throw new Error('Offline database actor is already bound to another key');
     return actor.database;
   }
   const database = new OfflineCaptureDatabase(
-    async (databaseName) => new ExpoSqliteConnection(
-      await openDatabaseAsync(databaseName, { useNewConnection: true }),
-    ),
-    databaseKey,
+    async name => new ExpoSqliteConnection(await openDatabaseAsync(name, { useNewConnection: true })),
+    databaseKey, databaseName,
   );
-  actor = { keyHex, database };
+  actors.set(databaseName, { keyHex, database });
   return database;
+}
+
+let accountStorage: OfflineAccountStorage | undefined;
+export function getExpoOfflineAccountStorage(): OfflineAccountStorage {
+  return accountStorage ??= new OfflineAccountStorage(SecureStore, getRandomBytesAsync,
+    getExpoOfflineCaptureDatabase, expoOfflineDatabaseFiles());
+}
+
+export function expoOfflineDatabaseFiles(): OfflineDatabaseFiles {
+  return {
+      async list() {
+        const directory = databaseDirectory();
+        await makeDirectoryAsync(directory, { intermediates: true });
+        // The legacy API throws on an unreadable directory; Directory.list() can return [].
+        return readDirectoryAsync(directory);
+      },
+      async remove(name) {
+        if (name !== 'taptime-offline-v1.db' && !/^taptime-offline-g-[A-Za-z0-9_-]{43}\.db$/.test(name)) {
+          throw new Error('Invalid offline database name');
+        }
+        await actors.get(name)?.database.close();
+        for (const suffix of ['', '-wal', '-shm', '-journal']) {
+          await deleteAsync(`${databaseDirectory()}/${name}${suffix}`, { idempotent: true });
+        }
+        actors.delete(name);
+      },
+    };
+}
+function databaseDirectory(): string {
+  if (!defaultDatabaseDirectory.startsWith('/')) throw new Error('Offline database directory unavailable');
+  return `file://${defaultDatabaseDirectory}`;
 }
 
 export class ExpoSqliteConnection implements OfflineDatabaseConnection {
