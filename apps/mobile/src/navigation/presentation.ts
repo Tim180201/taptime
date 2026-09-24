@@ -6,9 +6,10 @@ export const destinationLabels: Record<ProductDestination, string> = {
   capture: 'Erfassen', manual: 'Manuell', times: 'Meine Zeiten', employees: 'Mitarbeiter', setup: 'Tags',
 };
 export function productDestinations(session: Pick<ProductSessionContext, 'role' | 'nfcSetupAvailable' | 'managementScope'>): readonly ProductDestination[] {
-  const people = session.managementScope != null ? 'employees' : 'times';
-  return session.nfcSetupAvailable === true ? ['capture', people, 'setup']
-    : ['capture', people];
+  const destinations: ProductDestination[] = ['capture', 'times'];
+  if (session.managementScope != null) destinations.push('employees');
+  if (session.nfcSetupAvailable === true) destinations.push('setup');
+  return destinations;
 }
 
 export interface SyncIndicator {

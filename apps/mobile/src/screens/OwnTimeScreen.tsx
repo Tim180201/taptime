@@ -6,6 +6,13 @@ export { formatOwnTimeTimestamp, resolveDisplayTimeZone, ownTimeLoadStatus } fro
 export function OwnTimeScreen({ work }: { readonly work: MobileWorkCapability }) {
   const state = useSyncExternalStore((listener) => work.subscribe(listener), () => work.getState(), () => work.getState());
   useEffect(() => {
+    // Pick up changes under Mitarbeiter without replacing a manual capture/acknowledgement.
+    const current = work.getState();
+    if (current.status === 'loading' || current.status === 'ready'
+      && (current.submitting || current.outcome === 'pending')) return;
+    void work.refresh();
+  }, [work]);
+  useEffect(() => {
     if (state.status === 'ready' && state.ownTime.nextCursor !== null && !state.loadingMore) void work.loadMoreOwnTime();
   }, [state, work]);
   if (state.status !== 'ready') return <Screen title="Meine Zeiten"><Card>
