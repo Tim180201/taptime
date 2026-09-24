@@ -4,7 +4,7 @@ import { join, resolve, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
-import { chromium } from 'playwright-core';
+import { launchBrowser } from '../../../scripts/browser/harness.mjs';
 import { build } from 'vite';
 import axe from 'axe-core';
 
@@ -15,8 +15,8 @@ const caddy = readFileSync(resolve(root, '../../infrastructure/caddy/Caddyfile')
 const csp = caddy.split('(landing_headers)')[1].match(/Content-Security-Policy "([^"]+)"/)[1];
 let browser, server, origin;
 before(async () => {
-  await build({ root, logLevel: 'warn', build: { emptyOutDir:true, outDir: join(output, 'empty') } });
-  await build({ root, logLevel: 'warn', plugins: [{ name: 'test-contact-configuration', enforce: 'pre', transform(code, id) {
+  await build({ root, envDir: false, logLevel: 'warn', build: { emptyOutDir:true, outDir: join(output, 'empty') } });
+  await build({ root, envDir: false, logLevel: 'warn', plugins: [{ name: 'test-contact-configuration', enforce: 'pre', transform(code, id) {
     if (id === join(root, 'src/config.ts')) return code.replace("contactEmail = ''", "contactEmail = 'pilot@example.invalid'");
   } }], build: { emptyOutDir:true, outDir: join(output, 'set') } });
   server = createServer((req, res) => {
@@ -35,8 +35,7 @@ before(async () => {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   origin = `http://127.0.0.1:${server.address().port}`;
-  const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-  browser = await chromium.launch({ executablePath: process.env.CHROME_BIN ?? (existsSync(localChrome) ? localChrome : '/usr/bin/google-chrome'), headless: true, args: ['--no-sandbox'] });
+  browser = await launchBrowser();
 });
 after(async () => { await browser?.close(); await new Promise(resolve => server ? server.close(resolve) : resolve()); rmSync(output, { recursive:true,force:true }); });
 for (const width of [320,390,1440]) for (const route of ['/', '/tag']) test(`${route} at ${width}px: axe, overflow, same-origin resources, strict markup`, async () => {

@@ -18,7 +18,7 @@ export function createApplicationPage(configuration: AdminWebConfiguration | nul
       configuration.supabaseUrl, configuration.supabasePublishableKey, invitationUrl,
     )} />;
   }
-  if (configuration === null) return <main style={{ padding: 32 }}>
+  if (configuration === null) return <main className="configuration-error">
     <h1>Die Verwaltung kann nicht gestartet werden</h1>
     <p role="alert">Die sichere Verbindung zum Anmeldedienst ist nicht vollständig eingerichtet.
       Prüfen Sie die Konfiguration und laden Sie die Seite anschließend neu.</p>

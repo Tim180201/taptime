@@ -140,12 +140,12 @@ export default function TimeRecordsView({
         <table>
           <thead><tr><th>Beschäftigte</th><th>Arbeitsziel</th><th>Zeitraum</th><th>Erfassungsart</th><th>Herkunft</th><th>Korrekturstand</th><th>Status</th></tr></thead>
           <tbody>{visibleRecords.map((record) => <tr key={record.timeRecordId}>
-            <td>{record.employeeDisplayName}</td><td>{targetLabel(record.targetType)} · {record.targetDisplayName}</td>
-            <td>{format(record.startedAt)} – {record.stoppedAt === null ? 'läuft' : format(record.stoppedAt)}</td>
-            <td>{captureLabel(record.startedVia, record.stoppedVia)}</td>
-            <td>{record.details ? {nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin] : record.source === 'canonical' ? 'Regulär' : 'Wiederhergestellt'}</td>
-            <td>{record.effectiveRevisionNumber}<TimeRecordControls record={record}/></td>
-            <td>{record.status === 'started' ? 'Läuft' : 'Abgeschlossen'}
+            <td data-label="Beschäftigte">{record.employeeDisplayName}</td><td data-label="Arbeitsziel">{targetLabel(record.targetType)} · {record.targetDisplayName}</td>
+            <td data-label="Zeitraum">{format(record.startedAt)} – {record.stoppedAt === null ? 'läuft' : format(record.stoppedAt)}</td>
+            <td data-label="Erfassungsart">{captureLabel(record.startedVia, record.stoppedVia)}</td>
+            <td data-label="Herkunft">{record.details ? {nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin] : record.source === 'canonical' ? 'Regulär' : 'Wiederhergestellt'}</td>
+            <td data-label="Korrekturstand">{record.effectiveRevisionNumber}<TimeRecordControls record={record}/></td>
+            <td data-label="Status">{record.status === 'started' ? 'Läuft' : 'Abgeschlossen'}
               {record.overlapsAnotherRecord ? ' · Überschneidung' : ''}</td>
           </tr>)}</tbody>
         </table>

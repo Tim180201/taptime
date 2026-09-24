@@ -26,6 +26,7 @@ import {
 	toZonedLocalInput
 } from './timeZone';
 import { DelayedSkeleton } from './ui';
+import { MobileSheet, useCompactLayout } from './MobileSheet';
 
 import { FeedbackBand,navigateFromLink,recentTimeWindow } from './viewHelpers';
 const Overview=lazy(()=>import('./views/Overview'));
@@ -55,6 +56,9 @@ export function App({
   const previousView = useRef(route.view);
   const appliedMonth = useRef<string | null>(null);
   const mainHeading = useRef<HTMLHeadingElement>(null);
+  const compact = useCompactLayout();
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => { setMoreOpen(false); }, [route.view, compact, state.status]);
 
   useEffect(() => {
     const synchronize = () => {
@@ -140,7 +144,7 @@ export function App({
           void administration.signIn(email, passwordSnapshot);
         }}>
           <label htmlFor="login-email">E-Mail</label>
-          <input id="login-email" type="email" autoComplete="username" required value={email}
+          <input id="login-email" type="email" inputMode="email" autoComplete="username" required value={email}
             onChange={(event) => setEmail(event.target.value)} />
           <label htmlFor="login-password">Passwort</label>
           <input id="login-password" type="password" autoComplete="current-password" required
@@ -182,6 +186,8 @@ export function App({
   const activeRoute = visibleViews.some((candidate) => candidate.slug === route.view)
     ? route : defaultRoute(visibleViews[0]!.slug, state.selectedLocation?.id ?? null);
   const activeView = visibleViews.find((candidate) => candidate.slug === activeRoute.view)!;
+  const directViews = visibleViews.length > 5 ? visibleViews.slice(0, 4) : visibleViews;
+  const remainingViews = visibleViews.slice(directViews.length);
   const overviewDate = new Date();
   return <div className="app-shell">
     <aside className="sidebar">
@@ -211,6 +217,7 @@ export function App({
     </aside>
     <main className="workspace">
       <header className="workspace-header">
+        <span className="mobile-brand brand-mark" aria-hidden="true">T</span>
         <div className="workspace-title">
           <p className="eyebrow">{state.projection.organization.name}</p>
           <h1 ref={mainHeading} tabIndex={-1}>{activeView.label}</h1>
@@ -241,8 +248,13 @@ export function App({
           : null}
         <div className="header-actions">
           <button className="header-primary" onClick={() => void administration.refresh()}>
-            Alle Bereiche aktualisieren
+            <span className="refresh-label">Alle Bereiche aktualisieren</span>
+            <svg className="mobile-refresh" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+              <path d="M20 7v5h-5M4 17v-5h5M19 11a7 7 0 0 0-12-5M5 13a7 7 0 0 0 12 5" />
+            </svg>
           </button>
+          {compact && remainingViews.length === 0 ? <button className="quiet" onClick={() => setMoreOpen(true)}
+            aria-haspopup="dialog" aria-expanded={moreOpen}>Mehr</button> : null}
           </div>
       </header>
       <p className="timezone-declaration">
@@ -264,6 +276,37 @@ export function App({
       {activeRoute.view === 'manuell' ? <ManualView state={state} administration={administration}/> : null}
       </Suspense>
     </main>
+    {compact ? <nav className="mobile-navigation" aria-label="Hauptnavigation">
+      {directViews.map(item => <a key={item.slug}
+        href={canonicalRoutePath(defaultRoute(item.slug, state.selectedLocation?.id ?? null))}
+        aria-current={item.slug === activeRoute.view ? 'page' : undefined}
+        onClick={event => navigateFromLink(event, defaultRoute(item.slug, state.selectedLocation?.id ?? null), navigate)}>
+        <SectionIcon view={item.slug} /><span>{item.label}</span>
+      </a>)}
+      {remainingViews.length > 0 ? <button className="quiet" aria-haspopup="dialog" aria-expanded={moreOpen}
+        onClick={() => setMoreOpen(true)}>
+        <svg className="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+          <circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />
+        </svg><span>Mehr</span>
+      </button> : null}
+    </nav> : null}
+    {compact && moreOpen ? <MobileSheet label="Mehr" onCancel={() => setMoreOpen(false)}>
+      <h2>Mehr</h2>
+      <nav className="more-navigation" aria-label="Hauptnavigation">{remainingViews.map(item => <a key={item.slug}
+        href={canonicalRoutePath(defaultRoute(item.slug, state.selectedLocation?.id ?? null))}
+        aria-current={item.slug === activeRoute.view ? 'page' : undefined}
+        onClick={event => {
+          navigateFromLink(event, defaultRoute(item.slug, state.selectedLocation?.id ?? null), navigate);
+          if (event.defaultPrevented) setMoreOpen(false);
+        }}><SectionIcon view={item.slug} /><span>{item.label}</span></a>)}</nav>
+      <div className="sidebar-footer">
+        <span>Angemeldet für</span><strong>{state.projection.organization.name}</strong>
+        <span>{state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Beschäftigte/r'}</span>
+        <span>Zeitdarstellung: {BUSINESS_TIME_ZONE}</span>
+        <button className="quiet" onClick={() => void administration.signOut()}>Abmelden</button>
+      </div>
+      <button className="secondary" onClick={() => setMoreOpen(false)}>Abbrechen</button>
+    </MobileSheet> : null}
   </div>;
 }
 

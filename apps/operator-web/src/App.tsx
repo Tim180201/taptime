@@ -179,6 +179,7 @@ export function App({ runtime }: { runtime: OperatorRuntime }) {
                   E-Mail
                   <input
                     type="email"
+                    inputMode="email"
                     autoComplete="username"
                     required
                     value={email}
@@ -425,25 +426,25 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
                         {rows?.map((row) => (
                           <tr key={row.organization_id}>
                             <th scope="row">{row.name}</th>
-                            <td>
+                            <td data-label="Status">
                               <span className={`badge ${row.status}`}>
                                 {row.status === "active" ? "Aktiv" : "Pausiert"}
                               </span>
                             </td>
-                            <td>{row.employees}</td>
-                            <td>{row.administrators}</td>
-                            <td>{row.location_managers}</td>
-                            <td>{row.active_now}</td>
-                            <td>
+                            <td data-label="Mitarbeiter">{row.employees}</td>
+                            <td data-label="Administratoren">{row.administrators}</td>
+                            <td data-label="Standortleitungen">{row.location_managers}</td>
+                            <td data-label="Jetzt aktiv">{row.active_now}</td>
+                            <td data-label="Letzter Tap">
                               {row.last_tap
                                 ? date(row.last_tap)
                                 : "Noch kein Tap"}
                             </td>
-                            <td>{row.tags}</td>
-                            <td>{row.active_assignments}</td>
-                            <td>{row.open_invitations}</td>
-                            <td>{date(row.created_at)}</td>
-                            <td>
+                            <td data-label="Tags">{row.tags}</td>
+                            <td data-label="Zuordnungen">{row.active_assignments}</td>
+                            <td data-label="Einladungen">{row.open_invitations}</td>
+                            <td data-label="Angelegt">{date(row.created_at)}</td>
+                            <td data-label="Aktion">
                               <button onClick={() => setPanel(row)}>
                                 {row.status === "active"
                                   ? "Pausieren"
@@ -691,6 +692,7 @@ function ActionPanel({
             <label>
               Name des Betriebs
               <input
+                autoComplete="organization"
                 required
                 maxLength={120}
                 value={name}
@@ -702,6 +704,8 @@ function ActionPanel({
               <input
                 required
                 type="email"
+                inputMode="email"
+                autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />

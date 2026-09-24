@@ -11,10 +11,16 @@
     "test": "npm run test --workspace=@taptime/core && npm run test --workspace=@taptime/mobile && npm run test --workspace=@taptime/admin-web && npm run test --workspace=@taptime/operator-web && npm run test --workspace=@taptime/landing-web",
     "build": "npm run build --workspaces --if-present",
     "build:contracts": "npm run build --workspace=@taptime/administration-contract && npm run build --workspace=@taptime/mobile-work-contract && npm run build --workspace=@taptime/offline-sync-contract && npm run build --workspace=@taptime/time-entry-export-contract && npm run build --workspace=@taptime/time-review-contract",
-    "typecheck": "npm run typecheck --workspace=@taptime/core && npm run typecheck --workspace=@taptime/mobile && npm run typecheck --workspace=@taptime/admin-web && npm run typecheck --workspace=@taptime/operator-web && npm run typecheck --workspace=@taptime/landing-web"
+    "typecheck": "npm run typecheck --workspace=@taptime/core && npm run typecheck --workspace=@taptime/mobile && npm run typecheck --workspace=@taptime/admin-web && npm run typecheck --workspace=@taptime/operator-web && npm run typecheck --workspace=@taptime/landing-web",
+    "test:browser": "npm run test:layout && npm run test:browser --workspace=@taptime/landing-web",
+    "test:layout": "node --test scripts/browser/layout.test.mjs"
   },
   "devDependencies": {
     "shell-quote": "1.9.0",
-    "yaml": "2.9.0"
+    "yaml": "2.9.0",
+    "playwright-core": "1.62.1",
+    "axe-core": "^4.10.3",
+    "vite": "8.1.3",
+    "@vitejs/plugin-react": "6.0.3"
   }
 }

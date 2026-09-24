@@ -82,10 +82,10 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
         });
       }}>
         <label htmlFor="employee-name">Name</label>
-        <input ref={nameInput} id="employee-name" required maxLength={120} value={name}
+        <input ref={nameInput} id="employee-name" autoComplete="name" required maxLength={120} value={name}
           onChange={(event) => setName(event.target.value)} />
         <label htmlFor="employee-email">E-Mail</label>
-        <input id="employee-email" type="email" autoComplete="email" required maxLength={254}
+        <input id="employee-email" type="email" inputMode="email" autoComplete="email" required maxLength={254}
           value={email} onChange={(event) => setEmail(event.target.value)} />
         {state.locationsEnabled ? <>
           <label htmlFor="employee-location">Heimatstandort</label>

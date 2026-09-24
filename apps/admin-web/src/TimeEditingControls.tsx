@@ -3,6 +3,7 @@ import { BUSINESS_TIME_ZONE,formatZonedDateTime,parseZonedLocalTimestamp,shiftDa
 import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type SafeOwnTimeRecord,type SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability,AdminWebState } from './contracts';
 import { timeEditMessages,type TimeEditInput } from './timeEditing';
+import { ResponsiveSheet } from './MobileSheet';
 
 type ReadyState=Pick<Extract<AdminWebState,{status:'ready'}>,'role'|'membershipId'|'timeEditBusy'|'workTargets'>;
 type Context={state:ReadyState;administration:AdminWebCapability;targetMembershipId:string;online:boolean};
@@ -95,7 +96,8 @@ function TimeEditForm({kind,day,record,onClose}:{kind:TimeEditInput['kind'];day?
     } catch {if(mounted.current)setNotice(timeEditMessages.unavailable);}
     finally {if(mounted.current)setSaving(false);}
   };
-  return <form ref={form} className="form-grid time-edit-form" aria-label={kind==='backfill'?'Zeit hinzufügen':kind==='comment'?'Kommentar schreiben':kind==='stop'?'Zeit beenden':'Zeit ändern'} onSubmit={e=>{e.preventDefault();void save();}}>
+  const label=kind==='backfill'?'Zeit hinzufügen':kind==='comment'?'Kommentar schreiben':kind==='stop'?'Zeit beenden':'Zeit ändern';
+  return <ResponsiveSheet label={label} onCancel={onClose} busy={saving}><form ref={form} className="form-grid time-edit-form" aria-label={label} onSubmit={e=>{e.preventDefault();void save();}}>
     {kind==='backfill'?<><label>Kunde oder Projekt<select required value={selected} disabled={saving||archivePending} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>{targets?.status==='ready'?targets.value.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{t.displayName}</option>):null}</select></label>
       {targets?.status!=='ready'?<p role="status">{targets?.status==='unavailable'?targets.message:'Arbeitsziele werden geladen.'} <button type="button" className="quiet" disabled={saving||archivePending} onClick={()=>void context.administration.loadWorkTargets?.()}>Arbeitsziele erneut laden</button></p>:targets.value.length===0?<p>Es sind keine Arbeitsziele verfügbar.</p>:null}
       <label>Datum<input type="date" required value={date} disabled={saving||archivePending} onChange={e=>setDate(e.target.value)}/></label></>:null}
@@ -108,5 +110,5 @@ function TimeEditForm({kind,day,record,onClose}:{kind:TimeEditInput['kind'];day?
     {!context.online?<p role="status">Nur online möglich. Ihre Eingaben bleiben erhalten.</p>:null}
     <button disabled={saving||!context.online} aria-busy={saving}>{saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'}</button>
     <button className="quiet" type="button" disabled={saving} onClick={onClose}>Abbrechen</button>
-  </form>;
+  </form></ResponsiveSheet>;
 }

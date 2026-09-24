@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode, type RefObject } from 'react';
 import type { SectionStatus } from './contracts';
+import { MobileSheet, useCompactLayout } from './MobileSheet';
 
 export function Panel({
   title,
@@ -104,7 +105,8 @@ export function Confirmation({
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
 }) {
-  return <aside className="confirmation" role="alertdialog" aria-label={label} aria-modal="false">
+  const compact = useCompactLayout();
+  const content = <>
     <strong>{title}</strong>
     {children}
     <div className="confirmation-actions">
@@ -113,7 +115,10 @@ export function Confirmation({
       </button>
       <button className="secondary" disabled={busy} onClick={onCancel}>Abbrechen</button>
     </div>
-  </aside>;
+  </>;
+  return compact ? <MobileSheet label={label} role="alertdialog" className="confirmation"
+    busy={busy} onCancel={onCancel}>{content}</MobileSheet>
+    : <aside className="confirmation" role="alertdialog" aria-label={label} aria-modal="false">{content}</aside>;
 }
 
 function slug(value: string): string {

@@ -25,11 +25,11 @@ export function PeopleTable({people,navigate,locationId}: {readonly people:reado
   readonly navigate:(route:AdminRoute)=>void;readonly locationId:string|null}) {
   return <div className="table-scroll" role="region" tabIndex={0} aria-label="Beschäftigte und laufende Zeiten"><table>
     <thead><tr><th>Person</th><th>Standort</th><th>Status</th></tr></thead>
-    <tbody>{people.map(person=><tr key={person.membershipId}><td><a className="person-link"
+    <tbody>{people.map(person=><tr key={person.membershipId}><td data-label="Person"><a className="person-link"
       href={canonicalRoutePath({...defaultRoute('beschaeftigte',locationId),personId:person.membershipId})}
       onClick={event=>navigateFromLink(event,{...defaultRoute('beschaeftigte',locationId),personId:person.membershipId},navigate)}>
       <span className="avatar" aria-hidden="true">{person.displayName.split(/\s+/).map(part=>part[0]).slice(0,2).join('')}</span>
-      {person.displayName}</a></td><td>{person.location?.name ?? '—'}</td><td>{person.isRunning
+      {person.displayName}</a></td><td data-label="Standort">{person.location?.name ?? '—'}</td><td data-label="Status">{person.isRunning
         ? <>Aktiv · seit {new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,hour:'2-digit',minute:'2-digit'}).format(new Date(person.runningSince!))} · {person.runningTargetDisplayName}</>
         : 'Inaktiv'}</td></tr>)}</tbody>
   </table>{people.length === 0 ? <p className="empty">Keine Personen in dieser Auswahl.</p> : null}</div>;
