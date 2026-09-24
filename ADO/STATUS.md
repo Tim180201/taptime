@@ -99,6 +99,7 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P2 T-078 Verifikation:** Erstlauf des bestehenden Landing-Workflow-Tests scheiterte am BSD-`install` unter macOS (`-D` hat dort eine andere Bedeutung); unveränderte Tests mit Node 24.17.0 und GNU coreutils 9.1 im lokalen Linux-Container vollständig grün. Für diese Workflow-Tests die Linux-Umgebung verwenden.
 - **P2 T-062 Bestandsaufnahme:** Tags sind für Standortleitung in SQL/App verfügbar, im Web aber hinter Administrator-Setup verborgen. Gemeldet; T-062 öffnet kein allgemeines Setup.
 - **P3 T-062:** Eine Standortleitung, deren eigener Heimatstandort nicht zu ihren Verwaltungsstandorten gehört, kann ihre eigenen Zeiten nicht nachtragen oder ändern; 033 prüft den Heimatstandort der Zielperson, auch bei sich selbst. Im Pilot fallen Heimat- und Verwaltungsstandort zusammen.
 
