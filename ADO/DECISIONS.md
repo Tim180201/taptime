@@ -1495,3 +1495,30 @@ enthalten bleiben Arbeitsziele, Standorte, Lohnexport und das Anlegen von Admini
 die Grenze entscheidet wie bei T-060 die Datenbank, nie nur die Oberfläche.
 **Warum:** Der PO hat die Standortleitung im Pilotbetrieb fest eingeplant; eine Führungskraft, die ihre eigenen
 Zeiten nicht nachtragen kann, wäre am ersten Tag ein Fehler.
+
+## D-092 · Beim Nachtragen für andere zählen die Arbeitsziele der Zielperson · 24.09.2026 · Claude (TL)
+Wer für eine andere Person nachträgt, wählt aus den Arbeitszielen, die diese Person selbst erfassen darf: aktive
+Ziele, bei eingeschalteten Standorten nur die an einem ihrer Arbeitsstandorte. Die Rechte der handelnden Person
+zählen dafür nicht; ob sie die Person verwalten darf, entscheidet vorher die Standortgrenze aus Migration 033. Die
+Datenbank prüft beim Speichern erneut; die Auswahl in App und Web ist nur Anzeige. Auch der Administrator sieht nur
+noch die Ziele der Person, gewollt. Ändern wählt kein Ziel und prüft deshalb nur die Standortgrenze: Bestehende
+Einträge bleiben korrigierbar, auch wenn ihr Ziel inzwischen deaktiviert oder die Person ausgeschieden ist.
+**Warum:** Eine nachgetragene Zeit muss aussehen, als hätte die Person selbst gestempelt. Wer aber im Monatsabschluss
+einen Eintrag eines stillgelegten Kunden berichtigt, darf nicht daran scheitern (T-062, Review-Runde 1, TL-Abnahme).
+
+## D-093 · Kundensicht vor dem Pilot, danach ein Deploy und ein App-Build · 24.09.2026 · Tim (PO)
+Ein externes Review vom 24.09. prüfte das Produkt aus Kundensicht (12 Punkte); der TL hat jeden Punkt am Code
+nachgeprüft. Die Code-Punkte kommen als T-079 vor den Pilot: Erfolg nicht mehr als Fehler anzeigen, Kalender mit
+Pausenabzug wie im Export, verständliche Texte und Fehlermeldungen, Export-Beschriftung, Willkommensseite mit
+nächstem Schritt, Zeiteingabe in der App, ehrliche Aussagen auf der Startseite. Reihenfolge: T-062 → T-078 →
+T-079 → ein Deploy (Migrationen 033 und 034) → ein App-Build für iPhone und Android → T-024 → Pilot. Kontaktweg
+und Ausrichtung der Startseite entscheidet der PO; der Kalender über Monatsgrenzen kommt später.
+**Warum:** Eine rote Meldung nach erfolgreichem Speichern führt zu doppelten Einträgen, und die App soll nur
+einmal gebaut und an die Pilot-Beschäftigten verteilt werden.
+
+## D-094 · Container-Abbilder werden ohne GitHub-Actions-Cache gebaut · 24.09.2026 · Claude (TL)
+`Release container images` exportiert nicht mehr in den GHA-Cache und liest nicht mehr daraus; jeder Bau-Schritt
+hat eine eigene Zeitgrenze (T-078). Ein Ersatz-Cache (Registry) kommt nur, wenn der Bau ohne Cache messbar zu
+lange dauert, und dann als eigene Entscheidung.
+**Warum:** Am 24.09. brach der Image-Lauf für `130d115` nach 20 Minuten ab, weil der Cache-Export hing, nicht der
+Bau. Ein geprüfter Stand muss sein Abbild bekommen; eine Beschleunigung darf das nicht verhindern.

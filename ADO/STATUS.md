@@ -5,9 +5,10 @@ Passwort mit eigenem Caddy-Rückweg, T-074 Verwaltung und Betreiber-Bereich am H
 Konsole installiert; Migrationen bis 032). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt. iPhone mit
 T-072b im TestFlight-Build vom 24.09. abgenommen; Android-APK versionCode 9. „Taptura“ ist der Arbeitsname für den
 Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
-Auf `main` zusätzlich T-077 (Meine Zeiten für Führungsrollen, D-090) und T-076 (Kontowechsel am Gerät, ADR-0012 A1) und T-062 (Standortleitung im eigenen Standort, Migration 033, D-091, D-092).
-Offen vor dem Pilot: Deploy mit Migration 033,
-danach ein App-Build für iPhone und Android mit Geräteabnahme; T-024 (Zugangsdaten rotieren,
+Auf `main` zusätzlich T-077 (Meine Zeiten für Führungsrollen, D-090), T-076 (Kontowechsel am Gerät, ADR-0012 A1)
+und T-062 (Standortleitung im eigenen Standort mit Migration 033, D-091, D-092; `7c5c075`).
+Offen vor dem Pilot (D-093): T-078 (Image-Bau ohne Cache), T-079 (Kundensicht aus dem externen Review vom 24.09.),
+dann ein Deploy mit Migrationen 033 und 034 und ein App-Build für iPhone und Android mit Geräteabnahme; T-024 (Zugangsdaten rotieren,
 Deploy-Schlüssel mit Passphrase); AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur
 Entscheidung vor T-048: Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das
 ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
