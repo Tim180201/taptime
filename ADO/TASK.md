@@ -1,56 +1,66 @@
 # Aktuelle Aufgabe
 
-> **Stand 23.09.2026:** Produktion auf `ff69bfe`. T-072 (iPhone) und T-031 (Startseite) sind auf `main`.
-> Reihenfolge: **T-074 → Konsole (T-071-Controller, T-031) und Deploy → T-024 → Pilot Monat 1**; Geräteabnahme
-> parallel.
-> Der nächste Deploy wartet auf T-074 (D-086). Frühere Briefs stehen in der Git-Historie.
+> **Stand 24.09.2026:** Produktion auf `ff69bfe`. Auf `main` bis `b635c4a`: T-072, T-031 und T-074, alle APPROVED.
+> Der PO fuehrt Konsole (Controller) und Deploy `b635c4a` selbst aus; diese Aufgabe laeuft parallel und
+> betrifft nur die App. Reihenfolge: **T-072b → T-076 → T-024 → Pilot Monat 1**. Fruehere Briefs stehen in
+> der Git-Historie.
 
-## T-074 · Verwaltung und Betreiber-Bereich am Handy (D-086)
+## T-072b · iPhone: gelesener Tag geht beim Schließen der Apple-Sitzung verloren
 
-**Für:** Development · **Risiko:** Bedienbarkeit, Rückschritt am PC, Barrierefreiheit
-**Zeitbox:** zwei Sitzungen; Reihenfolge Befund → Layouttest (rot) → Verwaltung → Betreiber → Nachweis.
-**Grundlage:** D-086, D-031, `UI_Leitlinien.md`, Entwurf `ADO/01_Architecture/Mobil_Entwurf/` (vom PO am
-23.09. abgenommen; README dort zuerst lesen).
+**Für:** Development · **Risiko:** Tag-Identität, Exklusivität der NFC-Sitzung, Plattformgleichheit
+**Zeitbox:** eine Sitzung; Reihenfolge Beleg → Tests rot → Korrektur → Diagnose → Nachweis.
+**Grundlage:** T-072, D-058, ADR-0009, ADR-0017.
 
-### Ziel
+### Befund (Geräteabnahme PO, 23./24.09., TestFlight 1.0.0 (1))
 
-`admin.tb-infra.de` und `betreiber.tb-infra.de` sind auf dem Smartphone ab 360 px Breite vollständig und
-professionell bedienbar — gleiche Funktionen wie am PC, nichts abgeschnitten, kein seitliches Scrollen.
-Am PC (ab 1024 px) bleibt die Oberfläche unverändert.
+- iPhone, Admin-Konto, zugeordneter Tag: „Tag scannen" → Apple-Fenster → Tag hinhalten → **blauer Haken**
+  → App zeigt „NFC nicht verfügbar / Die Scan-Funktion ist derzeit nicht verfügbar." Reproduzierbar, auch
+  nach App-Neustart. Beim Server kommt nichts an. Android unauffällig.
+- Analyse Technical Lead (am Code, nicht am Gerät belegt): Der Haken erscheint, wenn die App
+  `invalidateSession` aufruft, also nach `IosNfcSession.finish()`. `cancelTechnologyRequest` hat damit eine
+  lebende Sitzung beendet (nativ `tagSession = nil`, Rückmeldung ohne Fehler). Übrig bleibt der
+  2-Sekunden-Aufräumtimer in `finish()`: Er macht aus `captured` ein `unavailable`, wenn `settleIfDrained`
+  nicht rechtzeitig fertig ist, weil `closed` erst mit dem Ereignis `NfcManagerSessionClosed` wahr wird.
+  Offen ist, ob das Ereignis zu spät kommt (Apple ruft `didInvalidateWithError` womöglich erst nach der
+  Haken-Animation) oder gar nicht (RN 0.86, Legacy-`RCTEventEmitter` über die Interop-Schicht).
+- Wichtig für die Korrektur: `didInvalidateWithError` der alten Sitzung ruft nativ `[self reset]` und
+  würde eine inzwischen gestartete neue Sitzung zerstören (`tagSession`, `techRequestCallback`). Die
+  Exklusivität darf deshalb nicht einfach wegfallen.
+- „Tag zuordnen" auf dem iPhone nutzt denselben Weg (`scanWithTagAction`): Der Tag wird beschrieben, dann
+  wird das Ergebnis `unavailable`, und die Zuordnung am Server findet nicht statt.
 
 ### Auftrag
 
-1. **Befund zuerst:** Alle Ansichten beider Webs bei 360 und 390 px im Browser ansehen — auch Anmeldung,
-   Passwort vergessen/neu, Einladung `/willkommen` (Beschäftigte öffnen sie auf dem Handy), Pausenhinweis,
-   TOTP-Einrichtung, alle Bestätigungen und Panels. Probleme im Bericht auflisten.
-2. **Layouttest im echten Browser** (z. B. Playwright mit Chromium) gegen die gebauten Webs mit festen
-   Beispieldaten über eine Test-Capability bzw. abgefangene API-Aufrufe — nie im Produktionsbündel. Je
-   Ansicht und Zustand bei 360, 390, 768 und 1440 px: Seitenbreite nie größer als das Fenster, kein
-   sichtbares Element ragt heraus, Bedienelemente mindestens 44 px hoch, Eingabefelder mindestens 16 px
-   Schrift, axe ohne Verstöße. Erst rot gegen den heutigen Stand, dann grün. Läuft in der CI mit; ist die
-   Browser-Installation in der CI nicht tragbar: melden, nicht weglassen.
-3. **Verwaltung** nach Entwurf Abschnitt 2: Leiste unten (bis zu vier Bereiche plus „Mehr“, je Rolle aus
-   `availableSections`), „Mehr“ als Blatt von unten, schmale Leiste oben mit Betrieb, Bereich, Aktualisieren
-   und Standortauswahl; Tabellen werden unterhalb der Handy-Grenze Karten mit denselben Angaben und Aktionen;
-   Formulare einspaltig; Bestätigungen als Blatt von unten (Fokus, Escape, Abbrechen wie heute; wird es
-   modal, dann konsequent mit Fokusfalle und inertem Hintergrund); Kalender ohne abgeschnittene Tage.
-4. **Betreiber-Web** nach Entwurf: Reiter als Umschalter, Kacheln 2 × 2, Betriebe als Karten, „Betrieb
-   anlegen“ und „Pausieren / Fortsetzen“ als Blatt; TOTP mit QR und Handeingabe-Schlüssel ohne Zoomen.
-5. **Für alle:** `viewport-fit=cover` mit `env(safe-area-inset-*)`, passende `inputmode`/`autocomplete`,
-   Hoch- und Querformat. CSP unverändert (keine Inline-Stile). Keine Änderung an Aufrufen, Rechten,
-   Texten oder Abläufen — nur Anordnung. Kurzbeschriftungen in der Leiste nur mit Begründung.
+1. **Erst belegen (Stop-Regel):** An `react-native-nfc-manager` 3.17.2 (iOS) und React Native 0.86
+   (Interop für `RCTEventEmitter`, Listener-Zählung, Ereigniszustellung) belegen, ob und wann
+   `NfcManagerSessionClosed` nach `invalidateSession` in JS ankommt. Ist die Analyse oben falsch: stoppen
+   und melden.
+2. **Ergebnis und Aufräumen trennen:** Ein gelesener Tag wird ausgeliefert, sobald Lesen (und bei
+   `scanWithTagAction` die Aktion) abgeschlossen und `cancelTechnologyRequest` erfolgreich war. Die
+   Sitzung bleibt belegt, bis `SessionClosed` kommt oder eine begründete längere Frist abläuft. Ein Scan in
+   dieser Zeit bekommt einen verständlichen Hinweis oder wartet kurz, zerstört aber nie eine Sitzung.
+   Schlägt `cancelTechnologyRequest` fehl, bleibt die heutige Regel (kein Ergebnis ohne gesicherten
+   Sitzungsabbau) — oder begründet anders.
+3. **Diagnose ohne Geheimnisse:** Schlanke iOS-Lebenszyklusmeldungen mit festem Präfix `TapturaNfc`
+   (angefordert, verbunden, gelesen, Aktion fertig, Abbruch ok/fehlgeschlagen, SessionClosed mit
+   Fehlercode, Frist abgelaufen; Millisekunden relativ zum Start), sichtbar in der macOS-Konsole im
+   Release-Build. Keine UID, kein Tag-Inhalt, keine Tokens, keine Konto- oder Betriebs-IDs.
+4. **Tag zuordnen auf dem iPhone:** Anzeige und Wirkung stimmen überein (Zuordnung erfolgt ↔ Erfolg).
+5. Android bytegleich.
 
 ### Tests
 
-Layouttest aus Punkt 2 rot → grün; bestehende Suiten beider Webs und Typechecks grün; am PC (1440 px)
-Bildschirmfotos vorher/nachher je Ansicht, unverändert bis auf begründete Kleinigkeiten.
+Realistische Reihenfolgen mit gefälschter Uhr: SessionClosed nach 3 s; SessionClosed nie;
+SessionClosed vor der Abbruch-Rückmeldung; Abbruch schlägt fehl; zweiter Scan in der Aufräumphase;
+spätes `didInvalidate` der alten Sitzung darf keine neue Sitzung zerstören; `scanWithTagAction` mit
+Erfolg. Bestehende Suiten beider Plattformen, Typecheck, Prüfung des erzeugten iOS-Projekts.
 
 ### Nicht Teil
 
-Keine neuen Funktionen, keine Server-, API- oder App-Änderung, keine Änderung an der Startseite außer
-der Übernahme ihres Layouttests in dieselbe Umgebung; kein Deploy, kein Serverzugriff, keine Geheimnisse.
+Kein Server, keine Tag-Identität, kein Hintergrund-Lesen (T-073), kein Kontowechsel (T-076), keine
+Änderung an der Bibliothek selbst ohne Stop-Meldung, kein Build/Submit durch Codex, kein Deploy.
 
 ### Bericht
 
-`.t074-review/` (report.md, tracked.diff, untracked.txt) mit Bildschirmfotos aller Ansichten bei 390 und
-1440 px (vorher/nachher). Unabhängiges Review. Kein Commit, kein Push.
+`.t072b-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit, kein Push.
+Danach baut der PO `eas build -p ios --profile production-validation` und reicht über TestFlight ein.

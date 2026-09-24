@@ -1468,3 +1468,12 @@ geprüften Code; eine Kopie der Seriennummer genügt dann nicht mehr. Dieselbe A
 Erfassen ohne geöffnete App auf dem iPhone (T-073). Direkt auf Metall: robuster Tag oder Halter mit Abstand.
 **Warum:** Die Seriennummer eines NTAG213 lässt sich mit Spezial-Tags nachbauen; „war vor Ort“ braucht
 einen kryptografischen Nachweis. Die bedruckte 424-DNA-Karte kostet kaum mehr als die einfache.
+
+## D-089 · Das Repository bleibt vorerst öffentlich · 24.09.2026 · Tim (PO)
+`Tim180201/taptime` bleibt öffentlich; die Container-Images sind es ohnehin dauerhaft (öffentliches GHCR-Paket,
+ohne Geheimnisse nach D-049). Schnellprüfung der gesamten Historie am 24.09. (787 Commits): keine Passwörter,
+Schlüssel oder Storage-Box-Adresse, nur Test- und Platzhalterwerte. Folgen: Ins Repository kommen weiterhin
+keine Geheimnisse, keine personenbezogenen Daten und keine Kundennamen; T-024 (Zugangsdaten rotieren,
+Deploy-Schlüssel mit Passphrase) bleibt Pflicht vor dem Pilot. Neu prüfen vor dem ersten Kundenvertrag.
+**Warum:** Öffentlich bleibt CI kostenlos und am Deploy ändert sich nichts; das Restrisiko ist die öffentliche
+Liste offener Sicherheitsaufgaben, und die erledigt T-024.

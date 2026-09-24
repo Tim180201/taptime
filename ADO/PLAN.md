@@ -5,11 +5,11 @@
 **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
 **Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007),
 mit getrennten Uhren für reine Wartezeiten (D-011).
-**Stand:** 23.09.2026, Produktion auf `ff69bfe` (T-065, T-066, T-069, T-070, T-057, T-068a/b, T-071;
-Migrationen 030–032). Betreiber-Bereich eingerichtet; T-072 (iPhone Stufe 1) APPROVED, nur App, kein Deploy.
-Naechste Reihenfolge (PO 23.09.): T-031 ✓ (Caddy-Rueckweg, Startseite) → **T-074 Verwaltung und Betreiber
-am Handy** (D-086, vor dem naechsten Deploy) → Konsole (T-071-Controller, T-031) und Deploy → **T-024** →
-Pilot Monat 1; Geraeteabnahme Android und iPhone parallel. In Monat 1 zusaetzlich T-075 (Paketgrenze, D-087).
+**Stand:** 24.09.2026, Produktion auf `ff69bfe` (T-065, T-066, T-069, T-070, T-057, T-068a/b, T-071;
+Migrationen 030–032). Auf `main` bis `b635c4a`: T-072 (iPhone Stufe 1), T-031 (Caddy-Rueckweg, Startseite), T-074
+(Verwaltung und Betreiber am Handy), alle APPROVED. Naechste Reihenfolge (PO 24.09.): **Konsole (Controller) und
+Deploy `b635c4a`** durch den PO, parallel **T-072b** (iPhone-Scan) → **T-076** (Kontowechsel am Geraet) →
+**T-024** → Pilot Monat 1; Geraeteabnahme Android und iPhone parallel. In Monat 1 zusaetzlich T-075 (Paketgrenze, D-087).
 T-031b (Startseite oeffentlich) und T-073 iPhone Stufe 2 mit NTAG 424 DNA (D-088) nach dem Pilot;
 waehrend Monat 1 T-062, T-048 und T-050, Freigabe zu Monat 2 (D-063). Grundlage weiterhin die Anforderungspruefung gegen den Code (D-012).
 
@@ -109,6 +109,8 @@ Datenbankrechten eingreifen muss.
 | **T-073** | **iPhone Stufe 2 und faelschungssichere Karten (D-037, D-081, D-088)** | NFC-Karten mit NTAG 424 DNA und SUN: jede Beruehrung liefert eine einmalige, vom Server gepruefte Adresse. Dieselbe Adresse traegt das Erfassen ohne geoeffnete App auf dem iPhone (Universal Link, Apple-Datei auf der Tag-Domain). Neue Tag-Evidenz neben bzw. statt der Seriennummer, Schluesselverwaltung je Karte, Karten beim Pilotkunden werden getauscht. Nach dem Pilot, vor dem zweiten Kunden. | 3 |
 | **T-074** | **Verwaltung und Betreiber-Bereich am Handy (D-086)** | Entwurf vom PO am 23.09. abgenommen (`ADO/01_Architecture/Mobil_Entwurf/`). Ab 360 px gleiche Funktionen wie am PC: Leiste unten mit „Mehr“, Tabellen als Karten, Bestaetigungen als Blatt von unten, TOTP und Einladung `/willkommen` ohne Zoomen; am PC unveraendert. Nachweis per Layouttest im echten Browser (360/390/768/1440 px) und Bildschirmfotos. Der naechste Deploy wartet darauf. | 1 |
 | **T-075** | **Paket mit weicher Grenze (D-087)** | Paketgroesse je Betrieb im Betreiber-Bereich setzen und protokolliert aendern; alle aktiven Zugaenge zaehlen; Hinweis in der Verwaltung ueber dem Paket; Markierung und hoechste Monatszahl je Betrieb im Betreiber-Bereich fuer die Rechnung. Nichts wird gesperrt. Pilotmonat 1, vor der ersten Rechnung. | 2 |
+| **T-072b** | **iPhone: gelesener Tag geht beim Schliessen der Apple-Sitzung verloren (Geraeteabnahme 24.09.)** | Apple zeigt den Haken, die App meldet „NFC nicht verfuegbar“, der Server erhaelt nichts; „Tag zuordnen“ ebenso. Erst Ursache an Bibliothek und React Native belegen, dann Ergebnis und Aufraeumen der Sitzung trennen, ohne die Exklusivitaet aufzugeben; Diagnose ohne Seriennummern in der macOS-Konsole. Nur App, danach neuer iPhone-Build. | 1 |
+| **T-076** | **Kontowechsel am Geraet, wenn alles bestaetigt ist (ADR-0012)** | Heute sperrt `bindOwner` ein zweites Konto dauerhaft. Kuenftig: Abmelden, anderes Konto anmelden, sobald alle Vorgaenge des bisherigen Kontos serverseitig bestaetigt sind; sonst verstaendlicher Hinweis und zuerst abgleichen. Neue Geraeteidentitaet je Konto, keine Neuzuordnung fremder Evidenz. Nur App. Vor dem Pilot. | 1 |
 | **T-068** | **Betreiber-Bereich: Betriebe anlegen und ueberblicken (D-068, D-074, D-075)** | Technischer Entwurf `ADO/01_Architecture/Betreiber_Entwurf/README.md` (22.09.). **T-068a Server:** Betreiber-Konten ausserhalb der Betriebe, TOTP (`aal2`), Betrieb anlegen mit Einladung des ersten Administrators, Pausieren an der zentralen Aufloesung, Uebersicht nur mit Zahlen, eigenes Protokoll, `taptime-operator-grant`. **T-068b Web:** `apps/operator-web` auf `betreiber.tb-infra.de`, CI/Image, Caddy, Deploy. Vor dem Pilot. | 3 |
 | **T-070** | **Der Archivierer ruht billig; der Waechter laesst nach der Sicherung Luft (Befund 22.09., D-072)** | Leerlauf ohne Storage-Box-Zugriff; Vollabgleich bei Arbeit, sonst hoechstens alle 15 min; einmalige Nachholzeit von fuenf Minuten nach Sicherungsende; Journal mit Dauer je Phase. Brief in TASK.md. | 1 |
 | **T-067 ✓** | **Die Archivierung erzeugt ihre Arbeit nicht mehr selbst (Befund 21.09., D-066)** | `archive_timeout` wieder heraus; der Archivierer wechselt selbst, wenn eine Anforderung im offenen Segment liegt; keine doppelte Fernabfrage fuer quittierte Archive; Waechter zaehlt ab Sicherungsende und alarmiert bei Sicherung ueber zehn Minuten; eine Journalzeile je Durchlauf. Brief in TASK.md. | 1 |
