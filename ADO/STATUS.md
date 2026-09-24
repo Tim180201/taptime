@@ -97,6 +97,9 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **T-077 (24.09.):** Reiter „Meine Zeiten“ jetzt auch für Administrator und Standortleitung (D-090): Erfassen · Meine Zeiten · Mitarbeiter · Tags; gleiche Daten und Rechte wie unter der eigenen Person (Standortleitung weiterhin ohne Schreibaktionen, T-062). „Meine Zeiten“ lädt beim Öffnen neu, ohne eine laufende manuelle Erfassung zu überholen. Unabhängiges Review und Technical Lead **APPROVED**. Geräteabnahme mit dem gemeinsamen App-Build nach T-076.
+- **P3 T-077:** „Meine Zeiten“ zeigt wie bei Beschäftigten den laufenden und vorigen Monat; ältere Monate der eigenen Person bleiben über „Mitarbeiter“ erreichbar.
+
 - **T-072b (24.09.):** iPhone-Scan: Der gelesene Tag wird nach erfolgreichem Schließen der Apple-Sitzung ausgeliefert; die Sitzung bleibt bis `SessionClosed` belegt, damit das späte Zurücksetzen der Bibliothek keine neue Sitzung zerstört. Diagnose `TapturaNfc` im Apple-Log (nur Phase, Millisekunden, Zahlencode). Unabhängiges Review und Technical Lead **APPROVED**. Danach iPhone-Build durch den PO und Geräteabnahme.
 
 - **P2 T-072b (erledigt 24.09.):** Geräteabnahme mit dem TestFlight-Build vom 24.09.: Start und Stopp mehrfach hintereinander ohne App-Neustart; `SessionClosed` kommt an. Einmal „Doppelter Scan ignoriert“ bei weniger als 5 s Abstand, gewollt (Duplikatfenster 5 s).
