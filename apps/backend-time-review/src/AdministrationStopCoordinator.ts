@@ -23,7 +23,7 @@ export class AdministrationStopCoordinator {
       await client.query('SET LOCAL ROLE taptime_identity_resolver');
       const actors = (await client.query('SELECT * FROM taptime_server.lock_request_actor($1,$2)', [identity.identity.issuer, identity.identity.subject])).rows;
       const actor = actors[0];
-      if (actors.length !== 1 || actor.membership_id !== request.expectedMembershipId || actor.membership_role !== 'administrator') {
+      if (actors.length !== 1 || actor.membership_id !== request.expectedMembershipId || (actor.membership_role !== 'administrator' && actor.membership_role !== 'standortleitung')) {
         await client.query('ROLLBACK');
         return { status: 'authority_rejected' };
       }

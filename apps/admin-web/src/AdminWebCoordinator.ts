@@ -1,3 +1,4 @@
+import type { BackfillTargetSelection } from "@taptime/mobile-work-contract";
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import { isAdministrationStopRequest, isAdministrationStopResult, isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import type { ManualBreakLifecycleRequest,ManualLifecycleRequest,MobileOwnTimeQueryResponse,SafeWorkTarget } from '@taptime/mobile-work-contract';
@@ -145,19 +146,21 @@ export class AdminWebCoordinator implements AdminWebCapability {
   async saveTimeEdit(input: TimeEditInput): Promise<TimeEditResult> {
     const current=this.state,session=this.session,generation=this.generation;
     const calendarEpoch=this.calendarEpoch;
-    if(current.status!=='ready' || !session || session.role==='standortleitung') return {status:'authority_rejected'};
+    if(current.status!=='ready' || !session) return {status:'authority_rejected'};
     if(current.timeEditBusy) return {status:'busy'};
     if(typeof navigator!=='undefined' && navigator.onLine===false) return {status:'offline'};
     const calendar=current.calendar;
+    const canManageTime=session.role==='administrator' || (session.role==='standortleitung' && session.availableSections.includes('time_records'));
     if(calendar?.status!=='ready' || (calendar.targetMembershipId??session.membershipId)!==input.targetMembershipId
       || (session.role==='employee' && input.targetMembershipId!==session.membershipId)
       || (input.kind==='comment' && input.targetMembershipId!==session.membershipId)
-      || ((input.kind==='correct'||input.kind==='stop') && session.role!=='administrator')) return {status:'authority_rejected'};
+      || ((input.kind==='correct'||input.kind==='stop') && !canManageTime)
+      || (input.kind==='backfill' && session.role==='standortleitung' && !session.availableSections.includes('time_records'))) return {status:'authority_rejected'};
     if(input.kind!=='backfill' && ![...calendar.value.records,...(calendar.value.activeRecord?[calendar.value.activeRecord]:[])]
       .some(r=>r.timeRecordId===input.record.timeRecordId)) return {status:'authority_rejected'};
     if(input.kind==='correct' && (input.record.status!=='stopped' || !input.record.details)) return {status:'not_adjustable'};
     if(input.kind==='correct' && !isValidTimeReviewReason(input.reason)) return {status:'invalid_request'};
-    if(input.kind==='stop' && (input.record.status!=='started' || !input.record.details || input.targetMembershipId===session.membershipId)) return {status:'not_adjustable'};
+    if(input.kind==='stop' && (input.record.status!=='started' || !input.record.details || (session.role==='administrator' && input.targetMembershipId===session.membershipId))) return {status:'not_adjustable'};
     const key=JSON.stringify(input);
     let commandId:string;
     if(input.kind==='stop') {
@@ -240,6 +243,28 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } while (cursor !== null);
     if (this.state.status === 'ready') this.setState({...this.state,calendar:{status:'unavailable',value:null,targetMembershipId:null,month,
       message:'Ihre Zeiten konnten nicht vollständig bestätigt werden. Versuchen Sie es erneut.'}});
+  }
+
+  async loadBackfillTargets(targetMembershipId:string):Promise<BackfillTargetSelection> {
+    const session=this.session,generation=this.generation,calendarEpoch=this.calendarEpoch;
+    const current=()=>this.state.status==='ready' && generation===this.generation && calendarEpoch===this.calendarEpoch && session===this.session;
+    if(!session || !current()) return {status:'authority_rejected'};
+    if(typeof navigator!=='undefined' && navigator.onLine===false) return {status:'offline'};
+    const targets:SafeWorkTarget[]=[],seen=new Set<string>();let cursor:string|null=null;
+    do {
+      const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.backfillTargets?.(token,
+        {expectedMembershipId:session.membershipId,targetMembershipId,cursor,limit:50}) ?? Promise.resolve({status:'unreachable'})));
+      if(!current() || result.status==='rejected') return {status:'authority_rejected'};
+      if(result.status!=='succeeded') return {status:'unavailable'};
+      targets.push(...result.value.targets);
+      if(new Set(targets.map(t=>`${t.targetType}:${t.targetId}`)).size!==targets.length) return {status:'unavailable'};
+      cursor=result.value.nextCursor;
+      if(cursor!==null) {
+        if(seen.has(cursor) || result.value.targets.length===0) return {status:'unavailable'};
+        seen.add(cursor);
+      }
+    } while(cursor!==null);
+    return {status:'ready',targets};
   }
 
   async loadWorkTargets(): Promise<void> {

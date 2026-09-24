@@ -435,3 +435,15 @@ it('T066 negotiates payroll details explicitly and preserves the prior response 
     else {expect(queryTimeRecordsV2.mock.lastCall?.[0].includeTimeDetails).toBeUndefined();expect(await response.text()).toBe(JSON.stringify(legacy));}
   }
 });
+
+it('D-092 forwards only a closed person-bound target query through the protected time reader',async()=>{
+ const queryBackfillTargets=vi.fn(async()=>({status:'ready' as const,value:{targets:[{targetType:'customer' as const,targetId:ids.customer,displayName:'C2'}],nextCursor:null}}));
+ const origin=await start({timeReview:{...unavailableOfflineDependencies().timeReview,queryBackfillTargets}});
+ const request={expectedMembershipId:ids.membership,targetMembershipId:ids.employeeMembership,cursor:null,limit:10};
+ const response=await post(origin,'/v1/administration/time-records/backfill-targets/query',request);
+ expect(response.status).toBe(200);expect(await response.json()).toEqual({status:'ready',targets:[{targetType:'customer',targetId:ids.customer,displayName:'C2'}],nextCursor:null});
+ expect(queryBackfillTargets).toHaveBeenCalledWith({accessToken:'abc.def.ghi',request},{deadlineEpochMilliseconds:expect.any(Number)});
+ expect((await post(origin,'/v1/administration/time-records/backfill-targets/query',{...request,role:'administrator'})).status).toBe(400);
+ queryBackfillTargets.mockResolvedValueOnce({status:'authority_rejected'} as never);
+ expect((await post(origin,'/v1/administration/time-records/backfill-targets/query',request)).status).toBe(403);
+});

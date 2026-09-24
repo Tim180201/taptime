@@ -1,5 +1,5 @@
 import { isOrganizationPausedError } from '@taptime/backend-identity';
-import { isAdministrationStopRequest, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -104,6 +104,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/administration/locations/query': 'admin_assignable_locations',
   '/v1/administration/location-setup/query': 'admin_location_setup_projection',
   '/v1/administration/location-setup/mutate': 'admin_location_setup_mutation',
+  '/v1/administration/time-records/backfill-targets/query': 'admin_time_backfill_targets',
   '/v1/administration/time-records/query': 'admin_time_record_query',
   '/v2/administration/time-records/query': 'admin_time_record_query_v2',
   '/v1/administration/time-records/correct': 'admin_time_record_correction',
@@ -768,6 +769,14 @@ async function handleRequest(
       timeoutMilliseconds,
       3,
     );
+    return;
+  }
+  if (route === 'admin_time_backfill_targets') {
+    if(!isBackfillTargetQueryRequest(body)) {respondError(response,400,'invalid_request');return;}
+    if(!dependencies.timeReview.queryBackfillTargets) {respondError(response,503,'service_unavailable');return;}
+    await handleTimeReviewRead(response,options,correlationId,timeoutMilliseconds,
+      deadlineEpochMilliseconds=>dependencies.timeReview.queryBackfillTargets!(
+        {accessToken,request:body},{deadlineEpochMilliseconds}));
     return;
   }
   if (route === 'admin_time_record_query') {
@@ -2740,6 +2749,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'time_entry_export_v4':
     case 'time_entry_export_v3':
       return 'time_entry_export_failed';
+    case 'admin_time_backfill_targets':
     case 'admin_time_record_query':
     case 'admin_time_record_query_v2':
     case 'administration_stop':
@@ -2807,6 +2817,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'time_entry_export_v2'
     || route === 'time_entry_export_v4'
     || route === 'time_entry_export_v3'
+    || route === 'admin_time_backfill_targets'
     || route === 'admin_time_record_query'
     || route === 'admin_time_record_query_v2'
     || route === 'admin_time_record_correction'

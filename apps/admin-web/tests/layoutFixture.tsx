@@ -180,16 +180,16 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
     workTargets: [{ targetType: 'customer', targetId: customer.id, displayName: 'Werkstatt', locationId: location.id }], activationGaps: [] },
 };
 if (['employee-calendar','employee-backfill','employee-comment'].includes(variant)) ready = { ...ready, role: 'employee', availableSections: ['own_time','manual_capture'] };
-if (variant.startsWith('manager')) ready = { ...ready, role: 'standortleitung', availableSections: ['employees','own_time','manual_capture'], locationsEnabled: true,
+if (variant.startsWith('manager')) ready = { ...ready, role: 'standortleitung', availableSections: ['employees','own_time','manual_capture','time_records','review_items'], locationsEnabled: true,
   selectedLocation: location, managementScope: { kind: 'locations', locations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] } };
 if (variant.startsWith('invitation-')) ready = { ...ready, locationsEnabled: true, selectedLocation: null, assignableLocations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] };
 if (variant === 'five-areas') ready = { ...ready, availableSections: readyState.availableSections };
-if (variant === 'time-stop') ready = { ...ready, calendar: { ...ready.calendar!, status: 'ready', value: { ...ready.calendar!.value!, records: [], activeRecord: { ...entry, status: 'started', stoppedAt: null } } } };
+if (['time-stop','manager-time-stop','manager-own-stop'].includes(variant)) ready = { ...ready, calendar: { ...ready.calendar!, status: 'ready', value: { ...ready.calendar!.value!, records: [], activeRecord: { ...entry, status: 'started', stoppedAt: null } } } };
 if (variant === 'empty') ready = { ...ready, employeeProjection: { ...ready.employeeProjection, employeeMemberships: [] }, managedPeople: { ...ready.managedPeople!, status: 'ready', value: { ...ready.managedPeople!.value!, people: [], totalCount: 0, runningCount: 0 } } };
 if (variant === 'section-error') ready = { ...ready, sections: { ...ready.sections, employees: { status: 'unavailable', message: 'Die Verbindung ist unterbrochen. Bitte versuchen Sie es erneut.' } } };
 if (variant === 'section-loading') ready = { ...ready, sections: { ...ready.sections, employees: { status: 'loading' } } };
 if (variant === 'correction-confirm') ready = { ...ready, correctionIntent: { commandId: 'test', timeRecord: entry, startedAt: entry.startedAt, stoppedAt: entry.stoppedAt, reason: 'Vergessenen Beginn berichtigt' } };
-if (variant === 'review-confirm') ready = { ...ready, adjudicationIntent: { commandId: 'test', reviewItem, resolution: 'no_time_record_change', timeRecord: null, startedAt: null, stoppedAt: null, reason: 'Doppelten Vorgang geprüft' } };
+if (['review-confirm','manager-review-confirm'].includes(variant)) ready = { ...ready, adjudicationIntent: { commandId: 'test', reviewItem, resolution: 'no_time_record_change', timeRecord: null, startedAt: null, stoppedAt: null, reason: 'Doppelten Vorgang geprüft' } };
 if (variant === 'tag-confirm') ready = { ...ready, reassignmentIntent: { commandId: 'test', nfcTagId: tag.id, expectedActiveAssignmentId: tag.activeAssignmentId, targetCustomerId: customer.id } };
 if (variant === 'manual-pending') ready = { ...ready, manual: { busy: false, pending: true, message: 'Wird gesichert …' } };
 const authStates: Record<string, AdminWebState> = {
@@ -201,7 +201,7 @@ const authStates: Record<string, AdminWebState> = {
   unavailable: { status: 'unavailable', message: 'Die Verwaltung ist vorübergehend nicht erreichbar.' }, loading: { status: 'loading' },
 };
 const stateful = new FakeCapability(authStates[variant] ?? ready);
-const capability: AdminWebCapability = Object.assign(stateful, { saveTimeEdit: async () => ({ status: 'unavailable' as const }) });
+const capability: AdminWebCapability = Object.assign(stateful, { loadBackfillTargets: async () => ({ status: 'ready' as const, targets: [{targetType:'customer' as const,targetId:customer.id,displayName:'Werkstatt am Beispielweg'}] }), saveTimeEdit: async () => ({ status: 'unavailable' as const }) });
 capability.cancelCorrection = () => stateful.emit({ ...ready, correctionIntent: null });
 capability.cancelAdjudication = () => stateful.emit({ ...ready, adjudicationIntent: null });
 capability.cancelReassignment = () => stateful.emit({ ...ready, reassignmentIntent: null });

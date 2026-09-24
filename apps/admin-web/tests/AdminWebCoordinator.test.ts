@@ -1657,7 +1657,7 @@ it('T049 refresh: the shell refresh reloads opened own-time data',async()=>{
 
 function t066Setup(role:Session['role']='employee',running=false) {
  const auth=new FakeAuth(),api=new FakeApi();
- api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role,availableSections:['own_time','manual_capture','employees']}});
+ api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role,availableSections:role==='employee'?['own_time','manual_capture','employees']:['own_time','manual_capture','employees','time_records','review_items']}});
  const details={origin:'backfilled' as const,baseRowVersion:0,effectiveRevisionNumber:1,comment:null,changed:false,change:null,overlapsAnotherRecord:false};
  const record:import('@taptime/mobile-work-contract').SafeOwnTimeRecord=running?{...stoppedRecord,status:'started',stoppedAt:null,stoppedVia:null,details:{...details,origin:'nfc',baseRowVersion:1,effectiveRevisionNumber:0}}:{...stoppedRecord,details};
  const page:import('@taptime/mobile-work-contract').MobileOwnTimeQueryResponse={activeRecord:running?record:null,records:running?[]:[record],nextCursor:null,windowStartedAt:'2026-07-01T00:00:00.000Z',windowEndedAt:'2026-07-21T12:00:00.000Z'};
@@ -1665,10 +1665,11 @@ function t066Setup(role:Session['role']='employee',running=false) {
  const managedPersonTime=vi.fn(async()=>({status:'succeeded' as const,value:{...page,windowStartedAt:'2026-06-30T22:00:00.000Z'}}));
  const supplementTime=vi.fn<NonNullable<AdminWebApiPort['supplementTime']>>(async()=>({status:'succeeded',value:{status:'committed',timeRecordId:record.timeRecordId,idempotentRetry:false}}));
  const stopTime=vi.fn<NonNullable<AdminWebApiPort['stopTime']>>();
- const coordinator=new AdminWebCoordinator(auth,{...api,ownTime,managedPersonTime,supplementTime,stopTime},()=>fixedNow);
- return {auth,api,coordinator,record,page,ownTime,managedPersonTime,supplementTime,stopTime};
+ const backfillTargets=vi.fn<NonNullable<AdminWebApiPort['backfillTargets']>>();
+ const coordinator=new AdminWebCoordinator(auth,{...api,ownTime,managedPersonTime,supplementTime,stopTime,backfillTargets},()=>fixedNow);
+ return {auth,api,coordinator,record,page,ownTime,managedPersonTime,supplementTime,stopTime,backfillTargets};
 }
-it('T066 retains an uncertain command, releases confirmed identity and refuses foreign or manager comments',async()=>{
+it('T066 retains an uncertain command, releases confirmed identity and permits own comments for both management roles',async()=>{
  const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
  const input={kind:'comment' as const,targetMembershipId:membershipId,record:h.record,comment:'Eigene Notiz'};
  h.supplementTime.mockResolvedValueOnce({status:'unreachable'});
@@ -1678,7 +1679,7 @@ it('T066 retains an uncertain command, releases confirmed identity and refuses f
  await h.coordinator.saveTimeEdit(input);expect(h.supplementTime.mock.calls[2]![2]).not.toEqual(h.supplementTime.mock.calls[1]![2]);
  expect((await h.coordinator.saveTimeEdit({...input,targetMembershipId:'20000000-0000-4000-8000-000000000002'})).status).toBe('authority_rejected');
  const manager=t066Setup('standortleitung');await manager.coordinator.signIn('a@example.test','secret');await manager.coordinator.loadOwnTime('2026-07');
- expect((await manager.coordinator.saveTimeEdit({...input,record:manager.record})).status).toBe('authority_rejected');expect(manager.supplementTime).not.toHaveBeenCalled();
+ expect((await manager.coordinator.saveTimeEdit({...input,record:manager.record})).status).toBe('committed');expect(manager.supplementTime).toHaveBeenCalledTimes(1);
 });
 it('T066 does not adopt an edit after logout',async()=>{
  const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
@@ -1687,8 +1688,8 @@ it('T066 does not adopt an edit after logout',async()=>{
  await h.coordinator.signOut();pending.resolve({status:'succeeded',value:{status:'committed',timeRecordId:h.record.timeRecordId,idempotentRetry:false}});
  expect((await writing).status).toBe('authority_rejected');expect(h.coordinator.getState()).toEqual({status:'signed_out'});
 });
-it('T066 sends calendar correction versions through the unchanged correction API',async()=>{
- const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+it.each(['administrator','standortleitung'] as const)('T066 sends calendar correction versions through the unchanged correction API (%s)',async role=>{
+ const h=t066Setup(role);await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
  expect((await h.coordinator.saveTimeEdit({kind:'correct',record:h.record,targetMembershipId:membershipId,startedAt:h.record.startedAt,stoppedAt:h.record.stoppedAt!,reason:'Prüfung'})).status).toBe('committed');
  expect(h.api.correctTimeRecord).toHaveBeenCalledWith('memory-only-token',membershipId,expect.any(String),expect.objectContaining({baseRowVersion:0,effectiveRevisionNumber:1}),h.record.startedAt,h.record.stoppedAt,'Prüfung');
 });
@@ -1709,8 +1710,8 @@ it('T066 leaves a newly opened person untouched by the prior edit acknowledgemen
  expect(h.coordinator.getState()).toMatchObject({status:'ready',notice:null,timeEditBusy:false,calendar:{targetMembershipId:another}});expect(h.managedPersonTime).toHaveBeenCalledTimes(1);expect(h.ownTime).toHaveBeenCalledTimes(1);
 });
 
-it('D-078 retains a stop command through pending archive replies and reloads only after evidence',async()=>{
- const h=t066Setup('administrator',true),target='20000000-0000-4000-8000-000000000002';
+it.each(['administrator','standortleitung'] as const)('D-078 retains a stop command through pending archive replies and reloads only after evidence (%s)',async role=>{
+ const h=t066Setup(role,true),target='20000000-0000-4000-8000-000000000002';
  await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadPersonTime(target,'2026-07');
  const input={kind:'stop' as const,targetMembershipId:target,record:h.record,stoppedAt:'2026-07-21T12:00:00.000Z',reason:'Vergessen'};
  const pending={status:'committed' as const,timeRecordId:h.record.timeRecordId,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
@@ -1722,7 +1723,7 @@ it('D-078 retains a stop command through pending archive replies and reloads onl
  expect(h.stopTime.mock.calls[0]![1]).toMatchObject({expectedMembershipId:membershipId,targetMembershipId:target,expectedRowVersion:1});
  expect(h.coordinator.getState()).toMatchObject({notice:'Gespeichert.'});
 });
-it.each(['employee','standortleitung'] as const)('T-069 rejects %s administrative stops',async role=>{
+it.each(['employee'] as const)('T-069 rejects %s administrative stops',async role=>{
  const h=t066Setup(role,true);await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
  expect(await h.coordinator.saveTimeEdit({kind:'stop',targetMembershipId:membershipId,record:h.record,stoppedAt:'2026-07-21T12:00:00.000Z',reason:'Vergessen'})).toEqual({status:'authority_rejected'});
  expect(h.stopTime).not.toHaveBeenCalled();
@@ -1739,4 +1740,24 @@ it('D-078 does not adopt archive acknowledgements after logout or a calendar swi
   expect(h.coordinator.getState()).toMatchObject(action==='logout'?{status:'signed_out'}:{status:'ready',notice:null,calendar:{targetMembershipId:null}});
   expect(h.managedPersonTime).toHaveBeenCalledTimes(1);
  }
+});
+
+it('T062 manager can stop their own calendar through the API',async()=>{
+ const h=t066Setup('standortleitung',true);await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ h.stopTime.mockResolvedValue({status:'succeeded',value:{status:'committed',timeRecordId:h.record.timeRecordId,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:true}});
+ expect(await h.coordinator.saveTimeEdit({kind:'stop',record:h.record,targetMembershipId:membershipId,stoppedAt:'2026-07-21T12:00:00.000Z',reason:'Vergessen'})).toMatchObject({status:'committed'});
+ expect(h.stopTime).toHaveBeenCalledTimes(1);
+});
+
+it('D-092 loads person-bound targets separately from personal capture and drops a changed calendar',async()=>{
+ const h=t066Setup('standortleitung');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ const before=h.coordinator.getState(),target='20000000-0000-4000-8000-000000000002';
+ const c2={targetType:'customer' as const,targetId:target,displayName:'C2'};
+ h.backfillTargets.mockResolvedValueOnce({status:'succeeded',value:{targets:[c2],nextCursor:'next'}})
+  .mockResolvedValueOnce({status:'succeeded',value:{targets:[{...c2,targetId:'20000000-0000-4000-8000-000000000003'}],nextCursor:null}});
+ expect((await h.coordinator.loadBackfillTargets(target)).status).toBe('ready');
+ expect(h.backfillTargets.mock.calls.map(call=>call[1].targetMembershipId)).toEqual([target,target]);
+ expect(h.coordinator.getState()).toBe(before);
+ h.backfillTargets.mockImplementationOnce(async()=>{await h.coordinator.loadOwnTime('2026-08');return {status:'succeeded',value:{targets:[c2],nextCursor:null}};});
+ expect(await h.coordinator.loadBackfillTargets(target)).toEqual({status:'authority_rejected'});
 });

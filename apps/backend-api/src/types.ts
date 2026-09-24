@@ -293,6 +293,7 @@ export type BackendApiRoute =
   | 'administration_stop'
   | 'time_backfill'
   | 'time_comment'
+  | 'admin_time_backfill_targets'
   | 'admin_time_record_query'
   | 'admin_time_record_query_v2'
   | 'admin_time_record_correction'

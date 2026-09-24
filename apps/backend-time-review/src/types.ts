@@ -1,3 +1,4 @@
+import type { BackfillTargetQueryRequest, MobileWorkTargetQueryResponse } from '@taptime/mobile-work-contract';
 import type {
   ReviewAdjudicationRequest,
   ReviewAdjudicationReceipt,
@@ -26,6 +27,10 @@ export interface TimeReviewCoordinatorControls {
 }
 
 export interface TimeReviewPort {
+  readonly queryBackfillTargets?: (
+    command: AuthenticatedTimeReviewCommand<BackfillTargetQueryRequest>,
+    controls?: TimeReviewCoordinatorControls,
+  ) => Promise<TimeReviewReadResult<MobileWorkTargetQueryResponse>>;
   queryTimeRecords(
     command: AuthenticatedTimeReviewCommand<TimeRecordQueryRequest>,
     controls?: TimeReviewCoordinatorControls,

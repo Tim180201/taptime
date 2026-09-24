@@ -70,7 +70,7 @@ test('mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!
   try {
     for (const [variant, path, direct, remaining] of [
       ['overview','/uebersicht',4,3], ['five-areas','/uebersicht',5,0],
-      ['employee-calendar','/meine-zeiten?monat=2026-09',2,0], ['manager','/beschaeftigte',4,0],
+      ['employee-calendar','/meine-zeiten?monat=2026-09',2,0], ['manager','/beschaeftigte',5,0],
     ]) {
       await page.goto('about:blank');
       await page.goto(webs['admin-web'].origin+path+'#'+variant);

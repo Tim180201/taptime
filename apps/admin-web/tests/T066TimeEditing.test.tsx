@@ -12,10 +12,10 @@ const own='10000000-0000-4000-8000-000000000001',other='10000000-0000-4000-8000-
 const record:SafeOwnTimeRecord={timeRecordId:other,source:'recovered',targetType:'customer',targetDisplayName:'Werkstatt',status:'stopped',startedAt:'2026-09-21T08:00:00.000Z',stoppedAt:'2026-09-21T09:00:00.000Z',startedVia:null,stoppedVia:null,details:{origin:'backfilled',baseRowVersion:0,effectiveRevisionNumber:2,comment:'Vor Ort',changed:true,change:{at:'2026-09-21T10:00:00.000Z',reason:'Berichtigt',actor:'administration'},overlapsAnotherRecord:true}};
 const page={activeRecord:null,records:[record],nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'};
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
-function show(role:'employee'|'administrator'|'standortleitung',target=own,entry=record) {
+function show(role:'employee'|'administrator'|'standortleitung',target=own,entry=record,scoped=true) {
  const save=vi.fn(async()=>({status:'committed' as const,timeRecordId:other,idempotentRetry:false}));
- const state={role,membershipId:own,timeEditBusy:false,workTargets:{status:'ready',value:[{targetType:'customer',targetId:own,displayName:'Werkstatt'}]}} as Pick<Extract<AdminWebState,{status:'ready'}>,'role'|'membershipId'|'timeEditBusy'|'workTargets'>;
- const capability={saveTimeEdit:save,loadWorkTargets:vi.fn(async()=>{})} as unknown as AdminWebCapability;
+ const state={role,membershipId:own,availableSections:scoped?['time_records','review_items']:[],timeEditBusy:false,workTargets:{status:'ready',value:[{targetType:'customer',targetId:own,displayName:'Werkstatt'}]}} as Pick<Extract<AdminWebState,{status:'ready'}>,'role'|'membershipId'|'timeEditBusy'|'workTargets'|'availableSections'>;
+ const capability={saveTimeEdit:save,loadWorkTargets:vi.fn(async()=>{}),loadBackfillTargets:vi.fn(async()=>({status:"ready",targets:[{targetType:"customer",targetId:other,displayName:"Zielperson C2"}]}))} as unknown as AdminWebCapability;
  const view=render(<TimeEditingProvider state={state} administration={capability} targetMembershipId={target}><TimeCalendar value={{...page,activeRecord:entry.status==='started'?entry:null,records:entry.status==='stopped'?[entry]:[]}} month="2026-09" onMonthChange={()=>{}} onRefresh={()=>{}}/></TimeEditingProvider>);
  return {save,...view};
 }
@@ -31,7 +31,7 @@ it('lets an employee save a backfill, keeps rejected inputs, and cancels',async(
  await waitFor(()=>expect(screen.queryByRole('button',{name:'Speichern'})).not.toBeInTheDocument());
  fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.click(screen.getByRole('button',{name:'Abbrechen'}));expect(screen.queryByLabelText('Datum')).not.toBeInTheDocument();
 });
-it.each(['employee','administrator'] as const)('%s comments only their own entry',async role=>{
+it.each(['employee','administrator','standortleitung'] as const)('%s comments only their own entry',async role=>{
  const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Kommentar schreiben'}));fireEvent.change(screen.getByLabelText('Kommentar'),{target:{value:'Meine Notiz'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'comment',comment:'Meine Notiz'})));
  cleanup();show(role,other);expect(screen.queryByRole('button',{name:'Kommentar schreiben'})).not.toBeInTheDocument();
@@ -41,10 +41,10 @@ it('administrator corrects completed time with the original versions and sees th
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'correct',record,reason:'Prüfung'})));
  cleanup();show('administrator',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Ändern'})).not.toBeInTheDocument();expect(screen.getByText('Läuft noch — erst beenden, dann ändern')).toBeInTheDocument();
 });
-it('administrator backfills another person with reason, while managers only read',async()=>{
- const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+it.each(['administrator','standortleitung'] as const)('%s backfills another person with reason',async role=>{
+ const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Zielperson C2'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',targetMembershipId:other,reason:'Tag vergessen',comment:null})));
- cleanup();show('standortleitung',other);for(const name of ['Zeit hinzufügen','Ändern','Kommentar schreiben']) expect(screen.queryByRole('button',{name})).not.toBeInTheDocument();
+ cleanup();show('standortleitung',other,record,false);for(const name of ['Zeit hinzufügen','Ändern','Kommentar schreiben']) expect(screen.queryByRole('button',{name})).not.toBeInTheDocument();
 });
 it.each([['nfc','gescannt'],['manual','manuell'],['backfilled','nachgetragen'],['recovered','wiederhergestellt']] as const)('shows %s provenance and correction/comment/overlap details', (origin,label)=>{
  show('employee',own,{...record,details:{...record.details!,origin}});expect(screen.getByText(new RegExp(label))).toBeInTheDocument();expect(screen.getByText(/Geändert.*Berichtigt/)).toBeInTheDocument();expect(screen.getByText('überschneidet sich')).toBeInTheDocument();expect(screen.getByText('Kommentar: Vor Ort')).toBeInTheDocument();
@@ -52,7 +52,7 @@ it.each([['nfc','gescannt'],['manual','manuell'],['backfilled','nachgetragen'],[
 it('keeps writes visibly disabled offline',()=>{
  vi.spyOn(navigator,'onLine','get').mockReturnValue(false);show('employee');expect(screen.getByRole('button',{name:'Zeit hinzufügen'})).toBeDisabled();expect(screen.getByRole('button',{name:'Kommentar schreiben'})).toBeDisabled();expect(screen.getAllByText(/Nur online möglich/).length).toBeGreaterThan(0);
 });
-it.each(['employee','administrator'] as const)('has no axe violations in the open %s backfill form',async role=>{
+it.each(['employee','administrator','standortleitung'] as const)('has no axe violations in the open %s backfill form',async role=>{
  show(role);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));expect((await axe.run(document.body,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}})).violations).toEqual([]);
 });
 it('explicitly negotiates details, validates them strictly and keeps v3/v4 selectable',async()=>{
@@ -81,10 +81,10 @@ it('posts a closed supplemental command, maps overlap and rejects extra request 
  expect(await api.supplementTime('token','backfill',{...request,role:'administrator'})).toEqual({status:'invalid_response'});expect(fetcher).toHaveBeenCalledTimes(1);
 });
 
-it('T-069 stops another person, retains errors and waits for the archive acknowledgement',async()=>{
+it.each(['administrator','standortleitung'] as const)('T-069 %s stops another person and waits for archival',async role=>{
  vi.useFakeTimers();
  try {
-  const {save}=show('administrator',other,{...record,status:'started',stoppedAt:null,details:{...record.details!,baseRowVersion:2}});
+  const {save}=show(role,other,{...record,status:'started',stoppedAt:null,details:{...record.details!,baseRowVersion:2}});
   fireEvent.click(screen.getByRole('button',{name:'Beenden'}));
   expect(screen.queryByLabelText('Von')).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'2026-09-21T14:00'}});
@@ -135,4 +135,31 @@ it('T-069 validates archive metadata and details v2 representation at the HTTP b
  fetcher.mockResolvedValueOnce(Response.json({status:'committed',timeRecordId:other,idempotentRetry:false}));expect(await api.stopTime('token',request)).toEqual({status:'invalid_response'});
  const current={...page,records:[{...record,stoppedVia:'administration',details:{...record.details!,administrationStop:{at:'2026-09-21T10:00:00.000Z',reason:'Vergessen'}}}]};
  fetcher.mockResolvedValueOnce(Response.json(current));expect(await api.ownTime('token',{expectedMembershipId:own,cursor:null,limit:20})).toMatchObject({status:'succeeded',value:current});
+});
+
+it('T-062 manager stops own running time and keeps boundary rejection visible',async()=>{
+ const {save}=show('standortleitung',own,{...record,status:'started',stoppedAt:null});
+ fireEvent.click(screen.getByRole('button',{name:'Beenden'}));fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Vergessen'}});
+ save.mockResolvedValueOnce({status:'authority_rejected'} as never);
+ await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
+ expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'stop',targetMembershipId:own}));
+ expect(screen.getByRole('alert')).toHaveTextContent('Die Berechtigung zum Beenden fehlt.');
+ expect(screen.getByLabelText('Grund')).toHaveValue('Vergessen');
+});
+
+it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target person choices, not the actor choices',async role=>{
+ const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
+ await screen.findByRole('option',{name:'Zielperson C2'});expect(screen.queryByRole('option',{name:'Werkstatt'})).not.toBeInTheDocument();
+ fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Zielperson'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',targetMembershipId:other,target:expect.objectContaining({targetId:other})})));
+});
+
+it('D-092 sends both memberships to the dedicated endpoint and rejects extra target data',async()=>{
+ const page={status:'ready',targets:[{targetType:'customer',targetId:other,displayName:'C2'}],nextCursor:null};
+ const fetcher=vi.fn<typeof fetch>(async()=>Response.json(page));const api=new AdminWebApiClient(fetcher);
+ const request={expectedMembershipId:own,targetMembershipId:other,limit:50,cursor:null};
+ expect(await api.backfillTargets('token',request)).toEqual({status:'succeeded',value:{targets:page.targets,nextCursor:null}});
+ expect(fetcher.mock.lastCall?.[0]).toBe('/v1/administration/time-records/backfill-targets/query');expect(JSON.parse(String(fetcher.mock.lastCall?.[1]?.body))).toEqual(request);
+ fetcher.mockResolvedValueOnce(Response.json({...page,targets:[{...page.targets[0],private:'hidden'}]}));
+ expect(await api.backfillTargets('token',request)).toEqual({status:'invalid_response'});
 });

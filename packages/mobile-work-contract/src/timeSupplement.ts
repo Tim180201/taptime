@@ -1,4 +1,4 @@
-import { validateOwnTimeResponse, type SafeOwnTimeRecord, type MobileOwnTimeQueryResponse } from './index.js';
+import { validateClosedPageRequest, validateWorkTargetResponse, type MobileWorkTargetQueryResponse, type SafeWorkTarget, validateOwnTimeResponse, type SafeOwnTimeRecord, type MobileOwnTimeQueryResponse } from './index.js';
 
 export const TIME_DETAILS_ACCEPT = 'application/vnd.taptime.time-details.v2+json';
 export interface TimeRecordDetails {
@@ -71,4 +71,24 @@ export function isTimeSupplementResult(v:unknown):v is TimeSupplementResult {
   return object(v) && (v.status==='committed'
     ? keys(v,['status','timeRecordId','idempotentRetry']) && uuid(v.timeRecordId) && typeof v.idempotentRetry==='boolean'
     : keys(v,['status']) && ['authority_rejected','invalid_request','invalid_interval','outside_window','reason_required','invalid_comment','overlap','command_id_conflict','unavailable'].includes(String(v.status)));
+}
+
+export interface BackfillTargetQueryRequest {
+  readonly expectedMembershipId: string;
+  readonly targetMembershipId: string;
+  readonly limit: number;
+  readonly cursor: string | null;
+}
+export type BackfillTargetQueryResponse = MobileWorkTargetQueryResponse & { readonly status: 'ready' };
+export type BackfillTargetSelection = { readonly status: 'ready'; readonly targets: readonly SafeWorkTarget[] }
+  | { readonly status: 'authority_rejected' | 'unavailable' | 'offline' };
+export function isBackfillTargetQueryRequest(value:unknown):value is BackfillTargetQueryRequest {
+  if(!object(value) || !uuid(value.targetMembershipId)) return false;
+  const {targetMembershipId,...page}=value;
+  return validateClosedPageRequest(page,50);
+}
+export function isBackfillTargetQueryResponse(value:unknown):value is BackfillTargetQueryResponse {
+  if(!object(value) || value.status!=='ready') return false;
+  const {status,...page}=value;
+  return validateWorkTargetResponse(page);
 }

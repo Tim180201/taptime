@@ -1,4 +1,4 @@
-import { isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_DETAILS_ACCEPT, isTimeRecordDetails, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_DETAILS_ACCEPT, isTimeRecordDetails, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import {
@@ -90,6 +90,7 @@ export interface AdminWebApiPort {
   stopTime?(token: string, request: unknown): Promise<ApiResult<AdministrationStopResult>>;
   supplementTime?(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>>;
   ownTime?(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
+  backfillTargets?(token:string,request:BackfillTargetQueryRequest):Promise<ApiResult<MobileWorkTargetQueryResponse>>;
   workTargets?(token: string, request: MobileWorkTargetQueryRequest): Promise<ApiResult<MobileWorkTargetQueryResponse>>;
   manualLifecycle?(token: string, request: ManualLifecycleRequest | ManualBreakLifecycleRequest): Promise<ApiResult<ManualResult>>;
   managedPersonTime?(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
@@ -249,6 +250,12 @@ export class AdminWebApiClient implements AdminWebApiPort {
     return this.request('/v1/mobile/own-time/query',token,'POST',request,
       value => validCalendarPage(value,request.limit) ? value : null,
       false,false,false,maximumTimeReviewBodyBytes);
+  }
+  async backfillTargets(token:string,request:BackfillTargetQueryRequest):Promise<ApiResult<MobileWorkTargetQueryResponse>> {
+    if(!isBackfillTargetQueryRequest(request)) return {status:'invalid_response'};
+    return this.request('/v1/administration/time-records/backfill-targets/query',token,'POST',request,
+      value=>isBackfillTargetQueryResponse(value) && value.targets.length<=request.limit
+        ? {targets:value.targets,nextCursor:value.nextCursor}:null,false,false,false,maximumTimeReviewBodyBytes);
   }
   async workTargets(token: string, request: MobileWorkTargetQueryRequest): Promise<ApiResult<MobileWorkTargetQueryResponse>> {
     if (!validateMobileWorkTargetQueryRequest(request)) return {status:'invalid_response'};

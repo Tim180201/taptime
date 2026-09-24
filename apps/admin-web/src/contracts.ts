@@ -190,6 +190,7 @@ export type AdminWebState =
 export interface AdminWebCapability {
   readonly saveTimeEdit?: (input: TimeEditInput) => Promise<TimeEditResult>;
   readonly loadOwnTime?: (month: string) => Promise<void>;
+  readonly loadBackfillTargets?: (targetMembershipId:string) => Promise<import("@taptime/mobile-work-contract").BackfillTargetSelection>;
   readonly loadWorkTargets?: () => Promise<void>;
   readonly captureManual?: (target: SafeWorkTarget | 'break') => Promise<void>;
   readonly refreshManagedPeople?: (isRunning?: boolean | null, append?: boolean) => Promise<void>;

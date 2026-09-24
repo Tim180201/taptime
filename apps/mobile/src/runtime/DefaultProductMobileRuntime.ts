@@ -184,7 +184,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
 
   get timeEditing(): TimeEditingCapability | undefined {
     const c=this.timeEditingCoordinator;
-    return c ? this.timeEditingFacade ??= Object.freeze({getState:c.getState,subscribe:c.subscribe,save:(kind:import('../timeEditing/TimeEditingCoordinator').TimeEditKind,input:Record<string,unknown>)=>c.save(kind,input)}) : undefined;
+    return c ? this.timeEditingFacade ??= Object.freeze({getState:c.getState,subscribe:c.subscribe,loadBackfillTargets:(targetMembershipId:string)=>c.loadBackfillTargets(targetMembershipId),save:(kind:import('../timeEditing/TimeEditingCoordinator').TimeEditKind,input:Record<string,unknown>)=>c.save(kind,input)}) : undefined;
   }
   private timeEditingFacade: TimeEditingCapability | undefined;
 

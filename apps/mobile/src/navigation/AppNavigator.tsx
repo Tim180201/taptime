@@ -74,7 +74,7 @@ export function AppNavigator({
 
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
-    return <TimeEditingProvider key={accountKey} capability={timeEditing} work={work} membershipId={state.session.membershipId} role={state.session.role}><ProductShell key={accountKey} identityLabel={state.identityLabel} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
+    return <TimeEditingProvider key={accountKey} capability={timeEditing} work={work} membershipId={state.session.membershipId} role={state.session.role} managementScope={state.session.managementScope}><ProductShell key={accountKey} identityLabel={state.identityLabel} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
       scan={scan} administration={administration} work={work} offlineManual={offlineManual} /></TimeEditingProvider>;
   }
   if (state.status === 'enrollment_only') {

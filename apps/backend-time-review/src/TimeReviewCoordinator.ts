@@ -1,5 +1,5 @@
 import { isOrganizationPausedError } from '@taptime/backend-identity';
-import { isTimeRecordDetails } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isWorkTargetType, isCanonicalUuid, type BackfillTargetQueryRequest, type MobileWorkTargetQueryResponse, type SafeWorkTarget, isTimeRecordDetails } from '@taptime/mobile-work-contract';
 import { createHash } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
@@ -10,6 +10,7 @@ import {
   validateReviewItemQueryRequest,
   validateTimeRecordCorrectionRequest,
   validateTimeRecordQueryRequest,
+  type TimeReviewReadResult,
   type CorrectedTimeRecord,
   type ReviewAdjudicationReceipt,
   type ReviewItemProjection,
@@ -133,6 +134,38 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     private readonly accessTokenVerifier: AccessTokenVerifier,
   ) {}
 
+  async queryBackfillTargets(
+    command: AuthenticatedTimeReviewCommand<BackfillTargetQueryRequest>,
+    controls: TimeReviewCoordinatorControls = {},
+  ): Promise<TimeReviewReadResult<MobileWorkTargetQueryResponse>> {
+    const request=command.request;
+    if(!isBackfillTargetQueryRequest(request)) return {status:'unavailable'};
+    let afterType:string|null=null,afterId:string|null=null;
+    if(request.cursor!==null) {
+      try {
+        const text=Buffer.from(request.cursor,'base64url').toString('utf8');
+        const cursor:unknown=JSON.parse(text);
+        if(Buffer.from(text).toString('base64url')!==request.cursor || !Array.isArray(cursor)
+          || cursor.length!==3 || cursor[0]!==request.targetMembershipId
+          || !isWorkTargetType(cursor[1]) || !isCanonicalUuid(cursor[2])) return {status:'unavailable'};
+        afterType=cursor[1];afterId=cursor[2];
+      } catch {return {status:'unavailable'};}
+    }
+    return this.withTimeManager(this.readPool,command.accessToken,request.expectedMembershipId,TIME_REVIEW_READER_ROLE,controls,
+      async(client,actor)=>{
+        const rows=(await client.query<{target_type:SafeWorkTarget['targetType'];target_id:string;display_name:string}>(
+          'SELECT * FROM taptime_server.read_time_backfill_targets_v1($1,$2,$3,$4,$5,$6,$7)',
+          [actor.organization_id,actor.user_id,actor.membership_id,request.targetMembershipId,afterType,afterId,request.limit+1],
+        )).rows;
+        const visible=rows.slice(0,request.limit),last=visible.at(-1);
+        return {status:'ready' as const,value:{
+          targets:visible.map(row=>({targetType:row.target_type,targetId:row.target_id,displayName:row.display_name})),
+          nextCursor:rows.length>request.limit && last
+            ? Buffer.from(JSON.stringify([request.targetMembershipId,last.target_type,last.target_id])).toString('base64url') : null,
+        }};
+      });
+  }
+
   async queryTimeRecords(
     command: AuthenticatedTimeReviewCommand<Parameters<TimeReviewPort['queryTimeRecords']>[0]['request']>,
     controls: TimeReviewCoordinatorControls = {},
@@ -141,7 +174,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     if (validation.status === 'invalid_request') return { status: 'unavailable' };
     const cursor = decodeCursor(validation.request.cursor);
     if (cursor === undefined) return { status: 'unavailable' };
-    return this.withAdministrator(
+    return this.withTimeManager(
       this.readPool,
       command.accessToken,
       validation.request.expectedMembershipId,
@@ -191,7 +224,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     if (validation.status === 'invalid_request') return { status: 'unavailable' as const };
     const cursor = decodeCursor(validation.request.cursor);
     if (cursor === undefined) return { status: 'unavailable' as const };
-    return this.withAdministrator(
+    return this.withTimeManager(
       this.readPool,
       command.accessToken,
       validation.request.expectedMembershipId,
@@ -250,7 +283,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     const validation = validateTimeRecordCorrectionRequest(command.request);
     if (validation.status === 'invalid_request') return { status: 'unavailable' };
     const requestHash = digest(validation.request);
-    return this.withAdministrator(
+    return this.withTimeManager(
       this.writePool,
       command.accessToken,
       validation.request.expectedMembershipId,
@@ -291,7 +324,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     if (validation.status === 'invalid_request') return { status: 'unavailable' };
     const cursor = decodeCursor(validation.request.cursor);
     if (cursor === undefined) return { status: 'unavailable' };
-    return this.withAdministrator(
+    return this.withTimeManager(
       this.readPool,
       command.accessToken,
       validation.request.expectedMembershipId,
@@ -338,7 +371,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     if (validation.status === 'invalid_request') return { status: 'unavailable' as const };
     const cursor = decodeCursor(validation.request.cursor);
     if (cursor === undefined) return { status: 'unavailable' as const };
-    return this.withAdministrator(
+    return this.withTimeManager(
       this.readPool,
       command.accessToken,
       validation.request.expectedMembershipId,
@@ -385,7 +418,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     if (validation.status === 'invalid_request') return { status: 'unavailable' };
     const requestHash = digest(validation.request);
     const resolution = validation.request.resolution;
-    return this.withAdministrator(
+    return this.withTimeManager(
       this.writePool,
       command.accessToken,
       validation.request.expectedMembershipId,
@@ -422,7 +455,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     );
   }
 
-  private async withAdministrator<T>(
+  private async withTimeManager<T>(
     pool: Pool,
     accessToken: string,
     expectedMembershipId: string,
@@ -467,7 +500,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
       const actor = authority.rows.length === 1 ? authority.rows[0] : undefined;
       if (
         actor === undefined
-        || actor.membership_role !== 'administrator'
+        || (actor.membership_role !== 'administrator' && actor.membership_role !== 'standortleitung')
         || actor.membership_id !== expectedMembershipId
       ) {
         await client.query('ROLLBACK');
@@ -480,8 +513,8 @@ export class TimeReviewCoordinator implements TimeReviewPort {
         `SELECT set_config('app.user_id', $1, true),
                 set_config('app.organization_id', $2, true),
                 set_config('app.membership_id', $3, true),
-                set_config('app.membership_role', 'administrator', true)`,
-        [actor.user_id, actor.organization_id, actor.membership_id],
+                set_config('app.membership_role', $4, true)`,
+        [actor.user_id, actor.organization_id, actor.membership_id, actor.membership_role],
       );
       await client.query(`SET LOCAL ROLE ${runtimeRole}`);
       const value = await operation(client, actor);
@@ -493,6 +526,8 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     } catch (error) {
       if (transactionOpen) await rollback(client);
       if (isOrganizationPausedError(error)) throw error;
+      if (error instanceof Error && 'code' in error && error.code === '42501'
+        && error.message === 'Time target capability rejected') return { status: 'authority_rejected' };
       return { status: 'unavailable' };
     } finally {
       client.off('error', onError);

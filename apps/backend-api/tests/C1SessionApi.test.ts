@@ -522,7 +522,7 @@ describe('server-authoritative GET /v2/session', () => {
       organizationId: c1Ids.organizationA,
       locationsEnabled: true,
       role: 'standortleitung',
-      availableSections: ['employees', 'own_time', 'manual_capture'],
+      availableSections: ['employees', 'time_records', 'review_items', 'own_time', 'manual_capture'],
       managementScope: {
         kind: 'locations',
         locations: [{ id: locationId, name: 'Berlin' }],

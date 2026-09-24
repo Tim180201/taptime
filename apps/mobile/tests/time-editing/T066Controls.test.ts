@@ -27,9 +27,9 @@ const save=vi.fn(async()=>({status:'committed' as const,timeRecordId:id,idempote
 const refresh=vi.fn(async()=>{});
 beforeEach(()=>{vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);container=document.createElement('div');document.body.appendChild(container);root=createRoot(container);save.mockClear();refresh.mockClear();});
 afterEach(async()=>{await act(async()=>root.unmount());container.remove();vi.unstubAllGlobals();});
-async function render(role:'employee'|'administrator'|'standortleitung',online=true,entry=record,targetMembershipId=role==='administrator'?'10000000-0000-4000-8000-000000000002':id) {
+async function render(role:'employee'|'administrator'|'standortleitung',online=true,entry=record,targetMembershipId=role==='employee'?id:'10000000-0000-4000-8000-000000000002', scoped=true) {
   const state={online,busy:false};
-  await act(async()=>root.render(createElement(TimeEditingContext.Provider,{value:{role,membershipId:id,targets:[{targetType:'customer',targetId:id,displayName:'Kunde'}],...state,capability:{save,getState:()=>state,subscribe:()=>()=>{}}}},
+  await act(async()=>root.render(createElement(TimeEditingContext.Provider,{value:{role,membershipId:id,managementScope:scoped?{kind:'location',locationId:id,locationName:'Eins'}:null,targets:[{targetType:'customer',targetId:id,displayName:'Kunde'}],...state,capability:{save,getState:()=>state,subscribe:()=>()=>{},loadBackfillTargets:async()=>({status:"ready" as const,targets:[{targetType:"customer" as const,targetId:"20000000-0000-4000-8000-000000000002",displayName:"Zielperson C2"}]})}}},
     createElement(TimeCalendar,{value:{activeRecord:entry.status==='started'?entry:null,records:entry.status==='stopped'?[entry]:[],nextCursor:null,windowStartedAt:'2026-08-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'},onRefresh:refresh,targetMembershipId}))));
 }
 function button(text:string) {return [...container.querySelectorAll('button')].find(b=>b.textContent===text);}
@@ -46,16 +46,16 @@ it('shows durable provenance, correction reason, current comment and overlap; em
   await press('Kommentar schreiben');await fill('Kommentar','Neue Fassung');await press('Speichern');
   expect(save).toHaveBeenCalledWith('comment',{timeRecordId:id,comment:'Neue Fassung'});expect(refresh).toHaveBeenCalled();
 });
-it('administrator corrects a completed entry with reason and concurrency versions',async()=>{
-  await render('administrator');expect(button('Kommentar schreiben')).toBeUndefined();await press('Ändern');await fill('Grund','Prüfung');await press('Speichern');
+it.each(['administrator','standortleitung'] as const)('%s corrects a completed entry with reason and concurrency versions',async role=>{
+  await render(role);expect(button('Kommentar schreiben')).toBeUndefined();await press('Ändern');await fill('Grund','Prüfung');await press('Speichern');
   expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({timeRecordId:id,expectedBaseRowVersion:0,expectedRevisionNumber:2,reason:'Prüfung'}));
 });
 it('running entries have the D-071 hint and no change action',async()=>{
   await render('administrator',true,{...record,status:'started',stoppedAt:null},id);
   expect(button('Ändern')).toBeUndefined();expect(container.textContent).toContain('Läuft noch — erst beenden, dann ändern');
 });
-it('location managers see marks but have no write actions',async()=>{
-  await render('standortleitung');for(const text of ['Ändern','Zeit hinzufügen','Kommentar schreiben']) expect(button(text)).toBeUndefined();
+it('location managers without a session scope have no management actions',async()=>{
+  await render('standortleitung',true,record,'10000000-0000-4000-8000-000000000002',false);for(const text of ['Ändern','Zeit hinzufügen','Kommentar schreiben']) expect(button(text)).toBeUndefined();
   expect(container.textContent).toContain('überschneidet sich');
 });
 it('backfills with optional employee comment and preserves inputs after rejection; cancel closes',async()=>{
@@ -78,8 +78,8 @@ it.each([['nfc','gescannt'],['manual','manuell'],['backfilled','nachgetragen'],[
   await render('employee',true,{...record,details:{...record.details!,origin,changed:false,change:null,overlapsAnotherRecord:false}});
   expect(container.textContent).toContain(label);expect(container.textContent).not.toContain('überschneidet sich');
 });
-it('administrator backfills for the selected person with a required reason and no employee comment',async()=>{
-  await render('administrator');await press('Zeit hinzufügen');await press('Kunde');await fill('Grund','Tag ergänzt');await press('Speichern');
+it.each(['administrator','standortleitung'] as const)('%s backfills for the selected person with a required reason and no employee comment',async role=>{
+  await render(role);await press('Zeit hinzufügen');await press('Zielperson C2');await fill('Grund','Tag ergänzt');await press('Speichern');
   expect(save).toHaveBeenCalledWith('backfill',expect.objectContaining({targetMembershipId:'10000000-0000-4000-8000-000000000002',reason:'Tag ergänzt',comment:null}));
   expect(container.querySelector('input[aria-label="Kommentar (optional)"]')).toBeNull();
 });
@@ -88,17 +88,17 @@ it('a first self backfill remains visibly distinct from an administrative correc
   expect(container.textContent).toContain('Nachgetragen');expect(container.textContent).toContain('durch Beschäftigten: Selbst nachgetragen');
 });
 
-it('administrator can comment their own entry, never another person’s',async()=>{
-  await render('administrator',true,record,id);
+it.each(['administrator','standortleitung'] as const)('%s can comment their own entry, never another person’s',async role=>{
+  await render(role,true,record,id);
   await press('Kommentar schreiben');await fill('Kommentar','Eigene Notiz');await press('Speichern');
   expect(save).toHaveBeenCalledWith('comment',{timeRecordId:id,comment:'Eigene Notiz'});
-  await render('administrator');expect(button('Kommentar schreiben')).toBeUndefined();
+  await render(role);expect(button('Kommentar schreiben')).toBeUndefined();
 });
 
 
-it('T-069 lets an administrator stop another person online, preserves errors and reloads on success',async()=>{
+it.each(['administrator','standortleitung'] as const)('T-069 lets an %s stop another person online, preserves errors and reloads on success',async role=>{
   const active={...record,source:'canonical' as const,status:'started' as const,stoppedAt:null,details:{...record.details!,baseRowVersion:3}};
-  await render('administrator',true,active);
+  await render(role,true,active);
   expect(container.textContent).not.toContain('Läuft noch — erst beenden');
   await press('Beenden');
   expect(container.querySelector('input[aria-label="Von (JJJJ-MM-TTTHH:MM)"]')).toBeNull();
@@ -155,4 +155,20 @@ it('D-078 stops polling after three minutes, retains the command inputs and perm
     save.mockResolvedValue({status:'committed',timeRecordId:id,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:true} as never);
     await press('Erneut prüfen');expect(refresh).toHaveBeenCalled();
   } finally {save.mockResolvedValue({status:'committed',timeRecordId:id,idempotentRetry:false});vi.useRealTimers();}
+});
+
+it('T-062 manager can stop their own entry and retains the existing rejection text',async()=>{
+ await render('standortleitung',true,{...record,status:'started',stoppedAt:null},id);
+ await press('Beenden');await fill('Grund','Vergessen');
+ save.mockResolvedValueOnce({status:'authority_rejected'} as never);await press('Zeit beenden');
+ expect(save).toHaveBeenCalledWith('stop',expect.objectContaining({targetMembershipId:id,reason:'Vergessen'}));
+ expect(container.textContent).toContain('Die Berechtigung zum Beenden fehlt.');
+ expect(refresh).not.toHaveBeenCalled();
+});
+
+it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target person choices, not the actor choices',async role=>{
+ await render(role);await press('Zeit hinzufügen');
+ expect(button('Zielperson C2')).toBeDefined();expect(button('Kunde')).toBeUndefined();
+ await press('Zielperson C2');await fill('Grund','Zielperson');await press('Speichern');
+ expect(save).toHaveBeenCalledWith('backfill',expect.objectContaining({targetId:'20000000-0000-4000-8000-000000000002'}));
 });

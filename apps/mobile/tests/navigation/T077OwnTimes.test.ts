@@ -132,7 +132,7 @@ describe('T-077 own times through the product navigation', () => {
     expect(selected()).toBe('Meine Zeiten');
     for (const text of ['September 2026', '10:00 – 11:00', 'Europe/Berlin', 'Eigene Notiz', 'Ende berichtigt']) expect(container.textContent).toContain(text);
     const ownActions = writeActions();
-    expect(ownActions).toEqual(role === 'administrator' ? ['Zeit hinzufügen', 'Kommentar schreiben', 'Ändern'] : []);
+    expect(ownActions).toEqual(['Zeit hinzufügen', 'Kommentar schreiben', 'Ändern']);
     expect(h.props.employees.refresh).not.toHaveBeenCalled();
     await press('Mitarbeiter'); await press('Eigene Person, inaktiv');
     expect(writeActions()).toEqual(ownActions);
@@ -162,9 +162,10 @@ describe('T-077 own times through the product navigation', () => {
     expect(selected()).toBe('Erfassen'); expect(tabs()).toEqual(['Erfassen', 'Meine Zeiten']);
     await press('Meine Zeiten');
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: sessionContext('standortleitung', true) }));
-    expect(selected()).toBe('Meine Zeiten'); expect(writeActions()).toEqual([]);
+    expect(selected()).toBe('Meine Zeiten'); expect(writeActions()).toEqual(['Zeit hinzufügen', 'Kommentar schreiben', 'Ändern']);
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: { ...sessionContext('standortleitung', true), managementScope: null } }));
     expect(selected()).toBe('Meine Zeiten'); expect(tabs()).toEqual(['Erfassen', 'Meine Zeiten', 'Tags']);
+    expect(writeActions()).toEqual(['Kommentar schreiben']);
     await press('Tags');
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: sessionContext('standortleitung') }));
     expect(selected()).toBe('Erfassen');

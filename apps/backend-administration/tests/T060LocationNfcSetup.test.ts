@@ -187,7 +187,7 @@ describe('T060 SQL NFC authority and coordinator seam', () => {
     await expect(enrollment.createInvitation({ ...manager, commandId: randomUUID(), displayName: 'Neue Person', role, locationId })).resolves.toMatchObject({ status });
   });
   it('g: SQL and backend session separate NFC from general setup for manager/admin/employee', async () => {
-    await expect(session()).resolves.toMatchObject({ projection: { nfcSetupAvailable: true, availableSections: ['employees', 'own_time', 'manual_capture'] } });
+    await expect(session()).resolves.toMatchObject({ projection: { nfcSetupAvailable: true, availableSections: ['employees', 'time_records', 'review_items', 'own_time', 'manual_capture'] } });
     await expect(session(admin)).resolves.toMatchObject({ projection: { nfcSetupAvailable: true, availableSections: expect.arrayContaining(['setup']) } });
     await sql('taptime_identity_resolver', async (client) => {
       expect((await client.query(`SELECT setup_available, nfc_setup_available FROM taptime_server.read_administration_session_v2($1, $2, $3)`,
