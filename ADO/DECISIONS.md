@@ -1485,3 +1485,13 @@ Mitarbeiter, Tags (Tags nur, wenn die Sitzung sie erlaubt). Die eigene Person bl
 Mitarbeiterliste. Das ändert D-058 („Mitarbeiter ersetzt Meine Zeiten"). Nur App; Umsetzung als T-077,
 zusammen mit T-076 in einem App-Build.
 **Warum:** Wer selbst stempelt, will seine Zeiten mit einem Tipp sehen, statt sich erst in der Liste zu suchen.
+
+## D-091 · Die Standortleitung kann vor dem Pilot alles im eigenen Standort, T-062 rückt vor · 24.09.2026 · Tim (PO)
+Die Standortleitung braucht im Pilot dieselben Möglichkeiten wie der Administrator, begrenzt auf den eigenen
+Standort (D-059): Zeiten nachtragen und ändern mit Grund (D-067, D-069), laufende Zeiten beenden (D-073),
+Prüffälle entscheiden (D-064), dazu weiterhin sehen, einladen und Tags zuordnen. Deshalb rückt T-062 vor den
+nächsten App-Build; die Reihenfolge lautet T-062 → Deploy mit Migration 033 → App-Build → T-024 → Pilot. Nicht
+enthalten bleiben Arbeitsziele, Standorte, Lohnexport und das Anlegen von Administratoren oder Standortleitungen;
+die Grenze entscheidet wie bei T-060 die Datenbank, nie nur die Oberfläche.
+**Warum:** Der PO hat die Standortleitung im Pilotbetrieb fest eingeplant; eine Führungskraft, die ihre eigenen
+Zeiten nicht nachtragen kann, wäre am ersten Tag ein Fehler.
