@@ -1477,3 +1477,11 @@ keine Geheimnisse, keine personenbezogenen Daten und keine Kundennamen; T-024 (Z
 Deploy-Schlüssel mit Passphrase) bleibt Pflicht vor dem Pilot. Neu prüfen vor dem ersten Kundenvertrag.
 **Warum:** Öffentlich bleibt CI kostenlos und am Deploy ändert sich nichts; das Restrisiko ist die öffentliche
 Liste offener Sicherheitsaufgaben, und die erledigt T-024.
+
+## D-090 · Administrator und Standortleitung haben in der App auch „Meine Zeiten" · 24.09.2026 · Tim (PO)
+In der App bekommen Administrator und Standortleitung zusätzlich zum Reiter „Mitarbeiter" den Reiter
+„Meine Zeiten" mit dem eigenen Monatskalender, wie Beschäftigte ihn haben. Reihenfolge: Erfassen, Meine Zeiten,
+Mitarbeiter, Tags (Tags nur, wenn die Sitzung sie erlaubt). Die eigene Person bleibt zusätzlich in der
+Mitarbeiterliste. Das ändert D-058 („Mitarbeiter ersetzt Meine Zeiten"). Nur App; Umsetzung als T-077,
+zusammen mit T-076 in einem App-Build.
+**Warum:** Wer selbst stempelt, will seine Zeiten mit einem Tipp sehen, statt sich erst in der Liste zu suchen.

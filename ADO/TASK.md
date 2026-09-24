@@ -1,66 +1,47 @@
 # Aktuelle Aufgabe
 
-> **Stand 24.09.2026:** Produktion auf `ff69bfe`. Auf `main` bis `b635c4a`: T-072, T-031 und T-074, alle APPROVED.
-> Der PO fuehrt Konsole (Controller) und Deploy `b635c4a` selbst aus; diese Aufgabe laeuft parallel und
-> betrifft nur die App. Reihenfolge: **T-072b → T-076 → T-024 → Pilot Monat 1**. Fruehere Briefs stehen in
-> der Git-Historie.
+> **Stand 24.09.2026:** Produktion auf `b635c4a` (Deploy 24.09.). iPhone mit T-072b im TestFlight-Build vom 24.09.
+> abgenommen. Reihenfolge: **T-077 → T-076 → ein App-Build für iPhone und Android → T-024 → Pilot Monat 1**.
+> Frühere Briefs stehen in der Git-Historie.
 
-## T-072b · iPhone: gelesener Tag geht beim Schließen der Apple-Sitzung verloren
+## T-077 · Reiter „Meine Zeiten“ für Administrator und Standortleitung (D-090)
 
-**Für:** Development · **Risiko:** Tag-Identität, Exklusivität der NFC-Sitzung, Plattformgleichheit
-**Zeitbox:** eine Sitzung; Reihenfolge Beleg → Tests rot → Korrektur → Diagnose → Nachweis.
-**Grundlage:** T-072, D-058, ADR-0009, ADR-0017.
+**Für:** Development · **Risiko:** Rechte (nur eigene Zeiten), Navigation je Rolle
+**Zeitbox:** eine kurze Sitzung; Reihenfolge Beleg → Tests rot → Umsetzung → Nachweis.
+**Grundlage:** D-090, D-058, D-062, T-059 (Reiter Mitarbeiter), T-058 (Meine Zeiten).
 
-### Befund (Geräteabnahme PO, 23./24.09., TestFlight 1.0.0 (1))
+### Ziel
 
-- iPhone, Admin-Konto, zugeordneter Tag: „Tag scannen" → Apple-Fenster → Tag hinhalten → **blauer Haken**
-  → App zeigt „NFC nicht verfügbar / Die Scan-Funktion ist derzeit nicht verfügbar." Reproduzierbar, auch
-  nach App-Neustart. Beim Server kommt nichts an. Android unauffällig.
-- Analyse Technical Lead (am Code, nicht am Gerät belegt): Der Haken erscheint, wenn die App
-  `invalidateSession` aufruft, also nach `IosNfcSession.finish()`. `cancelTechnologyRequest` hat damit eine
-  lebende Sitzung beendet (nativ `tagSession = nil`, Rückmeldung ohne Fehler). Übrig bleibt der
-  2-Sekunden-Aufräumtimer in `finish()`: Er macht aus `captured` ein `unavailable`, wenn `settleIfDrained`
-  nicht rechtzeitig fertig ist, weil `closed` erst mit dem Ereignis `NfcManagerSessionClosed` wahr wird.
-  Offen ist, ob das Ereignis zu spät kommt (Apple ruft `didInvalidateWithError` womöglich erst nach der
-  Haken-Animation) oder gar nicht (RN 0.86, Legacy-`RCTEventEmitter` über die Interop-Schicht).
-- Wichtig für die Korrektur: `didInvalidateWithError` der alten Sitzung ruft nativ `[self reset]` und
-  würde eine inzwischen gestartete neue Sitzung zerstören (`tagSession`, `techRequestCallback`). Die
-  Exklusivität darf deshalb nicht einfach wegfallen.
-- „Tag zuordnen" auf dem iPhone nutzt denselben Weg (`scanWithTagAction`): Der Tag wird beschrieben, dann
-  wird das Ergebnis `unavailable`, und die Zuordnung am Server findet nicht statt.
+Administrator und Standortleitung sehen in der App ihre eigenen Zeiten mit einem Tipp. Reiter:
+**Erfassen · Meine Zeiten · Mitarbeiter · Tags** (Tags wie heute nur bei `nfcSetupAvailable`). Beschäftigte bleiben
+unverändert (Erfassen · Meine Zeiten). Die eigene Person bleibt zusätzlich in der Mitarbeiterliste.
 
 ### Auftrag
 
-1. **Erst belegen (Stop-Regel):** An `react-native-nfc-manager` 3.17.2 (iOS) und React Native 0.86
-   (Interop für `RCTEventEmitter`, Listener-Zählung, Ereigniszustellung) belegen, ob und wann
-   `NfcManagerSessionClosed` nach `invalidateSession` in JS ankommt. Ist die Analyse oben falsch: stoppen
-   und melden.
-2. **Ergebnis und Aufräumen trennen:** Ein gelesener Tag wird ausgeliefert, sobald Lesen (und bei
-   `scanWithTagAction` die Aktion) abgeschlossen und `cancelTechnologyRequest` erfolgreich war. Die
-   Sitzung bleibt belegt, bis `SessionClosed` kommt oder eine begründete längere Frist abläuft. Ein Scan in
-   dieser Zeit bekommt einen verständlichen Hinweis oder wartet kurz, zerstört aber nie eine Sitzung.
-   Schlägt `cancelTechnologyRequest` fehl, bleibt die heutige Regel (kein Ergebnis ohne gesicherten
-   Sitzungsabbau) — oder begründet anders.
-3. **Diagnose ohne Geheimnisse:** Schlanke iOS-Lebenszyklusmeldungen mit festem Präfix `TapturaNfc`
-   (angefordert, verbunden, gelesen, Aktion fertig, Abbruch ok/fehlgeschlagen, SessionClosed mit
-   Fehlercode, Frist abgelaufen; Millisekunden relativ zum Start), sichtbar in der macOS-Konsole im
-   Release-Build. Keine UID, kein Tag-Inhalt, keine Tokens, keine Konto- oder Betriebs-IDs.
-4. **Tag zuordnen auf dem iPhone:** Anzeige und Wirkung stimmen überein (Zuordnung erfolgt ↔ Erfolg).
-5. Android bytegleich.
+1. **Erst belegen (Stop-Regel):** Der vorhandene `OwnTimeScreen` mit der `work`-Capability liefert für
+   Administrator und Standortleitung dieselben eigenen Zeiten wie für Beschäftigte: Endpunkt, Rechte,
+   Membership-Bindung, Kalender in Europe/Berlin. Braucht es dafür eine Server-, API-, Migrations- oder
+   Rechteänderung: stoppen und melden.
+2. `productDestinations` gibt Rollen mit `managementScope` zusätzlich `times` vor `employees`. Bestehende Logik
+   bleibt: Rücksprung auf Erfassen, wenn ein Ziel wegfällt; Offline-Ziele; Abgleich hinter dem Statuspunkt;
+   „Manuell“ wie heute.
+3. Nachtragen, Ändern und Kommentieren aus „Meine Zeiten“ verhalten sich für Administrator und Standortleitung
+   genau wie heute bei der eigenen Person unter „Mitarbeiter“: keine neuen Rechte, keine umgangenen Prüfungen,
+   dieselben Texte.
+4. Die Leiste mit vier Reitern bleibt ab 320 pt Breite vollständig lesbar, ohne abgeschnittene Beschriftungen.
+   Kurzbeschriftungen nur mit Begründung; Tippflächen mindestens 44 pt.
+5. Kontowechsel-Verhalten bleibt unverändert (T-076 folgt).
 
 ### Tests
 
-Realistische Reihenfolgen mit gefälschter Uhr: SessionClosed nach 3 s; SessionClosed nie;
-SessionClosed vor der Abbruch-Rückmeldung; Abbruch schlägt fehl; zweiter Scan in der Aufräumphase;
-spätes `didInvalidate` der alten Sitzung darf keine neue Sitzung zerstören; `scanWithTagAction` mit
-Erfolg. Bestehende Suiten beider Plattformen, Typecheck, Prüfung des erzeugten iOS-Projekts.
+Navigation je Rolle: Beschäftigte, Standortleitung mit und ohne Tags, Administrator mit und ohne Tags, offline.
+Wechsel von Rolle oder Scope während der Sitzung. „Meine Zeiten“ mit Fixtures für beide Führungsrollen, inklusive
+leerem Monat und Fehlerfall. Bestehende App-Suite und tests-inklusiver Typecheck grün.
 
 ### Nicht Teil
 
-Kein Server, keine Tag-Identität, kein Hintergrund-Lesen (T-073), kein Kontowechsel (T-076), keine
-Änderung an der Bibliothek selbst ohne Stop-Meldung, kein Build/Submit durch Codex, kein Deploy.
+Kein Server, keine Migration, keine Web-Änderung, kein App-Build, kein Deploy, T-076 nicht vorwegnehmen.
 
 ### Bericht
 
-`.t072b-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit, kein Push.
-Danach baut der PO `eas build -p ios --profile production-validation` und reicht über TestFlight ein.
+`.t077-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit, kein Push.

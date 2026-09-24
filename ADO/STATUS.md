@@ -1,24 +1,25 @@
 # TapTim.e — Status
 
-**Stand:** 23.09.2026 · Produktion läuft auf `ff69bfe` (T-065, T-066, T-069, T-070, T-057, T-068a/b,
-T-071; Migrationen bis 032 angewendet). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt.
-Auf `main` zusätzlich T-072 (iPhone Stufe 1, nur App, kein Deploy nötig). „Taptura“ ist der
-Arbeitsname für den Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
-Offen vor dem Pilot: iOS-Build/TestFlight und neue APK (PO), Geräteabnahme Android und iPhone,
-Startseite hinter Passwort (T-031), Konsole mit T-071-Controller. Zur Entscheidung vor T-048: Freigabe
-manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
-wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+**Stand:** 24.09.2026 · Produktion läuft auf `b635c4a` (Deploy 24.09.: T-031 Startseite `tb-infra.de` hinter
+Passwort mit eigenem Caddy-Rückweg, T-074 Verwaltung und Betreiber-Bereich am Handy; Controller `b635c4a` an der
+Konsole installiert; Migrationen bis 032). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt. iPhone mit
+T-072b im TestFlight-Build vom 24.09. abgenommen; Android-APK versionCode 9. „Taptura“ ist der Arbeitsname für den
+Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
+Offen vor dem Pilot: T-077 (Meine Zeiten für Administrator und Standortleitung, D-090) und T-076 (Kontowechsel am
+Gerät), danach ein App-Build für iPhone und Android mit Geräteabnahme; T-024 (Zugangsdaten rotieren,
+Deploy-Schlüssel mit Passphrase); AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur
+Entscheidung vor T-048: Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das
+ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
-## Beobachten (TL, 23.09.)
+## Beobachten (TL, 23./24.09.)
 
-- Sicherung am 23.09.: ein Lauf um 02:05 UTC mit rund einer Stunde Dauer, ein Fehlschlag um 06:05 UTC;
-  Ursache offen, beim nächsten Konsolentermin im Journal ansehen.
+- Sicherung am 23.09.: Der Fehlschlag um 06:05 UTC wurde sofort wiederholt und lief erfolgreich; alle Läufe
+  seitdem erfolgreich (Journal und `taptime-status`, 24.09.). Die Fehlermeldung selbst ist nicht mehr im Blick.
 - Volle Archiver-Abgleiche zeigen `base_seconds=61`; beobachten, ob der Wert mit dem Archiv wächst.
 - CI: ShellCheck-Version festlegen (lokal 0.11.0, CI 0.9.0).
 - DNS: Wildcard-Eintrag bei INWX nach dem Pilot auf die benötigten Namen reduzieren (api, admin,
   betreiber, `tb-infra.de`, www).
 - Spool-UID (P2 aus T-035) offen.
-- T-071-Controller-Korrektur ist auf `main`, aber noch nicht an der Konsole installiert.
 - Sicherungen dauern seit 24.09. 02:05 UTC 13–17 min statt 6–7 min (der Lauf um 02:05 70 min); der Archivierer meldet `base_seconds` 200–215 s (23.09.: 61 s). Ursache prüfen (wachsende Archivliste, `borg check --verify-data`).
 
 ## Vorhanden — und seit heute ausgeliefert
@@ -98,13 +99,13 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 - **T-072b (24.09.):** iPhone-Scan: Der gelesene Tag wird nach erfolgreichem Schließen der Apple-Sitzung ausgeliefert; die Sitzung bleibt bis `SessionClosed` belegt, damit das späte Zurücksetzen der Bibliothek keine neue Sitzung zerstört. Diagnose `TapturaNfc` im Apple-Log (nur Phase, Millisekunden, Zahlencode). Unabhängiges Review und Technical Lead **APPROVED**. Danach iPhone-Build durch den PO und Geräteabnahme.
 
-- **P2 T-072b:** Kommt `SessionClosed` auf dem Gerät nie an, ist nach dem ersten Scan jeder weitere bis zum App-Neustart gesperrt (Hinweis in der App); der erste Scan kommt an. Die Geräteabnahme prüft mehrere Scans hintereinander und liest `TapturaNfc` in der macOS-Konsole; bei Sperre folgt eine eigene Aufgabe.
+- **P2 T-072b (erledigt 24.09.):** Geräteabnahme mit dem TestFlight-Build vom 24.09.: Start und Stopp mehrfach hintereinander ohne App-Neustart; `SessionClosed` kommt an. Einmal „Doppelter Scan ignoriert“ bei weniger als 5 s Abstand, gewollt (Duplikatfenster 5 s).
 
-- **Deploy 24.09., erster Versuch&#x20;****`b635c4a`****:** Die SSH-Verbindung wurde während der ersten Sicherung (17 min ohne Ausgabe) still getrennt; der Controller lief ohne Anzeige weiter und brach nach der zweiten Sicherung sicher ab. Produktion unverändert auf `ff69bfe`. `DEPLOY.md` verwendet jetzt SSH-Keepalive; Neustart am selben Tag.
+- **Deploy 24.09. `b635c4a`:** Der erste Versuch verlor während der ersten Sicherung (17 min ohne Ausgabe) still die SSH-Verbindung; der Controller lief ohne Anzeige weiter und brach nach der zweiten Sicherung sicher ab, Produktion blieb auf `ff69bfe`. Der zweite Versuch mit SSH-Keepalive (`DEPLOY.md`) lief vollständig durch: `ff69bfe -> b635c4a`, alle Versionen, `/health`, Startseite 401, `/tag` 200, `www` 301 geprüft; Startseiten-Passwort gesetzt.
 
 - **T-074 (24.09.):** Verwaltung und Betreiber-Bereich am Handy umgesetzt (untere Leiste mit „Mehr“, Blätter von unten, Karten statt Tabellen, Layouttest in Chrome als eigener CI-Job); unabhängiges Review und Technical Lead **APPROVED**. Review-Artefakte entfernt; Commit/Push freigegeben. Deploy durch den PO, danach Verhaltensabnahme am Handy.
 - **P3 T-074:** Am PC sind Inhaltslinks 44 px hoch; in der Personenspalte steht der Name dadurch etwas tiefer als die Nachbarzellen, die Initialen sind unterstrichen. Das Zeitbearbeitungs-Blatt hat keine sichtbare Überschrift. Untere Leiste und „Mehr“-Blatt heißen beide „Hauptnavigation“. Bei Gelegenheit bereinigen.
-- **P1 Geräteabnahme iPhone (24.09., TestFlight 1.0.0 (1)):** Scan in der offenen App liest den Tag (Apple zeigt den Haken), die App meldet aber „NFC nicht verfügbar“; beim Server kommt nichts an. „Tag zuordnen“ auf dem iPhone ebenso. Vermutete Ursache: die 2-s-Aufräumfrist in `IosNfcSession` wartet auf `SessionClosed`. Korrektur T-072b nach dem Deploy; bis dahin Scannen und Zuordnen nur auf Android.
+- **P1 Geräteabnahme iPhone (24.09., TestFlight 1.0.0 (1), behoben mit T-072b `3e5c39c`):** Scan in der offenen App liest den Tag (Apple zeigt den Haken), die App meldet aber „NFC nicht verfügbar“; beim Server kommt nichts an. „Tag zuordnen“ auf dem iPhone ebenso. Vermutete Ursache: die 2-s-Aufräumfrist in `IosNfcSession` wartet auf `SessionClosed`. Korrektur T-072b nach dem Deploy; bis dahin Scannen und Zuordnen nur auf Android.
 - **P2 Kontowechsel am Gerät (24.09.):** `bindOwner` sperrt ein zweites Konto dauerhaft, auch wenn alle Vorgänge bestätigt sind; ADR-0012 erlaubt den Wechsel nach vollständiger Bestätigung. Das revidiert die Notiz „gewollt“ vom 18.09. Relevant bei Geräteweitergabe; Aufgabe T-076 vor dem Pilot, bis dahin ein Gerät, ein Konto.
 - **P2 T-074 Verifikation (behoben):** Fixture-Typ/Rolle, Screenshot-Styleattribute, Hash-Navigation, CI-Skriptverkettung und macOS-Temp-Pfad im Testaufbau korrigiert; Fokusgrenze des neuen Blatts und Farbtoken im Produkt korrigiert. Review 1: fehlende Fehler-/Ladezustände ergänzt. Erstfehler und Schlussnachweise bleiben in `.t074-review/report.md`.
 
