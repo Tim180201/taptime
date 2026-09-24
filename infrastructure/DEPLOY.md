@@ -22,6 +22,7 @@ Startseite, ein fehlgeschlagenes Herunterladen gilt niemals als fehlende Fähigk
 Ein neuer Anwendungsstand nimmt automatisch sein
 gleich markiertes Operations-Abbild mit; eine Rücknahme auf eine bereits bekannte Anwendung oder ein historisches Ziel ohne Startseiten-Fähigkeit
 behält dagegen den zuletzt installierten, neueren Betriebsstand.
+Der Image-Bau nutzt keinen GitHub-Actions-Cache, damit ein hängender Cache-Import oder -Export die Veröffentlichung eines geprüften Stands nicht verhindert (D-094).
 
 ## Zugang und Berechtigung
 

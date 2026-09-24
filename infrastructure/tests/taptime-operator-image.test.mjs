@@ -5,6 +5,30 @@ import { parse } from 'yaml';
 const workflow=parse(readFileSync('.github/workflows/container-image.yml','utf8'));
 const steps=workflow.jobs.publish.steps;
 const builds=steps.filter(step=>step.uses?.startsWith('docker/build-push-action@'));
+
+// D-094: a cache service must never decide whether a tested release gets its images.
+test('every image build publishes without an external cache', () => {
+  assert.ok(builds.length > 0, 'image publication steps must exist');
+  for (const step of builds) {
+    for (const input of ['cache-from', 'cache-to']) {
+      assert.ok(!Object.hasOwn(step.with, input), `${step.name}: ${input} must be absent`);
+    }
+  }
+});
+
+test('each image build has a failure deadline within the total publication budget', () => {
+  let buildMinutes = 0;
+  for (const step of builds) {
+    const minutes = step['timeout-minutes'];
+    assert.ok(Number.isInteger(minutes) && minutes > 0, `${step.name}: a positive step timeout is required`);
+    assert.ok(!step['continue-on-error'], `${step.name}: a failed build must fail publication`);
+    buildMinutes += minutes;
+  }
+  const jobMinutes = workflow.jobs.publish['timeout-minutes'];
+  assert.ok(Number.isInteger(jobMinutes) && jobMinutes > buildMinutes,
+    'the publication job must fit all build deadlines plus checks, cleanup, and the ops shortcut');
+});
+
 test('operator image uses the same exact source and validated public config as Admin Web',()=>{
   const admin=builds.find(step=>step.with.tags.includes(':admin-web-'));
   const operator=builds.find(step=>step.with.tags.includes(':operator-web-'));
