@@ -1,3 +1,4 @@
+import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
@@ -37,7 +38,7 @@ interface ActorRow extends QueryResultRow {
   readonly user_id: string;
   readonly organization_id: string;
   readonly membership_id: string;
-  readonly membership_role: 'administrator' | 'employee';
+  readonly membership_role: OfflineMembershipRole;
   readonly membership_row_version: string;
 }
 
@@ -96,7 +97,7 @@ interface LeaseRow extends QueryResultRow {
   readonly organization_id: string;
   readonly membership_id: string;
   readonly membership_row_version: string;
-  readonly membership_role: 'administrator' | 'employee';
+  readonly membership_role: OfflineMembershipRole;
   readonly issued_at: Date;
   readonly expires_at: Date;
   readonly configuration_revision: string;

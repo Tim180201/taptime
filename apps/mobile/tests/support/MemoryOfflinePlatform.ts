@@ -1,4 +1,5 @@
 import type {
+  OfflineMembershipRole,
   OfflineLifecycleEventCommand,
   OfflineLifecycleEventCommandV2,
   OfflineLifecycleEventCommandV3,
@@ -46,7 +47,7 @@ interface MemoryLease {
   organizationId: string;
   userId: string;
   membershipId: string;
-  role: 'administrator' | 'employee';
+  role: OfflineMembershipRole;
   state: 'assembling' | 'active' | 'retired';
   issuedAt: string;
   expiresAt: string;
@@ -418,6 +419,8 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
     source: string,
     params: OfflineSqlParams = [],
   ): Promise<Row[]> {
+    // Structural migration integrity is exercised by the real SQLite tests.
+    if (source === 'PRAGMA foreign_key_check') return [];
     if (source === 'PRAGMA cipher_integrity_check') return this.cipherRows as Row[];
     if (source.includes('SELECT device_sequence FROM offline_event_queue')) {
       return this.sortedQueue().map(({ command }) => ({

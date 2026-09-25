@@ -254,6 +254,44 @@ afterAll(async () => {
 });
 
 describe('complete offline PostgreSQL boundary', () => {
+  it.each(['fresh', 'employee_promotion'] as const)(
+    'T-080 issues, ingests and reconciles standortleitung without server changes (%s)', async kind => {
+      const prior = kind === 'employee_promotion' ? await issueLeaseV3() : null;
+      const records = [];
+      if (prior) {
+        const item = prior.items.find(item => item.itemType === 'nfc_assignment' && item.subjectType === 'work')!;
+        const result = await eventCoordinator.ingest({ accessToken: 'valid', command: eventCommandV3(
+          prior, item, ids.event1, ids.receipt1, 1, new Date(Date.parse(prior.issuedAt) + 1_000).toISOString()) });
+        expect(result.status).toBe('synchronized');
+        if (result.status !== 'synchronized') throw new Error('Expected employee decision');
+        records.push({ workEventId: result.workEventId, receiptId: result.receiptId,
+          deviceSequence: result.deviceSequence, archiveStatus: result.archiveStatus,
+          result: { status: result.status, decision: result.decision } });
+      }
+      await installerPool.query(`UPDATE taptime_server.memberships
+        SET role = 'standortleitung', row_version = row_version + 1 WHERE id = $1`, [ids.membership]);
+      const lease = await issueLeaseV3(randomUUID());
+      expect(lease.role).toBe('standortleitung');
+      if (prior) {
+        expect(lease.installationId).toBe(prior.installationId);
+        expect(lease.leaseId).not.toBe(prior.leaseId);
+        expect(lease.membershipRowVersion).toBe(prior.membershipRowVersion + 1);
+      }
+      const item = lease.items.find(item => item.itemType === 'nfc_assignment' && item.subjectType === 'work')!;
+      const result = await eventCoordinator.ingest({ accessToken: 'valid', command: eventCommandV3(
+        lease, item, ids.event2, ids.receipt2, prior ? 2 : 1,
+        new Date(Date.parse(lease.issuedAt) + 60_000).toISOString()) });
+      expect(result).toMatchObject({ status: 'synchronized',
+        decision: { status: prior ? 'time_entry_stopped' : 'time_entry_started' } });
+      if (result.status !== 'synchronized') throw new Error('Expected Standortleitung decision');
+      records.push({ workEventId: result.workEventId, receiptId: result.receiptId,
+        deviceSequence: result.deviceSequence, archiveStatus: result.archiveStatus,
+        result: { status: result.status, decision: result.decision } });
+      await expect(reconciliationCoordinator.reconcileV2({ accessToken: 'valid',
+        command: { workEventIds: records.map(record => record.workEventId) } }))
+        .resolves.toEqual({ status: 'ready', records });
+    });
+
   it('repairs the archive requirement after interruption between event commit and durability',
     async () => {
       const interruptedDurability: OfflineArchiveDurabilityPort = {
@@ -1455,11 +1493,11 @@ async function issueLeaseV2(): Promise<OfflineCaptureLeasePageV2> {
   return result.page;
 }
 
-async function issueLeaseV3(): Promise<OfflineCaptureLeasePageV3> {
+async function issueLeaseV3(commandId: string = ids.leaseCommandV3): Promise<OfflineCaptureLeasePageV3> {
   const result = await leaseCoordinator.issueV3({
     accessToken: 'valid',
     command: {
-      commandId: ids.leaseCommandV3,
+      commandId,
       installationBinding,
       lookupKey,
     },

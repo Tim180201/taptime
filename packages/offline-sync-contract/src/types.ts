@@ -1,4 +1,4 @@
-export type OfflineMembershipRole = 'administrator' | 'employee';
+export type OfflineMembershipRole = 'administrator' | 'standortleitung' | 'employee';
 export type OfflineTargetType = 'customer';
 export type OfflineTargetTypeV2 = 'customer' | 'project' | 'general_work';
 

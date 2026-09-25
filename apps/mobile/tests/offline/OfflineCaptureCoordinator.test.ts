@@ -1,3 +1,4 @@
+import { legacyOfflineSchemas } from '../support/LegacyOfflineSchemas';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +8,7 @@ vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'device' }
 vi.mock('expo-crypto', () => ({ getRandomBytesAsync: vi.fn() }));
 import { NodeSqliteOfflineConnection } from '../support/NodeSqliteOfflineConnection';
 import { OfflineLifecycleClient } from '../../src/offline/OfflineLifecycleClient';
-import { mobileLookupHmac, mobileManifestDigestV3 } from '../../src/offline/MobileLookupHmac';
+import { mobileLookupHmac, mobileManifestDigestV3, mobileSha256Hex } from '../../src/offline/MobileLookupHmac';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createCanonicalNfcUidPayload,
@@ -28,8 +29,8 @@ import {
   OfflineCaptureCoordinator,
   type OfflineCaptureSessionReader,
 } from '../../src/offline/OfflineCaptureCoordinator';
-import { OfflineCaptureDatabase } from '../../src/offline/OfflineCaptureDatabase';
-import type { OfflineCaptureLeaseApiPort } from '../../src/offline/OfflineCaptureLeaseClient';
+import { OfflineCaptureDatabase, OFFLINE_SCHEMA_V4, OFFLINE_SCHEMA_V5 } from '../../src/offline/OfflineCaptureDatabase';
+import { OfflineCaptureLeaseClient, type OfflineCaptureLeaseApiPort } from '../../src/offline/OfflineCaptureLeaseClient';
 import { OfflineInstallationIdentityStore } from '../../src/offline/OfflineInstallationIdentityStore';
 import {
   OfflineSyncScheduler,
@@ -65,6 +66,196 @@ const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));
 
 describe('OfflineCaptureCoordinator', () => {
+  it.each([...legacyOfflineSchemas, OFFLINE_SCHEMA_V4, OFFLINE_SCHEMA_V5].map((schema, version) => ({ schema, version })))(
+    'T-080 migrates historical SQLite V$version to V6 and reopens unchanged', async ({ schema, version }) => {
+      const root = mkdtempSync(join(tmpdir(), 't080-schema-'));
+      const filename = join(root, 'offline.db');
+      const setup = new NodeSqliteOfflineConnection(filename);
+      await setup.execAsync(schema + `PRAGMA user_version = ${version};`);
+      if (version !== 0) {
+        // The upgrade path has a different physical column order than fresh V4/V5.
+        await setup.runAsync(`INSERT INTO offline_lease_generations (
+          lease_id, installation_id, identity_binding_id, organization_id, user_id, membership_id,
+          membership_row_version, membership_role, issued_at, expires_at, configuration_revision,
+          item_count, serialized_bytes, manifest_digest, activation_boot_marker,
+          activation_monotonic_milliseconds, generation_state
+        ) VALUES (?, ?, ?, ?, ?, ?, 1, 'employee', ?, ?, ?, 0, 2, ?, 'boot-1', 100, 'retired')`,
+        [ids.lease, ids.installation, ids.identity, ids.organization, ids.user, ids.membership,
+          '2026-07-18T10:00:00.000Z', '2026-07-18T22:00:00.000Z', '2'.repeat(64), '3'.repeat(64)]);
+      }
+      await setup.closeAsync();
+      let connection = new NodeSqliteOfflineConnection(filename);
+      let database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
+      try {
+        await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
+        expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: 6 });
+        expect(await connection.getAllAsync('PRAGMA foreign_key_check')).toEqual([]);
+        if (version !== 0) expect(await connection.getFirstAsync(`SELECT membership_role,
+          generation_state, lease_schema_version, manifest_version FROM offline_lease_generations`))
+          .toEqual({ membership_role: 'employee', generation_state: 'retired', lease_schema_version: 1, manifest_version: 1 });
+        const before = await sqliteSnapshot(connection);
+        const schemaBefore = await connection.getAllAsync('SELECT * FROM sqlite_master ORDER BY name');
+        await database.close();
+        connection = new NodeSqliteOfflineConnection(filename);
+        database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
+        await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
+        expect(await sqliteSnapshot(connection)).toEqual(before);
+        expect(await connection.getAllAsync('SELECT * FROM sqlite_master ORDER BY name')).toEqual(schemaBefore);
+      } finally { await database.close(); rmSync(root, { recursive: true, force: true }); }
+    });
+
+  it('T-080 preserves every table, JSON byte, sequence and constraint from a populated V5 file', async () => {
+    const root = mkdtempSync(join(tmpdir(), 't080-preservation-'));
+    const filename = join(root, 'offline.db');
+    const setup = new NodeSqliteOfflineConnection(filename);
+    const lease = await leaseClient().issueCompleteV3!({ commandId: ids.command,
+      installationBinding: binding, lookupKey: encodeBase64Url(new Uint8Array(32).fill(7)) });
+    if (lease.status !== 'ready') throw new Error('Invalid fixture');
+    await seedV5PendingRoleChange(setup, lease.page);
+    const queued = await setup.getFirstAsync<{ command_json: string }>('SELECT command_json FROM offline_event_queue');
+    const command = JSON.parse(queued!.command_json);
+    const legacy = JSON.stringify({ mode: 'canonical', expectedMembershipId: ids.membership,
+      command: { organizationId: ids.organization, workEvent: command.workEvent, receipt: command.receipt } });
+    await setup.runAsync(`INSERT INTO offline_legacy_queue VALUES (7, ?, ?, ?, ?, 'retry_wait', 2, 30000)`,
+      [ids.event, ids.receipt, legacy, new TextEncoder().encode(legacy).length]);
+    await setup.execAsync(`INSERT INTO offline_scheduler_metadata VALUES (1, 'manual', 12345);`);
+    await setup.runAsync('INSERT INTO offline_protected_quarantine VALUES (?, ?, ?, ?)',
+      [ids.item, 'legacy_membership_unknown', '{ "original": "unverändert" }', lease.page.issuedAt]);
+    const before = await sqliteSnapshot(setup);
+    expect(Object.values(before).every(rows => rows.length > 0)).toBe(true);
+    await setup.closeAsync();
+    const connection = new NodeSqliteOfflineConnection(filename);
+    const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
+    try {
+      await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
+      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: 6 });
+      expect(await sqliteSnapshot(connection)).toEqual(before);
+      expect(await connection.getAllAsync('PRAGMA foreign_key_check')).toEqual([]);
+      await expect(connection.runAsync("UPDATE offline_lease_generations SET membership_role = 'standortleitung'", []))
+        .rejects.toThrow('immutable');
+      await expect(connection.runAsync("UPDATE offline_lease_items SET display_name = 'changed'", []))
+        .rejects.toThrow('immutable');
+      await expect(connection.runAsync("DELETE FROM offline_lease_items", []))
+        .rejects.toThrow('immutable');
+      await expect(connection.runAsync("UPDATE offline_event_queue SET command_json = '{}'", []))
+        .rejects.toThrow('immutable');
+      await expect(connection.runAsync(`INSERT INTO offline_lease_generations SELECT ?, installation_id,
+        identity_binding_id, organization_id, user_id, membership_id, membership_row_version,
+        'standortleitung', issued_at, expires_at, configuration_revision, item_count, serialized_bytes,
+        manifest_digest, activation_boot_marker, activation_monotonic_milliseconds,
+        lease_schema_version, manifest_version, generation_state FROM offline_lease_generations`, [ids.command]))
+        .rejects.toThrow('UNIQUE');
+      const schemaAfter = await connection.getAllAsync('SELECT * FROM sqlite_master ORDER BY name');
+      await database.close();
+      const reopened = new NodeSqliteOfflineConnection(filename);
+      const replay = new OfflineCaptureDatabase(async () => reopened, new Uint8Array(32).fill(8));
+      try {
+        await expect(replay.initialize()).resolves.toEqual({ status: 'ready' });
+        expect(await sqliteSnapshot(reopened)).toEqual(before);
+        expect(await reopened.getAllAsync('SELECT * FROM sqlite_master ORDER BY name')).toEqual(schemaAfter);
+      } finally { await replay.close(); }
+    } finally { await database.close(); rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it.each(['rollback', 'future_version'] as const)('T-080 preserves the V5 file on %s', async mode => {
+    const root = mkdtempSync(join(tmpdir(), 't080-protection-'));
+    const filename = join(root, 'offline.db');
+    const setup = new NodeSqliteOfflineConnection(filename);
+    const lease = await leaseClient().issueCompleteV3!({ commandId: ids.command,
+      installationBinding: binding, lookupKey: encodeBase64Url(new Uint8Array(32).fill(7)) });
+    if (lease.status !== 'ready') throw new Error('Invalid fixture');
+    await seedV5PendingRoleChange(setup, lease.page);
+    if (mode === 'future_version') await setup.execAsync('PRAGMA user_version = 7;');
+    const before = await sqliteSnapshot(setup);
+    const schemaBefore = await setup.getAllAsync('SELECT * FROM sqlite_master ORDER BY name');
+    await setup.closeAsync();
+    const connection = new NodeSqliteOfflineConnection(filename);
+    await connection.execAsync('PRAGMA foreign_keys = ON;');
+    const execute = connection.execAsync.bind(connection);
+    const failure = new Error('Simulated interruption after parent table replacement');
+    if (mode === 'rollback') connection.execAsync = async sql => {
+      await execute(sql);
+      if (sql.includes('DROP TABLE offline_lease_generations;')) throw failure;
+    };
+    const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
+    const diagnostic = vi.fn();
+    try {
+      await expect(database.initialize(diagnostic)).resolves.toEqual(mode === 'rollback'
+        ? { status: 'migration_failed' } : { status: 'protected', reason: 'unknown_schema' });
+      if (mode === 'rollback') expect(diagnostic).toHaveBeenCalledWith(failure);
+      const reopened = new NodeSqliteOfflineConnection(filename);
+      try {
+        expect(await sqliteSnapshot(reopened)).toEqual(before);
+        expect(await reopened.getAllAsync('SELECT * FROM sqlite_master ORDER BY name')).toEqual(schemaBefore);
+        expect(await reopened.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: mode === 'rollback' ? 5 : 7 });
+      } finally { await reopened.closeAsync(); }
+    } finally { await database.close(); rmSync(root, { recursive: true, force: true }); }
+  });
+
+  it.each(['fresh', 'employee_promotion'] as const)(
+    'T-080 activates a standortleitung through the HTTP lease client and real SQLite (%s)', async kind => {
+      const root = mkdtempSync(join(tmpdir(), 't080-role-'));
+      const filename = join(root, 'offline.db');
+      const connection = new NodeSqliteOfflineConnection(filename);
+      let current: ProductScanSessionSnapshot = { generation: 1,
+        session: { ...session, role: kind === 'fresh' ? 'standortleitung' : 'employee' } };
+      const listeners = new Set<() => void>();
+      const reader: OfflineCaptureSessionReader = {
+        ...sessionReader({ status: 'authenticated', session: current.session }, current),
+        capture: () => current, isCurrent: candidate => candidate === current,
+        getState: () => ({ status: 'authenticated', session: current.session }),
+        subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
+      };
+      const original = await leaseClient().issueCompleteV3!({ commandId: ids.command,
+        installationBinding: binding, lookupKey: encodeBase64Url(new Uint8Array(32).fill(7)) });
+      if (original.status !== 'ready') throw new Error('Invalid fixture');
+      if (kind === 'employee_promotion') await seedV5PendingRoleChange(connection, original.page);
+      const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
+      const issuedRoles: string[] = [];
+      const client = new OfflineCaptureLeaseClient(new URL('https://api.example/'), {
+        async post() {
+          issuedRoles.push(current.session.role);
+          return { status: 'response', statusCode: 200, contentType: 'application/json',
+            body: JSON.stringify({ ...original, page: { ...original.page,
+              role: current.session.role, membershipRowVersion: current.generation,
+              leaseId: current.session.role === 'employee' ? ids.lease : ids.command } }) };
+        },
+      });
+      const scheduler = controllableScheduler();
+      const coordinator = new OfflineCaptureCoordinator({ async scan() {
+        return { status: 'captured', payload: createCanonicalNfcUidPayload('04AABBCC'),
+          capturedAt: createTimestamp('2026-07-18T10:05:00.000Z') };
+      } }, nfcLifecycle(), reader, identityStore(), () => database, client,
+      new AndroidMonotonicClock({ async sample() { return { bootMarker: 'boot-1',
+        elapsedRealtimeMilliseconds: 100, wallClockMilliseconds: Date.parse(original.page.issuedAt) }; } }),
+      () => scheduler.scheduler, emptyOutbox(), (() => { let n = 0; return () => `f0000000-0000-4000-8000-${String(++n).padStart(12, '0')}`; })());
+      try {
+        await coordinator.start();
+        if (kind === 'employee_promotion') {
+          expect(coordinator.getState().status).toBe('saved_locally');
+          const evidenceBefore = await connection.getAllAsync('SELECT * FROM offline_event_queue');
+          const ownerBefore = await connection.getAllAsync('SELECT * FROM offline_owner');
+          current = { generation: 2, session: { ...session, role: 'standortleitung' } };
+          for (const listener of listeners) listener();
+          await vi.waitFor(() => expect(coordinator.getState().status).toBe('saved_locally'));
+          expect(await connection.getAllAsync('SELECT * FROM offline_event_queue')).toEqual(evidenceBefore);
+          expect(await connection.getAllAsync('SELECT * FROM offline_owner')).toEqual(ownerBefore);
+          expect(await connection.getFirstAsync(`SELECT membership_role, generation_state
+            FROM offline_lease_generations WHERE lease_id = ?`, [ids.lease]))
+            .toEqual({ membership_role: 'employee', generation_state: 'retired' });
+          expect(issuedRoles).toEqual(['employee', 'standortleitung']);
+        } else expect(coordinator.getState().status).toBe('ready');
+        expect(await database.readActiveCaptureContext()).toMatchObject({ role: 'standortleitung' });
+        expect(await database.lookupActiveItem(mobileLookupHmac(new Uint8Array(32).fill(7), 'nfc:uid:v1:04AABBCC')))
+          .toMatchObject({ leaseId: ids.command, nfcTagId: ids.tag });
+        await coordinator.scan();
+        expect(coordinator.getState().status).toBe('synchronizing');
+        const captured = await connection.getFirstAsync<{ device_sequence: number; lease_id: string }>(
+          'SELECT device_sequence, lease_id FROM offline_event_queue ORDER BY device_sequence DESC LIMIT 1');
+        expect(captured).toEqual({ device_sequence: kind === 'fresh' ? 1 : 2, lease_id: ids.command });
+      } finally { await coordinator.stop(); await database.close(); rmSync(root, {recursive: true, force: true}); }
+    });
+
   it.each(['other_account', 'new_membership'] as const)('T-076 gives %s a fresh lease and no old evidence', async kind => {
     const h = await accountHarness();
     try {
@@ -1575,4 +1766,41 @@ async function accountHarness() {
     get reconcileWaiting() { return h.reconcileWaiting; },
     get sampleWaiting() { return h.sampleWaiting; }, get sampleGate() { return h.sampleGate; }, set sampleGate(value: Promise<void> | null) { h.sampleGate = value; },
     coordinator, lifecycle, async close() { await coordinator.stop(); for (const db of databases) await db.close(); rmSync(root, {recursive: true, force: true}); } };
+}
+
+// Real V5 file as shipped before T-080, including an unsent employee event.
+async function seedV5PendingRoleChange(
+  connection: NodeSqliteOfflineConnection,
+  page: import('@taptime/offline-sync-contract').OfflineCaptureLeasePageV3,
+) {
+  await connection.execAsync(OFFLINE_SCHEMA_V5 + 'PRAGMA user_version = 5;');
+  await connection.runAsync('INSERT INTO offline_owner VALUES (1, ?, ?, ?, ?, ?, ?, 1, NULL, 0)',
+    [ids.organization, ids.user, ids.membership, mobileSha256Hex(decodeBase64Url32(binding)!), ids.installation, ids.identity]);
+  await connection.runAsync(`INSERT INTO offline_lease_generations VALUES
+    (?, ?, ?, ?, ?, ?, 1, 'employee', ?, ?, ?, ?, ?, ?, 'boot-1', 100, 2, 2, 'active')`,
+    [ids.lease, ids.installation, ids.identity, ids.organization, ids.user, ids.membership,
+      page.issuedAt, page.expiresAt, page.configurationRevision, page.itemCount, page.serializedBytes, page.manifestDigest]);
+  const item = page.items[0]!;
+  if (item.itemType !== 'nfc_assignment' || item.subjectType !== 'work') throw new Error('Expected work tag');
+  await connection.runAsync(`INSERT INTO offline_lease_items VALUES
+    (?, ?, 'nfc_assignment', 'work', ?, ?, ?, 'customer', ?, ?, 1, 1)`,
+    [ids.lease, item.itemId, item.lookup, ids.assignment, ids.tag, ids.customer, item.displayName]);
+  const command = { organizationId: ids.organization, expectedMembershipId: ids.membership,
+    leaseId: ids.lease, leaseItemId: ids.item, installationBinding: binding, deviceSequence: 1,
+    provenanceVersion: 1, clock: { bootMarker: 'boot-1', monotonicAnchorMilliseconds: 100,
+      monotonicDeltaMilliseconds: 200, wallClockAnchor: page.issuedAt,
+      clockProofStatus: 'verified_same_boot', clockProofVersion: 1 },
+    workEvent: { id: ids.event, assignmentId: ids.assignment, nfcTagId: ids.tag,
+      target: { targetType: 'customer', targetId: ids.customer }, occurredAt: '2026-07-18T10:00:00.200Z' },
+    receipt: { id: ids.receipt, attemptNumber: 1 } };
+  const evidence = JSON.stringify(command);
+  await connection.runAsync(`INSERT INTO offline_event_queue VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', 0, NULL)`,
+    [1, ids.event, ids.receipt, ids.lease, ids.item, evidence, new TextEncoder().encode(evidence).length]);
+}
+
+async function sqliteSnapshot(connection: NodeSqliteOfflineConnection): Promise<Record<string, unknown[]>> {
+  const tables = await connection.getAllAsync<{ name: string }>(
+    "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name");
+  return Object.fromEntries(await Promise.all(tables.map(async ({ name }) => [name,
+    await connection.getAllAsync(`SELECT * FROM "${name.replaceAll('"', '""')}" ORDER BY rowid`)])));
 }

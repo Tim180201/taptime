@@ -1,3 +1,4 @@
+import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
@@ -28,7 +29,7 @@ interface ActorRow extends QueryResultRow {
   readonly user_id: string;
   readonly organization_id: string;
   readonly membership_id: string;
-  readonly membership_role: 'administrator' | 'employee';
+  readonly membership_role: OfflineMembershipRole;
   readonly membership_row_version: string;
 }
 

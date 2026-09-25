@@ -192,7 +192,7 @@ function validLeaseHeader(value: Record<string, unknown>): boolean {
     value.membershipId,
   ].every(isCanonicalOfflineUuid)
     && isPositiveSafeInteger(value.membershipRowVersion)
-    && (value.role === 'administrator' || value.role === 'employee')
+    && (value.role === 'administrator' || value.role === 'standortleitung' || value.role === 'employee')
     && isOfflineIsoTimestamp(value.issuedAt)
     && isOfflineIsoTimestamp(value.expiresAt)
     && isLowercaseSha256Hex(value.configurationRevision)

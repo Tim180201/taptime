@@ -1,3 +1,4 @@
+import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import type { OfflineAccountStorage } from './OfflineAccountStorage';
 import {
   isCanonicalNfcUidPayload,
@@ -1400,7 +1401,7 @@ function sameSessionLease(
     readonly userId: string;
     readonly organizationId: string;
     readonly membershipId: string;
-    readonly role: 'administrator' | 'employee';
+    readonly role: OfflineMembershipRole;
   },
   snapshot: ProductScanSessionSnapshot,
 ): boolean {

@@ -682,7 +682,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
     const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
     try {
       await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
-      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: 5 });
+      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: 6 });
       expect(await database.claimHead(100)).toMatchObject({ command, attemptCount: 2 });
       await database.confirmHead({ workEventId: ids.event, receiptId: ids.receipt, deviceSequence: 1 }, 'synchronized');
       expect(await connection.getFirstAsync('SELECT command_json FROM offline_event_queue')).toEqual({ command_json: evidence });

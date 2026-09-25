@@ -1,3 +1,4 @@
+import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import {
   OFFLINE_CAPTURE_LEASE_LIFETIME_MILLISECONDS,
   OFFLINE_LEASE_ACTIVATION_MAXIMUM_BYTES,
@@ -5,6 +6,7 @@ import {
   OFFLINE_LOCAL_SCHEMA_VERSION_V3,
   OFFLINE_LOCAL_SCHEMA_VERSION_V4,
   OFFLINE_LOCAL_SCHEMA_VERSION_V5,
+  OFFLINE_LOCAL_SCHEMA_VERSION_V6,
   type OfflineDurableResultIdentity,
   type OfflineReconciliationRecordV2,
   OFFLINE_QUEUE_MAXIMUM_EVENT_BYTES,
@@ -133,7 +135,7 @@ export interface ActiveOfflineCaptureContext {
   readonly organizationId: string;
   readonly userId: string;
   readonly membershipId: string;
-  readonly role: 'administrator' | 'employee';
+  readonly role: OfflineMembershipRole;
   readonly leaseId: string;
   readonly installationId: string;
   readonly identityBindingId: string;
@@ -223,7 +225,7 @@ interface ActiveLeaseContextRow {
   readonly organization_id: string;
   readonly user_id: string;
   readonly membership_id: string;
-  readonly membership_role: 'administrator' | 'employee';
+  readonly membership_role: OfflineMembershipRole;
   readonly lease_id: string;
   readonly installation_id: string;
   readonly identity_binding_id: string;
@@ -241,7 +243,7 @@ interface LeaseGenerationRow {
   readonly user_id: string;
   readonly membership_id: string;
   readonly membership_row_version: number;
-  readonly membership_role: 'administrator' | 'employee';
+  readonly membership_role: OfflineMembershipRole;
   readonly issued_at: string;
   readonly expires_at: string;
   readonly configuration_revision: string;
@@ -315,66 +317,29 @@ export class OfflineCaptureDatabase {
           await database.closeAsync().catch(() => undefined);
           return this.protect('corrupt_row');
         }
-        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V5) {
+        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V6) {
           await database.closeAsync().catch(() => undefined);
           return this.protect('unknown_schema');
         }
-        if (version.user_version === 0) {
+        if (version.user_version < OFFLINE_LOCAL_SCHEMA_VERSION_V6) {
           try {
+            // Parent-table replacement requires FK enforcement off before BEGIN, not inside it.
+            // Validate the complete graph before committing and re-enable enforcement below.
+            await database.execAsync('PRAGMA foreign_keys = OFF;');
             await database.withExclusiveTransactionAsync(async (transaction) => {
-              await transaction.execAsync(OFFLINE_SCHEMA_V5);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
-            });
-          } catch (error) {
-            await database.closeAsync().catch(() => undefined);
-            safelyReportMigrationFailure(reportMigrationFailure, error);
-            return { status: 'migration_failed' };
-          }
-        } else if (version.user_version === 1) {
-          try {
-            await database.withExclusiveTransactionAsync(async (transaction) => {
-              await transaction.execAsync(OFFLINE_SCHEMA_V1_TO_V2);
-              await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
-              await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
-              await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
-            });
-          } catch (error) {
-            await database.closeAsync().catch(() => undefined);
-            safelyReportMigrationFailure(reportMigrationFailure, error);
-            return { status: 'migration_failed' };
-          }
-        } else if (version.user_version === 2) {
-          try {
-            await database.withExclusiveTransactionAsync(async (transaction) => {
-              await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
-              await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
-              await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
-            });
-          } catch (error) {
-            await database.closeAsync().catch(() => undefined);
-            safelyReportMigrationFailure(reportMigrationFailure, error);
-            return { status: 'migration_failed' };
-          }
-        } else if (version.user_version === OFFLINE_LOCAL_SCHEMA_VERSION_V3) {
-          try {
-            await database.withExclusiveTransactionAsync(async (transaction) => {
-              await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
-              await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
-            });
-          } catch (error) {
-            await database.closeAsync().catch(() => undefined);
-            safelyReportMigrationFailure(reportMigrationFailure, error);
-            return { status: 'migration_failed' };
-          }
-        }
-        if (version.user_version === OFFLINE_LOCAL_SCHEMA_VERSION_V4) {
-          try {
-            await database.withExclusiveTransactionAsync(async (transaction) => {
-              await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V5}`);
+              if (version.user_version === 0) {
+                await transaction.execAsync(OFFLINE_SCHEMA_V6);
+              } else {
+                if (version.user_version === 1) await transaction.execAsync(OFFLINE_SCHEMA_V1_TO_V2);
+                if (version.user_version <= 2) await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
+                if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V3) await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
+                if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V4) await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
+                if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V5) await transaction.execAsync(OFFLINE_SCHEMA_V5_TO_V6);
+              }
+              if ((await transaction.getAllAsync('PRAGMA foreign_key_check')).length !== 0) {
+                throw new Error('Offline migration foreign key check failed');
+              }
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V6}`);
             });
           } catch (error) {
             await database.closeAsync().catch(() => undefined);
@@ -1681,7 +1646,7 @@ function validLeaseActivation(activation: OfflineLeaseActivation): boolean {
   ];
   return ids.every(isCanonicalOfflineUuid)
     && isPositiveSafeInteger(page.membershipRowVersion)
-    && (page.role === 'administrator' || page.role === 'employee')
+    && (page.role === 'administrator' || page.role === 'standortleitung' || page.role === 'employee')
     && isOfflineIsoTimestamp(page.issuedAt)
     && isOfflineIsoTimestamp(page.expiresAt)
     && expiresAt - issuedAt === OFFLINE_CAPTURE_LEASE_LIFETIME_MILLISECONDS
@@ -1734,7 +1699,7 @@ function validActiveCaptureContext(context: ActiveOfflineCaptureContext): boolea
     context.installationId,
     context.identityBindingId,
   ].every(isCanonicalOfflineUuid)
-    && (context.role === 'administrator' || context.role === 'employee')
+    && (context.role === 'administrator' || context.role === 'standortleitung' || context.role === 'employee')
     && isOfflineIsoTimestamp(context.issuedAt)
     && isOfflineIsoTimestamp(context.expiresAt)
     && Date.parse(context.expiresAt) - Date.parse(context.issuedAt)
@@ -2475,3 +2440,74 @@ BEGIN SELECT RAISE(ABORT, 'offline queue evidence is immutable'); END;
 `;
 
 export const OFFLINE_SCHEMA_V5 = OFFLINE_SCHEMA_V4 + OFFLINE_SCHEMA_V4_TO_V5;
+
+// Copy by name: upgraded V1–V3 databases have a different physical column order.
+const OFFLINE_SCHEMA_V5_TO_V6 = `
+CREATE TABLE offline_lease_generations_v6 (
+  lease_id TEXT PRIMARY KEY,
+  installation_id TEXT NOT NULL,
+  identity_binding_id TEXT NOT NULL,
+  organization_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  membership_id TEXT NOT NULL,
+  membership_row_version INTEGER NOT NULL CHECK (membership_row_version > 0),
+  membership_role TEXT NOT NULL CHECK (membership_role IN ('administrator', 'standortleitung', 'employee')),
+  issued_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  configuration_revision TEXT NOT NULL CHECK (length(configuration_revision) = 64),
+  item_count INTEGER NOT NULL CHECK (item_count BETWEEN 0 AND 4096),
+  serialized_bytes INTEGER NOT NULL CHECK (serialized_bytes BETWEEN 0 AND 4194304),
+  manifest_digest TEXT NOT NULL CHECK (length(manifest_digest) = 64),
+  activation_boot_marker TEXT NOT NULL CHECK (length(activation_boot_marker) BETWEEN 1 AND 256),
+  activation_monotonic_milliseconds INTEGER NOT NULL CHECK (activation_monotonic_milliseconds >= 0),
+  lease_schema_version INTEGER NOT NULL DEFAULT 1 CHECK (lease_schema_version IN (1, 2)),
+  manifest_version INTEGER NOT NULL DEFAULT 1 CHECK (manifest_version IN (1, 2)),
+  generation_state TEXT NOT NULL CHECK (generation_state IN ('assembling', 'active', 'retired')),
+  CHECK (lease_schema_version = manifest_version)
+) STRICT;
+
+INSERT INTO offline_lease_generations_v6 (
+  lease_id, installation_id, identity_binding_id, organization_id, user_id,
+  membership_id, membership_row_version, membership_role, issued_at, expires_at,
+  configuration_revision, item_count, serialized_bytes, manifest_digest,
+  activation_boot_marker, activation_monotonic_milliseconds,
+  lease_schema_version, manifest_version, generation_state
+) SELECT
+  lease_id, installation_id, identity_binding_id, organization_id, user_id,
+  membership_id, membership_row_version, membership_role, issued_at, expires_at,
+  configuration_revision, item_count, serialized_bytes, manifest_digest,
+  activation_boot_marker, activation_monotonic_milliseconds,
+  lease_schema_version, manifest_version, generation_state
+FROM offline_lease_generations;
+DROP TABLE offline_lease_generations;
+ALTER TABLE offline_lease_generations_v6 RENAME TO offline_lease_generations;
+CREATE UNIQUE INDEX one_active_offline_lease
+  ON offline_lease_generations (generation_state)
+  WHERE generation_state = 'active';
+CREATE TRIGGER offline_lease_generation_immutable_fields
+BEFORE UPDATE ON offline_lease_generations
+WHEN NEW.lease_id <> OLD.lease_id
+  OR NEW.installation_id <> OLD.installation_id
+  OR NEW.identity_binding_id <> OLD.identity_binding_id
+  OR NEW.organization_id <> OLD.organization_id
+  OR NEW.user_id <> OLD.user_id
+  OR NEW.membership_id <> OLD.membership_id
+  OR NEW.membership_row_version <> OLD.membership_row_version
+  OR NEW.membership_role <> OLD.membership_role
+  OR NEW.issued_at <> OLD.issued_at
+  OR NEW.expires_at <> OLD.expires_at
+  OR NEW.configuration_revision <> OLD.configuration_revision
+  OR NEW.item_count <> OLD.item_count
+  OR NEW.serialized_bytes <> OLD.serialized_bytes
+  OR NEW.manifest_digest <> OLD.manifest_digest
+  OR NEW.activation_boot_marker <> OLD.activation_boot_marker
+  OR NEW.activation_monotonic_milliseconds <> OLD.activation_monotonic_milliseconds
+  OR NEW.lease_schema_version <> OLD.lease_schema_version
+  OR NEW.manifest_version <> OLD.manifest_version
+BEGIN
+  SELECT RAISE(ABORT, 'offline lease generation is immutable');
+END;
+
+`;
+
+export const OFFLINE_SCHEMA_V6 = OFFLINE_SCHEMA_V5 + OFFLINE_SCHEMA_V5_TO_V6;
