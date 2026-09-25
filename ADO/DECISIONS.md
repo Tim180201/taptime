@@ -1533,3 +1533,13 @@ ganze Sekunden, Rest nach größtem Nachkommarest, bei Gleichstand früherer Tag
 JSON-Millisekunden beeinflussen nur die Verteilung, nie Gesamtdauern; Tagesanteile erhalten die Gesamtsumme.
 Monatsgrenzen bleiben außerhalb von T-079. Nachweis mit dem Rundungsbeispiel 7.200 Sekunden und PostgreSQL.
 **Warum:** Zwei getrennte Abrundungen je Tag ergaben im Beispiel 7.201 statt 7.200 Sekunden; Kalender und Lohnabrechnung dürfen sich nie um eine Sekunde unterscheiden.
+
+## D-096 · Der Pausen-Knopf bleibt, der Pausen-Tag geht, die gesetzliche Pause kommt dazu · 25.09.2026 · Tim (PO)
+Ergänzt D-047. Pausen bleiben ein Ereignis (D-016), erfasst über einen Knopf direkt auf dem Erfassen-Bildschirm:
+sichtbar nur bei laufender Arbeitszeit, „Pause starten“ wird zu „Pause beenden“, dazu „Pause läuft seit …“. Der
+Pausen-Tag entfällt wie in D-047 mit T-050. Läuft eine Pause länger als 45 Minuten, erinnert die App daran; zuerst
+nur bei geöffneter App und beim nächsten Öffnen, Benachrichtigungen bei geschlossener App sind ein eigener Schritt.
+Die gesetzliche Pause nach § 4 ArbZG (D-047) wird abgezogen, wenn erfasste Pausen unter dem Minimum liegen; erfasste
+Pausen über dem Minimum zählen exakt. Export und Kalender weisen beides getrennt aus.
+**Warum:** Eine gestempelte Pause ist genauer als der Mindestabzug, und der Knopf auf dem Erfassen-Bildschirm
+kostet keinen zweiten Bildschirm; der Pausen-Tag war der unhandliche Teil, nicht das Ereignis (PO, Geräteabnahme 25.09.).

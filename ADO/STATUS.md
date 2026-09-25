@@ -5,9 +5,7 @@ mit Migration 033, T-078 Image-Bau ohne Cache, T-079 Kundensicht mit Migration 0
 `b635c4a` unverändert; Migrationen bis 034). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt. App-Builds
 vom 25.09. auf `6c7007d`: iPhone TestFlight 1.0.0 (3), Android-APK versionCode 10. „Taptura“ ist der Arbeitsname für den
 Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
-Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; **P1 offen:** die Standortleitung bekommt in
-der App keine Offline-Freigabe („Die Scan-Funktion konnte nicht sicher vorbereitet werden“) und kann deshalb nicht
-scannen, auf beiden Geräten (T-080). Reihenfolge: T-080 → ein App-Build → Rest der Geräteabnahme → T-024 → Pilot
+Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; T-080 behoben auf `main`, App-Build steht aus. Reihenfolge: T-080 → ein App-Build → Rest der Geräteabnahme → T-024 → Pilot
 Monat 1. Danach AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur Entscheidung vor T-048:
 Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -104,10 +102,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
-- **P1 Geräteabnahme 25.09. (T-080):** Die App nimmt eine Offline-Freigabe nur mit Rolle `administrator` oder `employee`
-  an (`OfflineCaptureLeaseClient.ts:195`, lokale SQLite-Prüfungen und `CHECK` in `offline_lease_generations`); der
-  Server stellt sie für die Standortleitung korrekt aus (020). Folge: keine Erfassung für die Standortleitung, iPhone
-  und Android. Bis T-080 scannt die Standortleitung nicht; Nachtragen, Ändern, Prüfen gehen.
+- **P1 Geräteabnahme 25.09. (behoben mit T-080):** Die App nahm Offline-Freigaben nur für Administrator und Beschäftigte an; die Standortleitung konnte nicht scannen. Rolle aufgenommen, lokales Schema V6. Geräteabnahme mit dem nächsten App-Build.
+- **P3 T-080:** Noch nicht übertragene Erfassungen aus der Zeit vor einem Rollenwechsel werden beim Abgleich zum Prüffall (`identity_or_membership_not_current`); nichts geht verloren. Im Pilot nur relevant, wenn jemand offline erfasst und danach die Rolle wechselt.
 - **Geräteabnahme 25.09., gelernt:** Der Reiter „Mitarbeiter“ erscheint für die Standortleitung erst mit einer
   Verwaltungszuweisung; Heimatstandort allein reicht nicht (gewollt, D-059). Wunsch PO: in „Beschäftigte“ zuerst
   den Standort wählen, in der App Überschrift „Mitarbeiter deines Standorts“ (T-081, nach dem Pilotstart).
