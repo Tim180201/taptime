@@ -93,7 +93,7 @@ export default function SetupView({
         <CountTruth count={state.projection.nfcTags.length} noun="NFC-Tags"
           complete={state.projection.nextCursor === null && state.projection.nfcTagsComplete} />
         <ul className="entity-list">{state.projection.nfcTags.map((tag) => <li key={tag.id}>
-          <div><span>{tag.displayName}</span><small>Prüffingerabdruck {tag.validationFingerprint}</small></div>
+          <div><span>{tag.displayName}</span><small>Technische Kennung {tag.validationFingerprint}</small></div>
           <small>{tag.assignmentType === 'break'
             ? 'Pausen-Tag'
             : tag.assignmentType === null
@@ -241,7 +241,7 @@ function LocationSetupPanel({
     </Panel>;
   }
   return <Panel title="Standorte"
-    description="Standorte vorbereiten, Menschen und Arbeitsziele binden und danach atomar einschalten."
+    description="Ordnen Sie Beschäftigte und Arbeitsziele den Standorten zu. Aktivieren Sie anschließend die vorbereiteten Standorte."
     className="full-width">
     <form className="inline-form" onSubmit={(event) => {
       event.preventDefault();

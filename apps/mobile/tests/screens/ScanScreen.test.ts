@@ -49,10 +49,10 @@ describe('ScanScreen presentation', () => {
     expect(presentScanState({ status: 'server_decision', queueCount: 0,
       outcome: { status: 'time_entry_started' } })).toEqual({
       title: 'Arbeitszeit gestartet', tone: 'success',
-      message: 'Der Server hat den Start bestätigt.',
+      message: 'Dein Arbeitsbeginn ist gespeichert.',
     });
     expect(presentScanState({ status: 'server_review_pending', queueCount: 0 }).title)
-      .toBe('Sichere Prüfung erforderlich');
+      .toBe('Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.');
   });
 
   it.each([
@@ -127,7 +127,7 @@ describe('ScanScreen presentation', () => {
     const presentation = presentScanState({
       status: 'protected_pending', reason: 'legacy_membership_unknown',
     });
-    expect(presentation.message).toContain('keine eindeutig zuordenbare Mitgliedschaft');
+    expect(presentation.message).toContain('keinem Konto zugeordnet');
     expect(presentation.message).toContain('Support');
     expect(presentation.message).not.toMatch(/[0-9a-f]{8}-[0-9a-f-]{27,}/i);
   });

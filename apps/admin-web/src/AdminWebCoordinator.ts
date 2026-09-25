@@ -1,3 +1,4 @@
+import type { Notice } from './contracts';
 import type { BackfillTargetSelection } from "@taptime/mobile-work-contract";
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import { isAdministrationStopRequest, isAdministrationStopResult, isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
@@ -208,7 +209,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if(outcome.status==='committed' && (input.kind!=='stop' || (isAdministrationStopResult(outcome) && outcome.offsiteArchived))) {
       if(input.kind==='stop') this.pendingStops.delete(key);else this.pendingTimeEdit=null;
       if(calendarEpoch!==this.calendarEpoch) return outcome;
-      this.setState({...this.state as Extract<AdminWebState,{status:'ready'}>,notice:'Gespeichert.'});
+      this.setState({...this.state as Extract<AdminWebState,{status:'ready'}>,notice:{ kind: 'success', text: 'Gespeichert.' }});
       if(this.state.status==='ready' && this.state.calendar?.targetMembershipId===calendar.targetMembershipId
         && this.state.calendar.month===calendar.month) {
         if(calendar.targetMembershipId===null) await this.loadOwnTime(calendar.month);
@@ -314,7 +315,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (generation !== this.generation || this.state.status !== 'ready') return;
     if (result.status === 'rejected') {await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.');return;}
     if (result.status !== 'succeeded') {
-      this.setState({...this.state,manual:{busy:false,pending:true,message:'Die Bestätigung fehlt. Das Ereignis kann bereits gespeichert sein. Fragen Sie dieselbe Bestätigung erneut ab.'}});return;
+      this.setState({...this.state,manual:{busy:false,pending:true,message:'Ihre Erfassung kann bereits gespeichert sein; die Bestätigung fehlt. Fragen Sie diese erneut ab.'}});return;
     }
     const stillPending=result.value.status === 'deferred' && result.value.evidenceStored;
     if (!stillPending) this.pendingManual=null;
@@ -418,8 +419,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
       accepted = await this.auth.requestPasswordReset?.(email.trim()) ?? false;
     } catch { /* surfaced as a generic availability result */ }
     this.setState(accepted
-      ? { status: 'signed_out', notice: 'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.' }
-      : { status: 'signed_out', notice: 'Die Wiederherstellungs-E-Mail konnte nicht angefordert werden. Der Anmeldedienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
+      ? { status: 'signed_out', notice: { kind: 'success', text: 'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.' } }
+      : { status: 'signed_out', notice: { kind: 'error', text: 'Die E-Mail zum Zurücksetzen konnte nicht angefordert werden. Ihr Passwort bleibt unverändert; versuchen Sie es später erneut.' } });
   }
 
   async completePasswordRecovery(password: string): Promise<void> {
@@ -431,7 +432,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch { /* surfaced without provider details */ }
     if (!changed) {
       this.setState({ status: 'password_recovery', completing: false,
-        notice: 'Das Passwort konnte nicht geändert werden. Der Anmeldedienst hat die Änderung nicht bestätigt. Prüfen Sie das neue Passwort und versuchen Sie es erneut.' });
+        notice: { kind: 'error', text: 'Ob das Passwort geändert wurde, ist noch unklar. Prüfen Sie die Anmeldung mit dem neuen Passwort.' } });
       return;
     }
     let recorded: ApiResult<true> | null = null;
@@ -442,11 +443,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
     } catch { /* fail closed until the reset has an audit trail */ }
     if (recorded?.status !== 'succeeded') {
       this.setState({ status: 'password_recovery', completing: false,
-        notice: 'Das Passwort wurde geändert, der Abschluss konnte aber nicht protokolliert werden. Die sichere Bestätigung durch den Server fehlt. Bestätigen Sie die Änderung erneut.' });
+        notice: { kind: 'error', text: 'Ihr Passwort wurde geändert; der Abschluss ist noch nicht bestätigt. Bestätigen Sie die Änderung erneut.' } });
       return;
     }
     await this.safeSignOut();
-    this.setState({ status: 'signed_out', notice: 'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.' });
+    this.setState({ status: 'signed_out', notice: { kind: 'success', text: 'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.' } });
   }
 
   async signOut(): Promise<void> {
@@ -577,7 +578,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.setState({
         ...latest,
         sections: { ...latest.sections, employees: { status: 'ready' } },
-        notice: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Der bisherige Standort bleibt geöffnet.',
+        notice: { kind: 'info', text: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Der bisherige Standort bleibt geöffnet.' },
       });
       return;
     }
@@ -593,7 +594,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           employees: {
             status: 'unavailable',
-            message: 'Der Standort konnte nicht geöffnet werden. Die Standortdaten sind derzeit nicht verfügbar. Der bisherige Standort bleibt geöffnet; versuchen Sie es erneut.',
+            message: 'Der Standort konnte nicht geladen werden; der bisherige bleibt geöffnet. Versuchen Sie es erneut.',
           },
         },
       });
@@ -780,7 +781,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
             ...latest.sections,
             setup: {
               status: 'unavailable',
-              message: 'Weitere Einrichtungsdaten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
+              message: 'Die weiteren Einrichtungsdaten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
             },
           },
         });
@@ -835,7 +836,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       const next = this.state;
       if (next.status === 'ready') this.setState({
         ...next,
-        notice: 'Kunde wurde sicher angelegt.',
+        notice: { kind: 'success', text: 'Kunde wurde sicher angelegt.' },
         completedAction: 'customer_created',
       });
     } else if (result === null || result.status === 'rejected') {
@@ -846,7 +847,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         this.setState({
           ...latest,
           creating: false,
-          notice: 'Der Kunde konnte nicht angelegt werden. Der Server hat das Anlegen nicht bestätigt. Der eingegebene Name bleibt erhalten; versuchen Sie es erneut.',
+          notice: { kind: 'error', text: 'Ob der Kunde angelegt wurde, ist noch unklar. Ihr eingegebener Name bleibt erhalten; versuchen Sie es erneut.' },
         });
       }
     }
@@ -892,7 +893,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.setState({
         ...latest,
         projectBusy: false,
-        notice: 'Die Projekte konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Versuchen Sie es erneut.',
+        notice: { kind: 'error', text: 'Die Projekte konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Versuchen Sie es erneut.' },
       });
     }
   }
@@ -935,7 +936,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         ? {
             ...latest,
             projectBusy: false,
-            notice: 'Weitere Projekte konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie die Projekte erneut.',
+            notice: { kind: 'error', text: 'Die weiteren Projekte passen nicht zu den bereits geladenen Daten. Laden Sie die Projekte erneut.' },
           }
         : {
             ...latest,
@@ -952,7 +953,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.setState({
         ...latest,
         projectBusy: false,
-        notice: 'Weitere Projekte konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Versuchen Sie es erneut.',
+        notice: { kind: 'error', text: 'Weitere Projekte konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Versuchen Sie es erneut.' },
       });
     }
   }
@@ -995,7 +996,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (refreshed.status === 'ready') {
         this.setState({
           ...refreshed,
-          notice: 'Projekt wurde sicher angelegt.',
+          notice: { kind: 'success', text: 'Projekt wurde sicher angelegt.' },
           completedAction: 'project_created',
         });
       }
@@ -1008,9 +1009,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.setState({
         ...latest,
         projectBusy: false,
-        notice: result.status === 'conflict'
-          ? 'Das Projekt konnte nicht angelegt werden. Eine andere Anfrage hat denselben Vorgang bereits verändert. Laden Sie die Projekte neu und versuchen Sie es erneut.'
-          : 'Das Projekt konnte nicht angelegt werden. Der Server hat den Vorgang nicht bestätigt. Der eingegebene Name bleibt erhalten; versuchen Sie es erneut.',
+        notice: { kind: 'error', text: result.status === 'conflict'
+          ? 'Ein anderer Vorgang hat das Anlegen des Projekts unterbrochen. Laden Sie die Projekte neu und versuchen Sie es erneut.'
+          : 'Ob das Projekt angelegt wurde, ist noch unklar. Ihr eingegebener Name bleibt erhalten; versuchen Sie es erneut.' },
       });
     }
   }
@@ -1052,7 +1053,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       await this.refreshProjects();
       const refreshed = this.state;
       if (refreshed.status === 'ready') {
-        this.setState({ ...refreshed, notice: 'Projekt wurde deaktiviert.' });
+        this.setState({ ...refreshed, notice: { kind: 'success', text: 'Projekt wurde deaktiviert.' } });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(
@@ -1061,9 +1062,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
       );
     } else {
       const notice = result.status === 'conflict' && result.code === 'project_in_use'
-        ? 'Das Projekt konnte nicht deaktiviert werden. Darauf läuft noch eine Arbeitszeit. Beenden Sie diese Arbeitszeit und versuchen Sie es erneut.'
-        : 'Das Projekt konnte nicht deaktiviert werden. Sein Status wurde zwischenzeitlich geändert. Laden Sie die Projekte neu und versuchen Sie es erneut.';
-      this.setState({ ...latest, projectBusy: false, notice });
+        ? 'Das Projekt bleibt aktiv, weil darauf noch eine Arbeitszeit läuft. Beenden Sie diese Arbeitszeit und versuchen Sie es erneut.'
+        : 'Das Projekt wurde inzwischen geändert und konnte nicht deaktiviert werden. Laden Sie die Projekte neu und versuchen Sie es erneut.';
+      this.setState({ ...latest, projectBusy: false, notice: { kind: 'error', text: notice } });
     }
   }
 
@@ -1117,7 +1118,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (latest.status !== 'ready') return;
     if (result === null) {
       this.setState({ ...latest, locationSetupBusy: false,
-        notice: 'Die Standort-Einrichtung konnte nicht vollständig geladen werden. Versuchen Sie es erneut.' });
+        notice: { kind: 'error', text: 'Die Standort-Einrichtung konnte nicht vollständig geladen werden. Versuchen Sie es erneut.' } });
       return;
     }
     this.setState({ ...latest, assignableLocations: result.locations,
@@ -1203,10 +1204,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const latest = this.state;
     if (latest.status !== 'ready') return false;
     if (result?.status === 'succeeded') {
-      this.setState({ ...latest, locationSetupBusy: false, notice: successNotice });
+      this.setState({ ...latest, locationSetupBusy: false, notice: { kind: 'success', text: successNotice } });
       await this.refreshLocationSetup();
       const refreshed = this.state;
-      if (refreshed.status === 'ready') this.setState({ ...refreshed, notice: successNotice });
+      if (refreshed.status === 'ready') this.setState({ ...refreshed, notice: { kind: 'success', text: successNotice } });
       return true;
     }
     if (result === null || result.status === 'rejected') {
@@ -1217,7 +1218,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const notice = result.status === 'conflict'
       ? locationMutationNotice(result.code)
       : 'Die Standort-Änderung wurde vom Server nicht bestätigt. Laden Sie die Einrichtung neu und versuchen Sie es erneut.';
-    this.setState({ ...latest, locationSetupBusy: false, notice });
+    this.setState({ ...latest, locationSetupBusy: false, notice: { kind: 'error', text: notice } });
     await this.refreshLocationSetup();
     return false;
   }
@@ -1286,7 +1287,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
             ...latest.sections,
             employees: {
               status: 'unavailable',
-              message: 'Weitere Beschäftigte konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
+              message: 'Die weiteren Beschäftigten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
             },
           },
         });
@@ -1300,7 +1301,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           employees: {
             status: 'unavailable',
-            message: 'Weitere Beschäftigte konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+            message: 'Weitere Beschäftigte konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -1362,24 +1363,24 @@ export class AdminWebCoordinator implements AdminWebCapability {
         ...latest,
         creatingEmployee: false,
         invitation: result.value,
-        notice: 'Einladung wurde einmalig erzeugt.',
+        notice: { kind: 'success', text: 'Einladung wurde einmalig erzeugt.' },
         completedAction: 'invitation_created',
       });
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else if (result.status === 'conflict') {
       const notice = result.code === 'invitation_limit_reached'
-        ? 'Die Einladung konnte nicht erzeugt werden. Es sind bereits fünf aktive Einladungen vorhanden. Verwerfen Sie eine nicht mehr benötigte Einladung und versuchen Sie es erneut.'
+        ? 'Es bestehen bereits fünf aktive Einladungen; eine weitere wurde nicht erstellt. Verwerfen Sie eine nicht mehr benötigte Einladung und versuchen Sie es erneut.'
         : result.code === 'invitation_created_token_unavailable'
-          ? 'Die Einladung wurde bereits erzeugt. Ihr Geheimnis kann aus Sicherheitsgründen nicht erneut angezeigt werden. Erzeugen Sie bei Bedarf eine neue Einladung.'
-          : 'Die Einladung konnte nicht erzeugt werden. Eine andere Anfrage hat denselben Vorgang bereits verändert. Laden Sie die Beschäftigten neu und versuchen Sie es erneut.';
-      this.setState({ ...latest, creatingEmployee: false, invitation: null, notice });
+          ? 'Der Zugangscode dieser Einladung kann nur einmal angezeigt werden. Erzeugen Sie bei Bedarf eine neue Einladung.'
+          : 'Ein anderer Vorgang hat das Erstellen der Einladung unterbrochen. Laden Sie die Beschäftigten neu und versuchen Sie es erneut.';
+      this.setState({ ...latest, creatingEmployee: false, invitation: null, notice: { kind: 'error', text: notice } });
     } else {
       this.setState({
         ...latest,
         creatingEmployee: false,
         invitation: null,
-        notice: 'Die Einladung konnte nicht erzeugt werden. Der Server hat den Vorgang nicht bestätigt. Der eingegebene Name bleibt erhalten; versuchen Sie es erneut.',
+        notice: { kind: 'error', text: 'Ob die Einladung erstellt wurde, ist noch unklar. Ihr eingegebener Name bleibt erhalten; versuchen Sie es erneut.' },
       });
     }
   }
@@ -1441,7 +1442,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (latest.status === 'ready') {
         this.setState({
           ...latest,
-          notice: role === null ? 'Zugang wurde entzogen.' : 'Rolle wurde geändert.',
+          notice: { kind: 'success', text: role === null ? 'Zugang wurde entzogen.' : 'Rolle wurde geändert.' },
         });
       }
       return;
@@ -1450,17 +1451,17 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (latest.status !== 'ready') return;
     if (result.status === 'conflict') {
       const notice = result.code === 'last_administrator'
-        ? 'Die Rolle oder der Zugang konnte nicht geändert werden. Der Betrieb braucht mindestens einen aktiven Administrator. Ernennen Sie zuerst einen weiteren Administrator.'
+        ? 'Der Zugang bleibt bestehen, weil der Betrieb einen aktiven Administrator braucht. Ernennen Sie zuerst einen weiteren Administrator.'
         : result.code === 'self_revocation_forbidden'
-          ? 'Der eigene Zugang konnte nicht entzogen werden. Damit Sie sich nicht selbst aussperren, ist dieser Vorgang gesperrt. Lassen Sie den Zugang von einem anderen Administrator entziehen.'
+          ? 'Ihr eigener Zugang bleibt bestehen, damit Sie sich nicht aussperren. Lassen Sie den Zugang von einem anderen Administrator entziehen.'
           : result.code === 'stale_row_version'
-            ? 'Die Beschäftigtenzuordnung konnte nicht geändert werden. Sie wurde zwischenzeitlich aktualisiert. Laden Sie den Bereich neu und versuchen Sie es erneut.'
+            ? 'Die Person wurde inzwischen geändert; Ihre Änderung wurde nicht gespeichert. Laden Sie den Bereich neu und versuchen Sie es erneut.'
             : result.code === 'target_unavailable'
-              ? 'Die Beschäftigtenzuordnung konnte nicht geändert werden. Sie ist nicht mehr verfügbar. Laden Sie den Bereich neu.'
-              : 'Die Beschäftigtenzuordnung konnte nicht geändert werden. Eine andere Anfrage betrifft denselben Vorgang. Laden Sie den Bereich neu und versuchen Sie es erneut.';
-      this.setState({ ...latest, notice });
+              ? 'Die Person ist nicht mehr verfügbar; Ihre Änderung wurde nicht gespeichert. Laden Sie den Bereich neu.'
+              : 'Ein anderer Vorgang hat Ihre Änderung an der Person unterbrochen. Laden Sie den Bereich neu und versuchen Sie es erneut.';
+      this.setState({ ...latest, notice: { kind: 'error', text: notice } });
     } else {
-      this.setState({ ...latest, notice: 'Die Beschäftigtenzuordnung konnte nicht geändert werden. Der Server hat den Vorgang nicht bestätigt. Laden Sie den Bereich neu und versuchen Sie es erneut.' });
+      this.setState({ ...latest, notice: { kind: 'error', text: 'Ob die Änderung gespeichert wurde, ist noch unklar. Laden Sie die Beschäftigten neu und prüfen Sie den Stand.' } });
     }
   }
 
@@ -1474,7 +1475,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       invitation: null,
       notice: current.invitation === null
         ? current.notice
-        : 'Einladungsgeheimnis wurde verworfen.',
+        : { kind: 'info', text: 'Einladungsgeheimnis wurde verworfen.' },
     });
   }
 
@@ -1497,7 +1498,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.setState({
         ...current,
         reassignmentIntent: null,
-        notice: 'Die Zuordnung kann nicht vorbereitet werden. Der NFC-Tag oder das Arbeitsziel ist nicht mehr verfügbar. Laden Sie die Einrichtung neu und wählen Sie erneut.',
+        notice: { kind: 'error', text: 'Der Tag oder das Arbeitsziel ist nicht mehr verfügbar; die Zuordnung bleibt unverändert. Laden Sie die Einrichtung neu und wählen Sie erneut.' },
       });
       return;
     }
@@ -1520,7 +1521,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.setState({
       ...current,
       reassignmentIntent: null,
-      notice: 'Änderung wurde verworfen.',
+      notice: { kind: 'info', text: 'Änderung wurde verworfen.' },
     });
   }
 
@@ -1569,9 +1570,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (refreshed.status === 'ready') {
         this.setState({
           ...refreshed,
-          notice: result.value.assignmentChanged
+          notice: { kind: 'success', text: result.value.assignmentChanged
             ? 'NFC-Tag wurde sicher neu zugeordnet.'
-            : 'Die Zuordnung war bereits korrekt.',
+            : 'Die Zuordnung war bereits korrekt.' },
         });
       }
       return;
@@ -1591,20 +1592,20 @@ export class AdminWebCoordinator implements AdminWebCapability {
       const refreshed = this.state;
       if (refreshed.status === 'ready') {
         const notice = result.code === 'assignment_target_unavailable'
-          ? 'Der NFC-Tag konnte nicht neu zugeordnet werden. Der gewählte Kunde ist nicht mehr aktiv. Wählen Sie einen anderen aktiven Kunden.'
+          ? 'Der Kunde ist nicht mehr aktiv; die Zuordnung bleibt unverändert. Wählen Sie einen anderen aktiven Kunden.'
           : result.code === 'assignment_conflict'
-            ? 'Der NFC-Tag konnte nicht neu zugeordnet werden. Die Zuordnung wurde zwischenzeitlich geändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.'
-            : 'Der NFC-Tag konnte nicht neu zugeordnet werden. Eine andere Anfrage betrifft denselben Vorgang. Laden Sie die Einrichtung neu und versuchen Sie es erneut.';
-        this.setState({ ...refreshed, notice });
+            ? 'Die Zuordnung wurde inzwischen geändert; Ihre Änderung wurde nicht gespeichert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.'
+            : 'Ein anderer Vorgang hat Ihre Änderung an der Zuordnung unterbrochen. Laden Sie die Einrichtung neu und versuchen Sie es erneut.';
+        this.setState({ ...refreshed, notice: { kind: 'error', text: notice } });
       }
       return;
     }
     this.setState({
       ...latest,
       reassigning: false,
-      notice: result.status === 'conflict'
-        ? 'Der NFC-Tag konnte nicht neu zugeordnet werden. Für das bisherige Arbeitsziel läuft noch eine Arbeitszeit. Beenden Sie diese Arbeitszeit und versuchen Sie es erneut.'
-        : 'Der NFC-Tag konnte nicht neu zugeordnet werden. Der Server hat den Vorgang nicht bestätigt. Versuchen Sie es erneut; dieselbe Anfrage wird sicher weiterverwendet.',
+      notice: { kind: 'error', text: result.status === 'conflict'
+        ? 'Die Zuordnung bleibt unverändert, weil für das bisherige Ziel noch eine Arbeitszeit läuft. Beenden Sie diese Arbeitszeit und versuchen Sie es erneut.'
+        : 'Die Bestätigung für die Zuordnung fehlt. Versuchen Sie es erneut; dabei entsteht keine doppelte Zuordnung.' },
     });
   }
 
@@ -1622,7 +1623,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       || !isClosedInterval(startedAt, stoppedAt, this.now()) || !isValidTimeReviewReason(reason)
       || (record.startedAt === startedAt && record.stoppedAt === stoppedAt)
     ) {
-      this.setState({ ...current, correctionIntent: null, notice: 'Die Korrektur kann nicht vorbereitet werden. Arbeitszeit, Zeitraum oder Begründung sind nicht mehr verwendbar. Prüfen Sie die erhaltenen Eingaben und versuchen Sie es erneut.' });
+      this.setState({ ...current, correctionIntent: null, notice: { kind: 'error', text: 'Die Korrektur wurde nicht gespeichert, weil Angaben fehlen oder veraltet sind. Prüfen Sie die erhaltenen Eingaben und versuchen Sie es erneut.' } });
       return;
     }
     this.setState({
@@ -1640,7 +1641,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   cancelCorrection(): void {
     const current = this.state;
     if (current.status !== 'ready' || !current.availableSections.includes('time_records') || current.correctionIntent === null || current.timeReviewBusy) return;
-    this.setState({ ...current, correctionIntent: null, notice: 'Korrektur wurde verworfen.' });
+    this.setState({ ...current, correctionIntent: null, notice: { kind: 'info', text: 'Korrektur wurde verworfen.' } });
   }
 
   async confirmCorrection(): Promise<void> {
@@ -1676,7 +1677,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         && followupRefreshEpoch === this.refreshEpoch
         && this.state.status === 'ready'
       ) {
-        this.setState({ ...this.state, notice: 'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt lückenlos erhalten.' });
+        this.setState({ ...this.state, notice: { kind: 'success', text: 'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt erhalten.' } });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
@@ -1689,12 +1690,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
         && followupRefreshEpoch === this.refreshEpoch
         && this.state.status === 'ready'
       ) {
-        this.setState({ ...this.state, notice: correctionConflictNotice(result.code) });
+        this.setState({ ...this.state, notice: { kind: 'error', text: correctionConflictNotice(result.code) } });
       }
     } else {
       this.setState({
         ...latest, timeReviewBusy: false,
-        notice: 'Die Korrektur konnte nicht gespeichert werden. Der Server hat den Vorgang nicht bestätigt. Bestätigen Sie erneut; dieselbe Anfrage wird sicher weiterverwendet.',
+        notice: { kind: 'error', text: 'Die Bestätigung für die Korrektur fehlt. Bestätigen Sie erneut; dabei entsteht keine doppelte Korrektur.' },
       });
     }
   }
@@ -1724,7 +1725,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       && (record.startedAt !== startedAt || record.stoppedAt !== stoppedAt);
     if (reviewItem === undefined || !isValidTimeReviewReason(reason)
       || (!noChangeIsValid && !recoveredIsValid && !adjustmentIsValid)) {
-      this.setState({ ...current, adjudicationIntent: null, notice: 'Die Prüfentscheidung kann nicht vorbereitet werden. Prüffall, Zeitraum oder Begründung sind nicht mehr verwendbar. Prüfen Sie die erhaltenen Eingaben und versuchen Sie es erneut.' });
+      this.setState({ ...current, adjudicationIntent: null, notice: { kind: 'error', text: 'Die Entscheidung wurde nicht gespeichert, weil Angaben fehlen oder veraltet sind. Prüfen Sie die erhaltenen Eingaben und versuchen Sie es erneut.' } });
       return;
     }
     this.setState({
@@ -1743,7 +1744,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   cancelAdjudication(): void {
     const current = this.state;
     if (current.status !== 'ready' || !current.availableSections.includes('review_items') || current.adjudicationIntent === null || current.timeReviewBusy) return;
-    this.setState({ ...current, adjudicationIntent: null, notice: 'Die Prüfentscheidung wurde verworfen.' });
+    this.setState({ ...current, adjudicationIntent: null, notice: { kind: 'info', text: 'Die Prüfentscheidung wurde verworfen.' } });
   }
 
   async confirmAdjudication(): Promise<void> {
@@ -1781,7 +1782,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         && followupRefreshEpoch === this.refreshEpoch
         && this.state.status === 'ready'
       ) {
-        this.setState({ ...this.state, notice: 'Die Prüfentscheidung wurde lückenlos protokolliert.' });
+        this.setState({ ...this.state, notice: { kind: 'success', text: 'Die Entscheidung wurde gespeichert.' } });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
@@ -1794,12 +1795,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
         && followupRefreshEpoch === this.refreshEpoch
         && this.state.status === 'ready'
       ) {
-        this.setState({ ...this.state, notice: adjudicationConflictNotice(result.code) });
+        this.setState({ ...this.state, notice: { kind: 'error', text: adjudicationConflictNotice(result.code) } });
       }
     } else {
       this.setState({
         ...latest, timeReviewBusy: false,
-        notice: 'Die Prüfentscheidung konnte nicht gespeichert werden. Der Server hat den Vorgang nicht bestätigt. Bestätigen Sie erneut; dieselbe Anfrage wird sicher weiterverwendet.',
+        notice: { kind: 'error', text: 'Die Bestätigung für die Entscheidung fehlt. Bestätigen Sie erneut; dabei entsteht keine doppelte Arbeitszeit.' },
       });
     }
   }
@@ -1847,14 +1848,14 @@ export class AdminWebCoordinator implements AdminWebCapability {
         anchor.rel = 'noopener';
         anchor.click();
         URL.revokeObjectURL(href);
-        this.setState({ ...latest, timeReviewBusy: false, notice: 'Die CSV-Datei wurde erstellt und heruntergeladen.' });
+        this.setState({ ...latest, timeReviewBusy: false, notice: { kind: 'success', text: 'Die CSV-Datei wurde erstellt und heruntergeladen.' } });
       } catch {
-        this.setState({ ...latest, timeReviewBusy: false, notice: 'Die CSV-Datei konnte nicht bereitgestellt werden. Die Serverantwort war unvollständig. Versuchen Sie den Download erneut.' });
+        this.setState({ ...latest, timeReviewBusy: false, notice: { kind: 'error', text: 'Die CSV-Datei konnte nicht vollständig geladen werden. Ihre Arbeitszeiten bleiben erhalten; versuchen Sie den Download erneut.' } });
       }
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else {
-      this.setState({ ...latest, timeReviewBusy: false, notice: 'Die CSV-Datei konnte nicht heruntergeladen werden. Der Dienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
+      this.setState({ ...latest, timeReviewBusy: false, notice: { kind: 'error', text: 'Die CSV-Datei konnte nicht heruntergeladen werden. Ihre Arbeitszeiten bleiben erhalten; versuchen Sie es später erneut.' } });
     }
   }
 
@@ -1928,7 +1929,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           [section]: {
             status: 'unavailable',
-            message: 'Weitere Daten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
+            message: 'Die weiteren Daten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -2084,7 +2085,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         await this.safeSignOut();
         if (generation === this.generation) this.setState({
           status: 'signed_out',
-          notice: signInFailureNotice(outcome),
+          notice: { kind: 'error', text: signInFailureNotice(outcome) },
         });
         return;
       }
@@ -2092,7 +2093,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       const sessionResult = await this.auth.withAccessToken((token) => this.api.session(token));
       if (generation !== this.generation) { await this.safeSignOut(); return; }
       if (sessionResult?.status !== 'succeeded') {
-        await this.rejectWithinAuthentication(generation, 'Die Anmeldung konnte nicht abgeschlossen werden. Die Sitzung wurde vom Server nicht bestätigt. Melden Sie sich erneut an.');
+        await this.rejectWithinAuthentication(generation, 'Die Anmeldung wurde nicht bestätigt. Melden Sie sich erneut an.');
         return;
       }
       const session = sessionResult.value;
@@ -2111,7 +2112,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         ? this.requestedLocationId ?? session.managementScope.locations[0]?.id ?? null
         : null;
       let projection = await this.loadReadyData(session, undefined, locationId);
-      let notice: string | null = null;
+      let notice: Notice | null = null;
       if (projection.status === 'location_scope_forbidden') {
         const fallback = session.managementScope.kind === 'locations'
           ? session.managementScope.locations[0]?.id ?? null
@@ -2122,7 +2123,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         locationId = fallback;
         this.requestedLocationId = fallback;
         projection = await this.loadReadyData(session, undefined, fallback);
-        notice = 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Stattdessen wurde Ihr erster verfügbarer Standort geöffnet.';
+        notice = { kind: 'info', text: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Stattdessen wurde Ihr erster verfügbarer Standort geöffnet.' };
       }
       if (generation !== this.generation) { await this.safeSignOut(); return; }
       if (projection.status === 'rejected') {
@@ -2188,7 +2189,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         this.membershipId = null;
         this.session = null;
     this.pendingManual = null;this.pendingStops.clear();
-        this.setState({ status: 'unavailable', message: 'Die Anmeldung konnte nicht abgeschlossen werden. Der Anmeldedienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
+        this.setState({ status: 'unavailable', message: 'Die Anmeldung ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
       }
     }
   }
@@ -2255,7 +2256,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         this.state = Object.freeze({
           ...state,
           invitation: null,
-          notice: 'Die Einladung kann nicht mehr verwendet werden. Ihre Gültigkeitsdauer ist abgelaufen. Erzeugen Sie eine neue Einladung.',
+          notice: { kind: 'error' as const, text: 'Die Einladung ist abgelaufen und kann nicht mehr verwendet werden. Erzeugen Sie eine neue Einladung.' },
         });
       } else {
         this.invitationExpiryTimer = setTimeout(() => {
@@ -2268,7 +2269,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
             this.setState({
               ...current,
               invitation: null,
-              notice: 'Die Einladung kann nicht mehr verwendet werden. Ihre Gültigkeitsdauer ist abgelaufen. Erzeugen Sie eine neue Einladung.',
+              notice: { kind: 'error' as const, text: 'Die Einladung ist abgelaufen und kann nicht mehr verwendet werden. Erzeugen Sie eine neue Einladung.' },
             });
           }
         }, Math.min(remaining, 2_147_483_647));
@@ -2510,7 +2511,7 @@ function mergeRefreshResult(
       ...current,
       sections: allSections({
         status: 'unavailable',
-        message: 'Die Verwaltungsbereiche konnten nicht übernommen werden. Die Betriebszuordnung der Antworten widerspricht sich. Melden Sie sich ab und erneut an.',
+        message: 'Die angeforderten Daten gehören nicht zum selben Betrieb und werden nicht angezeigt. Melden Sie sich ab und erneut an.',
       }),
     };
   }
@@ -2586,16 +2587,16 @@ function sectionUnavailableMessage(
   switch (failure) {
     case 'unreachable':
       switch (section) {
-        case 'employees': return 'Die Beschäftigten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
-        case 'timeRecords': return 'Die Arbeitszeiten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
-        case 'reviewItems': return 'Die offenen Prüfungen konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.';
+        case 'employees': return 'Die Beschäftigten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
+        case 'timeRecords': return 'Die Arbeitszeiten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
+        case 'reviewItems': return 'Die offenen Prüfungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
         default: return section satisfies never;
       }
     case 'invalid_response':
       switch (section) {
-        case 'employees': return 'Die Beschäftigten konnten nicht übernommen werden. Die Antwort des Dienstes ist nicht verwertbar. Laden Sie den Bereich erneut.';
-        case 'timeRecords': return 'Die Arbeitszeiten konnten nicht übernommen werden. Die Antwort des Dienstes ist nicht verwertbar. Laden Sie den Bereich erneut.';
-        case 'reviewItems': return 'Die offenen Prüfungen konnten nicht übernommen werden. Die Antwort des Dienstes ist nicht verwertbar. Laden Sie den Bereich erneut.';
+        case 'employees': return 'Die Beschäftigten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
+        case 'timeRecords': return 'Die Arbeitszeiten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
+        case 'reviewItems': return 'Die offenen Prüfungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
         default: return section satisfies never;
       }
     default: return failure satisfies never;
@@ -2646,9 +2647,9 @@ function readyDataFailureStatus(
 function administrationUnavailableMessage(failure: ApiFailureStatus): string {
   switch (failure) {
     case 'unreachable':
-      return 'Die Verwaltung konnte nicht geöffnet werden. Die Betriebsdaten sind derzeit nicht erreichbar. Melden Sie sich erneut an oder versuchen Sie es später.';
+      return 'Die Verwaltung konnte nicht geladen werden; Ihre Betriebsdaten bleiben erhalten. Melden Sie sich erneut an oder versuchen Sie es später.';
     case 'invalid_response':
-      return 'Die Verwaltung konnte nicht geöffnet werden. Die Antwort des Dienstes ist nicht verwertbar. Melden Sie sich erneut an oder laden Sie die Seite später neu.';
+      return 'Die Verwaltung konnte nicht geladen werden; Ihre Betriebsdaten bleiben erhalten. Melden Sie sich erneut an oder laden Sie die Seite später neu.';
     default:
       return failure satisfies never;
   }
@@ -2668,7 +2669,7 @@ function applySectionResult(
           ...current.sections,
           setup: {
             status: 'unavailable',
-            message: 'Die Einrichtung konnte nicht übernommen werden. Die Daten gehören nicht zum angemeldeten Betrieb. Melden Sie sich ab und erneut an.',
+            message: 'Die Einrichtungsdaten gehören nicht zu Ihrem Betrieb und werden nicht angezeigt. Melden Sie sich ab und erneut an.',
           },
         },
       };
@@ -2688,7 +2689,7 @@ function applySectionResult(
           ...current.sections,
           employees: {
             status: 'unavailable',
-            message: 'Die Beschäftigten konnten nicht übernommen werden. Die Daten gehören nicht zum angemeldeten Betrieb. Melden Sie sich ab und erneut an.',
+            message: 'Die Beschäftigten gehören nicht zu Ihrem Betrieb und werden nicht angezeigt. Melden Sie sich ab und erneut an.',
           },
         },
       };
@@ -2828,22 +2829,22 @@ function buildResolution(intent: ReviewAdjudicationIntent): object | null {
 
 function correctionConflictNotice(code: string): string {
   if (code === 'not_adjustable') {
-    return 'Die Korrektur konnte nicht gespeichert werden. Nur abgeschlossene Arbeitszeiten können korrigiert werden. Wählen Sie eine abgeschlossene Arbeitszeit.';
+    return 'Die Korrektur wurde nicht gespeichert, weil die Arbeitszeit noch läuft. Wählen Sie eine abgeschlossene Arbeitszeit.';
   }
   if (code === 'command_id_conflict') {
-    return 'Die Korrektur konnte nicht gespeichert werden. Die Anfrage wurde bereits für einen anderen Vorgang verwendet. Laden Sie die Arbeitszeiten neu und versuchen Sie es erneut.';
+    return 'Die Korrektur wurde nicht gespeichert, weil dieser Speichervorgang bereits verwendet wurde. Laden Sie die Arbeitszeiten neu und versuchen Sie es erneut.';
   }
-  return 'Die Korrektur konnte nicht gespeichert werden. Die Arbeitszeit wurde zwischenzeitlich verändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.';
+  return 'Die Arbeitszeit wurde inzwischen geändert; Ihre Korrektur wurde nicht gespeichert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.';
 }
 
 function adjudicationConflictNotice(code: string): string {
   if (code === 'invalid_evidence') {
-    return 'Die Prüfentscheidung konnte nicht gespeichert werden. Die ausgewählten Prüffälle lassen sich nicht gemeinsam entscheiden. Entscheiden Sie die Prüffälle einzeln.';
+    return 'Die Entscheidung wurde nicht gespeichert, weil die Prüffälle nicht zusammenpassen. Entscheiden Sie die Prüffälle einzeln.';
   }
   if (code === 'command_id_conflict') {
-    return 'Die Prüfentscheidung konnte nicht gespeichert werden. Die Anfrage wurde bereits für einen anderen Vorgang verwendet. Laden Sie die Prüfungen neu und versuchen Sie es erneut.';
+    return 'Die Entscheidung wurde nicht gespeichert, weil dieser Speichervorgang bereits verwendet wurde. Laden Sie die Prüfungen neu und versuchen Sie es erneut.';
   }
-  return 'Die Prüfentscheidung konnte nicht gespeichert werden. Der Prüfstand wurde zwischenzeitlich verändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.';
+  return 'Der Prüffall wurde inzwischen geändert; Ihre Entscheidung wurde nicht gespeichert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.';
 }
 
 function signInFailureNotice(outcome: Exclude<AdminWebSignInOutcome, 'signed_in'>): string {
@@ -2869,5 +2870,7 @@ function sameActiveRecord(a:MobileOwnTimeQueryResponse['activeRecord'],b:MobileO
     if(ad.change===null || bd.change===null) {if(ad.change!==bd.change) return false;}
     else if(ad.change.at!==bd.change.at || ad.change.reason!==bd.change.reason || ad.change.actor!==bd.change.actor) return false;
   }
-  return (Object.keys(a) as (keyof typeof a)[]).every(key=>key==='details' || a[key]===b[key]);
+  // Calendar durations are a fresh server-time projection on each page, not a record revision.
+  // The merge retains the latest page's activeRecord; compare only its underlying record/details.
+  return (Object.keys(a) as (keyof typeof a)[]).every(key=>key==='details' || key==='calendar' || a[key]===b[key]);
 }

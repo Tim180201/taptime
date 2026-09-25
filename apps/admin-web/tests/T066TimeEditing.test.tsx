@@ -9,7 +9,7 @@ import { AdminWebApiClient } from '../src/AdminWebApiClient';
 import type { AdminWebCapability,AdminWebState } from '../src/contracts';
 import type { SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 const own='10000000-0000-4000-8000-000000000001',other='10000000-0000-4000-8000-000000000002';
-const record:SafeOwnTimeRecord={timeRecordId:other,source:'recovered',targetType:'customer',targetDisplayName:'Werkstatt',status:'stopped',startedAt:'2026-09-21T08:00:00.000Z',stoppedAt:'2026-09-21T09:00:00.000Z',startedVia:null,stoppedVia:null,details:{origin:'backfilled',baseRowVersion:0,effectiveRevisionNumber:2,comment:'Vor Ort',changed:true,change:{at:'2026-09-21T10:00:00.000Z',reason:'Berichtigt',actor:'administration'},overlapsAnotherRecord:true}};
+const record:SafeOwnTimeRecord={calendar:{asOf:"2026-09-21T12:00:00.000Z",workDurationSeconds:3600,breakDurationSeconds:0,breakIntervals:[]},timeRecordId:other,source:'recovered',targetType:'customer',targetDisplayName:'Werkstatt',status:'stopped',startedAt:'2026-09-21T08:00:00.000Z',stoppedAt:'2026-09-21T09:00:00.000Z',startedVia:null,stoppedVia:null,details:{origin:'backfilled',baseRowVersion:0,effectiveRevisionNumber:2,comment:'Vor Ort',changed:true,change:{at:'2026-09-21T10:00:00.000Z',reason:'Berichtigt',actor:'administration'},overlapsAnotherRecord:true}};
 const page={activeRecord:null,records:[record],nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'};
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 function show(role:'employee'|'administrator'|'standortleitung',target=own,entry=record,scoped=true) {
@@ -58,7 +58,7 @@ it.each(['employee','administrator','standortleitung'] as const)('has no axe vio
 it('explicitly negotiates details, validates them strictly and keeps v3/v4 selectable',async()=>{
  const fetcher=vi.fn<typeof fetch>(async()=>Response.json(page));const api=new AdminWebApiClient(fetcher);
  expect(await api.ownTime('token',{expectedMembershipId:own,cursor:null,limit:20})).toMatchObject({status:'succeeded'});
- expect(fetcher.mock.calls[0]![1]?.headers).toMatchObject({Accept:'application/vnd.taptime.time-details.v2+json'});
+ expect(fetcher.mock.calls[0]![1]?.headers).toMatchObject({Accept:'application/vnd.taptime.time-calendar.v1+json'});
  fetcher.mockResolvedValueOnce(Response.json({...page,records:[{...record,details:{...record.details,secret:'hidden'}}]}));
  expect(await api.ownTime('token',{expectedMembershipId:own,cursor:null,limit:20})).toEqual({status:'invalid_response'});
  for(const version of [3,4] as const){fetcher.mockResolvedValueOnce(new Response('csv',{headers:{'content-type':'text/csv','content-disposition':`attachment; filename="taptime-time-entries_v${version}_20260901T000000Z_20261001T000000Z.csv"`}}));expect(await api.exportTimeEntries('token',own,page.windowStartedAt,page.windowEndedAt,version)).toMatchObject({status:'succeeded'});expect(fetcher.mock.lastCall?.[0]).toBe(`/v${version}/time-entries/export`);}
@@ -95,7 +95,7 @@ it.each(['administrator','standortleitung'] as const)('T-069 %s stops another pe
   const pending={status:'committed',timeRecordId:other,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
   save.mockResolvedValueOnce(pending as never).mockResolvedValueOnce({...pending,idempotentRetry:true,offsiteArchived:true} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
-  expect(screen.getByRole('alert')).toHaveTextContent('Wird gesichert …');expect(screen.getByLabelText('Grund')).toBeDisabled();
+  expect(screen.getByRole('status')).toHaveTextContent('Wird gesichert …');expect(screen.getByLabelText('Grund')).toBeDisabled();
   await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
   expect(save.mock.calls.at(-1)).toEqual(save.mock.calls.at(-2));
   expect(save).toHaveBeenLastCalledWith(expect.objectContaining({kind:'stop',targetMembershipId:other,stoppedAt:'2026-09-21T12:00:00.000Z',reason:'Vergessen'}));
@@ -110,7 +110,7 @@ it('D-078 limits archive polling to three minutes and cancels it when the form u
   save.mockResolvedValue({status:'committed',timeRecordId:other,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:false} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
   await act(async()=>{await vi.advanceTimersByTimeAsync(180000);});
-  expect(screen.getByRole('alert')).toHaveTextContent('Noch nicht extern gesichert — bitte später prüfen');
+  expect(screen.getByRole('status')).toHaveTextContent('Noch nicht extern gesichert — bitte später prüfen');
   const count=save.mock.calls.length;await act(async()=>{await vi.advanceTimersByTimeAsync(60000);});expect(save).toHaveBeenCalledTimes(count);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Erneut prüfen'}));});unmount();
   const after=save.mock.calls.length;await act(async()=>{await vi.advanceTimersByTimeAsync(10000);});expect(save).toHaveBeenCalledTimes(after);
@@ -162,4 +162,19 @@ it('D-092 sends both memberships to the dedicated endpoint and rejects extra tar
  expect(fetcher.mock.lastCall?.[0]).toBe('/v1/administration/time-records/backfill-targets/query');expect(JSON.parse(String(fetcher.mock.lastCall?.[1]?.body))).toEqual(request);
  fetcher.mockResolvedValueOnce(Response.json({...page,targets:[{...page.targets[0],private:'hidden'}]}));
  expect(await api.backfillTargets('token',request)).toEqual({status:'invalid_response'});
+});
+
+it('T079 displays minutes and preserves exact unchanged correction instants',async()=>{
+ const precise={...record,startedAt:'2026-09-21T08:00:37.123Z',stoppedAt:'2026-09-21T09:00:48.987Z'};
+ const {save}=show('administrator',other,precise);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ expect(screen.getByLabelText('Von')).toHaveValue('2026-09-21T10:00');
+ expect(screen.getByLabelText('Bis')).toHaveValue('2026-09-21T11:00');
+ expect(screen.getByLabelText('Von')).toHaveAttribute('step','60');
+ fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Nur Grund'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({startedAt:precise.startedAt,stoppedAt:precise.stoppedAt})));
+});
+it.each(['2026-10-25T02:30','2027-03-28T02:30'])('T079 rejects an edited DST minute %s and retains the input',async value=>{
+ const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ fireEvent.change(screen.getByLabelText('Von'),{target:{value}});fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Prüfung'}});
+ fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('Zeitumstellung');expect(screen.getByLabelText('Von')).toHaveValue(value);
 });

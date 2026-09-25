@@ -101,7 +101,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     if (role === 'offline') {
       expect(h.props.work.triggerManual).not.toHaveBeenCalled();
       expect(h.props.work.triggerBreak).not.toHaveBeenCalled();
-      expect(container.textContent).toContain('Serverbestätigung ausstehend');
+      expect(container.textContent).toContain('Bestätigung steht noch aus');
     } else {
       expect(h.props.offlineManual.captureManual).not.toHaveBeenCalled();
       expect(h.props.offlineManual.captureBreak).not.toHaveBeenCalled();

@@ -61,7 +61,7 @@ describe('ManualCaptureScreen selection', () => {
     expect(button(target.displayName).getAttribute('aria-pressed')).toBe('false');
     expect(button('Pause').getAttribute('aria-pressed')).toBe('true');
     expect(button('Jetzt erfassen').getAttribute('aria-description'))
-      .toBe('Der Server entscheidet, ob die Pause beginnt oder endet.');
+      .toBe('Beginnt oder beendet deine Pause automatisch.');
     await press('Jetzt erfassen');
     expect(work.triggerBreak).toHaveBeenCalledExactlyOnceWith();
     expect(work.triggerManual).not.toHaveBeenCalled();

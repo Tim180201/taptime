@@ -47,11 +47,13 @@ describe('T-047 standalone welcome route', () => {
 
     fireEvent.change(screen.getByLabelText('Neues Passwort'), { target: { value: 'new-test-password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Passwort setzen' }));
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Jetzt die App öffnen und anmelden.'));
-    expect(document.body.textContent).toBe('Jetzt die App öffnen und anmelden.');
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ihr Passwort ist gespeichert.'));
+    expect(screen.getByRole('link',{name:'Im Browser anmelden'})).toHaveAttribute('href','/');
+    expect(screen.getByText('In der App anmelden; die App erhalten Sie von Ihrem Betrieb.')).toBeVisible();
+    expect(screen.getAllByRole('link')).toHaveLength(1);
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('link',{name:'Im Browser anmelden'})).toHaveAttribute('href','/');
     expect(sdk.verifyOtp).toHaveBeenCalledExactlyOnceWith({ token_hash: token, type: 'invite' });
     expect(sdk.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'new-test-password' });
     expect(sdk.signOut).toHaveBeenCalledExactlyOnceWith({ scope: 'local' });

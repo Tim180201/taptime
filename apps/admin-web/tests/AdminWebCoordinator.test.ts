@@ -205,7 +205,7 @@ describe('AdminWebCoordinator', () => {
     expect(auth.signOut).toHaveBeenCalledOnce();
     expect(coordinator.getState()).toEqual({
       status: 'signed_out',
-      notice: 'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.',
+      notice: { kind: 'success', text: 'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.' },
     });
   });
 
@@ -219,7 +219,7 @@ describe('AdminWebCoordinator', () => {
     expect(auth.signOut).not.toHaveBeenCalled();
     expect(coordinator.getState()).toEqual({
       status: 'password_recovery', completing: false,
-      notice: 'Das Passwort wurde geändert, der Abschluss konnte aber nicht protokolliert werden. Die sichere Bestätigung durch den Server fehlt. Bestätigen Sie die Änderung erneut.',
+      notice: { kind: 'error', text: 'Ihr Passwort wurde geändert; der Abschluss ist noch nicht bestätigt. Bestätigen Sie die Änderung erneut.' },
     });
   });
 
@@ -319,7 +319,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       selectedLocation: location,
-      notice: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Der bisherige Standort bleibt geöffnet.',
+      notice: { kind: 'info', text: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Der bisherige Standort bleibt geöffnet.' },
     });
   });
 
@@ -354,7 +354,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       selectedLocation: location,
-      notice: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Stattdessen wurde Ihr erster verfügbarer Standort geöffnet.',
+      notice: { kind: 'info', text: 'Der angeforderte Standort gehört nicht zu Ihren Verwaltungsstandorten. Stattdessen wurde Ihr erster verfügbarer Standort geöffnet.' },
     });
   });
 
@@ -420,7 +420,7 @@ describe('AdminWebCoordinator', () => {
       ...readyTimeReviewState,
       status: 'ready', projection, employeeProjection, creating: false,
       creatingEmployee: false, invitation: null, reassignmentIntent: null,
-      reassigning: false, notice: 'Kunde wurde sicher angelegt.',
+      reassigning: false, notice: { kind: 'success', text: 'Kunde wurde sicher angelegt.' },
       completedAction: 'customer_created',
     });
   });
@@ -548,7 +548,7 @@ describe('AdminWebCoordinator', () => {
       sections: {
         setup: {
           status: 'unavailable',
-          message: 'Weitere Einrichtungsdaten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
+          message: 'Die weiteren Einrichtungsdaten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -586,7 +586,7 @@ describe('AdminWebCoordinator', () => {
         sections: {
           setup: {
             status: 'unavailable',
-            message: 'Weitere Einrichtungsdaten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
+            message: 'Die weiteren Einrichtungsdaten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -681,7 +681,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       invitation: null,
-      notice: 'Die Einladung wurde bereits erzeugt. Ihr Geheimnis kann aus Sicherheitsgründen nicht erneut angezeigt werden. Erzeugen Sie bei Bedarf eine neue Einladung.',
+      notice: { kind: 'error', text: 'Der Zugangscode dieser Einladung kann nur einmal angezeigt werden. Erzeugen Sie bei Bedarf eine neue Einladung.' },
     });
   });
 
@@ -707,7 +707,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       employeeProjection: { employeeMemberships: [{ active: false, rowVersion: 2 }] },
-      notice: 'Zugang wurde entzogen.',
+      notice: { kind: 'success', text: 'Zugang wurde entzogen.' },
     });
   });
 
@@ -881,7 +881,7 @@ describe('AdminWebCoordinator', () => {
         sections: {
           employees: {
             status: 'unavailable',
-            message: 'Weitere Beschäftigte konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
+            message: 'Die weiteren Beschäftigten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -903,7 +903,7 @@ describe('AdminWebCoordinator', () => {
 
     expect(coordinator.getState()).toEqual({
       status: 'unavailable',
-      message: 'Die Anmeldung konnte nicht abgeschlossen werden. Der Anmeldedienst ist derzeit nicht erreichbar. Versuchen Sie es später erneut.',
+      message: 'Die Anmeldung ist derzeit nicht erreichbar. Versuchen Sie es später erneut.',
     });
     expect(auth.active).toBe(false);
   });
@@ -954,7 +954,7 @@ describe('AdminWebCoordinator', () => {
       status: 'ready',
       reassigning: false,
       reassignmentIntent: { commandId },
-      notice: 'Der NFC-Tag konnte nicht neu zugeordnet werden. Der Server hat den Vorgang nicht bestätigt. Versuchen Sie es erneut; dieselbe Anfrage wird sicher weiterverwendet.',
+      notice: { kind: 'error', text: 'Die Bestätigung für die Zuordnung fehlt. Versuchen Sie es erneut; dabei entsteht keine doppelte Zuordnung.' },
     });
     await coordinator.confirmReassignment();
 
@@ -964,7 +964,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       reassignmentIntent: null,
-      notice: 'NFC-Tag wurde sicher neu zugeordnet.',
+      notice: { kind: 'success', text: 'NFC-Tag wurde sicher neu zugeordnet.' },
     });
   });
 
@@ -994,7 +994,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       reassignmentIntent: null,
-      notice: 'Die Zuordnung kann nicht vorbereitet werden. Der NFC-Tag oder das Arbeitsziel ist nicht mehr verfügbar. Laden Sie die Einrichtung neu und wählen Sie erneut.',
+      notice: { kind: 'error', text: 'Der Tag oder das Arbeitsziel ist nicht mehr verfügbar; die Zuordnung bleibt unverändert. Laden Sie die Einrichtung neu und wählen Sie erneut.' },
     });
     expect(api.reassignNfcTag).not.toHaveBeenCalled();
   });
@@ -1029,7 +1029,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       reassignmentIntent: null,
-      notice: 'Der NFC-Tag konnte nicht neu zugeordnet werden. Die Zuordnung wurde zwischenzeitlich geändert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.',
+      notice: { kind: 'error', text: 'Die Zuordnung wurde inzwischen geändert; Ihre Änderung wurde nicht gespeichert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.' },
     });
   });
 
@@ -1072,7 +1072,7 @@ describe('AdminWebCoordinator', () => {
     expect(api.correctTimeRecord.mock.calls.map((call) => call[2])).toEqual([commandId, commandId]);
     expect(coordinator.getState()).toMatchObject({
       status: 'ready', correctionIntent: null,
-      notice: 'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt lückenlos erhalten.',
+      notice: { kind: 'success', text: 'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt erhalten.' },
     });
   });
 
@@ -1101,7 +1101,7 @@ describe('AdminWebCoordinator', () => {
     );
     expect(coordinator.getState()).toMatchObject({
       status: 'ready', adjudicationIntent: null,
-      notice: 'Die Prüfentscheidung wurde lückenlos protokolliert.',
+      notice: { kind: 'success', text: 'Die Entscheidung wurde gespeichert.' },
     });
   });
 
@@ -1150,7 +1150,7 @@ describe('AdminWebCoordinator', () => {
       sections: {
         timeRecords: {
           status: 'unavailable',
-          message: 'Weitere Daten konnten nicht übernommen werden. Die Reihenfolge der geladenen Seiten ist widersprüchlich. Laden Sie den Bereich erneut.',
+          message: 'Die weiteren Daten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1202,7 +1202,7 @@ describe('AdminWebCoordinator', () => {
         timeRecords: { status: 'ready' },
         reviewItems: {
           status: 'unavailable',
-          message: 'Die offenen Prüfungen konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+          message: 'Die offenen Prüfungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1295,7 +1295,7 @@ describe('AdminWebCoordinator', () => {
         timeRecords: { status: 'ready' },
         reviewItems: {
           status: 'unavailable',
-          message: 'Die offenen Prüfungen konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+          message: 'Die offenen Prüfungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1328,7 +1328,7 @@ describe('AdminWebCoordinator', () => {
             ? { status: 'ready' }
             : {
                 status: 'unavailable',
-                message: 'Die Beschäftigten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+                message: 'Die Beschäftigten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
               },
         },
       });
@@ -1494,7 +1494,7 @@ describe('AdminWebCoordinator', () => {
       sections: {
         timeRecords: {
           status: 'unavailable',
-          message: 'Die Arbeitszeiten konnten nicht abgerufen werden. Der Dienst ist derzeit nicht erreichbar. Laden Sie den Bereich erneut.',
+          message: 'Die Arbeitszeiten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1559,7 +1559,7 @@ describe('T-040 sign-in names its cause', () => {
 
     await coordinator.signIn('administrator@example.test', 'secret');
 
-    expect(coordinator.getState()).toEqual({ status: 'signed_out', notice: SIGN_IN_FAILURE_NOTICES[outcome] });
+    expect(coordinator.getState()).toEqual({ status: 'signed_out', notice: { kind: 'error', text: SIGN_IN_FAILURE_NOTICES[outcome] } });
     expect(api.session).not.toHaveBeenCalled();
   });
 
@@ -1573,7 +1573,7 @@ describe('T-040 sign-in names its cause', () => {
 
     const state = coordinator.getState();
     expect(state.status).toBe('signed_out');
-    const notice = state.status === 'signed_out' ? state.notice ?? '' : '';
+    const notice = state.status === 'signed_out' ? state.notice?.text ?? '' : '';
     expect(notice).not.toContain('Passwort');
     expect(notice).toContain('nicht geprüft');
   });
@@ -1717,11 +1717,11 @@ it.each(['administrator','standortleitung'] as const)('D-078 retains a stop comm
  const pending={status:'committed' as const,timeRecordId:h.record.timeRecordId,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
  h.stopTime.mockResolvedValueOnce({status:'succeeded',value:pending}).mockResolvedValueOnce({status:'succeeded',value:{...pending,idempotentRetry:true,offsiteArchived:true}});
  expect(await h.coordinator.saveTimeEdit(input)).toEqual(pending);expect(h.managedPersonTime).toHaveBeenCalledTimes(1);
- expect(h.coordinator.getState()).not.toMatchObject({notice:'Gespeichert.'});
+ expect(h.coordinator.getState()).not.toMatchObject({notice:{ kind: 'success', text: 'Gespeichert.' }});
  expect(await h.coordinator.saveTimeEdit(input)).toMatchObject({offsiteArchived:true});expect(h.managedPersonTime).toHaveBeenCalledTimes(2);
  expect(h.stopTime.mock.calls[0]).toEqual(h.stopTime.mock.calls[1]);
  expect(h.stopTime.mock.calls[0]![1]).toMatchObject({expectedMembershipId:membershipId,targetMembershipId:target,expectedRowVersion:1});
- expect(h.coordinator.getState()).toMatchObject({notice:'Gespeichert.'});
+ expect(h.coordinator.getState()).toMatchObject({notice:{ kind: 'success', text: 'Gespeichert.' }});
 });
 it.each(['employee'] as const)('T-069 rejects %s administrative stops',async role=>{
  const h=t066Setup(role,true);await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
@@ -1760,4 +1760,68 @@ it('D-092 loads person-bound targets separately from personal capture and drops 
  expect(h.coordinator.getState()).toBe(before);
  h.backfillTargets.mockImplementationOnce(async()=>{await h.coordinator.loadOwnTime('2026-08');return {status:'succeeded',value:{targets:[c2],nextCursor:null}};});
  expect(await h.coordinator.loadBackfillTargets(target)).toEqual({status:'authority_rejected'});
+});
+
+it.each([
+  ['Standort wurde angelegt.', (c:AdminWebCoordinator)=>c.createLocation('Halle')],
+  ['Standort wurde umbenannt.', (c:AdminWebCoordinator)=>c.renameLocation(membershipId,1,'Halle')],
+  ['Standort wurde stillgelegt.', (c:AdminWebCoordinator)=>c.deactivateLocation(membershipId,1)],
+  ['Heimatstandort wurde zugewiesen.', (c:AdminWebCoordinator)=>c.setHomeLocation(membershipId,membershipId)],
+  ['Arbeitszuweisung wurde vergeben.', (c:AdminWebCoordinator)=>c.setWorkLocation(membershipId,membershipId,true)],
+  ['Arbeitszuweisung wurde widerrufen.', (c:AdminWebCoordinator)=>c.setWorkLocation(membershipId,membershipId,false)],
+  ['Verwaltungszuweisung wurde vergeben.', (c:AdminWebCoordinator)=>c.setManagementLocation(membershipId,membershipId,true)],
+  ['Verwaltungszuweisung wurde widerrufen.', (c:AdminWebCoordinator)=>c.setManagementLocation(membershipId,membershipId,false)],
+  ['Arbeitsziel wurde einem Standort zugewiesen.', (c:AdminWebCoordinator)=>c.setWorkTargetLocation('customer',membershipId,membershipId)],
+  ['Standort-Funktion wurde eingeschaltet.', (c:AdminWebCoordinator)=>c.setLocationsEnabled(true)],
+  ['Standort-Funktion wurde ausgeschaltet.', (c:AdminWebCoordinator)=>c.setLocationsEnabled(false)],
+] as const)('T-079 classifies the actual location outcome: %s',async (text,act)=>{
+  const {auth,api}=setup();
+  const mutateLocationSetup=vi.fn(async()=>({status:'succeeded' as const,value:true as const}));
+  const coordinator=new AdminWebCoordinator(auth,{...api,mutateLocationSetup,
+    assignableLocations:async()=>({status:'succeeded',value:{items:[],nextCursor:null}}),
+    locationSetupPage:async(_token,_membership,collection)=>({status:'succeeded',value:{collection,items:[],nextCursor:null,locationsEnabled:false}}),
+  },()=>fixedNow);
+  await coordinator.signIn('administrator@example.test','secret');
+  await act(coordinator);
+  expect(mutateLocationSetup).toHaveBeenCalledOnce();
+  expect(coordinator.getState()).toMatchObject({status:'ready',notice:{kind:'success',text}});
+});
+
+it.each([['own',0],['own',1000],['person',0],['person',1000]] as const)('T079 %s paginates an active calendar with %s ms of server-time progress',async(reader,advance)=>{
+ const h=t066Setup('administrator',true);
+ const first={...h.record,calendar:{asOf:'2026-07-21T12:00:00.000Z',workDurationSeconds:3600,breakDurationSeconds:60,breakIntervals:[{startedAt:'2026-07-21T11:59:00.000Z',stoppedAt:'2026-07-21T12:00:00.000Z'}]}};
+ const asOf=new Date(Date.parse(first.calendar.asOf)+advance).toISOString();
+ const latest={...first,calendar:{...first.calendar,asOf,breakDurationSeconds:60+advance/1000,breakIntervals:[{...first.calendar.breakIntervals[0]!,stoppedAt:asOf}]}};
+ const records=Array.from({length:21},(_,i)=>({...h.record,status:'stopped' as const,stoppedAt:'2026-07-20T10:00:00.000Z',timeRecordId:`90000000-0000-4000-8000-${String(i).padStart(12,'0')}`}));
+ const frame={...h.page,windowStartedAt:'2026-06-30T22:00:00.000Z'};
+ const api=reader==='own'?h.ownTime:h.managedPersonTime;
+ // Separate JSON parsing matches real HTTP replies, including distinct nested objects.
+ api.mockResolvedValueOnce(JSON.parse(JSON.stringify({status:'succeeded',value:{...frame,records:records.slice(0,20),activeRecord:first,nextCursor:'next'}})))
+  .mockResolvedValueOnce(JSON.parse(JSON.stringify({status:'succeeded',value:{...frame,records:records.slice(20),activeRecord:latest,nextCursor:null}})));
+ await h.coordinator.signIn('a@example.test','secret');
+ if(reader==='own')await h.coordinator.loadOwnTime('2026-07');else await h.coordinator.loadPersonTime('70000000-0000-4000-8000-000000000009','2026-07');
+ expect(api).toHaveBeenCalledTimes(2);
+ expect(h.coordinator.getState()).toMatchObject({status:'ready',calendar:{status:'ready',value:{records,activeRecord:latest,nextCursor:null}}});
+});
+
+it.each([
+ {now:'2026-09-25T12:00:00.000Z',month:null,label:'CSV 25.08.–25.09.2026 herunterladen',from:'2026-08-25T12:00:00.000Z',to:'2026-09-25T12:00:00.000Z'},
+ {now:'2026-09-24T22:30:00.000Z',month:null,label:'CSV 25.08.–25.09.2026 herunterladen',from:'2026-08-24T22:30:00.000Z',to:'2026-09-24T22:30:00.000Z'},
+ {now:'2027-01-25T12:00:00.000Z',month:null,label:'CSV 25.12.2026–25.01.2027 herunterladen',from:'2026-12-25T12:00:00.000Z',to:'2027-01-25T12:00:00.000Z'},
+ {now:'2026-09-25T12:00:00.000Z',month:'2026-09',label:'CSV September 2026 herunterladen',from:'2026-08-31T22:00:00.000Z',to:'2026-09-30T22:00:00.000Z'},
+ {now:'2026-11-01T12:00:00.000Z',month:'2026-10',label:'CSV Oktober 2026 herunterladen',from:'2026-09-30T22:00:00.000Z',to:'2026-10-31T23:00:00.000Z'},
+])('T079 uses the real list/export window for $label',async({now,month,label,from,to})=>{
+ const {exportPresentation}=await import('../src/exportPresentation');
+ const api=new FakeApi(),coordinator=new AdminWebCoordinator(new FakeAuth(),api,()=>Date.parse(now));
+ await coordinator.signIn('a@example.test','secret');
+ if(month)await coordinator.setTimeWindow(from,to);
+ const state=coordinator.getState();if(state.status!=='ready')throw new Error('Expected ready state');
+ expect(state.timeWindow).toEqual({fromInclusive:from,toExclusive:to});
+ expect(exportPresentation(state.timeWindow,month!==null).label).toBe(label);
+ expect(api.timeRecords).toHaveBeenLastCalledWith('memory-only-token',membershipId,from,to,null);
+ for(const version of [3,4] as const){
+  api.exportTimeEntries.mockResolvedValueOnce({status:'unreachable'});
+  await coordinator.exportTimeRecords(version);
+  expect(api.exportTimeEntries).toHaveBeenLastCalledWith('memory-only-token',membershipId,from,to,...(version===3?[]:[4]));
+ }
 });

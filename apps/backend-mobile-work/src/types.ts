@@ -11,6 +11,7 @@ import type {
 
 export interface MobileReadCommand<Request> {
   readonly includeTimeDetails?: boolean;
+  readonly includeCalendarBreaks?: boolean;
   readonly accessToken: string;
   readonly request: Request;
 }

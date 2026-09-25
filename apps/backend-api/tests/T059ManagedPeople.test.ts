@@ -5,7 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { createBackendHttpServer } from '../src/BackendHttpServer.js';
 import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
 import { TapTimeEmployeesApiClient } from '../../mobile/src/employees/TapTimeEmployeesApiClient.js';
-import { validateOwnTimeResponse } from '@taptime/mobile-work-contract';
+import { isCalendarTimeResponse, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT } from '@taptime/mobile-work-contract';
 import { EmployeeMembershipEnrollmentCoordinator, SupabaseAccountInviter } from '../../backend-administration/src/index.js';
 import { ensureC3E1RuntimeLogins, removeC3E1RuntimeLogins, c3e1RuntimeConnectionString, C3E1_INVITATION_RUNTIME_LOGIN,
   C3E1_ENROLLMENT_RUNTIME_LOGIN, fixtureAccessTokenVerifier, fixtureTokens, syntheticPassword } from '../../backend-administration/tests/fixtures.js';
@@ -130,9 +130,9 @@ afterAll(async () => {
   await removeC3E1RuntimeLogins(pool); await pool.end();
 });
 function mobile(token:string) {
-  return new TapTimeEmployeesApiClient(origin,{async post(endpoint,body){
+  return new TapTimeEmployeesApiClient(origin,{async post(endpoint,body,options){
     rateNow+=60_001; // A new rate-limit window for each independent authorization case.
-    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json'},body});
+    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
     return {status:'response',statusCode:response.status,contentType:response.headers.get('content-type'),body:await response.text()};
   }});
 }
@@ -215,7 +215,7 @@ describe('T059 SQL scope and migration', () => {
     const first=await client.personTime(command);
     expect(first.status).toBe('ready');
     if(first.status!=='ready') throw new Error('Expected managed time');
-    expect(validateOwnTimeResponse(first.value)).toBe(true);
+    expect(isCalendarTimeResponse(first.value)).toBe(true);
     expect(first.value.activeRecord).not.toBeNull();
     expect(first.value.nextCursor).not.toBeNull();
     const next=await client.personTime({...command,cursor:first.value.nextCursor});
@@ -281,7 +281,7 @@ describe('T059 SQL scope and migration', () => {
     }
     expect(records).toHaveLength(3);
     expect(new Set(records.map(r=>r.timeRecordId)).size).toBe(records.length);
-    expect(rangeSummary({...first.value,records,nextCursor:null},'2026-10-01','2026-10-02')).toEqual({complete:true,milliseconds:6*60*60*1000});
+    expect(rangeSummary({...first.value,records,nextCursor:null},'2026-10-01','2026-10-02')).toEqual({complete:true,milliseconds:6*60*60*1000,breakMilliseconds:0});
   });
   it.each(['027','028'])('migrates populated %s without changing data or existing session authority', async (baseline) => {
     await pool.query(`DROP SCHEMA ${B3_SCHEMA} CASCADE; DROP TABLE ${B3_MIGRATION_TABLE}`);

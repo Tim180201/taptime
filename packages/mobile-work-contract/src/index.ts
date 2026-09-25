@@ -26,6 +26,7 @@ export interface SafeWorkTarget {
 }
 
 export interface SafeOwnTimeRecord {
+  readonly calendar?: import('./timeSupplement.js').CalendarTimeData;
   readonly details?: import('./timeSupplement.js').TimeRecordDetails;
   readonly timeRecordId: string;
   readonly source: TimeRecordSource;

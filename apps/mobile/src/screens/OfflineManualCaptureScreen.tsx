@@ -115,7 +115,7 @@ export function OfflineManualCaptureScreen({
   return <Screen title="Manuell erfassen" eyebrow="OFFLINE">
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
       <Text style={styles.explanation}>
-        Wähle dein Arbeitsziel. Der Vorgang wird sicher gespeichert; Start oder Stopp entscheidet der Server beim Abgleich.
+        Wähle dein Arbeitsziel. Deine Erfassung bleibt auf dem Handy gespeichert und startet oder stoppt die Arbeitszeit nach der Übertragung.
       </Text>
       <Text style={styles.group}>Arbeitsziel</Text>
       <TextField
@@ -147,7 +147,7 @@ export function OfflineManualCaptureScreen({
         })}
         <ActionButton title="Pause" tone={pause ? 'primary' : 'quiet'}
           disabled={submitting} accessibilityState={{ selected: pause }}
-          accessibilityHint="Der Server entscheidet beim Abgleich, ob die Pause beginnt oder endet."
+          accessibilityHint="Beginnt oder beendet deine Pause automatisch, sobald die Erfassung übertragen ist."
           onPress={() => { setSelected(null); setPause(true); setOutcome(null); }} />
       </View>
       <Card>
@@ -160,8 +160,8 @@ export function OfflineManualCaptureScreen({
             || submitting
           }
           loading={submitting}
-          accessibilityHint={pause ? 'Der Server entscheidet beim Abgleich, ob die Pause beginnt oder endet.'
-            : 'Der Server entscheidet beim Abgleich, ob die Arbeitszeit startet oder stoppt.'}
+          accessibilityHint={pause ? 'Beginnt oder beendet deine Pause automatisch, sobald die Erfassung übertragen ist.'
+            : 'Startet oder stoppt deine Arbeitszeit automatisch, sobald die Erfassung übertragen ist.'}
           onPress={trigger}
         />
         {outcome === null ? null
@@ -178,20 +178,20 @@ export function OfflineManualCaptureScreen({
 
 function offlineOutcomeLabel(outcome: OfflineManualOutcome): string {
   if (outcome === 'pending') {
-    return 'Auslöser sicher vorgemerkt; Serverbestätigung ausstehend';
+    return 'Erfassung auf dem Handy gespeichert; Bestätigung steht noch aus';
   }
-  if (outcome === 'time_entry_started') return 'Arbeitszeit vom Server gestartet';
-  if (outcome === 'time_entry_stopped') return 'Arbeitszeit vom Server gestoppt';
-  if (outcome === 'break_started') return 'Pause vom Server begonnen';
-  if (outcome === 'break_stopped') return 'Pause vom Server beendet';
+  if (outcome === 'time_entry_started') return 'Arbeitszeit gestartet';
+  if (outcome === 'time_entry_stopped') return 'Arbeitszeit gestoppt';
+  if (outcome === 'break_started') return 'Pause begonnen';
+  if (outcome === 'break_stopped') return 'Pause beendet';
   if (outcome === 'break_without_active_time_entry_rejected') return 'Ohne laufende Arbeitszeit ist keine Pause möglich.';
-  if (outcome === 'work_trigger_during_break_rejected') return 'Die Pause muss zuerst mit dem Pausenauslöser beendet werden.';
-  if (outcome === 'duplicate_scan_ignored') return 'Doppelter Auslöser vom Server ignoriert';
+  if (outcome === 'work_trigger_during_break_rejected') return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über den Pausen-Tag oder die Pausentaste.';
+  if (outcome === 'duplicate_scan_ignored') return 'Doppelte Erfassung; deine Arbeitszeit bleibt unverändert';
   if (outcome === 'active_entry_for_other_target_rejected') {
     return 'Eine andere Arbeitszeit ist aktiv.';
   }
-  if (outcome === 'escalation_required') return 'Sichere Prüfung erforderlich';
-  return 'Auslöser wurde abgelehnt';
+  if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';
+  return 'Deine Erfassung wurde abgelehnt. Melde dich erneut an.';
 }
 
 function sameTarget(left: SafeWorkTarget, right: SafeWorkTarget): boolean {

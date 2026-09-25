@@ -7,14 +7,14 @@ import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/prim
 import { LineIcon } from '../design/LineIcon';
 import { mobileTokens } from '../design/tokens';
 import { businessDay, dayStart, formatClock, formatDuration, formatHours, intervalMilliseconds,
-  monthDays, provenance, rangeSummary, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
+  monthDays, provenance, rangeSummary, monthTimeSummary, recordDaySummary, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
 
 export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembershipId}: {readonly targetMembershipId?: string; readonly value: MobileOwnTimeQueryResponse; readonly onRefresh: ()=>Promise<void>; readonly onMonthChange?: (month: string)=>void}) {
   const [selected,setSelected]=useState(()=>businessDay(Date.parse(ownTime.windowEndedAt)-1));
   const [month,setMonth]=useState(()=>selected.slice(0,7));
   const today = businessDay(Date.parse(ownTime.windowEndedAt)-1);
   const thisWeek = weekStart(today);
-  const monthSummary = rangeSummary(ownTime, `${month}-01`, `${shiftMonth(month, 1)}-01`);
+  const monthSummary = monthTimeSummary(ownTime,month);
   const weekSummary = rangeSummary(ownTime, thisWeek, shiftDay(thisWeek, 7));
   const daily = rangeSummary(ownTime, selected, shiftDay(selected, 1));
   const records = recordsForDay(ownTime, selected);
@@ -24,9 +24,9 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
   return <ScrollView contentContainerStyle={styles.content}>
     <View style={styles.summaries}>
       <Card style={styles.summary}><Text style={styles.muted}>{monthTitle}</Text>
-        <Text style={styles.number} numberOfLines={1} adjustsFontSizeToFit>{monthSummary.complete ? `${formatHours(monthSummary.milliseconds)} h` : '—'}</Text></Card>
+        <Text style={styles.number} numberOfLines={1} adjustsFontSizeToFit>{monthSummary.complete ? `${formatHours(monthSummary.milliseconds)} h` : '—'}</Text><Text style={styles.muted}>{monthSummary.complete ? `${formatDuration(monthSummary.breakMilliseconds)} Pause` : '—'}</Text></Card>
       <Card style={styles.summary}><Text style={styles.muted}>{`Woche vom ${thisWeek.split('-').reverse().join('.')}`}</Text>
-        <Text style={styles.number} numberOfLines={1} adjustsFontSizeToFit>{weekSummary.complete ? `${formatHours(weekSummary.milliseconds)} h` : '—'}</Text></Card>
+        <Text style={styles.number} numberOfLines={1} adjustsFontSizeToFit>{weekSummary.complete ? `${formatHours(weekSummary.milliseconds)} h` : '—'}</Text><Text style={styles.muted}>{weekSummary.complete ? `${formatDuration(weekSummary.breakMilliseconds)} Pause` : '—'}</Text></Card>
     </View>
     <Card>
       <View style={styles.monthHeading}>
@@ -55,18 +55,19 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
     </Card>
     <Text style={styles.monthTitle}>{new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE,
       weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${selected}T12:00:00Z`))}</Text>
+    <Text style={styles.muted}>{daily.complete ? `${formatDuration(daily.milliseconds)} Arbeitszeit · ${formatDuration(daily.breakMilliseconds)} Pause` : 'Zeitraum nicht vollständig geladen'}</Text>
     <AddTimeControl day={selected} targetMembershipId={targetMembershipId} onSaved={onRefresh} />
     {records.map((record) => <Card key={record.timeRecordId}>
       <Text style={{ fontWeight: '800' }}>{record.targetDisplayName}</Text>
       <Text style={styles.muted}>{formatClock(Math.max(dayStart(selected), Date.parse(record.startedAt)))} – {
         record.stoppedAt === null ? 'läuft' : formatClock(Math.min(dayStart(shiftDay(selected, 1)), Date.parse(record.stoppedAt)))} · {record.details ? ({nfc:'gescannt',manual:'manuell erfasst',backfilled:'nachgetragen',recovered:'wiederhergestellt'} as const)[record.details.origin] : provenance(record)}</Text>
-      <Text style={styles.duration}>{formatDuration(intervalMilliseconds(record, dayStart(selected),
-        Math.min(dayStart(shiftDay(selected, 1)), Date.parse(ownTime.windowEndedAt))))}</Text>
+      <Text style={styles.duration}>{formatDuration(recordDaySummary(record,selected).milliseconds)}</Text>
+      <Text style={styles.muted}>{formatDuration(recordDaySummary(record,selected).breakMilliseconds)} Pause</Text>
       <TimeRecordControls record={record} targetMembershipId={targetMembershipId} onSaved={onRefresh} />
     </Card>)}
     {records.length === 0 ? <Card><Text>{daily.complete ? 'Für diesen Tag sind keine Zeiten erfasst.'
       : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</Text></Card> : null}
-    <Text style={styles.muted}>Zeitspannen ohne Pausenabzug · Europe/Berlin</Text>
+    <Text style={styles.muted}>Arbeitszeit nach Pausen · Europe/Berlin</Text>
     <Text style={styles.muted}>{ownTimeLoadStatus(ownTime.records.length, ownTime.nextCursor)}</Text>
     {ownTime.nextCursor !== null ? <Text style={styles.muted}>Weitere Zeiten werden geladen …</Text> : null}
     <Text style={styles.muted}>Geladener Zeitraum: {formatOwnTimeTimestamp(ownTime.windowStartedAt)} – {formatOwnTimeTimestamp(ownTime.windowEndedAt)}</Text>

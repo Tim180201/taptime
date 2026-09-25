@@ -1,3 +1,4 @@
+export interface Notice { readonly kind: 'success' | 'info' | 'error'; readonly text: string; }
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import type { MobileOwnTimeQueryResponse, SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type { ManagedActiveSummary } from '@taptime/administration-contract/managed-people';
@@ -143,9 +144,9 @@ export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly 
 export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string };
 export type AdminWebState =
   | { readonly status: 'organization_paused' }
-  | { readonly status: 'signed_out'; readonly notice?: string }
+  | { readonly status: 'signed_out'; readonly notice?: Notice }
   | { readonly status: 'signing_in' }
-  | { readonly status: 'password_recovery'; readonly completing: boolean; readonly notice: string | null }
+  | { readonly status: 'password_recovery'; readonly completing: boolean; readonly notice: Notice | null }
   | { readonly status: 'loading' }
   | { readonly status: 'forbidden'; readonly message: string }
   | { readonly status: 'unavailable'; readonly message: string }
@@ -184,7 +185,7 @@ export type AdminWebState =
       readonly timeReviewBusy: boolean;
       readonly correctionIntent: TimeCorrectionIntent | null;
       readonly adjudicationIntent: ReviewAdjudicationIntent | null;
-      readonly notice: string | null;
+      readonly notice: Notice | null;
       readonly completedAction?: CompletedAdminAction | null;
     };
 export interface AdminWebCapability {

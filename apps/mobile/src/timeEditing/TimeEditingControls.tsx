@@ -1,6 +1,7 @@
+type Notice = { readonly kind: 'success' | 'info' | 'error'; readonly text: string };
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { View } from 'react-native';
-import { BUSINESS_TIME_ZONE, parseZonedLocalTimestamp, toZonedLocalInput, shiftDay } from '@taptime/core';
+import { BUSINESS_TIME_ZONE, parseZonedLocalTimestamp, toZonedMinuteInput, parseEditedZonedMinute, shiftDay } from '@taptime/core';
 import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type BackfillTargetSelection, type SafeOwnTimeRecord, type SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type { MobileManagementScope } from '../auth/contracts';
 import type { MobileWorkCapability } from '../work/contracts';
@@ -83,12 +84,14 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
   },[managedBackfill,targetMembershipId,context.capability,loadTargets,targetReload]);
   const targets=managedBackfill?(targetPage.status==='ready'?targetPage.targets:[]):context.targets;
 
-  const [date,setDate]=useState(day??'');
-  const [start,setStart]=useState(record?toZonedLocalInput(record.startedAt):'08:00');
-  const [end,setEnd]=useState(()=>kind==='stop'?toZonedLocalInput(new Date().toISOString()):record?.stoppedAt?toZonedLocalInput(record.stoppedAt):'17:00');
+  const [originalEnd]=useState(()=>kind==='stop'?new Date().toISOString():record?.stoppedAt);
+  const [date,setDate]=useState(record?toZonedMinuteInput(record.startedAt).slice(0,10):day??'');
+  const [endDate,setEndDate]=useState(()=>originalEnd?toZonedMinuteInput(originalEnd).slice(0,10):day??'');
+  const [start,setStart]=useState(record?toZonedMinuteInput(record.startedAt).slice(11):'08:00');
+  const [end,setEnd]=useState(()=>originalEnd?toZonedMinuteInput(originalEnd).slice(11):'17:00');
   const [comment,setComment]=useState(kind==='comment'?record?.details?.comment??'':'');
   const [reason,setReason]=useState('');
-  const [notice,setNotice]=useState('');
+  const [notice,setNotice]=useState<Notice|null>(null);
   const [saving,setSaving]=useState(false);
   const [archivePending,setArchivePending]=useState(false);
   const mounted=useRef(true);
@@ -97,24 +100,24 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
   useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
   const save=async()=>{
     if(saving) return;
-    if(!context.online) {setNotice(messages.offline);return;}
+    if(!context.online) {setNotice({ kind: 'error', text: messages.offline });return;}
     const input:Record<string,unknown>={};
     if(kind==='comment') {input.timeRecordId=record!.timeRecordId;input.comment=comment;}
     else if(kind==='stop') {
-      const stoppedAt=parseZonedLocalTimestamp(end);
-      if(!stoppedAt) {setNotice('Prüfe Datum und Uhrzeit in Europe/Berlin. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.');return;}
-      if(!reason.trim() || Array.from(reason).length>500) {setNotice('Bitte gib einen Grund mit 1 bis 500 Zeichen ein.');return;}
+      const stoppedAt=parseEditedZonedMinute(`${endDate}T${end}`,originalEnd);
+      if(!stoppedAt) {setNotice({ kind: 'error', text: 'Prüfe Datum und Uhrzeit in Europe/Berlin. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.' });return;}
+      if(!reason.trim() || Array.from(reason).length>500) {setNotice({ kind: 'error', text: 'Bitte gib einen Grund mit 1 bis 500 Zeichen ein.' });return;}
       Object.assign(input,{targetMembershipId,timeRecordId:record!.timeRecordId,expectedRowVersion:record!.details!.baseRowVersion,stoppedAt,reason});
     }
     else {
-      const from=kind==='backfill'?`${date}T${start}`:start;
-      if(!parseZonedLocalTimestamp(from)) {setNotice('Prüfe Datum und Uhrzeiten in Europe/Berlin. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.');return;}
-      const to=kind==='backfill'?`${end<=start?shiftDay(date,1):date}T${end}`:end;
-      const startedAt=parseZonedLocalTimestamp(from),stoppedAt=parseZonedLocalTimestamp(to);
-      if(!startedAt || !stoppedAt) {setNotice('Prüfe Datum und Uhrzeiten in Europe/Berlin. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.');return;}
+      const from=`${date}T${start}`;
+      const startedAt=kind==='backfill'?parseZonedLocalTimestamp(from):parseEditedZonedMinute(from,record?.startedAt);
+      const to=startedAt?`${kind==='backfill'?(end<=start?shiftDay(date,1):date):endDate}T${end}`:'';
+      const stoppedAt=kind==='backfill'?parseZonedLocalTimestamp(to):parseEditedZonedMinute(to,originalEnd);
+      if(!startedAt || !stoppedAt) {setNotice({ kind: 'error', text: 'Prüfe Datum und Uhrzeiten in Europe/Berlin. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.' });return;}
       Object.assign(input,{startedAt,stoppedAt,reason:context.role!=='employee'?reason:null});
       if(kind==='backfill') {
-        if(!target || !targets.some(t=>t.targetType===target.targetType && t.targetId===target.targetId)) {setNotice('Wähle einen Kunden oder ein Projekt.');return;}
+        if(!target || !targets.some(t=>t.targetType===target.targetType && t.targetId===target.targetId)) {setNotice({ kind: 'error', text: 'Wähle einen Kunden oder ein Projekt.' });return;}
         Object.assign(input,{targetMembershipId,targetType:target.targetType,targetId:target.targetId,comment:context.role==='employee'&&comment.trim()?comment:null});
       } else Object.assign(input,{timeRecordId:record!.timeRecordId,expectedBaseRowVersion:record!.details!.baseRowVersion,expectedRevisionNumber:record!.details!.effectiveRevisionNumber});
     }
@@ -125,13 +128,13 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
       const isCurrent=()=>mounted.current && member.current===owner;
       const initial=await context.capability.save(kind,stableInput);
       const result=kind==='stop'?await awaitAdministrationStopArchive(initial,()=>context.capability.save(kind,stableInput),isCurrent,()=>{
-        if(isCurrent()) {pendingInput.current=stableInput;setArchivePending(true);setNotice(ADMINISTRATION_ARCHIVE_PENDING);}
+        if(isCurrent()) {pendingInput.current=stableInput;setArchivePending(true);setNotice({ kind: 'info', text: ADMINISTRATION_ARCHIVE_PENDING });}
       }):initial;
       if(!isCurrent()) return;
       if(kind==='stop' && result.status==='committed') {
-        if(!isAdministrationStopResult(result) || !result.offsiteArchived) {setNotice(ADMINISTRATION_ARCHIVE_TIMEOUT);return;}
+        if(!isAdministrationStopResult(result) || !result.offsiteArchived) {setNotice({ kind: 'info', text: ADMINISTRATION_ARCHIVE_TIMEOUT });return;}
       }
-      setNotice(kind==='stop' && isAdministrationStopResult(result)?administrationStopMessage(result,true):messages[result.status]);
+      setNotice({ kind: result.status === 'committed' ? 'success' : result.status === 'busy' ? 'info' : 'error', text: kind==='stop' && isAdministrationStopResult(result)?administrationStopMessage(result,true):messages[result.status] });
       if(result.status==='committed') {onClose();await onSaved();}
     } finally {if(mounted.current) setSaving(false);}
   };
@@ -145,12 +148,14 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
         <ActionButton title="Aktualisieren" tone="quiet" disabled={!context.online} onPress={()=>setTargetReload(value=>value+1)} />
       </>:null}
       {field('Datum (JJJJ-MM-TT)',date,setDate)}</>:null}
-    {kind!=='comment'?<>{kind!=='stop'?field(kind==='backfill'?'Von (HH:MM)':'Von (JJJJ-MM-TTTHH:MM)',start,setStart):null}
-      {field(kind==='backfill'?'Bis (HH:MM)':'Bis (JJJJ-MM-TTTHH:MM)',end,setEnd)}
+    {kind!=='comment'?<>{kind==='correct'?field('Beginn am (JJJJ-MM-TT)',date,setDate):null}
+      {kind!=='stop'?field('Von (HH:MM)',start,setStart):null}
+      {kind!=='backfill'?field('Ende am (JJJJ-MM-TT)',endDate,setEndDate):null}
+      {field('Bis (HH:MM)',end,setEnd)}
       <Text>Europe/Berlin{kind==='backfill'?' · Liegt „bis“ vor oder gleich „von“, endet die Zeit am Folgetag. Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</Text></>:null}
     {kind==='comment'||(kind==='backfill'&&context.role==='employee')?field(kind==='comment'?'Kommentar':'Kommentar (optional)',comment,setComment,true):null}
     {kind!=='comment'&&context.role!=='employee'?field('Grund',reason,setReason,true):null}
-    {notice?<Text accessibilityRole="alert">{notice}</Text>:null}
+    {notice?<Text accessibilityRole={notice.kind==='error'?'alert':'text'}>{notice.text}</Text>:null}
     {!context.online?<Text>Nur online möglich. Deine Eingaben bleiben erhalten.</Text>:null}
     <ActionButton title={saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'} loading={saving} disabled={saving||!context.online} onPress={()=>{void save();}} />
     <ActionButton title="Abbrechen" tone="quiet" disabled={saving} onPress={onClose} />

@@ -1,6 +1,6 @@
 import {
   validateOwnTimeResponse,
-  isDetailedTimeResponse,
+  isCalendarTimeResponse,
   validateWorkTargetResponse,
   type SafeWorkTarget,
 } from '@taptime/mobile-work-contract';
@@ -26,7 +26,7 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
       limit: 20,
     });
     const [ownTime, targets] = await Promise.all([
-      this.requests.post(new URL('/v1/mobile/own-time/query', this.baseUrl), body, {includeTimeDetails:true}),
+      this.requests.post(new URL('/v1/mobile/own-time/query', this.baseUrl), body, {includeTimeDetails:true,includeCalendarBreaks:true}),
       this.requests.post(new URL('/v1/mobile/work-targets/query', this.baseUrl), JSON.stringify({
         expectedMembershipId,
         cursor: null,
@@ -47,7 +47,7 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     try {
       const ownTimeValue: unknown = JSON.parse(ownTime.body);
       const targetsValue: unknown = JSON.parse(targets.body);
-      if (!(isDetailedTimeResponse(ownTimeValue) || validateOwnTimeResponse(ownTimeValue))
+      if (!isCalendarTimeResponse(ownTimeValue)
         || !validateWorkTargetResponse(targetsValue)) {
         return { status: 'unavailable' };
       }
@@ -98,7 +98,7 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     const response = await this.requests.post(
       new URL('/v1/mobile/own-time/query', this.baseUrl),
       JSON.stringify({ expectedMembershipId, cursor, limit: 20 }),
-      {includeTimeDetails:true},
+      {includeTimeDetails:true,includeCalendarBreaks:true},
     );
     if (response.status === 'authority_rejected') return response;
     if (
@@ -108,7 +108,7 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     ) return { status: 'unavailable' };
     try {
       const value: unknown = JSON.parse(response.body);
-      return (isDetailedTimeResponse(value) || validateOwnTimeResponse(value))
+      return isCalendarTimeResponse(value)
         ? { status: 'ready', ownTime: value }
         : { status: 'unavailable' };
     } catch {

@@ -38,10 +38,10 @@ describe('T-047 employee account interface', () => {
     render(<Harness capability={{ invite: async () => ({ status: 'succeeded_existing_account' }) }} />);
     fill();
     const message = await screen.findByRole('status');
-    expect(message).toHaveTextContent('Konto bestand bereits — es wurde keine Mail verschickt.');
-    expect(message).toHaveTextContent('vorhandenen Passwort');
+    expect(message).toHaveTextContent('Das Konto besteht bereits; es wurde keine E-Mail verschickt.');
+    expect(message).toHaveTextContent('ihr Passwort');
     expect(message).toHaveTextContent('Passwort vergessen');
-    expect(message).toHaveTextContent('Bitte informieren Sie die Person selbst.');
+    expect(message).toHaveTextContent('Informieren Sie die Person,');
     expect(message).not.toHaveTextContent('Einladung verschickt.');
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
   });

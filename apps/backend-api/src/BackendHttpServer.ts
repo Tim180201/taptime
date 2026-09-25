@@ -1,5 +1,5 @@
 import { isOrganizationPausedError } from '@taptime/backend-identity';
-import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -487,7 +487,7 @@ async function handleRequest(
   if (route === 'mobile_own_time') {
     response.setHeader('Vary','Accept');
     await handleMobileOwnTime(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT);
+      correlationId, timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT || request.headers.accept === TIME_CALENDAR_ACCEPT, request.headers.accept === TIME_CALENDAR_ACCEPT);
     return;
   }
   if (route === 'mobile_work_targets') {
@@ -605,8 +605,8 @@ async function handleRequest(
       async (deadlineEpochMilliseconds) => {
         const operation = dependencies.employeeEnrollment.readManagedPersonTime;
         if (!operation) throw new Error('Managed time unavailable');
-        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === TIME_DETAILS_ACCEPT ? {includeTimeDetails:true} : {}) }, { deadlineEpochMilliseconds });
-      }, result => result.value, request.headers.accept === TIME_DETAILS_ACCEPT ? TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES : undefined);
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === TIME_DETAILS_ACCEPT || request.headers.accept === TIME_CALENDAR_ACCEPT ? {includeTimeDetails:true} : {}), ...(request.headers.accept === TIME_CALENDAR_ACCEPT ? {includeCalendarBreaks:true} : {}) }, { deadlineEpochMilliseconds });
+      }, result => result.value, request.headers.accept === TIME_DETAILS_ACCEPT || request.headers.accept === TIME_CALENDAR_ACCEPT ? TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES : undefined);
     return;
   }
   if (route === 'admin_managed_active_summary') {
@@ -1064,6 +1064,7 @@ async function handleMobileOwnTime(
   correlationId: string,
   timeoutMilliseconds: number,
   includeTimeDetails = false,
+  includeCalendarBreaks = false,
 ): Promise<void> {
   if (!validateMobileOwnTimeQueryRequest(body)) {
     respondError(response, 400, 'invalid_request');
@@ -1076,7 +1077,7 @@ async function handleMobileOwnTime(
   }
   try {
     const result = await withTimeout(
-      reader.queryOwnTime({ accessToken, request: body, ...(includeTimeDetails ? {includeTimeDetails:true} : {}) }),
+      reader.queryOwnTime({ accessToken, request: body, ...(includeTimeDetails ? {includeTimeDetails:true} : {}), ...(includeCalendarBreaks ? {includeCalendarBreaks:true} : {}) }),
       timeoutMilliseconds,
     );
     respondMobileReadResult(response, result);

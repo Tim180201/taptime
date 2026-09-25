@@ -1,4 +1,4 @@
-import { TIME_DETAILS_ACCEPT } from '@taptime/mobile-work-contract';
+import { TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT } from '@taptime/mobile-work-contract';
 import type { AuthenticatedRequestCapability } from '../auth/contracts';
 import {
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,
@@ -48,6 +48,7 @@ export interface AuthenticatedJsonPostPort {
 
 export interface AuthenticatedJsonPostOptions {
   readonly includeTimeDetails?: boolean;
+  readonly includeCalendarBreaks?: boolean;
   /** Compare-only lifecycle expectation. No caller can inject arbitrary headers through this port. */
   readonly expectedMembershipId?: string;
   /** Closed response-size exception used only by the immutable offline lease-page route. */
@@ -86,7 +87,7 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
           const response = await this.fetchRequest(endpoint.href, {
             method: 'POST',
             headers: {
-              Accept: options?.includeTimeDetails === true ? TIME_DETAILS_ACCEPT : 'application/json',
+              Accept: options?.includeCalendarBreaks === true ? TIME_CALENDAR_ACCEPT : options?.includeTimeDetails === true ? TIME_DETAILS_ACCEPT : 'application/json',
               Authorization: `Bearer ${accessToken()}`,
               'Cache-Control': 'no-store',
               'Content-Type': 'application/json',

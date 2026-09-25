@@ -88,4 +88,4 @@ export * from './cli/runScan';
 
 export * from './domain/TimeCalendar';
 
-export { parseZonedLocalTimestamp, toZonedLocalInput, formatZonedDateTime, formatExactZonedDateTime } from './domain/BusinessLocalTime';
+export { parseEditedZonedMinute, toZonedMinuteInput, parseZonedLocalTimestamp, toZonedLocalInput, formatZonedDateTime, formatExactZonedDateTime } from './domain/BusinessLocalTime';

@@ -48,6 +48,6 @@ export function parseManualResult(value:unknown,request:ManualLifecycleRequest |
 }
 export function manualResultMessage(result:ManualResult):string {
   return result.status === 'synchronized' ? messages[result.decision] : result.evidenceStored
-    ? 'Das Ereignis ist sicher gespeichert. Die Verarbeitung ist noch offen. Fragen Sie die Bestätigung erneut ab.'
-    : 'Das Ereignis wurde nicht gespeichert. Das Arbeitsziel ist zurzeit nicht verfügbar. Laden Sie die Ziele erneut.';
+    ? 'Ihre Erfassung ist gespeichert und wird noch verarbeitet. Fragen Sie die Bestätigung erneut ab.'
+    : 'Die Erfassung wurde nicht gespeichert, weil das Arbeitsziel nicht verfügbar ist. Laden Sie die Ziele erneut.';
 }

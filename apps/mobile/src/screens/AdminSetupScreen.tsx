@@ -90,19 +90,19 @@ function presentAssignment(
   assignmentType: 'work' | 'break' | null,
 ): string {
   if (state === 'unassigned') return 'Nicht zugeordnet';
-  return assignmentType === 'break' ? 'Pausen-Auslöser' : 'Arbeitsziel zugeordnet';
+  return assignmentType === 'break' ? 'Pausen-Tag' : 'Arbeitsziel zugeordnet';
 }
 
 export function presentAdminSetupState(state: AdminSetupState, platform = 'android'): { title: string; message: string } {
   if (state.status === 'capturing') return { title: 'Bereit zum Erfassen', message: platform === 'ios' ? 'Halte dein iPhone an den neuen NFC-Tag.' : 'Halte das Android-Gerät an den neuen NFC-Tag.' };
   if (state.status === 'writing') return { title: 'Tag wird beschrieben', message: 'Halte dein Handy weiter an den Tag.' };
-  if (state.status === 'submitting') return { title: 'Tag wird sicher eingerichtet', message: 'Registrierung und Zuordnung werden atomar vom Server geprüft.' };
+  if (state.status === 'submitting') return { title: 'Tag wird sicher eingerichtet', message: 'Der Tag und seine Zuordnung werden gemeinsam gespeichert.' };
   if (state.status !== 'ready' || state.outcome === null) return { title: 'Einrichtung bereit', message: 'Wähle einen Kunden und gib eine eindeutige Tag-Bezeichnung ein.' };
   switch (state.outcome.status) {
-    case 'tag_provisioned': return { title: 'Tag erfolgreich zugeordnet', message: 'Der Server hat den Tag und seine Zuordnung gespeichert.' };
-    case 'tag_already_registered': return { title: 'Tag bereits registriert', message: 'Der Server hat keine neue Zuordnung angelegt.' };
+    case 'tag_provisioned': return { title: 'Tag erfolgreich zugeordnet', message: 'Der Tag und seine Zuordnung sind gespeichert.' };
+    case 'tag_already_registered': return { title: 'Tag bereits registriert', message: 'Die bisherige Zuordnung bleibt erhalten.' };
     case 'tag_write_failed': return { title: 'Tag konnte nicht beschrieben werden, nichts wurde registriert', message: {
-      ndef_not_supported: 'Dieser Tag unterstützt das benötigte Nachrichtenformat nicht.',
+      ndef_not_supported: 'Der Tag wurde nicht eingerichtet. Verwende einen anderen beschreibbaren NFC-Tag.',
       read_only: 'Dieser Tag ist schreibgeschützt. Verwende einen beschreibbaren Tag.',
       capacity_exceeded: 'Dieser Tag hat nicht genug Speicher. Verwende einen anderen Tag.',
       tag_changed: 'Es wurde ein anderer Tag erkannt. Versuche es mit demselben Tag erneut.',
@@ -112,11 +112,11 @@ export function presentAdminSetupState(state: AdminSetupState, platform = 'andro
     case 'customer_unavailable': return { title: 'Kunde nicht verfügbar', message: 'Aktualisiere die Ansicht und wähle einen aktiven Kunden.' };
     case 'invalid_input': return { title: 'Eingabe ungültig', message: 'Prüfe Kunde und Tag-Bezeichnung.' };
     case 'unreadable': return { title: 'Tag nicht lesbar', message: 'Bitte versuche die Erfassung erneut.' };
-    case 'timed_out': return { title: 'Erfassung abgelaufen', message: 'Es wurde rechtzeitig kein NFC-Tag erkannt.' };
+    case 'timed_out': return { title: 'Erfassung abgelaufen', message: 'Es wurde kein Tag erkannt und nichts gesendet. Versuche den Scan erneut.' };
     case 'cancelled': return { title: 'Erfassung abgebrochen', message: 'Es wurden keine Tag-Daten gesendet.' };
-    case 'nfc_unavailable': return { title: 'NFC nicht verfügbar', message: 'Die geschützte Erfassung ist derzeit nicht verfügbar.' };
+    case 'nfc_unavailable': return { title: 'NFC nicht verfügbar', message: 'Der Tag wurde nicht eingerichtet. Prüfe, ob NFC am Handy eingeschaltet ist.' };
     case 'session_rejected': return { title: 'Sitzung nicht mehr gültig', message: 'Bitte melde dich erneut an.' };
-    case 'request_failed': return { title: 'Einrichtung nicht abgeschlossen', message: 'Es wurde keine erfolgreiche Zuordnung bestätigt.' };
+    case 'request_failed': return { title: 'Einrichtung nicht abgeschlossen', message: 'Ob die Zuordnung gespeichert wurde, ist noch unklar. Aktualisiere die Tag-Liste und prüfe die Zuordnung.' };
     default: return state.outcome satisfies never;
   }
 }

@@ -9,10 +9,9 @@ import type {
 	SafeReviewItem
 } from '../contracts';
 import {
-	formatExactZonedDateTime,
 	formatZonedDateTime,
-	parseZonedLocalTimestamp,
-	toZonedLocalInput,
+	parseEditedZonedMinute,
+	toZonedMinuteInput,
 } from '../timeZone';
 import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
 import { resolutionLabel,returnFocus,reviewReasonLabel,triggerLabel,useIntentFocusReturn } from '../viewHelpers';
@@ -46,6 +45,8 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   const [startedAt,setStartedAt]=useState('');
   const [stoppedAt,setStoppedAt]=useState('');
   const [reason,setReason]=useState('');
+  const [originalStart,setOriginalStart]=useState<string|null>(null);
+  const [originalStop,setOriginalStop]=useState<string|null>(null);
   const [timeError,setTimeError]=useState<string|null>(null);
   const prepareButton=useRef<HTMLButtonElement>(null);
   const rowTrigger=useRef<HTMLButtonElement>(null);
@@ -53,7 +54,7 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   useIntentFocusReturn(state.adjudicationIntent?.reviewItem.reviewItemId === item.reviewItemId,prepareButton,rowTrigger);
   useEffect(()=>{ if(open) reasonInput.current?.focus(); },[open]);
   const format=formatZonedDateTime;
-  const formatExact=formatExactZonedDateTime;
+  const formatExact=formatZonedDateTime;
   const choose=(event:ReactMouseEvent<HTMLButtonElement>,next:typeof resolution)=>{
     rowTrigger.current=event.currentTarget;setResolution(next);setOpen(true);
   };
@@ -62,7 +63,7 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
     <p className="supporting">{format(item.occurredAt)} · {triggerLabel(item.triggerType)}</p>
     <p className="review-reason">{reviewReasonLabel(item.reviewReason)}{item.predecessorBlocked ? ' · Vorgänger blockiert' : ''}</p>
   </div><div className="entity-actions">
-    <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Freigeben</button>
+    <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Als Arbeitszeit übernehmen</button>
     <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Korrigieren</button>
     <button className="quiet" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>Ablehnen</button>
   </div></div>
@@ -73,10 +74,10 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
         let canonicalStart: string | null = null;
         let canonicalStop: string | null = null;
         if (resolution !== 'no_time_record_change') {
-          canonicalStart = parseZonedLocalTimestamp(startedAt);
-          canonicalStop = parseZonedLocalTimestamp(stoppedAt);
+          canonicalStart = parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null);
+          canonicalStop = parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null);
           if (canonicalStart === null || canonicalStop === null) {
-            setTimeError('Die Zeitangaben können nicht verwendet werden. Mindestens ein lokaler Zeitpunkt existiert nicht oder ist wegen der Zeitumstellung mehrdeutig. Prüfen Sie Beginn und Ende; Ihre Eingaben bleiben erhalten.');
+            setTimeError('Die Uhrzeit ist wegen der Zeitumstellung ungültig oder nicht eindeutig. Ihre Eingaben bleiben erhalten; prüfen Sie Beginn und Ende.');
             return;
           }
         }
@@ -106,8 +107,10 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
               const id = event.target.value;
               const selected = state.timeRecords.find((record) => record.timeRecordId === id);
               setRecordId(id);
-              setStartedAt(selected === undefined ? '' : toZonedLocalInput(selected.startedAt));
-              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedLocalInput(selected.stoppedAt));
+              setOriginalStart(selected?.startedAt??null);
+              setOriginalStop(selected?.stoppedAt??null);
+              setStartedAt(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt));
+              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedMinuteInput(selected.stoppedAt));
             }}>
             <option value="">Arbeitszeit auswählen</option>
             {state.timeRecords.filter((record) => record.status === 'stopped').map((record) =>
@@ -120,13 +123,13 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
           {timeError === null ? null : <p id={`review-time-error-${item.reviewItemId}`}
             className="field-error" role="alert">{timeError}</p>}
           <label>Beginn
-            <input required type="datetime-local" step="0.001" value={startedAt}
+            <input required type="datetime-local" step="60" value={startedAt}
               aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
               disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
               onChange={(event) => setStartedAt(event.target.value)} />
           </label>
           <label>Ende
-            <input required type="datetime-local" step="0.001" value={stoppedAt}
+            <input required type="datetime-local" step="60" value={stoppedAt}
               aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
               disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
               onChange={(event) => setStoppedAt(event.target.value)} />
@@ -143,7 +146,7 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
       </form>
       {state.adjudicationIntent?.reviewItem.reviewItemId !== item.reviewItemId ? null : <Confirmation
         label="Entscheidung ausdrücklich bestätigen"
-        title="Entscheidung lückenlos protokollieren?"
+        title="Entscheidung speichern?"
         confirmLabel="Entscheidung protokollieren"
         busyLabel="Wird protokolliert …"
         busy={state.timeReviewBusy}

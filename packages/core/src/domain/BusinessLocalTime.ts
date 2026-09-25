@@ -23,10 +23,8 @@ export function formatZonedDateTime(value: string): string {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
-    timeZoneName: 'shortOffset',
   }).format(epoch);
-  return `${formatted} [${BUSINESS_TIME_ZONE}]`;
+  return formatted;
 }
 
 export function formatExactZonedDateTime(value: string): string {
@@ -46,6 +44,17 @@ export function toZonedLocalInput(value: string): string {
   const parts = partsAt(epoch);
   if (parts === null) return '';
   return `${pad(parts.year, 4)}-${pad(parts.month)}-${pad(parts.day)}T${pad(parts.hour)}:${pad(parts.minute)}:${pad(parts.second)}.${pad(parts.millisecond, 3)}`;
+}
+
+/** Minute-only display; the original instant is retained separately by the form. */
+export function toZonedMinuteInput(value: string): string {
+  return toZonedLocalInput(value).slice(0, 16);
+}
+
+/** An unchanged field preserves precision and the offset of an ambiguous DST hour. */
+export function parseEditedZonedMinute(value: string, original?: string | null): string | null {
+  if (original && value === toZonedMinuteInput(original)) return original;
+  return parseZonedLocalTimestamp(value);
 }
 
 export function parseZonedLocalTimestamp(value: string): string | null {

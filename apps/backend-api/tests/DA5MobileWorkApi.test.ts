@@ -481,3 +481,21 @@ it.each(['/v1/lifecycle-events/manual','/v1/lifecycle-events/manual-break'])('T-
     expect(await response.text()).toBe(JSON.stringify({...result,decision:{...result.decision,reason:accept==='application/json'?'work_event_precedes_previous_accepted_work_event':'administration_stopped'}}));
   }
 });
+
+it.each(['own','person'] as const)('T-079 keeps both old %s byte forms and opts into calendar seconds separately',async route=>{
+ const record={timeRecordId:ids.timeEntry,source:'canonical' as const,targetType:'customer' as const,targetDisplayName:'Kunde',status:'stopped' as const,startedAt:'2026-09-20T08:00:00.000Z',stoppedAt:'2026-09-20T09:00:00.000Z',startedVia:'manual' as const,stoppedVia:'manual' as const};
+ const details={origin:'manual' as const,baseRowVersion:2,effectiveRevisionNumber:0,changed:false,comment:null,change:null,overlapsAnotherRecord:false};
+ const calendar={asOf:'2026-09-21T12:00:00.000Z',workDurationSeconds:3500,breakDurationSeconds:100,breakIntervals:[{startedAt:'2026-09-20T08:10:00.000Z',stoppedAt:'2026-09-20T08:11:40.000Z'}]};
+ const value=(d=false,b=false)=>({activeRecord:null,records:[{...record,...(d?{details}:{}),...(b?{calendar}:{})}],nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-10-01T00:00:00.000Z'});
+ const commands:{includeTimeDetails?:boolean;includeCalendarBreaks?:boolean}[]=[];
+ const origin=await start({mobileWorkReader:{async queryOwnTime(c){commands.push(c);return {status:'succeeded',response:value(c.includeTimeDetails,c.includeCalendarBreaks)};},async queryWorkTargets(){return {status:'forbidden'};}},employeeEnrollment:{
+  async readManagedPersonTime(c){commands.push(c);return {status:'succeeded',value:value(c.includeTimeDetails,c.includeCalendarBreaks)};},
+  async createInvitation(){return {status:'unauthorized'};},async redeemInvitation(){return {status:'unauthorized'};},async readEmployeeMembershipsProjection(){return {status:'unauthorized'};},async revokeMembership(){return {status:'unauthorized'};},async changeMembershipRole(){return {status:'unauthorized'};},async recordPasswordReset(){return {status:'unauthorized'};},
+ }});
+ for(const [accept,d,b] of [['application/json',false,false],['application/vnd.taptime.time-details.v2+json',true,false],['application/vnd.taptime.time-calendar.v1+json',true,true]] as const){
+  const body={expectedMembershipId:ids.membership,cursor:null,limit:20,...(route==='person'?{targetMembershipId:ids.membership,fromInclusive:value().windowStartedAt,toExclusive:value().windowEndedAt}:{})};
+  const response=await fetch(origin+(route==='own'?'/v1/mobile/own-time/query':'/v1/administration/managed-person-time'),{method:'POST',headers:{authorization:'Bearer abc.def.ghi','content-type':'application/json',accept},body:JSON.stringify(body)});
+  expect(response.status).toBe(200);expect(response.headers.get('vary')).toBe('Accept');expect(await response.text()).toBe(JSON.stringify(value(d,b)));
+  expect(commands.at(-1)?.includeCalendarBreaks).toBe(b?true:undefined);
+ }
+});

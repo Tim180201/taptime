@@ -63,7 +63,7 @@ type ReadyStateForTest = Extract<AdminWebState, { readonly status: 'ready' }>;
 
 it.each([
   ['succeeded', 'Einladung verschickt.'],
-  ['succeeded_existing_account', 'Konto bestand bereits — es wurde keine Mail verschickt.'],
+  ['succeeded_existing_account', 'Das Konto besteht bereits; es wurde keine E-Mail verschickt.'],
 ] as const)('keeps the %s notice through the real employee SectionBoundary refresh', async (status, message) => {
   window.history.replaceState(null, '', '/beschaeftigte');
   const capability = new FakeCapability({ ...readyState, availableSections: ['employees'] });
@@ -84,7 +84,7 @@ it.each([
   await act(async () => { refresh.resolve(); await refresh.promise; });
   expect(screen.getByText(message, { exact: false })).toBeVisible();
   if (status === 'succeeded_existing_account') {
-    expect(screen.getByText(message, { exact: false })).toHaveTextContent('Bitte informieren Sie die Person selbst.');
+    expect(screen.getByText(message, { exact: false })).toHaveTextContent('Informieren Sie die Person,');
     expect(screen.getByText(message, { exact: false })).toHaveTextContent('Passwort vergessen');
   }
 });
@@ -608,7 +608,7 @@ describe('professional Admin Web shell', () => {
 
     capability.emit({
       ...(capability.state as ReadyStateForTest),
-      notice: 'Diese Kundenmeldung darf jederzeit umformuliert werden.',
+      notice: { kind: 'success', text: 'Diese Kundenmeldung darf jederzeit umformuliert werden.' },
       completedAction: 'customer_created',
     });
     await waitFor(() => expect(customerInput).toHaveValue(''));
@@ -616,7 +616,7 @@ describe('professional Admin Web shell', () => {
 
     capability.emit({
       ...(capability.state as ReadyStateForTest),
-      notice: 'Auch diese Projektmeldung ist kein Steuerungswert.',
+      notice: { kind: 'success', text: 'Auch diese Projektmeldung ist kein Steuerungswert.' },
       completedAction: 'project_created',
     });
     await waitFor(() => expect(projectInput).toHaveValue(''));
@@ -628,7 +628,7 @@ describe('professional Admin Web shell', () => {
     await userEvent.type(employeeInput, 'Neue Person');
     capability.emit({
       ...(capability.state as ReadyStateForTest),
-      notice: 'Die Einladung ist fertig – mit vollständig geändertem Wortlaut.',
+      notice: { kind: 'success', text: 'Die Einladung ist fertig – mit vollständig geändertem Wortlaut.' },
       completedAction: 'invitation_created',
     });
     expect(employeeInput).toHaveValue('Neue Person');
@@ -777,7 +777,7 @@ describe('professional Admin Web shell', () => {
   it('renders safe fingerprints and never raw NFC payload labels', async () => {
     window.history.replaceState(null, '', '/einrichtung');
     await render(<App administration={new FakeCapability(readyState)} />);
-    expect(screen.getAllByText(/Prüffingerabdruck A1B2C3D4E5F6/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Technische Kennung A1B2C3D4E5F6/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toMatch(/nfc:uid|canonicalPayload/i);
   });
 
@@ -825,7 +825,7 @@ describe('professional Admin Web shell', () => {
       capability.emit({
         ...readyState,
         correctionIntent: null,
-        notice: 'Die Arbeitszeit wurde zwischenzeitlich geändert.',
+        notice: { kind: 'error', text: 'Die Arbeitszeit wurde zwischenzeitlich geändert.' },
       });
     });
     window.history.replaceState(null, '', '/lohnexport');
@@ -854,8 +854,8 @@ describe('professional Admin Web shell', () => {
     const confirmation = screen.getByRole('alertdialog', {
       name: 'Korrektur ausdrücklich bestätigen',
     });
-    expect(confirmation).toHaveTextContent('2026-07-20 08:15:30.123 GMT+2 [Europe/Berlin]');
-    expect(confirmation).toHaveTextContent('2026-07-20 16:45:59.987 GMT+2 [Europe/Berlin]');
+    expect(confirmation).toHaveTextContent('20.07.2026, 08:15');
+    expect(confirmation).toHaveTextContent('20.07.2026, 16:45');
     expect(confirmation.querySelector('.verbatim-reason')?.textContent).toBe(reason);
 
     await userEvent.click(screen.getByRole('button', {
@@ -896,12 +896,12 @@ describe('professional Admin Web shell', () => {
       capability.emit({
         ...readyState,
         adjudicationIntent: null,
-        notice: 'Review-Entscheidung konnte nicht protokolliert werden.',
+        notice: { kind: 'error', text: 'Review-Entscheidung konnte nicht protokolliert werden.' },
       });
     });
     window.history.replaceState(null, '', '/pruefungen');
     await render(<App administration={capability} />);
-    await userEvent.click(screen.getByRole('button',{name:'Freigeben'}));
+    await userEvent.click(screen.getByRole('button',{name:'Als Arbeitszeit übernehmen'}));
     fireEvent.change(screen.getByLabelText('Entscheidung'), {
       target: { value: 'create_recovered_time_record' },
     });
@@ -928,8 +928,8 @@ describe('professional Admin Web shell', () => {
     const confirmation = screen.getByRole('alertdialog', {
       name: 'Entscheidung ausdrücklich bestätigen',
     });
-    expect(confirmation).toHaveTextContent('2026-07-20 07:01:02.003 GMT+2 [Europe/Berlin]');
-    expect(confirmation).toHaveTextContent('2026-07-20 08:04:05.006 GMT+2 [Europe/Berlin]');
+    expect(confirmation).toHaveTextContent('20.07.2026, 07:01');
+    expect(confirmation).toHaveTextContent('20.07.2026, 08:04');
     expect(confirmation.querySelector('.verbatim-reason')?.textContent).toBe(reason);
 
     await userEvent.click(screen.getByRole('button', {
@@ -979,7 +979,7 @@ describe('professional Admin Web shell', () => {
           }],
         },
         reassignmentIntent: null,
-        notice: 'NFC-Tag wurde sicher neu zugeordnet.',
+        notice: { kind: 'success', text: 'NFC-Tag wurde sicher neu zugeordnet.' },
       });
     });
     window.history.replaceState(null, '', '/einrichtung');
@@ -1034,7 +1034,7 @@ describe('professional Admin Web shell', () => {
           ...intentState.sections,
           setup: { status: 'unavailable', message: 'Einrichtung nicht erreichbar.' },
         },
-        notice: 'Die Zuordnung wurde zwischenzeitlich geändert.',
+        notice: { kind: 'error', text: 'Die Zuordnung wurde zwischenzeitlich geändert.' },
       });
     });
     window.history.replaceState(null, '', '/einrichtung');
@@ -1071,7 +1071,7 @@ describe('professional Admin Web shell', () => {
           ...intentState.sections,
           timeRecords: { status: 'unavailable', message: 'Arbeitszeiten nicht erreichbar.' },
         },
-        notice: 'Die Arbeitszeit wurde zwischenzeitlich geändert.',
+        notice: { kind: 'error', text: 'Die Arbeitszeit wurde zwischenzeitlich geändert.' },
       });
     });
     window.history.replaceState(null, '', '/lohnexport');
@@ -1110,7 +1110,7 @@ describe('professional Admin Web shell', () => {
           ...intentState.sections,
           reviewItems: { status: 'unavailable', message: 'Prüfungen nicht erreichbar.' },
         },
-        notice: 'Review-Entscheidung konnte nicht protokolliert werden.',
+        notice: { kind: 'error', text: 'Review-Entscheidung konnte nicht protokolliert werden.' },
       });
     });
     window.history.replaceState(null, '', '/pruefungen');
@@ -1154,7 +1154,7 @@ describe('professional Admin Web shell', () => {
     fireEvent.focus(window);
     fireEvent(document, new Event('visibilitychange'));
     expect(screen.getByText('Zeitdarstellung: Europe/Berlin')).toBeInTheDocument();
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('10:00:00.000 GMT+2 [Europe/Berlin]');
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('10:00');
     expect(screen.getByLabelText('Neuer Beginn')).toHaveValue('2026-07-20T10:00');
   });
 
@@ -1210,7 +1210,7 @@ it('T049 f: payroll exposes exactly one CSV action', async () => {
   window.history.replaceState(null,'','/lohnexport');
   await render(<App administration={new FakeCapability(readyState)} />);
   expect(await screen.findByRole('heading',{name:'Lohnexport',level:1})).toBeVisible();
-  expect(screen.getAllByRole('button',{name:'CSV herunterladen'})).toHaveLength(1);
+  expect(screen.getAllByRole('button',{name:/CSV .+ herunterladen/})).toHaveLength(1);
 });
 it('T049 f: status filters apply as soon as selected', async () => {
   window.history.replaceState(null,'','/lohnexport');
@@ -1288,7 +1288,7 @@ it('T049 review: locks prepared decisions and retains keyboard focus after the r
  const capability=new FakeCapability({...readyState,adjudicationIntent:intent});
  capability.confirmAdjudication.mockImplementation(async()=>{capability.emit({...readyState,adjudicationIntent:null,reviewItems:[]});});
  await render(<App administration={capability}/>);
- for(const name of ['Freigeben','Korrigieren','Ablehnen']) expect(screen.getByRole('button',{name})).toBeDisabled();
+ for(const name of ['Als Arbeitszeit übernehmen','Korrigieren','Ablehnen']) expect(screen.getByRole('button',{name})).toBeDisabled();
  await userEvent.click(screen.getByRole('button',{name:'Entscheidung protokollieren'}));
  expect(screen.getByRole('region',{name:'Prüfungen'})).toHaveFocus();
 });
@@ -1296,9 +1296,9 @@ it('T049 review: locks prepared decisions and retains keyboard focus after the r
 it('T066 keeps both export formats reachable from the payroll view',async()=>{
  window.history.replaceState(null,'','/lohnexport');const capability=new FakeCapability(readyState);
  await render(<App administration={capability}/>);
- expect(await screen.findByLabelText('CSV-Fassung')).toHaveValue('4');
- fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
- fireEvent.change(screen.getByLabelText('CSV-Fassung'),{target:{value:'3'}});fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
+ expect(await screen.findByLabelText('CSV-Format')).toHaveValue('4');
+ fireEvent.click(screen.getByRole('button',{name:/CSV .+ herunterladen/}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
+ fireEvent.change(screen.getByLabelText('CSV-Format'),{target:{value:'3'}});fireEvent.click(screen.getByRole('button',{name:/CSV .+ herunterladen/}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
 });
 it('T066 exposes the own-comment form through the actual own-time route',async()=>{
  const membershipId='20000000-0000-4000-8000-000000000001';
@@ -1308,4 +1308,28 @@ it('T066 exposes the own-comment form through the actual own-time route',async()
  await render(<App administration={capability}/>);fireEvent.click(await screen.findByRole('button',{name:'Kommentar schreiben'}));
  fireEvent.change(screen.getByLabelText('Kommentar'),{target:{value:'Eigene Verwaltungszeit'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(capability.saveTimeEdit).toHaveBeenCalledWith(expect.objectContaining({kind:'comment',targetMembershipId:membershipId,comment:'Eigene Verwaltungszeit'})));
+});
+
+it.each([
+ {month:null,label:'CSV 26.08.–25.09.2026 herunterladen',hint:'Letzte 31 Tage, unabhängig von den Filtern. Für die Lohnabrechnung einen Monat wählen.',window:{fromInclusive:'2026-08-25T22:30:00.000Z',toExclusive:'2026-09-24T22:30:00.000Z'}},
+ {month:'2026-09',label:'CSV September 2026 herunterladen',hint:'Alle Einträge des Monats, unabhängig von den Filtern.',window:{fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'}},
+])('T079 renders $label from timeWindow independently of list filters',async({month,label,hint,window:timeWindow})=>{
+ window.history.replaceState(null,'',`/lohnexport?status=laufend&erfassungsart=gescannt${month?`&monat=${month}`:''}`);
+ const capability=new FakeCapability({...readyState,timeWindow});await render(<App administration={capability}/>);
+ expect(screen.getByText(hint)).toBeVisible();
+ expect(screen.getByLabelText('Status')).toHaveValue('laufend');
+ expect(screen.getByLabelText('Erfassungsart')).toHaveValue('gescannt');
+ fireEvent.click(screen.getByRole('button',{name:label}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
+ fireEvent.change(screen.getByLabelText('CSV-Format'),{target:{value:'3'}});
+ fireEvent.click(screen.getByRole('button',{name:label}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
+});
+it('T079 replaces the month label when the selection is cleared and a new real window arrives',async()=>{
+ window.history.replaceState(null,'','/lohnexport?monat=2026-09');
+ const capability=new FakeCapability({...readyState,timeWindow:{fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'}});
+ await render(<App administration={capability}/>);expect(screen.getByRole('button',{name:'CSV September 2026 herunterladen'})).toBeVisible();
+ fireEvent.change(screen.getByLabelText('Monat'),{target:{value:''}});
+ await act(async()=>capability.emit({...readyState,timeWindow:{fromInclusive:'2026-08-24T22:30:00.000Z',toExclusive:'2026-09-24T22:30:00.000Z'}}));
+ expect(screen.queryByRole('button',{name:'CSV September 2026 herunterladen'})).not.toBeInTheDocument();
+ expect(screen.getByRole('button',{name:'CSV 25.08.–25.09.2026 herunterladen'})).toBeVisible();
+ expect(screen.getByText('Letzte 31 Tage, unabhängig von den Filtern. Für die Lohnabrechnung einen Monat wählen.')).toBeVisible();
 });

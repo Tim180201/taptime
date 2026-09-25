@@ -1,3 +1,4 @@
+import type { Notice } from './contracts';
 import { useRef, useState } from 'react';
 import type { InvitePasswordCapability, InvitePasswordResult } from './SupabaseInviteAuth';
 import '@fontsource/inter/latin-400.css';
@@ -17,19 +18,23 @@ export function WelcomePage({ invitation }: { readonly invitation: InvitePasswor
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
   const [completed, setCompleted] = useState(false);
-  const [notice, setNotice] = useState<string | null>(invitation === null
-    ? 'Die Kontoeinrichtung ist nicht verfügbar. Bitte wenden Sie sich an Ihren Administrator.'
-    : invitation.hasInvitation ? null : messages.invalid_invitation);
+  const [notice, setNotice] = useState<Notice | null>(invitation === null
+    ? { kind: 'error', text: 'Die Kontoeinrichtung ist nicht verfügbar. Bitte wenden Sie sich an Ihren Administrator.' }
+    : invitation.hasInvitation ? null : { kind: 'error', text: messages.invalid_invitation });
 
   if (completed) return <main className="login-shell">
-    <p className="login-card" role="status">Jetzt die App öffnen und anmelden.</p>
+    <section className="login-card" aria-label="Passwort gespeichert">
+      <p role="status">Ihr Passwort ist gespeichert.</p>
+      <a className="button-link" href="/">Im Browser anmelden</a>
+      <p>In der App anmelden; die App erhalten Sie von Ihrem Betrieb.</p>
+    </section>
   </main>;
 
   return <main className="login-shell">
     <section className="login-card" aria-labelledby="welcome-title">
       <span className="eyebrow">Taptura</span>
       <h1 id="welcome-title">Passwort setzen</h1>
-      {notice === null ? null : <p role="alert">{notice}</p>}
+      {notice === null ? null : <p role="alert">{notice.text}</p>}
       {invitation?.hasInvitation ? <form onSubmit={(event) => {
         event.preventDefault();
         if (submitting.current) return;
@@ -43,7 +48,7 @@ export function WelcomePage({ invitation }: { readonly invitation: InvitePasswor
             setPassword('');
             setCompleted(true);
           } else {
-            setNotice(messages[result]);
+            setNotice({ kind: 'error', text: messages[result] });
           }
         });
       }}>

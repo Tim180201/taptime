@@ -840,3 +840,18 @@ describe('AdminWebApiClient', () => {
     expect(chunkIndex).toBeGreaterThanOrEqual(2);
   });
 });
+
+it.each(([3,4] as const).flatMap(version=>[
+ {version,from:'2026-08-31T22:00:00.000Z',to:'2026-09-30T22:00:00.000Z',suffix:'20260831T220000Z_20260930T220000Z'},
+ {version,from:'2026-08-25T12:00:00.000Z',to:'2026-09-25T12:00:00.000Z',suffix:'20260825T120000Z_20260925T120000Z'},
+]))('T079 preserves exact CSV bytes and filename for v$version / $suffix',async({version,from,to,suffix})=>{
+ const csv=new TextEncoder().encode('\uFEFFschema_version;comment\r\n'+version+';"Grüße; unverändert"\r\n');
+ const filename=`taptime-time-entries_v${version}_${suffix}.csv`;
+ const fetcher=vi.fn<typeof fetch>(async()=>new Response(csv,{headers:{'content-type':'text/csv; charset=utf-8','content-disposition':`attachment; filename="${filename}"`}}));
+ const client=new AdminWebApiClient(fetcher);
+ const result=await client.exportTimeEntries('token',ids.membership,from,to,version);
+ expect(result.status).toBe('succeeded');if(result.status!=='succeeded')throw new Error('Expected CSV');
+ expect(result.value.filename).toBe(filename);
+ expect(new Uint8Array(await result.value.blob.arrayBuffer())).toEqual(csv);
+ expect(JSON.parse(String(fetcher.mock.calls[0]![1]!.body))).toEqual({expectedMembershipId:ids.membership,fromInclusive:from,toExclusive:to});
+});

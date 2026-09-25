@@ -159,7 +159,7 @@ const person = readyState.employeeProjection.employeeMemberships[0]!;
 const location = { id: '31000000-0000-4000-8000-000000000001', name: 'Standort am langen Beispielweg' };
 const details = { origin: 'backfilled' as const, baseRowVersion: 0, effectiveRevisionNumber: 2,
   comment: 'Beim Kunden vor Ort', changed: true, change: { at: '2026-09-23T10:00:00.000Z', reason: 'Vergessenen Beginn berichtigt', actor: 'administration' as const }, overlapsAnotherRecord: true };
-const entry = { ...record, employeeDisplayName: 'Alexandra Beispiel', targetDisplayName: 'Werkstatt am Beispielweg',
+const entry = { ...record, calendar:{asOf:'2026-09-23T12:00:00.000Z',workDurationSeconds:5400,breakDurationSeconds:1800,breakIntervals:[{startedAt:'2026-09-23T09:00:00.000Z',stoppedAt:'2026-09-23T09:30:00.000Z'}]}, employeeDisplayName: 'Alexandra Beispiel', targetDisplayName: 'Werkstatt am Beispielweg',
   startedAt: '2026-09-23T08:00:00.000Z', stoppedAt: '2026-09-23T10:00:00.000Z', details };
 let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
   membershipId: own,
@@ -173,7 +173,7 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
     people: [{ membershipId: person.id, displayName: 'Alexandra Beispiel', role: 'employee', location, isRunning: true, runningSince: entry.startedAt, runningTargetDisplayName: entry.targetDisplayName },
       { membershipId: own, displayName: 'Martin Beispiel', role: 'administrator', location: null, isRunning: false, runningSince: null, runningTargetDisplayName: null }] } },
   calendar: { status: 'ready', targetMembershipId: window.location.pathname.includes('/beschaeftigte/') ? person.id : null, month: '2026-09',
-    value: { records: [entry], activeRecord: null, nextCursor: null, windowStartedAt: '2026-09-01T00:00:00.000Z', windowEndedAt: '2026-09-23T12:00:00.000Z' } },
+    value: { records: [entry], activeRecord: null, nextCursor: null, windowStartedAt: '2026-08-31T22:00:00.000Z', windowEndedAt: '2026-09-23T12:00:00.000Z' } },
   assignableLocations: [location],
   locationSetup: { locations: [{ id: location.id, displayName: location.name, active: true, rowVersion: 1 }],
     memberships: [{ id: own, displayName: 'Martin Beispiel', role: 'administrator', homeLocationId: location.id, workLocationIds: [location.id], managementLocationIds: [] }],
@@ -183,6 +183,8 @@ if (['employee-calendar','employee-backfill','employee-comment'].includes(varian
 if (variant.startsWith('manager')) ready = { ...ready, role: 'standortleitung', availableSections: ['employees','own_time','manual_capture','time_records','review_items'], locationsEnabled: true,
   selectedLocation: location, managementScope: { kind: 'locations', locations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] } };
 if (variant.startsWith('invitation-')) ready = { ...ready, locationsEnabled: true, selectedLocation: null, assignableLocations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] };
+if (variant === 'payroll') ready = { ...ready, timeWindow: {fromInclusive:'2026-08-25T12:00:00.000Z',toExclusive:'2026-09-25T12:00:00.000Z'} };
+if (variant === 'payroll-month') ready = { ...ready, timeWindow: {fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'} };
 if (variant === 'five-areas') ready = { ...ready, availableSections: readyState.availableSections };
 if (['time-stop','manager-time-stop','manager-own-stop'].includes(variant)) ready = { ...ready, calendar: { ...ready.calendar!, status: 'ready', value: { ...ready.calendar!.value!, records: [], activeRecord: { ...entry, status: 'started', stoppedAt: null } } } };
 if (variant === 'empty') ready = { ...ready, employeeProjection: { ...ready.employeeProjection, employeeMemberships: [] }, managedPeople: { ...ready.managedPeople!, status: 'ready', value: { ...ready.managedPeople!.value!, people: [], totalCount: 0, runningCount: 0 } } };
@@ -192,9 +194,12 @@ if (variant === 'correction-confirm') ready = { ...ready, correctionIntent: { co
 if (['review-confirm','manager-review-confirm'].includes(variant)) ready = { ...ready, adjudicationIntent: { commandId: 'test', reviewItem, resolution: 'no_time_record_change', timeRecord: null, startedAt: null, stoppedAt: null, reason: 'Doppelten Vorgang geprüft' } };
 if (variant === 'tag-confirm') ready = { ...ready, reassignmentIntent: { commandId: 'test', nfcTagId: tag.id, expectedActiveAssignmentId: tag.activeAssignmentId, targetCustomerId: customer.id } };
 if (variant === 'manual-pending') ready = { ...ready, manual: { busy: false, pending: true, message: 'Wird gesichert …' } };
+if (variant === 'notice-saved') ready = { ...ready, notice: { kind: 'success', text: 'Gespeichert.' } };
+if (variant === 'notice-location') ready = { ...ready, notice: { kind: 'success', text: 'Heimatstandort wurde zugewiesen.' } };
+if (variant === 'notice-info') ready = { ...ready, notice: { kind: 'info', text: 'Änderung wurde verworfen.' } };
 const authStates: Record<string, AdminWebState> = {
-  login: { status: 'signed_out' }, 'login-error': { status: 'signed_out', notice: 'E-Mail-Adresse oder Passwort stimmen nicht. Bitte prüfen Sie Ihre Eingaben.' },
-  'forgot-password': { status: 'signed_out', notice: 'Wenn ein Zugang zu dieser E-Mail-Adresse besteht, wurde eine Nachricht zum Zurücksetzen verschickt.' },
+  login: { status: 'signed_out' }, 'login-error': { status: 'signed_out', notice: { kind: 'error', text: 'E-Mail-Adresse oder Passwort stimmen nicht. Bitte prüfen Sie Ihre Eingaben.' } },
+  'forgot-password': { status: 'signed_out', notice: { kind: 'success', text: 'Wenn ein Zugang zu dieser E-Mail-Adresse besteht, wurde eine Nachricht zum Zurücksetzen verschickt.' } },
   'signing-in': { status: 'signing_in' }, recovery: { status: 'password_recovery', completing: false, notice: null },
   'recovery-busy': { status: 'password_recovery', completing: true, notice: null }, paused: { status: 'organization_paused' },
   forbidden: { status: 'forbidden', message: 'Für diesen Zugang ist die Verwaltung nicht verfügbar.' },

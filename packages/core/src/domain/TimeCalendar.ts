@@ -1,6 +1,12 @@
 import { BUSINESS_TIME_ZONE } from './BusinessTimeZone';
 /** Structural inputs keep Core independent of transport contracts. */
 export interface CalendarInterval {
+  readonly calendar?: {
+    readonly asOf: string;
+    readonly workDurationSeconds: number;
+    readonly breakDurationSeconds: number;
+    readonly breakIntervals: readonly { readonly startedAt: string; readonly stoppedAt: string }[];
+  };
   readonly timeRecordId: string;
   readonly startedAt: string;
   readonly stoppedAt: string | null;
@@ -65,12 +71,55 @@ export function intervalMilliseconds(record: CalendarInterval, from: number, to:
   const end = Math.min(record.stoppedAt === null ? to : Date.parse(record.stoppedAt), to);
   return Math.max(0, end - start);
 }
+/** D-095: authoritative seconds are allocated, never recalculated from JSON times. */
+function allocateSeconds(total: number, weights: readonly number[]): number[] {
+  const sum = weights.reduce((a,b)=>a+BigInt(b),0n);
+  if (sum === 0n) return weights.map((_,i)=>i===0?total:0);
+  const parts = weights.map((weight,index)=> {
+    const product=BigInt(total)*BigInt(weight);
+    return {index,seconds:Number(product/sum),remainder:product%sum};
+  });
+  const rest=total-parts.reduce((a,b)=>a+b.seconds,0);
+  const ranked=[...parts].sort((a,b)=>a.remainder===b.remainder?a.index-b.index:a.remainder>b.remainder?-1:1);
+  for(let i=0;i<rest;i++) ranked[i]!.seconds++;
+  return parts.map(p=>p.seconds);
+}
+export function calendarDayAllocations(record: CalendarInterval): readonly {day:string;workSeconds:number;breakSeconds:number}[] {
+  const data=record.calendar;
+  if (!data) return [];
+  const start=Date.parse(record.startedAt),end=Date.parse(record.stoppedAt??data.asOf);
+  const first=businessDay(start),last=businessDay(Math.max(start,end-1));
+  const weights:{day:string;work:number;pause:number}[]=[];
+  for(let day=first;day<=last;day=shiftDay(day,1)) {
+    const from=Math.max(start,dayStart(day)),to=Math.min(end,dayStart(shiftDay(day,1)));
+    const pause=data.breakIntervals.reduce((sum,b)=>sum+Math.max(0,
+      Math.min(to,Date.parse(b.stoppedAt))-Math.max(from,Date.parse(b.startedAt))),0);
+    weights.push({day,work:Math.max(0,to-from-pause),pause});
+  }
+  const work=allocateSeconds(data.workDurationSeconds,weights.map(w=>w.work));
+  const pauses=allocateSeconds(data.breakDurationSeconds,weights.map(w=>w.pause));
+  return weights.map((w,i)=>({day:w.day,workSeconds:work[i]!,breakSeconds:pauses[i]!}));
+}
+export function recordDaySummary(record: CalendarInterval, day:string) {
+  const portion=calendarDayAllocations(record).find(p=>p.day===day);
+  return {milliseconds:(portion?.workSeconds??0)*1000,breakMilliseconds:(portion?.breakSeconds??0)*1000};
+}
 export function rangeSummary<Record extends CalendarInterval>(ownTime: CalendarWindow<Record>, firstDay: string, endDay: string) {
-  const from = dayStart(firstDay);
-  const to = Math.min(dayStart(endDay), Date.parse(ownTime.windowEndedAt));
-  const complete = ownTime.nextCursor === null && from >= Date.parse(ownTime.windowStartedAt) && from < to;
-  return { complete, milliseconds: timeRecords(ownTime)
-    .reduce((sum, record) => sum + intervalMilliseconds(record, from, to), 0) };
+  const from=dayStart(firstDay),to=Math.min(dayStart(endDay),Date.parse(ownTime.windowEndedAt));
+  const records=timeRecords(ownTime);
+  const complete=ownTime.nextCursor===null && from>=Date.parse(ownTime.windowStartedAt) && from<to
+    && records.every(r=>r.calendar!==undefined);
+  const portions=records.flatMap(calendarDayAllocations).filter(p=>p.day>=firstDay && p.day<endDay);
+  return {complete,milliseconds:portions.reduce((s,p)=>s+p.workSeconds,0)*1000,
+    breakMilliseconds:portions.reduce((s,p)=>s+p.breakSeconds,0)*1000};
+}
+/** Same inclusion rule as payroll: effective start in the selected month. */
+export function monthTimeSummary<Record extends CalendarInterval>(ownTime: CalendarWindow<Record>, month:string) {
+  const records=timeRecords(ownTime).filter(r=>businessDay(r.startedAt).slice(0,7)===month);
+  return {complete:ownTime.nextCursor===null && dayStart(`${month}-01`)>=Date.parse(ownTime.windowStartedAt)
+      && dayStart(`${month}-01`)<Date.parse(ownTime.windowEndedAt) && records.every(r=>r.calendar!==undefined),
+    milliseconds:records.reduce((s,r)=>s+(r.calendar?.workDurationSeconds??0),0)*1000,
+    breakMilliseconds:records.reduce((s,r)=>s+(r.calendar?.breakDurationSeconds??0),0)*1000};
 }
 export function recordsForDay<Record extends CalendarInterval>(ownTime: CalendarWindow<Record>, day: string): readonly Record[] {
   const from = dayStart(day);

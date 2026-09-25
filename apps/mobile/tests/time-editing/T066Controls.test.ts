@@ -101,8 +101,8 @@ it.each(['administrator','standortleitung'] as const)('T-069 lets an %s stop ano
   await render(role,true,active);
   expect(container.textContent).not.toContain('Läuft noch — erst beenden');
   await press('Beenden');
-  expect(container.querySelector('input[aria-label="Von (JJJJ-MM-TTTHH:MM)"]')).toBeNull();
-  await fill('Bis (JJJJ-MM-TTTHH:MM)','2026-09-21T14:00');await press('Zeit beenden');
+  expect(container.querySelector('input[aria-label="Von (HH:MM)"]')).toBeNull();
+  await fill('Ende am (JJJJ-MM-TT)','2026-09-21');await fill('Bis (HH:MM)','14:00');await press('Zeit beenden');
   expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Grund');
   await fill('Grund','Pause vergessen');save.mockResolvedValueOnce({status:'end_before_break'} as never);
   await press('Zeit beenden');expect(container.textContent).toContain('Die Endzeit liegt vor einer erfassten Pause');
@@ -171,4 +171,18 @@ it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target 
  expect(button('Zielperson C2')).toBeDefined();expect(button('Kunde')).toBeUndefined();
  await press('Zielperson C2');await fill('Grund','Zielperson');await press('Speichern');
  expect(save).toHaveBeenCalledWith('backfill',expect.objectContaining({targetId:'20000000-0000-4000-8000-000000000002'}));
+});
+
+it('T079 splits dates and minute clocks while preserving exact unchanged values',async()=>{
+ const precise={...record,startedAt:'2026-09-21T08:00:37.123Z',stoppedAt:'2026-09-21T09:00:48.987Z'};
+ await render('administrator',true,precise);await press('Ändern');
+ for(const [label,value] of [['Beginn am (JJJJ-MM-TT)','2026-09-21'],['Ende am (JJJJ-MM-TT)','2026-09-21'],['Von (HH:MM)','10:00'],['Bis (HH:MM)','11:00']])
+  expect((container.querySelector(`input[aria-label="${label}"]`) as HTMLInputElement).value).toBe(value);
+ await fill('Grund','Nur Grund');await press('Speichern');
+ expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({startedAt:precise.startedAt,stoppedAt:precise.stoppedAt}));
+});
+it.each(['2026-10-25','2027-03-28'])('T079 rejects newly edited ambiguous or absent time on %s',async day=>{
+ await render('administrator');await press('Ändern');await fill('Beginn am (JJJJ-MM-TT)',day);await fill('Von (HH:MM)','02:30');await fill('Grund','Prüfung');await press('Speichern');
+ expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Zeitumstellung');
+ expect((container.querySelector('input[aria-label="Von (HH:MM)"]') as HTMLInputElement).value).toBe('02:30');
 });

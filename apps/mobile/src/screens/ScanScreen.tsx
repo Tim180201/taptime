@@ -60,7 +60,7 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
           {showMoment ? moment.title : resting ? ios ? 'Bereit zum Erfassen' : 'Tag antippen' : presentation.title}
         </Text>
         <Text style={styles.statusMessage}>
-          {showMoment ? moment.confirmed ? 'Vom Server bestätigt'
+          {showMoment ? moment.confirmed ? 'Gespeichert'
             : 'Sicher gespeichert, wird nachgereicht'
             : resting ? state.status === 'scanning'
               ? 'Halte dein Handy an den Tag.'
@@ -132,7 +132,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
     case 'submitting':
       return {
         title: 'Scan wird sicher verarbeitet',
-        message: 'Bitte warte auf die Bestätigung des Servers.',
+        message: 'Bitte warte auf die Speicherbestätigung.',
         tone: 'neutral',
       };
     case 'retry_pending':
@@ -145,14 +145,14 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
       return state.outcome === null
         ? {
             title: 'Offline bereit',
-            message: `NFC-Erfassung ist mit der sicheren lokalen Konfiguration möglich. ${state.queueCount} Vorgänge warten auf Serverbestätigung.`,
+            message: `Du kannst Tags scannen; deine Erfassungen bleiben auf dem Handy gespeichert. ${state.queueCount} Erfassungen warten auf Bestätigung.`,
             tone: 'success',
           }
         : presentOutcome(state.outcome.status);
     case 'saved_locally':
       return {
         title: 'Sicher lokal gespeichert',
-        message: `${state.queueCount} Vorgänge warten in unveränderter Reihenfolge auf die Serverbestätigung.`,
+        message: `${state.queueCount} Erfassungen sind auf dem Handy gespeichert und warten auf Bestätigung.`,
         tone: 'warning',
       };
     case 'synchronizing':
@@ -163,7 +163,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
       };
     case 'server_review_pending':
       return {
-        title: 'Sichere Prüfung erforderlich',
+        title: 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.',
         message: 'Dein Scan ist zur Prüfung aufgenommen.',
         tone: 'warning',
       };
@@ -172,7 +172,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
     case 'secure_storage_unavailable':
       return {
         title: 'Sicherer Speicher nicht verfügbar',
-        message: 'Neue Scans sind zum Schutz deiner Arbeitszeit gesperrt. Starte die App einmal neu. Bleibt die Meldung bestehen, lösche weder die App noch ihre Daten und wende dich an den Support.',
+        message: 'Neue Scans sind gesperrt; starte die App neu, aber lösche weder die App noch ihre Daten. Bleibt die Meldung bestehen, wende dich an den Support.',
         tone: 'error',
       };
     case 'protected_pending':
@@ -184,7 +184,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
       return state.reason === 'legacy_membership_unknown'
         ? {
             title: 'Älterer Vorgang geschützt',
-            message: 'Dieser Vorgang besitzt noch keine eindeutig zuordenbare Mitgliedschaft. Lösche weder die App noch ihre Daten und wende dich zur sicheren Klärung an den Support.',
+            message: 'Diese Erfassung kann keinem Konto zugeordnet werden. Lösche weder die App noch ihre Daten und wende dich an den Support.',
             tone: 'warning',
           }
         : {
@@ -212,35 +212,35 @@ function presentOutcome(
     case 'unreadable':
       return { title: 'Tag nicht lesbar', message: 'Bitte versuche den Scan erneut.', tone: 'error' };
     case 'timed_out':
-      return { title: 'Scan abgelaufen', message: 'Es wurde rechtzeitig kein NFC-Tag erkannt.', tone: 'warning' };
+      return { title: 'Scan abgelaufen', message: 'Es wurde kein Tag erkannt und nichts gesendet. Versuche den Scan erneut.', tone: 'warning' };
     case 'cancelled':
       return { title: 'Scan abgebrochen', message: 'Es wurden keine Scan-Daten gesendet.', tone: 'neutral' };
     case 'nfc_unavailable':
-      return { title: 'NFC nicht verfügbar', message: 'Die Scan-Funktion ist derzeit nicht verfügbar.', tone: 'error' };
+      return { title: 'NFC nicht verfügbar', message: 'Ein Scan ist gerade nicht möglich; deine Zeiten bleiben erhalten. Prüfe, ob NFC am Handy eingeschaltet ist.', tone: 'error' };
     case 'tag_not_assigned':
-      return { title: 'Tag nicht zugeordnet', message: 'Für diesen NFC-Tag ist keine verwendbare Zuordnung vorhanden.', tone: 'warning' };
+      return { title: 'Tag nicht zugeordnet', message: 'Der Tag gehört zu keinem verfügbaren Arbeitsziel; deine Zeiten bleiben unverändert. Bitte die Verwaltung, die Zuordnung zu prüfen.', tone: 'warning' };
     case 'scan_context_unavailable':
       return { title: 'Zuordnung nicht erreichbar', message: 'Es wurden noch keine Arbeitszeit-Daten gesendet. Bitte starte später einen neuen Scan.', tone: 'error' };
     case 'time_entry_started':
-      return { title: 'Arbeitszeit gestartet', message: 'Der Server hat den Start bestätigt.', tone: 'success' };
+      return { title: 'Arbeitszeit gestartet', message: 'Dein Arbeitsbeginn ist gespeichert.', tone: 'success' };
     case 'time_entry_stopped':
-      return { title: 'Arbeitszeit gestoppt', message: 'Der Server hat den Stopp bestätigt.', tone: 'success' };
+      return { title: 'Arbeitszeit gestoppt', message: 'Dein Arbeitsende ist gespeichert.', tone: 'success' };
     case 'break_started':
-      return { title: 'Pause begonnen', message: 'Der Server hat den Pausenbeginn bestätigt. Das Arbeitsziel bleibt aktiv.', tone: 'success' };
+      return { title: 'Pause begonnen', message: 'Dein Pausenbeginn ist gespeichert. Das Arbeitsziel bleibt aktiv.', tone: 'success' };
     case 'break_stopped':
-      return { title: 'Pause beendet', message: 'Der Server hat das Pausenende bestätigt.', tone: 'success' };
+      return { title: 'Pause beendet', message: 'Dein Pausenende ist gespeichert.', tone: 'success' };
     case 'duplicate_scan_ignored':
       return { title: 'Doppelter Scan ignoriert', message: 'Deine Arbeitszeit wurde nicht verändert.', tone: 'neutral' };
     case 'active_entry_for_other_target_rejected':
       return { title: 'Andere Arbeitszeit ist aktiv', message: 'Beende zuerst die bereits aktive Arbeitszeit. Es wurde nichts verändert.', tone: 'warning' };
     case 'break_without_active_time_entry_rejected':
-      return { title: 'Keine Arbeitszeit aktiv', message: 'Eine Pause kann nur innerhalb einer laufenden Arbeitszeit erfasst werden.', tone: 'warning' };
+      return { title: 'Keine Arbeitszeit aktiv', message: 'Deine Zeiten bleiben unverändert. Starte zuerst eine Arbeitszeit, um eine Pause zu erfassen.', tone: 'warning' };
     case 'work_trigger_during_break_rejected':
-      return { title: 'Pause ist aktiv', message: 'Beende die Pause mit demselben Pausenauslöser. Das Arbeitsziel wurde nicht verändert.', tone: 'warning' };
+      return { title: 'Pause ist aktiv', message: 'Dein Arbeitsziel bleibt unverändert. Beende die Pause über den Pausen-Tag oder die Pausentaste.', tone: 'warning' };
     case 'escalation_required':
-      return { title: 'Prüfung erforderlich', message: 'Der Scan muss geprüft werden. Deine Arbeitszeit wurde nicht stillschweigend verändert.', tone: 'warning' };
+      return { title: 'Prüfung erforderlich', message: 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, den Scan zu prüfen.', tone: 'warning' };
     case 'server_review_pending':
-      return { title: 'Scan sicher gespeichert', message: 'Der Server hat die Scan-Evidenz gespeichert. Deine Arbeitszeit wurde noch nicht verändert und wartet auf eine sichere Prüfung.', tone: 'warning' };
+      return { title: 'Scan sicher gespeichert', message: 'Dein Scan ist gespeichert; deine Arbeitszeit bleibt vorerst unverändert. Bitte die Verwaltung, den Scan zu prüfen.', tone: 'warning' };
     case 'session_rejected':
       return { title: 'Sitzung nicht mehr gültig', message: 'Bitte melde dich erneut an.', tone: 'error' };
     case 'queue_full':

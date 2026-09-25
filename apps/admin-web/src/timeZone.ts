@@ -1,1 +1,1 @@
-export { parseZonedLocalTimestamp, toZonedLocalInput, formatZonedDateTime, formatExactZonedDateTime } from '@taptime/core';
+export { parseEditedZonedMinute, toZonedMinuteInput, parseZonedLocalTimestamp, toZonedLocalInput, formatZonedDateTime, formatExactZonedDateTime } from '@taptime/core';

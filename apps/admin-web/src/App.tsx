@@ -1,3 +1,4 @@
+import type { Notice } from './contracts';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import {
 	FormEvent,
@@ -317,7 +318,7 @@ function PasswordRecovery({
 }: {
   readonly administration: AdminWebCapability;
   readonly completing: boolean;
-  readonly notice: string | null;
+  readonly notice: Notice | null;
 }) {
   const [password, setPassword] = useState('');
   return <main className="login-shell">

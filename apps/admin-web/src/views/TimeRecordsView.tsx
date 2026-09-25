@@ -1,4 +1,5 @@
 import { TimeRecordControls } from '../TimeEditingControls';
+import { exportPresentation } from '../exportPresentation';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import {
 	useEffect,
@@ -15,10 +16,9 @@ import {
 	type AdminRoute
 } from '../navigation';
 import {
-	formatExactZonedDateTime,
 	formatZonedDateTime,
-	parseZonedLocalTimestamp,
-	toZonedLocalInput,
+	parseEditedZonedMinute,
+	toZonedMinuteInput,
 } from '../timeZone';
 import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
 import { captureLabel,navigateFromLink,returnFocus,targetLabel,useIntentFocusReturn } from '../viewHelpers';
@@ -39,6 +39,8 @@ export default function TimeRecordsView({
   const [startedAt, setStartedAt] = useState('');
   const [stoppedAt, setStoppedAt] = useState('');
   const [reason, setReason] = useState('');
+  const [originalStart,setOriginalStart]=useState<string|null>(null);
+  const [originalStop,setOriginalStop]=useState<string|null>(null);
   const [timeError, setTimeError] = useState<string | null>(null);
   const [month, setMonth] = useState(route.month ?? '');
   const [statusFilter, setStatusFilter] = useState(route.status);
@@ -58,10 +60,11 @@ export default function TimeRecordsView({
     setCaptureType(route.captureType);
   }, [route.captureType, route.month, route.status]);
   const format = formatZonedDateTime;
-  const formatExact = formatExactZonedDateTime;
-  const exportAction=state.availableSections.includes('time_export') ? <div className="export-options"><label>CSV-Fassung<select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4)}><option value={4}>v4 · Herkunft und Kommentar</option><option value={3}>v3 · Bisheriges Format</option></select></label><button className="header-primary"
+  const formatExact = formatZonedDateTime;
+  const exportText = exportPresentation(state.timeWindow, route.month !== null);
+  const exportAction=state.availableSections.includes('time_export') ? <div className="export-options"><label>CSV-Format<select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4)}><option value={4}>Standard (mit Herkunft und Kommentar)</option><option value={3}>Bisheriges Format</option></select></label><button className="header-primary"
     disabled={state.timeReviewBusy} aria-busy={state.timeReviewBusy}
-    onClick={()=>void administration.exportTimeRecords(exportVersion)}>CSV herunterladen</button></div> : null;
+    onClick={()=>void administration.exportTimeRecords(exportVersion)}>{exportText.label}</button><small>{exportText.hint}</small></div> : null;
   if (!state.availableSections.includes('time_records')) {
     return <Panel title="Arbeitszeiten herunterladen"
       description="Die vollständige CSV-Datei steht für die Lohnbuchhaltung bereit.">
@@ -183,13 +186,13 @@ export default function TimeRecordsView({
           </button>}
     </Panel>
     <Panel title="Abgeschlossene Arbeitszeit korrigieren"
-      description={`Eingaben werden in ${BUSINESS_TIME_ZONE} gelesen; gespeichert wird in UTC.`}>
+      description={`Alle Uhrzeiten gelten für ${BUSINESS_TIME_ZONE}.`}>
       <form className="form-grid" onSubmit={(event) => {
         event.preventDefault();
-        const canonicalStart = parseZonedLocalTimestamp(startedAt);
-        const canonicalStop = parseZonedLocalTimestamp(stoppedAt);
+        const canonicalStart = parseEditedZonedMinute(startedAt,originalStart);
+        const canonicalStop = parseEditedZonedMinute(stoppedAt,originalStop);
         if (canonicalStart === null || canonicalStop === null) {
-          setTimeError('Die Zeitangaben können nicht verwendet werden. Mindestens ein lokaler Zeitpunkt existiert nicht oder ist wegen der Zeitumstellung mehrdeutig. Prüfen Sie Beginn und Ende; Ihre Eingaben bleiben erhalten.');
+          setTimeError('Die Uhrzeit ist wegen der Zeitumstellung ungültig oder nicht eindeutig. Ihre Eingaben bleiben erhalten; prüfen Sie Beginn und Ende.');
           return;
         }
         setTimeError(null);
@@ -202,8 +205,10 @@ export default function TimeRecordsView({
               const id = event.target.value;
               const selected = state.timeRecords.find((record) => record.timeRecordId === id);
               setRecordId(id);
-              setStartedAt(selected === undefined ? '' : toZonedLocalInput(selected.startedAt));
-              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedLocalInput(selected.stoppedAt));
+              setOriginalStart(selected?.startedAt??null);
+              setOriginalStop(selected?.stoppedAt??null);
+              setStartedAt(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt));
+              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedMinuteInput(selected.stoppedAt));
             }}>
             <option value="">Arbeitszeit auswählen</option>
             {state.timeRecords.filter((record) => record.status === 'stopped').map((record) =>
@@ -215,13 +220,13 @@ export default function TimeRecordsView({
         {timeError === null ? null : <p id="correction-time-error"
           className="field-error" role="alert">{timeError}</p>}
         <label>Neuer Beginn
-          <input required type="datetime-local" step="0.001" value={startedAt}
+          <input required type="datetime-local" step="60" value={startedAt}
             aria-describedby={timeError === null ? undefined : 'correction-time-error'}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setStartedAt(event.target.value)} />
         </label>
         <label>Neues Ende
-          <input required type="datetime-local" step="0.001" value={stoppedAt}
+          <input required type="datetime-local" step="60" value={stoppedAt}
             aria-describedby={timeError === null ? undefined : 'correction-time-error'}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setStoppedAt(event.target.value)} />
@@ -237,7 +242,7 @@ export default function TimeRecordsView({
       </form>
       {state.correctionIntent === null ? null : <Confirmation
         label="Korrektur ausdrücklich bestätigen"
-        title="Korrektur lückenlos protokollieren?"
+        title="Korrektur speichern?"
         confirmLabel="Korrektur ausdrücklich bestätigen"
         busyLabel="Wird protokolliert …"
         busy={state.timeReviewBusy}

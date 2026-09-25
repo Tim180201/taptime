@@ -1,7 +1,7 @@
 import { AddTimeControl,TimeRecordControls } from './TimeEditingControls';
 import {
 	BUSINESS_TIME_ZONE,businessDay,dayStart,formatClock,formatDuration,formatHours,
-	intervalMilliseconds,monthDays,provenance,rangeSummary,recordsForDay,shiftDay,shiftMonth,weekStart
+	intervalMilliseconds,monthDays,provenance,rangeSummary,monthTimeSummary,recordDaySummary,recordsForDay,shiftDay,shiftMonth,weekStart
 } from '@taptime/core';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { useState } from 'react';
@@ -15,7 +15,7 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
   const [selection,setSelection]=useState(today);
   const selected=selection.startsWith(month) ? selection : `${month}-01`;
   const week=weekStart(selected);
-  const summaries=[['Monat',rangeSummary(value,`${month}-01`,`${shiftMonth(month,1)}-01`)],
+  const summaries=[['Monat',monthTimeSummary(value,month)],
     [`Woche vom ${week.split('-').reverse().join('.')}`,rangeSummary(value,week,shiftDay(week,7))],
     ['Ausgewählter Tag',rangeSummary(value,selected,shiftDay(selected,1))]] as const;
   const records=recordsForDay(value,selected);
@@ -23,7 +23,7 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
   return <section aria-label="Zeitkalender">
     <div className="metric-grid">{summaries.map(([label,summary])=><article className="metric-card" key={label}>
       <span>{label}</span><strong>{summary.complete ? `${formatHours(summary.milliseconds)} h` : '—'}</strong>
-      <small>{summary.complete ? 'Zeitspannen ohne Pausenabzug' : 'Zeitraum nicht vollständig geladen'}</small>
+      <small>{summary.complete ? `${formatDuration(summary.breakMilliseconds)} Pause` : 'Zeitraum nicht vollständig geladen'}</small>
     </article>)}</div>
     <div className="calendar-layout"><Panel title={monthTitle}>
       <div className="toolbar"><button className="quiet" aria-label="Voriger Monat" onClick={()=>onMonthChange(shiftMonth(month,-1))}>←</button>
@@ -41,13 +41,14 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
       <AddTimeControl day={selected}/><ul className="time-day-list">{records.map(record=><li key={record.timeRecordId}><strong>{record.targetDisplayName}</strong>
         <p>{formatClock(Math.max(dayStart(selected),Date.parse(record.startedAt)))} – {record.stoppedAt === null ? 'läuft'
           : formatClock(Math.min(dayStart(shiftDay(selected,1)),Date.parse(record.stoppedAt)))} · {record.details?({nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin]):provenance(record)}</p>
-        <strong>{formatDuration(intervalMilliseconds(record,dayStart(selected),Math.min(dayStart(shiftDay(selected,1)),Date.parse(value.windowEndedAt))))}</strong>
+        <strong>{formatDuration(recordDaySummary(record,selected).milliseconds)}</strong>
+        <p>{formatDuration(recordDaySummary(record,selected).breakMilliseconds)} Pause</p>
         <TimeRecordControls record={record}/>
       </li>)}</ul>
       {records.length === 0 ? <p>{rangeSummary(value,selected,shiftDay(selected,1)).complete
         ? 'Für diesen Tag sind keine Zeiten erfasst.' : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</p> : null}
     </Panel></div>
-    <p className="supporting">Zeitspannen ohne Pausenabzug · {BUSINESS_TIME_ZONE}</p>
+    <p className="supporting">Arbeitszeit nach Pausen · {BUSINESS_TIME_ZONE}</p>
     <p className="supporting">Geladener Zeitraum: {new Date(value.windowStartedAt).toLocaleString('de-DE',{timeZone:BUSINESS_TIME_ZONE})} – {new Date(value.windowEndedAt).toLocaleString('de-DE',{timeZone:BUSINESS_TIME_ZONE})}</p>
     <button className="secondary" onClick={onRefresh}>Zeiten aktualisieren</button>
   </section>;

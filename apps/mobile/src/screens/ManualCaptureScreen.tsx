@@ -74,7 +74,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
           title="Pause"
           tone={pauseTag ? 'primary' : 'quiet'}
           accessibilityState={{ selected: pauseTag }}
-          accessibilityHint="Der Server entscheidet, ob die Pause beginnt oder endet."
+          accessibilityHint="Beginnt oder beendet deine Pause automatisch."
           onPress={() => { setSelected(null); setPauseTag(true); setSelectionError(false); }}
         />
       </View>
@@ -89,8 +89,8 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
           loading={state.submitting}
           onPress={() => pauseTag ? work.triggerBreak()
             : selected === null ? setSelectionError(true) : work.triggerManual(selected)}
-          accessibilityHint={pauseTag ? 'Der Server entscheidet, ob die Pause beginnt oder endet.'
-            : 'Der Server entscheidet, ob die Arbeitszeit startet oder stoppt.'}
+          accessibilityHint={pauseTag ? 'Beginnt oder beendet deine Pause automatisch.'
+            : 'Startet oder stoppt deine Arbeitszeit automatisch.'}
         />
         {state.outcome === null ? null
           : <Text accessibilityLiveRegion="polite" style={styles.outcome}>
@@ -113,7 +113,7 @@ function outcomeLabel(outcome: NonNullable<
 >): string {
   if (outcome === 'time_entry_started') return 'Arbeitszeit gestartet';
   if (outcome === 'time_entry_stopped') return 'Arbeitszeit gestoppt';
-  if (outcome === 'duplicate_scan_ignored') return 'Doppelter Auslöser ignoriert';
+  if (outcome === 'duplicate_scan_ignored') return 'Doppelte Erfassung; deine Arbeitszeit bleibt unverändert';
   if (outcome === 'active_entry_for_other_target_rejected') {
     return 'Eine andere Arbeitszeit ist aktiv.';
   }
@@ -123,11 +123,11 @@ function outcomeLabel(outcome: NonNullable<
     return 'Ohne laufende Arbeitszeit ist keine Pause möglich.';
   }
   if (outcome === 'work_trigger_during_break_rejected') {
-    return 'Die Pause muss zuerst mit dem Pausenauslöser beendet werden.';
+    return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über den Pausen-Tag oder die Pausentaste.';
   }
-  if (outcome === 'escalation_required') return 'Sichere Prüfung erforderlich';
+  if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';
   if (outcome === 'rejected') return 'Sitzung nicht mehr gültig';
-  return 'Auslöser sicher vorgemerkt';
+  return 'Deine Erfassung ist gespeichert und wartet auf Verarbeitung.';
 }
 
 const styles = StyleSheet.create({

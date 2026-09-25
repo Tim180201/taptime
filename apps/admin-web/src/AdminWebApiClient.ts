@@ -1,4 +1,4 @@
-import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_DETAILS_ACCEPT, isTimeRecordDetails, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import {
@@ -689,7 +689,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/mobile/own-time/query' || path === '/v1/administration/managed-person-time' || path === '/v2/administration/time-records/query' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
+      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/mobile/own-time/query' || path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
       if (exposeLocationScopeError && response.status === 403) {
         if (
           response.redirected
@@ -1371,7 +1371,7 @@ function isNonNegativeInteger(value: unknown): value is number {
 }
 
 function validCalendarPage(value: unknown, limit: number): value is MobileOwnTimeQueryResponse {
-  if (!(isDetailedTimeResponse(value) || validateOwnTimeResponse(value)) || value.records.length > limit
+  if (!isCalendarTimeResponse(value) || value.records.length > limit
     || Date.parse(value.windowStartedAt) >= Date.parse(value.windowEndedAt)) return false;
   const ids=value.records.map(record=>record.timeRecordId);
   return new Set(ids).size === ids.length

@@ -26,6 +26,7 @@ interface ActorRow extends QueryResultRow {
 }
 
 interface OwnTimeRow extends QueryResultRow {
+  readonly calendar?: import('@taptime/mobile-work-contract').CalendarTimeData;
   readonly row_kind: 'active' | 'history';
   readonly time_record_id: string;
   readonly source: 'canonical' | 'recovered';
@@ -120,14 +121,14 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
           ],
         );
         const detailRows = command.includeTimeDetails
-          ? (await client.query<{time_record_id:string; details: import('@taptime/mobile-work-contract').TimeRecordDetails}>(
-              'SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[])', [rows.rows.map(r=>r.time_record_id)])).rows : [];
+          ? (await client.query<{time_record_id:string; details: import('@taptime/mobile-work-contract').TimeRecordDetails; calendar?: import('@taptime/mobile-work-contract').CalendarTimeData}>(
+              `SELECT * FROM taptime_server.${command.includeCalendarBreaks ? 'read_time_record_calendar_v1' : 'read_time_record_details_v1'}($1::uuid[])`, [rows.rows.map(r=>r.time_record_id)])).rows : [];
         const detailed = (row: OwnTimeRow): SafeOwnTimeRecord => {
           const base = mapOwnTimeRecord(row, command.includeTimeDetails);
           if (!command.includeTimeDetails) return base;
           const details = detailRows.find(d=>d.time_record_id===row.time_record_id)?.details;
           if (!details) throw new Error('Missing time details');
-          return {...base, details};
+          return {...base, details,...(command.includeCalendarBreaks ? {calendar:detailRows.find(d=>d.time_record_id===row.time_record_id)?.calendar} : {})};
         };
         const active = rows.rows.find((row) => row.row_kind === 'active');
         const history = rows.rows.filter((row) => row.row_kind === 'history');

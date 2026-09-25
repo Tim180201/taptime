@@ -27,7 +27,7 @@ describe('Admin Web zoned timestamp boundary', () => {
 
   it('always displays Berlin wall time and preserves exact correction timestamps', () => {
     expect(formatZonedDateTime('2026-07-20T08:15:30.123Z'))
-      .toMatch(/10:15:30.*GMT\+2.*\[Europe\/Berlin\]/);
+      .toBe('20.07.2026, 10:15');
     expect(formatExactZonedDateTime('2026-07-20T08:15:30.123Z'))
       .toBe('2026-07-20 10:15:30.123 GMT+2 [Europe/Berlin]');
     expect(formatExactZonedDateTime('2026-01-20T08:15:30.123Z'))

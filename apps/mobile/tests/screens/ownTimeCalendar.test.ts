@@ -3,7 +3,7 @@ import type { MobileOwnTimeQueryResponse, SafeOwnTimeRecord } from '@taptime/mob
 import { businessDay, dayStart, formatDuration, intervalMilliseconds, monthDays,
   provenance, rangeSummary, recordsForDay, shiftMonth, weekStart } from '../../src/screens/ownTimeCalendar';
 
-const record: SafeOwnTimeRecord = { timeRecordId: 'record', source: 'canonical', targetType: 'customer',
+const record: SafeOwnTimeRecord = { calendar:{asOf:'2026-10-02T00:00:00Z',workDurationSeconds:7200,breakDurationSeconds:0,breakIntervals:[]}, timeRecordId: 'record', source: 'canonical', targetType: 'customer',
   targetDisplayName: 'Werkstatt', status: 'stopped', startedAt: '2026-09-30T21:00:00Z',
   stoppedAt: '2026-09-30T23:00:00Z', startedVia: 'nfc', stoppedVia: 'manual' };
 function projection(overrides: Partial<MobileOwnTimeQueryResponse> = {}): MobileOwnTimeQueryResponse {
@@ -30,8 +30,8 @@ describe('Berlin calendar', () => {
   it('splits an interval crossing a Berlin month boundary without double counting', () => {
     const september = rangeSummary(projection(), '2026-09-30', '2026-10-01');
     const october = rangeSummary(projection(), '2026-10-01', '2026-10-02');
-    expect(september).toEqual({ complete: true, milliseconds: 3_600_000 });
-    expect(october).toEqual({ complete: true, milliseconds: 3_600_000 });
+    expect(september).toEqual({ complete: true, milliseconds: 3_600_000, breakMilliseconds: 0 });
+    expect(october).toEqual({ complete: true, milliseconds: 3_600_000, breakMilliseconds: 0 });
     expect(recordsForDay(projection(), '2026-10-01')).toEqual([record]);
     expect(formatDuration(september.milliseconds + october.milliseconds)).toBe('2:00 h');
     expect(provenance(record)).toBe('manuell erfasst');
@@ -42,7 +42,7 @@ describe('Berlin calendar', () => {
     expect(rangeSummary(projection(), '2026-10-03', '2026-10-04').complete).toBe(false);
   });
   it('clips running records to the server snapshot and includes an active record only once', () => {
-    const active = { ...record, stoppedAt: null, status: 'started' as const };
+    const active = { ...record, calendar:{asOf:'2026-09-30T22:30:00Z',workDurationSeconds:5400,breakDurationSeconds:0,breakIntervals:[]}, stoppedAt: null, status: 'started' as const };
     const ownTime = projection({ records: [active], activeRecord: active, windowEndedAt: '2026-09-30T22:30:00Z' });
     expect(rangeSummary(ownTime, '2026-10-01', '2026-10-02').milliseconds).toBe(30 * 60_000);
   });

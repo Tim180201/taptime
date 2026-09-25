@@ -2,7 +2,7 @@ import {describe,it,expect,vi} from 'vitest';
 import {AdminWebApiClient} from '../src/AdminWebApiClient';
 const member='20000000-0000-4000-8000-000000000001',event='20000000-0000-4000-8000-000000000002',receipt='20000000-0000-4000-8000-000000000003';
 const request={expectedMembershipId:member,workEvent:{id:event,subject:{type:'break' as const}},receipt:{id:receipt,attemptNumber:1 as const}};
-const active={timeRecordId:event,source:'canonical',targetType:'customer',targetDisplayName:'Werkstatt',status:'started',startedAt:'2026-11-02T08:00:00.000Z',stoppedAt:null,startedVia:'manual',stoppedVia:null};
+const active={calendar:{asOf:"2026-11-02T09:00:00.000Z",workDurationSeconds:3600,breakDurationSeconds:0,breakIntervals:[]},details:{origin:"manual",baseRowVersion:1,effectiveRevisionNumber:0,changed:false,change:null,comment:null,overlapsAnotherRecord:false},timeRecordId:event,source:'canonical',targetType:'customer',targetDisplayName:'Werkstatt',status:'started',startedAt:'2026-11-02T08:00:00.000Z',stoppedAt:null,startedVia:'manual',stoppedVia:null};
 describe('T049 real Web transport contracts',()=>{
  it('uses the exact break route and accepts only acknowledgements for this event',async()=>{
   const value={status:'synchronized',idempotentRetry:false,workEventId:event,receiptId:receipt,serverTimeEntryId:member,

@@ -1,3 +1,4 @@
+import type { Notice } from './contracts';
 import { useEffect, useRef, useState } from 'react';
 import { AdminWebApiClient } from './AdminWebApiClient';
 import type { AdminWebAuthPort } from './AdminWebCoordinator';
@@ -41,7 +42,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
     ?? (state.assignableLocations.length === 1 ? state.assignableLocations[0]!.id : ''));
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
-  const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null);
+  const [notice, setNotice] = useState<Notice | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const wasOpen = useRef(false);
@@ -60,7 +61,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
       : <dialog ref={dialog} className="invitation-panel" aria-label="Beschäftigte Person einladen"
         open={nativeDialog ? undefined : true} onCancel={event=>{event.preventDefault();if(!busy) setOpen(false);}}>
         <h2>Beschäftigte Person einladen</h2>
-        {notice === null ? null : <p role={notice.error ? 'alert' : 'status'}>{notice.text}</p>}
+        {notice === null ? null : <p role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
         <button className="quiet" disabled={busy} onClick={()=>{setOpen(false);requestAnimationFrame(()=>trigger.current?.focus());}}>Einladen schließen</button>
         <form className="inline-form" onSubmit={(event) => {
         event.preventDefault();
@@ -75,7 +76,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
             setName(''); setEmail(''); setOpen(false);
             await onCreated(result.status);
           } else {
-            setNotice({ error: true, text: result.status === 'failed' ? ACCOUNT_INVITATION_NOTICES[result.code]
+            setNotice({ kind: 'error', text: result.status === 'failed' ? ACCOUNT_INVITATION_NOTICES[result.code]
               : result.status === 'rejected' ? 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.'
                 : ACCOUNT_INVITATION_NOTICES.invitation_needs_attention });
           }

@@ -1,3 +1,4 @@
+import type { Notice } from './contracts';
 import { useEffect,useRef,type MouseEvent as ReactMouseEvent,type RefObject } from 'react';
 import type { AdminRoute } from './navigation';
 export function reviewReasonLabel(value: string): string {
@@ -70,35 +71,13 @@ export function recentTimeWindow(): { readonly fromInclusive: string; readonly t
   });
 }
 
-export function FeedbackBand({ message }: { readonly message: string }) {
-  const error = isErrorMessage(message);
-  return <section className={`notice ${error ? 'notice-error' : 'notice-success'}`}
+export function FeedbackBand({ message }: { readonly message: Notice }) {
+  const error = message.kind === 'error';
+  return <section className={`notice notice-${message.kind}`}
     role={error ? 'alert' : 'status'} aria-live={error ? 'assertive' : 'polite'}>
-    <strong>{error ? 'Die Aktion wurde nicht abgeschlossen' : 'Erledigt'}</strong>
-    <p>{message}</p>
+    <strong>{error ? 'Die Aktion wurde nicht abgeschlossen' : message.kind === 'success' ? 'Erledigt' : 'Hinweis'}</strong>
+    <p>{message.text}</p>
   </section>;
-}
-
-export function isErrorMessage(message: string): boolean {
-  return !new Set([
-    'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.',
-    'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.',
-    'Kunde wurde sicher angelegt.',
-    'Projekt wurde sicher angelegt.',
-    'Projekt wurde deaktiviert.',
-    'Einladung wurde einmalig erzeugt.',
-    'Zugang wurde entzogen.',
-    'Rolle wurde geändert.',
-    'Einladungsgeheimnis wurde verworfen.',
-    'Änderung wurde verworfen.',
-    'NFC-Tag wurde sicher neu zugeordnet.',
-    'Die Zuordnung war bereits korrekt.',
-    'Korrektur wurde verworfen.',
-    'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt lückenlos erhalten.',
-    'Die Prüfentscheidung wurde verworfen.',
-    'Die Prüfentscheidung wurde lückenlos protokolliert.',
-    'Die CSV-Datei wurde erstellt und heruntergeladen.',
-  ]).has(message);
 }
 
 export function returnFocus(...references: readonly RefObject<HTMLElement | null>[]): void {

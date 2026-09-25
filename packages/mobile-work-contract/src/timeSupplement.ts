@@ -92,3 +92,29 @@ export function isBackfillTargetQueryResponse(value:unknown):value is BackfillTa
   const {status,...page}=value;
   return validateWorkTargetResponse(page);
 }
+
+/** Only clients requesting this version receive breaks; old parsers stay strict. */
+export const TIME_CALENDAR_ACCEPT = 'application/vnd.taptime.time-calendar.v1+json';
+export interface CalendarTimeData {
+  readonly asOf: string;
+  readonly workDurationSeconds: number;
+  readonly breakDurationSeconds: number;
+  readonly breakIntervals: readonly { readonly startedAt: string; readonly stoppedAt: string }[];
+}
+export function isCalendarTimeResponse(v:unknown):v is DetailedTimeResponse {
+  if (!object(v) || !Array.isArray(v.records)) return false;
+  const records=[...v.records,...(v.activeRecord===null?[]:[v.activeRecord])];
+  if (!records.every(r=> {
+    if (!object(r) || !object(r.calendar) || !keys(r.calendar,['asOf','workDurationSeconds','breakDurationSeconds','breakIntervals'])
+      || !Number.isSafeInteger(r.calendar.workDurationSeconds) || Number(r.calendar.workDurationSeconds)<0
+      || !Number.isSafeInteger(r.calendar.breakDurationSeconds) || Number(r.calendar.breakDurationSeconds)<0
+      || !timestamp(r.calendar.asOf) || !Array.isArray(r.calendar.breakIntervals) || !timestamp(r.startedAt)
+      || !(r.stoppedAt===null || timestamp(r.stoppedAt))) return false;
+    const start=Date.parse(r.startedAt),end=Date.parse(r.stoppedAt??r.calendar.asOf);
+    return r.calendar.breakIntervals.every(b=>object(b) && keys(b,['startedAt','stoppedAt'])
+      && timestamp(b.startedAt) && timestamp(b.stoppedAt) && Date.parse(b.startedAt)>=start
+      && Date.parse(b.stoppedAt)<=end && Date.parse(b.stoppedAt)>=Date.parse(b.startedAt));
+  })) return false;
+  const base=(r:Record<string,unknown>)=>{const {calendar,...rest}=r;return rest;};
+  return isDetailedTimeResponse({...v,records:v.records.map(base),activeRecord:v.activeRecord===null?null:base(v.activeRecord as Record<string,unknown>)});
+}

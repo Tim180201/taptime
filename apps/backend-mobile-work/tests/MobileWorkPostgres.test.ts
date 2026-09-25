@@ -586,3 +586,14 @@ function runtimeConnectionString(
 function quoteLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
 }
+
+it('T-079 opts into authoritative PostgreSQL durations without widening own-time scope',async()=>{
+ const result=await coordinator.queryOwnTime({accessToken:tokens.user,request:{expectedMembershipId:ids.membership,limit:20,cursor:null},includeTimeDetails:true,includeCalendarBreaks:true});
+ expect(result.status).toBe('succeeded');if(result.status!=='succeeded')return;
+ const {isCalendarTimeResponse}=await import('@taptime/mobile-work-contract');
+ expect(isCalendarTimeResponse(result.response)).toBe(true);
+ const records=[...result.response.records,...(result.response.activeRecord?[result.response.activeRecord]:[])];
+ expect(records.length).toBeGreaterThan(0);
+ expect(records.every(r=>r.calendar && Number.isSafeInteger(r.calendar.workDurationSeconds))).toBe(true);
+ expect(records.some(r=>r.timeRecordId===ids.otherStoppedEntry)).toBe(false);
+});
