@@ -1,59 +1,73 @@
 # Aktuelle Aufgabe
 
-> **Stand 25.09.2026:** Produktion auf `6c7007d` (Migrationen bis 034), App-Builds iPhone 1.0.0 (3) und Android
-> versionCode 10 auf demselben Stand. Geräteabnahme läuft. Reihenfolge: **T-080 → ein App-Build → Rest der
-> Geräteabnahme → T-024 → Pilot Monat 1**. Frühere Briefs stehen in der Git-Historie.
+> **Stand 25.09.2026:** Produktion auf `6c7007d` (Migrationen bis 034). Auf `main` zusätzlich T-080 (`7bd7877`, App).
+> Reihenfolge (PO 25.09.): **T-083 → Deploy → App-Builds → Rest der Geräteabnahme → T-024 → Pilot Monat 1**.
+> Frühere Briefs stehen in der Git-Historie.
 
-## T-080 · Die Standortleitung scannt (Befund Geräteabnahme 25.09.)
+## T-083 · Die Sicherung bleibt kurz, der Wächter passt sich an (Befund 25.09.)
 
-**Für:** Development · **Risiko:** Offline-Erfassung, lokales Schema mit Bestandsdaten, Rollenwechsel · **Zeitbox:**
-eine Sitzung. Nur App und gemeinsamer Vertrag; kein Serververhalten ändern.
+**Für:** Development · **Risiko:** Sicherung und Archivkette in Produktion (D-051, D-055, D-066); nichts löschen,
+was ein Restore braucht · **Zeitbox:** eine Sitzung. Nur `infrastructure/backup/*`, `infrastructure/monitoring/*`,
+`infrastructure/operations/taptime-status`, deren Tests und Runbooks. Kein Vertragswechsel im Archiv (Archivnamen,
+Inhalte und Marker bleiben).
 
-### Befund
+### Befund (`taptime-status` 25.09.)
 
-Eine Standortleitung (auch eine, die vorher Beschäftigte war) sieht auf iPhone und Android „NFC nicht verfügbar ·
-Die Scan-Funktion konnte nicht sicher vorbereitet werden.“ Ein frisches Beschäftigten-Konto scannt auf denselben
-Geräten. Der Server stellt die Offline-Freigabe für die Standortleitung korrekt aus (Migration 020 hat die
-Rollenprüfung erweitert; `lock_offline_active_actor_v1` und die Policies kennen keine Rollengrenze). Die **App**
-verwirft sie: `OfflineCaptureLeaseClient.ts:195` akzeptiert nur `administrator` und `employee`; ebenso die lokalen
-Prüfungen in `OfflineCaptureDatabase.ts` (1684, 1737), der `CHECK` in `offline_lease_generations` (2041), der
-Kontexttyp in `OfflineCaptureCoordinator.ts:1403` und `OfflineMembershipRole` in `packages/offline-sync-contract`.
-Ergebnis `unavailable` ohne gespeicherten Kontext → Zustand `unavailable`.
+Stündliche Sicherungen dauern 10–44 Minuten bei winziger Datenbank; ein WAL-Zyklus mit einem Segment 142 s, davon
+`base_seconds=129` (im Wesentlichen `borg info` auf die geprüfte Basis), `upload_seconds=6`. Drei Ursachen im Code:
+1. Je Stunde ein `base-*`-Archiv (`taptime-backup`), je WAL-Segment ein `wal-*`-Archiv (`taptime-wal-archiver`);
+   aufgeräumt wird nur sonntags in `taptime-restore-verify` (ab Zeile ~495: `borg prune` auf `base-*`, danach die
+   WAL-Untergrenze aus `retained_base_wal_floors`). Zwischen zwei Sonntagen wachsen mehrere hundert Archive an.
+2. Drei getrennte Borg-Caches (`$STAGING_ROOT/borg-cache` in der Sicherung, `$WAL_ARCHIVE_CACHE_DIRECTORY/cache`
+   im Archivierer, ein eigener in der Prüfung). Jeder Borg-Aufruf gleicht dann alle Archive nach, die ein anderer
+   Prozess seit dem letzten Mal angelegt hat; die Kosten wachsen mit der Archivzahl.
+3. `BACKUP_PAUSE_MAX_SECONDS=600` im Wächter (`taptime-immediate-monitor`, Zeile 13): Hält die Sicherung die Sperre
+   länger als zehn Minuten, folgt „WAL-Archivierung steht“, jede Stunde, ohne echtes Problem.
 
 ### Auftrag
 
-1. **Rotnachweis zuerst, App:** Test mit einer Freigabe-Seite `role: 'standortleitung'` durch Lease-Client, lokale
-   Speicherung und Aktivierung bis „Bereit zum Erfassen“; heute rot. Zweiter Test: bestehende lokale Datenbank
-   (Schema V5) mit Zeilen der Rolle `employee` und ausstehender Evidenz, dann Freigabe mit `standortleitung` für
-   dieselbe Mitgliedschaft (Rollenwechsel); heute rot.
-2. **Rotnachweis Server, PostgreSQL:** Freigabe ausstellen, Offline-Ereignis einspielen und abgleichen für eine
-   Standortleitung, einmal frisch, einmal nach Rollenwechsel von Beschäftigte mit bestehender Installation.
-   Erwartung: grün ohne Serveränderung. Ist einer rot, stoppen und melden; dann ist der Schnitt anders.
-3. **Umsetzung:** `OfflineMembershipRole` um `standortleitung` erweitern; alle Stellen aus dem Befund, gefunden
-   per Suche nach `'administrator'` und `'employee'` unter `apps/mobile/src/offline` und
-   `packages/offline-sync-contract`. Lokales Schema **V6**: `offline_lease_generations` und jede weitere Tabelle
-   mit dieser Rollenprüfung mit erweitertem `CHECK` neu anlegen, Zeilen übernehmen, alte Tabelle entfernen, in
-   einer exklusiven Transaktion nach dem Muster V4→V5; `user_version` 6; unbekannte höhere Versionen weiter
-   schützen. Kein Datenverlust: Evidenz, Warteschlangen und Sequenzen bleiben bytegleich (Test vergleicht alle
-   Tabellen vor und nach der Migration). T-076-Generationen unverändert.
-4. Rollenwechsel im laufenden Konto: Nach dem Wechsel holt die App die neue Freigabe; die alte Generation wird nie
-   still verworfen. Der Fall aus Punkt 1 (zweiter Test) muss danach „Bereit zum Erfassen“ erreichen, ohne dass
-   ausstehende Evidenz verloren geht.
-5. Server: nur Typen, falls nötig; kein Verhalten. Backend-Typen `membership_role: 'administrator' | 'employee'`
-   in `backend-offline-sync` auf den Vertragstyp umstellen.
+**A. Ein Borg-Cache.** Ein gemeinsames, root-eigenes Verzeichnis (0700) für `BORG_CACHE_DIR` und
+`BORG_CONFIG_DIR` in Sicherung, Archivierer und Prüfung; jedes Skript legt es bei Bedarf an, die drei bisherigen
+Verzeichnisse entfernt das jeweilige Skript beim ersten Lauf (Borg baut den Cache neu; darin liegen keine Daten).
+Sicher, weil alle drei Skripte jede Borg-Operation unter derselben `flock` auf `TAPTIME_BORG_LOCK_FILE` ausführen:
+im Bericht belegen, dass kein Borg-Aufruf außerhalb der Sperre liegt (Archivierer: `borg list` in
+`load_archive_inventory`, `borg info` in der Basisphase). Anlegen: die Skripte. Ändern: nur Borg. Entfernen: Root
+beim Rückbau (Runbook).
+
+**B. Täglich aufräumen.** Die Aufräumlogik aus `taptime-restore-verify` (Basis-`prune` mit den `BASE_BACKUP_KEEP_*`-
+Werten, dann WAL-Archive unterhalb der Untergrenze der behaltenen Basen) in eine gemeinsame Funktion, die beide
+Skripte nutzen; `taptime-backup` ruft sie nach erfolgreicher Sicherung und `borg check` auf, höchstens einmal je
+24 Stunden (Zeitstempeldatei im Zustandsverzeichnis). Unverändert bleiben alle Schutzregeln: kein Aufräumen ohne
+registrierte, geprüfte Basis (`production_base_is_registered`); die geprüfte Basis und ihr Marker werden nie
+entfernt; kein WAL-Segment ab der ältesten behaltenen Basis wird entfernt; die Reihenfolge Sicherung → Prüfung →
+Aufräumen bleibt. Danach `borg compact` (Borg 1.2/1.4 laut Testdoubles). Scheitert das Aufräumen, bleibt die
+Sicherung erfolgreich, der Fehler steht im Journal und im Status. Die Sonntagsprüfung räumt weiter wie bisher.
+
+**C. Wächter.** `BACKUP_PAUSE_MAX_SECONDS` wird aus der Dauer der letzten abgeschlossenen Sicherung abgeleitet:
+Der Wächter merkt sich bei jedem Lauf, in dem `taptime-backup.service` inaktiv ist, die Dauer
+`InactiveEnterTimestamp − InactiveExitTimestamp` in seinem Zustandsverzeichnis; Toleranz = das Doppelte davon,
+mindestens 600 s, höchstens 3300 s (unter dem Stundentakt). Ohne gemerkte Dauer gelten 600 s. `MONITORING.md`
+entsprechend; der Text der Meldung bleibt.
+
+**D. Sichtbar machen.** `taptime-status` zeigt zusätzlich die Archivzahl je Art (`base-*`, `wal-*`, Marker), den
+Zeitpunkt des letzten Aufräumens und die aktuelle Wächter-Toleranz; ohne Pfade oder Adressen.
 
 ### Tests
 
-Die Rotnachweise aus 1 und 2 grün. Vollständige Mobile-Suite und tests-inklusiver Typecheck; Vertragspaket;
-Backend-Offline-Sync-Suite mit PostgreSQL. Migrationsprobe der lokalen Datenbank: V5-Datei mit Bestandsdaten →
-V6, Replay ohne Änderung, Prüfung, dass jede alte Version (0, 1, 2, 3, 4, 5) weiterhin auf V6 kommt.
+Nachgebautes Borg nach der dokumentierten Semantik von 1.2/1.4 wie in den vorhandenen Tests (`prune` mit
+`--glob-archives` ohne `sh:`, `compact`). Rot vor Grün: (1) gemeinsamer Cache, alte Verzeichnisse weg; (2) Aufräumen
+nach Sicherung höchstens einmal täglich, geprüfte Basis, Marker und WAL ab Untergrenze bleiben, ohne registrierte
+Basis kein Aufräumen, Fehler beim Aufräumen lässt die Sicherung grün; (3) Wächter mit gemerkter Dauer 25 min
+toleriert 50 min, ohne Dauer 10 min, nie über 55 min; (4) `taptime-status`-Zeilen. Bestehende Suiten unter
+`infrastructure/tests/*`, ShellCheck, Workflow-Tests.
 
 ### Nicht Teil
 
-Kein Deploy, kein Serverzugriff, keine Geheimnisse, kein App-Build. Keine Änderung an SQL-Migrationen. T-081
-(Beschäftigte nach Standort) nicht.
+Kein Deploy, kein Serverzugriff, keine Geheimnisse. Kein neuer Archivvertrag, keine Änderung an Restore-Weg,
+Deploy-Controller, Compose oder der Konfigurationsdatei auf dem Server. Kein Zusammenfassen von WAL-Segmenten.
 
 ### Bericht
 
-`.t080-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf die lokale
-Schemamigration und den Rollenwechsel. Kein Commit vor `APPROVED`.
+`.t083-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf „nichts entfernen, was
+ein Restore braucht“. Kein Commit vor `APPROVED`. Nach dem Deploy: Dauer der nächsten drei Sicherungen und
+`base_seconds` des Archivierers aus `taptime-status` im Bericht nachtragen.

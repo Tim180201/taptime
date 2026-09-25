@@ -5,15 +5,19 @@ mit Migration 033, T-078 Image-Bau ohne Cache, T-079 Kundensicht mit Migration 0
 `b635c4a` unverändert; Migrationen bis 034). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt. App-Builds
 vom 25.09. auf `6c7007d`: iPhone TestFlight 1.0.0 (3), Android-APK versionCode 10. „Taptura“ ist der Arbeitsname für den
 Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
-Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; T-080 behoben auf `main`, App-Build steht aus. Reihenfolge: T-080 → ein App-Build → Rest der Geräteabnahme → T-024 → Pilot
-Monat 1. Danach AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur Entscheidung vor T-048:
+Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; T-080 behoben auf `main` (`7bd7877`), App-Build
+steht aus. Reihenfolge (PO 25.09.): T-083 (Sicherung bleibt kurz) → Deploy → App-Builds auf dem Stand nach T-083 → Rest
+der Geräteabnahme → T-024 → Pilot Monat 1. Danach AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur Entscheidung vor T-048:
 Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
 ## Beobachten (TL, 23.–25.09.)
 
-- Deploy 25.09.: beide Vollsicherungen brauchten je 40–50 min (10:03 und 10:55 UTC), der Deploy insgesamt gut zwei
-  Stunden. Ursache klären (Archivliste, `borg check`, Storage-Box-Durchsatz); eigene kleine Aufgabe nach T-080.
+- Sicherung 25.09. (`taptime-status`): jede stündliche Sicherung dauert 10–44 min (beim Deploy 32 und 30), obwohl
+  die Datenbank winzig ist; der WAL-Zyklus braucht mit einem Segment 142 s, davon 129 s Borg-Abgleich. Ursache aus
+  dem Code: je Stunde ein Basisarchiv und je WAL-Segment ein Borg-Archiv, Aufräumen nur sonntags, zwei getrennte
+  Borg-Caches. Folge: „WAL-Archivierung steht“ jede Stunde, weil der Wächter nur zehn Minuten toleriert; kein
+  Datenrisiko (WAL-Empfänger läuft, Archivierer holt nach). Behebung T-083 vor dem Pilot.
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
   `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
