@@ -1,19 +1,24 @@
 # TapTim.e — Status
 
-**Stand:** 24.09.2026 · Produktion läuft auf `b635c4a` (Deploy 24.09.: T-031 Startseite `tb-infra.de` hinter
-Passwort mit eigenem Caddy-Rückweg, T-074 Verwaltung und Betreiber-Bereich am Handy; Controller `b635c4a` an der
-Konsole installiert; Migrationen bis 032). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt. iPhone mit
-T-072b im TestFlight-Build vom 24.09. abgenommen; Android-APK versionCode 9. „Taptura“ ist der Arbeitsname für den
+**Stand:** 25.09.2026 · Produktion läuft auf `6c7007d` (Deploy 25.09.: T-062 Standortleitung im eigenen Standort
+mit Migration 033, T-078 Image-Bau ohne Cache, T-079 Kundensicht mit Migration 034; kein Konsolenschritt, Controller
+`b635c4a` unverändert; Migrationen bis 034). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt. App-Builds
+vom 25.09. auf `6c7007d`: iPhone TestFlight 1.0.0 (3), Android-APK versionCode 10. „Taptura“ ist der Arbeitsname für den
 Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
-Auf `main` zusätzlich T-077 (Meine Zeiten für Führungsrollen, D-090), T-076 (Kontowechsel am Gerät, ADR-0012 A1)
-T-062 (Standortleitung im eigenen Standort mit Migration 033, D-091, D-092; `7c5c075`) und T-078 (Image-Bau ohne
-GHA-Cache, D-094; `3a21807`, Lauf 3:29 min statt 5:44) und T-079 (Kundensicht, Migration 034, D-093, D-095).
-Offen vor dem Pilot (D-093): ein Deploy mit Migrationen 033 und 034 und ein App-Build für iPhone und Android mit Geräteabnahme; T-024 (Zugangsdaten rotieren,
-Deploy-Schlüssel mit Passphrase); AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur
-Entscheidung vor T-048: Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das
-ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; **P1 offen:** die Standortleitung bekommt in
+der App keine Offline-Freigabe („Die Scan-Funktion konnte nicht sicher vorbereitet werden“) und kann deshalb nicht
+scannen, auf beiden Geräten (T-080). Reihenfolge: T-080 → ein App-Build → Rest der Geräteabnahme → T-024 → Pilot
+Monat 1. Danach AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur Entscheidung vor T-048:
+Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
+wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
-## Beobachten (TL, 23./24.09.)
+## Beobachten (TL, 23.–25.09.)
+
+- Deploy 25.09.: beide Vollsicherungen brauchten je 40–50 min (10:03 und 10:55 UTC), der Deploy insgesamt gut zwei
+  Stunden. Ursache klären (Archivliste, `borg check`, Storage-Box-Durchsatz); eigene kleine Aufgabe nach T-080.
+- Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
+  und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
+  `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
 
 - Sicherung am 23.09.: Der Fehlschlag um 06:05 UTC wurde sofort wiederholt und lief erfolgreich; alle Läufe
   seitdem erfolgreich (Journal und `taptime-status`, 24.09.). Die Fehlermeldung selbst ist nicht mehr im Blick.
@@ -99,6 +104,13 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P1 Geräteabnahme 25.09. (T-080):** Die App nimmt eine Offline-Freigabe nur mit Rolle `administrator` oder `employee`
+  an (`OfflineCaptureLeaseClient.ts:195`, lokale SQLite-Prüfungen und `CHECK` in `offline_lease_generations`); der
+  Server stellt sie für die Standortleitung korrekt aus (020). Folge: keine Erfassung für die Standortleitung, iPhone
+  und Android. Bis T-080 scannt die Standortleitung nicht; Nachtragen, Ändern, Prüfen gehen.
+- **Geräteabnahme 25.09., gelernt:** Der Reiter „Mitarbeiter“ erscheint für die Standortleitung erst mit einer
+  Verwaltungszuweisung; Heimatstandort allein reicht nicht (gewollt, D-059). Wunsch PO: in „Beschäftigte“ zuerst
+  den Standort wählen, in der App Überschrift „Mitarbeiter deines Standorts“ (T-081, nach dem Pilotstart).
 - **P3 T-079:** Kalender über Monatsgrenzen (eine Woche über zwei Monate zeigt „nicht vollständig geladen“) und die Chunk-Warnung des Web-Bündels bleiben offen; beides nach dem Pilot.
 
 - **P2 T-078 Verifikation:** Erstlauf des bestehenden Landing-Workflow-Tests scheiterte am BSD-`install` unter macOS (`-D` hat dort eine andere Bedeutung); unveränderte Tests mit Node 24.17.0 und GNU coreutils 9.1 im lokalen Linux-Container vollständig grün. Für diese Workflow-Tests die Linux-Umgebung verwenden.
