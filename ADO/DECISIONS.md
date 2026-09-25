@@ -1522,3 +1522,14 @@ hat eine eigene Zeitgrenze (T-078). Ein Ersatz-Cache (Registry) kommt nur, wenn 
 lange dauert, und dann als eigene Entscheidung.
 **Warum:** Am 24.09. brach der Image-Lauf für `130d115` nach 20 Minuten ab, weil der Cache-Export hing, nicht der
 Bau. Ein geprüfter Stand muss sein Abbild bekommen; eine Beschleunigung darf das nicht verhindern.
+
+## D-095 · Kalender summiert Datenbanksekunden, Tage verteilen nur die Anzeige · 25.09.2026 · Claude (TL)
+Der neue Kalenderzweig liefert je Eintrag Arbeits- und Pausendauer in ganzen Sekunden nach der Exportformel
+(floor der Zeitspanne minus Summe floor je zugeschnittener Pause, mindestens null), Intervalle und eine
+Antwortzeit aus transaction_timestamp. Laufende Einträge und Pausen verwenden dieselbe Antwortzeit.
+Die Monatssumme addiert die gelieferten Werte für Einträge mit Beginn im Monat; Clients rechnen sie nie nach.
+Tag und Woche verteilen die Gesamtdauer proportional zu den ungerundeten Tagesanteilen nach Pausen;
+ganze Sekunden, Rest nach größtem Nachkommarest, bei Gleichstand früherer Tag. Innerhalb eines Tags alles dort.
+JSON-Millisekunden beeinflussen nur die Verteilung, nie Gesamtdauern; Tagesanteile erhalten die Gesamtsumme.
+Monatsgrenzen bleiben außerhalb von T-079. Nachweis mit dem Rundungsbeispiel 7.200 Sekunden und PostgreSQL.
+**Warum:** Zwei getrennte Abrundungen je Tag ergaben im Beispiel 7.201 statt 7.200 Sekunden; Kalender und Lohnabrechnung dürfen sich nie um eine Sekunde unterscheiden.

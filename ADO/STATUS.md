@@ -7,9 +7,8 @@ T-072b im TestFlight-Build vom 24.09. abgenommen; Android-APK versionCode 9. „
 Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
 Auf `main` zusätzlich T-077 (Meine Zeiten für Führungsrollen, D-090), T-076 (Kontowechsel am Gerät, ADR-0012 A1)
 T-062 (Standortleitung im eigenen Standort mit Migration 033, D-091, D-092; `7c5c075`) und T-078 (Image-Bau ohne
-GHA-Cache, D-094; `3a21807`, Lauf 3:29 min statt 5:44).
-Offen vor dem Pilot (D-093): T-079 (Kundensicht aus dem externen Review vom 24.09.),
-dann ein Deploy mit Migrationen 033 und 034 und ein App-Build für iPhone und Android mit Geräteabnahme; T-024 (Zugangsdaten rotieren,
+GHA-Cache, D-094; `3a21807`, Lauf 3:29 min statt 5:44) und T-079 (Kundensicht, Migration 034, D-093, D-095).
+Offen vor dem Pilot (D-093): ein Deploy mit Migrationen 033 und 034 und ein App-Build für iPhone und Android mit Geräteabnahme; T-024 (Zugangsdaten rotieren,
 Deploy-Schlüssel mit Passphrase); AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur
 Entscheidung vor T-048: Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das
 ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -99,6 +98,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
+
+- **P3 T-079:** Kalender über Monatsgrenzen (eine Woche über zwei Monate zeigt „nicht vollständig geladen“) und die Chunk-Warnung des Web-Bündels bleiben offen; beides nach dem Pilot.
 
 - **P2 T-078 Verifikation:** Erstlauf des bestehenden Landing-Workflow-Tests scheiterte am BSD-`install` unter macOS (`-D` hat dort eine andere Bedeutung); unveränderte Tests mit Node 24.17.0 und GNU coreutils 9.1 im lokalen Linux-Container vollständig grün. Für diese Workflow-Tests die Linux-Umgebung verwenden.
 - **P2 T-062 Bestandsaufnahme:** Tags sind für Standortleitung in SQL/App verfügbar, im Web aber hinter Administrator-Setup verborgen. Gemeldet; T-062 öffnet kein allgemeines Setup.
