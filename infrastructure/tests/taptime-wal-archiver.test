@@ -5,6 +5,7 @@ REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 readonly REPOSITORY_ROOT
 TEST_ROOT="$(mktemp -d)"
 readonly TEST_ROOT
+export TAPTIME_BACKUP_STATE_DIRECTORY="$TEST_ROOT/maintenance-state"
 trap 'rm -rf -- "$TEST_ROOT"' EXIT
 
 mkdir -p "$TEST_ROOT/bin" "$TEST_ROOT/spool"
@@ -40,6 +41,8 @@ export TAPTIME_BORG_LOCK_FILE="$TEST_ROOT/borg.lock"
 
 # shellcheck source=../backup/taptime-wal-archiver
 source "$REPOSITORY_ROOT/infrastructure/backup/taptime-wal-archiver"
+# Ownership is proven in the isolated backup-cache fixture, not in WAL domain tests.
+prepare_borg_cache() { :; }
 hostname() {
   if [[ "${1:-}" == '-I' ]]; then
     printf '192.0.2.10 10.0.0.10\n'
@@ -151,6 +154,7 @@ printf 'Offsite repository evidence: local paths, localhost and local aliases we
 # path's external work, not elapsed time: confirmed history must not cost one call per file.
 bash -euo pipefail -s -- "$REPOSITORY_ROOT" "$TEST_ROOT" <<'CHAIN_TESTS'
 source "$1/infrastructure/backup/taptime-wal-archiver"
+prepare_borg_cache() { :; }
 trace="$2/chain-calls"
 inventory="$2/chain-inventory"
 CLUSTER_ARCHIVE_IDENTIFIER='0123456789abcdef'
@@ -287,6 +291,7 @@ mkdir -p "$root/spool"
 export TAPTIME_BACKUP_CONFIG="$root/config"
 export TAPTIME_BORG_LOCK_FILE="$root/borg.lock"
 source "$1/infrastructure/backup/taptime-wal-archiver"
+prepare_borg_cache() { :; }
 trace="$root/trace"
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 validate_offsite_borg_repository() { :; }
@@ -398,6 +403,7 @@ CADENCE_TESTS
 
 bash -euo pipefail -s -- "$REPOSITORY_ROOT" "$TEST_ROOT" <<'SWITCH_TESTS'
 source "$1/infrastructure/backup/taptime-wal-archiver"
+prepare_borg_cache() { :; }
 WAL_SPOOL_DIRECTORY="$2/switch-spool"
 mkdir "$WAL_SPOOL_DIRECTORY"
 fixture_current='000000010000000000000003'
@@ -441,6 +447,7 @@ SWITCH_TESTS
 
 bash -euo pipefail -s -- "$REPOSITORY_ROOT" "$TEST_ROOT" <<'RECEIPT_TESTS'
 source "$1/infrastructure/backup/taptime-wal-archiver"
+prepare_borg_cache() { :; }
 trace="$2/receipt-trace"
 CLUSTER_ARCHIVE_IDENTIFIER='0123456789abcdef'
 WAL_FILE='000000010000000000000001'

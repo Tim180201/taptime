@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
-readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
-readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
 RESTORE_SYSTEM_IDENTIFIER=''
 RESTORE_ARCHIVE_IDENTIFIER=''
 MATERIALIZED_VOLUME_IN_PROGRESS=''
@@ -459,6 +456,110 @@ configure_point_in_time_recovery() {
   } >> "$data_directory/postgresql.auto.conf"
 }
 
+# Shared by the three installed entry points. Call only while holding LOCK_FILE.
+# Old Borg caches/configs contain no backup payload. Preserve other archiver state.
+prepare_borg_cache() {
+  local old_cache="$1" old_config="$2"
+  local shared="${TAPTIME_BORG_DIRECTORY:-/var/cache/taptime-borg}" directory
+  for directory in "$shared" "$shared/cache" "$shared/config"; do
+    [[ ! -L "$directory" ]] || return 1
+    install -d -o 0 -g 0 -m 0700 "$directory" || return 1
+  done
+  export BORG_CACHE_DIR="$shared/cache" BORG_CONFIG_DIR="$shared/config"
+  [[ "$old_cache" != "$BORG_CACHE_DIR" && "$old_config" != "$BORG_CONFIG_DIR" ]] || return 1
+  # A keyfile is not disposable cache. Refuse removal if one was placed here.
+  if [[ -d "$old_config/keys" ]] && [[ -n "$(find "$old_config/keys" -type f -print -quit)" ]]; then
+    printf 'Legacy Borg config contains a key; refusing cache migration.\n' >&2
+    return 1
+  fi
+  rm -rf -- "$old_cache" "$old_config"
+}
+
+write_backup_state() {
+  local name="$1" content="$2" directory temporary
+  directory="${TAPTIME_BACKUP_STATE_DIRECTORY:-/var/lib/taptime-monitor}"
+  install -d -m 0700 "$directory" || return 1
+  temporary="$(mktemp "$directory/$name.XXXXXX")" || return 1
+  if ! { printf '%s\n' "$content" > "$temporary" && chmod 0600 "$temporary" \
+    && mv -f -- "$temporary" "$directory/$name"; }; then
+    rm -f -- "$temporary"; return 1
+  fi
+}
+
+record_archive_counts() {
+  local inventory="$1" name base=0 wal=0 markers=0
+  while IFS= read -r name; do
+    case "$name" in
+      base-*) base=$((base + 1));;
+      wal-*) wal=$((wal + 1));;
+      verified-base-*) markers=$((markers + 1));;
+    esac
+  done <<< "$inventory"
+  write_backup_state archive-counts "$(date +%s)|$base|$wal|$markers"
+}
+
+# Both callers retain the same safety checks; backup is throttled by attempts,
+# including failed/deferred attempts. Weekly restore deliberately bypasses the gate.
+run_backup_retention() {
+  local mode="$1" verified_archive="${2:-}" cluster="$3"
+  local state_file="${TAPTIME_BACKUP_STATE_DIRECTORY:-/var/lib/taptime-monitor}/retention-status"
+  local prior='' attempt=0 success=0 now result state marker inventory
+  now="$(date +%s)" || return 1
+  if [[ -f "$state_file" ]]; then prior="$(< "$state_file")"; fi
+  if [[ "$prior" =~ ^(ok|running|failed|protected|unregistered)\|([0-9]{1,12})\|([0-9]{1,12})$ ]]; then
+    IFS='|' read -r _ attempt success <<< "$prior"
+  fi
+  if [[ "$mode" == daily ]] && (( now < attempt || now - attempt < 86400 )); then return 0; fi
+  # Persist before fallible work; a killed process must not retry once per hour.
+  write_backup_state retention-status "running|$now|$success" || return 1
+  RESTORE_ARCHIVE_IDENTIFIER="$cluster"
+  result=0
+  if [[ -z "$verified_archive" ]]; then
+    if inventory="$(borg list --glob-archives "verified-base-$cluster-*" \
+      --format '{archive}{NL}' "$BORG_REPOSITORY")"; then
+      marker="$(printf '%s\n' "$inventory" | LC_ALL=C sort | tail -n 1)"
+      if [[ "$marker" =~ ^verified-base-${cluster}-[0-9]{8}T[0-9]{6}Z$ ]]; then
+        verified_archive="${marker#verified-}"
+      else result=2; fi
+    else result=1; fi
+  fi
+  if (( result == 0 )); then
+    if prune_after_verified_restore "$verified_archive"; then result=0; else result=$?; fi
+  fi
+  case "$result" in
+    0) state=ok; success="$(date +%s)";;
+    2) state=unregistered; printf 'Retention deferred: no registered verified base.\n';;
+    3) state=protected;;
+    *) state=failed; printf 'Retention failed; completed backup remains successful.\n' >&2;;
+  esac
+  write_backup_state retention-status "$state|$now|$success" || return 1
+}
+
+refresh_archive_counts() {
+  local inventory
+  inventory="$(borg list --format '{archive}{NL}' "$BORG_REPOSITORY")" || return 1
+  record_archive_counts "$inventory"
+}
+
+production_base_is_registered() {
+  local archive_name="$1"
+  local capability registered
+
+  capability="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+    --command "SELECT pg_catalog.to_regprocedure(
+      'taptime_server.read_offsite_base_backup_receipt_v1(text)'
+    ) IS NOT NULL;")" || return 1
+  [[ "$capability" == 't' ]] || return 1
+  registered="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" --command \
+    "SET ROLE taptime_wal_archiver;
+     SELECT EXISTS (
+       SELECT FROM taptime_server.read_offsite_base_backup_receipt_v1('$archive_name')
+     );")" || return 1
+  [[ "$registered" == 't' ]]
+}
+
 retained_base_wal_floors() {
   local retained_archives="$1"
   local retained_archive wal_file timeline floor_records=''
@@ -492,22 +593,55 @@ prune_after_verified_restore() {
   local retained_bases
   local floor_count=0
 
+  local keep
+  [[ "$RESTORE_ARCHIVE_IDENTIFIER" =~ ^[0-9a-f]{16}$ \
+    && "$verified_archive" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || return 1
+  for keep in "${BASE_BACKUP_KEEP_HOURLY:-}" "${BASE_BACKUP_KEEP_DAILY:-}" \
+    "${BASE_BACKUP_KEEP_WEEKLY:-}" "${BASE_BACKUP_KEEP_MONTHLY:-}"; do
+    [[ "$keep" =~ ^[1-9][0-9]*$ ]] || return 1
+  done
   if ! production_base_is_registered "$verified_archive"; then
     printf 'Deferring retention until the archiver registered the verified base.\n'
-    return 0
+    return 2
   fi
   borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
     printf 'Verified physical base is unavailable before retention.\n' >&2
     return 1
   }
   printf 'Applying retention only after the physical base started and passed verification.\n'
-  borg prune --list \
-    --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
-    "$BORG_REPOSITORY" \
-    --keep-hourly "$BASE_BACKUP_KEEP_HOURLY" \
-    --keep-daily "$BASE_BACKUP_KEEP_DAILY" \
-    --keep-weekly "$BASE_BACKUP_KEEP_WEEKLY" \
-    --keep-monthly "$BASE_BACKUP_KEEP_MONTHLY" || return 1
+  local preview line candidate protected_kept=0
+  local -a prune_arguments=(--list
+    --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" "$BORG_REPOSITORY"
+    --keep-hourly "$BASE_BACKUP_KEEP_HOURLY" --keep-daily "$BASE_BACKUP_KEEP_DAILY"
+    --keep-weekly "$BASE_BACKUP_KEEP_WEEKLY" --keep-monthly "$BASE_BACKUP_KEEP_MONTHLY")
+  # Borg 1.2/1.4 writes its list to stderr (40/44-column padding). Use standard
+  # logging and recognize decisions, not fixed columns. No parseable plan => no prune.
+  preview="$(BORG_LOGGING_CONF='' borg prune --dry-run "${prune_arguments[@]}" 2>&1)" || {
+    printf 'Retention preview failed; no archives removed.\n' >&2; return 1;
+  }
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^Would\ prune:[[:space:]]+([^[:space:]]+)[[:space:]] ]]; then
+      candidate="${BASH_REMATCH[1]}"
+      if [[ "$candidate" == "$verified_archive" || "$candidate" == "verified-$verified_archive" ]]; then
+        printf 'Retention deferred: dry-run would remove the protected base or marker.\n' >&2
+        return 3
+      fi
+      [[ "$candidate" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z(\.checkpoint(\.[0-9]+)?)?$ ]] || return 1
+    elif [[ "$line" =~ ^Keeping\ archive\ \(rule:[^\)]+\):[[:space:]]+([^[:space:]]+)[[:space:]] ]]; then
+      candidate="${BASH_REMATCH[1]}"
+      [[ "$candidate" != "$verified_archive" ]] || protected_kept=1
+    elif [[ "$line" =~ ^Keeping\ checkpoint\ archive:[[:space:]] ]]; then
+      :
+    else
+      printf 'Retention preview is incomplete or unrecognized; no archives removed.\n' >&2
+      return 1
+    fi
+  done <<< "$preview"
+  (( protected_kept == 1 )) || {
+    printf 'Retention preview does not retain the protected base; no archives removed.\n' >&2
+    return 1
+  }
+  borg prune "${prune_arguments[@]}" || return 1
   borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
     printf 'Retention removed or cannot re-read the verified physical base.\n' >&2
     return 1
@@ -518,6 +652,10 @@ prune_after_verified_restore() {
       printf 'Could not inventory retained physical bases.\n' >&2
       return 1
     }
+  grep --fixed-strings --line-regexp --quiet "$verified_archive" <<< "$retained_bases" || {
+    printf 'Retained-base inventory omits the protected base; no WAL or marker removed.\n' >&2
+    return 1
+  }
   floor_records="$(retained_base_wal_floors "$retained_bases")" || return 1
   [[ -n "$floor_records" ]] || {
     printf 'No complete retained-base WAL inventory is available.\n' >&2
@@ -561,6 +699,7 @@ prune_after_verified_restore() {
       borg delete "$BORG_REPOSITORY::$wal_archive" || return 1
     fi
   done <<< "$wal_archives"
+  borg compact "$BORG_REPOSITORY" || return 1
 }
 
 remove_obsolete_verified_base_markers() {
@@ -606,25 +745,6 @@ register_verified_base() {
 production_database_is_running() {
   [[ "$(docker inspect --format '{{.State.Running}}' \
     "$DATABASE_CONTAINER" 2>/dev/null || true)" == 'true' ]]
-}
-
-production_base_is_registered() {
-  local archive_name="$1"
-  local capability registered
-
-  capability="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
-    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
-    --command "SELECT pg_catalog.to_regprocedure(
-      'taptime_server.read_offsite_base_backup_receipt_v1(text)'
-    ) IS NOT NULL;")" || return 1
-  [[ "$capability" == 't' ]] || return 1
-  registered="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
-    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" --command \
-    "SET ROLE taptime_wal_archiver;
-     SELECT EXISTS (
-       SELECT FROM taptime_server.read_offsite_base_backup_receipt_v1('$archive_name')
-     );")" || return 1
-  [[ "$registered" == 't' ]]
 }
 
 record_verified_base_marker() {
@@ -730,6 +850,9 @@ materialize_verified_restore() {
 }
 
 main() {
+  readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+  readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
+  readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
   local archive start_wal_lsn start_wal_file
   local latest_wal_file latest_record_lsn
   local manifest_system_identifier manifest_archive_identifier restored_system_identifier
@@ -831,9 +954,7 @@ main() {
   export BORG_RSH
   export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
   export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
-  export BORG_CACHE_DIR="$STAGING_ROOT/borg-cache"
-  export BORG_CONFIG_DIR="$STAGING_ROOT/borg-config"
-  install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+  prepare_borg_cache "$STAGING_ROOT/borg-cache" "$STAGING_ROOT/borg-config"
 
   select_restore_cluster_identity
   stage="$(mktemp -d "$STAGING_ROOT/restore.XXXXXX")"
@@ -955,7 +1076,9 @@ main() {
     record_verified_base_marker "$stage" "$archive" "$start_wal_lsn" "$start_wal_file"
     if production_database_is_running; then
       register_verified_base "$archive" "$start_wal_lsn" "$start_wal_file"
-      prune_after_verified_restore "$archive"
+      run_backup_retention weekly "$archive" "$RESTORE_ARCHIVE_IDENTIFIER" || \
+        printf 'Retention status could not be persisted.\n' >&2
+      refresh_archive_counts || printf 'Archive counts unavailable.\n' >&2
     else
       printf 'Production database is absent; base registration and retention are deferred.\n'
     fi

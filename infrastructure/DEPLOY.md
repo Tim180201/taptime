@@ -565,6 +565,9 @@ Werkzeug. Die Skripte selbst werden mit dem Operations-Stand installiert bzw. zu
 | `/etc/taptime-monitor/*.curl` | getrennte geheime Einrichtung nach `MONITORING.md` | Alarmziele fehlen oder zeigen auf alte Endpunkte; sie dürfen nicht in Git oder einem öffentlichen Abbild stehen |
 | SSH-Härtung, Deploy-Schlüssel und sudoers-Regel | bewusster Konsolen-/Root-Schritt nach dieser Anleitung | verlorene oder zu breite Zugänge bleiben bestehen; ein automatisches Deploy darf diese Rückwege nicht selbst verändern |
 
+**T-083:** Die neuen `taptime-status`-Zeilen erscheinen erst nach dem nächsten Konsolenschritt
+(voraussichtlich mit T-024); Sicherung, Archivierer und Wächter (A–C) wirken sofort mit dem Deploy.
+
 Diese Grenze ist ausdrücklich inventarisiert. Backend, Admin-Web, Betreiber-Web, Backup- und Monitoring-Skripte,
 deren Einheiten, journald-Grenzen, Compose und Caddy kommen dagegen ausschließlich über die vier
 gleich markierten Abbilder.

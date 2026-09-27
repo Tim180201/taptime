@@ -75,8 +75,11 @@ Basis/Hochladen/Abgleich schließen ihre jeweiligen SQL-Aufrufe ein; Sperrwartez
 separat. Die Zeile enthält weder Speicherpfade noch Adressen.
 
 Basissicherung und Archivierer halten dieselbe Borg-Sperre. Solange die Sicherung läuft oder
-auf diese Sperre wartet, pausiert der Wächter die WAL-Altersprüfung für höchstens zehn Minuten
-(feste Konstante, keine neue Einstellung). Danach meldet er `WAL-Archivierung steht`, auch
+auf diese Sperre wartet, pausiert der Wächter die WAL-Altersprüfung für die doppelte Dauer der
+letzten abgeschlossenen Sicherung, mindestens 600 und höchstens 3300 Sekunden. Ohne gültige
+gemerkte Dauer gelten 600 Sekunden. Bei inaktiver Sicherungseinheit merkt der Wächter
+`InactiveEnterTimestamp − InactiveExitTimestamp`; die laufende Sicherung verlängert ihre
+Toleranz niemals selbst. Danach meldet er `WAL-Archivierung steht`, auch
 bei frischem Status ohne offene Anforderung. Der Beginn folgt dem Verlassen des inaktiven
 Zustands der Sicherungseinheit (`InactiveExitTimestamp`); ein `oneshot` ist während
 `ExecStart` einschließlich Sperrwartezeit noch `activating`. Nach dem Ende
@@ -102,6 +105,22 @@ Prüfung durch `taptime-restore-verify` bleibt unverändert. Der Vollabgleich in
 Archivnamen; er ersetzt weder die Wiederherstellungsprüfung noch die Aufbewahrung. Im reinen
 Leerlauf kann eine neue externe Störung erst beim nächsten Vollabgleich auffallen (standardmäßig
 bis zu 15 Minuten zuzüglich Laufzeit); neuer Archivbedarf löst die Prüfung sofort aus.
+
+Der Wächter erzeugt und ersetzt `backup-duration-seconds` und `backup-pause-max-seconds` unter
+`/var/lib/taptime-monitor` atomar als root mit Modus 0600. Die erste Datei enthält die zuletzt
+gemerkte Dauer, die zweite die daraus berechnete aktuelle Toleranz. Ungültige Dauerwerte setzen
+die Toleranz auf 600 Sekunden zurück. Beim Rückbau hält root den Wächter an und entfernt beide
+Dateien; fehlende Dateien stellen beim nächsten Start den Standard wieder her.
+
+`taptime-status` zeigt zusätzlich lokal gespeicherte Archivzahlen (Basis, WAL, Marker) mit
+Erhebungszeitpunkt, den letzten Aufräumversuch, dessen Ergebnis, den letzten erfolgreichen
+Aufräumzeitpunkt und die Wächter-Toleranz. Er liest weder Backup-Konfiguration noch Borg und
+bleibt während einer Sicherung aufrufbar. Fehlende oder ungültige Zustände erscheinen als
+„unbekannt“. Die Archivzahlen stammen von Sicherung und vollem Archivierer-Abgleich; im
+Leerlauf können sie bis zum nächsten Vollabgleich unverändert bleiben. Fehler beim Aufräumen
+stehen im Journal und im lokalen Status, ohne eine sechste Push-Meldung einzuführen.
+**T-083:** Die neuen Statuszeilen erscheinen erst nach dem nächsten Konsolenschritt;
+Sicherung, Archivierer und Wächter wirken sofort mit dem Deploy (siehe `DEPLOY.md`).
 
 ## Geheimnisse und Telefon
 

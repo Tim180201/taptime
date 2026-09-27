@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
-readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
-readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
+# Shared cache and retention functions live in this already installed entry point.
+# shellcheck source=taptime-restore-verify
+source "$(dirname "${BASH_SOURCE[0]}")/taptime-restore-verify"
 
 # The staging directory must stay visible to the EXIT trap after main() returns; a
 # function-local variable is already gone when that trap runs under `set -u`.
@@ -122,7 +122,11 @@ write_status() {
   trap - RETURN
 }
 
+
 main() {
+  readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
+  readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
+  readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
   local archive backup_label start_time start_wal_lsn start_wal_file switch_evidence
   local cluster_evidence cluster_system_identifier cluster_archive_identifier
   local migration_ledger version recorded_checksum source_file source_checksum
@@ -152,9 +156,7 @@ main() {
   export BORG_RSH
   export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
   export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
-  export BORG_CACHE_DIR="$STAGING_ROOT/borg-cache"
-  export BORG_CONFIG_DIR="$STAGING_ROOT/borg-config"
-  install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+  prepare_borg_cache "$STAGING_ROOT/borg-cache" "$STAGING_ROOT/borg-config"
 
   stage="$(mktemp -d "$STAGING_ROOT/backup.XXXXXX")"
   cleanup() {
@@ -255,6 +257,9 @@ main() {
   }
 
   write_status ok
+  run_backup_retention daily '' "$cluster_archive_identifier" || \
+    printf 'Retention status could not be persisted; completed backup remains successful.\n' >&2
+  refresh_archive_counts || printf 'Archive counts unavailable.\n' >&2
   printf 'Physical base backup completed: %s (starts at WAL %s)\n' \
     "$archive" "$start_wal_file"
 }

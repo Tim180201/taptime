@@ -75,3 +75,6 @@ grep --quiet '^  local archive backup_label' \
   || fail 'main() declares stage as a local variable again'
 
 printf 'taptime-backup: base listing and staging cleanup checks passed.\n'
+
+bash "$(dirname "$0")/taptime-backup-maintenance.test"
+T083_CASE=cache bash "$(dirname "$0")/taptime-backup-maintenance.test"

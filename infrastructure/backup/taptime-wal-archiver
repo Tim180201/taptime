@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Shared cache and retention functions live in this already installed entry point.
+# shellcheck source=taptime-restore-verify
+source "$(dirname "${BASH_SOURCE[0]}")/taptime-restore-verify"
+
 readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
 CLUSTER_SYSTEM_IDENTIFIER=''
@@ -31,6 +35,7 @@ load_archive_inventory() {
   set_cycle_phase archive_list
   # One snapshot serves physical bases, verification markers and the WAL chain.
   archive_inventory="$(borg list --format '{archive}{NL}' "$BORG_REPOSITORY" | sort)" || return 1
+  record_archive_counts "$archive_inventory" || return 1
   archive_inventory_loaded=1
 }
 
@@ -536,6 +541,7 @@ archive_once() {
   set_cycle_phase lock
   exec 9>"$LOCK_FILE"
   flock 9
+  prepare_borg_cache "$WAL_ARCHIVE_CACHE_DIRECTORY/cache" "$WAL_ARCHIVE_CACHE_DIRECTORY/config"
   set_cycle_phase database
   [[ "$(receiver_is_active)" == 't' ]] || {
     printf 'The physical WAL receiver slot is not active.\n' >&2
@@ -704,9 +710,7 @@ main() {
   export BORG_RSH
   export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
   export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
-  export BORG_CACHE_DIR="$WAL_ARCHIVE_CACHE_DIRECTORY/cache"
-  export BORG_CONFIG_DIR="$WAL_ARCHIVE_CACHE_DIRECTORY/config"
-  install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+  install -d -m 0700 "$WAL_ARCHIVE_CACHE_DIRECTORY"
   rm -f -- "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state"
   load_cluster_identity
 

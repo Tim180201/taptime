@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+# T-083 exercises the real backup entry point against local synthetic archives.
+# shellcheck disable=SC2329
+set -euo pipefail
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+# CI runs as an ordinary user. Only the ownership proof needs root; put that
+# synthetic fixture in an isolated container, never in the host's /var/cache.
+if [[ "${T083_CASE:-}" == cache ]] && (( EUID != 0 )); then
+  # Stream only the scripts into the fixture; this also works with a remote
+  # Docker daemon and gives the root process no host bind mount or Docker socket.
+  tar -C "$REPO" -cf - infrastructure/backup infrastructure/tests/taptime-backup-maintenance.test | \
+    docker run --rm --interactive --network none --workdir /proof \
+      --env T083_CASE=cache node:24.17.0-bookworm-slim \
+      bash -c 'tar -xf -; exec bash infrastructure/tests/taptime-backup-maintenance.test'
+  exit 0
+fi
+root="$(mktemp -d)"
+trap 'rm -rf -- "$root"' EXIT
+export TAPTIME_BACKUP_CONFIG="$root/config"
+export TAPTIME_BORG_LOCK_FILE="$root/lock"
+export TAPTIME_BACKUP_STAGING_ROOT="$root/staging"
+export TAPTIME_BORG_DIRECTORY="$root/shared"
+export TAPTIME_BACKUP_STATE_DIRECTORY="$root/state"
+mkdir -p "$root/migrations" "$root/input/manifest" "$root/archives" "$root/state" \
+  "$root/staging/borg-cache" "$root/staging/borg-config"
+printf 'SELECT 1;\n' > "$root/migrations/001_foundation.sql"
+printf 'fixture\n' > "$root/passphrase"
+cat > "$root/input/backup_label" <<'LABEL'
+START WAL LOCATION: 0/5000000 (file 000000010000000000000005)
+START TIME: 2026-09-25 12:00:00 UTC
+LABEL
+: > "$root/input/backup_manifest"
+tar -cf "$root/base.tar" -C "$root/input" backup_label backup_manifest
+cat > "$root/config" <<CONFIG
+BORG_REPOSITORY='ssh://synthetic@offsite.invalid/repo'
+BORG_PASSPHRASE_FILE='$root/passphrase'
+BORG_RSH='fixture'
+DATABASE_CONTAINER='fixture'
+DATABASE_NAME='fixture'
+MIGRATIONS_DIRECTORY='$root/migrations'
+STATUS_FILE='$root/backup-status'
+BASE_BACKUP_KEEP_HOURLY=1
+BASE_BACKUP_KEEP_DAILY=1
+BASE_BACKUP_KEEP_WEEKLY=1
+BASE_BACKUP_KEEP_MONTHLY=1
+CONFIG
+cluster=0123456789abcdef
+verified="base-$cluster-20260924T230000Z"
+obsolete="base-$cluster-20260924T120000Z"
+for archive in "$verified" "$obsolete"; do
+  mkdir -p "$root/archives/$archive/manifest"
+  printf '000000010000000000000005\n' > "$root/archives/$archive/manifest/base-start-wal-file"
+done
+mkdir "$root/archives/verified-$verified" "$root/archives/verified-$obsolete"
+for segment in 4 5 6; do mkdir "$root/archives/wal-$cluster-00000001000000000000000$segment"; done
+# shellcheck source=../backup/taptime-backup
+source "$REPO/infrastructure/backup/taptime-backup"
+# Retention behavior is independent of host ownership. The separate cache case
+# exercises the unchanged real helper, including actual UID 0 and filesystem modes.
+if [[ "${T083_CASE:-}" != cache ]]; then
+  prepare_borg_cache() {
+    export BORG_CACHE_DIR="$root/shared/cache" BORG_CONFIG_DIR="$root/shared/config"
+    install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
+  }
+fi
+validate_offsite_borg_repository() { :; }
+findmnt() { printf 'tmpfs\n'; }
+fixture_registered=1
+fake_failure=''
+fixture_protected=0
+fixture_now=1800000000
+sequence=0
+date() {
+  case "$*" in
+    +%s) printf '%s\n' "$fixture_now";;
+    '-u +%Y%m%dT%H%M%SZ') printf '20260925T12%02d00Z\n' "$sequence";;
+    *) command date "$@";;
+  esac
+}
+docker() {
+  case "$*" in
+    *pg_basebackup*) cat "$root/base.tar";;
+    *pg_control_system*) printf '81985529216486895|%s\n' "$cluster";;
+    *schema_migrations*) printf '001|%s\n' "$(sha256sum "$root/migrations/001_foundation.sql" | cut -d ' ' -f 1)";;
+    *pg_switch_wal*) printf '0/5FFFFFF|000000010000000000000005\n';;
+    *to_regprocedure*) printf 't\n';;
+    *read_offsite_base_backup_receipt_v1*) if (( fixture_registered )); then printf 't\n'; else printf 'f\n'; fi;;
+    *) printf 'Unexpected synthetic docker call\n' >&2; return 1;;
+  esac
+}
+borg() {
+  local operation="$1" arg target='' pattern='*' name
+  shift
+  printf '%s %s\n' "$operation" "$*" >> "$root/calls"
+  # Every operation, including inventory/info, must hold the same actual flock.
+  if flock -n "$TAPTIME_BORG_LOCK_FILE" true; then
+    printf 'Borg called without shared lock\n' >&2; return 1
+  fi
+  if [[ "${1:-}" == '--glob-archives' ]]; then pattern="$2"; fi
+  for arg in "$@"; do [[ "$arg" != *'::'* ]] || target="${arg##*::}"; done
+  if [[ "${T083_CASE:-}" == cache ]]; then
+    [[ "$BORG_CACHE_DIR" == "$root/shared/cache" && "$BORG_CONFIG_DIR" == "$root/shared/config" ]] || {
+      printf 'Borg is not using the shared cache/config\n' >&2; return 1;
+    }
+  fi
+  case "$operation" in
+    create) mkdir -p "$root/archives/$target"; cp -R base.tar manifest "$root/archives/$target/";;
+    check) [[ "$fake_failure" != check ]];;
+    info) [[ -d "$root/archives/$target" ]];;
+    list)
+      for arg in "$@"; do
+        [[ "$arg" != sh:* ]] || return 1
+      done
+      for name in "$root/archives/"*; do
+        name="${name##*/}"
+        # shellcheck disable=SC2254 # Borg --glob-archives deliberately uses a shell glob.
+        case "$name" in $pattern) printf '%s\n' "$name";; esac
+      done;;
+    extract) cat "$root/archives/$target/${*: -1}";;
+    prune)
+      # Selection is fixed for this fixture; like Borg 1.2/1.4, dry-run lists
+      # on stderr and does not mutate. Actual prune removes only that selection.
+      if [[ " $* " == *' --dry-run '* ]]; then
+        printf 'Keeping archive (rule: daily #1):           %s Thu, 2026-09-24 23:00:00 [fixture]\n' "$verified" >&2
+        printf 'Would prune:                            %s Thu, 2026-09-24 12:00:00 [fixture]\n' "$(if (( fixture_protected )); then printf '%s' "$verified"; else printf '%s' "$obsolete"; fi)" >&2
+      else
+        [[ "$fake_failure" != prune ]] || return 1
+        rm -rf -- "$root/archives/$obsolete"
+      fi;;
+    delete) rm -rf -- "$root/archives/$target";;
+    compact) [[ "$fake_failure" != compact ]];;
+    *) return 1;;
+  esac
+}
+run_backup() {
+  sequence=$((sequence + 1))
+  local result
+  set +e
+  ( set -e; main ) > "$root/output" 2>&1
+  result=$?
+  set -e
+  if (( result != 0 )); then cat "$root/output"; return "$result"; fi
+  grep -q '"state":"ok"' "$root/backup-status"
+}
+: > "$root/calls"
+run_backup
+if [[ "${T083_CASE:-}" == cache ]]; then
+  [[ ! -e "$root/staging/borg-cache" && ! -e "$root/staging/borg-config" ]]
+  for directory in "$root/shared" "$root/shared/cache" "$root/shared/config"; do
+    [[ "$(stat -c '%a:%u' "$directory")" == 700:0 ]]
+  done
+  # The systemd sandbox must expose the shared cache on each installed service.
+  for service in taptime-backup taptime-wal-archiver taptime-restore-verify; do
+    grep -Eq '^CacheDirectory=(taptime-wal-archive )?taptime-borg$' "$REPO/infrastructure/backup/$service.service"
+    grep -q '^CacheDirectoryMode=0700$' "$REPO/infrastructure/backup/$service.service"
+  done
+  # Migration of the archiver's old directories must keep unrelated scheduling state.
+  mkdir -p "$root/legacy-wal/cache" "$root/legacy-wal/config"
+  printf 'schedule\n' > "$root/legacy-wal/reconcile-state"
+  (
+    exec 9>"$TAPTIME_BORG_LOCK_FILE"; flock 9
+    prepare_borg_cache "$root/legacy-wal/cache" "$root/legacy-wal/config"
+  )
+  [[ ! -e "$root/legacy-wal/cache" && ! -e "$root/legacy-wal/config" ]]
+  [[ "$(cat "$root/legacy-wal/reconcile-state")" == schedule ]]
+  printf 'Shared cache: root-owned 0700, old staging caches removed, Borg under lock.\n'
+  exit 0
+fi
+grep -q '^prune .*--dry-run' "$root/calls" || { printf 'No daily cleanup after successful backup\n'; cat "$root/output" "$root/calls"; exit 1; }
+grep -q '^compact ' "$root/calls"
+preview_parameters="$(sed -n 's/^prune --dry-run //p' "$root/calls")"
+actual_parameters="$(sed -n '/^prune --dry-run /!s/^prune //p' "$root/calls")"
+[[ "$preview_parameters" == "$actual_parameters" ]]
+[[ -d "$root/archives/$verified" && -d "$root/archives/verified-$verified" ]]
+[[ ! -d "$root/archives/$obsolete" && ! -d "$root/archives/verified-$obsolete" ]]
+[[ ! -d "$root/archives/wal-$cluster-000000010000000000000004" ]]
+[[ -d "$root/archives/wal-$cluster-000000010000000000000005" && -d "$root/archives/wal-$cluster-000000010000000000000006" ]]
+# check precedes prune, compact follows deletes.
+awk '/^check / {checked=1} /^prune / && !checked {exit 1} /^delete / {deleted=1} /^compact / && !deleted {exit 1}' "$root/calls"
+: > "$root/calls"
+fixture_now=$((fixture_now + 86399)); run_backup
+if grep -Eq '^(prune|compact|delete) ' "$root/calls"; then exit 1; fi
+fixture_now=$((fixture_now + 1)); fake_failure=compact; run_backup
+grep -q '^compact ' "$root/calls"
+grep -q '^failed|' "$root/state/retention-status"
+grep -q 'Retention failed' "$root/output"
+# Failure must also be throttled: never retry cleanup every hour.
+: > "$root/calls"; fixture_now=$((fixture_now + 3600)); run_backup
+if grep -Eq '^(prune|compact|delete) ' "$root/calls"; then exit 1; fi
+fixture_now=$((fixture_now + 86400)); fake_failure=''; fixture_registered=0
+: > "$root/calls"; run_backup
+if grep -Eq '^(prune|compact|delete) ' "$root/calls"; then exit 1; fi
+grep -q '^unregistered|' "$root/state/retention-status"
+# A protected selection is visible and leaves all existing archives alone.
+fixture_registered=1; fixture_protected=1; fixture_now=$((fixture_now + 86400))
+: > "$root/calls"; run_backup
+grep -q '^protected|' "$root/state/retention-status"
+grep -q 'protected' "$root/output"
+if grep '^prune ' "$root/calls" | grep -v -- '--dry-run'; then exit 1; fi
+if grep -Eq '^(compact|delete) ' "$root/calls"; then exit 1; fi
+[[ -d "$root/archives/$verified" && -d "$root/archives/verified-$verified" ]]
+fixture_protected=0
+# A failed backup must not reach retention or overwrite its successful status.
+fixture_registered=1; fake_failure=check; fixture_now=$((fixture_now + 86400))
+: > "$root/calls"
+set +e
+( set -e; main ) > "$root/output" 2>&1
+result=$?
+set -e
+(( result != 0 ))
+if grep -Eq '^(prune|compact|delete) ' "$root/calls"; then exit 1; fi
+printf 'Daily cleanup: ordering, 24h gate, registration, floors and nonfatal cleanup failure passed.\n'

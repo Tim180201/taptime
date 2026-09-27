@@ -9,8 +9,31 @@ readonly NTFY_CURL_CONFIG="$CONFIG_DIRECTORY/ntfy.curl"
 readonly HEALTHCHECKS_CURL_CONFIG="$CONFIG_DIRECTORY/healthchecks.curl"
 readonly API_DOWN_STATE="$STATE_DIRECTORY/api-down"
 readonly WAL_ARCHIVE_DOWN_STATE="$STATE_DIRECTORY/wal-archive-down"
-# D-066: includes the oneshot's wait for the shared Borg lock; no configurable extension.
-readonly BACKUP_PAUSE_MAX_SECONDS=600
+# Includes the oneshot's wait for Borg; learned only from an inactive service.
+BACKUP_PAUSE_MAX_SECONDS=600
+
+write_monitor_state() {
+  local name="$1" value="$2" temporary
+  temporary="$(mktemp "$STATE_DIRECTORY/$name.XXXXXX")" || return 1
+  if ! { printf '%s\n' "$value" > "$temporary" && chmod 0600 "$temporary" \
+    && mv -f -- "$temporary" "$STATE_DIRECTORY/$name"; }; then
+    rm -f -- "$temporary"; return 1
+  fi
+}
+
+load_backup_pause_limit() {
+  local duration=''
+  if [[ -f "$STATE_DIRECTORY/backup-duration-seconds" ]]; then
+    duration="$(< "$STATE_DIRECTORY/backup-duration-seconds")"
+  fi
+  BACKUP_PAUSE_MAX_SECONDS=600
+  if [[ "$duration" =~ ^[1-9][0-9]{0,11}$ ]]; then
+    # Clamp before multiplying, including unusually long completed runs.
+    if (( duration >= 1650 )); then BACKUP_PAUSE_MAX_SECONDS=3300
+    elif (( duration > 300 )); then BACKUP_PAUSE_MAX_SECONDS=$((duration * 2)); fi
+  fi
+  write_monitor_state backup-pause-max-seconds "$BACKUP_PAUSE_MAX_SECONDS"
+}
 
 file_mode() {
   if stat --format='%a' "$1" >/dev/null 2>&1; then
@@ -85,6 +108,10 @@ wal_archive_is_current() {
   if (( backup_start_epoch > 0 )) && [[ -n "$backup_ended" ]]; then
     backup_end_epoch="$(utc_epoch "$backup_ended")" || return 1
     (( backup_end_epoch >= backup_start_epoch && backup_end_epoch <= now_epoch )) || return 1
+    if [[ "$backup_state" == inactive ]]; then
+      write_monitor_state backup-duration-seconds "$((backup_end_epoch - backup_start_epoch))" || return 1
+      load_backup_pause_limit || return 1
+    fi
     catchup_deadline=$((backup_end_epoch + WAL_ARCHIVE_CATCHUP_SECONDS))
   fi
 
@@ -140,6 +167,7 @@ if [[ ! "$WAL_ARCHIVE_CATCHUP_SECONDS" =~ ^[1-9][0-9]{0,2}$ ]] \
     exit 1
 fi
 install -d -m 0700 "$STATE_DIRECTORY"
+load_backup_pause_limit
 
 result=0
 

@@ -321,6 +321,33 @@ for grace in 1 300 600; do
   TAPTIME_MONITOR_NOW_EPOCH="$((backup_end + grace + 2))" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
   assert_equals 1 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" 'catch-up alarm remains edge-triggered'
 done
+# T-083 learns the completed duration before the next backup starts; it never
+# derives a longer allowance from the currently running backup.
+printf "\nWAL_ARCHIVE_CATCHUP_SECONDS='300'\n" >> "$BACKUP_CONFIG"
+printf '{"state":"failed"}\n' > "$WAL_ARCHIVE_STATUS"
+for previous_duration in 0 120 1500 2400; do
+  FAKE_BACKUP_STATE=inactive
+  FAKE_BACKUP_STARTED="$(iso_for "$backup_start")"
+  FAKE_BACKUP_ENDED="$(iso_for "$((backup_start + previous_duration))")"
+  check_backup_alert "$((backup_start + previous_duration))" 1 'failed WAL status remains failed while learning duration'
+  assert_equals "$previous_duration" "$(cat "$test_root/state/backup-duration-seconds")" 'completed backup duration persisted'
+  allowance=$((previous_duration * 2))
+  (( allowance >= 600 )) || allowance=600
+  (( allowance <= 3300 )) || allowance=3300
+  assert_equals "$allowance" "$(cat "$test_root/state/backup-pause-max-seconds")" 'current allowance persisted'
+  FAKE_BACKUP_STATE=activating
+  FAKE_BACKUP_STARTED="$(iso_for "$((backup_start + 3600))")"
+  for elapsed in "$allowance" "$((allowance + 1))"; do
+    expected=0; (( elapsed <= allowance )) || expected=1
+    check_backup_alert "$((backup_start + 3600 + elapsed))" "$expected" "learned duration=$previous_duration elapsed=$elapsed"
+  done
+done
+# Invalid persisted values must not extend the default or execute shell input.
+for invalid_duration in '' invalid -1 999999999999999999999; do
+  printf '%s\n' "$invalid_duration" > "$test_root/state/backup-duration-seconds"
+  check_backup_alert "$((backup_start + 3600 + 600))" 0 'invalid duration uses ten-minute default'
+  check_backup_alert "$((backup_start + 3600 + 601))" 1 'invalid duration cannot extend default'
+done
 for invalid in 0 601 999999999999999999999 -1 invalid; do
   printf "\nWAL_ARCHIVE_CATCHUP_SECONDS='%s'\n" "$invalid" >> "$BACKUP_CONFIG"
   if FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR" > "$test_root/invalid-grace.log" 2>&1; then fail 'invalid grace accepted'; fi

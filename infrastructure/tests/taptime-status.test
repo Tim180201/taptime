@@ -58,3 +58,20 @@ if grep -Eq 'your-storagebox|ssh://|@|secret|private' "$TEST_ROOT/backups"; then
 if main unexpected > "$TEST_ROOT/argument" 2>&1; then exit 1; fi
 grep -q 'without arguments' "$TEST_ROOT/argument"
 printf 'Status output: allowlisted WAL and backup fields; secret/address fixtures absent; arguments rejected.\n'
+
+# Local summaries only: output must never echo paths, addresses or arbitrary text.
+mkdir -p "$TEST_ROOT/state"
+printf 'ok|1800000000|1799999999\n' > "$TEST_ROOT/state/retention-status"
+printf '1800000000|7|123|2\n' > "$TEST_ROOT/state/archive-counts"
+printf '3000\n' > "$TEST_ROOT/state/backup-pause-max-seconds"
+show_backup_maintenance "$TEST_ROOT/state" > "$TEST_ROOT/maintenance"
+grep -q 'Archive: Basis=7 WAL=123 Marker=2' "$TEST_ROOT/maintenance"
+grep -q 'Aufräumen: ok' "$TEST_ROOT/maintenance"
+grep -q 'Wächter-Toleranz: 3000 s' "$TEST_ROOT/maintenance"
+grep -q 'Letztes erfolgreiches Aufräumen:' "$TEST_ROOT/maintenance"
+for file in retention-status archive-counts backup-pause-max-seconds; do
+  printf 'ssh://private/path secret@example.test\n' > "$TEST_ROOT/state/$file"
+done
+show_backup_maintenance "$TEST_ROOT/state" > "$TEST_ROOT/maintenance"
+if grep -Eq 'ssh:|private|@|/path' "$TEST_ROOT/maintenance"; then exit 1; fi
+grep -q 'unbekannt' "$TEST_ROOT/maintenance"

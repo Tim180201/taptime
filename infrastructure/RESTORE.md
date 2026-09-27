@@ -33,6 +33,40 @@ extern markiert und in der Produktionsdatenbank registriert wurde. Sie behält f
 WAL ab dem Startpunkt ihrer jeweils ältesten noch aufbewahrten Basis; ein unvollständiges
 Borg-Inventar führt zu keiner WAL- oder Marker-Löschung.
 
+Nach erfolgreicher stündlicher Sicherung und `borg check` wird höchstens einmal je 24 Stunden
+aufgeräumt. Die Sonntagsprüfung ruft dieselbe Funktion nach erfolgreichem Restore weiterhin
+unabhängig von dieser Tagesgrenze auf. Maßgeblich sind die vier `BASE_BACKUP_KEEP_*`-Werte.
+Vor dem echten `borg prune` läuft `borg prune --dry-run --list` mit denselben Parametern:
+Würde es die registrierte, geprüfte Basis oder ihren Marker entfernen, entfällt der gesamte
+Aufräumlauf. Eine leere, unvollständige oder unbekannte Vorschau erlaubt ebenfalls keine
+Löschung. Die Nachprüfung der Basis nach dem echten Prune bleibt zusätzlich bestehen.
+Danach folgen die bisherigen Timeline-Untergrenzen, verwaiste Marker und veraltetes WAL;
+`borg compact` gibt den entfernten Speicher frei. Historische Restore-Proben und Materialisierung
+räumen weiterhin nicht auf. Der Basisschutz kann tägliches Aufräumen bis zur nächsten
+Restore-Prüfung aussetzen; das ist am Status erkennbar und kein Anlass, ihn zu umgehen.
+
+Ein Aufräumfehler macht die abgeschlossene Sicherung nicht ungültig. Die Skripte schreiben
+Versuch, Ergebnis und letzten Erfolg atomar nach `/var/lib/taptime-monitor/retention-status`
+(root, 0600); auch fehlgeschlagene oder ausgesetzte Versuche unterliegen der 24-Stunden-Grenze.
+Ein abgebrochener Lauf bleibt als begonnen sichtbar. `archive-counts` im selben Verzeichnis
+enthält Erhebungszeitpunkt und Anzahlen, keine Archivnamen oder Adressen. Sicherung und voller
+Archivierer-Abgleich ersetzen diese Datei. Beim Rückbau hält root die Sicherungs-, Prüf- und
+Archivierungsdienste samt Timern an und entfernt beide Zustandsdateien; keine davon ist ein
+Archivnachweis. Bei fehlender Zustandsdatei beginnt die Tagesplanung neu.
+
+Alle drei Skripte verwenden `/var/cache/taptime-borg/cache` und `/var/cache/taptime-borg/config`.
+Sie legen die Verzeichnisse bei Bedarf root-eigen mit 0700 an; Borg verwaltet den Inhalt.
+Sämtliche Borg-Aufrufe und die Cache-Umstellung liegen unter derselben
+`/run/lock/taptime-borg.lock`. Sicherung und Prüfung entfernen ihre bisherigen
+`/run/taptime-backup/borg-cache` und `borg-config`, der Archivierer nur `cache` und `config`
+unter seinem bisherigen Cache-Verzeichnis; sein `reconcile-state` bleibt getrennt erhalten.
+Enthält ein altes Config-Verzeichnis Schlüsseldateien, bricht die Umstellung vor dem Entfernen
+ab. Beim vollständigen Rückbau entfernt root nach dem Anhalten aller drei Dienste und Timer
+das gemeinsame Verzeichnis. Borg-Schlüssel und Passphrase bleiben unabhängig davon verwahrt.
+Die gemeinsamen Funktionen liegen im bereits ausgelieferten `taptime-restore-verify`; Sicherung
+und Archivierer laden sie aus dem gleichen Installationsverzeichnis. Damit bleibt die
+Wiederherstellungsprüfung auf dem Ersatzserver eigenständig ausführbar.
+
 Nicht enthalten sind `/opt/taptime/.env`, Server- und Storage-Box-SSH-Schlüssel,
 Borg-Passphrase sowie die geheimen Monitoring-Curl-Dateien. Borg-Schlüssel, Passphrase und
 `.env` liegen beim Product Owner getrennt verwahrt. Betriebsskripte, Compose, Caddy und

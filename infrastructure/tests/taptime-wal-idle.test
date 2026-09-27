@@ -5,9 +5,12 @@ REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 root="$(mktemp -d)"
 trap 'rm -rf -- "$root"' EXIT
 export TAPTIME_BORG_LOCK_FILE="$root/lock"
+export TAPTIME_BACKUP_STATE_DIRECTORY="$root/maintenance-state"
 # The override runs these exact regression assertions against the pre-change script.
 # shellcheck source=../backup/taptime-wal-archiver
 source "${TAPTIME_TEST_ARCHIVER:-$REPOSITORY_ROOT/infrastructure/backup/taptime-wal-archiver}"
+# This suite measures Borg cadence; root cache ownership has its own isolated proof.
+prepare_borg_cache() { :; }
 WAL_SPOOL_DIRECTORY="$root/spool"
 WAL_ARCHIVE_CACHE_DIRECTORY="$root/cache"
 WAL_ARCHIVE_STATUS_FILE="$root/status/status.json"

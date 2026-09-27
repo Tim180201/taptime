@@ -46,6 +46,42 @@ show_service() {
   printf '%s: %s\n' "$unit" "$state"
 }
 
+# Only local, closed-format summaries. This command never takes the Borg lock
+# or loads credentials, and stays responsive while a long backup is running.
+show_backup_maintenance() {
+  local directory="$1" counts='' retention='' tolerance='' observed base wal markers
+  local state attempt success timestamp
+  [[ ! -f "$directory/archive-counts" ]] || counts="$(< "$directory/archive-counts")"
+  if [[ "$counts" =~ ^[0-9]{1,12}\|[0-9]{1,12}\|[0-9]{1,12}\|[0-9]{1,12}$ ]]; then
+    IFS='|' read -r observed base wal markers <<< "$counts"
+    printf 'Archive: Basis=%s WAL=%s Marker=%s\n' "$base" "$wal" "$markers"
+    timestamp="$(date -u --date="@$observed" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" || timestamp=unbekannt
+    printf 'Archivzählung Stand: %s\n' "$timestamp"
+  else printf 'Archive: unbekannt\n'; fi
+  [[ ! -f "$directory/retention-status" ]] || retention="$(< "$directory/retention-status")"
+  if [[ "$retention" =~ ^(ok|running|failed|protected|unregistered)\|[0-9]{1,12}\|[0-9]{1,12}$ ]]; then
+    IFS='|' read -r state attempt success <<< "$retention"
+    case "$state" in
+      ok) printf 'Aufräumen: ok\n';;
+      running) printf 'Aufräumen: begonnen, noch kein Abschluss gespeichert\n';;
+      failed) printf 'Aufräumen: fehlgeschlagen\n';;
+      protected) printf 'Aufräumen: ausgesetzt zum Schutz der geprüften Basis oder ihres Markers\n';;
+      unregistered) printf 'Aufräumen: wartet auf registrierte, geprüfte Basis\n';;
+    esac
+    timestamp="$(date -u --date="@$attempt" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" || timestamp=unbekannt
+    printf 'Letzter Aufräumversuch: %s\n' "$timestamp"
+    timestamp=unbekannt
+    if [[ "$success" != 0 ]]; then
+      timestamp="$(date -u --date="@$success" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" || timestamp=unbekannt
+    fi
+    printf 'Letztes erfolgreiches Aufräumen: %s\n' "$timestamp"
+  else printf 'Aufräumen: unbekannt\n'; fi
+  [[ ! -f "$directory/backup-pause-max-seconds" ]] || tolerance="$(< "$directory/backup-pause-max-seconds")"
+  if [[ "$tolerance" =~ ^[1-9][0-9]{2,3}$ ]] && (( tolerance >= 600 && tolerance <= 3300 )); then
+    printf 'Wächter-Toleranz: %s s\n' "$tolerance"
+  else printf 'Wächter-Toleranz: unbekannt\n'; fi
+}
+
 main() {
   (( $# == 0 )) || { printf 'Invoke taptime-status without arguments.\n' >&2; return 64; }
   export PATH=/usr/sbin:/usr/bin:/sbin:/bin LC_ALL=C SYSTEMD_PAGER=cat
@@ -66,6 +102,7 @@ main() {
     --output=short-iso --lines=30 \
     --grep='Starting taptime-backup.service|Finished taptime-backup.service|taptime-backup.service: Failed with result' \
     2>/dev/null | filter_backup_history || printf 'Journal nicht verfügbar.\n'
+  show_backup_maintenance /var/lib/taptime-monitor
   for marker in api-down wal-archive-down; do
     if [[ -f "/var/lib/taptime-monitor/$marker" ]]; then
       printf 'Monitor %s: Alarm offen\n' "$marker"
