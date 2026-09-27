@@ -18,6 +18,7 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
   dem Code: je Stunde ein Basisarchiv und je WAL-Segment ein Borg-Archiv, Aufräumen nur sonntags, zwei getrennte
   Borg-Caches. Folge: „WAL-Archivierung steht“ jede Stunde, weil der Wächter nur zehn Minuten toleriert; kein
   Datenrisiko (WAL-Empfänger läuft, Archivierer holt nach). Behebung T-083 vor dem Pilot.
+  Behoben mit T-083 (gemeinsamer Borg-Cache, tägliches Aufräumen, lernender Wächter); Wirkung nach dem Deploy in taptime-status prüfen, die neuen Statuszeilen erst nach dem nächsten Konsolenschritt.
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
   `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
