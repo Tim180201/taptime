@@ -115,10 +115,10 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
-- **P1 Befund aus dem Code (28.09., T-086):** Bei eingeschalteten Standorten scheitert „Kunde anlegen“ im Web am
-  Commit: Der neue Kunde ist ein aktives Arbeitsziel ohne Standort, und die verzögerte Prüfung aus 019
-  (`location_setup_is_complete_v1`) lehnt das ab; das Ergebnis kennt diesen Fall nicht. Nicht am Gerät beobachtet;
-  T-086 beweist es zuerst rot. Betriebe ohne Standorte sind nicht betroffen.
+- T-086/T-087 abgenommen (TL APPROVED 28.09.), auf main; Deploy gebündelt mit T-084, T-085, T-088.
+- **P2 T-086/T-087 Verifikation (behoben):** Erstläufe fanden Audit-Trigger-/Receipt-Reihenfolge, Rechteinventar, Typ-/Mock-Erwartungen und Replay nach Standort-Umschaltung; Ursachen und Schlussläufe im Bericht. Lint nicht eingerichtet; CI erst nach freigegebenem Commit/Push, Geräteabnahme nach separat freigegebenem Build.
+- P3 T-086: is_current_customer_creation_v1 vergleicht xmin über ::text::xid; bei Epoche > 0 besser xid(pg_current_xact_id()). Mit der nächsten Migration.
+- P3 T-086: Die Standortleitung legt Kunden am Handy an, im Web nicht (Einrichtung dort nur Administrator, siehe P2 T-062).
 - **P1 Geräteabnahme 25.09. (behoben mit T-080):** Die App nahm Offline-Freigaben nur für Administrator und Beschäftigte an; die Standortleitung konnte nicht scannen. Rolle aufgenommen, lokales Schema V6. Geräteabnahme mit dem nächsten App-Build.
 - **P3 T-080:** Noch nicht übertragene Erfassungen aus der Zeit vor einem Rollenwechsel werden beim Abgleich zum Prüffall (`identity_or_membership_not_current`); nichts geht verloren. Im Pilot nur relevant, wenn jemand offline erfasst und danach die Rolle wechselt.
 - **Geräteabnahme 25.09., gelernt:** Der Reiter „Mitarbeiter“ erscheint für die Standortleitung erst mit einer
@@ -228,9 +228,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 - **P2 Entwicklung (T-060):** Der Root-Build kann mit veralteten Workspace-Deklarationen
   scheitern; betroffene Abhängigkeiten vor ihren Verbrauchern bauen (Identity → Administration → API).
-- **Bekannt (T-060):** Eine Standortleitung ohne Kunden im eigenen Standort sieht keinen Reiter
-  „Tags", bis dort ein Arbeitsziel zugeordnet ist; Tags ganz ohne Zuordnung sieht nur der
-  Administrator. Beides folgt aus der Standortgrenze und ist so gewollt.
+- **T-060/T-086:** Die lokale Umsetzung erlaubt „Tags“ auch im noch kundenlosen verwalteten Standort;
+  konkrete Kunden bleiben auf aktive eigene Standortbindungen begrenzt. Produktion bis zum Deploy unverändert.
 
 - **P1 T-055:** Lease-Bindung und Reihenfolge über Installationen nach Restore (D-055).
 - **Bekannt, nicht behebbar (T-043):** Android 17 zeigt für Tags mit Web-Adresse eine
