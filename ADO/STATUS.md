@@ -1,24 +1,31 @@
 # TapTim.e — Status
 
-**Stand:** 25.09.2026 · Produktion läuft auf `6c7007d` (Deploy 25.09.: T-062 Standortleitung im eigenen Standort
-mit Migration 033, T-078 Image-Bau ohne Cache, T-079 Kundensicht mit Migration 034; kein Konsolenschritt, Controller
-`b635c4a` unverändert; Migrationen bis 034). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt. App-Builds
-vom 25.09. auf `6c7007d`: iPhone TestFlight 1.0.0 (3), Android-APK versionCode 10. „Taptura“ ist der Arbeitsname für den
-Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
-Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; T-080 behoben auf `main` (`7bd7877`), App-Build
-steht aus. Reihenfolge (PO 25.09.): T-083 (Sicherung bleibt kurz) → Deploy → App-Builds auf dem Stand nach T-083 → Rest
-der Geräteabnahme → T-024 → Pilot Monat 1. Danach AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur Entscheidung vor T-048:
-Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
+**Stand:** 27.09.2026 · Produktion läuft auf `e13916b` (Deploy 27.09.: T-083 Sicherung bleibt kurz; kein Konsolenschritt,
+Controller `b635c4a` unverändert; Migrationen bis 034, zuletzt ausgeliefert mit `6c7007d` am 25.09.: T-062, T-078, T-079).
+Auf `main` zusätzlich T-080 (`7bd7877`, App). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt; Pilot-Betrieb
+am 26.09. über den Betreiber-Bereich angelegt. App-Builds vom 25.09. auf `6c7007d`: iPhone TestFlight 1.0.0 (3),
+Android-APK versionCode 10; die nächsten Builds (iPhone 4, Android versionCode 11) auf `e13916b`. „Taptura“ ist der
+Arbeitsname für den Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
+Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; offen Punkte 11 (Standortleitung scannt) und 12
+(Kontowechsel) mit dem nächsten Build. Reihenfolge (PO 25.09.): App-Builds auf `e13916b` → Rest der Geräteabnahme →
+T-024 → Pilot Monat 1. Parallel: Code-Analyse mit Claude Code auf einem eigenen Klon von `main`, nur lesend; Befunde
+triagiert der TL zu Aufgaben. Danach AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur Entscheidung
+vor T-048: Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
-## Beobachten (TL, 23.–25.09.)
+## Beobachten (TL, 23.–27.09.)
 
 - Sicherung 25.09. (`taptime-status`): jede stündliche Sicherung dauert 10–44 min (beim Deploy 32 und 30), obwohl
   die Datenbank winzig ist; der WAL-Zyklus braucht mit einem Segment 142 s, davon 129 s Borg-Abgleich. Ursache aus
   dem Code: je Stunde ein Basisarchiv und je WAL-Segment ein Borg-Archiv, Aufräumen nur sonntags, zwei getrennte
   Borg-Caches. Folge: „WAL-Archivierung steht“ jede Stunde, weil der Wächter nur zehn Minuten toleriert; kein
   Datenrisiko (WAL-Empfänger läuft, Archivierer holt nach). Behebung T-083 vor dem Pilot.
-  Behoben mit T-083 (gemeinsamer Borg-Cache, tägliches Aufräumen, lernender Wächter); Wirkung nach dem Deploy in taptime-status prüfen, die neuen Statuszeilen erst nach dem nächsten Konsolenschritt.
+  Behoben mit T-083 (gemeinsamer Borg-Cache, tägliches Aufräumen, lernender Wächter), ausgeliefert 27.09. mit
+  `e13916b`. Erwartung: die erste Sicherung danach dauert einmal lang (Borg baut den gemeinsamen Cache neu), dazu
+  höchstens eine weitere Meldung „WAL-Archivierung steht“, weil der Wächter ohne gemerkte Dauer noch zehn Minuten
+  toleriert; ab der zweiten Sicherung kurz und still. Prüfen (PO, `taptime-status`): Dauer der nächsten drei Sicherungen
+  und `base_seconds` des Archivierers, Ergebnis hier nachtragen. Die neuen Statuszeilen (Archivzahl, letztes Aufräumen,
+  Wächter-Toleranz) erscheinen erst nach dem Konsolenschritt für `taptime-status`, geplant mit T-024.
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
   `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
