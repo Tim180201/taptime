@@ -196,6 +196,8 @@ if (['employee-calendar','employee-backfill','employee-comment','employee-void']
 if (variant.startsWith('manager')) ready = { ...ready, role: 'standortleitung', availableSections: ['employees','own_time','manual_capture','time_records','review_items'], locationsEnabled: true,
   selectedLocation: location, managementScope: { kind: 'locations', locations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] } };
 if (variant.startsWith('invitation-')) ready = { ...ready, locationsEnabled: true, selectedLocation: null, assignableLocations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] };
+if (variant === 'setup-targets-locations') ready = { ...ready, locationsEnabled: true,
+  assignableLocations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] };
 if (variant === 'payroll') ready = { ...ready, timeWindow: {fromInclusive:'2026-08-25T12:00:00.000Z',toExclusive:'2026-09-25T12:00:00.000Z'} };
 if (variant === 'payroll-month') ready = { ...ready, timeWindow: {fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'} };
 if (variant === 'five-areas') ready = { ...ready, availableSections: readyState.availableSections };

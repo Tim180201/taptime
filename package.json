@@ -16,6 +16,7 @@
     "test:layout": "node --test scripts/browser/layout.test.mjs"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "shell-quote": "1.9.0",
     "yaml": "2.9.0",
     "playwright-core": "1.62.1",

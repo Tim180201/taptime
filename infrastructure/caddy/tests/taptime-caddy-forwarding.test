@@ -10,10 +10,6 @@ validation_name="${test_id}-validation"
 cache_name="${test_id}-cache"
 expected_secret='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
 
-if ! grep -Fq $'\thandle /v3/* {' infrastructure/caddy/Caddyfile; then
-  echo 'production Caddyfile does not proxy /v3/*' >&2
-  exit 1
-fi
 if ! grep -Fq $'\t\troot * /srv/admin-web/current' infrastructure/caddy/Caddyfile; then
   echo 'production Caddyfile does not serve the atomically selected Admin Web release' >&2
   exit 1
@@ -170,7 +166,16 @@ docker create --name "$caddy_name" --network "$network_name" \
   --publish 127.0.0.1:0:8080 \
   caddy:2.10.2-alpine caddy run --config /tmp/forwarding.caddyfile \
   >/dev/null
-docker cp infrastructure/caddy/tests/forwarding.caddyfile \
+node - "$test_directory/forwarding.caddyfile" <<'NODE'
+const fs = require('node:fs');
+const production = fs.readFileSync('infrastructure/caddy/Caddyfile', 'utf8');
+const admin = production.match(/^admin\.tb-infra\.de \{[\s\S]*?^\}/m)?.[0];
+if (!admin) throw new Error('Admin block missing');
+fs.writeFileSync(process.argv[2], admin.replace('admin.tb-infra.de', ':8080')
+  .replaceAll('backend-api:3000', 'echo-backend:3000')
+  .replaceAll('/run/secrets/taptime_proxy_shared_secret', '/tmp/taptime_proxy_shared_secret'));
+NODE
+docker cp "$test_directory/forwarding.caddyfile" \
   "$caddy_name:/tmp/forwarding.caddyfile"
 docker cp "$test_directory/taptime_proxy_shared_secret" \
   "$caddy_name:/tmp/taptime_proxy_shared_secret"

@@ -444,6 +444,7 @@ describe('migration 007, roles and database contracts', () => {
           'insert_admin_setup_nfc_tag_v1',
           'insert_admin_setup_nfc_tag_v1',
           'is_current_customer_creation_v1',
+          'is_current_project_creation_v1',
           'location_setup_is_complete_v1',
           'lock_admin_setup_active_customer_v1',
           'membership_has_management_location_v1',
@@ -461,7 +462,7 @@ describe('migration 007, roles and database contracts', () => {
       {
         owner: 'taptime_admin_setup_function_owner',
         functions: ['append_administrative_audit_event', 'append_location_setup_audit_event_v1',
-          'has_current_admin_setup_authority'],
+          'append_project_location_creation_audit_v1', 'has_current_admin_setup_authority'],
         relations: '0',
       },
     ]);

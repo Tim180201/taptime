@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   MOBILE_OWN_TIME_LIMIT_MAXIMUM,
@@ -108,6 +108,9 @@ export class ProjectAdministrationCoordinator implements ProjectAdministrationPo
     if (!validateProjectCreateRequest(command.request)) return { status: 'invalid_request' };
     return this.withAdministrator(command.accessToken, command.request.expectedMembershipId,
       async (client, actor) => {
+        await client.query('SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended($1, 0))',
+          [`taptime:t015e:location-setup:v1:${actor.organization_id}`]);
+        const locationId = command.request.locationId ?? null;
         const digest = requestDigest([
           'project-create-v1',
           actor.organization_id,
@@ -115,11 +118,24 @@ export class ProjectAdministrationCoordinator implements ProjectAdministrationPo
           actor.membership_id,
           command.request.projectId,
           command.request.displayName,
+          ...(locationId === null ? [] : [locationId]),
         ]);
         const replay = await findReceipt(client, actor.organization_id, command.request.commandId);
         if (replay !== null) {
           return mapReplay(command.request.commandId, digest, replay);
         }
+        const organization = await client.query<{ locations_enabled: boolean }>(
+          'SELECT locations_enabled FROM taptime_server.organizations WHERE id = $1', [actor.organization_id]);
+        const enabled = organization.rows[0]?.locations_enabled;
+        if (enabled === undefined) return { status: 'forbidden' };
+        if (enabled && locationId === null) return { status: 'location_required' };
+        if (!enabled && locationId !== null) return { status: 'invalid_request' };
+        if (locationId !== null) {
+          const location = await client.query('SELECT 1 FROM taptime_server.locations WHERE organization_id = $1 AND id = $2 AND active',
+            [actor.organization_id, locationId]);
+          if (location.rowCount !== 1) return { status: 'forbidden' };
+        }
+        await client.query("SELECT set_config('app.correlation_id', $1, true)", [command.request.commandId]);
         const existing = await client.query(
           `SELECT 1 FROM taptime_server.projects
            WHERE organization_id = $1::uuid AND id = $2::uuid`,
@@ -146,8 +162,13 @@ export class ProjectAdministrationCoordinator implements ProjectAdministrationPo
             JSON.stringify({ schemaVersion: 1 }),
           ],
         );
+        if (locationId !== null) {
+          await client.query(`INSERT INTO taptime_server.work_target_location_assignments
+            (id, organization_id, target_type, target_id, location_id) VALUES ($1, $2, 'project', $3, $4)`,
+          [randomUUID(), actor.organization_id, command.request.projectId, locationId]);
+        }
         await insertReceipt(client, actor, command.request.commandId, 'create',
-          digest, command.request.projectId, command.request.displayName, true, 1);
+          digest, command.request.projectId, command.request.displayName, true, 1, locationId);
         return {
           status: 'succeeded',
           idempotentRetry: false,
@@ -244,7 +265,7 @@ export class ProjectAdministrationCoordinator implements ProjectAdministrationPo
       client: PoolClient,
       actor: ActorRow,
     ) => Promise<Response>,
-  ): Promise<Response | { readonly status: 'unauthorized' | 'forbidden' }> {
+  ): Promise<Response | { readonly status: 'unauthorized' | 'forbidden' | 'invalid_request' }> {
     const verification = await this.accessTokenVerifier.verify(accessToken);
     if (verification.status === 'rejected') return { status: 'unauthorized' };
     const client = await this.pool.connect();
@@ -291,6 +312,9 @@ export class ProjectAdministrationCoordinator implements ProjectAdministrationPo
         } catch {
           // Preserve original failure.
         }
+      }
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23514') {
+        return { status: 'invalid_request' };
       }
       throw error;
     } finally {
@@ -343,14 +367,15 @@ async function insertReceipt(
   resultDisplayName: string,
   resultActive: boolean,
   resultRowVersion: number,
+  projectLocationId: string | null = null,
 ): Promise<void> {
   await client.query(
     `INSERT INTO taptime_server.project_command_receipts (
        organization_id, command_id, actor_user_id, actor_membership_id,
        command_type, request_hash, project_id, result_display_name,
-       result_active, result_row_version
+       result_active, result_row_version, project_location_id
      ) VALUES (
-       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7::uuid, $8, $9, $10
+       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7::uuid, $8, $9, $10, $11::uuid
      )`,
     [
       actor.organization_id,
@@ -363,6 +388,7 @@ async function insertReceipt(
       resultDisplayName,
       resultActive,
       resultRowVersion,
+      projectLocationId,
     ],
   );
 }

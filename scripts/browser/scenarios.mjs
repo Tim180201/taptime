@@ -52,6 +52,10 @@ export const adminScenarios = [
   scenario('review-confirm','/pruefungen','[role="alertdialog"]'),
   scenario('setup-locations','/einrichtung','.filter-chips',[click('Standorte')]),
   scenario('setup-targets','/einrichtung','.filter-chips',[click('Arbeitsziele')]),
+  scenario('setup-targets-locations','/einrichtung','.filter-chips',[click('Arbeitsziele'),
+    async p=>p.locator('form').filter({has:p.getByRole('button',{name:'Projekt anlegen',exact:true})})
+      .getByRole('combobox').selectOption('31000000-0000-4000-8000-000000000002'),
+  ]),
   scenario('setup-tags','/einrichtung','.filter-chips',[click('Tags')]),
   scenario('tag-confirm','/einrichtung','[role="alertdialog"]'),
   scenario('payroll','/lohnexport','.table-scroll'),

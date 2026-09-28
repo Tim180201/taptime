@@ -4,6 +4,7 @@ import type {
 } from '@taptime/backend-identity';
 import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { migrate, B3_SCHEMA, B3_MIGRATION_TABLE } from '@taptime/backend-schema';
 import { MobileWorkReadCoordinator } from '../src/index.js';
 
 const installerConnectionString = process.env.DA5_MOBILE_WORK_DATABASE_URL
@@ -81,6 +82,8 @@ const rotatedCoordinator = new MobileWorkReadCoordinator(
 );
 
 beforeAll(async () => {
+  await installerPool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CASCADE; DROP TABLE IF EXISTS ${B3_MIGRATION_TABLE}`);
+  await migrate(installerPool);
   await prepareRuntimeLogin();
   await seed();
 }, 30_000);

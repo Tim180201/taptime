@@ -139,6 +139,30 @@ describe('DA2 TimeEntry export API', () => {
     expect(exportTimeEntriesV3).toHaveBeenCalledOnce();
   });
 
+  it.each([
+    ['v4', 200], ['v99', 503], ['v3', 503],
+  ] as const)('T090 validates the v4 download filename (%s)', async (version, status) => {
+    const filename = `taptime-time-entries_${version}_20260701T000000000Z_20260801T000000000Z.csv`;
+    const bytes = new TextEncoder().encode('\uFEFF"person_identifier";"comment"\r\n');
+    const diagnostics: BackendApiDiagnostic[] = [];
+    const origin = await start({
+      async exportTimeEntries() { return { status: 'service_unavailable' }; },
+      async exportTimeEntriesV4() { return { status: 'succeeded', filename, bytes, byteCount: bytes.length, rowCount: 0, sha256: 'a'.repeat(64) }; },
+    }, diagnostics);
+    const response = await fetch(`${origin}/v4/time-entries/export`, {
+      method: 'POST', headers: { authorization: 'Bearer aaa.bbb.ccc', 'content-type': 'application/json' }, body: JSON.stringify(validBody),
+    });
+    expect(response.status).toBe(status);
+    if (status === 200) {
+      expect(response.headers.get('content-disposition')).toBe(`attachment; filename="${filename}"`);
+      expect(Buffer.from(await response.arrayBuffer())).toEqual(Buffer.from(bytes));
+      expect(diagnostics).toEqual([]);
+    } else {
+      expect(await response.json()).toEqual({ error: { code: 'service_unavailable' } });
+      expect(diagnostics).toEqual([{ code: 'invalid_export_filename', route: 'time_entry_export_v4', correlationId: expect.any(String) }]);
+    }
+  });
+
   it('rejects method, media type and legacy expected-Membership header', async () => {
     const exportTimeEntries = vi.fn<TimeEntryExporter['exportTimeEntries']>();
     const origin = await start({ exportTimeEntries });

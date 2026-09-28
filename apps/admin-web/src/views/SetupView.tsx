@@ -21,6 +21,8 @@ export default function SetupView({
   const [customerLocationId, setCustomerLocationId] = useState('');
   const selectedCustomerLocation = customerLocationId || (state.assignableLocations.length === 1 ? state.assignableLocations[0]!.id : '');
   const [projectName, setProjectName] = useState('');
+  const [projectLocationId, setProjectLocationId] = useState('');
+  const selectedProjectLocation = projectLocationId || (state.assignableLocations.length === 1 ? state.assignableLocations[0]!.id : '');
   const [tagId, setTagId] = useState('');
   const [targetId, setTargetId] = useState('');
   const prepareButton = useRef<HTMLButtonElement>(null);
@@ -117,9 +119,15 @@ export default function SetupView({
           complete={state.projectsNextCursor === null} />
         <form className="inline-form" onSubmit={(event) => {
           event.preventDefault();
-          void administration.createProject?.(projectName);
+          void administration.createProject?.(projectName, state.locationsEnabled ? selectedProjectLocation || undefined : undefined);
         }}>
           <label htmlFor="project-name">Neues Projekt anlegen</label>
+          {state.locationsEnabled ? <label>Standort
+            <select required value={selectedProjectLocation} onChange={event => setProjectLocationId(event.target.value)}>
+              <option value="">Standort wählen</option>
+              {state.assignableLocations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}
+            </select>
+          </label> : null}
           <div className="input-action">
             <input id="project-name" required maxLength={120} value={projectName}
               onChange={(event) => setProjectName(event.target.value)} />
@@ -232,6 +240,7 @@ function LocationSetupPanel({
   readonly administration: AdminWebCapability;
 }) {
   const [locationName, setLocationName] = useState('');
+  useEffect(() => { if (state.completedAction === 'location_created') setLocationName(''); }, [state.completedAction]);
   const setup = state.locationSetup;
   const activeLocations = setup?.locations.filter((location) => location.active) ?? [];
   const gapLabels = {
@@ -253,7 +262,7 @@ function LocationSetupPanel({
     className="full-width">
     <form className="inline-form" onSubmit={(event) => {
       event.preventDefault();
-      void administration.createLocation?.(locationName).then(() => setLocationName(''));
+      void administration.createLocation?.(locationName);
     }}>
       <label htmlFor="location-name">Neuen Standort anlegen</label>
       <div className="input-action">

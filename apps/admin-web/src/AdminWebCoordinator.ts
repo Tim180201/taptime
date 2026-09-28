@@ -1,3 +1,4 @@
+import { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';
 import {isVoidTimeRequest,loadVoidedTimePages,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import type { Notice } from './contracts';
 import type { BackfillTargetSelection } from "@taptime/mobile-work-contract";
@@ -99,6 +100,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private targetsEpoch = 0;
   // Volatile, session-bound retry identity. A lost acknowledgement can follow a committed event.
   private pendingManual: {generation:number;request:ManualLifecycleRequest | ManualBreakLifecycleRequest} | null = null;
+  private readonly pendingCreations = new Map<string, { commandId: string; objectId: string }>();
   private readonly pendingStops=new Map<string,{generation:number;commandId:string}>();
   private pendingTimeEdit: {generation:number;key:string;commandId:string} | null = null;
   private refreshEpoch = 0;
@@ -136,7 +138,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.refreshEpoch += 1;
       this.membershipId = null;
       this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
       this.clearInvitationExpiryTimer();
       this.setState({ status: 'password_recovery', completing: false, notice: null });
     });
@@ -450,7 +452,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.refreshEpoch += 1;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signing_in' });
     await this.enqueueAuthentication(() => this.completeSignIn(generation, email, password));
@@ -499,7 +501,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.refreshEpoch += 1;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signed_out' });
     await this.enqueueAuthentication(() => this.safeSignOut());
@@ -846,7 +848,19 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
+  private creationIdentity(key: string) {
+    let identity = this.pendingCreations.get(key);
+    if (identity === undefined) {
+      identity = { commandId: crypto.randomUUID(), objectId: crypto.randomUUID() };
+      this.pendingCreations.set(key, identity);
+    }
+    return identity;
+  }
+
   async createCustomer(displayName: string, locationId?: string): Promise<void> {
+    const name = normalizeCustomerNameV1(displayName);
+    if (name.status === 'invalid') return;
+    displayName = name.canonicalName;
     const current = this.state;
     const membershipId = this.membershipId;
     if (
@@ -859,10 +873,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
     ) return;
     const generation = this.generation;
     const requestRefreshEpoch = this.refreshEpoch;
+    const key = JSON.stringify(['customer', membershipId, displayName, locationId ?? null]);
+    const identity = this.creationIdentity(key);
     this.setState({ ...current, creating: true, notice: null, completedAction: null });
     let result;
     try {
-      result = await this.auth.withAccessToken((token) => this.api.createCustomer(token, membershipId, crypto.randomUUID(), displayName, locationId));
+      result = await this.auth.withAccessToken((token) => this.api.createCustomer(token, membershipId, identity.commandId, displayName, locationId));
     } catch {
       result = { status: 'unreachable' as const };
     }
@@ -870,6 +886,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       generation !== this.generation
       || requestRefreshEpoch !== this.refreshEpoch
     ) return;
+    if (result?.status === 'succeeded' || result?.status === 'conflict') this.pendingCreations.delete(key);
     if (result?.status === 'succeeded') {
       const refresh = this.refresh();
       const followupRefreshEpoch = this.refreshEpoch;
@@ -1009,10 +1026,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
-  async createProject(displayName: string): Promise<void> {
+  async createProject(displayName: string, locationId?: string): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
-    const normalized = displayName.normalize('NFC').trim();
+    const name = normalizeCustomerNameV1(displayName);
+    if (name.status === 'invalid') return;
+    const normalized = name.canonicalName;
     if (
       current.status !== 'ready'
       || membershipId === null
@@ -1024,15 +1043,18 @@ export class AdminWebCoordinator implements AdminWebCapability {
     ) return;
     const generation = this.generation;
     const refreshEpoch = this.refreshEpoch;
+    const key = JSON.stringify(['project', membershipId, normalized, locationId ?? null]);
+    const identity = this.creationIdentity(key);
     this.setState({ ...current, projectBusy: true, notice: null, completedAction: null });
     let result;
     try {
       result = await this.auth.withAccessToken((token) => this.api.createProject!(
         token,
         membershipId,
-        crypto.randomUUID(),
-        crypto.randomUUID(),
+        identity.commandId,
+        identity.objectId,
         normalized,
+        locationId,
       ));
     } catch {
       result = { status: 'unreachable' as const };
@@ -1040,6 +1062,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
     const latest = this.state;
     if (latest.status !== 'ready') return;
+    if (result?.status === 'succeeded' || result?.status === 'conflict') this.pendingCreations.delete(key);
     if (result?.status === 'succeeded') {
       this.setState({ ...latest, projectBusy: false });
       await this.refreshProjects();
@@ -1061,7 +1084,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
         ...latest,
         projectBusy: false,
         notice: { kind: 'error', text: result.status === 'conflict'
-          ? 'Ein anderer Vorgang hat das Anlegen des Projekts unterbrochen. Laden Sie die Projekte neu und versuchen Sie es erneut.'
+          ? result.code === 'location_required' ? 'Wählen Sie einen Standort für das Projekt.'
+            : result.code === 'invalid_request' ? 'Prüfen Sie Projektname und Standort. Ihre Eingaben bleiben erhalten.'
+            : 'Ein anderer Vorgang hat das Anlegen des Projekts unterbrochen. Laden Sie die Projekte neu und versuchen Sie es erneut.'
           : 'Ob das Projekt angelegt wurde, ist noch unklar. Ihr eingegebener Name bleibt erhalten; versuchen Sie es erneut.' },
       });
     }
@@ -1178,8 +1203,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 
   async createLocation(displayName: string): Promise<void> {
-    await this.runLocationMutation({ action: 'create_location', locationId: crypto.randomUUID(),
-      displayName }, 'Standort wurde angelegt.');
+    const name = normalizeCustomerNameV1(displayName);
+    if (name.status === 'invalid') return;
+    const key = JSON.stringify(['location', this.membershipId, name.canonicalName]);
+    const identity = this.creationIdentity(key);
+    const succeeded = await this.runLocationMutation({ action: 'create_location', locationId: identity.objectId,
+      displayName: name.canonicalName }, 'Standort wurde angelegt.', { key, commandId: identity.commandId });
+    if (succeeded && this.state.status === 'ready') this.setState({ ...this.state, completedAction: 'location_created' });
   }
 
   async renameLocation(locationId: string, expectedRowVersion: number,
@@ -1235,6 +1265,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private async runLocationMutation(
     mutation: Record<string, unknown>,
     successNotice: string,
+    creation?: { key: string; commandId: string },
   ): Promise<boolean> {
     const current = this.state;
     const membershipId = this.membershipId;
@@ -1244,16 +1275,17 @@ export class AdminWebCoordinator implements AdminWebCapability {
       || this.api.mutateLocationSetup === undefined || current.locationSetupBusy) return false;
     const generation = this.generation;
     const refreshEpoch = this.refreshEpoch;
-    this.setState({ ...current, locationSetupBusy: true, notice: null });
+    this.setState({ ...current, locationSetupBusy: true, notice: null, completedAction: null });
     let result;
     try {
       result = await this.auth.withAccessToken((token) => this.api.mutateLocationSetup!(
-        token, membershipId, crypto.randomUUID(), mutation,
+        token, membershipId, creation?.commandId ?? crypto.randomUUID(), mutation,
       ));
     } catch { result = { status: 'unreachable' as const }; }
     if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return false;
     const latest = this.state;
     if (latest.status !== 'ready') return false;
+    if (creation && (result?.status === 'succeeded' || result?.status === 'conflict')) this.pendingCreations.delete(creation.key);
     if (result?.status === 'succeeded') {
       this.setState({ ...latest, locationSetupBusy: false, notice: { kind: 'success', text: successNotice } });
       await this.refreshLocationSetup();
@@ -2239,7 +2271,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (generation === this.generation) {
         this.membershipId = null;
         this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
         this.setState({ status: 'unavailable', message: 'Die Anmeldung ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
       }
     }
@@ -2249,7 +2281,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (generation !== this.generation) { await this.safeSignOut(); return; }
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
     const invalidatedGeneration = ++this.generation;
     await this.safeSignOut();
     if (invalidatedGeneration === this.generation) this.setState({ status: forbidden ? 'forbidden' : 'unavailable', message });
@@ -2259,7 +2291,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (generation !== this.generation) return;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
     this.generation += 1;
     this.setState({ status: 'unavailable', message });
     await this.enqueueAuthentication(() => this.safeSignOut());

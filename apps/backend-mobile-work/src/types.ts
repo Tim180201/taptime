@@ -59,5 +59,6 @@ export type ProjectMutationResult =
   | { readonly status: 'invalid_request' }
   | { readonly status: 'command_id_conflict' }
   | { readonly status: 'project_in_use' }
+  | { readonly status: 'location_required' }
   | { readonly status: 'project_unavailable' }
   | { readonly status: 'stale_row_version' };

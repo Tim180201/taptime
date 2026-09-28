@@ -21,10 +21,14 @@
     "./managed-people": {
       "types": "./dist/managedPeople.d.ts",
       "import": "./dist/managedPeople.js"
+    },
+    "./names": {
+      "types": "./dist/nameContract.d.ts",
+      "import": "./dist/nameContract.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/setupProjection.ts src/managedPeople.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/core --sourcemap --outdir=dist",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts src/nameContract.ts src/setupProjection.ts src/managedPeople.ts --bundle --platform=node --target=node24 --format=esm --external:@taptime/core --sourcemap --outdir=dist",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

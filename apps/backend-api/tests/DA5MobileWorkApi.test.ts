@@ -525,3 +525,12 @@ it('T085 validates the closed quota command, preserves current actor and maps co
    await expectError(await post(origin,'/v1/administration/customers/quota',{...request,...extra}),400,'invalid_request');
  expect(setCustomerQuota).toHaveBeenCalledTimes(1);
 });
+
+it.each(['Bad\nName', ' Bad', 'e\u0301', 'Bad\u0000Name'])('T090 rejects noncanonical project name before writing (%s)', async displayName => {
+  const createProject = vi.fn(async () => ({ status: 'invalid_request' as const }));
+  const origin = await start({ projectAdministration: { createProject, async queryProjects() { return { status: 'forbidden' }; }, async deactivateProject() { return { status: 'forbidden' }; } } });
+  await expectError(await post(origin, '/v1/administration/projects/create', {
+    expectedMembershipId: ids.membership, commandId: ids.command, projectId: ids.project, displayName,
+  }), 400, 'invalid_request');
+  expect(createProject).not.toHaveBeenCalled();
+});

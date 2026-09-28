@@ -36,10 +36,10 @@ jobs:
       - name: Build transitive workspace dependencies before browser checks
         run: |
           npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-review-contract
-          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/time-entry-export-contract
       - name: Verify Web layouts and landing accessibility in Chrome
         run: npm run test:browser
@@ -148,10 +148,10 @@ jobs:
       - name: Build transitive workspace dependencies before checks
         run: |
           npm run build --workspace=@taptime/core
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-review-contract
-          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/time-entry-export-contract
 
       - name: Typecheck and test the neutral Mobile work contract
@@ -433,9 +433,9 @@ jobs:
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/time-review-contract
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/backend-time-review
-          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/backend-administration
           npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/backend-time-export
@@ -517,9 +517,9 @@ jobs:
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-review-contract
           npm run build --workspace=@taptime/backend-lifecycle
+          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/backend-time-review
-          npm run build --workspace=@taptime/administration-contract
           npm run build --workspace=@taptime/backend-administration
           npm run build --workspace=@taptime/time-entry-export-contract
           npm run build --workspace=@taptime/backend-time-export
@@ -882,8 +882,8 @@ jobs:
           npm run build --workspace=@taptime/core
           npm run build --workspace=@taptime/backend-identity
           npm run build --workspace=@taptime/time-review-contract
-          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/administration-contract
+          npm run build --workspace=@taptime/mobile-work-contract
           npm run build --workspace=@taptime/backend-administration
           npm run build --workspace=@taptime/backend-schema
           npm run build --workspace=@taptime/backend-lifecycle

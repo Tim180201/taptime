@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { globSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
@@ -65,4 +65,23 @@ test('server Compose mounts operator web read-only',()=>{
 test('disabled operator web has no SPA, release assets or operator API',async()=>{
   docker('exec',id,'rm','-r','/srv/operator-web/current');
   for(const path of ['/','/version.txt','/protokoll','/releases/abcdef0/assets/app.js','/v1/operator/session'])assert.equal((await request('betreiber.tb-infra.de',path)).status,404,path);
+});
+
+test('T090 forwards every versioned Admin-Web client path through the production admin block', async () => {
+  const paths = new Set(globSync('apps/admin-web/src/**/*Client.ts').flatMap(file =>
+    [...readFileSync(file, 'utf8').matchAll(/["'`]([/]v[0-9]+[/][a-z0-9/-]+)["'`]/g)].map(match => match[1])));
+  // Expand the client's export template from its declared version union (no copied version list).
+  const client = readFileSync('apps/admin-web/src/AdminWebApiClient.ts', 'utf8');
+  const versions = client.match(/version:\s*([0-9 |]+)\s*=/)?.[1].match(/[0-9]+/g);
+  const template = client.match(/`(\/v\$\{version\}[^`]+)`/)?.[1];
+  assert.ok(versions && template, 'Export path/version declaration changed: update path discovery');
+  for (const version of versions) paths.add(template.replace('${version}', version));
+  assert.ok(paths.size > 0, 'No client API paths discovered');
+  for (const path of paths) {
+    const response = await request('admin.tb-infra.de', path);
+    assert.equal(response.headers.get('content-type'), 'application/json', path);
+    const body = await response.json();
+    assert.equal(body.path, path);
+    assert.equal(body.headers['x-taptime-proxy-secret'], 'synthetic-proxy-proof');
+  }
 });

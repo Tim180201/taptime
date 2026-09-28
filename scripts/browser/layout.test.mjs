@@ -4,11 +4,28 @@ import { join } from 'node:path';
 import { before, after, test } from 'node:test';
 import { launchBrowser, buildWeb, measure } from './harness.mjs';
 import { adminScenarios, operatorScenarios } from './scenarios.mjs';
+import { build as buildJavaScript } from 'esbuild';
 const apps = { 'admin-web': adminScenarios, 'operator-web': operatorScenarios };
 const artifacts = process.env.TAPTIME_LAYOUT_ARTIFACTS;
 const results = [];
 let browser;
 const webs = {};
+test('T090 shared creation-name normalizer runs in Chrome without Node globals', async () => {
+  const bundle = await buildJavaScript({
+    stdin: { contents: "export { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';", resolveDir: process.cwd() },
+    bundle: true, platform: 'browser', format: 'iife', globalName: 'creationNames', write: false,
+  });
+  const page = await browser.newPage();
+  try {
+    await page.addScriptTag({ content: bundle.outputFiles[0].text });
+    assert.equal(await page.evaluate(() => typeof globalThis.Buffer), 'undefined');
+    assert.deepEqual(await page.evaluate(() => [
+      creationNames.normalizeCustomerNameV1('  Cafe\u0301  '),
+      creationNames.normalizeCustomerNameV1('Projekt\nNord'),
+      creationNames.normalizeCustomerNameV1('a'.repeat(4097)),
+    ]), [{ status: 'valid', canonicalName: 'Café' }, { status: 'invalid' }, { status: 'invalid' }]);
+  } finally { await page.close(); }
+});
 before(async () => {
   for (const app of Object.keys(apps)) webs[app] = await buildWeb(app, true);
   // Build the genuine entries as well: configuration/storage fallbacks and fixture exclusion.

@@ -40,7 +40,7 @@ const bounds = Object.freeze({
 }>>);
 
 export function normalizeTapTimeNameV1(input: string, kind: TapTimeNameKind): TapTimeNameResult {
-  if (Buffer.byteLength(input, 'utf8') > 4_096) {
+  if (new TextEncoder().encode(input).byteLength > 4_096) {
     return { status: 'invalid' };
   }
 
@@ -70,7 +70,7 @@ export function normalizeTapTimeNameV1(input: string, kind: TapTimeNameKind): Ta
   if (
     canonicalCodePoints.length < 1
     || canonicalCodePoints.length > selectedBounds.scalarMaximum
-    || Buffer.byteLength(canonicalName, 'utf8') > selectedBounds.byteMaximum
+    || new TextEncoder().encode(canonicalName).byteLength > selectedBounds.byteMaximum
     || canonicalCodePoints.some((value) => inRanges(value.codePointAt(0)!, prohibitedRanges))
   ) {
     return { status: 'invalid' };

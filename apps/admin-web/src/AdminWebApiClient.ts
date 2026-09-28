@@ -194,6 +194,7 @@ export interface AdminWebApiPort {
     commandId: string,
     projectId: string,
     displayName: string,
+    locationId?: string,
   ) => Promise<ApiResult<SafeProject>>;
   readonly deactivateProject?: (
     token: string,
@@ -615,12 +616,13 @@ export class AdminWebApiClient implements AdminWebApiPort {
     commandId: string,
     projectId: string,
     displayName: string,
+    locationId?: string,
   ): Promise<ApiResult<SafeProject>> {
     return this.request(
       '/v1/administration/projects/create',
       token,
       'POST',
-      { expectedMembershipId: membershipId, commandId, projectId, displayName },
+      { expectedMembershipId: membershipId, commandId, projectId, displayName, ...(locationId === undefined ? {} : { locationId }) },
       parseProjectMutation,
       false,
       false,
@@ -729,7 +731,9 @@ export class AdminWebApiClient implements AdminWebApiPort {
         const code = parseLocationScopeError(JSON.parse(conflictText));
         return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
       }
-      if (path === '/v1/administration/customers' && [400, 403, 409].includes(response.status)) {
+      if ((path === '/v1/administration/customers' || path === '/v1/administration/projects/create'
+        || (path === '/v1/administration/location-setup/mutate' && response.status === 400))
+        && [400, 403, 409].includes(response.status)) {
         if (response.redirected || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'invalid_response' };
         const text = await readBoundedResponseText(response, maximumResponseBytes);

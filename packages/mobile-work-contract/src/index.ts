@@ -1,3 +1,5 @@
+import { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';
+
 export const MOBILE_OWN_TIME_LIMIT_MINIMUM = 1;
 export const MOBILE_OWN_TIME_LIMIT_MAXIMUM = 20;
 export const MOBILE_WORK_TARGET_LIMIT_MINIMUM = 1;
@@ -60,6 +62,7 @@ export interface ProjectSummary {
 }
 
 export interface ProjectCreateRequest {
+  readonly locationId?: string;
   readonly expectedMembershipId: string;
   readonly commandId: string;
   readonly projectId: string;
@@ -163,17 +166,17 @@ export function validateProjectCreateRequest(value: unknown): value is ProjectCr
       'commandId',
       'projectId',
       'displayName',
+      ...(value.locationId === undefined ? [] : ['locationId']),
     ])
   ) {
     return false;
   }
+  const name = typeof value.displayName === 'string' ? normalizeCustomerNameV1(value.displayName) : { status: 'invalid' as const };
   return isCanonicalUuid(value.expectedMembershipId)
     && isCanonicalUuid(value.commandId)
     && isCanonicalUuid(value.projectId)
-    && typeof value.displayName === 'string'
-    && value.displayName === value.displayName.trim()
-    && value.displayName.length > 0
-    && [...value.displayName].length <= MOBILE_PROJECT_NAME_MAXIMUM_CHARACTERS;
+    && (value.locationId === undefined || isCanonicalUuid(value.locationId))
+    && name.status === 'valid' && name.canonicalName === value.displayName;
 }
 
 export function validateProjectDeactivateRequest(

@@ -349,6 +349,7 @@ export interface BackendApiDiagnostic {
     | 'scan_context_resolution_failed'
     | 'session_resolution_failed'
     | 'time_entry_export_failed'
+    | 'invalid_export_filename'
     | 'mobile_work_failed'
     | 'time_review_failed';
   readonly route?: BackendApiRoute;

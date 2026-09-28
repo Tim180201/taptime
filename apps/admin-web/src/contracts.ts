@@ -113,7 +113,7 @@ export interface CursorPage<Value> {
   readonly nextCursor: string | null;
 }
 export type AdminSection = 'setup' | 'employees' | 'timeRecords' | 'reviewItems';
-export type CompletedAdminAction = 'customer_created' | 'project_created' | 'invitation_created';
+export type CompletedAdminAction = 'location_created' | 'customer_created' | 'project_created' | 'invitation_created';
 export type SectionStatus =
   | { readonly status: 'ready' }
   | { readonly status: 'loading' }
@@ -245,7 +245,7 @@ export interface AdminWebCapability {
   loadMoreReviewItems(): Promise<void>;
   readonly refreshProjects?: () => Promise<void>;
   readonly loadMoreProjects?: () => Promise<void>;
-  readonly createProject?: (displayName: string) => Promise<void>;
+  readonly createProject?: (displayName: string, locationId?: string) => Promise<void>;
   readonly deactivateProject?: (projectId: string) => Promise<void>;
   readonly refreshLocationSetup?: () => Promise<void>;
   readonly createLocation?: (displayName: string) => Promise<void>;

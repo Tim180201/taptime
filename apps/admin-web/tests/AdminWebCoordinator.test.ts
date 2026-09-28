@@ -1840,3 +1840,51 @@ it.each([
   expect(api.exportTimeEntries).toHaveBeenLastCalledWith('memory-only-token',membershipId,from,to,...(version===3?[]:[4]));
  }
 });
+
+// A timed-out POST may already have committed: each retry must identify the same command/object.
+it.each(['customer', 'project', 'location'] as const)('T090 reuses %s creation after timeout', async kind => {
+  const { coordinator, api } = setup();
+  const action = vi.fn().mockRejectedValueOnce(new Error('timeout')).mockResolvedValue({ status: 'succeeded', value: true });
+  if (kind === 'customer') api.createCustomer.mockImplementation(action);
+  if (kind === 'project') Object.assign(api, { createProject: action });
+  if (kind === 'location') Object.assign(api, { mutateLocationSetup: action });
+  await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+  const create = () => kind === 'customer' ? coordinator.createCustomer('Neuer Name')
+    : kind === 'project' ? coordinator.createProject('Neuer Name') : coordinator.createLocation('Neuer Name');
+  await create();
+  await create();
+  expect(action).toHaveBeenCalledTimes(2);
+  expect(action.mock.calls[1]).toEqual(action.mock.calls[0]);
+  await create();
+  expect(action.mock.calls[2]![2]).not.toBe(action.mock.calls[0]![2]);
+});
+
+it.each(['customer', 'project', 'location'] as const)('T090 retains %s identity for unknown responses but discards definite rejection', async kind => {
+  const { coordinator, api } = setup();
+  const action = vi.fn().mockResolvedValueOnce({ status: 'invalid_response' })
+    .mockResolvedValueOnce({ status: 'conflict', code: 'invalid_request' })
+    .mockResolvedValue({ status: 'succeeded', value: true });
+  if (kind === 'customer') api.createCustomer.mockImplementation(action);
+  if (kind === 'project') Object.assign(api, { createProject: action });
+  if (kind === 'location') Object.assign(api, { mutateLocationSetup: action });
+  await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+  const create = (name: string) => kind === 'customer' ? coordinator.createCustomer(name)
+    : kind === 'project' ? coordinator.createProject(name) : coordinator.createLocation(name);
+  await create('  Café  '); await create('Cafe\u0301'); await create('Café');
+  expect(action.mock.calls[1]).toEqual(action.mock.calls[0]);
+  expect(action.mock.calls[2]![2]).not.toBe(action.mock.calls[1]![2]);
+});
+it('T090 binds pending project identity to its location and preserves an earlier uncertain command', async () => {
+  const { coordinator, api } = setup();
+  const action = vi.fn().mockResolvedValue({ status: 'unreachable' });
+  Object.assign(api, { createProject: action });
+  await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+  await coordinator.createProject('Projekt', 'north');
+  await coordinator.createProject('Projekt', 'south');
+  await coordinator.createProject('Projekt', 'north');
+  expect(action.mock.calls[0]![2]).not.toBe(action.mock.calls[1]![2]);
+  expect(action.mock.calls[2]).toEqual(action.mock.calls[0]);
+  await coordinator.signOut(); await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+  await coordinator.createProject('Projekt', 'north');
+  expect(action.mock.calls[3]![2]).not.toBe(action.mock.calls[0]![2]);
+});

@@ -345,6 +345,7 @@ describe('ProjectAdministrationCoordinator', () => {
   it('creates a Project, receipt and audit in the administrator transaction', async () => {
     const database = scriptedPool((text) => {
       if (text.includes('lock_request_actor')) return actorRows();
+      if (text.includes('SELECT locations_enabled')) return queryResult([{ locations_enabled: false }]);
       if (text.includes('project_command_receipts') && text.includes('SELECT')) {
         return queryResult();
       }

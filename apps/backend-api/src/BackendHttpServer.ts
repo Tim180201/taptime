@@ -1370,6 +1370,7 @@ async function handleProjectMutation(
     switch (result.status) {
       case 'succeeded': respondJson(response, 200, result); return;
       case 'invalid_request': respondError(response, 400, 'invalid_request'); return;
+      case 'location_required': respondError(response, 400, 'location_required'); return;
       case 'unauthorized': respondError(response, 401, 'unauthorized'); return;
       case 'forbidden': respondError(response, 403, 'forbidden'); return;
       case 'command_id_conflict': respondError(response, 409, 'command_id_conflict'); return;
@@ -1820,7 +1821,7 @@ async function handleTimeEntryExport(
         );
     switch (result.status) {
       case 'succeeded':
-        respondCsv(response, result.bytes, result.filename);
+        respondCsv(response, result.bytes, result.filename, schemaVersion, options, correlationId);
         return;
       case 'invalid_request':
         respondError(response, 400, 'invalid_request');
@@ -3943,11 +3944,17 @@ function respondCsv(
   response: ServerResponse,
   bytes: Uint8Array,
   filename: string,
+  schemaVersion: 1 | 2 | 3 | 4,
+  options: BackendHttpServerOptions,
+  correlationId: string,
 ): void {
   if (response.writableEnded || response.destroyed) {
     return;
   }
-  if (!/^taptime-time-entries(?:_v[23])?_[0-9TZ]+_[0-9TZ]+\.csv$/.test(filename)) {
+  const versionSuffix = schemaVersion === 1 ? '' : `_v${schemaVersion}`;
+  const expected = new RegExp(`^taptime-time-entries${versionSuffix}_[0-9TZ]+_[0-9TZ]+\\.csv$`);
+  if (!expected.test(filename)) {
+    emitDiagnostic(options.onDiagnostic, { code: 'invalid_export_filename', correlationId });
     respondError(response, 503, 'service_unavailable');
     return;
   }
