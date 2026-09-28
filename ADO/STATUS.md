@@ -1,18 +1,17 @@
 # TapTim.e — Status
 
-**Stand:** 27.09.2026 · Produktion läuft auf `e13916b` (Deploy 27.09.: T-083 Sicherung bleibt kurz; kein Konsolenschritt,
-Controller `b635c4a` unverändert; Migrationen bis 034, zuletzt ausgeliefert mit `6c7007d` am 25.09.: T-062, T-078, T-079).
-Auf `main` zusätzlich T-080 (`7bd7877`, App). Betreiber-Bereich eingerichtet, Anmeldung mit TOTP bestätigt; Pilot-Betrieb
-am 26.09. über den Betreiber-Bereich angelegt. App-Builds vom 25.09. auf `6c7007d`: iPhone TestFlight 1.0.0 (3),
-Android-APK versionCode 10; die nächsten Builds (iPhone 4, Android versionCode 11) auf `e13916b`. „Taptura“ ist der
-Arbeitsname für den Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
-Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; offen Punkte 11 (Standortleitung scannt) und 12
-(Kontowechsel) mit dem nächsten Build. Reihenfolge (PO 28.09.): App-Builds auf `e13916b` → Rest der Geräteabnahme →
-T-086/T-087 (Kunde anlegen mit Standort, auch am Handy; Kalender springt) → T-084 (Reiter „Kunden“) → T-085
-(Monatskontingent) → T-088 (Zeiteintrag löschen, D-098) → ein Deploy, ein App-Build → T-024 → Pilot Monat 1 (D-097). Parallel: Code-Analyse mit Claude Code auf einem eigenen Klon von `main`, nur lesend; Befunde
-triagiert der TL zu Aufgaben. Danach AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur Entscheidung
-vor T-048: Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
-wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+**Stand:** 28.09.2026 · Produktion läuft auf `e13916b` (Deploy 27.09.: T-083; Migrationen bis 034, Controller `b635c4a`).
+Auf `main` zusätzlich, noch nicht ausgeliefert: T-080 (App), T-086/T-087 (035), T-084 (036), T-085 (037), T-088 (038),
+T-089 (`537af63`, Wächter). Betreiber-Bereich eingerichtet, Pilot-Betrieb am 26.09. angelegt. App-Builds vom 25.09. auf
+`6c7007d` (iPhone 1.0.0 (3), Android versionCode 10); die nächsten (iPhone 4, Android 11) nach dem Deploy. „Taptura“ ist
+der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`.
+Supabase am 28.09. geprüft und festgelegt (PO): Registrierung neuer Konten aus, E-Mail-Bestätigung an; Kontenliste ohne
+unbekannte Konten; Einladung danach erfolgreich getestet. Festschreiben im Runbook mit T-094.
+Code-Analyse 28.09. (Stand `e13916b`) ist eingeordnet: 191 Befunde, davon 8 P1; Bericht und Einordnung liegen nur lokal
+(D-103), die Aufgaben stehen neutral mit F-Nummern im PLAN. Reihenfolge (TL 28.09.): T-090 → Deploy (035–038 und T-089)
+→ App-Builds und Rest der Geräteabnahme → T-091 bis T-098 (vor dem Pilot, D-101, D-102) → zweiter Deploy → T-024 → Pilot.
+Danach AVV/TOM mit B15; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Fertig ist das Produkt, wenn das
+ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
 ## Beobachten (TL, 23.–27.09.)
 
@@ -32,7 +31,7 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
   Aufräumen). „WAL-Archivierung steht“ kam trotzdem weiter, 13 Mal zwischen 06:00 und 13:47 Uhr, auch ohne laufende
   Sicherung. Ursache: Der gründliche Archivierer-Durchlauf alle 15 min braucht 77 s (`borg info` auf die geprüfte Basis)
   und schreibt das Lebenszeichen erst am Ende; der Wächter erlaubt 120 s (60 s × 2). Kein Datenrisiko. Fix T-089 vor dem
-  Deploy; bis dahin ntfy am Telefon stumm geschaltet (PO).
+  Deploy; bis dahin ntfy am Telefon stumm geschaltet (PO). T-089 auf `main` (`537af63`); ausgeliefert mit dem nächsten Deploy.
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
   `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).

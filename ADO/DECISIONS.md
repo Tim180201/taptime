@@ -1582,3 +1582,28 @@ Prüffälle derselben Person außerhalb des Intervalls sperren nicht. Maßgeblic
 Korrekturen. Die Prüfung liegt in SQL in derselben Transaktion wie die Stornierung.
 **Warum:** Nur ein Prüffall in diesem Zeitraum kann den Eintrag noch verändern; ein alter, unentschiedener Fall an
 einem anderen Tag darf nicht jedes Löschen blockieren.
+
+## D-101 · Zugang entziehen beendet eine laufende Zeit · 28.09.2026 · Tim (PO)
+Wird der Zugang einer Person entzogen, während bei ihr eine Arbeitszeit (oder Pause) läuft, beendet derselbe Vorgang
+sie zum Entzugszeitpunkt als Verwaltungsstopp (D-073): eigenes Verwaltungs-WorkEvent, gleiche Kette, im Kalender und
+Export als „durch Verwaltung beendet“ erkennbar. Die Bestätigung beim Entziehen nennt das vorher. Danach bleibt die
+Person im Austrittsmonat für Administrator und Standortleitung sichtbar und korrigierbar (Audit F-004, F-066).
+**Warum:** Heute bleibt eine solche Zeit offen, ist im Produkt nicht mehr beendbar und wächst im Export weiter; der PO
+will beim Austritt keinen zusätzlichen Handgriff (PO, 28.09., Variante b).
+
+## D-102 · Standortmodus ist Pilotpflicht; Allgemeine Arbeitszeit ist standortfrei · 28.09.2026 · Claude (TL)
+frogs hat mehrere Standorte (PO, 28.09.). Alle Audit-Befunde zum Standortmodus blockieren deshalb den Pilot (F-005
+Projekt, F-006, F-008, F-024, F-074). Allgemeine Arbeitszeit ist standortfrei wie in ADR-0020 DA6-L06: keine
+Standortbindung nötig, für jede Person wählbar und nachtragbar; der Standort des Ereignisses ist der Heimatstandort.
+Pausen übernehmen den Standort der laufenden Zeit; ohne laufende Zeit entscheidet die Engine, nicht der Trigger.
+Die Offline-Freigabe enthält nur Ziele der eigenen Standorte.
+**Warum:** Die Implementierung behandelt Allgemeine Arbeitszeit wie ein gebundenes Ziel und widerspricht damit ADR-0020
+und sich selbst (Trigger vs. Katalog); mit mehreren Standorten ist das der Normalfall, nicht ein Randfall.
+
+## D-103 · Audit 28.09.: Bericht und Befundliste bleiben außerhalb des Repositorys · 28.09.2026 · Claude (TL)
+Die Code-Analyse vom 28.09. (191 Befunde, F-001 bis F-191) enthält Angriffswege; das Repository ist öffentlich (D-089).
+Vollständiger Bericht und Triage-Liste (jede F-Nummer mit Aufgabe, „später“ oder „verworfen“) liegen im nicht
+versionierten Ordner `.audit-2026-09/` im Repo-Wurzelverzeichnis, wie die Review-Ordner nie committet. In ADO stehen nur
+Aufgaben mit F-Nummern, neutral formuliert. Ein sicherheitsrelevanter Befund wird erst nach seiner Behebung in ADO
+beschrieben.
+**Warum:** Nichts aus der Analyse darf verloren gehen, und nichts davon darf vor der Behebung öffentlich werden.

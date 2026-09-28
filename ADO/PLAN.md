@@ -5,15 +5,15 @@
 **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
 **Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007),
 mit getrennten Uhren für reine Wartezeiten (D-011).
-**Stand:** 28.09.2026, Produktion auf `e13916b` (Deploy 27.09.: T-083; Migrationen bis 034; Controller `b635c4a`
-unveraendert). App-Builds vom 25.09. auf `6c7007d` (iPhone 1.0.0 (3), Android versionCode 10); die naechsten auf `e13916b`.
-Geraeteabnahme laeuft; T-080 ✓ auf `main`, offen Punkte 11 und 12 mit dem naechsten Build. Reihenfolge (PO 28.09.):
-App-Builds auf `e13916b` → Rest der Geraeteabnahme → T-086/T-087 ✓ → T-084 ✓ → T-085 ✓ → T-088 ✓ → **T-089** (Waechter) → ein Deploy, ein App-Build →
-**T-024** → Pilot Monat 1 (D-097, D-098: alles vor dem Pilotstart). Parallel Code-Analyse mit Claude Code (eigener Klon, nur
-lesend); Befunde triagiert der TL. In Monat 1 zusaetzlich T-075 (Paketgrenze, D-087),
-T-081 (Beschaeftigte nach Standort) und T-082 (Pause auf Erfassen, D-096).
-T-031b (Startseite oeffentlich) und T-073 iPhone Stufe 2 mit NTAG 424 DNA (D-088) nach dem Pilot;
-waehrend Monat 1 T-048 und T-050, Freigabe zu Monat 2 (D-063). Grundlage weiterhin die Anforderungspruefung gegen den Code (D-012).
+**Stand:** 28.09.2026, Produktion auf `e13916b` (Deploy 27.09.: T-083; Migrationen bis 034; Controller `b635c4a`).
+Auf `main` bis `537af63`: T-080, T-084 bis T-089 (Migrationen 035–038), noch nicht ausgeliefert. App-Builds vom 25.09. auf
+`6c7007d`; die naechsten (iPhone 4, Android 11) nach dem Deploy. Code-Analyse 28.09. eingeordnet (D-103): 191 Befunde, alle
+8 P1 in T-090 bis T-094. Reihenfolge (TL 28.09.): **T-090** → ein Deploy → App-Builds und Rest der Geraeteabnahme →
+T-091 bis T-098 → zweiter Deploy → **T-024** → Pilot Monat 1 (D-097, D-098, D-101, D-102: alles vor dem Pilotstart).
+In Monat 1 zusaetzlich T-075 (Paketgrenze, D-087), T-081 (Beschaeftigte nach Standort), T-082 (Pause auf Erfassen, D-096)
+und die Analyse-Pakete B01 bis B06, B12, B15, B16 (unten). T-031b (Startseite oeffentlich) und T-073 iPhone Stufe 2 mit
+NTAG 424 DNA (D-088) nach dem Pilot; waehrend Monat 1 T-048 und T-050, Freigabe zu Monat 2 (D-063). Grundlage weiterhin
+die Anforderungspruefung gegen den Code (D-012).
 
 ---
 
@@ -125,7 +125,16 @@ Datenbankrechten eingreifen muss.
 | **T-086 ✓** | **Kunde anlegen mit Standort, auch am Handy und durch die Standortleitung (D-097) — abgeschlossen `2602ab7`** | Befund aus dem Code (28.09.): Bei eingeschalteten Standorten scheitert „Kunde anlegen“ am Commit, weil der neue Kunde noch keinen Standort hat (019, verzoegerte Pruefung). Anlegen und Standort in einer Transaktion; Standortleitung darf im eigenen Standort anlegen (SQL-Grenze wie T-060); in der App „+ Neuer Kunde“ direkt in „Tag zuordnen“. Rotnachweis zuerst. Vor dem Pilot, zusammen mit T-087. | ✓ |
 | **T-087 ✓** | **Kalendertag antippen springt zu den Zeiten (D-097) — abgeschlossen `2602ab7`** | App: Tippen auf einen Tag scrollt zur Tagesansicht darunter (bei reduzierter Bewegung ohne Animation). Web: in der schmalen Ansicht, wo die Tagesliste unter dem Kalender steht, ebenso. Zusammen mit T-086. | ✓ |
 | **T-088 ✓** | **Zeiteintrag loeschen = stornieren (D-098, D-100) — abgeschlossen** | Am beendeten Eintrag „Zeiteintrag loeschen“ in App und Web; Administrator alle, Standortleitung eigene und die ihres Standorts, Mitarbeiter eigene. Pflichtgrund (Doppelt erfasst, Fehlscan, Sonstiges mit Text), sofort wirksam. Append-only als Korrektur: zaehlt danach in Kalender, Summen, Kunden-Stunden, Kontingent und Export nicht mehr, bleibt in der Historie sichtbar. Grenzen in SQL. Vor dem Pilot, nach T-085. | ✓ |
-| **T-089** | **Der Waechter meldet nur echten Stillstand und nennt die Ursache (Befund 28.09.)** | Nach dem Deploy von T-083 weiter „WAL-Archivierung steht“, etwa 1,5 je Stunde, auch ohne laufende Sicherung. Ursache aus Code und `taptime-status`: Der gruendliche Durchlauf des Archivierers (alle 15 min) ruft `borg info` auf die gepruefte Basis (77 s) und schreibt sein Lebenszeichen erst am Ende; der Waechter erlaubt 120 s Stille. Basis ueber die ohnehin geladene Archivliste pruefen, laufenden Durchlauf mit fester Obergrenze tolerieren, Ursache und Uhrzeit in der Meldung. Vor dem Deploy. | 1 |
+| **T-089 ✓** | **Der Waechter meldet nur echten Stillstand und nennt die Ursache — abgeschlossen `537af63`** | Basis ueber die ohnehin geladene Archivliste statt `borg info`; ein laufender Durchlauf wird mit fester Obergrenze (600 s) toleriert; Meldung mit Ursache und Uhrzeit. Ausgeliefert mit dem naechsten Deploy. | ✓ |
+| **T-090** | **Lohnexport v4 erreichbar, Projekt mit Standort anlegen, Anlegen ohne Doppel (Analyse F-002, F-003, F-005, F-020, F-039, F-070, F-136)** | Der voreingestellte Export v4 aus dem Web erreicht das Backend nicht (Proxy-Weiterleitung, Dateinamenpruefung); Test ueber die echte Grenze. Projekt anlegen bei eingeschalteten Standorten mit Standort in einer Transaktion wie T-086. Wiederholung nach „unklar“ beim Anlegen von Kunde, Projekt, Standort sendet dieselbe Befehlskennung. Brief in TASK.md. | 1 |
+| **T-091** | **Standortmodus nach D-102 (F-006, F-008, F-014, F-024, F-074, F-145)** | Allgemeine Arbeitszeit standortfrei, Pausen folgen der laufenden Zeit, Lease nur mit Zielen der eigenen Standorte, Standort gelesener Ereignisse, Testmatrix mit eingeschalteten Standorten fuer jede Ereignisart und jeden Verwaltungsweg. F-014 vorher PO. Vor dem Pilot. | 2 |
+| **T-092** | **Austritt nach D-101 (F-004, F-066, F-101)** | Zugangsentzug beendet laufende Zeit oder Pause als Verwaltungsstopp; Austrittsmonat bleibt sichtbar, nachtragbar, korrigierbar, exportierbar; Rueckmeldung bei inzwischen entzogener Person. Vor dem Pilot. | 1 |
+| **T-093** | **Sicherung: taegliches Aufraeumen wirkt, Fehler werden sichtbar (F-007, F-054, F-067, F-076, F-124)** | Aufraeumen nimmt die gepruefte Basis aus statt abzubrechen; ausgesetztes Aufraeumen und Fehler erscheinen im Monitor; Borg-Fake rechnet echte Keep-Regeln mit Wochenablauf; Sonntagspruefung im Waechter. Vor dem Pilot. | 1 |
+| **T-094** | **Einladungsweg (F-001, F-027, F-078, F-079, F-092, F-114)** | Umgang mit vorhandenen Konten bei der Einladung, gleiche Anzeige in App, Web und Betreiber-Web, E-Mail-Normalisierung, Protokollkennung, einheitliche Rueckmeldung, erneut senden. Supabase-Einstellungen im Runbook und im Deploy-Tor. Vor dem Pilot. | 1 |
+| **T-095** | **App: keine Warteschlange ohne Ausweg (F-029, F-031, F-047, F-075, F-103)** | Dauerhaft abgelehnte oder nicht verstandene Antworten werden ein sichtbarer Zustand statt endloser Wiederholung; manuelle Erfassung meldet „gespeichert“, wenn sie gespeichert ist; Wiederholungsfrist robust gegen Uhrkorrektur; Diagnose bleibt erhalten. Vor dem Pilot. | 2 |
+| **T-096** | **App: Version, Neuinstallation, Sicherung, Paketname (F-028, F-032, F-048, F-052, F-104, F-105, F-121, F-143)** | App sendet Plattform, Build und Commit, Server kann „bitte aktualisieren“ sagen; iOS-Neuinstallation und Geraetewiederherstellung ohne Dauerschutzzustand; erster Start atomar; Paketname im Tag vor dem ersten Pilot-Tag festlegen (PO). Vor dem Pilot. | 2 |
+| **T-097** | **Prueffaelle vollstaendig (F-015, F-038, F-063, F-068, F-073)** | Pausenfaelle in der Pruefliste; Gruende und Rollen aus einer Quelle mit Parser, unbekannte Werte einzeln markiert; Blaettern ab 100 Faellen; „Korrigieren“ bietet nur Eintraege der Person. Vor dem Pilot. | 1 |
+| **T-098** | **Image-Workflow (F-012, F-057, F-058, F-085)** | Ausloesebedingungen des Veroeffentlichungsjobs, Actions per Commit-SHA, Aufraeumen schuetzt referenzierte Manifeste, Reparaturbau unabhaengig von der Produktion. Vor dem Pilot. | 1 |
 | **T-068** | **Betreiber-Bereich: Betriebe anlegen und ueberblicken (D-068, D-074, D-075)** | Technischer Entwurf `ADO/01_Architecture/Betreiber_Entwurf/README.md` (22.09.). **T-068a Server:** Betreiber-Konten ausserhalb der Betriebe, TOTP (`aal2`), Betrieb anlegen mit Einladung des ersten Administrators, Pausieren an der zentralen Aufloesung, Uebersicht nur mit Zahlen, eigenes Protokoll, `taptime-operator-grant`. **T-068b Web:** `apps/operator-web` auf `betreiber.tb-infra.de`, CI/Image, Caddy, Deploy. Vor dem Pilot. | 3 |
 | **T-070** | **Der Archivierer ruht billig; der Waechter laesst nach der Sicherung Luft (Befund 22.09., D-072)** | Leerlauf ohne Storage-Box-Zugriff; Vollabgleich bei Arbeit, sonst hoechstens alle 15 min; einmalige Nachholzeit von fuenf Minuten nach Sicherungsende; Journal mit Dauer je Phase. Brief in TASK.md. | 1 |
 | **T-067 ✓** | **Die Archivierung erzeugt ihre Arbeit nicht mehr selbst (Befund 21.09., D-066)** | `archive_timeout` wieder heraus; der Archivierer wechselt selbst, wenn eine Anforderung im offenen Segment liegt; keine doppelte Fernabfrage fuer quittierte Archive; Waechter zaehlt ab Sicherungsende und alarmiert bei Sicherung ueber zehn Minuten; eine Journalzeile je Durchlauf. Brief in TASK.md. | 1 |
@@ -222,3 +231,40 @@ stehen oben in der Kette.
 
 **~8 € netto im Monat**, dauerhaft. In Phase 2 einmalig 25 USD Play Console, ~400 € Gründung,
 290 € Markenanmeldung und das Rechtspaket.
+
+---
+
+## Analyse-Pakete nach T-098 (D-103)
+
+Neutral benannt; die Einordnung aller 191 Befunde liegt nur lokal in `.audit-2026-09/`. Nummern (T-…) bekommt ein
+Paket, wenn es startet; grosse Pakete werden dann geteilt.
+
+| Paket | Inhalt | Befunde | Zeitpunkt |
+|---|---|---|---|
+| B01 | Lohnexport inhaltlich (laufende Eintraege, Spalten, Verwaltungsstopp, Zeitbudget; PO-Fragen) | F-017, F-043, F-061, F-140 | vor dem ersten Lohnexport |
+| B02 | Plausibilitaet an der Servergrenze | F-010, F-016, F-062, F-081, F-095, F-099 | Monat 1 |
+| B03 | Admin-Web: Bedienung und Robustheit | F-018, F-040, F-041, F-042, F-093, F-094, F-111, F-112, F-133, F-156 | Monat 1 |
+| B04 | App: Bedienung und Texte | F-034, F-035, F-106, F-107, F-149, F-150 | Monat 1 |
+| B05 | App: Sitzung und Hintergrund | F-011, F-030, F-033, F-147 | Monat 1 |
+| B06 | Server-Robustheit | F-009, F-044, F-045, F-046, F-080, F-113, F-115, F-116, F-117, F-118 | Monat 1 |
+| B07 | Schema: Eigentuemer, Rechte, Views, append-only | F-013, F-087, F-088, F-089, F-090, F-091, F-154, F-155, F-169 | Monat 1–2 |
+| B08 | Idempotenz und Sperrreihenfolge | F-097, F-098, F-100, F-110, F-134, F-137 | Monat 2 |
+| B09 | Engine: Duplikatfenster, Verwaltungs-Trigger | F-022, F-138, F-139 | Monat 2 |
+| B10 | Cursor fuer Ziele und Projekte | F-019, F-096 | Monat 2 |
+| B11 | Deploy-Controller: Fehlersemantik, Protokoll, Tests unter errexit | F-036, F-037, F-059, F-077, F-108, F-128, F-184 | vor dem Deploy danach |
+| B12 | Sicherung und Monitoring: Zeitgrenzen, Totmannschalter | F-049, F-055, F-056, F-084, F-120, F-122, F-123 | Monat 1 |
+| B13 | Sicherung vereinfachen, PITR-Reichweite (PO/TL) | F-053, F-060, F-125, F-182 | Monat 2–3 |
+| B14 | CI und Migrationen | F-109, F-126, F-127, F-129, F-130, F-131, F-132 | Monat 2 |
+| B15 | Rechtstexte an den Code angleichen | F-025, F-026, F-050, F-082, F-083, F-102, F-163 | vor AVV |
+| B16 | Doku straffen | F-064, F-065, F-135, F-142, F-144, F-151, F-152 | Monat 1 |
+| B17 | Linter, Formatter, Tests mit Verhalten | F-164, F-165, F-166 | nach Pilotstart |
+| B18 | HTTP-Schicht: Routentabelle, Transaktionshuelle | F-157, F-158, F-162, F-173, F-174 | nach Pilotstart |
+| B19 | Admin-Web-Struktur | F-170, F-171, F-172, F-190, F-191 | nach Pilotstart |
+| B20 | Kernkette einmal, geteilte Validierung | F-071, F-160, F-161 | nach Pilotstart |
+| B21 | Schema-Snapshot und Rueckbau | F-167, F-168, F-177, F-178, F-185, F-187, F-188, F-189 | nach Pilotstart |
+| B22 | Demo-Pipeline und toter Code | F-086, F-175, F-176, F-180, F-181, F-183, F-186 | nach Pilotstart |
+| B23 | Aufbewahrung und Wachstum | F-051, F-119 | mit T-016 |
+| B24 | Kalender und Zeitzone | F-023, F-072, F-141, F-159 | nach Pilotstart |
+
+Offene PO-Fragen: F-069 (Kunden umbenennen, Reaktivieren), F-146 (Leerlauf-Abmeldung im Web), F-148 (eigene laufende Zeit
+beenden je Rolle), F-153 (Wiederaufnahme nach Entzug). F-021 liegt in T-055; F-179 ist mit T-084 erledigt.
