@@ -31,7 +31,7 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
   zum 28.09. unregelmäßig alle 18–60 min (00:37, 01:31, 02:32, 02:50, 03:22, 03:46, danach weiter). Erwartet war
   höchstens eine Meldung nach dem ersten langen Lauf. Kein akuter Datenverlust (WAL-Empfänger schreibt lokal), aber
   das externe Archiv hängt hinterher. Diagnose mit `taptime-status`, `systemctl show` und `list-timers` durch den PO,
-  danach Entscheidung. Ein Fix kommt direkt nach T-085 und geht mit in den gebündelten Deploy; Produktion hat bis
+  danach Entscheidung. Ein Fix kommt direkt nach T-088 und geht mit in den gebündelten Deploy; Produktion hat bis
   zum Pilot nur Testdaten, deshalb wartet Codex nicht auf die Diagnose.
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
@@ -121,7 +121,7 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
-- T-085 abgenommen (TL APPROVED 28.09.), auf main; Deploy gebündelt mit T-088.
+- T-085 abgenommen (TL APPROVED 28.09.), auf main (`9c2df50`, CI und Images grün); Deploy gebündelt mit T-088.
 
 - **P2 T-085:** Direkte INSERTs als interne SQL-Rolle `taptime_admin_setup` prüfen über den bestehenden NFC-Helfer keine Betriebspause. HTTP, Coordinator und Kontingent-Schreibfunktion sperren pausierte Betriebe; ein direkter SQL-Pfad bleibt als Härtung offen.
 
