@@ -249,6 +249,7 @@ export interface BackendApiDependencies {
   readonly checkTenantAccess?: (accessToken: string) => Promise<void>;
   readonly operator?: Pick<import('./OperatorCoordinator.js').OperatorCoordinator,'execute'>;
   readonly administrationStop?: Pick<import('@taptime/backend-time-review').AdministrationStopCoordinator, 'execute'>;
+  readonly timeVoid?: Pick<import('@taptime/backend-time-review').TimeVoidCoordinator, 'void'|'query'>;
   readonly timeSupplement?: Pick<import('@taptime/backend-time-review').TimeSupplementCoordinator, 'execute'>;
   readonly healthCheck?: () => Promise<void>;
   readonly sessionAuthority: SessionAuthorityResolver;
@@ -294,6 +295,8 @@ export type BackendApiRoute =
   | 'administration_stop'
   | 'time_backfill'
   | 'time_comment'
+  | 'time_void'
+  | 'time_voided_query'
   | 'admin_time_backfill_targets'
   | 'admin_time_record_query'
   | 'admin_time_record_query_v2'

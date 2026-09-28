@@ -1,3 +1,4 @@
+import {VoidedTimeRows} from './TimeVoidControls';
 import { AddTimeControl,TimeRecordControls } from './TimeEditingControls';
 import {
 	BUSINESS_TIME_ZONE,businessDay,dayStart,formatClock,formatDuration,formatHours,
@@ -52,8 +53,9 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
         <p>{formatDuration(recordDaySummary(record,selected).breakMilliseconds)} Pause</p>
         <TimeRecordControls record={record}/>
       </li>)}</ul>
+      <VoidedTimeRows day={selected} value={value}/>
       {records.length === 0 ? <p>{rangeSummary(value,selected,shiftDay(selected,1)).complete
-        ? 'Für diesen Tag sind keine Zeiten erfasst.' : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</p> : null}
+        ? 'Für diesen Tag zählt keine Arbeitszeit.' : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</p> : null}
     </Panel></div></div>
     <p className="supporting">Arbeitszeit nach Pausen · {BUSINESS_TIME_ZONE}</p>
     <p className="supporting">Geladener Zeitraum: {new Date(value.windowStartedAt).toLocaleString('de-DE',{timeZone:BUSINESS_TIME_ZONE})} – {new Date(value.windowEndedAt).toLocaleString('de-DE',{timeZone:BUSINESS_TIME_ZONE})}</p>

@@ -61,6 +61,16 @@ export const adminScenarios = [
   scenario('time-add',personPath,'.calendar-grid',[click('Zeit hinzufügen')]),
   scenario('time-correct',personPath,'.calendar-grid',[click('Ändern')]),
   scenario('time-stop',personPath,'.calendar-grid',[click('Beenden')]),
+  ...['employee-void','manager-void','administrator-void'].flatMap(variant=>[
+    {...scenario(variant,variant==='employee-void'?'/meine-zeiten?monat=2026-09':personPath,'.calendar-grid',[
+      click('Zeiteintrag löschen'),async p=>p.getByLabel('Grund',{exact:true}).selectOption('other'),
+      async p=>p.getByLabel('Kurze Begründung').fill('Dieser Eintrag wurde versehentlich doppelt nachgetragen.'),
+    ]),variant},
+    {...scenario(variant+'-history',variant==='employee-void'?'/meine-zeiten?monat=2026-09':personPath,'.calendar-grid',[
+      click('Zeiteintrag löschen'),async p=>p.getByLabel('Grund',{exact:true}).selectOption('duplicate'),click('Löschen'),
+      async p=>p.getByText(/Gelöscht am .* von Martin Beispiel/).waitFor(),
+    ]),variant},
+  ]),
   scenario('employee-calendar','/meine-zeiten?monat=2026-09','.calendar-grid'),
   scenario('employee-backfill','/meine-zeiten?monat=2026-09','.calendar-grid',[click('Zeit hinzufügen')]),
   scenario('employee-comment','/meine-zeiten?monat=2026-09','.calendar-grid',[click('Kommentar schreiben')]),

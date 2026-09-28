@@ -1,3 +1,4 @@
+import {isVoidTimeRequest,loadVoidedTimePages,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import type { Notice } from './contracts';
 import type { BackfillTargetSelection } from "@taptime/mobile-work-contract";
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
@@ -144,6 +145,17 @@ export class AdminWebCoordinator implements AdminWebCapability {
   getState(): AdminWebState { return this.state; }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
 
+  async loadVoidedTime(targetMembershipId:string,fromInclusive:string,toExclusive:string):Promise<VoidedTimeSelection> {
+    const session=this.session,generation=this.generation;
+    if(!session||this.state.status!=='ready')return {status:'authority_rejected'};
+    if(typeof navigator!=='undefined'&&navigator.onLine===false)return {status:'offline'};
+    try {return await loadVoidedTimePages({expectedMembershipId:session.membershipId,targetMembershipId,fromInclusive,toExclusive},async request=>{
+      if(generation!==this.generation||session!==this.session)return {status:'authority_rejected'};
+      const result=await this.auth.withAccessToken(token=>this.api.voidedTime?.(token,request)??Promise.resolve({status:'unreachable' as const}));
+      if(generation!==this.generation||session!==this.session)return {status:'authority_rejected'};
+      return result?.status==='succeeded'?result.value:result===null||result.status==='rejected'?{status:'forbidden'}:{status:'unavailable'};
+    });}catch{return {status:'unavailable'};}
+  }
   async saveTimeEdit(input: TimeEditInput): Promise<TimeEditResult> {
     const current=this.state,session=this.session,generation=this.generation;
     const calendarEpoch=this.calendarEpoch;
@@ -176,7 +188,15 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.setState({...current,timeEditBusy:true,notice:null});
     let outcome:TimeEditResult={status:'unavailable'};
     try {
-      if(input.kind==='stop') {
+      if(input.kind==='void') {
+        const request={expectedMembershipId:session.membershipId,commandId,timeRecordId:input.record.timeRecordId,reasonCode:input.reasonCode,reasonText:input.reasonText};
+        if(!isVoidTimeRequest(request))outcome={status:'invalid_request'};
+        else {
+          const result=await this.auth.withAccessToken(token=>this.api.voidTime?.(token,request)??Promise.resolve({status:'unreachable' as const}));
+          if(result?.status==='succeeded')outcome=result.value;
+          else if(result===null||result.status==='rejected')outcome={status:'forbidden'};
+        }
+      } else if(input.kind==='stop') {
         const request={expectedMembershipId:session.membershipId,commandId,targetMembershipId:input.targetMembershipId,
           timeRecordId:input.record.timeRecordId,expectedRowVersion:input.record.details!.baseRowVersion,stoppedAt:input.stoppedAt,reason:input.reason};
         if(!isAdministrationStopRequest(request)) outcome={status:'invalid_request'};
@@ -209,7 +229,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if(outcome.status==='committed' && (input.kind!=='stop' || (isAdministrationStopResult(outcome) && outcome.offsiteArchived))) {
       if(input.kind==='stop') this.pendingStops.delete(key);else this.pendingTimeEdit=null;
       if(calendarEpoch!==this.calendarEpoch) return outcome;
-      this.setState({...this.state as Extract<AdminWebState,{status:'ready'}>,notice:{ kind: 'success', text: 'Gespeichert.' }});
+      this.setState({...this.state as Extract<AdminWebState,{status:'ready'}>,notice:{ kind: 'success', text: input.kind==='void'?'Zeiteintrag gelöscht.':'Gespeichert.' }});
       if(this.state.status==='ready' && this.state.calendar?.targetMembershipId===calendar.targetMembershipId
         && this.state.calendar.month===calendar.month) {
         if(calendar.targetMembershipId===null) await this.loadOwnTime(calendar.month);

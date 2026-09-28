@@ -1,3 +1,4 @@
+import {VoidTimeForm} from './TimeVoidControls';
 import type { Notice } from './contracts';
 import { createContext,useContext,useEffect,useRef,useState,type ReactNode } from 'react';
 import { BUSINESS_TIME_ZONE,formatZonedDateTime,parseZonedLocalTimestamp,shiftDay,toZonedMinuteInput,parseEditedZonedMinute } from '@taptime/core';
@@ -8,7 +9,7 @@ import { ResponsiveSheet } from './MobileSheet';
 
 type ReadyState=Pick<Extract<AdminWebState,{status:'ready'}>,'role'|'membershipId'|'timeEditBusy'|'workTargets'|'availableSections'>;
 type Context={state:ReadyState;administration:AdminWebCapability;targetMembershipId:string;online:boolean};
-const TimeEditingContext=createContext<Context|null>(null);
+export const TimeEditingContext=createContext<Context|null>(null);
 export function TimeEditingProvider({state,administration,targetMembershipId,children}:{state:ReadyState;administration:AdminWebCapability;targetMembershipId?:string;children:ReactNode}) {
   const [online,setOnline]=useState(()=>navigator.onLine);
   useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
@@ -29,7 +30,7 @@ export function AddTimeControl({day}:{day:string}) {
   </div>;
 }
 export function TimeRecordControls({record}:{record:SafeOwnTimeRecord}) {
-  const context=useContext(TimeEditingContext),[form,setForm]=useState<'comment'|'correct'|'stop'|null>(null);
+  const context=useContext(TimeEditingContext),[form,setForm]=useState<'comment'|'correct'|'stop'|'void'|null>(null);
   const opener=useRef<HTMLButtonElement|null>(null);
   const own=context && context.targetMembershipId===context.state.membershipId;
   const canEdit=context && canManageTime(context.state);
@@ -44,12 +45,13 @@ export function TimeRecordControls({record}:{record:SafeOwnTimeRecord}) {
     {own && details && context.administration.saveTimeEdit?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('comment');}}>Kommentar schreiben</button>:null}
     {canEdit && details && context.administration.saveTimeEdit && record.status==='stopped'?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('correct');}}>Ändern</button>:null}
     {canStop && details && context.administration.saveTimeEdit && record.status==='started'?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('stop');}}>Beenden</button>:null}
+    {context && (own||canEdit) && context.administration.saveTimeEdit && record.status==='stopped'?<button className="quiet" disabled={context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('void');}}>Zeiteintrag löschen</button>:null}
     {record.status==='started' && own && !canStop?<p>Läuft noch — erst beenden, dann ändern</p>:null}
     {record.status==='started' && canStop && !context.online?<p role="status">Nur online möglich. Verbinden Sie sich mit dem Internet, um die Zeit zu beenden.</p>:null}
-    {form && context?<TimeEditForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}/${record.timeRecordId}`} kind={form} record={record} onClose={close}/>:null}
+    {form==='void' && context?<VoidTimeForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}/${record.timeRecordId}`} record={record} onClose={close}/>:form && form!=='void' && context?<TimeEditForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}/${record.timeRecordId}`} kind={form} record={record} onClose={close}/>:null}
   </div>;
 }
-function TimeEditForm({kind,day,record,onClose}:{kind:TimeEditInput['kind'];day?:string;record?:SafeOwnTimeRecord;onClose:()=>void}) {
+function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kind'],'void'>;day?:string;record?:SafeOwnTimeRecord;onClose:()=>void}) {
   const context=useContext(TimeEditingContext)!;
   const [date,setDate]=useState(day??'');
   const [start,setStart]=useState(record?toZonedMinuteInput(record.startedAt):'08:00');

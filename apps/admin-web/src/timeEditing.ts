@@ -1,14 +1,19 @@
-import type { AdministrationStopResult, SafeOwnTimeRecord, SafeWorkTarget, TimeSupplementResult } from '@taptime/mobile-work-contract';
+import type { AdministrationStopResult, SafeOwnTimeRecord, SafeWorkTarget, TimeSupplementResult, VoidTimeResult, VoidReasonCode } from '@taptime/mobile-work-contract';
 
 export type TimeEditInput =
+  | {readonly kind:'void';readonly targetMembershipId:string;readonly record:SafeOwnTimeRecord;readonly reasonCode:VoidReasonCode;readonly reasonText:string|null}
   | { readonly kind: 'stop'; readonly targetMembershipId: string; readonly record: SafeOwnTimeRecord; readonly stoppedAt: string; readonly reason: string }
   | { readonly kind: 'backfill'; readonly targetMembershipId: string; readonly target: SafeWorkTarget;
       readonly startedAt: string; readonly stoppedAt: string; readonly reason: string | null; readonly comment: string | null }
   | { readonly kind: 'comment'; readonly targetMembershipId: string; readonly record: SafeOwnTimeRecord; readonly comment: string }
   | { readonly kind: 'correct'; readonly targetMembershipId: string; readonly record: SafeOwnTimeRecord;
       readonly startedAt: string; readonly stoppedAt: string; readonly reason: string };
-export type TimeEditResult = TimeSupplementResult | AdministrationStopResult | { readonly status: 'offline' | 'busy' | 'conflict' | 'not_adjustable' };
+export type TimeEditResult = TimeSupplementResult | AdministrationStopResult | VoidTimeResult | { readonly status: 'offline' | 'busy' | 'conflict' | 'not_adjustable' };
 export const timeEditMessages: Record<TimeEditResult['status'], string> = {
+  forbidden:'Sie dürfen diesen Zeiteintrag nicht löschen.',
+  running:'Die Zeit läuft noch. Beenden Sie sie zuerst.',
+  review_open:'Zu diesem Eintrag ist noch eine Prüfung offen. Lassen Sie sie zuerst entscheiden.',
+  already_voided:'Dieser Zeiteintrag wurde bereits gelöscht. Aktualisieren Sie die Ansicht.',
   end_before_break: 'Die Endzeit liegt vor einer erfassten Pause.',
   committed: 'Gespeichert.', offline: 'Nur online möglich. Ihre Eingaben bleiben erhalten.', busy: 'Ein Eintrag wird noch gespeichert.',
   authority_rejected: 'Ihre Berechtigung wurde nicht bestätigt. Aktualisieren Sie Ihre Sitzung.',

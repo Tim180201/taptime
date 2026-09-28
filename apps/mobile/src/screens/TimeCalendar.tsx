@@ -1,3 +1,4 @@
+import {VoidedTimeRows} from '../timeEditing/TimeVoidControls';
 import { AddTimeControl, TimeRecordControls } from '../timeEditing/TimeEditingControls';
 import { useRef, useState } from 'react';
 import { useReducedMotion } from '../design/useReducedMotion';
@@ -69,7 +70,8 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
       <Text style={styles.muted}>{formatDuration(recordDaySummary(record,selected).breakMilliseconds)} Pause</Text>
       <TimeRecordControls record={record} targetMembershipId={targetMembershipId} onSaved={onRefresh} />
     </Card>)}
-    {records.length === 0 ? <Card><Text>{daily.complete ? 'Für diesen Tag sind keine Zeiten erfasst.'
+    <VoidedTimeRows day={selected} value={ownTime} targetMembershipId={targetMembershipId}/>
+    {records.length === 0 ? <Card><Text>{daily.complete ? 'Für diesen Tag zählt keine Arbeitszeit.'
       : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</Text></Card> : null}
     <Text style={styles.muted}>Arbeitszeit nach Pausen · Europe/Berlin</Text>
     <Text style={styles.muted}>{ownTimeLoadStatus(ownTime.records.length, ownTime.nextCursor)}</Text>

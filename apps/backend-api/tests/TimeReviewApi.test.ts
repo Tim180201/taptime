@@ -447,3 +447,16 @@ it('D-092 forwards only a closed person-bound target query through the protected
  queryBackfillTargets.mockResolvedValueOnce({status:'authority_rejected'} as never);
  expect((await post(origin,'/v1/administration/time-records/backfill-targets/query',request)).status).toBe(403);
 });
+
+it.each([['committed',200],['forbidden',403],['running',422],['review_open',422],['already_voided',409],['command_id_conflict',409]] as const)
+('T-088 dispatches a protected void command and maps %s',async(status,code)=>{
+ const value=status==='committed'?{status,timeRecordId:ids.record,idempotentRetry:false}:{status};
+ const voidTime=vi.fn(async()=>value),query=vi.fn(async()=>({status:'ready' as const,records:[],nextAfterId:null}));
+ const origin=await start({timeVoid:{void:voidTime,query}});
+ const request={expectedMembershipId:ids.membership,commandId:ids.command,timeRecordId:ids.record,reasonCode:'duplicate',reasonText:null};
+ const response=await post(origin,'/v1/time-records/void',request);expect(response.status).toBe(code);expect(await response.json()).toEqual(value);
+ expect(voidTime).toHaveBeenCalledWith('abc.def.ghi',request);
+ expect((await post(origin,'/v1/time-records/void',{...request,role:'administrator'})).status).toBe(400);
+ const range={expectedMembershipId:ids.membership,targetMembershipId:ids.employeeMembership,fromInclusive:'2026-07-01T00:00:00.000Z',toExclusive:'2026-08-01T00:00:00.000Z',afterId:null,limit:100};
+ expect((await post(origin,'/v1/time-records/voided/query',range)).status).toBe(200);expect(query).toHaveBeenCalledWith('abc.def.ghi',range);
+});

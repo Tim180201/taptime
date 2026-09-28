@@ -735,3 +735,6 @@ input, select, textarea { font-size: 16px; min-width: 0; }
 .quota-warning progress, .quota-exceeded progress { accent-color: var(--color-notice); }
 .customer-card > .quota-progress { flex: 1; }
 .quota-notice { margin-bottom: 16px; }
+
+/* Voided history has no duration and uses the existing muted text token. */
+.voided-time-list, .voided-time-list strong { color: var(--color-text-muted); }

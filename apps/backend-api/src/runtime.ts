@@ -1,5 +1,5 @@
 import { OperatorCoordinator } from './OperatorCoordinator.js';
-import { AdministrationStopCoordinator, TimeSupplementCoordinator } from '@taptime/backend-time-review';
+import { AdministrationStopCoordinator, TimeSupplementCoordinator, TimeVoidCoordinator } from '@taptime/backend-time-review';
 import {
   AdminWriteSessionCoordinator,
   EmployeeMembershipEnrollmentCoordinator,
@@ -247,6 +247,7 @@ export function createBackendApiRuntime(
       timeEntryExporter: new TimeEntryExportCoordinator(timeEntryExportPool, verifier),
       administrationStop: new AdministrationStopCoordinator(timeReviewWritePool, verifier),
       timeSupplement: new TimeSupplementCoordinator(timeReviewWritePool, verifier),
+      timeVoid: new TimeVoidCoordinator(timeReviewWritePool, verifier),
       timeReview: new TimeReviewCoordinator(timeReviewReadPool, timeReviewWritePool, verifier),
       ...(manualLifecyclePool === undefined ? {} : {
         manualLifecycleIngestor: new ManualLifecycleIngestionCoordinator(

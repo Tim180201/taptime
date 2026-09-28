@@ -1,3 +1,4 @@
+import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
@@ -94,6 +95,8 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/time-records/stop': 'administration_stop',
   '/v1/time-records/backfill': 'time_backfill',
   '/v1/time-records/comment': 'time_comment',
+  '/v1/time-records/void': 'time_void',
+  '/v1/time-records/voided/query': 'time_voided_query',
   '/v4/time-entries/export': 'time_entry_export_v4',
   '/v1/customers/hours/query': 'customer_hours',
   '/v1/administration/customers/quota': 'admin_customer_quota',
@@ -369,6 +372,8 @@ async function handleRequest(
       || route === 'administration_stop'
       || route === 'time_backfill'
       || route === 'time_comment'
+      || route === 'time_void'
+      || route === 'time_voided_query'
       || route === 'customer_hours'
       || route === 'mobile_own_time'
       || route === 'mobile_work_targets'
@@ -473,6 +478,17 @@ async function handleRequest(
       if (isOrganizationPausedError(error)) { respondError(response,403,'organization_paused'); return; }
       respondError(response,503,'service_unavailable');
     }
+    return;
+  }
+  if (route === 'time_void' || route === 'time_voided_query') {
+    if (!(route==='time_void'?isVoidTimeRequest(body):isVoidedTimeQuery(body))) {respondError(response,400,'invalid_request');return;}
+    try {
+      if(!dependencies.timeVoid){respondError(response,503,'service_unavailable');return;}
+      const result=await withTimeout<import('@taptime/mobile-work-contract').VoidTimeResult|import('@taptime/mobile-work-contract').VoidedTimeResponse>(route==='time_void'?dependencies.timeVoid.void(accessToken,body):dependencies.timeVoid.query(accessToken,body),timeoutMilliseconds);
+      respondJson(response,result.status==='committed'||result.status==='ready'?200:
+        result.status==='forbidden'||result.status==='authority_rejected'?403:result.status==='unavailable'?503:
+        result.status==='already_voided'||result.status==='command_id_conflict'?409:422,result);
+    }catch(error){if(isOrganizationPausedError(error)){respondError(response,403,'organization_paused');return;}respondError(response,503,'service_unavailable');}
     return;
   }
   if (route === 'time_backfill' || route === 'time_comment') {
@@ -2790,6 +2806,8 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'administration_stop':
     case 'time_backfill':
     case 'time_comment':
+    case 'time_void':
+    case 'time_voided_query':
     case 'admin_time_record_correction':
     case 'admin_review_item_query':
     case 'admin_review_item_query_v2':

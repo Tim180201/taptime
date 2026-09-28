@@ -1,3 +1,4 @@
+import {VoidTimeForm} from './TimeVoidControls';
 type Notice = { readonly kind: 'success' | 'info' | 'error'; readonly text: string };
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { View } from 'react-native';
@@ -26,7 +27,11 @@ export function TimeEditingProvider({capability,work,membershipId,role,managemen
   const workState=useSyncExternalStore(work?(l)=>work.subscribe(l):noSubscribe,()=>work?.getState()??inactive,()=>inactive);
   return <TimeEditingContext.Provider value={capability?{capability,membershipId,role,managementScope,targets:workState.status==='ready'?workState.targets.targets:[],...state}:null}>{children}</TimeEditingContext.Provider>;
 }
-const messages:Record<TimeEditResult['status'],string>={
+export const timeEditMessages:Record<TimeEditResult['status'],string>={
+  forbidden:'Du darfst diesen Zeiteintrag nicht löschen.',
+  running:'Die Zeit läuft noch. Beende sie zuerst.',
+  review_open:'Zu diesem Eintrag ist noch eine Prüfung offen. Lass sie zuerst entscheiden.',
+  already_voided:'Dieser Zeiteintrag wurde bereits gelöscht. Aktualisiere die Ansicht.',
   end_before_break:'Die Endzeit liegt vor einer erfassten Pause.',
   committed:'Gespeichert.',offline:'Zeit hinzufügen und ändern geht nur online. Deine Eingaben bleiben erhalten.',busy:'Ein Eintrag wird noch gespeichert.',
   authority_rejected:'Deine Berechtigung ist nicht mehr gültig. Aktualisiere deine Sitzung.',invalid_request:'Prüfe Datum, Uhrzeiten und die Texte (höchstens 500 Zeichen).',
@@ -49,7 +54,7 @@ export function AddTimeControl({day,targetMembershipId,onSaved}:{day:string;targ
 }
 export function TimeRecordControls({record,targetMembershipId,onSaved}:{record:SafeOwnTimeRecord;targetMembershipId?:string;onSaved:()=>Promise<void>}) {
   const context=useContext(TimeEditingContext);
-  const [form,setForm]=useState<'comment'|'correct'|'stop'|null>(null);
+  const [form,setForm]=useState<'comment'|'correct'|'stop'|'void'|null>(null);
   const details=record.details;
   const own=context && (targetMembershipId===undefined || targetMembershipId===context.membershipId);
   const canEdit=context!==null && canManageTime(context);
@@ -63,12 +68,13 @@ export function TimeRecordControls({record,targetMembershipId,onSaved}:{record:S
     {context && canEdit && details ? record.status==='stopped'
       ? <ActionButton title="Ändern" tone="quiet" disabled={!context.online || context.busy} onPress={()=>setForm('correct')} />
       : canStop ? <ActionButton title="Beenden" tone="quiet" disabled={!context.online || context.busy} onPress={()=>setForm('stop')} /> : null : null}
+    {context && (own||canEdit) && record.status==='stopped'?<ActionButton title="Zeiteintrag löschen" tone="quiet" disabled={context.busy} onPress={()=>setForm('void')}/>:null}
     {record.status==='started' && own && !canStop?<Text>Läuft noch — erst beenden, dann ändern</Text>:null}
     {record.status==='started' && context && canStop && !context.online?<Text>Nur online möglich. Verbinde dich mit dem Internet, um die Zeit zu beenden.</Text>:null}
-    {form && context?<TimeEditForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} kind={form} record={record} targetMembershipId={targetMembershipId??context.membershipId} onSaved={onSaved} onClose={()=>setForm(null)} />:null}
+    {form==='void' && context?<VoidTimeForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} record={record} onSaved={onSaved} onClose={()=>setForm(null)}/>:form && form!=='void' && context?<TimeEditForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} kind={form} record={record} targetMembershipId={targetMembershipId??context.membershipId} onSaved={onSaved} onClose={()=>setForm(null)} />:null}
   </View>;
 }
-function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind:TimeEditKind;day?:string;record?:SafeOwnTimeRecord;targetMembershipId:string;onSaved:()=>Promise<void>;onClose:()=>void}) {
+function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind:Exclude<TimeEditKind,'void'>;day?:string;record?:SafeOwnTimeRecord;targetMembershipId:string;onSaved:()=>Promise<void>;onClose:()=>void}) {
   const context=useContext(TimeEditingContext)!;
   const [target,setTarget]=useState<SafeWorkTarget|null>(null);
   const managedBackfill=kind==='backfill' && context.role!=='employee' && targetMembershipId!==context.membershipId;
@@ -100,7 +106,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
   useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
   const save=async()=>{
     if(saving) return;
-    if(!context.online) {setNotice({ kind: 'error', text: messages.offline });return;}
+    if(!context.online) {setNotice({ kind: 'error', text: timeEditMessages.offline });return;}
     const input:Record<string,unknown>={};
     if(kind==='comment') {input.timeRecordId=record!.timeRecordId;input.comment=comment;}
     else if(kind==='stop') {
@@ -134,7 +140,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
       if(kind==='stop' && result.status==='committed') {
         if(!isAdministrationStopResult(result) || !result.offsiteArchived) {setNotice({ kind: 'info', text: ADMINISTRATION_ARCHIVE_TIMEOUT });return;}
       }
-      setNotice({ kind: result.status === 'committed' ? 'success' : result.status === 'busy' ? 'info' : 'error', text: kind==='stop' && isAdministrationStopResult(result)?administrationStopMessage(result,true):messages[result.status] });
+      setNotice({ kind: result.status === 'committed' ? 'success' : result.status === 'busy' ? 'info' : 'error', text: kind==='stop' && isAdministrationStopResult(result)?administrationStopMessage(result,true):timeEditMessages[result.status] });
       if(result.status==='committed') {onClose();await onSaved();}
     } finally {if(mounted.current) setSaving(false);}
   };
@@ -144,7 +150,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
       {targets.map(t=><ActionButton key={`${t.targetType}/${t.targetId}`} title={`${target===t?'✓ ':''}${t.displayName}`} tone="quiet" disabled={saving} onPress={()=>setTarget(t)} />)}
       {targets.length===0?<Text>Arbeitsziele sind noch nicht geladen. Aktualisiere die Ansicht.</Text>:null}
       {managedBackfill && targetPage.status!=='ready' && targetPage.status!=='loading'?<>
-        <Text accessibilityRole="alert">{messages[targetPage.status]}</Text>
+        <Text accessibilityRole="alert">{timeEditMessages[targetPage.status]}</Text>
         <ActionButton title="Aktualisieren" tone="quiet" disabled={!context.online} onPress={()=>setTargetReload(value=>value+1)} />
       </>:null}
       {field('Datum (JJJJ-MM-TT)',date,setDate)}</>:null}

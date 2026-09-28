@@ -1,3 +1,4 @@
+import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeQuery,isVoidedTimeResponse,type VoidTimeResult,type VoidedTimeResponse,type VoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
@@ -94,6 +95,8 @@ export interface AdminWebApiPort {
   customerHours?(token: string, request: CustomerHoursRequest): Promise<ApiResult<CustomerHoursResponse>>;
   onOrganizationPaused?(listener: (token: string) => Promise<void>): () => void;
   stopTime?(token: string, request: unknown): Promise<ApiResult<AdministrationStopResult>>;
+  voidTime?(token:string,request:unknown):Promise<ApiResult<VoidTimeResult>>;
+  voidedTime?(token:string,request:VoidedTimeQuery):Promise<ApiResult<VoidedTimeResponse>>;
   supplementTime?(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>>;
   ownTime?(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
   backfillTargets?(token:string,request:BackfillTargetQueryRequest):Promise<ApiResult<MobileWorkTargetQueryResponse>>;
@@ -246,6 +249,15 @@ export class AdminWebApiClient implements AdminWebApiPort {
       false,false,false,false,[200,409,422]);
   }
 
+  async voidTime(token:string,request:unknown):Promise<ApiResult<VoidTimeResult>> {
+    if(!isVoidTimeRequest(request))return {status:'invalid_response'};
+    return this.request('/v1/time-records/void',token,'POST',request,value=>isVoidTimeResult(value)?value:null,
+      false,false,false,maximumJsonBodyBytes,false,false,false,false,[200,409,422]);
+  }
+  async voidedTime(token:string,request:VoidedTimeQuery):Promise<ApiResult<VoidedTimeResponse>> {
+    if(!isVoidedTimeQuery(request))return {status:'invalid_response'};
+    return this.request('/v1/time-records/voided/query',token,'POST',request,value=>isVoidedTimeResponse(value)?value:null);
+  }
   async supplementTime(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>> {
     if (!(kind === 'backfill' ? isBackfillTimeRequest(request) : isCommentTimeRequest(request))) return {status:'invalid_response'};
     return this.request(`/v1/time-records/${kind}`,token,'POST',request as object,

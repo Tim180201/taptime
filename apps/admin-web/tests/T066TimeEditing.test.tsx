@@ -178,3 +178,40 @@ it.each(['2026-10-25T02:30','2027-03-28T02:30'])('T079 rejects an edited DST min
  fireEvent.change(screen.getByLabelText('Von'),{target:{value}});fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Prüfung'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('Zeitumstellung');expect(screen.getByLabelText('Von')).toHaveValue(value);
 });
+
+it.each(['employee','administrator','standortleitung'] as const)('T-088 %s confirms a required reason, preserves errors and closes after success',async role=>{
+ const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
+ fireEvent.click(screen.getByRole('button',{name:'Löschen'}));expect(save).not.toHaveBeenCalled();
+ expect(screen.getByRole('alert')).toHaveTextContent('Wählen Sie einen Grund');
+ fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'other'}});
+ fireEvent.click(screen.getByRole('button',{name:'Löschen'}));expect(save).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByLabelText('Kurze Begründung'),{target:{value:'Doppelt nachgetragen'}});
+ save.mockResolvedValueOnce({status:'review_open'} as never);fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
+ await screen.findByText(/noch eine Prüfung offen/);expect(screen.getByLabelText('Kurze Begründung')).toHaveValue('Doppelt nachgetragen');
+ fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
+ await waitFor(()=>expect(save).toHaveBeenLastCalledWith(expect.objectContaining({kind:'void',reasonCode:'other',reasonText:'Doppelt nachgetragen'})));
+ await waitFor(()=>expect(screen.queryByRole('button',{name:'Löschen'})).not.toBeInTheDocument());
+});
+it('T-088 hides cancellation for running or unauthorized entries and reports offline without sending',async()=>{
+ show('employee',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Zeiteintrag löschen'})).not.toBeInTheDocument();cleanup();
+ show('employee',other);expect(screen.queryByRole('button',{name:'Zeiteintrag löschen'})).not.toBeInTheDocument();cleanup();
+ vi.spyOn(navigator,'onLine','get').mockReturnValue(false);const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
+ fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'misscan'}});fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
+ expect(save).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('Nur online');
+ fireEvent.click(screen.getByRole('button',{name:'Abbrechen'}));expect(screen.queryByRole('button',{name:'Löschen'})).not.toBeInTheDocument();
+});
+it('T-088 historical rows carry who/when/why, no duration, and cannot be edited',async()=>{
+ const state={role:'employee',membershipId:own,availableSections:[],workTargets:{status:'ready',value:[]}} as unknown as Extract<AdminWebState,{status:'ready'}>;
+ const loadVoidedTime=vi.fn(async()=>({status:'ready',records:[{timeRecordId:other,targetDisplayName:'Gelöschter Kunde',startedAt:record.startedAt,stoppedAt:record.stoppedAt,voidedAt:'2026-09-21T10:00:00.000Z',actorDisplayName:'Testperson',reasonCode:'misscan',reasonText:null}]}));
+ const capability={loadVoidedTime,loadWorkTargets:async()=>{}} as unknown as AdminWebCapability;
+ render(<TimeEditingProvider state={state} administration={capability}><TimeCalendar value={{...page,records:[]}} month="2026-09" onMonthChange={()=>{}} onRefresh={()=>{}}/></TimeEditingProvider>);
+ await screen.findByText(/Gelöscht am .* von Testperson · Fehlscan/);
+ const row=screen.getByText('Gelöschter Kunde').closest('li')!;expect(row).not.toHaveTextContent(/Arbeitszeit|Pause|1:00|1 h/);expect(row.querySelector('button')).toBeNull();
+ expect(loadVoidedTime).toHaveBeenCalledWith(own,'2026-09-20T22:00:00.000Z',page.windowEndedAt);
+});
+it('T-088 validates closed requests and preserves meaningful conflict responses',async()=>{
+ const fetcher=vi.fn<typeof fetch>(async()=>Response.json({status:'already_voided'},{status:409})),api=new AdminWebApiClient(fetcher);
+ const request={expectedMembershipId:own,commandId:other,timeRecordId:other,reasonCode:'duplicate',reasonText:null};
+ expect(await api.voidTime('token',request)).toEqual({status:'succeeded',value:{status:'already_voided'}});
+ expect(fetcher.mock.lastCall?.[0]).toBe('/v1/time-records/void');expect(await api.voidTime('token',{...request,role:'administrator'})).toEqual({status:'invalid_response'});
+});

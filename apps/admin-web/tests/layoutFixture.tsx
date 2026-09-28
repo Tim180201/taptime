@@ -192,7 +192,7 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
 };
 if (variant==='customers-employee' || variant==='quota-employee') ready={...ready,role:'employee',availableSections:['own_time','manual_capture']};
 if (variant==='customers-manager' || variant==='quota-manager') ready={...ready,role:'standortleitung',availableSections:['employees','own_time','manual_capture','review_items']};
-if (['employee-calendar','employee-backfill','employee-comment'].includes(variant)) ready = { ...ready, role: 'employee', availableSections: ['own_time','manual_capture'] };
+if (['employee-calendar','employee-backfill','employee-comment','employee-void'].includes(variant)) ready = { ...ready, role: 'employee', availableSections: ['own_time','manual_capture'] };
 if (variant.startsWith('manager')) ready = { ...ready, role: 'standortleitung', availableSections: ['employees','own_time','manual_capture','time_records','review_items'], locationsEnabled: true,
   selectedLocation: location, managementScope: { kind: 'locations', locations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] } };
 if (variant.startsWith('invitation-')) ready = { ...ready, locationsEnabled: true, selectedLocation: null, assignableLocations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] };
@@ -220,6 +220,18 @@ const authStates: Record<string, AdminWebState> = {
 };
 const stateful = new FakeCapability(authStates[variant] ?? ready);
 const capability: AdminWebCapability = Object.assign(stateful, { loadBackfillTargets: async () => ({ status: 'ready' as const, targets: [{targetType:'customer' as const,targetId:customer.id,displayName:'Werkstatt am Beispielweg'}] }), saveTimeEdit: async () => ({ status: 'unavailable' as const }) });
+if(variant.endsWith('-void')) {
+  const history:import('@taptime/mobile-work-contract').VoidedTimeRecord[]=[];
+  Object.assign(capability,{loadVoidedTime:async()=>({status:'ready',records:[...history]}),
+  saveTimeEdit:async(input:import('../src/timeEditing').TimeEditInput)=>{
+    if(input.kind!=='void')return {status:'unavailable'};
+    history.push({timeRecordId:entry.timeRecordId,targetDisplayName:entry.targetDisplayName,
+      startedAt:entry.startedAt,stoppedAt:entry.stoppedAt!,voidedAt:'2026-09-23T12:00:00.000Z',actorDisplayName:'Martin Beispiel',reasonCode:input.reasonCode,reasonText:input.reasonText});
+    ready={...ready,calendar:{...ready.calendar!,status:'ready',value:{...ready.calendar!.value!,records:[]}},notice:{kind:'success',text:'Zeiteintrag gelöscht.'}};
+    stateful.emit(ready);
+    return {status:'committed',timeRecordId:entry.timeRecordId,idempotentRetry:false};
+  }} satisfies Pick<AdminWebCapability,'loadVoidedTime'|'saveTimeEdit'>);
+}
 capability.cancelCorrection = () => stateful.emit({ ...ready, correctionIntent: null });
 capability.cancelAdjudication = () => stateful.emit({ ...ready, adjudicationIntent: null });
 capability.cancelReassignment = () => stateful.emit({ ...ready, reassignmentIntent: null });

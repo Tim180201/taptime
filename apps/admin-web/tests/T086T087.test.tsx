@@ -7,6 +7,7 @@ import { AdminWebApiClient } from '../src/AdminWebApiClient';
 import SetupView from '../src/views/SetupView';
 import type { AdminWebCapability, AdminWebState } from '../src/contracts';
 
+vi.mock('../src/TimeVoidControls', () => ({ VoidedTimeRows: () => null }));
 vi.mock('../src/TimeEditingControls', () => ({ AddTimeControl: () => null, TimeRecordControls: () => null }));
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 const value = { records: [], activeRecord: null, nextCursor: null, windowStartedAt: '2026-09-01T00:00:00.000Z', windowEndedAt: '2026-09-30T22:00:00.000Z' };

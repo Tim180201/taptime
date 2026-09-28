@@ -187,3 +187,23 @@ it.each(['2026-10-25','2027-03-28'])('T079 rejects newly edited ambiguous or abs
  expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Zeitumstellung');
  expect((container.querySelector('input[aria-label="Von (HH:MM)"]') as HTMLInputElement).value).toBe('02:30');
 });
+
+it.each(['employee','administrator','standortleitung'] as const)('T-088 %s requires a reason and preserves the form until confirmed success',async role=>{
+ await render(role);await press('Zeiteintrag löschen');await press('Löschen');expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Wähle einen Grund');
+ await press('Sonstiges');await press('Löschen');expect(save).not.toHaveBeenCalled();await fill('Kurze Begründung','Falscher Tag');
+ save.mockResolvedValueOnce({status:'review_open'} as never);await press('Löschen');expect(container.textContent).toContain('noch eine Prüfung offen');
+ expect((container.querySelector('input[aria-label="Kurze Begründung"]') as HTMLInputElement).value).toBe('Falscher Tag');
+ await press('Löschen');expect(save).toHaveBeenLastCalledWith('void',{timeRecordId:id,reasonCode:'other',reasonText:'Falscher Tag'});expect(refresh).toHaveBeenCalled();
+});
+it('T-088 running time has no void action; offline cannot send and cancellation keeps data',async()=>{
+ await render('employee',true,{...record,status:'started',stoppedAt:null});expect(button('Zeiteintrag löschen')).toBeUndefined();
+ await render('employee',false);await press('Zeiteintrag löschen');await press('Fehlscan');await press('Löschen');expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Löschen geht nur online');
+ await press('Abbrechen');expect(button('Löschen')).toBeUndefined();
+});
+it('T-088 renders separate cancellation history with who and why, without a duration',async()=>{
+ const {VoidedTimeRows}=await import('../../src/timeEditing/TimeVoidControls');
+ const loadVoided=vi.fn(async()=>({status:'ready' as const,records:[{timeRecordId:id,targetDisplayName:'Gelöschter Kunde',startedAt:record.startedAt,stoppedAt:record.stoppedAt!,voidedAt:'2026-09-21T10:00:00.000Z',actorDisplayName:'Alex Beispiel',reasonCode:'misscan' as const,reasonText:null}]}));
+ await act(async()=>root.render(createElement(TimeEditingContext.Provider,{value:{membershipId:id,role:'employee',targets:[],online:true,busy:false,capability:{save,getState:()=>({online:true,busy:false}),subscribe:()=>()=>{},loadVoided}}},createElement(VoidedTimeRows,{day:'2026-09-21',value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'}}))));
+ expect(container.textContent).toContain('Gelöscht am');expect(container.textContent).toContain('von Alex Beispiel · Fehlscan');expect(container.textContent).not.toMatch(/1,0 h|1:00 h|08:00|09:00/);
+ expect(loadVoided).toHaveBeenCalledWith(id,'2026-09-20T22:00:00.000Z','2026-09-21T12:00:00.000Z');
+});

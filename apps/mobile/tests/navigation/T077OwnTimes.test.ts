@@ -163,11 +163,11 @@ describe('T-077 own times through the product navigation', () => {
       submitting: false, loadingMore: false, outcome: null });
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     await press('Meine Zeiten');
-    expect(container.textContent).toContain('Für diesen Tag sind keine Zeiten erfasst.');
+    expect(container.textContent).toContain('Für diesen Tag zählt keine Arbeitszeit.');
     expect(container.textContent).toContain('0,0 h');
     await act(async () => h.workStore.publish({ status: 'unavailable', message: 'Arbeitsdaten sind derzeit nicht erreichbar.' }));
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Arbeitsdaten sind derzeit nicht erreichbar.');
-    expect(container.textContent).not.toContain('Für diesen Tag sind keine Zeiten erfasst.');
+    expect(container.textContent).not.toContain('Für diesen Tag zählt keine Arbeitszeit.');
     vi.mocked(h.props.work.refresh).mockClear();
     await press('Aktualisieren'); expect(h.props.work.refresh).toHaveBeenCalledOnce();
   });

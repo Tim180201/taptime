@@ -80,3 +80,14 @@ it('D-092 maps an actual HTTP 403 target-scope rejection to the existing authori
  expect(await coordinator.loadBackfillTargets(data.targetMembershipId)).toEqual({status:'authority_rejected'});
  coordinator.stop();
 });
+
+it('T-088 sends an online void with a stable retry command, never a role or offline queue item',async()=>{
+ let online=false;
+ const post=vi.fn(async(_url:URL,_body:string)=>({status:'response' as const,statusCode:422,contentType:'application/json',body:JSON.stringify({status:'review_open'})}));
+ const coordinator=new TimeEditingCoordinator(new URL('https://example.invalid'),{post},{capture:()=>snapshot,isCurrent:()=>true,subscribe:()=>()=>{}},()=> '50000000-0000-4000-8000-000000000001',{get:async()=>online,subscribe:()=>()=>{}});
+ const request={timeRecordId:data.targetId,reasonCode:'duplicate',reasonText:null};await coordinator.start();
+ expect(await coordinator.save('void',request)).toEqual({status:'offline'});expect(post).not.toHaveBeenCalled();online=true;
+ expect(await coordinator.save('void',request)).toEqual({status:'review_open'});expect(await coordinator.save('void',request)).toEqual({status:'review_open'});
+ expect(post.mock.calls[0]).toEqual(post.mock.calls[1]);expect(post.mock.calls[0]![0].pathname).toBe('/v1/time-records/void');
+ expect(JSON.parse(post.mock.calls[0]![1])).toEqual({...request,expectedMembershipId:snapshot.session.membershipId,commandId:'50000000-0000-4000-8000-000000000001'});coordinator.stop();
+});

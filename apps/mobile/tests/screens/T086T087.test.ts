@@ -8,6 +8,7 @@ import { AdminSetupCoordinator } from '../../src/administration/AdminSetupCoordi
 import { TapTimeAdministrationApiClient } from '../../src/administration/TapTimeAdministrationApiClient';
 
 const native = vi.hoisted(() => ({ scroll: vi.fn(), reduced: false, headingY: 648 }));
+vi.mock('../../src/timeEditing/TimeVoidControls', () => ({ VoidedTimeRows: () => null }));
 vi.mock('../../src/timeEditing/TimeEditingControls', () => ({ AddTimeControl: () => null, TimeRecordControls: () => null }));
 vi.mock('react-native', () => {
   type Props = { children?: ReactNode; onPress?: () => void; disabled?: boolean; accessibilityRole?: string;

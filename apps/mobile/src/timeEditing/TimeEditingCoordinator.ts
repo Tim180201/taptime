@@ -1,13 +1,15 @@
+import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeResponse,loadVoidedTimePages,type VoidTimeResult,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import { isBackfillTargetQueryResponse, type BackfillTargetSelection, type SafeWorkTarget, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { validateTimeRecordCorrectionRequest } from '@taptime/time-review-contract';
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import type { MobileWorkSessionReader } from '../work/contracts';
-export type TimeEditKind = 'backfill'|'comment'|'correct'|'stop';
-export type TimeEditResult = TimeSupplementResult | AdministrationStopResult | {readonly status:'offline'|'busy'|'conflict'|'not_adjustable'};
+export type TimeEditKind = 'backfill'|'comment'|'correct'|'stop'|'void';
+export type TimeEditResult = TimeSupplementResult | AdministrationStopResult | VoidTimeResult | {readonly status:'offline'|'busy'|'conflict'|'not_adjustable'};
 export interface TimeEditingState { readonly online: boolean; readonly busy: boolean }
 export interface TimeEditingCapability {
   getState(): TimeEditingState;
   subscribe(listener:()=>void):()=>void;
+  loadVoided?(targetMembershipId:string,fromInclusive:string,toExclusive:string):Promise<VoidedTimeSelection>;
   loadBackfillTargets?(targetMembershipId:string):Promise<BackfillTargetSelection>;
   save(kind:TimeEditKind,input:Record<string,unknown>):Promise<TimeEditResult>;
 }
@@ -31,6 +33,21 @@ export class TimeEditingCoordinator implements TimeEditingCapability {
     catch { if(generation===this.generation) this.publish({...this.state,online:false}); }
   }
   stop() { ++this.generation; this.unsubscribe?.();this.unsubscribe=undefined;this.last=undefined;this.pendingStops.clear();this.publish({online:false,busy:false}); }
+  async loadVoided(targetMembershipId:string,fromInclusive:string,toExclusive:string):Promise<VoidedTimeSelection> {
+    const snapshot=this.session.capture(),generation=this.generation;
+    const current=()=>generation===this.generation&&snapshot!==null&&this.session.isCurrent(snapshot);
+    if(!snapshot||!current())return {status:'authority_rejected'};
+    try {
+      if(!await this.network.get())return {status:'offline'};
+      return await loadVoidedTimePages({expectedMembershipId:snapshot.session.membershipId,targetMembershipId,fromInclusive,toExclusive},async query=>{
+        if(!current())return {status:'authority_rejected'};
+        const response=await this.requests.post(new URL('/v1/time-records/voided/query',this.base),JSON.stringify(query));
+        if(!current()||response.status==='authority_rejected')return {status:'authority_rejected'};
+        if(response.status!=='response'||!response.contentType?.startsWith('application/json'))return {status:'unavailable'};
+        const value:unknown=JSON.parse(response.body);return isVoidedTimeResponse(value)?value:{status:'unavailable'};
+      });
+    }catch{return {status:'unavailable'};}
+  }
   async loadBackfillTargets(targetMembershipId:string):Promise<BackfillTargetSelection> {
     const snapshot=this.session.capture(),generation=this.generation;
     const current=()=>generation===this.generation && snapshot!==null && this.session.isCurrent(snapshot);
@@ -81,13 +98,14 @@ export class TimeEditingCoordinator implements TimeEditingCapability {
         commandId=this.last.commandId;
       }
       const request={...input,expectedMembershipId:snapshot.session.membershipId,commandId};
-      if(!(kind==='backfill'?isBackfillTimeRequest(request):kind==='comment'?isCommentTimeRequest(request):kind==='stop'?isAdministrationStopRequest(request):validateTimeRecordCorrectionRequest(request).status==='valid')) return {status:'invalid_request'};
+      if(!(kind==='backfill'?isBackfillTimeRequest(request):kind==='comment'?isCommentTimeRequest(request):kind==='stop'?isAdministrationStopRequest(request):kind==='void'?isVoidTimeRequest(request):validateTimeRecordCorrectionRequest(request).status==='valid')) return {status:'invalid_request'};
       const path=kind==='correct'?'/v1/administration/time-records/correct':`/v1/time-records/${kind}`;
       const result=await this.requests.post(new URL(path,this.base),JSON.stringify(request));
       if(generation!==this.generation || !this.session.isCurrent(snapshot)) return {status:'authority_rejected'};
       if(result.status==='authority_rejected') return result;
       if(result.status!=='response' || !result.contentType?.startsWith('application/json')) return {status:'unavailable'};
       const value:unknown=JSON.parse(result.body);
+      if(kind==='void' && isVoidTimeResult(value)) {if(value.status==='committed')this.last=undefined;return value;}
       if(kind==='stop' && isAdministrationStopResult(value)) {
         if(value.status==='committed' && value.offsiteArchived) this.pendingStops.delete(key);
         return value;
