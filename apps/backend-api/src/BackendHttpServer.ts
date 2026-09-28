@@ -1,3 +1,4 @@
+import { isCustomerHoursRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
@@ -94,6 +95,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/time-records/backfill': 'time_backfill',
   '/v1/time-records/comment': 'time_comment',
   '/v4/time-entries/export': 'time_entry_export_v4',
+  '/v1/customers/hours/query': 'customer_hours',
   '/v1/mobile/own-time/query': 'mobile_own_time',
   '/v1/mobile/work-targets/query': 'mobile_work_targets',
   '/v1/lifecycle-events/manual': 'manual_lifecycle',
@@ -366,6 +368,7 @@ async function handleRequest(
       || route === 'administration_stop'
       || route === 'time_backfill'
       || route === 'time_comment'
+      || route === 'customer_hours'
       || route === 'mobile_own_time'
       || route === 'mobile_work_targets'
     )
@@ -481,6 +484,19 @@ async function handleRequest(
       respondJson(response,result.status==='committed'?200:result.status==='authority_rejected'?403:result.status==='unavailable'?503:422,result);
     } catch (error) {
       if (isOrganizationPausedError(error)) { respondError(response,403,'organization_paused'); return; }
+      respondError(response,503,'service_unavailable');
+    }
+    return;
+  }
+  if (route === 'customer_hours') {
+    if (!isCustomerHoursRequest(body)) { respondError(response,400,'invalid_request'); return; }
+    const reader=dependencies.mobileWorkReader;
+    if (!reader?.queryCustomerHours) { respondError(response,503,'service_unavailable'); return; }
+    try {
+      respondMobileReadResult(response,await withTimeout(reader.queryCustomerHours({accessToken,request:body}),timeoutMilliseconds));
+    } catch (error) {
+      if (isOrganizationPausedError(error)) { respondError(response,403,'organization_paused'); return; }
+      emitDiagnostic(options.onDiagnostic,{code:'mobile_work_failed',correlationId});
       respondError(response,503,'service_unavailable');
     }
     return;
@@ -2778,6 +2794,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'manual_lifecycle':
     case 'manual_break_lifecycle':
       return 'lifecycle_ingestion_failed';
+    case 'customer_hours':
     case 'mobile_own_time':
     case 'mobile_work_targets':
       return 'mobile_work_failed';

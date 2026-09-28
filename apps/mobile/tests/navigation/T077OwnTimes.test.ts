@@ -107,12 +107,27 @@ const selected = () => container.querySelector('[role="tablist"] [aria-selected=
 const writeActions = () => buttons().map(node => node.textContent).filter(text => ['Zeit hinzufügen', 'Ändern', 'Kommentar schreiben', 'Beenden'].includes(text!));
 
 describe('T-077 own times through the product navigation', () => {
+  it('T084 removes loaded foreign customer hours after same-membership role replacement', async () => {
+    const h=harness('administrator');
+    const readCustomerHours=vi.fn<NonNullable<MobileWorkCapability['readCustomerHours']>>()
+      .mockResolvedValueOnce({status:'ready',value:{version:'customer-hours.v1',scope:'people',asOf:'2026-09-28T08:00:00.000Z',customers:[{
+        customerId:target.targetId,displayName:'Werkstatt',active:true,workDurationSeconds:3600,running:false,
+        people:[{membershipId,displayName:'Fremde Person',workDurationSeconds:3600,running:false}],
+      }]}}).mockResolvedValueOnce({status:'ready',value:{version:'customer-hours.v1',scope:'self',asOf:'2026-09-28T08:00:00.000Z',customers:[]}});
+    await act(async()=>root.render(createElement(AppNavigator,{...h.props,work:{...h.props.work,readCustomerHours}})));
+    await press('Kunden');
+    await act(async()=>buttons().find(node=>node.getAttribute('aria-label')?.startsWith('Werkstatt'))!.click());
+    expect(container.textContent).toContain('Fremde Person');
+    await act(async()=>h.sessionStore.publish({status:'authenticated',session:sessionContext('employee')}));
+    expect(container.textContent).not.toContain('Fremde Person');
+    expect(readCustomerHours).toHaveBeenCalledTimes(2);
+  });
   it.each([
-    ['employee', false, ['Erfassen', 'Meine Zeiten']],
-    ['standortleitung', false, ['Erfassen', 'Meine Zeiten', 'Mitarbeiter']],
-    ['standortleitung', true, ['Erfassen', 'Meine Zeiten', 'Mitarbeiter', 'Tags']],
-    ['administrator', false, ['Erfassen', 'Meine Zeiten', 'Mitarbeiter']],
-    ['administrator', true, ['Erfassen', 'Meine Zeiten', 'Mitarbeiter', 'Tags']],
+    ['employee', false, ['Erfassen', 'Meine Zeiten', 'Kunden']],
+    ['standortleitung', false, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter']],
+    ['standortleitung', true, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter', 'Tags']],
+    ['administrator', false, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter']],
+    ['administrator', true, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter', 'Tags']],
     ['offline', false, ['Erfassen']],
   ] as const)('orders destinations for %s with tags=%s', async (role, tagsAvailable, expected) => {
     const h = harness(role, tagsAvailable);
@@ -160,12 +175,12 @@ describe('T-077 own times through the product navigation', () => {
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     await press('Mitarbeiter');
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: sessionContext('employee') }));
-    expect(selected()).toBe('Erfassen'); expect(tabs()).toEqual(['Erfassen', 'Meine Zeiten']);
+    expect(selected()).toBe('Erfassen'); expect(tabs()).toEqual(['Erfassen', 'Meine Zeiten', 'Kunden']);
     await press('Meine Zeiten');
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: sessionContext('standortleitung', true) }));
     expect(selected()).toBe('Meine Zeiten'); expect(writeActions()).toEqual(['Zeit hinzufügen', 'Kommentar schreiben', 'Ändern']);
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: { ...sessionContext('standortleitung', true), managementScope: null } }));
-    expect(selected()).toBe('Meine Zeiten'); expect(tabs()).toEqual(['Erfassen', 'Meine Zeiten', 'Tags']);
+    expect(selected()).toBe('Meine Zeiten'); expect(tabs()).toEqual(['Erfassen', 'Meine Zeiten', 'Kunden', 'Tags']);
     expect(writeActions()).toEqual(['Kommentar schreiben']);
     await press('Tags');
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: sessionContext('standortleitung') }));

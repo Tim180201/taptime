@@ -1,3 +1,4 @@
+import { isCustomerHoursRequest, isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
@@ -72,6 +73,23 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
     ownTimeCursorHmacKey: string,
   ) {
     this.ownTimeCursorHmacKey = parseOwnTimeCursorHmacKey(ownTimeCursorHmacKey);
+  }
+
+  async queryCustomerHours(command: MobileReadCommand<CustomerHoursRequest>): Promise<MobileReadResult<CustomerHoursResponse>> {
+    if (!isCustomerHoursRequest(command.request)) return { status: 'invalid_request' };
+    return this.withActor<CustomerHoursResponse>(this.ownTimePool, command.accessToken, command.request.expectedMembershipId, OWN_TIME_ROLE, async client => {
+      try {
+        const row = await client.query<{result: unknown}>(
+          'SELECT taptime_server.read_customer_hours_v1($1::timestamptz,$2::timestamptz) AS result',
+          [command.request.fromInclusive, command.request.toExclusive]);
+        const value = row.rows[0]?.result;
+        if (!isCustomerHoursResponse(value)) throw new Error('Invalid customer projection');
+        return { status: 'succeeded', response: value };
+      } catch (error) {
+        if ((error as {code?: string}).code === '22023') return { status: 'invalid_request' };
+        throw error;
+      }
+    });
   }
 
   async queryOwnTime(

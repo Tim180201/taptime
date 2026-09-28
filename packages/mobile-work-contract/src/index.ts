@@ -319,3 +319,5 @@ function isObject(value: unknown): value is Record<string, unknown> {
 export * from "./timeSupplement.js";
 export * from './administrationStop.js';
 export * from './administrationStopArchive.js';
+
+export * from './customerHours.js';

@@ -23,6 +23,7 @@ export type MobileReadResult<Response> =
   | { readonly status: 'invalid_request' };
 
 export interface MobileWorkReader {
+  queryCustomerHours?(command: MobileReadCommand<import('@taptime/mobile-work-contract').CustomerHoursRequest>): Promise<MobileReadResult<import('@taptime/mobile-work-contract').CustomerHoursResponse>>;
   queryOwnTime(
     command: MobileReadCommand<MobileOwnTimeQueryRequest>,
   ): Promise<MobileReadResult<MobileOwnTimeQueryResponse>>;

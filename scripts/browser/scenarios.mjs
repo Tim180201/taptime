@@ -3,6 +3,12 @@ const summary = async p => p.locator('summary').click();
 export const personPath = '/beschaeftigte/70000000-0000-4000-8000-000000000001?monat=2026-09';
 const scenario = (id, path, wait, steps = [], variant = id) => ({id,path,wait,steps,variant});
 export const adminScenarios = [
+  ...['admin','manager','employee'].flatMap(role=>[
+    scenario(`customers-${role}`,'/kunden','.customer-card',[],`customers-${role}`),
+    scenario(`customers-${role}-detail`,'/kunden','.customer-card',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click()],`customers-${role}`),
+  ]),
+  scenario('customers-empty','/kunden','.customers-view h2'),
+  scenario('customers-error','/kunden','.customers-view [role="alert"]'),
   ...['login','login-error','forgot-password','signing-in'].map(id=>scenario(id,'/','h1')),
   ...['recovery','recovery-busy','paused','forbidden','unavailable','loading'].map(id=>scenario(id,'/','main')),
   scenario('configuration','/','h1'),

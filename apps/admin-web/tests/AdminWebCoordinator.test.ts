@@ -179,6 +179,20 @@ function setup() {
 }
 
 describe('AdminWebCoordinator', () => {
+  it('T084 rejects a late customer response after sign-out and derives Berlin month bounds', async () => {
+    const {coordinator,api}=setup();
+    const response=deferred<ApiResult<import('@taptime/mobile-work-contract').CustomerHoursResponse>>();
+    const customerHours=vi.fn(()=>response.promise);
+    Object.assign(api,{customerHours});
+    await coordinator.signIn('synthetic@example.invalid','synthetic');
+    const pending=coordinator.readCustomerHours('2026-10');
+    expect(customerHours).toHaveBeenCalledWith('memory-only-token',{
+      expectedMembershipId:membershipId,fromInclusive:'2026-09-30T22:00:00.000Z',toExclusive:'2026-10-31T23:00:00.000Z',
+    });
+    await coordinator.signOut();
+    response.resolve({status:'succeeded',value:{version:'customer-hours.v1',scope:'people',asOf:'2026-10-20T12:00:00.000Z',customers:[]}});
+    await expect(pending).resolves.toEqual({status:'authority_rejected'});
+  });
   it('T068a shows a pause without signing out the provider session', async () => {
     const auth = new FakeAuth();
     const api = new AdminWebApiClient(async () => Response.json({ error: { code: 'organization_paused' } }, { status: 403 }));

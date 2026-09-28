@@ -1,3 +1,4 @@
+import { CustomersScreen } from '../screens/CustomersScreen';
 import { TimeEditingProvider } from '../timeEditing/TimeEditingControls';
 import type { TimeEditingCapability } from '../timeEditing/TimeEditingCoordinator';
 import type { EmployeesCapability } from '../employees/contracts';
@@ -75,7 +76,7 @@ export function AppNavigator({
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
     return <TimeEditingProvider key={accountKey} capability={timeEditing} work={work} membershipId={state.session.membershipId} role={state.session.role} managementScope={state.session.managementScope}><ProductShell key={accountKey} identityLabel={state.identityLabel} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
-      scan={scan} administration={administration} work={work} offlineManual={offlineManual} /></TimeEditingProvider>;
+      scan={scan} administration={administration} work={work} customerAuthority={state.session} offlineManual={offlineManual} /></TimeEditingProvider>;
   }
   if (state.status === 'enrollment_only') {
     return <EmployeeEnrollmentScreen
@@ -142,7 +143,8 @@ function PasswordRecoveryScreen({ session, completing, notice }: {
   </ScrollView></Screen>;
 }
 
-function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, offlineManual }: {
+function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual }: {
+  readonly customerAuthority?: object;
   readonly role: ProductMembershipRole | 'offline';
   readonly identityLabel?: string;
   readonly nfcSetupAvailable?: boolean;
@@ -221,6 +223,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
           : destination === 'manual' ? role === 'offline'
               ? <OfflineManualCaptureScreen manual={offlineManual} restorationKey="offline" />
               : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
+          : destination === 'customers' ? work && customerAuthority ? <CustomersScreen work={work} authorityContext={customerAuthority}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
           : destination === 'employees' ? managementScope && employees ? <EmployeesScreen employees={employees} scope={managementScope} locationsEnabled={locationsEnabled} /> : null
           : destination === 'times' ? work ? <OwnTimeScreen work={work} />
               : <MessageScreen title="Deine Zeiten sind derzeit nicht verfügbar." />

@@ -36,6 +36,7 @@ const EmployeesView=lazy(()=>import('./views/EmployeesView'));
 const PersonView=lazy(()=>import('./views/PersonView'));
 const TimeRecordsView=lazy(()=>import('./views/TimeRecordsView'));
 const ReviewsView=lazy(()=>import('./views/ReviewsView'));
+const CustomersView=lazy(()=>import('./views/CustomersView'));
 const OwnTimeView=lazy(()=>import('./views/OwnTimeView'));
 const ManualView=lazy(()=>import('./views/ManualView'));
 
@@ -273,6 +274,7 @@ export function App({
         ? <TimeRecordsView state={state} administration={administration}
             route={activeRoute} navigate={navigate} /> : null}
       {activeRoute.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} /> : null}
+      {activeRoute.view === 'kunden' ? <CustomersView administration={administration} route={activeRoute} navigate={navigate}/> : null}
       {activeRoute.view === 'meine-zeiten' ? <OwnTimeView state={state} administration={administration} route={activeRoute} navigate={navigate}/> : null}
       {activeRoute.view === 'manuell' ? <ManualView state={state} administration={administration}/> : null}
       </Suspense>
@@ -367,6 +369,7 @@ function SectionIcon({ view }: { readonly view: AdminView }) {
     'aria-hidden': true,
     focusable: 'false' as const,
   };
+  if (view === 'kunden') return <svg {...common}><path d="M16 20V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2M8 6h4M8 10h4M8 14h4M8 18h4"/></svg>;
   if (view === 'uebersicht') {
     return <svg {...common}>
       <rect x="3" y="3" width="7" height="7" rx="1" />

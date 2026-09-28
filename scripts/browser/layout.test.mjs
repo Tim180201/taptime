@@ -68,20 +68,23 @@ test('mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!
   const page = await browser.newPage({viewport:{width:390,height:844}});
   page.setDefaultTimeout(5000);
   try {
-    for (const [variant, path, direct, remaining] of [
-      ['overview','/uebersicht',4,3], ['five-areas','/uebersicht',5,0],
-      ['employee-calendar','/meine-zeiten?monat=2026-09',2,0], ['manager','/beschaeftigte',5,0],
+    for (const [variant, path] of [
+      ['overview','/uebersicht'], ['five-areas','/uebersicht'],
+      ['employee-calendar','/meine-zeiten?monat=2026-09'], ['manager','/beschaeftigte'],
     ]) {
       await page.goto('about:blank');
       await page.goto(webs['admin-web'].origin+path+'#'+variant);
       const nav = page.locator('.mobile-navigation');
       await nav.waitFor();
-      assert.equal(await nav.getByRole('link').count(), direct);
+      const expectedLinks = await page.locator('.sidebar nav a').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')).sort());
+      const directLinks = await nav.getByRole('link').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
+      assert.equal(new Set(directLinks).size,directLinks.length);
       const more = page.getByRole('button',{name:'Mehr',exact:true});
       await more.click();
       const sheet = page.getByRole('dialog',{name:'Mehr',exact:true});
       await sheet.waitFor();
-      assert.equal(await sheet.getByRole('link').count(),remaining);
+      const remainingLinks = await sheet.getByRole('link').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
+      assert.deepEqual([...directLinks,...remainingLinks].sort(),expectedLinks);
       assert.equal(await sheet.getByRole('button',{name:'Abmelden',exact:true}).isVisible(),true);
       assert.match(await sheet.innerText(),/Europe\/Berlin/);
       await page.keyboard.press('Shift+Tab');

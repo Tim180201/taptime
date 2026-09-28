@@ -49,7 +49,7 @@ describe('rendered navigation', () => {
     const html = markup(role);
     const tabs = [...html.matchAll(/role="tab"[^>]*aria-label="([^"]+)"/g)].map((match) => match[1]);
     expect(tabs).toEqual(role === 'administrator'
-      ? ['Erfassen', 'Meine Zeiten', 'Tags'] : ['Erfassen', 'Meine Zeiten']);
+      ? ['Erfassen', 'Meine Zeiten', 'Kunden', 'Tags'] : ['Erfassen', 'Meine Zeiten', 'Kunden']);
     expect(html).toContain('aria-label="Abgleich: alles bestätigt"');
   });
 });

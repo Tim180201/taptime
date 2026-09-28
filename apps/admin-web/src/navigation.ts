@@ -4,6 +4,7 @@ import type { AdministrationSection } from './contracts';
 
 export const adminViews = [
   { slug: 'uebersicht', label: 'Übersicht' },
+  { slug: 'kunden', label: 'Kunden' },
   { slug: 'beschaeftigte', label: 'Beschäftigte' },
   { slug: 'pruefungen', label: 'Prüfungen' },
   { slug: 'meine-zeiten', label: 'Meine Zeiten' },
@@ -83,6 +84,7 @@ export function visibleAdminViews(
 ): readonly (typeof adminViews)[number][] {
   return adminViews.filter((view) => {
     switch (view.slug) {
+      case 'kunden': return true;
       case 'uebersicht': return availableSections.includes('employees');
       case 'beschaeftigte': return availableSections.includes('employees');
       case 'pruefungen': return availableSections.includes('review_items');

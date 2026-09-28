@@ -87,6 +87,29 @@ it('034 preserves both existing managed replies byte-for-byte in one transaction
  }finally{await c.query('ROLLBACK');c.release();}
  await applyMigrationSet(pool,(await loadMigrations()).filter(m=>m.version==='034'));
 });
+it('036 preserves calendar/export output byte-for-byte and customer sums share the same PostgreSQL calculation',async()=>{
+ const c=await pool.connect();try {
+  await c.query('BEGIN');
+  const frame=async()=>{
+   await context(c,'taptime_membership_manager');
+   const calendar=(await c.query('SELECT * FROM taptime_server.read_time_record_calendar_v1($1::uuid[])',[[example,corrected,running,microseconds]])).rows;
+   await context(c,'taptime_time_exporter');
+   const exported=(await c.query('SELECT * FROM taptime_server.read_effective_time_entry_export_v3($1,$2,$3,10001)',[ids.organizationA,from,to])).rows;
+   return {calendar,exported};
+  };
+  const before=await frame();await c.query('RESET ROLE');
+  await c.query((await loadMigrations()).find(m=>m.version==='036')!.sql);
+  expect(await frame()).toEqual(before);
+  await context(c,'taptime_mobile_own_time_reader','self');
+  const customers=(await c.query("SELECT taptime_server.read_customer_hours_v1('2026-07-01T00:00:00+02:00','2026-08-01T00:00:00+02:00') AS value")).rows[0].value;
+  const seconds=before.calendar.reduce((sum,row)=>sum+row.calendar.workDurationSeconds,0);
+  expect(customers.customers.find((customer:any)=>customer.customerId===ids.customerA).workDurationSeconds).toBe(seconds);
+  expect(customers.customers.find((customer:any)=>customer.customerId===ids.customerA).running).toBe(true);
+  expect(customers.asOf).toBe(before.calendar[0].calendar.asOf);
+  expect(before.calendar.find(row=>row.time_record_id===example).calendar.workDurationSeconds).toBe(7200);
+ }finally{await c.query('ROLLBACK');c.release();}
+ await applyMigrationSet(pool,(await loadMigrations()).filter(m=>m.version>'034'));
+});
 it('real PostgreSQL calendar equals export including clipped correction, midnight rounding and running pause',async()=>{
  const c=await pool.connect();try{
   await c.query('BEGIN');await context(c,'taptime_membership_manager');

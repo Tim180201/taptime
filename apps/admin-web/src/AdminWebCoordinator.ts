@@ -219,6 +219,16 @@ export class AdminWebCoordinator implements AdminWebCapability {
     return outcome;
   }
 
+  async readCustomerHours(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult> {
+    const session=this.session,generation=this.generation,window=monthTimeWindow(month);
+    if (this.state.status!=='ready' || !session || !window) return {status:'unavailable'};
+    const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.customerHours?.(token,
+      {expectedMembershipId:session.membershipId,...window}) ?? Promise.resolve({status:'unreachable'})));
+    if (generation!==this.generation || session!==this.session || this.state.status!=='ready') return {status:'authority_rejected'};
+    if (result.status==='rejected') { await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.'); return {status:'authority_rejected'}; }
+    return result.status==='succeeded' ? {status:'ready',value:result.value} : {status:'unavailable'};
+  }
+
   async loadOwnTime(month: string): Promise<void> {
     const current=this.state, session=this.session;
     if (current.status !== 'ready' || session === null || !session.availableSections.includes('own_time') || monthTimeWindow(month) === null) return;

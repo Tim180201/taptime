@@ -163,6 +163,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       cancel: () => this.administrationCoordinator.cancel(),
     });
     this.workCapability = Object.freeze({
+      readCustomerHours: (month: string) => this.mobileWorkCoordinator.readCustomerHours?.(month) ?? Promise.resolve({status:'unavailable' as const}),
       getState: () => this.mobileWorkCoordinator.getState(),
       subscribe: (listener: () => void) => this.mobileWorkCoordinator.subscribe(listener),
       refresh: () => this.mobileWorkCoordinator.refresh(),

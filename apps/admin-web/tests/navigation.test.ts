@@ -12,6 +12,7 @@ describe('Admin Web address navigation', () => {
   it('allows exactly the accepted area slugs', () => {
     expect(adminViews.map((view) => view.slug)).toEqual([
       'uebersicht',
+      'kunden',
       'beschaeftigte',
       'pruefungen',
       'meine-zeiten',

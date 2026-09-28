@@ -1192,12 +1192,12 @@ describe('professional Admin Web shell', () => {
 });
 
 // T-049: these assertions describe observable behaviour missing from the old Web.
-it('T049 b: employee shell has exactly own time and manual, even at an administration address', async () => {
+it('T049 b: employee shell has customer hours, own time and manual, even at an administration address', async () => {
   window.history.replaceState(null,'','/einrichtung');
   await render(<App administration={new FakeCapability({...readyState,role:'employee',
     availableSections:['own_time','manual_capture'],managementScope:{kind:'locations',locations:[]}})} />);
   const navigation=screen.getByRole('navigation',{name:'Hauptnavigation'});
-  await waitFor(()=>expect(navigation.textContent).toBe('Meine ZeitenManuell'));
+  await waitFor(()=>expect(navigation.textContent).toBe('KundenMeine ZeitenManuell'));
   expect(screen.queryByRole('heading',{name:'Einrichtung'})).not.toBeInTheDocument();
 });
 it('T049 d: activity tile uses server counts and time, not the loaded employee page', async () => {

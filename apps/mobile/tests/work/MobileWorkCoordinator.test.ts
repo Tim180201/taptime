@@ -33,6 +33,28 @@ const readyRead = {
 };
 
 describe('MobileWorkCoordinator', () => {
+  it('T084 derives the Berlin month and drops customer hours after a session change', async () => {
+    let current = true;
+    let resolveRead!: (value: import('@taptime/mobile-work-contract').CustomerHoursResult) => void;
+    const readCustomerHours = vi.fn<NonNullable<MobileWorkApiPort['readCustomerHours']>>(
+      () => new Promise(resolve => { resolveRead = resolve; }),
+    );
+    const api: MobileWorkApiPort = {
+      read: async () => readyRead,
+      readOwnTimePage: async () => ({status:'unavailable'}),
+      triggerManual: async () => ({status:'unavailable'}),
+      readCustomerHours,
+    };
+    const coordinator = new MobileWorkCoordinator(sessionReader(() => current), api);
+    const pending = coordinator.readCustomerHours('2026-10');
+    expect(readCustomerHours).toHaveBeenCalledWith({
+      expectedMembershipId: snapshot.session.membershipId,
+      fromInclusive:'2026-09-30T22:00:00.000Z',toExclusive:'2026-10-31T23:00:00.000Z',
+    });
+    current = false;
+    resolveRead({status:'ready',value:{version:'customer-hours.v1',scope:'people',asOf:'2026-10-20T12:00:00.000Z',customers:[]}});
+    await expect(pending).resolves.toEqual({status:'authority_rejected'});
+  });
   it('drops a read result when the authenticated generation is replaced', async () => {
     let current = true;
     let resolveRead!: (value: typeof readyRead) => void;

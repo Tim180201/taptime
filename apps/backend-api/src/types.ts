@@ -311,6 +311,7 @@ export type BackendApiRoute =
   | 'lifecycle'
   | 'manual_lifecycle'
   | 'manual_break_lifecycle'
+  | 'customer_hours'
   | 'mobile_own_time'
   | 'mobile_work_targets'
   | 'offline_capture_lease'

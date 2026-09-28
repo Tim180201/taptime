@@ -1,3 +1,4 @@
+import { isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResult } from '@taptime/mobile-work-contract';
 import {
   validateOwnTimeResponse,
   isCalendarTimeResponse,
@@ -18,6 +19,16 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     private readonly requests: AuthenticatedJsonPostPort,
     private readonly createUuid: () => string,
   ) {}
+
+  async readCustomerHours(request: CustomerHoursRequest): Promise<CustomerHoursResult> {
+    const result = await this.requests.post(new URL('/v1/customers/hours/query', this.baseUrl), JSON.stringify(request));
+    if (result.status === 'authority_rejected') return result;
+    if (result.status !== 'response' || result.statusCode !== 200 || !isJson(result.contentType)) return {status:'unavailable'};
+    try {
+      const value: unknown = JSON.parse(result.body);
+      return isCustomerHoursResponse(value) ? {status:'ready',value} : {status:'unavailable'};
+    } catch { return {status:'unavailable'}; }
+  }
 
   async read(expectedMembershipId: string): Promise<MobileWorkReadResult> {
     const body = JSON.stringify({

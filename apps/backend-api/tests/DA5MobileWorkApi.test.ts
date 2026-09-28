@@ -25,6 +25,20 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map(close));
 });
 
+it('T084 forwards only a closed month request, rejects client scope and preserves a versioned self response', async () => {
+  const responseValue={version:'customer-hours.v1' as const,scope:'self' as const,asOf:'2026-09-28T08:00:00.000Z',customers:[]};
+  const queryCustomerHours=vi.fn(async()=>({status:'succeeded' as const,response:responseValue}));
+  const origin=await start({mobileWorkReader:{queryCustomerHours,queryOwnTime:async()=>({status:'forbidden'}),queryWorkTargets:async()=>({status:'forbidden'})}});
+  const request={expectedMembershipId:ids.membership,fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'};
+  const response=await post(origin,'/v1/customers/hours/query',request);
+  expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(await response.json()).toEqual(responseValue);
+  expect(queryCustomerHours).toHaveBeenCalledWith({accessToken:'abc.def.ghi',request});
+  for(const extra of [{role:'administrator'},{organizationId:ids.project},{userId:ids.project},{locationId:ids.project},{customerId:ids.project}])
+    await expectError(await post(origin,'/v1/customers/hours/query',{...request,...extra}),400,'invalid_request');
+  expect(queryCustomerHours).toHaveBeenCalledTimes(1);
+});
+
 describe('DA5 Mobile work HTTP boundaries', () => {
   it('starts and serves unrelated routes without an account invitation service-role key', async () => {
     const runtime = createBackendApiRuntime({ ...mobileRuntimeConfiguration(),

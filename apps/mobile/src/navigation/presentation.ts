@@ -1,12 +1,12 @@
 import type { ProductSessionContext } from '../auth/contracts';
 import type { ProductScanState } from '../scan/contracts';
 
-export type ProductDestination = 'capture' | 'manual' | 'times' | 'employees' | 'setup';
+export type ProductDestination = 'capture' | 'manual' | 'times' | 'customers' | 'employees' | 'setup';
 export const destinationLabels: Record<ProductDestination, string> = {
-  capture: 'Erfassen', manual: 'Manuell', times: 'Meine Zeiten', employees: 'Mitarbeiter', setup: 'Tags',
+  customers: 'Kunden', capture: 'Erfassen', manual: 'Manuell', times: 'Meine Zeiten', employees: 'Mitarbeiter', setup: 'Tags',
 };
 export function productDestinations(session: Pick<ProductSessionContext, 'role' | 'nfcSetupAvailable' | 'managementScope'>): readonly ProductDestination[] {
-  const destinations: ProductDestination[] = ['capture', 'times'];
+  const destinations: ProductDestination[] = ['capture', 'times', 'customers'];
   if (session.managementScope != null) destinations.push('employees');
   if (session.nfcSetupAvailable === true) destinations.push('setup');
   return destinations;

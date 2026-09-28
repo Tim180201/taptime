@@ -589,6 +589,9 @@ it('runs the authorized synthetic Setup/Lifecycle/Offline/Review/Correction/Expo
         reviewItemId: deferredCommand.workEvent.id, source: 'server_legacy',
       })] },
     });
+    // Use the database clock for evidence strictly in the past. A host-clock "now"
+    // can be just ahead of a local VM's transaction timestamp and fail nondeterministically.
+    const recoveredStop = (await installerPool.query<{at:Date}>("SELECT clock_timestamp()-interval '1 second' AS at")).rows[0]!.at;
     await expect(review.adjudicateReviewItems({
       accessToken: tokens.administrator,
       request: {
@@ -596,8 +599,8 @@ it('runs the authorized synthetic Setup/Lifecycle/Offline/Review/Correction/Expo
         commandId: randomUUID(), reviewItemIds: [deferredCommand.workEvent.id],
         resolution: {
           type: 'create_recovered_time_record',
-          startedAt: new Date(Date.now() - 1_000).toISOString(),
-          stoppedAt: new Date().toISOString(),
+          startedAt: new Date(recoveredStop.getTime() - 1_000).toISOString(),
+          stoppedAt: recoveredStop.toISOString(),
         },
         reason: 'Synthetic legacy evidence recovered as a closed record.',
       },
