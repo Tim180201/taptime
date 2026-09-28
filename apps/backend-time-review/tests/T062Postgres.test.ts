@@ -113,18 +113,30 @@ beforeAll(async () => {
   const tableNames=(await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='taptime_server' ORDER BY tablename")).rows.map(row=>row.tablename as string);
   const snapshot=async()=>JSON.stringify(await Promise.all(tableNames.map(async name=>(await pool.query(
     `SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text),'[]') AS rows FROM taptime_server.${name} r`)).rows)));
+  const migration=(await loadMigrations()).filter(m=>m.version>'032');
+  const nfcAuthorityMigration=migration.find(m=>m.version==='035');
+  const nfcAuthority='taptime_server.has_current_nfc_setup_authority_v1(uuid,uuid)';
+  const readNfcDefinition=async()=>(await pool.query<{definition:string;body:string}>(
+    'SELECT pg_get_functiondef(oid) AS definition,prosrc AS body FROM pg_proc WHERE oid=$1::regprocedure', [nfcAuthority])).rows[0]!;
+  const nfcBefore=nfcAuthorityMigration ? await readNfcDefinition() : null;
+  // T-086/035 ändert die NFC-Autorität für den kundenlosen verwalteten Standort bewusst; Verhalten belegt T086CustomerLocation.test.ts
   const fixedDefinitions=async()=>JSON.stringify((await pool.query(`SELECT oid::regprocedure::text AS name,pg_get_functiondef(oid) AS definition
     FROM pg_proc WHERE pronamespace='taptime_server'::regnamespace AND (proname LIKE '%export%' OR proname IN (
     'has_current_time_review_administrator_v1','has_current_admin_setup_authority','has_active_administrator_membership',
-    'has_current_nfc_setup_authority_v1','has_membership_management_authority_v1','lock_project_for_administration_v1')) ORDER BY name`)).rows);
+    'has_current_nfc_setup_authority_v1','has_membership_management_authority_v1','lock_project_for_administration_v1'))
+    AND (NOT $1::boolean OR oid<>$2::regprocedure) ORDER BY name`, [nfcAuthorityMigration!==undefined,nfcAuthority])).rows);
   const adminResponses=async()=>JSON.stringify(await asActor(admin,reader,async c=>({records1:await records(c,admin,1),records2:await records(c,admin),reviews1:await reviews(c,admin,1),reviews2:await reviews(c,admin),
     details:(await details(c)).sort((x,y)=>x.time_record_id.localeCompare(y.time_record_id))})));
   const before={data:await snapshot(),definitions:await fixedDefinitions(),responses:await adminResponses()};
-  const migration=(await loadMigrations()).filter(m=>m.version>'032');
   // No future migration is guessed here; the source defines the installed set.
   if(migration.length) {
     await applyMigrationSet(pool,migration);
     expect({data:await snapshot(),definitions:await fixedDefinitions(),responses:await adminResponses()}).toEqual(before);
+    if(nfcAuthorityMigration && nfcBefore) {
+      const expectedBody=nfcAuthorityMigration.sql.match(/CREATE OR REPLACE FUNCTION taptime_server\.has_current_nfc_setup_authority_v1\([\s\S]*?AS \$authority\$([\s\S]*?)\$authority\$;/)?.[1];
+      expect(expectedBody).toBeDefined();
+      expect((await readNfcDefinition()).definition).toBe(nfcBefore.definition.replace(nfcBefore.body,expectedBody!));
+    }
     expect((await applyMigrationSet(pool,migration)).applied).toEqual([]);
   }
 
