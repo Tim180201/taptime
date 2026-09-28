@@ -8,7 +8,7 @@ mit getrennten Uhren für reine Wartezeiten (D-011).
 **Stand:** 28.09.2026, Produktion auf `e13916b` (Deploy 27.09.: T-083; Migrationen bis 034; Controller `b635c4a`
 unveraendert). App-Builds vom 25.09. auf `6c7007d` (iPhone 1.0.0 (3), Android versionCode 10); die naechsten auf `e13916b`.
 Geraeteabnahme laeuft; T-080 ✓ auf `main`, offen Punkte 11 und 12 mit dem naechsten Build. Reihenfolge (PO 28.09.):
-App-Builds auf `e13916b` → Rest der Geraeteabnahme → T-086/T-087 ✓ → T-084 ✓ → **T-085** → **T-088** → ein Deploy, ein App-Build →
+App-Builds auf `e13916b` → Rest der Geraeteabnahme → T-086/T-087 ✓ → T-084 ✓ → **T-085** → Sicherungs-Fix (falls nötig) → **T-088** → ein Deploy, ein App-Build →
 **T-024** → Pilot Monat 1 (D-097, D-098: alles vor dem Pilotstart). Parallel Code-Analyse mit Claude Code (eigener Klon, nur
 lesend); Befunde triagiert der TL. In Monat 1 zusaetzlich T-075 (Paketgrenze, D-087),
 T-081 (Beschaeftigte nach Standort) und T-082 (Pause auf Erfassen, D-096).

@@ -1,75 +1,69 @@
 # Aktuelle Aufgabe
 
 > **Stand 28.09.2026:** Produktion auf `e13916b` (Migrationen bis 034). Auf `main` zusätzlich T-080 (App), T-086/T-087
-> (`2602ab7`, Migration 035). Reihenfolge (PO 28.09., D-097, D-098): **T-084** → T-085 → T-088 → ein Deploy, ein
-> App-Build → T-024 → Pilot Monat 1. Frühere Briefs stehen in der Git-Historie.
+> (035), T-084 (`0bc4760`, 036). Reihenfolge (PO 28.09., D-097, D-098): **T-085** → Sicherungs-Fix (falls nötig) →
+> T-088 → ein Deploy, ein App-Build → T-024 → Pilot Monat 1. Frühere Briefs stehen in der Git-Historie.
 
-## T-084 · Reiter „Kunden“ mit geleisteten Stunden (D-097)
+## T-085 · Monatskontingent je Kunde, Hinweis ab 90 % (D-097)
 
-**Für:** Development · **Risiko:** Mandanten- und Standortgrenze beim Lesen fremder Zeiten; eine zweite Summenformel
-neben Kalender und Export (D-095) · **Zeitbox:** eine Sitzung. Eine Migration `036` (nur Leser, keine Daten),
-Backend-Route, `apps/admin-web`, `apps/mobile`, deren Tests. Kein Kontingent (T-085), kein Löschen (T-088).
+**Für:** Development · **Risiko:** neues Schreibrecht der Standortleitung; Kontingent darf Mitarbeitern nie
+erscheinen · **Zeitbox:** eine Sitzung. Eine Migration `037`, Backend (Administration und Kundenleser), Route,
+`apps/admin-web`, `apps/mobile`, deren Tests. Baut auf T-084 auf.
 
 ### Was der Nutzer sieht
 
-Neuer Reiter **„Kunden“** in App und Web für jede Rolle (App: nicht in der Offline-Hülle). Oben der Monat: laufender
-Monat vorgewählt, Pfeile vor/zurück und eine Auswahl der letzten 24 Monate, keine zukünftigen. Darunter die Liste der
-Kunden mit der Monatssumme in Stunden; antippen öffnet den Kunden:
-
-- **Administrator:** alle Kunden des Betriebs; im Kunden die Summe und je Person die Summe (Name, Stunden).
-- **Standortleitung:** die Kunden, deren Standortbindung auf einen ihrer verwalteten Standorte zeigt; im Kunden alle
-  dort geleisteten Stunden je Person, auch von Personen anderer Standorte (D-097).
-- **Mitarbeiter:** bei eingeschalteten Standorten die Kunden seines Heimatstandorts, sonst alle aktiven Kunden; nur
-  die eigenen Stunden, je Tag aufgelistet; ohne Stunden steht „0 h“.
-
-Aktive Kunden immer; ein inaktiver Kunde erscheint nur, wenn im gewählten Monat Stunden bei ihm stehen (markiert
-„inaktiv“). Laufende Einträge zählen bis zur Antwortzeit mit und sind als „läuft“ markiert. Leerer Zustand und Fehler
-mit verständlichem Text (Art aus T-079).
+Administrator und Standortleitung: in der Kundenansicht „Kontingent: 40 h pro Monat“ mit „Ändern“ (ganze oder halbe
+Stunden, 0,5 bis 744; leer = kein Kontingent). In der Kundenliste und in der Kundenansicht bei gesetztem Kontingent
+„32 / 40 h“ mit Balken; ab 90 % markiert („Kontingent fast erreicht“), ab 100 % „Kontingent überschritten“.
+Beim Öffnen von App und Web ein Hinweis, wenn im laufenden Monat ein sichtbarer Kunde neu die 90- oder die 100-%-Stufe
+erreicht hat: einmal je Kunde, Monat und Stufe, mit „Ansehen“ (öffnet den Kunden) und „Schließen“. Mitarbeiter sehen
+vom Kontingent nichts, weder Wert noch Stufe noch Hinweis. Keine Push-Nachricht, keine Mail.
 
 ### Auftrag
 
-**A. Ein Leser in SQL (036).** Eine SECURITY-DEFINER-Funktion nach dem Muster von 034 (`read_time_record_calendar_v1`):
-Eingabe Monatsbeginn und -ende (Europe/Berlin, Obergrenze `maximum_calendar_month_range()` aus 025), Ausgabe je
-Kunde und Person die Arbeitssekunden nach genau der Kalenderformel (D-095: floor der Spanne minus Summe floor je
-zugeschnittener Pause, mindestens null; ein Eintrag zählt in dem Monat, in dem er beginnt; eine Antwortzeit aus
-`transaction_timestamp()`). Keine zweite Formel: Die Sekundenberechnung aus 034 in eine gemeinsame interne Funktion
-ziehen oder aus ihr lesen, so dass Kalender, Export und Kunden-Summe nachweislich gleich rechnen. Die Grenze (wer
-welche Kunden und wessen Stunden sieht) entscheidet die Funktion aus der Sitzung (Organisation, Mitgliedschaft,
-Rolle, `locations_enabled`, Verwaltungszuweisungen, Heimatstandort), nie ein Parameter des Clients. Mitarbeiter
-bekommen fremde Stunden unter keinen Umständen, auch nicht als Summe. Maßgeblich ist die Kundenbindung des Eintrags
-(`target_type = 'customer'`), Projekte und allgemeine Arbeit gehören nicht in den Reiter.
+**A. Speicherung, append-only (037).** Neue Tabelle für Kontingent-Einstellungen: Betrieb, Kunde, Minuten (NULL =
+entfernt), gesetzt am, gesetzt von (Mitgliedschaft, echte Rolle), Befehls-ID eindeutig je Betrieb. Nie ändern, nie
+löschen; gültig ist je Monat die jüngste Einstellung bis zum Monatsende (Europe/Berlin), so dass alte Monate mit
+dem damaligen Kontingent angezeigt werden. RLS und Mandantentrennung wie bei den übrigen Einrichtungstabellen.
 
-**B. Route.** Eine lesende Route für alle angemeldeten Rollen, mit Schutzklasse in `BACKEND_HTTP_ROUTES` (T-053),
-Antwortvertrag mit Versionskennung wie bei den bisherigen Lesern. Die Personenaufschlüsselung liefert der Server
-nur Administrator und Standortleitung.
+**B. Wer darf setzen.** Administrator: jeder Kunde des Betriebs. Standortleitung: nur ein aktiver Kunde, dessen
+aktuelle Standortbindung auf einen ihrer verwalteten Standorte zeigt; dafür die vorhandene
+`has_current_nfc_setup_authority_v1(org, customer)` wiederverwenden, keine dritte Grenzfunktion. Mitarbeiter nie.
+Grenze in SQL (RLS und SECURITY DEFINER), nicht nur in TypeScript. Idempotent über die Befehls-ID; gleiche ID mit
+anderem Wert ist ein Konflikt. Eine Schreibroute mit Schutzklasse (T-053).
 
-**C. App.** Reiter „Kunden“ in `navigation/presentation.ts` für alle Rollen; Liste, Monatsauswahl, Kundenansicht wie
-oben; Zahlen im Stundenformat der Kalenderansicht.
+**C. Lesen.** Der Kundenleser (036) liefert für Administrator und Standortleitung je Kunde zusätzlich das für den
+Monat gültige Kontingent in Sekunden und die Stufe (`none`, `ok`, `warning` ab 90 %, `exceeded` ab 100 %), vom
+Server berechnet aus den gelieferten Arbeitssekunden, laufende Einträge eingeschlossen. Für Mitarbeiter fehlen
+beide Felder in der Antwort vollständig. Neue Funktion oder `CREATE OR REPLACE` in 037, 036 bleibt unverändert.
 
-**D. Web.** Eintrag „Kunden“ in der Navigation (`navigation.ts`) für alle Rollen, die das Web nutzen; dieselbe Liste
-und Kundenansicht; schmale und breite Ansicht wie die übrigen Seiten (Layout-Tests mit 360/390/1440).
+**D. Hinweis beim Öffnen.** App: nach erfolgreicher Online-Anmeldung einmal den laufenden Monat laden; ist ein Kunde
+auf `warning` oder `exceeded` und diese Kombination aus Kunde, Monat und Stufe auf diesem Gerät für diese
+Mitgliedschaft noch nicht bestätigt, erscheint der Hinweis; „Schließen“ oder „Ansehen“ bestätigt sie lokal. Web
+ebenso mit lokaler Speicherung im Browser und der Hinweisart `info` aus T-079. Ein Rollen- oder Kontowechsel zeigt
+keine Hinweise der vorigen Sitzung.
+
+**E. P3 aus T-086 mitnehmen.** `is_current_customer_creation_v1` in 037 per `CREATE OR REPLACE` auf
+`customer.xmin = pg_catalog.xid(pg_current_xact_id())` umstellen (statt `::text::xid`); die T-062-Probe und
+T086-Suite müssen grün bleiben.
 
 ### Tests
 
-Mit PostgreSQL, Rot vor Grün für die Grenzen: (1) Administrator sieht alle Kunden und Personen; (2) Standortleitung A
-sieht Kunden von A mit Stunden einer Person aus Standort B, sieht keinen Kunden von B; (3) Mitarbeiter sieht Kunden
-seines Heimatstandorts mit nur eigenen Stunden, „0“ ohne Einträge, keine Personenaufschlüsselung, fremde Stunden
-auch nicht über manipulierte Eingaben; (4) Standorte aus: Mitarbeiter sieht alle aktiven Kunden, Standortleitung
-keinen Umfang wie bisher (020); (5) Betrieb X sieht nichts aus Betrieb Y; (6) Summe gleich Kalender und Export für
-dieselben Einträge, mit Pausen, laufendem Eintrag und dem Rundungsbeispiel aus D-095; (7) Monatsgrenze: Beginn
-31.10.2026 23:30 Berlin zählt im Oktober; Umstellung auf Winterzeit 25.10.2026 und Sommerzeit 28.03.2027; (8) inaktiver
-Kunde nur mit Stunden im Monat. App und Web: Monatsauswahl, Kundenansicht je Rolle, leerer Zustand, Fehler.
-**Lokal alle Suiten, die Migrationen anwenden oder nachspielen** (u. a. `backend-schema`, `backend-time-review`/DA3
-mit der T-062-Migrationsprobe, `backend-time-export`, `backend-api`), dazu App und Web, Typechecks inklusive Tests.
-Die T-062-Probe darf 036 nur als neue Funktion sehen; ändert 036 eine geschützte Definition, ist das ein Befund.
+Mit PostgreSQL, Rot vor Grün für die Grenzen: (1) Administrator setzt, ändert, entfernt; (2) Standortleitung A setzt
+für einen Kunden in A, nicht in B, nicht nach Entzug ihrer Zuweisung, nicht bei ausgeschalteten Standorten;
+Mitarbeiter `forbidden`, auch direkt gegen RLS; (3) Befehls-ID: Wiederholung gleich, anderer Wert Konflikt;
+(4) Kontingent je Monat: Änderung am 15.10. gilt ab Oktober, September behält den alten Wert; (5) Stufen exakt an den
+Grenzen (89,99 %, 90 %, 100 %) mit laufendem Eintrag; (6) Mitarbeiterantwort enthält kein Kontingentfeld;
+(7) Mandantentrennung. App und Web: Ändern, Balken, Stufen, Hinweis einmal je Kunde/Monat/Stufe, nicht nach
+Kontowechsel, nie für Mitarbeiter. Lokal alle Suiten, die Migrationen anwenden oder nachspielen, App, Web,
+Typechecks inklusive Tests.
 
 ### Nicht Teil
 
-Kein Deploy, kein Serverzugriff, keine Geheimnisse, kein App-Build. Kein Kontingent, keine Meldung, kein Löschen,
-keine Änderung an Kalender- oder Exportausgabe (nur die gemeinsame Rechnung darf in eine interne Funktion wandern,
-mit Nachweis gleicher Ergebnisse).
+Kein Deploy, kein Serverzugriff, keine Geheimnisse, kein App-Build. Keine Push-Nachricht, keine Mail, keine
+Änderung an Kalender, Export oder der Stundenformel. Kein Löschen von Zeiten (T-088).
 
 ### Bericht
 
-`.t084-review/` (report.md, tracked.diff, untracked.txt), Screenshots Web 360/390/1440 und App je Rolle. Unabhängiges
-Review mit Blick auf „wer sieht wessen Stunden“ und „eine Formel“. Kein Commit vor `APPROVED`.
+`.t085-review/` (report.md, tracked.diff, untracked.txt, Screenshots Web 360/390/1440 und App). Unabhängiges Review
+mit Blick auf das Schreibrecht der Standortleitung und „Mitarbeiter sehen nichts“. Kein Commit vor `APPROVED`.

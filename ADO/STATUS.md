@@ -31,7 +31,8 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
   zum 28.09. unregelmäßig alle 18–60 min (00:37, 01:31, 02:32, 02:50, 03:22, 03:46, danach weiter). Erwartet war
   höchstens eine Meldung nach dem ersten langen Lauf. Kein akuter Datenverlust (WAL-Empfänger schreibt lokal), aber
   das externe Archiv hängt hinterher. Diagnose mit `taptime-status`, `systemctl show` und `list-timers` durch den PO,
-  danach Entscheidung; ein Fix hat Vorrang vor der nächsten Aufgabe nach T-084.
+  danach Entscheidung. Ein Fix kommt direkt nach T-085 und geht mit in den gebündelten Deploy; Produktion hat bis
+  zum Pilot nur Testdaten, deshalb wartet Codex nicht auf die Diagnose.
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
   `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
@@ -120,7 +121,7 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
-- T-084 abgenommen (TL APPROVED 28.09., D-099), auf main; Deploy gebündelt mit T-085, T-088.
+- T-084 abgenommen (TL APPROVED 28.09., D-099), auf main (`0bc4760`, CI und Images grün); Deploy gebündelt mit T-085, T-088.
 - **P2 T-084:** Globale Web-Aktualisierung lädt Kundenstunden nicht neu; eigener Aktualisierungsknopf funktioniert. Frühere rote Prüfungen (Typinferenz, Testdaten/-erwartungen, Export-Zeitquelle und Laufzeit) bleiben im Bericht dokumentiert; SQL-Inlining behebt den relativen Laufzeitbefund; der absolute Laufzeithinweis im Export-Grenztest bleibt beobachtet.
 - T-086/T-087 abgenommen (TL APPROVED 28.09.), auf main (`2602ab7`, Testkorrektur `f79d272`, CI und Images grün); Deploy gebündelt mit T-084, T-085, T-088.
 - **P2 Prozess (T-086):** Die erste CI scheiterte, weil die T-062-Migrationsprobe (`backend-time-review`, DA3) die bewusst geänderte NFC-Funktion aus 035 als verboten ansah; lokal lief diese Suite nicht. Korrektur nur im Test, die Probe prüft jetzt genau die Definition aus 035. Ab T-084 laufen lokal alle Suiten, die Migrationen nachspielen.
