@@ -7,8 +7,9 @@ am 26.09. über den Betreiber-Bereich angelegt. App-Builds vom 25.09. auf `6c700
 Android-APK versionCode 10; die nächsten Builds (iPhone 4, Android versionCode 11) auf `e13916b`. „Taptura“ ist der
 Arbeitsname für den Pilot; Code, Pakete und Abbilder heißen weiter `taptime`.
 Geräteabnahme 25.09. läuft: Mitarbeiter scannt auf iPhone und Android; offen Punkte 11 (Standortleitung scannt) und 12
-(Kontowechsel) mit dem nächsten Build. Reihenfolge (PO 25.09.): App-Builds auf `e13916b` → Rest der Geräteabnahme →
-T-024 → Pilot Monat 1. Parallel: Code-Analyse mit Claude Code auf einem eigenen Klon von `main`, nur lesend; Befunde
+(Kontowechsel) mit dem nächsten Build. Reihenfolge (PO 28.09.): App-Builds auf `e13916b` → Rest der Geräteabnahme →
+T-086/T-087 (Kunde anlegen mit Standort, auch am Handy; Kalender springt) → T-084 (Reiter „Kunden“) → T-085
+(Monatskontingent) → T-088 (Zeiteintrag löschen, D-098) → ein Deploy, ein App-Build → T-024 → Pilot Monat 1 (D-097). Parallel: Code-Analyse mit Claude Code auf einem eigenen Klon von `main`, nur lesend; Befunde
 triagiert der TL zu Aufgaben. Danach AVV/TOM; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Zur Entscheidung
 vor T-048: Freigabe manueller Zeiten für Betriebe ohne Tags (D-014). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -114,6 +115,10 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- **P1 Befund aus dem Code (28.09., T-086):** Bei eingeschalteten Standorten scheitert „Kunde anlegen“ im Web am
+  Commit: Der neue Kunde ist ein aktives Arbeitsziel ohne Standort, und die verzögerte Prüfung aus 019
+  (`location_setup_is_complete_v1`) lehnt das ab; das Ergebnis kennt diesen Fall nicht. Nicht am Gerät beobachtet;
+  T-086 beweist es zuerst rot. Betriebe ohne Standorte sind nicht betroffen.
 - **P1 Geräteabnahme 25.09. (behoben mit T-080):** Die App nahm Offline-Freigaben nur für Administrator und Beschäftigte an; die Standortleitung konnte nicht scannen. Rolle aufgenommen, lokales Schema V6. Geräteabnahme mit dem nächsten App-Build.
 - **P3 T-080:** Noch nicht übertragene Erfassungen aus der Zeit vor einem Rollenwechsel werden beim Abgleich zum Prüffall (`identity_or_membership_not_current`); nichts geht verloren. Im Pilot nur relevant, wenn jemand offline erfasst und danach die Rolle wechselt.
 - **Geräteabnahme 25.09., gelernt:** Der Reiter „Mitarbeiter“ erscheint für die Standortleitung erst mit einer

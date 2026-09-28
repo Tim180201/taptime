@@ -1543,3 +1543,25 @@ Die gesetzliche Pause nach § 4 ArbZG (D-047) wird abgezogen, wenn erfasste Paus
 Pausen über dem Minimum zählen exakt. Export und Kalender weisen beides getrennt aus.
 **Warum:** Eine gestempelte Pause ist genauer als der Mindestabzug, und der Knopf auf dem Erfassen-Bildschirm
 kostet keinen zweiten Bildschirm; der Pausen-Tag war der unhandliche Teil, nicht das Ereignis (PO, Geräteabnahme 25.09.).
+
+## D-097 · Kunden-Reiter mit Stunden, Monatskontingent, Kunde am Handy, Kalender springt · 28.09.2026 · Tim (PO)
+Reiter „Kunden“ in App und Web, laufender Monat vorgewählt, andere Monate wählbar; Summe nach der Kalenderformel
+(D-095). Administrator: alle Kunden mit allen dort geleisteten Stunden je Person. Standortleitung: Kunden ihres
+Standorts, ebenso mit allen dort geleisteten Stunden. Mitarbeiter: Kunden seines Standorts (ohne Standorte alle),
+nur eigene Stunden, sonst 0. Optionales Monatskontingent in Stunden am Kunden; eintragen dürfen Administrator und
+Standortleitung (eigener Standort); ab 90 % Markierung und Hinweis in App und Web nur für diese beiden, keine
+Push-Nachricht. Kunden anlegen dürfen Administrator und Standortleitung (eigener Standort), auch am Handy in
+„Tag zuordnen“; bei eingeschalteten Standorten immer mit Standort in derselben Transaktion. Tippen auf einen
+Kalendertag springt zu dessen Zeiten. Nur intern, Kunden sehen nichts. Alles vor dem Pilotstart (T-084 bis T-087).
+**Warum:** Der Betrieb will je Kunde sehen, was geleistet wurde und wann ein Kontingent knapp wird, und neue Kunden
+dort anlegen, wo der Chip hängt; die Grenzen folgen den vorhandenen Standortregeln (D-059, T-060) (PO, 28.09.).
+
+## D-098 · Zeiteinträge löschen heißt stornieren, jede Rolle in ihrem Umfang · 28.09.2026 · Tim (PO)
+Ergänzt D-069. Am beendeten Zeiteintrag gibt es in App und Web „Zeiteintrag löschen“. Administrator: alle Einträge
+des Betriebs; Standortleitung: eigene und die ihres Standorts (Grenze wie beim Ändern, 033); Mitarbeiter: nur
+eigene. Sofort wirksam, kein Prüffall. Grund ist Pflicht: „Doppelt erfasst“, „Fehlscan“ oder „Sonstiges“ mit
+kurzem Text. Löschen ist eine Stornierung, append-only: Der Eintrag zählt danach nirgends mehr (Kalender, Summen,
+Kunden-Stunden, Kontingent, Export), bleibt aber mit wann, wer und Grund in der Historie sichtbar. Laufende Einträge
+erst stoppen. Vor dem Pilotstart (T-088).
+**Warum:** Fehlscans und doppelte Einträge muss jede Rolle selbst bereinigen können (PO, 28.09.); physisches
+Löschen würde die Nachweisbarkeit der Arbeitszeit und das append-only-Modell aufgeben (TL).
