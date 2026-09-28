@@ -120,6 +120,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- T-084 abgenommen (TL APPROVED 28.09., D-099), auf main; Deploy gebündelt mit T-085, T-088.
+- **P2 T-084:** Globale Web-Aktualisierung lädt Kundenstunden nicht neu; eigener Aktualisierungsknopf funktioniert. Frühere rote Prüfungen (Typinferenz, Testdaten/-erwartungen, Export-Zeitquelle und Laufzeit) bleiben im Bericht dokumentiert; SQL-Inlining behebt den relativen Laufzeitbefund; der absolute Laufzeithinweis im Export-Grenztest bleibt beobachtet.
 - T-086/T-087 abgenommen (TL APPROVED 28.09.), auf main (`2602ab7`, Testkorrektur `f79d272`, CI und Images grün); Deploy gebündelt mit T-084, T-085, T-088.
 - **P2 Prozess (T-086):** Die erste CI scheiterte, weil die T-062-Migrationsprobe (`backend-time-review`, DA3) die bewusst geänderte NFC-Funktion aus 035 als verboten ansah; lokal lief diese Suite nicht. Korrektur nur im Test, die Probe prüft jetzt genau die Definition aus 035. Ab T-084 laufen lokal alle Suiten, die Migrationen nachspielen.
 - **P2 T-086/T-087 Verifikation (behoben):** Erstläufe fanden Audit-Trigger-/Receipt-Reihenfolge, Rechteinventar, Typ-/Mock-Erwartungen und Replay nach Standort-Umschaltung; Ursachen und Schlussläufe im Bericht. Lint nicht eingerichtet; CI erst nach freigegebenem Commit/Push, Geräteabnahme nach separat freigegebenem Build.

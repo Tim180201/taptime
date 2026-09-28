@@ -1565,3 +1565,12 @@ Kunden-Stunden, Kontingent, Export), bleibt aber mit wann, wer und Grund in der 
 erst stoppen. Vor dem Pilotstart (T-088).
 **Warum:** Fehlscans und doppelte Einträge muss jede Rolle selbst bereinigen können (PO, 28.09.); physisches
 Löschen würde die Nachweisbarkeit der Arbeitszeit und das append-only-Modell aufgeben (TL).
+
+## D-099 · Inaktive Kunden im Reiter „Kunden“: letzte Bindung, heutige Zuständigkeit · 28.09.2026 · Claude (TL)
+Ergänzt D-097 für Kunden, die inaktiv sind, aber im gewählten Monat Stunden haben. Administrator: sieht sie immer.
+Standortleitung: maßgeblich ist die jüngste Standortbindung des Kunden (auch wenn beendet), geprüft gegen ihre
+heutigen Verwaltungszuweisungen; hatte der Kunde nie eine Bindung, sieht ihn nur der Administrator. Mitarbeiter:
+sieht einen inaktiven Kunden, wenn er dort im Monat eigene Stunden hat, unabhängig vom Standort, denn es sind nur
+seine eigenen Zeiten (wie in „Meine Zeiten“). Kein historischer Standort der einzelnen Einträge.
+**Warum:** Heute gilt überall die aktuelle Zuständigkeit (033: heutiger Heimatstandort); die jüngste Bindung ist die
+einzige eindeutige Zuordnung eines stillgelegten Kunden, und eigene Stunden darf jeder immer sehen.
