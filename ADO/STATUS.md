@@ -121,6 +121,12 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
+- T-085 abgenommen (TL APPROVED 28.09.), auf main; Deploy gebündelt mit T-088.
+
+- **P2 T-085:** Direkte INSERTs als interne SQL-Rolle `taptime_admin_setup` prüfen über den bestehenden NFC-Helfer keine Betriebspause. HTTP, Coordinator und Kontingent-Schreibfunktion sperren pausierte Betriebe; ein direkter SQL-Pfad bleibt als Härtung offen.
+
+- **P2 T-085 Verifikation (behoben):** Erstläufe fanden lokale PostgreSQL-/UTF-8-Vorlagen, ein fehlendes Funktionsbesitzer-Leserecht, Rechteinventar, Testtypen/-Mocks, Farbtokens und einen zeitabhängigen Export-Bytevergleich. Ursachen und Schlussläufe bleiben in `.t085-review/report.md`; Review-P1 (App-Hinweis übernahm Vormonat) korrigiert; unabhängiges Review Runde 2 APPROVED. Kein Deploy oder App-Build.
+
 - T-084 abgenommen (TL APPROVED 28.09., D-099), auf main (`0bc4760`, CI und Images grün); Deploy gebündelt mit T-085, T-088.
 - **P2 T-084:** Globale Web-Aktualisierung lädt Kundenstunden nicht neu; eigener Aktualisierungsknopf funktioniert. Frühere rote Prüfungen (Typinferenz, Testdaten/-erwartungen, Export-Zeitquelle und Laufzeit) bleiben im Bericht dokumentiert; SQL-Inlining behebt den relativen Laufzeitbefund; der absolute Laufzeithinweis im Export-Grenztest bleibt beobachtet.
 - T-086/T-087 abgenommen (TL APPROVED 28.09.), auf main (`2602ab7`, Testkorrektur `f79d272`, CI und Images grün); Deploy gebündelt mit T-084, T-085, T-088.
