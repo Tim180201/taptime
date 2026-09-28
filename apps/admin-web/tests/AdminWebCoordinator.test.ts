@@ -414,6 +414,7 @@ describe('AdminWebCoordinator', () => {
       membershipId,
       expect.stringMatching(/^[0-9a-f-]{36}$/i),
       'Neue Werkstatt',
+      undefined,
     );
     expect(api.projection).toHaveBeenCalledTimes(2);
     expect(coordinator.getState()).toEqual({

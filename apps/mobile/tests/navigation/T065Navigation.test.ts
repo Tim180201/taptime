@@ -28,6 +28,7 @@ vi.mock('react-native', () => {
     }, children);
   };
   return { View: element, Text: element, Pressable: element, ScrollView: element, TextInput: element,
+    AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
     StyleSheet: { create: (value: unknown) => value, flatten }, Platform: { OS: 'android' },
     Linking: { getInitialURL: async () => null, addEventListener: () => ({ remove() {} }) },
     BackHandler: { addEventListener: (_: string, listener: () => boolean) => {
@@ -75,7 +76,7 @@ function harness(role: 'employee' | 'administrator' | 'standortleitung' | 'offli
     captureManual: vi.fn(async value => { expect(value).toEqual(target); calls.push('work'); return { status: 'saved' as const, workEventId: `event-${calls.length}` }; }),
     captureBreak: vi.fn(async () => { calls.push('break'); return { status: 'saved' as const, workEventId: `event-${calls.length}` }; }) };
   const administration: AdminSetupCapability = { getState: () => ({ status: 'inactive' }), subscribe: () => () => {},
-    refresh: vi.fn(async () => {}), loadMore: async () => {}, provision: async () => {}, provisionBreak: async () => {}, cancel: async () => {} };
+    refresh: vi.fn(async () => {}), loadMore: async () => {}, provision: async () => {}, provisionBreak: async () => {}, prepareCustomer: async () => ({ status: 'unavailable' as const }), createCustomer: async () => {}, cancel: async () => {} };
   return { props: { session, scan, work, offlineManual, administration }, calls,
     publish(state: MobileSessionState) { sessionState = state; listeners.forEach(listener => listener()); } };
 }

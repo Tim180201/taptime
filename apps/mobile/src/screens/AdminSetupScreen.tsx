@@ -1,6 +1,6 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { BackHandler, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import type { AdminSetupCapability, AdminSetupState } from '../administration/contracts';
+import type { AdminSetupCapability, AdminSetupState, CustomerCreationOptions } from '../administration/contracts';
 import { ActionButton, AppText as Text, TouchTarget, Card, Screen, TextField } from '../design/primitives';
 import { LineIcon } from '../design/LineIcon';
 import { mobileTokens } from '../design/tokens';
@@ -13,12 +13,32 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   const [tagName, setTagName] = useState('');
   const [pauseTag, setPauseTag] = useState(false);
   const [invalid, setInvalid] = useState(false);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [locationId, setLocationId] = useState('');
+  const [customerOptions, setCustomerOptions] = useState<CustomerCreationOptions | null>(null);
+  const formRequest = useRef(0);
+  const openCustomerForm = async () => {
+    const request = ++formRequest.current;
+    setCreatingCustomer(true); setCustomerOptions(null);
+    const options = await administration.prepareCustomer();
+    if (request !== formRequest.current) return;
+    setCustomerOptions(options);
+    if (options.status === 'ready') setLocationId(options.locations.length === 1 ? options.locations[0]!.id : '');
+  };
   useEffect(() => {
+    if (state.status === 'ready' && state.outcome?.status === 'customer_created') {
+      setCreatingCustomer(false); setCustomerName(''); setInvalid(false);
+      if (!state.outcome.refreshFailed) { setCustomerId(state.outcome.customerId); setPauseTag(false); }
+    }
+    if (state.status === 'inactive' || state.status === 'not_authorized') {
+      formRequest.current += 1; setCreatingCustomer(false); setCustomerName(''); setCustomerId('');
+    }
     if (state.status === 'ready' && state.outcome?.status === 'tag_provisioned') {
       setAssigning(false); setCustomerId(''); setTagName(''); setInvalid(false);
     }
   }, [state]);
-  const goBack = () => { void administration.cancel(); setAssigning(false); };
+  const goBack = () => { formRequest.current += 1; setCreatingCustomer(false); void administration.cancel(); setAssigning(false); };
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (!assigning) return false;
@@ -29,7 +49,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   if (state.status === 'inactive' || state.status === 'loading') return <Message title="Tags werden geladen …" />;
   if (state.status === 'not_authorized') return <Message title="Du hast keine Berechtigung zum Zuordnen von Tags." />;
   const projection = state.projection;
-  const busy = state.status === 'capturing' || state.status === 'writing' || state.status === 'submitting';
+  const busy = state.status === 'creating_customer' || state.status === 'capturing' || state.status === 'writing' || state.status === 'submitting';
   const presentation = presentAdminSetupState(state, Platform.OS);
   const capture = () => {
     if (busy) return;
@@ -51,7 +71,33 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
         accessibilityState={{ selected: !pauseTag && customerId === customer.id }} disabled={busy}
         onPress={() => { setCustomerId(customer.id); setPauseTag(false); }} />)}
       {projection.customers.filter((customer) => customer.active).length === 0
-        ? <Text>Lege zuerst im Admin-Web ein Arbeitsziel an.</Text> : null}
+        ? <Text>Lege deinen ersten Kunden hier an. Danach kannst du seinen Tag zuordnen.</Text> : null}
+      <ActionButton title="+ Neuer Kunde" tone="secondary" disabled={busy} onPress={() => { void openCustomerForm(); }} />
+      {creatingCustomer ? <Card>
+        <Text style={styles.label}>Neuer Kunde</Text>
+        <Text style={styles.muted}>Zum Anlegen brauchst du eine Internetverbindung.</Text>
+        <Text style={styles.label}>Name</Text>
+        <TextField accessibilityLabel="Name des neuen Kunden" value={customerName} onChangeText={setCustomerName} maxLength={120} editable={!busy} />
+        {customerOptions === null ? <Text>Standorte werden geladen …</Text>
+          : customerOptions.status !== 'ready' ? <>
+            <Text accessibilityRole="alert">{customerOptions.status === 'offline'
+              ? 'Du bist offline. Verbinde dich mit dem Internet, um einen Kunden anzulegen. Deine Eingaben bleiben erhalten.'
+              : customerOptions.status === 'authority_rejected' ? 'Du darfst hier keinen Kunden anlegen. Aktualisiere deine Sitzung.'
+                : 'Die Standorte konnten nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.'}</Text>
+            <ActionButton title="Erneut laden" tone="secondary" onPress={() => { void openCustomerForm(); }} />
+          </> : <>
+            {customerOptions.locationsEnabled ? <>
+              <Text style={styles.label}>Standort</Text>
+              {customerOptions.locations.map(location => <ActionButton key={location.id} title={location.displayName}
+                accessibilityState={{ selected: location.id === locationId }} disabled={busy}
+                tone={location.id === locationId ? 'primary' : 'secondary'} onPress={() => setLocationId(location.id)} />)}
+              {customerOptions.locations.length === 0 ? <Text>Du hast keinen aktiven Standort zum Anlegen. Bitte die Administration um eine Zuweisung.</Text> : null}
+            </> : null}
+            <ActionButton title={state.status === 'creating_customer' ? 'Kunde wird angelegt …' : 'Kunde anlegen'} disabled={busy}
+              onPress={() => { void administration.createCustomer(customerName, customerOptions.locationsEnabled ? locationId || undefined : undefined); }} />
+          </>}
+        <ActionButton title="Zurück zur Tag-Zuordnung" tone="quiet" disabled={busy} onPress={() => { formRequest.current += 1; setCreatingCustomer(false); }} />
+      </Card> : null}
       <ActionButton title="Pause" tone={pauseTag ? 'primary' : 'quiet'} disabled={busy}
         accessibilityState={{ selected: pauseTag }} onPress={() => setPauseTag(true)} />
       <Text style={styles.label}>Bezeichnung</Text>
@@ -60,7 +106,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <TouchTarget accessibilityRole="button" accessibilityLabel="NFC-Tag beschreiben und zuordnen" disabled={busy}
         accessibilityState={{ disabled: busy }} onPress={capture} style={styles.capture}>
         <LineIcon name="capture" size={48} color={mobileTokens.color.accent} />
-        <Text style={{ fontWeight: '800', textAlign: 'center' }}>{busy ? 'Jetzt den Tag antippen' : 'Tag erfassen'}</Text>
+        <Text style={{ fontWeight: '800', textAlign: 'center' }}>{state.status === 'creating_customer' ? 'Kunde wird angelegt …' : busy ? 'Jetzt den Tag antippen' : 'Tag erfassen'}</Text>
       </TouchTarget>
       <ActionButton title="Abbrechen" tone="quiet" onPress={goBack} />
     </> : <>
@@ -94,11 +140,19 @@ function presentAssignment(
 }
 
 export function presentAdminSetupState(state: AdminSetupState, platform = 'android'): { title: string; message: string } {
+  if (state.status === 'creating_customer') return { title: 'Kunde wird angelegt', message: 'Kunde und Standort werden gemeinsam gespeichert.' };
   if (state.status === 'capturing') return { title: 'Bereit zum Erfassen', message: platform === 'ios' ? 'Halte dein iPhone an den neuen NFC-Tag.' : 'Halte das Android-Gerät an den neuen NFC-Tag.' };
   if (state.status === 'writing') return { title: 'Tag wird beschrieben', message: 'Halte dein Handy weiter an den Tag.' };
   if (state.status === 'submitting') return { title: 'Tag wird sicher eingerichtet', message: 'Der Tag und seine Zuordnung werden gemeinsam gespeichert.' };
   if (state.status !== 'ready' || state.outcome === null) return { title: 'Einrichtung bereit', message: 'Wähle einen Kunden und gib eine eindeutige Tag-Bezeichnung ein.' };
   switch (state.outcome.status) {
+    case 'customer_created': return { title: 'Kunde angelegt', message: state.outcome.refreshFailed
+      ? 'Der Kunde ist gespeichert. Die Liste konnte noch nicht neu geladen werden. Aktualisiere die Ansicht, bevor du den Tag zuordnest.'
+      : 'Der neue Kunde ist ausgewählt. Du kannst jetzt seinen Tag zuordnen.' };
+    case 'customer_offline': return { title: 'Du bist offline', message: 'Verbinde dich mit dem Internet, um den Kunden anzulegen. Deine Eingaben bleiben erhalten; es wird nichts automatisch nachgesendet.' };
+    case 'customer_location_required': return { title: 'Standort fehlt', message: 'Wähle einen Standort für den neuen Kunden. Deine Eingaben bleiben erhalten.' };
+    case 'customer_forbidden': return { title: 'Kunde nicht angelegt', message: 'Du darfst an diesem Standort keinen Kunden anlegen. Aktualisiere die Standortauswahl. Deine Eingaben bleiben erhalten.' };
+    case 'customer_request_failed': return { title: 'Noch keine Bestätigung', message: 'Prüfe deine Verbindung und versuche es mit denselben Eingaben erneut. Der Kunde wird dabei nicht doppelt angelegt.' };
     case 'tag_provisioned': return { title: 'Tag erfolgreich zugeordnet', message: 'Der Tag und seine Zuordnung sind gespeichert.' };
     case 'tag_already_registered': return { title: 'Tag bereits registriert', message: 'Die bisherige Zuordnung bleibt erhalten.' };
     case 'tag_write_failed': return { title: 'Tag konnte nicht beschrieben werden, nichts wurde registriert', message: {

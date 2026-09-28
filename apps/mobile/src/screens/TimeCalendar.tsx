@@ -1,5 +1,6 @@
 import { AddTimeControl, TimeRecordControls } from '../timeEditing/TimeEditingControls';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useReducedMotion } from '../design/useReducedMotion';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
@@ -10,6 +11,9 @@ import { businessDay, dayStart, formatClock, formatDuration, formatHours, interv
   monthDays, provenance, rangeSummary, monthTimeSummary, recordDaySummary, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
 
 export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembershipId}: {readonly targetMembershipId?: string; readonly value: MobileOwnTimeQueryResponse; readonly onRefresh: ()=>Promise<void>; readonly onMonthChange?: (month: string)=>void}) {
+  const scroll = useRef<ScrollView>(null);
+  const dayHeadingY = useRef(0);
+  const reducedMotion = useReducedMotion();
   const [selected,setSelected]=useState(()=>businessDay(Date.parse(ownTime.windowEndedAt)-1));
   const [month,setMonth]=useState(()=>selected.slice(0,7));
   const today = businessDay(Date.parse(ownTime.windowEndedAt)-1);
@@ -21,7 +25,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
   const monthTitle = new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE, month: 'long', year: 'numeric' })
     .format(new Date(`${month}-15T12:00:00Z`));
   const changeMonth = (offset: number) => { const next = shiftMonth(month, offset); setMonth(next); setSelected(`${next}-01`); onMonthChange?.(next); };
-  return <ScrollView contentContainerStyle={styles.content}>
+  return <ScrollView ref={scroll} contentContainerStyle={styles.content}>
     <View style={styles.summaries}>
       <Card style={styles.summary}><Text style={styles.muted}>{monthTitle}</Text>
         <Text style={styles.number} numberOfLines={1} adjustsFontSizeToFit>{monthSummary.complete ? `${formatHours(monthSummary.milliseconds)} h` : '—'}</Text><Text style={styles.muted}>{monthSummary.complete ? `${formatDuration(monthSummary.breakMilliseconds)} Pause` : '—'}</Text></Card>
@@ -44,7 +48,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
         const summary = rangeSummary(ownTime, day, shiftDay(day, 1));
         return <TouchTarget key={day} accessibilityRole="button"
           accessibilityLabel={`${day.split('-').reverse().join('.')}, ${summary.complete ? `${formatHours(summary.milliseconds)} Stunden` : 'nicht vollständig geladen'}`}
-          accessibilityState={{ selected: day === selected }} onPress={() => setSelected(day)}
+          accessibilityState={{ selected: day === selected }} onPress={() => { setSelected(day); scroll.current?.scrollTo({ y: dayHeadingY.current, animated: !reducedMotion }); }}
           style={[styles.daySpace, day === selected && styles.selected]}>
           <Text style={[styles.dayNumber, day === selected && styles.selectedText]}>{Number(day.slice(8))}</Text>
           <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.dayHours, day === selected && styles.selectedText]}>
@@ -53,7 +57,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
         </TouchTarget>;
       })}</View></View>
     </Card>
-    <Text style={styles.monthTitle}>{new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE,
+    <Text onLayout={event => { dayHeadingY.current = event.nativeEvent.layout.y; }} style={styles.monthTitle}>{new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE,
       weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${selected}T12:00:00Z`))}</Text>
     <Text style={styles.muted}>{daily.complete ? `${formatDuration(daily.milliseconds)} Arbeitszeit · ${formatDuration(daily.breakMilliseconds)} Pause` : 'Zeitraum nicht vollständig geladen'}</Text>
     <AddTimeControl day={selected} targetMembershipId={targetMembershipId} onSaved={onRefresh} />

@@ -85,13 +85,29 @@ beforeEach(async () => { await truncateC3C(pool); await seedC3C(pool); await see
 afterAll(async () => { await pool.end(); });
 
 describe('T060 SQL NFC authority and coordinator seam', () => {
+  it('keeps Tags available for a manager whose location has no customers, without allowing foreign customers', async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const moved = await client.query<{ target_id: string }>(`UPDATE taptime_server.work_target_location_assignments
+        SET revoked_at = transaction_timestamp() WHERE location_id = $1 AND target_type = 'customer' AND revoked_at IS NULL RETURNING target_id`, [locationA]);
+      for (const row of moved.rows) await client.query(`INSERT INTO taptime_server.work_target_location_assignments
+        (id, organization_id, target_type, target_id, location_id) VALUES (gen_random_uuid(), $1, 'customer', $2, $3)`, [ids.organizationA, row.target_id, locationB]);
+      await client.query('COMMIT');
+    } finally { await client.query('ROLLBACK'); client.release(); }
+    await expect(session()).resolves.toMatchObject({ projection: { nfcSetupAvailable: true } });
+    await expect(setup.readSetupProjection({ ...manager, cursor: null, limit: 20 })).resolves.toMatchObject({ status: 'succeeded', customers: [] });
+    await expect(setup.readAssignableLocations({ ...manager, cursor: null, limit: 20 })).resolves.toMatchObject({ status: 'succeeded', locations: [{ id: locationA, displayName: 'Standort A' }] });
+    await expect(setup.provisionNfcTag(provision(otherCustomer))).resolves.toEqual({ status: 'forbidden' });
+    await expect(setup.createCustomer({ ...manager, commandId: randomUUID(), displayName: 'Erster Kunde', locationId: locationA })).resolves.toMatchObject({ status: 'succeeded' });
+  });
   it.each([otherCustomer, ids.customerB, ids.inactiveCustomerA])('a: refuses foreign or unlocated customer %s without tag or receipt', async (customer) => {
     const command = provision(customer);
     await expect(setup.provisionNfcTag(command)).resolves.toEqual({ status: 'forbidden' });
     expect((await pool.query(`SELECT command_id FROM taptime_server.admin_setup_command_receipts WHERE command_id = $1`, [command.commandId])).rows).toEqual([]);
     expect((await pool.query(`SELECT id FROM taptime_server.nfc_tags WHERE payload_value = $1`, [command.canonicalPayload])).rows).toEqual([]);
   });
-  it('a: SQL itself rejects an active customer with no location, including the NULL-customer read scope', async () => {
+  it('a: SQL itself rejects an active customer with no location, while an empty managed location keeps the NULL-customer entry point', async () => {
     await sql('taptime_admin_setup', async (client) => {
       await client.query('RESET ROLE');
       await client.query(`UPDATE taptime_server.work_target_location_assignments SET revoked_at = transaction_timestamp()
@@ -99,7 +115,7 @@ describe('T060 SQL NFC authority and coordinator seam', () => {
       await client.query('SET LOCAL ROLE taptime_admin_setup');
       const result = await client.query(`SELECT taptime_server.has_current_nfc_setup_authority_v1($1, $2) AS customer,
         taptime_server.has_current_nfc_setup_authority_v1($1, NULL) AS any_customer`, [ids.organizationA, ids.customerA]);
-      expect(result.rows).toEqual([{ customer: false, any_customer: false }]);
+      expect(result.rows).toEqual([{ customer: false, any_customer: true }]);
       expect((await client.query('SELECT id FROM taptime_server.customers')).rows).toEqual([]);
     });
   });
@@ -124,8 +140,8 @@ describe('T060 SQL NFC authority and coordinator seam', () => {
       }
     });
   });
-  it('d: leaves customer creation and location lifecycle administrator-only even with an NFC grant', async () => {
-    await expect(setup.createCustomer({ ...manager, commandId: randomUUID(), displayName: 'Verboten' })).resolves.toEqual({ status: 'forbidden' });
+  it('d: requires a location for customer creation and leaves location lifecycle administrator-only', async () => {
+    await expect(setup.createCustomer({ ...manager, commandId: randomUUID(), displayName: 'Verboten' })).resolves.toEqual({ status: 'location_required' });
     await expect(setup.mutateLocationSetup({ ...manager, commandId: randomUUID(), action: 'create_location', locationId: randomUUID(), displayName: 'Verboten' })).resolves.toEqual({ status: 'forbidden' });
     await expect(setup.mutateLocationSetup({ ...manager, commandId: randomUUID(), action: 'set_locations_enabled', enabled: false })).resolves.toEqual({ status: 'forbidden' });
   });

@@ -335,6 +335,8 @@ function productRuntimeHarness(
       async loadMore() {},
       async provision() {},
       async provisionBreak() {},
+      async prepareCustomer() { return { status: 'unavailable' as const }; },
+      async createCustomer() {},
       async cancel() {},
       async start() {},
       async stop() {},

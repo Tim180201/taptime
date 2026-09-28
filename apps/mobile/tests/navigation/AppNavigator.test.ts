@@ -28,7 +28,7 @@ function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'admin
   const scan = { getState: () => ({ status: 'offline_ready', queueCount: 0, outcome: null }),
     subscribe: () => () => {}, scan: async () => {}, cancel: async () => {}, retry: async () => {} } as ProductScanCapability;
   const administration = { getState: () => ({ status: 'inactive' }), subscribe: () => () => {}, refresh: async () => {}, loadMore: async () => {},
-    provision: async () => {}, provisionBreak: async () => {}, cancel: async () => {} } satisfies AdminSetupCapability;
+    provision: async () => {}, provisionBreak: async () => {}, prepareCustomer: async () => ({ status: 'unavailable' as const }), createCustomer: async () => {}, cancel: async () => {} } satisfies AdminSetupCapability;
   const work = { getState: () => ({ status: 'inactive' }), subscribe: () => () => {}, refresh: async () => {}, loadMoreOwnTime: async () => {},
     triggerManual: async () => {}, triggerBreak: async () => {} } satisfies MobileWorkCapability;
   return renderToStaticMarkup(createElement(AppNavigator, {

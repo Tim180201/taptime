@@ -802,11 +802,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
-  async createCustomer(displayName: string): Promise<void> {
+  async createCustomer(displayName: string, locationId?: string): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
     if (
       current.status !== 'ready'
+      || current.creating
       || membershipId === null
       || !current.availableSections.includes('setup')
       || displayName.trim().length < 1
@@ -817,7 +818,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.setState({ ...current, creating: true, notice: null, completedAction: null });
     let result;
     try {
-      result = await this.auth.withAccessToken((token) => this.api.createCustomer(token, membershipId, crypto.randomUUID(), displayName));
+      result = await this.auth.withAccessToken((token) => this.api.createCustomer(token, membershipId, crypto.randomUUID(), displayName, locationId));
     } catch {
       result = { status: 'unreachable' as const };
     }
@@ -847,7 +848,13 @@ export class AdminWebCoordinator implements AdminWebCapability {
         this.setState({
           ...latest,
           creating: false,
-          notice: { kind: 'error', text: 'Ob der Kunde angelegt wurde, ist noch unklar. Ihr eingegebener Name bleibt erhalten; versuchen Sie es erneut.' },
+          notice: { kind: 'error', text: result.status === 'conflict' && result.code === 'location_required'
+            ? 'Der Kunde braucht einen Standort. Wählen Sie einen Standort aus. Ihre Eingaben bleiben erhalten.'
+            : result.status === 'conflict' && result.code === 'forbidden'
+              ? 'Sie dürfen an diesem Standort keinen Kunden anlegen. Aktualisieren Sie die Standortauswahl. Ihre Eingaben bleiben erhalten.'
+              : result.status === 'conflict' && result.code === 'invalid_request'
+                ? 'Der Kunde wurde nicht angelegt. Prüfen Sie Name und Standort. Ihre Eingaben bleiben erhalten.'
+                : 'Ob der Kunde angelegt wurde, ist noch unklar. Ihr eingegebener Name bleibt erhalten; prüfen Sie die Kundenliste, bevor Sie es erneut versuchen.' },
         });
       }
     }
@@ -2325,6 +2332,7 @@ async function loadAllLocationSetupItems(
 }
 
 function locationMutationNotice(code:
+  | 'location_required' | 'forbidden' | 'invalid_request'
   | 'command_id_conflict'
   | 'assignment_conflict'
   | 'assignment_in_use'

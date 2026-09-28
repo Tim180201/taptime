@@ -187,30 +187,64 @@ export class AdminWriteSessionCoordinator {
     if (
       !validCommonCommand(command)
       || normalized.status === 'invalid'
+      || (command.locationId !== undefined && !isCanonicalUuid(command.locationId))
     ) {
       return { status: 'invalid_request' };
     }
 
-    return this.runWithAuthority(
+    return this.runWithAuthority<CreateCustomerResult>(
       command.accessToken,
       command.expectedMembershipId,
       command.commandId,
       controls,
       async (client, actor, assertActive) => {
+        // Serialize with the existing Location/grant lifecycle commands.
+        await client.query('SELECT pg_advisory_xact_lock(pg_catalog.hashtextextended($1, 0))',
+          [`taptime:t015e:location-setup:v1:${actor.organization_id}`]);
+        const locationId = command.locationId ?? null;
         const digest = await customerDigest(
           client,
           actor,
           command.displayName,
+          locationId,
         );
-        const nodeDigest = createCustomerCommandDigestV1(
+        const nameDigest = createCustomerCommandDigestV1(
           actor.organization_id,
           actor.user_id,
           actor.membership_id,
           normalized.canonicalName,
         );
+        const nodeDigest = locationId === null ? nameDigest : createHash('sha256')
+          .update(Buffer.from(nameDigest, 'hex')).update(Buffer.from(locationId.replaceAll('-', ''), 'hex')).digest('hex');
         assertMatchingDigest(digest, normalized.canonicalName, nodeDigest);
 
         const existing = await findReceipt(client, actor.organization_id, command.commandId);
+        if (existing !== null && actor.membership_role === 'administrator') {
+          const replay = await mapCustomerReceipt(
+            client,
+            existing,
+            actor,
+            digest.request_hash!,
+            normalized.canonicalName,
+          );
+          return { disposition: 'commit', value: replay };
+        }
+        const organization = await client.query<{ locations_enabled: boolean }>(
+          'SELECT locations_enabled FROM taptime_server.organizations WHERE id = $1', [actor.organization_id]);
+        const enabled = organization.rows[0]?.locations_enabled;
+        if (enabled === true && locationId === null) {
+          return { disposition: 'rollback', value: { status: 'location_required' } };
+        }
+        if (enabled === false && locationId !== null) {
+          return { disposition: 'rollback', value: { status: 'invalid_request' } };
+        }
+        if (locationId !== null) {
+          const authority = await client.query<{ allowed: boolean }>(
+            'SELECT taptime_server.has_current_customer_creation_authority_v1($1, $2) AS allowed',
+            [actor.organization_id, locationId]);
+          if (authority.rows[0]?.allowed !== true) return { disposition: 'rollback', value: { status: 'forbidden' } };
+          await client.query("SELECT set_config('app.customer_creation_location_id', $1, true)", [locationId]);
+        }
         if (existing !== null) {
           const replay = await mapCustomerReceipt(
             client,
@@ -231,6 +265,11 @@ export class AdminWriteSessionCoordinator {
            VALUES ($1, $2, $3, true)`,
           [customerId, actor.organization_id, digest.canonical_name],
         );
+        if (locationId !== null) {
+          await client.query(`INSERT INTO taptime_server.work_target_location_assignments
+            (id, organization_id, target_type, target_id, location_id)
+            VALUES ($1, $2, 'customer', $3, $4)`, [randomUUID(), actor.organization_id, customerId, locationId]);
+        }
         await afterWrite('customer_and_audit', controls, assertActive);
 
         const receiptInserted = await insertReceipt(client, {
@@ -240,6 +279,7 @@ export class AdminWriteSessionCoordinator {
           commandType: 'createCustomer',
           requestHash: digest.request_hash!,
           resultCustomerId: customerId,
+          customerLocationId: locationId,
           resultNfcTagId: null,
           resultNfcAssignmentId: null,
         });
@@ -270,6 +310,8 @@ export class AdminWriteSessionCoordinator {
           value: customerSuccess(customerId, normalized.canonicalName, false),
         };
       },
+      undefined,
+      true,
     );
   }
 
@@ -544,6 +586,7 @@ export class AdminWriteSessionCoordinator {
           },
         };
       },
+      null,
     );
   }
 
@@ -822,6 +865,7 @@ export class AdminWriteSessionCoordinator {
       assertActive: () => void,
     ) => Promise<TransactionOutcome<Value>>,
     nfcCustomerId?: string | null,
+    customerCreation = false,
   ): Promise<Value | { readonly status: 'unauthorized' } | { readonly status: 'forbidden' }> {
     const deadline = controls.deadlineEpochMilliseconds
       ?? Date.now() + DEFAULT_INTERNAL_DEADLINE_MILLISECONDS;
@@ -902,11 +946,13 @@ export class AdminWriteSessionCoordinator {
       );
       await client.query(`SET LOCAL ROLE ${C3C_ADMIN_SETUP_ROLE}`);
 
+      const useAdminAuthority = nfcCustomerId === undefined
+        && !(customerCreation && actor.membership_role === 'standortleitung');
       const capability = await client.query<{ allowed: boolean }>(
-        nfcCustomerId === undefined
+        useAdminAuthority
           ? 'SELECT taptime_server.has_current_admin_setup_authority($1) AS allowed'
           : 'SELECT taptime_server.has_current_nfc_setup_authority_v1($1, $2) AS allowed',
-        nfcCustomerId === undefined ? [actor.organization_id] : [actor.organization_id, nfcCustomerId],
+        useAdminAuthority ? [actor.organization_id] : [actor.organization_id, nfcCustomerId ?? null],
       );
       if (capability.rows[0]?.allowed !== true) {
         await client.query('ROLLBACK');
@@ -1526,6 +1572,7 @@ async function customerDigest(
   client: PoolClient,
   actor: ResolvedActorRow,
   requestedName: string,
+  locationId: string | null,
 ): Promise<NameDigestRow> {
   const result = await client.query<NameDigestRow>(
     `WITH normalized AS (
@@ -1534,12 +1581,14 @@ async function customerDigest(
      SELECT
        canonical_name,
        pg_catalog.encode(
-         taptime_server.admin_create_customer_digest_v1($1, $2, $3, canonical_name),
+         ${locationId === null
+           ? 'taptime_server.admin_create_customer_digest_v1($1, $2, $3, canonical_name)'
+           : 'taptime_server.admin_create_customer_at_location_digest_v1($1, $2, $3, canonical_name, $5)'},
          'hex'
        ) AS request_hash
      FROM normalized
      WHERE canonical_name IS NOT NULL`,
-    [actor.organization_id, actor.user_id, actor.membership_id, requestedName],
+    [actor.organization_id, actor.user_id, actor.membership_id, requestedName, ...(locationId === null ? [] : [locationId])],
   );
   return result.rows[0] ?? { canonical_name: null, request_hash: null };
 }
@@ -1821,6 +1870,7 @@ interface ReceiptInsert {
   readonly commandType: ReceiptRow['command_type'];
   readonly requestHash: string;
   readonly resultCustomerId: string | null;
+  readonly customerLocationId?: string | null;
   readonly resultNfcTagId: string | null;
   readonly resultNfcAssignmentId: string | null;
 }
@@ -1838,8 +1888,8 @@ async function insertReceipt(client: PoolClient, receipt: ReceiptInsert): Promis
        result_status,
        result_customer_id,
        result_nfc_tag_id,
-       result_nfc_assignment_id
-     ) VALUES ($1, $2, $3, $4, $5, 1, pg_catalog.decode($6, 'hex'), 'succeeded', $7, $8, $9)
+       result_nfc_assignment_id${receipt.customerLocationId == null ? '' : ', customer_location_id'}
+     ) VALUES ($1, $2, $3, $4, $5, 1, pg_catalog.decode($6, 'hex'), 'succeeded', $7, $8, $9${receipt.customerLocationId == null ? '' : ', $10'})
      ON CONFLICT (organization_id, command_id) DO NOTHING
      RETURNING command_id`,
     [
@@ -1852,6 +1902,7 @@ async function insertReceipt(client: PoolClient, receipt: ReceiptInsert): Promis
       receipt.resultCustomerId,
       receipt.resultNfcTagId,
       receipt.resultNfcAssignmentId,
+      ...(receipt.customerLocationId == null ? [] : [receipt.customerLocationId]),
     ],
   );
   return inserted.rowCount === 1;

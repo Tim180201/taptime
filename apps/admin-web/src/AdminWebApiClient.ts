@@ -61,6 +61,9 @@ export type ApiResult<Value> =
   | {
       readonly status: 'conflict';
       readonly code:
+        | 'location_required'
+        | 'forbidden'
+        | 'invalid_request'
         | 'command_id_conflict'
         | 'assignment_conflict'
         | 'assignment_in_use'
@@ -105,6 +108,7 @@ export interface AdminWebApiPort {
     membershipId: string,
     commandId: string,
     displayName: string,
+    locationId?: string,
   ): Promise<ApiResult<true>>;
   employeeProjection(
     token: string,
@@ -297,8 +301,8 @@ export class AdminWebApiClient implements AdminWebApiPort {
     if (nextCursor !== null && !cursor.test(nextCursor)) return { status: 'invalid_response' };
     return this.request('/v2/administration/setup-projection', token, 'POST', { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 }, parseAdministrationSetupProjectionV2);
   }
-  async createCustomer(token: string, membershipId: string, commandId: string, displayName: string): Promise<ApiResult<true>> {
-    return this.request('/v1/administration/customers', token, 'POST', { expectedMembershipId: membershipId, commandId, displayName }, (value) => {
+  async createCustomer(token: string, membershipId: string, commandId: string, displayName: string, locationId?: string): Promise<ApiResult<true>> {
+    return this.request('/v1/administration/customers', token, 'POST', { expectedMembershipId: membershipId, commandId, displayName, ...(locationId === undefined ? {} : { locationId }) }, (value) => {
       if (!isRecord(value) || !exact(value, ['status', 'idempotentRetry', 'customer'])
         || value.status !== 'succeeded' || typeof value.idempotentRetry !== 'boolean'
         || !isRecord(value.customer) || !exact(value.customer, ['id', 'displayName', 'active'])
@@ -700,6 +704,19 @@ export class AdminWebApiClient implements AdminWebApiPort {
         if (conflictText === null) return { status: 'invalid_response' };
         const code = parseLocationScopeError(JSON.parse(conflictText));
         return code === null ? { status: 'invalid_response' } : { status: 'conflict', code };
+      }
+      if (path === '/v1/administration/customers' && [400, 403, 409].includes(response.status)) {
+        if (response.redirected || !isJsonContentType(response.headers.get('content-type'))
+          || !hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'invalid_response' };
+        const text = await readBoundedResponseText(response, maximumResponseBytes);
+        const value: unknown = text === null ? null : JSON.parse(text);
+        if (isRecord(value) && exact(value, ['error']) && isRecord(value.error) && exact(value.error, ['code'])) {
+          const code = value.error.code;
+          if ((response.status === 400 && (code === 'location_required' || code === 'invalid_request'))
+            || (response.status === 403 && code === 'forbidden')
+            || (response.status === 409 && code === 'command_id_conflict')) return { status: 'conflict', code };
+        }
+        return { status: 'invalid_response' };
       }
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
       if (exposeLocationSetupErrors && (response.status === 404 || response.status === 409)) {

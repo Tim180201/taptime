@@ -29,6 +29,7 @@ vi.mock('react-native', () => {
   return { View: element, Text: element, ScrollView: element, Pressable: element,
     TextInput: ({ value, onChangeText, accessibilityLabel }: { value: string; onChangeText: (value: string) => void; accessibilityLabel: string }) =>
       createElement('input', { value, 'aria-label': accessibilityLabel, onChange: (event: React.ChangeEvent<HTMLInputElement>) => onChangeText(event.target.value) }),
+    AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
     StyleSheet: { create: (value: unknown) => value, flatten }, Platform: { OS: 'android' },
     Linking: { getInitialURL: async () => null, addEventListener: () => ({ remove() {} }) },
     BackHandler: { addEventListener: () => ({ remove() {} }) },
@@ -68,7 +69,7 @@ function harness(role: ProductMembershipRole | 'offline', tags = false) {
   const scanStore = store<ProductScanState>({ status: 'offline_ready', queueCount: 0, outcome: null });
   const scan: ProductScanCapability = { ...scanStore, scan: async () => {}, cancel: async () => {}, retry: async () => {} };
   const administration: AdminSetupCapability = { ...store({ status: 'inactive' as const }),
-    refresh: async () => {}, loadMore: async () => {}, provision: async () => {}, provisionBreak: async () => {}, cancel: async () => {} };
+    refresh: async () => {}, loadMore: async () => {}, provision: async () => {}, provisionBreak: async () => {}, prepareCustomer: async () => ({ status: 'unavailable' as const }), createCustomer: async () => {}, cancel: async () => {} };
   const person: ManagedPerson = { membershipId, role: role === 'offline' ? 'employee' : role, displayName: 'Eigene Person',
     location: null, isRunning: false, runningSince: null, runningTargetDisplayName: null };
   const list: EmployeesState = { status: 'list', filter: false, busy: false, failed: false,

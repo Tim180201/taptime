@@ -1,20 +1,64 @@
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import { hasExactKeys, isJsonContentType, isObject, isUuid, parseJsonObject } from '../transport/strictJson';
-import type { AdminProjectionResult, AdminSetupApiPort, ProvisionAdminTagResult } from './contracts';
+import type { AdminProjectionResult, AdminSetupApiPort, ProvisionAdminTagResult, CreateAdminCustomerResult } from './contracts';
 
 const fingerprintPattern = /^[A-F0-9]{12}$/;
 const cursorPattern = /^v1:[ct]:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
+  private readonly createCustomerEndpoint: URL;
+  private readonly locationsEndpoint: URL;
   private readonly projectionEndpoint: URL;
   private readonly provisionEndpoint: URL;
   private readonly provisionBreakEndpoint: URL;
 
   constructor(baseUrl: string, private readonly request: AuthenticatedJsonPostPort) {
     const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    this.createCustomerEndpoint = new URL('v1/administration/customers', base);
+    this.locationsEndpoint = new URL('v1/administration/locations/query', base);
     this.projectionEndpoint = new URL('v1/administration/setup-projection', base);
     this.provisionEndpoint = new URL('v1/administration/nfc-tags/provision', base);
     this.provisionBreakEndpoint = new URL('v1/administration/nfc-tags/provision-break', base);
+  }
+
+  async readCustomerLocations(expectedMembershipId: string, cursor: string | null): ReturnType<NonNullable<AdminSetupApiPort['readCustomerLocations']>> {
+    const locationCursor = /^v1:l:[0-9a-f-]{36}$/;
+    if (!isUuid(expectedMembershipId) || (cursor !== null && !locationCursor.test(cursor))) return { status: 'unavailable' };
+    const response = await this.request.post(this.locationsEndpoint, JSON.stringify({ expectedMembershipId, cursor, limit: 100 }));
+    if (response.status !== 'response') return response;
+    if (response.statusCode === 401 || response.statusCode === 403) return { status: 'authority_rejected' };
+    if (response.statusCode !== 200 || !isJsonContentType(response.contentType)) return { status: 'unavailable' };
+    const body = parseJsonObject(response.body);
+    if (body === null || !hasExactKeys(body, ['status', 'locations', 'nextCursor']) || body.status !== 'succeeded'
+      || !Array.isArray(body.locations) || body.locations.length > 100
+      || !(body.nextCursor === null || (typeof body.nextCursor === 'string' && locationCursor.test(body.nextCursor)))) return { status: 'unavailable' };
+    const locations: { id: string; displayName: string }[] = [];
+    for (const location of body.locations) {
+      if (!isObject(location) || !hasExactKeys(location, ['id', 'displayName']) || !isUuid(location.id)
+        || typeof location.displayName !== 'string' || locations.some(item => item.id === location.id)) return { status: 'unavailable' };
+      locations.push({ id: location.id, displayName: location.displayName });
+    }
+    return { status: 'succeeded', locations, nextCursor: body.nextCursor };
+  }
+
+  async createCustomer(command: Parameters<NonNullable<AdminSetupApiPort['createCustomer']>>[0]): Promise<CreateAdminCustomerResult> {
+    if (!isUuid(command.expectedMembershipId) || !isUuid(command.commandId)
+      || (command.locationId !== undefined && !isUuid(command.locationId))) return { status: 'invalid_request' };
+    const response = await this.request.post(this.createCustomerEndpoint, JSON.stringify(command));
+    if (response.status !== 'response') return response;
+    if (response.statusCode === 401) return { status: 'authority_rejected' };
+    if (!isJsonContentType(response.contentType)) return { status: 'unavailable' };
+    const body = parseJsonObject(response.body);
+    if (response.statusCode === 200 && body !== null && hasExactKeys(body, ['status', 'idempotentRetry', 'customer'])
+      && body.status === 'succeeded' && typeof body.idempotentRetry === 'boolean') {
+      const customer = parseCustomer(body.customer);
+      if (customer !== null && customer.active) return { status: 'succeeded', customer };
+    }
+    const code = parseErrorCode(body);
+    if ((response.statusCode === 400 && (code === 'location_required' || code === 'invalid_request'))
+      || (response.statusCode === 403 && code === 'forbidden')
+      || (response.statusCode === 409 && code === 'command_id_conflict')) return { status: code };
+    return { status: 'unavailable' };
   }
 
   async readProjection(expectedMembershipId: string, cursor: string | null): Promise<AdminProjectionResult> {

@@ -152,6 +152,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       retry: () => this.scanOrchestrator.retry(),
     });
     this.administrationCapability = Object.freeze({
+      prepareCustomer: () => this.administrationCoordinator.prepareCustomer(),
+      createCustomer: (displayName: string, locationId?: string) => this.administrationCoordinator.createCustomer(displayName, locationId),
       getState: () => this.administrationCoordinator.getState(),
       subscribe: (listener: () => void) => this.administrationCoordinator.subscribe(listener),
       refresh: () => this.administrationCoordinator.refresh(),

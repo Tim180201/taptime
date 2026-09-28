@@ -207,7 +207,7 @@ export interface AdminWebCapability {
   setTimeWindow(fromInclusive: string, toExclusive: string, pinned?: boolean): Promise<void>;
   retrySection(section: AdminSection): Promise<void>;
   loadMore(): Promise<void>;
-  createCustomer(displayName: string): Promise<void>;
+  createCustomer(displayName: string, locationId?: string): Promise<void>;
   createEmployeeInvitation(
     displayName: string,
     role: 'administrator' | 'standortleitung' | 'employee',

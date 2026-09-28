@@ -173,6 +173,7 @@ const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 const isoTimestampPattern = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 type ErrorCode =
+  | 'location_required'
   | 'operator_not_configured'
   | 'organization_paused'
   | 'mfa_required'
@@ -2228,6 +2229,9 @@ async function handleAdministrationOperation<Result extends { readonly status: s
           maximumResponseBytes,
         );
         return;
+      case 'location_required':
+        respondError(response, 400, 'location_required');
+        return;
       case 'invalid_request':
         respondError(response, 400, 'invalid_request');
         return;
@@ -3158,10 +3162,13 @@ function parseCreateCustomerBody(body: unknown): {
   readonly expectedMembershipId: MembershipId;
   readonly commandId: string;
   readonly displayName: string;
+  readonly locationId?: string;
 } | null {
   if (
     !isRecord(body)
-    || !hasExactKeys(body, ['commandId', 'displayName', 'expectedMembershipId'])
+    || !(hasExactKeys(body, ['commandId', 'displayName', 'expectedMembershipId'])
+      || hasExactKeys(body, ['commandId', 'displayName', 'expectedMembershipId', 'locationId']))
+    || ('locationId' in body && !isCanonicalUuid(body.locationId))
     || !isCanonicalUuid(body.expectedMembershipId)
     || !isCanonicalUuid(body.commandId)
     || typeof body.displayName !== 'string'
@@ -3173,6 +3180,7 @@ function parseCreateCustomerBody(body: unknown): {
       expectedMembershipId: MembershipId(body.expectedMembershipId),
       commandId: body.commandId,
       displayName: body.displayName,
+      ...('locationId' in body ? { locationId: body.locationId as string } : {}),
     };
   } catch {
     return null;

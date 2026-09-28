@@ -2,7 +2,7 @@ import type { NfcScanCaptureResult, NfcScanPort } from '@taptime/core';
 import type { NfcCaptureLifecyclePort } from '../nfc/RnNfcScanAdapter';
 import { TAG_URI } from '../nfc/tagAddress';
 import type { NfcTagWriter, TagWriteResult } from './NfcTagWriter';
-import type { AdminSessionContextReader, AdminSetupApiPort, AdminSetupCapability, AdminSetupOutcome, AdminSetupState } from './contracts';
+import type { AdminSessionContextReader, AdminSetupApiPort, AdminSetupCapability, AdminSetupOutcome, AdminSetupState, CustomerCreationOptions, CreateAdminCustomerResult } from './contracts';
 
 export class AdminSetupCoordinator implements AdminSetupCapability {
   private state: AdminSetupState = Object.freeze({ status: 'inactive' });
@@ -10,6 +10,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
   private unsubscribe: (() => void) | null = null;
   private generation = 0;
   private active = false;
+  private pendingCustomer: { key: string; commandId: string } | null = null;
 
   constructor(
     private readonly session: AdminSessionContextReader,
@@ -17,6 +18,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     private readonly api: AdminSetupApiPort,
     private readonly createCommandId: () => string,
     private readonly writer: NfcTagWriter,
+    private readonly isOnline: () => Promise<boolean> = async () => true,
   ) {}
 
   getState(): AdminSetupState { return this.state; }
@@ -64,6 +66,86 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     } else {
       this.finish(current.projection, { status: 'request_failed' });
     }
+  }
+
+  async prepareCustomer(): Promise<CustomerCreationOptions> {
+    const snapshot = this.session.capture();
+    const generation = this.generation;
+    if (!this.active || snapshot === null || !snapshot.session.nfcSetupAvailable) return { status: 'authority_rejected' };
+    try {
+      if (!await this.isOnline()) return { status: 'offline' };
+      if (!this.isCurrent(generation, snapshot)) return { status: 'authority_rejected' };
+      if (!snapshot.session.locationsEnabled) return { status: 'ready', locationsEnabled: false, locations: [] };
+      const locations: { id: string; displayName: string }[] = [];
+      let cursor: string | null = null;
+      const seen = new Set<string>();
+      do {
+        const page: Awaited<ReturnType<NonNullable<AdminSetupApiPort['readCustomerLocations']>>> | undefined = await this.api.readCustomerLocations?.(snapshot.session.membershipId, cursor);
+        if (!this.isCurrent(generation, snapshot)) return { status: 'authority_rejected' };
+        if (page?.status === 'authority_rejected') return { status: 'authority_rejected' };
+        if (page?.status !== 'succeeded') return { status: 'unavailable' };
+        if (page.locations.some(location => locations.some(old => old.id === location.id))) return { status: 'unavailable' };
+        locations.push(...page.locations);
+        cursor = page.nextCursor;
+        if (cursor !== null) { if (seen.has(cursor)) return { status: 'unavailable' }; seen.add(cursor); }
+      } while (cursor !== null);
+      return { status: 'ready', locationsEnabled: true, locations };
+    } catch { return { status: 'unavailable' }; }
+  }
+
+  async createCustomer(displayName: string, locationId?: string): Promise<void> {
+    const current = this.state;
+    const snapshot = this.session.capture();
+    if (!this.active || current.status !== 'ready' || snapshot === null || !snapshot.session.nfcSetupAvailable) return;
+    const name = displayName.normalize('NFC').trim();
+    if (name.length === 0 || Array.from(name).length > 120) { this.finish(current.projection, { status: 'invalid_input' }); return; }
+    if (snapshot.session.locationsEnabled && !locationId) { this.finish(current.projection, { status: 'customer_location_required' }); return; }
+    const generation = ++this.generation;
+    this.setState({ status: 'creating_customer', projection: current.projection });
+    let result: CreateAdminCustomerResult;
+    try {
+      if (!await this.isOnline()) {
+        if (this.isCurrent(generation, snapshot)) this.finish(current.projection, { status: 'customer_offline' });
+        return;
+      }
+      if (!this.isCurrent(generation, snapshot)) return;
+      const key = JSON.stringify([snapshot.session.membershipId, name, locationId ?? null]);
+      if (this.pendingCustomer?.key !== key) this.pendingCustomer = { key, commandId: this.createCommandId() };
+      result = await this.api.createCustomer?.({ expectedMembershipId: snapshot.session.membershipId,
+        commandId: this.pendingCustomer.commandId, displayName: name, ...(locationId === undefined ? {} : { locationId }) }) ?? { status: 'unavailable' };
+    } catch { result = { status: 'unavailable' }; }
+    if (!this.isCurrent(generation, snapshot)) return;
+    if (result.status === 'succeeded') {
+      this.pendingCustomer = null;
+      let projection = current.projection;
+      let refreshed = false;
+      try {
+        let page = await this.api.readProjection(snapshot.session.membershipId, null);
+        if (!this.isCurrent(generation, snapshot)) return;
+        if (page.status === 'succeeded') {
+          let next = page;
+          const seen = new Set<string>();
+          while (!next.customers.some(customer => customer.id === result.customer.id) && next.nextCursor !== null) {
+            const cursor = next.nextCursor;
+            if (seen.has(cursor)) break;
+            seen.add(cursor);
+            page = await this.api.readProjection(snapshot.session.membershipId, cursor);
+            if (!this.isCurrent(generation, snapshot)) return;
+            if (page.status !== 'succeeded') break;
+            const merged = mergeProjection(next, page, cursor);
+            if (merged === null) break;
+            next = { status: 'succeeded', ...merged };
+          }
+          if (next.customers.some(customer => customer.id === result.customer.id)) { projection = next; refreshed = true; }
+        }
+      } catch { /* Creation is already confirmed; a failed reload must not invite another insert. */ }
+      if (this.isCurrent(generation, snapshot)) this.finish(projection,
+        { status: 'customer_created', customerId: result.customer.id, refreshFailed: !refreshed });
+      return;
+    }
+    this.finish(current.projection, { status: result.status === 'location_required' ? 'customer_location_required'
+      : result.status === 'forbidden' || result.status === 'authority_rejected' ? 'customer_forbidden'
+        : result.status === 'invalid_request' ? 'invalid_input' : 'customer_request_failed' });
   }
 
   async provision(customerId: string, displayName: string): Promise<void> {
@@ -164,6 +246,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
   }
 
   private async onSessionChanged(): Promise<void> {
+    this.pendingCustomer = null;
     this.generation += 1;
     await this.writer.cancel();
     await this.nfc.cancelCapture();

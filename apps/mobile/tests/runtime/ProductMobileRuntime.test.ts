@@ -58,6 +58,9 @@ class FakeScanRuntimeOwner implements ProductScanRuntimeOwner {
 }
 
 class FakeAdministrationRuntimeOwner {
+  async prepareCustomer() { return { status: 'unavailable' as const }; }
+  async createCustomer() {}
+
   readonly start = vi.fn<() => Promise<void>>(async () => undefined);
   readonly stop = vi.fn<() => Promise<void>>(async () => undefined);
   readonly refresh = vi.fn<() => Promise<void>>(async () => undefined);

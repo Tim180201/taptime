@@ -8,7 +8,8 @@ vi.mock('../../src/design/LineIcon',()=>({LineIcon:()=>null}));
 vi.mock('react-native',()=>({
   View:({children}:{children?:ReactNode})=>createElement('div',null,children),
   ScrollView:({children}:{children?:ReactNode})=>createElement('div',null,children),
-  StyleSheet:{create:(v:unknown)=>v},
+  AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
+    StyleSheet:{create:(v:unknown)=>v},
 }));
 vi.mock('../../src/design/primitives',()=>({
   Card:({children}:{children?:ReactNode})=>createElement('div',null,children),

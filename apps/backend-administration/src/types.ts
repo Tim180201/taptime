@@ -282,6 +282,7 @@ export interface EmployeeEnrollmentCoordinatorControls {
 }
 
 export interface CreateCustomerCommand {
+  readonly locationId?: string;
   readonly accessToken: string;
   readonly expectedMembershipId: MembershipId;
   readonly commandId: string;
@@ -326,6 +327,7 @@ export type AdminAuthorityRejection =
   | { readonly status: 'forbidden' };
 
 export type CreateCustomerResult =
+  | { readonly status: 'location_required' }
   | {
       readonly status: 'succeeded';
       readonly idempotentRetry: boolean;

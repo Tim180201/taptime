@@ -97,6 +97,27 @@ describe('C3C exact administration transport', () => {
       expectSafeHeaders(response);
     });
 
+  it.each(['succeeded', 'location_required', 'forbidden', 'invalid_request', 'command_id_conflict'] as const)(
+    'T086 accepts an optional location and transports %s without losing its meaning', async status => {
+      let received: CreateCustomerCommand | undefined;
+      const origin = await startServer(administrationCoordinator({ async createCustomer(command) {
+        received = command;
+        return status === 'succeeded' ? { status, idempotentRetry: false,
+          customer: { id: CustomerId(ids.customer), displayName: 'Neuer Kunde', active: true } } : { status };
+      } }));
+      const body = { expectedMembershipId: ids.membership, commandId: ids.command, displayName: 'Neuer Kunde', locationId: ids.organization };
+      const response = await postJson(origin, '/v1/administration/customers', body);
+      expect(received).toEqual({ accessToken: token, ...body });
+      expect(response.status).toBe(({ succeeded: 200, location_required: 400, forbidden: 403, invalid_request: 400, command_id_conflict: 409 })[status]);
+      if (status !== 'succeeded') expect(JSON.parse(response.text)).toEqual({ error: { code: status } });
+    });
+  it.each([null, '', 'not-a-location', 3])('T086 rejects malformed optional location %s before administration', async locationId => {
+    const origin = await startServer(administrationCoordinator({ async createCustomer() { throw new Error('must not reach coordinator'); } }));
+    expect((await postJson(origin, '/v1/administration/customers', {
+      expectedMembershipId: ids.membership, commandId: ids.command, displayName: 'Neuer Kunde', locationId,
+    })).status).toBe(400);
+  });
+
   it('passes the exact atomic Tag command but never serializes its raw canonical payload', async () => {
     const rawPayload = 'nfc:uid:v1:B55E8B6AEB30';
     let received: ProvisionNfcTagCommand | undefined;

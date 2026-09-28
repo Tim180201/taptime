@@ -18,6 +18,8 @@ export default function SetupView({
 }) {
   const [tab,setTab]=useState(state.reassignmentIntent === null ? 'arbeitsziele' : 'tags');
   const [customerName, setCustomerName] = useState('');
+  const [customerLocationId, setCustomerLocationId] = useState('');
+  const selectedCustomerLocation = customerLocationId || (state.assignableLocations.length === 1 ? state.assignableLocations[0]!.id : '');
   const [projectName, setProjectName] = useState('');
   const [tagId, setTagId] = useState('');
   const [targetId, setTargetId] = useState('');
@@ -68,9 +70,15 @@ export default function SetupView({
           complete={state.projection.nextCursor === null && state.projection.customersComplete} />
         <form className="inline-form" onSubmit={(event) => {
           event.preventDefault();
-          void administration.createCustomer(customerName);
+          void administration.createCustomer(customerName, state.locationsEnabled ? selectedCustomerLocation || undefined : undefined);
         }}>
           <label htmlFor="customer-name">Neuen Kunden anlegen</label>
+          {state.locationsEnabled ? <label>Standort
+            <select required value={selectedCustomerLocation} onChange={event => setCustomerLocationId(event.target.value)}>
+              <option value="">Standort wählen</option>
+              {state.assignableLocations.map(location => <option key={location.id} value={location.id}>{location.name}</option>)}
+            </select>
+          </label> : null}
           <div className="input-action">
             <input id="customer-name" required maxLength={120} value={customerName}
               onChange={(event) => setCustomerName(event.target.value)} />

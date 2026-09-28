@@ -24,7 +24,18 @@ export interface AdminSetupProjection {
   readonly nextCursor: string | null;
 }
 
+export type CustomerCreationOptions =
+  | { readonly status: 'ready'; readonly locationsEnabled: boolean; readonly locations: readonly { readonly id: string; readonly displayName: string }[] }
+  | { readonly status: 'offline' | 'unavailable' | 'authority_rejected' };
+export type CreateAdminCustomerResult =
+  | { readonly status: 'succeeded'; readonly customer: AdminCustomerSummary }
+  | { readonly status: 'location_required' | 'forbidden' | 'invalid_request' | 'command_id_conflict' }
+  | AdminTransportFailure;
+
 export type AdminSetupOutcome =
+  | { readonly status: 'customer_created'; readonly customerId: string; readonly refreshFailed: boolean }
+  | { readonly status: 'customer_offline' | 'customer_location_required' | 'customer_forbidden' | 'customer_request_failed' }
+
   | { readonly status: 'tag_write_failed'; readonly reason: TagWriteFailureReason }
   | { readonly status: 'tag_provisioned'; readonly validationFingerprint: string }
   | { readonly status: 'unreadable' | 'timed_out' | 'cancelled' | 'nfc_unavailable' }
@@ -38,9 +49,12 @@ export type AdminSetupState =
   | { readonly status: 'ready'; readonly projection: AdminSetupProjection; readonly outcome: AdminSetupOutcome | null }
   | { readonly status: 'capturing'; readonly projection: AdminSetupProjection }
   | { readonly status: 'writing'; readonly projection: AdminSetupProjection }
+  | { readonly status: 'creating_customer'; readonly projection: AdminSetupProjection }
   | { readonly status: 'submitting'; readonly projection: AdminSetupProjection };
 
 export interface AdminSetupCapability {
+  prepareCustomer(): Promise<CustomerCreationOptions>;
+  createCustomer(displayName: string, locationId?: string): Promise<void>;
   getState(): AdminSetupState;
   subscribe(listener: () => void): () => void;
   refresh(): Promise<void>;
@@ -71,6 +85,12 @@ export type ProvisionAdminTagResult =
   | AdminTransportFailure;
 
 export interface AdminSetupApiPort {
+  createCustomer?(command: { readonly expectedMembershipId: string; readonly commandId: string;
+    readonly displayName: string; readonly locationId?: string }): Promise<CreateAdminCustomerResult>;
+  readCustomerLocations?(expectedMembershipId: string, cursor: string | null): Promise<
+    | { readonly status: 'succeeded'; readonly locations: readonly { readonly id: string; readonly displayName: string }[]; readonly nextCursor: string | null }
+    | AdminTransportFailure>;
+
   readProjection(expectedMembershipId: string, cursor: string | null): Promise<AdminProjectionResult>;
   provisionTag(command: {
     readonly expectedMembershipId: string;
