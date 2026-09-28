@@ -27,12 +27,12 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
   toleriert; ab der zweiten Sicherung kurz und still. Prüfen (PO, `taptime-status`): Dauer der nächsten drei Sicherungen
   und `base_seconds` des Archivierers, Ergebnis hier nachtragen. Die neuen Statuszeilen (Archivzahl, letztes Aufräumen,
   Wächter-Toleranz) erscheinen erst nach dem Konsolenschritt für `taptime-status`, geplant mit T-024.
-- **Sicherung nach dem Deploy 27.09. (offen, P1 vor dem Pilot):** „WAL-Archivierung steht“ kommt weiter, in der Nacht
-  zum 28.09. unregelmäßig alle 18–60 min (00:37, 01:31, 02:32, 02:50, 03:22, 03:46, danach weiter). Erwartet war
-  höchstens eine Meldung nach dem ersten langen Lauf. Kein akuter Datenverlust (WAL-Empfänger schreibt lokal), aber
-  das externe Archiv hängt hinterher. Diagnose mit `taptime-status`, `systemctl show` und `list-timers` durch den PO,
-  danach Entscheidung. Ein Fix kommt direkt nach T-088 und geht mit in den gebündelten Deploy; Produktion hat bis
-  zum Pilot nur Testdaten, deshalb wartet Codex nicht auf die Diagnose.
+- **Sicherung nach dem Deploy 27.09. (P1 vor dem Pilot, Ursache gefunden 28.09., Fix T-089):** Die Sicherungen sind
+  wieder kurz (28.09. mittags je knapp 7 min; nachts nach dem Deploy einmalig 18–42 min durch Cache-Aufbau und erstes
+  Aufräumen). „WAL-Archivierung steht“ kam trotzdem weiter, 13 Mal zwischen 06:00 und 13:47 Uhr, auch ohne laufende
+  Sicherung. Ursache: Der gründliche Archivierer-Durchlauf alle 15 min braucht 77 s (`borg info` auf die geprüfte Basis)
+  und schreibt das Lebenszeichen erst am Ende; der Wächter erlaubt 120 s (60 s × 2). Kein Datenrisiko. Fix T-089 vor dem
+  Deploy; bis dahin ntfy am Telefon stumm geschaltet (PO).
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
   `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
@@ -120,6 +120,10 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
+
+- T-088 abgenommen (TL APPROVED 28.09., D-100), auf main; Deploy gebündelt mit T-089. SQL-Prüfgrenze einschließlich Nebenläufigkeit umgesetzt; unabhängiges Review Runde 2 APPROVED.
+
+- **P2 Verifikation (behoben):** Funktionsrecht, Testdaten/-typen/-Mocks, Monatsgrenzen und CSV-Erwartungen korrigiert; identischer Retry nach Rollenwechsel behoben. Frühere Fehlschläge bleiben in `.t088-review/report.md`; absolute Export-Laufzeitwarnung bleibt beobachtet.
 
 - T-085 abgenommen (TL APPROVED 28.09.), auf main (`9c2df50`, CI und Images grün); Deploy gebündelt mit T-088.
 

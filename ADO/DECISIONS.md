@@ -1574,3 +1574,11 @@ sieht einen inaktiven Kunden, wenn er dort im Monat eigene Stunden hat, unabhän
 seine eigenen Zeiten (wie in „Meine Zeiten“). Kein historischer Standort der einzelnen Einträge.
 **Warum:** Heute gilt überall die aktuelle Zuständigkeit (033: heutiger Heimatstandort); die jüngste Bindung ist die
 einzige eindeutige Zuordnung eines stillgelegten Kunden, und eigene Stunden darf jeder immer sehen.
+
+## D-100 · Welcher offene Prüffall das Löschen eines Zeiteintrags sperrt · 28.09.2026 · Claude (TL)
+Ergänzt D-098. Ein Zeiteintrag lässt sich nicht stornieren (`review_open`), solange für dieselbe Person ein offener
+Prüffall besteht, dessen Ereigniszeit im Intervall des Eintrags liegt, Beginn und Ende eingeschlossen. Offene
+Prüffälle derselben Person außerhalb des Intervalls sperren nicht. Maßgeblich ist das wirksame Intervall nach
+Korrekturen. Die Prüfung liegt in SQL in derselben Transaktion wie die Stornierung.
+**Warum:** Nur ein Prüffall in diesem Zeitraum kann den Eintrag noch verändern; ein alter, unentschiedener Fall an
+einem anderen Tag darf nicht jedes Löschen blockieren.
