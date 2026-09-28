@@ -23,11 +23,28 @@ upload_seconds=0
 reconcile_seconds=0
 lock_seconds=0
 
+write_cycle_progress() {
+  # A cycle owns this hint; it never substitutes for verified archive status.
+  # Directly sourced reconciliation helpers do not represent a running cycle.
+  [[ -n "${cycle_started_at_utc:-}" ]] || return 0
+  local temporary progress_file
+  progress_file="$(dirname "$WAL_ARCHIVE_STATUS_FILE")/wal-archive-progress"
+  install -d -m 0700 "$(dirname "$progress_file")" || return 1
+  temporary="$(mktemp "${progress_file}.XXXXXX")" || return 1
+  if ! { printf '{"cycle_started_at_utc":"%s","phase":"%s","observed_at_utc":"%s","pid":%s,"process_start_ticks":"%s","boot_id":"%s"}\n' \
+    "$cycle_started_at_utc" "$cycle_phase" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    "$cycle_pid" "$cycle_process_start_ticks" "$cycle_boot_id" > "$temporary" \
+    && chmod 0600 "$temporary" && mv -f -- "$temporary" "$progress_file"; }; then
+    rm -f -- "$temporary"; return 1
+  fi
+}
+
 set_cycle_phase() {
   local now=$SECONDS variable="${cycle_phase}_seconds"
   printf -v "$variable" '%s' "$((${!variable} + now - phase_started))"
   phase_started=$now
   cycle_phase="$1"
+  write_cycle_progress
 }
 
 load_archive_inventory() {
@@ -423,7 +440,9 @@ reconcile_contiguous_watermark() {
     # A persisted, base-bound watermark already certifies this immutable base and its prefix.
     # Re-read PostgreSQL on every cycle (also after restart/PITR); no local cache is authority.
     evidence="$(registered_base_evidence "$base_archive")" || return 1
-    borg info "$BORG_REPOSITORY::$base_archive" >/dev/null || return 1
+    # Inventory was loaded under this cycle's Borg lock. Avoid computing archive
+    # statistics just to prove this already registered immutable base still exists.
+    grep --fixed-strings --line-regexp --quiet "$base_archive" <<< "$archive_inventory" || return 1
   else
     # This also covers a newly verified base: marks for the old base cannot match the query.
     evidence="$(ensure_base_evidence "$marker_archive")" || return 1
@@ -645,9 +664,11 @@ finish_archive_cycle() {
   if (( result != 0 )); then
     rm -f -- "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state"
   fi
-  printf 'WAL cycle: duration_seconds=%s uploaded_segments=%s reconciled_archives=%s switch_requested=%s result=%s database_seconds=%s archive_list_seconds=%s base_seconds=%s upload_seconds=%s reconcile_seconds=%s lock_seconds=%s\n' \
+  rm -f -- "$(dirname "$WAL_ARCHIVE_STATUS_FILE")/wal-archive-progress"
+  printf 'WAL cycle: duration_seconds=%s uploaded_segments=%s reconciled_archives=%s switch_requested=%s result=%s database_seconds=%s archive_list_seconds=%s base_seconds=%s upload_seconds=%s reconcile_seconds=%s lock_seconds=%s at=%s\n' \
     "$((SECONDS - cycle_started))" "$uploaded_segments" "$reconciled_archives" "$switch_requested" "$result" \
-    "$database_seconds" "$archive_list_seconds" "$base_seconds" "$upload_seconds" "$reconcile_seconds" "$lock_seconds"
+    "$database_seconds" "$archive_list_seconds" "$base_seconds" "$upload_seconds" "$reconcile_seconds" "$lock_seconds" \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
 run_archive_cycle() (
@@ -662,7 +683,15 @@ run_archive_cycle() (
   database_seconds=0; archive_list_seconds=0; base_seconds=0
   upload_seconds=0; reconcile_seconds=0; lock_seconds=0
   trap 'finish_archive_cycle "$?"' EXIT
+  trap 'exit 143' TERM
+  trap 'exit 130' INT
+  trap 'exit 129' HUP
   set -e
+  cycle_pid=$BASHPID
+  cycle_process_start_ticks="$(awk '{sub(/^.*\) /, ""); print $20}' "/proc/$cycle_pid/stat")"
+  cycle_boot_id="$(< /proc/sys/kernel/random/boot_id)"
+  cycle_started_at_utc="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  write_cycle_progress
   archive_once
 )
 
@@ -712,6 +741,7 @@ main() {
   export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
   install -d -m 0700 "$WAL_ARCHIVE_CACHE_DIRECTORY"
   rm -f -- "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state"
+  rm -f -- "$(dirname "$WAL_ARCHIVE_STATUS_FILE")/wal-archive-progress"
   load_cluster_identity
 
   while true; do

@@ -20,19 +20,28 @@ mindestens 1 GiB freiem Plattenplatz. Der API-Container muss den Docker-Logging-
 | Text | Prüfung | Versand |
 |---|---|---|
 | `API antwortet nicht` | jede Minute | ntfy, Priorität 5, einmal je Ausfall |
-| `WAL-Archivierung steht` | jede Minute; Status fehlt/ist nicht `ok`, ist älter als Archivintervall mal zulässige verpasste Zyklen oder älteste benötigte WAL-Position und letzter extern bestätigter Wasserstand belegen keinen rechtzeitigen lückenlosen Fortschritt | ntfy, Priorität 5, einmal je Ausfall |
+| `WAL-Archivierung steht: <Ursache>; at=<UTC>` | jede Minute; Status fehlt/ist nicht `ok`, Lebenszeichen fehlt, laufender Durchlauf überschreitet 600 s oder älteste benötigte WAL-Position und letzter extern bestätigter Wasserstand belegen keinen rechtzeitigen lückenlosen Fortschritt | ntfy, Priorität 5, einmal je Ausfall |
 | `Sicherung überfällig` | täglich 08:00 Europe/Berlin, letzter Erfolg älter als zwei Stunden | gebündelt, ntfy, Priorität 3 |
 | `Wiederherstellungsprüfung fehlgeschlagen` | täglich 08:00 Europe/Berlin, letzter Status nicht `ok` oder älter als acht Tage | gebündelt, ntfy, Priorität 3 |
 | `Platte über 80 Prozent` | täglich 08:00 Europe/Berlin, Belegung mindestens 80 Prozent | gebündelt, ntfy, Priorität 3 |
 
 Es gibt keine Entwarnungs- oder Transportfehlermeldung als sechste Meldung. Nach einer still
 erkannten Erholung darf derselbe Fehler bei einem späteren neuen Ausfall wieder melden.
-Der WAL-Schwellwert ist keine fest eingebaute Zeit: Er wird aus
+Das normale WAL-Altersfenster wird aus
 `WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES` aus derselben Backup-Konfiguration
 abgeleitet, die Empfänger und Archivierer steuert. Bei Rückstand werden die älteste noch
 benötigte WAL-Datei und der letzte externe Archivstand gemeinsam ausgewertet; ein späteres
 Archiv hinter einer älteren Lücke ist ausdrücklich nicht gesund. Auch bei leerer
 Ereigniswarteschlange löst ein stehender Empfänger oder veralteter Status aus.
+
+Die WAL-Meldung nennt genau eine zuerst fehlgeschlagene Prüfung und die Prüfzeit in UTC:
+`Sicherung läuft seit … min`, `Durchlauf hängt seit … min (Phase base)`,
+`Archivierer ohne Lebenszeichen seit … min`, `WAL-Segment wartet seit … min` oder
+`Status nicht ok` (auch bei fehlender/ungültiger Evidenz oder einer Lücke).
+Minuten sind abgerundet; die Grenzen werden in Sekunden geprüft. Phase und Text stammen
+aus einer festen Auswahl, niemals aus Fehlermeldungen von Borg oder systemd. Keine Pfade,
+Adressen oder Geheimnisse werden übernommen. Solange derselbe Ausfall ansteht, bleibt es
+bei einem Alarm, auch wenn später eine andere Prüfung fehlschlägt.
 
 `WAL-Archivierung steht` bedeutet: Der externe Archivnachweis fehlt oder ist nicht rechtzeitig
 aktuell. Drei mögliche Ursachen sind ein ausgefallener WAL-Empfänger/Archivierer, ein nicht
@@ -58,6 +67,26 @@ Vollabgleich. Er lädt genau eine Archivliste für Basis, Marker und WAL-Kette. 
 `failed`, bis ein Vollabgleich wieder erfolgreich ist; fehlende Basis/Verifizierung behält
 weiterhin den eigenen Wartezustand.
 
+Zu Beginn jedes Durchlaufs und bei jedem Phasenwechsel ersetzt der Archivierer atomar
+`wal-archive-progress` neben seiner konfigurierten Statusdatei (Eigentümer ist der effektive
+Benutzer, produktiv root; Modus 0600, kein Symlink).
+Die Datei enthält den festen Durchlaufbeginn und die Beobachtungszeit in UTC, die Phase
+sowie PID, Linux-Prozessstart und Bootkennung. Sie enthält kein `ok`. Bei regulärem Ende,
+Fehler, TERM/INT/HUP und beim Dienststart entfernt der Archivierer die Datei; nach SIGKILL
+oder Neustart wird ein Rest wegen der nicht mehr lebenden Prozessidentität verworfen.
+Beim Rückbau entfernt root sie nach dem Anhalten des Archivierers aus dem Zustandsverzeichnis.
+
+Nur ein gültiges Zeichen eines noch lebenden Prozesses toleriert ein veraltetes Lebenszeichen,
+höchstens bis 600 s nach Durchlaufbeginn (`WAL_ARCHIVE_CYCLE_MAX_SECONDS`, fest im Code).
+Phasenwechsel und weitere Wächterprüfungen verlängern das nie. Nach 601 s alarmiert der
+Wächter auch bei frischem Status. Fehlendes oder ungültiges Zeichen gewährt keine zusätzliche
+Zeit; das normale Fenster bleibt 120 s bei 60 s × 2. Der Wächter liest zuerst den
+Sicherungszustand, Fortschritt und Archivstatus und nimmt danach die Prüfzeit. Ein während
+dieser Abfragen frisch geschriebenes Zeichen wird so nicht als zukünftig verworfen.
+Die Reihenfolge verlängert keine Frist. Ein fehlender/fehlgeschlagener Status und
+überfällige wartende Segmente werden durch Fortschritt nicht gesund. Sicherungspause und
+einmalige Nachholfrist gelten weiterhin wie unten beschrieben.
+
 Der Archivierer legt im vorhandenen Cache-Verzeichnis `reconcile-state` als reinen Takt-Hinweis
 an und ersetzt ihn nach erfolgreichem Vollabgleich. Er entfernt ihn bei Fehler und Dienststart;
 fehlende, unpassende oder unlesbare Inhalte erzwingen ebenfalls den Vollabgleich. Darin stehen
@@ -72,7 +101,10 @@ angeforderten Wechsel (0/1) und Exit-Status. Zusätzlich nennt sie die Dauer der
 `reconcile_seconds` und `lock_seconds`, auch bei Fehlern. Die Phasen sind disjunkte
 Ablaufabschnitte in ganzen Sekunden: Datenbank umfasst lokale Vor-/Nachprüfung und Status,
 Basis/Hochladen/Abgleich schließen ihre jeweiligen SQL-Aufrufe ein; Sperrwartezeit steht
-separat. Die Zeile enthält weder Speicherpfade noch Adressen.
+separat. Am Ende steht `at=<UTC>` mit der Zeit am Durchlaufende. Der Anfang bleibt
+`WAL cycle: `; der unveränderte Filter von `taptime-status` zeigt alle bisherigen Kennzahlen
+und verwirft das zusätzliche Zeitfeld. Dafür ist kein Konsolenschritt nötig.
+Die Zeile enthält weder Speicherpfade noch Adressen.
 
 Basissicherung und Archivierer halten dieselbe Borg-Sperre. Solange die Sicherung läuft oder
 auf diese Sperre wartet, pausiert der Wächter die WAL-Altersprüfung für die doppelte Dauer der
@@ -105,6 +137,10 @@ Prüfung durch `taptime-restore-verify` bleibt unverändert. Der Vollabgleich in
 Archivnamen; er ersetzt weder die Wiederherstellungsprüfung noch die Aufbewahrung. Im reinen
 Leerlauf kann eine neue externe Störung erst beim nächsten Vollabgleich auffallen (standardmäßig
 bis zu 15 Minuten zuzüglich Laufzeit); neuer Archivbedarf löst die Prüfung sofort aus.
+Bei bereits registrierter Basis mit gebundener Wassermarke beweist die unter derselben
+Borg-Sperre geladene Archivliste deren exakte Existenz; fehlt ihr Name, scheitert der Durchlauf.
+Die dafür bisher verwendete `borg info`-Statistik entfällt. Die übrigen Aufrufe für Start-WAL,
+Basis-Erstprüfung/Neuprüfung und noch nicht quittierte Uploads bleiben unverändert.
 
 Der Wächter erzeugt und ersetzt `backup-duration-seconds` und `backup-pause-max-seconds` unter
 `/var/lib/taptime-monitor` atomar als root mit Modus 0600. Die erste Datei enthält die zuletzt

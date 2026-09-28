@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 readonly REPOSITORY_ROOT
-readonly IMMEDIATE_MONITOR="$REPOSITORY_ROOT/infrastructure/monitoring/taptime-immediate-monitor"
+readonly IMMEDIATE_MONITOR="${TAPTIME_TEST_MONITOR:-$REPOSITORY_ROOT/infrastructure/monitoring/taptime-immediate-monitor}"
 readonly DAILY_MONITOR="$REPOSITORY_ROOT/infrastructure/monitoring/taptime-daily-monitor"
 test_root="$(mktemp -d)"
 trap 'rm -rf "$test_root"' EXIT
@@ -79,10 +79,26 @@ cat > "$test_root/bin/systemctl" <<'FAKE_SYSTEMCTL'
 set -euo pipefail
 [[ "$*" == 'show taptime-backup.service --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp' ]]
 [[ "${FAKE_SYSTEMCTL_FAILURE:-0}" == 0 ]] || exit 1
+if [[ -n "${FAKE_RACE_DIRECTORY:-}" ]]; then
+  printf 'systemctl\n' >> "$FAKE_RACE_DIRECTORY/order"
+  for file in status progress; do
+    [[ ! -f "$FAKE_RACE_DIRECTORY/$file.next" ]] || cp "$FAKE_RACE_DIRECTORY/$file.next" "$(cat "$FAKE_RACE_DIRECTORY/$file.path")"
+  done
+  cp "$FAKE_RACE_DIRECTORY/next-clock" "$FAKE_RACE_DIRECTORY/clock"
+fi
 printf 'LoadState=loaded\nActiveState=%s\nInactiveExitTimestamp=%s\nInactiveEnterTimestamp=%s\n' \
   "${FAKE_BACKUP_STATE:-inactive}" "${FAKE_BACKUP_STARTED:-}" "${FAKE_BACKUP_ENDED:-}"
 FAKE_SYSTEMCTL
 
+cat > "$test_root/bin/date" <<'FAKE_DATE'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == '+%s' && -n "${FAKE_RACE_DIRECTORY:-}" ]]; then
+  printf 'clock\n' >> "$FAKE_RACE_DIRECTORY/order"
+  cat "$FAKE_RACE_DIRECTORY/clock"
+else /bin/date "$@"; fi
+FAKE_DATE
+chmod 0755 "$test_root/bin/date"
 chmod 0755 "$test_root/bin/curl" "$test_root/bin/df" "$test_root/bin/systemctl"
 
 cat > "$test_root/config/ntfy.curl" <<'EOF_NTFY'
@@ -118,6 +134,98 @@ export FAKE_HEARTBEAT_LOG="$test_root/heartbeats"
 : > "$FAKE_CURL_ARGUMENT_LOG"
 : > "$FAKE_HEARTBEAT_LOG"
 
+# T-089 uses a real local live process with a synthetic clock, never a server.
+iso_for() { node -e 'process.stdout.write(new Date(Number(process.argv[1])*1000).toISOString().replace(".000Z","Z"))' "$1"; }
+progress_file="$test_root/wal-archive-progress"
+fixture_pid=$BASHPID
+fixture_process_start="$(awk '{sub(/^.*\) /, ""); print $20}' "/proc/$fixture_pid/stat")"
+fixture_boot_id="$(cat /proc/sys/kernel/random/boot_id)"
+write_progress() {
+  printf '{"cycle_started_at_utc":"%s","phase":"%s","observed_at_utc":"%s","pid":%s,"process_start_ticks":"%s","boot_id":"%s"}\n' \
+    "$(iso_for "$1")" "${2:-base}" "$(iso_for "$3")" "$fixture_pid" "$fixture_process_start" "$fixture_boot_id" > "$progress_file"
+  chmod 0600 "$progress_file"
+}
+# shellcheck disable=SC2030 # Intentionally isolate the exported fixture values in this scenario.
+progress_case() (
+  local -x FAKE_BACKUP_STATE=inactive FAKE_BACKUP_STARTED=''
+  test_case="$1"
+  now="$(epoch_for '2026-09-28T12:00:00Z')"
+  observed=$((now - 140)); started=$((now - 82)); pending=0; oldest=$((now - 121))
+  expected=''; state=ok
+  case "$test_case" in
+    active|race-status|race-progress) ;;
+    boundary) started=$((now - 600)) ;;
+    hung) started=$((now - 601)); expected='Durchlauf hängt seit 10 min (Phase base)' ;;
+    hung-fresh) observed=$now; started=$((now - 601)); expected='Durchlauf hängt seit 10 min (Phase base)' ;;
+    absent|dead|reused|reboot|future|bad-phase|public|symlink|malformed)
+      observed=$((now - 121)); expected='Archivierer ohne Lebenszeichen seit 2 min' ;;
+    pending) pending=1; expected='WAL-Segment wartet seit 2 min' ;;
+    failed) state=failed; expected='Status nicht ok' ;;
+    missing) expected='Status nicht ok' ;;
+    backup)
+      FAKE_BACKUP_STATE=activating
+      FAKE_BACKUP_STARTED="$(iso_for "$((now - 841))")"
+      printf '420\n' > "$test_root/state/backup-duration-seconds"
+      expected='Sicherung läuft seit 14 min' ;;
+    *) fail "unknown progress case: $test_case" ;;
+  esac
+  rm -f "$progress_file" "$progress_file.target"
+  write_progress "$started" base "$now"
+  case "$test_case" in
+    absent) rm "$progress_file" ;;
+    dead) sed -i 's/"pid":[0-9]*/"pid":99999999/' "$progress_file" ;;
+    reused) sed -i 's/"process_start_ticks":"[0-9]*"/"process_start_ticks":"0"/' "$progress_file" ;;
+    reboot) sed -i 's/"boot_id":"[^"]*"/"boot_id":"00000000-0000-0000-0000-000000000000"/' "$progress_file" ;;
+    future) write_progress "$((now + 1))" base "$((now + 1))" ;;
+    bad-phase) write_progress "$started" 'ssh://test-only-secret-topic/path' "$now" ;;
+    public) chmod 0644 "$progress_file" ;;
+    symlink) mv "$progress_file" "$progress_file.target"; ln -s "$progress_file.target" "$progress_file" ;;
+    malformed) printf 'broken\n' > "$progress_file" ;;
+  esac
+  printf '{"state":"%s","observed_at_utc":"%s","pending_count":%s,"oldest_required_at_utc":"%s","oldest_required_wal_file":"000000010000000000000002"}\n' \
+    "$state" "$(iso_for "$observed")" "$pending" "$(iso_for "$oldest")" > "$WAL_ARCHIVE_STATUS"
+  [[ "$test_case" != missing ]] || rm "$WAL_ARCHIVE_STATUS"
+  rm -f "$test_root/messages"/* "$test_root/state/wal-archive-down"
+  if [[ "$test_case" == race-* ]]; then
+    local -x FAKE_RACE_DIRECTORY="$test_root/race"
+    mkdir -p "$FAKE_RACE_DIRECTORY"
+    : > "$FAKE_RACE_DIRECTORY/order"
+    printf '%s\n' "$now" > "$FAKE_RACE_DIRECTORY/clock"
+    printf '%s\n' "$((now + 1))" > "$FAKE_RACE_DIRECTORY/next-clock"
+    printf '%s\n' "$WAL_ARCHIVE_STATUS" > "$FAKE_RACE_DIRECTORY/status.path"
+    printf '%s\n' "$progress_file" > "$FAKE_RACE_DIRECTORY/progress.path"
+    if [[ "$test_case" == race-status ]]; then
+      rm -f "$progress_file"
+      printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' "$(iso_for "$((now + 1))")" > "$FAKE_RACE_DIRECTORY/status.next"
+    else
+      write_progress "$started" base "$((now + 1))"
+      mv "$progress_file" "$FAKE_RACE_DIRECTORY/progress.next"
+    fi
+    env -u TAPTIME_MONITOR_NOW_EPOCH FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+    assert_equals $'systemctl\nclock' "$(cat "$FAKE_RACE_DIRECTORY/order")" 'clock must follow external observations'
+    rm -f "$FAKE_RACE_DIRECTORY/"*.next
+  else
+    TAPTIME_MONITOR_NOW_EPOCH="$now" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+  fi
+  if [[ -z "$expected" ]]; then
+    assert_equals 0 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" "$test_case must stay silent"
+  else
+    assert_equals 1 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" "$test_case must alert"
+    assert_equals "WAL-Archivierung steht: $expected; at=2026-09-28T12:00:00Z" "$(cat "$test_root/messages/0")" "$test_case cause and UTC"
+    if grep -Eq '/|@|test-only-secret|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' "$test_root/messages/0"; then fail 'message leaked a path, address or secret'; fi
+  fi
+)
+if [[ -n "${TAPTIME_TEST_PROGRESS_CASE:-}" ]]; then
+  progress_case "$TAPTIME_TEST_PROGRESS_CASE"
+  exit 0
+fi
+for progress_test in race-status race-progress active boundary hung hung-fresh absent dead reused reboot future bad-phase public symlink malformed pending failed missing backup; do
+  progress_case "$progress_test"
+done
+rm -f "$progress_file" "$progress_file.target" "$test_root/state/wal-archive-down" "$test_root/state/backup-duration-seconds" "$test_root/messages"/*
+: > "$FAKE_CURL_ARGUMENT_LOG"; : > "$FAKE_HEARTBEAT_LOG"
+printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WAL_ARCHIVE_STATUS"
+
 immediate_output="$(FAKE_API_EXIT_STATUS=1 "$IMMEDIATE_MONITOR")"
 assert_equals '' "$immediate_output" \
   'the immediate monitor must discard the ntfy response body containing the topic'
@@ -145,7 +253,7 @@ printf '%s\n' '{"state":"failed","observed_at_utc":"2026-08-24T12:00:00Z","oldes
   > "$WAL_ARCHIVE_STATUS"
 TAPTIME_MONITOR_NOW_EPOCH="$(epoch_for '2026-08-24T12:00:00Z')" \
   FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
-assert_equals 'WAL-Archivierung steht' "$({ find "$test_root/messages" -type f -print0 \
+assert_equals 'WAL-Archivierung steht: Status nicht ok; at=2026-08-24T12:00:00Z' "$({ find "$test_root/messages" -type f -print0 \
   | xargs -0 grep -l 'WAL-Archivierung steht'; } | head -n 1 | xargs cat)" \
   'an inactive receiver with no pending event must raise the WAL alert'
 
@@ -173,8 +281,8 @@ for age in "$((archive_window - 1))" "$archive_window" "$((archive_window + 1))"
   assert_equals "$expected_alerts" "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
     "a requirement aged $age seconds must respect the configured window and alert once"
 done
-assert_equals 'WAL-Archivierung steht' "$(< "$test_root/messages/0")" \
-  'only the overdue requirement must raise the fixed WAL alert'
+assert_equals 'WAL-Archivierung steht: WAL-Segment wartet seit 2 min; at=2026-08-24T12:02:01Z' "$(< "$test_root/messages/0")" \
+  'only the overdue requirement must raise the WAL alert with its cause'
 
 # Recovery clears the latch before exercising the existing stale-status case.
 printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' \
@@ -186,7 +294,7 @@ printf '%s\n' '{"state":"ok","observed_at_utc":"2026-08-24T11:50:00Z","oldest_re
   > "$WAL_ARCHIVE_STATUS"
 TAPTIME_MONITOR_NOW_EPOCH="$(epoch_for '2026-08-24T12:00:00Z')" \
   FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
-assert_equals 'WAL-Archivierung steht' "$({ find "$test_root/messages" -type f -print0 \
+assert_equals 'WAL-Archivierung steht: Archivierer ohne Lebenszeichen seit 10 min; at=2026-08-24T12:00:00Z' "$({ find "$test_root/messages" -type f -print0 \
   | xargs -0 grep -l 'WAL-Archivierung steht'; } | head -n 1 | xargs cat)" \
   'a backlog beyond the configured cadence must raise the derived WAL alert'
 
@@ -250,6 +358,7 @@ done
 
 # systemd Type=oneshot remains activating while ExecStart waits on flock. The start
 # belongs to that activation, never the monitor's observation or a stale success file.
+# shellcheck disable=SC2031 # Fresh values below are independent of isolated progress scenarios.
 export FAKE_BACKUP_STATE FAKE_BACKUP_STARTED FAKE_BACKUP_ENDED
 backup_start="$(epoch_for '2026-08-24T12:00:00Z')"
 iso_for() { node -e 'process.stdout.write(new Date(Number(process.argv[1])*1000).toISOString().replace(".000Z","Z"))' "$1"; }
@@ -259,7 +368,7 @@ check_backup_alert() {
   TAPTIME_MONITOR_NOW_EPOCH="$now" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
   assert_equals "$expected" "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" "$description"
   if (( expected )); then
-    assert_equals 'WAL-Archivierung steht' "$(< "$test_root/messages/0")" "$description message"
+    grep -Eq '^WAL-Archivierung steht: .+; at=[0-9TZ:-]+$' "$test_root/messages/0" || fail "$description message"
   fi
 }
 FAKE_BACKUP_STARTED="$(iso_for "$backup_start")"
@@ -295,9 +404,11 @@ for requirement in "$((backup_start - 10))" "$((backup_start + 60))" "$((backup_
 done
 for observed_epoch in "$((backup_start - 10))" "$((backup_start + 60))" "$((backup_end + 30))" "$((backup_end + 280))"; do
   for elapsed in 119 121 299 300 301 421; do
+    status_epoch=$observed_epoch
+    (( status_epoch <= backup_end + elapsed )) || status_epoch=$((backup_end + elapsed))
     printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' \
-      "$(iso_for "$observed_epoch")" > "$WAL_ARCHIVE_STATUS"
-    deadline=$((observed_epoch + archive_window))
+      "$(iso_for "$status_epoch")" > "$WAL_ARCHIVE_STATUS"
+    deadline=$((status_epoch + archive_window))
     (( deadline >= backup_end + 300 )) || deadline=$((backup_end + 300))
     expected=0; (( backup_end + elapsed <= deadline )) || expected=1
     check_backup_alert "$((backup_end + elapsed))" "$expected" "status=$observed_epoch after backup elapsed=$elapsed"
@@ -354,4 +465,4 @@ for invalid in 0 601 999999999999999999999 -1 invalid; do
   grep -q 'between 1 and 600' "$test_root/invalid-grace.log" || fail 'invalid grace diagnostic missing'
 done
 
-printf 'Monitoring tests passed: heartbeat, derived WAL backlog, bounded backup pause including lock waits, fixed messages, two priorities, no secret argv.\n'
+printf 'Monitoring tests passed: heartbeat, derived WAL backlog, bounded backup pause including lock waits, bounded cycle progress, causes with UTC, two priorities, no secret argv.\n'

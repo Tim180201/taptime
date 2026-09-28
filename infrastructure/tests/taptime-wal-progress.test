@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+root="$(mktemp -d)"
+trap 'rm -rf -- "$root"' EXIT
+# shellcheck source=../backup/taptime-wal-archiver
+source "$REPOSITORY_ROOT/infrastructure/backup/taptime-wal-archiver"
+WAL_ARCHIVE_STATUS_FILE="$root/status.json"
+WAL_ARCHIVE_CACHE_DIRECTORY="$root/cache"
+progress_file="$root/wal-archive-progress"
+mkdir "$WAL_ARCHIVE_CACHE_DIRECTORY"
+fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+fixture_now=1790596800
+# A controlled UTC clock; each phase advances but must retain the cycle's origin.
+date() {
+  if [[ "$*" == '-u +%Y-%m-%dT%H:%M:%SZ' ]]; then
+    command date -u -d "@$fixture_now" +%Y-%m-%dT%H:%M:%SZ
+  else command date "$@"; fi
+}
+check_progress() {
+  local expected_phase="$1"
+  [[ -f "$progress_file" ]] || fail 'cycle progress missing'
+  [[ -O "$progress_file" && ! -L "$progress_file" && "$(stat -c '%a' "$progress_file")" == 600 ]] || fail 'progress must belong to the effective user with mode 0600'
+  node - "$progress_file" "$expected_phase" "$fixture_now" "$WAL_ARCHIVE_STATUS_FILE" <<'JS'
+const fs = require('node:fs');
+const [path, phase, now, status] = process.argv.slice(2);
+const p = JSON.parse(fs.readFileSync(path));
+const assert = (c, m) => { if (!c) throw Error(m); };
+assert(p.cycle_started_at_utc === '2026-09-28T12:00:00Z', 'phase changes must not reset the start');
+assert(p.phase === phase, 'must publish current phase');
+assert(Date.parse(p.observed_at_utc) / 1000 === Number(now), 'phase UTC must follow the clock');
+const stat = fs.readFileSync(`/proc/${p.pid}/stat`, 'utf8').replace(/^.*\) /, '').split(' ');
+assert(stat[19] === p.process_start_ticks, 'must identify the live cycle process');
+assert(fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim() === p.boot_id, 'must bind process to current boot');
+assert(fs.readFileSync(status, 'utf8').trim() === '{"state":"failed"}', 'progress must not pretend the status is ok');
+JS
+}
+archive_once() {
+  check_progress database
+  for phase in lock database upload archive_list base reconcile; do
+    fixture_now=$((fixture_now + 17))
+    set_cycle_phase "$phase"
+    check_progress "$phase"
+  done
+  [[ "$scenario" != failed ]] || return 42
+  [[ "$scenario" != terminated ]] || kill -TERM "$BASHPID"
+}
+for scenario in success failed terminated; do
+  printf '{"state":"failed"}\n' > "$WAL_ARCHIVE_STATUS_FILE"
+  set +e
+  ( run_archive_cycle ) > "$root/journal" 2>&1
+  result=$?
+  set -e
+  expected=0
+  [[ "$scenario" != failed ]] || expected=42
+  [[ "$scenario" != terminated ]] || expected=143
+  [[ "$result" == "$expected" ]] || { cat "$root/journal"; fail "$scenario returned $result, wanted $expected"; }
+  [[ ! -e "$progress_file" ]] || fail "$scenario left progress behind"
+  grep -Eq '^WAL cycle: .*result='"$expected"' .* at=[0-9TZ:-]+$' "$root/journal" || fail 'journal must include UTC and original result'
+  # The existing status parser must preserve all known fields and discard only at.
+  journal="$(cat "$root/journal")"
+  filtered="$(
+    source "$REPOSITORY_ROOT/infrastructure/operations/taptime-status"
+    printf '%s\n' "$journal" | filter_wal_cycles
+  )"
+  [[ "$filtered" == "${journal% at=*}" ]] || fail 'status filter lost WAL metrics'
+done
+printf 'WAL progress evidence: fixed origin, each phase, effective owner 0600, live process identity, no false ok, cleanup on success/failure/TERM, unchanged status parser preserves all metrics.\n'

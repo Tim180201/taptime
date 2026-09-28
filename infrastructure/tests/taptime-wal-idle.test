@@ -56,7 +56,7 @@ advance_watermark() {
 }
 record_archive_receipt() { :; }
 borg() {
-  printf '%s\n' "$1" >> "$trace"
+  printf '%s %s\n' "$1" "${2:-}" >> "$trace"
   case "$1" in
     list)
       [[ "$fault" != list ]] || return 1
@@ -87,6 +87,26 @@ cycle() {
 }
 cycle
 [[ "$result" == 0 ]] || { cat "$root/journal"; fail 'initial reconciliation'; }
+case "${TAPTIME_TEST_CASE:-all}" in
+  registered-base|all)
+    if grep -Fxq "info $BORG_REPOSITORY::$base" "$trace"; then fail 'registered base must use loaded inventory, not borg info'; fi
+    ;;
+esac
+case "${TAPTIME_TEST_CASE:-all}" in
+  missing-base)
+    # Leave the verification marker and a similarly named archive present.
+    grep -Fvx "$base" "$inventory" > "$inventory.next"
+    mv "$inventory.next" "$inventory"
+    printf '%s\n' "$base-extra" >> "$inventory"
+    fixture_now=$((fixture_now + 900)); cycle
+    [[ "$result" != 0 ]] || fail 'missing registered base must fail'
+    exit 0 ;;
+esac
+case "${TAPTIME_TEST_CASE:-all}" in
+  journal|all)
+    grep -Eq '^WAL cycle: .* at=[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' "$root/journal" || fail 'journal UTC timestamp missing'
+    ;;
+esac
 case "${TAPTIME_TEST_CASE:-all}" in
   idle|all)
     fixture_now=$((fixture_now + 30)); cycle

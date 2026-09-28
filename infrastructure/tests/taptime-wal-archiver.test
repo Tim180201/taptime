@@ -209,7 +209,6 @@ borg() {
       ;;
     info)
       [[ "$fault" != info ]] || return 1
-      if [[ "$2" == *"::$selected_base" ]]; then return 0; fi
       grep -Fxq "${2#*::}" "$inventory"
       ;;
     *) return 1 ;;
@@ -218,7 +217,7 @@ borg() {
 prepare() {
   local history="$1" added="$2" i
   selected_base="$base"; mark="$(wal "$history")"; fault=''; archive_inventory_loaded=0
-  : > "$trace"; : > "$inventory"
+  : > "$trace"; printf '%s\n' "$base" "verified-$base" > "$inventory"
   for ((i=1; i<=history+added; i++)); do
     printf 'wal-%s-%s\n' "$CLUSTER_ARCHIVE_IDENTIFIER" "$(wal "$i")" >> "$inventory"
   done
@@ -232,13 +231,23 @@ for added in 0 1 3; do
     expect_count advance "$added"
     expect_count adjacent "$added"
     expect_count full-base 0
-    expect_count borg-info 1 # Only the base; receipted WAL adds no remote call.
+    expect_count borg-info 0 # The loaded inventory proves the registered base exists.
     work="$(sort "$trace" | sed -E 's/ (.*)//' | sort | uniq -c)"
     if [[ -n "$reference" ]]; then [[ "$work" == "$reference" ]] || fail 'confirmed history increased external call count'; fi
     reference="$work"
     printf 'Incremental work: confirmed=%s new=%s receipt=%s advance=%s adjacency=%s\n' \
       "$history" "$added" "$(count receipt)" "$(count advance)" "$(count adjacent)"
   done
+done
+
+# Exact archive membership, never a prefix or the verified marker alone.
+for replacement in '' "$base-extra"; do
+  prepare 3 0
+  grep -Fvx "$base" "$inventory" > "$inventory.next"
+  printf '%s\n' "$replacement" >> "$inventory.next"
+  mv "$inventory.next" "$inventory"
+  if reconcile_contiguous_watermark > "$2/missing-base.log" 2>&1; then fail 'missing registered base was accepted'; fi
+  expect_count advance 0
 done
 
 # Restore/lost mark and a newly verified base must both rebuild from their own first WAL.
@@ -271,7 +280,7 @@ expect_count full-base 1
 
 # An error must remain an error even when the reconciler is called as an if-condition
 # (Bash disables errexit throughout that call tree).
-for fault_case in query list receipt advance info; do
+for fault_case in query list receipt advance; do
   prepare 3 1; fault="$fault_case"
   if reconcile_contiguous_watermark > "$2/fault-$fault_case.log" 2>&1; then fail "$fault_case error was swallowed"; fi
 done
@@ -393,7 +402,7 @@ if (once === '1') {
 }
 const cycles = fs.readFileSync(cyclesPath, 'utf8').trim().split('\n');
 assert(cycles.length === statuses.length, 'exactly one journal summary per cycle');
-assert(cycles.every(line => /^WAL cycle: duration_seconds=\d+ uploaded_segments=\d+ reconciled_archives=\d+ switch_requested=[01] result=\d+ database_seconds=\d+ archive_list_seconds=\d+ base_seconds=\d+ upload_seconds=\d+ reconcile_seconds=\d+ lock_seconds=\d+$/.test(line)), 'journal fields must be bounded metrics only');
+assert(cycles.every(line => /^WAL cycle: duration_seconds=\d+ uploaded_segments=\d+ reconciled_archives=\d+ switch_requested=[01] result=\d+ database_seconds=\d+ archive_list_seconds=\d+ base_seconds=\d+ upload_seconds=\d+ reconcile_seconds=\d+ lock_seconds=\d+ at=\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(line)), 'journal fields must be bounded metrics only');
 ASSERT
     done
   done
@@ -482,3 +491,6 @@ RECEIPT_TESTS
 
 # T-070 regressions also run in the existing infrastructure CI entry point.
 bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-idle.test"
+
+# T-089 progress and diagnostic compatibility run through this same CI entry point.
+bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-progress.test"

@@ -11,6 +11,13 @@ readonly API_DOWN_STATE="$STATE_DIRECTORY/api-down"
 readonly WAL_ARCHIVE_DOWN_STATE="$STATE_DIRECTORY/wal-archive-down"
 # Includes the oneshot's wait for Borg; learned only from an inactive service.
 BACKUP_PAUSE_MAX_SECONDS=600
+# Fixed ceiling from cycle start, never renewed by a phase change or monitor run.
+readonly WAL_ARCHIVE_CYCLE_MAX_SECONDS=600
+WAL_ARCHIVE_FAILURE_REASON='Status nicht ok'
+WAL_ARCHIVE_CHECKED_AT_UTC=''
+running_cycle_start_epoch=0
+running_cycle_observed_epoch=0
+running_cycle_phase=''
 
 write_monitor_state() {
   local name="$1" value="$2" temporary
@@ -50,6 +57,33 @@ utc_epoch() {
   date -ju -f '%Y-%m-%dT%H:%M:%SZ' "$1" +%s
 }
 
+read_running_cycle() {
+  local content started observed pid process_start boot_id process_stat progress_file
+  progress_file="$(dirname "$WAL_ARCHIVE_STATUS_FILE")/wal-archive-progress"
+  local pattern='^\{"cycle_started_at_utc":"([0-9TZ:-]{20})","phase":"(database|lock|upload|archive_list|base|reconcile)","observed_at_utc":"([0-9TZ:-]{20})","pid":([1-9][0-9]{0,9}),"process_start_ticks":"([0-9]{1,20})","boot_id":"([0-9a-f-]{36})"\}$'
+  running_cycle_start_epoch=0
+  running_cycle_observed_epoch=0
+  running_cycle_phase=''
+  [[ -f "$progress_file" && ! -L "$progress_file" && -O "$progress_file" \
+    && "$(file_mode "$progress_file")" == 600 ]] || return 1
+  content="$(< "$progress_file")"
+  [[ "$content" =~ $pattern ]] || return 1
+  started="${BASH_REMATCH[1]}"; running_cycle_phase="${BASH_REMATCH[2]}"
+  observed="${BASH_REMATCH[3]}"; pid="${BASH_REMATCH[4]}"
+  process_start="${BASH_REMATCH[5]}"; boot_id="${BASH_REMATCH[6]}"
+  # A leftover file, reused PID or earlier boot is not a running cycle. Linux's
+  # start ticks bind the PID to this process; no status text is executed or sent.
+  [[ "$boot_id" == "$(< /proc/sys/kernel/random/boot_id)" ]] || return 1
+  kill -0 "$pid" 2>/dev/null || return 1
+  process_stat="$(cat "/proc/$pid/stat" 2>/dev/null)" || return 1
+  process_stat="${process_stat##*) }"
+  [[ "$process_stat" != Z\ * && "$process_stat" != X\ * \
+    && "$(awk '{print $20}' <<< "$process_stat")" == "$process_start" ]] || return 1
+  running_cycle_start_epoch="$(utc_epoch "$started")" || return 1
+  running_cycle_observed_epoch="$(utc_epoch "$observed")" || return 1
+  (( running_cycle_start_epoch > 0 && running_cycle_start_epoch <= running_cycle_observed_epoch ))
+}
+
 require_private_file() {
   local file="$1"
   if [[ ! -f "$file" || -L "$file" || ! -O "$file" || "$(file_mode "$file")" != '600' ]]; then
@@ -73,17 +107,26 @@ send_urgent_notification() {
 }
 
 wal_archive_is_current() {
-  local content observed oldest oldest_wal last_archived_wal last_archived pending_count
+  local content='' observed oldest oldest_wal last_archived_wal last_archived pending_count
   local now_epoch observed_epoch oldest_epoch last_archived_epoch
   local maximum_age backup_properties key value backup_state='' backup_loaded=''
   local backup_started='' backup_ended='' backup_start_epoch=0 backup_end_epoch=0
   local catchup_deadline=0 heartbeat_deadline data_deadline
+  local cycle_running=0
 
-  now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
+  WAL_ARCHIVE_FAILURE_REASON='Status nicht ok'
   # Type=oneshot stays activating throughout ExecStart, including flock. ActiveEnter
   # would miss that entire interval. InactiveEnter also covers a failed/aborted run.
   backup_properties="$(systemctl show taptime-backup.service \
-    --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp)" || return 1
+    --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp)" || backup_properties=''
+  if read_running_cycle; then cycle_running=1; fi
+  # Read status after progress: completion publishes status before removing progress.
+  [[ ! -f "$WAL_ARCHIVE_STATUS_FILE" ]] || content="$(< "$WAL_ARCHIVE_STATUS_FILE")"
+  # A concurrent archiver may publish during these reads. Sample time only after
+  # all external observations, without extending heartbeat, data or cycle deadlines.
+  now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
+  WAL_ARCHIVE_CHECKED_AT_UTC="$(date -u --date="@$now_epoch" +%Y-%m-%dT%H:%M:%SZ)"
+  (( running_cycle_observed_epoch <= now_epoch )) || cycle_running=0
   while IFS='=' read -r key value; do
     case "$key" in
       LoadState) backup_loaded="$value" ;;
@@ -99,8 +142,12 @@ wal_archive_is_current() {
   fi
   case "$backup_state" in
     activating|active|deactivating)
-      (( backup_start_epoch > 0 && now_epoch - backup_start_epoch <= BACKUP_PAUSE_MAX_SECONDS ))
-      return $?
+      (( backup_start_epoch > 0 )) || return 1
+      if (( now_epoch - backup_start_epoch > BACKUP_PAUSE_MAX_SECONDS )); then
+        WAL_ARCHIVE_FAILURE_REASON="Sicherung läuft seit $(((now_epoch - backup_start_epoch) / 60)) min"
+        return 1
+      fi
+      return 0
       ;;
     inactive|failed) ;;
     *) return 1 ;;
@@ -115,18 +162,27 @@ wal_archive_is_current() {
     catchup_deadline=$((backup_end_epoch + WAL_ARCHIVE_CATCHUP_SECONDS))
   fi
 
-  [[ -f "$WAL_ARCHIVE_STATUS_FILE" ]] || return 1
-  content="$(< "$WAL_ARCHIVE_STATUS_FILE")"
+  if (( cycle_running )); then
+    if (( now_epoch - running_cycle_start_epoch > WAL_ARCHIVE_CYCLE_MAX_SECONDS )); then
+      WAL_ARCHIVE_FAILURE_REASON="Durchlauf hängt seit $(((now_epoch - running_cycle_start_epoch) / 60)) min (Phase $running_cycle_phase)"
+      return 1
+    fi
+  fi
+
   [[ "$content" == *'"state":"ok"'* ]] || return 1
   [[ "$content" =~ \"observed_at_utc\":\"([^\"]+)\" ]] || return 1
   observed="${BASH_REMATCH[1]}"
   [[ "$content" =~ \"pending_count\":([0-9]+) ]] || return 1
   pending_count="${BASH_REMATCH[1]}"
   observed_epoch="$(utc_epoch "$observed")" || return 1
+  (( observed_epoch <= now_epoch )) || return 1
   maximum_age=$((WAL_ARCHIVE_INTERVAL_SECONDS * WAL_ARCHIVE_MISSED_CYCLES))
   heartbeat_deadline=$((observed_epoch + maximum_age))
   (( heartbeat_deadline >= catchup_deadline )) || heartbeat_deadline=$catchup_deadline
-  (( now_epoch <= heartbeat_deadline )) || return 1
+  if (( now_epoch > heartbeat_deadline && cycle_running == 0 )); then
+    WAL_ARCHIVE_FAILURE_REASON="Archivierer ohne Lebenszeichen seit $(((now_epoch - observed_epoch) / 60)) min"
+    return 1
+  fi
   (( pending_count == 0 )) && return 0
 
   [[ "$content" =~ \"oldest_required_at_utc\":\"([^\"]+)\" ]] || return 1
@@ -147,7 +203,11 @@ wal_archive_is_current() {
   # One fixed deadline per backup, never extended by another monitor invocation.
   data_deadline=$((oldest_epoch + maximum_age))
   (( data_deadline >= catchup_deadline )) || data_deadline=$catchup_deadline
-  (( now_epoch <= data_deadline ))
+  if (( now_epoch > data_deadline )); then
+    WAL_ARCHIVE_FAILURE_REASON="WAL-Segment wartet seit $(((now_epoch - oldest_epoch) / 60)) min"
+    return 1
+  fi
+  return 0
 }
 
 require_private_file "$NTFY_CURL_CONFIG"
@@ -185,7 +245,7 @@ fi
 if wal_archive_is_current; then
   rm -f "$WAL_ARCHIVE_DOWN_STATE"
 elif [[ ! -e "$WAL_ARCHIVE_DOWN_STATE" ]]; then
-  if send_urgent_notification 'WAL-Archivierung steht'; then
+  if send_urgent_notification "WAL-Archivierung steht: $WAL_ARCHIVE_FAILURE_REASON; at=$WAL_ARCHIVE_CHECKED_AT_UTC"; then
     touch "$WAL_ARCHIVE_DOWN_STATE"
   else
     printf 'The WAL archive alert could not be delivered.\n' >&2
