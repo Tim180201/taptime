@@ -1,74 +1,75 @@
 # Aktuelle Aufgabe
 
-> **Stand 28.09.2026:** Produktion auf `e13916b` (T-083 ausgeliefert; Migrationen bis 034). Auf `main` zusätzlich T-080
-> (`7bd7877`, App). Reihenfolge (PO 28.09., D-097): App-Builds → Rest der Geräteabnahme → **T-086/T-087** → T-084 →
-> T-085 → T-088 (D-098) → ein Deploy, ein App-Build → T-024 → Pilot Monat 1. Frühere Briefs stehen in der Git-Historie.
+> **Stand 28.09.2026:** Produktion auf `e13916b` (Migrationen bis 034). Auf `main` zusätzlich T-080 (App), T-086/T-087
+> (`2602ab7`, Migration 035). Reihenfolge (PO 28.09., D-097, D-098): **T-084** → T-085 → T-088 → ein Deploy, ein
+> App-Build → T-024 → Pilot Monat 1. Frühere Briefs stehen in der Git-Historie.
 
-## T-086 + T-087 · Kunde anlegen mit Standort, auch am Handy; Kalendertag springt zu den Zeiten (D-097)
+## T-084 · Reiter „Kunden“ mit geleisteten Stunden (D-097)
 
-**Für:** Development · **Risiko:** Mandantentrennung und Standortgrenze (neue Schreibrechte für die Standortleitung),
-Standort-Invariante aus 019 · **Zeitbox:** eine Sitzung. Eine Migration `035`, `apps/backend-administration`,
-`apps/backend-api` (Route/Typen), `apps/admin-web` (Einrichtung, Kalender), `apps/mobile` („Tag zuordnen“, Kalender),
-deren Tests. Keine Änderung an Zeiten, Export, Offline-Abgleich oder Betriebsskripten.
+**Für:** Development · **Risiko:** Mandanten- und Standortgrenze beim Lesen fremder Zeiten; eine zweite Summenformel
+neben Kalender und Export (D-095) · **Zeitbox:** eine Sitzung. Eine Migration `036` (nur Leser, keine Daten),
+Backend-Route, `apps/admin-web`, `apps/mobile`, deren Tests. Kein Kontingent (T-085), kein Löschen (T-088).
 
-### Befund (Code, 28.09., nicht am Gerät beobachtet)
+### Was der Nutzer sieht
 
-`createCustomer` (`AdminWriteSessionCoordinator.ts:180`) legt nur `customers` an; der Trigger aus 013 erzeugt das
-aktive Arbeitsziel. Bei `locations_enabled` prüft `customers_enabled_location_setup` (019, verzögert) beim Commit
-`location_setup_is_complete_v1`, das für jedes aktive Arbeitsziel genau eine Standortbindung verlangt → 23514. Das
-Ergebnis (`CreateCustomerResult`) kennt diesen Fall nicht. Anlegen darf heute nur der Administrator
-(`has_current_admin_setup_authority`, 007; die TS-Vorprüfung `:872` lässt die Standortleitung durch, SQL nicht).
-In der App gibt es kein Anlegen; `AdminSetupScreen.tsx:53` verweist ohne Kunden aufs Admin-Web.
+Neuer Reiter **„Kunden“** in App und Web für jede Rolle (App: nicht in der Offline-Hülle). Oben der Monat: laufender
+Monat vorgewählt, Pfeile vor/zurück und eine Auswahl der letzten 24 Monate, keine zukünftigen. Darunter die Liste der
+Kunden mit der Monatssumme in Stunden; antippen öffnet den Kunden:
+
+- **Administrator:** alle Kunden des Betriebs; im Kunden die Summe und je Person die Summe (Name, Stunden).
+- **Standortleitung:** die Kunden, deren Standortbindung auf einen ihrer verwalteten Standorte zeigt; im Kunden alle
+  dort geleisteten Stunden je Person, auch von Personen anderer Standorte (D-097).
+- **Mitarbeiter:** bei eingeschalteten Standorten die Kunden seines Heimatstandorts, sonst alle aktiven Kunden; nur
+  die eigenen Stunden, je Tag aufgelistet; ohne Stunden steht „0 h“.
+
+Aktive Kunden immer; ein inaktiver Kunde erscheint nur, wenn im gewählten Monat Stunden bei ihm stehen (markiert
+„inaktiv“). Laufende Einträge zählen bis zur Antwortzeit mit und sind als „läuft“ markiert. Leerer Zustand und Fehler
+mit verständlichem Text (Art aus T-079).
 
 ### Auftrag
 
-**A. Rot zuerst.** PostgreSQL-Test: Betrieb mit eingeschalteten Standorten, Administrator legt einen Kunden an →
-heute Fehler beim Commit (Status und Fehlerbild im Bericht festhalten).
+**A. Ein Leser in SQL (036).** Eine SECURITY-DEFINER-Funktion nach dem Muster von 034 (`read_time_record_calendar_v1`):
+Eingabe Monatsbeginn und -ende (Europe/Berlin, Obergrenze `maximum_calendar_month_range()` aus 025), Ausgabe je
+Kunde und Person die Arbeitssekunden nach genau der Kalenderformel (D-095: floor der Spanne minus Summe floor je
+zugeschnittener Pause, mindestens null; ein Eintrag zählt in dem Monat, in dem er beginnt; eine Antwortzeit aus
+`transaction_timestamp()`). Keine zweite Formel: Die Sekundenberechnung aus 034 in eine gemeinsame interne Funktion
+ziehen oder aus ihr lesen, so dass Kalender, Export und Kunden-Summe nachweislich gleich rechnen. Die Grenze (wer
+welche Kunden und wessen Stunden sieht) entscheidet die Funktion aus der Sitzung (Organisation, Mitgliedschaft,
+Rolle, `locations_enabled`, Verwaltungszuweisungen, Heimatstandort), nie ein Parameter des Clients. Mitarbeiter
+bekommen fremde Stunden unter keinen Umständen, auch nicht als Summe. Maßgeblich ist die Kundenbindung des Eintrags
+(`target_type = 'customer'`), Projekte und allgemeine Arbeit gehören nicht in den Reiter.
 
-**B. Anlegen mit Standort in einer Transaktion.** Der Befehl bekommt eine optionale `locationId`. Standorte aus:
-ohne `locationId` wie heute; mit `locationId` → `invalid_request`. Standorte ein: `locationId` Pflicht, sonst neues
-Ergebnis `location_required`; Kunde und Bindung (`work_target_location_assignments`, wie `set_work_target_location`)
-in derselben Transaktion, ein Beleg (Receipt) mit der echten Rolle. Idempotenz über die vorhandene `commandId`
-unverändert; gleiche `commandId` mit anderem Standort ist ein Konflikt wie heute bei anderem Namen.
+**B. Route.** Eine lesende Route für alle angemeldeten Rollen, mit Schutzklasse in `BACKEND_HTTP_ROUTES` (T-053),
+Antwortvertrag mit Versionskennung wie bei den bisherigen Lesern. Die Personenaufschlüsselung liefert der Server
+nur Administrator und Standortleitung.
 
-**C. Standortleitung darf anlegen, nur im eigenen Standort.** Neue SQL-Funktion (SECURITY DEFINER, Muster
-`has_current_nfc_setup_authority_v1` aus 027): Administrator immer (bei Standorten nur aktive Standorte des eigenen
-Betriebs); Standortleitung nur bei eingeschalteten Standorten und aktiver Verwaltungszuweisung für genau diesen
-Standort. Die RLS-Einfügeregeln für `customers` und die Bindung entsprechend; nicht nur in TypeScript. Kunden
-bearbeiten, deaktivieren, umhängen und alle Standortbefehle bleiben Administrator. Der Reiter „Tags“ erscheint für
-eine Standortleitung mit Verwaltungszuweisung auch dann, wenn ihr Standort noch keinen Kunden hat (sonst kann sie den
-ersten nie anlegen): die Organisationsprüfung (`requested_customer_id IS NULL`) verlangt dann nur die Zuweisung,
-die Prüfung für einen bestimmten Kunden bleibt unverändert.
+**C. App.** Reiter „Kunden“ in `navigation/presentation.ts` für alle Rollen; Liste, Monatsauswahl, Kundenansicht wie
+oben; Zahlen im Stundenformat der Kalenderansicht.
 
-**D. Web.** „Neuen Kunden anlegen“ zeigt bei eingeschalteten Standorten eine Standortauswahl (Pflicht, vorbelegt,
-wenn es nur einen gibt); `location_required` und `forbidden` mit verständlicher Meldung (Art aus T-079).
-
-**E. App.** In „Tag zuordnen“ ein „+ Neuer Kunde“: Name eingeben; Standort automatisch, wenn die Person genau einen
-verwaltet (Standortleitung) oder es nur einen gibt, sonst Auswahl; nach dem Anlegen Ansicht neu laden, neuen Kunden
-vorauswählen, weiter mit dem Scan wie bisher. Der leere Zustand verweist nicht mehr aufs Admin-Web. Nur online; ohne
-Verbindung ein klarer Hinweis, keine Offline-Warteschlange.
-
-**F. T-087 Kalender.** App (`TimeCalendar.tsx`, eigener `ScrollView`): Tippen auf einen Tag scrollt zur Tagesüberschrift
-unter dem Kalender; bei reduzierter Bewegung (`useReducedMotion`) ohne Animation; Monatswechsel scrollt nicht. Web
-(`apps/admin-web/src/TimeCalendar.tsx`): nur in der schmalen Ansicht, in der die Tagesliste unter dem Kalender steht,
-`scrollIntoView` auf die Tagesliste (`prefers-reduced-motion` beachten); breite Ansicht unverändert.
+**D. Web.** Eintrag „Kunden“ in der Navigation (`navigation.ts`) für alle Rollen, die das Web nutzen; dieselbe Liste
+und Kundenansicht; schmale und breite Ansicht wie die übrigen Seiten (Layout-Tests mit 360/390/1440).
 
 ### Tests
 
-Rot vor Grün mit PostgreSQL: (1) A; (2) Administrator mit Standort grün, ohne Standort `location_required`, mit
-Standort bei ausgeschalteten Standorten `invalid_request`; (3) Standortleitung A legt in A an, in B `forbidden`,
-bei ausgeschalteten Standorten `forbidden`; Mitarbeiter `forbidden`; (4) Wiederholung mit gleicher `commandId`
-liefert denselben Kunden, andere Standort-ID ist Konflikt; (5) Standortleitung ohne Kunden sieht „Tags“, darf aber
-keinen fremden Kunden zuordnen (T-060-Suite bleibt grün); (6) App: Anlegen und Vorauswahl, Offline-Hinweis; (7) App
-und Web: Tagesklick ruft das Scrollen mit der Position der Tagesüberschrift auf, reduzierte Bewegung ohne Animation.
-Bestehende Suiten, Typecheck, Lint.
+Mit PostgreSQL, Rot vor Grün für die Grenzen: (1) Administrator sieht alle Kunden und Personen; (2) Standortleitung A
+sieht Kunden von A mit Stunden einer Person aus Standort B, sieht keinen Kunden von B; (3) Mitarbeiter sieht Kunden
+seines Heimatstandorts mit nur eigenen Stunden, „0“ ohne Einträge, keine Personenaufschlüsselung, fremde Stunden
+auch nicht über manipulierte Eingaben; (4) Standorte aus: Mitarbeiter sieht alle aktiven Kunden, Standortleitung
+keinen Umfang wie bisher (020); (5) Betrieb X sieht nichts aus Betrieb Y; (6) Summe gleich Kalender und Export für
+dieselben Einträge, mit Pausen, laufendem Eintrag und dem Rundungsbeispiel aus D-095; (7) Monatsgrenze: Beginn
+31.10.2026 23:30 Berlin zählt im Oktober; Umstellung auf Winterzeit 25.10.2026 und Sommerzeit 28.03.2027; (8) inaktiver
+Kunde nur mit Stunden im Monat. App und Web: Monatsauswahl, Kundenansicht je Rolle, leerer Zustand, Fehler.
+**Lokal alle Suiten, die Migrationen anwenden oder nachspielen** (u. a. `backend-schema`, `backend-time-review`/DA3
+mit der T-062-Migrationsprobe, `backend-time-export`, `backend-api`), dazu App und Web, Typechecks inklusive Tests.
+Die T-062-Probe darf 036 nur als neue Funktion sehen; ändert 036 eine geschützte Definition, ist das ein Befund.
 
 ### Nicht Teil
 
-Kein Deploy, kein Serverzugriff, keine Geheimnisse, kein App-Build. Kein Reiter „Kunden“, keine Stunden je Kunde,
-kein Kontingent (T-084, T-085). Keine Änderung an Kalenderformel, Export oder Offline-Abgleich.
+Kein Deploy, kein Serverzugriff, keine Geheimnisse, kein App-Build. Kein Kontingent, keine Meldung, kein Löschen,
+keine Änderung an Kalender- oder Exportausgabe (nur die gemeinsame Rechnung darf in eine interne Funktion wandern,
+mit Nachweis gleicher Ergebnisse).
 
 ### Bericht
 
-`.t086-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf Mandanten- und
-Standortgrenze und die Standort-Invariante aus 019. Kein Commit vor `APPROVED`.
+`.t084-review/` (report.md, tracked.diff, untracked.txt), Screenshots Web 360/390/1440 und App je Rolle. Unabhängiges
+Review mit Blick auf „wer sieht wessen Stunden“ und „eine Formel“. Kein Commit vor `APPROVED`.

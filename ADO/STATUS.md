@@ -27,6 +27,11 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
   toleriert; ab der zweiten Sicherung kurz und still. Prüfen (PO, `taptime-status`): Dauer der nächsten drei Sicherungen
   und `base_seconds` des Archivierers, Ergebnis hier nachtragen. Die neuen Statuszeilen (Archivzahl, letztes Aufräumen,
   Wächter-Toleranz) erscheinen erst nach dem Konsolenschritt für `taptime-status`, geplant mit T-024.
+- **Sicherung nach dem Deploy 27.09. (offen, P1 vor dem Pilot):** „WAL-Archivierung steht“ kommt weiter, in der Nacht
+  zum 28.09. unregelmäßig alle 18–60 min (00:37, 01:31, 02:32, 02:50, 03:22, 03:46, danach weiter). Erwartet war
+  höchstens eine Meldung nach dem ersten langen Lauf. Kein akuter Datenverlust (WAL-Empfänger schreibt lokal), aber
+  das externe Archiv hängt hinterher. Diagnose mit `taptime-status`, `systemctl show` und `list-timers` durch den PO,
+  danach Entscheidung; ein Fix hat Vorrang vor der nächsten Aufgabe nach T-084.
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
   `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
@@ -115,7 +120,8 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 
 ## Bekannte Kleinigkeiten und offene Risiken
 
-- T-086/T-087 abgenommen (TL APPROVED 28.09.), auf main; Deploy gebündelt mit T-084, T-085, T-088.
+- T-086/T-087 abgenommen (TL APPROVED 28.09.), auf main (`2602ab7`, Testkorrektur `f79d272`, CI und Images grün); Deploy gebündelt mit T-084, T-085, T-088.
+- **P2 Prozess (T-086):** Die erste CI scheiterte, weil die T-062-Migrationsprobe (`backend-time-review`, DA3) die bewusst geänderte NFC-Funktion aus 035 als verboten ansah; lokal lief diese Suite nicht. Korrektur nur im Test, die Probe prüft jetzt genau die Definition aus 035. Ab T-084 laufen lokal alle Suiten, die Migrationen nachspielen.
 - **P2 T-086/T-087 Verifikation (behoben):** Erstläufe fanden Audit-Trigger-/Receipt-Reihenfolge, Rechteinventar, Typ-/Mock-Erwartungen und Replay nach Standort-Umschaltung; Ursachen und Schlussläufe im Bericht. Lint nicht eingerichtet; CI erst nach freigegebenem Commit/Push, Geräteabnahme nach separat freigegebenem Build.
 - P3 T-086: is_current_customer_creation_v1 vergleicht xmin über ::text::xid; bei Epoche > 0 besser xid(pg_current_xact_id()). Mit der nächsten Migration.
 - P3 T-086: Die Standortleitung legt Kunden am Handy an, im Web nicht (Einrichtung dort nur Administrator, siehe P2 T-062).
