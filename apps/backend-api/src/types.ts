@@ -157,6 +157,7 @@ export interface ManualLifecycleIngestor {
 }
 
 export interface AdministrationCoordinator {
+  setCustomerQuota?(command: import('@taptime/mobile-work-contract').SetCustomerQuotaRequest & {readonly accessToken:string}): Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   createCustomer(
     command: CreateCustomerCommand,
     controls?: AdminCoordinatorControls,
@@ -312,6 +313,7 @@ export type BackendApiRoute =
   | 'manual_lifecycle'
   | 'manual_break_lifecycle'
   | 'customer_hours'
+  | 'admin_customer_quota'
   | 'mobile_own_time'
   | 'mobile_work_targets'
   | 'offline_capture_lease'

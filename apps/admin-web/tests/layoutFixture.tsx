@@ -115,13 +115,15 @@ class FakeCapability implements AdminWebCapability {
   }
   readCustomerHours = async (): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult> => {
     if (variant==='customers-error') return {status:'unavailable'};
-    const base={customerId:customer.id,displayName:'Werkstatt am Park',active:true,workDurationSeconds:115200,running:true};
+    const quotaVariant=variant.startsWith('quota-');
+    const base={customerId:customer.id,displayName:'Werkstatt am Park',active:true,workDurationSeconds:quotaVariant?(variant==='quota-exceeded'?144000:129600):115200,running:true};
     const empty={...base,customerId:'40000000-0000-4000-8000-000000000002',displayName:'Kunde ohne Stunden',workDurationSeconds:0,running:false};
     const former={...base,customerId:'40000000-0000-4000-8000-000000000003',displayName:'Ehemaliger Kunde',active:false,workDurationSeconds:3600,running:false};
-    const common={version:'customer-hours.v1' as const,asOf:'2026-09-23T12:00:00.000Z'};
+    const common={version:quotaVariant?'customer-hours.v2' as const:'customer-hours.v1' as const,asOf:'2026-09-23T12:00:00.000Z'};
     if(this.state.status==='ready' && this.state.role==='employee') return {status:'ready',value:{...common,scope:'self',customers:[base,empty,former].map(c=>({...c,days:c.workDurationSeconds?[{date:'2026-09-23',workDurationSeconds:c.workDurationSeconds,running:c.running}]:[]}))}};
-    return {status:'ready',value:{...common,scope:'people',customers:variant==='customers-empty'?[]:[base,empty,former].map(c=>({...c,people:c.workDurationSeconds?[{membershipId:'70000000-0000-4000-8000-000000000001',displayName:'Alex Beispiel',workDurationSeconds:c.workDurationSeconds,running:c.running}]:[]}))}};
+    return {status:'ready',value:{...common,scope:'people',customers:variant==='customers-empty'?[]:[base,empty,former].map(c=>({...c,...(quotaVariant?{quotaSeconds:c.customerId===customer.id?144000:null,quotaStage:c.customerId!==customer.id?'none' as const:variant==='quota-exceeded'?'exceeded' as const:'warning' as const}:{}),people:c.workDurationSeconds?[{membershipId:'70000000-0000-4000-8000-000000000001',displayName:'Alex Beispiel',workDurationSeconds:c.workDurationSeconds,running:c.running}]:[]}))}};
   };
+  setCustomerQuota = async () => ({status:'succeeded' as const});
   signIn = async () => undefined;
   requestPasswordReset = async () => undefined;
   completePasswordRecovery = async () => undefined;
@@ -188,8 +190,8 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
     memberships: [{ id: own, displayName: 'Martin Beispiel', role: 'administrator', homeLocationId: location.id, workLocationIds: [location.id], managementLocationIds: [] }],
     workTargets: [{ targetType: 'customer', targetId: customer.id, displayName: 'Werkstatt', locationId: location.id }], activationGaps: [] },
 };
-if (variant==='customers-employee') ready={...ready,role:'employee',availableSections:['own_time','manual_capture']};
-if (variant==='customers-manager') ready={...ready,role:'standortleitung',availableSections:['employees','own_time','manual_capture','review_items']};
+if (variant==='customers-employee' || variant==='quota-employee') ready={...ready,role:'employee',availableSections:['own_time','manual_capture']};
+if (variant==='customers-manager' || variant==='quota-manager') ready={...ready,role:'standortleitung',availableSections:['employees','own_time','manual_capture','review_items']};
 if (['employee-calendar','employee-backfill','employee-comment'].includes(variant)) ready = { ...ready, role: 'employee', availableSections: ['own_time','manual_capture'] };
 if (variant.startsWith('manager')) ready = { ...ready, role: 'standortleitung', availableSections: ['employees','own_time','manual_capture','time_records','review_items'], locationsEnabled: true,
   selectedLocation: location, managementScope: { kind: 'locations', locations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] } };

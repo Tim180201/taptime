@@ -67,6 +67,9 @@ describe('DA2 PostgreSQL export security and truth', () => {
       VALUES($1,$2,1,$3,$4,'=Kommentar',gen_random_uuid())`,[ids.organizationA,backfilled,ids.employeeA,ids.membershipEmployeeA]);
     await insertStoppedEntry({entryId:'60000000-0000-4000-8000-000000000168',startEventId:'50000000-0000-4000-8000-000000000168',stopEventId:'50000000-0000-4000-8000-000000000169',userId:ids.employeeA,
       startedAt:'2026-07-18T08:00:00Z',stoppedAt:'2026-07-18T09:00:00Z',startedVia:'manual',stoppedVia:'nfc'});
+    // Byte comparison needs fixed inputs; a running entry gains seconds between transactions.
+    // Running snapshot truth is covered separately below.
+    await stopActiveEntryA(installerPool);
     const old=await exportV3As(tokens.adminA);
     const current=await coordinator.exportTimeEntriesV4(command(tokens.adminA,request));
     expect(current.status).toBe('succeeded');

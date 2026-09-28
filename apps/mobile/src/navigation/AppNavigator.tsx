@@ -1,3 +1,4 @@
+import { CustomerQuotaNotice } from '../screens/QuotaNotice';
 import { CustomersScreen } from '../screens/CustomersScreen';
 import { TimeEditingProvider } from '../timeEditing/TimeEditingControls';
 import type { TimeEditingCapability } from '../timeEditing/TimeEditingCoordinator';
@@ -144,7 +145,7 @@ function PasswordRecoveryScreen({ session, completing, notice }: {
 }
 
 function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual }: {
-  readonly customerAuthority?: object;
+  readonly customerAuthority?: {readonly membershipId:string;readonly role:string};
   readonly role: ProductMembershipRole | 'offline';
   readonly identityLabel?: string;
   readonly nfcSetupAvailable?: boolean;
@@ -162,6 +163,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   const [showSync, setShowSync] = useState(false);
   const scanState = useSyncExternalStore((listener) => scan.subscribe(listener),
     () => scan.getState(), () => scan.getState());
+  const [quotaCustomer,setQuotaCustomer]=useState<{customerId:string;month:string}|undefined>();
   const previousCount = useRef<number | null>(null);
   const status = syncIndicator(scanState, previousCount.current);
   useEffect(() => {
@@ -210,6 +212,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
           </Text></View>}
       </TouchTarget>
     </View>
+    {work && customerAuthority && role!=='offline'?<CustomerQuotaNotice work={work} membership={customerAuthority.membershipId} role={role} authorityContext={customerAuthority} onView={(customerId,month)=>{setQuotaCustomer({customerId,month});navigate('customers');}}/>:null}
     <EmbeddedScreenContext.Provider value>
       <View style={styles.productContent}>
         <View style={{ flex: 1, display: !showSync && destination === 'capture' ? 'flex' : 'none' }}
@@ -223,7 +226,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
           : destination === 'manual' ? role === 'offline'
               ? <OfflineManualCaptureScreen manual={offlineManual} restorationKey="offline" />
               : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
-          : destination === 'customers' ? work && customerAuthority ? <CustomersScreen work={work} authorityContext={customerAuthority}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
+          : destination === 'customers' ? work && customerAuthority ? <CustomersScreen work={work} authorityContext={customerAuthority} openCustomer={quotaCustomer}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
           : destination === 'employees' ? managementScope && employees ? <EmployeesScreen employees={employees} scope={managementScope} locationsEnabled={locationsEnabled} /> : null
           : destination === 'times' ? work ? <OwnTimeScreen work={work} />
               : <MessageScreen title="Deine Zeiten sind derzeit nicht verfügbar." />

@@ -110,6 +110,8 @@ describe('T-077 own times through the product navigation', () => {
   it('T084 removes loaded foreign customer hours after same-membership role replacement', async () => {
     const h=harness('administrator');
     const readCustomerHours=vi.fn<NonNullable<MobileWorkCapability['readCustomerHours']>>()
+      // T085 performs the opening quota check before the Customers tab is visited.
+      .mockResolvedValueOnce({status:'ready',value:{version:'customer-hours.v2',scope:'people',asOf:'2026-09-28T08:00:00.000Z',customers:[]}})
       .mockResolvedValueOnce({status:'ready',value:{version:'customer-hours.v1',scope:'people',asOf:'2026-09-28T08:00:00.000Z',customers:[{
         customerId:target.targetId,displayName:'Werkstatt',active:true,workDurationSeconds:3600,running:false,
         people:[{membershipId,displayName:'Fremde Person',workDurationSeconds:3600,running:false}],
@@ -120,7 +122,7 @@ describe('T-077 own times through the product navigation', () => {
     expect(container.textContent).toContain('Fremde Person');
     await act(async()=>h.sessionStore.publish({status:'authenticated',session:sessionContext('employee')}));
     expect(container.textContent).not.toContain('Fremde Person');
-    expect(readCustomerHours).toHaveBeenCalledTimes(2);
+    expect(readCustomerHours).toHaveBeenCalledTimes(3);
   });
   it.each([
     ['employee', false, ['Erfassen', 'Meine Zeiten', 'Kunden']],

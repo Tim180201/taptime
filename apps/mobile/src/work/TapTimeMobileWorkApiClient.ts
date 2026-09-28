@@ -20,6 +20,24 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     private readonly createUuid: () => string,
   ) {}
 
+  private pendingQuota: {key:string;commandId:string}|null=null;
+  async setCustomerQuota(expectedMembershipId:string,customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult> {
+    const key=JSON.stringify([expectedMembershipId,customerId,minutes]);
+    if(this.pendingQuota?.key!==key) this.pendingQuota={key,commandId:this.createUuid()};
+    const pending=this.pendingQuota;
+    const result=await this.requests.post(new URL('/v1/administration/customers/quota',this.baseUrl),JSON.stringify({expectedMembershipId,customerId,minutes,commandId:pending.commandId}));
+    if(result.status==='authority_rejected') return {status:'forbidden'};
+    if(result.status!=='response') return {status:'unavailable'};
+    if(result.statusCode===409) return {status:'command_id_conflict'};
+    if(result.statusCode===403 || result.statusCode===401) return {status:'forbidden'};
+    try {
+      const body:unknown=JSON.parse(result.body);
+      if(result.statusCode!==200 || !isJson(result.contentType) || typeof body!=='object' || body===null || Object.keys(body).length!==1 || !('status' in body) || body.status!=='succeeded') return {status:'unavailable'};
+      if(this.pendingQuota===pending)this.pendingQuota=null;
+      return {status:'succeeded'};
+    } catch {return {status:'unavailable'};}
+  }
+
   async readCustomerHours(request: CustomerHoursRequest): Promise<CustomerHoursResult> {
     const result = await this.requests.post(new URL('/v1/customers/hours/query', this.baseUrl), JSON.stringify(request));
     if (result.status === 'authority_rejected') return result;

@@ -47,7 +47,7 @@ describe('MobileWorkCoordinator', () => {
     };
     const coordinator = new MobileWorkCoordinator(sessionReader(() => current), api);
     const pending = coordinator.readCustomerHours('2026-10');
-    expect(readCustomerHours).toHaveBeenCalledWith({
+    expect(readCustomerHours).toHaveBeenCalledWith({responseVersion:'customer-hours.v2',
       expectedMembershipId: snapshot.session.membershipId,
       fromInclusive:'2026-09-30T22:00:00.000Z',toExclusive:'2026-10-31T23:00:00.000Z',
     });

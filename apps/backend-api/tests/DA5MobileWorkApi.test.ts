@@ -513,3 +513,15 @@ it.each(['own','person'] as const)('T-079 keeps both old %s byte forms and opts 
   expect(commands.at(-1)?.includeCalendarBreaks).toBe(b?true:undefined);
  }
 });
+
+it('T085 validates the closed quota command, preserves current actor and maps conflict/denial',async()=>{
+ const setCustomerQuota=vi.fn(async()=>({status:'succeeded' as const}));
+ const origin=await start({administration:{setCustomerQuota} as unknown as BackendApiDependencies['administration']});
+ const request={expectedMembershipId:ids.membership,commandId:ids.command,customerId:ids.project,minutes:2430};
+ const response=await post(origin,'/v1/administration/customers/quota',request);
+ expect(response.status).toBe(200);expect(await response.json()).toEqual({status:'succeeded'});
+ expect(setCustomerQuota).toHaveBeenCalledWith({...request,accessToken:'abc.def.ghi'});
+ for(const extra of [{role:'administrator'},{organizationId:ids.project},{minutes:31},{minutes:0}])
+   await expectError(await post(origin,'/v1/administration/customers/quota',{...request,...extra}),400,'invalid_request');
+ expect(setCustomerQuota).toHaveBeenCalledTimes(1);
+});

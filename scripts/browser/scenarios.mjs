@@ -3,6 +3,9 @@ const summary = async p => p.locator('summary').click();
 export const personPath = '/beschaeftigte/70000000-0000-4000-8000-000000000001?monat=2026-09';
 const scenario = (id, path, wait, steps = [], variant = id) => ({id,path,wait,steps,variant});
 export const adminScenarios = [
+  ...['warning','exceeded','manager','employee'].map(kind=>scenario(`quota-${kind}`,'/kunden','.customer-card',[],`quota-${kind}`)),
+  scenario('quota-edit','/kunden','.customer-card',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click(),click('Ändern')],'quota-warning'),
+  scenario('quota-notice-view','/uebersicht','.quota-notice',[click('Ansehen')],'quota-warning'),
   ...['admin','manager','employee'].flatMap(role=>[
     scenario(`customers-${role}`,'/kunden','.customer-card',[],`customers-${role}`),
     scenario(`customers-${role}-detail`,'/kunden','.customer-card',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click()],`customers-${role}`),

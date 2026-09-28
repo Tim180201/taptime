@@ -186,7 +186,7 @@ describe('AdminWebCoordinator', () => {
     Object.assign(api,{customerHours});
     await coordinator.signIn('synthetic@example.invalid','synthetic');
     const pending=coordinator.readCustomerHours('2026-10');
-    expect(customerHours).toHaveBeenCalledWith('memory-only-token',{
+    expect(customerHours).toHaveBeenCalledWith('memory-only-token',{responseVersion:'customer-hours.v2',
       expectedMembershipId:membershipId,fromInclusive:'2026-09-30T22:00:00.000Z',toExclusive:'2026-10-31T23:00:00.000Z',
     });
     await coordinator.signOut();

@@ -189,6 +189,7 @@ export type AdminWebState =
       readonly completedAction?: CompletedAdminAction | null;
     };
 export interface AdminWebCapability {
+  setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   readCustomerHours?(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult>;
   readonly saveTimeEdit?: (input: TimeEditInput) => Promise<TimeEditResult>;
   readonly loadOwnTime?: (month: string) => Promise<void>;

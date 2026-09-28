@@ -90,6 +90,7 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  setCustomerQuota?(token:string,request:import('@taptime/mobile-work-contract').SetCustomerQuotaRequest):Promise<ApiResult<true>>;
   customerHours?(token: string, request: CustomerHoursRequest): Promise<ApiResult<CustomerHoursResponse>>;
   onOrganizationPaused?(listener: (token: string) => Promise<void>): () => void;
   stopTime?(token: string, request: unknown): Promise<ApiResult<AdministrationStopResult>>;
@@ -250,6 +251,10 @@ export class AdminWebApiClient implements AdminWebApiPort {
     return this.request(`/v1/time-records/${kind}`,token,'POST',request as object,
       value => isTimeSupplementResult(value) ? value : null,false,false,false,maximumJsonBodyBytes,
       false,false,false,false,[200,422]);
+  }
+  async setCustomerQuota(token:string,request:import('@taptime/mobile-work-contract').SetCustomerQuotaRequest):Promise<ApiResult<true>> {
+    return this.request('/v1/administration/customers/quota',token,'POST',request,value=>
+      isRecord(value) && exact(value,['status']) && value.status==='succeeded'?true:null);
   }
   async customerHours(token: string, request: CustomerHoursRequest): Promise<ApiResult<CustomerHoursResponse>> {
     if (!isCustomerHoursRequest(request)) return {status:'invalid_response'};

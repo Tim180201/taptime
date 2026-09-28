@@ -1,4 +1,4 @@
-import { isCustomerHoursRequest } from '@taptime/mobile-work-contract';
+import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
@@ -96,6 +96,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/time-records/comment': 'time_comment',
   '/v4/time-entries/export': 'time_entry_export_v4',
   '/v1/customers/hours/query': 'customer_hours',
+  '/v1/administration/customers/quota': 'admin_customer_quota',
   '/v1/mobile/own-time/query': 'mobile_own_time',
   '/v1/mobile/work-targets/query': 'mobile_work_targets',
   '/v1/lifecycle-events/manual': 'manual_lifecycle',
@@ -484,6 +485,18 @@ async function handleRequest(
       respondJson(response,result.status==='committed'?200:result.status==='authority_rejected'?403:result.status==='unavailable'?503:422,result);
     } catch (error) {
       if (isOrganizationPausedError(error)) { respondError(response,403,'organization_paused'); return; }
+      respondError(response,503,'service_unavailable');
+    }
+    return;
+  }
+  if (route === 'admin_customer_quota') {
+    if (!isSetCustomerQuotaRequest(body)) {respondError(response,400,'invalid_request');return;}
+    if (!dependencies.administration.setCustomerQuota) {respondError(response,503,'service_unavailable');return;}
+    try {
+      const result=await withTimeout(dependencies.administration.setCustomerQuota({...body,accessToken}),timeoutMilliseconds);
+      respondJson(response,result.status==='succeeded'?200:result.status==='command_id_conflict'?409:result.status==='forbidden'?403:result.status==='unauthorized'?401:result.status==='invalid_request'?400:503,result);
+    } catch(error) {
+      if(isOrganizationPausedError(error)){respondError(response,403,'organization_paused');return;}
       respondError(response,503,'service_unavailable');
     }
     return;
@@ -2743,6 +2756,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'operator_session': case 'operator_overview': case 'operator_create':
     case 'operator_status': case 'operator_audit': case 'operator_health':
       return 'operator_failed';
+    case 'admin_customer_quota':
     case 'admin_create_customer':
     case 'admin_create_employee_account_invitation':
     case 'admin_create_employee_invitation':
@@ -2820,7 +2834,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
 }
 
 function isAdministrationRoute(route: Route): boolean {
-  return route === 'admin_create_customer'
+  return route === 'admin_customer_quota' || route === 'admin_create_customer'
     || route === 'admin_create_employee_account_invitation'
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'

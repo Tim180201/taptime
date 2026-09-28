@@ -219,11 +219,25 @@ export class AdminWebCoordinator implements AdminWebCapability {
     return outcome;
   }
 
+  private pendingQuota: {key:string;commandId:string;generation:number}|null=null;
+  async setCustomerQuota(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult> {
+    const session=this.session,generation=this.generation;
+    if(this.state.status!=='ready' || !session || session.role==='employee') return {status:'forbidden'};
+    const key=JSON.stringify([customerId,minutes]);
+    if(this.pendingQuota?.key!==key || this.pendingQuota.generation!==generation) this.pendingQuota={key,commandId:crypto.randomUUID(),generation};
+    const pending=this.pendingQuota;
+    const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.setCustomerQuota?.(token,
+      {expectedMembershipId:session.membershipId,customerId,minutes,commandId:pending.commandId})??Promise.resolve({status:'unreachable'})));
+    if(generation!==this.generation || session!==this.session || this.state.status!=='ready') return {status:'forbidden'};
+    if(result.status==='succeeded'){if(this.pendingQuota===pending)this.pendingQuota=null;return {status:'succeeded'};}
+    return {status:result.status==='rejected'?'forbidden':'unavailable'};
+  }
+
   async readCustomerHours(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult> {
     const session=this.session,generation=this.generation,window=monthTimeWindow(month);
     if (this.state.status!=='ready' || !session || !window) return {status:'unavailable'};
     const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.customerHours?.(token,
-      {expectedMembershipId:session.membershipId,...window}) ?? Promise.resolve({status:'unreachable'})));
+      {responseVersion:'customer-hours.v2',expectedMembershipId:session.membershipId,...window}) ?? Promise.resolve({status:'unreachable'})));
     if (generation!==this.generation || session!==this.session || this.state.status!=='ready') return {status:'authority_rejected'};
     if (result.status==='rejected') { await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.'); return {status:'authority_rejected'}; }
     return result.status==='succeeded' ? {status:'ready',value:result.value} : {status:'unavailable'};

@@ -32,6 +32,7 @@ export type MobileWorkState =
     };
 
 export interface MobileWorkCapability {
+  setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   readCustomerHours?(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult>;
   getState(): MobileWorkState;
   subscribe(listener: () => void): () => void;
@@ -64,6 +65,7 @@ export type ManualTriggerResult =
   | { readonly status: 'authority_rejected' | 'unavailable' };
 
 export interface MobileWorkApiPort {
+  setCustomerQuota?(membershipId:string,customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   readCustomerHours?(request: import('@taptime/mobile-work-contract').CustomerHoursRequest): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult>;
   read(
     expectedMembershipId: string,

@@ -728,3 +728,10 @@ input, select, textarea { font-size: 16px; min-width: 0; }
 @media (max-width: 600px) { .customer-card { padding: 16px; gap: 12px; } }
 
 .customer-card:hover:not(:disabled) { background: var(--color-surface-raised); }
+
+.quota-progress { display: flex; flex-direction: column; gap: 8px; min-width: 0; width: 100%; }
+.quota-progress progress { width: 100%; height: 8px; accent-color: var(--color-accent); }
+.quota-warning, .quota-exceeded { color: var(--color-notice); }
+.quota-warning progress, .quota-exceeded progress { accent-color: var(--color-notice); }
+.customer-card > .quota-progress { flex: 1; }
+.quota-notice { margin-bottom: 16px; }

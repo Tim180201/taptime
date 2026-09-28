@@ -80,7 +80,7 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
     return this.withActor<CustomerHoursResponse>(this.ownTimePool, command.accessToken, command.request.expectedMembershipId, OWN_TIME_ROLE, async client => {
       try {
         const row = await client.query<{result: unknown}>(
-          'SELECT taptime_server.read_customer_hours_v1($1::timestamptz,$2::timestamptz) AS result',
+          `SELECT taptime_server.${command.request.responseVersion==='customer-hours.v2'?'read_customer_hours_v2':'read_customer_hours_v1'}($1::timestamptz,$2::timestamptz) AS result`,
           [command.request.fromInclusive, command.request.toExclusive]);
         const value = row.rows[0]?.result;
         if (!isCustomerHoursResponse(value)) throw new Error('Invalid customer projection');

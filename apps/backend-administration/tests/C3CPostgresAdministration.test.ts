@@ -453,6 +453,7 @@ describe('migration 007, roles and database contracts', () => {
           'resolve_work_event_location_v1',
           'revoke_membership_location_relations_v1',
           'revoke_work_target_location_relation_v1',
+          'set_customer_quota_v1',
           'set_organization_locations_enabled_v1',
         ],
         relations: '0',

@@ -71,12 +71,21 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     this.setState({ status: 'inactive' });
   }
 
+  async setCustomerQuota(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult> {
+    const snapshot=this.session.capture();
+    if(!snapshot || snapshot.session.role==='employee') return {status:'forbidden'};
+    try {
+      const result=await this.api.setCustomerQuota?.(snapshot.session.membershipId,customerId,minutes)??{status:'unavailable' as const};
+      return this.session.isCurrent(snapshot)?result:{status:'forbidden'};
+    } catch {return {status:'unavailable'};}
+  }
+
   async readCustomerHours(month: string): Promise<CustomerHoursResult> {
     const snapshot = this.session.capture();
     if (!snapshot) return {status:'authority_rejected'};
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return {status:'unavailable'};
     try {
-      const result = await this.api.readCustomerHours?.({expectedMembershipId:snapshot.session.membershipId,
+      const result = await this.api.readCustomerHours?.({responseVersion:'customer-hours.v2',expectedMembershipId:snapshot.session.membershipId,
         fromInclusive:new Date(dayStart(`${month}-01`)).toISOString(),
         toExclusive:new Date(dayStart(`${shiftMonth(month,1)}-01`)).toISOString()}) ?? {status:'unavailable' as const};
       return this.session.isCurrent(snapshot) ? result : {status:'authority_rejected'};

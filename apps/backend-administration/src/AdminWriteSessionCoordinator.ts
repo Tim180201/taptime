@@ -1,3 +1,4 @@
+import { isSetCustomerQuotaRequest, type SetCustomerQuotaRequest, type SetCustomerQuotaResult } from '@taptime/mobile-work-contract';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import {
   createCustomerCommandDigestV1,
@@ -852,6 +853,16 @@ export class AdminWriteSessionCoordinator {
       },
       null,
     );
+  }
+
+  async setCustomerQuota(command: SetCustomerQuotaRequest & {readonly accessToken:string}, controls:AdminCoordinatorControls={}):Promise<SetCustomerQuotaResult> {
+    const {accessToken,...request}=command;
+    if(!isSetCustomerQuotaRequest(request)) return {status:'invalid_request'};
+    return this.runWithAuthority<SetCustomerQuotaResult>(accessToken,request.expectedMembershipId as MembershipId,request.commandId,controls,async client=>{
+      const result=await client.query<{result:'succeeded'|'command_id_conflict'}>(
+        'SELECT taptime_server.set_customer_quota_v1($1,$2,$3) AS result',[request.customerId,request.minutes,request.commandId]);
+      return {disposition:'commit',value:{status:result.rows[0]!.result}};
+    },request.customerId);
   }
 
   private async runWithAuthority<Value>(

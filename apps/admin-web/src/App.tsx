@@ -1,3 +1,4 @@
+import { CustomerQuotaNotice } from './QuotaNotice';
 import type { Notice } from './contracts';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import {
@@ -55,6 +56,7 @@ export function App({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [route, setRoute] = useState<AdminRoute>(() => currentRoute());
+  const [quotaCustomer,setQuotaCustomer]=useState<{membership:string;id:string}|null>(null);
   const previousView = useRef(route.view);
   const appliedMonth = useRef<string | null>(null);
   const mainHeading = useRef<HTMLHeadingElement>(null);
@@ -262,6 +264,7 @@ export function App({
       <p className="timezone-declaration">
         Zeitdarstellung: {BUSINESS_TIME_ZONE}
       </p>
+      {state.membershipId?<CustomerQuotaNotice key={`${state.membershipId}/${state.role}`} administration={administration} membership={state.membershipId} role={state.role} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} onView={(id,month)=>{setQuotaCustomer({membership:state.membershipId!,id});navigate({...defaultRoute('kunden'),month});}}/>:null}
       {state.notice ? <FeedbackBand message={state.notice} /> : null}
       <Suspense fallback={<DelayedSkeleton label="Bereich wird geladen"/>}>
       {activeRoute.view === 'uebersicht'
@@ -274,7 +277,7 @@ export function App({
         ? <TimeRecordsView state={state} administration={administration}
             route={activeRoute} navigate={navigate} /> : null}
       {activeRoute.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} /> : null}
-      {activeRoute.view === 'kunden' ? <CustomersView administration={administration} route={activeRoute} navigate={navigate}/> : null}
+      {activeRoute.view === 'kunden' ? <CustomersView key={`${state.membershipId}/${state.role}`} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} openCustomerId={quotaCustomer?.membership===state.membershipId?quotaCustomer?.id:undefined} administration={administration} route={activeRoute} navigate={navigate}/> : null}
       {activeRoute.view === 'meine-zeiten' ? <OwnTimeView state={state} administration={administration} route={activeRoute} navigate={navigate}/> : null}
       {activeRoute.view === 'manuell' ? <ManualView state={state} administration={administration}/> : null}
       </Suspense>
