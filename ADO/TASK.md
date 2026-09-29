@@ -1,70 +1,77 @@
 # Aktuelle Aufgabe
 
-> **Stand 28.09.2026:** Produktion auf `e13916b` (Migrationen bis 034). Auf `main` bis `537af63` zusätzlich T-080,
-> T-084 bis T-089 (035–038). Reihenfolge (TL 28.09.): **T-090** → ein Deploy → App-Builds → T-091 bis T-098 → zweiter
-> Deploy → T-024 → Pilot. Frühere Briefs stehen in der Git-Historie.
+> **Stand 29.09.2026:** Produktion auf `0230188` (Migrationen bis 039), ausgeliefert 28.09. Geräteabnahme auf iPhone 4 /
+> Android 11 läuft. Danach T-093, T-091 bis T-098, T-100 → zweiter Deploy → T-024 → Pilot. Frühere Briefs stehen in der
+> Git-Historie.
 
-## T-090 · Lohnexport v4 erreichbar, Projekt mit Standort anlegen, Anlegen ohne Doppel
+## T-093 · Sicherung: tägliches Aufräumen wirkt, Fehler werden sichtbar (D-106)
 
-**Für:** Development · **Risiko:** Lohnexport (Kernversprechen), Standortmodus (D-102), Idempotenz · **Zeitbox:** eine
-Sitzung. Analyse-Befunde F-002, F-003, F-005 (Projekt-Teil), F-020, F-039, F-070, F-136. Kein Deploy, kein Serverzugriff.
+**Für:** Development · **Risiko:** Sicherung und Wiederherstellbarkeit (D-051, D-055); es darf nie eine geprüfte Basis
+verloren gehen · **Zeitbox:** eine Sitzung. Analyse-Befunde F-007, F-054, F-067, F-076, F-124. Nur
+`infrastructure/backup/*`, `infrastructure/monitoring/*`, deren Tests, `RESTORE.md`, `MONITORING.md`. Kein Deploy, kein
+Serverzugriff, keine Geheimnisse.
 
-### Befund (Code auf `537af63`)
+### Befund (Code auf `0230188`)
 
-1. **Export v4.** Das Admin-Web fragt standardmäßig `/v4/time-entries/export` an. Der Admin-Block im
-   `infrastructure/caddy/Caddyfile` leitet nur `/v1/*`, `/v2/*`, `/v3/*` weiter; `/v4/*` landet im Web-Fallback.
-   Zusätzlich lehnt `respondCsv` in `apps/backend-api/src/BackendHttpServer.ts` jeden Dateinamen außer ohne Version,
-   `_v2` und `_v3` mit 503 ab, ohne Diagnose. Die Koordinator-Tests laufen grün, weil kein Test über HTTP mit dem
-   echten v4-Dateinamen und keiner über Caddy geht.
-2. **Projekt anlegen.** `ProjectAdministrationCoordinator.createProject` legt das Projekt ohne Standortbindung an; bei
-   eingeschalteten Standorten scheitert der Commit an der Vollständigkeitsprüfung aus 019 (503, Web meldet „unklar“).
-   Für Kunden ist das mit T-086 (035) behoben; das Muster steht in `AdminWriteSessionCoordinator.createCustomer`.
-3. **Projektname.** Der Vertrag nimmt Namen an, die der CHECK `projects_name_shape` ablehnt (503 statt 400).
-4. **Wiederholung.** `AdminWebCoordinator` erzeugt beim Anlegen von Kunde, Projekt und Standort je Klick eine neue
-   `commandId`; eine Wiederholung nach „unklar“ legt ein Duplikat an.
-5. **Tests.** Die Projektverwaltung hat keinen Test gegen PostgreSQL mit der echten Laufzeitrolle.
+1. `taptime-restore-verify` prüft sonntags ohne Ziel und ohne Pin die **neueste** Basis (`select_base_archive`), etwa
+   die von 03:05, und schreibt ihren Marker. `run_backup_retention daily` (aus `taptime-backup`) schützt den neuesten
+   Marker. Borg behält je Regel nur das jüngste Archiv einer Periode; die 03:05-Basis fällt nach 24 h aus allen Regeln.
+   `prune_after_verified_restore` bricht dann mit 3 ab („protected“). Folge: Das tägliche Aufräumen setzt an sechs von
+   sieben Tagen aus.
+2. Seit T-083 gibt `run_backup_retention` auch bei `failed`/`protected`/`unregistered` 0 zurück; die Sonntagsprüfung
+   meldet „ok“, kein Monitor liest `retention-status`. Früher ließ ein gescheitertes Aufräumen die Sonntagsprüfung
+   scheitern.
+3. Die Test-Fakes für `borg prune` geben „Keeping“/„Would prune“ per Schalter vor, statt die Keep-Regeln aus
+   Zeitstempeln zu berechnen. Deshalb blieb 1. unentdeckt.
+4. Während der Sonntagsprüfung hält `taptime-restore-verify` die Borg-Sperre lange; der Wächter kennt als Sperrhalter
+   nur `taptime-backup.service` und toleriert einen wartenden Archivierer höchstens 600 s (T-089).
+5. `record_archive_counts … || return 1` im Archivierer: Ein Fehler beim Schreiben einer reinen Anzeigezahl lässt den
+   WAL-Durchlauf scheitern (in `taptime-backup` ist derselbe Fehler nicht fatal).
 
 ### Auftrag
 
-**A. Export v4 über die echte Grenze.** Im Admin-Block alle Versionspräfixe über einen Matcher weiterleiten
-(z. B. `path_regexp ^/v[0-9]+/`), `/v1/operator/*` verhält sich wie heute. `respondCsv` leitet den erwarteten Namen
-aus der Schemaversion ab statt aus einer festen Liste; eine Ablehnung schreibt eine Diagnose (`invalid_export_filename`,
-ohne Personenbezug). Die Präfixe im Forwarding-Test werden aus den tatsächlichen Pfaden des Admin-Web-Clients
-abgeleitet, nicht aufgezählt (AGENTS §1.6). V1–V3 bleiben byte-gleich.
+**A. Sonntagsprüfung auf eine Basis, die Borg behält.** Ohne Ziel und ohne Pin wählt die Wochenprüfung die jüngste
+Basis, die vor Beginn des aktuellen Tages entstand, in der Zeitzone, in der Borg auf dem Server seine Perioden
+bildet (im Bericht belegen, woher). Die gezielte Prüfung mit Zeitpunkt, der gepinnte Weg des Deploys, Probe und
+Materialisierung bleiben unverändert. Gibt es keine solche Basis (frische Installation), wie heute die neueste.
 
-**B. Projekt mit Standort.** Wie T-086: bei eingeschalteten Standorten ist `locationId` Pflicht
-(`location_required`), bei ausgeschalteten verboten (`invalid_request`); Projekt und Bindung in derselben
-Transaktion, serialisiert mit derselben Standort-Sperre; Standort im Beleg und im Anfrage-Digest, exakte Wiederholung
-liefert das gespeicherte Ergebnis. Anlegen darf weiter nur der Administrator, an jedem aktiven Standort des Betriebs.
-Höchstens eine Migration (039), nur anfügend, nach dem Muster von 035; bestehende Daten bleiben unverändert. Admin-Web:
-Standortauswahl im Projektformular wie beim Kunden, nur bei eingeschalteten Standorten.
+**B. Schutzregel.** Das Aufräumen (täglich und sonntags) wählt als geschützte Basis die neueste geprüfte Basis, die
+laut Vorschau (`--dry-run`) von Borg behalten wird, und läuft dann. Nur wenn keine geprüfte Basis behalten würde,
+wird ausgesetzt wie heute (3). Alles andere bleibt: nur `borg prune` löscht Basen, Vorschau vor dem echten Lauf,
+unbekannte Ausgabe bricht ab, Nachprüfung, dass die geschützte Basis danach noch da ist, WAL-Untergrenze aus allen
+behaltenen Basen, Marker gelöschter Basen werden entfernt.
 
-**C. Projektname.** Validator nutzt `normalizeCustomerNameV1` wie bei Kunden und nimmt nur den kanonischen Namen an;
-23514 wird zu `invalid_request`.
+**C. Fehler sichtbar, fünf Meldungen bleiben.** Die Sonntagsprüfung scheitert (bestehende Meldung
+„Wiederherstellungsprüfung fehlgeschlagen“), wenn ihr eigenes Aufräumen `failed` endet oder `retention-status` seit
+mehr als 8 Tagen nicht `ok` war (Zeitpunkt des letzten Erfolgs steht bereits im Status). Der tägliche Lauf bleibt ohne
+Push-Meldung.
 
-**D. Anlegen ohne Doppel.** Im Admin-Web je Aktion (Kunde, Projekt, Standort) eine ausstehende Befehlsidentität
-(normalisierter Name, Standort → `commandId` und ggf. Objekt-ID) halten, bei Wiederholung wiederverwenden, erst nach
-bestätigtem Erfolg oder eindeutiger Ablehnung verwerfen (Muster `pendingStops` / `saveTimeEdit`).
+**D. Wächter kennt die Sonntagsprüfung.** Läuft `taptime-restore-verify.service`, behandelt der Wächter sie wie die
+Sicherung: Pause der Altersprüfung bis zu einer festen, im Code benannten Obergrenze (90 min); darüber Meldung mit
+Ursache „Wiederherstellungsprüfung läuft seit … min“. Ohne laufende Prüfung gilt alles aus T-089 unverändert.
+
+**E. Anzeigezahl nicht kritisch.** Im Archivierer darf ein Fehler von `record_archive_counts` den Durchlauf nicht
+scheitern lassen (Meldung auf stderr wie in `taptime-backup`).
 
 ### Tests
 
-Rot vor Grün, jeweils zuerst am alten Code: (1) HTTP-Test: v4-Export mit echtem Dateinamen → 200 und
-`Content-Disposition`; unbekannte Version → 503 mit Diagnose; (2) Caddy-Forwarding: jeder Präfix, den der Admin-Web-Client
-benutzt, erreicht das Backend, `/v4/time-entries/export` eingeschlossen; (3) PostgreSQL mit echter Laufzeitrolle:
-Projekt anlegen mit und ohne Standorte, exakte Wiederholung, `commandId`-Konflikt, fremder Standort, fremder Betrieb,
-Deaktivieren, `project_in_use`, veraltete `row_version`; (4) ungültiger Projektname → 400; (5) Web: Wiederholung
-nach Zeitüberschreitung sendet dieselbe `commandId` für Kunde, Projekt und Standort.
-
-**Lokal alle Suiten, die Migrationen einspielen oder die geänderten Pfade berühren** (Lehre aus T-086):
-`backend-schema`, `backend-time-review` (DA3 mit T-062-Probe), `backend-time-export`, `backend-api`,
-`backend-mobile-work`, `backend-administration`, `admin-web` (Unit und Browser-Layout), Caddy-Tests unter
-`infrastructure/caddy/tests/`, Workflow-Tests. Im Bericht jede Suite mit Befehl und Ergebnis.
+Das Fake-`borg prune` berechnet „Keeping“/„Would prune“ aus den Archivzeitstempeln nach Borgs Regeln (je Regel das
+jüngste Archiv einer Periode, Regeln in Reihenfolge `hourly`, `daily`, `weekly`, `monthly`, Ausgabeformat wie Borg 1.2/1.4).
+Rot vor Grün am alten Code: (1) Wochenablauf: stündliche Basen ab Sa, Sonntagsprüfung, Tageslauf Mo 04:05 → heute
+`protected`, danach `ok` mit echten Löschungen und behaltener geprüfter Basis; (2) die gewählte Wochenbasis ist die
+letzte des Vortags und wird 14 Tage behalten; (3) keine geprüfte Basis würde behalten → `protected`, nichts gelöscht;
+(4) Sonntagsprüfung mit gescheitertem Aufräumen → Prüfung scheitert; `retention-status` seit 9 Tagen nicht `ok` →
+Prüfung scheitert; seit 7 Tagen → nicht; (5) Wächter: laufende Sonntagsprüfung 40 min, Archivierer ohne Lebenszeichen →
+kein Alarm; 91 min → Alarm mit Ursache; (6) Schreibfehler der Archivzahlen → WAL-Durchlauf `result=0`. Bestehende Suiten
+unter `infrastructure/tests/*` und `infrastructure/monitoring/tests/*`, ShellCheck, Workflow-Tests; Linux-Container
+für GNU-Werkzeuge wie in T-089.
 
 ### Nicht Teil
 
-Kein Deploy, kein Serverzugriff, keine Geheimnisse. Keine Änderung am Exportinhalt (B01), an Standortregeln für
-Allgemeine Arbeitszeit, Pausen oder Lease (T-091), an Mobile. Keine neue Rolle darf Projekte anlegen.
+Keine Änderung an Keep-Werten, Sicherungszeitplan, Archivvertrag, WAL-Empfang, Restore-Ablauf, Controller, Compose oder
+der Konfigurationsdatei auf dem Server. Keine neue ntfy-Meldung. Wird ein Konsolenschritt nötig: stoppen und berichten.
 
 ### Bericht
 
-`.t090-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit vor `APPROVED`.
+`.t093-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf „es geht nie eine geprüfte
+Basis verloren“. Kein Commit vor `APPROVED`.

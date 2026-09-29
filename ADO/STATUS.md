@@ -1,16 +1,18 @@
 # TapTim.e — Status
 
-**Stand:** 28.09.2026 · Produktion läuft auf `e13916b` (Deploy 27.09.: T-083; Migrationen bis 034, Controller `b635c4a`).
-Auf `main` zusätzlich, noch nicht ausgeliefert: T-080 (App), T-086/T-087 (035), T-084 (036), T-085 (037), T-088 (038),
-T-089 (`537af63`, Wächter). Betreiber-Bereich eingerichtet, Pilot-Betrieb am 26.09. angelegt. App-Builds vom 25.09. auf
-`6c7007d` (iPhone 1.0.0 (3), Android versionCode 10); die nächsten (iPhone 4, Android 11) nach dem Deploy. „Taptura“ ist
-der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`.
+**Stand:** 29.09.2026 · Produktion läuft auf `0230188` (Deploy 28.09., ohne Konsolenschritt): T-080, T-084 bis T-090,
+Migrationen bis 039, Controller `b635c4a`. Nach dem Deploy: Version überall `0230188`, `/health` ok, api-down-Alarm vom
+Deploy von selbst geschlossen, Archivierer ruhig (Durchläufe 1 s), Sicherungen erfolgreich. App-Builds 28.09. auf
+`0230188`: iPhone 1.0.0 (4) (TestFlight), Android versionCode 11; Geräteabnahme Punkte 11–19 läuft (PO). Betreiber-Bereich
+eingerichtet, Pilot-Betrieb am 26.09. angelegt. „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter
+`taptime`.
 Supabase am 28.09. geprüft und festgelegt (PO): Registrierung neuer Konten aus, E-Mail-Bestätigung an; Kontenliste ohne
-unbekannte Konten; Einladung danach erfolgreich getestet. Festschreiben im Runbook mit T-094.
-Code-Analyse 28.09. (Stand `e13916b`) ist eingeordnet: 191 Befunde, davon 8 P1; Bericht und Einordnung liegen nur lokal
-(D-103), die Aufgaben stehen neutral mit F-Nummern im PLAN. Reihenfolge (TL 28.09.): T-090 → Deploy (035–038 und T-089)
-→ App-Builds und Rest der Geräteabnahme → T-091 bis T-098 (vor dem Pilot, D-101, D-102) → zweiter Deploy → T-024 → Pilot.
-Danach AVV/TOM mit B15; Verteilung an Pilot-Beschäftigte (APK, TestFlight extern). Fertig ist das Produkt, wenn das
+unbekannte Konten; Einladung danach erfolgreich getestet. Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und
+IP-Adresse; vor der Ausweitung anheben (T-099). Festschreiben im Runbook mit T-094.
+frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
+womöglich mit wenigen Lehrern; offene Fragen für den CEO-Termin stehen im PLAN.
+Code-Analyse 28.09. ist eingeordnet (D-103). Reihenfolge (TL 29.09.): Geräteabnahme → T-093, T-091 bis T-098, T-100
+(T-099 je nach Startumfang) → zweiter Deploy → T-024 → Pilot. Danach AVV/TOM mit B15. Fertig ist das Produkt, wenn das
 ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
 ## Beobachten (TL, 23.–27.09.)
@@ -31,7 +33,7 @@ ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss ü
   Aufräumen). „WAL-Archivierung steht“ kam trotzdem weiter, 13 Mal zwischen 06:00 und 13:47 Uhr, auch ohne laufende
   Sicherung. Ursache: Der gründliche Archivierer-Durchlauf alle 15 min braucht 77 s (`borg info` auf die geprüfte Basis)
   und schreibt das Lebenszeichen erst am Ende; der Wächter erlaubt 120 s (60 s × 2). Kein Datenrisiko. Fix T-089 vor dem
-  Deploy; bis dahin ntfy am Telefon stumm geschaltet (PO). T-089 auf `main` (`537af63`); ausgeliefert mit dem nächsten Deploy.
+  Deploy; bis dahin ntfy am Telefon stumm geschaltet (PO). T-089 ausgeliefert 28.09. mit `0230188`; danach ruhig. ntfy wieder einschalten (PO).
 - Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
   und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
   `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
@@ -119,6 +121,10 @@ Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
 - Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
 
 ## Bekannte Kleinigkeiten und offene Risiken
+
+- T-090 (TL 28.09., P3, später): Anlegen im Web bricht bei ungültigem Namen ohne Hinweis ab (B03); ein Fehler 23514 beim
+  Commit des Projektanlegens wird als ungültige Eingabe gemeldet, auch wenn die Standort-Einrichtung selbst unvollständig
+  wäre (B08); unbekannter Standort liefert `forbidden` statt eines eigenen Codes.
 
 - T-088 abgenommen (TL APPROVED 28.09., D-100), auf main; Deploy gebündelt mit T-089. SQL-Prüfgrenze einschließlich Nebenläufigkeit umgesetzt; unabhängiges Review Runde 2 APPROVED.
 

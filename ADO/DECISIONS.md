@@ -1607,3 +1607,27 @@ versionierten Ordner `.audit-2026-09/` im Repo-Wurzelverzeichnis, wie die Review
 Aufgaben mit F-Nummern, neutral formuliert. Ein sicherheitsrelevanter Befund wird erst nach seiner Behebung in ADO
 beschrieben.
 **Warum:** Nichts aus der Analyse darf verloren gehen, und nichts davon darf vor der Behebung öffentlich werden.
+
+## D-104 · Kunden entstehen im Reiter „Kunden“, mit oder ohne Tag · 28.09.2026 · Tim (PO)
+Im Reiter „Kunden“ der App gibt es für Administrator und Standortleitung „+ Kunde hinzufügen“: Name (bei mehreren
+Standorten auch Standort), dann „NFC-Tag zuordnen“ (anlegen und direkt den Tag beschreiben) oder „Nur anlegen“. Im Reiter
+„Tags“ entfällt „+ Neuer Kunde“; dort bleiben Zuordnen und Ändern von Tags für bestehende Kunden sowie Pausen-Tags.
+Mitarbeiter sehen den Knopf nicht. Vor dem Pilot, zusammen mit T-081 und D-105 (T-100).
+**Warum:** Das Erste, was ein Betrieb tut, ist Kunden anlegen und Tags zuordnen; das gehört an eine Stelle, nicht in
+die Tag-Einrichtung versteckt.
+
+## D-105 · „Beschäftigte“ zeigt die Stunden des laufenden Monats · 28.09.2026 · Tim (PO)
+In „Beschäftigte“ (App und Web) steht je Person die Summe des laufenden Monats: nur beendete Einträge, Pausen
+abgezogen, stornierte nicht, nach derselben Formel wie Kalender, Kunden-Stunden und Export (036). Der Server rechnet die
+Summen je Seite in einer Abfrage. Sichtbar wie die Liste selbst (Administrator alle, Standortleitung ihr Standort).
+**Warum:** Überblick ohne jede Person zu öffnen; laufende Zeit steht schon als „seit …“ daneben, die Zahl springt nicht.
+
+## D-106 · Aufräumen der Sicherung schützt eine geprüfte Basis, die Borg ohnehin behält · 29.09.2026 · Claude (TL)
+Die Sonntagsprüfung prüft nicht mehr die neueste Basis, sondern die letzte Basis des Vortags; die behält Borgs
+Tagesregel 14 Tage. Das Aufräumen (täglich und sonntags) läuft, wenn nach der Vorschau mindestens die neueste geprüfte
+Basis bleibt, die Borg ohnehin behält; es löscht nie eine Basis außerhalb von `borg prune`. Bleibt keine geprüfte Basis,
+wird ausgesetzt wie heute. Die Sonntagsprüfung scheitert wieder, wenn ihr eigenes Aufräumen scheitert oder das Aufräumen
+seit mehr als 8 Tagen nicht „ok“ war; die Meldung ist die bestehende „Wiederherstellungsprüfung fehlgeschlagen“, es
+bleibt bei fünf Meldungen (Audit F-007, F-067).
+**Warum:** Die sonntags geprüfte 03:05-Basis fällt nach 24 h aus allen Keep-Regeln; deshalb setzte das tägliche
+Aufräumen an sechs von sieben Tagen aus und Fehler blieben still.
