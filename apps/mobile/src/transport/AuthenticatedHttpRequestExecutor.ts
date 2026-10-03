@@ -1,4 +1,4 @@
-import { TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT } from '@taptime/mobile-work-contract';
+import { TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3 as TIME_DETAILS_ACCEPT } from '@taptime/mobile-work-contract';
 import type { AuthenticatedRequestCapability } from '../auth/contracts';
 import {
   OFFLINE_LEASE_PAGE_RESPONSE_MAXIMUM_BYTES,

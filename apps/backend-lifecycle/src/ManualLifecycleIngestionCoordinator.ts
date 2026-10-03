@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
+  workEventLocationUnavailable,
   B3_CONTENT_HASH_ALGORITHM,
   DA5_CONTENT_HASH_VERSION,
   T012_CONTENT_HASH_VERSION,
@@ -284,7 +285,9 @@ export class ManualLifecycleIngestionCoordinator {
       const active = await findActiveEntry(client, actor);
       const activeBreak = await findActiveBreak(client, actor, active);
       const previous = await findPreviousEvent(client, event);
+      await insertEvent(client, event, contentHash);
       const decision = this.engine.evaluate(event, {
+        workLocationUnavailable: await workEventLocationUnavailable(client, event.organizationId, event.id),
         administrationStoppedBeforeTrigger: (await client.query(
           'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
           [event.occurredAt],
@@ -294,7 +297,6 @@ export class ManualLifecycleIngestionCoordinator {
         previousAcceptedWorkEventForUserAndTarget: previous,
       });
 
-      await insertEvent(client, event, contentHash);
       await persistTimeEntry(client, decision);
       await insertDecision(client, event, decision);
       await insertReceipt(client, actor, command, event, decision);

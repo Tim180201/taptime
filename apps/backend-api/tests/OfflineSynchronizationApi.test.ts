@@ -675,3 +675,27 @@ it.each([1,2] as const)('T-069 maps reconciliation v%s only without detail negot
     expect(await response.json()).toMatchObject({records:[{result:{decision:{reason:accept==='application/json'?'work_event_precedes_previous_accepted_work_event':'administration_stopped'}}}]});
   }
 });
+
+
+it.each([1,2,3,4] as const)('T-091 protects every old offline v%s parser while v3 details gets the precise location reason',async version=>{
+  const result:OfflineLifecycleEventResultV4={status:'synchronized',archiveStatus:'offsite_archived',idempotentRetry:false,
+    workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,
+    decision:{status:'escalation_required',reason:'work_location_unavailable'}};
+  const origin=await start({offlineLifecycleIngestor:{async ingest(){return result;}}});
+  for(const accept of ['application/json','application/vnd.taptime.time-details.v2+json','application/vnd.taptime.time-details.v3+json']) {
+    const response=await post(origin,`/v${version}/lifecycle-events/offline`,version===1?offlineEventBody():version===2||version===4?offlineEventBodyV2():{...offlineEventBodyV2(),provenanceVersion:3,workEvent:{...offlineEventBodyV2().workEvent,subject:{type:'work'}}},{accept});
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({decision:{reason:accept.endsWith('v3+json')?'work_location_unavailable':'work_event_precedes_previous_accepted_work_event'}});
+  }
+});
+it.each([1,2] as const)('T-091 reconciles location decisions for old and new v%s clients without losing archive acknowledgement',async version=>{
+  const result={status:'ready' as const,records:[{workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,archiveStatus:'offsite_archived' as const,
+    result:{status:'synchronized' as const,decision:{status:'escalation_required' as const,reason:'work_location_unavailable'}}}]};
+  const origin=await start({offlineEventReconciliationReader:{async reconcile(){return result;},async reconcileV2(){return result;},async readReviewState(){return {status:'unavailable'};}}});
+  for(const accept of ['application/json','application/vnd.taptime.time-details.v2+json','application/vnd.taptime.time-details.v3+json']) {
+    const response=await post(origin,`/v${version}/lifecycle-events/reconcile`,{workEventIds:[ids.event]},{accept});
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({records:[{...(version===2?{archiveStatus:'offsite_archived'}:{}),
+      result:{decision:{reason:accept.endsWith('v3+json')?'work_location_unavailable':'work_event_precedes_previous_accepted_work_event'}}}]});
+  }
+});

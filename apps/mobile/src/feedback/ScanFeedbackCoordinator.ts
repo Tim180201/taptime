@@ -69,6 +69,7 @@ export function feedbackKindForOutcome(
     case 'break_stopped':
       return 'break_changed';
     case 'server_review_pending':
+    case 'work_location_unavailable':
     case 'escalation_required':
       // The server accepted the WorkEvent for review; only the
       // BusinessEngine decision is still open. The hand must match the visible review state.

@@ -707,9 +707,9 @@ describe('T-015a optional Location model remains off by default', () => {
     );
 
     await expect(insertEvent(resolvedEvent)).resolves.toBeDefined();
-    expect(await postgresErrorCode(
-      insertEvent(rejectedOverrideEvent, location.aAdditional),
-    )).toBe('23514');
+    await expect(insertEvent(rejectedOverrideEvent, location.aAdditional)).resolves.toBeDefined();
+    expect((await installerPool.query(`SELECT accepted_work_location_id FROM ${B3_SCHEMA}.work_events
+      WHERE id=$1`,[rejectedOverrideEvent])).rows[0].accepted_work_location_id).toBe(location.aHome);
     expect(await postgresErrorCode(installerPool.query(
       `INSERT INTO ${B3_SCHEMA}.time_entries
         (id, organization_id, user_id, target_type, target_customer_id, status,

@@ -21,6 +21,7 @@ import {
 } from './strictJson';
 
 const escalationReasons = new Set<BusinessEngineEscalationReason>([
+  'work_location_unavailable',
   'administration_stopped',
   'active_time_entry_organization_mismatch',
   'active_time_entry_user_mismatch',

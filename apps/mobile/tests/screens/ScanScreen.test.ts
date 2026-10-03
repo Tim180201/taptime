@@ -141,3 +141,11 @@ describe('ScanScreen presentation', () => {
   });
 
 });
+
+
+it('T-091 shows the location reason without a location name',()=>{
+  const presentation=presentScanState({status:'server_decision',queueCount:0,outcome:{status:'work_location_unavailable'}});
+  expect(presentation.title).toBe('Arbeitsziel nicht verfügbar');
+  expect(presentation.message).toContain('keinem für dich berechtigten Standort');
+  expect(presentation.tone).toBe('warning');
+});

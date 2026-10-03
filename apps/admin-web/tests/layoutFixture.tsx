@@ -190,6 +190,7 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
     memberships: [{ id: own, displayName: 'Martin Beispiel', role: 'administrator', homeLocationId: location.id, workLocationIds: [location.id], managementLocationIds: [] }],
     workTargets: [{ targetType: 'customer', targetId: customer.id, displayName: 'Werkstatt', locationId: location.id }], activationGaps: [] },
 };
+if (variant==='review-location') ready={...ready,reviewItems:[{...reviewItem,reviewReason:'work_location_unavailable',predecessorBlocked:false}]};
 if (variant==='customers-employee' || variant==='quota-employee') ready={...ready,role:'employee',availableSections:['own_time','manual_capture']};
 if (variant==='customers-manager' || variant==='quota-manager') ready={...ready,role:'standortleitung',availableSections:['employees','own_time','manual_capture','review_items']};
 if (['employee-calendar','employee-backfill','employee-comment','employee-void'].includes(variant)) ready = { ...ready, role: 'employee', availableSections: ['own_time','manual_capture'] };

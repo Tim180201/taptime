@@ -23,13 +23,15 @@
     "pg": "^8.22.0"
   },
   "devDependencies": {
+    "@taptime/backend-administration": "*",
     "@taptime/backend-lifecycle": "*",
+    "@taptime/backend-mobile-work": "*",
+    "@taptime/backend-time-review": "*",
     "@types/node": "^24.10.13",
     "@types/pg": "^8.20.0",
     "esbuild": "^0.28.1",
     "jose": "^6.2.3",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
-    "@taptime/backend-time-review": "*"
+    "vitest": "^4.1.9"
   }
 }

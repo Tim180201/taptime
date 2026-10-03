@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
 import {
+  workEventLocationUnavailable,
   B3_CONTENT_HASH_ALGORITHM,
   B3_CONTENT_HASH_VERSION,
   T012_CONTENT_HASH_VERSION,
@@ -288,7 +289,9 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
           return { status: 'conflict', reason: 'work_event_content_conflict' };
         }
         const persisted = await findPersistedDecision(client, workEvent);
-        if (policy === 'defer_only' && persisted !== null) {
+        if (policy === 'defer_only' && persisted !== null && !(
+          persisted.status === 'escalation_required' && persisted.reason === 'work_location_unavailable'
+        )) {
           await rollback(client);
           transactionOpen = false;
           return { status: 'conflict', reason: 'receipt_metadata_conflict' };
@@ -334,7 +337,7 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
         return await this.requireOffsiteArchive(
           client,
           actor,
-          synchronizedResult(command, persisted, true),
+          policy === 'defer_only' ? durableDeferredResult(command, true) : synchronizedResult(command, persisted, true),
         );
       }
 
@@ -351,6 +354,31 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
           return { status: 'conflict', reason: 'work_event_content_conflict' };
         }
         await afterWrite('work_event', controls);
+
+        if (await workEventLocationUnavailable(client, workEvent.organizationId, workEvent.id)) {
+          const locationDecision = this.businessEngine.evaluate(workEvent, {
+            workLocationUnavailable: true,
+            activeTimeEntryForUser: null,
+            previousAcceptedWorkEventForUserAndTarget: null,
+          });
+          await insertDecision(client, workEvent, locationDecision);
+          await afterWrite('canonical_decision', controls);
+          const persistedLocationDecision = toPersistedDecision(locationDecision);
+          if (!await insertReceipt(client, command, workEvent, persistedLocationDecision)) {
+            await rollback(client);
+            transactionOpen = false;
+            return { status: 'conflict', reason: 'receipt_metadata_conflict' };
+          }
+          await afterWrite('sync_receipt', controls);
+          await insertAuditEvent(client, command, workEvent, {
+            eventType: 'LifecycleDeferred', payload: decisionDiagnosticPayload(locationDecision),
+          });
+          await afterWrite('audit_event', controls);
+          await query(client, 'COMMIT');
+          transactionOpen = false;
+          return await this.requireOffsiteArchive(client, actor,
+            durableDeferredResult(command, false));
+        }
 
         if (!await insertDeferredReceipt(client, command, workEvent)) {
           await rollback(client);
@@ -382,6 +410,31 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
           return { status: 'conflict', reason: 'work_event_content_conflict' };
         }
         await afterWrite('work_event', controls);
+        if (await workEventLocationUnavailable(client, workEvent.organizationId, workEvent.id)) {
+          const locationDecision = this.businessEngine.evaluate(workEvent, {
+            workLocationUnavailable: true,
+            activeTimeEntryForUser: null,
+            previousAcceptedWorkEventForUserAndTarget: null,
+          });
+          await insertDecision(client, workEvent, locationDecision);
+          await afterWrite('canonical_decision', controls);
+          const persistedLocationDecision = toPersistedDecision(locationDecision);
+          if (!await insertReceipt(client, command, workEvent, persistedLocationDecision)) {
+            await rollback(client);
+            transactionOpen = false;
+            return { status: 'conflict', reason: 'receipt_metadata_conflict' };
+          }
+          await afterWrite('sync_receipt', controls);
+          await insertAuditEvent(client, command, workEvent, {
+            eventType: 'LifecycleEvaluated', payload: decisionDiagnosticPayload(locationDecision),
+          });
+          await afterWrite('audit_event', controls);
+          await query(client, 'COMMIT');
+          transactionOpen = false;
+          return await this.requireOffsiteArchive(client, actor,
+            synchronizedResult(command, persistedLocationDecision, false));
+        }
+
         if (!await insertDeferredReceipt(client, command, workEvent)) {
           await rollback(client);
           transactionOpen = false;
@@ -407,8 +460,16 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
       const activeTimeEntry = await findActiveTimeEntry(client, actor);
       const activeBreakInterval = await findActiveBreakInterval(client, actor, activeTimeEntry);
       const previousWorkEvent = await findPreviousCanonicalWorkEvent(client, workEvent);
+      const inserted = await insertWorkEvent(client, workEvent, contentHash);
+      if (!inserted) {
+        await rollback(client);
+        transactionOpen = false;
+        return { status: 'conflict', reason: 'work_event_content_conflict' };
+      }
+      await afterWrite('work_event', controls);
       await controls.beforeEngineEvaluation?.();
       const decision = this.businessEngine.evaluate(workEvent, {
+        workLocationUnavailable: await workEventLocationUnavailable(client, workEvent.organizationId, workEvent.id),
         administrationStoppedBeforeTrigger: (await client.query(
           'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
           [workEvent.occurredAt],
@@ -417,14 +478,6 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
         activeBreakIntervalForUser: activeBreakInterval,
         previousAcceptedWorkEventForUserAndTarget: previousWorkEvent,
       });
-
-      const inserted = await insertWorkEvent(client, workEvent, contentHash);
-      if (!inserted) {
-        await rollback(client);
-        transactionOpen = false;
-        return { status: 'conflict', reason: 'work_event_content_conflict' };
-      }
-      await afterWrite('work_event', controls);
 
       if (await persistTimeEntryMutation(client, decision)) {
         await afterWrite('time_entry', controls);
@@ -1370,6 +1423,7 @@ function isEscalationReason(value: string | null): value is BusinessEngineEscala
     'previous_work_event_organization_mismatch',
     'previous_work_event_user_mismatch',
     'previous_work_event_target_mismatch',
+    'work_location_unavailable',
     'administration_stopped',
     'previous_work_event_subject_mismatch',
     'active_break_organization_mismatch',

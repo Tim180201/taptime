@@ -13,6 +13,7 @@ import { breakIntervalStopped } from '../domain/events/BreakIntervalStopped';
 import type { BusinessEngineDecision, BusinessEngineEscalationReason } from './BusinessEngineDecision';
 
 export interface BusinessEngineEvaluationContext {
+  readonly workLocationUnavailable?: boolean;
   readonly administrationStoppedBeforeTrigger?: boolean;
   readonly activeTimeEntryForUser: StartedTimeEntry | null;
   readonly activeBreakIntervalForUser?: StartedBreakInterval | null;
@@ -38,6 +39,10 @@ export class BusinessEngine {
   ) {}
 
   evaluate(workEvent: WorkEvent, context: BusinessEngineEvaluationContext): BusinessEngineDecision {
+    if (context.workLocationUnavailable) {
+      return { status: 'escalation_required', reason: 'work_location_unavailable', workEvent };
+    }
+
     if (context.administrationStoppedBeforeTrigger && workEventTriggerType(workEvent) !== 'administration') {
       return { status: 'escalation_required', reason: 'administration_stopped', workEvent };
     }

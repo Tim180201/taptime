@@ -212,7 +212,8 @@ function parseManualTriggerResponse(
     ) return { status: 'unavailable' };
     return {
       status: 'accepted',
-      outcome: value.decision.status as Extract<
+      outcome: (value.decision.status === 'escalation_required' && value.decision.reason === 'work_location_unavailable'
+        ? 'work_location_unavailable' : value.decision.status) as Extract<
         ManualTriggerResult,
         { status: 'accepted' }
       >['outcome'],

@@ -12,7 +12,7 @@ const messages = {
   escalation_required: 'Das Ereignis erfordert eine Prüfung. Es wurde keine neue Arbeitszeit bestätigt.',
 } as const;
 export type ManualResult =
-  | {readonly status:'synchronized'; readonly decision:keyof typeof messages}
+  | {readonly status:'synchronized'; readonly decision:keyof typeof messages; readonly reason?:'work_location_unavailable'}
   | {readonly status:'deferred';readonly evidenceStored:boolean};
 const object=(value:unknown):value is Record<string,unknown>=>typeof value === 'object' && value !== null && !Array.isArray(value);
 const exact=(value:Record<string,unknown>,keys:readonly string[])=>Object.keys(value).sort().join(',') === [...keys].sort().join(',');
@@ -44,9 +44,10 @@ export function parseManualResult(value:unknown,request:ManualLifecycleRequest |
   const status=decision.status as keyof typeof messages;
   if (!exact(decision,['status',...fields[status]]) || !fields[status].every(key=>key === 'reason'
     ? typeof decision[key] === 'string' && decision[key].length > 0 : uuid(decision[key]))) return null;
-  return {status:'synchronized',decision:status};
+  return {status:'synchronized',decision:status, ...(status==='escalation_required' && decision.reason==='work_location_unavailable' ? {reason:'work_location_unavailable' as const} : {})};
 }
 export function manualResultMessage(result:ManualResult):string {
+  if(result.status==='synchronized' && result.reason==='work_location_unavailable') return 'Das Arbeitsziel ist keinem für Sie berechtigten Standort zugeordnet. Ihre Arbeitszeit bleibt unverändert; bitten Sie die Verwaltung um Prüfung.';
   return result.status === 'synchronized' ? messages[result.decision] : result.evidenceStored
     ? 'Ihre Erfassung ist gespeichert und wird noch verarbeitet. Fragen Sie die Bestätigung erneut ab.'
     : 'Die Erfassung wurde nicht gespeichert, weil das Arbeitsziel nicht verfügbar ist. Laden Sie die Ziele erneut.';

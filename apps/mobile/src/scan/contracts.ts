@@ -25,6 +25,7 @@ export type ProductScanOutcome =
   | { readonly status: 'active_entry_for_other_target_rejected' }
   | { readonly status: 'break_without_active_time_entry_rejected' }
   | { readonly status: 'work_trigger_during_break_rejected' }
+  | { readonly status: 'work_location_unavailable' }
   | { readonly status: 'escalation_required' }
   | { readonly status: 'server_review_pending' }
   | { readonly status: 'session_rejected' }

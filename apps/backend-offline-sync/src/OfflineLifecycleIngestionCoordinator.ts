@@ -2,6 +2,7 @@ import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
+  workEventLocationUnavailable,
   B3_CONTENT_HASH_ALGORITHM,
   B3_CONTENT_HASH_VERSION,
   DA5_CONTENT_HASH_VERSION,
@@ -424,9 +425,10 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       const workEvent = authoritativeWorkEvent(request.command, actor, lease);
       const workEventHash = workEventHashForVersion(workEvent, request.command.provenanceVersion);
 
+      await persistWorkEvent(client, workEvent, workEventHash);
+      const locationUnavailable = await workEventLocationUnavailable(client, workEvent.organizationId, workEvent.id);
       let result: LogicalDurableResult;
-      if (reviewReason !== null) {
-        await persistWorkEvent(client, workEvent, workEventHash);
+      if (reviewReason !== null && !locationUnavailable) {
         await persistReceipt(client, request.command, workEvent, 'received', null);
         await persistAudit(client, request.command, workEvent, 'OfflineLifecycleReviewStored', {
           status: 'review_pending',
@@ -455,6 +457,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         const activeBreak = await findActiveBreak(client, actor, activeTimeEntry);
         const previousWorkEvent = await findPreviousCanonicalWorkEvent(client, workEvent);
         const decision = this.businessEngine.evaluate(workEvent, {
+          workLocationUnavailable: locationUnavailable,
           administrationStoppedBeforeTrigger: (await client.query(
           'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
           [workEvent.occurredAt],
@@ -463,7 +466,6 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
           activeBreakIntervalForUser: activeBreak,
           previousAcceptedWorkEventForUserAndTarget: previousWorkEvent,
         });
-        await persistWorkEvent(client, workEvent, workEventHash);
         await persistTimeEntryMutation(client, decision);
         await persistBreakMutation(client, decision);
         await persistDecision(client, workEvent, decision);

@@ -2,6 +2,7 @@ export type TimeRecordSource = 'canonical' | 'recovered';
 export type TimeRecordStatus = 'started' | 'stopped';
 export type ReviewItemSource = 'offline_v2' | 'server_legacy';
 export type TimeReviewReason =
+  | 'work_location_unavailable'
   | 'administration_stopped'
   | 'identity_or_membership_not_current'
   | 'capture_time_out_of_bounds'

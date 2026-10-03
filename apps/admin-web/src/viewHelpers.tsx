@@ -14,6 +14,7 @@ export function reviewReasonLabel(value: string): string {
     previous_work_event_organization_mismatch: 'Vorherige Erfassung gehört zu einem anderen Betrieb',
     previous_work_event_user_mismatch: 'Vorherige Erfassung gehört zu einer anderen Person',
     previous_work_event_target_mismatch: 'Vorherige Erfassung gehört zu einem anderen Ziel',
+    work_location_unavailable: 'Arbeitsziel keinem berechtigten Standort zugeordnet',
     administration_stopped: 'Zeit wurde von der Verwaltung beendet',
     work_event_precedes_active_time_entry: 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit',
     work_event_precedes_previous_accepted_work_event: 'Erfassung liegt vor der vorherigen bestätigten Erfassung',

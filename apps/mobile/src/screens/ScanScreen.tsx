@@ -237,6 +237,8 @@ function presentOutcome(
       return { title: 'Keine Arbeitszeit aktiv', message: 'Deine Zeiten bleiben unverändert. Starte zuerst eine Arbeitszeit, um eine Pause zu erfassen.', tone: 'warning' };
     case 'work_trigger_during_break_rejected':
       return { title: 'Pause ist aktiv', message: 'Dein Arbeitsziel bleibt unverändert. Beende die Pause über den Pausen-Tag oder die Pausentaste.', tone: 'warning' };
+    case 'work_location_unavailable':
+      return { title: 'Arbeitsziel nicht verfügbar', message: 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.', tone: 'warning' };
     case 'escalation_required':
       return { title: 'Prüfung erforderlich', message: 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, den Scan zu prüfen.', tone: 'warning' };
     case 'server_review_pending':

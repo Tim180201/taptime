@@ -1,5 +1,7 @@
 import { validateClosedPageRequest, validateWorkTargetResponse, type MobileWorkTargetQueryResponse, type SafeWorkTarget, validateOwnTimeResponse, type SafeOwnTimeRecord, type MobileOwnTimeQueryResponse } from './index.js';
 
+// v3 additionally understands work_location_unavailable; response fields are unchanged.
+export const TIME_DETAILS_ACCEPT_V3 = 'application/vnd.taptime.time-details.v3+json';
 export const TIME_DETAILS_ACCEPT = 'application/vnd.taptime.time-details.v2+json';
 export interface TimeRecordDetails {
   readonly administrationStop?: { readonly at: string; readonly reason: string };

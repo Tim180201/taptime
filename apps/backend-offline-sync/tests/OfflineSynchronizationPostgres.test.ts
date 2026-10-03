@@ -3,12 +3,21 @@ import { createServer, type Server } from 'node:http';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
 import {
+  ManualLifecycleIngestionCoordinator,
   ServerCanonicalLifecycleIngestionCoordinator,
   type LifecycleArchiveDurabilityPort,
   type LifecycleIngestionCommand,
 } from '@taptime/backend-lifecycle';
+import { AdminWriteSessionCoordinator } from '@taptime/backend-administration';
+import { ProjectAdministrationCoordinator } from '@taptime/backend-mobile-work';
+import { TimeReviewCoordinator, TimeSupplementCoordinator } from '@taptime/backend-time-review';
 import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '@taptime/backend-schema';
 import {
+  GeneralWorkTargetId,
+  ProjectId,
+  generalWorkTarget,
+  projectWorkTarget,
+  MembershipId,
   CustomerId,
   NfcAssignmentId,
   NfcTagId,
@@ -88,8 +97,8 @@ const archivedLifecycleDurability: LifecycleArchiveDurabilityPort = {
 };
 const verifier: AccessTokenVerifier = {
   async verify(accessToken) {
-    return accessToken === 'valid'
-      ? { status: 'verified', identity: { issuer, subject } }
+    return accessToken === 'valid' || accessToken.startsWith('t091:')
+      ? { status: 'verified', identity: { issuer, subject: accessToken.startsWith('t091:') ? accessToken : subject } }
       : { status: 'rejected', reason: 'invalid_signature' };
   },
 };
@@ -122,6 +131,11 @@ beforeAll(async () => {
   await ensureLogin(canonicalLogin, [
     'taptime_identity_resolver',
     'taptime_server_lifecycle',
+    'taptime_mobile_target_reader',
+    'taptime_time_review_writer',
+    'taptime_time_review_reader',
+    'taptime_admin_setup',
+    'taptime_project_administrator',
   ]);
   leasePool = new Pool({
     connectionString: runtimeConnectionString(leaseLogin),
@@ -1883,4 +1897,318 @@ it('T-069 reviews a late offline trigger and lets the following trigger start an
       .toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
     expect((await installerPool.query('SELECT status FROM taptime_server.time_entries ORDER BY started_at')).rows).toEqual([{status:'stopped'},{status:'started'}]);
   } finally {await adminPool.end();}
+});
+
+
+// T-091: the pilot's normal setup, through the actual v4 ingestion and role boundaries.
+const t091Locations = [randomUUID(), randomUUID()];
+const t091People = ['employee', 'standortleitung', 'employee', 'standortleitung', 'administrator']
+  .map((role, index) => ({ user: randomUUID(), membership: randomUUID(), role,
+    location: t091Locations[index < 2 || index === 4 ? 0 : 1]! }));
+let t091General: string;
+let t091Targets: { targetType: 'customer' | 'project'; targetId: string; location: string }[];
+function t091Target(type: 'customer' | 'project' | 'general_work', id: string) {
+  return type==='customer'?customerAssignmentTarget(CustomerId(id)):
+    type==='project'?projectWorkTarget(ProjectId(id)):generalWorkTarget(GeneralWorkTargetId(id));
+}
+async function seedT091(bindGeneral = false): Promise<void> {
+  await installerPool.query(`INSERT INTO taptime_server.locations(id,organization_id,display_name)
+    SELECT id::uuid,$1,'Matrix '||ordinality FROM unnest($2::text[]) WITH ORDINALITY AS l(id,ordinality)`,
+    [ids.organization,t091Locations]);
+  // The pre-existing synthetic employee belongs to A as well.
+  await installerPool.query(`INSERT INTO taptime_server.membership_home_location_assignments
+    (id,organization_id,membership_id,location_id) VALUES($1,$2,$3,$4)`,
+    [randomUUID(),ids.organization,ids.membership,t091Locations[0]]);
+  for (const person of t091People) {
+    await installerPool.query('INSERT INTO taptime_server.users(id) VALUES($1)',[person.user]);
+    await installerPool.query(`INSERT INTO taptime_server.identity_bindings(id,user_id,issuer,subject)
+      VALUES($1,$2,$3,$4)`,[randomUUID(),person.user,issuer,`t091:${person.user}`]);
+    await installerPool.query(`INSERT INTO taptime_server.memberships
+      (id,organization_id,user_id,role,created_by_user_id,display_name)
+      VALUES($1,$2,$3,$4,$3,$4)`,[person.membership,ids.organization,person.user,person.role]);
+    await installerPool.query(`INSERT INTO taptime_server.membership_home_location_assignments
+      (id,organization_id,membership_id,location_id) VALUES($1,$2,$3,$4)`,
+      [randomUUID(),ids.organization,person.membership,person.location]);
+    if (person.role==='standortleitung') await installerPool.query(`INSERT INTO
+      taptime_server.membership_management_location_grants(id,organization_id,membership_id,location_id)
+      VALUES($1,$2,$3,$4)`,[randomUUID(),ids.organization,person.membership,person.location]);
+  }
+  t091Targets=[];
+  for (const location of t091Locations) for (const targetType of ['customer','project'] as const) {
+    const targetId=randomUUID();
+    await installerPool.query(`INSERT INTO taptime_server.${targetType==='customer'?'customers':'projects'}
+      (id,organization_id,display_name,active) VALUES($1,$2,$3,true)`,[targetId,ids.organization,`${targetType} ${location}`]);
+    t091Targets.push({targetType,targetId,location});
+  }
+  t091Targets.push({targetType:'customer',targetId:ids.customer,location:t091Locations[0]!});
+  for (const target of t091Targets) await installerPool.query(`INSERT INTO
+    taptime_server.work_target_location_assignments(id,organization_id,target_type,target_id,location_id)
+    VALUES($1,$2,$3,$4,$5)`,[randomUUID(),ids.organization,target.targetType,target.targetId,target.location]);
+  const pauseTag=randomUUID();
+  await installerPool.query(`INSERT INTO taptime_server.nfc_tags(id,organization_id,display_name,payload_value)
+    VALUES($1,$2,'Pause','nfc:uid:v1:04AABBEE')`,[pauseTag,ids.organization]);
+  await installerPool.query(`INSERT INTO taptime_server.nfc_assignments
+    (id,organization_id,nfc_tag_id,assignment_type,target_type,target_customer_id,active,valid_from)
+    VALUES($1,$2,$3,'break',NULL,NULL,true,'2026-07-18T00:00:00Z')`,[randomUUID(),ids.organization,pauseTag]);
+  t091General=(await installerPool.query(`SELECT target_id FROM taptime_server.work_targets
+    WHERE organization_id=$1 AND target_type='general_work'`,[ids.organization])).rows[0].target_id;
+  if (bindGeneral) await installerPool.query(`INSERT INTO taptime_server.work_target_location_assignments
+    (id,organization_id,target_type,target_id,location_id) VALUES($1,$2,'general_work',$3,$4)`,
+    [randomUUID(),ids.organization,t091General,t091Locations[1]]);
+  await installerPool.query('UPDATE taptime_server.organizations SET locations_enabled=true,row_version=row_version+1 WHERE id=$1',[ids.organization]);
+}
+async function t091Lease(person: typeof t091People[number]) {
+  const result=await leaseCoordinator.issueV3({accessToken:`t091:${person.user}`,command:{
+    commandId:randomUUID(),installationBinding:Buffer.from(person.user.replaceAll('-','').padEnd(64,'0'),'hex').toString('base64url'),lookupKey}});
+  if(result.status!=='ready') throw new Error(`T091 lease ${result.status}`);
+  return result.page;
+}
+async function t091Event(lease: OfflineCaptureLeasePageV3, person: typeof t091People[number],
+  item: OfflineCaptureLeasePageV3['items'][number], sequence: number) {
+  const command=eventCommandV3(lease,item,randomUUID(),randomUUID(),sequence,
+    new Date(Date.parse(lease.issuedAt)+sequence*10_000).toISOString());
+  const actual={...command,expectedMembershipId:person.membership,installationBinding:Buffer.from(person.user.replaceAll('-','').padEnd(64,'0'),'hex').toString('base64url')};
+  const result=await eventCoordinator.ingest({accessToken:`t091:${person.user}`,command:actual});
+  const stored=(await installerPool.query(`SELECT accepted_work_location_id FROM taptime_server.work_events
+    WHERE id=$1`,[command.workEvent.id])).rows[0];
+  return {result,stored,command:actual};
+}
+describe('T-091 Standortmodus',()=>{
+  it('completeness excludes unbound General Work',async()=>{
+    await seedT091();
+    expect((await installerPool.query('SELECT taptime_server.location_setup_is_complete_v1($1) AS complete',
+      [ids.organization])).rows[0].complete).toBe(true);
+  });
+  it('leases for every role match their online targets, include general and breaks, exclude foreign targets and tags',async()=>{
+    await seedT091(true);
+    for(const person of t091People){
+      const lease=await t091Lease(person);
+      const targets=lease.items.filter(i=>i.itemType==='manual_target').map(i=>i.targetId).sort();
+      expect(targets).toEqual([...t091Targets.filter(t=>t.location===person.location).map(t=>t.targetId),t091General].sort());
+      expect(lease.items.some(i=>i.itemType==='manual_break')).toBe(true);
+      expect(lease.items.some(i=>i.itemType==='nfc_assignment'&&i.subjectType==='break')).toBe(true);
+      expect(lease.items.some(i=>i.itemType==='nfc_assignment'&&i.subjectType==='work'&&i.targetId===ids.customer)).toBe(person.location===t091Locations[0]);
+      const client=await canonicalPool.connect();
+      try{
+        await client.query('BEGIN');
+        await client.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),
+          set_config('app.membership_id',$3,true),set_config('app.membership_role',$4,true)`,
+          [ids.organization,person.user,person.membership,person.role]);
+        await client.query('SET LOCAL ROLE taptime_mobile_target_reader');
+        const online=await client.query(`SELECT * FROM taptime_server.read_mobile_work_targets_v1($1,$2,$3,NULL,NULL,NULL,51)`,
+          [ids.organization,person.user,person.membership]);
+        expect(online.rows.map(t=>t.target_id).sort()).toEqual(targets);
+        await client.query('ROLLBACK');
+      }finally{client.release();}
+    }
+  });
+  it.each(['customer','project','general_work'] as const)('v4 start, pause, resume and stop for %s retain accepted location',async(targetType)=>{
+    await seedT091(true);
+    const person=t091People[0]!;const lease=await t091Lease(person);
+    const item=lease.items.find(i=>i.itemType==='manual_target'&&i.targetType===targetType)!;
+    const pause=lease.items.find(i=>i.itemType==='manual_break')!;
+    for(const [index,selected,status] of [[1,item,'time_entry_started'],[2,pause,'break_started'],
+      [3,pause,'break_stopped'],[4,item,'time_entry_stopped']] as const){
+      const {result,stored}=await t091Event(lease,person,selected,index);
+      expect(result).toMatchObject({status:'synchronized',decision:{status}});
+      expect(stored.accepted_work_location_id).toBe(person.location);
+    }
+  });
+  it('v4 pause without active time is a durable rejection and the next FIFO item proceeds',async()=>{
+    await seedT091(true);const person=t091People[0]!;const lease=await t091Lease(person);
+    const first=await t091Event(lease,person,lease.items.find(i=>i.itemType==='manual_break')!,1);
+    expect(first.result).toMatchObject({status:'synchronized',decision:{status:'break_without_active_time_entry_rejected'}});
+    expect(first.stored.accepted_work_location_id).toBeNull();
+    const next=await t091Event(lease,person,lease.items.find(i=>i.itemType==='manual_target')!,2);
+    expect(next.result).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+  });
+  it('v4 legacy foreign tag becomes a durable review case, exact retry works and FIFO advances',async()=>{
+    await seedT091(true);const person=t091People[2]!;
+    await installerPool.query('UPDATE taptime_server.organizations SET locations_enabled=false,row_version=row_version+1 WHERE id=$1',[ids.organization]);
+    const lease=await t091Lease(person);
+    await installerPool.query('UPDATE taptime_server.organizations SET locations_enabled=true,row_version=row_version+1 WHERE id=$1',[ids.organization]);
+    const item=lease.items.find(i=>i.itemType==='nfc_assignment'&&i.subjectType==='work'&&i.targetId===ids.customer)!;
+    const first=await t091Event(lease,person,item,1);
+    expect(first.result).toMatchObject({status:'synchronized',decision:{status:'escalation_required',reason:'work_location_unavailable'}});
+    expect(first.stored.accepted_work_location_id).toBeNull();
+    expect(await eventCoordinator.ingest({accessToken:`t091:${person.user}`,command:first.command})).toMatchObject({idempotentRetry:true});
+    expect((await t091Event(lease,person,lease.items.find(i=>i.itemType==='manual_break')!,2)).stored).toBeDefined();
+  });
+  it('v4 revoked and rebound target becomes a review case',async()=>{
+    await seedT091(true);const person=t091People[0]!;const lease=await t091Lease(person);
+    const item=lease.items.find((i):i is Extract<typeof i,{itemType:'manual_target'}>=>i.itemType==='manual_target'&&i.targetType==='customer')!;
+    const rebind=await installerPool.connect();
+    try {await rebind.query('BEGIN');
+      await rebind.query(`UPDATE taptime_server.work_target_location_assignments SET revoked_at=clock_timestamp()
+        WHERE organization_id=$1 AND target_id=$2`,[ids.organization,item.targetId]);
+      await rebind.query(`INSERT INTO taptime_server.work_target_location_assignments
+        (id,organization_id,target_type,target_id,location_id) VALUES($1,$2,'customer',$3,$4)`,
+        [randomUUID(),ids.organization,item.targetId,t091Locations[1]]);
+      await rebind.query('COMMIT');
+    }finally{rebind.release();}
+    const rejected=await t091Event(lease,person,item,1);
+    expect(rejected.result).toMatchObject({status:'synchronized',decision:{status:'escalation_required',reason:'work_location_unavailable'}});
+    expect(rejected.stored.accepted_work_location_id).toBeNull();
+  });
+  it.each(['employee','standortleitung','administrator'])('General Work backfill by %s needs no binding',async(role)=>{
+    await seedT091();const person=t091People.find(p=>p.role===role)!;
+    const coordinator=new TimeSupplementCoordinator(canonicalPool,verifier);
+    const start=new Date(Date.now()-3_600_000).toISOString(),stop=new Date(Date.now()-1_800_000).toISOString();
+    expect(await coordinator.execute(`t091:${person.user}`,'backfill',{
+      expectedMembershipId:person.membership,commandId:randomUUID(),
+      targetMembershipId:role==='employee'?person.membership:t091People[0]!.membership,
+      targetType:'general_work',targetId:t091General,startedAt:start,stoppedAt:stop,reason:'Matrix',comment:null
+    })).toMatchObject({status:'committed'});
+  });
+
+  it.each(['customer','project','general_work'] as const)('online manual %s starts, pauses, resumes and stops with stored location',async(targetType)=>{
+    await seedT091(true);const person=t091People[0]!;
+    const coordinator=new ManualLifecycleIngestionCoordinator(canonicalPool,verifier,archivedLifecycleDurability);
+    const targetId=targetType==='general_work'?t091General:t091Targets.find(t=>t.targetType===targetType&&t.location===person.location)!.targetId;
+    // Manual capture uses the server clock; wait past the engine duplicate window for repeated subjects.
+    for(const [index,subject,status] of [[0,'work','time_entry_started'],[1,'break','break_started'],
+      [2,'break','break_stopped'],[3,'work','time_entry_stopped']] as const){
+      if(index===2 || index===3) await new Promise(resolve=>setTimeout(resolve,5100));
+      const base={accessToken:`t091:${person.user}`,expectedMembershipId:MembershipId(person.membership),
+        receipt:{id:randomUUID(),attemptNumber:1 as const}};
+      const id=randomUUID();
+      const result=subject==='work'
+        ? await coordinator.ingestManual({...base,workEvent:{id:WorkEventId(id),target:t091Target(targetType,targetId)}})
+        : await coordinator.ingestManualBreak({...base,workEvent:{id:WorkEventId(id),subject:{type:'break'}}});
+      expect(result).toMatchObject({status:'synchronized',decision:{status}});
+      expect((await installerPool.query('SELECT accepted_work_location_id FROM taptime_server.work_events WHERE id=$1',[id])).rows[0].accepted_work_location_id).toBe(person.location);
+    }
+  },15000);
+  it('online foreign target and pause without running time are durable visible decisions',async()=>{
+    await seedT091();const person=t091People[0]!;
+    const coordinator=new ManualLifecycleIngestionCoordinator(canonicalPool,verifier,archivedLifecycleDurability);
+    const base={accessToken:`t091:${person.user}`,expectedMembershipId:MembershipId(person.membership),
+      receipt:{id:randomUUID(),attemptNumber:1 as const}};
+    expect(await coordinator.ingestManualBreak({...base,workEvent:{id:WorkEventId(randomUUID()),subject:{type:'break'}}}))
+      .toMatchObject({status:'synchronized',decision:{status:'break_without_active_time_entry_rejected'}});
+    const foreign=t091Targets.find(t=>t.location!==person.location)!;
+    expect(await coordinator.ingestManual({...base,receipt:{id:randomUUID(),attemptNumber:1},
+      workEvent:{id:WorkEventId(randomUUID()),target:t091Target(foreign.targetType,foreign.targetId)}}))
+      .toMatchObject({status:'synchronized',decision:{status:'escalation_required',reason:'work_location_unavailable'}});
+  });
+  it('offline historical foreign target is recorded as the specific location review reason',async()=>{
+    await seedT091(true);const person=t091People[2]!;
+    await installerPool.query('UPDATE taptime_server.organizations SET locations_enabled=false,row_version=row_version+1 WHERE id=$1',[ids.organization]);
+    const lease=await t091Lease(person);
+    await installerPool.query('UPDATE taptime_server.organizations SET locations_enabled=true,row_version=row_version+1 WHERE id=$1',[ids.organization]);
+    const item=lease.items.find(i=>i.itemType==='nfc_assignment'&&i.subjectType==='work'&&i.targetId===ids.customer)!;
+    const first=eventCommandV3(lease,item,randomUUID(),randomUUID(),1,lease.issuedAt);
+    const command={...first,expectedMembershipId:person.membership,
+      installationBinding:Buffer.from(person.user.replaceAll('-','').padEnd(64,'0'),'hex').toString('base64url'),
+      clock:{...first.clock,clockProofStatus:'review_only' as const}};
+    expect(await eventCoordinator.ingest({accessToken:`t091:${person.user}`,command}))
+      .toMatchObject({status:'synchronized',decision:{status:'escalation_required',reason:'work_location_unavailable'}});
+    const manager=t091People[3]!;
+    const review=new TimeReviewCoordinator(canonicalPool,canonicalPool,verifier);
+    const page=await review.queryReviewItemsV2({accessToken:`t091:${manager.user}`,
+      request:{expectedMembershipId:manager.membership,limit:100,cursor:null}});
+    expect(page).toMatchObject({status:'ready',value:{items:expect.arrayContaining([
+      expect.objectContaining({reviewItemId:first.workEvent.id,reviewReason:'work_location_unavailable'})])}});
+  });
+  it('customer and project creation in the same five-person enabled setup is atomic and replayable',async()=>{
+    await seedT091();const admin=t091People[4]!,manager=t091People[1]!;
+    const customer=new AdminWriteSessionCoordinator(canonicalPool,verifier);
+    const command={accessToken:`t091:${manager.user}`,expectedMembershipId:MembershipId(manager.membership),
+      commandId:randomUUID(),displayName:'Matrix new customer',locationId:manager.location};
+    const result=await customer.createCustomer(command);
+    expect(result).toMatchObject({status:'succeeded'});
+    expect(await customer.createCustomer(command)).toMatchObject({status:'succeeded',idempotentRetry:true});
+    const project=new ProjectAdministrationCoordinator(canonicalPool,verifier);
+    const projectId=randomUUID(),projectCommand={accessToken:`t091:${admin.user}`,request:{
+      expectedMembershipId:admin.membership,commandId:randomUUID(),projectId,displayName:'Matrix new project',locationId:t091Locations[1]}};
+    expect(await project.createProject(projectCommand)).toMatchObject({status:'succeeded'});
+    expect(await project.createProject(projectCommand)).toMatchObject({status:'succeeded',idempotentRetry:true});
+    expect((await installerPool.query(`SELECT location_id FROM taptime_server.work_target_location_assignments
+      WHERE target_id=$1 AND revoked_at IS NULL`,[projectId])).rows).toEqual([{location_id:t091Locations[1]}]);
+    expect((await installerPool.query('SELECT taptime_server.location_setup_is_complete_v1($1) AS complete',[ids.organization])).rows[0].complete).toBe(true);
+  });
+  it('additional work grants extend the lease but never management authority',async()=>{
+    await seedT091();const person=t091People[0]!;
+    await installerPool.query(`INSERT INTO taptime_server.membership_work_location_grants
+      (id,organization_id,membership_id,location_id) VALUES($1,$2,$3,$4)`,
+      [randomUUID(),ids.organization,person.membership,t091Locations[1]]);
+    const lease=await t091Lease(person);
+    expect(lease.items.filter(i=>i.itemType==='manual_target').map(i=>i.targetId).sort())
+      .toEqual([...t091Targets.map(t=>t.targetId),t091General].sort());
+    const target=lease.items.find(i=>i.itemType==='manual_target'&&i.targetType==='project'&&
+      i.targetId===t091Targets.find(t=>t.targetType==='project'&&t.location!==person.location)!.targetId)!;
+    expect((await t091Event(lease,person,target,1)).stored.accepted_work_location_id).toBe(t091Locations[1]);
+  });
+  it('stop and pause retain the running location after the binding moves to another site',async()=>{
+    await seedT091();const person=t091People[0]!;const lease=await t091Lease(person);
+    const item=lease.items.find((i):i is Extract<typeof i,{itemType:'manual_target'}>=>i.itemType==='manual_target'&&i.targetType==='customer')!;
+    expect((await t091Event(lease,person,item,1)).result).toMatchObject({decision:{status:'time_entry_started'}});
+    const c=await installerPool.connect();
+    try{await c.query('BEGIN');
+      await c.query(`UPDATE taptime_server.work_target_location_assignments SET revoked_at=clock_timestamp()
+        WHERE organization_id=$1 AND target_id=$2`,[ids.organization,item.targetId]);
+      await c.query(`INSERT INTO taptime_server.work_target_location_assignments
+        (id,organization_id,target_type,target_id,location_id) VALUES($1,$2,'customer',$3,$4)`,
+        [randomUUID(),ids.organization,item.targetId,t091Locations[1]]);
+      await c.query('COMMIT');
+    }finally{c.release();}
+    const pause=lease.items.find(i=>i.itemType==='nfc_assignment'&&i.subjectType==='break')!;
+    for(const [sequence,selected,status] of [[2,pause,'break_started'],[3,pause,'break_stopped'],[4,item,'time_entry_stopped']] as const){
+      const event=await t091Event(lease,person,selected,sequence);
+      expect(event.result).toMatchObject({decision:{status}});
+      expect(event.stored.accepted_work_location_id).toBe(person.location);
+    }
+  });
+  it('unresolvable legacy binding is preserved as NULL evidence and gets a review decision',async()=>{
+    await seedT091();const person=t091People[0]!;const lease=await t091Lease(person);
+    const item=lease.items.find((i):i is Extract<typeof i,{itemType:'manual_target'}>=>i.itemType==='manual_target'&&i.targetType==='customer')!;
+    // Explicit synthetic corruption: normal administration cannot violate completeness.
+    await installerPool.query('ALTER TABLE taptime_server.work_target_location_assignments DISABLE TRIGGER work_target_locations_enabled_location_setup');
+    try{await installerPool.query(`UPDATE taptime_server.work_target_location_assignments SET revoked_at=clock_timestamp()
+      WHERE organization_id=$1 AND target_id=$2`,[ids.organization,item.targetId]);}
+    finally{await installerPool.query('ALTER TABLE taptime_server.work_target_location_assignments ENABLE TRIGGER work_target_locations_enabled_location_setup');}
+    const event=await t091Event(lease,person,item,1);
+    expect(event.result).toMatchObject({decision:{status:'escalation_required',reason:'work_location_unavailable'}});
+    expect(event.stored.accepted_work_location_id).toBeNull();
+  });
+  it('General Work with no home retains a legitimate NULL without a location escalation',async()=>{
+    await seedT091();const person=t091People[0]!;const lease=await t091Lease(person);
+    await installerPool.query('ALTER TABLE taptime_server.membership_home_location_assignments DISABLE TRIGGER membership_home_locations_enabled_location_setup');
+    try{await installerPool.query(`UPDATE taptime_server.membership_home_location_assignments SET revoked_at=clock_timestamp()
+      WHERE organization_id=$1 AND membership_id=$2`,[ids.organization,person.membership]);}
+    finally{await installerPool.query('ALTER TABLE taptime_server.membership_home_location_assignments ENABLE TRIGGER membership_home_locations_enabled_location_setup');}
+    const item=lease.items.find(i=>i.itemType==='manual_target'&&i.targetType==='general_work')!;
+    const event=await t091Event(lease,person,item,1);
+    expect(event.result).toMatchObject({decision:{status:'time_entry_started'}});
+    expect(event.stored.accepted_work_location_id).toBeNull();
+  });
+
+  it.each(['canonical','historical','deferred'] as const)('foreign online NFC in %s path preserves evidence and the precise review reason',async(mode)=>{
+    await seedT091();const person=t091People[2]!;
+    const coordinator=new ServerCanonicalLifecycleIngestionCoordinator(canonicalPool,verifier as SupabaseJwtAccessTokenVerifier,archivedLifecycleDurability);
+    const command:LifecycleIngestionCommand={accessToken:`t091:${person.user}`,requestedOrganizationId:OrganizationId(ids.organization),
+      workEvent:{id:WorkEventId(randomUUID()),assignmentId:NfcAssignmentId(ids.assignment),nfcTagId:NfcTagId(ids.tag),
+        target:customerAssignmentTarget(CustomerId(ids.customer)),occurredAt:createTimestamp(new Date(Date.now()-(mode==='historical'?90_000_000:0)).toISOString())},
+      receipt:{id:randomUUID(),attemptNumber:1}};
+    const result=mode==='deferred'?await coordinator.ingestDeferred(command,MembershipId(person.membership)):await coordinator.ingest(command);
+    expect(result).toMatchObject(mode==='deferred'?{status:'deferred',evidenceStored:true}:
+      {status:'synchronized',decision:{status:'escalation_required',reason:'work_location_unavailable'}});
+    expect((await installerPool.query('SELECT accepted_work_location_id FROM taptime_server.work_events WHERE id=$1',[command.workEvent.id])).rows[0].accepted_work_location_id).toBeNull();
+    expect((await installerPool.query('SELECT reason FROM taptime_server.canonical_decisions WHERE work_event_id=$1',[command.workEvent.id])).rows[0].reason).toBe('work_location_unavailable');
+    expect(mode==='deferred'?await coordinator.ingestDeferred(command,MembershipId(person.membership)):await coordinator.ingest(command)).toMatchObject({idempotentRetry:true});
+  });
+  it('legacy lease v1 and v2 issuance applies the same person scope as v3',async()=>{
+    await seedT091();
+    for(const person of t091People){
+      const captureBinding=Buffer.from(person.user.replaceAll('-','').padEnd(64,'0'),'hex').toString('base64url');
+      const v1=await leaseCoordinator.issue({accessToken:`t091:${person.user}`,command:{commandId:randomUUID(),installationBinding:captureBinding,lookupKey}});
+      expect(v1).toMatchObject({status:'ready'});
+      if(v1.status==='ready') expect(v1.page.items.map(i=>i.targetId)).toEqual(person.location===t091Locations[0]?[ids.customer]:[]);
+      const v2=await leaseCoordinator.issueV2({accessToken:`t091:${person.user}`,command:{commandId:randomUUID(),installationBinding:captureBinding,lookupKey}});
+      expect(v2).toMatchObject({status:'ready'});
+      if(v2.status==='ready') expect(v2.page.items.filter(i=>i.itemType==='manual_target').map(i=>i.targetId).sort())
+        .toEqual([...t091Targets.filter(t=>t.location===person.location).map(t=>t.targetId),t091General].sort());
+    }
+  });
+
 });

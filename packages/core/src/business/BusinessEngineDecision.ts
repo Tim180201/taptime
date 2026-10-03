@@ -8,6 +8,7 @@ import type { BreakIntervalStarted } from '../domain/events/BreakIntervalStarted
 import type { BreakIntervalStopped } from '../domain/events/BreakIntervalStopped';
 
 export type BusinessEngineEscalationReason =
+  | 'work_location_unavailable'
   | 'administration_stopped'
   | 'active_time_entry_organization_mismatch'
   | 'active_time_entry_user_mismatch'

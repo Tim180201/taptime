@@ -116,6 +116,7 @@ export type ManualOfflineAcknowledgement =
         | 'break_stopped'
         | 'break_without_active_time_entry_rejected'
         | 'work_trigger_during_break_rejected'
+        | 'work_location_unavailable'
         | 'escalation_required';
     };
 
@@ -1490,7 +1491,7 @@ function decisionOutcome(decision: OfflineCanonicalDecision): ProductScanOutcome
     case 'work_trigger_during_break_rejected':
       return { status: 'work_trigger_during_break_rejected' };
     case 'escalation_required':
-      return { status: 'escalation_required' };
+      return { status: decision.reason === 'work_location_unavailable' ? 'work_location_unavailable' : 'escalation_required' };
     default:
       return decision satisfies never;
   }

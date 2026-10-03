@@ -1,7 +1,7 @@
 import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
-import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, TIME_DETAILS_ACCEPT_V3, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -534,7 +534,7 @@ async function handleRequest(
   if (route === 'mobile_own_time') {
     response.setHeader('Vary','Accept');
     await handleMobileOwnTime(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT || request.headers.accept === TIME_CALENDAR_ACCEPT, request.headers.accept === TIME_CALENDAR_ACCEPT);
+      correlationId, timeoutMilliseconds, acceptsTimeDetails(request.headers.accept) || request.headers.accept === TIME_CALENDAR_ACCEPT, request.headers.accept === TIME_CALENDAR_ACCEPT);
     return;
   }
   if (route === 'mobile_work_targets') {
@@ -544,12 +544,12 @@ async function handleRequest(
   }
   if (route === 'manual_lifecycle') {
     await handleManualLifecycle(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT);
+      correlationId, timeoutMilliseconds, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
   if (route === 'manual_break_lifecycle') {
     await handleManualBreakLifecycle(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT);
+      correlationId, timeoutMilliseconds, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
   if (route === 'admin_project_query') {
@@ -665,8 +665,8 @@ async function handleRequest(
       async (deadlineEpochMilliseconds) => {
         const operation = dependencies.employeeEnrollment.readManagedPersonTime;
         if (!operation) throw new Error('Managed time unavailable');
-        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === TIME_DETAILS_ACCEPT || request.headers.accept === TIME_CALENDAR_ACCEPT ? {includeTimeDetails:true} : {}), ...(request.headers.accept === TIME_CALENDAR_ACCEPT ? {includeCalendarBreaks:true} : {}) }, { deadlineEpochMilliseconds });
-      }, result => result.value, request.headers.accept === TIME_DETAILS_ACCEPT || request.headers.accept === TIME_CALENDAR_ACCEPT ? TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES : undefined);
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(acceptsTimeDetails(request.headers.accept) || request.headers.accept === TIME_CALENDAR_ACCEPT ? {includeTimeDetails:true} : {}), ...(request.headers.accept === TIME_CALENDAR_ACCEPT ? {includeCalendarBreaks:true} : {}) }, { deadlineEpochMilliseconds });
+      }, result => result.value, acceptsTimeDetails(request.headers.accept) || request.headers.accept === TIME_CALENDAR_ACCEPT ? TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES : undefined);
     return;
   }
   if (route === 'admin_managed_active_summary') {
@@ -846,7 +846,7 @@ async function handleRequest(
   }
   if (route === 'admin_time_record_query_v2') {
     await handleTimeRecordQuery(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, true, request.headers.accept === TIME_DETAILS_ACCEPT);
+      correlationId, timeoutMilliseconds, true, acceptsTimeDetails(request.headers.accept));
     return;
   }
   if (route === 'admin_time_record_correction') {
@@ -950,7 +950,7 @@ async function handleRequest(
       dependencies,
       options,
       correlationId,
-      timeoutMilliseconds, 1, request.headers.accept === TIME_DETAILS_ACCEPT);
+      timeoutMilliseconds, 1, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
   if (route === 'offline_lifecycle_v2') {
@@ -962,17 +962,17 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      2, request.headers.accept === TIME_DETAILS_ACCEPT);
+      2, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
   if (route === 'offline_lifecycle_v3') {
     await handleOfflineLifecycle(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, 3, request.headers.accept === TIME_DETAILS_ACCEPT);
+      correlationId, timeoutMilliseconds, 3, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
   if (route === 'offline_lifecycle_v4') {
     await handleOfflineLifecycle(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, 4, request.headers.accept === TIME_DETAILS_ACCEPT);
+      correlationId, timeoutMilliseconds, 4, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
   if (route === 'offline_reconciliation') {
@@ -983,7 +983,7 @@ async function handleRequest(
       dependencies,
       options,
       correlationId,
-      timeoutMilliseconds, 1, request.headers.accept === TIME_DETAILS_ACCEPT);
+      timeoutMilliseconds, 1, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
   if (route === 'offline_reconciliation_v2') {
@@ -995,7 +995,7 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      2, request.headers.accept === TIME_DETAILS_ACCEPT);
+      2, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
   if (route === 'offline_review_state') {
@@ -1028,7 +1028,7 @@ async function handleRequest(
     dependencies,
     options,
     correlationId,
-    timeoutMilliseconds, request.headers.accept === TIME_DETAILS_ACCEPT);
+    timeoutMilliseconds, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
 }
 
 async function handleHealth(
@@ -1188,6 +1188,7 @@ async function handleManualLifecycle(
   correlationId: string,
   timeoutMilliseconds: number,
   includeTimeDetails = false,
+  includeLocationDecisions = false,
 ): Promise<void> {
   response.setHeader('Vary','Accept');
   if (!validateManualLifecycleRequest(body)) {
@@ -1221,9 +1222,9 @@ async function handleManualLifecycle(
       timeoutMilliseconds,
     );
     switch (result.status) {
-      case 'synchronized': respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails)); return;
-      case 'deferred': respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails)); return;
-      case 'conflict': respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails)); return;
+      case 'synchronized': respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions)); return;
+      case 'deferred': respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions)); return;
+      case 'conflict': respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions)); return;
       case 'rejected': respondError(response, 401, 'unauthorized'); return;
       default: return result satisfies never;
     }
@@ -1246,6 +1247,7 @@ async function handleManualBreakLifecycle(
   correlationId: string,
   timeoutMilliseconds: number,
   includeTimeDetails = false,
+  includeLocationDecisions = false,
 ): Promise<void> {
   response.setHeader('Vary','Accept');
   if (!validateManualBreakLifecycleRequest(body)) {
@@ -1271,9 +1273,9 @@ async function handleManualBreakLifecycle(
       timeoutMilliseconds,
     );
     switch (result.status) {
-      case 'synchronized': respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails)); return;
-      case 'deferred': respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails)); return;
-      case 'conflict': respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails)); return;
+      case 'synchronized': respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions)); return;
+      case 'deferred': respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions)); return;
+      case 'conflict': respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions)); return;
       case 'rejected': respondError(response, 401, 'unauthorized'); return;
       default: return result satisfies never;
     }
@@ -2412,6 +2414,7 @@ async function handleLifecycle(
   correlationId: string,
   timeoutMilliseconds: number,
   includeTimeDetails = false,
+  includeLocationDecisions = false,
 ): Promise<void> {
   response.setHeader('Vary','Accept');
   const command = parseLifecycleBody(accessToken, body);
@@ -2427,13 +2430,13 @@ async function handleLifecycle(
     );
     switch (result.status) {
       case 'synchronized':
-        respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails));
+        respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions));
         return;
       case 'deferred':
-        respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails));
+        respondJson(response, 202, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions));
         return;
       case 'conflict':
-        respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails));
+        respondJson(response, 409, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions));
         return;
       case 'rejected':
         respondError(response, 401, 'unauthorized');
@@ -2631,6 +2634,7 @@ async function handleOfflineLifecycle(
   timeoutMilliseconds: number,
   version: 1 | 2 | 3 | 4 = 1,
   includeTimeDetails = false,
+  includeLocationDecisions = false,
 ): Promise<void> {
   response.setHeader('Vary','Accept');
   const command = version === 4
@@ -2652,10 +2656,10 @@ async function handleOfflineLifecycle(
     const responseResult = version === 4 ? result : legacyOfflineLifecycleResult(result);
     switch (responseResult.status) {
       case 'synchronized':
-        respondJson(response, 200, negotiatedLifecycleResult(responseResult, includeTimeDetails));
+        respondJson(response, 200, negotiatedLifecycleResult(responseResult, includeTimeDetails, includeLocationDecisions));
         return;
       case 'review_pending':
-        respondJson(response, 202, negotiatedLifecycleResult(responseResult, includeTimeDetails));
+        respondJson(response, 202, negotiatedLifecycleResult(responseResult, includeTimeDetails, includeLocationDecisions));
         return;
       case 'pending':
         if (
@@ -2664,10 +2668,10 @@ async function handleOfflineLifecycle(
         ) {
           response.setHeader('Retry-After', String(responseResult.retryAfterSeconds));
         }
-        respondJson(response, 202, negotiatedLifecycleResult(responseResult, includeTimeDetails));
+        respondJson(response, 202, negotiatedLifecycleResult(responseResult, includeTimeDetails, includeLocationDecisions));
         return;
       case 'conflict':
-        respondJson(response, 409, negotiatedLifecycleResult(responseResult, includeTimeDetails));
+        respondJson(response, 409, negotiatedLifecycleResult(responseResult, includeTimeDetails, includeLocationDecisions));
         return;
       case 'authority_rejected':
         respondError(response, 401, 'unauthorized');
@@ -2705,6 +2709,7 @@ async function handleOfflineReconciliation(
   timeoutMilliseconds: number,
   version: 1 | 2 = 1,
   includeTimeDetails = false,
+  includeLocationDecisions = false,
 ): Promise<void> {
   response.setHeader('Vary','Accept');
   const command = parseOfflineReconciliationBody(body);
@@ -2723,7 +2728,7 @@ async function handleOfflineReconciliation(
     );
     switch (result.status) {
       case 'ready':
-        respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails));
+        respondJson(response, 200, negotiatedLifecycleResult(result, includeTimeDetails, includeLocationDecisions));
         return;
       case 'authority_rejected':
         respondError(response, 401, 'unauthorized');
@@ -4010,13 +4015,18 @@ function respondJson(
 
 // D-077: old closed reason enums understand this temporal escalation. Keep every
 // key/status/archive byte unchanged; the precise reason stays persisted internally.
-function negotiatedLifecycleResult<T>(value: T, includeTimeDetails: boolean): T {
-  if (includeTimeDetails) return value;
+function acceptsTimeDetails(accept: string | undefined): boolean {
+  return accept === TIME_DETAILS_ACCEPT || accept === TIME_DETAILS_ACCEPT_V3;
+}
+
+function negotiatedLifecycleResult<T>(value: T, includeTimeDetails: boolean, includeLocationDecisions = false): T {
+  if (includeTimeDetails && includeLocationDecisions) return value;
   const map = (item: unknown): unknown => {
     if (Array.isArray(item)) return item.map(map);
     if (item === null || typeof item !== 'object') return item;
     return Object.fromEntries(Object.entries(item).map(([key, value]) =>
-      [key, key === 'reason' && value === 'administration_stopped'
+      [key, key === 'reason' && ((!includeTimeDetails && value === 'administration_stopped')
+        || (!includeLocationDecisions && value === 'work_location_unavailable'))
         ? 'work_event_precedes_previous_accepted_work_event' : map(value)]));
   };
   return map(value) as T;

@@ -125,6 +125,7 @@ function outcomeLabel(outcome: NonNullable<
   if (outcome === 'work_trigger_during_break_rejected') {
     return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über den Pausen-Tag oder die Pausentaste.';
   }
+  if (outcome === 'work_location_unavailable') return 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.';
   if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';
   if (outcome === 'rejected') return 'Sitzung nicht mehr gültig';
   return 'Deine Erfassung ist gespeichert und wartet auf Verarbeitung.';

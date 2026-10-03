@@ -14,7 +14,8 @@ export type ManualTriggerOutcome =
   | 'break_stopped'
   | 'break_without_active_time_entry_rejected'
   | 'work_trigger_during_break_rejected'
-  | 'escalation_required'
+  | 'work_location_unavailable'
+        | 'escalation_required'
   | 'pending'
   | 'rejected';
 

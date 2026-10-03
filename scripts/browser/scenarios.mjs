@@ -48,6 +48,7 @@ export const adminScenarios = [
   scenario('manager-own-stop','/meine-zeiten?monat=2026-09','.calendar-grid',[click('Beenden')]),
   scenario('manager-comment','/meine-zeiten?monat=2026-09','.calendar-grid',[click('Kommentar schreiben')]),
   scenario('reviews','/pruefungen','.review-case'),
+  scenario('review-location','/pruefungen','.review-case',[async p=>p.getByText('Arbeitsziel keinem berechtigten Standort zugeordnet',{exact:true}).waitFor()]),
   ...['Als Arbeitszeit übernehmen','Korrigieren','Ablehnen'].map((name,i)=>scenario('review-form-'+i,'/pruefungen','.review-case',[click(name)])),
   scenario('review-confirm','/pruefungen','[role="alertdialog"]'),
   scenario('setup-locations','/einrichtung','.filter-chips',[click('Standorte')]),

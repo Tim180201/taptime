@@ -190,6 +190,7 @@ function offlineOutcomeLabel(outcome: OfflineManualOutcome): string {
   if (outcome === 'active_entry_for_other_target_rejected') {
     return 'Eine andere Arbeitszeit ist aktiv.';
   }
+  if (outcome === 'work_location_unavailable') return 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.';
   if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';
   return 'Deine Erfassung wurde abgelehnt. Melde dich erneut an.';
 }

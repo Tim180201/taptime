@@ -368,3 +368,10 @@ it('T-069 negotiates and accepts the precise administration escalation reason',a
   expect(await client.ingest(submission())).toMatchObject({status:'synchronized',decision:{reason:'administration_stopped'}});
   expect(request.calls[0]?.options).toMatchObject({includeTimeDetails:true});
 });
+
+
+it('T-091 accepts the location review reason without losing the durable acknowledgement',async()=>{
+  const {request,client}=setup();
+  request.result=synchronized({status:'escalation_required',reason:'work_location_unavailable'},null);
+  expect(await client.ingest(submission())).toMatchObject({status:'synchronized',decision:{reason:'work_location_unavailable'}});
+});

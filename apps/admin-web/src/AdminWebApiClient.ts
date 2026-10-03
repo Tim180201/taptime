@@ -1,6 +1,6 @@
 import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeQuery,isVoidedTimeResponse,type VoidTimeResult,type VoidedTimeResponse,type VoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResponse } from '@taptime/mobile-work-contract';
-import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3 as TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import {
@@ -739,7 +739,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/mobile/own-time/query' || path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
+      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/mobile/own-time/query' || path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
       if (exposeLocationScopeError && response.status === 403) {
         if (
           response.redirected
@@ -1204,7 +1204,8 @@ function parseReviewItems(value: unknown): CursorPage<SafeReviewItem> | null {
     'active_time_entry_organization_mismatch', 'active_time_entry_user_mismatch',
     'previous_work_event_organization_mismatch', 'previous_work_event_user_mismatch',
     'previous_work_event_target_mismatch', 'work_event_precedes_active_time_entry',
-    'work_event_precedes_previous_accepted_work_event', 'administration_stopped',
+    'work_event_precedes_previous_accepted_work_event', 'work_location_unavailable',
+  'administration_stopped',
   ]);
   const items = value.items.map((entry) => {
     if (!isRecord(entry) || !exact(entry, [
