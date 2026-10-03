@@ -1,72 +1,64 @@
 # Aktuelle Aufgabe
 
-> **Stand 03.10.2026:** Produktion auf `0230188` (Migrationen bis 039). Auf `main` zusätzlich T-093 (`19a363d`) und
-> T-094 (`947ac51`, Migration 040). Vor dem Pilot: T-091, T-092, T-095 bis T-098, T-100 bis T-103 → zweiter Deploy →
-> T-024 → Pilot. Frühere Briefs stehen in der Git-Historie.
+> **Stand 03.10.2026:** Produktion auf `0230188` (Migrationen bis 039). Auf `main` zusätzlich T-093, T-094 (040) und
+> T-091 (041). Vor dem Pilot: T-092, T-095 bis T-098, T-100 bis T-103 → zweiter Deploy → T-024 → Pilot. Frühere Briefs
+> stehen in der Git-Historie.
 
-## T-091 · Standortmodus nach D-102
+## T-092 · Austritt (D-101, D-115)
 
-**Für:** Development · **Risiko:** Kernkette (Trigger → WorkEvent → Engine → TimeEntry), Offline-Warteschlange, Standort-
-grenzen der Standortleitung (D-059, D-091, D-107) · **Zeitbox:** zwei Sitzungen. Analyse-Befunde F-006, F-008, F-024,
-F-074, F-145. frogs hat mehrere Standorte; das hier ist der Normalfall des Pilots.
+**Für:** Development · **Risiko:** Lohn des Austrittsmonats, Kernkette (Verwaltungsstopp D-071/D-073), Rechte der
+Standortleitung · **Zeitbox:** eine bis zwei Sitzungen. Analyse-Befunde F-004, F-066, F-101.
 
-### Befund (Code auf `947ac51`)
+### Befund
 
-1. **Allgemeine Arbeitszeit** verlangt bei eingeschalteten Standorten genau eine Standortbindung
-   (`location_setup_is_complete_v1`, 019:356-373) und erscheint dann nur Personen dieses Standorts: in der Zielliste
-   (`read_mobile_work_targets_v1`, 020), beim Nachtragen (`read_time_backfill_targets_v1`,
-   `membership_may_choose_time_target_v1`, 033). Der Trigger `resolve_work_event_location_v1` (019) verlangt für sie
-   zusätzlich einen vom Client gesetzten Standort, den kein Aufrufer setzt: Jeder Start scheitert mit 23514.
-2. **Der Trigger wirft statt zu entscheiden:** Pause ohne laufende Zeit (23514), Ziel ohne gültige Bindung (23514),
-   Person ohne Arbeitsberechtigung am Standort (42501). Online endet das als 503; offline und im Prüfpfad rollt es das
-   gespeicherte Ereignis zurück, der Kopf der Geräte-Warteschlange bleibt stehen.
-3. **Offline-Freigabe ungefiltert:** `lock_offline_capture_projection_v3` (017) enthält Ziele und Tags aller Standorte;
-   online ist die Liste gefiltert (020). Offline gewählte fremde Ziele landen in Fall 2.
-4. `accepted_work_location_id` wird geschrieben, aber nirgends gelesen (F-145).
-5. Kein Test mit eingeschalteten Standorten für Offline v4 samt Freigabe, Allgemeine Arbeitszeit, Pause ohne laufende
-   Zeit, fremden Tag oder Nachtragen außerhalb von Kunden.
+1. `manage_membership_v1` (020) setzt beim Entzug nur `revoked_at`; eine laufende Zeit oder Pause bleibt offen, wächst im
+   Export weiter, blockiert Projektdeaktivierung und Tag-Umbuchung und ist im Produkt nicht mehr beendbar (Person fällt
+   aus „Gerade aktiv“ und aus der Personentabelle, `028:151`; einziger Link auf die Personenansicht in
+   `PeopleShared.tsx`). Die Bestätigung sagt nur „kann sich danach nicht mehr anmelden“.
+2. Nachtragen für Ausgeschiedene antwortet `authority_rejected` (`033:55-58`, `:1655-1659`); die Standortleitung verliert
+   mit der Heimat-Kaskade (`022:158-170`) sofort jede Sicht.
+3. Entzug oder Rollenwechsel einer inzwischen entzogenen Person liefert 403 vor der Versionsprüfung; das Web meldet
+   daraufhin die Verwaltung ab (`020:649-665`).
 
-### Auftrag (D-102)
+### Auftrag
 
-**A. Allgemeine Arbeitszeit ist standortfrei.** Keine Bindung nötig und nicht Teil der Vollständigkeitsprüfung; für jede
-aktive Person wählbar (Zielliste online und offline, Nachtragen durch die Person selbst, Standortleitung, Administrator
-nach den bestehenden Regeln). Standort des Ereignisses ist der Heimatstandort der Person; hat sie keinen, NULL.
-Bestehende Bindungen der Allgemeinen Arbeitszeit bleiben unverändert in der Historie, wirken aber nicht mehr.
+**A. Entzug beendet vorher.** Läuft bei der Person eine Zeit oder Pause, beendet der Entzug sie zum Entzugszeitpunkt
+über den bestehenden Verwaltungsstopp (gleiche Kette, Herkunft „Verwaltung“, im Kalender und Export erkennbar), danach
+erst wird entzogen. Der Entzug selbst lehnt ab, solange noch eine Zeit läuft (eigener Status, nie 503); so gibt es nie
+einen Entzug mit offener Zeit, auch bei Wettläufen. Wiederholung derselben Befehlskennung liefert das gespeicherte
+Ergebnis. Die Bestätigung im Web sagt vorher „Läuft gerade eine Zeit, wird sie jetzt beendet“ mit Ziel und Beginn.
+Gilt für Administrator und Standortleitung im eigenen Bereich.
 
-**B. Der Trigger zeichnet auf, die Engine entscheidet.** Der Standort-Trigger wirft für WorkEvents keine Ausnahme mehr.
-Pausen übernehmen den Standort der laufenden Zeit; ohne laufende Zeit NULL, die Engine lehnt wie heute ab. Lässt sich der
-Standort eines Ziels nicht auflösen oder fehlt der Person die Arbeitsberechtigung dort: Standort NULL und das Ereignis
-bekommt eine sichtbare Entscheidung statt eines 503, online eine verständliche Ablehnung, offline und historisch ein
-Prüffall mit eigenem Grund (der Grund kommt in die gemeinsame Liste der Prüfgründe; Admin-Web und App müssen ihn
-anzeigen können). Nie endlose Wiederholung, nie verlorene Evidenz. Client-Overrides bleiben verboten.
+**B. Ausgeschiedene sichtbar (D-115).** In „Beschäftigte“ (Web und App) ein Abschnitt „Ausgeschieden“ mit Personen, deren
+Austritt im laufenden oder im Vormonat liegt, verlinkt auf die Personenansicht. Administrator sieht alle, die
+Standortleitung die Personen, deren letzter Heimatstandort vor dem Austritt ihr Standort war. Ändern, Nachtragen und
+Prüfen sind für Zeiten bis zum Austrittszeitpunkt möglich (Nachtragen: Ende ≤ Austritt; Ziele nach den bestehenden
+Regeln für deaktivierte Ziele, D-092); danach antwortet der Server verständlich. Nach Ende des Folgemonats verschwinden
+sie aus der Liste; Daten und Export bleiben.
 
-**C. Offline-Freigabe gefiltert.** Die Projektion enthält dieselben Ziele und Tags wie die Online-Liste der Person
-(Heimat- und Arbeitsstandorte) plus Allgemeine Arbeitszeit und Pausen-Tags. Wenn möglich gleicher Vertrag, nur gefiltert,
-damit keine App-Änderung nötig ist; sonst im Bericht begründen. Bereits ausgestellte, ungefilterte Freigaben laufen aus;
-Ereignisse daraus landen in B.
+**C. Klare Antwort statt Abmeldung.** Entzug oder Rollenwechsel einer bereits entzogenen Person liefert einen
+Konflikt-Status („Diese Person ist bereits ausgeschieden“), die Sitzung bleibt bestehen.
 
-**D. Testmatrix.** PostgreSQL-Suite „Standortmodus“: zwei Standorte, je eine Standortleitung und Mitarbeiter, ein
-Administrator, Kunden und Projekte je Standort. Für Offline v4 und manuell: Start, Stopp, Pause für Kunde, Projekt,
-Allgemeine Arbeitszeit; Pause ohne laufende Zeit; Tag eines fremden Standorts; Ziel nach Entzug der Bindung. Nachtragen
-von Allgemeiner Arbeitszeit durch Person, Standortleitung, Administrator. Inhalt der Freigabe je Person. Anlegen von
-Kunde und Projekt (aus T-086/T-090) im selben Aufbau.
-
-Höchstens eine Migration (041), nur anfügend. Lehre aus T-086: die T-062-Probe vergleicht geschützte Funktionen; wenn sie
-eine der ersetzten Funktionen schützt, die Erwartung testseitig auf 041 erweitern und im Bericht nennen.
+Höchstens eine Migration (042), nur anfügend. T-062-Probe beachten (schützt sie eine ersetzte Funktion, Erwartung
+testseitig erweitern und im Bericht nennen).
 
 ### Tests
 
-Rot vor Grün am alten Code für jeden Punkt aus D. Alle Suiten, die Migrationen einspielen oder die Pfade berühren:
-`backend-schema`, `backend-time-review` (DA3, T-062-Probe), `backend-lifecycle`, `backend-offline-sync`,
-`backend-mobile-work`, `backend-administration`, `backend-time-export`, `backend-api`, `admin-web` (Unit und Browser),
-`mobile` (Typecheck, Tests; `expo export` nur, falls die App sich ändert). Im Bericht jede Suite mit Befehl und Ergebnis.
+Rot vor Grün am alten Code. PostgreSQL mit echten Rollen: (1) Entzug bei laufender Zeit → Zeit endet zum
+Entzugszeitpunkt als Verwaltungsstopp, dann entzogen; bei laufender Pause ebenso; (2) paralleler Start und Entzug → nie
+entzogen mit offener Zeit; (3) Wiederholung; (4) Standortleitung sieht Ausgeschiedene ihres Standorts, nicht fremde;
+nach Ende des Folgemonats nicht mehr; (5) Nachtragen bis Austritt ok, danach abgelehnt, für Administrator und
+Standortleitung; (6) Entzug einer bereits entzogenen Person → Konflikt, Web bleibt angemeldet; (7) Offline-Stopp-Tap der
+Person nach dem Entzug → Prüffall wie heute, ohne zweiten Stopp. Alle Suiten, die Migrationen einspielen oder die
+Pfade berühren (`backend-schema`, `backend-time-review` mit T-062-Probe, `backend-administration`, `backend-lifecycle`,
+`backend-offline-sync`, `backend-time-export`, `backend-api`, `admin-web` mit Browser, `mobile` mit `expo export`).
 
 ### Nicht Teil
 
-Kein Deploy, kein Serverzugriff. Keine Änderung an Rollen und Rechten außerhalb dieser Regeln, keine Exportspalte für
-den Standort (B01), keine Änderung am Verhalten bei ausgeschalteten Standorten.
+Kein Deploy, kein Serverzugriff. Keine Wiederaufnahme ausgeschiedener Personen (F-153, offene PO-Frage). Kein
+automatischer Entzug, keine Änderung am Export-Inhalt (B01).
 
 ### Bericht
 
-`.t091-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf „kein Ereignis geht verloren
-oder blockiert die Warteschlange, keine Person sieht Ziele fremder Standorte“. Kein Commit vor `APPROVED`.
+`.t092-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf „keine offene Zeit nach
+einem Entzug, kein Datenverlust im Austrittsmonat“. Kein Commit vor `APPROVED`.

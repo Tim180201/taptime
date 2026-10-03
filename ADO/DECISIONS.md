@@ -1678,3 +1678,20 @@ eine laufende Zeit zu beenden darf keine Auswahl verlangen.
 Bestätigung. Eine abgelaufene Einladung löst „Einladung erneut senden“ (T-094); die Einladungsmail nennt die Stunde.
 **Warum:** Ein 24 h gültiger Link im Postfach öffnet ein Konto zu lange; mit erneutem Senden ist die kurze Frist kein
 Hindernis mehr.
+
+## D-114 · Laufende Zeit auf dem Sperrbildschirm · 03.10.2026 · Tim (PO)
+Läuft eine Zeit oder Pause, zeigt das Handy sie außerhalb der App: iPhone als Live-Aktivität (Sperrbildschirm, Dynamic
+Island), Android als laufende Benachrichtigung, jeweils Ziel und mitlaufende Dauer. Antippen öffnet „Erfassen“ (T-103);
+auf Android dürfen „Beenden“ und „Pause“ direkt in der Benachrichtigung sitzen, als dieselben manuellen Ereignisse.
+Ändert sich der Zustand außerhalb des Geräts (z. B. Verwaltungsstopp), korrigiert die App die Anzeige beim nächsten
+Öffnen; Aktualisierung per Push später. Im Laufe des Pilots, nach T-103 (T-104).
+**Warum:** Wer eine laufende Zeit sieht, ohne die App zu öffnen, vergisst seltener das Beenden.
+
+## D-115 · Ausgeschiedene bleiben bis zum Ende des Folgemonats sichtbar · 03.10.2026 · Claude (TL)
+Ergänzt D-101: Eine ausgeschiedene Person bleibt für Administrator und die Standortleitung ihres letzten
+Heimatstandorts bis zum Ende des Monats nach dem Austritt in „Beschäftigte“ (Abschnitt „Ausgeschieden“) mit
+Personenansicht sichtbar. Ändern, Nachtragen und Prüfen sind möglich für Zeiten bis zum Austrittszeitpunkt; danach
+nichts. Export enthält sie wie heute. Ein Widerruf, solange noch eine Zeit läuft, ist technisch ausgeschlossen: der
+Entzug beendet sie vorher als Verwaltungsstopp (D-073), sonst wird er abgelehnt.
+**Warum:** Der Lohn des Austrittsmonats wird im Folgemonat abgerechnet; bis dahin muss die Verwaltung den Monat noch
+vervollständigen können.
