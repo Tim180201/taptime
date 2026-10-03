@@ -17,7 +17,26 @@ export BASE_BACKUP_KEEP_DAILY='1'
 export BASE_BACKUP_KEEP_WEEKLY='1'
 export BASE_BACKUP_KEEP_MONTHLY='1'
 RETENTION_FAILURE=''
-PRUNE_PROTECTED=''
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+export TZ=UTC
+newest="base-$CLUSTER_IDENTIFIER-20260916T110000Z"
+previous="base-$CLUSTER_IDENTIFIER-20260915T230000Z"
+obsolete="base-$CLUSTER_IDENTIFIER-20260915T090000Z"
+anchor="base-$CLUSTER_IDENTIFIER-20260914T000000Z"
+reset_archives() {
+  rm -rf -- "$TEST_ROOT/archives"
+  mkdir "$TEST_ROOT/archives"
+  for archive in "$newest" "$previous" "$obsolete" "$anchor"; do
+    mkdir -p "$TEST_ROOT/archives/$archive/manifest"
+    wal=000000010000000000000005
+    [[ "$archive" != "$newest" ]] || wal=000000020000000000000003
+    printf '%s\n' "$wal" > "$TEST_ROOT/archives/$archive/manifest/base-start-wal-file"
+  done
+  for archive in "$newest" "$previous" "$obsolete"; do mkdir "$TEST_ROOT/archives/verified-$archive"; done
+  for wal in 000000010000000000000004 000000010000000000000005 000000020000000000000002 000000020000000000000003; do
+    mkdir "$TEST_ROOT/archives/wal-$CLUSTER_IDENTIFIER-$wal"
+  done
+}
 
 production_base_is_registered() { return 0; }
 
@@ -47,134 +66,71 @@ done
 
 borg() {
   printf '%s\n' "$*" >> "$CALL_LOG"
-  case "$1" in
-    info | compact)
-      return 0
-      ;;
+  local op="$1" target='' arg
+  shift
+  for arg in "$@"; do [[ "$arg" != *'::'* ]] || target="${arg##*::}"; done
+  case "$op" in
+    info) [[ -d "$TEST_ROOT/archives/$target" ]];;
+    compact) return 0;;
     prune)
       if [[ " $* " == *' --dry-run '* ]]; then
         case "$RETENTION_FAILURE" in
           preview-empty) return 0;;
           preview-failed) return 1;;
           preview-unknown) printf 'Unknown output\n' >&2; return 0;;
-          preview-unretained) printf 'Would prune: base-%s-20260916T090000Z Wed, 2026-09-16 09:00:00 [fixture]\n' "$CLUSTER_IDENTIFIER" >&2; return 0;;
+          preview-marker) printf 'Would prune: verified-%s Wed, 2026-09-16 11:00:00 [fixture]\n' "$newest" >&2; return 0;;
         esac
-        printf 'Keeping archive (rule: hourly #1):          base-%s-20260916T110000Z Wed, 2026-09-16 11:00:00 [fixture-id]\n' "$CLUSTER_IDENTIFIER" >&2
-        printf 'Would prune:                                %s Wed, 2026-09-16 09:00:00 [fixture-id]\n' \
-          "${PRUNE_PROTECTED:-base-$CLUSTER_IDENTIFIER-20260916T090000Z}" >&2
       fi
-      return 0
+      node "$REPO/infrastructure/tests/fake-borg-retention.mjs" "$TEST_ROOT/archives" prune "$@"
+      if [[ " $* " == *' --dry-run '* && "$RETENTION_FAILURE" == preview-trailing ]]; then
+        printf 'Unexpected footer\n' >&2
+      fi
       ;;
     list)
-      # Real Borg 1.2/1.4 takes a bare shell glob after --glob-archives; an explicit
-      # "sh:" prefix is matched literally and therefore lists nothing.
-      if [[ "$*" == *'--glob-archives sh:'* ]]; then
-        return 0
-      fi
-      if [[ "$*" == *"--glob-archives verified-base-$CLUSTER_IDENTIFIER-"* ]]; then
-        [[ "$RETENTION_FAILURE" != 'marker-list' ]] || return 1
-        printf 'verified-base-%s-20260916T090000Z\n' "$CLUSTER_IDENTIFIER"
-        printf 'verified-base-%s-20260916T100000Z\n' "$CLUSTER_IDENTIFIER"
-        return 0
-      fi
-      if [[ "$*" == *"--glob-archives base-$CLUSTER_IDENTIFIER-"* ]]; then
-        [[ "$RETENTION_FAILURE" != 'base-list' ]] || return 1
-        printf 'base-%s-20260916T100000Z\n' "$CLUSTER_IDENTIFIER"
-        [[ "$RETENTION_FAILURE" == base-incomplete ]] || printf 'base-%s-20260916T110000Z\n' "$CLUSTER_IDENTIFIER"
-        return 0
-      fi
-      if [[ "$*" == *"--glob-archives wal-$CLUSTER_IDENTIFIER-"* ]]; then
-        [[ "$RETENTION_FAILURE" != 'wal-list' ]] || return 1
-        printf 'wal-%s-000000010000000000000004\n' "$CLUSTER_IDENTIFIER"
-        printf 'wal-%s-000000010000000000000005\n' "$CLUSTER_IDENTIFIER"
-        printf 'wal-%s-000000020000000000000002\n' "$CLUSTER_IDENTIFIER"
-        printf 'wal-%s-000000020000000000000003\n' "$CLUSTER_IDENTIFIER"
-        return 0
-      fi
-      return 1
-      ;;
+      case "$*" in
+        *'--glob-archives verified-base-'*) [[ "$RETENTION_FAILURE" != marker-list ]] || return 1;;
+        *'--glob-archives base-'*)
+          [[ "$RETENTION_FAILURE" != base-list ]] || return 1
+          if [[ "$RETENTION_FAILURE" == base-incomplete ]]; then printf '%s\n' "$previous"; return 0; fi;;
+        *'--glob-archives wal-'*) [[ "$RETENTION_FAILURE" != wal-list ]] || return 1;;
+      esac
+      node "$REPO/infrastructure/tests/fake-borg-retention.mjs" "$TEST_ROOT/archives" list "$@";;
     extract)
-      [[ "$RETENTION_FAILURE" != 'base-extract' ]] || return 1
-      if [[ "$3" == *20260916T100000Z ]]; then
-        printf '000000010000000000000005\n'
-      elif [[ "$3" == *20260916T110000Z ]]; then
-        printf '000000020000000000000003\n'
-      else
-        return 1
-      fi
-      ;;
-    delete)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
+      [[ "$RETENTION_FAILURE" != base-extract ]] || return 1
+      cat "$TEST_ROOT/archives/$target/${*: -1}";;
+    delete) rm -rf -- "$TEST_ROOT/archives/$target";;
+    *) return 1;;
   esac
 }
 
-assert_no_delete_after_failure() {
-  local failure="$1"
-  local status
-
-  : > "$CALL_LOG"
-  RETENTION_FAILURE="$failure"
-  set +e
-  prune_after_verified_restore \
-    "base-$CLUSTER_IDENTIFIER-20260916T110000Z" >/dev/null 2>&1
-  status=$?
-  set -e
-  (( status != 0 ))
-  if grep --quiet '^delete ' "$CALL_LOG"; then
-    printf 'Retention deleted archives after %s inventory failure.\n' "$failure" >&2
-    exit 1
-  fi
-}
-
+reset_archives
 : > "$CALL_LOG"
-prune_after_verified_restore "base-$CLUSTER_IDENTIFIER-20260916T110000Z"
-deleted_archives="$(sed -n 's/^delete synthetic-repository:://p' "$CALL_LOG" \
-  | paste -s -d ' ' -)"
-[[ "$deleted_archives" == \
-  "verified-base-$CLUSTER_IDENTIFIER-20260916T090000Z wal-$CLUSTER_IDENTIFIER-000000010000000000000004 wal-$CLUSTER_IDENTIFIER-000000020000000000000002" ]]
-if grep --quiet \
-  "^delete synthetic-repository::verified-base-$CLUSTER_IDENTIFIER-20260916T100000Z$" \
-  "$CALL_LOG"; then
-  printf 'Retention removed a marker whose base is still retained.\n' >&2
-  exit 1
-fi
-printf 'Timeline retention evidence: each retained base supplied its own WAL floor.\n'
+prune_after_verified_restore
+deleted_archives="$(sed -n 's/^delete synthetic-repository:://p' "$CALL_LOG" | sort)"
+expected="$(printf '%s\n' "verified-$obsolete" "wal-$CLUSTER_IDENTIFIER-000000010000000000000004" "wal-$CLUSTER_IDENTIFIER-000000020000000000000002" | sort)"
+[[ "$deleted_archives" == "$expected" ]]
+[[ -d "$TEST_ROOT/archives/verified-$previous" && -d "$TEST_ROOT/archives/verified-$newest" ]]
+[[ ! -d "$TEST_ROOT/archives/$obsolete" ]]
+printf 'Timeline retention: real prune, each retained base supplies its own WAL floor.\n'
 
-assert_no_delete_after_failure base-list
-assert_no_delete_after_failure base-extract
-assert_no_delete_after_failure base-incomplete
-assert_no_delete_after_failure wal-list
-assert_no_delete_after_failure marker-list
-printf 'Retention failure evidence: incomplete base, WAL, or marker inventory deleted nothing.\n'
-
-# TL T-083: a weekly verified base can fall outside the hourly/daily selection.
-# Borg 1.2/1.4 emits the dry-run's "Would prune:" list on stderr; real prune
-# must never run when that exact base (or its marker) is in that selection.
-RETENTION_FAILURE=''
-for PRUNE_PROTECTED in "base-$CLUSTER_IDENTIFIER-20260916T110000Z" \
-  "verified-base-$CLUSTER_IDENTIFIER-20260916T110000Z"; do
+for RETENTION_FAILURE in base-list base-extract base-incomplete wal-list marker-list; do
+  reset_archives
   : > "$CALL_LOG"
-  if prune_after_verified_restore "base-$CLUSTER_IDENTIFIER-20260916T110000Z" \
-    > "$TEST_ROOT/protected.log" 2>&1; then
-    printf 'Retention must report deferral of a protected archive.\n' >&2; exit 1
+  if prune_after_verified_restore > "$TEST_ROOT/failure.log" 2>&1; then
+    printf 'Accepted %s inventory failure\n' "$RETENTION_FAILURE" >&2; exit 1
   fi
-  if grep '^prune ' "$CALL_LOG" | grep -v -- '--dry-run'; then
-    printf 'Retention pruned despite selecting the protected base or marker.\n' >&2; exit 1
-  fi
-  if grep -Eq '^(delete|compact) ' "$CALL_LOG"; then exit 1; fi
-  grep -q 'protected' "$TEST_ROOT/protected.log"
+  if grep -q '^delete ' "$CALL_LOG"; then exit 1; fi
 done
-printf 'Protected base and marker selected by dry-run: no destructive operation.\n'
+printf 'Incomplete base, WAL or marker inventory: no WAL or marker deletion.\n'
 
-PRUNE_PROTECTED=''
-for RETENTION_FAILURE in preview-empty preview-failed preview-unknown preview-unretained; do
+for RETENTION_FAILURE in preview-empty preview-failed preview-unknown preview-marker preview-trailing; do
+  reset_archives
   : > "$CALL_LOG"
-  if prune_after_verified_restore "base-$CLUSTER_IDENTIFIER-20260916T110000Z" > "$TEST_ROOT/preview.log" 2>&1; then exit 1; fi
-  if grep '^prune ' "$CALL_LOG" | grep -v -- '--dry-run'; then exit 1; fi
-  if grep -Eq '^(delete|compact) ' "$CALL_LOG"; then exit 1; fi
+  if prune_after_verified_restore > "$TEST_ROOT/preview.log" 2>&1; then exit 1; fi
+  if grep -Eq '^(delete|compact) |^prune --list' "$CALL_LOG"; then exit 1; fi
+  [[ -d "$TEST_ROOT/archives/$obsolete" ]]
 done
-printf 'Incomplete, failed or unrecognized previews: no destructive operation.\n'
+printf 'Empty, failed or unrecognized previews: no destructive operation.\n'
+
+# The existing CI entry point includes the chronological T-093 regression matrix.
+bash "$REPO/infrastructure/tests/taptime-retention-week.test"

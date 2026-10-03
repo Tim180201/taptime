@@ -77,6 +77,11 @@ FAKE_DF
 cat > "$test_root/bin/systemctl" <<'FAKE_SYSTEMCTL'
 #!/usr/bin/env bash
 set -euo pipefail
+if [[ "$*" == 'show taptime-restore-verify.service --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp' ]]; then
+  printf 'LoadState=loaded\nActiveState=%s\nInactiveExitTimestamp=%s\nInactiveEnterTimestamp=%s\n' \
+    "${FAKE_RESTORE_STATE:-inactive}" "${FAKE_RESTORE_STARTED:-}" "${FAKE_RESTORE_ENDED:-}"
+  exit 0
+fi
 [[ "$*" == 'show taptime-backup.service --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp' ]]
 [[ "${FAKE_SYSTEMCTL_FAILURE:-0}" == 0 ]] || exit 1
 if [[ -n "${FAKE_RACE_DIRECTORY:-}" ]]; then
@@ -215,6 +220,23 @@ progress_case() (
     if grep -Eq '/|@|test-only-secret|[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' "$test_root/messages/0"; then fail 'message leaked a path, address or secret'; fi
   fi
 )
+# shellcheck disable=SC2030,SC2031 # Each scenario deliberately isolates service environment.
+restore_case() (
+  local minutes="$1" expected=0
+  local -x FAKE_RESTORE_STATE=activating FAKE_RESTORE_STARTED FAKE_BACKUP_STATE=inactive
+  local now
+  now="$(epoch_for '2026-09-28T12:00:00Z')"
+  FAKE_RESTORE_STARTED="$(iso_for "$((now - minutes*60))")"
+  rm -f "$progress_file" "$WAL_ARCHIVE_STATUS" "$test_root/messages"/* "$test_root/state/wal-archive-down"
+  TAPTIME_MONITOR_NOW_EPOCH="$now" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+  (( minutes <= 90 )) || expected=1
+  assert_equals "$expected" "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" "restore after $minutes min"
+  if (( expected )); then
+    assert_equals "WAL-Archivierung steht: Wiederherstellungsprüfung läuft seit $minutes min; at=2026-09-28T12:00:00Z" "$(cat "$test_root/messages/0")" 'restore failure cause'
+  fi
+)
+if [[ -n "${T093_RESTORE_MINUTES:-}" ]]; then restore_case "$T093_RESTORE_MINUTES"; exit 0; fi
+for minutes in 40 90 91; do restore_case "$minutes"; done
 if [[ -n "${TAPTIME_TEST_PROGRESS_CASE:-}" ]]; then
   progress_case "$TAPTIME_TEST_PROGRESS_CASE"
   exit 0

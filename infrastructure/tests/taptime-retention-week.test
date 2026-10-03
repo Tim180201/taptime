@@ -1,0 +1,210 @@
+#!/usr/bin/env bash
+# T-093: chronological fixture, real retention functions and weekly entry point.
+# shellcheck disable=SC2329
+set -euo pipefail
+if [[ -z "${T093_CASE:-}" ]]; then
+  for scenario in select week alternative protected weekly-failed weekly-nine weekly-seven weekly-eight weekly-never weekly-success; do
+    T093_CASE="$scenario" bash "$0"
+  done
+  exit 0
+fi
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+root="$(mktemp -d)"
+trap 'rm -rf -- "$root"' EXIT
+export TAPTIME_BACKUP_STATE_DIRECTORY="$root/state"
+export TAPTIME_BACKUP_CONFIG="$root/config"
+export TAPTIME_BACKUP_STAGING_ROOT="$root/staging"
+export TAPTIME_BORG_LOCK_FILE="$root/lock"
+export TZ=UTC
+mkdir -p "$root/state" "$root/archives" "$root/staging" "$root/migrations"
+source "$REPO/infrastructure/backup/taptime-restore-verify"
+source "$REPO/infrastructure/backup/backup.conf.example"
+BORG_REPOSITORY=synthetic
+RESTORE_ARCHIVE_IDENTIFIER=0123456789abcdef
+cluster="$RESTORE_ARCHIVE_IDENTIFIER"
+fault=''
+fixture_now="$(date -d '2026-09-27 03:35Z' +%s)"
+fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+date() {
+  case "$*" in
+    +%s) printf '%s\n' "$fixture_now";;
+    +%Y-%m-%d) command date -d "@$fixture_now" +%Y-%m-%d;;
+    *) command date "$@";;
+  esac
+}
+production_base_is_registered() { [[ "$fault" != unregistered ]]; }
+add_hours() {
+  node - "$root/archives" "$cluster" "$1" "$2" <<'JS'
+const fs = require('node:fs');
+const [dir, cluster, from, to] = process.argv.slice(2);
+for (let t = Date.parse(from); t <= Date.parse(to); t += 3600000) {
+  const iso = new Date(t).toISOString();
+  const name = `base-${cluster}-${iso.replace(/[-:]/g, '').replace('.000', '')}`;
+  fs.mkdirSync(`${dir}/${name}/manifest`, { recursive: true });
+  fs.writeFileSync(`${dir}/${name}/timestamp`, iso);
+  fs.writeFileSync(`${dir}/${name}/manifest/base-start-wal-file`, '000000010000000000000005\n');
+}
+JS
+}
+borg() {
+  local op="$1" arg target=''
+  shift
+  printf '%s %s\n' "$op" "$*" >> "$root/calls"
+  for arg in "$@"; do [[ "$arg" != *'::'* ]] || target="${arg##*::}"; done
+  case "$op" in
+    list) node "$REPO/infrastructure/tests/fake-borg-retention.mjs" "$root/archives" list "$@";;
+    prune)
+      if [[ " $* " != *' --dry-run '* && "$fault" == prune ]]; then return 1; fi
+      node "$REPO/infrastructure/tests/fake-borg-retention.mjs" "$root/archives" prune "$@";;
+    info) [[ -d "$root/archives/$target" ]];;
+    extract)
+      if [[ "$1" == --stdout ]]; then
+        if [[ "${*: -1}" == manifest/base-created-at-utc ]]; then cat "$root/archives/$target/timestamp"
+        else cat "$root/archives/$target/${*: -1}"; fi
+      else cp -R "$root/restore-manifest" manifest; touch base.tar; fi;;
+    delete) rm -rf -- "$root/archives/$target";;
+    compact) fixture_now=$((fixture_now + 1)); [[ "$fault" != compact ]];;
+    check) return 0;;
+    *) fail "unexpected borg $op";;
+  esac
+}
+add_hours '2026-09-26T00:05:00Z' '2026-09-27T03:05:00Z'
+saturday="base-$cluster-20260926T230500Z"
+sunday="base-$cluster-20260927T030500Z"
+case "${T093_CASE:-week}" in
+  select)
+    actual="$(select_base_archive weekly)"
+    [[ "$actual" == "$saturday" ]] || fail "weekly selected $actual, expected $saturday"
+    [[ "$(select_base_archive)" == "$sunday" ]] || fail 'ordinary restore changed'
+    [[ "$(TAPTIME_RESTORE_BASE_ARCHIVE="$sunday" select_base_archive weekly)" == "$sunday" ]] || fail 'pin changed'
+    [[ "$(TAPTIME_RESTORE_TARGET_TIME='2026-09-27T02:30:00Z' select_base_archive weekly)" == "base-$cluster-20260927T020500Z" ]] || fail 'target changed'
+    # Local day boundary differs from UTC. Names precede Borg's actual start time.
+    TZ=Europe/Berlin
+    expected="base-$cluster-20260926T210500Z"
+    [[ "$(select_base_archive weekly)" == "$expected" ]] || fail 'Borg local midnight ignored'
+    printf '2026-09-26T22:01:00Z\n' > "$root/archives/$expected/timestamp"
+    expected="base-$cluster-20260926T200500Z"
+    [[ "$(select_base_archive weekly)" == "$expected" ]] || fail 'archive name used instead of Borg timestamp'
+    # Fresh install: no prior local day => latest remains available.
+    rm -rf -- "$root/archives"; mkdir "$root/archives"
+    add_hours '2026-09-27T00:05:00Z' '2026-09-27T03:05:00Z'
+    [[ "$(select_base_archive weekly)" == "$sunday" ]] || fail 'fresh-install fallback'
+    ;;
+  week)
+    selected="$(select_base_archive weekly)"
+    mkdir "$root/archives/verified-$selected"
+    run_backup_retention weekly "$cluster"
+    add_hours '2026-09-27T04:05:00Z' '2026-09-28T04:05:00Z'
+    fixture_now="$(date -d '2026-09-28 04:05Z' +%s)"
+    before="$(find "$root/archives" -mindepth 1 -maxdepth 1 -type d | wc -l)"
+    run_backup_retention daily "$cluster"
+    grep -q '^ok|' "$root/state/retention-status" || fail "Monday cleanup: $(cat "$root/state/retention-status")"
+    after="$(find "$root/archives" -mindepth 1 -maxdepth 1 -type d | wc -l)"
+    (( after < before )) || fail 'Monday deleted nothing'
+    [[ -d "$root/archives/$saturday" && -d "$root/archives/verified-$saturday" ]] || fail 'verified Saturday lost'
+    # Simulate each following day through the configured daily retention horizon.
+    for ((day=2; day<=BASE_BACKUP_KEEP_DAILY; day++)); do
+      start="$(date -u -d "2026-09-26 +$day days" +%Y-%m-%d)"
+      end="$(date -u -d "2026-09-26 +$((day+1)) days" +%Y-%m-%d)"
+      add_hours "${start}T05:05:00Z" "${end}T04:05:00Z"
+      fixture_now="$(date -d "${end}T04:05:00Z" +%s)"
+      run_backup_retention daily "$cluster"
+      [[ -d "$root/archives/$saturday" ]] || fail "verified base lost on day $day"
+      grep -q '^ok|' "$root/state/retention-status" || fail "cleanup blocked on day $day"
+    done
+    ;;
+  alternative|protected)
+    add_hours '2026-09-27T04:05:00Z' '2026-09-28T04:05:00Z'
+    mkdir "$root/archives/verified-$sunday"
+    if [[ "$T093_CASE" == alternative ]]; then mkdir "$root/archives/verified-$saturday"; fi
+    fixture_now="$(date -d '2026-09-28 04:05Z' +%s)"
+    run_backup_retention daily "$cluster"
+    if [[ "$T093_CASE" == alternative ]]; then
+      grep -q '^ok|' "$root/state/retention-status" || fail 'older retained verified base did not permit cleanup'
+      [[ -d "$root/archives/$saturday" && ! -d "$root/archives/$sunday" && ! -d "$root/archives/verified-$sunday" ]] || fail 'wrong base/marker removed'
+    else
+      grep -q '^protected|' "$root/state/retention-status" || fail 'unretained verified base not protected'
+      [[ -d "$root/archives/$sunday" && -d "$root/archives/verified-$sunday" ]] || fail 'protected archives removed'
+      if grep -E '^(delete|compact) |^prune --list' "$root/calls"; then fail 'mutation on protected'; fi
+    fi
+    ;;
+  weekly-*)
+    # Exercise main, including its EXIT status writer. Substitute only external
+    # restore I/O; selection, retention and result propagation remain real.
+    add_hours '2026-09-27T04:05:00Z' '2026-09-28T04:05:00Z'
+    fixture_now="$(date -d '2026-09-28 04:05Z' +%s)"
+    export TAPTIME_RESTORE_BASE_ARCHIVE="$sunday"
+    age=7; expected=0
+    case "$T093_CASE" in
+      weekly-failed) fault=prune; expected=1; TAPTIME_RESTORE_BASE_ARCHIVE="$saturday";;
+      weekly-nine) age=9; expected=1;;
+      weekly-success) TAPTIME_RESTORE_BASE_ARCHIVE="$saturday";;
+      weekly-seven) ;;
+      weekly-eight) age=8;;
+      weekly-never) age=0; expected=1;;
+      *) fail 'unknown weekly scenario';;
+    esac
+    success=$((fixture_now - age*86400)); (( age != 0 )) || success=0
+    printf 'protected|%s|%s\n' "$((fixture_now-3600))" "$success" > "$root/state/retention-status"
+    mkdir "$root/restore-manifest"
+    printf '0/5000000\n' > "$root/restore-manifest/base-start-wal-lsn"
+    printf '000000010000000000000005\n' > "$root/restore-manifest/base-start-wal-file"
+    printf '123\n' > "$root/restore-manifest/cluster-system-identifier"
+    printf '%s\n' "$cluster" > "$root/restore-manifest/cluster-archive-identifier"
+    printf 'SELECT 1;\n' > "$root/migrations/001_test.sql"
+    (cd "$root/migrations"; sha256sum ./001_test.sql) > "$root/restore-manifest/source-migration-checksums.tsv"
+    printf 'test\n' > "$root/passphrase"
+    cat > "$root/config" <<CONFIG
+BORG_REPOSITORY=synthetic
+BORG_RSH=synthetic
+BORG_PASSPHRASE_FILE='$root/passphrase'
+RESTORE_STATUS_FILE='$root/restore-status'
+DATABASE_CONTAINER=synthetic
+DATABASE_NAME=synthetic
+MIGRATIONS_DIRECTORY='$root/migrations'
+RESTORE_IMAGE=synthetic
+BASE_BACKUP_KEEP_HOURLY=$BASE_BACKUP_KEEP_HOURLY
+BASE_BACKUP_KEEP_DAILY=$BASE_BACKUP_KEEP_DAILY
+BASE_BACKUP_KEEP_WEEKLY=$BASE_BACKUP_KEEP_WEEKLY
+BASE_BACKUP_KEEP_MONTHLY=$BASE_BACKUP_KEEP_MONTHLY
+RESTORE_RECOVERY_TIMEOUT_SECONDS=10
+RESTORE_RECOVERY_POLL_SECONDS=1
+CONFIG
+    validate_offsite_borg_repository() { :; }
+    prepare_borg_cache() { :; }
+    findmnt() { printf 'tmpfs\n'; }
+    select_restore_cluster_identity() { RESTORE_SYSTEM_IDENTIFIER=123; RESTORE_ARCHIVE_IDENTIFIER="$cluster"; }
+    extract_relevant_wal() { mkdir -p "$2"; }
+    validate_wal_chain() { printf '000000010000000000000005\n'; }
+    latest_wal_record_lsn() { printf '0/5000000\n'; }
+    configure_point_in_time_recovery() { :; }
+    check_restored_migrations() { :; }
+    check_restored_rls() { :; }
+    register_verified_base() { :; }
+    record_verified_base_marker() { mkdir -p "$root/archives/verified-$2"; }
+    tar() { :; }
+    chown() { :; }
+    docker() {
+      case "$*" in
+        *pg_controldata*) printf 'Database system identifier: 123\n';;
+        inspect*) printf 'true\n';;
+        *psql*) printf 't\n';;
+        *) return 0;;
+      esac
+    }
+    set +e
+    (set -e; main) > "$root/weekly.log" 2>&1
+    result=$?
+    set -e
+    cat "$root/weekly.log"
+    if (( expected )); then
+      (( result != 0 )) || fail "$T093_CASE returned success"
+      grep -q '"state":"failed"' "$root/restore-status" || fail 'canonical restore status not failed'
+    else
+      (( result == 0 )) || fail "$T093_CASE failed"
+      grep -q '"state":"ok"' "$root/restore-status" || fail 'canonical restore status not ok'
+    fi
+    ;;
+  *) fail 'unknown test case';;
+esac
+printf 'T-093 %s passed.\n' "${T093_CASE:-week}"

@@ -13,6 +13,8 @@ readonly WAL_ARCHIVE_DOWN_STATE="$STATE_DIRECTORY/wal-archive-down"
 BACKUP_PAUSE_MAX_SECONDS=600
 # Fixed ceiling from cycle start, never renewed by a phase change or monitor run.
 readonly WAL_ARCHIVE_CYCLE_MAX_SECONDS=600
+# Weekly verification holds the same Borg lock; never learn or extend this limit.
+readonly RESTORE_VERIFY_PAUSE_MAX_SECONDS=5400
 WAL_ARCHIVE_FAILURE_REASON='Status nicht ok'
 WAL_ARCHIVE_CHECKED_AT_UTC=''
 running_cycle_start_epoch=0
@@ -112,13 +114,16 @@ wal_archive_is_current() {
   local maximum_age backup_properties key value backup_state='' backup_loaded=''
   local backup_started='' backup_ended='' backup_start_epoch=0 backup_end_epoch=0
   local catchup_deadline=0 heartbeat_deadline data_deadline
-  local cycle_running=0
+  local cycle_running=0 restore_properties restore_state='' restore_loaded=''
+  local restore_started='' restore_start_epoch
 
   WAL_ARCHIVE_FAILURE_REASON='Status nicht ok'
   # Type=oneshot stays activating throughout ExecStart, including flock. ActiveEnter
   # would miss that entire interval. InactiveEnter also covers a failed/aborted run.
   backup_properties="$(systemctl show taptime-backup.service \
     --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp)" || backup_properties=''
+  restore_properties="$(systemctl show taptime-restore-verify.service \
+    --property=LoadState,ActiveState,InactiveExitTimestamp,InactiveEnterTimestamp)" || restore_properties=''
   if read_running_cycle; then cycle_running=1; fi
   # Read status after progress: completion publishes status before removing progress.
   [[ ! -f "$WAL_ARCHIVE_STATUS_FILE" ]] || content="$(< "$WAL_ARCHIVE_STATUS_FILE")"
@@ -127,6 +132,26 @@ wal_archive_is_current() {
   now_epoch="${TAPTIME_MONITOR_NOW_EPOCH:-$(date +%s)}"
   WAL_ARCHIVE_CHECKED_AT_UTC="$(date -u --date="@$now_epoch" +%Y-%m-%dT%H:%M:%SZ)"
   (( running_cycle_observed_epoch <= now_epoch )) || cycle_running=0
+  while IFS='=' read -r key value; do
+    case "$key" in
+      LoadState) restore_loaded="$value" ;;
+      ActiveState) restore_state="$value" ;;
+      InactiveExitTimestamp) restore_started="$value" ;;
+    esac
+  done <<< "$restore_properties"
+  if [[ "$restore_loaded" == loaded ]]; then
+    case "$restore_state" in
+      activating|active|deactivating)
+        restore_start_epoch="$(utc_epoch "$restore_started")" || return 1
+        (( restore_start_epoch > 0 && restore_start_epoch <= now_epoch )) || return 1
+        if (( now_epoch - restore_start_epoch > RESTORE_VERIFY_PAUSE_MAX_SECONDS )); then
+          WAL_ARCHIVE_FAILURE_REASON="Wiederherstellungsprüfung läuft seit $(((now_epoch - restore_start_epoch) / 60)) min"
+          return 1
+        fi
+        return 0
+        ;;
+    esac
+  fi
   while IFS='=' read -r key value; do
     case "$key" in
       LoadState) backup_loaded="$value" ;;

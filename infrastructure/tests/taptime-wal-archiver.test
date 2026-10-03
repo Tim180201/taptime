@@ -494,3 +494,6 @@ bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-idle.test"
 
 # T-089 progress and diagnostic compatibility run through this same CI entry point.
 bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-progress.test"
+
+# A display write failure must leave the actual WAL cycle successful (T-093).
+TAPTIME_TEST_CASE=archive-counts bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-idle.test"

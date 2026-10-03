@@ -85,6 +85,21 @@ cycle() {
   result=$?
   set -e
 }
+if [[ "${TAPTIME_TEST_CASE:-all}" == archive-counts ]]; then
+  # Real atomic writer fails because its destination is a directory, even as root.
+  mkdir -p "$TAPTIME_BACKUP_STATE_DIRECTORY/archive-counts"
+  # mv to a directory would succeed: use a non-directory state parent instead.
+  rm -rf -- "$TAPTIME_BACKUP_STATE_DIRECTORY"
+  printf 'blocked\n' > "$TAPTIME_BACKUP_STATE_DIRECTORY"
+  cycle
+  cat "$root/journal"
+  [[ "$result" == 0 ]] || fail 'display-only write failed WAL cycle'
+  grep -q 'Archive counts unavailable' "$root/journal" || fail 'missing display diagnostic'
+  grep -q '"state":"ok"' "$WAL_ARCHIVE_STATUS_FILE" || fail 'no successful WAL status'
+  grep -q 'result=0' "$root/journal" || fail 'journal did not preserve success'
+  exit 0
+fi
+
 cycle
 [[ "$result" == 0 ]] || { cat "$root/journal"; fail 'initial reconciliation'; }
 case "${TAPTIME_TEST_CASE:-all}" in

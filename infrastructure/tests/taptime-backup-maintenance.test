@@ -8,7 +8,7 @@ REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 if [[ "${T083_CASE:-}" == cache ]] && (( EUID != 0 )); then
   # Stream only the scripts into the fixture; this also works with a remote
   # Docker daemon and gives the root process no host bind mount or Docker socket.
-  tar -C "$REPO" -cf - infrastructure/backup infrastructure/tests/taptime-backup-maintenance.test | \
+  tar -C "$REPO" -cf - infrastructure/backup infrastructure/tests/taptime-backup-maintenance.test infrastructure/tests/fake-borg-retention.mjs | \
     docker run --rm --interactive --network none --workdir /proof \
       --env T083_CASE=cache node:24.17.0-bookworm-slim \
       bash -c 'tar -xf -; exec bash infrastructure/tests/taptime-backup-maintenance.test'
@@ -40,14 +40,14 @@ DATABASE_NAME='fixture'
 MIGRATIONS_DIRECTORY='$root/migrations'
 STATUS_FILE='$root/backup-status'
 BASE_BACKUP_KEEP_HOURLY=1
-BASE_BACKUP_KEEP_DAILY=1
+BASE_BACKUP_KEEP_DAILY=14
 BASE_BACKUP_KEEP_WEEKLY=1
 BASE_BACKUP_KEEP_MONTHLY=1
 CONFIG
 cluster=0123456789abcdef
 verified="base-$cluster-20260924T230000Z"
 obsolete="base-$cluster-20260924T120000Z"
-for archive in "$verified" "$obsolete"; do
+for archive in "$verified" "$obsolete" "base-$cluster-20260924T000000Z"; do
   mkdir -p "$root/archives/$archive/manifest"
   printf '000000010000000000000005\n' > "$root/archives/$archive/manifest/base-start-wal-file"
 done
@@ -67,13 +67,12 @@ validate_offsite_borg_repository() { :; }
 findmnt() { printf 'tmpfs\n'; }
 fixture_registered=1
 fake_failure=''
-fixture_protected=0
-fixture_now=1800000000
+fixture_now="$(date -d '2026-09-25T12:00:00Z' +%s)"
 sequence=0
 date() {
   case "$*" in
     +%s) printf '%s\n' "$fixture_now";;
-    '-u +%Y%m%dT%H%M%SZ') printf '20260925T12%02d00Z\n' "$sequence";;
+    '-u +%Y%m%dT%H%M%SZ') command date -u -d "@$fixture_now" +%Y%m%dT%H%M%SZ;;
     *) command date "$@";;
   esac
 }
@@ -118,15 +117,8 @@ borg() {
       done;;
     extract) cat "$root/archives/$target/${*: -1}";;
     prune)
-      # Selection is fixed for this fixture; like Borg 1.2/1.4, dry-run lists
-      # on stderr and does not mutate. Actual prune removes only that selection.
-      if [[ " $* " == *' --dry-run '* ]]; then
-        printf 'Keeping archive (rule: daily #1):           %s Thu, 2026-09-24 23:00:00 [fixture]\n' "$verified" >&2
-        printf 'Would prune:                            %s Thu, 2026-09-24 12:00:00 [fixture]\n' "$(if (( fixture_protected )); then printf '%s' "$verified"; else printf '%s' "$obsolete"; fi)" >&2
-      else
-        [[ "$fake_failure" != prune ]] || return 1
-        rm -rf -- "$root/archives/$obsolete"
-      fi;;
+      if [[ " $* " != *' --dry-run '* && "$fake_failure" == prune ]]; then return 1; fi
+      node "$REPO/infrastructure/tests/fake-borg-retention.mjs" "$root/archives" prune "$@";;
     delete) rm -rf -- "$root/archives/$target";;
     compact) [[ "$fake_failure" != compact ]];;
     *) return 1;;
@@ -189,17 +181,20 @@ grep -q 'Retention failed' "$root/output"
 if grep -Eq '^(prune|compact|delete) ' "$root/calls"; then exit 1; fi
 fixture_now=$((fixture_now + 86400)); fake_failure=''; fixture_registered=0
 : > "$root/calls"; run_backup
-if grep -Eq '^(prune|compact|delete) ' "$root/calls"; then exit 1; fi
+if grep -Eq '^(compact|delete) |^prune --list' "$root/calls"; then exit 1; fi
 grep -q '^unregistered|' "$root/state/retention-status"
-# A protected selection is visible and leaves all existing archives alone.
-fixture_registered=1; fixture_protected=1; fixture_now=$((fixture_now + 86400))
+# Only an interior archive has a marker: actual period rules now defer cleanup.
+fixture_registered=1; fixture_now=$((fixture_now + 86400))
+rm -rf -- "$root/archives/verified-$verified"
+verified="$obsolete"
+mkdir -p "$root/archives/$verified/manifest" "$root/archives/verified-$verified"
+printf '000000010000000000000005\n' > "$root/archives/$verified/manifest/base-start-wal-file"
 : > "$root/calls"; run_backup
 grep -q '^protected|' "$root/state/retention-status"
 grep -q 'protected' "$root/output"
 if grep '^prune ' "$root/calls" | grep -v -- '--dry-run'; then exit 1; fi
 if grep -Eq '^(compact|delete) ' "$root/calls"; then exit 1; fi
 [[ -d "$root/archives/$verified" && -d "$root/archives/verified-$verified" ]]
-fixture_protected=0
 # A failed backup must not reach retention or overwrite its successful status.
 fixture_registered=1; fake_failure=check; fixture_now=$((fixture_now + 86400))
 : > "$root/calls"

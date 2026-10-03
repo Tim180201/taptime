@@ -35,7 +35,8 @@ Archiv hinter einer älteren Lücke ist ausdrücklich nicht gesund. Auch bei lee
 Ereigniswarteschlange löst ein stehender Empfänger oder veralteter Status aus.
 
 Die WAL-Meldung nennt genau eine zuerst fehlgeschlagene Prüfung und die Prüfzeit in UTC:
-`Sicherung läuft seit … min`, `Durchlauf hängt seit … min (Phase base)`,
+`Sicherung läuft seit … min`, `Wiederherstellungsprüfung läuft seit … min`,
+`Durchlauf hängt seit … min (Phase base)`,
 `Archivierer ohne Lebenszeichen seit … min`, `WAL-Segment wartet seit … min` oder
 `Status nicht ok` (auch bei fehlender/ungültiger Evidenz oder einer Lücke).
 Minuten sind abgerundet; die Grenzen werden in Sekunden geprüft. Phase und Text stammen
@@ -81,7 +82,7 @@ höchstens bis 600 s nach Durchlaufbeginn (`WAL_ARCHIVE_CYCLE_MAX_SECONDS`, fest
 Phasenwechsel und weitere Wächterprüfungen verlängern das nie. Nach 601 s alarmiert der
 Wächter auch bei frischem Status. Fehlendes oder ungültiges Zeichen gewährt keine zusätzliche
 Zeit; das normale Fenster bleibt 120 s bei 60 s × 2. Der Wächter liest zuerst den
-Sicherungszustand, Fortschritt und Archivstatus und nimmt danach die Prüfzeit. Ein während
+Sicherungs- und Prüfzustand, Fortschritt und Archivstatus und nimmt danach die Prüfzeit. Ein während
 dieser Abfragen frisch geschriebenes Zeichen wird so nicht als zukünftig verworfen.
 Die Reihenfolge verlängert keine Frist. Ein fehlender/fehlgeschlagener Status und
 überfällige wartende Segmente werden durch Fortschritt nicht gesund. Sicherungspause und
@@ -105,6 +106,19 @@ separat. Am Ende steht `at=<UTC>` mit der Zeit am Durchlaufende. Der Anfang blei
 `WAL cycle: `; der unveränderte Filter von `taptime-status` zeigt alle bisherigen Kennzahlen
 und verwirft das zusätzliche Zeitfeld. Dafür ist kein Konsolenschritt nötig.
 Die Zeile enthält weder Speicherpfade noch Adressen.
+
+Auch `taptime-restore-verify.service` hält die Borg-Sperre. Während die Einheit läuft oder
+auf die Sperre wartet (`activating`, `active`, `deactivating`), pausiert die WAL-Prüfung bis
+höchstens 90 Minuten ab `InactiveExitTimestamp` (`RESTORE_VERIFY_PAUSE_MAX_SECONDS=5400`).
+Danach lautet die Ursache „Wiederherstellungsprüfung läuft seit … min“, auch bei frischem
+Archivstatus und gleichzeitig wartender Sicherung. Die feste Grenze wird weder gelernt noch
+durch weitere Wächterläufe verlängert. Ohne laufende Prüfung gelten die bisherigen Regeln.
+
+Die Wochenprüfung schreibt ihren bestehenden Restore-Status als fehlgeschlagen, wenn ihr
+eigenes Aufräumen fehlschlägt oder danach der letzte erfolgreiche Aufräumlauf mehr als acht
+Tage zurückliegt bzw. nicht belegt ist. Der Tagesmonitor meldet dies über die vorhandene
+Wiederherstellungsmeldung; tägliches Aufräumen erhält keinen eigenen Push. Ein Schreibfehler
+von `archive-counts` erscheint nur auf stderr und macht den WAL-Durchlauf nicht ungültig.
 
 Basissicherung und Archivierer halten dieselbe Borg-Sperre. Solange die Sicherung läuft oder
 auf diese Sperre wartet, pausiert der Wächter die WAL-Altersprüfung für die doppelte Dauer der

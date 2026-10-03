@@ -36,21 +36,32 @@ Borg-Inventar führt zu keiner WAL- oder Marker-Löschung.
 Nach erfolgreicher stündlicher Sicherung und `borg check` wird höchstens einmal je 24 Stunden
 aufgeräumt. Die Sonntagsprüfung ruft dieselbe Funktion nach erfolgreichem Restore weiterhin
 unabhängig von dieser Tagesgrenze auf. Maßgeblich sind die vier `BASE_BACKUP_KEEP_*`-Werte.
-Vor dem echten `borg prune` läuft `borg prune --dry-run --list` mit denselben Parametern:
-Würde es die registrierte, geprüfte Basis oder ihren Marker entfernen, entfällt der gesamte
-Aufräumlauf. Eine leere, unvollständige oder unbekannte Vorschau erlaubt ebenfalls keine
-Löschung. Die Nachprüfung der Basis nach dem echten Prune bleibt zusätzlich bestehen.
-Danach folgen die bisherigen Timeline-Untergrenzen, verwaiste Marker und veraltetes WAL;
-`borg compact` gibt den entfernten Speicher frei. Historische Restore-Proben und Materialisierung
-räumen weiterhin nicht auf. Der Basisschutz kann tägliches Aufräumen bis zur nächsten
-Restore-Prüfung aussetzen; das ist am Status erkennbar und kein Anlass, ihn zu umgehen.
+Die Wochenprüfung ohne Zeitpunkt und ohne Pin wählt die jüngste Basis vor Beginn des heutigen
+Tages; fehlt eine solche Basis, nimmt sie die neueste. Dafür zählt Borgs Archivstart, nicht der
+UTC-Name: Borg bildet Perioden in der lokalen Prozesszeitzone (`TZ`, sonst `/etc/localtime`).
+Die Prüfung verwendet dieselbe Umgebung. Gepinnte Deploy-Prüfung, Zeitpunkt-Restore,
+Migrationsprobe und Materialisierung behalten ihre bisherige Basisauswahl.
+
+Vor dem echten `borg prune` läuft `borg prune --dry-run --list` mit denselben Parametern.
+Geschützt wird die neueste geprüfte Basis, die laut Vorschau ohnehin behalten wird; ihre
+Registrierung und Existenz werden vor dem Löschen geprüft. Würde keine geprüfte Basis bleiben,
+entfällt der gesamte Aufräumlauf (`protected`). Eine leere oder unbekannte Vorschau erlaubt
+ebenfalls keine Löschung. Ausschließlich `borg prune` löscht Basen; danach wird die geschützte
+Basis erneut geprüft. Es folgen die bisherigen Timeline-Untergrenzen aus allen behaltenen
+Basen, verwaiste Marker und veraltetes WAL; `borg compact` gibt den entfernten Speicher frei.
+Historische Restore-Proben und Materialisierung räumen weiterhin nicht auf.
 
 Ein Aufräumfehler macht die abgeschlossene Sicherung nicht ungültig. Die Skripte schreiben
 Versuch, Ergebnis und letzten Erfolg atomar nach `/var/lib/taptime-monitor/retention-status`
 (root, 0600); auch fehlgeschlagene oder ausgesetzte Versuche unterliegen der 24-Stunden-Grenze.
-Ein abgebrochener Lauf bleibt als begonnen sichtbar. `archive-counts` im selben Verzeichnis
+Ein abgebrochener Lauf bleibt als begonnen sichtbar. Die Wochenprüfung scheitert dagegen,
+wenn ihr eigener Aufräumlauf fehlschlägt oder danach kein Erfolg innerhalb der letzten acht
+Tage belegt ist (auch bei fehlendem/ungültigem Status). Das meldet der Tagesmonitor über die
+bestehende „Wiederherstellungsprüfung fehlgeschlagen“. Tägliche Aufräumfehler erzeugen keinen
+eigenen Push. `archive-counts` im selben Verzeichnis
 enthält Erhebungszeitpunkt und Anzahlen, keine Archivnamen oder Adressen. Sicherung und voller
-Archivierer-Abgleich ersetzen diese Datei. Beim Rückbau hält root die Sicherungs-, Prüf- und
+Archivierer-Abgleich ersetzen diese Datei. Schreibfehler dieser Anzeigezahl werden auf stderr
+gemeldet und lassen einen erfolgreichen WAL-Durchlauf erfolgreich bleiben. Beim Rückbau hält root die Sicherungs-, Prüf- und
 Archivierungsdienste samt Timern an und entfernt beide Zustandsdateien; keine davon ist ein
 Archivnachweis. Bei fehlender Zustandsdatei beginnt die Tagesplanung neu.
 

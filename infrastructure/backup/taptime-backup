@@ -257,7 +257,7 @@ main() {
   }
 
   write_status ok
-  run_backup_retention daily '' "$cluster_archive_identifier" || \
+  run_backup_retention daily "$cluster_archive_identifier" || \
     printf 'Retention status could not be persisted; completed backup remains successful.\n' >&2
   refresh_archive_counts || printf 'Archive counts unavailable.\n' >&2
   printf 'Physical base backup completed: %s (starts at WAL %s)\n' \

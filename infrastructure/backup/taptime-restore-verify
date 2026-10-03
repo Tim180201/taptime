@@ -244,11 +244,34 @@ select_restore_cluster_identity() {
   RESTORE_ARCHIVE_IDENTIFIER="$discovered_identifier"
 }
 
+# Borg groups archive start times in its process-local timezone (TZ, otherwise
+# /etc/localtime). Inherit that same environment; the UTC name is not its clock.
+select_weekly_base_archive() {
+  local inventory archive created today latest='' prior=''
+  today="$(date +%Y-%m-%d)" || return 1
+  inventory="$(borg list --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --sort-by timestamp --format '{archive}|{time:%Y-%m-%d}{NL}' "$BORG_REPOSITORY")" || return 1
+  # Borg sorts by the actual timestamp. Comparing its local calendar date avoids
+  # ambiguous local clock times at DST fall-back (Borg 1.x formats naive times).
+  while IFS='|' read -r archive created; do
+    [[ "$archive" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || continue
+    [[ "$created" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || return 1
+    latest="$archive"
+    if [[ "$created" < "$today" ]]; then prior="$archive"; fi
+  done <<< "$inventory"
+  [[ -n "$latest" ]] || { printf 'No physical base available for weekly verification.\n' >&2; return 1; }
+  printf '%s\n' "${prior:-$latest}"
+}
+
 select_base_archive() {
   local target="${TAPTIME_RESTORE_TARGET_TIME:-}"
   local requested="${TAPTIME_RESTORE_BASE_ARCHIVE:-}"
   local target_nanos='' archive started_at started_nanos selected='' base_archives
 
+  if [[ "${1:-}" == weekly && -z "$target" && -z "$requested" ]]; then
+    select_weekly_base_archive
+    return $?
+  fi
   if [[ -n "$target" ]]; then
     target_nanos="$(timestamp_nanos "$target")" || return 1
   fi
@@ -501,9 +524,9 @@ record_archive_counts() {
 # Both callers retain the same safety checks; backup is throttled by attempts,
 # including failed/deferred attempts. Weekly restore deliberately bypasses the gate.
 run_backup_retention() {
-  local mode="$1" verified_archive="${2:-}" cluster="$3"
+  local mode="$1" cluster="$2"
   local state_file="${TAPTIME_BACKUP_STATE_DIRECTORY:-/var/lib/taptime-monitor}/retention-status"
-  local prior='' attempt=0 success=0 now result state marker inventory
+  local prior='' attempt=0 success=0 now result state checked
   now="$(date +%s)" || return 1
   if [[ -f "$state_file" ]]; then prior="$(< "$state_file")"; fi
   if [[ "$prior" =~ ^(ok|running|failed|protected|unregistered)\|([0-9]{1,12})\|([0-9]{1,12})$ ]]; then
@@ -513,26 +536,24 @@ run_backup_retention() {
   # Persist before fallible work; a killed process must not retry once per hour.
   write_backup_state retention-status "running|$now|$success" || return 1
   RESTORE_ARCHIVE_IDENTIFIER="$cluster"
-  result=0
-  if [[ -z "$verified_archive" ]]; then
-    if inventory="$(borg list --glob-archives "verified-base-$cluster-*" \
-      --format '{archive}{NL}' "$BORG_REPOSITORY")"; then
-      marker="$(printf '%s\n' "$inventory" | LC_ALL=C sort | tail -n 1)"
-      if [[ "$marker" =~ ^verified-base-${cluster}-[0-9]{8}T[0-9]{6}Z$ ]]; then
-        verified_archive="${marker#verified-}"
-      else result=2; fi
-    else result=1; fi
-  fi
-  if (( result == 0 )); then
-    if prune_after_verified_restore "$verified_archive"; then result=0; else result=$?; fi
-  fi
+  if prune_after_verified_restore; then result=0; else result=$?; fi
   case "$result" in
     0) state=ok; success="$(date +%s)";;
     2) state=unregistered; printf 'Retention deferred: no registered verified base.\n';;
     3) state=protected;;
-    *) state=failed; printf 'Retention failed; completed backup remains successful.\n' >&2;;
+    *) state=failed; printf 'Retention failed.\n' >&2;;
   esac
   write_backup_state retention-status "$state|$now|$success" || return 1
+  # Daily backup success is independent of cleanup. Weekly verification also
+  # certifies maintenance; an error or no recent successful cleanup is a failure.
+  if [[ "$mode" == weekly ]]; then
+    [[ "$state" != failed ]] || return 1
+    checked="$(date +%s)" || return 1
+    if (( success == 0 || success > checked || checked - success > 8 * 86400 )); then
+      printf 'Retention has no success within the last eight days.\n' >&2
+      return 1
+    fi
+  fi
 }
 
 refresh_archive_counts() {
@@ -588,28 +609,21 @@ retained_base_wal_floors() {
 }
 
 prune_after_verified_restore() {
-  local verified_archive="$1"
+  local verified_archive=''
   local wal_archive wal_file timeline floor_record floor_records wal_archives markers
   local retained_bases
   local floor_count=0
 
   local keep
-  [[ "$RESTORE_ARCHIVE_IDENTIFIER" =~ ^[0-9a-f]{16}$ \
-    && "$verified_archive" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || return 1
+  [[ "$RESTORE_ARCHIVE_IDENTIFIER" =~ ^[0-9a-f]{16}$ ]] || return 1
   for keep in "${BASE_BACKUP_KEEP_HOURLY:-}" "${BASE_BACKUP_KEEP_DAILY:-}" \
     "${BASE_BACKUP_KEEP_WEEKLY:-}" "${BASE_BACKUP_KEEP_MONTHLY:-}"; do
     [[ "$keep" =~ ^[1-9][0-9]*$ ]] || return 1
   done
-  if ! production_base_is_registered "$verified_archive"; then
-    printf 'Deferring retention until the archiver registered the verified base.\n'
-    return 2
-  fi
-  borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
-    printf 'Verified physical base is unavailable before retention.\n' >&2
-    return 1
-  }
-  printf 'Applying retention only after the physical base started and passed verification.\n'
-  local preview line candidate protected_kept=0
+  markers="$(borg list --glob-archives "verified-base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY")" || return 1
+  [[ -n "$markers" ]] || return 2
+  local preview line candidate kept_bases='' seen='' marker
   local -a prune_arguments=(--list
     --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" "$BORG_REPOSITORY"
     --keep-hourly "$BASE_BACKUP_KEEP_HOURLY" --keep-daily "$BASE_BACKUP_KEEP_DAILY"
@@ -622,25 +636,44 @@ prune_after_verified_restore() {
   while IFS= read -r line; do
     if [[ "$line" =~ ^Would\ prune:[[:space:]]+([^[:space:]]+)[[:space:]] ]]; then
       candidate="${BASH_REMATCH[1]}"
-      if [[ "$candidate" == "$verified_archive" || "$candidate" == "verified-$verified_archive" ]]; then
-        printf 'Retention deferred: dry-run would remove the protected base or marker.\n' >&2
-        return 3
-      fi
       [[ "$candidate" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z(\.checkpoint(\.[0-9]+)?)?$ ]] || return 1
     elif [[ "$line" =~ ^Keeping\ archive\ \(rule:[^\)]+\):[[:space:]]+([^[:space:]]+)[[:space:]] ]]; then
       candidate="${BASH_REMATCH[1]}"
-      [[ "$candidate" != "$verified_archive" ]] || protected_kept=1
-    elif [[ "$line" =~ ^Keeping\ checkpoint\ archive:[[:space:]] ]]; then
-      :
+      [[ "$candidate" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || return 1
+      kept_bases+="$candidate"$'\n'
+    elif [[ "$line" =~ ^Keeping\ checkpoint\ archive:[[:space:]]+([^[:space:]]+)[[:space:]] ]]; then
+      candidate="${BASH_REMATCH[1]}"
+      [[ "$candidate" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z\.checkpoint(\.[0-9]+)?$ ]] || return 1
     else
       printf 'Retention preview is incomplete or unrecognized; no archives removed.\n' >&2
       return 1
     fi
+    if grep -Fxq "$candidate" <<< "$seen"; then
+      printf 'Retention preview repeats an archive; no archives removed.\n' >&2
+      return 1
+    fi
+    seen+="$candidate"$'\n'
   done <<< "$preview"
-  (( protected_kept == 1 )) || {
-    printf 'Retention preview does not retain the protected base; no archives removed.\n' >&2
+  # Markers are cluster-bound verification evidence. A newer marker that Borg
+  # would prune must not prevent protecting an older, retained verified base.
+  while IFS= read -r marker; do
+    [[ "$marker" =~ ^verified-base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || continue
+    candidate="${marker#verified-}"
+    if grep -Fxq "$candidate" <<< "$kept_bases"; then verified_archive="$candidate"; break; fi
+  done < <(printf '%s\n' "$markers" | LC_ALL=C sort -r)
+  [[ -n "$verified_archive" ]] || {
+    printf 'Retention deferred: no protected verified base would be retained.\n' >&2
+    return 3
+  }
+  if ! production_base_is_registered "$verified_archive"; then
+    printf 'Deferring retention until the archiver registered the verified base.\n'
+    return 2
+  fi
+  borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
+    printf 'Verified physical base is unavailable before retention.\n' >&2
     return 1
   }
+  printf 'Applying retention with protected verified base: %s\n' "$verified_archive"
   borg prune "${prune_arguments[@]}" || return 1
   borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
     printf 'Retention removed or cannot re-read the verified physical base.\n' >&2
@@ -959,7 +992,11 @@ main() {
   select_restore_cluster_identity
   stage="$(mktemp -d "$STAGING_ROOT/restore.XXXXXX")"
   container="taptime-restore-verify-$(date +%s)"
-  archive="$(select_base_archive)"
+  if [[ -z "$materialize_volume" && "$rehearsal_only" == 0 ]]; then
+    archive="$(select_base_archive weekly)"
+  else
+    archive="$(select_base_archive)"
+  fi
   printf 'Verifying encrypted physical base archive: %s\n' "$archive"
   borg check --verify-data "$BORG_REPOSITORY::$archive"
   (
@@ -1076,8 +1113,10 @@ main() {
     record_verified_base_marker "$stage" "$archive" "$start_wal_lsn" "$start_wal_file"
     if production_database_is_running; then
       register_verified_base "$archive" "$start_wal_lsn" "$start_wal_file"
-      run_backup_retention weekly "$archive" "$RESTORE_ARCHIVE_IDENTIFIER" || \
-        printf 'Retention status could not be persisted.\n' >&2
+      if ! run_backup_retention weekly "$RESTORE_ARCHIVE_IDENTIFIER"; then
+        printf 'Weekly restore verification failed its retention check.\n' >&2
+        return 1
+      fi
       refresh_archive_counts || printf 'Archive counts unavailable.\n' >&2
     else
       printf 'Production database is absent; base registration and retention are deferred.\n'

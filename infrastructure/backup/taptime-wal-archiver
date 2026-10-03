@@ -52,7 +52,7 @@ load_archive_inventory() {
   set_cycle_phase archive_list
   # One snapshot serves physical bases, verification markers and the WAL chain.
   archive_inventory="$(borg list --format '{archive}{NL}' "$BORG_REPOSITORY" | sort)" || return 1
-  record_archive_counts "$archive_inventory" || return 1
+  record_archive_counts "$archive_inventory" || printf 'Archive counts unavailable.\n' >&2
   archive_inventory_loaded=1
 }
 
