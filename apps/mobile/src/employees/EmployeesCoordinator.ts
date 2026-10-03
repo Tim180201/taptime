@@ -134,6 +134,13 @@ export class EmployeesCoordinator implements EmployeesCapability {
     if (!this.current(generation,snapshot)) return;
     this.publish({...state,busy:false,outcome:result.status});
   }
+  async resendInvitation(): Promise<string> {
+    const snapshot=this.capture(), state=this.state, generation=this.generation;
+    if (!snapshot || state.status!=='person' || !this.api.resend) return 'unavailable';
+    const result=await this.api.resend({expectedMembershipId:snapshot.session.membershipId,
+      targetMembershipId:state.person.membershipId,commandId:this.createCommandId()});
+    return this.current(generation,snapshot)?result.status:'authority_rejected';
+  }
   private capture(): InternalAuthenticatedSessionSnapshot|null {
     const snapshot=this.session.capture();
     if (!this.entered || snapshot===null || snapshot.session.managementScope==null) {

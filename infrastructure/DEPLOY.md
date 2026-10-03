@@ -571,3 +571,9 @@ Werkzeug. Die Skripte selbst werden mit dem Operations-Stand installiert bzw. zu
 Diese Grenze ist ausdrücklich inventarisiert. Backend, Admin-Web, Betreiber-Web, Backup- und Monitoring-Skripte,
 deren Einheiten, journald-Grenzen, Compose und Caddy kommen dagegen ausschließlich über die vier
 gleich markierten Abbilder.
+
+## Supabase-Einladungen und Wiederherstellung (T-094)
+
+Vor der separat freigegebenen Auslieferung prüft der Product Owner: Selbstregistrierung aus, E-Mail-Bestätigung an, „Email OTP Expiration“ **3600 s**. Site URL `https://admin.tb-infra.de/`; Einladungs-Redirect `https://admin.tb-infra.de/willkommen`, ohne Wildcard. App und Web setzen Passwörter über dieselbe Site URL; keine Recovery-App-Schemata. Der PO legt diese Einstellungen und die Redirect-Liste an, pflegt sie bei Domain-/Projektwechsel und entfernt obsolete Einträge nach Ablösung. Deutsche Vorlage und vollständiger Ablauf: `docs/T-047-Inbetriebnahme.md`, `docs/T-047-Einladungsvorlage.md`.
+
+Der Backend-Prozess benötigt zusätzlich den **öffentlichen** `SUPABASE_PUBLISHABLE_KEY` in seiner Konfiguration. Der PO übernimmt ihn aus dem Projekt, aktualisiert ihn bei Rotation und entfernt ihn bei Projektablösung. Beim Start und vor jedem Einladungsversand liest der Prozess damit `/auth/v1/settings`. Nur `disable_signup=true` und `mailer_autoconfirm=false` erlauben Einladungen. Fehlende, unlesbare oder unsichere Einstellungen liefern `account_creation_not_configured`, mit Korrelations-ID und Ursache im Serverprotokoll; andere Funktionen laufen weiter. Das Backend ändert keine Supabase-Einstellungen. Den geheimen service-role-Schlüssel weiterhin ausschließlich nach D-049 verwahren.

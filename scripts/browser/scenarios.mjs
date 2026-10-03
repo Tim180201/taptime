@@ -13,7 +13,7 @@ export const adminScenarios = [
   scenario('customers-empty','/kunden','.customers-view h2'),
   scenario('customers-error','/kunden','.customers-view [role="alert"]'),
   ...['login','login-error','forgot-password','signing-in'].map(id=>scenario(id,'/','h1')),
-  ...['recovery','recovery-busy','paused','forbidden','unavailable','loading'].map(id=>scenario(id,'/','main')),
+  ...['recovery','recovery-employee','recovery-standortleitung','recovery-administrator','recovery-busy','paused','forbidden','unavailable','loading'].map(id=>scenario(id,'/','main')),
   scenario('configuration','/','h1'),
   ...['welcome','welcome-invalid','welcome-unavailable'].map(id=>scenario(id,'/willkommen','main')),
   ...['welcome-success','welcome-error','welcome-busy'].map(id=>scenario(id,'/willkommen','form',[

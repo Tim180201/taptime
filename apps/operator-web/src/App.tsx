@@ -655,7 +655,7 @@ function ActionPanel({
     setBusy(true);
     setError(undefined);
     try {
-      await runtime.request(
+      const result=await runtime.request(
         target === "create" ? "organizations/create" : "organizations/status",
         { ...values, commandId: command.current.id },
         mutationResult,
@@ -663,7 +663,9 @@ function ActionPanel({
       if (alive.current)
         onDone(
           target === "create"
-            ? "Betrieb angelegt. Das Administratorkonto ist zugeordnet."
+            ? result.invitation_status==='succeeded_existing_account'
+              ? 'Das Konto besteht bereits; es wurde keine E-Mail verschickt. Informieren Sie die Person, dass sie ihr Passwort oder „Passwort vergessen“ nutzen kann.'
+              : "Betrieb angelegt. Das Administratorkonto ist zugeordnet."
             : target.status === "active"
               ? "Betrieb pausiert."
               : "Betrieb fortgesetzt.",

@@ -1,6 +1,7 @@
 export const ACCOUNT_INVITATION_NOTICES = {
   account_creation_not_configured: 'Kontenerstellung nicht eingerichtet. Bitte wenden Sie sich an die Betriebsverwaltung.',
-  email_exists: 'Diese Adresse gehört bereits zu einem anderen Betrieb.',
+  email_unavailable: 'Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.',
+  email_exists: 'Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.',
   membership_exists: 'Diese Person ist bereits Mitglied Ihres Betriebs. Es wurde keine weitere Einladung versendet.',
   former_membership: 'Der Zugang dieser ausgeschiedenen Person bleibt gesperrt. Bitte klären Sie eine erneute Aufnahme mit der Betriebsverwaltung.',
   invitation_delivery_failed: 'Die Einladung konnte nicht versendet werden. Bitte lassen Sie den Mailversand durch die Betriebsverwaltung prüfen.',

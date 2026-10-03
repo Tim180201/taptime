@@ -6,6 +6,7 @@ import type { AdminWebState } from './contracts';
 import { ACCOUNT_INVITATION_NOTICES, type AccountInvitationApiResult, type AccountInvitationSuccess } from './accountInvitation';
 
 export interface EmployeeAccountInvitationCapability {
+  resend?(membershipId:string): Promise<string>;
   invite(displayName: string, email: string, locationId: string | null): Promise<AccountInvitationApiResult>;
 }
 
@@ -13,6 +14,14 @@ export interface EmployeeAccountInvitationCapability {
 export class EmployeeAccountInvitationClient implements EmployeeAccountInvitationCapability {
   constructor(private readonly auth: Pick<AdminWebAuthPort, 'withAccessToken'>,
     private readonly api = new AdminWebApiClient()) {}
+
+  async resend(membershipId:string): Promise<string> {
+    try { return await this.auth.withAccessToken(async token=>{
+      const session=await this.api.session(token);
+      if (session.status!=='succeeded') return 'unavailable';
+      return this.api.resendEmployeeAccountInvitation(token,session.value.membershipId,membershipId);
+    }) ?? 'unauthorized'; } catch { return 'unavailable'; }
+  }
 
   async invite(displayName: string, email: string, locationId: string | null): Promise<AccountInvitationApiResult> {
     try {
@@ -42,6 +51,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
     ?? (state.assignableLocations.length === 1 ? state.assignableLocations[0]!.id : ''));
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
+  const [retryNeeded,setRetryNeeded]=useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -67,7 +77,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
         event.preventDefault();
         if (submitting.current) return;
         submitting.current = true;
-        setBusy(true); setNotice(null);
+        setBusy(true); setNotice(null); setRetryNeeded(false);
         const request = capability?.invite(name, email, state.locationsEnabled ? locationId : null)
           ?? Promise.resolve({ status: 'failed', code: 'account_creation_not_configured' } as const);
         void request.catch(() => ({ status: 'unreachable' } as const)).then(async (result) => {
@@ -76,6 +86,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
             setName(''); setEmail(''); setOpen(false);
             await onCreated(result.status);
           } else {
+            setRetryNeeded(result.status==='failed' && result.code==='invitation_needs_attention' || result.status==='unreachable');
             setNotice({ kind: 'error', text: result.status === 'failed' ? ACCOUNT_INVITATION_NOTICES[result.code]
               : result.status === 'rejected' ? 'Ihre Sitzung ist abgelaufen. Bitte melden Sie sich erneut an.'
                 : ACCOUNT_INVITATION_NOTICES.invitation_needs_attention });
@@ -97,7 +108,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
               value={location.id}>{location.name}</option>)}
           </select>
         </> : null}
-        <button disabled={busy}>{busy ? 'Einladung wird versendet …' : 'Einladung senden'}</button>
+        <button disabled={busy}>{busy ? 'Einladung wird versendet …' : retryNeeded ? 'Erneut versuchen' : 'Einladung senden'}</button>
       </form></dialog>}
   </>;
 }

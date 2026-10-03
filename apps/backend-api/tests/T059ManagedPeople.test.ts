@@ -107,9 +107,10 @@ beforeAll(async () => {
   invitations=new Pool({connectionString:c3e1RuntimeConnectionString(database,C3E1_INVITATION_RUNTIME_LOGIN,password)});
   enrollment=new Pool({connectionString:c3e1RuntimeConnectionString(database,C3E1_ENROLLMENT_RUNTIME_LOGIN,password)});
   const provider=new SupabaseAccountInviter('https://synthetic.invalid/auth/v1','synthetic-local-only','https://admin.example.test/willkommen',()=>{},async(input,init)=>{
+    if (new URL(String(input)).pathname.endsWith('/settings')) return Response.json({disable_signup:true,mailer_autoconfirm:false});
     if (new URL(String(input)).pathname.endsWith('/admin/users')) return Response.json({users:[]});
     return Response.json({id:randomUUID(),email:JSON.parse(String(init?.body)).email});
-  });
+  },'synthetic-public-key');
   coordinator=new EmployeeMembershipEnrollmentCoordinator(invitations,enrollment,{ verify: token => fixtureAccessTokenVerifier.verify(token.replace(/^header\./,'').replace(/\.signature$/,'')) },provider);
   server=createBackendHttpServer({
     ...unavailableOfflineDependencies(), employeeEnrollment:coordinator,

@@ -12,6 +12,7 @@ Absendername in **SMTP Settings**: **Taptura**.
 <p>Ihr Betrieb hat Sie zu Taptura eingeladen.</p>
 <p>Legen Sie Ihr Passwort fest. Danach können Sie sich in der App mit Ihrer E-Mail-Adresse und Ihrem Passwort anmelden.</p>
 <p><a href="{{ .RedirectTo }}#token_hash={{ .TokenHash }}&amp;type=invite">Passwort setzen</a></p>
+<p>Der Link ist eine Stunde gültig. Ist er abgelaufen, bitte deine Verwaltung um eine neue Einladung.</p>
 <p>Falls Sie diese Einladung nicht erwartet haben, können Sie diese Nachricht ignorieren.</p>
 <p>Taptura</p>
 ```

@@ -53,7 +53,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
     setSubmitting(true);
     const result = await requestPasswordReset(email);
     setMessage(result === 'requested'
-      ? 'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.'
+      ? 'Wir haben dir eine E-Mail geschickt. Öffne den Link, setze dein neues Passwort und melde dich dann hier an.'
       : 'Wiederherstellung ist derzeit nicht erreichbar.');
     submitInFlight.current = false;
     setSubmitting(false);

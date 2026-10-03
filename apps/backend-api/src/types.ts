@@ -196,6 +196,7 @@ export interface AdministrationCoordinator {
 export interface EmployeeMembershipEnrollmentCoordinator {
   readManagedPersonTime?(command: ManagedPersonTimeCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedPersonTimeResult>;
   readManagedActiveSummary?(command: ManagedActiveSummaryCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedActiveSummaryResult>;
+  resendAccountInvitation?(command:{accessToken:string;expectedMembershipId:MembershipId;commandId:string;targetMembershipId:string}, controls?: EmployeeEnrollmentCoordinatorControls): Promise<{status:string}>;
   createAccountInvitation?(
     command: { readonly accessToken: string; readonly expectedMembershipId: MembershipId;
       readonly commandId: string; readonly displayName: string; readonly email: string;
@@ -275,6 +276,7 @@ export type BackendApiRoute =
   | 'health'
   | 'admin_create_customer'
   | 'admin_create_employee_invitation'
+  | 'admin_resend_employee_account_invitation'
   | 'admin_create_employee_account_invitation'
   | 'admin_employee_memberships_projection'
   | 'admin_employee_memberships_projection_v2'
@@ -357,6 +359,7 @@ export interface BackendApiDiagnostic {
   readonly organizationId?: string;
   readonly administratorMembershipId?: string;
   readonly targetAccount?: string;
+  readonly reason?: 'other_organization' | 'outside_management_scope' | 'account_not_invited' | 'identity_unavailable' | 'settings_unsafe' | 'settings_unavailable';
   readonly operatorId?: string;
 }
 

@@ -29,10 +29,11 @@ function invitationFields(diagnostic: BackendApiDiagnostic) {
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   const target = diagnostic.targetAccount ?? '';
   return {
+    ...(['other_organization','outside_management_scope','account_not_invited','identity_unavailable','settings_unsafe','settings_unavailable'].includes(diagnostic.reason ?? '') ? { reason: diagnostic.reason } : {}),
     ...(uuid.test(diagnostic.organizationId ?? '') ? { organization_id: diagnostic.organizationId } : {}),
     ...(uuid.test(diagnostic.administratorMembershipId ?? '')
       ? { administrator_membership_id: diagnostic.administratorMembershipId } : {}),
     ...(uuid.test(diagnostic.operatorId ?? '') ? { operator_id: diagnostic.operatorId } : {}),
-    ...(uuid.test(target) || /^[0-9a-f]{64}$/.test(target) ? { target_account: target } : {}),
+    ...(uuid.test(target) ? { target_account: target } : {}),
   };
 }

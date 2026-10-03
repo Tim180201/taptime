@@ -4,7 +4,7 @@ export type { ManagedPerson };
 export type Failure = 'authority_rejected' | 'transient_failure' | 'unavailable';
 export type ReadResult<T> = { readonly status: 'ready'; readonly value: T } | { readonly status: Failure };
 export type InvitationStatus = Failure | 'succeeded' | 'succeeded_existing_account' | 'invalid_request' | 'invalid_email'
-  | 'command_id_conflict' | 'email_exists' | 'membership_exists' | 'former_membership' | 'account_creation_not_configured'
+  | 'command_id_conflict' | 'email_unavailable' | 'email_exists' | 'membership_exists' | 'former_membership' | 'account_creation_not_configured'
   | 'rate_limited' | 'invitation_delivery_failed' | 'invitation_rate_limited' | 'invitation_service_unavailable' | 'invitation_needs_attention';
 export interface InvitationCommand {
   readonly expectedMembershipId: string; readonly commandId: string; readonly displayName: string;
@@ -15,6 +15,7 @@ export interface EmployeesApiPort {
   summary(request: ManagedActiveSummaryRequest): Promise<ReadResult<ManagedActiveSummary>>;
   personTime(request: ManagedPersonTimeRequest): Promise<ReadResult<MobileOwnTimeQueryResponse>>;
   locations(expectedMembershipId: string, cursor: string | null): Promise<ReadResult<{readonly locations: readonly EmployeeLocation[]; readonly nextCursor: string | null}>>;
+  resend?(request:{expectedMembershipId:string;commandId:string;targetMembershipId:string}): Promise<{status:string}>;
   invite(command: InvitationCommand): Promise<{ readonly status: InvitationStatus }>;
 }
 export type EmployeesState =
@@ -33,6 +34,7 @@ export interface EmployeesCapability {
   loadPersonMonth(month: string): Promise<void>;
   openInvitation(): Promise<void>;
   invite(displayName: string, email: string, locationId: string | null): Promise<void>;
+  resendInvitation?(): Promise<string>;
   back(): Promise<void>;
   leave(): void;
 }

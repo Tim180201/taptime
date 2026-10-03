@@ -45,11 +45,11 @@ describe('T-047 employee account interface', () => {
     expect(message).not.toHaveTextContent('Einladung verschickt.');
     expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
   });
-  it('describes email_exists only as belonging to another organization', async () => {
+  it('uses the generic message for the legacy email_exists code', async () => {
     render(<Harness capability={{ invite: async () => ({ status: 'failed', code: 'email_exists' }) }} />);
     fill();
     const error=await screen.findByRole('alert');
-    expect(error).toHaveTextContent('Diese Adresse gehört bereits zu einem anderen Betrieb.');
+    expect(error).toHaveTextContent('Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.');
     expect(screen.getByRole('dialog',{name:'Beschäftigte Person einladen'})).toContainElement(error);
   });
   it.each(Object.entries(ACCOUNT_INVITATION_NOTICES))('shows %s by name and retains the inputs', async (code, text) => {

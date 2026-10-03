@@ -70,9 +70,10 @@ describe('T-047 invitation diagnostics', () => {
     const context = { correlationId: randomUUID(), organizationId: randomUUID(),
       administratorMembershipId: randomUUID(), deadlineEpochMilliseconds: Date.now() + 8_000 };
     const inviter = new SupabaseAccountInviter('https://synthetic.invalid/auth/v1', key,
-      'https://admin.example.test/willkommen', sink, async () => {
+      'https://admin.example.test/willkommen', sink, async input => {
+        if (String(input).endsWith('/settings')) return Response.json({disable_signup:true,mailer_autoconfirm:false});
         throw new Error(`${key} ${email}`);
-      });
+      },'synthetic-public-key');
     const result = await inviter.invite(email, context);
     expect(result.status).toBe('invitation_service_unavailable');
     expect(output.includes(key)).toBe(false);
@@ -80,7 +81,7 @@ describe('T-047 invitation diagnostics', () => {
     expect(/test-service-role-/.test(output)).toBe(false);
     expect(JSON.parse(output)).toMatchObject({
       error_class: 'account_invitation_provider_request', organization_id: context.organizationId,
-      administrator_membership_id: context.administratorMembershipId, target_account: expect.stringMatching(/^[a-f0-9]{64}$/),
+      administrator_membership_id: context.administratorMembershipId,
     });
   });
 });

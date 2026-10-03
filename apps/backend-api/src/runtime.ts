@@ -62,6 +62,7 @@ export interface BackendApiRuntimeConfiguration {
   readonly projectAdministrationDatabaseUrl?: string;
   readonly supabaseIssuer: string;
   readonly supabaseServiceRoleKey?: string;
+  readonly supabasePublishableKey?: string;
   readonly employeeInvitationRedirectUrl?: string;
 }
 
@@ -198,7 +199,8 @@ export function createBackendApiRuntime(
   const sessionMembershipResolver = new PostgresIdentityMembershipResolver(sessionPool);
   const inviter = configuration.supabaseServiceRoleKey && configuration.employeeInvitationRedirectUrl
     ? new SupabaseAccountInviter(issuer, configuration.supabaseServiceRoleKey, configuration.employeeInvitationRedirectUrl,
-      options.onDiagnostic ?? createBackendApiDiagnosticLogSink()) : undefined;
+      options.onDiagnostic ?? createBackendApiDiagnosticLogSink(), fetch, configuration.supabasePublishableKey) : undefined;
+  if (inviter) void inviter.checkSettings({ correlationId: 'startup', deadlineEpochMilliseconds: Date.now() + 8000 });
   const server = createBackendHttpServer(
     {
       checkTenantAccess: async (accessToken) => {

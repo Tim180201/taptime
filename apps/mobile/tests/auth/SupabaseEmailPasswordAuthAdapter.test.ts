@@ -133,23 +133,13 @@ describe('SupabaseEmailPasswordAuthAdapter', () => {
     expect(auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the app recovery redirect and updates only an activated recovery session', async () => {
-    const auth = fakeAuth();
-    const adapter = new SupabaseEmailPasswordAuthAdapter(auth as never);
-    await expect(adapter.requestPasswordReset(
-      'employee@example.invalid', 'taptime://auth/recovery',
-    )).resolves.toBe(true);
-    expect(auth.resetPasswordForEmail).toHaveBeenCalledWith(
-      'employee@example.invalid', { redirectTo: 'taptime://auth/recovery' },
-    );
-    await expect(adapter.activatePasswordRecovery('access-recovery', 'refresh-recovery'))
-      .resolves.toBe(true);
-    expect(auth.setSession).toHaveBeenCalledWith({
-      access_token: 'access-recovery', refresh_token: 'refresh-recovery',
-    });
-    await expect(adapter.updatePassword('new-password')).resolves.toBe(true);
-    expect(auth.updateUser).toHaveBeenCalledWith({ password: 'new-password' });
+  it('uses the same Site URL recovery as the web without an app redirect', async () => {
+    const auth=fakeAuth(), adapter=new SupabaseEmailPasswordAuthAdapter(auth as never);
+    await expect(adapter.requestPasswordReset('employee@example.invalid')).resolves.toBe(true);
+    expect(auth.resetPasswordForEmail).toHaveBeenCalledWith('employee@example.invalid');
+    expect('activatePasswordRecovery' in adapter).toBe(false);
   });
+
 });
 
 

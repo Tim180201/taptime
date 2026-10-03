@@ -359,6 +359,26 @@ export class AdminWebApiClient implements AdminWebApiPort {
       true,
     );
   }
+  async resendEmployeeAccountInvitation(token:string,expectedMembershipId:string,targetMembershipId:string): Promise<string> {
+    const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),12000);
+    try {
+      const response=await this.fetchRequest('/v1/administration/employee-account-invitations/resend',{
+        method:'POST',headers:{Accept:'application/json',Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({commandId:crypto.randomUUID(),expectedMembershipId,targetMembershipId}),
+        signal:controller.signal,cache:'no-store',credentials:'omit',redirect:'manual'});
+      if (response.status===401 || response.status===403) return 'forbidden';
+      if (response.redirected || !isJsonContentType(response.headers.get('content-type'))) return 'unavailable';
+      const text=await readBoundedResponseText(response,maximumJsonBodyBytes);
+      if (text===null) return 'unavailable';
+      const body:unknown=JSON.parse(text);
+      if (response.status===200 && isRecord(body) && exact(body,['status'])
+        && (body.status==='succeeded' || body.status==='invitation_already_accepted')) return body.status;
+      if (isRecord(body) && exact(body,['error']) && isRecord(body.error) && exact(body.error,['code'])
+        && typeof body.error.code==='string' && Object.hasOwn(ACCOUNT_INVITATION_NOTICES,body.error.code)) return body.error.code;
+      return 'unavailable';
+    } catch {return 'unavailable';} finally {clearTimeout(timeout);}
+  }
+
   async createEmployeeAccountInvitation(token: string, membershipId: string, commandId: string,
     displayName: string, email: string, locationId: string | null): Promise<AccountInvitationApiResult> {
     const controller = new AbortController();

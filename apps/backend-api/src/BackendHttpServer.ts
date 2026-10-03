@@ -86,6 +86,7 @@ import {
 // Shared registration for dispatch and request protection. Health alone bypasses the API budget.
 export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
+  '/v1/administration/employee-account-invitations/resend': 'admin_resend_employee_account_invitation',
   '/v1/operator/session': 'operator_session',
   '/v1/operator/overview': 'operator_overview',
   '/v1/operator/organizations/create': 'operator_create',
@@ -594,6 +595,19 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'admin_resend_employee_account_invitation') {
+    if (!isRecord(body) || !hasExactKeys(body,['commandId','expectedMembershipId','targetMembershipId'])
+      || !isCanonicalUuid(body.commandId) || !isCanonicalUuid(body.expectedMembershipId) || !isCanonicalUuid(body.targetMembershipId)) {
+      respondError(response,400,'invalid_request'); return;
+    }
+    const result = await dependencies.employeeEnrollment.resendAccountInvitation?.({accessToken,
+      commandId:body.commandId,expectedMembershipId:MembershipId(body.expectedMembershipId),targetMembershipId:body.targetMembershipId},
+      {deadlineEpochMilliseconds:Date.now()+timeoutMilliseconds-500}) ?? {status:'account_creation_not_configured'};
+    if (result.status==='succeeded' || result.status==='invitation_already_accepted') respondJson(response,200,result);
+    else respondJson(response,result.status==='forbidden'?403:result.status==='unauthorized'?401:
+      result.status==='invalid_request'?400:result.status==='invitation_rate_limited'?429:503,{error:{code:result.status}});
+    return;
+  }
   if (route === 'admin_create_employee_account_invitation') {
     if (!isRecord(body) || !hasExactKeys(body, ['commandId', 'displayName', 'email', 'expectedMembershipId', 'locationId'])
       || !isCanonicalUuid(body.commandId) || !isCanonicalUuid(body.expectedMembershipId)
@@ -611,7 +625,7 @@ async function handleRequest(
       case 'unauthorized': respondError(response, 401, result.status); return;
       case 'forbidden': respondError(response, 403, result.status); return;
       case 'invalid_email': case 'invalid_request': respondError(response, 400, result.status); return;
-      case 'command_id_conflict': case 'email_exists': case 'membership_exists': case 'former_membership':
+      case 'command_id_conflict': case 'email_unavailable': case 'membership_exists': case 'former_membership':
         respondError(response, 409, result.status); return;
       case 'invitation_rate_limited': respondError(response, 429, result.status); return;
       case 'account_creation_not_configured': case 'invitation_delivery_failed':
@@ -2775,7 +2789,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
       return 'operator_failed';
     case 'admin_customer_quota':
     case 'admin_create_customer':
-    case 'admin_create_employee_account_invitation':
+    case 'admin_resend_employee_account_invitation': case 'admin_create_employee_account_invitation':
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':
     case 'admin_employee_memberships_projection_v2':
@@ -2854,6 +2868,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
 
 function isAdministrationRoute(route: Route): boolean {
   return route === 'admin_customer_quota' || route === 'admin_create_customer'
+    || route === 'admin_resend_employee_account_invitation'
     || route === 'admin_create_employee_account_invitation'
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'
@@ -2970,7 +2985,7 @@ export function requestRateLimitScope(requestUrl: string | undefined): RequestRa
     return null;
   }
   if (route?.startsWith('operator_')) return 'operator_api';
-  if (route === 'admin_create_employee_account_invitation') return 'employee_account_invitation';
+  if (route === 'admin_create_employee_account_invitation' || route === 'admin_resend_employee_account_invitation') return 'employee_account_invitation';
   if (route === 'employee_enrollment_redeem') {
     return 'enrollment_redemption';
   }
@@ -4012,7 +4027,7 @@ function respondOperatorResult(response: ServerResponse, result: Record<string,u
     respondJson(response,200,result); return;
   }
   const status = result.status==='unauthorized'?401 : ['forbidden','mfa_required'].includes(result.status)?403
-    : result.status==='not_found'?404 : ['conflict','command_id_conflict','identity_unavailable'].includes(result.status)?409
+    : result.status==='not_found'?404 : ['conflict','command_id_conflict','identity_unavailable','email_unavailable'].includes(result.status)?409
     : result.status==='invitation_rate_limited'?429 : ['invalid_request','invalid_email'].includes(result.status)?400:503;
   respondJson(response,status,{error:{code:result.status}});
 }

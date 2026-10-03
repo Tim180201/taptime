@@ -38,7 +38,7 @@ it('requires MFA for every action and active operator authority even for session
 });
 it('rolls back provider failures and uses an idempotent command before sending mail', async () => {
   const invite=vi.fn().mockResolvedValue({status:'invitation_delivery_failed'});
-  const inviter={issuer,invite,needsAttention:vi.fn()};
+  const inviter={issuer,invite,diagnose:vi.fn(),needsAttention:vi.fn()};
   const coordinator=new OperatorCoordinator(pool,verifier,inviter);
   const request={commandId:'93000000-0000-4000-8000-000000000001',name:'Neuer Betrieb',email:'admin@example.invalid'};
   expect(await coordinator.execute('high','create',request)).toEqual({status:'invitation_delivery_failed'});
@@ -48,9 +48,9 @@ it('rolls back provider failures and uses an idempotent command before sending m
   expect(result.status).toBe('succeeded');
   expect(await coordinator.execute('high','create',request)).toEqual(result);
   expect(invite).toHaveBeenCalledTimes(2);
-  invite.mockResolvedValue({status:'existing',subject:'employee-a'});
+  invite.mockResolvedValue({status:'existing',subject:'employee-a',wasInvited:true});
   expect(await coordinator.execute('high','create',{...request,commandId:'93000000-0000-4000-8000-000000000002'}))
-    .toEqual({status:'identity_unavailable'});
+    .toEqual({status:'email_unavailable'});
 });
 it('has a separate 30/min budget and returns 404 for other forwarded hosts', async () => {
   expect(requestRateLimitScope('/v1/operator/overview')).toBe('operator_api');
@@ -87,12 +87,12 @@ it('serializes concurrent operator and 026 invitations for the same normalized e
   const arrived = gate();
   const release = gate();
   const subject = '94000000-0000-4000-8000-000000000001';
-  const operatorInviter = { issuer, needsAttention: vi.fn(), invite: vi.fn(async () => {
+  const operatorInviter = { issuer, diagnose: vi.fn(), needsAttention: vi.fn(), invite: vi.fn(async () => {
     arrived.resolve(); await release.promise;
     return { status: 'invited' as const, subject };
   }) };
-  const memberInviter = { issuer, needsAttention: vi.fn(),
-    invite: vi.fn(async () => ({ status: 'existing' as const, subject })) };
+  const memberInviter = { issuer, diagnose: vi.fn(), needsAttention: vi.fn(),
+    invite: vi.fn(async () => ({ status: 'existing' as const, subject,wasInvited:true })) };
   const memberVerifier = { verify: async () => ({ status: 'verified' as const, identity: { issuer, subject: 'admin-a' } }) };
   const operatorCoordinator = new OperatorCoordinator(pool, verifier, operatorInviter);
   const memberCoordinator = new EmployeeMembershipEnrollmentCoordinator(pool, pool, memberVerifier,
@@ -108,13 +108,13 @@ it('serializes concurrent operator and 026 invitations for the same normalized e
   try {
     await vi.waitFor(async () => {
       const waiting = await pool.query(`SELECT FROM pg_stat_activity WHERE datname=current_database()
-        AND pid<>pg_backend_pid() AND query LIKE '%employee_account_invitation_v1(%' AND wait_event_type='Lock'`);
+        AND pid<>pg_backend_pid() AND query LIKE '%employee_account_invitation_v2(%' AND wait_event_type='Lock'`);
       expect(waiting.rowCount! > 0 || memberInviter.invite.mock.calls.length > 0).toBe(true);
     });
     expect(memberInviter.invite).not.toHaveBeenCalled();
   } finally { release.resolve(); await Promise.allSettled([creating, inviting]); }
   expect((await creating).status).toBe('succeeded');
-  expect(await inviting).toEqual({ status: 'email_exists' });
+  expect(await inviting).toEqual({ status: 'email_unavailable' });
   expect(operatorInviter.needsAttention).not.toHaveBeenCalled();
 });
 
@@ -127,7 +127,7 @@ function gate(): { promise: Promise<void>; resolve: () => void } {
 it('reports ambiguous invitations', async () => {
   const invite = vi.fn().mockResolvedValue({ status: 'invitation_needs_attention' });
   const needsAttention = vi.fn();
-  const coordinator = new OperatorCoordinator(pool, verifier, { issuer, invite, needsAttention });
+  const coordinator = new OperatorCoordinator(pool, verifier, { issuer, invite, needsAttention, diagnose:vi.fn() });
   const request = { commandId: '95000000-0000-4000-8000-000000000001', name: 'Rejected', email: 'repair@example.invalid' };
   expect(await coordinator.execute('high', 'create', request)).toEqual({ status: 'invitation_needs_attention' });
   expect(needsAttention).toHaveBeenCalledWith(request.email,
@@ -136,7 +136,7 @@ it('reports ambiguous invitations', async () => {
 it('reports external success without a local completion', async () => {
   const invite = vi.fn();
   const needsAttention = vi.fn();
-  const coordinator = new OperatorCoordinator(pool, verifier, { issuer, invite, needsAttention });
+  const coordinator = new OperatorCoordinator(pool, verifier, { issuer, invite, needsAttention, diagnose:vi.fn() });
   const request = { commandId: '95000000-0000-4000-8000-000000000001', name: 'Rejected', email: 'repair@example.invalid' };
   const subject = '95000000-0000-4000-8000-000000000002';
   invite.mockResolvedValue({ status: 'invited', subject });

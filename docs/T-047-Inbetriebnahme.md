@@ -19,7 +19,8 @@ Produktionszugriffe aus. Die echte Abnahme folgt nach Umsetzungs-Commit und dies
    Vorhandene Passwort-Recovery-Redirects erhalten. Bei einer anderen Web-Domain müssen der
    konfigurierte Backend-Redirect und dieser Eintrag gemeinsam auf dieselbe Adresse zeigen.
    Die bestehende Caddy-SPA-Auslieferung unterstützt die neue Route über `/index.html`.
-5. **service-role-Schlüssel selbst eintragen und Verwahrung bestätigen.** Ausschließlich in
+5. **Auth-Einstellungen prüfen (Product Owner).** Unter Authentication Selbstregistrierung abschalten und E-Mail-Bestätigung einschalten. „Email OTP Expiration“ auf **3600 s (eine Stunde)** setzen. Site URL: `https://admin.tb-infra.de/`; Redirect-Liste: `https://admin.tb-infra.de/willkommen` für Einladungen. Passwort-Wiederherstellung aus App und Web verwendet die Site URL; keine App-Schemata freigeben. Der PO legt diese Einstellungen an, ändert sie bei Domain-/Projektwechsel und entfernt obsolete Redirects nach Ablösung. Den öffentlichen Schlüssel als `SUPABASE_PUBLISHABLE_KEY` in der Backend-Konfiguration hinterlegen; der PO legt ihn mit dem Projekt an, aktualisiert ihn bei Rotation und entfernt ihn bei Projektablösung. Dies ist kein Geheimnis und wird ausschließlich für `/auth/v1/settings` verwendet. Der Server prüft beim Start und vor Einladungen/erneutem Versand `disable_signup=true` und `mailer_autoconfirm=false`; unsichere oder unlesbare Einstellungen sperren nur Einladungen mit `account_creation_not_configured`. Keine automatische Einstellungsänderung.
+6. **service-role-Schlüssel selbst eintragen und Verwahrung bestätigen.** Ausschließlich in
    `/opt/taptime/.env`, Datei root-eigen und Modus `0600`; niemals in Chat, Git, Abbild,
    Bauargument, Shell-Befehlsargument oder Screenshot. Der Variablenname lautet
    `SUPABASE_SERVICE_ROLE_KEY`. In derselben Datei den öffentlichen Wert
@@ -34,23 +35,19 @@ die umfassende Löschfähigkeit bleibt T-016.
 
 ## Benannte Antworten und Fehlerfallbetrieb
 
-Nur die Operation Einladen verwendet den Schlüssel: zuerst für eine auf die eingegebene
-Adresse gefilterte Kontosuche, dann gegebenenfalls für `POST /auth/v1/invite`. Die Suche
-vergleicht die vollständige normalisierte Adresse, da Supabases Filter auch Teiltreffer liefert.
-Die Adresse wird dabei im `filter`-Query-Parameter an Supabase übertragen und kann dort in
-Zugriffsprotokollen stehen; dies ist beim AVV mit Supabase zu berücksichtigen.
+Nur die Operation Einladen verwendet den Schlüssel: zuerst für eine seitenweise Kontosuche mit lokalem NFC-Adressvergleich, dann gegebenenfalls für `POST /auth/v1/invite`. Die Suche vergleicht die vollständige normalisierte Adresse. Supabases Filter erkennt historische NFD-Adressen nicht zuverlässig; deshalb werden alle Seiten unter derselben Zeit- und Antwortgrößengrenze geprüft, einschließlich möglicher normalisierter Duplikate. Die Adresse steht in keinem Such-Query.
 Jeder Provider-Aufruf erzeugt eine Diagnose mit Betrieb, handelnder Mitgliedschaft und
-Adress-Fingerabdruck. Bei lokalem Rollback nach Remote-Erfolg wird zusätzlich die erhaltene
+Korrelations-ID (und sobald bekannt die Supabase-Konto-ID). Bei lokalem Rollback nach Remote-Erfolg wird zusätzlich die erhaltene
 Konto-ID protokolliert. Kein Klartext der Adresse, kein Antworttext des Providers, kein Schlüssel.
 
 | Fall | Sichtbare Antwort / Ergebnis |
 |---|---|
 | Neues Supabase-Konto angelegt und lokal gebunden | `succeeded`: Einladung verschickt |
-| Bestehendes Supabase-Konto ohne lokale Identitätsbindung | `succeeded_existing_account`: Konto aufgenommen, keine Mail verschickt; Administrator informiert die Person selbst über Anmeldung mit vorhandenem Passwort oder „Passwort vergessen“ |
+| Bestehendes, aus einer Einladung stammendes Supabase-Konto ohne lokale Identitätsbindung | `succeeded_existing_account`: Konto aufgenommen, keine Mail verschickt; Administrator informiert die Person selbst über Anmeldung mit vorhandenem Passwort oder „Passwort vergessen“ |
 | Konto und aktive Mitgliedschaft im erlaubten Verwaltungsumfang | `membership_exists`: bereits Mitglied; keine zweite Mail |
 | Konto und ausgeschiedene Mitgliedschaft im erlaubten Verwaltungsumfang | `former_membership`: ausgeschieden; Zugang bleibt gesperrt |
-| Konto bereits an eine andere Organisation gebunden | `email_exists`: „Diese Adresse gehört bereits zu einem anderen Betrieb“; keine Mehrfachmitgliedschaft |
-| Mitgliedschaft im selben Betrieb außerhalb des erlaubten Standortumfangs | `forbidden`: Aufnahme nicht erlaubt; keine Auskunft über den anderen Standort |
+| Konto bereits an eine andere Organisation gebunden | `email_unavailable` (409): „Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.“; keine Mehrfachmitgliedschaft |
+| Mitgliedschaft im selben Betrieb außerhalb des erlaubten Standortumfangs | `email_unavailable` (409): dieselbe Antwort wie bei einem fremden Betrieb |
 | Provider lehnt die Adresse ab | `invalid_email`: Adresse prüfen |
 | Provider erlaubt Mailversand nicht | `invitation_delivery_failed`: Mailversand prüfen |
 | Eigene oder Supabase-Versandgrenze erreicht | `invitation_rate_limited`: später erneut versuchen |
@@ -60,7 +57,7 @@ Konto-ID protokolliert. Kein Klartext der Adresse, kein Antworttext des Provider
 Supabase antwortet bei einer bestätigten bestehenden Adresse mit HTTP 422 `email_exists`;
 ein unbestätigtes bestehendes Konto würde Supabase erneut einladen. Unsere vorgeschaltete
 Suche erkennt beide Fälle und verschickt bewusst keine weitere Einladung. Fehlt die lokale
-Bindung, wird das Konto atomar aufgenommen. Tritt Supabases Duplikatantwort erst nach der Suche
+Bindung, wird nur ein Konto mit gesetztem `invited_at` atomar aufgenommen. Ein Konto ohne Einladungsherkunft liefert ebenfalls `email_unavailable` (409). Tritt Supabases Duplikatantwort erst nach der Suche
 auf, wird das Konto erneut gesucht und anhand der lokalen Bindung eingeordnet. Die
 Provider-Antwort allein bedeutet nicht, dass ein anderer Betrieb existiert. Der Name eines
 fremden Betriebs oder Standorts wird niemals offengelegt. Bestehende Bindungen werden nicht
@@ -109,3 +106,9 @@ Quellen: [Supabase Redirect-URLs](https://supabase.com/docs/guides/auth/redirect
 [Einladungsvorlagen](https://supabase.com/docs/guides/auth/auth-email-templates),
 [Invite-Implementierung](https://github.com/supabase/auth/blob/master/internal/api/invite.go),
 [gefilterte Admin-Kontosuche](https://github.com/supabase/auth/blob/master/internal/api/admin.go).
+
+## Einladung erneut senden (T-094)
+
+Der Knopf steht in der Personenansicht in App und Web. Die Liste behauptet keinen offenen Einladungsstand: Ohne Provider-Abfrage je Person wäre er nicht sicher. Der Server autorisiert erneut über den aktuellen Verwaltungsbereich, liest das Konto anhand der gespeicherten Konto-ID und versendet nur bei unbestätigter Adresse, ohne Anmeldung und mit Einladungsherkunft. Bereits angenommene Konten erhalten „Bereits angemeldet. Bitte ‚Passwort vergessen‘ nutzen“, ohne Mail.
+
+Jeder autorisierte Versandversuch erzeugt vor dem Provider-Aufruf einen unveränderlichen Eintrag in `account_invitation_resend_audit`; derselbe Eintrag begrenzt je Mitgliedschaft auf einen Versuch je zehn Minuten, auch nach unklarem Versand oder Prozessabbruch. Das Audit belegt den Versuch, nicht die Zustellung. Fehlgeschlagene oder bereits angenommene Versuche verbrauchen das Zeitfenster ebenfalls. Die Anwendung legt diese Datensätze an, ändert sie nie; Aufbewahrung und Entfernung zusammen mit Mitgliedschaftsdaten erfolgen durch den Löschlauf aus T-016. Ein Zugangsentzug bleibt wirksam; es gibt keine Reaktivierung durch erneutes Senden.

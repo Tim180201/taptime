@@ -5,7 +5,7 @@ import type { TimeEditingCapability } from '../timeEditing/TimeEditingCoordinato
 import type { EmployeesCapability } from '../employees/contracts';
 import { EmployeesScreen } from '../screens/EmployeesScreen';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { BackHandler, Linking, ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MobileSessionCapability, ProductMembershipRole, MobileManagementScope } from '../auth/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
@@ -67,12 +67,6 @@ export function AppNavigator({
     state.status === 'authenticated' ? state.session.membershipId : null,
     work,
   ]);
-  useEffect(() => {
-    const handle = (url: string) => { void session.handlePasswordRecoveryUrl?.(url); };
-    void Linking.getInitialURL().then((url) => { if (url !== null) handle(url); });
-    const subscription = Linking.addEventListener('url', (event) => handle(event.url));
-    return () => subscription.remove();
-  }, [session]);
 
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
@@ -85,10 +79,6 @@ export function AppNavigator({
       redeem={(invitationSecret) => session.redeemEmployeeInvitation(invitationSecret)}
       signOut={() => session.signOut()}
     />;
-  }
-  if (state.status === 'password_recovery') {
-    return <PasswordRecoveryScreen session={session} completing={state.completing}
-      notice={state.notice} />;
   }
   if (state.status === 'context_unavailable') {
     if (canPresentOfflineCaptureShell(state, scanState)) {
@@ -123,25 +113,6 @@ export function AppNavigator({
         ?? Promise.resolve('unavailable')}
     />
   );
-}
-
-function PasswordRecoveryScreen({ session, completing, notice }: {
-  readonly session: MobileSessionCapability;
-  readonly completing: boolean;
-  readonly notice: string | null;
-}) {
-  const [password, setPassword] = useState('');
-  return <Screen title="Neues Passwort setzen"><ScrollView contentContainerStyle={styles.formContent} keyboardShouldPersistTaps="handled">
-    <Text>Neues Passwort</Text>
-    <TextField secureTextEntry autoComplete="new-password" value={password}
-      onChangeText={setPassword} accessibilityLabel="Neues Passwort" placeholder="Neues Passwort" testID="recovery-password-input" />
-    <ActionButton title={completing ? 'Wird geändert …' : 'Passwort ändern'}
-      disabled={completing || password.length < 8}
-      loading={completing}
-      onPress={() => { const value = password; setPassword('');
-        void session.completePasswordRecovery?.(value); }} />
-    {notice === null ? null : <Text>{notice}</Text>}
-  </ScrollView></Screen>;
 }
 
 function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual }: {

@@ -76,23 +76,12 @@ export class SupabaseEmailPasswordAuthAdapter implements ProviderAuthPort {
     await this.auth.stopAutoRefresh();
   }
 
-  async requestPasswordReset(email: string, redirectTo: string): Promise<boolean> {
-    const { error } = await this.auth.resetPasswordForEmail(email, { redirectTo });
+  async requestPasswordReset(email: string): Promise<boolean> {
+    const { error } = await this.auth.resetPasswordForEmail(email);
     return error === null;
   }
 
-  async activatePasswordRecovery(accessToken: string, refreshToken: string): Promise<boolean> {
-    const { data, error } = await this.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    });
-    return error === null && data.session !== null;
-  }
 
-  async updatePassword(password: string): Promise<boolean> {
-    const { error } = await this.auth.updateUser({ password });
-    return error === null;
-  }
 }
 
 export function createSupabaseEmailPasswordAuthAdapter(

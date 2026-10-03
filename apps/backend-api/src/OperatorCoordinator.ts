@@ -9,7 +9,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 /** A separate capability connection; tenant coordinators and credentials never enter here. */
 export class OperatorCoordinator {
   constructor(private readonly pool: Pool, private readonly verifier: AccessTokenVerifier,
-    private readonly inviter?: Pick<SupabaseAccountInviter,'issuer'|'invite'|'needsAttention'>,
+    private readonly inviter?: Pick<SupabaseAccountInviter,'issuer'|'invite'|'needsAttention'|'diagnose'>,
     private readonly version: string|null = null) {}
 
   async execute(token: string,action: OperatorAction,input: unknown): Promise<Result> {
@@ -54,7 +54,7 @@ export class OperatorCoordinator {
         if (email===null) return {status:'invalid_email'};
         const hash=accountInvitationEmailHash(email);
         const args=[input.commandId,input.name,hash,this.inviter.issuer];
-        result=await query('operator_create_organization_v1($1,$2,$3,$4,NULL)',args);
+        result=await query('operator_create_organization_v2($1,$2,$3,$4,NULL,false)',args);
         if (result.status==='prepared') {
           const operatorId=(await client.query<{id:string}>("SELECT current_setting('app.operator_id') id")).rows[0]!.id;
           invitationContext={correlationId:input.commandId,operatorId,deadlineEpochMilliseconds:Date.now()+7_000};
@@ -64,8 +64,17 @@ export class OperatorCoordinator {
             if (invitation.status==='invitation_needs_attention') this.inviter.needsAttention(email,invitationContext);
             return {status:invitation.status};
           }
+          if (invitation.status==='existing' && !invitation.wasInvited) {
+            this.inviter.diagnose(invitationContext,'account_not_invited',invitation.subject);
+            return {status:'email_unavailable'};
+          }
           if (invitation.status==='invited') invitedSubject=invitation.subject;
-          result=await query('operator_create_organization_v1($1,$2,$3,$4,$5)',[...args,invitation.subject]);
+          result=await query('operator_create_organization_v2($1,$2,$3,$4,$5,$6)',[...args,invitation.subject,invitation.status==='invited']);
+          if (result.status==='identity_unavailable') {
+            this.inviter.diagnose(invitationContext,'identity_unavailable',invitation.subject);
+            return {status:'email_unavailable'};
+          }
+          if (result.status==='succeeded') result={...result,invitation_status:invitation.status==='existing'?'succeeded_existing_account':'succeeded'};
           if (invitedSubject!==undefined && result.status!=='succeeded') throw new Error('Operator invitation completion rejected');
         }
       } else return {status:'invalid_request'};

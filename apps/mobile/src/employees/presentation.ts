@@ -2,10 +2,11 @@ import type { InvitationStatus } from './contracts';
 const messages: Record<InvitationStatus,string> = {
   rate_limited:'Zu viele Anfragen. Bitte warte eine Minute, bevor du die Einladung erneut sendest.',
   succeeded:'Die Einladung wurde per E-Mail versendet.',
-  succeeded_existing_account:'Das vorhandene Konto wurde als Mitarbeiter aufgenommen.',
+  succeeded_existing_account:'Das Konto besteht bereits; es wurde keine E-Mail verschickt. Informieren Sie die Person, dass sie ihr Passwort oder „Passwort vergessen“ nutzen kann.',
   invalid_request:'Bitte prüfe Name, E-Mail und Standort.',
   invalid_email:'Bitte gib eine gültige E-Mail-Adresse ein.',
   command_id_conflict:'Diese Anfrage wurde mit anderen Angaben verwendet. Bitte öffne die Einladung erneut.',
+  email_unavailable: 'Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.',
   email_exists:'Diese E-Mail-Adresse ist bereits vergeben.',
   membership_exists:'Diese Person ist bereits Mitglied des Betriebs.',
   former_membership:'Für diese Person besteht eine frühere Mitgliedschaft. Bitte kläre den Zugang in der Verwaltung.',

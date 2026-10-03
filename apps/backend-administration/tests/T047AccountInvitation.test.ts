@@ -43,10 +43,10 @@ beforeEach(async () => {
     if (url.pathname.endsWith('/admin/users')) return Response.json({ users: [] });
     expect(url.pathname).toBe('/auth/v1/invite');
     expect(url.searchParams.get('redirect_to')).toBe('https://admin.example.test/willkommen');
-    return Response.json({ id: subject, email });
+    return Response.json({ id: subject, email, invited_at:'2026-10-03T10:00:00Z' });
   });
   coordinator = new EmployeeMembershipEnrollmentCoordinator(invitations, enrollment, fixtureAccessTokenVerifier,
-    new SupabaseAccountInviter(issuer, key, 'https://admin.example.test/willkommen', (d) => diagnostics.push(d), remote));
+    new SupabaseAccountInviter(issuer, key, 'https://admin.example.test/willkommen', (d) => diagnostics.push(d), async(input,init)=>new URL(String(input)).pathname.endsWith('/settings')?Response.json({disable_signup:true,mailer_autoconfirm:false}):remote(input,init), 'synthetic-public-key'));
 });
 afterAll(async () => {
   await invitations?.end(); await enrollment?.end();
@@ -87,7 +87,7 @@ describe('T-047 PostgreSQL account invitation', () => {
         return Response.json({ users: [...accounts.values()] });
       }
       if (accounts.has(email)) throw new Error('Unexpected second invitation');
-      const account = { id: subject, email };
+      const account = { id: subject, email, invited_at:'2026-10-03T10:00:00Z' };
       accounts.set(email, account); mails += 1;
       return Response.json(account);
     });
@@ -134,7 +134,7 @@ describe('T-047 PostgreSQL account invitation', () => {
 
   it('distinguishes existing membership, former membership and unrelated existing account without tenant disclosure', async () => {
     await coordinator.createAccountInvitation(command());
-    remote.mockImplementation(async () => Response.json({ users: [{ id: subject, email }] }));
+    remote.mockImplementation(async () => Response.json({ users: [{ id: subject, email, invited_at:'2026-10-03T10:00:00Z' }] }));
     expect(await coordinator.createAccountInvitation(command())).toEqual({ status: 'membership_exists' });
     const binding = await installer.query('SELECT user_id FROM taptime_server.identity_bindings WHERE subject = $1', [subject]);
     const member = await installer.query('SELECT id FROM taptime_server.memberships WHERE user_id = $1', [binding.rows[0].user_id]);
@@ -143,13 +143,13 @@ describe('T-047 PostgreSQL account invitation', () => {
     expect(await coordinator.createAccountInvitation(command())).toEqual({ status: 'former_membership' });
     const bindingsBefore = await installer.query('SELECT * FROM taptime_server.identity_bindings ORDER BY id');
     expect(await coordinator.createAccountInvitation({ ...command(), accessToken: fixtureTokens.adminB,
-      expectedMembershipId: membershipIds.adminB })).toEqual({ status: 'email_exists' });
+      expectedMembershipId: membershipIds.adminB })).toEqual({ status: 'email_unavailable' });
     expect((await installer.query('SELECT * FROM taptime_server.identity_bindings ORDER BY id')).rows).toEqual(bindingsBefore.rows);
   });
 
   it('binds an existing Supabase account without any local binding and never calls the invite endpoint', async () => {
     const unboundSubject = randomUUID();
-    remote.mockImplementation(async () => Response.json({ users: [{ id: unboundSubject, email }] }));
+    remote.mockImplementation(async () => Response.json({ users: [{ id: unboundSubject, email, invited_at:'2026-10-03T10:00:00Z' }] }));
     const before = await counts();
     const request = command();
     const result = await coordinator.createAccountInvitation(request);
@@ -166,7 +166,7 @@ describe('T-047 PostgreSQL account invitation', () => {
   it.each(['email_exists', 'user_already_exists'])('resolves provider %s through the binding instead of assuming another organization', async (code) => {
     remote.mockResolvedValueOnce(Response.json({ users: [] }))
       .mockResolvedValueOnce(Response.json({ code }, { status: 422 }))
-      .mockResolvedValueOnce(Response.json({ users: [{ id: subject, email }] }));
+      .mockResolvedValueOnce(Response.json({ users: [{ id: subject, email, invited_at:'2026-10-03T10:00:00Z' }] }));
     expect(await coordinator.createAccountInvitation(command()))
       .toMatchObject({ status: 'succeeded_existing_account', membershipId: expect.any(String) });
     expect(remote.mock.calls.filter(([input]) => new URL(String(input)).pathname.endsWith('/invite')).length).toBe(1);
@@ -184,7 +184,7 @@ describe('T-047 PostgreSQL account invitation', () => {
   it('never rewrites an existing binding without a membership or labels it another organization', async () => {
     await installer.query('INSERT INTO taptime_server.identity_bindings (id, user_id, issuer, subject) VALUES ($1, $2, $3, $4)',
       [randomUUID(), ids.orphan, issuer, subject]);
-    remote.mockImplementation(async () => Response.json({ users: [{ id: subject, email }] }));
+    remote.mockImplementation(async () => Response.json({ users: [{ id: subject, email, invited_at:'2026-10-03T10:00:00Z' }] }));
     const before = await counts();
     const bindingsBefore = await installer.query('SELECT * FROM taptime_server.identity_bindings ORDER BY id');
     expect(await coordinator.createAccountInvitation(command())).toEqual({ status: 'invitation_needs_attention' });
@@ -198,7 +198,7 @@ describe('T-047 PostgreSQL account invitation', () => {
       expectedMembershipId: membershipIds.adminA, commandId: randomUUID(),
       targetMembershipId: membershipIds.employeeA, expectedRowVersion: 1, role: 'standortleitung' });
     await prepareLocations(locationId, otherLocationId);
-    remote.mockImplementation(async () => Response.json({ users: [{ id: subject, email }] }));
+    remote.mockImplementation(async () => Response.json({ users: [{ id: subject, email, invited_at:'2026-10-03T10:00:00Z' }] }));
     const managerCommand = { ...command(), accessToken: fixtureTokens.employeeA,
       expectedMembershipId: membershipIds.employeeA, locationId };
     const before = await counts();
@@ -215,12 +215,12 @@ describe('T-047 PostgreSQL account invitation', () => {
     expect(await coordinator.createAccountInvitation({ ...managerCommand, commandId: randomUUID(), locationId: otherLocationId }))
       .toEqual({ status: 'forbidden' });
     const outOfScopeSubject = randomUUID();
-    remote.mockImplementation(async () => Response.json({ users: [{ id: outOfScopeSubject, email: 'other@example.test' }] }));
+    remote.mockImplementation(async () => Response.json({ users: [{ id: outOfScopeSubject, email: 'other@example.test', invited_at:'2026-10-03T10:00:00Z' }] }));
     expect(await coordinator.createAccountInvitation({ ...command(), email: 'other@example.test', locationId: otherLocationId }))
       .toMatchObject({ status: 'succeeded_existing_account' });
     const beforeOutOfScope = await counts();
     expect(await coordinator.createAccountInvitation({ ...managerCommand, commandId: randomUUID(), email: 'other@example.test' }))
-      .toEqual({ status: 'forbidden' });
+      .toEqual({ status: 'email_unavailable' });
     expect(await counts()).toEqual(beforeOutOfScope);
     expect(Number(beforeOutOfScope.memberships)).toBe(Number(beforeRejected.memberships) + 1);
     expect(remote.mock.calls.every(([input]) => new URL(String(input)).pathname.endsWith('/admin/users'))).toBe(true);
@@ -261,3 +261,55 @@ async function prepareLocations(locationId: string, otherLocationId: string): Pr
   } catch (error) { await client.query('ROLLBACK'); throw error; }
   finally { client.release(); }
 }
+
+it('T094 refuses an unbound account without invitation provenance and does not create local data', async () => {
+  remote.mockResolvedValue(Response.json({users:[{id:subject,email}]}));
+  const before=await counts();
+  expect(await coordinator.createAccountInvitation(command())).toEqual({status:'email_unavailable'});
+  expect(await counts()).toEqual(before);
+  expect(diagnostics).toContainEqual(expect.objectContaining({reason:'account_not_invited'}));
+});
+it('T094 resends an open invitation by the stored account ID and persists its cooldown audit', async () => {
+  const result=await coordinator.createAccountInvitation(command());
+  if(result.status!=='succeeded') throw new Error('Missing fixture membership');
+  remote.mockReset();
+  remote.mockImplementation(async input=>{
+    const path=new URL(String(input)).pathname;
+    if(path.endsWith(`/admin/users/${subject}`)) return Response.json({id:subject,email,invited_at:'2026-10-03T10:00:00Z'});
+    if(path.endsWith('/invite')) return Response.json({id:subject,email,invited_at:'2026-10-03T10:00:00Z'});
+    throw new Error('Unexpected provider path');
+  });
+  const request={accessToken:fixtureTokens.adminA,expectedMembershipId:membershipIds.adminA,commandId:randomUUID(),targetMembershipId:result.membershipId};
+  expect(await coordinator.resendAccountInvitation(request)).toEqual({status:'succeeded'});
+  expect(remote.mock.calls.filter(([input])=>String(input).includes('/invite?'))).toHaveLength(1);
+  const audit=await installer.query('SELECT target_membership_id,actor_membership_id FROM taptime_server.account_invitation_resend_audit');
+  expect(audit.rows).toEqual([{target_membership_id:result.membershipId,actor_membership_id:membershipIds.adminA}]);
+  expect(await coordinator.resendAccountInvitation({...request,commandId:randomUUID()})).toEqual({status:'invitation_rate_limited'});
+  expect(remote.mock.calls).toHaveLength(2);
+  expect(await coordinator.resendAccountInvitation({...request,commandId:randomUUID(),accessToken:fixtureTokens.adminB,expectedMembershipId:membershipIds.adminB})).toEqual({status:'forbidden'});
+});
+it('T094 does not send another invitation to a confirmed account', async () => {
+  const result=await coordinator.createAccountInvitation(command());
+  if(result.status!=='succeeded') throw new Error('Missing fixture membership');
+  remote.mockReset();
+  remote.mockResolvedValue(Response.json({id:subject,email,invited_at:'2026-10-03T10:00:00Z',email_confirmed_at:'2026-10-03T10:01:00Z'}));
+  expect(await coordinator.resendAccountInvitation({accessToken:fixtureTokens.adminA,expectedMembershipId:membershipIds.adminA,
+    commandId:randomUUID(),targetMembershipId:result.membershipId})).toEqual({status:'invitation_already_accepted'});
+  expect(remote.mock.calls).toHaveLength(1);
+});
+it('T094 gives identical public results for foreign organization, foreign location and uninvited accounts', async () => {
+  const locationId=randomUUID(), otherLocationId=randomUUID();
+  await coordinator.changeMembershipRole({accessToken:fixtureTokens.adminA,expectedMembershipId:membershipIds.adminA,
+    commandId:randomUUID(),targetMembershipId:membershipIds.employeeA,expectedRowVersion:1,role:'standortleitung'});
+  await prepareLocations(locationId,otherLocationId);
+  const manager={...command(),accessToken:fixtureTokens.employeeA,expectedMembershipId:membershipIds.employeeA,locationId};
+  remote.mockImplementation(async()=>Response.json({users:[{id:subject,email,invited_at:'2026-10-03T10:00:00Z'}]}));
+  const created=await coordinator.createAccountInvitation({...command(),locationId:otherLocationId});
+  expect(created.status).toBe('succeeded_existing_account');
+  const outside=await coordinator.createAccountInvitation(manager);
+  // Second organization has no location mode and therefore authorizes the attempted invitation normally.
+  const foreign=await coordinator.createAccountInvitation({...command(),accessToken:fixtureTokens.adminB,expectedMembershipId:membershipIds.adminB});
+  remote.mockResolvedValue(Response.json({users:[{id:randomUUID(),email}]}));
+  const notInvited=await coordinator.createAccountInvitation({...manager,commandId:randomUUID()});
+  expect([outside,foreign,notInvited]).toEqual(Array(3).fill({status:'email_unavailable'}));
+});

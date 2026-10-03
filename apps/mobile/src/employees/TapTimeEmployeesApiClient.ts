@@ -3,7 +3,7 @@ import { isCalendarTimeResponse, validateOwnTimeResponse, type MobileOwnTimeQuer
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import { hasExactKeys, isJsonContentType, isObject, isUuid, parseJsonObject } from '../transport/strictJson';
 import type { EmployeesApiPort, InvitationCommand, InvitationStatus, ReadResult } from './contracts';
-const invitationFailures = new Set<InvitationStatus>(['rate_limited','invalid_request','invalid_email','command_id_conflict','email_exists',
+const invitationFailures = new Set<InvitationStatus>(['rate_limited','invalid_request','invalid_email','command_id_conflict','email_unavailable','email_exists',
   'membership_exists','former_membership','account_creation_not_configured','invitation_delivery_failed','invitation_rate_limited',
   'invitation_service_unavailable','invitation_needs_attention']);
 const locationCursor = /^v1:l:[0-9a-f-]{36}$/;
@@ -45,6 +45,17 @@ export class TapTimeEmployeesApiClient implements EmployeesApiPort {
       && (body.status === 'succeeded' || body.status === 'succeeded_existing_account')) return {status:body.status};
     if (body !== null && hasExactKeys(body,['error']) && isObject(body.error) && hasExactKeys(body.error,['code'])
       && invitationFailures.has(body.error.code as InvitationStatus)) return {status:body.error.code as InvitationStatus};
+    return {status:'unavailable'};
+  }
+  async resend(request:{expectedMembershipId:string;commandId:string;targetMembershipId:string}): Promise<{status:string}> {
+    const response=await this.requests.post(new URL('v1/administration/employee-account-invitations/resend',this.base),JSON.stringify(request));
+    if (response.status!=='response') return response;
+    if (response.statusCode===401 || response.statusCode===403) return {status:'authority_rejected'};
+    const body=isJsonContentType(response.contentType)?parseJsonObject(response.body):null;
+    if (response.statusCode===200 && body && hasExactKeys(body,['status'])
+      && (body.status==='succeeded' || body.status==='invitation_already_accepted')) return {status:body.status};
+    if (body && hasExactKeys(body,['error']) && isObject(body.error) && hasExactKeys(body.error,['code'])
+      && invitationFailures.has(body.error.code as InvitationStatus)) return {status:String(body.error.code)};
     return {status:'unavailable'};
   }
   private async read<T>(path: string, request: unknown, validate: (v: unknown)=>v is T): Promise<ReadResult<T>> {

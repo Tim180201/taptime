@@ -42,7 +42,7 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
   });
 
   it.each([
-    ['account_creation_not_configured', 503], ['email_exists', 409], ['membership_exists', 409],
+    ['account_creation_not_configured', 503], ['email_unavailable', 409], ['membership_exists', 409],
     ['former_membership', 409], ['invitation_delivery_failed', 503], ['invitation_rate_limited', 429],
     ['invitation_service_unavailable', 503], ['invitation_needs_attention', 503], ['invalid_email', 400],
   ] as const)('exposes the named account invitation result %s', async (status, httpStatus) => {
@@ -617,3 +617,16 @@ function post(
     redirect: 'manual',
   });
 }
+
+it('T094 returns the same byte envelope and relevant headers for every normalized address denial', async () => {
+  const apiOrigin=await origin(coordinator({async createAccountInvitation(){return {status:'email_unavailable'};}}));
+  const replies=[];
+  for(const email of ['foreign@example.test','outside@example.test','uninvited@example.test']) {
+    const response=await post(apiOrigin,'/v1/administration/employee-account-invitations',{
+      expectedMembershipId:membershipId,commandId,displayName:'Neue Person',email,locationId:null});
+    replies.push({status:response.status,body:await response.text(),headers:Object.fromEntries(
+      ['content-type','content-length','cache-control','vary','x-content-type-options','referrer-policy'].map(key=>[key,response.headers.get(key)]))});
+  }
+  expect(replies[0]).toMatchObject({status:409,body:'{"error":{"code":"email_unavailable"}}'});
+  expect(replies[1]).toEqual(replies[0]);expect(replies[2]).toEqual(replies[0]);
+});

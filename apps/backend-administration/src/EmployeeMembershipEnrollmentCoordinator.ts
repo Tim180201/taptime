@@ -158,10 +158,10 @@ export class EmployeeMembershipEnrollmentCoordinator {
     try {
       return await this.withMembershipManagementAuthority(command.accessToken, command.expectedMembershipId,
         command.commandId, { ...controls, deadlineEpochMilliseconds: deadline }, async (client): Promise<AccountInvitationResult> => {
-          const execute = async (subject: string | null, accountWasInvited: boolean) => {
-            const result = await client.query(`SELECT * FROM taptime_server.employee_account_invitation_v1(
-              $1, $2, $3, $4, $5, $6, $7, $8)`, [command.commandId, requestHash, emailHash,
-              name.canonicalName, command.locationId, inviter?.issuer ?? 'unconfigured', subject, accountWasInvited]);
+          const execute = async (subject: string | null, accountWasInvited: boolean, accountFromInvitation = true) => {
+            const result = await client.query(`SELECT * FROM taptime_server.employee_account_invitation_v2(
+              $1, $2, $3, $4, $5, $6, $7, $8, $9)`, [command.commandId, requestHash, emailHash,
+              name.canonicalName, command.locationId, inviter?.issuer ?? 'unconfigured', subject, accountWasInvited, accountFromInvitation]);
             return onlyRow(result.rows, 'Account invitation');
           };
           const mapRow = (row: QueryResultRow): AccountInvitationResult => {
@@ -170,7 +170,12 @@ export class EmployeeMembershipEnrollmentCoordinator {
                 if (!isCanonicalUuid(row.membership_id)) throw new Error('Account invitation result invalid');
                 return { status: row.result_status, membershipId: row.membership_id };
               case 'forbidden': case 'invalid_request': case 'command_id_conflict':
-              case 'email_exists': case 'membership_exists': case 'former_membership': case 'invitation_needs_attention':
+                return { status: row.result_status };
+              case 'email_exists': case 'outside_management_scope': case 'account_not_invited':
+                if (context === undefined) throw new Error('Missing invitation context');
+                inviter?.diagnose(context, row.result_status === 'email_exists' ? 'other_organization' : row.result_status);
+                return { status: 'email_unavailable' };
+              case 'membership_exists': case 'former_membership': case 'invitation_needs_attention':
                 return { status: row.result_status };
               default: throw new Error('Account invitation result invalid');
             }
@@ -184,7 +189,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
             administratorMembershipId: prepared.actor_membership_id, deadlineEpochMilliseconds: deadline };
           if (inviter === undefined) return { status: 'account_creation_not_configured' };
           const remote = await inviter.invite(email, context);
-          if (remote.status === 'existing') return mapRow(await execute(remote.subject, false));
+          if (remote.status === 'existing') return mapRow(await execute(remote.subject, false, remote.wasInvited));
           if (remote.status !== 'invited') {
             if (remote.status === 'invitation_needs_attention') inviter.needsAttention(email, context);
             return remote;
@@ -202,6 +207,29 @@ export class EmployeeMembershipEnrollmentCoordinator {
       }
       return { status: 'invitation_service_unavailable' };
     }
+  }
+
+  async resendAccountInvitation(command: {accessToken:string;expectedMembershipId:MembershipId;commandId:string;targetMembershipId:string},
+    controls: EmployeeEnrollmentCoordinatorControls = {}): Promise<{status:string}> {
+    if (!validAccessToken(command.accessToken) || !isCanonicalUuid(command.expectedMembershipId)
+      || !isCanonicalUuid(command.commandId) || !isCanonicalUuid(command.targetMembershipId)) return {status:'invalid_request'};
+    const inviter = this.accountInviter;
+    if (!inviter) return {status:'account_creation_not_configured'};
+    const deadline = controls.deadlineEpochMilliseconds ?? Date.now()+8000;
+    const reservation = await this.withMembershipManagementAuthority(command.accessToken,command.expectedMembershipId,
+      command.commandId,{...controls,deadlineEpochMilliseconds:deadline},async client => {
+        const context = {correlationId:command.commandId,deadlineEpochMilliseconds:deadline};
+        if (!await inviter.checkSettings(context)) return {result_status:'account_creation_not_configured'};
+        return onlyRow((await client.query('SELECT * FROM taptime_server.reserve_account_invitation_resend_v1($1,$2,$3)',
+          [command.commandId,command.targetMembershipId,inviter.issuer])).rows,'Resend reservation');
+      });
+    if ('status' in reservation) return reservation;
+    if (reservation.result_status !== 'reserved') return {status:reservation.result_status};
+    if (!isCanonicalUuid(reservation.subject)) return {status:'invitation_needs_attention'};
+    // The committed reservation survives an uncertain provider result or a process crash.
+    return inviter.resend(reservation.subject,{correlationId:command.commandId,
+      organizationId:reservation.organization_id,administratorMembershipId:reservation.actor_membership_id,
+      deadlineEpochMilliseconds:deadline});
   }
 
   async createInvitation(

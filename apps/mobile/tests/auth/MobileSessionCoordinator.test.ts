@@ -40,7 +40,7 @@ class FakeProvider implements ProviderAuthPort {
   unsubscribeCalls = 0;
   startAutoRefreshCalls = 0;
   stopAutoRefreshCalls = 0;
-  readonly passwordResetCalls: Array<[string, string]> = [];
+  readonly passwordResetCalls: Array<[string, string?]> = [];
   readonly recoveryCalls: Array<[string, string]> = [];
   readonly passwordUpdates: string[] = [];
   signInImplementation: (email: string, password: string) => Promise<ProviderSignInResult> =
@@ -88,8 +88,8 @@ class FakeProvider implements ProviderAuthPort {
     this.stopAutoRefreshCalls += 1;
   }
 
-  async requestPasswordReset(email: string, redirectTo: string): Promise<boolean> {
-    this.passwordResetCalls.push([email, redirectTo]);
+  async requestPasswordReset(email: string, redirectTo?: string): Promise<boolean> {
+    this.passwordResetCalls.push(redirectTo === undefined ? [email] : [email, redirectTo]);
     return true;
   }
 
@@ -246,45 +246,11 @@ describe('MobileSessionCoordinator', () => {
     await coordinator.retryContext();
     expect(coordinator.getState()).toMatchObject({ status: 'authenticated', session: productSession });
   });
-  it('requests reset with the single allowlisted app return and strictly consumes recovery URLs', async () => {
-    const { coordinator, provider, store, backend } = setup();
-    await expect(coordinator.requestPasswordReset('employee@example.invalid'))
-      .resolves.toBe('requested');
-    expect(provider.passwordResetCalls).toEqual([
-      ['employee@example.invalid', 'taptime://auth/recovery'],
-    ]);
-    await expect(coordinator.handlePasswordRecoveryUrl(
-      'taptime://auth/recovery#access_token=aaaaaaaaaaaaaaaa&refresh_token=bbbbbbbbbbbbbbbb&type=signup',
-    )).resolves.toBe(false);
-    await expect(coordinator.handlePasswordRecoveryUrl(
-      'taptime://auth/recovery#access_token=aaaaaaaaaaaaaaaa&refresh_token=bbbbbbbbbbbbbbbb&type=recovery',
-    )).resolves.toBe(true);
-    expect(provider.recoveryCalls).toEqual([['aaaaaaaaaaaaaaaa', 'bbbbbbbbbbbbbbbb']]);
-    expect(store.value).toBeNull();
-    expect(coordinator.getState()).toEqual({
-      status: 'password_recovery', completing: false, notice: null,
-    });
-    await expect(coordinator.completePasswordRecovery('new-password')).resolves.toBe(true);
-    expect(provider.passwordUpdates).toEqual(['new-password']);
-    expect(backend.passwordResetTokens).toEqual(['aaaaaaaaaaaaaaaa']);
-    expect(coordinator.getState()).toEqual({ status: 'signed_out' });
-  });
-
-  it('preserves a recovery deep link that arrives before cold-start initialization', async () => {
-    const { coordinator, provider, store, backend } = setup('stale-refresh');
-
-    await expect(coordinator.handlePasswordRecoveryUrl(
-      'taptime://auth/recovery#access_token=aaaaaaaaaaaaaaaa&refresh_token=bbbbbbbbbbbbbbbb&type=recovery',
-    )).resolves.toBe(true);
-    await coordinator.start();
-
-    expect(coordinator.getState()).toEqual({
-      status: 'password_recovery', completing: false, notice: null,
-    });
-    expect(provider.refreshCalls).toEqual([]);
-    expect(store.readCalls).toBe(0);
-    await expect(coordinator.completePasswordRecovery('new-password')).resolves.toBe(true);
-    expect(backend.passwordResetTokens).toEqual(['aaaaaaaaaaaaaaaa']);
+  it('requests the same Site URL recovery as the web and has no recovery URL capability', async () => {
+    const {coordinator,provider}=setup();
+    await expect(coordinator.requestPasswordReset('employee@example.invalid')).resolves.toBe('requested');
+    expect(provider.passwordResetCalls).toEqual([['employee@example.invalid']]);
+    expect('handlePasswordRecoveryUrl' in coordinator).toBe(false);
   });
 
   it('starts signed out when no refresh token exists', async () => {

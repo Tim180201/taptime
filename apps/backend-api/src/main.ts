@@ -66,6 +66,7 @@ const runtime = createBackendApiRuntime({
   mobileOwnTimeCursorHmacKey,
   projectAdministrationDatabaseUrl,
   supabaseIssuer,
+  supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY,
   supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   employeeInvitationRedirectUrl: process.env.TAPTIME_EMPLOYEE_INVITATION_REDIRECT_URL,
 }, {

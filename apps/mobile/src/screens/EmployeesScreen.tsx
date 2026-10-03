@@ -14,7 +14,7 @@ export function EmployeesScreen({employees,scope,locationsEnabled}: {
 }) {
   const state=useSyncExternalStore(listener=>employees.subscribe(listener),()=>employees.getState(),()=>employees.getState());
   useEffect(()=>{void employees.refresh(); return ()=>employees.leave();},[employees]);
-  if (state.status==='person') return <PersonTimeScreen person={state.person} value={state.value} busy={state.busy} failed={state.failed} onBack={()=>employees.back()} onRefresh={()=>employees.refresh()} onMonthChange={month=>{void employees.loadPersonMonth(month);}} />;
+  if (state.status==='person') return <PersonTimeScreen onResend={employees.resendInvitation ? ()=>employees.resendInvitation!() : undefined} person={state.person} value={state.value} busy={state.busy} failed={state.failed} onBack={()=>employees.back()} onRefresh={()=>employees.refresh()} onMonthChange={month=>{void employees.loadPersonMonth(month);}} />;
   if (state.status==='invite') return <InviteEmployeeScreen employees={employees} state={state} scope={scope} locationsEnabled={locationsEnabled} />;
   if (state.status!=='list') return <Screen title="Mitarbeiter"><Card>
     <Text accessibilityRole={state.status==='not_authorized' || state.status==='unavailable' ? 'alert' : undefined}>
