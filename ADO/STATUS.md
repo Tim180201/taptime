@@ -14,9 +14,9 @@ womöglich mit wenigen Lehrern; offene Fragen für den CEO-Termin stehen im PLAN
 Geräteabnahme 02.10. (PO): „Passwort vergessen“ in der App defekt (fester Link `taptime://` passt nicht zur
 installierten Testvariante, D-110, T-094); neuer Betrieb mit nur dem Administrator konnte erst nach Anlegen eines
 Mitarbeiters scannen und erfassen (T-095); Pflichtfeld „Bezeichnung“ beim Tag ohne sichtbaren Hinweis (D-109, T-101).
-Eine abgelaufene Einladung lässt sich heute nicht erneut senden (D-110). T-093 auf `main` (`19a363d`, CI und Abbilder grün), mit dem zweiten Deploy. Analyse eingeordnet (D-103).
+Eine abgelaufene Einladung lässt sich heute nicht erneut senden (D-110). T-093 (`19a363d`) und T-094 (`947ac51`) auf `main`, CI und Abbilder grün, mit dem zweiten Deploy; Supabase-Linkdauer 1 h gesetzt (PO, D-113); Site URL prüft der PO (Ziel des Passwort-Links). Analyse eingeordnet (D-103).
 Web „Manuell“ zeigt nicht, was läuft, Beenden ist umständlich (D-112, T-103).
-Reihenfolge (TL 03.10.): T-091, T-092, T-094 bis T-098, T-100 bis T-103 → zweiter Deploy → T-024 → Pilot. UG-Gründung
+Reihenfolge (TL 03.10.): T-091, T-092, T-095 bis T-098, T-100 bis T-103 → zweiter Deploy → T-024 → Pilot. UG-Gründung
 und AVV sind Voraussetzung für echte Daten (D-019). Fertig ist das Produkt, wenn das
 ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 

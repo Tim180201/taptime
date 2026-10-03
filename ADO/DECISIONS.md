@@ -1672,3 +1672,9 @@ starten“. Nach jeder Aktion eine eindeutige Rückmeldung mit Ziel, Uhrzeit und
 dieselben manuellen Ereignisse wie heute; die Engine entscheidet weiter. T-082 geht darin auf. T-103, vor dem Pilot.
 **Warum:** „Ob Start oder Stopp erkennt Taptura selbst“ ist beim Tap richtig, im Formular aber nicht nachvollziehbar;
 eine laufende Zeit zu beenden darf keine Auswahl verlangen.
+
+## D-113 · Linkdauer eine Stunde (ersetzt die 24 h aus D-110) · 03.10.2026 · Claude (TL), Tim (PO)
+„Email OTP Expiration“ in Supabase bleibt 3600 s, wie Supabase empfiehlt; das gilt für Einladung, Passwort-Reset und
+Bestätigung. Eine abgelaufene Einladung löst „Einladung erneut senden“ (T-094); die Einladungsmail nennt die Stunde.
+**Warum:** Ein 24 h gültiger Link im Postfach öffnet ein Konto zu lange; mit erneutem Senden ist die kurze Frist kein
+Hindernis mehr.
