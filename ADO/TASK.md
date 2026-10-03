@@ -1,77 +1,84 @@
 # Aktuelle Aufgabe
 
-> **Stand 29.09.2026:** Produktion auf `0230188` (Migrationen bis 039), ausgeliefert 28.09. Geräteabnahme auf iPhone 4 /
-> Android 11 läuft. Danach T-093, T-091 bis T-098, T-100 → zweiter Deploy → T-024 → Pilot. Frühere Briefs stehen in der
-> Git-Historie.
+> **Stand 03.10.2026:** Produktion auf `0230188` (Migrationen bis 039). T-093 auf `main` (`19a363d`). Vor dem Pilot: T-091, T-092,
+> T-094 bis T-098, T-100 bis T-102 → zweiter Deploy → T-024 → Pilot. Frühere Briefs stehen in der Git-Historie.
 
-## T-093 · Sicherung: tägliches Aufräumen wirkt, Fehler werden sichtbar (D-106)
+## T-094 · Einladung und Passwort (D-110)
 
-**Für:** Development · **Risiko:** Sicherung und Wiederherstellbarkeit (D-051, D-055); es darf nie eine geprüfte Basis
-verloren gehen · **Zeitbox:** eine Sitzung. Analyse-Befunde F-007, F-054, F-067, F-076, F-124. Nur
-`infrastructure/backup/*`, `infrastructure/monitoring/*`, deren Tests, `RESTORE.md`, `MONITORING.md`. Kein Deploy, kein
-Serverzugriff, keine Geheimnisse.
+**Für:** Development · **Risiko:** Zugang zum Konto, Identität (D-048, D-049, D-057) · **Zeitbox:** zwei Sitzungen.
+Analyse-Befunde F-001, F-011, F-027, F-078, F-079, F-092, F-114. Kein Deploy, kein Serverzugriff, keine Geheimnisse;
+der service-role-Schlüssel bleibt ausschließlich in `/opt/taptime/.env` (D-049) und wird von keinem Test benötigt.
 
-### Befund (Code auf `0230188`)
+### Befund
 
-1. `taptime-restore-verify` prüft sonntags ohne Ziel und ohne Pin die **neueste** Basis (`select_base_archive`), etwa
-   die von 03:05, und schreibt ihren Marker. `run_backup_retention daily` (aus `taptime-backup`) schützt den neuesten
-   Marker. Borg behält je Regel nur das jüngste Archiv einer Periode; die 03:05-Basis fällt nach 24 h aus allen Regeln.
-   `prune_after_verified_restore` bricht dann mit 3 ab („protected“). Folge: Das tägliche Aufräumen setzt an sechs von
-   sieben Tagen aus.
-2. Seit T-083 gibt `run_backup_retention` auch bei `failed`/`protected`/`unregistered` 0 zurück; die Sonntagsprüfung
-   meldet „ok“, kein Monitor liest `retention-status`. Früher ließ ein gescheitertes Aufräumen die Sonntagsprüfung
-   scheitern.
-3. Die Test-Fakes für `borg prune` geben „Keeping“/„Would prune“ per Schalter vor, statt die Keep-Regeln aus
-   Zeitstempeln zu berechnen. Deshalb blieb 1. unentdeckt.
-4. Während der Sonntagsprüfung hält `taptime-restore-verify` die Borg-Sperre lange; der Wächter kennt als Sperrhalter
-   nur `taptime-backup.service` und toleriert einen wartenden Archivierer höchstens 600 s (T-089).
-5. `record_archive_counts … || return 1` im Archivierer: Ein Fehler beim Schreiben einer reinen Anzeigezahl lässt den
-   WAL-Durchlauf scheitern (in `taptime-backup` ist derselbe Fehler nicht fatal).
+1. `SupabaseAccountInviter.findAccount` übernimmt jedes vorhandene, lokal ungebundene Supabase-Konto mit derselben
+   Adresse, unabhängig davon, wie es entstanden ist.
+2. Mobile und Betreiber-Web sagen bei `succeeded_existing_account` nicht, dass keine Mail verschickt wurde (das
+   Admin-Web schon).
+3. Die Adresse wird ohne Unicode-Normalisierung verglichen und gesperrt; Diagnosen enthalten einen aus der Adresse
+   abgeleiteten Wert; „Adresse gehört zu einem anderen Betrieb“ wird anders gemeldet als andere Fälle, in denen die
+   Adresse nicht aufgenommen werden kann.
+4. Es gibt keinen Weg, eine abgelaufene Einladung erneut zu senden: Erneutes Einladen meldet „bereits Mitglied“ ohne
+   Mail. Bei `invitation_needs_attention` bietet das Web keinen nächsten Schritt.
+5. „Passwort vergessen“ in der App fordert den Reset mit dem festen Ziel `taptime://auth/recovery` an
+   (`MobileSessionCoordinator.requestPasswordReset`). Die installierte Variante `production-validation` registriert das
+   Schema `taptime-production-validation`; der Link endet in Safari mit „Adresse ungültig“ (Geräteabnahme 02.10.).
+   Die App verwirft beim Öffnen eines Wiederherstellungslinks die bestehende Sitzung vor jeder Prüfung.
+6. Ob in Supabase die Selbstregistrierung aus und die E-Mail-Bestätigung an ist, prüft heute nichts im System
+   (PO hat beides am 28.09. eingestellt).
 
 ### Auftrag
 
-**A. Sonntagsprüfung auf eine Basis, die Borg behält.** Ohne Ziel und ohne Pin wählt die Wochenprüfung die jüngste
-Basis, die vor Beginn des aktuellen Tages entstand, in der Zeitzone, in der Borg auf dem Server seine Perioden
-bildet (im Bericht belegen, woher). Die gezielte Prüfung mit Zeitpunkt, der gepinnte Weg des Deploys, Probe und
-Materialisierung bleiben unverändert. Gibt es keine solche Basis (frische Installation), wie heute die neueste.
+**A. Vorhandene Konten.** Ein lokal ungebundenes Supabase-Konto wird nur übernommen, wenn es aus einer Einladung
+stammt (`invited_at` gesetzt). Jedes andere vorhandene Konto wird nicht übernommen, sondern als Klärungsfall gemeldet;
+nichts wird automatisch gelöscht oder umgebunden. Gilt für Administrator-, Standortleitungs- und Betreiberweg. Im
+Bericht mit Supabase-Dokumentation belegen, welche Felder die Admin-API liefert.
 
-**B. Schutzregel.** Das Aufräumen (täglich und sonntags) wählt als geschützte Basis die neueste geprüfte Basis, die
-laut Vorschau (`--dry-run`) von Borg behalten wird, und läuft dann. Nur wenn keine geprüfte Basis behalten würde,
-wird ausgesetzt wie heute (3). Alles andere bleibt: nur `borg prune` löscht Basen, Vorschau vor dem echten Lauf,
-unbekannte Ausgabe bricht ab, Nachprüfung, dass die geschützte Basis danach noch da ist, WAL-Untergrenze aus allen
-behaltenen Basen, Marker gelöschter Basen werden entfernt.
+**B. Einheitlich und sparsam.** Adresse vor dem Kleinschreiben nach NFC normalisieren (beide Wege, Sperr-Hash
+eingeschlossen). In Diagnosen keinen aus der Adresse abgeleiteten Wert mehr, nur Korrelations-ID und, sobald bekannt,
+die Supabase-Konto-ID. Nach außen eine gemeinsame Rückmeldung für „Adresse kann nicht aufgenommen werden“; die
+Unterscheidung bleibt im Serverprotokoll. Mobile und Betreiber-Web zeigen bei vorhandenem Konto denselben Hinweis wie
+das Admin-Web (keine Mail verschickt, Person selbst informieren).
 
-**C. Fehler sichtbar, fünf Meldungen bleiben.** Die Sonntagsprüfung scheitert (bestehende Meldung
-„Wiederherstellungsprüfung fehlgeschlagen“), wenn ihr eigenes Aufräumen `failed` endet oder `retention-status` seit
-mehr als 8 Tagen nicht `ok` war (Zeitpunkt des letzten Erfolgs steht bereits im Status). Der tägliche Lauf bleibt ohne
-Push-Meldung.
+**C. Einladung erneut senden.** Für eine Mitgliedschaft im eigenen Verwaltungsbereich (Administrator alle,
+Standortleitung ihr Standort), deren Konto die Einladung nie angenommen hat (Supabase: Adresse unbestätigt, nie
+angemeldet), gibt es in App und Web „Einladung erneut senden“. Der Server liest das Konto über die gespeicherte
+Konto-ID, sendet die Einladung über denselben Supabase-Weg erneut, begrenzt je Mitgliedschaft (höchstens einmal je
+10 min) und schreibt ein Audit-Ereignis. Hat die Person die Einladung schon angenommen: verständliche Antwort
+(„bereits angemeldet, ‚Passwort vergessen‘ nutzen“), keine Mail. `invitation_needs_attention` bekommt im Web einen
+Knopf „Erneut versuchen“. Woran die Liste „Einladung offen“ erkennt, ohne je Zeile Supabase zu fragen, legst du im
+Bericht dar; wenn das lokal nicht sicher geht, steht der Knopf nur in der Personenansicht und der Server entscheidet.
 
-**D. Wächter kennt die Sonntagsprüfung.** Läuft `taptime-restore-verify.service`, behandelt der Wächter sie wie die
-Sicherung: Pause der Altersprüfung bis zu einer festen, im Code benannten Obergrenze (90 min); darüber Meldung mit
-Ursache „Wiederherstellungsprüfung läuft seit … min“. Ohne laufende Prüfung gilt alles aus T-089 unverändert.
+**D. Passwort über die Webseite.** „Passwort vergessen“ in der App fordert dieselbe Wiederherstellung an wie das
+Admin-Web (gleiches Ziel, gleiche Seite). Die App sagt danach: „Wir haben dir eine E-Mail geschickt. Öffne den Link,
+setze dein neues Passwort und melde dich dann hier an.“ Die App wertet keine Wiederherstellungslinks mehr aus; der
+Deep-Link-Pfad und seine Sitzungsverwerfung entfallen. Die Web-Seite „Neues Passwort setzen“ funktioniert für alle
+Rollen und bei 360 px Breite und sagt nach Erfolg, dass man sich jetzt auch in der App anmelden kann.
 
-**E. Anzeigezahl nicht kritisch.** Im Archivierer darf ein Fehler von `record_archive_counts` den Durchlauf nicht
-scheitern lassen (Meldung auf stderr wie in `taptime-backup`).
+**E. Einstellungen prüfen.** Beim Start und vor jeder Einladung liest der Server die öffentlichen Supabase-Einstellungen
+(`/auth/v1/settings`, nur mit dem öffentlichen Schlüssel). Ist die Selbstregistrierung an oder die E-Mail-Bestätigung
+aus, bleiben Einladungen und erneutes Senden gesperrt (`account_creation_not_configured`) mit eigener Diagnose; alles
+andere läuft weiter. `docs/T-047-Inbetriebnahme.md` und `DEPLOY.md`: Registrierung aus, Bestätigung an, Linkdauer
+(„Email OTP Expiration“) 86400 s, Site URL und Redirect-Liste, wer sie anlegt, ändert und entfernt.
 
 ### Tests
 
-Das Fake-`borg prune` berechnet „Keeping“/„Would prune“ aus den Archivzeitstempeln nach Borgs Regeln (je Regel das
-jüngste Archiv einer Periode, Regeln in Reihenfolge `hourly`, `daily`, `weekly`, `monthly`, Ausgabeformat wie Borg 1.2/1.4).
-Rot vor Grün am alten Code: (1) Wochenablauf: stündliche Basen ab Sa, Sonntagsprüfung, Tageslauf Mo 04:05 → heute
-`protected`, danach `ok` mit echten Löschungen und behaltener geprüfter Basis; (2) die gewählte Wochenbasis ist die
-letzte des Vortags und wird 14 Tage behalten; (3) keine geprüfte Basis würde behalten → `protected`, nichts gelöscht;
-(4) Sonntagsprüfung mit gescheitertem Aufräumen → Prüfung scheitert; `retention-status` seit 9 Tagen nicht `ok` →
-Prüfung scheitert; seit 7 Tagen → nicht; (5) Wächter: laufende Sonntagsprüfung 40 min, Archivierer ohne Lebenszeichen →
-kein Alarm; 91 min → Alarm mit Ursache; (6) Schreibfehler der Archivzahlen → WAL-Durchlauf `result=0`. Bestehende Suiten
-unter `infrastructure/tests/*` und `infrastructure/monitoring/tests/*`, ShellCheck, Workflow-Tests; Linux-Container
-für GNU-Werkzeuge wie in T-089.
+Supabase-Fake mit echten Antwortformen der Admin-API (Felder aus der Dokumentation). Rot vor Grün: (1) ungebundenes
+Konto ohne `invited_at` → Klärungsfall, keine Übernahme; mit `invited_at` → Übernahme wie heute; (2) Adresse in NFC
+und NFD → gleicher Sperr-Hash; (3) Diagnosen enthalten keinen adressabgeleiteten Wert; (4) erneut senden: offen → Mail,
+angenommen → keine Mail mit Hinweis, fremder Bereich → `forbidden`, zweimal in 10 min → begrenzt, Audit vorhanden;
+(5) App fordert den Reset ohne App-Schema an, kein Deep-Link-Handler mehr; (6) Web-Wiederherstellung bei 360 px für
+Mitarbeiter, Standortleitung, Administrator; (7) Einstellungen falsch → Einladen gesperrt, Rest läuft. Alle Suiten, die
+die geänderten Pfade berühren oder Migrationen einspielen (inkl. `backend-schema`, `backend-time-review` mit T-062-Probe,
+`backend-administration`, `backend-api`, `admin-web` mit Browser-Layout, `operator-web`, `mobile` Typecheck, Tests und
+`expo export` für Android und iOS).
 
 ### Nicht Teil
 
-Keine Änderung an Keep-Werten, Sicherungszeitplan, Archivvertrag, WAL-Empfang, Restore-Ablauf, Controller, Compose oder
-der Konfigurationsdatei auf dem Server. Keine neue ntfy-Meldung. Wird ein Konsolenschritt nötig: stoppen und berichten.
+Kein Deploy, kein Serverzugriff, keine Änderung an Supabase-Einstellungen (macht der PO), keine neue Rolle, kein
+Löschen von Supabase-Konten. Keine Änderung am Anmeldeweg selbst.
 
 ### Bericht
 
-`.t093-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf „es geht nie eine geprüfte
-Basis verloren“. Kein Commit vor `APPROVED`.
+`.t094-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf „niemand bekommt ein Konto,
+das ihm nicht gehört“. Kein Commit vor `APPROVED`.

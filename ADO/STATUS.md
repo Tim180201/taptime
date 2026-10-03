@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand:** 29.09.2026 · Produktion läuft auf `0230188` (Deploy 28.09., ohne Konsolenschritt): T-080, T-084 bis T-090,
+**Stand:** 03.10.2026 · Produktion läuft auf `0230188` (Deploy 28.09., ohne Konsolenschritt): T-080, T-084 bis T-090,
 Migrationen bis 039, Controller `b635c4a`. Nach dem Deploy: Version überall `0230188`, `/health` ok, api-down-Alarm vom
 Deploy von selbst geschlossen, Archivierer ruhig (Durchläufe 1 s), Sicherungen erfolgreich. App-Builds 28.09. auf
 `0230188`: iPhone 1.0.0 (4) (TestFlight), Android versionCode 11; Geräteabnahme Punkte 11–19 läuft (PO). Betreiber-Bereich
@@ -11,8 +11,13 @@ unbekannte Konten; Einladung danach erfolgreich getestet. Grenzen: 30 Mails je S
 IP-Adresse; vor der Ausweitung anheben (T-099). Festschreiben im Runbook mit T-094.
 frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
 womöglich mit wenigen Lehrern; offene Fragen für den CEO-Termin stehen im PLAN.
-Code-Analyse 28.09. ist eingeordnet (D-103). Reihenfolge (TL 29.09.): Geräteabnahme → T-093, T-091 bis T-098, T-100
-(T-099 je nach Startumfang) → zweiter Deploy → T-024 → Pilot. Danach AVV/TOM mit B15. Fertig ist das Produkt, wenn das
+Geräteabnahme 02.10. (PO): „Passwort vergessen“ in der App defekt (fester Link `taptime://` passt nicht zur
+installierten Testvariante, D-110, T-094); neuer Betrieb mit nur dem Administrator konnte erst nach Anlegen eines
+Mitarbeiters scannen und erfassen (T-095); Pflichtfeld „Bezeichnung“ beim Tag ohne sichtbaren Hinweis (D-109, T-101).
+Eine abgelaufene Einladung lässt sich heute nicht erneut senden (D-110). T-093 auf `main` (`19a363d`, CI und Abbilder grün), mit dem zweiten Deploy. Analyse eingeordnet (D-103).
+Web „Manuell“ zeigt nicht, was läuft, Beenden ist umständlich (D-112, T-103).
+Reihenfolge (TL 03.10.): T-091, T-092, T-094 bis T-098, T-100 bis T-103 → zweiter Deploy → T-024 → Pilot. UG-Gründung
+und AVV sind Voraussetzung für echte Daten (D-019). Fertig ist das Produkt, wenn das
 ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
 ## Beobachten (TL, 23.–27.09.)

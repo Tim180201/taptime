@@ -1631,3 +1631,44 @@ seit mehr als 8 Tagen nicht „ok“ war; die Meldung ist die bestehende „Wied
 bleibt bei fünf Meldungen (Audit F-007, F-067).
 **Warum:** Die sonntags geprüfte 03:05-Basis fällt nach 24 h aus allen Keep-Regeln; deshalb setzte das tägliche
 Aufräumen an sechs von sieben Tagen aus und Fehler blieben still.
+
+## D-107 · Standortleitung ändert Zeiten aller Personen ihres Standorts, auch des Administrators · 29.09.2026 · Tim (PO)
+Die Standortleitung ändert, trägt nach und beendet Zeiten jeder Person, deren Heimatstandort ihr Standort ist, auch
+eines Administrators. Standortleitungen anderer Standorte sieht sie nicht. So gebaut seit 033; keine Änderung (Audit
+F-014).
+**Warum:** Die Standortleitung führt ihren Standort vollständig; wer dort arbeitet, wird dort korrigiert.
+
+## D-108 · Kunden löschen heißt deaktivieren; umbenennen ist möglich · 03.10.2026 · Tim (PO)
+Administrator und Standortleitung (eigener Standort) können Kunden in App und Web umbenennen und löschen. Löschen
+deaktiviert: Der Kunde verschwindet aus Listen und Auswahlen, sein Tag wird frei, geleistete Stunden bleiben in
+Kalender, Kunden-Stunden und Export. Läuft auf dem Kunden eine Zeit, ist Löschen gesperrt („Erst die laufende Zeit
+beenden“). Im Reiter „Tags“ gibt es „Tag prüfen“: Tag scannen, die App zeigt den zugeordneten Kunden, ohne etwas zu
+ändern. Teil von T-100 (Audit F-069 teilweise).
+**Warum:** Ohne Löschen und Umbenennen ist die Kundenliste nach wenigen Wochen nicht mehr pflegbar; ohne „Tag prüfen“
+ist die Zuordnung nicht nachvollziehbar.
+
+## D-109 · Pflichtfelder zeigen sich am Feld · 03.10.2026 · Tim (PO)
+Fehlt eine Pflichteingabe, wird das Feld rot markiert und direkt darunter steht, was fehlt („Bitte Bezeichnung
+eingeben“), in App und Web, in jedem Formular. Eine Sammelmeldung oben allein genügt nicht. T-101.
+**Warum:** Beim Einrichten von Tags war nicht erkennbar, warum „Zuordnen“ nichts tat.
+
+## D-110 · Passwort und Einladung laufen über die Webseite · 03.10.2026 · Claude (TL)
+„Passwort vergessen“ in der App fordert dieselbe Wiederherstellung an wie das Web; der Link öffnet die Webseite, dort
+wird das Passwort gesetzt, danach meldet man sich in der App an. Die App wertet keine Wiederherstellungslinks mehr
+selbst aus. Für Personen, die eine Einladung nie angenommen haben, gibt es „Einladung erneut senden“ (App und Web,
+Administrator und Standortleitung im eigenen Bereich). Linkdauer in Supabase 24 h (PO-Einstellung). T-094.
+**Warum:** Der feste App-Link (`taptime://`) passt nicht zur installierten Testvariante und auf keinem Gerät ohne App;
+eine Webadresse funktioniert überall. Ohne erneutes Senden bleibt eine abgelaufene Einladung eine Sackgasse.
+
+## D-111 · Fälschungssichere Tags im Laufe des Pilots · 03.10.2026 · Tim (PO)
+T-073 (NTAG 424 DNA, jeder Scan beweist den echten Chip) kommt im Laufe des Pilots, nicht zum Start. Empfehlung an
+frogs: Chips gleich als NTAG 424 DNA kaufen, damit später nichts getauscht wird.
+**Warum:** Nachweis der echten Anwesenheit ist gewünscht, blockiert aber den Start nicht.
+
+## D-112 · Erfassen zeigt, was läuft, und beendet mit einem Klick · 03.10.2026 · Tim (PO)
+In App („Erfassen“) und Web („Manuell“) steht oben, was gerade läuft („Läuft seit 08:12 · Kunde X“ oder „Pause seit
+10:30“), mit den Knöpfen „Zeit beenden“, „Pause starten“ bzw. „Pause beenden“; ohne laufende Zeit Ziel wählen und „Zeit
+starten“. Nach jeder Aktion eine eindeutige Rückmeldung mit Ziel, Uhrzeit und bei Ende der Dauer. Die Knöpfe erzeugen
+dieselben manuellen Ereignisse wie heute; die Engine entscheidet weiter. T-082 geht darin auf. T-103, vor dem Pilot.
+**Warum:** „Ob Start oder Stopp erkennt Taptura selbst“ ist beim Tap richtig, im Formular aber nicht nachvollziehbar;
+eine laufende Zeit zu beenden darf keine Auswahl verlangen.
