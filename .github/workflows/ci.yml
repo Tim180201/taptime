@@ -442,6 +442,7 @@ jobs:
           npm run build --workspace=@taptime/backend-bootstrap
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/backend-offline-sync
+          npm run build --workspace=@taptime/backend-mobile-work
 
       - name: Apply current schema migrations
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -682,6 +683,7 @@ jobs:
           npm run build --workspace=@taptime/backend-bootstrap
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/backend-offline-sync
+          npm run build --workspace=@taptime/backend-mobile-work
 
       - name: Apply current schema migrations to clean PostgreSQL 17
         run: npm run migrate --workspace=@taptime/backend-schema
@@ -832,6 +834,7 @@ jobs:
           npm run build --workspace=@taptime/backend-bootstrap
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/backend-offline-sync
+          npm run build --workspace=@taptime/backend-mobile-work
 
       - name: Test isolated DA2 export size boundaries against PostgreSQL 17
         run: npm run test:boundary --workspace=@taptime/backend-time-export
