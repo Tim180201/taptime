@@ -1,30 +1,26 @@
 # TapTim.e — Status
 
-**Deploy 04.10. gescheitert (TL):** `764935b` spielte 040/041 ein, die Wiederherstellungsprobe selbst war grün, danach
-ließ die neue 8-Tage-Regel aus T-093 die Probe scheitern (Aufräumen seit T-083 nie erfolgreich; Basis des Deploys noch
-nicht registriert). Abbruch vor dem Backendwechsel: Anwendung `0230188`, Betrieb `764935b`, `/health` ok, keine Alarme.
-Erwartet: „Wiederherstellungsprüfung fehlgeschlagen“ beim nächsten Tagesmonitor, bis ein Deploy oder die Sonntagsprüfung
-erfolgreich ist. Behebung T-093b, dann Deploy mit `8b6b292` und T-093b. Kein Datenrisiko.
-
-**Stand:** 04.10.2026 · Produktion läuft auf `0230188` (Deploy 28.09., ohne Konsolenschritt): T-080, T-084 bis T-090,
-Migrationen bis 039, Controller `b635c4a`. Nach dem Deploy: Version überall `0230188`, `/health` ok, api-down-Alarm vom
-Deploy von selbst geschlossen, Archivierer ruhig (Durchläufe 1 s), Sicherungen erfolgreich. App-Builds 28.09. auf
-`0230188`: iPhone 1.0.0 (4) (TestFlight), Android versionCode 11; Geräteabnahme Punkte 11–19 läuft (PO). Betreiber-Bereich
-eingerichtet, Pilot-Betrieb am 26.09. angelegt. „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter
-`taptime`.
-Supabase am 28.09. geprüft und festgelegt (PO): Registrierung neuer Konten aus, E-Mail-Bestätigung an; Kontenliste ohne
-unbekannte Konten; Einladung danach erfolgreich getestet. Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und
-IP-Adresse; vor der Ausweitung anheben (T-099). Festschreiben im Runbook mit T-094.
+**Stand:** 04.10.2026 · Produktion läuft auf `b1ecb8c` (Anwendung und Betrieb): T-091, T-092, T-093, T-093b, T-094,
+Migrationen bis 042. Deploy 04.10. erfolgreich (Probe grün, Aufräumen ohne Abbruch), danach Version überall `b1ecb8c`,
+`/health` ok, Startseite 401/200, keine Alarme. App-Builds 04.10. auf `b1ecb8c`: iPhone 1.0.0 (5), Android
+versionCode 12, installiert; Geräteabnahme läuft (PO). „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen
+weiter `taptime`.
+Nach dem Deploy 04.10. (TL): (1) Einladen und „Einladung erneut senden“ meldeten „Kontenerstellung nicht eingerichtet“:
+der seit T-094 nötige öffentliche `SUPABASE_PUBLISHABLE_KEY` fehlte in `/opt/taptime/.env` (PO-Schritt aus `DEPLOY.md`,
+vor dem Deploy nicht abgefragt). Vom PO an der Konsole ergänzt (Sicherheitskopie `/root/env-0410.bak`), danach Deploy
+`b1ecb8c` erneut. **Lehre:** Vor jedem Deploy fragt der TL die PO-Schritte aus `DEPLOY.md` für die enthaltenen Aufgaben
+ab. (2) Ein versehentlicher Neustart über die Hetzner-Konsole (Strg+Alt+Entf) machte das „letzte Ende“ der Sicherung
+unbekannt; die Deploy-Vorprüfung lehnt dann bis zur nächsten stündlichen Sicherung ab (sicher, Meldung unklar → B11).
+(3) „Passwort vergessen“: der Mail-Link landet auf der Anmeldung statt „Neues Passwort setzen“ (T-094b, vor T-103).
+(4) Das EAS-Bau-Paket war 116 MB, weil EAS `.git/info/exclude` nicht liest und lokale Prüfordner mitnimmt (`.easignore`
+mit T-103); lokale Ausschlussliste um `.t[0-9]*-review/` ergänzt (PO).
+Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113), Site URL `https://admin.tb-infra.de`.
+Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und IP-Adresse; vor der Ausweitung anheben (T-099).
 frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
 womöglich mit wenigen Lehrern; offene Fragen für den CEO-Termin stehen im PLAN.
-Geräteabnahme 02.10. (PO): „Passwort vergessen“ in der App defekt (fester Link `taptime://` passt nicht zur
-installierten Testvariante, D-110, T-094); neuer Betrieb mit nur dem Administrator konnte erst nach Anlegen eines
-Mitarbeiters scannen und erfassen (T-095); Pflichtfeld „Bezeichnung“ beim Tag ohne sichtbaren Hinweis (D-109, T-101).
-Eine abgelaufene Einladung lässt sich heute nicht erneut senden (D-110). T-093 (`19a363d`), T-094 (`947ac51`) und T-091 (`3a93c81`, CI-Nachtrag `764935b`) auf `main`, CI und Abbilder grün, mit dem zweiten Deploy; Supabase-Linkdauer 1 h gesetzt (PO, D-113); Site URL `https://admin.tb-infra.de` (PO 03.10., Ziel des Passwort-Links). Analyse eingeordnet (D-103).
-Web „Manuell“ zeigt nicht, was läuft, Beenden ist umständlich (D-112, T-103).
-Reihenfolge (TL 03.10.): T-092, T-095 bis T-098, T-100 bis T-103 → zweiter Deploy → T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht
-sind Voraussetzung für echte Daten. Fertig ist das Produkt, wenn das
-ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+Reihenfolge (TL 04.10.): T-094b, T-103, T-095 bis T-098, T-100 bis T-102 → dritter Deploy und App-Builds → T-024 →
+Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht sind Voraussetzung für echte Daten.
+Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
 ## Beobachten (TL, 23.–27.09.)
 

@@ -1705,3 +1705,10 @@ bis zum ersten erfolgreichen Monatsabschluss, höchstens zwei Monate; danach im 
 Monat; der Preis ab Monat 13 steht schon im Vertrag. Kleinunternehmerregelung prüfen (frogs vermutlich
 umsatzsteuerbefreit, dann ohne Umsatzsteuer günstiger).
 **Warum:** Schneller und günstiger Start; die GmbH kommt erst, wenn der Pilot zeigt, dass es sich lohnt.
+
+## D-117 · „Zeit beenden“ aus der Pause beendet erst die Pause, dann die Zeit · 04.10.2026 · Claude (TL)
+Ergänzt D-112. Läuft eine Pause, sendet „Zeit beenden“ zwei manuelle Ereignisse nacheinander: zuerst das Pausen-Ereignis,
+und nur nach bestätigtem Pausenende das Ereignis für das laufende Ziel. Jede andere Antwort beendet die Folge mit ihrer
+eigenen Meldung. Die Engine-Regel „kein Arbeitsereignis während einer Pause“ bleibt unverändert. T-103.
+**Warum:** Eine laufende Zeit zu beenden darf keinen zweiten Schritt verlangen (D-112), und zwei gewöhnliche Ereignisse
+halten Engine, Historie und Export so, wie sie heute sind.
