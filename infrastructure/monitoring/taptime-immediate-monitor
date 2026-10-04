@@ -11,7 +11,8 @@ readonly API_DOWN_STATE="$STATE_DIRECTORY/api-down"
 readonly WAL_ARCHIVE_DOWN_STATE="$STATE_DIRECTORY/wal-archive-down"
 # Includes the oneshot's wait for Borg; learned only from an inactive service.
 BACKUP_PAUSE_MAX_SECONDS=600
-# Fixed ceiling from cycle start, never renewed by a phase change or monitor run.
+# Fixed ceiling after cycle start or the latest backup/verification end.
+# Never renewed by a phase change or monitor run.
 readonly WAL_ARCHIVE_CYCLE_MAX_SECONDS=600
 # Weekly verification holds the same Borg lock; never learn or extend this limit.
 readonly RESTORE_VERIFY_PAUSE_MAX_SECONDS=5400
@@ -115,7 +116,8 @@ wal_archive_is_current() {
   local backup_started='' backup_ended='' backup_start_epoch=0 backup_end_epoch=0
   local catchup_deadline=0 heartbeat_deadline data_deadline
   local cycle_running=0 restore_properties restore_state='' restore_loaded=''
-  local restore_started='' restore_start_epoch
+  local restore_started='' restore_ended='' restore_start_epoch=0 restore_end_epoch=0
+  local cycle_start_epoch
 
   WAL_ARCHIVE_FAILURE_REASON='Status nicht ok'
   # Type=oneshot stays activating throughout ExecStart, including flock. ActiveEnter
@@ -137,6 +139,7 @@ wal_archive_is_current() {
       LoadState) restore_loaded="$value" ;;
       ActiveState) restore_state="$value" ;;
       InactiveExitTimestamp) restore_started="$value" ;;
+      InactiveEnterTimestamp) restore_ended="$value" ;;
     esac
   done <<< "$restore_properties"
   if [[ "$restore_loaded" == loaded ]]; then
@@ -187,9 +190,21 @@ wal_archive_is_current() {
     catchup_deadline=$((backup_end_epoch + WAL_ARCHIVE_CATCHUP_SECONDS))
   fi
 
+  if [[ "$restore_loaded" == loaded && ( "$restore_state" == inactive || "$restore_state" == failed ) \
+    && -n "$restore_started" && -n "$restore_ended" ]]; then
+    restore_start_epoch="$(utc_epoch "$restore_started")" || return 1
+    restore_end_epoch="$(utc_epoch "$restore_ended")" || return 1
+    (( restore_start_epoch > 0 && restore_end_epoch >= restore_start_epoch \
+      && restore_end_epoch <= now_epoch )) || return 1
+  fi
   if (( cycle_running )); then
-    if (( now_epoch - running_cycle_start_epoch > WAL_ARCHIVE_CYCLE_MAX_SECONDS )); then
-      WAL_ARCHIVE_FAILURE_REASON="Durchlauf hängt seit $(((now_epoch - running_cycle_start_epoch) / 60)) min (Phase $running_cycle_phase)"
+    # Both services hold the same Borg lock. Waiting for them is bounded by
+    # their own limits above; the cycle gets one fixed budget after they end.
+    cycle_start_epoch=$running_cycle_start_epoch
+    (( cycle_start_epoch >= backup_end_epoch )) || cycle_start_epoch=$backup_end_epoch
+    (( cycle_start_epoch >= restore_end_epoch )) || cycle_start_epoch=$restore_end_epoch
+    if (( now_epoch - cycle_start_epoch > WAL_ARCHIVE_CYCLE_MAX_SECONDS )); then
+      WAL_ARCHIVE_FAILURE_REASON="Durchlauf hängt seit $(((now_epoch - cycle_start_epoch) / 60)) min (Phase $running_cycle_phase)"
       return 1
     fi
   fi

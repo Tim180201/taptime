@@ -77,10 +77,14 @@ Fehler, TERM/INT/HUP und beim Dienststart entfernt der Archivierer die Datei; na
 oder Neustart wird ein Rest wegen der nicht mehr lebenden Prozessidentität verworfen.
 Beim Rückbau entfernt root sie nach dem Anhalten des Archivierers aus dem Zustandsverzeichnis.
 
-Nur ein gültiges Zeichen eines noch lebenden Prozesses toleriert ein veraltetes Lebenszeichen,
-höchstens bis 600 s nach Durchlaufbeginn (`WAL_ARCHIVE_CYCLE_MAX_SECONDS`, fest im Code).
-Phasenwechsel und weitere Wächterprüfungen verlängern das nie. Nach 601 s alarmiert der
-Wächter auch bei frischem Status. Fehlendes oder ungültiges Zeichen gewährt keine zusätzliche
+Nur ein gültiges Zeichen eines noch lebenden Prozesses toleriert ein veraltetes Lebenszeichen.
+Die 600 s (`WAL_ARCHIVE_CYCLE_MAX_SECONDS`, fest im Code) zählen ab dem späteren von
+Durchlaufbeginn, Sicherungsende und Ende der Wiederherstellungsprüfung. Die Endzeiten kommen
+aus systemd (`InactiveEnterTimestamp`, auch bei Abbruch); während die Dienste laufen,
+gelten ihre eigenen Obergrenzen unten. Phasenwechsel und weitere Wächterprüfungen verlängern
+die Durchlauffrist nie. Nach 601 s ab diesem festen Beginn alarmiert der Wächter auch bei
+frischem Status; die gemeldeten Minuten zählen ebenfalls ab diesem Beginn.
+Fehlendes oder ungültiges Zeichen gewährt keine zusätzliche
 Zeit; das normale Fenster bleibt 120 s bei 60 s × 2. Der Wächter liest zuerst den
 Sicherungs- und Prüfzustand, Fortschritt und Archivstatus und nimmt danach die Prüfzeit. Ein während
 dieser Abfragen frisch geschriebenes Zeichen wird so nicht als zukünftig verworfen.
@@ -114,10 +118,14 @@ Danach lautet die Ursache „Wiederherstellungsprüfung läuft seit … min“, 
 Archivstatus und gleichzeitig wartender Sicherung. Die feste Grenze wird weder gelernt noch
 durch weitere Wächterläufe verlängert. Ohne laufende Prüfung gelten die bisherigen Regeln.
 
-Die Wochenprüfung schreibt ihren bestehenden Restore-Status als fehlgeschlagen, wenn ihr
-eigenes Aufräumen fehlschlägt oder danach der letzte erfolgreiche Aufräumlauf mehr als acht
+Nur die geplante Sonntagsprüfung ohne Pin, Zielzeitpunkt, Migrationsprobe oder Materialisierung
+schreibt ihren bestehenden Restore-Status als fehlgeschlagen, wenn ihr eigenes Aufräumen
+fehlschlägt oder danach der letzte erfolgreiche Aufräumlauf mehr als acht
 Tage zurückliegt bzw. nicht belegt ist. Der Tagesmonitor meldet dies über die vorhandene
-Wiederherstellungsmeldung; tägliches Aufräumen erhält keinen eigenen Push. Ein Schreibfehler
+Wiederherstellungsmeldung. Eine gepinnte Deploy-Probe bleibt bei erfolgreicher Wiederherstellung
+`ok`, auch bei altem Aufräumerfolg, `unregistered` oder Aufräumfehler; das Aufräumergebnis
+bleibt in `retention-status` sichtbar. `unregistered` allein ist kein Fehler, hebt aber
+die Acht-Tage-Regel der Sonntagsprüfung nicht auf. Tägliches Aufräumen erhält keinen eigenen Push. Ein Schreibfehler
 von `archive-counts` erscheint nur auf stderr und macht den WAL-Durchlauf nicht ungültig.
 
 Basissicherung und Archivierer halten dieselbe Borg-Sperre. Solange die Sicherung läuft oder

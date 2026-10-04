@@ -3,7 +3,7 @@
 # shellcheck disable=SC2329
 set -euo pipefail
 if [[ -z "${T093_CASE:-}" ]]; then
-  for scenario in select week alternative protected weekly-failed weekly-nine weekly-seven weekly-eight weekly-never weekly-success; do
+  for scenario in select week alternative protected weekly-failed weekly-nine weekly-seven weekly-eight weekly-never weekly-success weekly-unregistered weekly-unregistered-recent deploy-nine deploy-unregistered deploy-failed deploy-controller; do
     T093_CASE="$scenario" bash "$0"
   done
   exit 0
@@ -128,20 +128,25 @@ case "${T093_CASE:-week}" in
       if grep -E '^(delete|compact) |^prune --list' "$root/calls"; then fail 'mutation on protected'; fi
     fi
     ;;
-  weekly-*)
+  weekly-*|deploy-*)
     # Exercise main, including its EXIT status writer. Substitute only external
     # restore I/O; selection, retention and result propagation remain real.
     add_hours '2026-09-27T04:05:00Z' '2026-09-28T04:05:00Z'
     fixture_now="$(date -d '2026-09-28 04:05Z' +%s)"
-    export TAPTIME_RESTORE_BASE_ARCHIVE="$sunday"
+    unset TAPTIME_RESTORE_BASE_ARCHIVE
     age=7; expected=0
     case "$T093_CASE" in
-      weekly-failed) fault=prune; expected=1; TAPTIME_RESTORE_BASE_ARCHIVE="$saturday";;
-      weekly-nine) age=9; expected=1;;
-      weekly-success) TAPTIME_RESTORE_BASE_ARCHIVE="$saturday";;
-      weekly-seven) ;;
-      weekly-eight) age=8;;
-      weekly-never) age=0; expected=1;;
+      weekly-failed) fault=prune; expected=1;;
+      weekly-nine) fault=unregistered; age=9; expected=1;;
+      weekly-success) ;;
+      weekly-seven) fault=unregistered;;
+      weekly-eight) fault=unregistered; age=8;;
+      weekly-never) fault=unregistered; age=0; expected=1;;
+      weekly-unregistered) fault=unregistered; age=9; expected=1;;
+      weekly-unregistered-recent) fault=unregistered;;
+      deploy-nine) age=9; export TAPTIME_RESTORE_BASE_ARCHIVE="$sunday";;
+      deploy-unregistered|deploy-controller) fault=unregistered; age=9; export TAPTIME_RESTORE_BASE_ARCHIVE="$saturday";;
+      deploy-failed) fault=prune; age=9; export TAPTIME_RESTORE_BASE_ARCHIVE="$saturday";;
       *) fail 'unknown weekly scenario';;
     esac
     success=$((fixture_now - age*86400)); (( age != 0 )) || success=0
@@ -192,8 +197,58 @@ CONFIG
         *) return 0;;
       esac
     }
+    # Drive the unchanged controller's real T-007 gate and Docker migration hook.
+    # Restore selection, retention and status writer are real; only external I/O
+    # uses the same synthetic fixture as the direct main tests above.
+    if [[ "$T093_CASE" == deploy-controller ]]; then
+      mkdir "$root/bin"
+      {
+        printf '#!/usr/bin/env bash\nset -euo pipefail\n'
+        declare -f docker
+        printf 'docker "$@"\n'
+      } > "$root/bin/docker"
+      {
+        printf '#!/usr/bin/env bash\nset -euo pipefail\nsource %q\n' "$REPO/infrastructure/backup/taptime-restore-verify"
+        declare -p root cluster fault fixture_now REPO
+        declare -f date production_base_is_registered borg validate_offsite_borg_repository prepare_borg_cache findmnt select_restore_cluster_identity extract_relevant_wal validate_wal_chain latest_wal_record_lsn configure_point_in_time_recovery check_restored_migrations check_restored_rls register_verified_base record_verified_base_marker tar chown
+        printf 'main "$@"\n'
+      } > "$root/restore-runner"
+      chmod 0755 "$root/bin/docker" "$root/restore-runner"
+      # A prior failed probe is present; T-007 must replace it with fresh success.
+      printf '{"state":"failed","last_attempt_at_utc":"2026-09-27T00:00:00Z"}\n' > "$root/restore-status"
+    fi
     set +e
-    (set -e; main) > "$root/weekly.log" 2>&1
+    (
+      set -e
+      if [[ "$T093_CASE" == deploy-controller ]]; then
+        unset -f docker
+        export PATH="$root/bin:$PATH"
+        export TAPTIME_DEPLOY_BACKUP_CONFIG="$root/config"
+        export TAPTIME_DEPLOY_RESTORE_VERIFY_COMMAND="$root/restore-runner"
+        # shellcheck source=../deploy
+        source "$REPO/infrastructure/deploy"
+        # The controller uses a root-only tmpfs in production. Substitute that
+        # external filesystem boundary so an unprivileged CI runner uses only
+        # its private fixture tree; the outer EXIT trap removes the hook too.
+        # Called indirectly by run_restore_verification in the sourced controller.
+        # shellcheck disable=SC2317
+        install() {
+          [[ "$*" != '-d -m 0700 /run/taptime-backup' ]] || return 0
+          command install "$@"
+        }
+        # shellcheck disable=SC2317
+        mktemp() {
+          if [[ "$*" == '-d /run/taptime-backup/deploy-hook.XXXXXX' ]]; then
+            command mktemp -d "$root/deploy-hook.XXXXXX"
+          else
+            command mktemp "$@"
+          fi
+        }
+        run_restore_verification synthetic 0 "$TAPTIME_RESTORE_BASE_ARCHIVE"
+      else
+        main
+      fi
+    ) > "$root/weekly.log" 2>&1
     result=$?
     set -e
     cat "$root/weekly.log"
@@ -203,6 +258,14 @@ CONFIG
     else
       (( result == 0 )) || fail "$T093_CASE failed"
       grep -q '"state":"ok"' "$root/restore-status" || fail 'canonical restore status not ok'
+    fi
+    if [[ "$T093_CASE" == *unregistered* || "$T093_CASE" == deploy-controller ]]; then
+      grep -q '^unregistered|' "$root/state/retention-status" || fail 'registration deferral not recorded'
+    elif [[ "$T093_CASE" == *failed ]]; then
+      grep -q '^failed|' "$root/state/retention-status" || fail 'prune failure not recorded'
+    fi
+    if [[ "$T093_CASE" == deploy-controller ]]; then
+      grep -q 'T-007-Container erfolgreich:' "$root/weekly.log" || fail 'controller did not pass its T-007 gate'
     fi
     ;;
   *) fail 'unknown test case';;

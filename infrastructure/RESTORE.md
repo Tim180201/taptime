@@ -54,11 +54,16 @@ Historische Restore-Proben und Materialisierung räumen weiterhin nicht auf.
 Ein Aufräumfehler macht die abgeschlossene Sicherung nicht ungültig. Die Skripte schreiben
 Versuch, Ergebnis und letzten Erfolg atomar nach `/var/lib/taptime-monitor/retention-status`
 (root, 0600); auch fehlgeschlagene oder ausgesetzte Versuche unterliegen der 24-Stunden-Grenze.
-Ein abgebrochener Lauf bleibt als begonnen sichtbar. Die Wochenprüfung scheitert dagegen,
-wenn ihr eigener Aufräumlauf fehlschlägt oder danach kein Erfolg innerhalb der letzten acht
-Tage belegt ist (auch bei fehlendem/ungültigem Status). Das meldet der Tagesmonitor über die
-bestehende „Wiederherstellungsprüfung fehlgeschlagen“. Tägliche Aufräumfehler erzeugen keinen
-eigenen Push. `archive-counts` im selben Verzeichnis
+Ein abgebrochener Lauf bleibt als begonnen sichtbar. Nur die geplante Sonntagsprüfung ohne
+Pin, Zielzeitpunkt, Migrationsprobe oder Materialisierung scheitert, wenn ihr eigener
+Aufräumlauf fehlschlägt oder danach kein Erfolg innerhalb der letzten acht Tage belegt ist
+(auch bei fehlendem/ungültigem Status). `unregistered` ist eine Verschiebung, kein
+Aufräumfehler; die Acht-Tage-Regel gilt auf dem Sonntagsweg trotzdem. Bei gepinnter Basis
+(Deploy) läuft das Aufräumen ebenfalls ohne Tagesgrenze und speichert und zeigt sein
+Ergebnis, lässt die erfolgreiche Restore-Prüfung aber nicht scheitern. Das gilt auch bei
+noch fehlender Registrierung oder einem Aufräumfehler. Der Tagesmonitor meldet eine
+gescheiterte Sonntagsprüfung über die bestehende „Wiederherstellungsprüfung fehlgeschlagen“.
+Tägliche Aufräumfehler erzeugen keinen eigenen Push. `archive-counts` im selben Verzeichnis
 enthält Erhebungszeitpunkt und Anzahlen, keine Archivnamen oder Adressen. Sicherung und voller
 Archivierer-Abgleich ersetzen diese Datei. Schreibfehler dieser Anzeigezahl werden auf stderr
 gemeldet und lassen einen erfolgreichen WAL-Durchlauf erfolgreich bleiben. Beim Rückbau hält root die Sicherungs-, Prüf- und

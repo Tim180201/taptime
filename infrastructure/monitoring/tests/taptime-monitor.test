@@ -237,6 +237,73 @@ restore_case() (
 )
 if [[ -n "${T093_RESTORE_MINUTES:-}" ]]; then restore_case "$T093_RESTORE_MINUTES"; exit 0; fi
 for minutes in 40 90 91; do restore_case "$minutes"; done
+# T-093b: a cycle waiting for the Borg lock gets its fixed budget after the
+# service ends, including a failed run. Repeated checks must not renew that budget.
+# shellcheck disable=SC2030,SC2031 # Each scenario deliberately isolates service environment.
+wait_case() (
+  local scenario="$1" start now end expected='' completed=0
+  local -x FAKE_BACKUP_STATE=inactive FAKE_BACKUP_STARTED FAKE_BACKUP_ENDED
+  local -x FAKE_RESTORE_STATE=inactive FAKE_RESTORE_STARTED='' FAKE_RESTORE_ENDED=''
+  start="$(epoch_for '2026-09-28T12:05:00Z')"
+  end=$((start + 12*60)); now=$((start + 14*60))
+  FAKE_BACKUP_STARTED="$(iso_for "$start")"
+  FAKE_BACKUP_ENDED="$(iso_for "$end")"
+  printf '420\n' > "$test_root/state/backup-duration-seconds"
+  case "$scenario" in
+    backup-running) FAKE_BACKUP_STATE=activating; now=$end;;
+    backup-ended) ;;
+    backup-completed) completed=1;;
+    backup-boundary|backup-hung|backup-failed)
+      end=$((start + 7*60)); now=$((end + 600))
+      FAKE_BACKUP_ENDED="$(iso_for "$end")"
+      if [[ "$scenario" != backup-boundary ]]; then
+        now=$((now + 1)); expected='Durchlauf hängt seit 10 min (Phase base)'
+      fi
+      [[ "$scenario" != backup-failed ]] || FAKE_BACKUP_STATE=failed;;
+    cycle-after-backup) start=$((end + 60)); now=$((start + 601)); expected='Durchlauf hängt seit 10 min (Phase base)';;
+    restore-ended|restore-hung|both-ended)
+      FAKE_RESTORE_STARTED="$(iso_for "$start")"
+      end=$((start + 40*60)); FAKE_RESTORE_ENDED="$(iso_for "$end")"
+      now=$((end + 600))
+      if [[ "$scenario" == restore-hung ]]; then
+        now=$((now + 1)); expected='Durchlauf hängt seit 10 min (Phase base)'
+      elif [[ "$scenario" == both-ended ]]; then
+        # The backup ended later; neither property read order nor service kind wins.
+        FAKE_BACKUP_STARTED="$(iso_for "$end")"
+        end=$((end + 7*60)); FAKE_BACKUP_ENDED="$(iso_for "$end")"
+        now=$((end + 600))
+      fi;;
+    *) fail "unknown wait case: $scenario";;
+  esac
+  rm -f "$progress_file" "$test_root/messages"/* "$test_root/state/wal-archive-down"
+  write_progress "$start" base "$now"
+  if (( completed )); then rm "$progress_file"; fi
+  printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' \
+    "$(iso_for "$start")" > "$WAL_ARCHIVE_STATUS"
+  if (( completed )); then
+    printf '{"state":"ok","observed_at_utc":"%s","pending_count":0}\n' "$(iso_for "$now")" > "$WAL_ARCHIVE_STATUS"
+  fi
+  # Two earlier monitor invocations cannot move the service's fixed end time.
+  if [[ -n "$expected" ]]; then
+    for earlier in "$((now - 2))" "$((now - 1))"; do
+      write_progress "$start" base "$earlier"
+      TAPTIME_MONITOR_NOW_EPOCH="$earlier" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+      assert_equals 0 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" "$scenario before deadline"
+    done
+    write_progress "$start" base "$now"
+  fi
+  TAPTIME_MONITOR_NOW_EPOCH="$now" FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+  if [[ -z "$expected" ]]; then
+    assert_equals 0 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" "$scenario must stay silent"
+  else
+    assert_equals 1 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" "$scenario must alert"
+    assert_equals "WAL-Archivierung steht: $expected; at=$(iso_for "$now")" "$(cat "$test_root/messages/0")" "$scenario cause and UTC"
+  fi
+)
+if [[ -n "${T093B_WAIT_CASE:-}" ]]; then wait_case "$T093B_WAIT_CASE"; exit 0; fi
+for wait_test in backup-running backup-ended backup-completed backup-boundary backup-hung backup-failed cycle-after-backup restore-ended restore-hung both-ended; do
+  wait_case "$wait_test"
+done
 if [[ -n "${TAPTIME_TEST_PROGRESS_CASE:-}" ]]; then
   progress_case "$TAPTIME_TEST_PROGRESS_CASE"
   exit 0

@@ -522,7 +522,7 @@ record_archive_counts() {
 }
 
 # Both callers retain the same safety checks; backup is throttled by attempts,
-# including failed/deferred attempts. Weekly restore deliberately bypasses the gate.
+# including failed/deferred attempts. Weekly and pinned restore bypass the gate.
 run_backup_retention() {
   local mode="$1" cluster="$2"
   local state_file="${TAPTIME_BACKUP_STATE_DIRECTORY:-/var/lib/taptime-monitor}/retention-status"
@@ -890,7 +890,7 @@ main() {
   local latest_wal_file latest_record_lsn
   local manifest_system_identifier manifest_archive_identifier restored_system_identifier
   local recovery_complete target_reached
-  local rehearsal_only recovery_deadline container_running
+  local rehearsal_only recovery_deadline container_running retention_mode
   local materialize_volume=''
 
   if (( $# == 0 )); then
@@ -1113,9 +1113,17 @@ main() {
     record_verified_base_marker "$stage" "$archive" "$start_wal_lsn" "$start_wal_file"
     if production_database_is_running; then
       register_verified_base "$archive" "$start_wal_lsn" "$start_wal_file"
-      if ! run_backup_retention weekly "$RESTORE_ARCHIVE_IDENTIFIER"; then
-        printf 'Weekly restore verification failed its retention check.\n' >&2
-        return 1
+      # Only the scheduled, unpinned check certifies maintenance. A deploy must
+      # not fail a successful restore because its fresh base is not registered
+      # yet or cleanup has no recent success. It still records and runs cleanup.
+      retention_mode=weekly
+      [[ -z "${TAPTIME_RESTORE_BASE_ARCHIVE:-}" ]] || retention_mode=deploy
+      if ! run_backup_retention "$retention_mode" "$RESTORE_ARCHIVE_IDENTIFIER"; then
+        if [[ "$retention_mode" == weekly ]]; then
+          printf 'Weekly restore verification failed its retention check.\n' >&2
+          return 1
+        fi
+        printf 'Retention failed.\n' >&2
       fi
       refresh_archive_counts || printf 'Archive counts unavailable.\n' >&2
     else
