@@ -1,64 +1,52 @@
 # Aktuelle Aufgabe
 
-> **Stand 03.10.2026:** Produktion auf `0230188` (Migrationen bis 039). Auf `main` zusätzlich T-093, T-094 (040) und
-> T-091 (041). Vor dem Pilot: T-092, T-095 bis T-098, T-100 bis T-103 → zweiter Deploy → T-024 → Pilot. Frühere Briefs
-> stehen in der Git-Historie.
+> **Stand 04.10.2026:** Produktion: Anwendung `0230188`, Betrieb `764935b`, Migrationen bis 041 (Deploy 04.10. in der
+> Probe gescheitert). Auf `main` bis `8b6b292` (T-091 bis T-094). Danach T-095 bis T-098, T-100 bis T-103 → T-024 →
+> Pilot. Frühere Briefs stehen in der Git-Historie.
 
-## T-092 · Austritt (D-101, D-115)
+## T-093b · Deploy-Probe und Wächter
 
-**Für:** Development · **Risiko:** Lohn des Austrittsmonats, Kernkette (Verwaltungsstopp D-071/D-073), Rechte der
-Standortleitung · **Zeitbox:** eine bis zwei Sitzungen. Analyse-Befunde F-004, F-066, F-101.
+**Für:** Development · **Risiko:** Auslieferung (Deploy-Tor), Sicherung, Alarmierung · **Zeitbox:** eine Sitzung.
+Nur `infrastructure/backup/*`, `infrastructure/monitoring/*`, `infrastructure/deploy` nur lesend, deren Tests, `RESTORE.md`,
+`MONITORING.md`. Kein Deploy, kein Serverzugriff. Der Controller (`infrastructure/deploy`) wird nicht geändert, sonst
+wäre ein Konsolenschritt nötig.
 
-### Befund
+### Befund (Deploy 04.10., `764935b`)
 
-1. `manage_membership_v1` (020) setzt beim Entzug nur `revoked_at`; eine laufende Zeit oder Pause bleibt offen, wächst im
-   Export weiter, blockiert Projektdeaktivierung und Tag-Umbuchung und ist im Produkt nicht mehr beendbar (Person fällt
-   aus „Gerade aktiv“ und aus der Personentabelle, `028:151`; einziger Link auf die Personenansicht in
-   `PeopleShared.tsx`). Die Bestätigung sagt nur „kann sich danach nicht mehr anmelden“.
-2. Nachtragen für Ausgeschiedene antwortet `authority_rejected` (`033:55-58`, `:1655-1659`); die Standortleitung verliert
-   mit der Heimat-Kaskade (`022:158-170`) sofort jede Sicht.
-3. Entzug oder Rollenwechsel einer inzwischen entzogenen Person liefert 403 vor der Versionsprüfung; das Web meldet
-   daraufhin die Verwaltung ab (`020:649-665`).
+1. Der Deploy ruft `taptime-restore-verify` mit gepinnter Basis (`TAPTIME_RESTORE_BASE_ARCHIVE`, `REHEARSAL_ONLY=0`)
+   auf. Danach läuft `run_backup_retention weekly`, das seit T-093 scheitert, wenn das Aufräumen seit mehr als 8 Tagen
+   nicht erfolgreich war. Das Aufräumen konnte genau wegen F-007 seit T-083 nie gelingen, und die frische Basis des
+   Deploys war noch nicht registriert („Retention deferred: no registered verified base. Retention has no success
+   within the last eight days. Weekly restore verification failed its retention check.“). Der Deploy brach nach den
+   Migrationen ab; die Wiederherstellung selbst war grün.
+2. Wächter-Fehlalarme „Durchlauf hängt seit 10–14 min (Phase base)“ etwa dreimal täglich (29.09., 04.10.): Der
+   Archivierer-Durchlauf beginnt mit der stündlichen Sicherung (:05) und wartet auf sie; die feste Obergrenze von 600 s
+   ab Durchlaufbeginn läuft dabei weiter.
 
 ### Auftrag
 
-**A. Entzug beendet vorher.** Läuft bei der Person eine Zeit oder Pause, beendet der Entzug sie zum Entzugszeitpunkt
-über den bestehenden Verwaltungsstopp (gleiche Kette, Herkunft „Verwaltung“, im Kalender und Export erkennbar), danach
-erst wird entzogen. Der Entzug selbst lehnt ab, solange noch eine Zeit läuft (eigener Status, nie 503); so gibt es nie
-einen Entzug mit offener Zeit, auch bei Wettläufen. Wiederholung derselben Befehlskennung liefert das gespeicherte
-Ergebnis. Die Bestätigung im Web sagt vorher „Läuft gerade eine Zeit, wird sie jetzt beendet“ mit Ziel und Beginn.
-Gilt für Administrator und Standortleitung im eigenen Bereich.
+**A. Probe im Deploy.** Die 8-Tage-Regel und das Scheitern bei `failed` gelten nur für die geplante Sonntagsprüfung
+(kein Pin, kein Zielzeitpunkt, keine Probe, keine Materialisierung). Mit gepinnter Basis (Deploy) läuft das Aufräumen
+wie vor T-093: Ergebnis wird gespeichert und ausgegeben, lässt die Prüfung aber nie scheitern. `unregistered` (Basis
+gerade erst entstanden) ist in keinem Weg ein Fehler.
 
-**B. Ausgeschiedene sichtbar (D-115).** In „Beschäftigte“ (Web und App) ein Abschnitt „Ausgeschieden“ mit Personen, deren
-Austritt im laufenden oder im Vormonat liegt, verlinkt auf die Personenansicht. Administrator sieht alle, die
-Standortleitung die Personen, deren letzter Heimatstandort vor dem Austritt ihr Standort war. Ändern, Nachtragen und
-Prüfen sind für Zeiten bis zum Austrittszeitpunkt möglich (Nachtragen: Ende ≤ Austritt; Ziele nach den bestehenden
-Regeln für deaktivierte Ziele, D-092); danach antwortet der Server verständlich. Nach Ende des Folgemonats verschwinden
-sie aus der Liste; Daten und Export bleiben.
-
-**C. Klare Antwort statt Abmeldung.** Entzug oder Rollenwechsel einer bereits entzogenen Person liefert einen
-Konflikt-Status („Diese Person ist bereits ausgeschieden“), die Sitzung bleibt bestehen.
-
-Höchstens eine Migration (042), nur anfügend. T-062-Probe beachten (schützt sie eine ersetzte Funktion, Erwartung
-testseitig erweitern und im Bericht nennen).
+**B. Wächter.** Solange `taptime-backup.service` oder `taptime-restore-verify.service` läuft, zählt die Zeit nicht gegen
+die 600 s eines laufenden Durchlaufs; die Obergrenze läuft ab dem späteren von Durchlaufbeginn und Ende der Sicherung
+bzw. Prüfung. Die bestehenden Obergrenzen für Sicherung und Prüfung bleiben. Meldungstexte und Ursachen wie bisher.
 
 ### Tests
 
-Rot vor Grün am alten Code. PostgreSQL mit echten Rollen: (1) Entzug bei laufender Zeit → Zeit endet zum
-Entzugszeitpunkt als Verwaltungsstopp, dann entzogen; bei laufender Pause ebenso; (2) paralleler Start und Entzug → nie
-entzogen mit offener Zeit; (3) Wiederholung; (4) Standortleitung sieht Ausgeschiedene ihres Standorts, nicht fremde;
-nach Ende des Folgemonats nicht mehr; (5) Nachtragen bis Austritt ok, danach abgelehnt, für Administrator und
-Standortleitung; (6) Entzug einer bereits entzogenen Person → Konflikt, Web bleibt angemeldet; (7) Offline-Stopp-Tap der
-Person nach dem Entzug → Prüffall wie heute, ohne zweiten Stopp. Alle Suiten, die Migrationen einspielen oder die
-Pfade berühren (`backend-schema`, `backend-time-review` mit T-062-Probe, `backend-administration`, `backend-lifecycle`,
-`backend-offline-sync`, `backend-time-export`, `backend-api`, `admin-web` mit Browser, `mobile` mit `expo export`).
+Rot vor Grün: (1) Deploy-Weg mit gepinnter Basis, `retention-status` ohne Erfolg seit 9 Tagen und `unregistered` → Prüfung
+`ok`; (2) derselbe Zustand auf dem geplanten Sonntagsweg → scheitert wie in T-093; (3) Deploy-Test des Controllers mit
+diesem Zustand bis „T-007 … ok“ (Controller unverändert); (4) Wächter: Durchlauf beginnt :05, Sicherung läuft 12 min,
+Durchlauf endet :19 → kein Alarm; Sicherung endet :12, Durchlauf läuft noch nach :22:01 → Alarm „hängt“; (5) Sonntagsprüfung
+läuft 40 min → kein Alarm (T-093 unverändert). Alle Suiten unter `infrastructure/tests/*` und `infrastructure/monitoring/tests/*`,
+Deploy-Tests, ShellCheck, Workflow-Tests, im Linux-Container wie bei T-093.
 
 ### Nicht Teil
 
-Kein Deploy, kein Serverzugriff. Keine Wiederaufnahme ausgeschiedener Personen (F-153, offene PO-Frage). Kein
-automatischer Entzug, keine Änderung am Export-Inhalt (B01).
+Keine Änderung am Controller, an Keep-Werten, Zeitplan, Archivvertrag oder Restore-Ablauf. Keine neue Meldung.
 
 ### Bericht
 
-`.t092-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review mit Blick auf „keine offene Zeit nach
-einem Entzug, kein Datenverlust im Austrittsmonat“. Kein Commit vor `APPROVED`.
+`.t093b-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit vor `APPROVED`.

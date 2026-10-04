@@ -1695,3 +1695,13 @@ nichts. Export enthält sie wie heute. Ein Widerruf, solange noch eine Zeit läu
 Entzug beendet sie vorher als Verwaltungsstopp (D-073), sonst wird er abgelehnt.
 **Warum:** Der Lohn des Austrittsmonats wird im Folgemonat abgerechnet; bis dahin muss die Verwaltung den Monat noch
 vervollständigen können.
+
+## D-116 · Pilot als Einzelunternehmer; Preisrahmen für frogs · 04.10.2026 · Tim (PO)
+Ändert D-019: Der Pilot läuft über ein Einzelunternehmen des PO, nicht über eine UG. Voraussetzungen für echte Daten:
+Gewerbeanmeldung, unterschriebener AVV mit Haftungsbegrenzung soweit zulässig, Betriebshaftpflicht mit Vermögensschaden-
+und Cyber-Baustein. Trägt der Pilot, gründet der PO mit einem Partner eine GmbH, die die Software übernimmt (Verkauf oder
+Sacheinlage, mit Steuerberater vorher klären); bis dahin bleiben alle Rechte allein beim PO. Preisrahmen frogs: kostenlos
+bis zum ersten erfolgreichen Monatsabschluss, höchstens zwei Monate; danach im ersten Jahr 1 € je aktivem Zugang und
+Monat; der Preis ab Monat 13 steht schon im Vertrag. Kleinunternehmerregelung prüfen (frogs vermutlich
+umsatzsteuerbefreit, dann ohne Umsatzsteuer günstiger).
+**Warum:** Schneller und günstiger Start; die GmbH kommt erst, wenn der Pilot zeigt, dass es sich lohnt.

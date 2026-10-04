@@ -1,6 +1,12 @@
 # TapTim.e — Status
 
-**Stand:** 03.10.2026 · Produktion läuft auf `0230188` (Deploy 28.09., ohne Konsolenschritt): T-080, T-084 bis T-090,
+**Deploy 04.10. gescheitert (TL):** `764935b` spielte 040/041 ein, die Wiederherstellungsprobe selbst war grün, danach
+ließ die neue 8-Tage-Regel aus T-093 die Probe scheitern (Aufräumen seit T-083 nie erfolgreich; Basis des Deploys noch
+nicht registriert). Abbruch vor dem Backendwechsel: Anwendung `0230188`, Betrieb `764935b`, `/health` ok, keine Alarme.
+Erwartet: „Wiederherstellungsprüfung fehlgeschlagen“ beim nächsten Tagesmonitor, bis ein Deploy oder die Sonntagsprüfung
+erfolgreich ist. Behebung T-093b, dann Deploy mit `8b6b292` und T-093b. Kein Datenrisiko.
+
+**Stand:** 04.10.2026 · Produktion läuft auf `0230188` (Deploy 28.09., ohne Konsolenschritt): T-080, T-084 bis T-090,
 Migrationen bis 039, Controller `b635c4a`. Nach dem Deploy: Version überall `0230188`, `/health` ok, api-down-Alarm vom
 Deploy von selbst geschlossen, Archivierer ruhig (Durchläufe 1 s), Sicherungen erfolgreich. App-Builds 28.09. auf
 `0230188`: iPhone 1.0.0 (4) (TestFlight), Android versionCode 11; Geräteabnahme Punkte 11–19 läuft (PO). Betreiber-Bereich
@@ -16,8 +22,8 @@ installierten Testvariante, D-110, T-094); neuer Betrieb mit nur dem Administrat
 Mitarbeiters scannen und erfassen (T-095); Pflichtfeld „Bezeichnung“ beim Tag ohne sichtbaren Hinweis (D-109, T-101).
 Eine abgelaufene Einladung lässt sich heute nicht erneut senden (D-110). T-093 (`19a363d`), T-094 (`947ac51`) und T-091 (`3a93c81`, CI-Nachtrag `764935b`) auf `main`, CI und Abbilder grün, mit dem zweiten Deploy; Supabase-Linkdauer 1 h gesetzt (PO, D-113); Site URL `https://admin.tb-infra.de` (PO 03.10., Ziel des Passwort-Links). Analyse eingeordnet (D-103).
 Web „Manuell“ zeigt nicht, was läuft, Beenden ist umständlich (D-112, T-103).
-Reihenfolge (TL 03.10.): T-092, T-095 bis T-098, T-100 bis T-103 → zweiter Deploy → T-024 → Pilot. UG-Gründung
-und AVV sind Voraussetzung für echte Daten (D-019). Fertig ist das Produkt, wenn das
+Reihenfolge (TL 03.10.): T-092, T-095 bis T-098, T-100 bis T-103 → zweiter Deploy → T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht
+sind Voraussetzung für echte Daten. Fertig ist das Produkt, wenn das
 ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
 ## Beobachten (TL, 23.–27.09.)
