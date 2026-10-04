@@ -1,3 +1,4 @@
+import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { CustomerQuotaNotice } from '../screens/QuotaNotice';
 import { CustomersScreen } from '../screens/CustomersScreen';
 import { TimeEditingProvider } from '../timeEditing/TimeEditingControls';
@@ -58,6 +59,18 @@ export function AppNavigator({
     () => scan.getState(),
     () => scan.getState(),
   );
+  const workState = useSyncExternalStore(listener => work?.subscribe(listener) ?? (()=>{}),
+    () => work?.getState() ?? null, () => work?.getState() ?? null);
+  const confirmedOwnTime = useRef<MobileOwnTimeQueryResponse | null>(null);
+  const confirmedOwner = useRef<string | null>(null);
+  if (state.status === 'authenticated') {
+    const owner=`${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
+    if (confirmedOwner.current !== owner) confirmedOwnTime.current=null;
+    confirmedOwner.current=owner;
+    if (workState?.status==='ready') confirmedOwnTime.current=workState.ownTime;
+  } else if (state.status !== 'context_unavailable') {
+    confirmedOwnTime.current=null;confirmedOwner.current=null;
+  }
   useEffect(() => {
     if (state.status === 'authenticated' && work !== undefined) {
       void work.refresh();
@@ -84,7 +97,7 @@ export function AppNavigator({
     if (canPresentOfflineCaptureShell(state, scanState)) {
       return (
         <ProductShell key="offline" identityLabel={state.identityLabel} role="offline" session={session} scan={scan}
-          administration={administration} offlineManual={offlineManual} />
+          administration={administration} offlineManual={offlineManual} confirmedOwnTime={confirmedOwnTime.current} />
       );
     }
     return (
@@ -115,7 +128,7 @@ export function AppNavigator({
   );
 }
 
-function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual }: {
+function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual, confirmedOwnTime }: {
   readonly customerAuthority?: {readonly membershipId:string;readonly role:string};
   readonly role: ProductMembershipRole | 'offline';
   readonly identityLabel?: string;
@@ -127,6 +140,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   readonly administration: AdminSetupCapability;
   readonly employees?: EmployeesCapability;
   readonly work?: MobileWorkCapability;
+  readonly confirmedOwnTime?: MobileOwnTimeQueryResponse | null;
   readonly offlineManual: OfflineManualCaptureCapability;
 }) {
   const insets = useSafeAreaInsets();
@@ -195,7 +209,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
         {showSync ? <SynchronizationScreen scan={scan} indicator={status} signOut={() => session.signOut()} />
           : destination === 'capture' ? null
           : destination === 'manual' ? role === 'offline'
-              ? <OfflineManualCaptureScreen manual={offlineManual} restorationKey="offline" />
+              ? <OfflineManualCaptureScreen manual={offlineManual} restorationKey="offline" confirmedOwnTime={confirmedOwnTime} />
               : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
           : destination === 'customers' ? work && customerAuthority ? <CustomersScreen work={work} authorityContext={customerAuthority} openCustomer={quotaCustomer}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
           : destination === 'employees' ? managementScope && employees ? <EmployeesScreen employees={employees} scope={managementScope} locationsEnabled={locationsEnabled} /> : null

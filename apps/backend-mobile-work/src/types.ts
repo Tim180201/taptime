@@ -10,6 +10,7 @@ import type {
 } from '@taptime/mobile-work-contract';
 
 export interface MobileReadCommand<Request> {
+  readonly includeActiveCapture?: boolean;
   readonly includeTimeDetails?: boolean;
   readonly includeCalendarBreaks?: boolean;
   readonly accessToken: string;

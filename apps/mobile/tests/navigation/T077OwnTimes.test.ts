@@ -65,7 +65,7 @@ function harness(role: ProductMembershipRole | 'offline', tags = false) {
   const workStore = store<MobileWorkState>({ status: 'ready', ownTime: value, targets: { targets: [target], nextCursor: null },
     submitting: false, loadingMore: false, outcome: null });
   const work: MobileWorkCapability = { ...workStore, refresh: vi.fn(async () => {}), loadMoreOwnTime: vi.fn(async () => {}),
-    triggerManual: async () => {}, triggerBreak: async () => {} };
+    triggerManual: async () => {}, triggerBreak: async () => {}, stopActiveTime: async () => {} };
   const scanStore = store<ProductScanState>({ status: 'offline_ready', queueCount: 0, outcome: null });
   const scan: ProductScanCapability = { ...scanStore, scan: async () => {}, cancel: async () => {}, retry: async () => {} };
   const administration: AdminSetupCapability = { ...store({ status: 'inactive' as const }),
@@ -140,7 +140,7 @@ describe('T-077 own times through the product navigation', () => {
     expect(container.textContent).toContain('Abgleich');
     expect(selected()).toBeUndefined();
     await press('Erfassen');
-    expect(button('Manuell starten')).toBeDefined();
+    expect(button('Manuell erfassen')).toBeDefined();
   });
 
   it.each(['administrator', 'standortleitung'] as const)('opens the own Berlin calendar in one tap and keeps self in employees (%s)', async role => {
@@ -247,17 +247,17 @@ describe('T-077 own times through the product navigation', () => {
     work.start();
     try {
       await act(async () => root.render(createElement(AppNavigator, { ...h.props, work })));
-      await press('Manuell starten'); await press(target.displayName); await press('Jetzt erfassen');
+      await press('Manuell erfassen'); await press(target.displayName); await press('Zeit starten');
       if (phase === 'awaiting_confirmation') await act(async () => finishCapture({ status: 'saved', workEventId: 'manual-event' }));
       // A navigation read must not replace capture's generation or overtake its acknowledgement.
       await press('Meine Zeiten');
-      expect(read).toHaveBeenCalledOnce();
+      expect(read).toHaveBeenCalledTimes(2);
       if (phase === 'capturing') await act(async () => finishCapture({ status: 'saved', workEventId: 'manual-event' }));
-      expect(work.getState()).toMatchObject({ status: 'ready', submitting: false, outcome: 'pending' });
+      expect(work.getState()).toMatchObject({ status: 'ready', submitting: true, outcome: 'pending' });
       const activeRecord = { ...value.records[0]!, status: 'started' as const, stoppedAt: null };
       read.mockResolvedValueOnce({ status: 'ready', ownTime: { ...value, records: [], activeRecord }, targets: { targets: [target], nextCursor: null } });
       await act(async () => { acknowledgement = { status: 'server_decision', outcome: 'time_entry_started' }; acknowledge(); });
-      expect(read).toHaveBeenCalledTimes(2);
+      expect(read).toHaveBeenCalledTimes(3);
       expect(work.getState()).toMatchObject({ status: 'ready', outcome: 'time_entry_started', ownTime: { activeRecord } });
       expect(container.textContent).toContain('läuft');
     } finally { await act(async () => work.stop()); }

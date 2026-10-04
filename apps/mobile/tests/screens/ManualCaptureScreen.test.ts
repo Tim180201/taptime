@@ -38,7 +38,7 @@ beforeEach(async () => {
   root = createRoot(container);
   work = { getState: () => state, subscribe: () => () => {},
     refresh: vi.fn(async () => {}), loadMoreOwnTime: vi.fn(async () => {}),
-    triggerManual: vi.fn(async () => {}), triggerBreak: vi.fn(async () => {}) };
+    triggerManual: vi.fn(async () => {}), triggerBreak: vi.fn(async () => {}), stopActiveTime: vi.fn(async () => {}) };
   await act(async () => { root.render(createElement(ManualCaptureScreen, { work })); });
 });
 afterEach(async () => {
@@ -54,36 +54,24 @@ async function press(label: string) {
   await act(async () => { button(label).click(); });
 }
 
-describe('ManualCaptureScreen selection', () => {
-  it('replaces the work target with a pause and sends only the pause trigger', async () => {
-    await press(target.displayName);
-    await press('Pause');
-    expect(button(target.displayName).getAttribute('aria-pressed')).toBe('false');
-    expect(button('Pause').getAttribute('aria-pressed')).toBe('true');
-    expect(button('Jetzt erfassen').getAttribute('aria-description'))
-      .toBe('Beginnt oder beendet deine Pause automatisch.');
-    await press('Jetzt erfassen');
-    expect(work.triggerBreak).toHaveBeenCalledExactlyOnceWith();
-    expect(work.triggerManual).not.toHaveBeenCalled();
-    expect(container.querySelector('[role="alert"]')).toBeNull();
-  });
-
-  it('clears the pause selection when choosing a work target', async () => {
-    await press('Pause');
-    await press(target.displayName);
-    expect(button('Pause').getAttribute('aria-pressed')).toBe('false');
-    expect(button(target.displayName).getAttribute('aria-pressed')).toBe('true');
-    await press('Jetzt erfassen');
-    expect(work.triggerManual).toHaveBeenCalledExactlyOnceWith(target);
-    expect(work.triggerBreak).not.toHaveBeenCalled();
-  });
-
-  it('asks for a work target without sending a trigger when nothing is selected', async () => {
-    await press('Jetzt erfassen');
+describe('T103 ManualCaptureScreen states', () => {
+  it('starts only a selected work target, without a pause entry', async () => {
+    expect([...container.querySelectorAll('button')].some(b=>b.textContent==='Pause')).toBe(false);
+    await press('Zeit starten');
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Wähle ein Arbeitsziel');
-    expect(work.triggerManual).not.toHaveBeenCalled();
-    expect(work.triggerBreak).not.toHaveBeenCalled();
-    await press('Pause');
-    expect(container.querySelector('[role="alert"]')).toBeNull();
+    await press(target.displayName); await press('Zeit starten');
+    expect(work.triggerManual).toHaveBeenCalledExactlyOnceWith(target);
+  });
+  it.each([null,'2026-10-04T08:30:00.000Z'])('shows the running state and locks every button (%s)', async breakStartedAt => {
+    const active={timeRecordId:'entry',source:'canonical' as const,targetType:'general_work' as const,targetId:'general',targetDisplayName:'Allgemeine Arbeit',status:'started' as const,startedAt:'2026-10-04T06:12:00.000Z',stoppedAt:null,startedVia:'manual' as const,stoppedVia:null,breakStartedAt};
+    const running={...state,status:'ready' as const,ownTime:{...(state as Extract<MobileWorkState,{status:'ready'}>).ownTime,activeRecord:active},submitting:false};
+    work.getState=()=>running;
+    await act(async()=>root.render(createElement(ManualCaptureScreen,{work})));
+    expect(container.textContent).toContain(breakStartedAt?'Pause seit 10:30 · Allgemeine Arbeit':'Läuft seit 08:12 · Allgemeine Arbeit');
+    expect(button('Zeit beenden')).toBeDefined();expect(button(breakStartedAt?'Pause beenden':'Pause starten')).toBeDefined();
+    const busy={...running,submitting:true};
+    work.getState=()=>busy;
+    await act(async()=>root.render(createElement(ManualCaptureScreen,{work})));
+    expect([...container.querySelectorAll('button')].every(b=>b.disabled)).toBe(true);
   });
 });

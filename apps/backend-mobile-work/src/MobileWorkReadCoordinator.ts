@@ -149,6 +149,11 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
           return {...base, details,...(command.includeCalendarBreaks ? {calendar:detailRows.find(d=>d.time_record_id===row.time_record_id)?.calendar} : {})};
         };
         const active = rows.rows.find((row) => row.row_kind === 'active');
+        const capture = command.includeActiveCapture && active !== undefined
+          ? (await client.query<{target_id:string;break_started_at:Date|null}>(
+              'SELECT * FROM taptime_server.read_mobile_active_capture_v1($1::uuid[])', [[active.time_record_id]])).rows[0]
+          : undefined;
+        if (command.includeActiveCapture && active !== undefined && capture === undefined) throw new Error('Missing active capture');
         const history = rows.rows.filter((row) => row.row_kind === 'history');
         const hasMore = history.length > command.request.limit;
         const page = history.slice(0, command.request.limit);
@@ -167,7 +172,9 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
         return {
           status: 'succeeded',
           response: {
-            activeRecord: active === undefined ? null : detailed(active),
+            activeRecord: active === undefined ? null : { ...detailed(active), ...(capture === undefined ? {} : {
+              targetId: capture.target_id, breakStartedAt: capture.break_started_at?.toISOString() ?? null,
+            }) },
             records: page.map(detailed),
             nextCursor: hasMore && last !== undefined
               ? encodeOwnTimeCursor({

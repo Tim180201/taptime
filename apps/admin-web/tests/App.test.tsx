@@ -1267,20 +1267,23 @@ it.each([
       people:[{membershipId:'70000000-0000-4000-8000-000000000001',displayName:'Employee Alpha',role:'employee',location:null,isRunning:true,runningSince:'2026-10-25T08:00:00.000Z',runningTargetDisplayName:'Werkstatt'}]}}};
   await render(<App administration={new FakeCapability(state)}/>);
   if(path.includes('monat=')) expect(await screen.findByRole('region',{name:'Zeitkalender'})).toBeVisible();
-  if(path === '/manuell') expect(await screen.findByRole('button',{name:'Jetzt erfassen'})).toBeVisible();
+  if(path === '/manuell') expect(await screen.findByRole('button',{name:'Zeit starten'})).toBeVisible();
   if(path === '/pruefungen') await userEvent.click(await screen.findByRole('button',{name:'Ablehnen'}));
   const result=await axe.run(document.body,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}});
   expect(result.violations).toEqual([]);
 });
-it('T049 own/manual: keyboard selects Pause and sends one event through the main action',async()=>{
+it('T103 own/manual: keyboard selects a target and starts one event without a pause list',async()=>{
   window.history.replaceState(null,'','/manuell');
+  const target={targetId:customer.id,targetType:'customer' as const,displayName:'Werkstatt'};
   const capability=new FakeCapability({...readyState,role:'employee',availableSections:['own_time','manual_capture'],
-    workTargets:{status:'ready',value:[{targetId:customer.id,targetType:'customer',displayName:'Werkstatt'}]}});
+    calendar:{status:'ready',value:calendarValue,month:'2026-10',targetMembershipId:null},workTargets:{status:'ready',value:[target]}});
   const captureManual=vi.fn(async()=>{});
   await render(<App administration={{...capability,getState:capability.getState,subscribe:capability.subscribe,captureManual}}/>);
-  const pause=await screen.findByRole('radio',{name:'Pause'});
-  pause.focus();await userEvent.keyboard(' ');await userEvent.tab();await userEvent.keyboard('{Enter}');
-  expect(captureManual).toHaveBeenCalledExactlyOnceWith('break');
+  const choice=await screen.findByRole('button',{name:'Werkstatt'});
+  choice.focus();await userEvent.keyboard('{Enter}');
+  screen.getByRole('button',{name:'Zeit starten'}).focus();await userEvent.keyboard('{Enter}');
+  expect(captureManual).toHaveBeenCalledExactlyOnceWith(target);
+  expect(screen.queryByRole('radio')).not.toBeInTheDocument();
 });
 it('T049 review: locks prepared decisions and retains keyboard focus after the resolved row disappears',async()=>{
  window.history.replaceState(null,'','/pruefungen');

@@ -1,6 +1,6 @@
 import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeQuery,isVoidedTimeResponse,type VoidTimeResult,type VoidedTimeResponse,type VoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResponse } from '@taptime/mobile-work-contract';
-import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3 as TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3 as TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCaptureTimeResponse, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { MANAGED_PEOPLE_ACCEPT_V2,isManagedActiveSummaryV2,isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import {
@@ -278,7 +278,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   async ownTime(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>> {
     if (!validateMobileOwnTimeQueryRequest(request)) return {status:'invalid_response'};
     return this.request('/v1/mobile/own-time/query',token,'POST',request,
-      value => validCalendarPage(value,request.limit) ? value : null,
+      value => isCaptureTimeResponse(value) && validCalendarPage(value,request.limit,true) ? value : null,
       false,false,false,maximumTimeReviewBodyBytes);
   }
   async backfillTargets(token:string,request:BackfillTargetQueryRequest):Promise<ApiResult<MobileWorkTargetQueryResponse>> {
@@ -740,7 +740,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/administration/managed-active-summary' ? MANAGED_PEOPLE_ACCEPT_V2 : path === '/v1/mobile/own-time/query' || path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
+      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/administration/managed-active-summary' ? MANAGED_PEOPLE_ACCEPT_V2 : path === '/v1/mobile/own-time/query' ? TIME_CALENDAR_ACCEPT_V2 : path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
       if (exposeLocationScopeError && response.status === 403) {
         if (
           response.redirected
@@ -1438,8 +1438,9 @@ function isNonNegativeInteger(value: unknown): value is number {
   return Number.isSafeInteger(value) && Number(value) >= 0;
 }
 
-function validCalendarPage(value: unknown, limit: number): value is MobileOwnTimeQueryResponse {
-  if (!isCalendarTimeResponse(value) || value.records.length > limit
+function validCalendarPage(value: unknown, limit: number, capture = false): value is MobileOwnTimeQueryResponse {
+  const validate:(value:unknown)=>value is MobileOwnTimeQueryResponse=capture?isCaptureTimeResponse:isCalendarTimeResponse;
+  if (!validate(value) || value.records.length > limit
     || Date.parse(value.windowStartedAt) >= Date.parse(value.windowEndedAt)) return false;
   const ids=value.records.map(record=>record.timeRecordId);
   return new Set(ids).size === ids.length

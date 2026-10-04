@@ -33,6 +33,15 @@ class CountingAuthentication implements AuthenticatedRequestCapability {
 }
 
 describe('AuthenticatedHttpRequestExecutor', () => {
+  it('T103 negotiates active capture without changing legacy calendar negotiation', async () => {
+    const fetchRequest = vi.fn<typeof fetch>(async()=>Response.json({}));
+    const executor = new AuthenticatedHttpRequestExecutor(new FixedAuthentication(),fetchRequest);
+    for (const [options,accept] of [[{},'application/json'],[{includeCalendarBreaks:true},'application/vnd.taptime.time-calendar.v1+json'],
+      [{includeActiveCapture:true},'application/vnd.taptime.time-calendar.v2+json']] as const) {
+      await executor.post(new URL('https://api.example/v1/mobile/own-time/query'),'{}',options);
+      expect(fetchRequest.mock.lastCall?.[1]).toMatchObject({headers:{Accept:accept}});
+    }
+  });
   it('binds the default browser fetch to its global receiver', async () => {
     vi.stubGlobal('fetch', function (this: unknown) {
       if (this !== globalThis) throw new TypeError('Illegal invocation');

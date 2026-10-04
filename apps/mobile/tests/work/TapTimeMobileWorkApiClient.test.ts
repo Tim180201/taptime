@@ -58,6 +58,7 @@ describe('TapTimeMobileWorkApiClient', () => {
       { expectedMembershipId: ids.membership, cursor: null, limit: 20 },
       { expectedMembershipId: ids.membership, cursor: null, limit: 50 },
     ]);
+    expect(post.mock.calls[0]![2]).toMatchObject({includeActiveCapture:true});
   });
 
   it('sends one manual trigger without caller time or Start/Stop choice', async () => {
@@ -142,5 +143,6 @@ describe('TapTimeMobileWorkApiClient', () => {
       cursor: 'v1:own-next',
       limit: 20,
     });
+    expect(post.mock.calls[0]![2]).toMatchObject({includeActiveCapture:true});
   });
 });

@@ -4,7 +4,9 @@ import {
   DefaultProductMobileRuntime,
   type ProductScanRuntimeOwner,
   type ProductSessionRuntimeOwner,
+  type ProductMobileWorkRuntimeOwner,
 } from '../../src/runtime/DefaultProductMobileRuntime';
+import { MobileWorkCoordinator } from '../../src/work/MobileWorkCoordinator';
 import type { ProductScanState } from '../../src/scan/contracts';
 import type { AdminSetupState } from '../../src/administration/contracts';
 import type { ProductServerTransport } from '../../src/transport/contracts';
@@ -72,7 +74,7 @@ class FakeAdministrationRuntimeOwner {
   getState(): AdminSetupState { return { status: 'inactive' }; }
 }
 
-function setup() {
+function setup(work?: ProductMobileWorkRuntimeOwner) {
   const session = new FakeSessionRuntimeOwner();
   const scan = new FakeScanRuntimeOwner();
   const administration = new FakeAdministrationRuntimeOwner();
@@ -81,11 +83,27 @@ function setup() {
     stop: vi.fn<() => void>(),
   };
   const serverTransport = Object.freeze({}) as ProductServerTransport;
-  const runtime = new DefaultProductMobileRuntime(session, appState, serverTransport, scan, administration);
+  const runtime = new DefaultProductMobileRuntime(session, appState, serverTransport, scan, administration, undefined, work);
   return { session, scan, administration, appState, runtime };
 }
 
 describe('DefaultProductMobileRuntime lifecycle', () => {
+  it('T103 forwards stopping the confirmed active target through the production React facade', async () => {
+    const target = {targetType:'customer' as const,targetId:'20000000-0000-4000-8000-000000000001',displayName:'Kunde X'};
+    const snapshot = {generation:1,session:{userId:'user',organizationId:'organization',membershipId:'membership',role:'employee' as const,nfcSetupAvailable:false}};
+    const ownTime = {activeRecord:{timeRecordId:'entry',source:'canonical' as const,targetType:target.targetType,
+      targetId:target.targetId,targetDisplayName:target.displayName,status:'started' as const,startedAt:'2026-10-04T06:12:00.000Z',
+      stoppedAt:null,startedVia:'manual' as const,stoppedVia:null,breakStartedAt:null},records:[],nextCursor:null,
+      windowStartedAt:'2026-08-31T22:00:00.000Z',windowEndedAt:'2026-10-04T09:00:00.000Z'};
+    const triggerManual = vi.fn(async()=>({status:'accepted' as const,outcome:'time_entry_stopped' as const}));
+    const work = new MobileWorkCoordinator({capture:()=>snapshot,isCurrent:()=>true,subscribe:()=>()=>{}},
+      {read:async()=>({status:'ready',ownTime,targets:{targets:[],nextCursor:null}}),readOwnTimePage:async()=>({status:'unavailable'}),triggerManual});
+    const {runtime} = setup(work);
+    await runtime.work.refresh();
+    expect(runtime.work.stopActiveTime).toBeTypeOf('function');
+    await runtime.work.stopActiveTime?.();
+    expect(triggerManual).toHaveBeenCalledExactlyOnceWith('membership',target);
+  });
   it('does not start session or app-state ownership after stop during scan recovery', async () => {
     const context = setup();
     const scanStart = deferred();

@@ -1,10 +1,10 @@
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
-import type { SafeWorkTarget, WorkTargetType } from '@taptime/mobile-work-contract';
+import { captureStatus, captureDuration, type SafeWorkTarget, type WorkTargetType } from '@taptime/mobile-work-contract';
 import type { MobileWorkCapability } from '../work/contracts';
 import { ActionButton, AppText as Text, Card, Screen, TextField } from '../design/primitives';
 import { RecentTime } from './RecentTimeCard';
@@ -19,7 +19,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
   const [search, setSearch] = useState('');
   const [selectionError, setSelectionError] = useState(false);
   const [selected, setSelected] = useState<SafeWorkTarget | null>(null);
-  const [pauseTag, setPauseTag] = useState(false);
+  useEffect(() => { void work.refresh(); }, [work]);
   const visible = useMemo(() => state.status === 'ready'
     ? state.targets.targets.filter((target) => (
         target.displayName.toLocaleLowerCase('de-DE')
@@ -43,60 +43,37 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
 
   return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
-      <Text style={styles.explanation}>
-        Wähle dein Arbeitsziel. Taptura entscheidet über Start oder Stopp. Die Zeit bleibt als manuell erfasst gekennzeichnet.
-      </Text>
-      <Text style={styles.selection}>Arbeitsziel</Text>
-      {selectionError && selected === null && !pauseTag ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten.</Text> : null}
-      <TextField
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Kunde oder Projekt suchen"
-        accessibilityLabel="Arbeitsziel suchen"
-        style={styles.search}
-      />
-      <View style={styles.list}>
-        {(['customer', 'project', 'general_work'] as const).map((type) => {
-          const targets = visible.filter((target) => target.targetType === type);
-          if (targets.length === 0) return null;
-          return <View key={type} accessibilityRole="list" style={styles.list}>
-            <Text style={styles.group}>{groupLabel(type)}</Text>
-            {targets.map((target) => <ActionButton
-              key={`${target.targetType}:${target.targetId}`}
-              title={target.displayName}
-              tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
-              accessibilityState={{ selected: selected?.targetId === target.targetId }}
-              onPress={() => { setSelected(target); setPauseTag(false); setSelectionError(false); }}
-            />)}
-          </View>;
-        })}
-        <ActionButton
-          title="Pause"
-          tone={pauseTag ? 'primary' : 'quiet'}
-          accessibilityState={{ selected: pauseTag }}
-          accessibilityHint="Beginnt oder beendet deine Pause automatisch."
-          onPress={() => { setSelected(null); setPauseTag(true); setSelectionError(false); }}
-        />
-      </View>
-      <Card>
-        <Text style={styles.selection}>
-          {pauseTag ? 'Pause' : selected === null ? 'Noch kein Arbeitsziel ausgewählt' : selected.displayName}
-        </Text>
-        <ActionButton
-          tone="cta"
-          title={state.submitting ? 'Wird erfasst …' : 'Jetzt erfassen'}
-          disabled={state.submitting}
-          loading={state.submitting}
-          onPress={() => pauseTag ? work.triggerBreak()
-            : selected === null ? setSelectionError(true) : work.triggerManual(selected)}
-          accessibilityHint={pauseTag ? 'Beginnt oder beendet deine Pause automatisch.'
-            : 'Startet oder stoppt deine Arbeitszeit automatisch.'}
-        />
-        {state.outcome === null ? null
-          : <Text accessibilityLiveRegion="polite" style={styles.outcome}>
-              {outcomeLabel(state.outcome)}
-            </Text>}
-      </Card>
+      {state.ownTime.activeRecord ? <Card>
+        <Text style={styles.selection}>{captureStatus(state.ownTime.activeRecord)}</Text>
+        {state.ownTime.activeRecord.calendar ? <Text>{captureDuration(state.ownTime.activeRecord.calendar.workDurationSeconds)}</Text> : null}
+        <ActionButton title={state.ownTime.activeRecord.breakStartedAt ? 'Pause beenden' : 'Zeit beenden'} tone="cta"
+          disabled={state.submitting} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.triggerBreak() : work.stopActiveTime()} />
+        <ActionButton title={state.ownTime.activeRecord.breakStartedAt ? 'Zeit beenden' : 'Pause starten'} tone="secondary"
+          disabled={state.submitting} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.stopActiveTime() : work.triggerBreak()} />
+      </Card> : <>
+        <Text style={styles.explanation}>Wähle dein Arbeitsziel. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
+        <Text style={styles.selection}>Arbeitsziel</Text>
+        {selectionError && selected === null ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten.</Text> : null}
+        <TextField value={search} onChangeText={setSearch} editable={!state.submitting} placeholder="Kunde oder Projekt suchen" accessibilityLabel="Arbeitsziel suchen" style={styles.search} />
+        <View style={styles.list}>
+          {(['customer', 'project', 'general_work'] as const).map(type => {
+            const targets = visible.filter(target => target.targetType === type);
+            return targets.length === 0 ? null : <View key={type} accessibilityRole="list" style={styles.list}>
+              <Text style={styles.group}>{groupLabel(type)}</Text>
+              {targets.map(target => <ActionButton key={`${target.targetType}:${target.targetId}`} title={target.displayName}
+                disabled={state.submitting} tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
+                accessibilityState={{selected:selected?.targetId === target.targetId}}
+                onPress={() => {setSelected(target);setSelectionError(false);}} />)}
+            </View>;
+          })}
+        </View>
+        <Card><Text style={styles.selection}>{selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
+          <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting} loading={state.submitting}
+            onPress={() => selected === null ? setSelectionError(true) : work.triggerManual(selected)} />
+        </Card>
+      </>}
+      {state.submitting ? <Text accessibilityLiveRegion="polite">Bestätigung wird angefordert …</Text> : null}
+      {state.feedback || state.outcome ? <Text accessibilityLiveRegion="polite" style={styles.outcome}>{state.feedback ?? outcomeLabel(state.outcome!)}</Text> : null}
       <RecentTime ownTime={state.ownTime} />
     </ScrollView>
   </Screen>;
@@ -123,7 +100,7 @@ function outcomeLabel(outcome: NonNullable<
     return 'Ohne laufende Arbeitszeit ist keine Pause möglich.';
   }
   if (outcome === 'work_trigger_during_break_rejected') {
-    return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über den Pausen-Tag oder die Pausentaste.';
+    return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über „Pause beenden“.';
   }
   if (outcome === 'work_location_unavailable') return 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.';
   if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';

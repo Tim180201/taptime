@@ -1,7 +1,7 @@
 import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
-import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, TIME_DETAILS_ACCEPT_V3, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
+import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, TIME_DETAILS_ACCEPT_V3, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -535,7 +535,8 @@ async function handleRequest(
   if (route === 'mobile_own_time') {
     response.setHeader('Vary','Accept');
     await handleMobileOwnTime(response, accessToken, body, dependencies, options,
-      correlationId, timeoutMilliseconds, acceptsTimeDetails(request.headers.accept) || request.headers.accept === TIME_CALENDAR_ACCEPT, request.headers.accept === TIME_CALENDAR_ACCEPT);
+      correlationId, timeoutMilliseconds, acceptsTimeDetails(request.headers.accept) || request.headers.accept === TIME_CALENDAR_ACCEPT || request.headers.accept === TIME_CALENDAR_ACCEPT_V2,
+      request.headers.accept === TIME_CALENDAR_ACCEPT || request.headers.accept === TIME_CALENDAR_ACCEPT_V2, request.headers.accept === TIME_CALENDAR_ACCEPT_V2);
     return;
   }
   if (route === 'mobile_work_targets') {
@@ -1127,6 +1128,7 @@ async function handleMobileOwnTime(
   timeoutMilliseconds: number,
   includeTimeDetails = false,
   includeCalendarBreaks = false,
+  includeActiveCapture = false,
 ): Promise<void> {
   if (!validateMobileOwnTimeQueryRequest(body)) {
     respondError(response, 400, 'invalid_request');
@@ -1139,7 +1141,7 @@ async function handleMobileOwnTime(
   }
   try {
     const result = await withTimeout(
-      reader.queryOwnTime({ accessToken, request: body, ...(includeTimeDetails ? {includeTimeDetails:true} : {}), ...(includeCalendarBreaks ? {includeCalendarBreaks:true} : {}) }),
+      reader.queryOwnTime({ accessToken, request: body, ...(includeTimeDetails ? {includeTimeDetails:true} : {}), ...(includeCalendarBreaks ? {includeCalendarBreaks:true} : {}), ...(includeActiveCapture ? {includeActiveCapture:true} : {}) }),
       timeoutMilliseconds,
     );
     respondMobileReadResult(response, result);

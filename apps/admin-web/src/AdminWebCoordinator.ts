@@ -1,3 +1,4 @@
+import { captureFeedback } from '@taptime/mobile-work-contract';
 import { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';
 import {isVoidTimeRequest,loadVoidedTimePages,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import type { Notice } from './contracts';
@@ -99,7 +100,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private calendarEpoch = 0;
   private targetsEpoch = 0;
   // Volatile, session-bound retry identity. A lost acknowledgement can follow a committed event.
-  private pendingManual: {generation:number;request:ManualLifecycleRequest | ManualBreakLifecycleRequest} | null = null;
+  private pendingManual: {generation:number;request:ManualLifecycleRequest | ManualBreakLifecycleRequest;before?:MobileOwnTimeQueryResponse;followup?:SafeWorkTarget} | null = null;
   private readonly pendingCreations = new Map<string, { commandId: string; objectId: string }>();
   private readonly pendingStops=new Map<string,{generation:number;commandId:string}>();
   private pendingTimeEdit: {generation:number;key:string;commandId:string} | null = null;
@@ -340,32 +341,57 @@ export class AdminWebCoordinator implements AdminWebCapability {
       message:'Die Arbeitsziele konnten nicht vollständig geladen werden.'}});
   }
 
-  async captureManual(target: SafeWorkTarget | 'break'): Promise<void> {
+  async captureManual(target: SafeWorkTarget | 'break' | 'stop'): Promise<void> {
     const current=this.state,session=this.session;
     if (current.status !== 'ready' || session === null || !session.availableSections.includes('manual_capture') || current.manual?.busy) return;
     const generation=this.generation;
     let pending=this.pendingManual?.generation === generation ? this.pendingManual : null;
     if (pending === null) {
-      if (target !== 'break' && (current.workTargets?.status !== 'ready' || !current.workTargets.value.some(
-        item=>item.targetId === target.targetId && item.targetType === target.targetType))) return;
-      const workEvent=target === 'break' ? {id:crypto.randomUUID(),subject:{type:'break' as const}}
-          : {id:crypto.randomUUID(),target:{targetType:target.targetType,targetId:target.targetId}};
-      const request: ManualLifecycleRequest | ManualBreakLifecycleRequest = 'subject' in workEvent && workEvent.subject
-        ? {expectedMembershipId:session.membershipId,workEvent:{id:workEvent.id,subject:workEvent.subject},receipt:{id:crypto.randomUUID(),attemptNumber:1}}
-        : {expectedMembershipId:session.membershipId,workEvent:{id:workEvent.id,target:workEvent.target!},receipt:{id:crypto.randomUUID(),attemptNumber:1}};
-      pending={generation,request};this.pendingManual=pending;
+      const before=current.calendar?.status==='ready' && current.calendar.targetMembershipId===null ? current.calendar.value : undefined;
+      const active=before?.activeRecord;
+      let followup:SafeWorkTarget|undefined;
+      if (target==='stop') {
+        if(!active?.targetId)return;
+        const activeTarget:SafeWorkTarget={targetType:active.targetType,targetId:active.targetId,displayName:active.targetDisplayName};
+        target=active.breakStartedAt?'break':activeTarget;
+        if(active.breakStartedAt)followup=activeTarget;
+      } else if (target !== 'break') {
+        const selectedTarget=target;
+        if(current.workTargets?.status !== 'ready' || !current.workTargets.value.some(item=>item.targetId===selectedTarget.targetId && item.targetType===selectedTarget.targetType))return;
+      }
+      pending={generation,request:this.manualRequest(session.membershipId,target),before,followup};this.pendingManual=pending;
     }
     this.setState({...current,manual:{busy:true,pending:true,message:'Die Bestätigung wird vom Server angefordert.'}});
-    const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.manualLifecycle?.(token,pending!.request)
+    let result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.manualLifecycle?.(token,pending!.request)
       ?? Promise.resolve({status:'unreachable'})));
     if (generation !== this.generation || this.state.status !== 'ready') return;
-    if (result.status === 'rejected') {await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.');return;}
-    if (result.status !== 'succeeded') {
-      this.setState({...this.state,manual:{busy:false,pending:true,message:'Ihre Erfassung kann bereits gespeichert sein; die Bestätigung fehlt. Fragen Sie diese erneut ab.'}});return;
+    if(result.status==='succeeded' && pending.followup && result.value.status==='synchronized' && result.value.decision==='break_stopped') {
+      pending={generation,request:this.manualRequest(session.membershipId,pending.followup),before:pending.before};
+      this.pendingManual=pending;
+      result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.manualLifecycle?.(token,pending!.request)
+        ?? Promise.resolve({status:'unreachable'})));
+      if (generation !== this.generation || this.state.status !== 'ready') return;
     }
-    const stillPending=result.value.status === 'deferred' && result.value.evidenceStored;
-    if (!stillPending) this.pendingManual=null;
-    this.setState({...this.state,manual:{busy:false,pending:stillPending,message:manualResultMessage(result.value)}});
+    if (result.status === 'rejected') {await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.');return;}
+    const stillPending=result.status!=='succeeded' || result.value.status === 'deferred' && result.value.evidenceStored;
+    // Any answer except break_stopped terminates the requested two-event sequence.
+    if(pending.followup)pending={...pending,followup:undefined};
+    this.pendingManual=stillPending?pending:null;
+    const month=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit'}).format(new Date(this.now()));
+    await this.loadOwnTime(month);
+    if (generation !== this.generation || this.state.status !== 'ready') return;
+    const after=this.state.calendar?.status==='ready' && this.state.calendar.targetMembershipId===null ? this.state.calendar.value : null;
+    const feedback=result.status==='succeeded' && result.value.status==='synchronized' && pending.before && after
+      ? captureFeedback(result.value.decision,pending.before,after) : null;
+    const message=result.status==='succeeded' ? feedback ?? manualResultMessage(result.value)
+      : 'Ihre Erfassung kann bereits gespeichert sein; die Bestätigung fehlt. Fragen Sie diese erneut ab.';
+    this.setState({...this.state,manual:{busy:false,pending:stillPending,message}});
+  }
+
+  private manualRequest(membershipId:string,target:SafeWorkTarget|'break'):ManualLifecycleRequest|ManualBreakLifecycleRequest {
+    const receipt={id:crypto.randomUUID(),attemptNumber:1 as const},id=crypto.randomUUID();
+    return target==='break' ? {expectedMembershipId:membershipId,workEvent:{id,subject:{type:'break'}},receipt}
+      : {expectedMembershipId:membershipId,workEvent:{id,target:{targetType:target.targetType,targetId:target.targetId}},receipt};
   }
 
   async loadPersonTime(targetMembershipId: string, month: string): Promise<void> {

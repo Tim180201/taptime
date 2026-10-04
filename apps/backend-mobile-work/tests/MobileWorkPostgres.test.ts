@@ -600,3 +600,15 @@ it('T-079 opts into authoritative PostgreSQL durations without widening own-time
  expect(records.every(r=>r.calendar && Number.isSafeInteger(r.calendar.workDurationSeconds))).toBe(true);
  expect(records.some(r=>r.timeRecordId===ids.otherStoppedEntry)).toBe(false);
 });
+
+it('T103 adds active capture fields only for the new version and keeps self membership checks',async()=>{
+ const request={expectedMembershipId:ids.membership,limit:20,cursor:null};
+ const old=await coordinator.queryOwnTime({accessToken:tokens.user,request,includeTimeDetails:true,includeCalendarBreaks:true});
+ const next=await coordinator.queryOwnTime({accessToken:tokens.user,request,includeTimeDetails:true,includeCalendarBreaks:true,includeActiveCapture:true});
+ expect(next.status).toBe('succeeded');if(next.status!=='succeeded'||old.status!=='succeeded')return;
+ expect(next.response.activeRecord).toMatchObject({targetId:ids.customer,breakStartedAt:null});
+ expect(Object.hasOwn(old.response.activeRecord!,'targetId')).toBe(false);
+ expect(Object.hasOwn(old.response.activeRecord!,'breakStartedAt')).toBe(false);
+ const {isCaptureTimeResponse}=await import('@taptime/mobile-work-contract');expect(isCaptureTimeResponse(next.response)).toBe(true);
+ expect(await coordinator.queryOwnTime({accessToken:tokens.other,request,includeTimeDetails:true,includeCalendarBreaks:true,includeActiveCapture:true})).toEqual({status:'forbidden'});
+});

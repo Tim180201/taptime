@@ -28,6 +28,8 @@ export interface SafeWorkTarget {
 }
 
 export interface SafeOwnTimeRecord {
+  readonly targetId?: string;
+  readonly breakStartedAt?: string | null;
   readonly calendar?: import('./timeSupplement.js').CalendarTimeData;
   readonly details?: import('./timeSupplement.js').TimeRecordDetails;
   readonly timeRecordId: string;
@@ -325,3 +327,4 @@ export * from './administrationStop.js';
 export * from './administrationStopArchive.js';
 
 export * from './customerHours.js';
+export * from './captureTime.js';

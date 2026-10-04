@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
+import { captureStatus, captureClock, type MobileOwnTimeQueryResponse, type SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type {
   ManualOfflineAcknowledgement,
   OfflineManualCaptureCapability,
@@ -23,8 +23,10 @@ type OfflineManualOutcome =
 export function OfflineManualCaptureScreen({
   manual,
   restorationKey,
+  confirmedOwnTime,
 }: {
   readonly manual: OfflineManualCaptureCapability;
+  readonly confirmedOwnTime?: MobileOwnTimeQueryResponse | null;
   readonly restorationKey: string;
 }) {
   const [projection, setProjection] = useState<ProjectionState>({ status: 'loading' });
@@ -114,6 +116,11 @@ export function OfflineManualCaptureScreen({
 
   return <Screen title="Manuell erfassen" eyebrow="OFFLINE">
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+      <Card>
+        <Text>{confirmedOwnTime?.activeRecord ? captureStatus(confirmedOwnTime.activeRecord)
+          : confirmedOwnTime ? 'Keine laufende Zeit bestätigt' : 'Noch kein bestätigter Stand verfügbar'}</Text>
+        <Text>{confirmedOwnTime ? `Stand ${captureClock(confirmedOwnTime.activeRecord?.calendar?.asOf ?? confirmedOwnTime.windowEndedAt)}, offline` : 'Offline'}</Text>
+      </Card>
       <Text style={styles.explanation}>
         Wähle dein Arbeitsziel. Deine Erfassung bleibt auf dem Handy gespeichert und startet oder stoppt die Arbeitszeit nach der Übertragung.
       </Text>
@@ -185,7 +192,7 @@ function offlineOutcomeLabel(outcome: OfflineManualOutcome): string {
   if (outcome === 'break_started') return 'Pause begonnen';
   if (outcome === 'break_stopped') return 'Pause beendet';
   if (outcome === 'break_without_active_time_entry_rejected') return 'Ohne laufende Arbeitszeit ist keine Pause möglich.';
-  if (outcome === 'work_trigger_during_break_rejected') return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über den Pausen-Tag oder die Pausentaste.';
+  if (outcome === 'work_trigger_during_break_rejected') return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über die Pausentaste.';
   if (outcome === 'duplicate_scan_ignored') return 'Doppelte Erfassung; deine Arbeitszeit bleibt unverändert';
   if (outcome === 'active_entry_for_other_target_rejected') {
     return 'Eine andere Arbeitszeit ist aktiv.';

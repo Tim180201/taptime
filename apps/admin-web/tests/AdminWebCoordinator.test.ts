@@ -1913,3 +1913,22 @@ it('T092 repeats the same revocation command while waiting for archival and only
     expect(coordinator.getState()).toMatchObject({status:'ready',notice:{kind:'success'}});
   } finally {vi.useRealTimers();}
 });
+
+it.each(['break_stopped','duplicate_scan_ignored','work_trigger_during_break_rejected','deferred','unreachable'])('T103 stop from pause proceeds only after %s',async decision=>{
+ const auth=new FakeAuth(),api=new FakeApi();
+ api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,role:'employee',availableSections:['own_time','manual_capture']}});
+ const targetId='40000000-0000-4000-8000-000000000001';
+ const active={timeRecordId:'60000000-0000-4000-8000-000000000001',source:'canonical' as const,targetType:'customer' as const,targetId,targetDisplayName:'Kunde X',status:'started' as const,startedAt:'2026-10-04T06:12:00.000Z',stoppedAt:null,startedVia:'manual' as const,stoppedVia:null,breakStartedAt:'2026-10-04T08:30:00.000Z'};
+ const value={activeRecord:active,records:[],nextCursor:null,windowStartedAt:'2026-08-31T22:00:00.000Z',windowEndedAt:'2026-10-04T09:47:00.000Z'};
+ const ownTime=vi.fn(async()=>({status:'succeeded' as const,value}));
+ const manualLifecycle=vi.fn<NonNullable<import('../src/AdminWebApiClient').AdminWebApiPort['manualLifecycle']>>()
+   .mockResolvedValueOnce(decision==='unreachable'?{status:'unreachable'}:decision==='deferred'?{status:'succeeded',value:{status:'deferred',evidenceStored:true}}:{status:'succeeded',value:{status:'synchronized',decision:decision as 'break_stopped'}})
+   .mockResolvedValue({status:'succeeded',value:{status:'synchronized',decision:'time_entry_stopped'}});
+ const coordinator=new AdminWebCoordinator(auth,{...api,ownTime,manualLifecycle},()=>fixedNow);
+ await coordinator.signIn('employee@example.test','secret');await coordinator.loadOwnTime('2026-10');
+ await coordinator.captureManual('stop');
+ expect(manualLifecycle).toHaveBeenCalledTimes(decision==='break_stopped'?2:1);
+ expect(manualLifecycle.mock.calls[0]![1].workEvent).toMatchObject({subject:{type:'break'}});
+ if(decision==='break_stopped')expect(manualLifecycle.mock.calls[1]![1].workEvent).toMatchObject({target:{targetType:'customer',targetId}});
+ expect(ownTime).toHaveBeenCalledTimes(2);
+});

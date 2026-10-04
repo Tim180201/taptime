@@ -30,6 +30,7 @@ export type MobileWorkState =
       readonly submitting: boolean;
       readonly loadingMore: boolean;
       readonly outcome: ManualTriggerOutcome | null;
+      readonly feedback?: string | null;
     };
 
 export interface MobileWorkCapability {
@@ -41,6 +42,7 @@ export interface MobileWorkCapability {
   loadMoreOwnTime(): Promise<void>;
   triggerManual(target: SafeWorkTarget): Promise<void>;
   triggerBreak(): Promise<void>;
+  stopActiveTime(): Promise<void>;
 }
 
 export interface MobileWorkSessionReader {

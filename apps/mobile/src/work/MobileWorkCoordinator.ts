@@ -1,4 +1,5 @@
 import { dayStart, shiftMonth } from '@taptime/core';
+import { captureFeedback, type MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { CustomerHoursResult } from '@taptime/mobile-work-contract';
 import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type {
@@ -18,7 +19,9 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   private ownTimeCursors = new Set<string>();
   private boundSessionGeneration: number | null = null;
   private pendingManualEventIds: string[] = [];
+  private readonly pendingCapture = new Map<string, {before:MobileOwnTimeQueryResponse; followup?:SafeWorkTarget}>();
   private manualAcknowledgementFlight: Promise<void> | null = null;
+  private manualAcknowledgementRequested = false;
 
   constructor(
     private readonly session: MobileWorkSessionReader,
@@ -50,6 +53,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         this.ownTimeCursors.clear();
         this.boundSessionGeneration = snapshot?.generation ?? null;
         this.pendingManualEventIds = [];
+        this.pendingCapture.clear();
         this.setState({ status: 'inactive' });
       }
     });
@@ -68,6 +72,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     this.ownTimeCursors.clear();
     this.boundSessionGeneration = null;
     this.pendingManualEventIds = [];
+    this.pendingCapture.clear();
     this.setState({ status: 'inactive' });
   }
 
@@ -93,6 +98,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   }
 
   async refresh(): Promise<void> {
+    if (this.state.status === 'ready' && this.state.submitting) return;
     const snapshot = this.session.capture();
     if (snapshot === null) {
       this.setState({ status: 'inactive' });
@@ -139,6 +145,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     if (
       snapshot === null
       || current.status !== 'ready'
+      || current.submitting
       || current.loadingMore
       || current.ownTime.nextCursor === null
       || this.ownTimeCursors.has(current.ownTime.nextCursor)
@@ -182,105 +189,80 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   }
 
   async triggerManual(target: SafeWorkTarget): Promise<void> {
-    const snapshot = this.session.capture();
     const current = this.state;
-    if (
-      snapshot === null
-      || current.status !== 'ready'
-      || current.submitting
-      || !current.targets.targets.some((candidate) => (
-        candidate.targetType === target.targetType
-        && candidate.targetId === target.targetId
-      ))
-    ) return;
-    const generation = this.generation;
-    this.setState({ ...current, submitting: true, outcome: null });
-    const offlineCapture = this.offlineCapture;
-    if (offlineCapture !== null) {
-      const result = await offlineCapture.captureManual(target);
-      if (
-        generation !== this.generation
-        || !this.session.isCurrent(snapshot)
-      ) return;
-      const latest = this.state;
-      if (latest.status !== 'ready') return;
-      if (result.status === 'saved') {
-        this.pendingManualEventIds.push(result.workEventId);
+    if (current.status !== 'ready' || !current.targets.targets.some(candidate =>
+      candidate.targetType === target.targetType && candidate.targetId === target.targetId)) return;
+    await this.capture(target);
+  }
+
+  async triggerBreak(): Promise<void> { await this.capture('break'); }
+
+  async stopActiveTime(): Promise<void> {
+    const current = this.state;
+    if (current.status !== 'ready' || !current.ownTime.activeRecord?.targetId) return;
+    const active = current.ownTime.activeRecord;
+    const target:SafeWorkTarget = {targetType:active.targetType,targetId:active.targetId!,displayName:active.targetDisplayName};
+    await this.capture(active.breakStartedAt ? 'break' : target, active.breakStartedAt ? target : undefined);
+  }
+
+  private async capture(target: SafeWorkTarget | 'break', followup?: SafeWorkTarget): Promise<void> {
+    const snapshot = this.session.capture(), current = this.state;
+    if (!snapshot || current.status !== 'ready' || current.submitting) return;
+    const generation = ++this.generation, before = current.ownTime;
+    this.ownTimeCursors.clear();
+    this.setState({...current, submitting:true, loadingMore:false, outcome:null, feedback:null});
+    try {
+      if (this.offlineCapture) {
+        await this.enqueueCapture(target, before, followup);
+        return;
       }
-      this.setState({
-        ...latest,
-        submitting: false,
-        outcome: result.status === 'saved' ? 'pending' : 'rejected',
-      });
-      if (result.status === 'saved') {
-        await this.handleManualAcknowledgement();
+      let result = target === 'break' ? await this.api.triggerBreak?.(snapshot.session.membershipId)
+        : await this.api.triggerManual(snapshot.session.membershipId,target);
+      if (generation !== this.generation || !this.session.isCurrent(snapshot)) return;
+      if (followup && result?.status === 'accepted' && result.outcome === 'break_stopped') {
+        result = await this.api.triggerManual(snapshot.session.membershipId,followup);
+        if (generation !== this.generation || !this.session.isCurrent(snapshot)) return;
       }
-      return;
-    }
-    const result = await this.api.triggerManual(snapshot.session.membershipId, target);
-    if (
-      generation !== this.generation
-      || !this.session.isCurrent(snapshot)
-    ) return;
-    const latest = this.state;
-    if (latest.status !== 'ready') return;
-    if (result.status === 'accepted') {
-      this.setState({ ...latest, submitting: false, outcome: result.outcome });
-      await this.refresh();
-      const refreshed = this.state;
-      if (refreshed.status === 'ready') {
-        this.setState({ ...refreshed, outcome: result.outcome });
-      }
-    } else {
-      this.setState({
-        ...latest,
-        submitting: false,
-        outcome: result.status === 'authority_rejected' ? 'rejected' : 'pending',
-      });
+      const outcome = result?.status === 'accepted' ? result.outcome : result?.status === 'authority_rejected' ? 'rejected' : 'pending';
+      await this.reloadAfterCapture(outcome,before,generation);
+    } catch {
+      if (generation === this.generation && this.session.isCurrent(snapshot) && this.state.status === 'ready')
+        this.setState({...this.state,submitting:false,outcome:'pending'});
     }
   }
 
-  async triggerBreak(): Promise<void> {
-    const snapshot = this.session.capture();
-    const current = this.state;
-    if (
-      snapshot === null
-      || current.status !== 'ready'
-      || current.submitting
-    ) return;
-    const generation = this.generation;
-    this.setState({ ...current, submitting: true, outcome: null });
-    if (this.offlineCapture !== null) {
-      const result = await (this.offlineCapture.captureBreak?.()
-        ?? Promise.resolve({ status: 'unavailable' as const }));
-      if (generation !== this.generation || !this.session.isCurrent(snapshot)) return;
-      const latest = this.state;
-      if (latest.status !== 'ready') return;
-      if (result.status === 'saved') this.pendingManualEventIds.push(result.workEventId);
-      this.setState({ ...latest, submitting: false,
-        outcome: result.status === 'saved' ? 'pending' : 'rejected' });
-      if (result.status === 'saved') await this.handleManualAcknowledgement();
-      return;
+  private async enqueueCapture(target: SafeWorkTarget | 'break', before:MobileOwnTimeQueryResponse, followup?:SafeWorkTarget):Promise<void> {
+    const snapshot=this.session.capture(), generation=this.generation;
+    const result=target==='break' ? await this.offlineCapture!.captureBreak?.() : await this.offlineCapture!.captureManual(target);
+    if (!snapshot || generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready') return;
+    if (result?.status==='saved') {
+      this.pendingCapture.set(result.workEventId,{before,followup});
+      this.pendingManualEventIds.push(result.workEventId);
     }
-    const result = await (this.api.triggerBreak?.(snapshot.session.membershipId)
-      ?? Promise.resolve({ status: 'unavailable' as const }));
-    if (generation !== this.generation || !this.session.isCurrent(snapshot)) return;
-    const latest = this.state;
-    if (latest.status !== 'ready') return;
-    if (result.status === 'accepted') {
-      this.setState({ ...latest, submitting: false, outcome: result.outcome });
-      await this.refresh();
-      const refreshed = this.state;
-      if (refreshed.status === 'ready') {
-        this.setState({ ...refreshed, outcome: result.outcome });
-      }
-      return;
-    }
-    this.setState({
-      ...latest,
-      submitting: false,
-      outcome: result.status === 'authority_rejected' ? 'rejected' : 'pending',
-    });
+    this.setState({...this.state,submitting:result?.status==='saved' && this.offlineCapture?.readManualAcknowledgement!==undefined,
+      outcome:result?.status==='saved'?'pending':'rejected'});
+    if(result?.status==='saved') await this.handleManualAcknowledgement();
+  }
+
+  private async reloadAfterCapture(outcome:import('./contracts').ManualTriggerOutcome, before:MobileOwnTimeQueryResponse, generation:number):Promise<void> {
+    const snapshot=this.session.capture();if(!snapshot)return;
+    const result=await this.api.read(snapshot.session.membershipId).catch(()=>({status:'unavailable' as const}));
+    if(generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready')return;
+    this.ownTimeCursors.clear();
+    if(result.status==='ready' && validOwnTimeProjection(result.ownTime)) {
+      this.setState({...this.state,ownTime:freezeOwnTime(result.ownTime),targets:result.targets,
+        submitting:false,loadingMore:false,outcome,feedback:captureFeedback(outcome,before,result.ownTime)});
+    } else this.setState({status:'unavailable',message:'Bestätigte Zeiten konnten nicht neu geladen werden. Bitte erneut laden.'});
+  }
+
+  private async enqueueFollowup(target:SafeWorkTarget,before:MobileOwnTimeQueryResponse,generation:number):Promise<void> {
+    const snapshot=this.session.capture();
+    const result=await this.offlineCapture!.captureManual(target).catch(()=>({status:'unavailable' as const}));
+    if(!snapshot || generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready')return;
+    if(result.status==='saved') {
+      this.pendingCapture.set(result.workEventId,{before});this.pendingManualEventIds.push(result.workEventId);
+      this.setState({...this.state,submitting:true,outcome:'pending'});
+    } else await this.reloadAfterCapture('rejected',before,generation);
   }
 
   private setState(state: MobileWorkState): void {
@@ -289,13 +271,20 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   }
 
   private handleManualAcknowledgement(): Promise<void> {
+    this.manualAcknowledgementRequested = true;
     if (this.manualAcknowledgementFlight !== null) {
       return this.manualAcknowledgementFlight;
     }
     let flight!: Promise<void>;
-    flight = this.processManualAcknowledgements().finally(() => {
+    flight = (async () => {
+      do { this.manualAcknowledgementRequested = false; await this.processManualAcknowledgements(); }
+      while (this.manualAcknowledgementRequested);
+    })().finally(() => {
       if (this.manualAcknowledgementFlight === flight) {
         this.manualAcknowledgementFlight = null;
+        if (this.manualAcknowledgementRequested) {
+          void this.handleManualAcknowledgement();
+        }
       }
     });
     this.manualAcknowledgementFlight = flight;
@@ -313,7 +302,14 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         || acknowledgement.status === 'pending'
         || acknowledgement.status === 'review_pending'
         || acknowledgement.status === 'protected'
-      ) return;
+      ) {
+        if(acknowledgement?.status==='review_pending' || acknowledgement?.status==='protected') {
+          const context=this.pendingCapture.get(workEventId);
+          if(context)this.pendingCapture.set(workEventId,{before:context.before});
+          if(this.state.status==='ready')this.setState({...this.state,submitting:false,outcome:'pending'});
+        }
+        return;
+      }
       const snapshot = this.session.capture();
       const current = this.state;
       if (
@@ -323,21 +319,17 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         || workEventId !== this.pendingManualEventIds[0]
       ) return;
       this.pendingManualEventIds.shift();
-      if (acknowledgement.status === 'rejected') {
-        this.setState({ ...current, submitting: false, outcome: 'rejected' });
+      const context=this.pendingCapture.get(workEventId);
+      this.pendingCapture.delete(workEventId);
+      const outcome='outcome' in acknowledgement ? acknowledgement.outcome : 'rejected';
+      const generation = ++this.generation;
+      this.ownTimeCursors.clear();
+      this.setState({...current,submitting:true,loadingMore:false});
+      if (context?.followup && outcome==='break_stopped') {
+        await this.enqueueFollowup(context.followup,context.before,generation);
         continue;
       }
-      if (!('outcome' in acknowledgement)) return;
-      const outcome = acknowledgement.outcome;
-      await this.refresh();
-      if (!this.session.isCurrent(snapshot)) return;
-      const refreshed = this.state;
-      if (refreshed.status === 'ready') {
-        this.setState({
-          ...refreshed,
-          outcome: this.pendingManualEventIds.length === 0 ? outcome : 'pending',
-        });
-      }
+      await this.reloadAfterCapture(outcome,context?.before??current.ownTime,generation);
     }
   }
 }
@@ -385,7 +377,8 @@ function sameOwnTimeRecord(
   left: NonNullable<Extract<MobileWorkState, { status: 'ready' }>['ownTime']['activeRecord']>,
   right: NonNullable<Extract<MobileWorkState, { status: 'ready' }>['ownTime']['activeRecord']>,
 ): boolean {
-  return left.timeRecordId === right.timeRecordId
+  return left.targetId === right.targetId && left.breakStartedAt === right.breakStartedAt
+    && left.timeRecordId === right.timeRecordId
     && left.source === right.source
     && left.targetType === right.targetType
     && left.targetDisplayName === right.targetDisplayName

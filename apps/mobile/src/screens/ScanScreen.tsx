@@ -1,3 +1,4 @@
+import { captureStatus } from '@taptime/mobile-work-contract';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -29,6 +30,7 @@ export interface ScanScreenPresentation {
 }
 
 export function ScanScreen({ actor, scan, signOut, embedded = false, work, onManualCapture }: ScanScreenProps) {
+  const workState = useSyncExternalStore(listener=>work?.subscribe(listener)??(()=>{}),()=>work?.getState()??null,()=>work?.getState()??null);
   const ios = Platform.OS === 'ios';
   const state = useSyncExternalStore((listener) => scan.subscribe(listener),
     () => scan.getState(), () => scan.getState());
@@ -77,9 +79,10 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
       {work ? <RecentTimeCard work={work} /> : <Card><Text style={styles.role}>Zuletzt</Text>
         <Text>Bestätigte Zeiten siehst du nach dem Abgleich.</Text></Card>}
     </ScrollView>
-    {onManualCapture ? <ActionButton title="Manuell starten" tone="secondary"
-      accessibilityLabel="Manuell starten" accessibilityHint="Arbeitsziel oder Pause auswählen. Start, Pause, Fortsetzen und Stopp von Hand erfassen."
-      onPress={onManualCapture} /> : null}
+    {onManualCapture ? <ActionButton title="Manuell erfassen" tone="secondary"
+      accessibilityLabel="Manuell erfassen" accessibilityHint="Arbeitsziel oder Pause auswählen. Start, Pause, Fortsetzen und Stopp von Hand erfassen."
+      disabled={workState?.status==='ready' && workState.submitting} onPress={onManualCapture} /> : null}
+    {workState?.status==='ready' && workState.ownTime.activeRecord ? <Text style={styles.statusMessage}>{captureStatus(workState.ownTime.activeRecord)}</Text> : null}
     {embedded ? null : <ActionButton title="Abmelden" tone="quiet" onPress={signOut} />}
   </SafeAreaView>;
 }
@@ -236,7 +239,7 @@ function presentOutcome(
     case 'break_without_active_time_entry_rejected':
       return { title: 'Keine Arbeitszeit aktiv', message: 'Deine Zeiten bleiben unverändert. Starte zuerst eine Arbeitszeit, um eine Pause zu erfassen.', tone: 'warning' };
     case 'work_trigger_during_break_rejected':
-      return { title: 'Pause ist aktiv', message: 'Dein Arbeitsziel bleibt unverändert. Beende die Pause über den Pausen-Tag oder die Pausentaste.', tone: 'warning' };
+      return { title: 'Pause ist aktiv', message: 'Dein Arbeitsziel bleibt unverändert. Beende die Pause über „Pause beenden“.', tone: 'warning' };
     case 'work_location_unavailable':
       return { title: 'Arbeitsziel nicht verfügbar', message: 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.', tone: 'warning' };
     case 'escalation_required':

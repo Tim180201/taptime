@@ -8,6 +8,7 @@ import {
   type BackendApiRuntimeConfiguration,
 } from '../src/runtime.js';
 import type { BackendApiDependencies } from '../src/types.js';
+import { TIME_CALENDAR_ACCEPT_V2 } from '@taptime/mobile-work-contract';
 import { unavailableOfflineDependencies } from './offlineTestDependencies.js';
 
 const ids = {
@@ -20,6 +21,29 @@ const ids = {
 } as const;
 
 const servers: Server[] = [];
+
+it('T103 preserves every old own-time Accept byte form and opts into active capture only for v2', async () => {
+  const base = {timeRecordId:ids.timeEntry,source:'canonical' as const,targetType:'customer' as const,targetDisplayName:'Kunde X',
+    status:'started' as const,startedAt:'2026-10-04T06:12:00.000Z',stoppedAt:null,startedVia:'manual' as const,stoppedVia:null};
+  const details = {origin:'manual' as const,baseRowVersion:2,effectiveRevisionNumber:0,changed:false,comment:null,change:null,overlapsAnotherRecord:false};
+  const calendar = {asOf:'2026-10-04T08:30:00.000Z',workDurationSeconds:8280,breakDurationSeconds:0,breakIntervals:[]};
+  const value = (d=false,c=false,a=false)=>({activeRecord:{...base,...(d?{details}:{}),...(c?{calendar}:{}),
+    ...(a?{targetId:ids.project,breakStartedAt:calendar.asOf}:{})},records:[],nextCursor:null,
+    windowStartedAt:'2026-08-31T22:00:00.000Z',windowEndedAt:calendar.asOf});
+  const query = vi.fn<NonNullable<BackendApiDependencies['mobileWorkReader']>['queryOwnTime']>(async command=>({status:'succeeded',
+    response:value(command.includeTimeDetails,command.includeCalendarBreaks,command.includeActiveCapture)}));
+  const origin = await start({mobileWorkReader:{queryOwnTime:query,async queryWorkTargets(){return {status:'forbidden'};}}});
+  for (const [accept,d,c,a] of [[undefined,false,false,false],['application/json',false,false,false],
+    ['application/vnd.taptime.unknown+json',false,false,false],['application/vnd.taptime.time-details.v2+json',true,false,false],
+    ['application/vnd.taptime.time-calendar.v1+json',true,true,false],[TIME_CALENDAR_ACCEPT_V2,true,true,true]] as const) {
+    const response = await fetch(`${origin}/v1/mobile/own-time/query`,{method:'POST',headers:{authorization:'Bearer abc.def.ghi',
+      'content-type':'application/json',...(accept?{accept}:{})},body:JSON.stringify({expectedMembershipId:ids.membership,limit:20,cursor:null})});
+    expect(response.status).toBe(200);expect(response.headers.get('vary')).toBe('Accept');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(await response.text()).toBe(JSON.stringify(value(d,c,a)));
+    expect(query.mock.lastCall?.[0].includeActiveCapture).toBe(a?true:undefined);
+  }
+});
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map(close));

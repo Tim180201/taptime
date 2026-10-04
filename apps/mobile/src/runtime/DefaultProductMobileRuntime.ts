@@ -165,6 +165,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       loadMoreOwnTime: () => this.mobileWorkCoordinator.loadMoreOwnTime(),
       triggerManual: (target: SafeWorkTarget) => this.mobileWorkCoordinator.triggerManual(target),
       triggerBreak: () => this.mobileWorkCoordinator.triggerBreak(),
+      stopActiveTime: () => this.mobileWorkCoordinator.stopActiveTime(),
     });
     this.offlineManualCapability = Object.freeze({
       readOfflineManualTargets: () => offlineManualCapture.readOfflineManualTargets(),
@@ -332,6 +333,7 @@ function inactiveMobileWork(): ProductMobileWorkRuntimeOwner {
     async loadMoreOwnTime() {},
     async triggerManual() {},
     async triggerBreak() {},
+    async stopActiveTime() {},
     start() {},
     stop() {},
   };

@@ -429,7 +429,7 @@ describe('MobileWorkCoordinator', () => {
         status: 'ready',
         outcome: 'rejected',
       }));
-      expect(api.read).toHaveBeenCalledOnce();
+      expect(api.read).toHaveBeenCalledTimes(2);
     });
 });
 

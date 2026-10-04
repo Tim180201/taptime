@@ -66,12 +66,19 @@ function harness(role: 'employee' | 'administrator' | 'standortleitung' | 'offli
     redeemEmployeeInvitation: async () => ({ status: 'enrolled' }), refresh: async () => {}, retryContext: async () => {}, signOut: async () => {} };
   const scanState: ProductScanState = { status: 'offline_ready', queueCount: 0, outcome: null };
   const scan: ProductScanCapability = { getState: () => scanState, subscribe: () => () => {}, scan: async () => {}, cancel: async () => {}, retry: async () => {} };
-  const workState: MobileWorkState = { status: 'ready', submitting: false, loadingMore: false, outcome: null,
+  let workState: MobileWorkState = { status: 'ready', submitting: false, loadingMore: false, outcome: null,
     targets: { targets: [target], nextCursor: null }, ownTime };
   const calls: string[] = [];
-  const work: MobileWorkCapability = { getState: () => workState, subscribe: () => () => {}, refresh: vi.fn(async () => {}),
-    loadMoreOwnTime: async () => {}, triggerManual: vi.fn(async value => { expect(value).toEqual(target); calls.push('work'); }),
-    triggerBreak: vi.fn(async () => { calls.push('break'); }) };
+  const workListeners=new Set<()=>void>();
+  const publishWork=()=>workListeners.forEach(listener=>listener());
+  const work: MobileWorkCapability = { getState: () => workState, subscribe: listener=>{workListeners.add(listener);return()=>{workListeners.delete(listener);};}, refresh: vi.fn(async () => {}),
+    loadMoreOwnTime: async () => {}, triggerManual: vi.fn(async value => { expect(value).toEqual(target); calls.push('work');
+      if(workState.status!=='ready')return;
+      const active=workState.ownTime.activeRecord;
+      workState={...workState,ownTime:{...ownTime,activeRecord:active?null:{timeRecordId:'entry',source:'canonical',targetType:target.targetType,targetId:target.targetId,targetDisplayName:target.displayName,status:'started',startedAt:'2026-09-21T08:00:00Z',stoppedAt:null,startedVia:'manual',stoppedVia:null,breakStartedAt:null}}};publishWork(); }),
+    stopActiveTime:vi.fn(async()=>{calls.push('work');if(workState.status==='ready')workState={...workState,ownTime};publishWork();}),
+    triggerBreak: vi.fn(async () => { calls.push('break');if(workState.status==='ready' && workState.ownTime.activeRecord) {
+      workState={...workState,ownTime:{...workState.ownTime,activeRecord:{...workState.ownTime.activeRecord,breakStartedAt:workState.ownTime.activeRecord.breakStartedAt?null:'2026-09-21T09:00:00Z'}}};publishWork();} }) };
   const offlineManual: OfflineManualCaptureCapability = { readOfflineManualTargets: async () => ({ status: 'ready', targets: [target] }),
     captureManual: vi.fn(async value => { expect(value).toEqual(target); calls.push('work'); return { status: 'saved' as const, workEventId: `event-${calls.length}` }; }),
     captureBreak: vi.fn(async () => { calls.push('break'); return { status: 'saved' as const, workEventId: `event-${calls.length}` }; }) };
@@ -82,6 +89,21 @@ function harness(role: 'employee' | 'administrator' | 'standortleitung' | 'offli
 }
 
 describe('T-065 rendered navigation and manual lifecycle', () => {
+  it('T103 shows only the last confirmed own status offline and discards it after logout', async () => {
+    const h = harness('employee');
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    await press('Manuell erfassen');await press(target.displayName);await press('Zeit starten');await press('Pause starten');
+    await act(async()=>h.publish({status:'context_unavailable'}));await press('Manuell erfassen');
+    expect(container.textContent).toContain('Pause seit 11:00 · Testkunde');
+    expect(container.textContent).toContain('Stand 14:00, offline');
+    await press(target.displayName);await press('Jetzt erfassen');
+    expect(container.textContent).toContain('Pause seit 11:00 · Testkunde');
+    expect(h.props.offlineManual.captureManual).toHaveBeenCalledTimes(1);
+    await act(async()=>h.publish({status:'signed_out'}));
+    await act(async()=>h.publish({status:'context_unavailable'}));await press('Manuell erfassen');
+    expect(container.textContent).toContain('Noch kein bestätigter Stand verfügbar');
+    expect(container.textContent).not.toContain('Pause seit 11:00');
+  });
   it.each(['employee', 'administrator', 'standortleitung', 'offline'] as const)('keeps all manual triggers one page from capture (%s)', async role => {
     const h = harness(role, 'confirmed@example.invalid');
     await act(async () => root.render(createElement(AppNavigator, h.props)));
@@ -93,11 +115,15 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
       expect(h.props.administration.refresh).not.toHaveBeenCalled();
     }
     expect(container.textContent).toContain('confirmed@example.invalid');
-    await press('Manuell starten');
-    await press(target.displayName); await press('Jetzt erfassen'); // Start
-    await press('Pause'); await press('Jetzt erfassen'); // Pause
-    await press('Jetzt erfassen'); // Resume: same pause trigger; the server decides.
-    await press(target.displayName); await press('Jetzt erfassen'); // Stop
+    await press('Manuell erfassen');
+    if(role==='offline') {
+      await press(target.displayName);await press('Jetzt erfassen');
+      await press('Pause');await press('Jetzt erfassen');await press('Jetzt erfassen');
+      await press(target.displayName);await press('Jetzt erfassen');
+    } else {
+      await press(target.displayName);await press('Zeit starten');
+      await press('Pause starten');await press('Pause beenden');await press('Zeit beenden');
+    }
     expect(h.calls).toEqual(['work', 'break', 'break', 'work']);
     if (role === 'offline') {
       expect(h.props.work.triggerManual).not.toHaveBeenCalled();
@@ -108,9 +134,9 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
       expect(h.props.offlineManual.captureBreak).not.toHaveBeenCalled();
     }
     await act(async () => { expect(native.back?.()).toBe(true); });
-    button('Manuell starten');
-    await press('Manuell starten'); await press('Zurück');
-    button('Manuell starten');
+    button('Manuell erfassen');
+    await press('Manuell erfassen'); await press('Zurück');
+    button('Manuell erfassen');
     await act(async () => { expect(native.back?.()).toBe(false); });
   });
 
