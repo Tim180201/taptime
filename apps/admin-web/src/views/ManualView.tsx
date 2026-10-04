@@ -32,7 +32,7 @@ export default function ManualView({state,administration}: {
         {(['customer','project','general_work'] as const).map(type=>{
           const visible=targets.value.filter(item=>item.targetType===type && item.displayName.toLocaleLowerCase('de-DE').includes(search.trim().toLocaleLowerCase('de-DE')));
           return visible.length===0?null:<div key={type}><h3>{type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeit'}</h3>
-            {visible.map(item=><button type="button" className="target-choice" aria-pressed={selected===`${item.targetType}:${item.targetId}`} key={`${item.targetType}:${item.targetId}`}
+            {visible.map(item=><button type="button" className="target-choice secondary" aria-pressed={selected===`${item.targetType}:${item.targetId}`} key={`${item.targetType}:${item.targetId}`}
               onClick={()=>setSelected(`${item.targetType}:${item.targetId}`)}>{item.displayName}</button>)}</div>;
         })}
         {targets.value.length===0?<p>Es sind keine Arbeitsziele verfügbar. Wenden Sie sich an Ihre Betriebsverwaltung.</p>:null}
