@@ -8,7 +8,7 @@ import {
   type LifecycleArchiveDurabilityPort,
   type LifecycleIngestionCommand,
 } from '@taptime/backend-lifecycle';
-import { AdminWriteSessionCoordinator } from '@taptime/backend-administration';
+import { AdminWriteSessionCoordinator, EmployeeMembershipEnrollmentCoordinator } from '@taptime/backend-administration';
 import { ProjectAdministrationCoordinator } from '@taptime/backend-mobile-work';
 import { TimeReviewCoordinator, TimeSupplementCoordinator } from '@taptime/backend-time-review';
 import { B3_MIGRATION_TABLE, B3_SCHEMA, migrate } from '@taptime/backend-schema';
@@ -136,6 +136,7 @@ beforeAll(async () => {
     'taptime_time_review_reader',
     'taptime_admin_setup',
     'taptime_project_administrator',
+    'taptime_membership_manager',
   ]);
   leasePool = new Pool({
     connectionString: runtimeConnectionString(leaseLogin),
@@ -2211,4 +2212,26 @@ describe('T-091 Standortmodus',()=>{
     }
   });
 
+});
+
+it('T-092: offline stop after revocation is review evidence and never a second stop',async()=>{
+  await seedT091();
+  const person=t091People[0]!, admin=t091People[4]!, lease=await t091Lease(person);
+  const item=lease.items.find(i=>i.itemType==='manual_target'&&i.targetType==='customer')!;
+  // Capture before departure, using a valid lease, but upload the second tap after departure.
+  const first=eventCommandV3(lease,item,randomUUID(),randomUUID(),1,lease.issuedAt);
+  const binding=Buffer.from(person.user.replaceAll('-','').padEnd(64,'0'),'hex').toString('base64url');
+  const start=await eventCoordinator.ingest({accessToken:`t091:${person.user}`,command:{...first,expectedMembershipId:person.membership,installationBinding:binding}});
+  expect(start).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+  const coordinator=new EmployeeMembershipEnrollmentCoordinator(canonicalPool,canonicalPool,verifier);
+  expect(await coordinator.revokeMembership({accessToken:`t091:${admin.user}`,expectedMembershipId:MembershipId(admin.membership),
+    commandId:randomUUID(),targetMembershipId:MembershipId(person.membership),expectedRowVersion:1})).toMatchObject({status:'succeeded'});
+  const before=(await installerPool.query('SELECT id,status,stopped_at,stop_work_event_id,stopped_via FROM taptime_server.time_entries WHERE user_id=$1',[person.user])).rows;
+  expect(before).toEqual([expect.objectContaining({status:'stopped',stopped_via:'administration'})]);
+  const second=eventCommandV3(lease,item,randomUUID(),randomUUID(),2,new Date().toISOString());
+  const command={...second,expectedMembershipId:person.membership,installationBinding:binding};
+  const result=await eventCoordinator.ingest({accessToken:`t091:${person.user}`,command});
+  expect(result).toMatchObject({status:'review_pending',reason:'identity_or_membership_not_current'});
+  expect((await installerPool.query('SELECT id,status,stopped_at,stop_work_event_id,stopped_via FROM taptime_server.time_entries WHERE user_id=$1',[person.user])).rows).toEqual(before);
+  expect(await eventCoordinator.ingest({accessToken:`t091:${person.user}`,command})).toMatchObject({status:'review_pending'});
 });

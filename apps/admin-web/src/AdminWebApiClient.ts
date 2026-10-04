@@ -1,7 +1,7 @@
 import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeQuery,isVoidedTimeResponse,type VoidTimeResult,type VoidedTimeResponse,type VoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3 as TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
-import { isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
+import { MANAGED_PEOPLE_ACCEPT_V2,isManagedActiveSummaryV2,isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import {
 	validateManualBreakLifecycleRequest,
@@ -78,6 +78,7 @@ export type ApiResult<Value> =
         | 'project_in_use'
         | 'project_unavailable'
         | 'stale_row_version'
+        | 'already_departed' | 'running_time_active' | 'running_time_too_long' | 'stop_awaiting_archive' | 'after_departure'
         | 'last_administrator'
         | 'self_revocation_forbidden'
         | 'location_scope_forbidden'
@@ -309,7 +310,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   async managedActiveSummary(token: string, request: ManagedActiveSummaryRequest): Promise<ApiResult<ManagedActiveSummary>> {
     if (!isManagedActiveSummaryRequest(request)) return { status: 'invalid_response' };
     return this.request('/v1/administration/managed-active-summary', token, 'POST', request,
-      value => isManagedActiveSummary(value) ? value : null, false, false, false, maximumTimeReviewBodyBytes);
+      value => isManagedActiveSummaryV2(value) || isManagedActiveSummary(value) ? value : null, false, false, false, maximumTimeReviewBodyBytes);
   }
   async recordPasswordReset(token: string): Promise<ApiResult<true>> {
     return this.request('/v1/auth/password-reset/audit', token, 'POST', {}, (value) => (
@@ -739,7 +740,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/mobile/own-time/query' || path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
+      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/administration/managed-active-summary' ? MANAGED_PEOPLE_ACCEPT_V2 : path === '/v1/mobile/own-time/query' || path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
       if (exposeLocationScopeError && response.status === 403) {
         if (
           response.redirected
@@ -1288,14 +1289,14 @@ function parseReassignmentError(
 function parseTimeReviewError(
   value: unknown,
   status: number,
-): 'command_id_conflict' | 'time_review_conflict' | 'not_adjustable' | 'invalid_evidence' | null {
+): 'after_departure' | 'command_id_conflict' | 'time_review_conflict' | 'not_adjustable' | 'invalid_evidence' | null {
   if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error)
     || !exact(value.error, ['code'])) return null;
   if (status === 409) {
     if (value.error.code === 'command_id_conflict') return 'command_id_conflict';
     return value.error.code === 'conflict' ? 'time_review_conflict' : null;
   }
-  return value.error.code === 'not_adjustable' || value.error.code === 'invalid_evidence'
+  return value.error.code === 'after_departure' || value.error.code === 'not_adjustable' || value.error.code === 'invalid_evidence'
     ? value.error.code : null;
 }
 function parseProjectError(
@@ -1317,11 +1318,12 @@ function parseProjectError(
 }
 function parseMembershipError(
   value: unknown,
-): 'command_id_conflict' | 'last_administrator' | 'self_revocation_forbidden'
+): 'already_departed' | 'running_time_active' | 'running_time_too_long' | 'stop_awaiting_archive' | 'command_id_conflict' | 'last_administrator' | 'self_revocation_forbidden'
   | 'stale_row_version' | 'target_unavailable' | null {
   if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error)
     || !exact(value.error, ['code'])) return null;
-  return value.error.code === 'command_id_conflict'
+  return value.error.code === 'already_departed' || value.error.code === 'running_time_active' || value.error.code === 'running_time_too_long' || value.error.code === 'stop_awaiting_archive'
+    || value.error.code === 'command_id_conflict'
     || value.error.code === 'last_administrator'
     || value.error.code === 'self_revocation_forbidden'
     || value.error.code === 'stale_row_version'

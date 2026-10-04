@@ -16,6 +16,7 @@ export interface ManagedActiveSummaryRequest {
   readonly limit: number;
 }
 export interface ManagedPerson {
+  readonly departedAt?: string | null;
   readonly membershipId: string;
   readonly displayName: string;
   readonly role: 'administrator' | 'standortleitung' | 'employee';
@@ -67,4 +68,19 @@ export function isManagedActiveSummary(v: unknown): v is ManagedActiveSummary {
     && Number(v.runningCount) >= 0 && Number(v.totalCount) >= Number(v.runningCount)
     && Array.isArray(v.people) && v.people.length <= 20 && v.people.every(isManagedPerson)
     && new Set(v.people.map(p=>p.membershipId)).size === v.people.length && cursor(v.nextCursor);
+}
+
+/** Additive negotiation preserves the strict v1 parser used by shipped apps. */
+export const MANAGED_PEOPLE_ACCEPT_V2 = 'application/vnd.taptime.managed-people.v2+json';
+export function isManagedActiveSummaryV2(v: unknown): v is ManagedActiveSummary {
+  if (!object(v) || !Array.isArray(v.people)) return false;
+  const people: unknown[] = [];
+  for (const person of v.people) {
+    if (!object(person) || !Object.hasOwn(person,'departedAt')
+      || !(person.departedAt === null || isManagedTimestamp(person.departedAt))
+      || (person.departedAt !== null && person.isRunning !== false)) return false;
+    const { departedAt, ...current } = person;
+    people.push(current);
+  }
+  return isManagedActiveSummary({...v,people});
 }

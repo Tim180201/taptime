@@ -1888,3 +1888,28 @@ it('T090 binds pending project identity to its location and preserves an earlier
   await coordinator.createProject('Projekt', 'north');
   expect(action.mock.calls[3]![2]).not.toBe(action.mock.calls[0]![2]);
 });
+
+it.each(['already_departed','running_time_too_long','running_time_active'] as const)('T092 %s keeps the administrator signed in', async code => {
+  const { api, coordinator } = setup();
+  const membership = employeeMemberships(1,1)[0]!;
+  api.employeeProjection.mockResolvedValueOnce({status:'succeeded',value:{...employeeProjection,employeeMemberships:[membership]}});
+  await coordinator.signIn('administrator@example.test','secret');
+  api.revokeMembership.mockResolvedValueOnce({status:'conflict',code});
+  await coordinator.revokeMembership(membership.id,1);
+  expect(coordinator.getState()).toMatchObject({status:'ready',notice:{kind:'error',text:expect.stringMatching(code==='already_departed' ? /bereits ausgeschieden/ : /Personenansicht/)}});
+});
+it('T092 repeats the same revocation command while waiting for archival and only then reports success', async () => {
+  vi.useFakeTimers();
+  try {
+    const { api, coordinator } = setup(); const membership=employeeMemberships(1,1)[0]!;
+    api.employeeProjection.mockResolvedValueOnce({status:'succeeded',value:{...employeeProjection,employeeMemberships:[membership]}});
+    await coordinator.signIn('administrator@example.test','secret');
+    api.revokeMembership.mockResolvedValueOnce({status:'conflict',code:'stop_awaiting_archive'}).mockResolvedValueOnce({status:'succeeded',value:true});
+    const mutation=coordinator.revokeMembership(membership.id,1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(coordinator.getState()).toMatchObject({status:'ready',notice:{kind:'info',text:expect.stringContaining('wird gesichert')}});
+    await vi.advanceTimersByTimeAsync(2000); await mutation;
+    expect(api.revokeMembership.mock.calls[1]).toEqual(api.revokeMembership.mock.calls[0]);
+    expect(coordinator.getState()).toMatchObject({status:'ready',notice:{kind:'success'}});
+  } finally {vi.useRealTimers();}
+});

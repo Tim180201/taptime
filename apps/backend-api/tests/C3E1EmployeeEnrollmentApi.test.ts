@@ -307,6 +307,9 @@ describe('C3E1 Employee enrollment HTTP contract', () => {
 
   it.each([
     ['last_administrator', 409],
+    ['already_departed', 409],
+    ['running_time_active', 409],
+    ['running_time_too_long', 409],
     ['self_revocation_forbidden', 409],
     ['stale_row_version', 409],
     ['target_unavailable', 404],
@@ -629,4 +632,21 @@ it('T094 returns the same byte envelope and relevant headers for every normalize
   }
   expect(replies[0]).toMatchObject({status:409,body:'{"error":{"code":"email_unavailable"}}'});
   expect(replies[1]).toEqual(replies[0]);expect(replies[2]).toEqual(replies[0]);
+});
+
+
+it.each(['running_time_active','running_time_too_long','already_departed'] as const)('T092 revoke returns %s as 409',async status=>{
+  const response=await post(await origin(coordinator({async revokeMembership(){return {status};}})),
+    '/v1/administration/memberships/revoke',{expectedMembershipId:membershipId,commandId,
+      targetMembershipId:'22000000-0000-4000-8000-000000000001',expectedRowVersion:1});
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({error:{code:status}});
+});
+it('T092 revoke waits for archive before reporting success',async()=>{
+  const response=await post(await origin(coordinator({async revokeMembership(){return {status:'succeeded',
+    membership:{id:MembershipId('22000000-0000-4000-8000-000000000001'),role:'employee',active:false,rowVersion:2},
+    idempotentRetry:false,offsiteArchived:false};}})), '/v1/administration/memberships/revoke',{
+      expectedMembershipId:membershipId,commandId,targetMembershipId:'22000000-0000-4000-8000-000000000001',expectedRowVersion:1});
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({error:{code:'stop_awaiting_archive'}});
 });

@@ -35,6 +35,7 @@ export const timeEditMessages:Record<TimeEditResult['status'],string>={
   end_before_break:'Die Endzeit liegt vor einer erfassten Pause.',
   committed:'Gespeichert.',offline:'Zeit hinzufügen und ändern geht nur online. Deine Eingaben bleiben erhalten.',busy:'Ein Eintrag wird noch gespeichert.',
   authority_rejected:'Deine Berechtigung ist nicht mehr gültig. Aktualisiere deine Sitzung.',invalid_request:'Prüfe Datum, Uhrzeiten und die Texte (höchstens 500 Zeichen).',
+  after_departure:'Zeiten dürfen nur bis zum Austritt der Person reichen.',
   invalid_interval:'Die Zeit muss beendet sein, in der Vergangenheit liegen und darf höchstens 24 Stunden dauern.',outside_window:'Du kannst Zeiten im laufenden Monat und im Vormonat nachtragen.',
   reason_required:'Bitte begründe den Nachtrag.',invalid_comment:'Der Kommentar braucht 1 bis 500 Zeichen.',overlap:'Die Zeit überschneidet sich mit einem anderen Eintrag. Prüfe deine Zeiten.',
   command_id_conflict:'Dieser Speichervorgang wurde bereits mit anderen Angaben verwendet. Aktualisiere die Ansicht.',unavailable:'Die Speicherung konnte nicht bestätigt werden. Versuche es erneut; deine Eingaben bleiben erhalten.',

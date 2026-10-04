@@ -428,7 +428,9 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       await persistWorkEvent(client, workEvent, workEventHash);
       const locationUnavailable = await workEventLocationUnavailable(client, workEvent.organizationId, workEvent.id);
       let result: LogicalDurableResult;
-      if (reviewReason !== null && !locationUnavailable) {
+      // A departed actor can store review evidence but cannot create canonical decisions.
+      // Its revoked home must not route an otherwise durable review into the engine.
+      if (reviewReason !== null && (!locationUnavailable || !actor.membership_current || !actor.identity_current)) {
         await persistReceipt(client, request.command, workEvent, 'received', null);
         await persistAudit(client, request.command, workEvent, 'OfflineLifecycleReviewStored', {
           status: 'review_pending',

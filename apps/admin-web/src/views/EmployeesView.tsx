@@ -1,3 +1,4 @@
+import { businessDay,formatZonedDateTime } from '@taptime/core';
 import {
 	useEffect,
 	useRef,
@@ -9,7 +10,7 @@ import type {
 	AdminWebCapability
 } from '../contracts';
 import {
-	type AdminRoute
+	canonicalRoutePath, defaultRoute, type AdminRoute
 } from '../navigation';
 import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
 import { useIntentFocusReturn } from '../viewHelpers';
@@ -35,6 +36,12 @@ export default function EmployeesView({ state, administration, accountInvitation
   const [revoking, setRevoking] = useState(false);
   const revocationTrigger = useRef<HTMLButtonElement>(null);
   useIntentFocusReturn(revocationIntent !== null, revocationTrigger);
+  const revocationCalendar = state.calendar?.targetMembershipId === revocationIntent?.id ? state.calendar : null;
+  const running = revocationCalendar?.status === 'ready' ? revocationCalendar.value.activeRecord : null;
+  const checking = revocationIntent !== null && administration.loadPersonTime !== undefined && revocationCalendar?.status !== 'ready';
+  const tooLong = running !== null && Date.now() - Date.parse(running.startedAt) > 24 * 3600_000;
+  const personRoute = {...defaultRoute('beschaeftigte',state.selectedLocation?.id ?? null),personId:revocationIntent?.id,
+    month:running ? businessDay(Date.parse(running.startedAt)).slice(0,7) : null};
   return <>
     {invitationSuccess === null ? null : <p role="status">{ACCOUNT_INVITATION_SUCCESS_NOTICES[invitationSuccess]}</p>}
     <SectionBoundary state={state.sections.employees}
@@ -94,6 +101,7 @@ export default function EmployeesView({ state, administration, accountInvitation
               : null}
             <button className="quiet" onClick={(event) => {
               revocationTrigger.current = event.currentTarget;
+              void administration.loadPersonTime?.(membership.id,businessDay(Date.now()).slice(0,7));
               setRevocationIntent({
                 id: membership.id,
                 displayName: membership.displayName,
@@ -108,6 +116,7 @@ export default function EmployeesView({ state, administration, accountInvitation
         confirmLabel="Zugang entziehen"
         busyLabel="Zugang wird entzogen …"
         busy={revoking}
+        confirmDisabled={checking || tooLong}
         onConfirm={() => {
           setRevoking(true);
           void administration.revokeMembership(
@@ -121,6 +130,10 @@ export default function EmployeesView({ state, administration, accountInvitation
         onCancel={() => setRevocationIntent(null)}
       >
         <p>Der Beschäftigte kann sich danach nicht mehr anmelden.</p>
+        {checking ? <p role="status">{revocationCalendar?.status === 'unavailable' ? 'Die laufende Zeit konnte nicht geladen werden. Bitte öffnen Sie die Personenansicht.' : 'Laufende Zeit wird geprüft …'}</p>
+          : tooLong && running ? <p>Diese Zeit läuft seit {formatZonedDateTime(running.startedAt)}. Bitte zuerst in der Personenansicht mit passender Endzeit beenden, dann den Zugang entziehen.</p>
+          : <p>Läuft gerade eine Zeit, wird sie jetzt beendet{running ? `: ${running.targetDisplayName} · seit ${formatZonedDateTime(running.startedAt)}` : ''}.</p>}
+        <a href={canonicalRoutePath(personRoute)} onClick={event=>{event.preventDefault();setRevocationIntent(null);navigate(personRoute);}}>Zur Personenansicht</a>
       </Confirmation>}
       </details>
       {state.employeeProjection.employeeMemberships.length === 0

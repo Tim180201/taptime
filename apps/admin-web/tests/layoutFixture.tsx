@@ -131,6 +131,10 @@ class FakeCapability implements AdminWebCapability {
   refresh = async () => undefined;
   selectLocation = async () => undefined;
   setTimeWindow = async () => undefined;
+  loadPersonTime = async (targetMembershipId:string,month:string) => {
+    if(this.state.status==='ready' && this.state.calendar?.status==='ready')
+      this.emit({...this.state,calendar:{...this.state.calendar,targetMembershipId,month}});
+  };
   retrySection = async () => undefined;
   loadMore = async () => undefined;
   createCustomer = async () => undefined;
@@ -190,6 +194,11 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
     memberships: [{ id: own, displayName: 'Martin Beispiel', role: 'administrator', homeLocationId: location.id, workLocationIds: [location.id], managementLocationIds: [] }],
     workTargets: [{ targetType: 'customer', targetId: customer.id, displayName: 'Werkstatt', locationId: location.id }], activationGaps: [] },
 };
+if (variant==='departed') ready={...ready,managedPeople:{status:'ready',isRunning:null,value:{...ready.managedPeople!.value!,
+  people:[...ready.managedPeople!.value!.people,{membershipId:'70000000-0000-4000-8000-000000000002',displayName:'Erika Ausgeschieden',
+    role:'employee',location,isRunning:false,runningSince:null,runningTargetDisplayName:null,departedAt:'2026-09-01T12:00:00.000Z'}]}}};
+if (['employee-revoke-running','employee-revoke-long'].includes(variant)) ready={...ready,calendar:{...ready.calendar!,status:'ready',value:{...ready.calendar!.value!,
+  activeRecord:{...entry,status:'started',stoppedAt:null,startedAt:variant==='employee-revoke-long'?'2026-09-22T11:59:00.000Z':'2026-09-22T12:01:00.000Z'}}}};
 if (variant==='review-location') ready={...ready,reviewItems:[{...reviewItem,reviewReason:'work_location_unavailable',predecessorBlocked:false}]};
 if (variant==='customers-employee' || variant==='quota-employee') ready={...ready,role:'employee',availableSections:['own_time','manual_capture']};
 if (variant==='customers-manager' || variant==='quota-manager') ready={...ready,role:'standortleitung',availableSections:['employees','own_time','manual_capture','review_items']};

@@ -1,3 +1,4 @@
+import { MANAGED_PEOPLE_ACCEPT_V2 } from '@taptime/administration-contract/managed-people';
 import { AdminWebApiClient } from '../../admin-web/src/AdminWebApiClient.js';
 import { rangeSummary } from '../../mobile/src/screens/ownTimeCalendar.js';
 import type { Server } from 'node:http';
@@ -133,7 +134,7 @@ afterAll(async () => {
 function mobile(token:string) {
   return new TapTimeEmployeesApiClient(origin,{async post(endpoint,body,options){
     rateNow+=60_001; // A new rate-limit window for each independent authorization case.
-    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
+    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includeDeparted?{accept:MANAGED_PEOPLE_ACCEPT_V2}:options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
     return {status:'response',statusCode:response.status,contentType:response.headers.get('content-type'),body:await response.text()};
   }});
 }
@@ -384,4 +385,25 @@ it('T-066 returns times and correction versions from one snapshot during a concu
     expect(response.status).toBe('succeeded');if(response.status!=='succeeded') throw new Error('Expected person time');
     expect(response.value.records.find(r=>r.timeRecordId===records[0])).toMatchObject({startedAt:'2026-10-05T08:00:00.000Z',details:{effectiveRevisionNumber:0}});
   });
+});
+
+
+it('T092 negotiates departed people for web/mobile and preserves the shipped v1 response',async()=>{
+  // This legacy fixture contains a future open entry; choose another active person without time.
+  const target=ids.membershipAdminA;
+  await pool.query('UPDATE taptime_server.memberships SET revoked_at=clock_timestamp(),row_version=row_version+1 WHERE id=$1',[target]);
+  const request={expectedMembershipId:ids.membershipEmployeeA,locationId:null,isRunning:null,cursor:null,limit:20};
+  const query=async(accept?:string)=>{
+    rateNow+=60_001;
+    return fetch(`${origin}/v1/administration/managed-active-summary`,{method:'POST',headers:{
+      authorization:`Bearer header.${fixtureTokens.employeeA}.signature`,'content-type':'application/json',...(accept?{accept}:{})},body:JSON.stringify(request)});
+  };
+  const legacy=await query();expect(legacy.status).toBe(200);
+  const old=await legacy.json() as {people:Array<{membershipId:string}>};expect(old.people.some((p:{membershipId:string})=>p.membershipId===target)).toBe(false);
+  expect(old.people.every((p:object)=>!Object.hasOwn(p,'departedAt'))).toBe(true);
+  const response=await query(MANAGED_PEOPLE_ACCEPT_V2);expect(response.status).toBe(200);expect(response.headers.get('vary')).toBe('Accept');
+  const value=await response.json() as {people:unknown[]};expect(value.people).toContainEqual(expect.objectContaining({membershipId:target,departedAt:expect.any(String),isRunning:false}));
+  expect(await mobile(fixtureTokens.employeeA).summary(request)).toMatchObject({status:'ready',value:{people:expect.arrayContaining([expect.objectContaining({membershipId:target,departedAt:expect.any(String)})])}});
+  const web=new AdminWebApiClient((path,init)=>fetch(`${origin}${path}`,init));
+  expect(await web.managedActiveSummary(`header.${fixtureTokens.employeeA}.signature`,request)).toMatchObject({status:'succeeded',value:{people:expect.arrayContaining([expect.objectContaining({membershipId:target,departedAt:expect.any(String)})])}});
 });

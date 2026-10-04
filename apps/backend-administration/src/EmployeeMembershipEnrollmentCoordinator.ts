@@ -7,6 +7,7 @@ import {
 } from '@taptime/administration-contract';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
+  BusinessEngine, WorkEventId, createTimestamp,
   MembershipId,
   OrganizationId,
   isMembershipRole,
@@ -96,7 +97,7 @@ interface MembershipMutationRow extends QueryResultRow {
     | 'self_revocation_forbidden'
     | 'stale_row_version'
     | 'succeeded'
-    | 'target_unavailable';
+    | 'target_unavailable' | 'already_departed' | 'running_time_active' | 'running_time_too_long';
   readonly result_role: string | null;
   readonly result_active: boolean | null;
   readonly result_row_version: string | null;
@@ -570,7 +571,19 @@ export class EmployeeMembershipEnrollmentCoordinator {
     command: RevokeMembershipCommand,
     controls: EmployeeEnrollmentCoordinatorControls = {},
   ): Promise<MembershipMutationResult> {
-    return this.mutateMembership(command, 'revoke', null, controls);
+    const result = await this.mutateMembership(command, 'revoke', null, controls);
+    if (result.status !== 'succeeded') return result;
+    // D-078: only register the WAL requirement after the stop + revoke COMMIT.
+    return this.withMembershipManagementAuthority(command.accessToken, command.expectedMembershipId, command.commandId,
+      controls, async client => {
+        const request = (await client.query('SELECT taptime_server.membership_revocation_stop_request_v1($1,$2,$3) AS request',
+          [command.commandId, command.targetMembershipId, command.expectedRowVersion])).rows[0]?.request;
+        if (!request) return result;
+        const archive = (await client.query('SELECT * FROM taptime_server.record_administration_stop_archive_requirement_v1($1::jsonb)',
+          [JSON.stringify(request)])).rows[0];
+        if (typeof archive?.offsite_archived !== 'boolean') throw new Error('Missing departure archive acknowledgement');
+        return { ...result, offsiteArchived: archive.offsite_archived };
+      });
   }
 
   async recordPasswordReset(
@@ -644,14 +657,37 @@ export class EmployeeMembershipEnrollmentCoordinator {
       command.commandId,
       controls,
       async (client) => {
-        const result = await client.query<MembershipMutationRow>(
+        const mutate = () => client.query<MembershipMutationRow>(
           `SELECT result_status, result_role, result_active, result_row_version,
                   result_idempotent_retry
            FROM taptime_server.manage_membership_v1($1, $2, $3, $4, $5)`,
           [command.commandId, command.targetMembershipId, command.expectedRowVersion,
             commandType, role],
         );
-        const row = onlyRow(result.rows, 'Membership mutation');
+        await client.query('SAVEPOINT membership_stop');
+        let row = onlyRow((await mutate()).rows, 'Membership mutation');
+        if (commandType === 'revoke' && row.result_status === 'running_time_active') {
+          const context = (await client.query('SELECT taptime_server.prepare_membership_revocation_stop_v1($1,$2,$3) AS result',
+            [command.commandId, command.targetMembershipId, command.expectedRowVersion])).rows[0]?.result;
+          if (context?.status !== 'ready') {
+            if (context?.status !== 'running_time_too_long' && context?.status !== 'running_time_active'
+              && context?.status !== 'stale_row_version' && context?.status !== 'forbidden') throw new Error('Invalid departure preparation');
+            return { status: context.status };
+          }
+          const active = context.activeTimeEntry;
+          const event = { id: WorkEventId(randomUUID()), organizationId: active.organizationId, triggeredBy: active.userId,
+            target: active.target, occurredAt: createTimestamp(context.request.stoppedAt), trigger: { type: 'administration' as const } };
+          const decision = new BusinessEngine().evaluate(event, { activeTimeEntryForUser: active,
+            activeBreakIntervalForUser: context.activeBreakInterval, previousAcceptedWorkEventForUserAndTarget: null });
+          const stop = (await client.query('SELECT taptime_server.commit_administration_stop_v1($1::jsonb,$2::jsonb,$3::jsonb) AS result',
+            [JSON.stringify(context.request), JSON.stringify(event), JSON.stringify(decision)])).rows[0]?.result;
+          if (stop?.status !== 'committed') {
+            await client.query('ROLLBACK TO SAVEPOINT membership_stop');
+            return { status: 'running_time_active' as const };
+          }
+          row = onlyRow((await mutate()).rows, 'Membership mutation');
+          if (row.result_status !== 'succeeded') await client.query('ROLLBACK TO SAVEPOINT membership_stop');
+        }
         if (row.result_status !== 'succeeded') return { status: row.result_status };
         if (
           !isMembershipRole(row.result_role)

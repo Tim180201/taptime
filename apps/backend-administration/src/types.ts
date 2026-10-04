@@ -267,7 +267,9 @@ export type MembershipMutationResult =
         readonly rowVersion: number;
       };
       readonly idempotentRetry: boolean;
+      readonly offsiteArchived?: boolean;
     }
+  | { readonly status: 'already_departed' | 'running_time_active' | 'running_time_too_long' }
   | AdminAuthorityRejection
   | { readonly status: 'command_id_conflict' }
   | { readonly status: 'last_administrator' }

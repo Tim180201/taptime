@@ -93,6 +93,7 @@ export function Confirmation({
   confirmLabel,
   busyLabel,
   busy,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
 }: {
@@ -102,6 +103,7 @@ export function Confirmation({
   readonly confirmLabel: string;
   readonly busyLabel: string;
   readonly busy: boolean;
+  readonly confirmDisabled?: boolean;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
 }) {
@@ -110,7 +112,7 @@ export function Confirmation({
     <strong>{title}</strong>
     {children}
     <div className="confirmation-actions">
-      <button autoFocus disabled={busy} aria-busy={busy} onClick={onConfirm}>
+      <button autoFocus disabled={busy || confirmDisabled} aria-busy={busy} onClick={onConfirm}>
         {busy ? busyLabel : confirmLabel}
       </button>
       <button className="secondary" disabled={busy} onClick={onCancel}>Abbrechen</button>

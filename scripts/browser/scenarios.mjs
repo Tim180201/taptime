@@ -25,6 +25,21 @@ export const adminScenarios = [
   { ...scenario('employee-more','/meine-zeiten?monat=2026-09','.calendar-grid',[click('Mehr')], 'employee-calendar'), mobileOnly: true },
   scenario('five-areas','/uebersicht','.metric-card'),
   scenario('employees','/beschaeftigte','.membership-tools'),
+  scenario('departed','/beschaeftigte','.membership-tools',[async p=>{
+    await p.getByRole('heading',{name:'Ausgeschieden',exact:true}).waitFor();
+    await p.getByRole('link',{name:'Erika Ausgeschieden'}).waitFor();
+  }]),
+  ...['running','long'].map(kind=>scenario('employee-revoke-'+kind,'/beschaeftigte','.membership-tools',[summary,click('Zugang entziehen'),async p=>{
+    const dialog=p.getByRole('alertdialog');
+    await dialog.getByRole('link',{name:'Zur Personenansicht'}).waitFor();
+    if(kind==='long') {
+      await dialog.getByText(/Diese Zeit läuft seit .*Bitte zuerst in der Personenansicht mit passender Endzeit beenden, dann den Zugang entziehen/).waitFor();
+      if(!await dialog.getByRole('button',{name:'Zugang entziehen',exact:true}).isDisabled()) throw new Error('Overdue revocation must be disabled');
+    } else {
+      await dialog.getByText(/Läuft gerade eine Zeit, wird sie jetzt beendet: Werkstatt am Beispielweg/).waitFor();
+      if(!await dialog.getByRole('button',{name:'Zugang entziehen',exact:true}).isEnabled()) throw new Error('Valid automatic stop must be enabled');
+    }
+  }])),
   scenario('employee-tools','/beschaeftigte','.membership-tools',[summary]),
   scenario('employee-role','/beschaeftigte','.membership-tools',[summary,click('Rolle bearbeiten')]),
   scenario('employee-revoke','/beschaeftigte','.membership-tools',[summary,click('Zugang entziehen')]),

@@ -161,7 +161,7 @@ it.each(allowedPairs.flatMap(([actor,target])=>operations.map(operation=>({actor
   });
 });
 
-it.each([q,r,b,fp,f])('A cannot write across the boundary to $name (including no home)', async target => {
+it.each([q,b,fp,f])('A cannot write across the boundary to $name (including no home)', async target => {
   await asActor(a,writer,async c => {
     expect(await json(c,'backfill_time_record_v1',backfill(a,target))).toEqual({status:'authority_rejected'});
     expect((await correct(c,a,target)).result_status).not.toBe('committed');
@@ -173,14 +173,14 @@ it.each([q,r,b,fp,f])('A cannot write across the boundary to $name (including no
 
 it.each([1,2])('filters both read v%s routes and details by current home before pagination', async version => {
   await asActor(a,reader,async c => {
-    const allowed=[a.user,p.user,ids.employeeA];
+    const allowed=[a.user,p.user,r.user,ids.employeeA];
     const reviewRows=await reviews(c,a,version);
     expect(reviewRows.map(row=>row.review_item_id)).toEqual(expect.arrayContaining([a.review,a.escalation,p.review,p.escalation,ids.legacyReviewEventA]));
     expect(reviewRows.map(row=>row.employee_user_id).every(id=>allowed.includes(id))).toBe(true);
     const entries=await records(c,a,version);
     expect(entries.map(row=>row.time_record_id)).toEqual(expect.arrayContaining([a.closed,p.closed]));
-    expect(entries.some(row=>[q.closed,r.closed,fp.closed].includes(row.time_record_id))).toBe(false);
-    expect((await details(c)).map(row=>row.time_record_id).sort()).toEqual([a.active,a.closed,p.active,p.closed].sort());
+    expect(entries.some(row=>[q.closed,fp.closed].includes(row.time_record_id))).toBe(false);
+    expect((await details(c)).map(row=>row.time_record_id).sort()).toEqual([a.active,a.closed,p.active,p.closed,r.active,r.closed].sort());
   });
 });
 
@@ -242,16 +242,16 @@ it('cannot forge administrator context or another membership', async () => {
   }
 });
 
-it('administrator corrects former staff history; D-092 restricts only backfills', async () => {
+it('D-115 permits recent former staff history and backfills in the last home scope', async () => {
   await asActor(admin,writer,async c=>{
     for(const target of [a,b,p,q]) {
       expect(await json(c,'backfill_time_record_v1',backfill(admin,target))).toMatchObject({status:'committed'});
       expect((await correct(c,admin,target)).result_status).toBe('committed');
     }
-    expect(await json(c,'backfill_time_record_v1',backfill(admin,r))).toEqual({status:'authority_rejected'});
+    expect(await json(c,'backfill_time_record_v1',backfill(admin,r))).toMatchObject({status:'committed'});
     expect((await correct(c,admin,r)).result_status).toBe('committed');
   });
-  expect((await asActor(a,writer,c=>correct(c,a,r))).result_status).toBe('authority_rejected');
+  expect((await asActor(a,writer,c=>correct(c,a,r))).result_status).toBe('committed');
 });
 
 it('two simultaneous decisions on the same item have exactly one winner', async () => {
@@ -373,6 +373,25 @@ async function insertOfflineReviewForLegacyEvent(): Promise<string> {
   );
   return installationId;
 }
+
+it('T092 exposes backfill choices and maps adjudication past departure through the real coordinator',async()=>{
+  const readPool=new Pool({connectionString:runtimeConnectionString(pool.options.connectionString!,DA3_READ_LOGIN,'t062-synthetic')});
+  const writePool=new Pool({connectionString:runtimeConnectionString(pool.options.connectionString!,DA3_WRITE_LOGIN,'t062-synthetic')});
+  try {
+    for(const actor of [admin,a]) {
+      const verifier:AccessTokenVerifier={verify:async()=>({status:'verified',identity:{issuer:DA3_ISSUER,subject:actor===admin?'admin-a':actor.member}})};
+      const coordinator=new TimeReviewCoordinator(readPool,writePool,verifier);
+      const choices=await coordinator.queryBackfillTargets({accessToken:'synthetic',request:{expectedMembershipId:actor.member,targetMembershipId:r.member,limit:50,cursor:null}});
+      expect(choices).toMatchObject({status:'ready',value:{targets:expect.arrayContaining([expect.objectContaining({targetId:ids.customerA})])}});
+      const departure=(await pool.query('SELECT revoked_at FROM taptime_server.memberships WHERE id=$1',[r.member])).rows[0].revoked_at as Date;
+      for(const reviewItemId of [r.review,r.escalation]) {
+        expect(await coordinator.adjudicateReviewItems({accessToken:'synthetic',request:{expectedMembershipId:actor.member,commandId:randomUUID(),reviewItemIds:[reviewItemId],
+          resolution:{type:'create_recovered_time_record',startedAt:new Date(departure.getTime()-3600_000).toISOString(),stoppedAt:new Date(departure.getTime()+1).toISOString()},reason:'Prüfung nach Austritt'}})).toEqual({status:'after_departure'});
+      }
+      expect(await asActor(actor,writer,c=>adjudicate(c,actor,r))).toMatchObject({result_status:'committed'});
+    }
+  } finally {await readPool.end();await writePool.end();}
+});
 
 describe('D-092 target-person work authority',()=>{
  const c1=randomUUID(),c2=randomUUID(),c2b=randomUUID(),allowedRecord=randomUUID(),forbiddenRecord=randomUUID();

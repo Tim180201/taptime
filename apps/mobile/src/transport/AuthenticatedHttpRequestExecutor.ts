@@ -1,3 +1,4 @@
+import { MANAGED_PEOPLE_ACCEPT_V2 } from '@taptime/administration-contract/managed-people';
 import { TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3 as TIME_DETAILS_ACCEPT } from '@taptime/mobile-work-contract';
 import type { AuthenticatedRequestCapability } from '../auth/contracts';
 import {
@@ -49,6 +50,7 @@ export interface AuthenticatedJsonPostPort {
 export interface AuthenticatedJsonPostOptions {
   readonly includeTimeDetails?: boolean;
   readonly includeCalendarBreaks?: boolean;
+  readonly includeDeparted?: boolean;
   /** Compare-only lifecycle expectation. No caller can inject arbitrary headers through this port. */
   readonly expectedMembershipId?: string;
   /** Closed response-size exception used only by the immutable offline lease-page route. */
@@ -87,7 +89,7 @@ export class AuthenticatedHttpRequestExecutor implements AuthenticatedJsonPostPo
           const response = await this.fetchRequest(endpoint.href, {
             method: 'POST',
             headers: {
-              Accept: options?.includeCalendarBreaks === true ? TIME_CALENDAR_ACCEPT : options?.includeTimeDetails === true ? TIME_DETAILS_ACCEPT : 'application/json',
+              Accept: options?.includeDeparted === true ? MANAGED_PEOPLE_ACCEPT_V2 : options?.includeCalendarBreaks === true ? TIME_CALENDAR_ACCEPT : options?.includeTimeDetails === true ? TIME_DETAILS_ACCEPT : 'application/json',
               Authorization: `Bearer ${accessToken()}`,
               'Cache-Control': 'no-store',
               'Content-Type': 'application/json',

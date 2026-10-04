@@ -451,8 +451,9 @@ describe('T-015b Location Manager Membership scope', () => {
       .toEqual({ result_status: 'self_revocation_forbidden' });
     expect((await manage(membership.managedEmployee, 'change_role', 'standortleitung')).rows[0])
       .toEqual({ result_status: 'forbidden' });
+    // T-092: authority is valid, but this fixture has open time. The coordinator must stop it first.
     expect((await manage(membership.managedEmployee, 'revoke', null)).rows[0])
-      .toEqual({ result_status: 'succeeded' });
+      .toEqual({ result_status: 'running_time_active' });
   });
 
   it('fails closed without a current Management grant, while off, and across Organizations', async () => {

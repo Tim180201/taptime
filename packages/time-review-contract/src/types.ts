@@ -196,6 +196,7 @@ export type TimeReviewReadResult<T> =
 export type TimeReviewWriteResult<T> =
   | { readonly status: 'committed'; readonly value: T }
   | { readonly status: 'authority_rejected' }
+  | { readonly status: 'after_departure' }
   | { readonly status: 'not_adjustable' }
   | { readonly status: 'conflict'; readonly current?: TimeRecordProjection }
   | { readonly status: 'command_id_conflict' }

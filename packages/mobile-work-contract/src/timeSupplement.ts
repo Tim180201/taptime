@@ -27,7 +27,7 @@ export interface CommentTimeRequest {
   readonly expectedMembershipId: string; readonly commandId: string; readonly timeRecordId: string; readonly comment: string;
 }
 export type TimeSupplementResult = { readonly status: 'committed'; readonly timeRecordId: string; readonly idempotentRetry: boolean }
-  | { readonly status: 'authority_rejected'|'invalid_request'|'invalid_interval'|'outside_window'|'reason_required'|'invalid_comment'|'overlap'|'command_id_conflict'|'unavailable' };
+  | { readonly status: 'authority_rejected'|'invalid_request'|'after_departure'|'invalid_interval'|'outside_window'|'reason_required'|'invalid_comment'|'overlap'|'command_id_conflict'|'unavailable' };
 const object = (v:unknown):v is Record<string,unknown> => typeof v==='object' && v!==null && !Array.isArray(v);
 const keys = (v:Record<string,unknown>, k:string[]) => Object.keys(v).length===k.length && k.every(key=>Object.hasOwn(v,key));
 const uuid = (v:unknown):v is string => typeof v==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v);
@@ -72,7 +72,7 @@ export function isDetailedTimeResponse(v:unknown):v is DetailedTimeResponse {
 export function isTimeSupplementResult(v:unknown):v is TimeSupplementResult {
   return object(v) && (v.status==='committed'
     ? keys(v,['status','timeRecordId','idempotentRetry']) && uuid(v.timeRecordId) && typeof v.idempotentRetry==='boolean'
-    : keys(v,['status']) && ['authority_rejected','invalid_request','invalid_interval','outside_window','reason_required','invalid_comment','overlap','command_id_conflict','unavailable'].includes(String(v.status)));
+    : keys(v,['status']) && ['authority_rejected','invalid_request','after_departure','invalid_interval','outside_window','reason_required','invalid_comment','overlap','command_id_conflict','unavailable'].includes(String(v.status)));
 }
 
 export interface BackfillTargetQueryRequest {

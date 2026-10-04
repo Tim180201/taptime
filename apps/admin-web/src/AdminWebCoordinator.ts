@@ -213,7 +213,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           commandId,record,input.startedAt,input.stoppedAt,input.reason));
         if(result?.status==='succeeded') outcome={status:'committed',timeRecordId:input.record.timeRecordId,idempotentRetry:false};
         else if(result===null || result.status==='rejected') outcome={status:'authority_rejected'};
-        else if(result.status==='conflict') outcome={status:result.code==='not_adjustable'?'not_adjustable':result.code==='command_id_conflict'?'command_id_conflict':'conflict'};
+        else if(result.status==='conflict') outcome={status:result.code==='after_departure'?'after_departure':result.code==='not_adjustable'?'not_adjustable':result.code==='command_id_conflict'?'command_id_conflict':'conflict'};
       } else {
         const request=input.kind==='backfill'?{expectedMembershipId:session.membershipId,commandId,targetMembershipId:input.targetMembershipId,
           targetType:input.target.targetType,targetId:input.target.targetId,startedAt:input.startedAt,stoppedAt:input.stoppedAt,reason:input.reason,comment:input.comment}
@@ -1503,13 +1503,14 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const generation = this.generation;
     const refreshEpoch = this.refreshEpoch;
     let result;
+    const commandId = crypto.randomUUID();
     try {
       result = await this.auth.withAccessToken((token) => role === null
         ? this.api.revokeMembership(
-          token, membershipId, crypto.randomUUID(), targetMembershipId, expectedRowVersion,
+          token, membershipId, commandId, targetMembershipId, expectedRowVersion,
         )
         : this.api.changeMembershipRole(
-          token, membershipId, crypto.randomUUID(), targetMembershipId, expectedRowVersion, role,
+          token, membershipId, commandId, targetMembershipId, expectedRowVersion, role,
         ));
     } catch {
       result = { status: 'unreachable' as const };
@@ -1518,6 +1519,24 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
       return;
+    }
+    if (result.status === 'conflict' && result.code === 'stop_awaiting_archive') {
+      const pending = this.state;
+      if (pending.status === 'ready') this.setState({...pending,notice:{kind:'info',text:'Der Zugang ist entzogen. Die beendete Zeit wird gesichert …'}});
+      const deadline = Date.now() + 180_000;
+      while (Date.now() < deadline && generation === this.generation && refreshEpoch === this.refreshEpoch) {
+        await new Promise(resolve => setTimeout(resolve, 2_000));
+        if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+        try { result = await this.auth.withAccessToken(token => this.api.revokeMembership(token,membershipId,commandId,targetMembershipId,expectedRowVersion)); }
+        catch { break; }
+        if (result?.status !== 'conflict' || result.code !== 'stop_awaiting_archive') break;
+      }
+      if (generation !== this.generation || refreshEpoch !== this.refreshEpoch) return;
+      if (result?.status !== 'succeeded') {
+        const latest = this.state;
+        if (latest.status === 'ready') this.setState({...latest,notice:{kind:'info',text:'Der Zugang ist entzogen. Der Archivnachweis für die beendete Zeit steht noch aus.'}});
+        return;
+      }
     }
     if (result.status === 'succeeded') {
       await this.retrySection('employees');
@@ -1533,7 +1552,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const latest = this.state;
     if (latest.status !== 'ready') return;
     if (result.status === 'conflict') {
-      const notice = result.code === 'last_administrator'
+      const notice = result.code === 'already_departed' ? 'Diese Person ist bereits ausgeschieden.'
+        : result.code === 'running_time_too_long' ? 'Diese Zeit läuft länger als 24 Stunden. Bitte zuerst in der Personenansicht mit passender Endzeit beenden, dann den Zugang entziehen.'
+        : result.code === 'running_time_active' ? 'Die laufende Zeit konnte noch nicht beendet werden. Bitte prüfen Sie die Personenansicht und versuchen Sie es erneut.'
+        : result.code === 'last_administrator'
         ? 'Der Zugang bleibt bestehen, weil der Betrieb einen aktiven Administrator braucht. Ernennen Sie zuerst einen weiteren Administrator.'
         : result.code === 'self_revocation_forbidden'
           ? 'Ihr eigener Zugang bleibt bestehen, damit Sie sich nicht aussperren. Lassen Sie den Zugang von einem anderen Administrator entziehen.'
@@ -2421,6 +2443,7 @@ function locationMutationNotice(code:
   | 'project_in_use'
   | 'project_unavailable'
   | 'stale_row_version'
+  | 'already_departed' | 'running_time_active' | 'running_time_too_long' | 'stop_awaiting_archive' | 'after_departure'
   | 'last_administrator'
   | 'self_revocation_forbidden'
   | 'location_scope_forbidden'
@@ -2912,6 +2935,7 @@ function buildResolution(intent: ReviewAdjudicationIntent): object | null {
 }
 
 function correctionConflictNotice(code: string): string {
+  if (code === 'after_departure') return 'Zeiten und Prüffälle dürfen nur bis zum Austritt der Person reichen.';
   if (code === 'not_adjustable') {
     return 'Die Korrektur wurde nicht gespeichert, weil die Arbeitszeit noch läuft. Wählen Sie eine abgeschlossene Arbeitszeit.';
   }
@@ -2922,6 +2946,7 @@ function correctionConflictNotice(code: string): string {
 }
 
 function adjudicationConflictNotice(code: string): string {
+  if (code === 'after_departure') return 'Zeiten und Prüffälle dürfen nur bis zum Austritt der Person reichen.';
   if (code === 'invalid_evidence') {
     return 'Die Entscheidung wurde nicht gespeichert, weil die Prüffälle nicht zusammenpassen. Entscheiden Sie die Prüffälle einzeln.';
   }

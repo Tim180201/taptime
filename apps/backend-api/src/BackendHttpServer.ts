@@ -2,7 +2,7 @@ import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, TIME_DETAILS_ACCEPT_V3, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
-import { isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
+import { MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
@@ -206,6 +206,7 @@ type ErrorCode =
   | 'service_unavailable'
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
+  | 'already_departed' | 'running_time_active' | 'running_time_too_long' | 'stop_awaiting_archive' | 'after_departure'
   | 'last_administrator'
   | 'home_work_conflict'
   | 'location_in_use'
@@ -670,12 +671,13 @@ async function handleRequest(
     return;
   }
   if (route === 'admin_managed_active_summary') {
+    response.setHeader('Vary','Accept');
     if (!isManagedActiveSummaryRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
     await handleAdministrationOperation(response, options, correlationId, timeoutMilliseconds,
       async (deadlineEpochMilliseconds) => {
         const operation = dependencies.employeeEnrollment.readManagedActiveSummary;
         if (!operation) throw new Error('Managed summary unavailable');
-        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body }, { deadlineEpochMilliseconds });
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === MANAGED_PEOPLE_ACCEPT_V2 ? {includeDeparted:true} : {}) }, { deadlineEpochMilliseconds });
       }, result => result.value);
     return;
   }
@@ -2030,7 +2032,7 @@ async function handleTimeReviewWrite<Value>(
   timeoutMilliseconds: number,
   operation: (deadlineEpochMilliseconds: number) => Promise<
     | { readonly status: 'committed'; readonly value: Value }
-    | { readonly status: 'authority_rejected' | 'not_adjustable' | 'conflict'
+    | { readonly status: 'authority_rejected' | 'after_departure' | 'not_adjustable' | 'conflict'
       | 'command_id_conflict' | 'invalid_evidence' | 'unavailable' }
   >,
 ): Promise<void> {
@@ -2042,6 +2044,7 @@ async function handleTimeReviewWrite<Value>(
     switch (result.status) {
       case 'committed': respondJson(response, 200, { status: 'committed', ...result.value }); return;
       case 'authority_rejected': respondError(response, 403, 'forbidden'); return;
+      case 'after_departure': respondError(response,422,'after_departure'); return;
       case 'not_adjustable': respondError(response, 422, 'not_adjustable'); return;
       case 'invalid_evidence': respondError(response, 422, 'invalid_evidence'); return;
       case 'conflict': respondError(response, 409, 'conflict'); return;
@@ -2226,7 +2229,7 @@ async function handleMembershipMutation(
       ? dependencies.employeeEnrollment.revokeMembership(
         { accessToken, ...common },
         { deadlineEpochMilliseconds },
-      )
+      ).then(result => result.status === 'succeeded' && result.offsiteArchived === false ? {status:'stop_awaiting_archive' as const} : result)
       : dependencies.employeeEnrollment.changeMembershipRole(
         { accessToken, ...common, role: common.role! },
         { deadlineEpochMilliseconds },
@@ -2327,6 +2330,8 @@ async function handleAdministrationOperation<Result extends { readonly status: s
       case 'invitation_limit_reached':
         respondError(response, 409, 'invitation_limit_reached');
         return;
+      case 'stop_awaiting_archive': case 'already_departed': case 'running_time_active': case 'running_time_too_long':
+        respondError(response,409,result.status); return;
       case 'last_administrator':
         respondError(response, 409, 'last_administrator');
         return;

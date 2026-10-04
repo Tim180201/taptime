@@ -460,3 +460,11 @@ it.each([['committed',200],['forbidden',403],['running',422],['review_open',422]
  const range={expectedMembershipId:ids.membership,targetMembershipId:ids.employeeMembership,fromInclusive:'2026-07-01T00:00:00.000Z',toExclusive:'2026-08-01T00:00:00.000Z',afterId:null,limit:100};
  expect((await post(origin,'/v1/time-records/voided/query',range)).status).toBe(200);expect(query).toHaveBeenCalledWith('abc.def.ghi',range);
 });
+
+it('T092 returns a domain error for adjudication after departure',async()=>{
+  const origin=await start({timeReview:{...unavailableOfflineDependencies().timeReview,
+    async adjudicateReviewItems(){return {status:'after_departure'};}}});
+  await expectError(await post(origin,'/v1/administration/review-items/adjudicate',{
+    expectedMembershipId:ids.membership,commandId:ids.command,reviewItemIds:[ids.reviewItem],
+    resolution:{type:'create_recovered_time_record',startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-20T10:00:00.000Z'},reason:'Prüfen'}),422,'after_departure');
+});

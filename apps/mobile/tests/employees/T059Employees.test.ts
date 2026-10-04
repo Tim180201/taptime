@@ -60,3 +60,18 @@ describe('T059 Mobile red proofs',()=>{
     range.mockRestore();
   });
 });
+
+it('T092 mobile lists departed people as a separate, navigable section',async()=>{
+  const {EmployeesScreen}=await import('../../src/screens/EmployeesScreen');
+  const person={membershipId:id,displayName:'Anna Ausgeschieden',role:'employee' as const,location:null,
+    isRunning:false,runningSince:null,runningTargetDisplayName:null,departedAt:'2026-09-18T12:00:00.000Z'};
+  const employees:import('../../src/employees/contracts').EmployeesCapability={
+    getState:()=>({status:'list',filter:true,busy:false,failed:false,summary:{serverTime:'2026-09-19T12:00:00.000Z',
+      people:[person],runningCount:0,totalCount:0,nextCursor:null}}),subscribe:()=>()=>{},
+    refresh:async()=>{},filter:async()=>{},loadMore:async()=>{},openPerson:vi.fn(async()=>{}),
+    loadPersonMonth:async()=>{},openInvitation:async()=>{},invite:async()=>{},back:async()=>{},leave:()=>{},
+  };
+  const html=renderToStaticMarkup(createElement(EmployeesScreen,{employees,scope:{kind:'organization'},locationsEnabled:false}));
+  expect(html).toContain('Ausgeschieden');expect(html).toContain('Anna Ausgeschieden, ausgeschieden');
+  expect(html).toContain('Ausgeschieden am');
+});

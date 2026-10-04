@@ -18,6 +18,7 @@ export const timeEditMessages: Record<TimeEditResult['status'], string> = {
   committed: 'Gespeichert.', offline: 'Nur online möglich. Ihre Eingaben bleiben erhalten.', busy: 'Ein Eintrag wird noch gespeichert.',
   authority_rejected: 'Ihre Berechtigung wurde nicht bestätigt. Aktualisieren Sie Ihre Sitzung.',
   invalid_request: 'Prüfen Sie die Eingaben. Texte dürfen höchstens 500 Zeichen enthalten.',
+  after_departure:'Zeiten dürfen nur bis zum Austritt der Person reichen.',
   invalid_interval: 'Die Zeit muss beendet sein, in der Vergangenheit liegen und darf höchstens 24 Stunden dauern.',
   outside_window: 'Sie können Zeiten im laufenden Monat und im Vormonat nachtragen.',
   reason_required: 'Bitte begründen Sie den Nachtrag.', invalid_comment: 'Der Kommentar braucht 1 bis 500 Zeichen.',
