@@ -29,6 +29,7 @@ import {
 } from './timeZone';
 import { DelayedSkeleton } from './ui';
 import { MobileSheet, useCompactLayout } from './MobileSheet';
+import { expiredResetLinkMessage } from './PasswordResetPage';
 
 import { FeedbackBand,navigateFromLink,recentTimeWindow } from './viewHelpers';
 const Overview=lazy(()=>import('./views/Overview'));
@@ -44,9 +45,11 @@ const ManualView=lazy(()=>import('./views/ManualView'));
 export function App({
   administration,
   accountInvitations,
+  initialRecoveryLinkError = false,
 }: {
   readonly administration: AdminWebCapability;
   readonly accountInvitations?: EmployeeAccountInvitationCapability;
+  readonly initialRecoveryLinkError?: boolean;
 }) {
   const state = useSyncExternalStore(
     (listener) => administration.subscribe(listener),
@@ -55,6 +58,7 @@ export function App({
   );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [recoveryLinkError, setRecoveryLinkError] = useState(initialRecoveryLinkError);
   const [route, setRoute] = useState<AdminRoute>(() => currentRoute());
   const [quotaCustomer,setQuotaCustomer]=useState<{membership:string;id:string}|null>(null);
   const previousView = useRef(route.view);
@@ -140,9 +144,11 @@ export function App({
         <h1 id="login-title">Einfach sauber eingerichtet.</h1>
         <p>Melden Sie sich mit Ihrem Zugang an.</p>
         {state.status === 'signed_out' && state.notice
-          ? <FeedbackBand message={state.notice} /> : null}
+          ? <FeedbackBand message={state.notice} /> : recoveryLinkError
+            ? <FeedbackBand message={{ kind: 'error', text: expiredResetLinkMessage }} /> : null}
         <form onSubmit={(event: FormEvent) => {
           event.preventDefault();
+          setRecoveryLinkError(false);
           const passwordSnapshot = password;
           setPassword('');
           void administration.signIn(email, passwordSnapshot);
@@ -159,7 +165,10 @@ export function App({
         </form>
         <button className="text-button" disabled={state.status === 'signing_in' || email.length < 3}
           aria-busy={state.status === 'signing_in'}
-          onClick={() => void administration.requestPasswordReset(email)}>
+          onClick={() => {
+            setRecoveryLinkError(false);
+            void administration.requestPasswordReset(email);
+          }}>
           Passwort vergessen
         </button>
       </section>

@@ -572,8 +572,18 @@ Diese Grenze ist ausdrücklich inventarisiert. Backend, Admin-Web, Betreiber-Web
 deren Einheiten, journald-Grenzen, Compose und Caddy kommen dagegen ausschließlich über die vier
 gleich markierten Abbilder.
 
-## Supabase-Einladungen und Wiederherstellung (T-094)
+## Supabase-Einladungen und Wiederherstellung (T-094, T-094b)
 
-Vor der separat freigegebenen Auslieferung prüft der Product Owner: Selbstregistrierung aus, E-Mail-Bestätigung an, „Email OTP Expiration“ **3600 s**. Site URL `https://admin.tb-infra.de/`; Einladungs-Redirect `https://admin.tb-infra.de/willkommen`, ohne Wildcard. App und Web setzen Passwörter über dieselbe Site URL; keine Recovery-App-Schemata. Der PO legt diese Einstellungen und die Redirect-Liste an, pflegt sie bei Domain-/Projektwechsel und entfernt obsolete Einträge nach Ablösung. Deutsche Vorlage und vollständiger Ablauf: `docs/T-047-Inbetriebnahme.md`, `docs/T-047-Einladungsvorlage.md`.
+Vor der separat freigegebenen Auslieferung prüft der Product Owner: Selbstregistrierung aus, E-Mail-Bestätigung an, „Email OTP Expiration“ **3600 s**. Site URL `https://admin.tb-infra.de` ohne abschließenden Schrägstrich; Einladungs-Redirect `https://admin.tb-infra.de/willkommen`, ohne Wildcard. App und Web setzen Passwörter über dieselbe Site URL; keine Recovery-App-Schemata. Der PO legt diese Einstellungen und die Redirect-Liste an, pflegt sie bei Domain-/Projektwechsel und entfernt obsolete Einträge nach Ablösung. Deutsche Vorlage und vollständiger Ablauf: `docs/T-047-Inbetriebnahme.md`, `docs/T-047-Einladungsvorlage.md`.
+
+**Erst nach dem erfolgreichen Deploy von T-094b:** Der Product Owner setzt Betreff und HTML aus
+`docs/T-094b-Ruecksetzvorlage.md` unter Authentication → Email Templates → Reset Password ein.
+Der Link führt direkt zu `/passwort-neu`, mit `token_hash` und `type=recovery` im Anker; die Seite
+prüft den Link erst beim Absenden des neuen Passworts. Site URL ohne abschließenden Schrägstrich
+prüfen, **Redirect-Liste unverändert lassen**. Der PO pflegt die Vorlage bei Änderungen und entfernt
+sie bei Ablösung; Link-Tracking bleibt abgeschaltet. Danach neue Rücksetz-Mail aus App und Web
+anfordern, am Handy Passwort setzen, anmelden und einen erneuten Versuch mit demselben Link prüfen.
+Vor der Umstellung verschickte `access_token`-Links funktionieren weiter; verbrauchte Links zeigen
+an der Anmeldung den Hinweis, einen neuen Link anzufordern.
 
 Der Backend-Prozess benötigt zusätzlich den **öffentlichen** `SUPABASE_PUBLISHABLE_KEY` in seiner Konfiguration. Der PO übernimmt ihn aus dem Projekt, aktualisiert ihn bei Rotation und entfernt ihn bei Projektablösung. Beim Start und vor jedem Einladungsversand liest der Prozess damit `/auth/v1/settings`. Nur `disable_signup=true` und `mailer_autoconfirm=false` erlauben Einladungen. Fehlende, unlesbare oder unsichere Einstellungen liefern `account_creation_not_configured`, mit Korrelations-ID und Ursache im Serverprotokoll; andere Funktionen laufen weiter. Das Backend ändert keine Supabase-Einstellungen. Den geheimen service-role-Schlüssel weiterhin ausschließlich nach D-049 verwahren.

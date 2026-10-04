@@ -5,9 +5,19 @@ import { AdminWebApiClient } from './AdminWebApiClient';
 import { SupabaseMemoryAuth } from './SupabaseMemoryAuth';
 import { SupabaseInviteAuth } from './SupabaseInviteAuth';
 import { WelcomePage } from './WelcomePage';
+import { SupabaseRecoveryAuth } from './SupabaseRecoveryAuth';
+import { PasswordResetPage } from './PasswordResetPage';
 import type { AdminWebConfiguration } from './runtimeConfiguration';
 
 export function createApplicationPage(configuration: AdminWebConfiguration | null) {
+  if (window.location.pathname === '/passwort-neu') {
+    document.title = 'Taptura · Neues Passwort setzen';
+    const recoveryUrl = window.location.href;
+    window.history.replaceState(null, '', '/passwort-neu');
+    return <PasswordResetPage recovery={configuration === null ? null : new SupabaseRecoveryAuth(
+      configuration.supabaseUrl, configuration.supabasePublishableKey, recoveryUrl,
+    )} />;
+  }
   if (window.location.pathname === '/willkommen') {
     document.title = 'Taptura · Passwort setzen';
     const invitationUrl = window.location.href;
@@ -18,6 +28,12 @@ export function createApplicationPage(configuration: AdminWebConfiguration | nul
       configuration.supabaseUrl, configuration.supabasePublishableKey, invitationUrl,
     )} />;
   }
+  const fragment = new URLSearchParams(window.location.hash.slice(1));
+  const recoveryLinkError = fragment.has('error') || fragment.has('error_code');
+  if (recoveryLinkError) {
+    // Do not retain or display provider descriptions. Clear them before auth or rendering.
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+  }
   if (configuration === null) return <main className="configuration-error">
     <h1>Die Verwaltung kann nicht gestartet werden</h1>
     <p role="alert">Die sichere Verbindung zum Anmeldedienst ist nicht vollständig eingerichtet.
@@ -26,5 +42,6 @@ export function createApplicationPage(configuration: AdminWebConfiguration | nul
   const auth = new SupabaseMemoryAuth(configuration.supabaseUrl, configuration.supabasePublishableKey);
   const api = new AdminWebApiClient();
   return <App administration={new AdminWebCoordinator(auth, api)}
+    initialRecoveryLinkError={recoveryLinkError}
     accountInvitations={new EmployeeAccountInvitationClient(auth, api)} />;
 }

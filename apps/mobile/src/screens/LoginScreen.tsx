@@ -53,7 +53,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
     setSubmitting(true);
     const result = await requestPasswordReset(email);
     setMessage(result === 'requested'
-      ? 'Wir haben dir eine E-Mail geschickt. Öffne den Link, setze dein neues Passwort und melde dich dann hier an.'
+      ? 'Wir haben dir eine E-Mail geschickt. Öffne den Link und setze dein neues Passwort auf der Webseite. Melde dich dann hier an.'
       : 'Wiederherstellung ist derzeit nicht erreichbar.');
     submitInFlight.current = false;
     setSubmitting(false);
