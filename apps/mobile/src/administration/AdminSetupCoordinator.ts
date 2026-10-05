@@ -1,3 +1,5 @@
+import {normalizeCustomerNameV1} from '@taptime/administration-contract/names';
+import type {CustomerManagementChange,ManageCustomerResult} from '@taptime/mobile-work-contract';
 import type { NfcScanCaptureResult, NfcScanPort } from '@taptime/core';
 import type { NfcCaptureLifecyclePort } from '../nfc/RnNfcScanAdapter';
 import { TAG_URI } from '../nfc/tagAddress';
@@ -9,6 +11,8 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
   private readonly listeners = new Set<() => void>();
   private unsubscribe: (() => void) | null = null;
   private generation = 0;
+  private authorityGeneration = 0;
+  private projectionInvalidated = false;
   private active = false;
   private pendingCustomer: { key: string; commandId: string } | null = null;
 
@@ -34,6 +38,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
   async stop(): Promise<void> {
     if (!this.active) return;
     this.active = false;
+    this.authorityGeneration += 1;
     this.generation += 1;
     this.unsubscribe?.();
     this.unsubscribe = null;
@@ -54,18 +59,68 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     this.setState({ status: 'loading' });
     const result = await this.api.readProjection(snapshot.session.membershipId, requestedCursor);
     if (!this.isCurrent(generation, snapshot)) return;
+    if(this.projectionInvalidated){await this.loadProjection(current.outcome,snapshot,generation);return;}
     if (result.status === 'succeeded') {
       const merged = mergeProjection(current.projection, result, requestedCursor);
       if (merged !== null) {
         this.setState({ status: 'ready', projection: merged, outcome: current.outcome });
       } else {
-        this.finish(current.projection, { status: 'request_failed' });
+        await this.finish(current.projection, { status: 'request_failed' });
       }
     } else if (result.status === 'authority_rejected') {
       this.setState({ status: 'inactive' });
     } else {
-      this.finish(current.projection, { status: 'request_failed' });
+      await this.finish(current.projection, { status: 'request_failed' });
     }
+  }
+
+  async inspectTag():Promise<void>{
+    const current=this.state,snapshot=this.session.capture();
+    if(!this.active||current.status!=='ready'||!snapshot?.session.nfcSetupAvailable)return;
+    const generation=++this.generation;
+    this.setState({status:'capturing',projection:current.projection});
+    try{
+      const capture=await this.nfc.scan();
+      if(!this.isCurrent(generation,snapshot))return;
+      if(capture.status!=='captured'){
+        await this.finish(current.projection,{status:capture.status==='unavailable'?'nfc_unavailable':capture.status});return;
+      }
+      const result=await this.api.inspectTag?.({expectedMembershipId:snapshot.session.membershipId,canonicalPayload:capture.payload})??{status:'unavailable'};
+      if(!this.isCurrent(generation,snapshot))return;
+      if(result.status==='succeeded')await this.finish(current.projection,{...result,status:'tag_checked'});
+      else await this.finish(current.projection,{status:result.status==='forbidden'||result.status==='unauthorized'?'session_rejected':'request_failed'});
+    }catch{if(this.isCurrent(generation,snapshot))await this.finish(current.projection,{status:'request_failed'});}
+  }
+
+  private pendingManagement:{key:string;commandId:string}|null=null;
+  private managementBusy=false;
+  async manageCustomer(customerId:string,change:CustomerManagementChange):Promise<ManageCustomerResult> {
+    const snapshot=this.session.capture(),authorityGeneration=this.authorityGeneration;
+    if(!this.active||!snapshot?.session.nfcSetupAvailable)return {status:'forbidden'};
+    if(this.managementBusy)return {status:'unavailable'};
+    if(change.action==='rename'){
+      const name=normalizeCustomerNameV1(change.displayName);
+      if(name.status!=='valid')return {status:'invalid_request'};
+      change={action:'rename',displayName:name.canonicalName};
+    }
+    const key=JSON.stringify([snapshot.session.membershipId,customerId,change]);
+    if(this.pendingManagement?.key!==key)this.pendingManagement={key,commandId:this.createCommandId()};
+    this.managementBusy=true;
+    try {
+      if(!await this.isOnline())return {status:'unavailable'};
+      if(!this.isManagementCurrent(authorityGeneration,snapshot))return {status:'forbidden'};
+      const result=await this.api.manageCustomer?.({expectedMembershipId:snapshot.session.membershipId,commandId:this.pendingManagement.commandId,customerId,...change})??{status:'unavailable' as const};
+      if(!this.isManagementCurrent(authorityGeneration,snapshot))return {status:'forbidden'};
+      if(result.status==='succeeded'){
+        this.pendingManagement=null;
+        // Navigation/projection generations do not cancel a confirmed server mutation.
+        // Wait for an ongoing NFC/creation operation to finish before reloading its projection.
+        this.projectionInvalidated=true;
+        if(this.state.status==='ready'||this.state.status==='inactive')await this.refresh().catch(()=>undefined);
+        if(!this.isManagementCurrent(authorityGeneration,snapshot))return {status:'forbidden'};
+      }
+      return result;
+    }catch{return {status:'unavailable'};}finally{this.managementBusy=false;}
   }
 
   async prepareCustomer(): Promise<CustomerCreationOptions> {
@@ -98,14 +153,14 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     const snapshot = this.session.capture();
     if (!this.active || current.status !== 'ready' || snapshot === null || !snapshot.session.nfcSetupAvailable) return;
     const name = displayName.normalize('NFC').trim();
-    if (name.length === 0 || Array.from(name).length > 120) { this.finish(current.projection, { status: 'invalid_input' }); return; }
-    if (snapshot.session.locationsEnabled && !locationId) { this.finish(current.projection, { status: 'customer_location_required' }); return; }
+    if (name.length === 0 || Array.from(name).length > 120) { await this.finish(current.projection, { status: 'invalid_input' }); return; }
+    if (snapshot.session.locationsEnabled && !locationId) { await this.finish(current.projection, { status: 'customer_location_required' }); return; }
     const generation = ++this.generation;
     this.setState({ status: 'creating_customer', projection: current.projection });
     let result: CreateAdminCustomerResult;
     try {
       if (!await this.isOnline()) {
-        if (this.isCurrent(generation, snapshot)) this.finish(current.projection, { status: 'customer_offline' });
+        if (this.isCurrent(generation, snapshot)) await this.finish(current.projection, { status: 'customer_offline' });
         return;
       }
       if (!this.isCurrent(generation, snapshot)) return;
@@ -139,11 +194,11 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
           if (next.customers.some(customer => customer.id === result.customer.id)) { projection = next; refreshed = true; }
         }
       } catch { /* Creation is already confirmed; a failed reload must not invite another insert. */ }
-      if (this.isCurrent(generation, snapshot)) this.finish(projection,
+      if (this.isCurrent(generation, snapshot)) await this.finish(projection,
         { status: 'customer_created', customerId: result.customer.id, refreshFailed: !refreshed });
       return;
     }
-    this.finish(current.projection, { status: result.status === 'location_required' ? 'customer_location_required'
+    await this.finish(current.projection, { status: result.status === 'location_required' ? 'customer_location_required'
       : result.status === 'forbidden' || result.status === 'authority_rejected' ? 'customer_forbidden'
         : result.status === 'invalid_request' ? 'invalid_input' : 'customer_request_failed' });
   }
@@ -178,7 +233,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       : result.status === 'tag_payload_already_registered' ? 'tag_already_registered'
         : result.status === 'assignment_target_unavailable' ? 'customer_unavailable'
           : result.status === 'invalid_request' ? 'invalid_input' : 'request_failed';
-    this.finish(current.projection, { status: mapped } as AdminSetupOutcome);
+    await this.finish(current.projection, { status: mapped } as AdminSetupOutcome);
   }
 
   async provisionBreak(displayName: string): Promise<void> {
@@ -188,7 +243,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       || snapshot.session.nfcSetupAvailable !== true) return;
     if (displayName.trim().length < 1
       || Array.from(displayName.normalize('NFC').trim()).length > 80) {
-      this.finish(current.projection, { status: 'invalid_input' }); return;
+      await this.finish(current.projection, { status: 'invalid_input' }); return;
     }
     const generation = ++this.generation;
     this.setState({ status: 'capturing', projection: current.projection });
@@ -209,7 +264,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       ? 'session_rejected' : result.status === 'tag_payload_already_registered'
         ? 'tag_already_registered' : result.status === 'invalid_request'
           ? 'invalid_input' : 'request_failed';
-    this.finish(current.projection, { status: mapped } as AdminSetupOutcome);
+    await this.finish(current.projection, { status: mapped } as AdminSetupOutcome);
   }
 
   async cancel(): Promise<void> { this.generation += 1; await this.writer.cancel(); await this.nfc.cancelCapture(); await this.loadProjection({ status: 'cancelled' }); }
@@ -222,7 +277,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       });
     if (!this.isCurrent(generation, snapshot)) return null;
     if (capture.status !== 'captured') {
-      this.finish(projection, { status: capture.status === 'unavailable' ? 'nfc_unavailable' : capture.status });
+      await this.finish(projection, { status: capture.status === 'unavailable' ? 'nfc_unavailable' : capture.status });
       return null;
     }
     if (this.nfc.scanWithTagAction === undefined) written = await this.writeTag(capture.payload, projection, snapshot, generation);
@@ -239,7 +294,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     }
     if (!this.isCurrent(generation, snapshot)) return false;
     if (result.status === 'failed') {
-      this.finish(projection, { status: 'tag_write_failed', reason: result.reason });
+      await this.finish(projection, { status: 'tag_write_failed', reason: result.reason });
       return false;
     }
     return true;
@@ -247,6 +302,9 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
 
   private async onSessionChanged(): Promise<void> {
     this.pendingCustomer = null;
+    this.pendingManagement = null;
+    this.authorityGeneration += 1;
+    this.projectionInvalidated = false;
     this.generation += 1;
     await this.writer.cancel();
     await this.nfc.cancelCapture();
@@ -260,9 +318,23 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     const snapshot = supplied;
     if (!this.active || snapshot === null || snapshot.session.nfcSetupAvailable !== true) return;
     const generation = suppliedGeneration;
+    this.projectionInvalidated = false;
     this.setState({ status: 'loading' });
-    const result = await this.api.readProjection(snapshot.session.membershipId, null);
+    let result = await this.api.readProjection(snapshot.session.membershipId, null);
+    // Keep the newly created customer visible when a management refresh was deferred.
+    const seen = new Set<string>();
+    while (this.isCurrent(generation,snapshot) && result.status==='succeeded'
+      && outcome?.status==='customer_created' && !result.customers.some(customer=>customer.id===outcome.customerId)
+      && result.nextCursor!==null && !seen.has(result.nextCursor)) {
+      const cursor=result.nextCursor;seen.add(cursor);
+      const page=await this.api.readProjection(snapshot.session.membershipId,cursor);
+      if(page.status!=='succeeded')break;
+      const merged=mergeProjection(result,page,cursor);
+      if(merged===null)break;
+      result={status:'succeeded',...merged};
+    }
     if (!this.isCurrent(generation, snapshot)) return;
+    if(this.projectionInvalidated){await this.loadProjection(outcome,snapshot,generation);return;}
     if (result.status === 'succeeded') {
       this.setState({ status: 'ready', projection: { organization: result.organization, customers: result.customers, nfcTags: result.nfcTags, nextCursor: result.nextCursor }, outcome });
     } else if (result.status === 'authority_rejected') {
@@ -275,7 +347,26 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
   private isCurrent(generation: number, snapshot: Parameters<AdminSessionContextReader['isCurrent']>[0]): boolean {
     return this.active && generation === this.generation && this.session.isCurrent(snapshot);
   }
-  private finish(projection: Extract<AdminSetupState, { status: 'ready' }>['projection'], outcome: AdminSetupOutcome): void { this.setState({ status: 'ready', projection, outcome }); }
+  private isManagementCurrent(generation: number, snapshot: Parameters<AdminSessionContextReader['isCurrent']>[0]): boolean {
+    return this.active && generation===this.authorityGeneration && this.session.isCurrent(snapshot);
+  }
+  private async finish(projection: Extract<AdminSetupState, { status: 'ready' }>['projection'], outcome: AdminSetupOutcome): Promise<void> {
+    if(this.projectionInvalidated){
+      const snapshot=this.session.capture(),generation=this.generation+1;
+      await this.loadProjection(outcome).catch(()=>undefined);
+      if(snapshot!==null&&this.isCurrent(generation,snapshot)){
+        const current=this.state;
+        if(outcome.status==='customer_created'){
+          // Creation is already committed. A projection failure cannot erase its receipt.
+          const refreshed=current.status==='ready'?current.projection:projection;
+          this.setState({status:'ready',projection:refreshed,outcome:{...outcome,
+            refreshFailed:current.status!=='ready'||!refreshed.customers.some(customer=>customer.id===outcome.customerId&&customer.active)}});
+        }else if(current.status==='loading')this.setState({status:'inactive'});
+      }
+      return;
+    }
+    this.setState({ status: 'ready', projection, outcome });
+  }
   private setState(state: AdminSetupState): void { this.state = Object.freeze(state); for (const listener of this.listeners) listener(); }
 }
 

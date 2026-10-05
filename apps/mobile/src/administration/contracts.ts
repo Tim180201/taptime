@@ -33,6 +33,7 @@ export type CreateAdminCustomerResult =
   | AdminTransportFailure;
 
 export type AdminSetupOutcome =
+  | {readonly status:'tag_checked';readonly assignment:'customer'|'break'|'unassigned';readonly customerName:string|null;readonly locationName:string|null}
   | { readonly status: 'customer_created'; readonly customerId: string; readonly refreshFailed: boolean }
   | { readonly status: 'customer_offline' | 'customer_location_required' | 'customer_forbidden' | 'customer_request_failed' }
 
@@ -53,6 +54,8 @@ export type AdminSetupState =
   | { readonly status: 'submitting'; readonly projection: AdminSetupProjection };
 
 export interface AdminSetupCapability {
+  inspectTag?():Promise<void>;
+  manageCustomer?(customerId:string,change:import('@taptime/mobile-work-contract').CustomerManagementChange):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
   prepareCustomer(): Promise<CustomerCreationOptions>;
   createCustomer(displayName: string, locationId?: string): Promise<void>;
   getState(): AdminSetupState;
@@ -85,6 +88,8 @@ export type ProvisionAdminTagResult =
   | AdminTransportFailure;
 
 export interface AdminSetupApiPort {
+  inspectTag?(command:import('@taptime/mobile-work-contract').InspectTagRequest):Promise<import('@taptime/mobile-work-contract').InspectTagResult>;
+  manageCustomer?(request:import('@taptime/mobile-work-contract').ManageCustomerRequest):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
   createCustomer?(command: { readonly expectedMembershipId: string; readonly commandId: string;
     readonly displayName: string; readonly locationId?: string }): Promise<CreateAdminCustomerResult>;
   readCustomerLocations?(expectedMembershipId: string, cursor: string | null): Promise<

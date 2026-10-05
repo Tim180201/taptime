@@ -330,3 +330,4 @@ export * from './customerHours.js';
 export * from './captureTime.js';
 
 export * from './appVersion.js';
+export * from './customerManagement.js';

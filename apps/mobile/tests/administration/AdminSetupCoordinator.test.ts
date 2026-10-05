@@ -254,3 +254,68 @@ describe('AdminSetupCoordinator', () => {
     }
   });
 });
+
+it('T100 checks a tag without writing it or registering a time/assignment',async()=>{
+  const context=setup();
+  context.api.inspectTag=vi.fn(async()=>({status:'succeeded' as const,assignment:'customer' as const,customerName:'Werkstatt',locationName:'Nord'}));
+  await context.coordinator.start();
+  await context.coordinator.inspectTag();
+  expect(context.nfc.scan).toHaveBeenCalledOnce();
+  expect(context.writer.write).not.toHaveBeenCalled();
+  expect(context.api.provisionTag).not.toHaveBeenCalled();
+  expect(context.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_checked',assignment:'customer',customerName:'Werkstatt',locationName:'Nord'}});
+});
+
+it.each(['cancel','refresh'] as const)('T100 confirms management after %s without losing authority',async navigation=>{
+ const context=setup();let finish!:(value:{status:'succeeded'})=>void;
+ context.api.manageCustomer=vi.fn(()=>new Promise<{status:'succeeded'}>(resolve=>{finish=resolve;}));
+ await context.coordinator.start();
+ const pending=context.coordinator.manageCustomer(projection.customers[0]!.id,{action:'deactivate'});
+ await vi.waitFor(()=>expect(context.api.manageCustomer).toHaveBeenCalledOnce());
+ await context.coordinator[navigation]();
+ finish({status:'succeeded'});
+ expect(await pending).toEqual({status:'succeeded'});
+ expect(context.api.readProjection).toHaveBeenCalledTimes(3);
+});
+it('T100 rejects management replies after a real session change',async()=>{
+ const context=setup();let finish!:(value:{status:'succeeded'})=>void;
+ context.api.manageCustomer=vi.fn(()=>new Promise<{status:'succeeded'}>(resolve=>{finish=resolve;}));
+ await context.coordinator.start();
+ const pending=context.coordinator.manageCustomer(projection.customers[0]!.id,{action:'deactivate'});
+ await vi.waitFor(()=>expect(context.api.manageCustomer).toHaveBeenCalledOnce());
+ context.replace({...snapshot,generation:2});
+ finish({status:'succeeded'});
+ expect(await pending).toEqual({status:'forbidden'});
+});
+it('T100 confirms management without cancelling a concurrent tag capture',async()=>{
+ const context=setup();let finish!:(value:{status:'succeeded'})=>void,scan!:()=>void;
+ context.api.manageCustomer=vi.fn(()=>new Promise<{status:'succeeded'}>(resolve=>{finish=resolve;}));
+ context.nfc.scan.mockImplementationOnce(async()=>{await new Promise<void>(resolve=>{scan=resolve;});return {status:'captured',payload:createCanonicalNfcUidPayload('AA'),capturedAt:createTimestamp('2026-07-15T07:00:00.000Z')};});
+ await context.coordinator.start();
+ const pending=context.coordinator.manageCustomer(projection.customers[0]!.id,{action:'rename',displayName:'Neu'});
+ await vi.waitFor(()=>expect(context.api.manageCustomer).toHaveBeenCalledOnce());
+ const capture=context.coordinator.provisionBreak('Pause');
+ await vi.waitFor(()=>expect(context.nfc.scan).toHaveBeenCalledOnce());
+ finish({status:'succeeded'});
+ expect(await pending).toEqual({status:'succeeded'});
+ expect(context.coordinator.getState().status).toBe('capturing');
+ scan();await capture;
+ expect(context.api.provisionBreakTag).toHaveBeenCalledOnce();
+});
+
+it('T100 refreshes a deferred management projection after a read-only tag check',async()=>{
+ const context=setup();let finish!:(value:{status:'succeeded'})=>void,scan!:()=>void;
+ context.api.manageCustomer=vi.fn(()=>new Promise<{status:'succeeded'}>(resolve=>{finish=resolve;}));
+ context.api.inspectTag=vi.fn(async()=>({status:'succeeded' as const,assignment:'unassigned' as const,customerName:null,locationName:null}));
+ context.nfc.scan.mockImplementationOnce(async()=>{await new Promise<void>(resolve=>{scan=resolve;});return {status:'captured',payload:createCanonicalNfcUidPayload('AA'),capturedAt:createTimestamp('2026-07-15T07:00:00.000Z')};});
+ await context.coordinator.start();
+ const pending=context.coordinator.manageCustomer(projection.customers[0]!.id,{action:'deactivate'});
+ await vi.waitFor(()=>expect(context.api.manageCustomer).toHaveBeenCalledOnce());
+ const capture=context.coordinator.inspectTag();
+ await vi.waitFor(()=>expect(context.nfc.scan).toHaveBeenCalledOnce());
+ finish({status:'succeeded'});expect(await pending).toEqual({status:'succeeded'});
+ vi.mocked(context.api.readProjection).mockResolvedValueOnce({...projection,customers:[]});
+ scan();await capture;
+ await vi.waitFor(()=>expect(context.coordinator.getState()).toMatchObject({status:'ready',projection:{customers:[]},outcome:{status:'tag_checked'}}));
+ expect(context.writer.write).not.toHaveBeenCalled();
+});

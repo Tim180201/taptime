@@ -217,7 +217,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
           : destination === 'manual' ? role === 'offline' || scanState.transmissionPaused || workState?.status === 'ready' && workState.capturePending && !workState.submitting
               ? <OfflineManualCaptureScreen manual={offlineManual} restorationKey={role === 'offline' ? 'offline' : 'pending'} transmissionPaused={scanState.transmissionPaused} transmissionRetryAvailable={scanState.transmissionRetryAvailable} capturePending={workState?.status==='ready' && workState.capturePending} confirmedOwnTime={workState?.status === 'ready' ? workState.ownTime : confirmedOwnTime} />
               : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
-          : destination === 'customers' ? work && customerAuthority ? <CustomersScreen work={work} authorityContext={customerAuthority} openCustomer={quotaCustomer}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
+          : destination === 'customers' ? work && customerAuthority ? <CustomersScreen administration={nfcSetupAvailable ? administration : undefined} work={work} authorityContext={customerAuthority} openCustomer={quotaCustomer}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
           : destination === 'employees' ? managementScope && employees ? <EmployeesScreen employees={employees} scope={managementScope} locationsEnabled={locationsEnabled} /> : null
           : destination === 'times' ? work ? <OwnTimeScreen work={work} scan={scan} />
               : <MessageScreen title="Deine Zeiten sind derzeit nicht verfügbar." />

@@ -1,3 +1,5 @@
+import {isInspectTagResult,type InspectTagRequest,type InspectTagResult} from '@taptime/mobile-work-contract';
+import {isManageCustomerRequest,isManageCustomerResult,type ManageCustomerRequest,type ManageCustomerResult} from '@taptime/mobile-work-contract';
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import { hasExactKeys, isJsonContentType, isObject, isUuid, parseJsonObject } from '../transport/strictJson';
 import type { AdminProjectionResult, AdminSetupApiPort, ProvisionAdminTagResult, CreateAdminCustomerResult } from './contracts';
@@ -19,6 +21,23 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
     this.projectionEndpoint = new URL('v1/administration/setup-projection', base);
     this.provisionEndpoint = new URL('v1/administration/nfc-tags/provision', base);
     this.provisionBreakEndpoint = new URL('v1/administration/nfc-tags/provision-break', base);
+  }
+
+  async inspectTag(command:InspectTagRequest):Promise<InspectTagResult>{
+    const response=await this.request.post(new URL('inspect',this.provisionEndpoint),JSON.stringify(command));
+    if(response.status!=='response')return {status:response.status==='authority_rejected'?'forbidden':'unavailable'};
+    if(response.statusCode===401||response.statusCode===403)return {status:'forbidden'};
+    const body=isJsonContentType(response.contentType)?parseJsonObject(response.body):null;
+    return response.statusCode===200&&isInspectTagResult(body)?body:{status:'unavailable'};
+  }
+
+  async manageCustomer(command:ManageCustomerRequest):Promise<ManageCustomerResult> {
+    if(!isManageCustomerRequest(command))return {status:'invalid_request'};
+    const response=await this.request.post(new URL('manage',this.createCustomerEndpoint.href+'/'),JSON.stringify(command));
+    if(response.status!=='response')return {status:response.status==='authority_rejected'?'forbidden':'unavailable'};
+    if(response.statusCode===401||response.statusCode===403)return {status:'forbidden'};
+    const value=isJsonContentType(response.contentType)?parseJsonObject(response.body):null;
+    return [200,400,409,503].includes(response.statusCode)&&isManageCustomerResult(value)?value:{status:'unavailable'};
   }
 
   async readCustomerLocations(expectedMembershipId: string, cursor: string | null): ReturnType<NonNullable<AdminSetupApiPort['readCustomerLocations']>> {
@@ -92,6 +111,7 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
       return { status: 'succeeded', validationFingerprint: String(body.nfcTag.validationFingerprint) };
     }
     const code = parseErrorCode(body);
+    if(code==='tag_payload_already_registered')return this.reuseTag(command);
     if (code === 'invalid_request' || code === 'assignment_target_unavailable'
       || code === 'tag_payload_already_registered' || code === 'command_id_conflict') return { status: code };
     return { status: 'unavailable' };
@@ -122,10 +142,26 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
         validationFingerprint: String(body.nfcTag.validationFingerprint) };
     }
     const code = parseErrorCode(body);
+    if(code==='tag_payload_already_registered')return this.reuseTag(command);
     if (code === 'invalid_request' || code === 'tag_payload_already_registered'
       || code === 'command_id_conflict') return { status: code };
     return { status: 'unavailable' };
   }
+  private async reuseTag(command:Parameters<NonNullable<AdminSetupApiPort['provisionBreakTag']>>[0]):Promise<ProvisionAdminTagResult>{
+      const reused=await this.request.post(new URL('reuse',this.provisionEndpoint),JSON.stringify(command));
+      if(reused.status!=='response')return reused;
+      if(reused.statusCode===401||reused.statusCode===403)return {status:'authority_rejected'};
+      const value=isJsonContentType(reused.contentType)?parseJsonObject(reused.body):null;
+      if(reused.statusCode===200&&value!==null&&hasExactKeys(value,['status','validationFingerprint'])
+        &&value.status==='succeeded'&&typeof value.validationFingerprint==='string'&&fingerprintPattern.test(value.validationFingerprint))
+        return {status:'succeeded',validationFingerprint:value.validationFingerprint};
+      const refused=parseErrorCode(value);
+      if(reused.statusCode===409 && (refused==='tag_payload_already_registered'||refused==='command_id_conflict'||refused==='assignment_target_unavailable'))return {status:refused};
+      if(reused.statusCode===409&&value!==null&&hasExactKeys(value,['status'])&&['tag_payload_already_registered','command_id_conflict','assignment_target_unavailable'].includes(String(value.status)))
+        return {status:value.status as 'tag_payload_already_registered'|'command_id_conflict'|'assignment_target_unavailable'};
+      return {status:'unavailable'};
+  }
+
 }
 
 function parseProjection(text: string): AdminProjectionResult | null {

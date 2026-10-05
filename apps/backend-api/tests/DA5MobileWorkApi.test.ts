@@ -558,3 +558,34 @@ it.each(['Bad\nName', ' Bad', 'e\u0301', 'Bad\u0000Name'])('T090 rejects noncano
   }), 400, 'invalid_request');
   expect(createProject).not.toHaveBeenCalled();
 });
+
+it.each(['succeeded','running_time','customer_unavailable','command_id_conflict','forbidden'] as const)('T100 validates customer commands and preserves %s',async status=>{
+ const manageCustomer=vi.fn(async()=>({status}));
+ const origin=await start({administration:{manageCustomer} as unknown as BackendApiDependencies['administration']});
+ const request={expectedMembershipId:ids.membership,commandId:ids.command,customerId:ids.project,action:'rename',displayName:'Schon vorhanden'};
+ const response=await post(origin,'/v1/administration/customers/manage',request);
+ expect(response.status).toBe(status==='succeeded'?200:status==='forbidden'?403:409);
+ expect(await response.json()).toEqual({status});
+ expect(manageCustomer).toHaveBeenCalledWith({...request,accessToken:'abc.def.ghi'});
+ for(const extra of [{role:'administrator'},{organizationId:ids.project},{displayName:''},{action:'reactivate'}])
+  await expectError(await post(origin,'/v1/administration/customers/manage',{...request,...extra}),400,'invalid_request');
+ expect(manageCustomer).toHaveBeenCalledTimes(1);
+});
+it('T100 tag inspection is a separate read capability with a closed payload',async()=>{
+ const inspectTag=vi.fn(async()=>({status:'succeeded' as const,assignment:'unassigned' as const,customerName:null,locationName:null}));
+ const origin=await start({administration:{inspectTag} as unknown as BackendApiDependencies['administration']});
+ const request={expectedMembershipId:ids.membership,canonicalPayload:'nfc:uid:v1:AA'};
+ expect((await post(origin,'/v1/administration/nfc-tags/inspect',request)).status).toBe(200);
+ await expectError(await post(origin,'/v1/administration/nfc-tags/inspect',{...request,organizationId:ids.project}),400,'invalid_request');
+ expect(inspectTag).toHaveBeenCalledTimes(1);
+});
+
+it.each(['customer','break'] as const)('T100 reuses a free tag for %s with a closed command',async target=>{
+ const reuseTag=vi.fn(async()=>({status:'succeeded',validationFingerprint:'A1B2C3D4E5F6'}));
+ const origin=await start({administration:{reuseTag} as unknown as BackendApiDependencies['administration']});
+ const request={expectedMembershipId:ids.membership,commandId:ids.command,displayName:'Tag',canonicalPayload:'nfc:uid:v1:AA',...(target==='customer'?{customerId:ids.project}:{})};
+ expect((await post(origin,'/v1/administration/nfc-tags/reuse',request)).status).toBe(200);
+ expect(reuseTag).toHaveBeenCalledWith({...request,accessToken:'abc.def.ghi'});
+ await expectError(await post(origin,'/v1/administration/nfc-tags/reuse',{...request,organizationId:ids.project}),400,'invalid_request');
+ expect(reuseTag).toHaveBeenCalledOnce();
+});

@@ -2307,3 +2307,34 @@ it('T-092: offline stop after revocation is review evidence and never a second s
   expect((await installerPool.query('SELECT id,status,stopped_at,stop_work_event_id,stopped_via FROM taptime_server.time_entries WHERE user_id=$1',[person.user])).rows).toEqual(before);
   expect(await eventCoordinator.ingest({accessToken:`t091:${person.user}`,command})).toMatchObject({status:'review_pending'});
 });
+
+it.each(['nfc_assignment','manual_target'] as const)('T100: pre-delete %s capture reconciles, post-delete capture becomes a customer-deleted review',async kind=>{
+ const location=randomUUID();
+ await installerPool.query("INSERT INTO taptime_server.locations(id,organization_id,display_name) VALUES($1,$2,'Nord')",[location,ids.organization]);
+ await installerPool.query('INSERT INTO taptime_server.membership_home_location_assignments(id,organization_id,membership_id,location_id) VALUES($1,$2,$3,$4)',[randomUUID(),ids.organization,ids.membership,location]);
+ await installerPool.query('INSERT INTO taptime_server.work_target_location_assignments(id,organization_id,target_type,target_id,location_id) SELECT gen_random_uuid(),organization_id,target_type,target_id,$2 FROM taptime_server.work_targets WHERE organization_id=$1 AND active',[ids.organization,location]);
+ await installerPool.query('UPDATE taptime_server.organizations SET locations_enabled=true,row_version=row_version+1 WHERE id=$1',[ids.organization]);
+ const lease=await issueLeaseV3();
+ const item=lease.items.find(i=>i.itemType===kind&&i.subjectType==='work'&&i.targetType==='customer')!;
+ expect(item).toBeDefined();
+ const before=new Date(Date.parse(lease.issuedAt)+100).toISOString(),deleted=new Date(Date.parse(lease.issuedAt)+200).toISOString();
+ await installerPool.query('UPDATE taptime_server.nfc_assignments SET active=false,valid_to=$2,row_version=row_version+1 WHERE id=$1',[ids.assignment,deleted]);
+ await installerPool.query('UPDATE taptime_server.customers SET active=false,deactivated_at=$2,row_version=row_version+1 WHERE id=$1',[ids.customer,deleted]);
+ const first=eventCommandV3(lease,item,ids.event1,ids.receipt1,1,before);
+ expect(await eventCoordinator.ingest({accessToken:'valid',command:first})).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+ const second=eventCommandV3(lease,item,ids.event2,ids.receipt2,2,deleted);
+ expect(await eventCoordinator.ingest({accessToken:'valid',command:second})).toMatchObject({status:'review_pending',reason:'customer_deleted'});
+ expect((await installerPool.query('SELECT review_reason FROM taptime_server.offline_event_reconciliations WHERE work_event_id=$1',[ids.event2])).rows).toEqual([{review_reason:'customer_deleted'}]);
+ expect(await eventCoordinator.ingest({accessToken:'valid',command:second})).toMatchObject({status:'review_pending',reason:'customer_deleted'});
+ expect(await reconciliationCoordinator.reconcileV2({accessToken:'valid',command:{workEventIds:[ids.event2]}})).toMatchObject({status:'ready',records:[{result:{status:'review_pending',reason:'customer_deleted'}}]});
+ expect((await installerPool.query('SELECT status FROM taptime_server.time_entries')).rows).toEqual([{status:'started'}]);
+ const fresh=await issueLeaseV3(randomUUID());
+ expect(fresh.items.some(i=>i.subjectType==='work'&&i.targetType==='customer'&&i.targetId===ids.customer)).toBe(false);
+});
+it('T100: renaming does not invalidate a captured customer event',async()=>{
+ const lease=await issueLeaseV3();
+ const item=lease.items.find(i=>i.itemType==='manual_target'&&i.subjectType==='work'&&i.targetType==='customer')!;
+ await installerPool.query("UPDATE taptime_server.customers SET display_name='Umbenannt',row_version=row_version+1 WHERE id=$1",[ids.customer]);
+ const command=eventCommandV3(lease,item,ids.event1,ids.receipt1,1,new Date(Date.parse(lease.issuedAt)+100).toISOString());
+ expect(await eventCoordinator.ingest({accessToken:'valid',command})).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+});

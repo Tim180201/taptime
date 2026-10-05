@@ -727,3 +727,13 @@ it('T-095b review v3 retains the coordinator receiver at the HTTP boundary',asyn
   expect((await post(origin,'/v3/administration/review-items/query',{
     expectedMembershipId:offlineEventBody().expectedMembershipId,limit:20,cursor:null})).status).toBe(200);
 });
+it.each([1,2,3,4] as const)('T100 keeps old v%s offline clients able to acknowledge customer-deleted reviews',async version=>{
+ const result:OfflineLifecycleEventResultV4={status:'review_pending',archiveStatus:'offsite_archived',idempotentRetry:false,workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,reason:'customer_deleted'};
+ const origin=await start({offlineLifecycleIngestor:{async ingest(){return result;}}});
+ for(const accept of ['application/json','application/vnd.taptime.time-details.v2+json','application/vnd.taptime.time-details.v3+json']){
+  const body=version===1?offlineEventBody():version===2||version===4?offlineEventBodyV2():{...offlineEventBodyV2(),provenanceVersion:3,workEvent:{...offlineEventBodyV2().workEvent,subject:{type:'work'}}};
+  const response=await post(origin,`/v${version}/lifecycle-events/offline`,body,{accept});
+  expect(response.status).toBe(202);
+  expect(await response.json()).toMatchObject({status:'review_pending',reason:'historical_configuration_not_valid'});
+ }
+});

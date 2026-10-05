@@ -1,3 +1,6 @@
+import {CustomerManagement} from './CustomerManagement';
+import { CustomerCreation } from './CustomerCreation';
+import type { AdminSetupCapability } from '../administration/contracts';
 import { CustomerQuota, QuotaProgress } from './CustomerQuota';
 import { businessDay, shiftMonth, formatHours, BUSINESS_TIME_ZONE } from '@taptime/core';
 import type { CustomerHoursResult } from '@taptime/mobile-work-contract';
@@ -8,7 +11,7 @@ import { ActionButton, AppText as Text, Card, Screen, TouchTarget } from '../des
 import { mobileTokens } from '../design/tokens';
 
 const label = (month: string) => new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,month:'long',year:'numeric'}).format(new Date(`${month}-15T12:00Z`));
-export function CustomersScreen({work, authorityContext, openCustomer}: {readonly work: MobileWorkCapability; readonly authorityContext: object; readonly openCustomer?:{readonly customerId:string;readonly month:string}}) {
+export function CustomersScreen({work, authorityContext, openCustomer, administration}: {readonly administration?: AdminSetupCapability; readonly work: MobileWorkCapability; readonly authorityContext: object; readonly openCustomer?:{readonly customerId:string;readonly month:string}}) {
   const current=businessDay(Date.now()).slice(0,7),months=Array.from({length:24},(_,i)=>shiftMonth(current,-i));
   const [month,setMonth]=useState(openCustomer?.month??current),[choose,setChoose]=useState(false),[selected,setSelected]=useState<string|null>(openCustomer?.customerId??null);
   const [loaded,setLoaded]=useState<{month:string;authorityContext:object;result:CustomerHoursResult}|null>(null),[refresh,setRefresh]=useState(0);
@@ -26,6 +29,7 @@ export function CustomersScreen({work, authorityContext, openCustomer}: {readonl
   const result=loaded?.month===month && loaded.authorityContext===authorityContext?loaded.result:null,value=result?.status==='ready'?result.value:null;
   const customer=value?.customers.find(c=>c.customerId===selected);
   return <Screen title="Kunden"><ScrollView contentContainerStyle={styles.content}>
+    {administration && ['administrator','standortleitung'].includes((authorityContext as {role?:string}).role ?? '') ? <CustomerCreation key={JSON.stringify(authorityContext)} administration={administration} onCreated={()=>setRefresh(n=>n+1)}/> : null}
     <View style={styles.month}>
       <TouchTarget accessibilityRole="button" accessibilityLabel="Voriger Monat" accessibilityState={{disabled:month===months.at(-1)}} disabled={month===months.at(-1)} style={styles.arrow} onPress={()=>setMonth(shiftMonth(month,-1))}><Text>←</Text></TouchTarget>
       <TouchTarget accessibilityRole="button" accessibilityLabel={`Monat auswählen: ${label(month)}`} accessibilityState={{expanded:choose}} style={styles.monthTitle} onPress={()=>setChoose(!choose)}><Text style={styles.bold}>{label(month)} ▾</Text></TouchTarget>
@@ -36,6 +40,7 @@ export function CustomersScreen({work, authorityContext, openCustomer}: {readonl
       <Text style={styles.muted}>{value.scope==='self'?'Deine eigenen Stunden je Kunde.':'Geleistete Stunden je Kunde und Person.'} Stand {new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,hour:'2-digit',minute:'2-digit'}).format(new Date(value.asOf))}</Text>
       {customer ? <Card><ActionButton title="Zur Kundenliste" tone="quiet" onPress={()=>setSelected(null)}/><Text accessibilityRole="header" style={styles.title}>{customer.displayName}</Text>
         {!customer.active?<Text>inaktiv</Text>:null}<Text style={styles.total}>{formatHours(customer.workDurationSeconds*1000)} h</Text>{customer.running?<Text>läuft</Text>:null}
+        {customer.active && administration && ['administrator','standortleitung'].includes((authorityContext as {role?:string}).role??'')?<CustomerManagement key={`${JSON.stringify(authorityContext)}/${customer.customerId}`} customer={customer} administration={administration} onSaved={()=>setRefresh(n=>n+1)}/>:null}
         {'quotaStage' in customer?<CustomerQuota key={`${month}/${customer.customerId}`} customer={customer} work={work} editable={month===current && (authorityContext as {role?:string}).role!=='employee' && (customer.active || (authorityContext as {role?:string}).role==='administrator')} onSaved={()=>setRefresh(n=>n+1)}/>:null}
         <Text style={styles.bold}>{'people' in customer?'Stunden je Person':'Deine Stunden je Tag'}</Text>
         {('people' in customer?customer.people.map(p=>({key:p.membershipId,label:p.displayName,...p})):customer.days.map(d=>({key:d.date,label:d.date.split('-').reverse().join('.'),...d}))).map(p=><View key={p.key} style={styles.row}><Text style={styles.name}>{p.label}{p.running?' · läuft':''}</Text><Text style={styles.bold}>{formatHours(p.workDurationSeconds*1000)} h</Text></View>)}

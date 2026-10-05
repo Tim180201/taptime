@@ -63,6 +63,7 @@ class FakeScanRuntimeOwner implements ProductScanRuntimeOwner {
 class FakeAdministrationRuntimeOwner {
   async prepareCustomer() { return { status: 'unavailable' as const }; }
   async createCustomer() {}
+  readonly manageCustomer=vi.fn<NonNullable<import('../../src/administration/contracts').AdminSetupCapability['manageCustomer']>>(async()=>({status:'succeeded'}));
 
   readonly start = vi.fn<() => Promise<void>>(async () => undefined);
   readonly stop = vi.fn<() => Promise<void>>(async () => undefined);
@@ -185,6 +186,14 @@ describe('DefaultProductMobileRuntime lifecycle', () => {
     await runtime.administration.provision('customer','Tag');
     await runtime.administration.provisionBreak('Pause');
     expect(scan.refreshOfflineGrant).toHaveBeenCalledTimes(3);
+  });
+  it('T100 refreshes the offline grant only after confirmed customer mutation',async()=>{
+    const {runtime,scan,administration}=setup();
+    administration.manageCustomer.mockResolvedValueOnce({status:'running_time'});
+    expect(await runtime.administration.manageCustomer?.('customer',{action:'deactivate'})).toEqual({status:'running_time'});
+    expect(scan.refreshOfflineGrant).not.toHaveBeenCalled();
+    await runtime.administration.manageCustomer?.('customer',{action:'deactivate'});
+    expect(scan.refreshOfflineGrant).toHaveBeenCalledOnce();
   });
   it('T103 forwards stopping the confirmed active target through the production React facade', async () => {
     const target = {targetType:'customer' as const,targetId:'20000000-0000-4000-8000-000000000001',displayName:'Kunde X'};

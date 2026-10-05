@@ -1,3 +1,6 @@
+import {AdminWriteSessionCoordinator} from '@taptime/backend-administration';
+import {MembershipId} from '@taptime/core';
+import {randomUUID} from 'node:crypto';
 import { createHash } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import { TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS, type TimeEntryExportRequest } from '@taptime/time-entry-export-contract';
@@ -57,6 +60,51 @@ describe('DA2 PostgreSQL export security and truth', () => {
     run: () => void | Promise<void>,
     timeout?: number,
   ) => testCases.push({ name, run, timeout });
+
+  registerExportTest('T100 customer rename/deletion retains calendar, customer hours, quotas and export',async()=>{
+    await stopActiveEntryA(installerPool);
+    const setup=new AdminWriteSessionCoordinator(installerPool,verifier);
+    const actor={accessToken:tokens.adminA,expectedMembershipId:MembershipId(ids.membershipAdminA)};
+    expect(await setup.setCustomerQuota({...actor,customerId:ids.customerA,minutes:120,commandId:randomUUID()})).toEqual({status:'succeeded'});
+    expect(await setup.manageCustomer({...actor,customerId:ids.customerA,action:'rename',displayName:'T100 Umbenannt',commandId:randomUUID()})).toEqual({status:'succeeded'});
+    const exported=await exportV3As(tokens.adminA);
+    expect(exported.status).toBe('succeeded');
+    if(exported.status!=='succeeded')throw new Error('export');
+    expect(Buffer.from(exported.bytes).toString('utf8')).toContain('T100 Umbenannt');
+    const snapshots=async()=>{
+      const c=await installerPool.connect();
+      try{
+        await c.query('BEGIN');
+        await c.query("SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true)",[ids.organizationA,ids.adminA,ids.membershipAdminA]);
+        await c.query('SET LOCAL ROLE taptime_mobile_own_time_reader');
+        const hours=(await c.query("SELECT taptime_server.read_customer_hours_v2('2026-07-01T00:00+02:00','2026-08-01T00:00+02:00') result")).rows[0].result.customers.find((customer:{customerId:string})=>customer.customerId===ids.customerA);
+        const employeeHours=[];
+        for(const [user,membership] of [[ids.employeeA,ids.membershipEmployeeA],[ids.employeeA2,ids.membershipEmployeeA2]]){
+          await c.query("SELECT set_config('app.user_id',$1,true),set_config('app.membership_id',$2,true),set_config('app.membership_role','employee',true)",[user,membership]);
+          const value=(await c.query("SELECT taptime_server.read_customer_hours_v2('2026-07-01T00:00+02:00','2026-08-01T00:00+02:00') result")).rows[0].result;
+          expect(value.scope).toBe('self');
+          expect(value.customers.some((customer:{customerId:string})=>customer.customerId===ids.customerB)).toBe(false);
+          employeeHours.push(value.customers.find((customer:{customerId:string})=>customer.customerId===ids.customerA));
+        }
+        await c.query("SELECT set_config('app.user_id',$1,true),set_config('app.membership_id',$2,true),set_config('app.membership_role','administrator',true)",[ids.adminA,ids.membershipAdminA]);
+        await c.query('RESET ROLE');
+        await c.query('SET LOCAL ROLE taptime_time_review_reader');
+        const calendar=(await c.query("SELECT * FROM taptime_server.read_effective_time_records_v2($1,$2,$3,'2026-07-01T00:00+02:00','2026-08-01T00:00+02:00',NULL,NULL,20)",[ids.organizationA,ids.adminA,ids.membershipAdminA])).rows;
+        await c.query('RESET ROLE');
+        const quotas=(await c.query('SELECT * FROM taptime_server.customer_quota_settings WHERE customer_id=$1',[ids.customerA])).rows;
+        return {hours,employeeHours,calendar,quotas};
+      }finally{await c.query('ROLLBACK');c.release();}
+    };
+    const before=await snapshots();
+    expect(before.calendar.some(row=>row.target_display_name==='T100 Umbenannt')).toBe(true);
+    for(const hours of before.employeeHours)expect(hours).toMatchObject({customerId:ids.customerA,active:true,days:expect.any(Array)});
+    expect(await setup.manageCustomer({...actor,customerId:ids.customerA,action:'deactivate',commandId:randomUUID()})).toEqual({status:'succeeded'});
+    const after=await snapshots();
+    expect(after).toEqual({...before,hours:{...before.hours,active:false},employeeHours:before.employeeHours.map(hours=>({...hours,active:false}))});
+    const deletedExport=await exportV3As(tokens.adminA);
+    expect(deletedExport.status).toBe('succeeded');
+    if(deletedExport.status==='succeeded')expect(deletedExport.bytes).toEqual(exported.bytes);
+  });
 
   registerExportTest('T-066 v4 exposes all origins and current comment without changing v3 bytes',async()=>{
     const recovered='60000000-0000-4000-8000-000000000166';

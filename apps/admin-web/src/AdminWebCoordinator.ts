@@ -1,3 +1,4 @@
+import type {CustomerManagementChange,ManageCustomerResult} from '@taptime/mobile-work-contract';
 import { captureFeedback } from '@taptime/mobile-work-contract';
 import { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';
 import {isVoidTimeRequest,loadVoidedTimePages,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
@@ -241,6 +242,34 @@ export class AdminWebCoordinator implements AdminWebCapability {
       }
     }
     return outcome;
+  }
+
+  private pendingCustomerManagement:{key:string;commandId:string;generation:number}|null=null;
+  private customerManagementBusy=false;
+  async manageCustomer(customerId:string,change:CustomerManagementChange):Promise<ManageCustomerResult> {
+    const session=this.session,generation=this.generation;
+    if(this.state.status!=='ready'||!session||session.role==='employee')return {status:'forbidden'};
+    if(this.customerManagementBusy)return {status:'unavailable'};
+    if(change.action==='rename'){
+      const name=normalizeCustomerNameV1(change.displayName);
+      if(name.status!=='valid')return {status:'invalid_request'};
+      change={action:'rename',displayName:name.canonicalName};
+    }
+    const key=JSON.stringify([customerId,change]);
+    if(this.pendingCustomerManagement?.key!==key||this.pendingCustomerManagement.generation!==generation)
+      this.pendingCustomerManagement={key,commandId:crypto.randomUUID(),generation};
+    const pending=this.pendingCustomerManagement;
+    this.customerManagementBusy=true;
+    try{
+      const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.manageCustomer?.(token,
+        {expectedMembershipId:session.membershipId,commandId:pending.commandId,customerId,...change})??Promise.resolve({status:'unreachable'})));
+      if(generation!==this.generation||session!==this.session||this.state.status!=='ready')return {status:'forbidden'};
+      if(result.status==='succeeded'){
+        if(result.value.status==='succeeded'&&this.pendingCustomerManagement===pending)this.pendingCustomerManagement=null;
+        return result.value;
+      }
+      return {status:result.status==='rejected'?'forbidden':'unavailable'};
+    }finally{this.customerManagementBusy=false;}
   }
 
   private pendingQuota: {key:string;commandId:string;generation:number}|null=null;

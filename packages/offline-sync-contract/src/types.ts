@@ -299,6 +299,7 @@ export type OfflineReviewReason =
   | 'identity_or_membership_not_current'
   | 'capture_time_out_of_bounds'
   | 'automatic_window_elapsed'
+  | 'customer_deleted'
   | 'historical_configuration_not_valid'
   | 'predecessor_requires_review';
 

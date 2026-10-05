@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { createCanonicalNfcUidPayload } from '@taptime/core';
 import { act, createElement, useEffect, useImperativeHandle, type ReactNode, type Ref } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { fireEvent } from '@testing-library/react';
@@ -30,6 +31,7 @@ vi.mock('react-native', () => {
   };
 });
 const { AdminSetupScreen } = await import('../../src/screens/AdminSetupScreen');
+const { CustomersScreen } = await import('../../src/screens/CustomersScreen');
 const { TimeCalendar } = await import('../../src/screens/TimeCalendar');
 const locationA = '50000000-0000-4000-8000-000000000001';
 const customer = { id: '40000000-0000-4000-8000-000000000001', displayName: 'Neuer Kunde', active: true };
@@ -38,14 +40,16 @@ const empty = { status: 'succeeded' as const, organization: { id: snapshot.sessi
 function harness(locations = [{ id: locationA, displayName: 'Nord' }]) {
   let current = snapshot;
   const online = vi.fn(async () => true);
-  const api = { readProjection: vi.fn(async () => empty),
+  const api = { manageCustomer: vi.fn<NonNullable<AdminSetupApiPort['manageCustomer']>>(async()=>({status:'succeeded'})), readProjection: vi.fn<AdminSetupApiPort['readProjection']>(async () => empty),
     readCustomerLocations: vi.fn(async () => ({ status: 'succeeded' as const, locations, nextCursor: null })),
     createCustomer: vi.fn<NonNullable<AdminSetupApiPort['createCustomer']>>(async () => ({ status: 'succeeded', customer })),
-    provisionTag: vi.fn(async () => ({ status: 'unavailable' as const })) };
+    provisionTag: vi.fn<AdminSetupApiPort['provisionTag']>(async () => ({ status: 'succeeded', validationFingerprint:'ABCDEF123456' })) };
+  const nfc = { scan: vi.fn(async () => ({ status: 'captured' as const, payload: createCanonicalNfcUidPayload('04AABBCCDD1122') })), checkCapability: vi.fn(), cancelCapture: vi.fn(), stop: vi.fn() };
+  const writer = { write: vi.fn<import('../../src/administration/NfcTagWriter').NfcTagWriter['write']>(async () => ({ status: 'written' })), cancel: vi.fn() };
   const coordinator = new AdminSetupCoordinator({ capture: () => current, isCurrent: candidate => candidate === current, subscribe: () => () => {} },
-    { scan: vi.fn(), checkCapability: vi.fn(), cancelCapture: vi.fn(), stop: vi.fn() }, api,
-    () => '60000000-0000-4000-8000-000000000001', { write: vi.fn(), cancel: vi.fn() }, online);
-  return { api, coordinator, online, replace() { current = { ...snapshot, generation: 2 }; } };
+    nfc, api,
+    () => '60000000-0000-4000-8000-000000000001', writer, online);
+  return { api, coordinator, online, nfc, writer, replace() { current = { ...snapshot, generation: 2 }; } };
 }
 let root: Root, container: HTMLDivElement;
 beforeEach(() => { Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true }); native.scroll.mockClear(); native.reduced = false;
@@ -54,26 +58,24 @@ afterEach(async () => { await act(async () => root.unmount()); container.remove(
 const click = async (label: string) => { const button = [...container.querySelectorAll('button')].find(node => node.textContent === label || node.getAttribute('aria-label') === label); if (!button) throw Error(label); await act(async () => button.click()); };
 const fill = async (label: string, value: string) => { await act(async () => fireEvent.change(container.querySelector(`[aria-label="${label}"]`)!, { target: { value } })); };
 
-it.each([1, 2])('creates in the form, preselects the customer after reload and keeps tag setup ready (%s locations)', async count => {
+it.each([1, 2])('T100 creates from Customers and immediately assigns a tag (%s locations)', async count => {
   const h = harness(count === 1 ? undefined : [{ id: locationA, displayName: 'Nord' }, { id: '50000000-0000-4000-8000-000000000002', displayName: 'Süd' }]);
   await h.coordinator.start();
-  await act(async () => root.render(createElement(AdminSetupScreen, { administration: h.coordinator })));
-  await click('Tag zuordnen'); await click('+ Neuer Kunde'); await fill('Name des neuen Kunden', customer.displayName);
+  await act(async () => root.render(createElement(CustomersScreen, { administration: h.coordinator, authorityContext: snapshot.session, work: {readCustomerHours: async () => ({status:'ready', value:{version:'customer-hours.v1',scope:'people',asOf:new Date().toISOString(),customers:[]}})} as unknown as import('../../src/work/contracts').MobileWorkCapability })));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
   if (count === 2) await click('Nord');
   h.api.readProjection.mockResolvedValue({ ...empty, customers: [customer] });
-  await click('Kunde anlegen');
+  await click('NFC-Tag zuordnen');
   expect(h.api.createCustomer).toHaveBeenCalledWith({ expectedMembershipId: snapshot.session.membershipId,
     commandId: '60000000-0000-4000-8000-000000000001', displayName: customer.displayName, locationId: locationA });
-  expect([...container.querySelectorAll('button')].find(node => node.textContent === customer.displayName)?.getAttribute('aria-selected')).toBe('true');
-  expect(container.textContent).toContain('Der neue Kunde ist ausgewählt');
-  expect(container.textContent).toContain('Tag erfassen');
+  expect(h.api.provisionTag).toHaveBeenCalledWith(expect.objectContaining({customerId:customer.id, displayName:customer.displayName}));
   expect(container.textContent).not.toContain('Admin-Web');
 });
 it('shows the offline hint, preserves the name and never queues or sends a customer command', async () => {
   const h = harness(); await h.coordinator.start();
-  await act(async () => root.render(createElement(AdminSetupScreen, { administration: h.coordinator })));
-  await click('Tag zuordnen'); await click('+ Neuer Kunde'); await fill('Name des neuen Kunden', 'Noch offline');
-  h.online.mockResolvedValue(false); await click('Kunde anlegen');
+  await act(async () => root.render(createElement(CustomersScreen, { administration: h.coordinator, authorityContext: snapshot.session, work: {readCustomerHours: async () => ({status:'ready', value:{version:'customer-hours.v1',scope:'people',asOf:new Date().toISOString(),customers:[]}})} as unknown as import('../../src/work/contracts').MobileWorkCapability })));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', 'Noch offline');
+  h.online.mockResolvedValue(false); await click('Nur anlegen');
   expect(container.textContent).toContain('Du bist offline');
   expect((container.querySelector('[aria-label="Name des neuen Kunden"]') as HTMLInputElement).value).toBe('Noch offline');
   expect(h.api.createCustomer).not.toHaveBeenCalled();
@@ -112,4 +114,114 @@ it.each([false, true])('scrolls a selected calendar day to its measured heading 
   expect(native.scroll).toHaveBeenLastCalledWith({ y: native.headingY, animated: !reduced });
   native.scroll.mockClear(); await click('Voriger Monat');
   expect(changeMonth).toHaveBeenCalledWith('2026-08'); expect(native.scroll).not.toHaveBeenCalled();
+});
+
+it('T100 removes customer creation from Tags and hides customer actions from employees', async () => {
+  const h = harness(); await h.coordinator.start();
+  await act(async () => root.render(createElement(AdminSetupScreen, {administration:h.coordinator})));
+  await click('Tag zuordnen'); expect(container.textContent).not.toContain('+ Neuer Kunde');
+  await act(async () => root.render(createElement(CustomersScreen, {administration:h.coordinator,
+    authorityContext:{role:'employee'}, work:{} as unknown as import('../../src/work/contracts').MobileWorkCapability})));
+  expect(container.textContent).not.toContain('+ Kunde hinzufügen');
+});
+it('T100 only creates without reading or writing a tag', async () => {
+  const h = harness(); await h.coordinator.start();
+  await act(async () => root.render(createElement(CustomersScreen, {administration:h.coordinator,
+    authorityContext:snapshot.session, work:{} as unknown as import('../../src/work/contracts').MobileWorkCapability})));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
+  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  await click('Nur anlegen'); expect(h.api.createCustomer).toHaveBeenCalledTimes(1);
+  expect(h.api.provisionTag).not.toHaveBeenCalled(); expect(h.nfc.scan).not.toHaveBeenCalled(); expect(h.writer.write).not.toHaveBeenCalled(); expect(container.textContent).toContain('Kunde angelegt');
+});
+
+it('T100 retries tag writing without creating another customer', async () => {
+  const h=harness(); await h.coordinator.start();
+  await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
+    authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
+  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  h.writer.write.mockResolvedValueOnce({status:'failed',reason:'write_failed'});
+  await click('NFC-Tag zuordnen'); expect(container.textContent).toContain('Tag konnte nicht beschrieben');
+  await click('Tag-Zuordnung erneut versuchen');
+  expect(h.api.createCustomer).toHaveBeenCalledTimes(1); expect(h.api.provisionTag).toHaveBeenCalledTimes(1);
+  expect(container.textContent).toContain('Kunde angelegt und Tag zugeordnet');
+});
+it('T100 reloads a confirmed customer before retrying a failed list refresh, without another insert', async () => {
+  const h=harness(); await h.coordinator.start();
+  await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
+    authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
+  await click('NFC-Tag zuordnen'); expect(h.nfc.scan).not.toHaveBeenCalled();
+  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  await click('Tag-Zuordnung erneut versuchen');
+  expect(h.api.createCustomer).toHaveBeenCalledTimes(1); expect(h.api.provisionTag).toHaveBeenCalledTimes(1);
+});
+it('T100 cancels a running setup scan when leaving Customers', async () => {
+  const h=harness(); await h.coordinator.start();
+  await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
+    authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
+  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  h.nfc.scan.mockImplementationOnce(()=>new Promise(()=>{}));
+  await click('NFC-Tag zuordnen'); h.nfc.cancelCapture.mockClear();
+  await act(async()=>root.render(createElement('div')));
+  expect(h.nfc.cancelCapture).toHaveBeenCalledTimes(1);
+});
+
+it('T100 finishes Only create even when the following list refresh fails', async () => {
+  const h=harness(); await h.coordinator.start();
+  await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
+    authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
+  await click('Nur anlegen'); expect(h.api.createCustomer).toHaveBeenCalledTimes(1);
+  expect(container.querySelector('[aria-label="Name des neuen Kunden"]')).toBeNull();
+  expect(container.textContent).toContain('Kunde angelegt');
+  expect(h.nfc.scan).not.toHaveBeenCalled();
+});
+
+it('T100 recovers customer creation after initial setup loading failed', async () => {
+  const h=harness(); h.api.readProjection.mockResolvedValueOnce({status:'unavailable'});
+  await h.coordinator.start(); expect(h.coordinator.getState().status).toBe('inactive');
+  await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
+    authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden',customer.displayName);
+  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  await click('Nur anlegen'); expect(h.api.createCustomer).toHaveBeenCalledTimes(1);
+  expect(container.textContent).toContain('Kunde angelegt');
+});
+it('T100 shows and retries a failed setup reload without losing the name', async () => {
+  const h=harness(); h.api.readProjection.mockResolvedValue({status:'unavailable'});
+  await h.coordinator.start();
+  await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
+    authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
+  await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden',customer.displayName);
+  expect(container.textContent).toContain('Kundeneinrichtung konnte nicht geladen');
+  expect(h.api.createCustomer).not.toHaveBeenCalled();
+  h.api.readProjection.mockResolvedValue(empty); await click('Erneut laden');
+  expect((container.querySelector('[aria-label="Name des neuen Kunden"]') as HTMLInputElement).value).toBe(customer.displayName);
+  await click('Nur anlegen'); expect(h.api.createCustomer).toHaveBeenCalledTimes(1);
+});
+
+it.each(['succeeded','unavailable'] as const)('T100 keeps confirmed creation during a deferred management reload (%s)',async reloadStatus=>{
+ const h=harness();await h.coordinator.start();
+ let finishManagement!:(value:{status:'succeeded'})=>void;
+ let finishCreation!:(value:{status:'succeeded';customer:typeof customer})=>void;
+ let finishReload!:(value:Awaited<ReturnType<AdminSetupApiPort['readProjection']>>)=>void;
+ h.api.manageCustomer.mockImplementationOnce(()=>new Promise(resolve=>{finishManagement=resolve;}));
+ h.api.createCustomer.mockImplementationOnce(()=>new Promise(resolve=>{finishCreation=resolve;}));
+ const management=h.coordinator.manageCustomer('40000000-0000-4000-8000-000000000002',{action:'deactivate'});
+ await vi.waitFor(()=>expect(finishManagement).toBeDefined());
+ await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
+   authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
+ await click('+ Kunde hinzufügen');await fill('Name des neuen Kunden',customer.displayName);
+ await click('Nur anlegen');expect(h.api.createCustomer).toHaveBeenCalledOnce();
+ await act(async()=>{finishManagement({status:'succeeded'});await management;});
+ h.api.readProjection.mockResolvedValueOnce({...empty,customers:[customer]})
+   .mockImplementationOnce(()=>new Promise(resolve=>{finishReload=resolve;}));
+ await act(async()=>finishCreation({status:'succeeded',customer}));
+ expect(h.coordinator.getState().status).toBe('loading');
+ await act(async()=>finishReload(reloadStatus==='succeeded'?{...empty,customers:[customer]}:{status:'unavailable'}));
+ expect(container.textContent).toContain('Kunde angelegt.');
+ expect(container.querySelector('[aria-label="Name des neuen Kunden"]')).toBeNull();
+ expect(h.api.createCustomer).toHaveBeenCalledOnce();
 });

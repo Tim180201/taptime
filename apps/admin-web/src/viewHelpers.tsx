@@ -16,6 +16,7 @@ export function reviewReasonLabel(value: string): string {
     identity_or_membership_not_current: 'Identität oder Mitgliedschaft nicht aktuell',
     capture_time_out_of_bounds: 'Erfassungszeit außerhalb des Fensters',
     automatic_window_elapsed: 'Automatisches Zeitfenster abgelaufen',
+    customer_deleted: 'Kunde wurde gelöscht',
     historical_configuration_not_valid: 'Historische Konfiguration ungültig',
     predecessor_requires_review: 'Vorgänger muss geprüft werden',
     server_lifecycle_deferred: 'Verarbeitung auf dem Server zurückgestellt',

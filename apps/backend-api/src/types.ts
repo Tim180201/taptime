@@ -157,6 +157,9 @@ export interface ManualLifecycleIngestor {
 }
 
 export interface AdministrationCoordinator {
+  inspectTag?(command:import('@taptime/mobile-work-contract').InspectTagRequest & {readonly accessToken:string}):Promise<import('@taptime/mobile-work-contract').InspectTagResult>;
+  reuseTag?(command:ProvisionNfcTagCommand|ProvisionBreakNfcTagCommand):Promise<{readonly status:string;readonly validationFingerprint?:string}>;
+  manageCustomer?(command: import('@taptime/mobile-work-contract').ManageCustomerRequest & {readonly accessToken:string}):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
   setCustomerQuota?(command: import('@taptime/mobile-work-contract').SetCustomerQuotaRequest & {readonly accessToken:string}): Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   createCustomer(
     command: CreateCustomerCommand,
@@ -320,6 +323,7 @@ export type BackendApiRoute =
   | 'manual_lifecycle'
   | 'manual_break_lifecycle'
   | 'customer_hours'
+  | 'admin_customer_manage' | 'admin_tag_inspect' | 'admin_tag_reuse'
   | 'admin_customer_quota'
   | 'mobile_own_time'
   | 'mobile_work_targets'

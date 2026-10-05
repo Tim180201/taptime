@@ -1,3 +1,4 @@
+import {CustomerManagement} from './CustomerManagement';
 import { CustomerQuota, QuotaProgress } from './CustomerQuota';
 import { businessDay, shiftMonth, formatHours } from '@taptime/core';
 import type { CustomerHoursResult } from '@taptime/mobile-work-contract';
@@ -40,6 +41,7 @@ export default function CustomersView({ administration, route, navigate, openCus
           <button className="quiet" onClick={()=>setSelected(null)}>Zur Kundenliste</button>
           {!customer.active ? <span className="status-pill">inaktiv</span> : null}
           <p className="customer-total">{formatHours(customer.workDurationSeconds*1000)} h {customer.running ? <span className="status-pill">läuft</span> : null}</p>
+          {customer.active && value.scope==='people'?<CustomerManagement key={`${authorityContext}/${customer.customerId}`} customer={customer} administration={administration} onSaved={()=>setRefresh(n=>n+1)}/>:null}
           {'quotaStage' in customer?<CustomerQuota key={`${month}/${customer.customerId}`} customer={customer} administration={administration} editable={month===current && administration.getState().status==='ready' && (administration.getState() as {role:string}).role!=='employee' && (customer.active || (administration.getState() as {role:string}).role==='administrator')} onSaved={()=>setRefresh(n=>n+1)}/>:null}
           <h3>{'people' in customer ? 'Stunden je Person' : 'Ihre Stunden je Tag'}</h3>
           <ul className="customer-rows">{('people' in customer ? customer.people.map(p=>({key:p.membershipId,label:p.displayName,...p})) : customer.days.map(d=>({key:d.date,label:d.date.split('-').reverse().join('.'),...d}))).map(p=><li key={p.key}><span>{p.label}{p.running ? <small> · läuft</small> : null}</span><strong>{formatHours(p.workDurationSeconds*1000)} h</strong></li>)}</ul>

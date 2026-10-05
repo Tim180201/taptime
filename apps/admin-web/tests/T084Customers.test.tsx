@@ -41,3 +41,24 @@ it('web client accepts exact self schema and rejects a person breakdown in self 
  await expect(api.customerHours('synthetic',request)).resolves.toEqual({status:'invalid_response'});
  expect(fetcher.mock.calls[0]![0]).toBe('/v1/customers/hours/query');
 });
+it('T100 allows rename and requires explicit deletion confirmation, preserving the running-time message',async()=>{
+ const value:CustomerHoursResponse={...people,customers:people.customers.map(c=>({...c,active:true}))};
+ const manageCustomer=vi.fn<NonNullable<AdminWebCapability['manageCustomer']>>().mockResolvedValue({status:'running_time'});
+ const readCustomerHours=vi.fn(async()=>({status:'ready' as const,value}));
+ render(<CustomersView administration={{readCustomerHours,manageCustomer} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
+ fireEvent.click(await screen.findByRole('button',{name:/Werkstatt/}));
+ fireEvent.click(screen.getByText('Kunde löschen'));
+ expect(screen.getByText('Kunde Werkstatt löschen? Stunden bleiben erhalten.')).toBeInTheDocument();
+ expect(manageCustomer).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByText('Löschen bestätigen'));
+ expect(await screen.findByText('Erst die laufende Zeit beenden')).toBeInTheDocument();
+ expect(manageCustomer).toHaveBeenCalledWith(cid,{action:'deactivate'});
+ fireEvent.click(screen.getByText('Abbrechen'));
+ fireEvent.click(screen.getByText('Kunde umbenennen'));
+ fireEvent.change(screen.getByLabelText('Neuer Kundenname'),{target:{value:'Bestehender Name'}});
+ manageCustomer.mockResolvedValueOnce({status:'succeeded'});
+ fireEvent.click(screen.getByText('Namen speichern'));
+ await screen.findByText('Kunde umbenennen');
+ expect(manageCustomer).toHaveBeenLastCalledWith(cid,{action:'rename',displayName:'Bestehender Name'});
+ expect(readCustomerHours).toHaveBeenCalledTimes(2);
+});

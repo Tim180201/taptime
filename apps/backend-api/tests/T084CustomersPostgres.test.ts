@@ -112,10 +112,11 @@ it('D099 manager uses the latest customer binding and current grants', () => tra
   await c.query('UPDATE taptime_server.membership_management_location_grants SET revoked_at=clock_timestamp() WHERE membership_id=$1', [manager.member]);
   expect((await read(c, manager)).customers).toEqual([]);
 }));
-it.each([true,false])('D099 never-bound inactive customer is admin-only, locations enabled=%s', enabled => transaction(async c => {
+it.each([true,false])('T100 never-bound inactive customer retains own hours without granting manager or other employee access, locations enabled=%s', enabled => transaction(async c => {
   if (!enabled) await c.query('UPDATE taptime_server.organizations SET locations_enabled=false,row_version=row_version+1 WHERE id=$1', [ids.organizationA]);
   expect((await read(c)).customers.map((r:any)=>r.customerId)).toContain(inactiveNeverBound);
-  for (const actor of [employee,manager]) expect((await read(c,actor)).customers.map((r:any)=>r.customerId)).not.toContain(inactiveNeverBound);
+  expect((await read(c,employee)).customers.find((r:any)=>r.customerId===inactiveNeverBound)).toMatchObject({active:false,workDurationSeconds:3600,days:[{date:'2026-10-14',workDurationSeconds:3600,running:false}]});
+  for (const actor of [other,manager]) expect((await read(c,actor)).customers.map((r:any)=>r.customerId)).not.toContain(inactiveNeverBound);
 }));
 it.each([admin,manager,employee])('D099 inactive customers disappear without visible hours in the chosen month for $role', actor => transaction(async c => {
   const result=await read(c,actor,'2026-11-01T00:00:00+01:00','2026-12-01T00:00:00+01:00');

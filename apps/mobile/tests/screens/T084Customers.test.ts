@@ -76,3 +76,14 @@ it('hides loaded people hours immediately when the session context changes and i
  expect(container.textContent).not.toContain('Person B');
  expect(container.textContent).toContain('Deine Stunden je Tag');
 });
+it('T100 confirms deletion before mutation and displays a running-time rejection',async()=>{
+ const {CustomerManagement}=await import('../../src/screens/CustomerManagement');
+ const manageCustomer=vi.fn(async()=>({status:'running_time' as const}));
+ await act(async()=>root.render(createElement(CustomerManagement,{customer,administration:{manageCustomer} as unknown as import('../../src/administration/contracts').AdminSetupCapability,onSaved:vi.fn()})));
+ await click('Kunde löschen');
+ expect(container.textContent).toContain('Kunde Werkstatt löschen? Stunden bleiben erhalten.');
+ expect(manageCustomer).not.toHaveBeenCalled();
+ await click('Löschen bestätigen');
+ expect(manageCustomer).toHaveBeenCalledWith(cid,{action:'deactivate'});
+ expect(container.textContent).toContain('Erst die laufende Zeit beenden');
+});

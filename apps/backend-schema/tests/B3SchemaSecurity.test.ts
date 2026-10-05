@@ -3044,8 +3044,7 @@ describe('B3 production administrative capability boundaries', () => {
 
   it('protects Customer ownership and history through setup-owner UPDATE column grants', async () => {
     const forbiddenColumns = [
-      'id', 'organization_id', 'display_name', 'activated_at', 'deactivated_at',
-      'created_at', 'updated_at', 'row_version',
+      'id', 'organization_id', 'activated_at', 'created_at', 'updated_at',
     ];
     const privileges = await installerPool.query<{ column_name: string; granted: boolean }>(`
       SELECT column_name,
@@ -3070,12 +3069,9 @@ describe('B3 production administrative capability boundaries', () => {
     const assignments = [
       `id = '${ids.customerA}'`,
       `organization_id = '${ids.organizationA}'`,
-      "display_name = 'Forbidden Customer Rename'",
       "activated_at = '2026-07-01T00:00:00Z'",
-      'deactivated_at = NULL',
       "created_at = '2026-07-01T00:00:00Z'",
       "updated_at = '2026-07-01T00:00:00Z'",
-      'row_version = 2',
     ];
     for (const assignment of assignments) {
       const error = await postgresErrorDetails(withCapabilityTransaction(

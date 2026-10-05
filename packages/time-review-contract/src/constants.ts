@@ -14,6 +14,6 @@ export const TIME_REVIEW_REASONS = [
   'event_content_conflict', 'sequence_content_conflict', 'lease_binding_conflict',
   'receipt_metadata_conflict', 'invalid_response', 'http_400', 'http_409', 'http_422',
   'identity_or_membership_not_current', 'capture_time_out_of_bounds', 'automatic_window_elapsed',
-  'historical_configuration_not_valid', 'predecessor_requires_review', 'server_lifecycle_deferred',
+  'customer_deleted', 'historical_configuration_not_valid', 'predecessor_requires_review', 'server_lifecycle_deferred',
   ...BUSINESS_ENGINE_ESCALATION_REASONS,
 ] as const;

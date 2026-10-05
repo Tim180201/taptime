@@ -202,6 +202,7 @@ export type AdminWebState =
       readonly completedAction?: CompletedAdminAction | null;
     };
 export interface AdminWebCapability {
+  manageCustomer?(customerId:string,change:import('@taptime/mobile-work-contract').CustomerManagementChange):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
   setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   readCustomerHours?(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult>;
   readonly loadVoidedTime?: (targetMembershipId:string,fromInclusive:string,toExclusive:string)=>Promise<import('@taptime/mobile-work-contract').VoidedTimeSelection>;

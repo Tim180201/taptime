@@ -1,3 +1,5 @@
+import {isInspectTagRequest,type InspectTagRequest,type InspectTagResult} from '@taptime/mobile-work-contract';
+import { isManageCustomerRequest, type ManageCustomerRequest, type ManageCustomerResult } from '@taptime/mobile-work-contract';
 import { isSetCustomerQuotaRequest, type SetCustomerQuotaRequest, type SetCustomerQuotaResult } from '@taptime/mobile-work-contract';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import {
@@ -750,7 +752,7 @@ export class AdminWriteSessionCoordinator {
                NULL::uuid AS active_assignment_id,
                NULL::text AS assignment_type
              FROM taptime_server.customers AS customer
-             WHERE customer.organization_id = $1
+             WHERE customer.organization_id = $1 AND customer.active
              UNION ALL
              SELECT
                1::integer AS kind_order,
@@ -853,6 +855,37 @@ export class AdminWriteSessionCoordinator {
       },
       null,
     );
+  }
+
+  async inspectTag(command:InspectTagRequest & {readonly accessToken:string}):Promise<InspectTagResult> {
+    const {accessToken,...request}=command;
+    if(!isInspectTagRequest(request))return {status:'invalid_request'};
+    return this.runWithAuthority<InspectTagResult>(accessToken,request.expectedMembershipId as MembershipId,null,{},async client=>{
+      const row=await client.query<{result:InspectTagResult}>('SELECT taptime_server.inspect_nfc_tag_v1($1) result',[request.canonicalPayload]);
+      return {disposition:'commit',value:row.rows[0]!.result};
+    },null);
+  }
+
+  async reuseTag(command:ProvisionNfcTagCommand|ProvisionBreakNfcTagCommand):Promise<{readonly status:string;readonly validationFingerprint?:string}> {
+    const customerId='customerId' in command?command.customerId:null;
+    const name=normalizeNfcTagNameV1(command.displayName);
+    if(!validCommonCommand(command)||name.status!=='valid'||(customerId!==null&&!isCanonicalUuid(customerId))||!isCanonicalNfcUidPayload(command.canonicalPayload))return {status:'invalid_request'};
+    return this.runWithAuthority(command.accessToken,command.expectedMembershipId,command.commandId,{},async client=>{
+      const row=await client.query<{result:{status:string;validationFingerprint?:string}}>('SELECT taptime_server.reuse_nfc_tag_v1($1,$2,$3,$4) result',
+        [customerId,command.canonicalPayload,name.canonicalName,command.commandId]);
+      return {disposition:'commit',value:row.rows[0]!.result};
+    },customerId);
+  }
+
+  async manageCustomer(command: ManageCustomerRequest & {readonly accessToken:string}, controls:AdminCoordinatorControls={}):Promise<ManageCustomerResult> {
+    const {accessToken,...request}=command;
+    if(!isManageCustomerRequest(request)) return {status:'invalid_request'};
+    return this.runWithAuthority<ManageCustomerResult>(accessToken,request.expectedMembershipId as MembershipId,request.commandId,controls,async client=>{
+      const result=await client.query<{result:ManageCustomerResult['status']}>(
+        'SELECT taptime_server.manage_customer_v1($1,$2,$3,$4) AS result',
+        [request.customerId,request.action,request.action==='rename'?request.displayName:null,request.commandId]);
+      return {disposition:'commit',value:{status:result.rows[0]!.result}};
+    },null);
   }
 
   async setCustomerQuota(command: SetCustomerQuotaRequest & {readonly accessToken:string}, controls:AdminCoordinatorControls={}):Promise<SetCustomerQuotaResult> {
@@ -1712,9 +1745,8 @@ async function mapCustomerReceipt(
     `SELECT id
      FROM taptime_server.customers
      WHERE organization_id = $1
-       AND id = $2
-       AND display_name = $3`,
-    [actor.organization_id, receipt.result_customer_id, canonicalName],
+       AND id = $2`,
+    [actor.organization_id, receipt.result_customer_id],
   );
   if (storedCustomer.rowCount !== 1) {
     throw new Error('Stored Customer receipt does not match its result resource');

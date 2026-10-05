@@ -439,19 +439,24 @@ describe('migration 007, roles and database contracts', () => {
           'enforce_enabled_location_setup_v1',
           'enforce_work_location_is_additional_v1',
           'has_current_customer_creation_authority_v1',
+          'has_current_customer_management_authority_v1',
           'has_current_nfc_setup_authority_v1',
           'has_current_nfc_tag_setup_authority_v1',
           'insert_admin_setup_nfc_tag_v1',
           'insert_admin_setup_nfc_tag_v1',
+          'inspect_nfc_tag_v1',
           'is_current_customer_creation_v1',
+          'is_current_customer_deactivation_v1',
           'is_current_project_creation_v1',
           'location_setup_is_complete_v1',
           'lock_admin_setup_active_customer_v1',
+          'manage_customer_v1',
           'membership_has_management_location_v1',
           'membership_has_work_location_v1',
           'propagate_time_entry_location_v1',
           'propagate_time_record_revision_location_v1',
           'resolve_work_event_location_v1',
+          'reuse_nfc_tag_v1',
           'revoke_membership_location_relations_v1',
           'revoke_work_target_location_relation_v1',
           'set_customer_quota_v1',
@@ -500,6 +505,7 @@ describe('migration 007, roles and database contracts', () => {
       { column_name: 'organization_id', privilege_type: 'SELECT' },
       { column_name: 'payload_value', privilege_type: 'SELECT' },
       { column_name: 'validation_fingerprint', privilege_type: 'SELECT' },
+      { column_name: 'display_name', privilege_type: 'UPDATE' },
     ]);
 
     const customerColumns = await installerPool.query<{
@@ -513,12 +519,10 @@ describe('migration 007, roles and database contracts', () => {
         AND table_name = 'customers'
       ORDER BY privilege_type, column_name
     `);
+    const customerSelectColumns=(await installerPool.query<{column_name:string}>(`SELECT column_name FROM information_schema.columns WHERE table_schema='${B3_SCHEMA}' AND table_name='customers' ORDER BY column_name`)).rows;
     expect(customerColumns.rows).toEqual([
-      { column_name: 'active', privilege_type: 'SELECT' },
-      { column_name: 'display_name', privilege_type: 'SELECT' },
-      { column_name: 'id', privilege_type: 'SELECT' },
-      { column_name: 'organization_id', privilege_type: 'SELECT' },
-      { column_name: 'active', privilege_type: 'UPDATE' },
+      ...customerSelectColumns.map(({column_name})=>({column_name,privilege_type:'SELECT'})),
+      ...['active','deactivated_at','display_name','row_version'].map(column_name=>({column_name,privilege_type:'UPDATE'})),
     ]);
 
     const assignmentColumns = await installerPool.query<{
@@ -533,6 +537,7 @@ describe('migration 007, roles and database contracts', () => {
       ORDER BY privilege_type, column_name
     `);
     expect(assignmentColumns.rows).toEqual([
+      ...['active','assignment_type','id','nfc_tag_id','organization_id','target_customer_id','target_type'].map(column_name=>({column_name,privilege_type:'INSERT'})),
       { column_name: 'active', privilege_type: 'SELECT' },
       { column_name: 'assignment_type', privilege_type: 'SELECT' },
       { column_name: 'created_at', privilege_type: 'SELECT' },
@@ -545,6 +550,7 @@ describe('migration 007, roles and database contracts', () => {
       { column_name: 'updated_at', privilege_type: 'SELECT' },
       { column_name: 'valid_from', privilege_type: 'SELECT' },
       { column_name: 'valid_to', privilege_type: 'SELECT' },
+      ...['active','row_version','valid_to'].map(column_name=>({column_name,privilege_type:'UPDATE'})),
     ]);
 
     const auditColumns = await installerPool.query<{
@@ -559,6 +565,7 @@ describe('migration 007, roles and database contracts', () => {
       ORDER BY privilege_type, column_name
     `);
     expect(auditColumns.rows).toEqual([
+      ...(await installerPool.query<{column_name:string}>(`SELECT column_name FROM information_schema.columns WHERE table_schema='${B3_SCHEMA}' AND table_name='audit_events' ORDER BY column_name`)).rows.map(({column_name})=>({column_name,privilege_type:'INSERT'})),
       { column_name: 'actor_user_id', privilege_type: 'SELECT' },
       { column_name: 'correlation_id', privilege_type: 'SELECT' },
       { column_name: 'entity_id', privilege_type: 'SELECT' },
@@ -1727,10 +1734,19 @@ describe('setup projection, paging, isolation and session cleanup', () => {
       organization: { id: ids.organizationA, name: 'Synthetic Organization A' },
       customers: [
         { id: ids.customerA, displayName: 'Active Customer A', active: true },
-        { id: ids.inactiveCustomerA, displayName: 'Inactive Customer A', active: false },
       ],
-      nfcTags: [],
-      nextCursor: `v1:c:${ids.inactiveCustomerA}`,
+      nfcTags: [
+        {
+          id: ids.tagAssignedA,
+          displayName: 'Assigned Tag A',
+          validationFingerprint: fingerprintFor('nfc:uid:v1:AA'),
+          assignmentState: 'assigned',
+          assignmentType: 'work',
+          targetCustomerId: ids.customerA,
+          activeAssignmentId: ids.assignmentA,
+        },
+      ],
+      nextCursor: `v1:t:${ids.tagAssignedA}`,
     });
     if (first.status !== 'succeeded') {
       throw new Error('Expected a successful first projection page');
@@ -1744,15 +1760,7 @@ describe('setup projection, paging, isolation and session cleanup', () => {
       organization: { id: ids.organizationA, name: 'Synthetic Organization A' },
       customers: [],
       nfcTags: [
-        {
-          id: ids.tagAssignedA,
-          displayName: 'Assigned Tag A',
-          validationFingerprint: fingerprintFor('nfc:uid:v1:AA'),
-          assignmentState: 'assigned',
-          assignmentType: 'work',
-          targetCustomerId: ids.customerA,
-          activeAssignmentId: ids.assignmentA,
-        },
+
         {
           id: ids.tagUnassignedA,
           displayName: 'Unassigned Tag A',
@@ -1795,7 +1803,6 @@ describe('setup projection, paging, isolation and session cleanup', () => {
         ...rest.customers.map(({ id }) => id),
         ...rest.nfcTags.map(({ id }) => id),
       ]).toEqual([
-        ids.inactiveCustomerA,
         ids.tagAssignedA,
         ids.tagUnassignedA,
       ]);

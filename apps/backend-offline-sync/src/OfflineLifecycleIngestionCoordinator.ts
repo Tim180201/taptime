@@ -503,7 +503,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       let result: LogicalDurableResult;
       // A departed actor can store review evidence but cannot create canonical decisions.
       // Its revoked home must not route an otherwise durable review into the engine.
-      if (reviewReason !== null && (!locationUnavailable || !actor.membership_current || !actor.identity_current)) {
+      if (reviewReason !== null && (!locationUnavailable || reviewReason === 'customer_deleted' || !actor.membership_current || !actor.identity_current)) {
         await persistReceipt(client, request.command, workEvent, 'received', null);
         await persistAudit(client, request.command, workEvent, 'OfflineLifecycleReviewStored', {
           status: 'review_pending',
@@ -942,6 +942,14 @@ function automaticReviewReason(input: {
   ) {
     return 'automatic_window_elapsed';
   }
+  const deletedCustomer = lease.target_type === 'customer' && configuration.target_deactivated_at !== null;
+  if (deletedCustomer && occurredAt >= configuration.target_deactivated_at!.getTime()) return 'customer_deleted';
+  // A customer's name/version is mutable; its identity and activation interval are not.
+  const customerVersionValid = lease.target_type === 'customer' && lease.target_row_version !== null
+    && configuration.target_row_version !== null && BigInt(configuration.target_row_version) >= BigInt(lease.target_row_version);
+  const assignmentClosedByDeletion = deletedCustomer && configuration.assignment_valid_to?.getTime() === configuration.target_deactivated_at!.getTime()
+    && lease.assignment_row_version !== null && configuration.assignment_row_version !== null
+    && BigInt(configuration.assignment_row_version) === BigInt(lease.assignment_row_version) + 1n;
   if (
     (
       lease.subject_type === 'work'
@@ -951,7 +959,7 @@ function automaticReviewReason(input: {
           configuration.target_deactivated_at !== null
           && occurredAt >= configuration.target_deactivated_at.getTime()
         )
-        || configuration.target_row_version !== lease.target_row_version
+        || (!customerVersionValid && configuration.target_row_version !== lease.target_row_version)
       )
     )
     || (
@@ -959,7 +967,7 @@ function automaticReviewReason(input: {
       && (
         configuration.assignment_valid_from === null
         || configuration.tag_created_at === null
-        || configuration.assignment_row_version !== lease.assignment_row_version
+        || (!assignmentClosedByDeletion && configuration.assignment_row_version !== lease.assignment_row_version)
         || occurredAt < configuration.assignment_valid_from.getTime()
         || (
           configuration.assignment_valid_to !== null

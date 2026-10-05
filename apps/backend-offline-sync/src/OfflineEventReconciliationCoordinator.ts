@@ -295,12 +295,14 @@ function requireReviewReason(
 ): 'identity_or_membership_not_current'
   | 'capture_time_out_of_bounds'
   | 'automatic_window_elapsed'
+  | 'customer_deleted'
   | 'historical_configuration_not_valid'
   | 'predecessor_requires_review' {
   switch (value) {
     case 'identity_or_membership_not_current':
     case 'capture_time_out_of_bounds':
     case 'automatic_window_elapsed':
+    case 'customer_deleted':
     case 'historical_configuration_not_valid':
     case 'predecessor_requires_review':
       return value;

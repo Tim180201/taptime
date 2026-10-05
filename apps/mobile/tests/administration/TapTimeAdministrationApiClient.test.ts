@@ -237,3 +237,15 @@ describe('TapTimeAdministrationApiClient', () => {
     await expect(client.readProjection(ids.membership, null)).resolves.toEqual({ status: 'authority_rejected' });
   });
 });
+it.each(['customer','break'] as const)('T100 reuses an available registered tag for %s using the same command',async target=>{
+ const {request,client}=setup();
+ const post=request.post.bind(request);
+ request.post=async(endpoint,body,options)=>{
+  request.result={status:'response',statusCode:endpoint.pathname.endsWith('/reuse')?200:409,contentType:'application/json',body:JSON.stringify(endpoint.pathname.endsWith('/reuse')?{status:'succeeded',validationFingerprint:'A1B2C3D4E5F6'}:{error:{code:'tag_payload_already_registered'}})};
+  return post(endpoint,body,options);
+ };
+ const command={expectedMembershipId:ids.membership,commandId:ids.command,...(target==='customer'?{customerId:ids.customer}:{}),displayName:'Tag',canonicalPayload:'nfc:uid:v1:AA'};
+ expect(await (target==='customer'?client.provisionTag({...command,customerId:ids.customer}):client.provisionBreakTag(command))).toEqual({status:'succeeded',validationFingerprint:'A1B2C3D4E5F6'});
+ expect(request.calls.map(call=>new URL(call.endpoint).pathname)).toEqual([`/base/v1/administration/nfc-tags/${target==='customer'?'provision':'provision-break'}`,'/base/v1/administration/nfc-tags/reuse']);
+ expect(request.calls.map(call=>JSON.parse(call.body))).toEqual([command,command]);
+});
