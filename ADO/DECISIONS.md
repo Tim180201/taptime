@@ -1732,3 +1732,22 @@ und spätere Store-App), auch hinter dem Passwortschutz der Startseite erreichba
 Datei. iPhone nutzt dieselbe Adresse (T-073). Vor dem ersten Pilot-Tag, mit T-096.
 **Warum:** 500 Tags neu zu beschreiben kostet einen Tag Arbeit bei frogs und Vertrauen; eine Datei auf dem eigenen
 Server zu ändern kostet eine Minute.
+
+## D-120 · Abmelden wartet, bis die eigenen Erfassungen gesichert sind · 05.10.2026 · Tim (PO)
+Ergänzt D-118 und T-076. Sind beim Abmelden alle Erfassungen gebucht, aber noch nicht extern gesichert, zeigt die App
+„Deine Erfassungen werden noch gesichert. Abmelden ist gleich möglich.“, fragt den Nachweis bei geöffneter App alle
+30 s ab und meldet nach dem Nachweis von selbst ab. „Trotzdem abmelden“ bleibt möglich; dann gilt für das nächste
+Konto der bisherige Hinweis „Vorgänge eines anderen Kontos offen“. Nicht gebuchte oder nicht übertragbare Erfassungen
+behalten ihre eigenen Hinweise. T-095.
+**Warum:** Kontowechsel am selben Gerät ist selten (Test, Vertretung); ohne Sackgasse für das nächste Konto ist der
+kurze Halt vor dem Abmelden der einfachste Weg (PO, 05.10.).
+
+## D-121 · Eine Gerätesequenz wird nur mit Beleg beim Server übersprungen · 05.10.2026 · Claude (TL)
+Ergänzt D-118. Der Server nimmt Ereignisse eines Geräts nur lückenlos an (`letzte + 1`). Eine Erfassung, die das Gerät
+in die Quarantäne legt, ohne dass der Server sie gebucht hat, hält deshalb die Nachfolger weiter auf. Der Lückenschluss
+kommt als eigene Aufgabe T-095b: Das Gerät meldet dem Server die übersprungene Sequenz mit Grund, Zeitpunkt, Ziel und
+Prüfsumme des Belegs; der Server bucht keine Zeit, hält die Lücke fest, rückt die Sequenz weiter und legt einen
+Prüffall für die Verwaltung an („Erfassung konnte nicht verarbeitet werden · Person · Ziel · 08:12“). Bis dahin zeigt
+die App ehrlich „Übertragung angehalten“ statt eines Fortschritts.
+**Warum:** Belege werden nie umnummeriert oder gelöscht; die Lücke bleibt nachvollziehbar und wird von der Verwaltung
+geklärt statt still auf einem Handy zu liegen.
