@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render as testingRender, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render as testingRender, screen, within, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import userEvent from '@testing-library/user-event';
 import axe from 'axe-core';
@@ -48,6 +48,7 @@ const record = {
   overlapsAnotherRecord: true,
 };
 const reviewItem = {
+  employeeMembershipId: '70000000-0000-4000-8000-000000000001',
   reviewItemId: '90000000-0000-4000-8000-000000000001',
   source: 'offline_v2' as const,
   employeeDisplayName: 'Employee Alpha',
@@ -60,6 +61,25 @@ const reviewItem = {
   predecessorBlocked: true,
 };
 type ReadyStateForTest = Extract<AdminWebState, { readonly status: 'ready' }>;
+
+it.each(['offline_v2','server_legacy'] as const)('T097: %s break can only be closed with a required note',async source=>{
+  window.history.replaceState(null,'','/pruefungen');
+  const pause={...reviewItem,source,targetType:'break' as const,targetDisplayName:'Pause'};
+  const capability=new FakeCapability({...readyState,reviewItems:[pause]});
+  await render(<App administration={capability}/>);
+  expect(screen.queryByRole('button',{name:'Als Arbeitszeit übernehmen'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Korrigieren'})).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button',{name:'Mit Notiz schließen'}));
+  expect(screen.getAllByRole('option').map(option=>option.getAttribute('value'))).toEqual(['no_time_record_change']);
+  expect(screen.getByLabelText('Begründung')).toBeRequired();
+  await userEvent.click(screen.getByRole('button',{name:'Entscheidung prüfen'}));
+  expect(capability.prepareAdjudication).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Begründung'),{target:{value:'Pause geprüft.'}});
+  await userEvent.click(screen.getByRole('button',{name:'Entscheidung prüfen'}));
+  expect(capability.prepareAdjudication).toHaveBeenCalledExactlyOnceWith(
+    pause.reviewItemId,'no_time_record_change',null,null,null,'Pause geprüft.',
+  );
+});
 
 it.each(['administrator','standortleitung'] as const)('T095b %s sees the separate backfill guidance and closes the skipped capture with a note',async role=>{
   window.history.replaceState(null,'','/pruefungen');
@@ -241,6 +261,7 @@ class FakeCapability implements AdminWebCapability {
   exportTimeRecords = vi.fn(async () => undefined);
   loadMoreTimeRecords = vi.fn(async () => undefined);
   loadMoreReviewItems = vi.fn(async () => undefined);
+  loadReviewCorrectionRecords = vi.fn<NonNullable<AdminWebCapability['loadReviewCorrectionRecords']>>(async () => undefined);
   refreshProjects = vi.fn(async () => undefined);
   refreshLocationSetup = vi.fn(async () => undefined);
   createLocation = vi.fn(async () => undefined);
@@ -1359,4 +1380,27 @@ it('T079 replaces the month label when the selection is cleared and a new real w
  expect(screen.queryByRole('button',{name:'CSV September 2026 herunterladen'})).not.toBeInTheDocument();
  expect(screen.getByRole('button',{name:'CSV 25.08.–25.09.2026 herunterladen'})).toBeVisible();
  expect(screen.getByText('Letzte 31 Tage, unabhängig von den Filtern. Für die Lohnabrechnung einen Monat wählen.')).toBeVisible();
+});
+
+
+it('T097: correction picker shows only loaded person records and offers the next page',async()=>{
+  window.history.replaceState(null,'','/pruefungen');
+  const capability=new FakeCapability(readyState);
+  const record={...readyState.timeRecords[0]!,employeeDisplayName:'Nur diese Person'};
+  const second={...record,timeRecordId:'90000000-0000-4000-8000-000000000098',startedAt:'2026-07-18T08:00:00.000Z'};
+  capability.loadReviewCorrectionRecords.mockImplementation(async (reviewItemId,month,append)=>{
+    capability.emit({...readyState,reviewCorrectionRecords:{reviewItemId,month,toExclusive:'2026-08-01T00:00:00.000Z',targetMembershipId:reviewItem.employeeMembershipId,
+      status:'ready',records:append?[record,second]:[record],nextCursor:append?null:'next',usedCursors:[],message:null}});
+  });
+  await render(<App administration={capability}/>);
+  await userEvent.click(screen.getByRole('button',{name:'Korrigieren'}));
+  expect(capability.loadReviewCorrectionRecords).toHaveBeenCalledWith(reviewItem.reviewItemId,'2026-07',false);
+  const select=screen.getByLabelText('Bestehende Arbeitszeit');
+  expect(within(select).queryByRole('option',{name:/Employee Alpha/})).not.toBeInTheDocument();
+  expect(within(select).getAllByRole('option')).toHaveLength(2);
+  await userEvent.click(screen.getByRole('button',{name:'Weitere Arbeitszeiten laden'}));
+  expect(within(select).getAllByRole('option')).toHaveLength(3);
+  await userEvent.selectOptions(select,second.timeRecordId);
+  expect(select).toHaveValue(second.timeRecordId);
+  expect(screen.queryByRole('button',{name:'Weitere Arbeitszeiten laden'})).not.toBeInTheDocument();
 });

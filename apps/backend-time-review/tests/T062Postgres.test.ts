@@ -143,6 +143,33 @@ beforeAll(async () => {
 });
 afterAll(() => pool.end());
 
+it('T097: target-less break cases obey the current home-location and tenant boundary on every read',async()=>{
+  const c=await pool.connect();
+  const breakIds=new Map<string,string>();
+  try {
+    await c.query('BEGIN');
+    for(const who of [p,q,fp]) {
+      const id=randomUUID();breakIds.set(who.user,id);
+      await c.query(`INSERT INTO taptime_server.work_events(id,organization_id,triggered_by_user_id,subject_type,trigger_type,
+        occurred_at,received_at,content_hash,content_hash_algorithm,content_hash_version)
+        VALUES($1,$2,$3,'break','manual',transaction_timestamp(),transaction_timestamp(),repeat('b',64),'sha256',3)`,[id,who.org,who.user]);
+      await c.query(`INSERT INTO taptime_server.canonical_decisions(work_event_id,organization_id,actor_user_id,subject_type,
+        decision_type,reason,engine_version,decision_payload) VALUES($1,$2,$3,'break','escalation_required','active_break_user_mismatch','test','{}')`,[id,who.org,who.user]);
+    }
+    for(const [actor,visible] of [[a,[p]],[b,[q]],[f,[fp]],[admin,[p,q]]] as const) {
+      await c.query('RESET ROLE');
+      await c.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),
+        set_config('app.membership_id',$3,true),set_config('app.membership_role',$4,true)`,[actor.org,actor.user,actor.member,actor.role]);
+      await c.query('SET LOCAL ROLE taptime_time_review_reader');
+      const rows=(await reviews(c,actor,4)).filter(row=>[...breakIds.values()].includes(row.review_item_id));
+      expect(new Set(rows.map(row=>row.review_item_id))).toEqual(new Set(visible.map(who=>breakIds.get(who.user))));
+      expect(rows.every(row=>row.target_id===null && row.target_display_name==='Pause')).toBe(true);
+    }
+  } finally { await c.query('ROLLBACK');c.release(); }
+});
+
+
+
 const allowedPairs = [[a,p],[a,a],[b,q],[b,b],[f,fp],[f,f]] as const;
 const operations = ['backfill','correct','review','escalation','stop'] as const;
 it.each(allowedPairs.flatMap(([actor,target])=>operations.map(operation=>({actor,target,operation,label:`${actor.name} → ${target.name}: ${operation}`}))))('$label within its home scope in PostgreSQL', async ({actor,target,operation}) => {

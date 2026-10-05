@@ -34,6 +34,7 @@ const record = {
   overlapsAnotherRecord: true,
 };
 const reviewItem = {
+  employeeMembershipId: '70000000-0000-4000-8000-000000000001',
   reviewItemId: '90000000-0000-4000-8000-000000000001',
   source: 'offline_v2' as const,
   employeeDisplayName: 'Employee Alpha',

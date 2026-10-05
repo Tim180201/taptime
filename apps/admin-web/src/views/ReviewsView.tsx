@@ -1,3 +1,4 @@
+import { isTimeReviewRole } from '@taptime/time-review-contract';
 import {
 	useEffect,
 	useRef,
@@ -28,6 +29,7 @@ export default function ReviewsView({state,administration}: {readonly state:Read
     }
     lastIntent.current=null;
   },[state.adjudicationIntent,state.sections.reviewItems.status,state.reviewItems]);
+  if (!isTimeReviewRole(state.role)) return null;
   return <section ref={focusFallback} tabIndex={-1} aria-label="Prüfungen"><SectionBoundary state={state.sections.reviewItems} retryButtonRef={retry} onRetry={()=>void administration.retrySection('reviewItems')}>
     <Panel title="Offene Prüfungen" description="Jede Entscheidung bleibt mit Begründung erhalten. Originale werden nie überschrieben.">
       <CountTruth count={state.reviewItems.length} noun="Prüfungen" complete={state.reviewItemsNextCursor === null}/>
@@ -39,8 +41,17 @@ export default function ReviewsView({state,administration}: {readonly state:Read
   </SectionBoundary></section>;
 }
 function ReviewDecisionRow({item,state,administration}: {readonly item:SafeReviewItem;readonly state:ReadyState;readonly administration:AdminWebCapability}) {
+  const noteOnly=item.source==='offline_skip' || item.targetType==='break';
   const [open,setOpen]=useState(state.adjudicationIntent?.reviewItem.reviewItemId === item.reviewItemId);
   const [resolution,setResolution]=useState<'no_time_record_change'|'adjust_existing_time_record'|'create_recovered_time_record'>('no_time_record_change');
+  const [month,setMonth]=useState(toZonedMinuteInput(item.occurredAt).slice(0,7));
+  const selection=state.reviewCorrectionRecords?.reviewItemId===item.reviewItemId ? state.reviewCorrectionRecords : undefined;
+  const records=selection?.records ?? [];
+  const loadRecords=(nextMonth=month,append=false)=>void administration.loadReviewCorrectionRecords?.(item.reviewItemId,nextMonth,append);
+  const changeResolution=(next:typeof resolution)=>{
+    setResolution(next);setRecordId('');setStartedAt('');setStoppedAt('');setOriginalStart(null);setOriginalStop(null);
+    if(next==='adjust_existing_time_record') loadRecords();
+  };
   const [recordId,setRecordId]=useState('');
   const [startedAt,setStartedAt]=useState('');
   const [stoppedAt,setStoppedAt]=useState('');
@@ -56,7 +67,7 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   const format=formatZonedDateTime;
   const formatExact=formatZonedDateTime;
   const choose=(event:ReactMouseEvent<HTMLButtonElement>,next:typeof resolution)=>{
-    rowTrigger.current=event.currentTarget;setResolution(next);setOpen(true);
+    rowTrigger.current=event.currentTarget;changeResolution(next);setOpen(true);
   };
   return <li className="review-case"><div className="review-case-heading"><div>
     <strong>{item.employeeDisplayName} · {item.targetDisplayName}</strong>
@@ -64,9 +75,9 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
     <p className="review-reason">{item.source==='offline_skip' ? 'Erfassung konnte nicht verarbeitet werden · ' : ''}{reviewReasonLabel(item.reviewReason)}{item.predecessorBlocked ? ' · Vorgänger blockiert' : ''}</p>
     {item.source==='offline_skip' ? <p className="supporting">Fehlende Zeit über „Nachtragen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.</p> : null}
   </div><div className="entity-actions">
-    {item.source==='offline_skip' ? null : <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Als Arbeitszeit übernehmen</button>}
-    {item.source==='offline_skip' ? null : <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Korrigieren</button>}
-    <button className="quiet" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>{item.source==='offline_skip' ? 'Mit Notiz schließen' : 'Ablehnen'}</button>
+    {noteOnly ? null : <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Als Arbeitszeit übernehmen</button>}
+    {noteOnly ? null : <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Korrigieren</button>}
+    <button className="quiet" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>{noteOnly ? 'Mit Notiz schließen' : 'Ablehnen'}</button>
   </div></div>
   {open ? <div className="row-decision">
     <p className="supporting">{resolutionLabel(resolution)}. Bitte begründen Sie Ihre Entscheidung.</p>
@@ -95,18 +106,26 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
         <label>Entscheidung
           <select value={resolution}
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
-            onChange={(event) => setResolution(event.target.value as typeof resolution)}>
+            onChange={(event) => changeResolution(event.target.value as typeof resolution)}>
             <option value="no_time_record_change">Keine Arbeitszeit ändern</option>
-            {item.source==='offline_skip' ? null : <option value="create_recovered_time_record">Arbeitszeit wiederherstellen</option>}
-            {item.source==='offline_skip' ? null : <option value="adjust_existing_time_record">Bestehende Arbeitszeit korrigieren</option>}
+            {noteOnly ? null : <option value="create_recovered_time_record">Arbeitszeit wiederherstellen</option>}
+            {noteOnly ? null : <option value="adjust_existing_time_record">Bestehende Arbeitszeit korrigieren</option>}
           </select>
         </label>
-        {resolution === 'adjust_existing_time_record' ? <label>Bestehende Arbeitszeit
+        {resolution === 'adjust_existing_time_record' ? <>
+          <label>Monat der Arbeitszeit<input type="month" value={month}
+            disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
+            onChange={event=>{setMonth(event.target.value);setRecordId('');setStartedAt('');setStoppedAt('');loadRecords(event.target.value);}}/></label>
+          <p className="supporting">Arbeitszeiten von {item.employeeDisplayName}</p>
+          {selection?.status==='loading' ? <p role="status">Arbeitszeiten werden geladen …</p> : null}
+          {selection?.status==='unavailable' ? <div role="alert"><p>{selection.message}</p><button type="button" className="secondary" onClick={()=>loadRecords(month,selection.records.length>0)}>Erneut laden</button></div> : null}
+          {selection?.status==='ready' && records.length===0 ? <p>Keine abgeschlossenen Arbeitszeiten in diesem Monat.</p> : null}
+          <label>Bestehende Arbeitszeit
           <select required value={recordId}
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
             onChange={(event) => {
               const id = event.target.value;
-              const selected = state.timeRecords.find((record) => record.timeRecordId === id);
+              const selected = records.find((record) => record.timeRecordId === id);
               setRecordId(id);
               setOriginalStart(selected?.startedAt??null);
               setOriginalStop(selected?.stoppedAt??null);
@@ -114,12 +133,16 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
               setStoppedAt(selected?.stoppedAt == null ? '' : toZonedMinuteInput(selected.stoppedAt));
             }}>
             <option value="">Arbeitszeit auswählen</option>
-            {state.timeRecords.filter((record) => record.status === 'stopped').map((record) =>
+            {records.map((record) =>
               <option key={record.timeRecordId} value={record.timeRecordId}>
                 {record.employeeDisplayName} · {format(record.startedAt)}
               </option>)}
           </select>
-        </label> : null}
+        </label>
+          {selection?.nextCursor ? <button type="button" className="secondary"
+            disabled={selection.status==='loading' || state.timeReviewBusy || state.adjudicationIntent !== null}
+            onClick={()=>loadRecords(month,true)}>Weitere Arbeitszeiten laden</button> : null}
+        </> : null}
         {resolution === 'no_time_record_change' ? null : <>
           {timeError === null ? null : <p id={`review-time-error-${item.reviewItemId}`}
             className="field-error" role="alert">{timeError}</p>}

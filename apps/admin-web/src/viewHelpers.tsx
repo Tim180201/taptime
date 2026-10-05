@@ -1,8 +1,9 @@
+import { isKnownTimeReviewReason, type TimeReviewReason } from '@taptime/time-review-contract';
 import type { Notice } from './contracts';
 import { useEffect,useRef,type MouseEvent as ReactMouseEvent,type RefObject } from 'react';
 import type { AdminRoute } from './navigation';
 export function reviewReasonLabel(value: string): string {
-  const labels: Record<string, string> = {
+  const labels: Record<TimeReviewReason, string> = {
     event_content_conflict:'Erfassungsinhalt widerspricht einem vorhandenen Beleg',
     sequence_content_conflict:'Gerätesequenz widerspricht einem vorhandenen Beleg',
     lease_binding_conflict:'Erfassung passt nicht zur Offline-Freigabe',
@@ -23,12 +24,17 @@ export function reviewReasonLabel(value: string): string {
     previous_work_event_organization_mismatch: 'Vorherige Erfassung gehört zu einem anderen Betrieb',
     previous_work_event_user_mismatch: 'Vorherige Erfassung gehört zu einer anderen Person',
     previous_work_event_target_mismatch: 'Vorherige Erfassung gehört zu einem anderen Ziel',
+    previous_work_event_subject_mismatch: 'Vorherige Erfassung gehört zu einer anderen Erfassungsart',
+    active_break_organization_mismatch: 'Laufende Pause gehört zu einem anderen Betrieb',
+    active_break_user_mismatch: 'Laufende Pause gehört zu einer anderen Person',
+    active_break_time_entry_mismatch: 'Laufende Pause gehört zu einer anderen Arbeitszeit',
+    work_event_precedes_active_break: 'Erfassung liegt vor dem Beginn der laufenden Pause',
     work_location_unavailable: 'Arbeitsziel keinem berechtigten Standort zugeordnet',
     administration_stopped: 'Zeit wurde von der Verwaltung beendet',
     work_event_precedes_active_time_entry: 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit',
     work_event_precedes_previous_accepted_work_event: 'Erfassung liegt vor der vorherigen bestätigten Erfassung',
   };
-  return labels[value] ?? 'Prüfung erforderlich';
+  return isKnownTimeReviewReason(value) ? labels[value] : 'Sonstiger Prüfgrund';
 }
 
 export function resolutionLabel(value: string): string {

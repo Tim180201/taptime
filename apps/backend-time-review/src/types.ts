@@ -12,6 +12,7 @@ import type {
   TimeReviewWriteResult,
   CorrectedTimeRecord,
   ReviewItemQueryPageV2,
+  ReviewItemQueryPageV4,
 } from '@taptime/time-review-contract';
 
 export interface AuthenticatedTimeReviewCommand<T> {
@@ -55,6 +56,7 @@ export interface TimeReviewPort {
   ) => Promise<TimeReviewReadResult<ReviewItemQueryPageV2>>;
 
   readonly queryReviewItemsV3?: TimeReviewPort['queryReviewItemsV2'];
+  readonly queryReviewItemsV4?: (command: AuthenticatedTimeReviewCommand<ReviewItemQueryRequest>, controls?: TimeReviewCoordinatorControls) => Promise<TimeReviewReadResult<ReviewItemQueryPageV4>>;
 
   adjudicateReviewItems(
     command: AuthenticatedTimeReviewCommand<ReviewAdjudicationRequest>,

@@ -7,7 +7,7 @@ import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import { isAdministrationStopRequest, isAdministrationStopResult, isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import type { ManualBreakLifecycleRequest,ManualLifecycleRequest,MobileOwnTimeQueryResponse,SafeWorkTarget } from '@taptime/mobile-work-contract';
 import { TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS } from '@taptime/time-entry-export-contract';
-import { isValidTimeReviewReason } from '@taptime/time-review-contract';
+import { isValidTimeReviewReason, isTimeReviewRole } from '@taptime/time-review-contract';
 import {
 	AdminWebApiClient,
 	type AdminWebApiPort,
@@ -106,6 +106,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private pendingTimeEdit: {generation:number;key:string;commandId:string} | null = null;
   private refreshEpoch = 0;
   private timeWindowPinned = false;
+  private reviewCorrectionEpoch = 0;
   private readonly sectionEpochs: Record<AdminSection, number> = {
     setup: 0,
     employees: 0,
@@ -554,6 +555,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       reassignmentIntent: null,
       correctionIntent: null,
       adjudicationIntent: null,
+      reviewCorrectionRecords: undefined,
       sections: sectionStatesWithValue(current.availableSections, { status: 'loading' }),
       notice: null,
     });
@@ -1831,6 +1833,55 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
   }
 
+  async loadReviewCorrectionRecords(reviewItemId: string, month: string, append = false): Promise<void> {
+    const current = this.state;
+    const session = this.session;
+    const window = monthTimeWindow(month);
+    if (current.status !== 'ready' || session === null || !current.availableSections.includes('review_items')
+      || current.timeReviewBusy || current.adjudicationIntent !== null || window === null) return;
+    const item = current.reviewItems.find(item => item.reviewItemId === reviewItemId);
+    if (item === undefined) return;
+    const previous = current.reviewCorrectionRecords;
+    const sameSelection = previous?.reviewItemId === reviewItemId && previous.month === month
+      && previous.targetMembershipId === item.employeeMembershipId;
+    const cursor = append && sameSelection ? previous.nextCursor : null;
+    if (append && (cursor === null || previous?.status === 'loading')) return;
+    const toExclusive = append && sameSelection ? previous.toExclusive
+      : new Date(Math.min(Date.parse(window.toExclusive), this.now())).toISOString();
+    const selection = {reviewItemId, toExclusive, targetMembershipId: item.employeeMembershipId, month,
+      records: append && sameSelection ? previous.records : [], nextCursor: cursor,
+      usedCursors: append && sameSelection ? previous.usedCursors : [], message: null};
+    const generation = this.generation, refreshEpoch = this.refreshEpoch, epoch = ++this.reviewCorrectionEpoch;
+    this.setState({...current, reviewCorrectionRecords: {...selection, status: 'loading'}});
+    const result = toExclusive <= window.fromInclusive ? {status: 'unreachable' as const}
+      : await this.safeSectionRead(() => this.auth.withAccessToken(token => this.api.managedPersonTime?.(token,
+        {expectedMembershipId: session.membershipId, targetMembershipId: item.employeeMembershipId,
+          ...window, toExclusive, cursor, limit: 20}) ?? Promise.resolve({status: 'unreachable'})));
+    if (generation !== this.generation || refreshEpoch !== this.refreshEpoch || epoch !== this.reviewCorrectionEpoch
+      || this.state.status !== 'ready') return;
+    if (result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Ihre Berechtigung wurde nicht bestätigt. Melden Sie sich erneut an.');
+      return;
+    }
+    if (result.status === 'succeeded') {
+      const page = result.value;
+      const records = page.records.filter(record => record.status === 'stopped');
+      const seen = new Set(selection.records.map(record => record.timeRecordId));
+      if (page.windowStartedAt === window.fromInclusive && page.windowEndedAt === toExclusive
+        && records.every(record => record.details !== undefined && !seen.has(record.timeRecordId))
+        && new Set(records.map(record => record.timeRecordId)).size === records.length
+        && (page.nextCursor === null || (page.records.length > 0 && page.nextCursor !== cursor
+          && !selection.usedCursors.includes(page.nextCursor)))) {
+        this.setState({...this.state, reviewCorrectionRecords: {...selection, status: 'ready',
+          records: [...selection.records, ...records.map(record => ({...record, ...record.details!, employeeDisplayName: item.employeeDisplayName}))],
+          nextCursor: page.nextCursor, usedCursors: cursor === null ? [] : [...selection.usedCursors, cursor]}});
+        return;
+      }
+    }
+    this.setState({...this.state, reviewCorrectionRecords: {...selection, status: 'unavailable',
+      message: 'Die Zeiten dieser Person konnten nicht geladen werden. Bitte versuchen Sie es erneut.'}});
+  }
+
   prepareAdjudication(
     reviewItemId: string,
     resolution: ReviewAdjudicationIntent['resolution'],
@@ -1840,10 +1891,22 @@ export class AdminWebCoordinator implements AdminWebCapability {
     reason: string,
   ): void {
     const current = this.state;
-    if (current.status !== 'ready' || current.timeReviewBusy || !current.availableSections.includes('review_items')) return;
+    if (current.status !== 'ready' || current.timeReviewBusy || !isTimeReviewRole(current.role) || !current.availableSections.includes('review_items')) return;
     const reviewItem = current.reviewItems.find((candidate) => candidate.reviewItemId === reviewItemId);
-    const record = timeRecordId === null
-      ? null : current.timeRecords.find((candidate) => candidate.timeRecordId === timeRecordId) ?? null;
+    if ((reviewItem?.targetType === 'break' || reviewItem?.source === 'offline_skip') && resolution !== 'no_time_record_change') {
+      this.setState({...current, adjudicationIntent: null, notice: {kind: 'error',
+        text: 'Dieser Prüffall kann nur mit einer Begründung ohne Arbeitszeitänderung geschlossen werden.'}});
+      return;
+    }
+    const selection = current.reviewCorrectionRecords;
+    const record = timeRecordId === null || selection?.reviewItemId !== reviewItemId
+      || selection.targetMembershipId !== reviewItem?.employeeMembershipId || selection.status !== 'ready'
+      ? null : selection.records.find((candidate) => candidate.timeRecordId === timeRecordId) ?? null;
+    if (resolution === 'adjust_existing_time_record' && record === null) {
+      this.setState({...current, adjudicationIntent: null, notice: {kind: 'error',
+        text: 'Wählen Sie eine abgeschlossene Arbeitszeit dieser Person. Laden Sie die Auswahl bei Bedarf erneut.'}});
+      return;
+    }
     const noChangeIsValid = resolution === 'no_time_record_change'
       && timeRecordId === null && startedAt === null && stoppedAt === null;
     const recoveredIsValid = resolution === 'create_recovered_time_record'
@@ -2974,7 +3037,7 @@ function correctionConflictNotice(code: string): string {
 function adjudicationConflictNotice(code: string): string {
   if (code === 'after_departure') return 'Zeiten und Prüffälle dürfen nur bis zum Austritt der Person reichen.';
   if (code === 'invalid_evidence') {
-    return 'Die Entscheidung wurde nicht gespeichert, weil die Prüffälle nicht zusammenpassen. Entscheiden Sie die Prüffälle einzeln.';
+    return 'Diese Arbeitszeit passt nicht zum Prüffall. Wählen Sie einen Eintrag derselben Person und desselben Arbeitsziels.';
   }
   if (code === 'command_id_conflict') {
     return 'Die Entscheidung wurde nicht gespeichert, weil dieser Speichervorgang bereits verwendet wurde. Laden Sie die Prüfungen neu und versuchen Sie es erneut.';

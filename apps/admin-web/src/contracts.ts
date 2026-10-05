@@ -97,6 +97,7 @@ export interface SafeTimeRecord {
   readonly overlapsAnotherRecord: boolean;
 }
 export interface SafeReviewItem {
+  readonly employeeMembershipId: string;
   readonly reviewItemId: string;
   readonly source: 'offline_v2' | 'server_legacy' | 'offline_skip';
   readonly employeeDisplayName: string;
@@ -142,6 +143,17 @@ export type RemoteValue<T> =
   | { readonly status: 'unavailable'; readonly value: null; readonly message: string };
 export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null };
 export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string };
+export interface ReviewCorrectionRecords {
+  readonly toExclusive: string;
+  readonly reviewItemId: string;
+  readonly targetMembershipId: string;
+  readonly month: string;
+  readonly status: 'loading' | 'ready' | 'unavailable';
+  readonly records: readonly SafeTimeRecord[];
+  readonly nextCursor: string | null;
+  readonly usedCursors: readonly string[];
+  readonly message: string | null;
+}
 export type AdminWebState =
   | { readonly status: 'organization_paused' }
   | { readonly status: 'signed_out'; readonly notice?: Notice }
@@ -154,6 +166,7 @@ export type AdminWebState =
       readonly status: 'ready';
       readonly membershipId?: string;
       readonly timeEditBusy?: boolean;
+      readonly reviewCorrectionRecords?: ReviewCorrectionRecords;
       readonly role: 'administrator' | 'standortleitung' | 'employee';
       readonly calendar?: CalendarState;
       readonly workTargets?: RemoteValue<readonly SafeWorkTarget[]>;
@@ -243,6 +256,7 @@ export interface AdminWebCapability {
   exportTimeRecords(version?: 3 | 4): Promise<void>;
   loadMoreTimeRecords(): Promise<void>;
   loadMoreReviewItems(): Promise<void>;
+  readonly loadReviewCorrectionRecords?: (reviewItemId: string, month: string, append?: boolean) => Promise<void>;
   readonly refreshProjects?: () => Promise<void>;
   readonly loadMoreProjects?: () => Promise<void>;
   readonly createProject?: (displayName: string, locationId?: string) => Promise<void>;

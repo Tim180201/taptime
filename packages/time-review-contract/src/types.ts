@@ -1,24 +1,9 @@
+import type { TIME_REVIEW_REASONS, TIME_REVIEW_ROLES } from './constants.js';
+export type TimeReviewRole = typeof TIME_REVIEW_ROLES[number];
 export type TimeRecordSource = 'canonical' | 'recovered';
 export type TimeRecordStatus = 'started' | 'stopped';
 export type ReviewItemSource = 'offline_v2' | 'server_legacy' | 'offline_skip';
-export type TimeReviewReason =
-  | 'event_content_conflict' | 'sequence_content_conflict' | 'lease_binding_conflict'
-  | 'receipt_metadata_conflict' | 'invalid_response' | 'http_400' | 'http_409' | 'http_422'
-  | 'work_location_unavailable'
-  | 'administration_stopped'
-  | 'identity_or_membership_not_current'
-  | 'capture_time_out_of_bounds'
-  | 'automatic_window_elapsed'
-  | 'historical_configuration_not_valid'
-  | 'predecessor_requires_review'
-  | 'server_lifecycle_deferred'
-  | 'active_time_entry_organization_mismatch'
-  | 'active_time_entry_user_mismatch'
-  | 'previous_work_event_organization_mismatch'
-  | 'previous_work_event_user_mismatch'
-  | 'previous_work_event_target_mismatch'
-  | 'work_event_precedes_active_time_entry'
-  | 'work_event_precedes_previous_accepted_work_event';
+export type TimeReviewReason = typeof TIME_REVIEW_REASONS[number];
 
 export interface TimeRecordQueryRequest {
   readonly expectedMembershipId: string;
@@ -135,6 +120,16 @@ export interface ReviewItemProjectionV2 {
 
 export interface ReviewItemQueryPageV2 {
   readonly items: readonly ReviewItemProjectionV2[];
+  readonly nextCursor: string | null;
+}
+
+/** v4 preserves target-less breaks and unrecognized reasons without losing the page. */
+export interface ReviewItemProjectionV4 extends Omit<ReviewItemProjectionV2, 'targetId' | 'reviewReason'> {
+  readonly targetId: string | null;
+  readonly reviewReason: string;
+}
+export interface ReviewItemQueryPageV4 {
+  readonly items: readonly ReviewItemProjectionV4[];
   readonly nextCursor: string | null;
 }
 

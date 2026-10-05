@@ -1,4 +1,6 @@
 import {
+  TIME_REVIEW_ROLES,
+  TIME_REVIEW_REASONS,
   TIME_REVIEW_MAXIMUM_ADJUDICATION_ITEMS,
   TIME_REVIEW_MAXIMUM_CURSOR_CHARACTERS,
   TIME_REVIEW_MAXIMUM_QUERY_ROWS,
@@ -6,6 +8,10 @@ import {
   TIME_REVIEW_MAXIMUM_REASON_CHARACTERS,
 } from './constants.js';
 import type {
+  TimeReviewRole,
+  ReviewItemQueryPageV4,
+  ReviewItemProjectionV4,
+  TimeReviewReason,
   MobileReviewStateRequest,
   ReviewAdjudicationRequest,
   ReviewAdjudicationResolution,
@@ -17,6 +23,10 @@ import type {
 
 const canonicalUuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+
+export function isTimeReviewRole(value: unknown): value is TimeReviewRole {
+  return typeof value === 'string' && TIME_REVIEW_ROLES.some(role => role === value);
+}
 const canonicalMillisecondUtcPattern =
   /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d\.\d{3}Z$/;
 
@@ -243,4 +253,37 @@ function valid<T>(request: T): ValidationResult<T> {
 
 function invalid<T>(): ValidationResult<T> {
   return { status: 'invalid_request' };
+}
+
+
+export function isKnownTimeReviewReason(value: unknown): value is TimeReviewReason {
+  return typeof value === 'string' && (TIME_REVIEW_REASONS as readonly string[]).includes(value);
+}
+
+/** Validate the entire envelope and attribution; an unfamiliar reason remains visible. */
+export function parseReviewItemQueryResponseV4(value: unknown): ReviewItemQueryPageV4 | null {
+  if (!hasExactKeys(value, ['items', 'nextCursor', 'status']) || value.status !== 'ready'
+    || !Array.isArray(value.items) || value.items.length > TIME_REVIEW_MAXIMUM_QUERY_ROWS
+    || !isCursor(value.nextCursor)
+    || (value.nextCursor !== null && !/^[A-Za-z0-9_-]+$/.test(value.nextCursor))) return null;
+  const items: ReviewItemProjectionV4[] = [];
+  for (const item of value.items) {
+    if (!hasExactKeys(item, ['deviceSequence', 'employeeDisplayName', 'employeeMembershipId', 'employeeUserId',
+      'occurredAt', 'predecessorBlocked', 'recordedAt', 'reviewItemId', 'reviewReason', 'source',
+      'targetDisplayName', 'targetId', 'targetType', 'triggerType'])
+      || !isCanonicalTimeReviewUuid(item.reviewItemId) || !isCanonicalTimeReviewUuid(item.employeeUserId)
+      || !isCanonicalTimeReviewUuid(item.employeeMembershipId)
+      || typeof item.employeeDisplayName !== 'string' || typeof item.targetDisplayName !== 'string'
+      || typeof item.targetType !== 'string' || !['customer', 'project', 'general_work', 'break'].includes(item.targetType)
+      || !(item.targetType === 'break' ? item.targetId === null : isCanonicalTimeReviewUuid(item.targetId))
+      || typeof item.source !== 'string' || !['offline_v2', 'server_legacy', 'offline_skip'].includes(item.source)
+      || (item.triggerType !== 'manual' && item.triggerType !== 'nfc')
+      || !isCanonicalTimeReviewTimestamp(item.occurredAt) || !isCanonicalTimeReviewTimestamp(item.recordedAt)
+      || typeof item.reviewReason !== 'string' || item.reviewReason.length < 1 || item.reviewReason.length > 128
+      || !(item.deviceSequence === null || (Number.isSafeInteger(item.deviceSequence) && Number(item.deviceSequence) > 0))
+      || typeof item.predecessorBlocked !== 'boolean') return null;
+    items.push(Object.freeze({ ...item }) as unknown as ReviewItemProjectionV4);
+  }
+  if (new Set(items.map(item => item.reviewItemId)).size !== items.length) return null;
+  return Object.freeze({ items: Object.freeze(items), nextCursor: value.nextCursor });
 }

@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   canonicalTimeReviewCommandPayload,
+  isTimeReviewRole,
+  parseReviewItemQueryResponseV4,
   isCanonicalTimeReviewTimestamp,
   isCanonicalTimeReviewUuid,
   validateReviewAdjudicationRequest,
@@ -17,6 +19,7 @@ import {
   type TimeRecordProjection,
   type TimeRecordProjectionV2,
   type ReviewItemProjectionV2,
+  type ReviewItemProjectionV4,
 } from '@taptime/time-review-contract';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import type {
@@ -102,6 +105,14 @@ interface ReviewItemRowV2 extends QueryResultRow {
   readonly review_reason: ReviewItemProjectionV2['reviewReason'];
   readonly device_sequence: string | null;
   readonly predecessor_blocked: boolean;
+}
+
+interface ReviewItemRowV4 extends Omit<ReviewItemRowV2, 'target_id' | 'target_type' | 'review_reason' | 'source_family'> {
+  readonly target_id: string | null;
+  readonly target_type: ReviewItemProjectionV4['targetType'];
+  readonly review_reason: string;
+  readonly source_family: ReviewItemProjectionV4['source'];
+  readonly cursor_recorded_at: string;
 }
 
 interface CorrectionRow extends QueryResultRow {
@@ -363,6 +374,52 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     );
   }
 
+  async queryReviewItemsV4(
+    command: AuthenticatedTimeReviewCommand<Parameters<TimeReviewPort['queryReviewItems']>[0]['request']>,
+    controls: TimeReviewCoordinatorControls = {},
+  ) {
+    const validation = validateReviewItemQueryRequest(command.request);
+    if (validation.status === 'invalid_request') return { status: 'unavailable' as const };
+    const cursor = decodeCursor(validation.request.cursor);
+    if (cursor === undefined) return { status: 'unavailable' as const };
+    return this.withTimeManager(
+      this.readPool,
+      command.accessToken,
+      validation.request.expectedMembershipId,
+      TIME_REVIEW_READER_ROLE,
+      controls,
+      async (client, actor) => {
+        const result = await client.query<ReviewItemRowV4>(
+          `SELECT review_item_id, source_family, employee_user_id,
+                  employee_membership_id, employee_display_name, target_type,
+                  target_id, target_display_name, trigger_type, occurred_at,
+                  recorded_at, to_char(recorded_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_recorded_at,
+                  review_reason, device_sequence, predecessor_blocked
+           FROM taptime_server.read_time_review_items_v4(
+             $1, $2, $3, $4::timestamptz, $5::uuid, $6
+           )`,
+          [
+            actor.organization_id,
+            actor.user_id,
+            actor.membership_id,
+            cursor?.recordedAt ?? null,
+            cursor?.id ?? null,
+            validation.request.limit + 1,
+          ],
+        );
+        const visible = result.rows.slice(0, validation.request.limit);
+        const last = visible.at(-1);
+        const value = parseReviewItemQueryResponseV4({
+          status: 'ready', items: visible.map(mapReviewItemV4),
+          nextCursor: result.rows.length > validation.request.limit && last !== undefined
+            ? encodeCursor(last.cursor_recorded_at, last.review_item_id) : null,
+        });
+        if (value === null) throw new Error('Invalid review reader response');
+        return {status: 'ready' as const, value};
+      },
+    );
+  }
+
   async queryReviewItemsV3(command: AuthenticatedTimeReviewCommand<Parameters<TimeReviewPort['queryReviewItems']>[0]['request']>, controls: TimeReviewCoordinatorControls = {}) {
     return this.queryReviewItemsV2(command, controls, true);
   }
@@ -505,7 +562,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
       const actor = authority.rows.length === 1 ? authority.rows[0] : undefined;
       if (
         actor === undefined
-        || (actor.membership_role !== 'administrator' && actor.membership_role !== 'standortleitung')
+        || !isTimeReviewRole(actor.membership_role)
         || actor.membership_id !== expectedMembershipId
       ) {
         await client.query('ROLLBACK');
@@ -644,6 +701,31 @@ function mapReviewItemV2(row: ReviewItemRowV2): ReviewItemProjectionV2 {
   });
 }
 
+function mapReviewItemV4(row: ReviewItemRowV4): ReviewItemProjectionV4 {
+  if (
+    row.employee_membership_id === null
+    || row.employee_display_name === null
+    || !isCanonicalTimeReviewUuid(row.employee_membership_id)
+    || !(row.target_type === 'break' ? row.target_id === null : isCanonicalTimeReviewUuid(row.target_id))
+  ) throw new Error('Review evidence v2 attribution is incomplete');
+  return Object.freeze({
+    reviewItemId: row.review_item_id,
+    source: row.source_family,
+    employeeUserId: row.employee_user_id,
+    employeeMembershipId: row.employee_membership_id,
+    employeeDisplayName: row.employee_display_name,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    targetDisplayName: row.target_display_name,
+    triggerType: row.trigger_type,
+    occurredAt: row.occurred_at.toISOString(),
+    recordedAt: row.recorded_at.toISOString(),
+    reviewReason: row.review_reason,
+    deviceSequence: row.device_sequence === null ? null : safeInteger(row.device_sequence),
+    predecessorBlocked: row.predecessor_blocked,
+  });
+}
+
 function mapCorrectionResult(row: CorrectionRow) {
   switch (row.result_status) {
     case 'committed': {
@@ -698,8 +780,8 @@ function digest(request: Parameters<typeof canonicalTimeReviewCommandPayload>[0]
   return createHash('sha256').update(canonicalTimeReviewCommandPayload(request)).digest('hex');
 }
 
-function encodeCursor(timestamp: Date, id: string): string {
-  return Buffer.from(JSON.stringify([timestamp.toISOString(), id]), 'utf8').toString('base64url');
+function encodeCursor(timestamp: Date | string, id: string): string {
+  return Buffer.from(JSON.stringify([typeof timestamp === 'string' ? timestamp : timestamp.toISOString(), id]), 'utf8').toString('base64url');
 }
 
 function decodeCursor(value: string | null): CursorValue | null | undefined {
@@ -709,7 +791,9 @@ function decodeCursor(value: string | null): CursorValue | null | undefined {
     if (
       !Array.isArray(decoded)
       || decoded.length !== 2
-      || !isCanonicalTimeReviewTimestamp(decoded[0])
+      || !(isCanonicalTimeReviewTimestamp(decoded[0]) || (typeof decoded[0] === 'string'
+        && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{6}Z$/.test(decoded[0])
+        && isCanonicalTimeReviewTimestamp(decoded[0].slice(0, 23) + 'Z')))
       || !isCanonicalTimeReviewUuid(decoded[1])
     ) return undefined;
     return { recordedAt: decoded[0], id: decoded[1] };

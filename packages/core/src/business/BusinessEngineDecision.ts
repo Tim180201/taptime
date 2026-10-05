@@ -7,21 +7,25 @@ import type { StartedBreakInterval, StoppedBreakInterval } from '../domain/Break
 import type { BreakIntervalStarted } from '../domain/events/BreakIntervalStarted';
 import type { BreakIntervalStopped } from '../domain/events/BreakIntervalStopped';
 
-export type BusinessEngineEscalationReason =
-  | 'work_location_unavailable'
-  | 'administration_stopped'
-  | 'active_time_entry_organization_mismatch'
-  | 'active_time_entry_user_mismatch'
-  | 'previous_work_event_organization_mismatch'
-  | 'previous_work_event_user_mismatch'
-  | 'previous_work_event_target_mismatch'
-  | 'previous_work_event_subject_mismatch'
-  | 'active_break_organization_mismatch'
-  | 'active_break_user_mismatch'
-  | 'active_break_time_entry_mismatch'
-  | 'work_event_precedes_active_break'
-  | 'work_event_precedes_active_time_entry'
-  | 'work_event_precedes_previous_accepted_work_event';
+export const BUSINESS_ENGINE_ESCALATION_REASONS = [
+  'work_location_unavailable',
+  'administration_stopped',
+  'active_time_entry_organization_mismatch',
+  'active_time_entry_user_mismatch',
+  'previous_work_event_organization_mismatch',
+  'previous_work_event_user_mismatch',
+  'previous_work_event_target_mismatch',
+  'previous_work_event_subject_mismatch',
+  'active_break_organization_mismatch',
+  'active_break_user_mismatch',
+  'active_break_time_entry_mismatch',
+  'work_event_precedes_active_break',
+  'work_event_precedes_active_time_entry',
+  'work_event_precedes_previous_accepted_work_event',
+] as const;
+export type BusinessEngineEscalationReason = typeof BUSINESS_ENGINE_ESCALATION_REASONS[number];
+export const isBusinessEngineEscalationReason = (value: unknown): value is BusinessEngineEscalationReason =>
+  typeof value === 'string' && (BUSINESS_ENGINE_ESCALATION_REASONS as readonly string[]).includes(value);
 
 export type BusinessEngineDecision =
   | { readonly status: 'time_entry_started'; readonly timeEntry: StartedTimeEntry; readonly event: TimeEntryStarted }

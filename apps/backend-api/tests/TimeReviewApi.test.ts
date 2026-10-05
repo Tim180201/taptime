@@ -1,3 +1,4 @@
+import { parseReviewItemQueryResponseV4 } from '@taptime/time-review-contract';
 import type { Server } from 'node:http';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
@@ -30,6 +31,21 @@ afterEach(async () => {
 });
 
 describe('DA3 time-review HTTP boundary', () => {
+  it('T097: v4 preserves break and unknown reason through the actual HTTP-to-contract seam',async()=>{
+    const item={reviewItemId:ids.reviewItem,source:'server_legacy' as const,employeeUserId:ids.employeeUser,
+      employeeMembershipId:ids.employeeMembership,employeeDisplayName:'Person',targetType:'break' as const,targetId:null,
+      targetDisplayName:'Pause',triggerType:'manual' as const,occurredAt:'2026-07-20T08:00:00.000Z',
+      recordedAt:'2026-07-20T08:00:00.000Z',reviewReason:'future_reason',deviceSequence:null,predecessorBlocked:false};
+    const queryReviewItemsV4=vi.fn(async()=>({status:'ready' as const,value:{items:[item],nextCursor:null}}));
+    const origin=await start({timeReview:{...unavailableOfflineDependencies().timeReview,queryReviewItemsV4}});
+    const response=await fetch(`${origin}/v4/administration/review-items/query`,{method:'POST',
+      headers:{Authorization:'Bearer abc.def.ghi','Content-Type':'application/json'},
+      body:JSON.stringify({expectedMembershipId:ids.membership,limit:100,cursor:null})});
+    expect(response.status).toBe(200);
+    expect(parseReviewItemQueryResponseV4(await response.json())).toEqual({items:[item],nextCursor:null});
+    expect(queryReviewItemsV4).toHaveBeenCalledOnce();
+  });
+
   it('forwards the exact bounded overview command and emits only its closed ready result', async () => {
     const queryTimeRecords = vi.fn(async () => ({
       status: 'ready' as const,

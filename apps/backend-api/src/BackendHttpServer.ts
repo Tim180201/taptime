@@ -90,6 +90,7 @@ import {
 export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
   '/v1/lifecycle-events/offline/skip': 'offline_sequence_skip',
+  '/v4/administration/review-items/query': 'admin_review_item_query_v4',
   '/v3/administration/review-items/query': 'admin_review_item_query_v3',
   '/v1/administration/employee-account-invitations/resend': 'admin_resend_employee_account_invitation',
   '/v1/operator/session': 'operator_session',
@@ -877,6 +878,10 @@ async function handleRequest(
   if (route === 'admin_review_item_query') {
     await handleReviewItemQuery(response, accessToken, body, dependencies, options,
       correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_review_item_query_v4') {
+    await handleReviewItemQuery(response,accessToken,body,dependencies,options,correlationId,timeoutMilliseconds,true,false,true);
     return;
   }
   if (route === 'admin_review_item_query_v3') {
@@ -1956,13 +1961,14 @@ async function handleReviewItemQuery(
   timeoutMilliseconds: number,
   version2 = false,
   version3 = false,
+  version4 = false,
 ): Promise<void> {
   const validation = validateReviewItemQueryRequest(body);
   if (validation.status === 'invalid_request') {
     respondError(response, 400, 'invalid_request');
     return;
   }
-  const reader = (version3 ? dependencies.timeReview.queryReviewItemsV3 : dependencies.timeReview.queryReviewItemsV2)?.bind(dependencies.timeReview);
+  const reader = (version4 ? dependencies.timeReview.queryReviewItemsV4 : version3 ? dependencies.timeReview.queryReviewItemsV3 : dependencies.timeReview.queryReviewItemsV2)?.bind(dependencies.timeReview);
   if (version2 && reader === undefined) {
     respondError(response, 503, 'service_unavailable');
     return;
@@ -2874,6 +2880,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_time_record_correction':
     case 'admin_review_item_query':
     case 'admin_review_item_query_v2':
+    case 'admin_review_item_query_v4':
     case 'admin_review_item_query_v3':
     case 'admin_review_adjudication':
       return 'time_review_failed';
@@ -2943,6 +2950,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_time_record_correction'
     || route === 'admin_review_item_query'
     || route === 'admin_review_item_query_v2'
+    || route === 'admin_review_item_query_v4'
     || route === 'admin_review_item_query_v3'
     || route === 'admin_review_adjudication'
     || route === 'admin_project_query'

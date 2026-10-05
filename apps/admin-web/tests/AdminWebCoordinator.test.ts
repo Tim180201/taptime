@@ -70,6 +70,7 @@ const stoppedRecord: SafeTimeRecord = {
   baseRowVersion: 1, effectiveRevisionNumber: 0, overlapsAnotherRecord: false,
 };
 const reviewItem: SafeReviewItem = {
+  employeeMembershipId: '70000000-0000-4000-8000-000000000001',
   reviewItemId: '90000000-0000-4000-8000-000000000002',
   source: 'offline_v2', employeeDisplayName: 'Employee Alpha',
   targetType: 'customer', targetDisplayName: 'Werkstatt', triggerType: 'nfc',
@@ -1089,6 +1090,52 @@ describe('AdminWebCoordinator', () => {
       status: 'ready', correctionIntent: null,
       notice: { kind: 'success', text: 'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt erhalten.' },
     });
+  });
+
+  it('T097: rejects a selection from the general list and loads only the review person, including page two', async () => {
+    const { api, auth } = setup();
+    let now = fixedNow;
+    const coordinator = new AdminWebCoordinator(auth, api, () => now);
+    api.reviewItems.mockResolvedValue({status:'succeeded',value:{items:[reviewItem],nextCursor:null}});
+    api.timeRecords.mockResolvedValue({status:'succeeded',value:{items:[stoppedRecord],nextCursor:null}});
+    const second={...stoppedRecord,timeRecordId:'90000000-0000-4000-8000-000000000099'};
+    const managed=vi.fn<NonNullable<AdminWebApiPort['managedPersonTime']>>(async (_token,request)=>({status:'succeeded',value:{
+      activeRecord:null,windowStartedAt:request.fromInclusive,windowEndedAt:request.toExclusive,
+      records:[{...(request.cursor===null?stoppedRecord:second),details:{origin:'nfc',baseRowVersion:1,effectiveRevisionNumber:0,
+        comment:null,changed:false,change:null,overlapsAnotherRecord:false}}],nextCursor:request.cursor===null?'page2':null,
+    }}));
+    Object.assign(api,{managedPersonTime:managed});
+    await coordinator.signIn('administrator@example.test','secret');
+    coordinator.prepareAdjudication(reviewItem.reviewItemId,'adjust_existing_time_record',stoppedRecord.timeRecordId,
+      '2026-07-20T07:00:00.000Z',stoppedRecord.stoppedAt,'Beginn korrigiert');
+    expect(coordinator.getState()).toMatchObject({adjudicationIntent:null});
+    await coordinator.loadReviewCorrectionRecords(reviewItem.reviewItemId,'2026-07');
+    now += 60_000;
+    await coordinator.loadReviewCorrectionRecords(reviewItem.reviewItemId,'2026-07',true);
+    expect(managed.mock.calls[1]![1].toExclusive).toBe(managed.mock.calls[0]![1].toExclusive);
+    expect(managed.mock.calls.map(call=>call[1])).toEqual([
+      expect.objectContaining({targetMembershipId:reviewItem.employeeMembershipId,cursor:null}),
+      expect.objectContaining({targetMembershipId:reviewItem.employeeMembershipId,cursor:'page2'}),
+    ]);
+    coordinator.prepareAdjudication(reviewItem.reviewItemId,'adjust_existing_time_record',second.timeRecordId,
+      '2026-07-20T07:00:00.000Z',second.stoppedAt,'Beginn korrigiert');
+    expect(coordinator.getState()).toMatchObject({adjudicationIntent:{timeRecord:{timeRecordId:second.timeRecordId}}});
+    await coordinator.confirmAdjudication();
+    expect(api.adjudicateReviewItem).toHaveBeenCalledWith(expect.any(String),membershipId,expect.any(String),reviewItem.reviewItemId,
+      expect.objectContaining({timeRecordId:second.timeRecordId,expectedBaseRowVersion:1}), 'Beginn korrigiert');
+  });
+
+  it('T097: refuses a time-changing break intent and requires a note before closing',async()=>{
+    const {api,coordinator}=setup();
+    api.reviewItems.mockResolvedValue({status:'succeeded',value:{items:[{...reviewItem,targetType:'break',targetDisplayName:'Pause'}],nextCursor:null}});
+    await coordinator.signIn('administrator@example.test','secret');
+    coordinator.prepareAdjudication(reviewItem.reviewItemId,'create_recovered_time_record',null,
+      '2026-07-20T07:00:00.000Z','2026-07-20T08:00:00.000Z','Pause geprüft');
+    expect(coordinator.getState()).toMatchObject({adjudicationIntent:null,notice:{kind:'error'}});
+    coordinator.prepareAdjudication(reviewItem.reviewItemId,'no_time_record_change',null,null,null,'   ');
+    expect(coordinator.getState()).toMatchObject({adjudicationIntent:null});
+    coordinator.prepareAdjudication(reviewItem.reviewItemId,'no_time_record_change',null,null,null,'Pause geprüft');
+    expect(coordinator.getState()).toMatchObject({adjudicationIntent:{resolution:'no_time_record_change'}});
   });
 
   it('requires an explicit review decision and submits its exact selected evidence', async () => {

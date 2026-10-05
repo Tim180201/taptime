@@ -1,3 +1,4 @@
+import { parseReviewItemQueryResponseV4 } from '@taptime/time-review-contract';
 import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeQuery,isVoidedTimeResponse,type VoidTimeResult,type VoidedTimeResponse,type VoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3 as TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCaptureTimeResponse, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
@@ -513,7 +514,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<CursorPage<SafeReviewItem>>> {
     if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'invalid_response' };
     return this.request(
-      '/v3/administration/review-items/query', token, 'POST',
+      '/v4/administration/review-items/query', token, 'POST',
       { expectedMembershipId: membershipId, limit: 100, cursor: nextCursor },
       parseReviewItems,
       false,
@@ -1195,52 +1196,8 @@ function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
       });
 }
 function parseReviewItems(value: unknown): CursorPage<SafeReviewItem> | null {
-  if (!isRecord(value) || !exact(value, ['status', 'items', 'nextCursor'])
-    || value.status !== 'ready' || !Array.isArray(value.items)
-    || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && opaqueCursor.test(value.nextCursor)))) return null;
-  const reasons = new Set([
-    'event_content_conflict','sequence_content_conflict','lease_binding_conflict','receipt_metadata_conflict','invalid_response','http_400','http_409','http_422',
-    'identity_or_membership_not_current', 'capture_time_out_of_bounds',
-    'automatic_window_elapsed', 'historical_configuration_not_valid',
-    'predecessor_requires_review', 'server_lifecycle_deferred',
-    'active_time_entry_organization_mismatch', 'active_time_entry_user_mismatch',
-    'previous_work_event_organization_mismatch', 'previous_work_event_user_mismatch',
-    'previous_work_event_target_mismatch', 'work_event_precedes_active_time_entry',
-    'work_event_precedes_previous_accepted_work_event', 'work_location_unavailable',
-  'administration_stopped',
-  ]);
-  const items = value.items.map((entry) => {
-    if (!isRecord(entry) || !exact(entry, [
-      'reviewItemId', 'source', 'employeeUserId', 'employeeMembershipId',
-      'employeeDisplayName', 'targetType', 'targetId', 'targetDisplayName', 'triggerType', 'occurredAt',
-      'recordedAt', 'reviewReason', 'deviceSequence', 'predecessorBlocked',
-    ]) || !uuid.test(String(entry.reviewItemId)) || !uuid.test(String(entry.employeeUserId))
-      || !uuid.test(String(entry.employeeMembershipId)) || !uuid.test(String(entry.targetId))
-      || typeof entry.employeeDisplayName !== 'string' || typeof entry.targetDisplayName !== 'string'
-      || !['customer', 'project', 'general_work','break'].includes(String(entry.targetType))
-      || (entry.triggerType !== 'nfc' && entry.triggerType !== 'manual')
-      || (entry.source !== 'offline_v2' && entry.source !== 'server_legacy' && entry.source !== 'offline_skip')
-      || !isCanonicalTimestamp(entry.occurredAt) || !isCanonicalTimestamp(entry.recordedAt)
-      || typeof entry.reviewReason !== 'string' || !reasons.has(entry.reviewReason)
-      || !(entry.deviceSequence === null || (Number.isSafeInteger(entry.deviceSequence) && Number(entry.deviceSequence) >= 1))
-      || typeof entry.predecessorBlocked !== 'boolean') return null;
-    return Object.freeze({
-      reviewItemId: String(entry.reviewItemId), source: entry.source,
-      employeeDisplayName: entry.employeeDisplayName,
-      targetType: entry.targetType as SafeReviewItem['targetType'],
-      targetDisplayName: entry.targetDisplayName,
-      triggerType: entry.triggerType as SafeReviewItem['triggerType'],
-      occurredAt: entry.occurredAt, reviewReason: entry.reviewReason,
-      deviceSequence: entry.deviceSequence,
-      predecessorBlocked: entry.predecessorBlocked,
-    });
-  });
-  return items.some((entry) => entry === null)
-    ? null
-    : Object.freeze({
-        items: Object.freeze(items as SafeReviewItem[]),
-        nextCursor: value.nextCursor as string | null,
-      });
+  const page = parseReviewItemQueryResponseV4(value);
+  return page === null ? null : Object.freeze({items: page.items, nextCursor: page.nextCursor});
 }
 function parseCommittedWrite(value: unknown): true | null {
   if (!isRecord(value) || value.status !== 'committed' || typeof value.idempotentRetry !== 'boolean') return null;
