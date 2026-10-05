@@ -25,11 +25,17 @@ eigenen Zeiten; bei wiederhergestellten Einträgen beobachten. (c) „Zeit beend
 die Uhrzeitspanne enthält sie (P3).
 T-095 (TL-Review 05.10.): APPROVED nach Kaskadenschutz. P3: Warte-Bildschirm beim Abmelden ohne „Angemeldet bleiben“;
 Web-Export (`expo export --platform all`) scheitert an `wa-sqlite.wasm` (bestehend, nur Web, P2).
+T-096 (TL-Review 05.10.): APPROVED. **Vor dem Deploy von T-096:** Der PO holt die öffentlichen SHA-256-Fingerabdrücke
+der Android-Signatur aus EAS (`npx eas-cli credentials -p android`, je Variante), Codex trägt sie in
+`apps/landing-web/public/.well-known/assetlinks.json` ein (statt `EAS_SHA256_NOT_CONFIGURED`), erst dann Deploy und
+danach erst neue App-Builds installieren; sonst schlägt die App-Link-Prüfung bei der Installation fehl und ein Tag öffnet
+bei geschlossener App den Browser. Apps ohne Versionskopf (vor T-096) werden weiter angenommen; sobald alle Geräte im
+Pilot einen Build ab T-096 haben, kann der Kopf Pflicht werden.
 Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113), Site URL `https://admin.tb-infra.de`.
 Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und IP-Adresse; vor der Ausweitung anheben (T-099).
 frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
 womöglich mit wenigen Lehrern; offene Fragen für den CEO-Termin stehen im PLAN.
-Auf `main`, noch nicht ausgeliefert: T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095 (`df19da8`), T-095b (`bc4e2dc`, Migration 044); Deploy und
+Auf `main`, noch nicht ausgeliefert: T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`); Deploy und
 App-Builds sobald der PO am Mac ist. Reihenfolge (TL 05.10.): T-095 bis T-098, T-100 bis T-102 → Deploy und App-Builds
 → T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht sind Voraussetzung für echte Daten.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
