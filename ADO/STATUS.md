@@ -35,7 +35,7 @@ Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113),
 Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und IP-Adresse; vor der Ausweitung anheben (T-099).
 frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
 womöglich mit wenigen Lehrern; offene Fragen für den CEO-Termin stehen im PLAN.
-Auf `main`, noch nicht ausgeliefert: T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`); Deploy und
+Auf `main`, noch nicht ausgeliefert: T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045); Deploy und
 App-Builds sobald der PO am Mac ist. Reihenfolge (TL 05.10.): T-095 bis T-098, T-100 bis T-102 → Deploy und App-Builds
 → T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht sind Voraussetzung für echte Daten.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
