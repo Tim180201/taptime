@@ -1712,3 +1712,23 @@ und nur nach bestätigtem Pausenende das Ereignis für das laufende Ziel. Jede a
 eigenen Meldung. Die Engine-Regel „kein Arbeitsereignis während einer Pause“ bleibt unverändert. T-103.
 **Warum:** Eine laufende Zeit zu beenden darf keinen zweiten Schritt verlangen (D-112), und zwei gewöhnliche Ereignisse
 halten Engine, Historie und Export so, wie sie heute sind.
+
+## D-118 · Eine nicht übertragbare Erfassung hält die nächsten nicht auf · 04.10.2026 · Claude (TL)
+Lehnt der Server ein Ereignis dauerhaft ab oder versteht die App seine Antwort fachlich nicht, bleibt der Beleg auf dem
+Gerät erhalten (Quarantäne), wird sichtbar („1 Erfassung konnte nicht übertragen werden“, mit Ziel und Uhrzeit, in
+„Meine Zeiten“ als „nicht übertragen“), und die folgenden Erfassungen werden weiter gesendet; die Engine entscheidet sie
+wie immer. Antwortet der Server mit „App veraltet“ oder einer unbekannten Vertragsversion, stoppt die Übertragung
+dagegen sichtbar mit „Bitte App aktualisieren“, weil dann jede weitere Antwort ebenso unverständlich wäre. Ein
+nachgeholter Eintrag erfolgt über „Nachtragen“ (T-066). T-095.
+**Warum:** Im Pilot heisst eine blockierte Warteschlange: ein Lehrer kann tagelang nicht stempeln und sieht nur „Sicher
+lokal gespeichert“. Ein einzelner sichtbarer Fehler mit Nachtragen ist besser als ein stiller Stillstand.
+
+## D-119 · Tags hängen an unserer Domain, nicht am App-Namen · 05.10.2026 · Claude (TL), Tim (PO)
+Der endgültige App- und Store-Name steht noch nicht fest (PO, 04.10.). Damit die Tags bei frogs nach einer Umbenennung
+nicht neu beschrieben werden müssen, tragen neu beschriebene Tags nur noch die Adresse auf unserer Tag-Domain
+(`tagHosts.json`), keinen Android-Paketnamen (Application Record) mehr. Android öffnet die App über einen geprüften App
+Link; die Domain veröffentlicht dafür `/.well-known/assetlinks.json` mit allen gültigen Paketnamen und Signaturen (Test-
+und spätere Store-App), auch hinter dem Passwortschutz der Startseite erreichbar. Ein Namenswechsel ändert nur diese
+Datei. iPhone nutzt dieselbe Adresse (T-073). Vor dem ersten Pilot-Tag, mit T-096.
+**Warum:** 500 Tags neu zu beschreiben kostet einen Tag Arbeit bei frogs und Vertrauen; eine Datei auf dem eigenen
+Server zu ändern kostet eine Minute.

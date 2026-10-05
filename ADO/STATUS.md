@@ -14,12 +14,22 @@ unbekannt; die Deploy-Vorprüfung lehnt dann bis zur nächsten stündlichen Sich
 (3) „Passwort vergessen“: der Mail-Link landet auf der Anmeldung statt „Neues Passwort setzen“ (T-094b, vor T-103).
 (4) Das EAS-Bau-Paket war 116 MB, weil EAS `.git/info/exclude` nicht liest und lokale Prüfordner mitnimmt (`.easignore`
 mit T-103); lokale Ausschlussliste um `.t[0-9]*-review/` ergänzt (PO).
+(5) Kontowechsel am Android (Admin → Mitarbeiter) zeigte „Vorgänge eines anderen Kontos offen“, obwohl beim Admin alles
+grün war: bestätigte Erfassungen bleiben bis zum Archivnachweis als `confirmed_awaiting_archive` im Gerät und sperren
+den Wechsel (`canReleaseOwner`); nach rund 10 min mit offener App ging der Wechsel. Kein Datenrisiko, aber ohne
+Erklärung → T-095: Zustand „wartet auf Sicherung“ mit Hinweis, Archivnachweis zügig abfragen.
+T-103 (TL-Review 04.10.): APPROVED. Hinweise: (a) In der App bleiben die Knöpfe nach einer gespeicherten manuellen
+Erfassung gesperrt, bis die Bestätigung kommt; ohne Netz ohne Ausweg auf diesem Bildschirm → T-095 („gespeichert, wird
+übertragen“ und Freigabe). (b) Fehlt zum laufenden Eintrag die Zusatzprojektion (043), scheitert das ganze Lesen der
+eigenen Zeiten; bei wiederhergestellten Einträgen beobachten. (c) „Zeit beendet“ nennt die Arbeitsdauer ohne Pausen,
+die Uhrzeitspanne enthält sie (P3).
 Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113), Site URL `https://admin.tb-infra.de`.
 Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und IP-Adresse; vor der Ausweitung anheben (T-099).
 frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
 womöglich mit wenigen Lehrern; offene Fragen für den CEO-Termin stehen im PLAN.
-Reihenfolge (TL 04.10.): T-094b, T-103, T-095 bis T-098, T-100 bis T-102 → dritter Deploy und App-Builds → T-024 →
-Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht sind Voraussetzung für echte Daten.
+Auf `main`, noch nicht ausgeliefert: T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043); Deploy und
+App-Builds sobald der PO am Mac ist. Reihenfolge (TL 05.10.): T-095 bis T-098, T-100 bis T-102 → Deploy und App-Builds
+→ T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht sind Voraussetzung für echte Daten.
 Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 
 ## Beobachten (TL, 23.–27.09.)
