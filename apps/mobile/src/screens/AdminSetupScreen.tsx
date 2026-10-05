@@ -1,7 +1,8 @@
+import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { BackHandler, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import type { AdminSetupCapability, AdminSetupState } from '../administration/contracts';
-import { ActionButton, AppText as Text, TouchTarget, Card, Screen, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, TouchTarget, Card, Screen } from '../design/primitives';
 import { LineIcon } from '../design/LineIcon';
 import { mobileTokens } from '../design/tokens';
 
@@ -9,14 +10,14 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   const state = useSyncExternalStore((listener) => administration.subscribe(listener),
     () => administration.getState(), () => administration.getState());
   useEffect(()=>()=>{const current=administration.getState();if(current.status==='capturing'||current.status==='writing')void administration.cancel();},[administration]);
+  const form = useRequiredForm();
   const [assigning, setAssigning] = useState(false);
   const [customerId, setCustomerId] = useState('');
   const [tagName, setTagName] = useState('');
   const [pauseTag, setPauseTag] = useState(false);
-  const [invalid, setInvalid] = useState(false);
   useEffect(() => {
     if (state.status === 'ready' && state.outcome?.status === 'tag_provisioned') {
-      setAssigning(false); setCustomerId(''); setTagName(''); setInvalid(false);
+      setAssigning(false); setCustomerId(''); setTagName('');
     }
   }, [state]);
   const goBack = () => { void administration.cancel(); setAssigning(false); };
@@ -34,8 +35,8 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   const presentation = presentAdminSetupState(state, Platform.OS);
   const capture = () => {
     if (busy) return;
-    if (tagName.trim().length === 0 || (!pauseTag && customerId.length === 0)) { setInvalid(true); return; }
-    setInvalid(false);
+    if (!form.validate()) return;
+
     if (pauseTag) void administration.provisionBreak(tagName);
     else void administration.provision(customerId, tagName);
   };
@@ -45,8 +46,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
         onPress={goBack} style={styles.back}><LineIcon name="back" /></TouchTarget>
         <Text style={styles.title}>Tag zuordnen</Text></View>
       <Text style={styles.muted}>Wähle ein Arbeitsziel und gib dem Tag einen Namen. Tippe dann auf den Kreis und halte dein Handy an den Tag, bis er zugeordnet ist. Dabei wird der Tag beschrieben und sein bisheriger Inhalt ersetzt.</Text>
-      {invalid ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel und gib eine Bezeichnung ein. Deine Eingaben bleiben erhalten.</Text> : null}
-      <Text style={styles.label}>Arbeitsziel</Text>
+      <RequiredField form={form} error={!pauseTag && !customerId ? "Bitte einen Kunden oder Pause wählen." : null}><Text style={styles.label}>Arbeitsziel</Text>
       {projection.customers.filter((customer) => customer.active).map((customer) => <ActionButton
         key={customer.id} title={customer.displayName} tone={!pauseTag && customerId === customer.id ? 'primary' : 'secondary'}
         accessibilityState={{ selected: !pauseTag && customerId === customer.id }} disabled={busy}
@@ -54,9 +54,9 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       {projection.customers.filter((customer) => customer.active).length === 0
         ? <Text>Lege deinen ersten Kunden im Reiter „Kunden“ an. Danach kannst du seinen Tag zuordnen.</Text> : null}
       <ActionButton title="Pause" tone={pauseTag ? 'primary' : 'quiet'} disabled={busy}
-        accessibilityState={{ selected: pauseTag }} onPress={() => setPauseTag(true)} />
+        accessibilityState={{ selected: pauseTag }} onPress={() => setPauseTag(true)} /></RequiredField>
       <Text style={styles.label}>Bezeichnung</Text>
-      <TextField value={tagName} onChangeText={setTagName} maxLength={80} editable={!busy}
+      <RequiredTextField form={form} error={!tagName.trim() ? "Bitte Bezeichnung eingeben." : null} value={tagName} onChangeText={setTagName} maxLength={80} editable={!busy}
         placeholder="z. B. Eingang Werkstatt" accessibilityLabel="Bezeichnung des NFC-Tags" />
       <TouchTarget accessibilityRole="button" accessibilityLabel="NFC-Tag beschreiben und zuordnen" disabled={busy}
         accessibilityState={{ disabled: busy }} onPress={capture} style={styles.capture}>
@@ -74,7 +74,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
               ?? presentAssignment(tag.assignmentState, tag.assignmentType)}</Text></View></View>
       </Card>)}
       {projection.nfcTags.length === 0 ? <Card><Text>Noch keine Tags. Ordne deinen ersten Tag einem Arbeitsziel zu.</Text></Card> : null}
-      <ActionButton title="Tag zuordnen" tone="cta" disabled={busy} onPress={() => setAssigning(true)} />
+      <ActionButton title="Tag zuordnen" tone="cta" disabled={busy} onPress={() => {form.reset();setAssigning(true);}} />
       <ActionButton title="Tag prüfen" disabled={busy} onPress={()=>void administration.inspectTag?.()}/>
       {busy?<ActionButton title="Scan abbrechen" tone="quiet" onPress={()=>void administration.cancel()}/>:null}
       {projection.nextCursor !== null ? <ActionButton title="Weitere Tags laden" tone="secondary" disabled={busy}

@@ -1,7 +1,8 @@
+import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 import type { AdminSetupCapability, CustomerCreationOptions } from '../administration/contracts';
-import { ActionButton, AppText as Text, Card, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, Card } from '../design/primitives';
 import { presentAdminSetupState } from './AdminSetupScreen';
 
 export function CustomerCreation({ administration, onCreated }: {
@@ -27,6 +28,7 @@ export function CustomerCreation({ administration, onCreated }: {
     }
   }, [administration]);
   const prepare = async () => {
+    form.reset();
     const request = ++generation.current;
     setOpen(true); setOptions(null); setMessage('');
     const result = await administration.prepareCustomer().catch(() => ({ status: 'unavailable' as const }));
@@ -42,8 +44,9 @@ export function CustomerCreation({ administration, onCreated }: {
     setOptions(result);
     if (result.status === 'ready') setLocationId(result.locations.length === 1 ? result.locations[0]!.id : '');
   };
+  const form = useRequiredForm();
   const submit = async (withTag: boolean) => {
-    if (operation.current || options?.status !== 'ready') return;
+    if (operation.current || options?.status !== 'ready' || createdId===null && !form.validate()) return;
     const request = generation.current;
     operation.current = true;
     setBusy(true); setMessage('');
@@ -111,16 +114,16 @@ export function CustomerCreation({ administration, onCreated }: {
       <Text accessibilityRole="header">Kunde hinzufügen</Text>
       <Text>Zum Anlegen brauchst du eine Internetverbindung.</Text>
       <Text>Name</Text>
-      <TextField accessibilityLabel="Name des neuen Kunden" value={name} onChangeText={setName} maxLength={120} editable={!busy && createdId === null} />
+      <RequiredTextField form={form} error={!name.trim() ? "Bitte Name eingeben." : null} accessibilityLabel="Name des neuen Kunden" value={name} onChangeText={setName} maxLength={120} editable={!busy && createdId === null} />
       {options === null ? <Text>Standorte werden geladen …</Text> : options.status !== 'ready' ? <>
         <Text accessibilityRole="alert">{options.status === 'offline' ? 'Du bist offline. Verbinde dich mit dem Internet.' : 'Die Kundeneinrichtung konnte nicht geladen werden. Prüfe deine Verbindung und Berechtigung.'}</Text>
         <ActionButton title="Erneut laden" onPress={() => { void prepare(); }} />
       </> : <>
         {options.locationsEnabled && options.locations.length > 1 ? <>
-          <Text>Standort</Text>
+          <RequiredField form={form} error={!locationId ? "Bitte einen Standort wählen." : null}><Text>Standort</Text>
           {options.locations.map(location => <ActionButton key={location.id} title={location.displayName}
             accessibilityState={{ selected: location.id === locationId }} disabled={busy || createdId !== null}
-            tone={location.id === locationId ? 'primary' : 'secondary'} onPress={() => setLocationId(location.id)} />)}
+            tone={location.id === locationId ? 'primary' : 'secondary'} onPress={() => setLocationId(location.id)} />)}</RequiredField>
         </> : options.locationsEnabled && options.locations.length === 0 ? <Text>Du hast keinen aktiven Standort zum Anlegen.</Text> : null}
         <Text>Zum Zuordnen hältst du dein Handy an den Tag. Sein bisheriger Inhalt wird dabei ersetzt.</Text>
         <ActionButton title={createdId === null ? 'NFC-Tag zuordnen' : 'Tag-Zuordnung erneut versuchen'} disabled={busy} onPress={() => { void submit(true); }} />

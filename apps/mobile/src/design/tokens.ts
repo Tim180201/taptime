@@ -9,6 +9,7 @@ const raster = Object.freeze({
   onAccent: '#0E1512',
   callToAction: '#C9F24D',
   notice: '#E0A44C',
+  error: '#FF8F8F',
   focus: '#7EE0C0',
 });
 

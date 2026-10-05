@@ -417,3 +417,23 @@ it.each(["active", "paused"])(
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   },
 );
+
+it('T101 login and MFA expose their existing required fields without auth calls',async()=>{
+ render(<App runtime={runtime}/>);await screen.findByLabelText('E-Mail');
+ fireEvent.click(screen.getByRole('button',{name:'Anmelden'}));
+ expect(auth.signIn).not.toHaveBeenCalled();expect(screen.getByLabelText('E-Mail')).toHaveAttribute('aria-invalid','true');expect(screen.getByLabelText('E-Mail')).toHaveFocus();
+ fireEvent.change(screen.getByLabelText('E-Mail'),{target:{value:'operator@example.test'}});fireEvent.change(screen.getByLabelText('Passwort'),{target:{value:'secret'}});
+ expect(screen.getByLabelText('E-Mail')).not.toHaveAttribute('aria-invalid');expect(screen.getByLabelText('Passwort')).not.toHaveAttribute('aria-invalid');
+ fireEvent.click(screen.getByRole('button',{name:'Anmelden'}));await screen.findByLabelText('Code aus der Authenticator-App');
+ fireEvent.click(screen.getByRole('button',{name:/Bestätigen|bestätigen/}));expect(auth.verifyMfa).not.toHaveBeenCalled();
+ const code=screen.getByLabelText('Code aus der Authenticator-App');expect(code).toHaveAttribute('aria-invalid','true');expect(code).toHaveFocus();fireEvent.change(code,{target:{value:'123456'}});expect(code).not.toHaveAttribute('aria-invalid');
+});
+it.each(['create','pause','resume'])('T101 business %s locates missing inputs before any mutation',async mode=>{
+ if(mode==='resume')replies.overview=()=>({...overview,organizations:[{...organization,status:'paused'}]});
+ await ready();fireEvent.click(screen.getByRole('button',{name:mode==='create'?'Betrieb anlegen':mode==='pause'?'Pausieren':'Fortsetzen'}));
+ const button=screen.getByRole('button',{name:mode==='create'?'Anlegen und einladen':'Weiter zur Bestätigung'});expect(button).not.toBeDisabled();fireEvent.click(button);
+ expect(calls.some(call=>call.path.startsWith('organizations/'))).toBe(false);
+ const fields=Array.from(button.closest('form')!.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[required]'));
+ expect(fields[0]).toHaveFocus();
+ for(const field of fields){expect(field).toHaveAttribute('aria-invalid','true');expect(document.getElementById(field.getAttribute('aria-describedby')!)).toHaveAttribute('role','alert');fireEvent.change(field,{target:{value:field.type==='email'?'admin@example.test':'Prüfung'}});expect(field).not.toHaveAttribute('aria-invalid');}
+});

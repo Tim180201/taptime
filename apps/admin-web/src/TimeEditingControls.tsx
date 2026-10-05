@@ -1,3 +1,4 @@
+import { RequiredForm } from './RequiredForm';
 import {VoidTimeForm} from './TimeVoidControls';
 import type { Notice } from './contracts';
 import { createContext,useContext,useEffect,useRef,useState,type ReactNode } from 'react';
@@ -115,13 +116,16 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     } catch {if(mounted.current)setNotice({ kind: 'error', text: timeEditMessages.unavailable });}
     finally {if(mounted.current)setSaving(false);}
   };
+  const startValue=kind==='backfill'?parseZonedLocalTimestamp(`${date}T${start}`):parseEditedZonedMinute(start,record?.startedAt);
+  const endValue=kind==='backfill'?parseZonedLocalTimestamp(`${startValue && end<=start?shiftDay(date,1):date}T${end}`):parseEditedZonedMinute(end,originalEnd);
+  const dateValue=parseZonedLocalTimestamp(`${date}T12:00`);
   const label=kind==='backfill'?'Zeit hinzufügen':kind==='comment'?'Kommentar schreiben':kind==='stop'?'Zeit beenden':'Zeit ändern';
-  return <ResponsiveSheet label={label} onCancel={onClose} busy={saving}><form ref={form} className="form-grid time-edit-form" aria-label={label} onSubmit={e=>{e.preventDefault();void save();}}>
+  return <ResponsiveSheet label={label} onCancel={onClose} busy={saving}><RequiredForm ref={form} className="form-grid time-edit-form" aria-label={label} onSubmit={e=>{e.preventDefault();void save();}}>
     {kind==='backfill'?<><label>Kunde oder Projekt<select required value={selected} disabled={saving||archivePending} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>{targets?.status==='ready'?targets.value.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{t.displayName}</option>):null}</select></label>
       {targets?.status!=='ready'?<p role="status">{targets?.status==='unavailable'?targets.message:'Arbeitsziele werden geladen.'} <button type="button" className="quiet" disabled={saving||archivePending} onClick={()=>{if(managedBackfill) setTargetReload(value=>value+1);else void context.administration.loadWorkTargets?.();}}>Arbeitsziele erneut laden</button></p>:targets.value.length===0?<p>Es sind keine Arbeitsziele verfügbar.</p>:null}
-      <label>Datum<input type="date" required value={date} disabled={saving||archivePending} onChange={e=>setDate(e.target.value)}/></label></>:null}
-    {kind!=='comment'?<>{kind!=='stop'?<label>Von<input required type={kind==='backfill'?'time':'datetime-local'} step="60" value={start} disabled={saving||archivePending} onChange={e=>setStart(e.target.value)}/></label>:null}
-      <label>Bis<input required type={kind==='backfill'?'time':'datetime-local'} step="60" value={end} disabled={saving||archivePending} onChange={e=>setEnd(e.target.value)}/></label>
+      <label>Datum<input data-field-error={date && !dateValue ? "Bitte Datum in Europe/Berlin prüfen." : undefined} type="date" required value={date} disabled={saving||archivePending} onChange={e=>setDate(e.target.value)}/></label></>:null}
+    {kind!=='comment'?<>{kind!=='stop'?<label>Von<input data-field-error={start && (kind!=='backfill'||dateValue) && !startValue ? "Bitte Beginn in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type={kind==='backfill'?'time':'datetime-local'} step="60" value={start} disabled={saving||archivePending} onChange={e=>setStart(e.target.value)}/></label>:null}
+      <label>Bis<input data-field-error={end && (kind!=='backfill'||(dateValue&&startValue)) && !endValue ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type={kind==='backfill'?'time':'datetime-local'} step="60" value={end} disabled={saving||archivePending} onChange={e=>setEnd(e.target.value)}/></label>
       <p className="full-field supporting">{BUSINESS_TIME_ZONE}{kind==='backfill'?' · Liegt „bis“ vor oder gleich „von“, endet die Zeit am Folgetag. Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}
     {kind==='comment'||(kind==='backfill'&&!administrator)?<label className="full-field">{kind==='comment'?'Kommentar':'Kommentar (optional)'}<textarea required={kind==='comment'} value={comment} disabled={saving||archivePending} onChange={e=>setComment(e.target.value)}/></label>:null}
     {kind!=='comment'&&administrator?<label className="full-field">Grund<textarea required value={reason} disabled={saving||archivePending} onChange={e=>setReason(e.target.value)}/></label>:null}
@@ -129,5 +133,5 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     {!context.online?<p role="status">Nur online möglich. Ihre Eingaben bleiben erhalten.</p>:null}
     <button disabled={saving||!context.online} aria-busy={saving}>{saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'}</button>
     <button className="quiet" type="button" disabled={saving} onClick={onClose}>Abbrechen</button>
-  </form></ResponsiveSheet>;
+  </RequiredForm></ResponsiveSheet>;
 }

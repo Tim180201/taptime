@@ -1,3 +1,4 @@
+import { RequiredForm } from './RequiredForm';
 import type { Notice } from './contracts';
 import { useEffect, useRef, useState } from 'react';
 import { AdminWebApiClient } from './AdminWebApiClient';
@@ -73,7 +74,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
         <h2>Beschäftigte Person einladen</h2>
         {notice === null ? null : <p role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
         <button className="quiet" disabled={busy} onClick={()=>{setOpen(false);requestAnimationFrame(()=>trigger.current?.focus());}}>Einladen schließen</button>
-        <form className="inline-form" onSubmit={(event) => {
+        <RequiredForm className="inline-form" onSubmit={(event) => {
         event.preventDefault();
         if (submitting.current) return;
         submitting.current = true;
@@ -109,6 +110,6 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
           </select>
         </> : null}
         <button disabled={busy}>{busy ? 'Einladung wird versendet …' : retryNeeded ? 'Erneut versuchen' : 'Einladung senden'}</button>
-      </form></dialog>}
+      </RequiredForm></dialog>}
   </>;
 }

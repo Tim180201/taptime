@@ -1,3 +1,4 @@
+import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import {VoidTimeForm} from './TimeVoidControls';
 type Notice = { readonly kind: 'success' | 'info' | 'error'; readonly text: string };
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -6,7 +7,7 @@ import { BUSINESS_TIME_ZONE, parseZonedLocalTimestamp, toZonedMinuteInput, parse
 import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type BackfillTargetSelection, type SafeOwnTimeRecord, type SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type { MobileManagementScope } from '../auth/contracts';
 import type { MobileWorkCapability } from '../work/contracts';
-import { ActionButton, AppText as Text, Card, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, Card } from '../design/primitives';
 import type { TimeEditKind, TimeEditResult, TimeEditingCapability } from './TimeEditingCoordinator';
 
 export interface TimeEditingContextValue {
@@ -76,6 +77,7 @@ export function TimeRecordControls({record,targetMembershipId,onSaved}:{record:S
   </View>;
 }
 function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind:Exclude<TimeEditKind,'void'>;day?:string;record?:SafeOwnTimeRecord;targetMembershipId:string;onSaved:()=>Promise<void>;onClose:()=>void}) {
+  const form = useRequiredForm();
   const context=useContext(TimeEditingContext)!;
   const [target,setTarget]=useState<SafeWorkTarget|null>(null);
   const managedBackfill=kind==='backfill' && context.role!=='employee' && targetMembershipId!==context.membershipId;
@@ -106,7 +108,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
   const pendingInput=useRef<Record<string,unknown>|null>(null);
   useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
   const save=async()=>{
-    if(saving) return;
+    if(saving || !form.validate()) return;
     if(!context.online) {setNotice({ kind: 'error', text: timeEditMessages.offline });return;}
     const input:Record<string,unknown>={};
     if(kind==='comment') {input.timeRecordId=record!.timeRecordId;input.comment=comment;}
@@ -145,20 +147,25 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
       if(result.status==='committed') {onClose();await onSaved();}
     } finally {if(mounted.current) setSaving(false);}
   };
-  const field=(label:string,value:string,set:(s:string)=>void,multiline=false)=><View style={{gap:4}}><Text>{label}</Text><TextField accessibilityLabel={label} value={value} onChangeText={set} multiline={multiline} editable={!saving&&!archivePending} /></View>;
+  const startValue=kind==='backfill'?parseZonedLocalTimestamp(`${date}T${start}`):parseEditedZonedMinute(`${date}T${start}`,record?.startedAt);
+  const endValue=kind==='backfill'?parseZonedLocalTimestamp(`${startValue && end<=start ? shiftDay(date,1) : date}T${end}`):parseEditedZonedMinute(`${endDate}T${end}`,originalEnd);
+  const dateValue=parseZonedLocalTimestamp(`${date}T12:00`);
+  const endDateValue=parseZonedLocalTimestamp(`${endDate}T12:00`);
+  const timeError='Bitte Datum und Uhrzeit in Europe/Berlin prüfen (Zeitumstellung).';
+  const field=(label:string,value:string,set:(s:string)=>void,multiline=false,invalidTime=false)=><View style={{gap:4}}><Text>{label}</Text><RequiredTextField form={form} error={label.includes("optional") ? null : !value.trim() ? `Bitte ${label} eingeben.` : multiline && Array.from(value).length>500 ? "Bitte höchstens 500 Zeichen eingeben." : invalidTime ? timeError : null} accessibilityLabel={label} value={value} onChangeText={set} multiline={multiline} editable={!saving&&!archivePending} /></View>;
   return <View style={{gap:12}}>
-    {kind==='backfill'?<><Text accessibilityRole="header">Kunde oder Projekt</Text>
+    {kind==='backfill'?<><RequiredField form={form} error={!target || !targets.some(t=>t.targetType===target.targetType && t.targetId===target.targetId) ? "Bitte einen Kunden oder ein Projekt wählen." : null}><Text accessibilityRole="header">Kunde oder Projekt</Text>
       {targets.map(t=><ActionButton key={`${t.targetType}/${t.targetId}`} title={`${target===t?'✓ ':''}${t.displayName}`} tone="quiet" disabled={saving} onPress={()=>setTarget(t)} />)}
       {targets.length===0?<Text>Arbeitsziele sind noch nicht geladen. Aktualisiere die Ansicht.</Text>:null}
       {managedBackfill && targetPage.status!=='ready' && targetPage.status!=='loading'?<>
         <Text accessibilityRole="alert">{timeEditMessages[targetPage.status]}</Text>
         <ActionButton title="Aktualisieren" tone="quiet" disabled={!context.online} onPress={()=>setTargetReload(value=>value+1)} />
       </>:null}
-      {field('Datum (JJJJ-MM-TT)',date,setDate)}</>:null}
-    {kind!=='comment'?<>{kind==='correct'?field('Beginn am (JJJJ-MM-TT)',date,setDate):null}
-      {kind!=='stop'?field('Von (HH:MM)',start,setStart):null}
-      {kind!=='backfill'?field('Ende am (JJJJ-MM-TT)',endDate,setEndDate):null}
-      {field('Bis (HH:MM)',end,setEnd)}
+      </RequiredField>{field('Datum (JJJJ-MM-TT)',date,setDate,false,!dateValue)}</>:null}
+    {kind!=='comment'?<>{kind==='correct'?field('Beginn am (JJJJ-MM-TT)',date,setDate,false,!dateValue):null}
+      {kind!=='stop'?field('Von (HH:MM)',start,setStart,false,!!dateValue&&!startValue):null}
+      {kind!=='backfill'?field('Ende am (JJJJ-MM-TT)',endDate,setEndDate,false,!endDateValue):null}
+      {field('Bis (HH:MM)',end,setEnd,false,(kind==='backfill'?!!dateValue&&!!startValue:!!endDateValue)&&!endValue)}
       <Text>Europe/Berlin{kind==='backfill'?' · Liegt „bis“ vor oder gleich „von“, endet die Zeit am Folgetag. Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</Text></>:null}
     {kind==='comment'||(kind==='backfill'&&context.role==='employee')?field(kind==='comment'?'Kommentar':'Kommentar (optional)',comment,setComment,true):null}
     {kind!=='comment'&&context.role!=='employee'?field('Grund',reason,setReason,true):null}

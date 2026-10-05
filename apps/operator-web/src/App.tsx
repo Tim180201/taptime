@@ -1,3 +1,4 @@
+import { RequiredForm } from './RequiredForm';
 import {
   useEffect,
   useRef,
@@ -130,7 +131,7 @@ export function App({ runtime }: { runtime: OperatorRuntime }) {
             <button onClick={() => void runtime.signOut()}>Abmelden</button>
           </>
         ) : (
-          <form onSubmit={submit}>
+          <RequiredForm onSubmit={submit}>
             {state.status === "mfa" ? (
               <>
                 {state.factor.qrCode && (
@@ -201,7 +202,7 @@ export function App({ runtime }: { runtime: OperatorRuntime }) {
                 </button>
               </>
             )}
-          </form>
+          </RequiredForm>
         )}
       </section>
     </main>
@@ -682,7 +683,7 @@ function ActionPanel({
       onClose={onClose}
     >
       <ErrorBand message={error} />
-      <form onSubmit={submit}>
+      <RequiredForm onSubmit={submit}>
         {target === "create" ? (
           <>
             <p>
@@ -751,7 +752,7 @@ function ActionPanel({
             <button className="primary">Weiter zur Bestätigung</button>
           </>
         )}
-      </form>
+      </RequiredForm>
     </SidePanel>
   );
 }

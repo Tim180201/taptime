@@ -1,3 +1,4 @@
+import { RequiredForm } from './RequiredForm';
 import { CustomerQuotaNotice } from './QuotaNotice';
 import type { Notice } from './contracts';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
@@ -146,9 +147,10 @@ export function App({
         {state.status === 'signed_out' && state.notice
           ? <FeedbackBand message={state.notice} /> : recoveryLinkError
             ? <FeedbackBand message={{ kind: 'error', text: expiredResetLinkMessage }} /> : null}
-        <form onSubmit={(event: FormEvent) => {
+        <RequiredForm onSubmit={(event: FormEvent) => {
           event.preventDefault();
           setRecoveryLinkError(false);
+          if((event.nativeEvent as SubmitEvent).submitter?.getAttribute('data-validation-scope')==='login-email'){void administration.requestPasswordReset(email);return;}
           const passwordSnapshot = password;
           setPassword('');
           void administration.signIn(email, passwordSnapshot);
@@ -162,15 +164,11 @@ export function App({
           <button disabled={state.status === 'signing_in'} aria-busy={state.status === 'signing_in'}>
             {state.status === 'signing_in' ? 'Wird geprüft …' : 'Sicher anmelden'}
           </button>
-        </form>
-        <button className="text-button" disabled={state.status === 'signing_in' || email.length < 3}
+        <button className="text-button" type="submit" data-validation-scope="login-email" disabled={state.status === 'signing_in'}
           aria-busy={state.status === 'signing_in'}
-          onClick={() => {
-            setRecoveryLinkError(false);
-            void administration.requestPasswordReset(email);
-          }}>
+          >
           Passwort vergessen
-        </button>
+        </button></RequiredForm>
       </section>
     </main>;
   }
@@ -340,7 +338,7 @@ function PasswordRecovery({
       <Brand />
       <h1 id="recovery-title">Neues Passwort setzen</h1>
       {notice ? <FeedbackBand message={notice} /> : null}
-      <form onSubmit={(event) => {
+      <RequiredForm onSubmit={(event) => {
         event.preventDefault();
         const snapshot = password;
         setPassword('');
@@ -353,7 +351,7 @@ function PasswordRecovery({
         <button disabled={completing} aria-busy={completing}>
           {completing ? 'Wird geändert …' : 'Passwort ändern'}
         </button>
-      </form>
+      </RequiredForm>
     </section>
   </main>;
 }

@@ -1,8 +1,9 @@
+import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { SignInResult } from '../auth/contracts';
 import { AppBuildIdentity } from '../design/AppBuildIdentity';
-import { ActionButton, AppText as Text, Screen, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, Screen } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 
 interface LoginScreenProps {
@@ -13,6 +14,7 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswordReset, disabled }: LoginScreenProps) {
+  const form = useRequiredForm();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -20,7 +22,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   const [message, setMessage] = useState<string | null>(null);
 
   async function handleSignIn(employeeEnrollmentIntent = false): Promise<void> {
-    if (submitInFlight.current || disabled) {
+    if (submitInFlight.current || disabled || !form.validate()) {
       return;
     }
     submitInFlight.current = true;
@@ -48,7 +50,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   }
 
   async function handlePasswordReset(): Promise<void> {
-    if (submitInFlight.current || disabled || email.trim().length < 3) return;
+    if (submitInFlight.current || disabled || !form.validate("email")) return;
     submitInFlight.current = true;
     setSubmitting(true);
     const result = await requestPasswordReset(email);
@@ -62,7 +64,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   return (
     <Screen title="Taptura — Anmeldung"><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text>E-Mail-Adresse</Text>
-      <TextField
+      <RequiredTextField form={form} scope="email" error={email.trim().length < 3 ? "Bitte E-Mail-Adresse eingeben." : null}
         accessibilityLabel="E-Mail-Adresse"
         style={styles.input}
         value={email}
@@ -74,7 +76,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
         testID="email-input"
       />
       <Text>Passwort</Text>
-      <TextField
+      <RequiredTextField form={form} error={!password ? "Bitte Passwort eingeben." : null}
         accessibilityLabel="Passwort"
         style={styles.input}
         value={password}
@@ -102,7 +104,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
         />
       </View>
       <ActionButton title="Passwort vergessen" tone="quiet" onPress={handlePasswordReset}
-        disabled={disabled || submitting || email.trim().length < 3}
+        disabled={disabled || submitting}
         testID="password-reset-button" />
       {message !== null ? <Text style={styles.error}>{message}</Text> : null}
       <AppBuildIdentity style={styles.buildIdentity} />

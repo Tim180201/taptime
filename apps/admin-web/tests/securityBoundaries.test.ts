@@ -63,6 +63,7 @@ describe('C3D Admin Web security boundaries', () => {
     const textOnDark = ['#F2F5F4', '#97A5A0', '#7EE0C0', '#C9F24D', '#E0A44C'] as const;
     for (const foreground of textOnDark) {
       for (const background of darkBackgrounds) {
+      expect(contrastRatio('#FF8F8F', background)).toBeGreaterThanOrEqual(4.5);
         expect(contrastRatio(foreground, background), `${foreground} on ${background}`)
           .toBeGreaterThanOrEqual(4.5);
       }
@@ -76,6 +77,7 @@ describe('C3D Admin Web security boundaries', () => {
 
     expect(contrastRatio('#97A5A0', '#1A2320')).toBeGreaterThanOrEqual(3);
     for (const background of darkBackgrounds) {
+      expect(contrastRatio('#FF8F8F', background)).toBeGreaterThanOrEqual(4.5);
       expect(contrastRatio('#7EE0C0', background), `focus on ${background}`)
         .toBeGreaterThanOrEqual(3);
     }
@@ -97,6 +99,7 @@ describe('C3D Admin Web security boundaries', () => {
       '--color-on-accent: #0E1512;',
       '--color-call-to-action: #C9F24D;',
       '--color-notice: #E0A44C;',
+      '--color-error: #FF8F8F;',
       '--color-focus: #7EE0C0;',
       '--color-print-ground: #FFFFFF;',
       '--color-print-text: #000000;',

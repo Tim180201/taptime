@@ -17,3 +17,11 @@ it.each(['empty','running','pause','busy','offline'])('shows the %s state withou
  if(kind==='busy')expect(screen.getAllByRole('button').every(b=>(b as HTMLButtonElement).disabled)).toBe(true);
  if(kind==='offline')expect(screen.queryByRole('button',{name:'Zeit starten'})).toBeNull();
 });
+
+it('T101 start marks the target choice and clears it before any capture',async()=>{
+ const {fireEvent}=await import('@testing-library/react');const captureManual=vi.fn();
+ const state={status:'ready',workTargets:{status:'ready',value:[target]},manual:{busy:false,pending:false,message:null},calendar:{status:'ready',targetMembershipId:null,month:'2026-10',value:{activeRecord:null,records:[],nextCursor:null}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
+ render(<ManualView state={state} administration={{...administration,captureManual} as AdminWebCapability}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Zeit starten'}));expect(captureManual).not.toHaveBeenCalled();expect(screen.getByRole('group',{name:'Arbeitsziel'}).getAttribute('aria-invalid')).toBe('true');expect(document.activeElement).toBe(screen.getByRole('group',{name:'Arbeitsziel'}));
+ fireEvent.click(screen.getByRole('button',{name:'Kunde X'}));expect(screen.getByRole('group',{name:'Arbeitsziel'}).hasAttribute('aria-invalid')).toBe(false);expect(screen.queryByRole('alert')).toBeNull();
+});

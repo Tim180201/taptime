@@ -82,3 +82,9 @@ it('T049: an employee cannot submit invitations through the capability directly'
  expect(await client.invite('Neue Person','person@example.test',null)).toEqual({status:'rejected'});
  expect(request).toHaveBeenCalledOnce();expect(request.mock.calls[0]![0]).toBe('/v2/session');
 });
+
+it('T101 invitation displays name, email and location hints without inviting',()=>{
+ const invite=vi.fn();render(<EmployeeAccountInvitationForm capability={{invite}} state={{locationsEnabled:true,selectedLocation:null,assignableLocations:[{id:'one',name:'Berlin'},{id:'two',name:'Bonn'}]}} open setOpen={()=>{}} onCreated={async()=>{}}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Einladung senden'}));expect(invite).not.toHaveBeenCalled();expect(screen.getByLabelText('Name')).toHaveFocus();
+ for(const [label,value] of [['Name','Alex'],['E-Mail','alex@example.test'],['Heimatstandort','one']]){const field=screen.getByLabelText(label!);expect(field).toHaveAttribute('aria-invalid','true');expect(document.getElementById(field.getAttribute('aria-describedby')!)).toHaveAttribute('role','alert');fireEvent.change(field,{target:{value}});expect(field).not.toHaveAttribute('aria-invalid');}
+});

@@ -1,3 +1,4 @@
+import { RequiredForm } from '../RequiredForm';
 import { TimeRecordControls } from '../TimeEditingControls';
 import { exportPresentation } from '../exportPresentation';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
@@ -89,7 +90,7 @@ export default function TimeRecordsView({
     onRetry={() => void administration.retrySection('timeRecords')}>
     <Panel title="Arbeitszeiten"
       description={`Zeitraum: ${format(state.timeWindow.fromInclusive)} bis ${format(state.timeWindow.toExclusive)}.`}>
-      <form className="filter-form" onSubmit={(event) => {
+      <RequiredForm className="filter-form" onSubmit={(event) => {
         event.preventDefault();
 
       }}>
@@ -113,7 +114,7 @@ export default function TimeRecordsView({
             <option value="manuell-erfasst">Manuell erfasst</option>
           </select>
         </label>
-      </form>
+      </RequiredForm>
       {hasFilters ? <div className="filter-summary" aria-label="Aktive Filter">
         <div className="filter-chips">
           {route.month === null ? null : <span className="filter-chip">
@@ -187,7 +188,7 @@ export default function TimeRecordsView({
     </Panel>
     <Panel title="Abgeschlossene Arbeitszeit korrigieren"
       description={`Alle Uhrzeiten gelten für ${BUSINESS_TIME_ZONE}.`}>
-      <form className="form-grid" onSubmit={(event) => {
+      <RequiredForm className="form-grid" onSubmit={(event) => {
         event.preventDefault();
         const canonicalStart = parseEditedZonedMinute(startedAt,originalStart);
         const canonicalStop = parseEditedZonedMinute(stoppedAt,originalStop);
@@ -220,13 +221,13 @@ export default function TimeRecordsView({
         {timeError === null ? null : <p id="correction-time-error"
           className="field-error" role="alert">{timeError}</p>}
         <label>Neuer Beginn
-          <input required type="datetime-local" step="60" value={startedAt}
+          <input data-field-error={startedAt && !parseEditedZonedMinute(startedAt,originalStart) ? "Bitte Beginn in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={startedAt}
             aria-describedby={timeError === null ? undefined : 'correction-time-error'}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setStartedAt(event.target.value)} />
         </label>
         <label>Neues Ende
-          <input required type="datetime-local" step="60" value={stoppedAt}
+          <input data-field-error={stoppedAt && !parseEditedZonedMinute(stoppedAt,originalStop) ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={stoppedAt}
             aria-describedby={timeError === null ? undefined : 'correction-time-error'}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setStoppedAt(event.target.value)} />
@@ -239,7 +240,7 @@ export default function TimeRecordsView({
         <button ref={prepareButton} disabled={state.timeReviewBusy || state.correctionIntent !== null}>
           Korrektur prüfen
         </button>
-      </form>
+      </RequiredForm>
       {state.correctionIntent === null ? null : <Confirmation
         label="Korrektur ausdrücklich bestätigen"
         title="Korrektur speichern?"

@@ -1,3 +1,4 @@
+import { RequiredForm } from '../RequiredForm';
 import { useEffect,useState } from 'react';
 import { captureStatus, captureDuration } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability,AdminWebState } from '../contracts';
@@ -26,8 +27,8 @@ export default function ManualView({state,administration}: {
         {active.breakStartedAt?'Pause beenden':'Zeit beenden'}</button>
       <button disabled={locked} onClick={()=>void administration.captureManual?.(active.breakStartedAt?'stop':'break')}>
         {active.breakStartedAt?'Zeit beenden':'Pause starten'}</button>
-    </div> : <>
-      {targets?.status === 'ready' ? <fieldset disabled={locked}><legend>Arbeitsziel</legend>
+    </div> : <RequiredForm onSubmit={event=>{event.preventDefault();if(target && !locked)void administration.captureManual?.(target);}}>
+      {targets?.status === 'ready' ? <fieldset data-required-choice tabIndex={-1} data-field-error={target ? "" : "Bitte einen Kunden oder ein Projekt wählen."} disabled={locked}><legend>Arbeitsziel</legend>
         <label>Arbeitsziel suchen<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Kunde oder Projekt suchen"/></label>
         {(['customer','project','general_work'] as const).map(type=>{
           const visible=targets.value.filter(item=>item.targetType===type && item.displayName.toLocaleLowerCase('de-DE').includes(search.trim().toLocaleLowerCase('de-DE')));
@@ -37,8 +38,8 @@ export default function ManualView({state,administration}: {
         })}
         {targets.value.length===0?<p>Es sind keine Arbeitsziele verfügbar. Wenden Sie sich an Ihre Betriebsverwaltung.</p>:null}
       </fieldset> : targets?.status==='unavailable'?<p role="status">{targets.message}</p>:<DelayedSkeleton label="Arbeitsziele werden geladen"/>}
-      <button className="capture-primary" disabled={locked || target===undefined} onClick={()=>{if(target)void administration.captureManual?.(target);}}>Zeit starten</button>
-    </>}
+      <button className="capture-primary" disabled={locked}>Zeit starten</button>
+    </RequiredForm>}
     {state.manual?.busy ? <p role="status">Bestätigung wird angefordert …</p> : state.manual?.pending ?
       <button className="capture-primary" onClick={()=>void administration.captureManual?.('break')}>Bestätigung erneut abrufen</button> : null}
     {state.manual?.message ? <p className="feedback-band" role="status" aria-live="polite">{state.manual.message}</p> : null}

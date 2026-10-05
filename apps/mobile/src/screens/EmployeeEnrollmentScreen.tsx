@@ -1,7 +1,8 @@
+import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { EmployeeEnrollmentResult, MobileSessionState } from '../auth/contracts';
-import { ActionButton, AppText as Text, Screen, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, Screen } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 
 export function EmployeeEnrollmentScreen({
@@ -13,12 +14,13 @@ export function EmployeeEnrollmentScreen({
   readonly redeem: (invitationSecret: string) => Promise<EmployeeEnrollmentResult>;
   readonly signOut: () => Promise<void>;
 }) {
+  const form = useRequiredForm();
   const [invitationSecret, setInvitationSecret] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const submission = useRef(false);
 
   async function submit(): Promise<void> {
-    if (submission.current || invitationSecret.length === 0) return;
+    if (submission.current || !form.validate()) return;
     submission.current = true;
     setSubmitting(true);
     const submittedSecret = invitationSecret;
@@ -43,7 +45,7 @@ export function EmployeeEnrollmentScreen({
       Du bist sicher beim Anmeldedienst angemeldet, hast aber noch keinen Taptura-Zugang.
     </Text>
     <Text>Einladungsgeheimnis</Text>
-    <TextField
+    <RequiredTextField form={form} error={!invitationSecret.trim() ? "Bitte Einladungsgeheimnis eingeben." : null}
       accessibilityLabel="Einladungsgeheimnis"
       value={invitationSecret}
       onChangeText={setInvitationSecret}
@@ -57,7 +59,7 @@ export function EmployeeEnrollmentScreen({
     <ActionButton
       title={submitting ? 'Einladung wird geprüft …' : 'Einladung sicher einlösen'}
       onPress={submit}
-      disabled={submitting || invitationSecret.length === 0}
+      disabled={submitting}
       loading={submitting}
       testID="redeem-employee-invitation-button"
     />

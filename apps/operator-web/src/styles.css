@@ -20,6 +20,7 @@
   font-display: swap;
 }
 :root {
+  --color-error: #FF8F8F;
   color-scheme: dark;
   font:
     15px/1.5 Manrope,
@@ -350,6 +351,7 @@ textarea {
 }
 @media print {
   :root {
+  --color-error: #FF8F8F;
     color: black;
     background: white;
   }
@@ -415,3 +417,9 @@ input, select, textarea { font-size: 16px; }
   .log li { display: block; }
   dl { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Field feedback follows the existing constraints. */
+[aria-invalid="true"] { border-color: var(--color-error); }
+.required-field-error { display: block; color: var(--color-error); font-size: 13px; grid-column: 1 / -1; }
+.input-action:has(.required-field-error) { flex-wrap: wrap; }
+.input-action > .required-field-error { flex-basis: 100%; order: 1; }

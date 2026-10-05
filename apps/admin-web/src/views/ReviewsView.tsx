@@ -1,3 +1,4 @@
+import { RequiredForm } from '../RequiredForm';
 import { isTimeReviewRole } from '@taptime/time-review-contract';
 import {
 	useEffect,
@@ -81,7 +82,7 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   </div></div>
   {open ? <div className="row-decision">
     <p className="supporting">{resolutionLabel(resolution)}. Bitte begründen Sie Ihre Entscheidung.</p>
-      <form className="form-grid" onSubmit={(event) => {
+      <RequiredForm className="form-grid" onSubmit={(event) => {
         event.preventDefault();
         let canonicalStart: string | null = null;
         let canonicalStop: string | null = null;
@@ -147,13 +148,13 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
           {timeError === null ? null : <p id={`review-time-error-${item.reviewItemId}`}
             className="field-error" role="alert">{timeError}</p>}
           <label>Beginn
-            <input required type="datetime-local" step="60" value={startedAt}
+            <input data-field-error={startedAt && !parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null) ? "Bitte Beginn in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={startedAt}
               aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
               disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
               onChange={(event) => setStartedAt(event.target.value)} />
           </label>
           <label>Ende
-            <input required type="datetime-local" step="60" value={stoppedAt}
+            <input data-field-error={stoppedAt && !parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null) ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={stoppedAt}
               aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
               disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
               onChange={(event) => setStoppedAt(event.target.value)} />
@@ -167,7 +168,7 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
         <button ref={prepareButton} disabled={state.timeReviewBusy || state.adjudicationIntent !== null}>
           Entscheidung prüfen
         </button>
-      </form>
+      </RequiredForm>
       {state.adjudicationIntent?.reviewItem.reviewItemId !== item.reviewItemId ? null : <Confirmation
         label="Entscheidung ausdrücklich bestätigen"
         title="Entscheidung speichern?"

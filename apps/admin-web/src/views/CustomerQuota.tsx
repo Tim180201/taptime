@@ -1,3 +1,4 @@
+import { RequiredForm } from '../RequiredForm';
 import { useState } from 'react';
 import { formatHours } from '@taptime/core';
 import { parseQuotaHours, quotaStageLabel, type QuotaStage } from '@taptime/mobile-work-contract';
@@ -25,11 +26,11 @@ export function CustomerQuota({customer,administration,onSaved,editable}:{custom
   };
   return <section aria-label="Kontingent"><p>Kontingent: {customer.quotaSeconds==null?'Kein Kontingent':`${formatHours(customer.quotaSeconds*1000)} h pro Monat`}</p>
     <QuotaProgress customer={customer}/>
-    {editing?<form onSubmit={event=>{event.preventDefault();if(!busy)void save();}}>
+    {editing?<RequiredForm onSubmit={event=>{event.preventDefault();if(!busy)void save();}}>
       {error?<p role="alert">{error}</p>:null}
-      <label>Stunden pro Monat (optional)<input inputMode="decimal" value={input} disabled={busy} onChange={event=>setInput(event.target.value)}/></label>
+      <label>Stunden pro Monat (optional)<input data-field-error={parseQuotaHours(input)===undefined ? "Bitte 0,5 bis 744 Stunden in halben oder ganzen Stunden eingeben." : undefined} inputMode="decimal" value={input} disabled={busy} onChange={event=>setInput(event.target.value)}/></label>
       <p className="supporting">0,5 bis 744 Stunden. Leer lassen entfernt das Kontingent. Änderungen gelten ab dem laufenden Monat.</p>
       <div className="toolbar"><button disabled={busy} type="submit">{busy?'Speichert …':'Kontingent speichern'}</button><button type="button" className="quiet" disabled={busy} onClick={()=>setEditing(false)}>Abbrechen</button></div>
-    </form>:editable?<button className="quiet" onClick={()=>{setInput(customer.quotaSeconds==null?'':String(customer.quotaSeconds/3600).replace('.',','));setEditing(true);setError('');}}>Ändern</button>:<p className="supporting">Änderungen sind im laufenden Monat möglich.</p>}
+    </RequiredForm>:editable?<button className="quiet" onClick={()=>{setInput(customer.quotaSeconds==null?'':String(customer.quotaSeconds/3600).replace('.',','));setEditing(true);setError('');}}>Ändern</button>:<p className="supporting">Änderungen sind im laufenden Monat möglich.</p>}
   </section>;
 }

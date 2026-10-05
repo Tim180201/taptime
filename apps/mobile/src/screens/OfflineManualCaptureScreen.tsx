@@ -1,3 +1,4 @@
+import { useRequiredForm, RequiredField } from '../design/RequiredField';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { captureStatus, captureClock, type MobileOwnTimeQueryResponse, type SafeWorkTarget } from '@taptime/mobile-work-contract';
@@ -39,6 +40,7 @@ export function OfflineManualCaptureScreen({
   const [projection, setProjection] = useState<ProjectionState>({ status: 'loading' });
   const [selected, setSelected] = useState<SafeWorkTarget | null>(null);
   const [pause, setPause] = useState(false);
+  const form = useRequiredForm();
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [outcome, setOutcome] = useState<OfflineManualOutcome | null>(null);
@@ -95,8 +97,7 @@ export function OfflineManualCaptureScreen({
 
   const trigger = async (): Promise<void> => {
     if (
-      (selected === null && !pause)
-      || submitting
+      submitting || !form.validate()
     ) return;
     if (!pause && (selected === null || !projection.targets.some((target) => sameTarget(target, selected)))) return;
     setSubmitting(true);
@@ -134,7 +135,7 @@ export function OfflineManualCaptureScreen({
       <Text style={styles.explanation}>
         Wähle dein Arbeitsziel. Deine Erfassung bleibt auf dem Handy gespeichert und startet oder stoppt die Arbeitszeit nach der Übertragung.
       </Text>
-      <Text style={styles.group}>Arbeitsziel</Text>
+      <RequiredField form={form} error={selected===null && !pause ? "Bitte ein Arbeitsziel oder Pause wählen." : null}><Text style={styles.group}>Arbeitsziel</Text>
       <TextField
         value={search}
         onChangeText={setSearch}
@@ -166,16 +167,13 @@ export function OfflineManualCaptureScreen({
           disabled={submitting} accessibilityState={{ selected: pause }}
           accessibilityHint="Beginnt oder beendet deine Pause automatisch, sobald die Erfassung übertragen ist."
           onPress={() => { setSelected(null); setPause(true); setOutcome(null); }} />
-      </View>
+      </View></RequiredField>
       <Card>
         <Text>{pause ? 'Pause' : selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
         <ActionButton
           tone="cta"
           title={submitting ? 'Wird sicher gespeichert …' : 'Jetzt erfassen'}
-          disabled={
-            (selected === null && !pause)
-            || submitting
-          }
+          disabled={submitting}
           loading={submitting}
           accessibilityHint={pause ? 'Beginnt oder beendet deine Pause automatisch, sobald die Erfassung übertragen ist.'
             : 'Startet oder stoppt deine Arbeitszeit automatisch, sobald die Erfassung übertragen ist.'}

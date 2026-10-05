@@ -1,3 +1,4 @@
+import { RequiredForm } from './RequiredForm';
 import type { Notice } from './contracts';
 import { useRef, useState } from 'react';
 import type { InvitePasswordCapability, InvitePasswordResult } from './SupabaseInviteAuth';
@@ -35,7 +36,7 @@ export function WelcomePage({ invitation }: { readonly invitation: InvitePasswor
       <span className="eyebrow">Taptura</span>
       <h1 id="welcome-title">Passwort setzen</h1>
       {notice === null ? null : <p role="alert">{notice.text}</p>}
-      {invitation?.hasInvitation ? <form onSubmit={(event) => {
+      {invitation?.hasInvitation ? <RequiredForm onSubmit={(event) => {
         event.preventDefault();
         if (submitting.current) return;
         submitting.current = true;
@@ -60,7 +61,7 @@ export function WelcomePage({ invitation }: { readonly invitation: InvitePasswor
         <button type="submit" aria-busy={busy} disabled={busy}>
           {busy ? 'Passwort wird gespeichert …' : 'Passwort setzen'}
         </button>
-      </form> : null}
+      </RequiredForm> : null}
     </section>
   </main>;
 }

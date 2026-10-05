@@ -13,6 +13,7 @@
   --color-on-accent: #0E1512;
   --color-call-to-action: #C9F24D;
   --color-notice: #E0A44C;
+  --color-error: #FF8F8F;
   --color-focus: #7EE0C0;
 
   /* Eigenes Schwarz-Weiß-Raster für den Ausdruck. */
@@ -738,3 +739,9 @@ input, select, textarea { font-size: 16px; min-width: 0; }
 
 /* Voided history has no duration and uses the existing muted text token. */
 .voided-time-list, .voided-time-list strong { color: var(--color-text-muted); }
+
+/* Field feedback follows the existing constraints. */
+[aria-invalid="true"] { border-color: var(--color-error); }
+.required-field-error { display: block; color: var(--color-error); font-size: 13px; grid-column: 1 / -1; }
+.input-action:has(.required-field-error) { flex-wrap: wrap; }
+.input-action > .required-field-error { flex-basis: 100%; order: 1; }

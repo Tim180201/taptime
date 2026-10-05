@@ -1,18 +1,20 @@
+import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import {useContext,useEffect,useRef,useState} from 'react';
 import {View} from 'react-native';
 import {dayStart,shiftDay,formatZonedDateTime} from '@taptime/core';
 import {VOID_REASONS,isVoidReason,type VoidReasonCode,type SafeOwnTimeRecord,type MobileOwnTimeQueryResponse,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import {TimeEditingContext,timeEditMessages} from './TimeEditingControls';
-import {ActionButton,AppText as Text,Card,TextField} from '../design/primitives';
+import {ActionButton,AppText as Text,Card} from '../design/primitives';
 import {mobileTokens} from '../design/tokens';
 
 export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;onSaved:()=>Promise<void>;onClose:()=>void}) {
+  const form = useRequiredForm();
   const context=useContext(TimeEditingContext)!;
   const [code,setCode]=useState<VoidReasonCode|null>(null),[text,setText]=useState(''),[error,setError]=useState(''),[saving,setSaving]=useState(false);
   const mounted=useRef(true);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const save=async()=>{
-    if(saving)return;
+    if(saving || !form.validate())return;
     if(!context.online){setError('Löschen geht nur online. Deine Eingaben bleiben erhalten.');return;}
     const reasonText=code==='other'?text:null;
     if(!isVoidReason(code,reasonText)){setError('Wähle einen Grund. Bei „Sonstiges“ sind 1 bis 500 Zeichen erforderlich.');return;}
@@ -26,10 +28,10 @@ export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;
   };
   return <Card><Text accessibilityRole="header">Zeiteintrag löschen</Text>
     <Text>Der Eintrag zählt danach nicht mehr. Er bleibt mit dem Grund in der Historie sichtbar. Du kannst das Löschen nicht rückgängig machen.</Text>
-    <Text>Grund</Text>
+    <RequiredField form={form} error={!code ? "Wähle einen Grund." : null}><Text>Grund</Text>
     {Object.entries(VOID_REASONS).map(([value,label])=><ActionButton key={value} title={`${code===value?'✓ ':''}${label}`} tone="quiet" disabled={saving}
-      onPress={()=>setCode(value as VoidReasonCode)}/>)}
-    {code==='other'?<><Text>Kurze Begründung (1 bis 500 Zeichen)</Text><TextField accessibilityLabel="Kurze Begründung" value={text} onChangeText={setText} editable={!saving} multiline/></>:null}
+      onPress={()=>setCode(value as VoidReasonCode)}/>)}</RequiredField>
+    {code==='other'?<><Text>Kurze Begründung (1 bis 500 Zeichen)</Text><RequiredTextField form={form} error={!text.trim() || Array.from(text).length>500 ? "Bitte gib eine Begründung mit 1 bis 500 Zeichen ein." : null} accessibilityLabel="Kurze Begründung" value={text} onChangeText={setText} editable={!saving} multiline/></>:null}
     {error?<Text accessibilityRole="alert">{error}</Text>:null}
     {!context.online?<Text>Löschen geht nur online. Deine Eingaben bleiben erhalten.</Text>:null}
     <ActionButton title={saving?'Wird gelöscht …':'Löschen'} disabled={saving} onPress={()=>void save()}/>

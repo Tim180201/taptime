@@ -69,7 +69,7 @@ it.each(['comment','correct'] as const)('has no axe violations in the open %s fo
 });
 it('keeps Berlin DST gaps invalid and overnight dates explicit',async()=>{
  const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
- fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-03-29'}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:'02:30'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(screen.getByRole('alert')).toHaveTextContent('Zeitumstellung');expect(save).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-03-29'}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:'02:30'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(screen.getAllByRole('alert').every(node=>node.textContent?.includes('Zeitumstellung'))).toBe(true);expect(save).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-09-20'}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:'22:00'}});fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'06:00'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({startedAt:'2026-09-20T20:00:00.000Z',stoppedAt:'2026-09-21T04:00:00.000Z'})));
 });
@@ -176,7 +176,7 @@ it('T079 displays minutes and preserves exact unchanged correction instants',asy
 it.each(['2026-10-25T02:30','2027-03-28T02:30'])('T079 rejects an edited DST minute %s and retains the input',async value=>{
  const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
  fireEvent.change(screen.getByLabelText('Von'),{target:{value}});fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Prüfung'}});
- fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('Zeitumstellung');expect(screen.getByLabelText('Von')).toHaveValue(value);
+ fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(screen.getAllByRole('alert').every(node=>node.textContent?.includes('Zeitumstellung'))).toBe(true);expect(screen.getByLabelText('Von')).toHaveValue(value);
 });
 
 it.each(['employee','administrator','standortleitung'] as const)('T-088 %s confirms a required reason, preserves errors and closes after success',async role=>{
@@ -214,4 +214,19 @@ it('T-088 validates closed requests and preserves meaningful conflict responses'
  const request={expectedMembershipId:own,commandId:other,timeRecordId:other,reasonCode:'duplicate',reasonText:null};
  expect(await api.voidTime('token',request)).toEqual({status:'succeeded',value:{status:'already_voided'}});
  expect(fetcher.mock.lastCall?.[0]).toBe('/v1/time-records/void');expect(await api.voidTime('token',{...request,role:'administrator'})).toEqual({status:'invalid_response'});
+});
+
+it.each(['backfill','correct','stop','comment'] as const)('T101 %s shows missing fields before contacting the capability',async kind=>{
+ const {save}=show('administrator',kind==='stop'?other:own,kind==='stop'?{...record,status:'started',stoppedAt:null}:record);
+ fireEvent.click(screen.getByRole('button',{name:kind==='backfill'?'Zeit hinzufügen':kind==='correct'?'Ändern':kind==='stop'?'Beenden':'Kommentar schreiben'}));
+ const button=screen.getByRole('button',{name:kind==='stop'?'Zeit beenden':'Speichern'}),form=button.closest('form')!;
+ const fields=Array.from(form.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('[required]'));
+ for(const field of fields)fireEvent.change(field,{target:{value:''}});fireEvent.click(button);expect(save).not.toHaveBeenCalled();expect(fields[0]).toHaveFocus();
+ for(const field of fields){expect(field).toHaveAttribute('aria-invalid','true');expect(document.getElementById(field.getAttribute('aria-describedby')!.split(' ').at(-1)!)).toHaveAttribute('role','alert');}
+ for(const field of fields){const value=field instanceof HTMLSelectElement?`customer:${own}`:field.type==='date'?'2026-09-20':field.type==='time'?'10:00':field.type==='datetime-local'?'2026-09-20T10:00':'Berichtigt';fireEvent.change(field,{target:{value}});}
+ for(const field of fields)expect(field).not.toHaveAttribute('aria-invalid');
+});
+
+it('T101 review: valid date is preserved when Von is missing',()=>{
+ const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});const date=screen.getByLabelText('Datum'),clock=screen.getByLabelText('Von');fireEvent.change(clock,{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(date).not.toHaveAttribute('aria-invalid');expect(clock).toHaveAttribute('aria-invalid','true');expect(clock).toHaveFocus();
 });

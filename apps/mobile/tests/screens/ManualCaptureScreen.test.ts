@@ -9,6 +9,7 @@ vi.mock('react-native', () => {
     children?: ReactNode; accessibilityRole?: string;
   }) => createElement('div', { role: accessibilityRole }, children);
   return {
+    findNodeHandle:()=>null, AccessibilityInfo:{announceForAccessibility:vi.fn()},
     View: element, Text: element, ScrollView: element, TextInput: () => null,
     ActivityIndicator: () => null,
     StyleSheet: { create: (value: unknown) => value, flatten: () => ({}) },

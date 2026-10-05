@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type PropsWithChildren } from 'react';
+import { createContext, useContext, useState, type Ref, type PropsWithChildren } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -140,7 +140,7 @@ export function ActionButton({
   </Pressable>;
 }
 
-export function TextField({ style, editable = true, ...props }: TextInputProps) {
+export function TextField({ style, editable = true, ...props }: TextInputProps & { ref?: Ref<TextInput> }) {
   const loaded = useContext(FontReadyContext);
   const [focused, setFocused] = useState(false);
   return <TextInput

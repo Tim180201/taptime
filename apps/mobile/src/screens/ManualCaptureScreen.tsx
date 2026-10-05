@@ -1,3 +1,4 @@
+import { useRequiredForm, RequiredField } from '../design/RequiredField';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   ScrollView,
@@ -16,8 +17,8 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
     () => work.getState(),
     () => work.getState(),
   );
+  const form = useRequiredForm();
   const [search, setSearch] = useState('');
-  const [selectionError, setSelectionError] = useState(false);
   const [selected, setSelected] = useState<SafeWorkTarget | null>(null);
   useEffect(() => { void work.refresh(); }, [work]);
   const visible = useMemo(() => state.status === 'ready'
@@ -53,8 +54,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
           disabled={state.submitting || state.capturePending} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.stopActiveTime() : work.triggerBreak()} />
       </Card> : <>
         <Text style={styles.explanation}>Wähle dein Arbeitsziel. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
-        <Text style={styles.selection}>Arbeitsziel</Text>
-        {selectionError && selected === null ? <Text accessibilityRole="alert">Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten.</Text> : null}
+        <RequiredField form={form} error={selected===null ? "Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten." : null}><Text style={styles.selection}>Arbeitsziel</Text>
         <TextField value={search} onChangeText={setSearch} editable={!state.submitting} placeholder="Kunde oder Projekt suchen" accessibilityLabel="Arbeitsziel suchen" style={styles.search} />
         <View style={styles.list}>
           {(['customer', 'project', 'general_work'] as const).map(type => {
@@ -64,13 +64,13 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
               {targets.map(target => <ActionButton key={`${target.targetType}:${target.targetId}`} title={target.displayName}
                 disabled={state.submitting} tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
                 accessibilityState={{selected:selected?.targetId === target.targetId}}
-                onPress={() => {setSelected(target);setSelectionError(false);}} />)}
+                onPress={() => {setSelected(target);}} />)}
             </View>;
           })}
-        </View>
+        </View></RequiredField>
         <Card><Text style={styles.selection}>{selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
           <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting || state.capturePending} loading={state.submitting}
-            onPress={() => selected === null ? setSelectionError(true) : work.triggerManual(selected)} />
+            onPress={() => {if(form.validate() && selected)void work.triggerManual(selected);}} />
         </Card>
       </>}
       {state.submitting ? <Text accessibilityLiveRegion="polite">Bestätigung wird angefordert …</Text> : null}

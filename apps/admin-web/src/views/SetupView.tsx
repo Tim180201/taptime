@@ -1,3 +1,4 @@
+import { RequiredForm } from '../RequiredForm';
 import {
 	useEffect,
 	useRef,
@@ -70,7 +71,7 @@ export default function SetupView({
       <div hidden={tab !== 'arbeitsziele'}><Panel title="Kunden" description="Aktive und inaktive Kunden der geladenen Seiten.">
         <CountTruth count={state.projection.customers.length} noun="Kunden"
           complete={state.projection.nextCursor === null && state.projection.customersComplete} />
-        <form className="inline-form" onSubmit={(event) => {
+        <RequiredForm className="inline-form" onSubmit={(event) => {
           event.preventDefault();
           void administration.createCustomer(customerName, state.locationsEnabled ? selectedCustomerLocation || undefined : undefined);
         }}>
@@ -88,7 +89,7 @@ export default function SetupView({
               {state.creating ? 'Wird angelegt …' : 'Kunde anlegen'}
             </button>
           </div>
-        </form>
+        </RequiredForm>
         <ul className="entity-list">{state.projection.customers.map((customer) => <li key={customer.id}>
           <span>{customer.displayName}</span>
           <small className={`pill ${customer.active ? 'success' : ''}`}>
@@ -117,7 +118,7 @@ export default function SetupView({
       <div hidden={tab !== 'arbeitsziele'}><Panel title="Projekte" description="Eigenständige Arbeitsziele ohne Kundenbeziehung.">
         <CountTruth count={state.projects?.length ?? 0} noun="Projekte"
           complete={state.projectsNextCursor === null} />
-        <form className="inline-form" onSubmit={(event) => {
+        <RequiredForm className="inline-form" onSubmit={(event) => {
           event.preventDefault();
           void administration.createProject?.(projectName, state.locationsEnabled ? selectedProjectLocation || undefined : undefined);
         }}>
@@ -135,7 +136,7 @@ export default function SetupView({
               {state.projectBusy === true ? 'Wird verarbeitet …' : 'Projekt anlegen'}
             </button>
           </div>
-        </form>
+        </RequiredForm>
         <ul className="entity-list">{(state.projects ?? []).map((project) =>
           <li key={project.projectId}>
             <span>{project.displayName}</span>
@@ -168,12 +169,12 @@ export default function SetupView({
       </Panel></div>
       <div className="full-width" hidden={tab !== 'tags'}><Panel title="Tag neu zuordnen" description="Eine laufende Arbeitszeit blockiert die Änderung."
         className="full-width">
-        <form className="form-grid" onSubmit={(event) => {
+        <RequiredForm className="form-grid" onSubmit={(event) => {
           event.preventDefault();
           administration.prepareReassignment(tagId, targetId);
         }}>
           <label>NFC-Tag
-            <select ref={tagSelect} required value={tagId}
+            <select data-field-error={tagId && selectedTag?.assignmentState!=="assigned" ? "Bitte einen zugeordneten NFC-Tag wählen." : undefined} ref={tagSelect} required value={tagId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTagId(event.target.value)}>
               <option value="">NFC-Tag auswählen</option>
@@ -198,11 +199,9 @@ export default function SetupView({
           <button ref={prepareButton} disabled={
             state.reassigning
             || state.reassignmentIntent !== null
-            || selectedTag?.assignmentState !== 'assigned'
-            || targetId.length === 0
-            || selectedTag.targetCustomerId === targetId
+
           }>Zuordnung prüfen</button>
-        </form>
+        </RequiredForm>
         {state.reassignmentIntent !== null && intentTag !== null && intentTarget !== null
           ? <Confirmation
               label="Zuordnung ausdrücklich bestätigen"
@@ -260,7 +259,7 @@ function LocationSetupPanel({
   return <Panel title="Standorte"
     description="Ordnen Sie Beschäftigte und Arbeitsziele den Standorten zu. Aktivieren Sie anschließend die vorbereiteten Standorte."
     className="full-width">
-    <form className="inline-form" onSubmit={(event) => {
+    <RequiredForm className="inline-form" onSubmit={(event) => {
       event.preventDefault();
       void administration.createLocation?.(locationName);
     }}>
@@ -270,9 +269,9 @@ function LocationSetupPanel({
           onChange={(event) => setLocationName(event.target.value)} />
         <button disabled={state.locationSetupBusy}>Standort anlegen</button>
       </div>
-    </form>
+    </RequiredForm>
     <ul className="entity-list">{setup.locations.map((location) => <li key={location.id}>
-      <form className="input-action" onSubmit={(event) => {
+      <RequiredForm className="input-action" onSubmit={(event) => {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
         void administration.renameLocation?.(
@@ -285,7 +284,7 @@ function LocationSetupPanel({
         {location.active ? <button className="secondary" disabled={state.locationSetupBusy}>
           Namen speichern
         </button> : <small className="pill">Stillgelegt · historisch sichtbar</small>}
-      </form>
+      </RequiredForm>
       {location.active ? <button className="quiet" disabled={state.locationSetupBusy}
         onClick={() => void administration.deactivateLocation?.(location.id, location.rowVersion)}>
         Stilllegen

@@ -1,3 +1,4 @@
+import { WelcomePage } from '../src/WelcomePage';
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -125,4 +126,10 @@ describe('T-047 standalone welcome route', () => {
     await expect(auth.setPassword('test-password')).resolves.toBe('invalid_invitation');
     expect(sdk.updateUser).toHaveBeenCalledTimes(1);
   });
+});
+
+it('T101 WelcomePage points to the password and clears the hint before auth',()=>{
+ const setPassword=vi.fn(async()=> 'succeeded' as const);render(<WelcomePage invitation={{hasInvitation:true,setPassword}}/>);
+ const field=screen.getByLabelText('Neues Passwort');fireEvent.submit(field.closest('form')!);expect(setPassword).not.toHaveBeenCalled();expect(field).toHaveFocus();expect(field).toHaveAttribute('aria-invalid','true');expect(document.getElementById(field.getAttribute('aria-describedby')!)).toHaveAttribute('role','alert');
+ fireEvent.change(field,{target:{value:'a'}});expect(field).toHaveAttribute('aria-invalid','true');fireEvent.change(field,{target:{value:'long-password'}});expect(field).not.toHaveAttribute('aria-invalid');
 });

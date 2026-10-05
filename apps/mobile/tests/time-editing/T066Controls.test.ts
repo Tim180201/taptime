@@ -6,15 +6,16 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 vi.mock('../../src/design/LineIcon',()=>({LineIcon:()=>null}));
 vi.mock('react-native',()=>({
-  View:({children}:{children?:ReactNode})=>createElement('div',null,children),
-  ScrollView:({children}:{children?:ReactNode})=>createElement('div',null,children),
+  findNodeHandle:()=>null,
+  View:({children,ref,style,focusable}:{children?:ReactNode;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children),
+  ScrollView:({children,ref,style,focusable}:{children?:ReactNode;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children),
   AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
     StyleSheet:{create:(v:unknown)=>v},
 }));
 vi.mock('../../src/design/primitives',()=>({
   Card:({children}:{children?:ReactNode})=>createElement('div',null,children),
-  AppText:({children}:{children?:ReactNode})=>createElement('span',null,children),
-  TextField:({value,onChangeText,accessibilityLabel}:{value:string;onChangeText:(s:string)=>void;accessibilityLabel:string})=>createElement('input',{'aria-label':accessibilityLabel,value,onChange:(e:React.ChangeEvent<HTMLInputElement>)=>onChangeText(e.target.value)}),
+  AppText:({children,accessibilityRole,accessibilityLiveRegion}:{children?:ReactNode;accessibilityRole?:string;accessibilityLiveRegion?:string})=>createElement('span',{role:accessibilityRole,'aria-live':accessibilityLiveRegion},children),
+  TextField:({ref,value,onChangeText,accessibilityLabel}:{ref?:React.Ref<HTMLInputElement>;value:string;onChangeText:(s:string)=>void;accessibilityLabel:string})=>createElement('input',{ref,'aria-label':accessibilityLabel,value,onChange:(e:React.ChangeEvent<HTMLInputElement>)=>onChangeText(e.target.value)}),
   ActionButton:({title,onPress,disabled}:{title:string;onPress:()=>void;disabled?:boolean})=>createElement('button',{onClick:onPress,disabled},title),
   TouchTarget:({children,onPress,accessibilityLabel}:{children?:ReactNode;onPress:()=>void;accessibilityLabel?:string})=>createElement('button',{onClick:onPress,'aria-label':accessibilityLabel},children),
 }));
@@ -72,7 +73,7 @@ it('offline remains visibly disabled and sends nothing',async()=>{
 });
 it('invalid dates are shown as a field problem even for overnight time',async()=>{
   await render('employee');await press('Zeit hinzufügen');await press('Kunde');await fill('Datum (JJJJ-MM-TT)','falsch');await fill('Von (HH:MM)','22:00');await fill('Bis (HH:MM)','06:00');await press('Speichern');
-  expect(container.textContent).toContain('Prüfe Datum und Uhrzeiten');expect(save).not.toHaveBeenCalled();
+  expect(container.textContent).toContain('Datum und Uhrzeit in Europe/Berlin');expect(save).not.toHaveBeenCalled();
 });
 
 it.each([['nfc','gescannt'],['manual','manuell'],['backfilled','nachgetragen'],['recovered','wiederhergestellt']] as const)('shows the explicit %s provenance as %s',async(origin,label)=>{
@@ -206,4 +207,22 @@ it('T-088 renders separate cancellation history with who and why, without a dura
  await act(async()=>root.render(createElement(TimeEditingContext.Provider,{value:{membershipId:id,role:'employee',targets:[],online:true,busy:false,capability:{save,getState:()=>({online:true,busy:false}),subscribe:()=>()=>{},loadVoided}}},createElement(VoidedTimeRows,{day:'2026-09-21',value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'}}))));
  expect(container.textContent).toContain('Gelöscht am');expect(container.textContent).toContain('von Alex Beispiel · Fehlscan');expect(container.textContent).not.toMatch(/1,0 h|1:00 h|08:00|09:00/);
  expect(loadVoided).toHaveBeenCalledWith(id,'2026-09-20T22:00:00.000Z','2026-09-21T12:00:00.000Z');
+});
+
+it.each(['backfill','correct','stop','comment'] as const)('T101 %s marks each required input, focuses the first and clears on valid input',async kind=>{
+ await render('administrator',true,kind==='stop'?{...record,status:'started',stoppedAt:null}:record,kind==='stop'?'10000000-0000-4000-8000-000000000002':id);
+ await press(kind==='backfill'?'Zeit hinzufügen':kind==='correct'?'Ändern':kind==='stop'?'Beenden':'Kommentar schreiben');
+ if(kind==='backfill')await press('Kunde');
+ const labels=kind==='comment'?['Kommentar']:kind==='stop'?['Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund']:kind==='correct'?['Beginn am (JJJJ-MM-TT)','Von (HH:MM)','Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund']:['Datum (JJJJ-MM-TT)','Von (HH:MM)','Bis (HH:MM)','Grund'];
+ for(const label of labels)await fill(label,'');await press(kind==='stop'?'Zeit beenden':'Speichern');expect(save).not.toHaveBeenCalled();
+ expect(document.activeElement).toBe(container.querySelector(`input[aria-label="${labels[0]}"]`));
+ for(const label of labels){const input=container.querySelector(`input[aria-label="${label}"]`)!;expect(input.parentElement?.getAttribute('data-style')).toContain('#FF8F8F');expect(input.parentElement?.querySelector('[role="alert"]')?.getAttribute('aria-live')).toBe('polite');}
+ for(const label of labels)await fill(label,label.includes('JJJJ')?'2026-09-21':label==='Von (HH:MM)'?'10:00':label==='Bis (HH:MM)'?'11:00':'Berichtigt');
+ for(const label of labels)expect(container.querySelector(`input[aria-label="${label}"]`)?.parentElement?.querySelector('[role="alert"]')).toBeNull();
+});
+
+it('T101 review: an empty clock leaves the valid date alone and focuses Von',async()=>{
+ await render('employee',true,record,id);await press('Zeit hinzufügen');await press('Kunde');await fill('Von (HH:MM)','');await press('Speichern');expect(save).not.toHaveBeenCalled();
+ const date=container.querySelector('input[aria-label="Datum (JJJJ-MM-TT)"]')!,clock=container.querySelector('input[aria-label="Von (HH:MM)"]')!;
+ expect(date.parentElement?.querySelector('[role="alert"]')).toBeNull();expect(clock.parentElement?.querySelector('[role="alert"]')).not.toBeNull();expect(document.activeElement).toBe(clock);
 });

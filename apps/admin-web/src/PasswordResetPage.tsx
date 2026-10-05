@@ -1,3 +1,4 @@
+import { RequiredForm } from './RequiredForm';
 import { useRef, useState } from 'react';
 import type { Notice } from './contracts';
 import type { RecoveryPasswordCapability, RecoveryPasswordResult } from './SupabaseRecoveryAuth';
@@ -29,7 +30,7 @@ export function PasswordResetPage({ recovery }: { readonly recovery: RecoveryPas
       {completed ? <p role="status">Passwort geändert. Melden Sie sich jetzt in der App oder hier mit dem neuen Passwort an.</p>
         : <>
           {notice === null ? null : <p role="alert">{notice.text}</p>}
-          {recovery?.hasRecovery ? <form onSubmit={(event) => {
+          {recovery?.hasRecovery ? <RequiredForm onSubmit={(event) => {
             event.preventDefault();
             if (submitting.current) return;
             submitting.current = true;
@@ -55,7 +56,7 @@ export function PasswordResetPage({ recovery }: { readonly recovery: RecoveryPas
             <button type="submit" aria-busy={busy} disabled={busy}>
               {busy ? 'Passwort wird gespeichert …' : awaitingCompletion ? 'Änderung abschließen' : 'Passwort ändern'}
             </button>
-          </form> : null}
+          </RequiredForm> : null}
         </>}
       <p><a className="button-link secondary-link" href="/">Im Browser anmelden</a></p>
     </section>

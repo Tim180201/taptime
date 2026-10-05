@@ -987,7 +987,7 @@ describe('professional Admin Web shell', () => {
     expect(document.activeElement).toBe(adjudicationTrigger);
   });
 
-  it('uses the logical reassignment fallback after success disables the original trigger', async () => {
+  it('T101 returns to the operable reassignment trigger after success', async () => {
     const targetCustomer = {
       id: '40000000-0000-4000-8000-000000000002',
       displayName: 'Lager',
@@ -1044,9 +1044,9 @@ describe('professional Admin Web shell', () => {
 
     const reassignmentTrigger = screen.getByRole('button', { name: 'Zuordnung prüfen' });
     const tagSelection = screen.getByLabelText('NFC-Tag');
-    await waitFor(() => expect(tagSelection).toHaveFocus());
-    expect(reassignmentTrigger).toBeDisabled();
-    expect(document.activeElement).toBe(tagSelection);
+    await waitFor(() => expect(reassignmentTrigger).toHaveFocus());
+    expect(reassignmentTrigger).not.toBeDisabled();
+    expect(document.activeElement).toBe(reassignmentTrigger);
     expect(document.activeElement).not.toBe(document.body);
   });
 
@@ -1403,4 +1403,52 @@ it('T097: correction picker shows only loaded person records and offers the next
   await userEvent.selectOptions(select,second.timeRecordId);
   expect(select).toHaveValue(second.timeRecordId);
   expect(screen.queryByRole('button',{name:'Weitere Arbeitszeiten laden'})).not.toBeInTheDocument();
+});
+
+it.each([
+  ['/einrichtung','Kunde anlegen','createCustomer'],
+  ['/einrichtung','Projekt anlegen','createProject'],
+  ['/einrichtung','Standort anlegen','createLocation'],
+  ['/einrichtung','Namen speichern','renameLocation'],
+  ['/einrichtung','Zuordnung prüfen','prepareReassignment'],
+  ['/arbeitszeiten','Korrektur prüfen','prepareCorrection'],
+  ['/pruefungen','Entscheidung prüfen','prepareAdjudication'],
+] as const)('T101 %s / %s shows each missing input and clears it on editing',async(path,title,method)=>{
+  window.history.replaceState(null,'',path);
+  const capability=new FakeCapability({...readyState,projection:{...readyState.projection,customers:[customer,{...customer,id:'other-customer',displayName:'Kunde B'}]},locationSetup:{locations:[{id:berlin.id,displayName:'Berlin',active:true,rowVersion:1}],memberships:[],workTargets:[],activationGaps:[]}});
+  const createProject=vi.fn(async()=>undefined);Object.assign(capability,{createProject});
+  await render(<App administration={capability}/>);
+  if(path==='/einrichtung')fireEvent.click(screen.getByRole('button',{name:method==='createLocation'||method==='renameLocation'?'Standorte':method==='prepareReassignment'?'Tags':'Arbeitsziele'}));
+  if(path==='/pruefungen')fireEvent.click(screen.getByRole('button',{name:'Ablehnen'}));
+  const button=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.textContent?.trim()===title)!;
+  expect(button,title).toBeTruthy();expect(button).not.toBeDisabled();
+  const form=button.closest('form')!;
+  const fields=Array.from(form.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('[required]'));
+  expect(fields.length).toBeGreaterThan(0);
+  for(const field of fields)fireEvent.change(field,{target:{value:''}});
+  fireEvent.submit(form);
+  const operation=method==='createProject'?createProject:capability[method as keyof FakeCapability];
+  expect(operation).not.toHaveBeenCalled();
+  expect(fields[0]).toHaveFocus();
+  for(const field of fields){
+    expect(field).toHaveAttribute('aria-invalid','true');
+    const id=field.getAttribute('aria-describedby')!.split(' ').at(-1)!;
+    expect(document.getElementById(id)).toHaveAttribute('role','alert');
+    expect(document.getElementById(id)?.textContent).toMatch(/Bitte/);
+  }
+  for(const field of fields){
+    const value=field instanceof HTMLSelectElement?Array.from(field.options).find(option=>option.value && !option.disabled)?.value:field.type==='datetime-local'?'2026-09-20T10:00':'Ein gültiger Name';
+    if(value)fireEvent.change(field,{target:{value}});
+  }
+  for(const field of fields)expect(field).not.toHaveAttribute('aria-invalid');
+});
+
+it('T101 login and password reset keep their own required scope',async()=>{
+  const capability=new FakeCapability({status:'signed_out'});await render(<App administration={capability}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Passwort vergessen'}));
+  const email=screen.getByLabelText('E-Mail');expect(email).toHaveAttribute('aria-invalid','true');expect(email).toHaveFocus();
+  expect(screen.getByLabelText('Passwort')).not.toHaveAttribute('aria-invalid');expect(capability.requestPasswordReset).not.toHaveBeenCalled();
+  fireEvent.change(email,{target:{value:'admin@example.test'}});expect(email).not.toHaveAttribute('aria-invalid');
+  fireEvent.click(screen.getByRole('button',{name:'Passwort vergessen'}));expect(capability.requestPasswordReset).toHaveBeenCalledExactlyOnceWith('admin@example.test');
+  fireEvent.click(screen.getByRole('button',{name:'Sicher anmelden'}));expect(capability.signIn).not.toHaveBeenCalled();expect(screen.getByLabelText('Passwort')).toHaveAttribute('aria-invalid','true');
 });
