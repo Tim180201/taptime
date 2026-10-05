@@ -106,7 +106,7 @@ export class OfflineSyncScheduler {
     if (this.updateRequired) return Promise.resolve(this.state);
     if (this.flight !== null) return this.flight;
     if (this.transmissionPause !== null) {
-      if (this.transmissionPause !== 'system_failure'
+      if (this.transmissionPause !== 'system_failure' && !this.offlineLifecycle.skip
         || !['runtime_start','foreground','manual'].includes(trigger)) return Promise.resolve(this.state);
       this.transmissionPause = null;
       void this.reconcileArchives(true);
@@ -563,7 +563,19 @@ export class OfflineSyncScheduler {
           await this.releaseOffline(identity);
           return {status:'stop',state:this.state};
         }
-        if (issues.length > 0) {
+        if (issues.some(issue=>!issue.reported)) {
+          const report=await this.database.readQuarantineReport();
+          if(report && report.deviceSequence<head.command.deviceSequence && this.offlineLifecycle.skip) {
+            let reported;
+            try {reported=await this.offlineLifecycle.skip(report);} catch {reported={status:'unavailable'} as const;}
+            if(!this.isTransmissionCurrent(generation)) {await this.releaseOffline(identity);return {status:'stop',state:this.state};}
+            if(reported.status==='reported' && sameDurableIdentity(report,reported) && reported.evidenceSha256===report.evidenceSha256) {
+              await this.database.confirmQuarantineReport(report);
+              await this.database.releaseHead(identity);
+              this.publish(generation,{status:'quarantined',queueCount,workEventId:report.workEventId});
+              return {status:'continue',durable:null};
+            }
+          }
           return this.pauseTransmission(identity, 'quarantine', queueCount, generation);
         }
       } catch {

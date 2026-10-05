@@ -1280,7 +1280,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (schedulerState === undefined) return;
     const wasPaused = this.transmissionPaused;
     this.transmissionPaused = schedulerState.status === 'transmission_paused';
-    this.transmissionRetryAvailable = schedulerState.status === 'transmission_paused' && schedulerState.reason === 'system_failure';
+    this.transmissionRetryAvailable = schedulerState.status === 'transmission_paused';
     if (schedulerState.status === 'update_required') this.updateRequired=true;
     if (this.operationFlight !== null) {
       if(wasPaused || schedulerState.status==='transmission_paused' || schedulerState.status==='update_required')this.setState(this.state);

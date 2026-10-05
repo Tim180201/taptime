@@ -1,3 +1,4 @@
+import type { OfflineSequenceSkipCommand, OfflineSequenceSkipResult } from '@taptime/offline-sync-contract';
 import type { BusinessEngineEscalationReason } from '@taptime/core';
 import {
   OFFLINE_RECONCILIATION_MAXIMUM_EVENT_IDS,
@@ -81,6 +82,8 @@ export type OfflineReconciliationTransportResult =
   | { readonly status: 'unavailable'; readonly retryAfterSeconds?: number };
 
 export interface OfflineLifecycleApiPort {
+  readonly skip?: (command: OfflineSequenceSkipCommand) => Promise<OfflineSequenceSkipResult | { readonly status: 'unavailable' }>;
+
   ingest(
     command: OfflineLifecycleEventCommand | OfflineLifecycleEventCommandV2 | OfflineLifecycleEventCommandV3,
   ): Promise<OfflineLifecycleTransportResult>;
@@ -102,6 +105,18 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
     this.eventV4Endpoint = new URL(OFFLINE_EVENT_V4_PATH, apiBaseUrl);
     this.reconciliationEndpoint = new URL(RECONCILIATION_V2_PATH, apiBaseUrl);
     this.reviewStateEndpoint = new URL(REVIEW_STATE_PATH, apiBaseUrl);
+  }
+
+  async skip(command: OfflineSequenceSkipCommand): Promise<OfflineSequenceSkipResult | {readonly status:'unavailable'}> {
+    const response=await this.post(new URL('/v1/lifecycle-events/offline/skip',this.eventV4Endpoint),JSON.stringify(command));
+    if(response.status!=='response' || response.statusCode!==200 || !isJsonContentType(response.contentType)) return {status:'unavailable'};
+    const body=parseJsonObject(response.body);
+    if(!body || !hasExactKeys(body,['status','workEventId','receiptId','deviceSequence','evidenceSha256','idempotentRetry'])
+      || body.status!=='reported' || body.workEventId!==command.workEventId || body.receiptId!==command.receiptId
+      || body.deviceSequence!==command.deviceSequence || body.evidenceSha256!==command.evidenceSha256
+      || typeof body.idempotentRetry!=='boolean') return {status:'unavailable'};
+    return {status:'reported',workEventId:command.workEventId,receiptId:command.receiptId,deviceSequence:command.deviceSequence,
+      evidenceSha256:command.evidenceSha256,idempotentRetry:body.idempotentRetry};
   }
 
   async ingest(

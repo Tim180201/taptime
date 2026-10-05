@@ -363,9 +363,14 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     );
   }
 
+  async queryReviewItemsV3(command: AuthenticatedTimeReviewCommand<Parameters<TimeReviewPort['queryReviewItems']>[0]['request']>, controls: TimeReviewCoordinatorControls = {}) {
+    return this.queryReviewItemsV2(command, controls, true);
+  }
+
   async queryReviewItemsV2(
     command: AuthenticatedTimeReviewCommand<Parameters<TimeReviewPort['queryReviewItems']>[0]['request']>,
     controls: TimeReviewCoordinatorControls = {},
+    includeSkips = false,
   ) {
     const validation = validateReviewItemQueryRequest(command.request);
     if (validation.status === 'invalid_request') return { status: 'unavailable' as const };
@@ -383,7 +388,7 @@ export class TimeReviewCoordinator implements TimeReviewPort {
                   employee_membership_id, employee_display_name, target_type,
                   target_id, target_display_name, trigger_type, occurred_at,
                   recorded_at, review_reason, device_sequence, predecessor_blocked
-           FROM taptime_server.read_time_review_items_v2(
+           FROM taptime_server.read_time_review_items_v${includeSkips ? '3' : '2'}(
              $1, $2, $3, $4::timestamptz, $5::uuid, $6
            )`,
           [

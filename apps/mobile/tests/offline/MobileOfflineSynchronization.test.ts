@@ -1,3 +1,4 @@
+import { OFFLINE_LOCAL_SCHEMA_VERSION_V7 } from '@taptime/offline-sync-contract';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -73,6 +74,41 @@ const installationBinding = 'B'.repeat(43);
 const lookupKey = 'K'.repeat(43);
 
 describe('Mobile complete offline clients', () => {
+  it.each(['unavailable','wrong_identity'] as const)('T-095b preserves the gap and evidence after %s report',async failure=>{
+    const h=await archiveHarness(undefined,'synchronized',true);
+    try {
+      await h.append(1);await h.append(2);
+      const original=await h.connection.getFirstAsync<{command_json:string}>('SELECT command_json FROM offline_event_queue WHERE device_sequence=1');
+      h.ingest.mockResolvedValueOnce({status:'conflict',reason:'event_content_conflict'});
+      h.skip.mockImplementationOnce(async command=>failure==='unavailable' ? {status:'unavailable'} :
+        {status:'reported',workEventId:command.workEventId,receiptId:command.receiptId,deviceSequence:command.deviceSequence,
+          evidenceSha256:'f'.repeat(64),idempotentRetry:false});
+      expect(await h.scheduler.trigger('event_append')).toMatchObject({status:'transmission_paused',reason:'quarantine'});
+      expect(await h.connection.getAllAsync('SELECT * FROM offline_quarantine_reports')).toEqual([]);
+      expect(await h.connection.getFirstAsync('SELECT evidence_json FROM offline_protected_quarantine')).toEqual({evidence_json:original!.command_json});
+      expect(h.records.size).toBe(0);
+      expect(await h.database.readOwnerReleaseBlock()).toBe('quarantine');
+      await h.scheduler.trigger('manual');
+      expect(h.records.has(eventId(2))).toBe(true);
+    } finally {await h.close();}
+  });
+  it('T-095b reports the immutable quarantine on sequence_gap and releases the owner after successors are archived', async () => {
+    const h=await archiveHarness(undefined,'synchronized',true);
+    try {
+      await h.append(1);await h.append(2);
+      const original=await h.connection.getFirstAsync<{command_json:string}>('SELECT command_json FROM offline_event_queue WHERE device_sequence=1');
+      h.ingest.mockResolvedValueOnce({status:'conflict',reason:'event_content_conflict'});
+      await h.scheduler.trigger('event_append');
+      expect(h.skip).toHaveBeenCalledOnce();
+      expect(h.records.has(eventId(2))).toBe(true);
+      expect(await h.connection.getFirstAsync('SELECT evidence_json FROM offline_protected_quarantine')).toEqual({evidence_json:original!.command_json});
+      expect(await h.database.readUntransferredCaptures()).toMatchObject([{reported:true}]);
+      for(const [id,record] of h.records)h.records.set(id,{...record,archiveStatus:'offsite_archived'});
+      await h.scheduler.reconcileArchives(true);
+      expect(await h.database.canReleaseOwner({organizationId:ids.organization,userId:ids.user,membershipId:ids.membership,installationBindingDigest:'8'.repeat(64)})).toBe(true);
+    } finally {await h.close();}
+  });
+
   it.each([400, 403, 404, 405, 409, 410, 422, 426])('T-095 classifies HTTP %s without retrying forever', async status => {
     const client = new OfflineLifecycleClient(new URL('https://api.example/'), new FakeRequest(async () => response(status, {})));
     expect(await client.ingest(offlineCommand())).toMatchObject({ status: status === 426 ? 'update_required'
@@ -843,7 +879,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
     const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
     try {
       await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
-      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: 6 });
+      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V7 });
       expect(await database.claimHead(100)).toMatchObject({ command, attemptCount: 2 });
       await database.confirmHead({ workEventId: ids.event, receiptId: ids.receipt, deviceSequence: 1 }, 'synchronized');
       expect(await connection.getFirstAsync('SELECT command_json FROM offline_event_queue')).toEqual({ command_json: evidence });
@@ -1417,7 +1453,7 @@ function eventDraft(sequence: number) {
     receipt: { ...draft.receipt, id: `d0000000-0000-4000-8000-${String(sequence).padStart(12, '0')}` } };
 }
 
-async function archiveHarness(filename?: string, status: 'synchronized' | 'review_pending' = 'synchronized') {
+async function archiveHarness(filename?: string, status: 'synchronized' | 'review_pending' = 'synchronized', reportSkips = false) {
   const connection = new NodeSqliteOfflineConnection(filename);
   const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
   expect(await database.initialize()).toEqual({ status: 'ready' });
@@ -1432,7 +1468,7 @@ async function archiveHarness(filename?: string, status: 'synchronized' | 'revie
   const ingest = vi.fn<OfflineLifecycleApiPort['ingest']>(async (command) => {
     // Mirrors the productive contiguous cursor in OfflineLifecycleIngestionCoordinator.
     // Quarantining an unbooked predecessor locally does not advance that server cursor.
-    const lastDurableSequence=Math.max(0,...[...records.values()].map(record=>record.deviceSequence));
+    const lastDurableSequence=Math.max(0,...skipped,...[...records.values()].map(record=>record.deviceSequence));
     if(command.deviceSequence!==lastDurableSequence+1)return {status:'pending',reason:'sequence_gap',retryAfterSeconds:1};
     const identity = { workEventId: command.workEvent.id, receiptId: command.receipt.id, deviceSequence: command.deviceSequence };
     const result: OfflineReconciliationRecordV2['result'] = status === 'review_pending'
@@ -1441,13 +1477,19 @@ async function archiveHarness(filename?: string, status: 'synchronized' | 'revie
     records.set(identity.workEventId, { ...identity, archiveStatus: 'archive_pending', result });
     return { ...identity, ...result, archiveStatus: 'archive_pending', idempotentRetry: false };
   });
+  const skipped = new Set<number>();
+  const skip = vi.fn<NonNullable<OfflineLifecycleApiPort['skip']>>(async command => {
+    skipped.add(command.deviceSequence);
+    return {status:'reported' as const, ...command, idempotentRetry:false};
+  });
   const timer = new ControlledSchedulerTimer(() => now);
   const scheduler = new OfflineSyncScheduler(database, { ingest, reconcile,
+    ...(reportSkips ? {skip} : {}),
     async readReviewState() { return { status: 'unavailable' }; } },
     { async ingest() { return { status: 'unavailable' }; } }, { async rejectOfflineCapture() {} },
     () => now, () => 0.5, timer);
   scheduler.start();
-  return { database, scheduler, connection, records, reconcile, ingest, timer,
+  return { database, scheduler, connection, records, reconcile, ingest, skip, timer,
     setNow(value:number) {now=value;},
     async append(sequence: number) {
       expect(await database.appendEvent(eventDraft(sequence))).toMatchObject({ status: 'ready' });

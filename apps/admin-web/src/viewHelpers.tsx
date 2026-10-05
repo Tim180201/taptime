@@ -3,6 +3,15 @@ import { useEffect,useRef,type MouseEvent as ReactMouseEvent,type RefObject } fr
 import type { AdminRoute } from './navigation';
 export function reviewReasonLabel(value: string): string {
   const labels: Record<string, string> = {
+    event_content_conflict:'Erfassungsinhalt widerspricht einem vorhandenen Beleg',
+    sequence_content_conflict:'Gerätesequenz widerspricht einem vorhandenen Beleg',
+    lease_binding_conflict:'Erfassung passt nicht zur Offline-Freigabe',
+    receipt_metadata_conflict:'Belegkennung widerspricht einem vorhandenen Beleg',
+    invalid_response:'Die App konnte die Serverantwort nicht verarbeiten',
+    http_400:'Der Server hat die Erfassung abgelehnt (400)',
+    http_409:'Der Server hat einen Konflikt gemeldet (409)',
+    http_422:'Der Server konnte die Erfassung nicht verarbeiten (422)',
+
     identity_or_membership_not_current: 'Identität oder Mitgliedschaft nicht aktuell',
     capture_time_out_of_bounds: 'Erfassungszeit außerhalb des Fensters',
     automatic_window_elapsed: 'Automatisches Zeitfenster abgelaufen',

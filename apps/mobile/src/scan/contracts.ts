@@ -90,7 +90,7 @@ type ProductScanStateValue =
 
 export type ProductScanState = ProductScanStateValue & {
   readonly protection?: ProductScanProtectionClassification;
-  readonly untransferred?: readonly {readonly workEventId:string;readonly occurredAt:string;readonly displayName:string;readonly reason:string}[];
+  readonly untransferred?: readonly {readonly reported?:boolean;readonly workEventId:string;readonly occurredAt:string;readonly displayName:string;readonly reason:string}[];
   readonly updateRequired?: boolean;
   readonly transmissionPaused?: boolean;
   readonly transmissionRetryAvailable?: boolean;

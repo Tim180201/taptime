@@ -1,3 +1,4 @@
+import { OFFLINE_LOCAL_SCHEMA_VERSION_V7 } from '@taptime/offline-sync-contract';
 import type {
   OfflineCaptureLeasePage,
   OfflineCaptureLeasePageV2,
@@ -49,7 +50,7 @@ describe('OfflineCaptureDatabase state machine', () => {
       await expect(store.initialize()).resolves.toEqual({ status: 'ready' });
       expect(native.execLog[0]).toMatch(/^PRAGMA key = "x'[0-9a-f]{64}'"$/);
       expect(native.execLog.some((sql) => sql.includes('CREATE TABLE offline_owner'))).toBe(true);
-      expect(native.userVersion).toBe(6);
+      expect(native.userVersion).toBe(OFFLINE_LOCAL_SCHEMA_VERSION_V7);
       expect(native.exclusiveTransactions).toBeGreaterThanOrEqual(2);
     });
 
@@ -89,7 +90,7 @@ describe('OfflineCaptureDatabase state machine', () => {
       expect(native.execLog.some((sql) => (
         sql.includes('ADD COLUMN review_pending_sequence')
       ))).toBe(true);
-      expect(native.userVersion).toBe(6);
+      expect(native.userVersion).toBe(OFFLINE_LOCAL_SCHEMA_VERSION_V7);
       await expect(store.readReviewPendingSequence()).resolves.toBeNull();
       expect(native.owner).toMatchObject(memoryOwner());
     });

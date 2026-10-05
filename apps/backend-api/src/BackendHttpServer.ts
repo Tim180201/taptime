@@ -1,3 +1,4 @@
+import { isOfflineSequenceSkipCommand } from '@taptime/offline-sync-contract';
 import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
@@ -86,6 +87,8 @@ import {
 // Shared registration for dispatch and request protection. Health alone bypasses the API budget.
 export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
+  '/v1/lifecycle-events/offline/skip': 'offline_sequence_skip',
+  '/v3/administration/review-items/query': 'admin_review_item_query_v3',
   '/v1/administration/employee-account-invitations/resend': 'admin_resend_employee_account_invitation',
   '/v1/operator/session': 'operator_session',
   '/v1/operator/overview': 'operator_overview',
@@ -862,6 +865,10 @@ async function handleRequest(
       correlationId, timeoutMilliseconds);
     return;
   }
+  if (route === 'admin_review_item_query_v3') {
+    await handleReviewItemQuery(response,accessToken,body,dependencies,options,correlationId,timeoutMilliseconds,true,true);
+    return;
+  }
   if (route === 'admin_review_item_query_v2') {
     await handleReviewItemQuery(response, accessToken, body, dependencies, options,
       correlationId, timeoutMilliseconds, true);
@@ -971,6 +978,19 @@ async function handleRequest(
   if (route === 'offline_lifecycle_v3') {
     await handleOfflineLifecycle(response, accessToken, body, dependencies, options,
       correlationId, timeoutMilliseconds, 3, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
+    return;
+  }
+  if (route === 'offline_sequence_skip') {
+    if (!isOfflineSequenceSkipCommand(body)) { respondError(response,400,'invalid_request'); return; }
+    if (!dependencies.offlineLifecycleIngestor.skip) { respondError(response,503,'service_unavailable'); return; }
+    try {
+      const result=await withTimeout(dependencies.offlineLifecycleIngestor.skip({accessToken,command:body}),timeoutMilliseconds);
+      if (result.status==='authority_rejected') respondError(response,401,'unauthorized');
+      else respondJson(response,result.status==='reported'?200:409,result);
+    } catch(error) {
+      if (isOrganizationPausedError(error)) { respondError(response,403,'organization_paused'); return; }
+      emitOfflineDiagnostic(options.onDiagnostic,correlationId); respondError(response,503,'service_unavailable');
+    }
     return;
   }
   if (route === 'offline_lifecycle_v4') {
@@ -1921,20 +1941,22 @@ async function handleReviewItemQuery(
   correlationId: string,
   timeoutMilliseconds: number,
   version2 = false,
+  version3 = false,
 ): Promise<void> {
   const validation = validateReviewItemQueryRequest(body);
   if (validation.status === 'invalid_request') {
     respondError(response, 400, 'invalid_request');
     return;
   }
-  if (version2 && dependencies.timeReview.queryReviewItemsV2 === undefined) {
+  const reader = (version3 ? dependencies.timeReview.queryReviewItemsV3 : dependencies.timeReview.queryReviewItemsV2)?.bind(dependencies.timeReview);
+  if (version2 && reader === undefined) {
     respondError(response, 503, 'service_unavailable');
     return;
   }
   if (version2) {
     await handleTimeReviewRead(
       response, options, correlationId, timeoutMilliseconds,
-      (deadlineEpochMilliseconds) => dependencies.timeReview.queryReviewItemsV2!(
+      (deadlineEpochMilliseconds) => reader!(
         { accessToken, request: validation.request }, { deadlineEpochMilliseconds },
       ),
     );
@@ -2838,6 +2860,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_time_record_correction':
     case 'admin_review_item_query':
     case 'admin_review_item_query_v2':
+    case 'admin_review_item_query_v3':
     case 'admin_review_adjudication':
       return 'time_review_failed';
     case 'employee_enrollment_redeem':
@@ -2867,6 +2890,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'offline_lifecycle_v2':
     case 'offline_lifecycle_v3':
     case 'offline_lifecycle_v4':
+    case 'offline_sequence_skip':
     case 'offline_reconciliation':
     case 'offline_reconciliation_v2':
     case 'offline_review_state':
@@ -2905,6 +2929,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_time_record_correction'
     || route === 'admin_review_item_query'
     || route === 'admin_review_item_query_v2'
+    || route === 'admin_review_item_query_v3'
     || route === 'admin_review_adjudication'
     || route === 'admin_project_query'
     || route === 'admin_project_create'
@@ -2925,6 +2950,7 @@ function isOfflineRoute(route: Route): boolean {
     || route === 'offline_lifecycle_v2'
     || route === 'offline_lifecycle_v3'
     || route === 'offline_lifecycle_v4'
+    || route === 'offline_sequence_skip'
     || route === 'offline_reconciliation'
     || route === 'offline_reconciliation_v2'
     || route === 'offline_review_state';

@@ -61,6 +61,30 @@ const reviewItem = {
 };
 type ReadyStateForTest = Extract<AdminWebState, { readonly status: 'ready' }>;
 
+it.each(['administrator','standortleitung'] as const)('T095b %s sees the separate backfill guidance and closes the skipped capture with a note',async role=>{
+  window.history.replaceState(null,'','/pruefungen');
+  const skipped={...reviewItem,source:'offline_skip' as const,reviewReason:'http_422',predecessorBlocked:false};
+  const capability=new FakeCapability({...readyState,role,reviewItems:[skipped]});
+  await render(<App administration={capability}/>);
+  expect(screen.getByText('Fehlende Zeit über „Nachtragen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.')).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Als Arbeitszeit übernehmen'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Korrigieren'})).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button',{name:'Mit Notiz schließen'}));
+  expect(screen.getAllByRole('option').map(option=>option.getAttribute('value'))).toEqual(['no_time_record_change']);
+  fireEvent.change(screen.getByLabelText('Begründung'),{target:{value:'Fehlende Zeit separat nachgetragen.'}});
+  await userEvent.click(screen.getByRole('button',{name:'Entscheidung prüfen'}));
+  expect(capability.prepareAdjudication).toHaveBeenCalledExactlyOnceWith(
+    skipped.reviewItemId,'no_time_record_change',null,null,null,'Fehlende Zeit separat nachgetragen.',
+  );
+});
+
+it('T095b keeps existing review decisions without the separate backfill guidance',async()=>{
+  window.history.replaceState(null,'','/pruefungen');
+  await render(<App administration={new FakeCapability(readyState)}/>);
+  expect(screen.queryByText('Fehlende Zeit über „Nachtragen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.')).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Als Arbeitszeit übernehmen'})).toBeVisible();
+});
+
 it.each([
   ['succeeded', 'Einladung verschickt.'],
   ['succeeded_existing_account', 'Das Konto besteht bereits; es wurde keine E-Mail verschickt.'],

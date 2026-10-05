@@ -1,3 +1,4 @@
+import type { OfflineSequenceSkipCommand } from '@taptime/offline-sync-contract';
 import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import {
   OFFLINE_CAPTURE_LEASE_LIFETIME_MILLISECONDS,
@@ -7,6 +8,7 @@ import {
   OFFLINE_LOCAL_SCHEMA_VERSION_V4,
   OFFLINE_LOCAL_SCHEMA_VERSION_V5,
   OFFLINE_LOCAL_SCHEMA_VERSION_V6,
+  OFFLINE_LOCAL_SCHEMA_VERSION_V7,
   type OfflineDurableResultIdentity,
   type OfflineReconciliationRecordV2,
   OFFLINE_QUEUE_MAXIMUM_EVENT_BYTES,
@@ -33,7 +35,7 @@ import {
 import type { LifecycleEventSubmission } from '../transport/contracts';
 import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
 import { bytesToLowercaseHex } from './encoding';
-import { mobileManifestDigest, mobileManifestDigestV2, mobileManifestDigestV3 } from './MobileLookupHmac';
+import { mobileManifestDigest, mobileManifestDigestV2, mobileManifestDigestV3, mobileSha256Hex } from './MobileLookupHmac';
 import type { OfflineMigrationFailureReporter } from './OfflineCaptureDiagnostic';
 
 export type OfflineSqlValue = string | number | null | Uint8Array;
@@ -275,6 +277,7 @@ interface QuarantineRow {
 }
 
 export interface UntransferredCapture {
+  readonly reported?: boolean;
   readonly workEventId: string;
   readonly occurredAt: string;
   readonly displayName: string;
@@ -324,29 +327,30 @@ export class OfflineCaptureDatabase {
           await database.closeAsync().catch(() => undefined);
           return this.protect('corrupt_row');
         }
-        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V6) {
+        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V7) {
           await database.closeAsync().catch(() => undefined);
           return this.protect('unknown_schema');
         }
-        if (version.user_version < OFFLINE_LOCAL_SCHEMA_VERSION_V6) {
+        if (version.user_version < OFFLINE_LOCAL_SCHEMA_VERSION_V7) {
           try {
             // Parent-table replacement requires FK enforcement off before BEGIN, not inside it.
             // Validate the complete graph before committing and re-enable enforcement below.
             await database.execAsync('PRAGMA foreign_keys = OFF;');
             await database.withExclusiveTransactionAsync(async (transaction) => {
               if (version.user_version === 0) {
-                await transaction.execAsync(OFFLINE_SCHEMA_V6);
+                await transaction.execAsync(OFFLINE_SCHEMA_V7);
               } else {
                 if (version.user_version === 1) await transaction.execAsync(OFFLINE_SCHEMA_V1_TO_V2);
                 if (version.user_version <= 2) await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
                 if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V3) await transaction.execAsync(OFFLINE_SCHEMA_V3_TO_V4);
                 if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V4) await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
                 if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V5) await transaction.execAsync(OFFLINE_SCHEMA_V5_TO_V6);
+                if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V6) await transaction.execAsync(OFFLINE_SCHEMA_V6_TO_V7);
               }
               if ((await transaction.getAllAsync('PRAGMA foreign_key_check')).length !== 0) {
                 throw new Error('Offline migration foreign key check failed');
               }
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V6}`);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V7}`);
             });
           } catch (error) {
             await database.closeAsync().catch(() => undefined);
@@ -403,7 +407,7 @@ export class OfflineCaptureDatabase {
       const row = await db.getFirstAsync<{ empty: number }>(`SELECT (
         NOT EXISTS (SELECT 1 FROM offline_event_queue)
         AND NOT EXISTS (SELECT 1 FROM offline_legacy_queue)
-        AND NOT EXISTS (SELECT 1 FROM offline_protected_quarantine)
+        AND NOT EXISTS (SELECT 1 FROM offline_protected_quarantine q WHERE NOT EXISTS (SELECT 1 FROM offline_quarantine_reports r WHERE r.work_event_id=q.quarantine_id))
       ) AS empty`);
       return row?.empty === 1;
     });
@@ -1088,7 +1092,7 @@ export class OfflineCaptureDatabase {
         if (row === null || parseOfflineCommand(row.command_json) === null) throw new Error('Quarantine identity mismatch');
         // The check and insert share the transaction: another rejection must never grow
         // the unresolved transmission quarantine, including across scheduler instances.
-        const existing = await tx.getFirstAsync("SELECT quarantine_id FROM offline_protected_quarantine WHERE reason <> 'legacy_membership_unknown' LIMIT 1");
+        const existing = await tx.getFirstAsync("SELECT quarantine_id FROM offline_protected_quarantine WHERE reason <> 'legacy_membership_unknown' AND NOT EXISTS (SELECT 1 FROM offline_quarantine_reports r WHERE r.work_event_id=quarantine_id) LIMIT 1");
         if (existing !== null) return;
         const command = parseOfflineCommand(row.command_json)!;
         await tx.runAsync(`INSERT INTO offline_protected_quarantine (quarantine_id, reason, evidence_json, created_at) VALUES (?, ?, ?, ?)`,
@@ -1111,16 +1115,48 @@ export class OfflineCaptureDatabase {
         const command = parseOfflineCommand(row.evidence_json);
         if (command === null || !isTransferFailureReason(row.reason)) throw new Error('Invalid quarantined evidence');
         const item = await db.getFirstAsync<{display_name:string}>('SELECT display_name FROM offline_lease_items WHERE lease_id = ? AND item_id = ?', [command.leaseId,command.leaseItemId]);
-        result.push(Object.freeze({workEventId:row.quarantine_id,occurredAt:command.workEvent.occurredAt,displayName:item?.display_name ?? 'Arbeitsziel',reason:row.reason}));
+        result.push(Object.freeze({workEventId:row.quarantine_id,occurredAt:command.workEvent.occurredAt,displayName:item?.display_name ?? 'Arbeitsziel',reason:row.reason,...((await db.getFirstAsync('SELECT 1 FROM offline_quarantine_reports WHERE work_event_id=?',[row.quarantine_id])) ? {reported:true} : {})}));
       }
       return Object.freeze(result);
     });
   }
 
+  readQuarantineReport(): Promise<OfflineSequenceSkipCommand | null> {
+    return this.serialized(async () => {
+      const row = await this.requireReady().getFirstAsync<QuarantineRow>(`SELECT quarantine_id,reason,evidence_json
+        FROM offline_protected_quarantine q WHERE reason<>'legacy_membership_unknown'
+        AND NOT EXISTS(SELECT 1 FROM offline_quarantine_reports r WHERE r.work_event_id=q.quarantine_id) LIMIT 1`);
+      if (!row) return null;
+      const c=parseOfflineCommand(row.evidence_json);
+      if (!c || !isQuarantinableFailureReason(row.reason)) throw new Error('Invalid quarantine');
+      return {organizationId:c.organizationId,expectedMembershipId:c.expectedMembershipId,
+        installationBinding:c.installationBinding,leaseId:c.leaseId,leaseItemId:c.leaseItemId,
+        deviceSequence:c.deviceSequence,workEventId:c.workEvent.id,receiptId:c.receipt.id,
+        occurredAt:c.workEvent.occurredAt,reason:row.reason,
+        evidenceSha256:mobileSha256Hex(new TextEncoder().encode(row.evidence_json))};
+    });
+  }
+
+  confirmQuarantineReport(report: OfflineSequenceSkipCommand): Promise<void> {
+    return this.serialized(async () => {
+      const db=this.requireReady();
+      const row=await db.getFirstAsync<QuarantineRow>('SELECT quarantine_id,reason,evidence_json FROM offline_protected_quarantine WHERE quarantine_id=?',[report.workEventId]);
+      const c=row ? parseOfflineCommand(row.evidence_json) : null;
+      if (!row || !c || c.receipt.id!==report.receiptId || c.deviceSequence!==report.deviceSequence
+        || mobileSha256Hex(new TextEncoder().encode(row.evidence_json))!==report.evidenceSha256) throw new Error('Report identity mismatch');
+      await db.runAsync('INSERT INTO offline_quarantine_reports(work_event_id,receipt_id,device_sequence,evidence_sha256) VALUES(?,?,?,?) ON CONFLICT DO NOTHING',
+        [report.workEventId,report.receiptId,report.deviceSequence,report.evidenceSha256]);
+    });
+  }
+
+  hasReportedQuarantine(): Promise<boolean> {
+    return this.serialized(async () => (await this.requireReady().getFirstAsync('SELECT 1 FROM offline_quarantine_reports LIMIT 1'))!==null);
+  }
+
   readOwnerReleaseBlock(): Promise<'archive_pending' | 'quarantine' | 'open' | null> {
     return this.serialized(async () => {
       const row = await this.requireReady().getFirstAsync<{quarantined:number;open:number;archived:number}>(`SELECT
-        (SELECT count(*) FROM offline_protected_quarantine) AS quarantined,
+        (SELECT count(*) FROM offline_protected_quarantine q WHERE NOT EXISTS (SELECT 1 FROM offline_quarantine_reports r WHERE r.work_event_id=q.quarantine_id)) AS quarantined,
         ((SELECT count(*) FROM offline_event_queue WHERE queue_state <> 'confirmed_awaiting_archive') +
          (SELECT count(*) FROM offline_legacy_queue) + (SELECT count(*) FROM offline_owner WHERE review_pending_sequence IS NOT NULL)) AS open,
         (SELECT count(*) FROM offline_event_queue WHERE queue_state = 'confirmed_awaiting_archive') AS archived`);
@@ -1635,6 +1671,13 @@ export class OfflineCaptureDatabase {
       || utf8ByteLength(row.evidence_json) > OFFLINE_QUEUE_MAXIMUM_EVENT_BYTES
     ))) {
       return this.protect('corrupt_row');
+    }
+    const reports=await database.getAllAsync<{work_event_id:string;receipt_id:string;device_sequence:number;evidence_sha256:string}>('SELECT * FROM offline_quarantine_reports');
+    for(const r of reports) {
+      const q=quarantineRows.find(q=>q.quarantine_id===r.work_event_id);
+      const c=q ? parseOfflineCommand(q.evidence_json) : null;
+      if(!q || !c || c.receipt.id!==r.receipt_id || c.deviceSequence!==r.device_sequence
+        || mobileSha256Hex(new TextEncoder().encode(q.evidence_json))!==r.evidence_sha256) return this.protect('corrupt_row');
     }
     return { status: 'ready' };
   }
@@ -2591,3 +2634,16 @@ function isQuarantinableFailureReason(reason: string): boolean {
   return ['event_content_conflict','sequence_content_conflict','lease_binding_conflict',
     'receipt_metadata_conflict','invalid_response','http_400','http_409','http_422'].includes(reason);
 }
+
+const OFFLINE_SCHEMA_V6_TO_V7 = `
+CREATE TABLE offline_quarantine_reports (
+  work_event_id TEXT PRIMARY KEY REFERENCES offline_protected_quarantine(quarantine_id),
+  receipt_id TEXT NOT NULL, device_sequence INTEGER NOT NULL CHECK(device_sequence>0),
+  evidence_sha256 TEXT NOT NULL CHECK(length(evidence_sha256)=64)
+);
+CREATE TRIGGER offline_quarantine_reports_update_rejected BEFORE UPDATE ON offline_quarantine_reports
+BEGIN SELECT RAISE(ABORT,'Reported evidence is immutable'); END;
+CREATE TRIGGER offline_quarantine_reports_delete_rejected BEFORE DELETE ON offline_quarantine_reports
+BEGIN SELECT RAISE(ABORT,'Reported evidence is immutable'); END;
+`;
+export const OFFLINE_SCHEMA_V7 = OFFLINE_SCHEMA_V6 + OFFLINE_SCHEMA_V6_TO_V7;

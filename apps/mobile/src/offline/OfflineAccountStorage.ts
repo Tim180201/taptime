@@ -10,6 +10,7 @@ import { PRODUCT_SCAN_PROTECTION_CLASS } from '../scan/contracts';
 const KEY = 'taptime.offline.generations.v1';
 const options: SecureStoreOptions = { keychainAccessible: WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 interface Generation {
+  preserveEvidence?: boolean;
   name: string;
   installationBinding: string;
   lookupKey: string | null;
@@ -68,16 +69,17 @@ export class OfflineAccountStorage {
       }
       if (cold && !this.wrote && state !== null && state.retired.length > 0) {
         // The active pointer was read in a new process, and its database was just verified.
-        for (const old of state.retired) await this.files.remove(old.name);
+        const removable=state.retired.filter(old=>!old.preserveEvidence);
+        for (const old of removable) await this.files.remove(old.name);
         const remaining = await this.files.list();
-        if (state.retired.some(g => suffixes.some(s => remaining.includes(g.name + s)))) throw protectedStorage();
-        if (state.retired.some(g => g.name === OFFLINE_DATABASE_NAME)) {
+        if (removable.some(g => suffixes.some(s => remaining.includes(g.name + s)))) throw protectedStorage();
+        if (removable.some(g => g.name === OFFLINE_DATABASE_NAME)) {
           for (const key of ['installation-binding', 'lookup-key', 'database-key']) {
             await this.secure.deleteItemAsync(`taptime.offline.${key}.v1`, options);
           }
           // Keep initialized.v1: loss of the generation value must not create a fresh installation.
         }
-        await this.write({ ...state, retired: [] });
+        await this.write({ ...state, retired: state.retired.filter(old=>old.preserveEvidence) });
       }
       return { database, secrets };
     });
@@ -124,6 +126,9 @@ export class OfflineAccountStorage {
         name: `taptime-offline-g-${await this.generate()}.db`,
         installationBinding: await this.generate(), lookupKey: await this.generate(), databaseKey: await this.generate(),
       };
+      // Reported quarantine bytes stay in this encrypted generation across account changes.
+      // No cleanup until the evidence retention lifecycle (T-016) explicitly permits it.
+      if (await database.hasReportedQuarantine()) active.preserveEvidence=true;
       const staged: Generations = { version: 1, active, retired: state?.retired ?? [], prepared: next };
       await this.write(staged);
       const nextSecrets = decode(next);
@@ -211,6 +216,7 @@ export class OfflineAccountStorage {
 function validGeneration(g: Generation): boolean {
   return g !== null && typeof g === 'object' && typeof g.name === 'string'
     && (g.name === OFFLINE_DATABASE_NAME || /^taptime-offline-g-[A-Za-z0-9_-]{43}\.db$/.test(g.name))
+    && (g.preserveEvidence === undefined || typeof g.preserveEvidence === 'boolean')
     && typeof g.installationBinding === 'string' && decodeBase64Url32(g.installationBinding) !== null
     && typeof g.databaseKey === 'string' && decodeBase64Url32(g.databaseKey) !== null
     && (g.lookupKey === null || (typeof g.lookupKey === 'string' && decodeBase64Url32(g.lookupKey) !== null));

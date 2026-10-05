@@ -98,9 +98,9 @@ export interface SafeTimeRecord {
 }
 export interface SafeReviewItem {
   readonly reviewItemId: string;
-  readonly source: 'offline_v2' | 'server_legacy';
+  readonly source: 'offline_v2' | 'server_legacy' | 'offline_skip';
   readonly employeeDisplayName: string;
-  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetType: 'customer' | 'project' | 'general_work' | 'break';
   readonly targetDisplayName: string;
   readonly triggerType: 'nfc' | 'manual';
   readonly occurredAt: string;

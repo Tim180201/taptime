@@ -438,6 +438,7 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
     if (
       source.includes('SELECT submission_json FROM offline_legacy_queue')
       || source.includes('FROM offline_protected_quarantine')
+      || source.includes('FROM offline_quarantine_reports')
     ) return [];
     if (
       source.includes('FROM offline_lease_generations AS generation')

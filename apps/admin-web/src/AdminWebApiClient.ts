@@ -513,7 +513,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<CursorPage<SafeReviewItem>>> {
     if (nextCursor !== null && !opaqueCursor.test(nextCursor)) return { status: 'invalid_response' };
     return this.request(
-      '/v2/administration/review-items/query', token, 'POST',
+      '/v3/administration/review-items/query', token, 'POST',
       { expectedMembershipId: membershipId, limit: 100, cursor: nextCursor },
       parseReviewItems,
       false,
@@ -1199,6 +1199,7 @@ function parseReviewItems(value: unknown): CursorPage<SafeReviewItem> | null {
     || value.status !== 'ready' || !Array.isArray(value.items)
     || !(value.nextCursor === null || (typeof value.nextCursor === 'string' && opaqueCursor.test(value.nextCursor)))) return null;
   const reasons = new Set([
+    'event_content_conflict','sequence_content_conflict','lease_binding_conflict','receipt_metadata_conflict','invalid_response','http_400','http_409','http_422',
     'identity_or_membership_not_current', 'capture_time_out_of_bounds',
     'automatic_window_elapsed', 'historical_configuration_not_valid',
     'predecessor_requires_review', 'server_lifecycle_deferred',
@@ -1216,9 +1217,9 @@ function parseReviewItems(value: unknown): CursorPage<SafeReviewItem> | null {
     ]) || !uuid.test(String(entry.reviewItemId)) || !uuid.test(String(entry.employeeUserId))
       || !uuid.test(String(entry.employeeMembershipId)) || !uuid.test(String(entry.targetId))
       || typeof entry.employeeDisplayName !== 'string' || typeof entry.targetDisplayName !== 'string'
-      || !['customer', 'project', 'general_work'].includes(String(entry.targetType))
+      || !['customer', 'project', 'general_work','break'].includes(String(entry.targetType))
       || (entry.triggerType !== 'nfc' && entry.triggerType !== 'manual')
-      || (entry.source !== 'offline_v2' && entry.source !== 'server_legacy')
+      || (entry.source !== 'offline_v2' && entry.source !== 'server_legacy' && entry.source !== 'offline_skip')
       || !isCanonicalTimestamp(entry.occurredAt) || !isCanonicalTimestamp(entry.recordedAt)
       || typeof entry.reviewReason !== 'string' || !reasons.has(entry.reviewReason)
       || !(entry.deviceSequence === null || (Number.isSafeInteger(entry.deviceSequence) && Number(entry.deviceSequence) >= 1))

@@ -61,11 +61,12 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   return <li className="review-case"><div className="review-case-heading"><div>
     <strong>{item.employeeDisplayName} · {item.targetDisplayName}</strong>
     <p className="supporting">{format(item.occurredAt)} · {triggerLabel(item.triggerType)}</p>
-    <p className="review-reason">{reviewReasonLabel(item.reviewReason)}{item.predecessorBlocked ? ' · Vorgänger blockiert' : ''}</p>
+    <p className="review-reason">{item.source==='offline_skip' ? 'Erfassung konnte nicht verarbeitet werden · ' : ''}{reviewReasonLabel(item.reviewReason)}{item.predecessorBlocked ? ' · Vorgänger blockiert' : ''}</p>
+    {item.source==='offline_skip' ? <p className="supporting">Fehlende Zeit über „Nachtragen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.</p> : null}
   </div><div className="entity-actions">
-    <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Als Arbeitszeit übernehmen</button>
-    <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Korrigieren</button>
-    <button className="quiet" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>Ablehnen</button>
+    {item.source==='offline_skip' ? null : <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Als Arbeitszeit übernehmen</button>}
+    {item.source==='offline_skip' ? null : <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Korrigieren</button>}
+    <button className="quiet" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>{item.source==='offline_skip' ? 'Mit Notiz schließen' : 'Ablehnen'}</button>
   </div></div>
   {open ? <div className="row-decision">
     <p className="supporting">{resolutionLabel(resolution)}. Bitte begründen Sie Ihre Entscheidung.</p>
@@ -96,8 +97,8 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
             onChange={(event) => setResolution(event.target.value as typeof resolution)}>
             <option value="no_time_record_change">Keine Arbeitszeit ändern</option>
-            <option value="create_recovered_time_record">Arbeitszeit wiederherstellen</option>
-            <option value="adjust_existing_time_record">Bestehende Arbeitszeit korrigieren</option>
+            {item.source==='offline_skip' ? null : <option value="create_recovered_time_record">Arbeitszeit wiederherstellen</option>}
+            {item.source==='offline_skip' ? null : <option value="adjust_existing_time_record">Bestehende Arbeitszeit korrigieren</option>}
           </select>
         </label>
         {resolution === 'adjust_existing_time_record' ? <label>Bestehende Arbeitszeit

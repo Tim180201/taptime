@@ -268,6 +268,78 @@ afterAll(async () => {
   await installerPool.end();
 });
 
+describe('T-095b sequence skip', () => {
+  function skip(command: OfflineLifecycleEventCommand) {
+    return { organizationId: command.organizationId, expectedMembershipId: command.expectedMembershipId,
+      installationBinding: command.installationBinding, leaseId: command.leaseId, leaseItemId: command.leaseItemId,
+      deviceSequence: command.deviceSequence, workEventId: command.workEvent.id, receiptId: command.receipt.id,
+      occurredAt: command.workEvent.occurredAt, reason: 'event_content_conflict', evidenceSha256: 'a'.repeat(64) };
+  }
+  it('records the gap once, books only the successor, and rejects altered or accepted evidence', async () => {
+    const lease = await issueLease();
+    const first = eventCommand(lease, lease.items[0]!.itemId, ids.event1, ids.receipt1, 1, lease.issuedAt);
+    const report = skip(first);
+    expect(await eventCoordinator.skip({ accessToken:'valid', command:report })).toMatchObject({status:'reported',idempotentRetry:false});
+    expect(await eventCoordinator.skip({ accessToken:'valid', command:report })).toMatchObject({status:'reported',idempotentRetry:true});
+    expect(await eventCoordinator.skip({ accessToken:'valid', command:{...report,reason:'http_400'} })).toMatchObject({status:'conflict'});
+    expect(await eventCoordinator.skip({ accessToken:'valid', command:{...report,deviceSequence:3} })).toMatchObject({status:'conflict'});
+    expect((await installerPool.query('SELECT count(*)::int AS n FROM taptime_server.work_events')).rows[0].n).toBe(0);
+    expect((await installerPool.query('SELECT count(*)::int AS n FROM taptime_server.time_entries')).rows[0].n).toBe(0);
+    const next = eventCommand(lease, lease.items[0]!.itemId, ids.event2, ids.receipt2, 2, new Date(Date.parse(lease.issuedAt)+1000).toISOString());
+    expect(await eventCoordinator.ingest({accessToken:'valid',command:next})).toMatchObject({status:'synchronized'});
+    expect(await eventCoordinator.skip({accessToken:'valid',command:skip(next)})).toMatchObject({status:'conflict'});
+    expect((await installerPool.query('SELECT count(*)::int AS n FROM taptime_server.work_events')).rows[0].n).toBe(1);
+  });
+  it('T-095b review v3 respects the current location and closes with an immutable note without time', async () => {
+    await seedT091();
+    const person=t091People[0]!;
+    const lease=await t091Lease(person);
+    const item=lease.items.find(i=>i.subjectType==='work' && i.itemType==='manual_target')!;
+    const base=eventCommandV3(lease,item,randomUUID(),randomUUID(),1,lease.issuedAt);
+    const c={...base,expectedMembershipId:person.membership,installationBinding:Buffer.from(person.user.replaceAll('-','').padEnd(64,'0'),'hex').toString('base64url')};
+    const report={organizationId:c.organizationId,expectedMembershipId:c.expectedMembershipId,installationBinding:c.installationBinding,
+      leaseId:c.leaseId,leaseItemId:c.leaseItemId,deviceSequence:c.deviceSequence,workEventId:c.workEvent.id,receiptId:c.receipt.id,
+      occurredAt:c.workEvent.occurredAt,reason:'http_400',evidenceSha256:'b'.repeat(64)};
+    expect(await eventCoordinator.skip({accessToken:`t091:${person.user}`,command:report})).toMatchObject({status:'reported'});
+    const review=new TimeReviewCoordinator(canonicalPool,canonicalPool,verifier);
+    for(const [index,visible] of [[1,true],[3,false],[4,true],[0,false]] as const) {
+      const actor=t091People[index]!;
+      const page=await review.queryReviewItemsV3({accessToken:`t091:${actor.user}`,request:{expectedMembershipId:actor.membership,limit:100,cursor:null}});
+      if(index===0) expect(page.status).toBe('authority_rejected');
+      else expect(page).toMatchObject({status:'ready',value:{items:visible ? [expect.objectContaining({source:'offline_skip',reviewItemId:c.workEvent.id,reviewReason:'http_400'})] : []}});
+    }
+    // Both public read capabilities remain empty: a skip is evidence, never working time.
+    const projections=await installerPool.connect();
+    try {
+      await projections.query('BEGIN');await projections.query('SET LOCAL ROLE taptime_mobile_own_time_reader');
+      await projections.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role','employee',true)`,[ids.organization,person.user,person.membership]);
+      expect((await projections.query('SELECT * FROM taptime_server.read_mobile_own_time_v2($1,$2,$3,NULL,NULL,NULL,NULL,20)',[ids.organization,person.user,person.membership])).rows).toEqual([]);
+      await projections.query('ROLLBACK');
+      const admin=t091People[4]!;
+      await projections.query('BEGIN');await projections.query('SET LOCAL ROLE taptime_time_exporter');
+      await projections.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true)`,[ids.organization,admin.user,admin.membership]);
+      expect((await projections.query(`SELECT * FROM taptime_server.read_effective_time_entry_export_v3($1,$2::timestamptz-interval '1 hour',$2::timestamptz+interval '1 hour',20)`,[ids.organization,report.occurredAt])).rows).toEqual([]);
+    } finally {await projections.query('ROLLBACK');projections.release();}
+    const manager=t091People[1]!;
+    expect(await review.queryReviewItemsV2({accessToken:`t091:${manager.user}`,request:{expectedMembershipId:manager.membership,limit:100,cursor:null}})).toMatchObject({status:'ready',value:{items:[]}});
+    const close={accessToken:`t091:${manager.user}`,request:{expectedMembershipId:manager.membership,commandId:randomUUID(),reviewItemIds:[c.workEvent.id],resolution:{type:'no_time_record_change' as const},reason:'Kein Zeitverlust; Beleg geprüft'}};
+    expect(await review.adjudicateReviewItems(close)).toMatchObject({status:'committed',value:{timeRecordId:null,idempotentRetry:false}});
+    expect(await review.adjudicateReviewItems(close)).toMatchObject({status:'committed',value:{idempotentRetry:true}});
+    expect(await review.adjudicateReviewItems({...close,request:{...close.request,reason:'Geändert'}})).toMatchObject({status:'command_id_conflict'});
+    expect(await review.queryReviewItemsV3({accessToken:`t091:${manager.user}`,request:{expectedMembershipId:manager.membership,limit:100,cursor:null}})).toMatchObject({status:'ready',value:{items:[]}});
+    expect((await installerPool.query('SELECT count(*)::int n FROM taptime_server.effective_time_records_v2')).rows[0].n).toBe(0);
+    await expect(installerPool.query('UPDATE taptime_server.offline_skipped_sequences SET reason=$1',['http_422'])).rejects.toThrow('append-only');
+    await expect(installerPool.query('DELETE FROM taptime_server.offline_skip_resolutions')).rejects.toThrow('append-only');
+  });
+  it('rejects foreign installation, membership and authentication', async () => {
+    const lease = await issueLease();
+    const report = skip(eventCommand(lease, lease.items[0]!.itemId, ids.event1, ids.receipt1, 1, lease.issuedAt));
+    expect(await eventCoordinator.skip({accessToken:'invalid',command:report})).toMatchObject({status:'authority_rejected'});
+    expect(await eventCoordinator.skip({accessToken:'valid',command:{...report,expectedMembershipId:randomUUID()}})).toMatchObject({status:'authority_rejected'});
+    expect(await eventCoordinator.skip({accessToken:'valid',command:{...report,installationBinding:Buffer.alloc(32,99).toString('base64url')}})).toMatchObject({status:'conflict'});
+  });
+});
+
 describe('complete offline PostgreSQL boundary', () => {
   it.each(['fresh', 'employee_promotion'] as const)(
     'T-080 issues, ingests and reconciles standortleitung without server changes (%s)', async kind => {

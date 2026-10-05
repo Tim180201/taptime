@@ -80,9 +80,12 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
       </View>
       {workState?.status==='ready' && workState.capturePending && !state.transmissionPaused ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
       {state.updateRequired ? <Card><Text accessibilityRole="alert">Bitte App aktualisieren</Text><Text>Deine Erfassungen bleiben auf dem Handy gespeichert. Die Übertragung wartet auf die neue App.</Text></Card> : null}
-      {state.untransferred?.length ? <Card><Text accessibilityRole="alert">{state.untransferred.length} {state.untransferred.length === 1 ? 'Erfassung konnte' : 'Erfassungen konnten'} nicht übertragen werden</Text>
-        {state.untransferred.map(entry => <Text key={entry.workEventId}>{entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>)}
-        <Text>Siehe „Meine Zeiten“. Der Beleg bleibt erhalten und sperrt den Kontowechsel.</Text></Card> : null}
+      {state.untransferred?.length ? <Card>
+        {state.untransferred.map(entry => <View key={entry.workEventId}>
+          <Text accessibilityRole="alert">{entry.reported ? '1 Erfassung wird von deiner Verwaltung geprüft' : '1 Erfassung konnte nicht übertragen werden'} · {entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>
+          <Text>{entry.reported ? 'Der Originalbeleg bleibt auf dem Handy erhalten.' : 'Siehe „Meine Zeiten“. Der Beleg bleibt erhalten und sperrt den Kontowechsel.'}</Text>
+        </View>)}
+      </Card> : null}
       {work ? <RecentTimeCard work={work} /> : <Card><Text style={styles.role}>Zuletzt</Text>
         <Text>Bestätigte Zeiten siehst du nach dem Abgleich.</Text></Card>}
     </ScrollView>

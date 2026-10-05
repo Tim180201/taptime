@@ -20,7 +20,11 @@ export interface SyncIndicator {
 export function syncIndicator(state: ProductScanState, lastCount: number | null = null): SyncIndicator {
   if(state.transmissionPaused)return {kind:'protected',count:state.untransferred?.length??null,label:'Abgleich: Übertragung angehalten'};
   if (state.updateRequired) return {kind:'protected',count:null,label:'Abgleich: Bitte App aktualisieren'};
-  if (state.untransferred?.length) return {kind:'protected',count:state.untransferred.length,label:`Abgleich: ${state.untransferred.length} Erfassung nicht übertragen`};
+  if (state.untransferred?.length) {
+    const unresolved=state.untransferred.filter(entry=>!entry.reported).length;
+    return unresolved ? {kind:'protected',count:unresolved,label:`Abgleich: ${unresolved} Erfassung nicht übertragen`}
+      : {kind:'review',count:state.untransferred.length,label:`Abgleich: ${state.untransferred.length} Erfassung wird von deiner Verwaltung geprüft`};
+  }
   if (state.status === 'protected_pending' || state.status === 'secure_storage_unavailable') {
     return { kind: 'protected', count: null, label: 'Abgleich: Vorgänge geschützt' };
   }

@@ -1,3 +1,4 @@
+import type { OfflineSequenceSkipCommand, OfflineSequenceSkipResult } from '@taptime/offline-sync-contract';
 import type {
   OfflineCaptureLeaseIssueCommand,
   OfflineCaptureLeasePageCommand,
@@ -70,6 +71,7 @@ export interface OfflineCaptureLeaseIssuer {
 }
 
 export interface OfflineLifecycleIngestor {
+  readonly skip?: (request: { readonly accessToken: string; readonly command: OfflineSequenceSkipCommand }) => Promise<OfflineSequenceSkipResult>;
   ingest(
     command: AuthenticatedOfflineLifecycleEventCommand,
     controls?: OfflineLifecycleIngestionControls,

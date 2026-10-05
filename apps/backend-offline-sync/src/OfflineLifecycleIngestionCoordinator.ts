@@ -1,3 +1,4 @@
+import { isOfflineSequenceSkipCommand, type OfflineSequenceSkipCommand, type OfflineSequenceSkipResult } from '@taptime/offline-sync-contract';
 import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
@@ -213,6 +214,72 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
     );
   }
 
+  async skip(request: { readonly accessToken: string; readonly command: OfflineSequenceSkipCommand }): Promise<OfflineSequenceSkipResult> {
+    if (!isOfflineSequenceSkipCommand(request.command)) throw new Error('Invalid sequence skip');
+    const verification = await this.accessTokenVerifier.verify(request.accessToken);
+    if (verification.status !== 'verified') return {status:'authority_rejected'};
+    const client = await this.pool.connect();
+    try {
+      await query(client, 'BEGIN');
+      await query(client, `SET LOCAL ROLE ${OFFLINE_EVENT_ROLE}`);
+      await query(client, "SELECT set_config('app.offline_archive_contract_version','4',true)");
+      const actor = (await query<ActorRow>(client,
+        'SELECT * FROM taptime_server.lock_offline_historical_actor_v1($1,$2,$3::uuid)',
+        [verification.identity.issuer,verification.identity.subject,request.command.expectedMembershipId])).rows[0];
+      if (!actor || actor.organization_id !== request.command.organizationId) {
+        await rollback(client); return {status:'authority_rejected'};
+      }
+      await setOfflineActorContext(client,actor);
+      await query(client, 'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+        [`${actor.organization_id}\u001f${actor.user_id}`]);
+      const c = request.command;
+      const installation = (await query<InstallationRow>(client, `SELECT id, identity_binding_id
+        FROM taptime_server.offline_installations WHERE organization_id=$1 AND user_id=$2
+        AND membership_id=$3 AND binding_digest=$4`,[actor.organization_id,actor.user_id,actor.membership_id,
+        createHash('sha256').update(decodeBase64Url32(c.installationBinding)).digest()])).rows[0];
+      if (!installation) { await rollback(client); return {status:'conflict'}; }
+      const lease = (await query(client, `SELECT item.id FROM taptime_server.offline_capture_leases lease
+        JOIN taptime_server.offline_capture_lease_items item ON item.organization_id=lease.organization_id
+        AND item.lease_id=lease.id AND item.installation_id=lease.installation_id
+        WHERE lease.organization_id=$1 AND lease.installation_id=$2 AND lease.membership_id=$3
+        AND lease.user_id=$4 AND lease.id=$5 AND item.id=$6`,
+        [actor.organization_id,installation.id,actor.membership_id,actor.user_id,c.leaseId,c.leaseItemId])).rows[0];
+      if (!lease) { await rollback(client); return {status:'conflict'}; }
+      const hash = createHash('sha256').update(JSON.stringify([c.organizationId,c.expectedMembershipId,
+        c.installationBinding,c.leaseId,c.leaseItemId,c.deviceSequence,c.workEventId,c.receiptId,
+        c.occurredAt,c.reason,c.evidenceSha256])).digest('hex');
+      const prior = (await query(client, `SELECT * FROM taptime_server.offline_skipped_sequences
+        WHERE organization_id=$1 AND (installation_id=$2 AND device_sequence=$3 OR work_event_id=$4 OR receipt_id=$5)`,
+        [actor.organization_id,installation.id,c.deviceSequence,c.workEventId,c.receiptId])).rows;
+      if (prior.length) {
+        const exact = prior.length===1 && prior[0]!.request_hash===hash;
+        await rollback(client);
+        return exact ? {status:'reported',workEventId:c.workEventId,receiptId:c.receiptId,
+          deviceSequence:c.deviceSequence,evidenceSha256:c.evidenceSha256,idempotentRetry:true} : {status:'conflict'};
+      }
+      const collision = await query(client, `SELECT 1 FROM taptime_server.work_events WHERE organization_id=$1 AND id=$2
+        UNION ALL SELECT 1 FROM taptime_server.sync_receipts WHERE organization_id=$1 AND id=$3`,
+        [actor.organization_id,c.workEventId,c.receiptId]);
+      if (collision.rows.length) { await rollback(client); return {status:'conflict'}; }
+      await query(client, `INSERT INTO taptime_server.offline_sync_cursors(organization_id,installation_id,user_id,membership_id)
+        VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`,[actor.organization_id,installation.id,actor.user_id,actor.membership_id]);
+      const cursor = (await query<CursorRow>(client, `SELECT last_durable_sequence FROM taptime_server.offline_sync_cursors
+        WHERE organization_id=$1 AND installation_id=$2 FOR UPDATE`,[actor.organization_id,installation.id])).rows[0]!;
+      if (Number(cursor.last_durable_sequence)+1 !== c.deviceSequence) { await rollback(client); return {status:'conflict'}; }
+      await query(client, `INSERT INTO taptime_server.offline_skipped_sequences
+        (organization_id,installation_id,user_id,membership_id,device_sequence,work_event_id,receipt_id,
+         lease_id,lease_item_id,occurred_at,reason,evidence_sha256,request_hash)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+        [actor.organization_id,installation.id,actor.user_id,actor.membership_id,c.deviceSequence,c.workEventId,
+        c.receiptId,c.leaseId,c.leaseItemId,c.occurredAt,c.reason,c.evidenceSha256,hash]);
+      await query(client, `UPDATE taptime_server.offline_sync_cursors SET last_durable_sequence=$3,updated_at=transaction_timestamp()
+        WHERE organization_id=$1 AND installation_id=$2`,[actor.organization_id,installation.id,c.deviceSequence]);
+      await query(client,'COMMIT');
+      return {status:'reported',workEventId:c.workEventId,receiptId:c.receiptId,deviceSequence:c.deviceSequence,
+        evidenceSha256:c.evidenceSha256,idempotentRetry:false};
+    } catch(error) { await rollback(client); throw error; } finally { client.release(); }
+  }
+
   async ingest(
     request: AuthenticatedOfflineLifecycleEventCommand,
     controls: OfflineLifecycleIngestionControls = {},
@@ -285,6 +352,12 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         return { status: 'conflict', reason: 'lease_binding_conflict' };
       }
 
+      if ((await query(client, `SELECT 1 FROM taptime_server.offline_skipped_sequences
+        WHERE organization_id=$1 AND (work_event_id=$2 OR receipt_id=$3)`,
+        [actor.organization_id,request.command.workEvent.id,request.command.receipt.id])).rows.length) {
+        await rollback(client); transactionOpen=false;
+        return {status:'conflict',reason:'event_content_conflict'};
+      }
       const prior = await findExistingReconciliation(
         client,
         actor.organization_id,

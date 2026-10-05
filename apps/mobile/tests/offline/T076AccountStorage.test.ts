@@ -48,6 +48,29 @@ function harness() {
 const newAccount = account('30000000-0000-4000-8000-000000000002');
 
 describe('T-076 generations on real SQLite', () => {
+  it('T-095b switches after a report but retains the original encrypted generation at every cold start', async () => {
+    const h=harness();const process=h.boot();const old=await h.bind(process);
+    const native=new NodeSqliteOfflineConnection(join(h.root,'taptime-offline-v1.db'));
+    const id='40000000-0000-4000-8000-000000000001';
+    const raw=JSON.stringify({organizationId:account().organizationId,expectedMembershipId:account().membershipId,
+      installationBinding:old.secrets.installationBinding,leaseId:id,leaseItemId:id,deviceSequence:1,provenanceVersion:1,
+      clock:{bootMarker:'boot',monotonicAnchorMilliseconds:0,monotonicDeltaMilliseconds:0,wallClockAnchor:'2026-09-24T10:00:00.000Z',clockProofStatus:'verified_same_boot',clockProofVersion:1},
+      workEvent:{id,assignmentId:id,nfcTagId:id,target:{targetType:'customer',targetId:id},occurredAt:'2026-09-24T10:00:00.000Z'},
+      receipt:{id,attemptNumber:1}});
+    try {
+      await native.runAsync('INSERT INTO offline_protected_quarantine(quarantine_id,reason,evidence_json,created_at) VALUES(?,?,?,?)',[id,'http_400',raw,'2026-09-24T10:00:00.000Z']);
+      const report=await old.database.readQuarantineReport();expect(report).not.toBeNull();
+      await old.database.confirmQuarantineReport(report!);
+      const next=await process.switchOwner(old.database,old.secrets,newAccount,async()=>true);
+      expect(next).not.toBeNull();
+      await h.close();await h.boot().open();await h.close();await h.boot().open();
+      expect(h.files.remove).not.toHaveBeenCalled();
+      expect(await native.getFirstAsync('SELECT evidence_json FROM offline_protected_quarantine')).toEqual({evidence_json:raw});
+      const pointer=JSON.parse(h.values.get('taptime.offline.generations.v1')!);
+      expect(pointer.retired).toMatchObject([{preserveEvidence:true,databaseKey:expect.any(String)}]);
+    } finally {await native.closeAsync();await h.close();}
+  });
+
   it('does not assign ownerless Legacy evidence to the current account', async () => {
     const h = harness(); const opened = await h.boot().open();
     const native = new NodeSqliteOfflineConnection(join(h.root, 'taptime-offline-v1.db'));

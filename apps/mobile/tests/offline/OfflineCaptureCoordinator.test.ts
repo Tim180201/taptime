@@ -1,3 +1,4 @@
+import { OFFLINE_LOCAL_SCHEMA_VERSION_V7 } from '@taptime/offline-sync-contract';
 import { legacyOfflineSchemas } from '../support/LegacyOfflineSchemas';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -218,7 +219,7 @@ describe('OfflineCaptureCoordinator', () => {
       let database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
       try {
         await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
-        expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: 6 });
+        expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V7 });
         expect(await connection.getAllAsync('PRAGMA foreign_key_check')).toEqual([]);
         if (version !== 0) expect(await connection.getFirstAsync(`SELECT membership_role,
           generation_state, lease_schema_version, manifest_version FROM offline_lease_generations`))
@@ -258,8 +259,10 @@ describe('OfflineCaptureCoordinator', () => {
     const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
     try {
       await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
-      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: 6 });
-      expect(await sqliteSnapshot(connection)).toEqual(before);
+      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V7 });
+      const after=await sqliteSnapshot(connection);
+      for(const [table,rows] of Object.entries(before)) expect(after[table]).toEqual(rows);
+      expect(after.offline_quarantine_reports).toEqual([]);
       expect(await connection.getAllAsync('PRAGMA foreign_key_check')).toEqual([]);
       await expect(connection.runAsync("UPDATE offline_lease_generations SET membership_role = 'standortleitung'", []))
         .rejects.toThrow('immutable');
@@ -281,7 +284,7 @@ describe('OfflineCaptureCoordinator', () => {
       const replay = new OfflineCaptureDatabase(async () => reopened, new Uint8Array(32).fill(8));
       try {
         await expect(replay.initialize()).resolves.toEqual({ status: 'ready' });
-        expect(await sqliteSnapshot(reopened)).toEqual(before);
+        expect(await sqliteSnapshot(reopened)).toEqual(after);
         expect(await reopened.getAllAsync('SELECT * FROM sqlite_master ORDER BY name')).toEqual(schemaAfter);
       } finally { await replay.close(); }
     } finally { await database.close(); rmSync(root, { recursive: true, force: true }); }
@@ -295,7 +298,7 @@ describe('OfflineCaptureCoordinator', () => {
       installationBinding: binding, lookupKey: encodeBase64Url(new Uint8Array(32).fill(7)) });
     if (lease.status !== 'ready') throw new Error('Invalid fixture');
     await seedV5PendingRoleChange(setup, lease.page);
-    if (mode === 'future_version') await setup.execAsync('PRAGMA user_version = 7;');
+    if (mode === 'future_version') await setup.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V7 + 1};`);
     const before = await sqliteSnapshot(setup);
     const schemaBefore = await setup.getAllAsync('SELECT * FROM sqlite_master ORDER BY name');
     await setup.closeAsync();
@@ -317,7 +320,7 @@ describe('OfflineCaptureCoordinator', () => {
       try {
         expect(await sqliteSnapshot(reopened)).toEqual(before);
         expect(await reopened.getAllAsync('SELECT * FROM sqlite_master ORDER BY name')).toEqual(schemaBefore);
-        expect(await reopened.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: mode === 'rollback' ? 5 : 7 });
+        expect(await reopened.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: mode === 'rollback' ? 5 : OFFLINE_LOCAL_SCHEMA_VERSION_V7 + 1 });
       } finally { await reopened.closeAsync(); }
     } finally { await database.close(); rmSync(root, { recursive: true, force: true }); }
   });

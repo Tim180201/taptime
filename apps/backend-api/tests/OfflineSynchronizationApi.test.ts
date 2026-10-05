@@ -699,3 +699,31 @@ it.each([1,2] as const)('T-091 reconciles location decisions for old and new v%s
       result:{decision:{reason:accept.endsWith('v3+json')?'work_location_unavailable':'work_event_precedes_previous_accepted_work_event'}}}]});
   }
 });
+
+it('T-095b skip route validates the bounded envelope, forwards authenticated evidence and maps conflicts',async()=>{
+  const event=offlineEventBody();
+  const command={organizationId:event.organizationId,expectedMembershipId:event.expectedMembershipId,
+    installationBinding:event.installationBinding,leaseId:event.leaseId,leaseItemId:event.leaseItemId,
+    deviceSequence:event.deviceSequence,workEventId:event.workEvent.id,receiptId:event.receipt.id,
+    occurredAt:event.workEvent.occurredAt,reason:'http_400',evidenceSha256:'a'.repeat(64)};
+  const skip=vi.fn(async()=>({status:'reported' as const,workEventId:command.workEventId,receiptId:command.receiptId,
+    deviceSequence:command.deviceSequence,evidenceSha256:command.evidenceSha256,idempotentRetry:false}));
+  const origin=await start({offlineLifecycleIngestor:{skip,async ingest(){return {status:'authority_rejected'};}}});
+  expect((await post(origin,'/v1/lifecycle-events/offline/skip',command)).status).toBe(200);
+  expect(skip).toHaveBeenCalledWith({accessToken:'abc.def.ghi',command});
+  for(const invalid of [{...command,deviceSequence:0},{...command,evidenceSha256:'oops'},{...command,extra:true},{...command,reason:'arbitrary'}]) {
+    expect((await post(origin,'/v1/lifecycle-events/offline/skip',invalid)).status).toBe(400);
+  }
+  expect(skip).toHaveBeenCalledOnce();
+});
+
+it('T-095b review v3 retains the coordinator receiver at the HTTP boundary',async()=>{
+  const review={...unavailableOfflineDependencies().timeReview,
+    async queryReviewItemsV3() {
+      expect(this).toBe(review);
+      return {status:'ready' as const,value:{items:[],nextCursor:null}};
+    }};
+  const origin=await start({timeReview:review});
+  expect((await post(origin,'/v3/administration/review-items/query',{
+    expectedMembershipId:offlineEventBody().expectedMembershipId,limit:20,cursor:null})).status).toBe(200);
+});

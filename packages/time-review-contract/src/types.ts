@@ -1,7 +1,9 @@
 export type TimeRecordSource = 'canonical' | 'recovered';
 export type TimeRecordStatus = 'started' | 'stopped';
-export type ReviewItemSource = 'offline_v2' | 'server_legacy';
+export type ReviewItemSource = 'offline_v2' | 'server_legacy' | 'offline_skip';
 export type TimeReviewReason =
+  | 'event_content_conflict' | 'sequence_content_conflict' | 'lease_binding_conflict'
+  | 'receipt_metadata_conflict' | 'invalid_response' | 'http_400' | 'http_409' | 'http_422'
   | 'work_location_unavailable'
   | 'administration_stopped'
   | 'identity_or_membership_not_current'
@@ -120,7 +122,7 @@ export interface ReviewItemProjectionV2 {
   readonly employeeUserId: string;
   readonly employeeMembershipId: string;
   readonly employeeDisplayName: string;
-  readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetType: 'customer' | 'project' | 'general_work' | 'break';
   readonly targetId: string;
   readonly targetDisplayName: string;
   readonly triggerType: 'nfc' | 'manual';

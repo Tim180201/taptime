@@ -54,6 +54,8 @@ export interface TimeReviewPort {
     controls?: TimeReviewCoordinatorControls,
   ) => Promise<TimeReviewReadResult<ReviewItemQueryPageV2>>;
 
+  readonly queryReviewItemsV3?: TimeReviewPort['queryReviewItemsV2'];
+
   adjudicateReviewItems(
     command: AuthenticatedTimeReviewCommand<ReviewAdjudicationRequest>,
     controls?: TimeReviewCoordinatorControls,
