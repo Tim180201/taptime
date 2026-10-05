@@ -1,7 +1,8 @@
 # Wiederholbar ausliefern
 
-Backend, Admin-Web, Betreiber-Web, Startseite und Betriebsdateien werden nach grüner `CI` einmal von
-`Release container images` gebaut. Jeder geprüfte Stand erzeugt die zu seinen Fähigkeiten gehörenden unveränderlichen Abbilder,
+Backend, Admin-Web, Betreiber-Web, Startseite und Betriebsdateien werden nach erfolgreicher `CI` eines
+Pushs auf `main` aus diesem Repository einmal von `Release container images` gebaut. Vor jedem Bau
+wird geprüft, dass der exakte Commit in der Geschichte von `main` liegt. Jeder geprüfte Stand erzeugt die zu seinen Fähigkeiten gehörenden unveränderlichen Abbilder,
 zum Beispiel
 `ghcr.io/tim180201/taptime-backend-api:abcdef0`,
 `ghcr.io/tim180201/taptime-backend-api:admin-web-abcdef0`,
@@ -23,6 +24,9 @@ Ein neuer Anwendungsstand nimmt automatisch sein
 gleich markiertes Operations-Abbild mit; eine Rücknahme auf eine bereits bekannte Anwendung oder ein historisches Ziel ohne Startseiten-Fähigkeit
 behält dagegen den zuletzt installierten, neueren Betriebsstand.
 Der Image-Bau nutzt keinen GitHub-Actions-Cache, damit ein hängender Cache-Import oder -Export die Veröffentlichung eines geprüften Stands nicht verhindert (D-094).
+Die Veröffentlichungen laufen nacheinander, damit Bau und Aufräumen verschiedener Commits sich nicht
+überschneiden. Actions sind auf vollständige Commit-SHAs festgelegt; Dependabot schlägt wöchentlich
+Aktualisierungen vor. Diese durchlaufen die übliche Prüfung, keine automatische Übernahme.
 
 ## Zugang und Berechtigung
 
@@ -182,17 +186,26 @@ offene Hetzner Console verwenden.
 Jede erfolgreiche Auslieferung veröffentlicht `current`, `previous` und die vollständige Datei
 `known-versions` sowie die ausgewählte Operations-Version atomar als nicht sensitiven
 Schutzsatz unter
-`/opt/taptime/admin-web/status/ghcr-protected-versions.json`. Die Veröffentlichungs-Workflow
-lädt und validiert diesen Satz fail-closed. Sie schützt Backend, Admin-Web und vorhandene Betreiber-Web-Abbilder für alle bekannten
-Anwendungsversionen sowie genau das ausgewählte Operations-Abbild. Vor einem neuen Push behält
-sie die neuesten Abbilder bis zu insgesamt zwanzig Paketversionen. Laufende Anwendung,
-Rücknahmeversion und Betriebsfassung können dadurch nie von der Aufräumung gelöscht werden.
+`/opt/taptime/admin-web/status/ghcr-protected-versions.json`. Der Veröffentlichungsworkflow lädt
+diesen Satz erst nach dem Bauen und Veröffentlichen. Ist er nicht abrufbar oder ungültig, bleiben die
+veröffentlichten Abbilder verfügbar; das Aufräumen wird mit Warnung und Eintrag in der Laufübersicht
+übersprungen. Dasselbe gilt bei einer unvollständigen Registry-Auskunft oder unbekannten Manifesten.
+Geschützt sind Backend, Admin-Web und vorhandene Betreiber- und Startseiten-Abbilder aller bekannten
+Anwendungsversionen, die ausgewählte Operations-Version, `ops` und die neuesten zwanzig Paketversionen.
+Zusätzlich bleiben sämtliche von erhaltenen Indizes referenzierten Kind-Manifeste bestehen, auch
+ohne eigenen Tag und über verschachtelte Indizes. Die Schutzmenge darf deshalb größer als zwanzig sein.
+Gelöscht werden zuerst entbehrliche Eltern, dann deren nicht anderweitig benötigte Kinder.
+Danach prüft ein eigener Schritt alle erhaltenen Abbilder durch frischen anonymen Abruf der Indizes,
+Kind-Manifeste, Konfigurationen und Schichten samt Digest und Größe. Ein Lösch- oder Abruffehler macht
+den Lauf rot; die Prüfung erfolgt auch nach einer teilweise fehlgeschlagenen Löschung.
 
 Vor dem ersten T-028-Deploy müssen Backend und Admin-Web für Ziel und Rücknahme sowie die
 Operations-Abbilder des freigegebenen T-028-Controllers und der Zielanwendung vorhanden sein.
-Starte `Release container images` bei Bedarf manuell mit `source_ref` gleich dem vollständigen
-Commit der gewünschten Version. Bereits vorhandene unveränderliche Abbilder werden geprüft und
-nicht neu gebaut; fehlende Backend-, Admin-Web-, Betreiber-Web- oder Operations-Abbilder werden ergänzt.
+Starte `Release container images` bei Bedarf manuell vom Zweig `main` mit `source_ref` gleich dem
+vollständigen Commit der gewünschten Version. Auch er muss auf `main` liegen und einen erfolgreichen
+Push-CI-Lauf aus diesem Repository haben. Dieser Reparaturbau benötigt keine erreichbare Produktion.
+Bereits vorhandene unveränderliche Abbilder werden geprüft und nicht neu gebaut; fehlende Backend-,
+Admin-Web-, Betreiber-Web-, Startseiten- oder Operations-Abbilder werden ergänzt.
 Betreiber-Web wird dabei nur gebaut, wenn es in der ausgewählten Quelle vorhanden ist. Ein
 Operations-Abbild einer alten Rücknahmeversion wird zwar vollständig reproduzierbar gebaut, vom
 Deploy aber nicht ausgewählt. Für den noch ausstehenden Deploy gilt der dann aktuelle, eigens

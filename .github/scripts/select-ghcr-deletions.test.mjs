@@ -6,9 +6,18 @@ import { selectGhcrDeletions } from './select-ghcr-deletions.mjs';
 function packageVersion(id, tag, ageInDays) {
   return {
     id,
+    name: `sha256:${id.toString(16).padStart(64, '0')}`,
     created_at: new Date(Date.UTC(2026, 7, 25 - ageInDays)).toISOString(),
     metadata: { container: { tags: tag ? [tag] : [] } },
   };
+}
+
+function selectLeafVersions(snapshot, versions, keepNewest) {
+  const manifests = Object.fromEntries(versions.map(version => [version.name, {
+    schemaVersion: 2, mediaType: 'application/vnd.oci.image.manifest.v1+json',
+    config: { digest: `sha256:${'f'.repeat(64)}`, size: 2, mediaType: 'application/vnd.oci.image.config.v1+json' }, layers: [],
+  }]));
+  return selectGhcrDeletions(snapshot, versions, keepNewest, manifests);
 }
 
 test('cleanup protects application and independent operations versions outside the newest set', () => {
@@ -40,7 +49,7 @@ test('cleanup protects application and independent operations versions outside t
     packageVersion(91, 'operations-5050505', 23),
   ];
 
-  const deletions = selectGhcrDeletions(snapshot, versions, 17);
+  const deletions = selectLeafVersions(snapshot, versions, 17);
   const deletedIds = deletions.map(({ id }) => id);
 
   assert(!deletedIds.includes(82), 'the running image must not be deleted');
@@ -63,7 +72,7 @@ test('cleanup protects application and independent operations versions outside t
 
 test('cleanup fails closed when current or previous is absent from known_versions', () => {
   assert.throws(
-    () => selectGhcrDeletions({
+    () => selectLeafVersions({
       schema_version: 1,
       current_version: '8094744',
       previous_version: '7070707',
@@ -74,14 +83,14 @@ test('cleanup fails closed when current or previous is absent from known_version
 });
 
 test('cleanup accepts the pre-T-028 snapshot but rejects a malformed operations version', () => {
-  assert.deepEqual(selectGhcrDeletions({
+  assert.deepEqual(selectLeafVersions({
     schema_version: 1,
     current_version: '8094744',
     previous_version: '7070707',
     known_versions: ['8094744', '7070707'],
   }, [], 10), []);
   assert.throws(
-    () => selectGhcrDeletions({
+    () => selectLeafVersions({
       schema_version: 1,
       current_version: '8094744',
       previous_version: '7070707',
@@ -96,12 +105,29 @@ test('every known operator web image is protected, unknown ones can expire',()=>
   const known=['aaaaaaa','bbbbbbb','ccccccc'];
   const snapshot={schema_version:1,current_version:known[0],previous_version:known[1],known_versions:known};
   const versions=[...known.map((value,index)=>packageVersion(index+1,`operator-web-${value}`,20)),packageVersion(99,'operator-web-ddddddd',30)];
-  assert.deepEqual(selectGhcrDeletions(snapshot,versions,0).map(value=>value.id),[99]);
+  assert.deepEqual(selectLeafVersions(snapshot,versions,0).map(value=>value.id),[99]);
 });
 
 test('every known landing web image is protected, unknown ones can expire',()=>{
   const known=['aaaaaaa','bbbbbbb','ccccccc'];
   const snapshot={schema_version:1,current_version:known[0],previous_version:known[1],known_versions:known};
   const versions=[...known.map((value,index)=>packageVersion(index+1,`landing-web-${value}`,20)),packageVersion(99,'landing-web-ddddddd',30)];
-  assert.deepEqual(selectGhcrDeletions(snapshot,versions,0).map(value=>value.id),[99]);
+  assert.deepEqual(selectLeafVersions(snapshot,versions,0).map(value=>value.id),[99]);
+});
+
+test('retained indices protect untagged children, nested indices and shared manifests', () => {
+  const digest = value => `sha256:${value.repeat(64)}`;
+  const version = (id, tag, age, value) => ({ ...packageVersion(id, tag, age), name: digest(value) });
+  const child = value => ({ digest: digest(value), size: 10, mediaType: 'application/vnd.oci.image.manifest.v1+json' });
+  const index = (...children) => ({ schemaVersion: 2, mediaType: 'application/vnd.oci.image.index.v1+json', manifests: children.map(child) });
+  const leaf = { schemaVersion: 2, mediaType: 'application/vnd.oci.image.manifest.v1+json', config: child('f'), layers: [] };
+  const versions = [version(1, 'aaaaaaa', 20, 'a'), version(2, '', 20, 'b'), version(3, '', 20, 'c'),
+    version(4, 'ddddddd', 30, 'd'), version(5, '', 30, 'e')];
+  const manifests = { [digest('a')]: index('b'), [digest('b')]: index('c'), [digest('c')]: leaf,
+    [digest('d')]: index('c', 'e'), [digest('e')]: leaf };
+  const snapshot = { schema_version: 1, current_version: 'aaaaaaa', previous_version: 'aaaaaaa', known_versions: ['aaaaaaa'] };
+  assert.deepEqual(selectGhcrDeletions(snapshot, versions, 0, manifests).map(value => value.id), [4, 5],
+    'delete the obsolete parent before its exclusive child, retain shared and nested children');
+  assert.throws(() => selectGhcrDeletions(snapshot, versions, 0, { ...manifests, [digest('b')]: undefined }),
+    /manifest/i, 'unreadable manifest knowledge must prevent deletion');
 });

@@ -37,7 +37,7 @@ test('operator image uses the same exact source and validated public config as A
   assert.match(operator.if,/operator_web_existing.outputs.publish/);
   const guard=steps.find(step=>step.id==='operator_web_existing');assert.ok(guard);assert.equal(guard.run,steps.find(step=>step.id==='admin_web_existing').run.replaceAll('Admin Web','Operator Web'));
   assert.match(guard.if,/operator_web.*true/,'legacy source refs have no operator workspace');
-  const cleanup=steps.find(step=>step.name==='Remove obsolete unprotected release images');assert.ok(cleanup.env.PUBLISH_OPERATOR_WEB_IMAGE);assert.match(cleanup.run,/PUBLISH_OPERATOR_WEB_IMAGE/);
+  const cleanup=steps.find(step=>step.name==='Remove obsolete unprotected release images');assert.ok(steps.indexOf(cleanup)>steps.indexOf(operator),'cleanup must see the newly published operator index');
 });
 test('backend image capability records whether its exact source includes the operator surface',()=>{
   const metadata=steps.find(step=>step.id==='image');assert.match(metadata.run,/apps\/operator-web\/package.json/);assert.match(metadata.run,/operator_web=/);

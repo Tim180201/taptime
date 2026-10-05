@@ -21,31 +21,36 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-containers-${{ github.event.workflow_run.head_sha || inputs.source_ref }}
+  group: release-containers
   cancel-in-progress: false
 
 jobs:
   publish:
     name: Build and publish immutable backend, Admin Web, Operator Web, Landing Web, and operations images
     if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
-    timeout-minutes: 27
+    timeout-minutes: 37
 
     steps:
       - name: Check out the approved publication controls
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.sha }}
           path: control
           persist-credentials: false
 
       - name: Check out the exact tested commit
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || inputs.source_ref }}
           path: source
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Resolve immutable image coordinates
@@ -71,6 +76,24 @@ jobs:
             printf 'short_sha=%s\n' "$short_sha"
             printf 'name=ghcr.io/%s/taptime-backend-api\n' "${GITHUB_REPOSITORY_OWNER,,}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Verify the source commit belongs to main
+        shell: bash
+        working-directory: source
+        env:
+          SOURCE_SHA: ${{ steps.image.outputs.full_sha }}
+          REQUESTED_SOURCE: ${{ github.event.workflow_run.head_sha || inputs.source_ref }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$REQUESTED_SOURCE" =~ ^[0-9a-f]{40}$ || "$SOURCE_SHA" != "$REQUESTED_SOURCE" ]]; then
+            printf 'Publication requires the exact full commit SHA.\n' >&2
+            exit 1
+          fi
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$SOURCE_SHA" refs/remotes/origin/main; then
+            printf 'Source commit does not belong to main.\n' >&2
+            exit 1
+          fi
 
       - name: Resolve the public Admin Web build configuration
         id: admin_web_configuration
@@ -101,7 +124,7 @@ jobs:
           NODE
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
 
       - name: Verify successful exact-commit CI for a manual rollback build
         if: github.event_name == 'workflow_dispatch'
@@ -111,19 +134,25 @@ jobs:
           SOURCE_SHA: ${{ steps.image.outputs.full_sha }}
         run: |
           set -euo pipefail
-          successful_runs="$(gh api --method GET \
+          gh api --method GET --paginate --slurp \
             "/repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
             -f "head_sha=$SOURCE_SHA" \
+            -f event=push \
+            -f branch=main \
             -f status=success \
-            -f per_page=1 \
-            --jq '[.workflow_runs[] | select(.event == "push" and .head_branch == "main")] | length')"
-          if [[ "$successful_runs" != '1' ]]; then
-            printf 'No successful CI run exists for exact commit %s.\n' "$SOURCE_SHA" >&2
-            exit 1
-          fi
+            -f per_page=100 > "$RUNNER_TEMP/publication-ci-runs.json"
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const pages = JSON.parse(readFileSync(`${process.env.RUNNER_TEMP}/publication-ci-runs.json`, 'utf8'));
+          const runs = pages.flatMap(page => page.workflow_runs);
+          const approved = runs.some(run => run?.head_sha === process.env.SOURCE_SHA &&
+            run.conclusion === 'success' && run.event === 'push' && run.head_branch === 'main' &&
+            run.head_repository?.full_name === process.env.GITHUB_REPOSITORY);
+          if (!approved) throw new Error('No successful own-repository main push CI exists for the exact source commit.');
+          NODE
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -291,76 +320,10 @@ jobs:
           printf 'publish=false\n' >> "$GITHUB_OUTPUT"
           printf 'Immutable operations image already exists; it will not be rebuilt.\n'
 
-      - name: Fetch the production rollback protection set
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl --fail --silent --show-error --max-time 15 \
-            --header 'Cache-Control: no-cache' \
-            https://admin.tb-infra.de/status/ghcr-protected-versions.json \
-            > "$RUNNER_TEMP/ghcr-protected-versions.json"
-
-      - name: Remove obsolete unprotected release images
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PACKAGE_OWNER: ${{ github.repository_owner }}
-          PUBLISH_BACKEND_IMAGE: ${{ steps.backend_existing.outputs.publish }}
-          PUBLISH_ADMIN_WEB_IMAGE: ${{ steps.admin_web_existing.outputs.publish }}
-          PUBLISH_LANDING_WEB_IMAGE: ${{ steps.landing_web_existing.outputs.publish }}
-          PUBLISH_OPERATOR_WEB_IMAGE: ${{ steps.operator_web_existing.outputs.publish }}
-          PUBLISH_OPERATIONS_IMAGE: ${{ steps.operations_existing.outputs.publish }}
-        run: |
-          set -euo pipefail
-          package='taptime-backend-api'
-          versions_file="$RUNNER_TEMP/ghcr-package-versions.json"
-          api_path="/users/$PACKAGE_OWNER/packages/container/$package"
-          error_file="$RUNNER_TEMP/ghcr-package-error.log"
-          new_image_count=0
-
-          if [[ "$PUBLISH_BACKEND_IMAGE" == 'true' ]]; then
-            new_image_count=$((new_image_count + 1))
-          fi
-          if [[ "$PUBLISH_ADMIN_WEB_IMAGE" == 'true' ]]; then
-            new_image_count=$((new_image_count + 1))
-          fi
-          if [[ "$PUBLISH_LANDING_WEB_IMAGE" == 'true' ]]; then
-            new_image_count=$((new_image_count + 1))
-          fi
-          if [[ "$PUBLISH_OPERATOR_WEB_IMAGE" == 'true' ]]; then
-            new_image_count=$((new_image_count + 1))
-          fi
-          if [[ "$PUBLISH_OPERATIONS_IMAGE" == 'true' ]]; then
-            new_image_count=$((new_image_count + 1))
-          fi
-
-          if gh api "$api_path" >/dev/null 2>"$error_file"; then
-            gh api --paginate --slurp "$api_path/versions?per_page=100" > "$versions_file"
-          elif (( new_image_count > 0 )) &&
-            grep --fixed-strings --quiet 'HTTP 404' "$error_file"; then
-            printf '[]\n' > "$versions_file"
-          else
-            cat "$error_file" >&2
-            printf 'Could not inspect GHCR package; refusing publication.\n' >&2
-            exit 1
-          fi
-
-          keep_existing=$((20 - new_image_count))
-          node control/.github/scripts/select-ghcr-deletions.mjs \
-            "$RUNNER_TEMP/ghcr-protected-versions.json" \
-            "$versions_file" \
-            "$keep_existing" > "$RUNNER_TEMP/ghcr-delete-ids"
-
-          while IFS= read -r version_id; do
-            [[ -n "$version_id" ]] || continue
-            printf 'Deleting obsolete unprotected GHCR package version %s.\n' "$version_id"
-            gh api --method DELETE "$api_path/versions/$version_id"
-          done < "$RUNNER_TEMP/ghcr-delete-ids"
-
       - name: Build and publish the backend image once
         if: steps.backend_existing.outputs.publish == 'true'
         timeout-minutes: 7
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: source
           file: source/infrastructure/backend-api/Dockerfile
@@ -377,7 +340,7 @@ jobs:
       - name: Build and publish the Admin Web image once
         if: steps.admin_web_existing.outputs.publish == 'true'
         timeout-minutes: 6
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: source
           file: control/infrastructure/admin-web/Dockerfile
@@ -396,7 +359,7 @@ jobs:
       - name: Build and publish the Operator Web image once
         if: steps.operator_web_existing.outputs.publish == 'true'
         timeout-minutes: 3
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: source
           file: control/infrastructure/operator-web/Dockerfile
@@ -415,7 +378,7 @@ jobs:
       - name: Build and publish the Landing Web image once
         if: steps.landing_web_existing.outputs.publish == 'true'
         timeout-minutes: 5
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: source
           file: control/infrastructure/landing-web/Dockerfile
@@ -443,7 +406,7 @@ jobs:
       - name: Build and publish the operations image once
         if: steps.operations_existing.outputs.publish == 'true'
         timeout-minutes: 3
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: source
           file: control/infrastructure/operations/Dockerfile
@@ -472,3 +435,37 @@ jobs:
             printf 'Console shortcut does not name the immutable operations image.\n' >&2
             exit 1
           fi
+
+      - name: Fetch the production rollback protection set
+        id: protection
+        shell: bash
+        run: |
+          set -euo pipefail
+          if curl --fail --silent --show-error --max-time 15 \
+            --header 'Cache-Control: no-cache' \
+            https://admin.tb-infra.de/status/ghcr-protected-versions.json \
+            > "$RUNNER_TEMP/ghcr-protected-versions.json"; then
+            printf 'available=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'available=false\n' >> "$GITHUB_OUTPUT"
+            printf '::warning::Production protection unavailable; images published, GHCR cleanup skipped.\n'
+            printf 'GHCR cleanup skipped: production protection unavailable. Images were published.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Remove obsolete unprotected release images
+        id: cleanup
+        if: steps.protection.outputs.available == 'true'
+        timeout-minutes: 5
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+        run: node control/.github/scripts/clean-ghcr.mjs cleanup
+
+      - name: Verify protected images remain fully retrievable
+        if: ${{ !cancelled() && steps.cleanup.outputs.performed == 'true' }}
+        timeout-minutes: 5
+        shell: bash
+        env:
+          PACKAGE_OWNER: ${{ github.repository_owner }}
+        run: node control/.github/scripts/clean-ghcr.mjs verify

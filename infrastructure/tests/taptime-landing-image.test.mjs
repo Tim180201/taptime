@@ -15,8 +15,7 @@ test('landing publication requires source capability and an absent immutable tag
   assert.equal(landing.with.context,'source');
   assert.match(landing.with.tags,/:landing-web-/);
   const pruning=steps.find(s=>s.name==='Remove obsolete unprotected release images');
-  assert.ok(pruning.env.PUBLISH_LANDING_WEB_IMAGE);
-  assert.match(pruning.run,/if \[\[ "\$PUBLISH_LANDING_WEB_IMAGE" == 'true' \]\]; then\s+new_image_count=\$\(\(new_image_count \+ 1\)\)/);
+  assert.ok(steps.indexOf(pruning)>steps.indexOf(landing),'cleanup must see the newly published landing index');
 });
 test('approved operational additions can be staged into a historical source without landing',()=>{
   const root=mkdtempSync(join(tmpdir(),'t031-historical-source-'));
