@@ -47,6 +47,7 @@ class FakeSessionRuntimeOwner implements ProductSessionRuntimeOwner {
 }
 
 class FakeScanRuntimeOwner implements ProductScanRuntimeOwner {
+  readonly refreshOfflineGrant = vi.fn(async () => undefined);
   readonly start = vi.fn<() => Promise<void>>(async () => undefined);
   readonly stop = vi.fn<() => Promise<void>>(async () => undefined);
   readonly scan = vi.fn<() => Promise<void>>(async () => undefined);
@@ -88,6 +89,103 @@ function setup(work?: ProductMobileWorkRuntimeOwner) {
 }
 
 describe('DefaultProductMobileRuntime lifecycle', () => {
+  it('T-095 D-120 preserves waiting across a network suspension and resumes only for the same account',async()=>{
+    const h=setup(),listeners=new Set<()=>void>();
+    const authenticated:MobileSessionState={status:'authenticated',session:{userId:'A',organizationId:'org',membershipId:'A-member',role:'employee',nfcSetupAvailable:false}};
+    let state:MobileSessionState=authenticated;
+    vi.spyOn(h.session,'getState').mockImplementation(()=>state);
+    h.session.subscribe.mockImplementation(listener=>{listeners.add(listener);return()=>listeners.delete(listener);});
+    const scan=Object.assign(h.scan,{prepareSignOut:vi.fn(async()=>({wait:true as const,accountKey:'org/A-member/A'})),pollArchiveForSignOut:vi.fn(async()=>false)});
+    await h.runtime.start();vi.useFakeTimers();
+    try {
+      await h.runtime.session.signOut();
+      state={status:'context_unavailable'};for(const listener of listeners)listener();
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(h.runtime.scan.getState().status).toBe('archive_signout_pending');
+      expect(scan.pollArchiveForSignOut).toHaveBeenCalledOnce();expect(h.session.signOut).not.toHaveBeenCalled();
+      state=authenticated;for(const listener of listeners)listener();scan.pollArchiveForSignOut.mockResolvedValue(true);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(scan.pollArchiveForSignOut).toHaveBeenCalledTimes(2);expect(h.session.signOut).toHaveBeenCalledOnce();
+    } finally {h.runtime.stop();vi.useRealTimers();}
+  });
+  it('T-095 D-120 can enter archive waiting while the confirmed owner is offline',async()=>{
+    const h=setup();
+    vi.spyOn(h.session,'getState').mockReturnValue({status:'context_unavailable'});
+    const scan=Object.assign(h.scan,{prepareSignOut:vi.fn(async()=>({wait:true as const,accountKey:'org/A-member/A'})),pollArchiveForSignOut:vi.fn(async()=>false)});
+    await h.runtime.start();vi.useFakeTimers();
+    try {
+      await h.runtime.session.signOut();await vi.advanceTimersByTimeAsync(30_000);
+      expect(h.runtime.scan.getState().status).toBe('archive_signout_pending');
+      expect(scan.pollArchiveForSignOut).not.toHaveBeenCalled();expect(h.session.signOut).not.toHaveBeenCalled();
+      await h.runtime.session.signOutImmediately!();expect(h.session.signOut).toHaveBeenCalledOnce();
+    } finally {h.runtime.stop();vi.useRealTimers();}
+  });
+  it('T-095 D-120 never signs out account B on a late archive proof for A',async()=>{
+    const h=setup(),listeners=new Set<()=>void>();
+    let state:MobileSessionState={status:'authenticated',session:{userId:'A',organizationId:'org',membershipId:'A-member',role:'employee',nfcSetupAvailable:false}};
+    vi.spyOn(h.session,'getState').mockImplementation(()=>state);
+    h.session.subscribe.mockImplementation(listener=>{listeners.add(listener);return()=>listeners.delete(listener);});
+    let resolve!:(proof:boolean)=>void;
+    const scan=Object.assign(h.scan,{prepareSignOut:vi.fn(async()=>({wait:true as const,accountKey:'org/A-member/A'})),pollArchiveForSignOut:vi.fn(()=>new Promise<boolean>(r=>{resolve=r;})),onExplicitLogout:vi.fn(async()=>{})});
+    await h.runtime.start();vi.useFakeTimers();
+    try {
+      await h.runtime.session.signOut();
+      state={status:'authenticated',session:{userId:'B',organizationId:'org',membershipId:'B-member',role:'employee',nfcSetupAvailable:false}};
+      for(const listener of listeners)listener();resolve(true);await vi.advanceTimersByTimeAsync(90_000);
+      expect(h.session.signOut).not.toHaveBeenCalled();expect(scan.onExplicitLogout).not.toHaveBeenCalled();
+      expect(scan.pollArchiveForSignOut).toHaveBeenCalledOnce();expect(h.runtime.scan.getState().status).not.toBe('archive_signout_pending');
+    } finally {h.runtime.stop();vi.useRealTimers();}
+  });
+  it('T-095 D-120 waits as the current account, polls every 30 seconds and signs out after archive proof',async()=>{
+    const h=setup();
+    const state:MobileSessionState={status:'authenticated',session:{userId:'A',organizationId:'org',membershipId:'A-member',role:'employee',nfcSetupAvailable:false}};
+    vi.spyOn(h.session,'getState').mockReturnValue(state);
+    const scan=Object.assign(h.scan,{prepareSignOut:vi.fn(async()=>({wait:true as const,accountKey:'org/A-member/A'})),pollArchiveForSignOut:vi.fn(async()=>false),onExplicitLogout:vi.fn(async()=>{})});
+    await h.runtime.start();vi.useFakeTimers();
+    try {
+      await h.runtime.session.signOut();
+      expect(h.session.signOut).not.toHaveBeenCalled();
+      expect(h.runtime.scan.getState()).toMatchObject({status:'archive_signout_pending'});
+      expect(scan.pollArchiveForSignOut).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(30_000);expect(scan.pollArchiveForSignOut).toHaveBeenCalledTimes(2);
+      scan.pollArchiveForSignOut.mockResolvedValue(true);
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(scan.onExplicitLogout).toHaveBeenCalledOnce();expect(h.session.signOut).toHaveBeenCalledOnce();
+      await vi.advanceTimersByTimeAsync(60_000);expect(scan.pollArchiveForSignOut).toHaveBeenCalledTimes(3);
+    } finally {h.runtime.stop();vi.useRealTimers();}
+  });
+  it('T-095 D-120 forced sign-out cancels a late proof and the polling timer',async()=>{
+    const h=setup();
+    vi.spyOn(h.session,'getState').mockReturnValue({status:'authenticated',session:{userId:'A',organizationId:'org',membershipId:'A-member',role:'employee',nfcSetupAvailable:false}});
+    let resolve!:(value:boolean)=>void;
+    const scan=Object.assign(h.scan,{prepareSignOut:vi.fn(async()=>({wait:true as const,accountKey:'org/A-member/A'})),pollArchiveForSignOut:vi.fn(()=>new Promise<boolean>(r=>{resolve=r;})),onExplicitLogout:vi.fn(async()=>{})});
+    await h.runtime.start();vi.useFakeTimers();
+    try {
+      await h.runtime.session.signOut();expect(h.session.signOut).not.toHaveBeenCalled();
+      expect(h.runtime.session.signOutImmediately).toBeTypeOf('function');
+      await h.runtime.session.signOutImmediately!();
+      resolve(true);await vi.advanceTimersByTimeAsync(90_000);
+      expect(h.session.signOut).toHaveBeenCalledOnce();expect(scan.pollArchiveForSignOut).toHaveBeenCalledOnce();
+    } finally {h.runtime.stop();vi.useRealTimers();}
+  });
+  it('T-095 D-120 stops waiting when the runtime stops and ignores the old proof',async()=>{
+    const h=setup();
+    vi.spyOn(h.session,'getState').mockReturnValue({status:'authenticated',session:{userId:'A',organizationId:'org',membershipId:'A-member',role:'employee',nfcSetupAvailable:false}});
+    let resolve!:(value:boolean)=>void;
+    const scan=Object.assign(h.scan,{prepareSignOut:vi.fn(async()=>({wait:true as const,accountKey:'org/A-member/A'})),pollArchiveForSignOut:vi.fn(()=>new Promise<boolean>(r=>{resolve=r;}))});
+    await h.runtime.start();vi.useFakeTimers();
+    try {
+      await h.runtime.session.signOut();h.runtime.stop();resolve(true);await vi.advanceTimersByTimeAsync(90_000);
+      expect(h.session.signOut).not.toHaveBeenCalled();expect(scan.pollArchiveForSignOut).toHaveBeenCalledOnce();
+    } finally {vi.useRealTimers();}
+  });
+  it('T-095 reloads the offline grant after a customer or tag write through the production facade', async () => {
+    const {runtime,scan}=setup();
+    await runtime.administration.createCustomer('Kunde X');
+    await runtime.administration.provision('customer','Tag');
+    await runtime.administration.provisionBreak('Pause');
+    expect(scan.refreshOfflineGrant).toHaveBeenCalledTimes(3);
+  });
   it('T103 forwards stopping the confirmed active target through the production React facade', async () => {
     const target = {targetType:'customer' as const,targetId:'20000000-0000-4000-8000-000000000001',displayName:'Kunde X'};
     const snapshot = {generation:1,session:{userId:'user',organizationId:'organization',membershipId:'membership',role:'employee' as const,nfcSetupAvailable:false}};

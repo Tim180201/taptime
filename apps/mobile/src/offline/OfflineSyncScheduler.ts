@@ -45,6 +45,9 @@ export type OfflineSyncSchedulerState =
       readonly workEventId: string;
     }
   | { readonly status: 'protected'; readonly queueCount: number }
+  | { readonly status: 'quarantined'; readonly queueCount: number; readonly workEventId: string }
+  | { readonly status: 'update_required'; readonly queueCount: number }
+  | { readonly status: 'transmission_paused'; readonly queueCount: number; readonly reason: 'system_failure' | 'quarantine' }
   | { readonly status: 'authority_rejected'; readonly queueCount: number };
 
 export interface OfflineAuthorityRejectionPort {
@@ -75,6 +78,9 @@ export class OfflineSyncScheduler {
   private archiveAfterSequence = 0;
   private archiveNextAttemptAt = 0;
   private archiveGeneration = 0;
+  private retryClock: number | null = null;
+  private updateRequired = false;
+  private transmissionPause: 'system_failure' | 'quarantine' | null = null;
 
   constructor(
     private readonly database: OfflineCaptureDatabase,
@@ -95,17 +101,34 @@ export class OfflineSyncScheduler {
     return () => this.listeners.delete(listener);
   }
 
-  trigger(_trigger: OfflineSyncTrigger): Promise<OfflineSyncSchedulerState> {
+  trigger(trigger: OfflineSyncTrigger): Promise<OfflineSyncSchedulerState> {
     if (this.stopped) return Promise.resolve(this.state);
+    if (this.updateRequired) return Promise.resolve(this.state);
     if (this.flight !== null) return this.flight;
+    if (this.transmissionPause !== null) {
+      if (this.transmissionPause !== 'system_failure'
+        || !['runtime_start','foreground','manual'].includes(trigger)) return Promise.resolve(this.state);
+      this.transmissionPause = null;
+      void this.reconcileArchives(true);
+    }
     this.cancelTimer();
-    const operation = this.drain(this.transmissionGeneration);
+    const operation = this.prepareDrain(trigger, this.transmissionGeneration);
     let flight!: Promise<OfflineSyncSchedulerState>;
     flight = operation.finally(() => {
       if (this.flight === flight) this.flight = null;
     });
     this.flight = flight;
     return flight;
+  }
+
+  private async prepareDrain(trigger: OfflineSyncTrigger, generation: number): Promise<OfflineSyncSchedulerState> {
+    const now = this.now();
+    if (this.retryClock === null || trigger === 'manual' || trigger === 'runtime_start' || now < this.retryClock) {
+      try { await this.database.resetRetryDeadlines(now); }
+      catch { return this.publish(generation, {status:'protected',queueCount:await this.safeQueueCount() ?? 0}); }
+    }
+    this.retryClock = now;
+    return this.drain(generation);
   }
 
   isBusy(): boolean { return this.flight !== null || this.archiveFlight !== null; }
@@ -134,10 +157,10 @@ export class OfflineSyncScheduler {
 
   // This flight never joins the transmission flight or publishes scan feedback.
   // Background execution uses the same deadline as the independent foreground timer.
-  reconcileArchives(): Promise<void> {
-    if (this.stopped) return Promise.resolve();
+  reconcileArchives(force = false): Promise<void> {
+    if (this.stopped || this.updateRequired) return Promise.resolve();
     if (this.archiveFlight !== null) return this.archiveFlight;
-    if (this.now() < this.archiveNextAttemptAt) {
+    if (!force && this.now() < this.archiveNextAttemptAt) {
       this.scheduleArchiveReconciliation();
       return Promise.resolve();
     }
@@ -157,6 +180,20 @@ export class OfflineSyncScheduler {
         if (!current() || rows.length === 0) return;
         const result = await this.offlineLifecycle.reconcile(rows.map((row) => row.workEventId));
         if (!current()) return;
+        if(result.status==='update_required') {
+          this.updateRequired=true;
+          this.publish(this.transmissionGeneration,{status:'update_required',queueCount:await this.safeQueueCount()??0});
+          return;
+        }
+        if (result.status === 'system_failure') {
+          this.transmissionPause = this.transmissionPause === 'quarantine' ? 'quarantine' : 'system_failure';
+          this.cancelTimer();
+          const queueCount = await this.safeQueueCount();
+          if (current()) this.publish(this.transmissionGeneration, {
+            status:'transmission_paused', queueCount:queueCount ?? 0, reason:this.transmissionPause,
+          });
+          return;
+        }
         if (result.status !== 'ready') {
           if ('retryAfterSeconds' in result && result.retryAfterSeconds !== undefined) {
             this.archiveNextAttemptAt = this.now() + result.retryAfterSeconds * 1_000;
@@ -196,7 +233,7 @@ export class OfflineSyncScheduler {
   }
 
   private scheduleArchiveReconciliation(): void {
-    if (this.stopped || this.archiveTimerHandle !== null || this.archiveFlight !== null) return;
+    if (this.stopped || this.updateRequired || this.archiveTimerHandle !== null || this.archiveFlight !== null) return;
     if (this.archiveNextAttemptAt <= this.now()) {
       this.archiveNextAttemptAt = this.now() + OFFLINE_ARCHIVE_POLL_MILLISECONDS;
     }
@@ -223,6 +260,9 @@ export class OfflineSyncScheduler {
       const queueCount = await this.safeQueueCount();
       if (!this.isTransmissionCurrent(generation)) return this.state;
       if (queueCount === null) return this.publish(generation, { status: 'protected', queueCount: 0 });
+      if (this.transmissionPause !== null) return this.publish(generation, {
+        status:'transmission_paused', queueCount, reason:this.transmissionPause,
+      });
       if (queueCount === 0) {
         let reviewPendingSequence = await this.safeReviewPendingSequence();
         if (reviewPendingSequence === undefined) {
@@ -289,10 +329,15 @@ export class OfflineSyncScheduler {
         return this.publish(generation, { status: 'retry_wait', queueCount });
       }
       if (!this.isTransmissionCurrent(generation)) { await this.releaseOffline(commandIdentity(head)); return this.state; }
+      if (this.transmissionPause !== null) return (await this.pauseTransmission(
+        commandIdentity(head), this.transmissionPause, queueCount, generation,
+      )).state;
       const outcome = await this.submitOffline(head, queueCount, generation);
       if (outcome.status === 'continue') {
-        lastDurable = outcome.durable;
-        this.publish(generation, { ...lastDurable, queueCount: Math.max(0, queueCount - 1) });
+        if (outcome.durable !== null) {
+          lastDurable = outcome.durable;
+          this.publish(generation, { ...lastDurable, queueCount: Math.max(0, queueCount - 1) });
+        }
         continue;
       }
       return outcome.state;
@@ -350,6 +395,7 @@ export class OfflineSyncScheduler {
     | {
         readonly status: 'continue';
         readonly durable:
+          | null
           | { readonly status: 'review_pending'; readonly workEventId: string }
           | {
               readonly status: 'server_decision';
@@ -377,6 +423,16 @@ export class OfflineSyncScheduler {
         status: 'stop',
         state: this.publish(generation, { status: 'authority_rejected', queueCount }),
       };
+    }
+    if(reconciliation.status==='update_required') {
+      await this.releaseOffline(identity);this.updateRequired=true;
+      return {status:'stop',state:this.publish(generation,{status:'update_required',queueCount})};
+    }
+    if(reconciliation.status==='permanent_failure') {
+      return this.quarantineOrPause(identity, reconciliation.reason, queueCount, generation);
+    }
+    if (reconciliation.status === 'system_failure') {
+      return this.pauseTransmission(identity, 'system_failure', queueCount, generation);
     }
     if (reconciliation.status === 'unavailable') {
       return {
@@ -486,12 +542,33 @@ export class OfflineSyncScheduler {
         state: this.publish(generation, { status: 'authority_rejected', queueCount }),
       };
     }
-    if (result.status === 'conflict') {
-      await this.protectOffline(identity);
+    if (result.status === 'update_required') {
+      await this.releaseOffline(identity);
+      this.updateRequired = true;
       return {
         status: 'stop',
-        state: this.publish(generation, { status: 'protected', queueCount }),
+        state: this.publish(generation, { status: 'update_required', queueCount }),
       };
+    }
+    if (result.status === 'conflict' || result.status === 'permanent_failure') {
+      return this.quarantineOrPause(identity, result.reason, queueCount, generation);
+    }
+    if (result.status === 'system_failure') {
+      return this.pauseTransmission(identity, 'system_failure', queueCount, generation);
+    }
+    if (result.status === 'pending' && result.reason === 'sequence_gap') {
+      try {
+        const issues = await this.database.readUntransferredCaptures();
+        if (!this.isTransmissionCurrent(generation)) {
+          await this.releaseOffline(identity);
+          return {status:'stop',state:this.state};
+        }
+        if (issues.length > 0) {
+          return this.pauseTransmission(identity, 'quarantine', queueCount, generation);
+        }
+      } catch {
+        return {status:'stop',state:this.publish(generation,{status:'protected',queueCount})};
+      }
     }
     return {
       status: 'stop',
@@ -503,6 +580,29 @@ export class OfflineSyncScheduler {
         'retryAfterSeconds' in result ? result.retryAfterSeconds : undefined,
       ),
     };
+  }
+
+  private async quarantineOrPause(
+    identity: OfflineDurableResultIdentity, reason: string, queueCount: number, generation: number,
+  ): Promise<{readonly status:'continue'; readonly durable:null} | {readonly status:'stop'; readonly state:OfflineSyncSchedulerState}> {
+    try {
+      const quarantined = await this.database.quarantineHead(identity, reason);
+      if (!quarantined) return this.pauseTransmission(identity, 'quarantine', queueCount, generation);
+    } catch {
+      return {status:'stop',state:this.publish(generation,{status:'protected',queueCount})};
+    }
+    this.publish(generation, {status:'quarantined',queueCount:Math.max(0,queueCount-1),workEventId:identity.workEventId});
+    return {status:'continue',durable:null};
+  }
+
+  private async pauseTransmission(
+    identity: OfflineDurableResultIdentity, reason: 'system_failure' | 'quarantine', queueCount: number, generation: number,
+  ): Promise<{readonly status:'stop'; readonly state:OfflineSyncSchedulerState}> {
+    try { await this.database.releaseHead(identity); }
+    catch { return {status:'stop',state:this.publish(generation,{status:'protected',queueCount})}; }
+    if (!this.isTransmissionCurrent(generation)) return {status:'stop',state:this.state};
+    this.transmissionPause = reason;
+    return {status:'stop',state:this.publish(generation,{status:'transmission_paused',queueCount,reason})};
   }
 
   private async retryOffline(

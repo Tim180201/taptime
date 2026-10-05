@@ -66,6 +66,7 @@ describe('MobileWorkCoordinator', () => {
     const session = sessionReader(() => current);
     const coordinator = new MobileWorkCoordinator(session, api);
     const pending = coordinator.refresh();
+    await vi.waitFor(()=>expect(resolveRead).toBeTypeOf('function'));
     current = false;
     resolveRead(readyRead);
     await pending;
@@ -165,12 +166,10 @@ describe('MobileWorkCoordinator', () => {
     await coordinator.triggerBreak();
     await coordinator.triggerBreak();
     await coordinator.triggerManual(target);
-    expect(captureBreak).toHaveBeenCalledTimes(2);
+    expect(captureBreak).toHaveBeenCalledTimes(1);
     expect(captureBreak).toHaveBeenNthCalledWith(1);
-    expect(captureBreak).toHaveBeenNthCalledWith(2);
-    expect(captureManual).toHaveBeenCalledOnce();
-    expect(captureManual).toHaveBeenCalledWith(target);
-    expect(captureOrder).toEqual(['pause-1', 'pause-2', 'work']);
+    expect(captureManual).not.toHaveBeenCalled();
+    expect(captureOrder).toEqual(['pause-1']);
     expect(api.triggerBreak).not.toHaveBeenCalled();
     expect(coordinator.getState()).toMatchObject({
       status: 'ready', submitting: false, outcome: 'pending',
@@ -396,7 +395,7 @@ describe('MobileWorkCoordinator', () => {
     },
   );
 
-  it('moves pending manual evidence to rejected only from the exact rejection acknowledgement',
+  it('keeps saved evidence pending and blocks a second action after authority rejection',
     async () => {
       let acknowledgement:
         | { status: 'pending' }
@@ -427,9 +426,13 @@ describe('MobileWorkCoordinator', () => {
       for (const listener of listeners) listener();
       await vi.waitFor(() => expect(coordinator.getState()).toMatchObject({
         status: 'ready',
-        outcome: 'rejected',
+        outcome: 'pending',
+        submitting:false,
+        capturePending:true,
       }));
-      expect(api.read).toHaveBeenCalledTimes(2);
+      await coordinator.triggerManual(target);
+      expect(api.read).toHaveBeenCalledOnce();
+      coordinator.stop();
     });
 });
 

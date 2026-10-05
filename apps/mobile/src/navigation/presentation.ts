@@ -18,6 +18,9 @@ export interface SyncIndicator {
   readonly label: string;
 }
 export function syncIndicator(state: ProductScanState, lastCount: number | null = null): SyncIndicator {
+  if(state.transmissionPaused)return {kind:'protected',count:state.untransferred?.length??null,label:'Abgleich: Übertragung angehalten'};
+  if (state.updateRequired) return {kind:'protected',count:null,label:'Abgleich: Bitte App aktualisieren'};
+  if (state.untransferred?.length) return {kind:'protected',count:state.untransferred.length,label:`Abgleich: ${state.untransferred.length} Erfassung nicht übertragen`};
   if (state.status === 'protected_pending' || state.status === 'secure_storage_unavailable') {
     return { kind: 'protected', count: null, label: 'Abgleich: Vorgänge geschützt' };
   }

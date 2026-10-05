@@ -15,6 +15,7 @@ type ProjectionState =
 type OfflineManualOutcome =
   | 'pending'
   | 'rejected'
+  | 'not_transferred'
   | Extract<
       ManualOfflineAcknowledgement,
       { status: 'server_decision' }
@@ -24,9 +25,15 @@ export function OfflineManualCaptureScreen({
   manual,
   restorationKey,
   confirmedOwnTime,
+  capturePending=false,
+  transmissionPaused=false,
+  transmissionRetryAvailable=false,
 }: {
   readonly manual: OfflineManualCaptureCapability;
   readonly confirmedOwnTime?: MobileOwnTimeQueryResponse | null;
+  readonly capturePending?: boolean;
+  readonly transmissionPaused?: boolean;
+  readonly transmissionRetryAvailable?: boolean;
   readonly restorationKey: string;
 }) {
   const [projection, setProjection] = useState<ProjectionState>({ status: 'loading' });
@@ -58,9 +65,9 @@ export function OfflineManualCaptureScreen({
     if (acknowledgement?.status === 'server_decision') {
       setPendingWorkEventId(null);
       setOutcome(acknowledgement.outcome);
-    } else if (acknowledgement?.status === 'rejected') {
+    } else if (acknowledgement?.status === 'not_transferred') {
       setPendingWorkEventId(null);
-      setOutcome('rejected');
+      setOutcome('not_transferred');
     }
   }) ?? (() => undefined), [manual, pendingWorkEventId]);
 
@@ -105,9 +112,9 @@ export function OfflineManualCaptureScreen({
     if (acknowledgement?.status === 'server_decision') {
       setPendingWorkEventId(null);
       setOutcome(acknowledgement.outcome);
-    } else if (acknowledgement?.status === 'rejected') {
+    } else if (acknowledgement?.status === 'not_transferred') {
       setPendingWorkEventId(null);
-      setOutcome('rejected');
+      setOutcome('not_transferred');
     } else {
       setPendingWorkEventId(result.workEventId);
       setOutcome('pending');
@@ -117,6 +124,9 @@ export function OfflineManualCaptureScreen({
   return <Screen title="Manuell erfassen" eyebrow="OFFLINE">
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
       <Card>
+        {transmissionPaused ? <Text accessibilityRole="alert">{transmissionRetryAvailable
+          ? 'Übertragung angehalten. Bitte versuche es erneut.' : 'Übertragung angehalten. Bitte wende dich an deine Verwaltung.'}</Text>
+          : capturePending || pendingWorkEventId!==null ? <Text accessibilityLiveRegion="polite">Wird übertragen …</Text> : null}
         <Text>{confirmedOwnTime?.activeRecord ? captureStatus(confirmedOwnTime.activeRecord)
           : confirmedOwnTime ? 'Keine laufende Zeit bestätigt' : 'Noch kein bestätigter Stand verfügbar'}</Text>
         <Text>{confirmedOwnTime ? `Stand ${captureClock(confirmedOwnTime.activeRecord?.calendar?.asOf ?? confirmedOwnTime.windowEndedAt)}, offline` : 'Offline'}</Text>
@@ -173,20 +183,21 @@ export function OfflineManualCaptureScreen({
         />
         {outcome === null ? null
           : <Text accessibilityLiveRegion="polite">
-              {offlineOutcomeLabel(outcome)}
+              {offlineOutcomeLabel(outcome,transmissionPaused)}
             </Text>}
       </Card>
       <Card><Text style={styles.group}>Zuletzt</Text><Text>
-        {outcome === null ? 'Bestätigte Zeiten siehst du nach dem Abgleich.' : offlineOutcomeLabel(outcome)}
+        {outcome === null ? 'Bestätigte Zeiten siehst du nach dem Abgleich.' : offlineOutcomeLabel(outcome,transmissionPaused)}
       </Text></Card>
     </ScrollView>
   </Screen>;
 }
 
-function offlineOutcomeLabel(outcome: OfflineManualOutcome): string {
+function offlineOutcomeLabel(outcome: OfflineManualOutcome,transmissionPaused=false): string {
   if (outcome === 'pending') {
-    return 'Erfassung auf dem Handy gespeichert; Bestätigung steht noch aus';
+    return transmissionPaused ? 'Deine Erfassung ist gespeichert. Die Übertragung ist angehalten.' : 'Deine Erfassung ist gespeichert, wird übertragen.';
   }
+  if (outcome === 'not_transferred') return 'Deine Erfassung konnte nicht übertragen werden. Der Beleg bleibt auf dem Handy. Prüfe „Meine Zeiten“.';
   if (outcome === 'time_entry_started') return 'Arbeitszeit gestartet';
   if (outcome === 'time_entry_stopped') return 'Arbeitszeit gestoppt';
   if (outcome === 'break_started') return 'Pause begonnen';

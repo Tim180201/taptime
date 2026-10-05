@@ -40,10 +40,10 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
     const unsubscribe = connectTapMoment(scan, presenter, work);
     return () => { unsubscribe(); presenter.dispose(); };
   }, [scan, presenter, work]);
-  const showMoment = moment !== null;
+  const showMoment = moment !== null && !state.transmissionPaused;
   const ready = isScanReadyState(state);
-  const resting = (ready && (state.status === 'saved_locally' || state.status === 'server_decision' && presentScanState(state).tone === 'success' || ('outcome' in state && (state.outcome === null || presentScanState(state).tone === 'success'))))
-    || state.status === 'scanning';
+  const resting = !state.transmissionPaused && ((ready && (state.status === 'saved_locally' || state.status === 'server_decision' && presentScanState(state).tone === 'success' || ('outcome' in state && (state.outcome === null || presentScanState(state).tone === 'success'))))
+    || state.status === 'scanning');
   const presentation = presentScanState(state, Platform.OS);
   return <SafeAreaView edges={embedded ? [] : ['top', 'bottom', 'left', 'right']} style={[styles.container, embedded && styles.embeddedContainer]}>
     {embedded ? null : <View style={styles.header}><Text style={styles.brand}>Taptura</Text>
@@ -53,16 +53,16 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
         <TouchTarget accessibilityRole="button" accessibilityLabel={ios ? 'Tag scannen' : 'NFC-Tag jetzt scannen'}
           accessibilityState={{ disabled: !ready }} disabled={!ready}
           onPress={() => scan.scan()} testID="scan-button">
-          <ScanRing animate={!showMoment && resting} scanning={state.status === 'scanning'}
+          <ScanRing animate={!showMoment && resting} scanning={!state.transmissionPaused && state.status === 'scanning'}
             result={showMoment ? moment.confirmed ? 'confirmed' : 'pending' : null} />
           {ios ? <Text style={styles.statusTitle}>Tag scannen</Text> : null}
         </TouchTarget>
         <Text style={[styles.statusTitle, showMoment && { color: moment.confirmed
           ? mobileTokens.color.accent : mobileTokens.color.notice }]}>
-          {showMoment ? moment.title : resting ? ios ? 'Bereit zum Erfassen' : 'Tag antippen' : presentation.title}
+          {state.transmissionPaused ? `${presentation.title}: ${presentation.message}` : showMoment ? moment.title : resting ? ios ? 'Bereit zum Erfassen' : 'Tag antippen' : presentation.title}
         </Text>
         <Text style={styles.statusMessage}>
-          {showMoment ? moment.confirmed ? 'Gespeichert'
+          {state.transmissionPaused ? null : showMoment ? moment.confirmed ? 'Gespeichert'
             : 'Sicher gespeichert, wird nachgereicht'
             : resting ? state.status === 'scanning'
               ? 'Halte dein Handy an den Tag.'
@@ -73,9 +73,16 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
         {showMoment ? <Text style={styles.statusMessage}>Bereit für den nächsten Tap</Text> : null}
         {state.status === 'scanning' ? <ActionButton title="Scan abbrechen" tone="quiet"
           onPress={() => scan.cancel()} testID="cancel-scan-button" /> : null}
-        {state.status === 'retry_pending' ? <ActionButton title="Unveränderte Daten erneut senden"
+        {state.transmissionPaused && state.transmissionRetryAvailable ? <ActionButton title="Erneut versuchen"
+          onPress={() => scan.retry()} /> : null}
+        {!state.transmissionPaused && state.status === 'retry_pending' ? <ActionButton title="Unveränderte Daten erneut senden"
           onPress={() => scan.retry()} testID="retry-same-evidence-button" /> : null}
       </View>
+      {workState?.status==='ready' && workState.capturePending && !state.transmissionPaused ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
+      {state.updateRequired ? <Card><Text accessibilityRole="alert">Bitte App aktualisieren</Text><Text>Deine Erfassungen bleiben auf dem Handy gespeichert. Die Übertragung wartet auf die neue App.</Text></Card> : null}
+      {state.untransferred?.length ? <Card><Text accessibilityRole="alert">{state.untransferred.length} {state.untransferred.length === 1 ? 'Erfassung konnte' : 'Erfassungen konnten'} nicht übertragen werden</Text>
+        {state.untransferred.map(entry => <Text key={entry.workEventId}>{entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>)}
+        <Text>Siehe „Meine Zeiten“. Der Beleg bleibt erhalten und sperrt den Kontowechsel.</Text></Card> : null}
       {work ? <RecentTimeCard work={work} /> : <Card><Text style={styles.role}>Zuletzt</Text>
         <Text>Bestätigte Zeiten siehst du nach dem Abgleich.</Text></Card>}
     </ScrollView>
@@ -94,12 +101,24 @@ export function presentActor(actor: ProductMembershipRole | 'offline'): string {
 
 export function shouldAnimateScanIndicator(state: ProductScanState, reducedMotion: boolean): boolean {
   if (reducedMotion) return false;
+  if (state.transmissionPaused) return false;
   return state.status === 'scanning' || (state.status === 'ready' && state.outcome === null)
     || (state.status === 'offline_ready' && state.outcome === null);
 }
 
 export function presentScanState(state: ProductScanState, platform = 'android'): ScanScreenPresentation {
+  if(state.transmissionPaused) {
+    if (state.transmissionRetryAvailable) return {
+      title:'Übertragung angehalten',
+      message:'Die Übertragung ist derzeit nicht verfügbar. Bitte versuche es erneut.',
+      tone:'warning',
+    };
+    const count=state.untransferred?.length || 1;
+    return {title:'Übertragung angehalten',message:`${count} ${count===1?'Erfassung konnte':'Erfassungen konnten'} nicht übertragen werden. Bitte wende dich an deine Verwaltung.`,tone:'warning'};
+  }
   switch (state.status) {
+    case 'archive_signout_pending':
+      return {title:'Abmelden',message:'Deine Erfassungen werden noch gesichert. Abmelden ist gleich möglich.',tone:'neutral'};
     case 'inactive':
     case 'checking':
       return {
@@ -179,6 +198,11 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
         tone: 'error',
       };
     case 'protected_pending':
+      if (state.reason === 'quarantine') return {
+        title: 'Nicht übertragene Erfassung geschützt',
+        message: 'Ein Beleg konnte nicht übertragen werden und bleibt auf dem Handy erhalten. Er sperrt den Kontowechsel. Melde dich mit dem bisherigen Konto an und prüfe „Meine Zeiten“.',
+        tone: 'warning',
+      };
       if (state.reason === 'local_evidence_protected') return {
         title: 'Lokaler Speicher geschützt',
         message: 'Die Vorgänge im lokalen Speicher können gerade nicht sicher gelesen oder verarbeitet werden. Lösche weder die App noch ihre Daten und wende dich an den Support.',

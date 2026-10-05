@@ -131,6 +131,7 @@ export interface MobileSessionCapability {
   retryContext(): Promise<void>;
   refresh(): Promise<void>;
   signOut(): Promise<void>;
+  signOutImmediately?(): Promise<void>;
   readonly requestPasswordReset?: (email: string) => Promise<'requested' | 'unavailable'>;
 }
 

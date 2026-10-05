@@ -73,13 +73,172 @@ const installationBinding = 'B'.repeat(43);
 const lookupKey = 'K'.repeat(43);
 
 describe('Mobile complete offline clients', () => {
+  it.each([400, 403, 404, 405, 409, 410, 422, 426])('T-095 classifies HTTP %s without retrying forever', async status => {
+    const client = new OfflineLifecycleClient(new URL('https://api.example/'), new FakeRequest(async () => response(status, {})));
+    expect(await client.ingest(offlineCommand())).toMatchObject({ status: status === 426 ? 'update_required'
+      : [403,404,405,410].includes(status) ? 'system_failure' : 'permanent_failure' });
+  });
+  it.each(['ingest','preflight'] as const)('T-095 cascade protection keeps the second HTTP 400 in the queue (%s)',async phase=>{
+    const h=await archiveHarness();
+    const client=new OfflineLifecycleClient(new URL('https://api.example/'),new FakeRequest(async()=>response(400,{})));
+    try {
+      await h.append(1);await h.append(2);
+      const original=await h.connection.getFirstAsync('SELECT command_json, device_sequence FROM offline_event_queue WHERE device_sequence = 2');
+      if(phase==='ingest')h.ingest.mockImplementation(command=>client.ingest(command));
+      else h.reconcile.mockImplementation(ids=>client.reconcile(ids));
+      expect(await h.scheduler.trigger('event_append')).toMatchObject({status:'transmission_paused'});
+      const quarantined=await h.connection.getAllAsync("SELECT quarantine_id FROM offline_protected_quarantine WHERE reason <> 'legacy_membership_unknown'");
+      expect(quarantined).toEqual([{quarantine_id:eventId(1)}]);
+      expect(await h.connection.getFirstAsync('SELECT command_json, device_sequence FROM offline_event_queue')).toEqual(original);
+      expect(await h.rows()).toEqual([{work_event_id:eventId(2),queue_state:'pending'}]);
+      const calls=phase==='ingest'?h.ingest.mock.calls.length:h.reconcile.mock.calls.length;
+      await h.scheduler.trigger('manual');await h.scheduler.trigger('foreground');
+      expect(phase==='ingest'?h.ingest.mock.calls.length:h.reconcile.mock.calls.length).toBe(calls);
+    } finally {await h.close();}
+  });
+  it.each([
+    [404,'manual'],[405,'foreground'],[410,'runtime_start'],
+  ] as const)('T-095 endpoint HTTP %s pauses without quarantine and recovers on %s',async(status,trigger)=>{
+    const h=await archiveHarness();
+    const serverIngest=h.ingest.getMockImplementation()!;
+    let failed=true;
+    const client=new OfflineLifecycleClient(new URL('https://api.example/'),new FakeRequest(async(_endpoint,body)=>
+      failed?response(status,{}):response(200,await serverIngest(JSON.parse(body)))));
+    h.ingest.mockImplementation(command=>client.ingest(command));
+    try {
+      await h.append(1);
+      const original=await h.connection.getFirstAsync('SELECT command_json FROM offline_event_queue');
+      expect(await h.scheduler.trigger('event_append')).toMatchObject({status:'transmission_paused'});
+      expect(await h.connection.getAllAsync('SELECT * FROM offline_protected_quarantine')).toEqual([]);
+      expect(await h.rows()).toEqual([{work_event_id:eventId(1),queue_state:'pending'}]);
+      expect(await h.connection.getFirstAsync('SELECT command_json FROM offline_event_queue')).toEqual(original);
+      await h.scheduler.trigger('network_hint');await h.scheduler.trigger('background');
+      expect(h.ingest).toHaveBeenCalledOnce();
+      failed=false;await h.scheduler.trigger(trigger);
+      expect(h.ingest).toHaveBeenCalledTimes(2);expect(h.records.has(eventId(1))).toBe(true);
+      expect(await h.rows()).toEqual([{work_event_id:eventId(1),queue_state:'confirmed_awaiting_archive'}]);
+      expect(await h.connection.getFirstAsync('SELECT command_json FROM offline_event_queue')).toEqual(original);
+    } finally {await h.close();}
+  });
+  it.each([404,405,410])('T-095 preflight endpoint HTTP %s pauses even with an HTML error body',async status=>{
+    const h=await archiveHarness();
+    let failed=true;
+    const client=new OfflineLifecycleClient(new URL('https://api.example/'),new FakeRequest(async()=>failed
+      ? {status:'response',statusCode:status,contentType:'text/html',body:'<h1>Endpoint unavailable</h1>'}
+      : response(200,{status:'ready',records:[]})));
+    h.reconcile.mockImplementation(ids=>client.reconcile(ids));
+    try {
+      await h.append(1);
+      expect(await h.scheduler.trigger('event_append')).toMatchObject({status:'transmission_paused',reason:'system_failure'});
+      expect(await h.connection.getAllAsync('SELECT * FROM offline_protected_quarantine')).toEqual([]);
+      expect(h.ingest).not.toHaveBeenCalled();
+      failed=false;await h.scheduler.trigger('manual');
+      expect(h.records.has(eventId(1))).toBe(true);
+    } finally {await h.close();}
+  });
+  it('T-095 archive endpoint failure preserves booked evidence and retries on foreground',async()=>{
+    const h=await archiveHarness();
+    try {
+      await h.append(1);await h.scheduler.trigger('event_append');
+      const before=await h.rows();
+      h.reconcile.mockResolvedValueOnce({status:'system_failure',reason:'http_404'});
+      await h.scheduler.reconcileArchives(true);
+      expect(h.scheduler.getState()).toMatchObject({status:'transmission_paused',reason:'system_failure'});
+      expect(await h.rows()).toEqual(before);
+      expect(await h.connection.getAllAsync('SELECT * FROM offline_protected_quarantine')).toEqual([]);
+      for(const [id,record] of h.records)h.records.set(id,{...record,archiveStatus:'offsite_archived'});
+      await h.scheduler.trigger('foreground');await h.scheduler.whenIdle();
+      expect(await h.rows()).toEqual([]);
+    } finally {await h.close();}
+  });
+  it('T-095 quarantines an unknown successful response, but stops on an explicit unknown version', async () => {
+    const request = new FakeRequest(async () => response(200, { status: 'new_decision' }));
+    const client = new OfflineLifecycleClient(new URL('https://api.example/'), request);
+    expect(await client.ingest(offlineCommand())).toMatchObject({ status: 'permanent_failure' });
+    request.handler = async () => response(200, { contractVersion: 'offline.v99' });
+    expect(await client.ingest(offlineCommand())).toMatchObject({ status: 'update_required' });
+  });
+  it('T-095 D-121 halts transmission on a quarantined predecessor and sequence_gap', async () => {
+    const h = await archiveHarness();
+    try {
+      await h.append(1); await h.append(2);
+      const original = await h.connection.getFirstAsync<{command_json:string}>('SELECT command_json FROM offline_event_queue WHERE device_sequence = 1');
+      h.ingest.mockResolvedValueOnce({ status: 'conflict', reason: 'event_content_conflict' });
+      await h.scheduler.trigger('event_append');
+      expect(h.ingest.mock.calls.map(([command]) => command.deviceSequence)).toEqual([1, 2]);
+      expect(await h.connection.getFirstAsync('SELECT evidence_json, reason FROM offline_protected_quarantine')).toEqual({ evidence_json: original!.command_json, reason: 'event_content_conflict' });
+      expect(h.scheduler.getState()).toMatchObject({status:'transmission_paused'});
+      const remaining=await h.connection.getFirstAsync('SELECT command_json, device_sequence FROM offline_event_queue');
+      await h.scheduler.trigger('manual');await h.scheduler.trigger('foreground');await h.scheduler.trigger('runtime_start');await h.scheduler.trigger('network_hint');await h.poll();
+      expect(h.ingest.mock.calls.map(([command])=>command.deviceSequence)).toEqual([1,2]);
+      expect(await h.connection.getFirstAsync('SELECT command_json, device_sequence FROM offline_event_queue')).toEqual(remaining);
+      expect(h.records.size).toBe(0);
+      expect(await h.database.hasProtectedLegacy()).toBe(false);
+      expect(await h.database.canReleaseOwner({organizationId:ids.organization,userId:ids.user,membershipId:ids.membership,installationBindingDigest:'8'.repeat(64)})).toBe(false);
+    } finally { await h.close(); }
+  });
+  it('T-095 manual retry bypasses a persisted future deadline after a clock rollback', async () => {
+    const h = await archiveHarness();
+    try {
+      await h.append(1);
+      h.ingest.mockResolvedValueOnce({status:'unavailable',retryAfterSeconds:300});
+      await h.scheduler.trigger('event_append');
+      await h.scheduler.trigger('manual');
+      expect(h.ingest).toHaveBeenCalledTimes(2);
+    } finally { await h.close(); }
+  });
+  it.each([400, 403, 404, 405, 409, 410, 422, 426])('T-095 classifies preflight HTTP %s', async status => {
+    const client = new OfflineLifecycleClient(new URL('https://api.example/'), new FakeRequest(async () => response(status, {})));
+    expect(await client.reconcile([ids.event])).toMatchObject({status:status===426?'update_required'
+      :[403,404,405,410].includes(status)?'system_failure':'permanent_failure'});
+  });
+  it('T-095 retains immutable quarantined evidence across a database reopen', async () => {
+    const root=await mkdtemp(join(tmpdir(),'t095-quarantine-'));
+    let h=await archiveHarness(join(root,'capture.sqlite'));
+    try {
+      await h.append(1);
+      h.ingest.mockResolvedValueOnce({status:'permanent_failure',reason:'invalid_response'});
+      await h.scheduler.trigger('event_append');
+      const evidence=await h.connection.getFirstAsync('SELECT * FROM offline_protected_quarantine');
+      await expect(h.connection.runAsync('DELETE FROM offline_protected_quarantine',[])).rejects.toThrow();
+      await expect(h.connection.runAsync("UPDATE offline_protected_quarantine SET reason='http_400'",[])).rejects.toThrow();
+      await h.close();h=await archiveHarness(join(root,'capture.sqlite'));
+      expect(await h.connection.getFirstAsync('SELECT * FROM offline_protected_quarantine')).toEqual(evidence);
+      expect(await h.database.readOwnerReleaseBlock()).toBe('quarantine');
+      expect(await h.database.readUntransferredCaptures()).toMatchObject([{workEventId:eventDraft(1).workEvent.id,displayName:leasePage().items[0]!.displayName,reason:'invalid_response'}]);
+    } finally {await h.close();await rm(root,{recursive:true,force:true});}
+  });
+  it('T-095 bounds a persisted retry deadline on load and after a live clock rollback', async () => {
+    const root=await mkdtemp(join(tmpdir(),'t095-clock-'));
+    let h=await archiveHarness(join(root,'capture.sqlite'));
+    try {
+      await h.append(1);h.ingest.mockResolvedValueOnce({status:'unavailable',retryAfterSeconds:300});
+      await h.scheduler.trigger('event_append');await h.close();
+      h=await archiveHarness(join(root,'capture.sqlite'));h.setNow(10_000);
+      const restoration=h.scheduler.trigger('session_restored');
+      const startup=h.scheduler.trigger('runtime_start');
+      await Promise.all([restoration,startup]);expect(h.ingest).toHaveBeenCalledOnce();
+      await h.append(2);h.setNow(30_000);h.ingest.mockResolvedValueOnce({status:'unavailable',retryAfterSeconds:300});
+      await h.scheduler.trigger('event_append');h.setNow(5_000);
+      await h.scheduler.trigger('foreground');expect(h.ingest.mock.calls.map(([command])=>command.deviceSequence)).toEqual([1,2,2]);
+    } finally {await h.close();await rm(root,{recursive:true,force:true});}
+  });
+  it('T-095 stops before ingest when reconciliation requires an update', async () => {
+    const h=await archiveHarness();
+    try {
+      await h.append(1);h.reconcile.mockResolvedValueOnce({status:'update_required'} as never);
+      expect(await h.scheduler.trigger('event_append')).toMatchObject({status:'update_required'});
+      await h.scheduler.trigger('manual');expect(h.ingest).not.toHaveBeenCalled();
+      expect(await h.rows()).toHaveLength(1);
+    } finally {await h.close();}
+  });
   it.each([
     ['current, valid member', AuthenticatedHttpRequestExecutor, 403],
     ['before T068a, valid member', PreT068aExecutor, 403],
     ['current, hidden historical denial', AuthenticatedHttpRequestExecutor, 503],
     ['before T068a, hidden historical denial', PreT068aExecutor, 503],
   ] as const)(
-    'T068a retains every SQLite row during pause and completes transmission/archive cleanup after resume (%s)', async (_version, Executor, pauseStatus) => {
+    'T068a preserves every receipt during pause and completes available cleanup after resume (%s)', async (_version, Executor, pauseStatus) => {
       const h = await archiveHarness();
       let paused = false;
       const serverIngest = h.ingest.getMockImplementation()!;
@@ -101,20 +260,22 @@ describe('Mobile complete offline clients', () => {
         expect(await h.rows()).toEqual([1, 2].map(n => ({ work_event_id: eventId(n), queue_state: 'confirmed_awaiting_archive' })));
         await h.append(3);
         const before = await h.rows();
-        const evidence = () => h.connection.getAllAsync('SELECT work_event_id, receipt_id, command_json FROM offline_event_queue ORDER BY device_sequence');
+        const evidence = () => h.connection.getAllAsync<{work_event_id:string;receipt_id:string;command_json:string}>('SELECT work_event_id, receipt_id, command_json FROM offline_event_queue ORDER BY device_sequence');
         const beforeEvidence = await evidence();
         paused = true;
         await h.scheduler.trigger('event_append');
         await h.poll();
         await h.scheduler.trigger('network_hint');
+        const oldPauseUnrecognized=Executor===PreT068aExecutor && pauseStatus===403;
         expect((await h.rows()).map(row => row.work_event_id)).toEqual(before.map(row => row.work_event_id));
         expect(await evidence()).toEqual(beforeEvidence);
+        expect(await h.connection.getFirstAsync('SELECT evidence_json FROM offline_protected_quarantine')).toBeNull();
         expect(h.records.has(eventId(3))).toBe(false);
         paused = false;
         await h.poll();
-        await h.scheduler.trigger('session_restored');
+        await h.scheduler.trigger(oldPauseUnrecognized?'foreground':'session_restored');
         expect([...h.records.keys()].sort()).toEqual([1, 2, 3].map(eventId));
-        expect(await h.rows()).toHaveLength(3);
+        expect(await h.rows()).toHaveLength(before.length);
         for (const [id, record] of h.records) h.records.set(id, { ...record, archiveStatus: 'offsite_archived' });
         for (let remaining = before.length + 1; (await h.rows()).length > 0 && remaining > 0; remaining -= 1) await h.poll();
         expect(await h.rows()).toEqual([]);
@@ -246,7 +407,7 @@ describe('Mobile complete offline clients', () => {
       deviceSequence: 2,
       decision: { status: 'time_entry_started', timeEntryId: ids.timeEntry },
     });
-    await expect(client.ingest(command)).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.ingest(command)).resolves.toEqual({ status: 'permanent_failure', reason: 'invalid_response' });
   });
 
   it.each(['archive_pending', 'offsite_archived'] as const)(
@@ -262,7 +423,7 @@ describe('Mobile complete offline clients', () => {
         const client = new OfflineLifecycleClient(new URL('https://api.example/'), request);
         await expect(client.ingest(offlineCommand())).resolves.toEqual(body);
         request.handler = async () => response(result.status === 'synchronized' ? 200 : 202, { ...body, unexpected: true });
-        await expect(client.ingest(offlineCommand())).resolves.toEqual({ status: 'unavailable' });
+        await expect(client.ingest(offlineCommand())).resolves.toEqual({ status: 'permanent_failure', reason: 'invalid_response' });
         request.handler = async () => response(200, {
           status: 'ready', records: [{ ...identity, archiveStatus, result }],
         });
@@ -272,7 +433,7 @@ describe('Mobile complete offline clients', () => {
         request.handler = async () => response(200, {
           status: 'ready', records: [{ ...identity, archiveStatus, result: { ...result, unexpected: true } }],
         });
-        await expect(client.reconcile([ids.event])).resolves.toEqual({ status: 'unavailable' });
+        await expect(client.reconcile([ids.event])).resolves.toEqual({ status: 'permanent_failure',reason:'invalid_response' });
       }
     });
 
@@ -1145,6 +1306,8 @@ function fakeDatabase(
   overrides: Record<string, unknown>,
 ): OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>> {
   return {
+    resetRetryDeadlines: vi.fn(async()=>{}),
+    readUntransferredCaptures: vi.fn(async()=>[]),
     readReviewPendingSequence: vi.fn(async () => null),
     readNextRetryAt: vi.fn(async () => null),
     ...overrides,
@@ -1267,6 +1430,10 @@ async function archiveHarness(filename?: string, status: 'synchronized' | 'revie
   const reconcile = vi.fn<OfflineLifecycleApiPort['reconcile']>(async (ids) => ({ status: 'ready',
     records: ids.flatMap((id) => records.has(id) ? [records.get(id)!] : []) }));
   const ingest = vi.fn<OfflineLifecycleApiPort['ingest']>(async (command) => {
+    // Mirrors the productive contiguous cursor in OfflineLifecycleIngestionCoordinator.
+    // Quarantining an unbooked predecessor locally does not advance that server cursor.
+    const lastDurableSequence=Math.max(0,...[...records.values()].map(record=>record.deviceSequence));
+    if(command.deviceSequence!==lastDurableSequence+1)return {status:'pending',reason:'sequence_gap',retryAfterSeconds:1};
     const identity = { workEventId: command.workEvent.id, receiptId: command.receipt.id, deviceSequence: command.deviceSequence };
     const result: OfflineReconciliationRecordV2['result'] = status === 'review_pending'
       ? { status, reason: 'capture_time_out_of_bounds' }
@@ -1281,6 +1448,7 @@ async function archiveHarness(filename?: string, status: 'synchronized' | 'revie
     () => now, () => 0.5, timer);
   scheduler.start();
   return { database, scheduler, connection, records, reconcile, ingest, timer,
+    setNow(value:number) {now=value;},
     async append(sequence: number) {
       expect(await database.appendEvent(eventDraft(sequence))).toMatchObject({ status: 'ready' });
     },

@@ -13,6 +13,49 @@ function setup(pause:boolean,outcome='break_stopped') {
  triggerManual:vi.fn(async()=>{order.push('work');return {status:'accepted' as const,outcome:'time_entry_stopped' as const};})};
  return {api,order,work:new MobileWorkCoordinator(session,api)};
 }
+it('T-095 releases the screen after 15 seconds but blocks actions based on unconfirmed state', async () => {
+ vi.useFakeTimers();
+ const {api}=setup(false);
+ const queue={captureManual:vi.fn(async()=>({status:'saved' as const,workEventId:'work'})),readManualAcknowledgement:()=>({status:'pending' as const})};
+ const work=new MobileWorkCoordinator(session,api,queue);
+ try {
+  await work.refresh();await work.stopActiveTime();
+  expect(work.getState()).toMatchObject({submitting:true});
+  await vi.advanceTimersByTimeAsync(15_000);
+  expect(work.getState()).toMatchObject({submitting:false,capturePending:true,outcome:'pending'});
+  await work.stopActiveTime();await work.triggerBreak();
+  expect(queue.captureManual).toHaveBeenCalledTimes(1);
+ } finally {work.stop();vi.useRealTimers();}
+});
+it('T-095 keeps state-based actions blocked by a capture from the offline path and after restart',async()=>{
+ const {api}=setup(false);let pending=0;let notify=()=>{};
+ let acknowledgement:import('../../src/offline/OfflineCaptureCoordinator').ManualOfflineAcknowledgement={status:'pending'};
+ const queue={captureManual:vi.fn(async()=>{pending++;return {status:'saved' as const,workEventId:'first'};}),
+  readManualAcknowledgement:()=>acknowledgement,subscribeManualAcknowledgements:(listener:()=>void)=>{notify=listener;return()=>{};},
+  hasUnconfirmedCapture:async()=>pending>0};
+ const work=new MobileWorkCoordinator(session,api,queue);work.start();await work.refresh();await work.stopActiveTime();
+ pending++; // A separately entered offline event is durable in the same queue.
+ acknowledgement={status:'server_decision',outcome:'time_entry_stopped'};pending--;notify();
+ await vi.waitFor(()=>expect(work.getState()).toMatchObject({status:'ready',submitting:false,capturePending:true}));
+ await work.stopActiveTime();expect(queue.captureManual).toHaveBeenCalledOnce();work.stop();
+ const reopened=new MobileWorkCoordinator(session,api,queue);reopened.start();await reopened.refresh();
+ expect(reopened.getState()).toMatchObject({capturePending:true});
+ await reopened.stopActiveTime();expect(queue.captureManual).toHaveBeenCalledOnce();
+ pending=0;notify();await vi.waitFor(()=>expect(reopened.getState()).toMatchObject({capturePending:false}));
+ reopened.stop();
+});
+it('T-095 releases a reviewed capture after durable review clearance and a fresh own-time read',async()=>{
+ const {api}=setup(false);let pending=false;let notify=()=>{};
+ let acknowledgement:import('../../src/offline/OfflineCaptureCoordinator').ManualOfflineAcknowledgement={status:'pending'};
+ const queue={captureManual:vi.fn(async()=>{pending=true;return {status:'saved' as const,workEventId:'review'};}),
+  readManualAcknowledgement:()=>acknowledgement,subscribeManualAcknowledgements:(listener:()=>void)=>{notify=listener;return()=>{};},
+  hasUnconfirmedCapture:async()=>pending};
+ const work=new MobileWorkCoordinator(session,api,queue);work.start();await work.refresh();await work.stopActiveTime();
+ acknowledgement={status:'review_pending'};notify();await vi.waitFor(()=>expect(work.getState()).toMatchObject({capturePending:true,submitting:false}));
+ pending=false;await work.refresh();
+ expect(work.getState()).toMatchObject({capturePending:false});
+ await work.stopActiveTime();expect(queue.captureManual).toHaveBeenCalledTimes(2);work.stop();
+});
 it('stops the active target without requiring it in the selectable list',async()=>{
  const {api,order,work}=setup(false);await work.refresh();await work.stopActiveTime();
  expect(order).toEqual(['work']);expect(api.triggerManual).toHaveBeenCalledExactlyOnceWith(snapshot.session.membershipId,target);

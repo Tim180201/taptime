@@ -9,6 +9,7 @@ import type { MobileWorkCapability, MobileWorkState } from '../work/contracts';
 import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type {
   OfflineManualCaptureCapability,
+  OfflineSignOutPreparation,
 } from '../offline/OfflineCaptureCoordinator';
 import type { ScanFeedbackLifecycle } from '../feedback/ScanFeedbackCoordinator';
 
@@ -36,6 +37,9 @@ export interface ProductScanRuntimeOwner extends ProductScanCapability {
   start(): Promise<void>;
   stop(): Promise<void>;
   onExplicitLogout?(): Promise<void>;
+  refreshOfflineGrant?(): Promise<void>;
+  prepareSignOut?(): Promise<OfflineSignOutPreparation>;
+  pollArchiveForSignOut?(): Promise<boolean>;
 }
 
 export interface ProductAdministrationRuntimeOwner extends AdminSetupCapability {
@@ -80,6 +84,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   private protectionFlight: Promise<void> = Promise.resolve();
   private protectionState: ProductScanState | null = null;
   private readonly protectionListeners = new Set<() => void>();
+  private signOutRevision = 0;
+  private signOutAccount: string | null = null;
+  private signOutTimer: ReturnType<typeof setInterval> | null = null;
+  private signOutRequestFlight: Promise<void> | null = null;
+  private signOutPollFlight: Promise<void> | null = null;
+  private signOutCompletionFlight: Promise<void> | null = null;
 
   constructor(
     private readonly coordinator: ProductSessionRuntimeOwner,
@@ -128,10 +138,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       retryContext: () => this.coordinator.retryContext(),
       requestPasswordReset: (email: string) => this.coordinator.requestPasswordReset(email),
       refresh: () => this.coordinator.refresh(),
-      signOut: async () => {
-        await this.scanOrchestrator.onExplicitLogout?.();
-        await this.coordinator.signOut();
-      },
+      signOut: () => this.requestSignOut(),
+      signOutImmediately: () => this.forceSignOut(),
     });
     // React receives state/actions only: no native manager, C2 client, token or raw UID.
     this.scanCapability = Object.freeze({
@@ -147,13 +155,22 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     });
     this.administrationCapability = Object.freeze({
       prepareCustomer: () => this.administrationCoordinator.prepareCustomer(),
-      createCustomer: (displayName: string, locationId?: string) => this.administrationCoordinator.createCustomer(displayName, locationId),
+      createCustomer: async (displayName: string, locationId?: string) => {
+        await this.administrationCoordinator.createCustomer(displayName, locationId);
+        await this.scanOrchestrator.refreshOfflineGrant?.();
+      },
       getState: () => this.administrationCoordinator.getState(),
       subscribe: (listener: () => void) => this.administrationCoordinator.subscribe(listener),
       refresh: () => this.administrationCoordinator.refresh(),
       loadMore: () => this.administrationCoordinator.loadMore(),
-      provision: (customerId: string, displayName: string) => this.administrationCoordinator.provision(customerId, displayName),
-      provisionBreak: (displayName: string) => this.administrationCoordinator.provisionBreak(displayName),
+      provision: async (customerId: string, displayName: string) => {
+        await this.administrationCoordinator.provision(customerId, displayName);
+        await this.scanOrchestrator.refreshOfflineGrant?.();
+      },
+      provisionBreak: async (displayName: string) => {
+        await this.administrationCoordinator.provisionBreak(displayName);
+        await this.scanOrchestrator.refreshOfflineGrant?.();
+      },
       cancel: () => this.administrationCoordinator.cancel(),
     });
     this.workCapability = Object.freeze({
@@ -260,6 +277,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   }
 
   stop(): void {
+    this.cancelSignOutWait();
     this.timeEditingCoordinator?.stop();
     if (!this.started) {
       return;
@@ -285,6 +303,106 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     return this.started && runtimeGeneration === this.runtimeGeneration;
   }
 
+  private signOutAccountKey(): string | null {
+    const state = this.coordinator.getState();
+    return state.status === 'authenticated'
+      ? `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`
+      : null;
+  }
+
+  private signOutIsCurrent(revision: number, account: string | null): boolean {
+    return revision === this.signOutRevision && (account === this.signOutAccountKey()
+      || account !== null && account === this.signOutAccount && this.coordinator.getState().status === 'context_unavailable');
+  }
+
+  private requestSignOut(): Promise<void> {
+    if (this.signOutTimer !== null) return Promise.resolve();
+    if (this.signOutCompletionFlight) return this.signOutCompletionFlight;
+    if (this.signOutRequestFlight) return this.signOutRequestFlight;
+    const revision = ++this.signOutRevision;
+    let account = this.signOutAccountKey();
+    this.signOutAccount = account;
+    const operation = async () => {
+      let preparation: OfflineSignOutPreparation = {wait:false};
+      try { preparation = await this.scanOrchestrator.prepareSignOut?.() ?? preparation; }
+      catch {
+        if (this.signOutIsCurrent(revision, account)) this.publishProtection({status:'protected_pending',reason:'local_evidence_protected'});
+        return;
+      }
+      if (revision !== this.signOutRevision) return;
+      if (preparation.wait) {
+        account = preparation.accountKey;
+        this.signOutAccount = account;
+      }
+      if (!this.signOutIsCurrent(revision, account)) return;
+      if (!preparation.wait) return this.finishSignOut(revision, account);
+      this.publishProtection({status:'archive_signout_pending'});
+      this.signOutTimer = setInterval(() => { void this.pollSignOutArchive(revision, account); }, 30_000);
+      void this.pollSignOutArchive(revision, account);
+    };
+    let flight!: Promise<void>;
+    flight = operation().finally(() => {
+      if (this.signOutRequestFlight === flight) this.signOutRequestFlight = null;
+    });
+    this.signOutRequestFlight = flight;
+    return flight;
+  }
+
+  private pollSignOutArchive(revision: number, account: string | null): Promise<void> {
+    if (!this.signOutIsCurrent(revision, account) || account !== this.signOutAccountKey()) return Promise.resolve();
+    if (this.signOutPollFlight) return this.signOutPollFlight;
+    const operation = async () => {
+      const archived = await this.scanOrchestrator.pollArchiveForSignOut?.().catch(() => false);
+      if (archived && this.signOutIsCurrent(revision, account)) await this.finishSignOut(revision, account);
+    };
+    let flight!: Promise<void>;
+    flight = operation().finally(() => {
+      if (this.signOutPollFlight === flight) this.signOutPollFlight = null;
+    });
+    this.signOutPollFlight = flight;
+    return flight;
+  }
+
+  private forceSignOut(): Promise<void> {
+    if (this.signOutCompletionFlight) return this.signOutCompletionFlight;
+    const account = this.signOutAccountKey();
+    this.cancelSignOutWait();
+    return this.finishSignOut(this.signOutRevision, account);
+  }
+
+  private finishSignOut(revision: number, account: string | null): Promise<void> {
+    if (!this.signOutIsCurrent(revision, account)) return Promise.resolve();
+    if (this.signOutCompletionFlight) return this.signOutCompletionFlight;
+    if (this.signOutTimer !== null) clearInterval(this.signOutTimer);
+    this.signOutTimer = null;
+    const operation = async () => {
+      await this.scanOrchestrator.onExplicitLogout?.();
+      if (!this.signOutIsCurrent(revision, account)) return;
+      await this.coordinator.signOut();
+      if (revision === this.signOutRevision) {
+        this.signOutAccount = null;
+        this.publishProtection(null);
+      }
+    };
+    let flight!: Promise<void>;
+    flight = operation().finally(() => {
+      if (this.signOutCompletionFlight === flight) this.signOutCompletionFlight = null;
+    });
+    this.signOutCompletionFlight = flight;
+    return flight;
+  }
+
+  private cancelSignOutWait(): void {
+    ++this.signOutRevision;
+    if (this.signOutTimer !== null) clearInterval(this.signOutTimer);
+    this.signOutTimer = null;
+    this.signOutAccount = null;
+    this.signOutRequestFlight = null;
+    this.signOutPollFlight = null;
+    this.signOutCompletionFlight = null;
+    if (this.protectionState?.status === 'archive_signout_pending') this.publishProtection(null);
+  }
+
   private accountKey(): string | null {
     const state = this.coordinator.getState();
     return state.status === 'authenticated'
@@ -293,9 +411,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   }
 
   private onProtectionAccountChanged(): void {
+    if (this.signOutAccount !== null && this.signOutAccount !== this.signOutAccountKey()
+      && this.coordinator.getState().status !== 'context_unavailable') this.cancelSignOutWait();
     const account = this.accountKey();
     if (account === this.lastAccount) return;
     this.lastAccount = account;
+    if (this.protectionState?.status === 'archive_signout_pending') return;
     const revision = ++this.protectionRevision;
     if (account === null) return;
     const state = this.scanOrchestrator.getState();

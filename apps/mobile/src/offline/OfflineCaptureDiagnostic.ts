@@ -2,6 +2,10 @@ import type { ProductScanProtectionClass } from '../scan/contracts';
 
 export type OfflineMigrationFailureReporter = (error: unknown) => void;
 
+export class OfflineAccountStorageError extends Error {
+  constructor(readonly protection: ProductScanProtectionClass) { super('Offline account storage protected'); }
+}
+
 interface SanitizedSqliteError {
   readonly sqliteErrorCode: string;
   readonly message: string;

@@ -3,6 +3,8 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { OfflineAccountStorage } from '../../src/offline/OfflineAccountStorage';
+import { DefaultProductMobileRuntime, type ProductSessionRuntimeOwner, type ProductAdministrationRuntimeOwner } from '../../src/runtime/DefaultProductMobileRuntime';
+import type { ProductServerTransport } from '../../src/transport/contracts';
 import { decodeBase64Url32 } from '../../src/offline/encoding';
 vi.mock('expo-secure-store', () => ({ WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'device' }));
 vi.mock('expo-crypto', () => ({ getRandomBytesAsync: vi.fn() }));
@@ -66,6 +68,134 @@ const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));
 
 describe('OfflineCaptureCoordinator', () => {
+  it('T-095 endpoint pause exposes retry and clears the visible stop after recovery',async()=>{
+    const h=await accountHarness();
+    try {
+      h.mode='endpoint_unavailable';await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer});await h.scheduler().whenIdle();
+      expect(h.coordinator.getState()).toMatchObject({transmissionPaused:true,transmissionRetryAvailable:true});
+      expect(h.coordinator.getState().untransferred).toBeUndefined();
+      h.mode='archived';await h.coordinator.retry();await h.scheduler().whenIdle();
+      await vi.waitFor(()=>expect(h.coordinator.getState().transmissionPaused).toBeUndefined());
+      expect(h.coordinator.getState().transmissionRetryAvailable).toBeUndefined();
+      expect(await h.database().queueCount()).toBe(0);
+    } finally {await h.close();}
+  });
+  it('T-095 D-120 preserves the SQLite archive wait while offline and restores proof polling as A',async()=>{
+    const h=await accountHarness();
+    try {
+      h.mode='unarchived';await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer});await h.scheduler().whenIdle();
+      h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      expect(await h.coordinator.prepareSignOut()).toMatchObject({wait:true});
+      expect(await h.coordinator.pollArchiveForSignOut()).toBe(false);
+      expect(h.coordinator.getState().status).toBe('archive_signout_pending');
+      h.change(session);h.mode='archived';expect(await h.coordinator.pollArchiveForSignOut()).toBe(true);
+      expect(await h.database().readOwnerReleaseBlock()).toBeNull();
+      expect(await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer})).toMatchObject({status:'unavailable'});
+    } finally {await h.close();}
+  });
+  it('T-095 D-120 keeps unbooked captures out of archive waiting',async()=>{
+    const h=await accountHarness();
+    try {
+      h.mode='unconfirmed';await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer});await h.scheduler().whenIdle();
+      expect(await h.coordinator.prepareSignOut()).toEqual({wait:false});
+      expect(h.coordinator.getState().status).not.toBe('archive_signout_pending');
+      expect(await h.database().readOwnerReleaseBlock()).toBe('open');
+      expect(await h.database().queueCount()).toBe(1);
+    } finally {await h.close();}
+  });
+  it('T-095 D-121 publishes the quarantined capture and halted state through the real coordinator',async()=>{
+    const h=await accountHarness();
+    try {
+      h.mode='conflict';await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer});await h.scheduler().whenIdle();
+      await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer});await h.scheduler().whenIdle();
+      await vi.waitFor(()=>expect(h.coordinator.getState()).toMatchObject({transmissionPaused:true,untransferred:[{displayName:'Kunde'}]}));
+      expect(await h.coordinator.prepareSignOut()).toEqual({wait:false});
+      expect(await h.database().readOwnerReleaseBlock()).toBe('quarantine');
+      await h.coordinator.retry();expect(h.sent.map(command=>command.deviceSequence)).toEqual([1,2]);
+    } finally {await h.close();}
+  });
+  it('T-095 D-120 freezes capture and reconciles archived evidence before logout',async()=>{
+    const h=await accountHarness();
+    try {
+      h.mode='unarchived';await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer});await h.scheduler().whenIdle();
+      expect(await h.coordinator.prepareSignOut()).toMatchObject({wait:true});
+      expect(h.coordinator.getState().status).toBe('archive_signout_pending');
+      expect(await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer})).toMatchObject({status:'unavailable'});
+      expect(await h.coordinator.pollArchiveForSignOut()).toBe(false);
+      h.mode='archived';expect(await h.coordinator.pollArchiveForSignOut()).toBe(true);
+      expect(await h.database().readOwnerReleaseBlock()).toBeNull();
+    } finally {await h.close();}
+  });
+  it('T-095 D-120 retains the old account hint after forced logout with archive still pending',async()=>{
+    const h=await accountHarness();
+    try {
+      h.mode='unarchived';await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer});await h.scheduler().whenIdle();
+      expect(await h.coordinator.prepareSignOut()).toMatchObject({wait:true});
+      await h.coordinator.onExplicitLogout();
+      h.change({...session,userId:ids.event,membershipId:ids.receipt});
+      await vi.waitFor(()=>expect(h.coordinator.getState()).toMatchObject({status:'protected_pending',reason:'identity_mismatch'}));
+      expect(await h.coordinator.pollArchiveForSignOut()).toBe(false);
+      expect(await h.database().readOwnerReleaseBlock()).toBe('archive_pending');
+    } finally {await h.close();}
+  });
+  it('T-095 refreshes a new administrator-only business after tag creation and scans immediately', async () => {
+    const h=await accountHarness(true);
+    try {
+      await h.coordinator.scan();
+      expect(h.coordinator.getState()).toMatchObject({outcome:{status:'tag_not_assigned'}});
+      expect(h.sent).toHaveLength(0);
+      const administration={provision:async()=>{h.hasTag=true;}} as unknown as ProductAdministrationRuntimeOwner;
+      const runtime=new DefaultProductMobileRuntime({} as ProductSessionRuntimeOwner,{start(){},stop(){}},{} as ProductServerTransport,h.coordinator,administration);
+      await runtime.administration.provision(ids.customer,'Neuer Tag');
+      await runtime.scan.scan();await h.scheduler().whenIdle();
+      expect(h.sent).toHaveLength(1);
+      expect(h.sent[0].expectedMembershipId).toBe(ids.membership);
+      expect(h.coordinator.getState()).toMatchObject({status:'server_decision',outcome:{status:'time_entry_started'}});
+    } finally {await h.close();}
+  });
+  it('T-095 returns saved after a session switch during durable manual append', async () => {
+    const h=await accountHarness();
+    const append=h.database().appendEvent.bind(h.database());
+    vi.spyOn(h.database(),'appendEvent').mockImplementation(async draft=>{
+      const result=await append(draft);
+      h.change({...session,userId:ids.event,membershipId:ids.receipt});
+      return result;
+    });
+    try {
+      expect(await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer})).toMatchObject({status:'saved'});
+      expect(await h.coordinator.hasUnconfirmedCapture()).toBe(true);
+      expect(await h.database().queueCount()).toBe(1);
+    } finally {await h.close();}
+  });
+  it('T-095 lists local manual targets while authenticated and rejects a foreign account', async()=>{
+    const h=await accountHarness();
+    try {
+      h.mode='unconfirmed';
+      expect(await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer})).toMatchObject({status:'saved'});
+      const result=await h.coordinator.readOfflineManualTargets();
+      expect(result).toMatchObject({status:'ready',targets:[{targetType:'customer',targetId:ids.customer}]});
+      if(result.status==='ready')expect(await h.coordinator.captureManual(result.targets[0]!)).toMatchObject({status:'saved'});
+      h.change({...session,membershipId:ids.receipt,userId:ids.event});
+      await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('protected_pending'));
+      expect(await h.coordinator.readOfflineManualTargets()).toEqual({status:'unavailable'});
+      expect(await h.coordinator.hasUnconfirmedCapture()).toBe(true);
+    } finally {await h.close();}
+  });
+  it.each([
+    [{status:'migration_failed'},'P04'],
+    [{status:'protected',reason:'cipher_integrity_failed'},'P03'],
+  ] as const)('T-095 preserves $0 through the production account-storage path', async (result, protection) => {
+    const db=databaseFake({initialize:vi.fn(async()=>result)});
+    const values=new Map<string,string>();
+    const storage=new OfflineAccountStorage({isAvailableAsync:async()=>true,getItemAsync:async key=>values.get(key)??null,
+      setItemAsync:async(key,value)=>{values.set(key,value);},deleteItemAsync:async()=>{}},async n=>new Uint8Array(n).fill(6),()=>db,{list:async()=>[],remove:async()=>{}});
+    const coordinator=new OfflineCaptureCoordinator({async scan(){return {status:'unreadable'};}},nfcLifecycle(),
+      sessionReader({status:'authenticated',session},snapshot),storage,()=>db,leaseClient(),new AndroidMonotonicClock({async sample(){return {bootMarker:'boot-1',elapsedRealtimeMilliseconds:100};}}),
+      ()=>schedulerFake([]),emptyOutbox(),sequentialUuid([]),undefined,undefined,storage);
+    await coordinator.start();
+    expect(coordinator.getState()).toMatchObject({protection:[protection]});
+    await coordinator.stop();
+  });
   it.each([...legacyOfflineSchemas, OFFLINE_SCHEMA_V4, OFFLINE_SCHEMA_V5].map((schema, version) => ({ schema, version })))(
     'T-080 migrates historical SQLite V$version to V6 and reopens unchanged', async ({ schema, version }) => {
       const root = mkdtempSync(join(tmpdir(), 't080-schema-'));
@@ -305,6 +435,7 @@ describe('OfflineCaptureCoordinator', () => {
     const read = vi.spyOn(h.database(), 'queueCount').mockReturnValueOnce(count.promise);
     try {
       const sync = h.scheduler().trigger('manual');
+      await vi.waitFor(()=>expect(read).toHaveBeenCalled());
       h.change({ ...session, membershipId: ids.receipt });
       await vi.waitFor(() => expect(h.coordinator.getState()).toMatchObject({ status: 'protected_pending', reason: 'identity_mismatch' }));
       expect(h.bindings).toHaveLength(1);
@@ -1500,6 +1631,7 @@ function databaseFake(
   methods: Record<string, ReturnType<typeof vi.fn>>,
 ): OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>> {
   return {
+    readUntransferredCaptures: vi.fn(async()=>[]),
     readReviewPendingSequence: vi.fn(async () => null),
     ...methods,
   } as unknown as OfflineCaptureDatabase
@@ -1682,15 +1814,20 @@ function activeContext() {
   };
 }
 
-async function accountHarness() {
+async function accountHarness(newBusiness=false) {
   const root = mkdtempSync(join(tmpdir(), 't076-coordinator-'));
   const values = new Map<string, string>();
   const listeners = new Set<() => void>();
-  let active: ProductScanSessionSnapshot = { generation: 1, session };
+  let offline=false;
+  const restoration:InternalOfflineRestorationSnapshot={generation:1,restorationRevision:1,source:"backend_context_unavailable"};
+  let active: ProductScanSessionSnapshot = { generation: 1, session:newBusiness ? {...session,role:'administrator'} : session };
   const reader: OfflineCaptureSessionReader = {
     ...sessionReader({ status: 'authenticated', session }, active),
-    capture: () => active, isCurrent: candidate => candidate === active,
-    getState: () => ({ status: 'authenticated', session: active.session }),
+    capture: () => offline ? null : active, isCurrent: candidate => !offline && candidate === active,
+    getState: () => offline ? {status:'context_unavailable'} : { status: 'authenticated', session: active.session },
+    isOfflineCaptureRestorationAllowed:()=>offline,
+    captureOfflineRestorationSnapshot:()=>offline ? restoration : null,
+    isOfflineRestorationSnapshotCurrent:candidate=>offline && candidate===restoration,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
   };
   let seed = 0, time = Date.parse('2026-07-18T10:00:00.000Z');
@@ -1711,9 +1848,10 @@ async function accountHarness() {
   const bindings: string[] = [];
   const sent: Array<{deviceSequence: number; expectedMembershipId: string}> = [];
   const records = new Map<string, {workEventId: string; receiptId: string; deviceSequence: number}>();
-  const h = { mode: 'archived', bindings, sent, legacyBlocked: false, ingestGate: null as Promise<void> | null, reconcileGate: null as Promise<void> | null, reconcileWaiting: false, sampleGate: null as Promise<void> | null, sampleWaiting: false,
+  const h = { hasTag: !newBusiness, mode: 'archived', bindings, sent, legacyBlocked: false, ingestGate: null as Promise<void> | null, reconcileGate: null as Promise<void> | null, reconcileWaiting: false, sampleGate: null as Promise<void> | null, sampleWaiting: false,
     advance: () => { time += OFFLINE_ARCHIVE_POLL_MILLISECONDS; },
-    change: (next: ProductSessionContext) => { active = { generation: active.generation + 1, session: next }; for (const l of listeners) l(); },
+    suspend:()=>{offline=true;for(const l of listeners)l();},
+    change: (next: ProductSessionContext) => { offline=false;active = { generation: active.generation + 1, session: next }; for (const l of listeners) l(); },
     database: () => currentDb, scheduler: () => scheduler };
   const decision = { status: 'time_entry_started' as const, timeEntryId: ids.event };
   const client = {
@@ -1726,6 +1864,10 @@ async function accountHarness() {
       if (h.ingestGate) await h.ingestGate;
       if (h.mode === 'authority_rejected') return { status: 'authority_rejected' as const };
       if (h.mode === 'unconfirmed') return { status: 'unavailable' as const };
+      if (h.mode === 'endpoint_unavailable') return {status:'system_failure' as const,reason:'http_404'};
+      if (h.mode === 'conflict') return command.deviceSequence===1
+        ? {status:'conflict' as const,reason:'event_content_conflict' as const}
+        : {status:'pending' as const,reason:'sequence_gap' as const};
       const identity = { workEventId: command.workEvent.id, receiptId: command.receipt.id, deviceSequence: command.deviceSequence };
       records.set(identity.workEventId, identity);
       return h.mode === 'review_pending'
@@ -1741,11 +1883,11 @@ async function accountHarness() {
       bindings.push(request.installationBinding);
       const result = await leaseClient(true).issueCompleteV3!(request);
       if (result.status !== 'ready') throw new Error('Invalid fixture');
-      const items = result.page.items.map(item => item.itemType === 'nfc_assignment'
+      const items = (h.hasTag ? result.page.items : []).map(item => item.itemType === 'nfc_assignment'
         ? { ...item, lookup: mobileLookupHmac(decodeBase64Url32(request.lookupKey)!, 'nfc:uid:v1:04AABBCC') } : item);
-      return { ...result, page: { ...result.page, organizationId: active.session.organizationId, userId: active.session.userId, membershipId: active.session.membershipId,
+      return { ...result, page: { ...result.page, organizationId: active.session.organizationId, userId: active.session.userId, membershipId: active.session.membershipId, role:active.session.role,
         leaseId: `70000000-0000-4000-8000-${String(bindings.length).padStart(12, '0')}`,
-        items, manifestDigest: mobileManifestDigestV3(items), serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength } };
+        items, itemCount:items.length, manifestDigest: mobileManifestDigestV3(items), serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength } };
     } }, new AndroidMonotonicClock({ async sample() {
       if (h.sampleGate) { h.sampleWaiting = true; await h.sampleGate; h.sampleGate = null; }
       return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100, wallClockMilliseconds: time };
@@ -1765,7 +1907,7 @@ async function accountHarness() {
     get reconcileGate() { return h.reconcileGate; }, set reconcileGate(value: Promise<void> | null) { h.reconcileGate = value; },
     get reconcileWaiting() { return h.reconcileWaiting; },
     get sampleWaiting() { return h.sampleWaiting; }, get sampleGate() { return h.sampleGate; }, set sampleGate(value: Promise<void> | null) { h.sampleGate = value; },
-    coordinator, lifecycle, async close() { await coordinator.stop(); for (const db of databases) await db.close(); rmSync(root, {recursive: true, force: true}); } };
+    get hasTag(){return h.hasTag;},set hasTag(value:boolean){h.hasTag=value;},coordinator, lifecycle, async close() { await coordinator.stop(); for (const db of databases) await db.close(); rmSync(root, {recursive: true, force: true}); } };
 }
 
 // Real V5 file as shipped before T-080, including an unsent employee event.

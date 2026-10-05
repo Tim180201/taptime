@@ -180,6 +180,7 @@ async function createHarness() {
     initialize: vi.fn(async () => ({ status: 'ready' as const })),
     hasProtectedLegacy: vi.fn(async () => false),
     readReviewPendingSequence: vi.fn(async () => null),
+    readUntransferredCaptures: vi.fn(async()=>[]),
     readActiveCaptureContext,
     lookupActiveItem: vi.fn(async () => activeItem()),
     appendEvent,

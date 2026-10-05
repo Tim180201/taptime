@@ -17,6 +17,7 @@ export type ManualTriggerOutcome =
   | 'work_location_unavailable'
         | 'escalation_required'
   | 'pending'
+  | 'not_transferred'
   | 'rejected';
 
 export type MobileWorkState =
@@ -28,6 +29,7 @@ export type MobileWorkState =
       readonly ownTime: MobileOwnTimeQueryResponse;
       readonly targets: MobileWorkTargetQueryResponse;
       readonly submitting: boolean;
+      readonly capturePending?: boolean;
       readonly loadingMore: boolean;
       readonly outcome: ManualTriggerOutcome | null;
       readonly feedback?: string | null;

@@ -98,6 +98,14 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
 
   async runAsync(source: string, params: OfflineSqlParams) {
     const values = asArray(params);
+    if(source.includes('SET next_attempt_at = min(next_attempt_at, ?)')) {
+      if(source.includes('offline_legacy_queue'))return {changes:0};
+      let changes=0;
+      for(const row of this.queue)if(row.state==='retry_wait' && row.nextAttemptAt!==null) {
+        row.nextAttemptAt=Math.min(row.nextAttemptAt,Number(values[0]));changes++;
+      }
+      return {changes};
+    }
     if (source.includes("SET queue_state = 'pending'")) {
       let changes = 0;
       for (const row of this.queue) {

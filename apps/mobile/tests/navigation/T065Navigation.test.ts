@@ -40,7 +40,8 @@ const { AppNavigator } = await import('../../src/navigation/AppNavigator');
 const { TimeCalendar } = await import('../../src/screens/TimeCalendar');
 const target = { targetType: 'customer' as const, targetId: 'customer', displayName: 'Testkunde' };
 const ownTime = { activeRecord: null, records: [], nextCursor: null,
-  windowStartedAt: '2026-09-01T00:00:00Z', windowEndedAt: '2026-09-21T12:00:00Z' };
+    windowStartedAt: '2026-09-01T00:00:00Z', windowEndedAt: '2026-09-21T12:00:00Z' };
+const unavailableState={status:'unavailable' as const,message:'Arbeitsdaten sind derzeit nicht erreichbar.'};
 let root: Root;
 let container: HTMLDivElement;
 beforeEach(() => {
@@ -89,6 +90,66 @@ function harness(role: 'employee' | 'administrator' | 'standortleitung' | 'offli
 }
 
 describe('T-065 rendered navigation and manual lifecycle', () => {
+  it('T-095 endpoint pause offers retry without blaming or quarantining an individual capture',async()=>{
+    const h=harness('employee');
+    const paused={status:'saved_locally' as const,queueCount:1,transmissionPaused:true,transmissionRetryAvailable:true};
+    h.props.scan.getState=()=>paused;h.props.scan.retry=vi.fn(async()=>{});
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    expect(container.textContent).toContain('Übertragung angehalten');
+    expect(container.textContent).not.toContain('1 Erfassung konnte nicht übertragen werden');
+    expect(container.textContent).not.toContain('Sicher lokal gespeichert');
+    await press('Erneut versuchen');expect(h.props.scan.retry).toHaveBeenCalledOnce();
+    await press('Abgleich: Übertragung angehalten');
+    await press('Erneut versuchen');expect(h.props.scan.retry).toHaveBeenCalledTimes(2);
+  });
+  it('T-095 D-121 displays the halted transfer with target/time and no progress message',async()=>{
+    const h=harness('employee');
+    const halted={status:'saved_locally' as const,queueCount:1,transmissionPaused:true,untransferred:[{workEventId:'failed',occurredAt:'2026-10-05T06:12:00Z',displayName:'Kunde X',reason:'lease_binding_conflict'}]};
+    h.props.scan.getState=()=>halted;
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    expect(container.textContent).toContain('Übertragung angehalten: 1 Erfassung konnte nicht übertragen werden. Bitte wende dich an deine Verwaltung.');
+    expect(container.textContent).toContain('Kunde X · 08:12');
+    expect(container.textContent).not.toContain('Sicher lokal gespeichert');
+    expect(container.textContent).not.toContain('Wird übertragen');
+    await press('Abgleich: Übertragung angehalten');
+    expect(container.textContent).toContain('Bitte wende dich an deine Verwaltung.');
+    expect(container.textContent).not.toContain('Wird nachgereicht');
+  });
+  it('T-095 D-120 shows the waiting notice and the forced sign-out action',async()=>{
+    const h=harness('employee');
+    const waiting={status:'archive_signout_pending' as const};
+    h.props.scan.getState=()=>waiting;
+    h.props.session.signOutImmediately=vi.fn(async()=>{});
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    expect(container.textContent).toContain('Deine Erfassungen werden noch gesichert. Abmelden ist gleich möglich.');
+    await press('Trotzdem abmelden');expect(h.props.session.signOutImmediately).toHaveBeenCalledOnce();
+    expect(container.querySelector('[aria-label="Manuell erfassen"]')).toBeNull();
+  });
+  it.each([false,true])('T-095 displays quarantined targets in capture and own times with unavailable API %s', async unavailable => {
+    const h=harness('employee');
+    const scanState={status:'ready' as const,outcome:null,untransferred:[{workEventId:'protected',occurredAt:'2026-10-04T06:12:00Z',displayName:'Kunde X',reason:'event_content_conflict'}]};
+    h.props.scan.getState=()=>scanState;
+    if(unavailable)h.props.work.getState=()=>unavailableState;
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    expect(container.textContent).toContain('1 Erfassung konnte nicht übertragen werden');
+    expect(container.textContent).toContain('Kunde X · 08:12');
+    await press('Meine Zeiten');
+    expect(container.textContent).toContain('nicht übertragen');expect(container.textContent).toContain('Nachtragen');
+    expect(container.textContent).toContain('sperrt den Kontowechsel');
+  });
+  it('T-095 leaves the offline manual path available while a confirmed-state action is pending',async()=>{
+    const h=harness('employee');
+    const before=h.props.work.getState();
+    const pending=before.status==='ready'?{...before,capturePending:true,submitting:false,outcome:'pending' as const}:before;
+    h.props.work.getState=()=>pending;
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    await press('Manuell erfassen');
+    expect(container.textContent).toContain('Wird übertragen …');
+    await press(target.displayName);await press('Jetzt erfassen');
+    expect(h.props.offlineManual.captureManual).toHaveBeenCalledOnce();
+    expect(h.props.work.triggerManual).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('gespeichert, wird übertragen');
+  });
   it('T103 shows only the last confirmed own status offline and discards it after logout', async () => {
     const h = harness('employee');
     await act(async()=>root.render(createElement(AppNavigator,h.props)));
@@ -128,7 +189,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     if (role === 'offline') {
       expect(h.props.work.triggerManual).not.toHaveBeenCalled();
       expect(h.props.work.triggerBreak).not.toHaveBeenCalled();
-      expect(container.textContent).toContain('Bestätigung steht noch aus');
+      expect(container.textContent).toContain('gespeichert, wird übertragen');
     } else {
       expect(h.props.offlineManual.captureManual).not.toHaveBeenCalled();
       expect(h.props.offlineManual.captureBreak).not.toHaveBeenCalled();

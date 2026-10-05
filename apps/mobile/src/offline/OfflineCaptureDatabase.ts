@@ -274,6 +274,13 @@ interface QuarantineRow {
   readonly evidence_json: string;
 }
 
+export interface UntransferredCapture {
+  readonly workEventId: string;
+  readonly occurredAt: string;
+  readonly displayName: string;
+  readonly reason: string;
+}
+
 export const OFFLINE_DATABASE_NAME = 'taptime-offline-v1.db';
 const lowercaseSha256Pattern = /^[0-9a-f]{64}$/;
 
@@ -1060,12 +1067,75 @@ export class OfflineCaptureDatabase {
   hasProtectedLegacy(): Promise<boolean> {
     return this.serialized(async () => {
       const row = await this.requireReady().getFirstAsync<{ readonly count: number }>(
-        'SELECT count(*) AS count FROM offline_protected_quarantine',
+        "SELECT count(*) AS count FROM offline_protected_quarantine WHERE reason = 'legacy_membership_unknown'",
       );
       if (row === null || !Number.isSafeInteger(row.count) || row.count < 0) {
         throw new Error('Protected legacy count is invalid');
       }
       return row.count > 0;
+    });
+  }
+
+  quarantineHead(identity: OfflineDurableResultIdentity, reason: string): Promise<boolean> {
+    return this.serialized(async () => {
+      const db = this.requireReady();
+      if (!isQuarantinableFailureReason(reason)) throw new Error('Invalid quarantine reason');
+      let quarantined = false;
+      await db.withExclusiveTransactionAsync(async tx => {
+        const row = await tx.getFirstAsync<{command_json:string}>(`SELECT command_json FROM offline_event_queue
+          WHERE device_sequence = ? AND work_event_id = ? AND receipt_id = ? AND queue_state = 'in_flight'`,
+          [identity.deviceSequence,identity.workEventId,identity.receiptId]);
+        if (row === null || parseOfflineCommand(row.command_json) === null) throw new Error('Quarantine identity mismatch');
+        // The check and insert share the transaction: another rejection must never grow
+        // the unresolved transmission quarantine, including across scheduler instances.
+        const existing = await tx.getFirstAsync("SELECT quarantine_id FROM offline_protected_quarantine WHERE reason <> 'legacy_membership_unknown' LIMIT 1");
+        if (existing !== null) return;
+        const command = parseOfflineCommand(row.command_json)!;
+        await tx.runAsync(`INSERT INTO offline_protected_quarantine (quarantine_id, reason, evidence_json, created_at) VALUES (?, ?, ?, ?)`,
+          [identity.workEventId,reason,row.command_json,command.workEvent.occurredAt]);
+        const deleted = await tx.runAsync('DELETE FROM offline_event_queue WHERE device_sequence = ? AND work_event_id = ? AND receipt_id = ?',
+          [identity.deviceSequence,identity.workEventId,identity.receiptId]);
+        if (deleted.changes !== 1) throw new Error('Quarantine transfer failed');
+        quarantined = true;
+      });
+      return quarantined;
+    });
+  }
+
+  readUntransferredCaptures(): Promise<readonly UntransferredCapture[]> {
+    return this.serialized(async () => {
+      const db = this.requireReady();
+      const rows = await db.getAllAsync<QuarantineRow>("SELECT quarantine_id, reason, evidence_json FROM offline_protected_quarantine WHERE reason <> 'legacy_membership_unknown'");
+      const result: UntransferredCapture[] = [];
+      for (const row of rows) {
+        const command = parseOfflineCommand(row.evidence_json);
+        if (command === null || !isTransferFailureReason(row.reason)) throw new Error('Invalid quarantined evidence');
+        const item = await db.getFirstAsync<{display_name:string}>('SELECT display_name FROM offline_lease_items WHERE lease_id = ? AND item_id = ?', [command.leaseId,command.leaseItemId]);
+        result.push(Object.freeze({workEventId:row.quarantine_id,occurredAt:command.workEvent.occurredAt,displayName:item?.display_name ?? 'Arbeitsziel',reason:row.reason}));
+      }
+      return Object.freeze(result);
+    });
+  }
+
+  readOwnerReleaseBlock(): Promise<'archive_pending' | 'quarantine' | 'open' | null> {
+    return this.serialized(async () => {
+      const row = await this.requireReady().getFirstAsync<{quarantined:number;open:number;archived:number}>(`SELECT
+        (SELECT count(*) FROM offline_protected_quarantine) AS quarantined,
+        ((SELECT count(*) FROM offline_event_queue WHERE queue_state <> 'confirmed_awaiting_archive') +
+         (SELECT count(*) FROM offline_legacy_queue) + (SELECT count(*) FROM offline_owner WHERE review_pending_sequence IS NOT NULL)) AS open,
+        (SELECT count(*) FROM offline_event_queue WHERE queue_state = 'confirmed_awaiting_archive') AS archived`);
+      if (!row) throw new Error('Owner release state unavailable');
+      return row.quarantined > 0 ? 'quarantine' : row.open > 0 ? 'open' : row.archived > 0 ? 'archive_pending' : null;
+    });
+  }
+
+  resetRetryDeadlines(now: number): Promise<void> {
+    return this.serialized(async () => {
+      await this.requireReady().withExclusiveTransactionAsync(async tx => {
+        for (const table of ['offline_event_queue','offline_legacy_queue']) {
+          await tx.runAsync(`UPDATE ${table} SET next_attempt_at = min(next_attempt_at, ?) WHERE queue_state = 'retry_wait'`, [now]);
+        }
+      });
     });
   }
 
@@ -1471,7 +1541,7 @@ export class OfflineCaptureDatabase {
            (SELECT count(*) FROM offline_event_queue
             WHERE queue_state <> 'confirmed_awaiting_archive')
            + (SELECT count(*) FROM offline_legacy_queue)
-           + (SELECT count(*) FROM offline_protected_quarantine)
+           + (SELECT count(*) FROM offline_protected_quarantine WHERE reason = 'legacy_membership_unknown')
          ) AS count`,
       );
       if (row === null || !Number.isSafeInteger(row.count) || row.count < 0) {
@@ -1560,7 +1630,7 @@ export class OfflineCaptureDatabase {
     );
     if (quarantineRows.some((row) => (
       !isCanonicalOfflineUuid(row.quarantine_id)
-      || row.reason !== 'legacy_membership_unknown'
+      || (row.reason !== 'legacy_membership_unknown' && (!isTransferFailureReason(row.reason) || parseOfflineCommand(row.evidence_json)?.workEvent.id !== row.quarantine_id))
       || utf8ByteLength(row.evidence_json) < 1
       || utf8ByteLength(row.evidence_json) > OFFLINE_QUEUE_MAXIMUM_EVENT_BYTES
     ))) {
@@ -2511,3 +2581,13 @@ END;
 `;
 
 export const OFFLINE_SCHEMA_V6 = OFFLINE_SCHEMA_V5 + OFFLINE_SCHEMA_V5_TO_V6;
+
+function isTransferFailureReason(reason: string): boolean {
+  return ['event_content_conflict','sequence_content_conflict','lease_binding_conflict','receipt_metadata_conflict','invalid_response'].includes(reason)
+    || /^http_[45][0-9]{2}$/.test(reason);
+}
+
+function isQuarantinableFailureReason(reason: string): boolean {
+  return ['event_content_conflict','sequence_content_conflict','lease_binding_conflict',
+    'receipt_metadata_conflict','invalid_response','http_400','http_409','http_422'].includes(reason);
+}

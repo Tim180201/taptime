@@ -94,6 +94,7 @@ export function feedbackKindForOutcome(
 }
 
 export function feedbackKindForState(state: ProductScanState): ScanFeedbackKind | null {
+  if(state.transmissionPaused)return 'failed';
   switch (state.status) {
     case 'ready':
     case 'offline_ready':
@@ -111,6 +112,7 @@ export function feedbackKindForState(state: ProductScanState): ScanFeedbackKind 
     case 'protected_pending':
       return 'failed';
     case 'inactive':
+    case 'archive_signout_pending':
     case 'checking':
     case 'scanning':
     case 'submitting':

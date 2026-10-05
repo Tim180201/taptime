@@ -43,13 +43,14 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
 
   return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+      {state.capturePending ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
       {state.ownTime.activeRecord ? <Card>
         <Text style={styles.selection}>{captureStatus(state.ownTime.activeRecord)}</Text>
         {state.ownTime.activeRecord.calendar ? <Text>{captureDuration(state.ownTime.activeRecord.calendar.workDurationSeconds)}</Text> : null}
         <ActionButton title={state.ownTime.activeRecord.breakStartedAt ? 'Pause beenden' : 'Zeit beenden'} tone="cta"
-          disabled={state.submitting} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.triggerBreak() : work.stopActiveTime()} />
+          disabled={state.submitting || state.capturePending} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.triggerBreak() : work.stopActiveTime()} />
         <ActionButton title={state.ownTime.activeRecord.breakStartedAt ? 'Zeit beenden' : 'Pause starten'} tone="secondary"
-          disabled={state.submitting} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.stopActiveTime() : work.triggerBreak()} />
+          disabled={state.submitting || state.capturePending} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.stopActiveTime() : work.triggerBreak()} />
       </Card> : <>
         <Text style={styles.explanation}>Wähle dein Arbeitsziel. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
         <Text style={styles.selection}>Arbeitsziel</Text>
@@ -68,7 +69,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
           })}
         </View>
         <Card><Text style={styles.selection}>{selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
-          <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting} loading={state.submitting}
+          <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting || state.capturePending} loading={state.submitting}
             onPress={() => selected === null ? setSelectionError(true) : work.triggerManual(selected)} />
         </Card>
       </>}
@@ -105,7 +106,8 @@ function outcomeLabel(outcome: NonNullable<
   if (outcome === 'work_location_unavailable') return 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.';
   if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';
   if (outcome === 'rejected') return 'Sitzung nicht mehr gültig';
-  return 'Deine Erfassung ist gespeichert und wartet auf Verarbeitung.';
+  if (outcome === 'not_transferred') return 'Deine Erfassung konnte nicht übertragen werden. Der Beleg bleibt auf dem Handy. Prüfe „Meine Zeiten“.';
+  return 'Deine Erfassung ist gespeichert, wird übertragen.';
 }
 
 const styles = StyleSheet.create({

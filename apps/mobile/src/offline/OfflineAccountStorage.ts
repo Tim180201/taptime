@@ -4,6 +4,8 @@ import { OfflineCaptureDatabase, OFFLINE_DATABASE_NAME, type OfflineDatabaseOwne
 import { OfflineInstallationIdentityStore, type OfflineInstallationSecrets, type OfflineInstallationSecretsResult, type OfflineSecureStorePort } from './OfflineInstallationIdentityStore';
 import { decodeBase64Url32, encodeBase64Url } from './encoding';
 import { mobileSha256Hex } from './MobileLookupHmac';
+import { OfflineAccountStorageError, reportOfflineProtectionDiagnostic } from './OfflineCaptureDiagnostic';
+import { PRODUCT_SCAN_PROTECTION_CLASS } from '../scan/contracts';
 
 const KEY = 'taptime.offline.generations.v1';
 const options: SecureStoreOptions = { keychainAccessible: WHEN_UNLOCKED_THIS_DEVICE_ONLY };
@@ -21,6 +23,14 @@ export interface OfflineDatabaseFiles {
 export type AccountDatabaseFactory = (key: Uint8Array, name?: string) => OfflineCaptureDatabase;
 interface Opened { database: OfflineCaptureDatabase; secrets: OfflineInstallationSecrets }
 const protectedStorage = () => new Error('Offline account storage protected');
+async function initializeAccountDatabase(database: OfflineCaptureDatabase): Promise<void> {
+  let result;
+  try { result = await database.initialize(error => reportOfflineProtectionDiagnostic(PRODUCT_SCAN_PROTECTION_CLASS.databaseMigration,error)); }
+  catch { throw new OfflineAccountStorageError(PRODUCT_SCAN_PROTECTION_CLASS.databaseInitialization); }
+  if (result.status !== 'ready') throw new OfflineAccountStorageError(result.status === 'migration_failed'
+    ? PRODUCT_SCAN_PROTECTION_CLASS.databaseMigration : result.status === 'protected'
+      ? PRODUCT_SCAN_PROTECTION_CLASS.databaseIntegrity : PRODUCT_SCAN_PROTECTION_CLASS.databaseInitialization);
+}
 const suffixes = ['', '-wal', '-shm', '-journal'];
 
 /** One instance per process. Reopening capture is not a cold start and never permits cleanup. */
@@ -48,8 +58,10 @@ export class OfflineAccountStorage {
       state = await this.read(); // load may have renewed a removed lookup key
       const name = state?.active.name ?? OFFLINE_DATABASE_NAME;
       if (state !== null && !names.includes(name)) throw protectedStorage();
-      const database = this.factory(secrets.databaseKey, name);
-      if ((await database.initialize()).status !== 'ready') throw protectedStorage();
+      let database;
+      try { database = this.factory(secrets.databaseKey, name); }
+      catch { throw new OfflineAccountStorageError(PRODUCT_SCAN_PROTECTION_CLASS.databaseInitialization); }
+      await initializeAccountDatabase(database);
       if (state !== null) {
         const owner = await database.readOwner();
         if (owner === null || owner.installationBindingDigest !== digest(secrets)) throw protectedStorage();
@@ -117,13 +129,13 @@ export class OfflineAccountStorage {
       const nextSecrets = decode(next);
       const fresh = this.factory(nextSecrets.databaseKey, next.name);
       try {
-        if ((await fresh.initialize()).status !== 'ready') throw protectedStorage();
+        await initializeAccountDatabase(fresh);
         const nextOwner = { organizationId: owner.organizationId, userId: owner.userId,
           membershipId: owner.membershipId, installationBindingDigest: digest(nextSecrets) };
         if ((await fresh.bindOwner(nextOwner)).status !== 'ready') throw protectedStorage();
         await fresh.close();
-        if ((await fresh.initialize()).status !== 'ready'
-          || JSON.stringify(await fresh.readOwner()) !== JSON.stringify(nextOwner)) throw protectedStorage();
+        await initializeAccountDatabase(fresh);
+        if (JSON.stringify(await fresh.readOwner()) !== JSON.stringify(nextOwner)) throw protectedStorage();
         if (!await allowed() || !await database.canReleaseOwner(oldOwner)) throw protectedStorage();
         await this.write({ version: 1, active: next, retired: [...staged.retired, active], prepared: null });
         await database.close();

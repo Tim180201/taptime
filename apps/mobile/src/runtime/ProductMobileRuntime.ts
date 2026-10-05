@@ -170,6 +170,10 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       randomUUID,
     ),
     scanOrchestrator,
+    {
+      get: async () => {const state=await Network.getNetworkStateAsync();return state.isConnected===true && state.isInternetReachable!==false;},
+      subscribe: listener => {const subscription=Network.addNetworkStateListener(state=>listener(state.isConnected===true && state.isInternetReachable!==false));return ()=>subscription.remove();},
+    },
   );
   const administrationCoordinator = new AdminSetupCoordinator(
     scanSessionContext,

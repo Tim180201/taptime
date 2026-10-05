@@ -10,6 +10,11 @@ import type {
 } from './contracts';
 import type { ManualOfflineCapturePort } from '../offline/OfflineCaptureCoordinator';
 
+export interface CaptureConnectivityPort {
+  get(): Promise<boolean>;
+  subscribe(listener: (online:boolean) => void): () => void;
+}
+
 export class MobileWorkCoordinator implements MobileWorkCapability {
   private state: MobileWorkState = Object.freeze({ status: 'inactive' });
   private readonly listeners = new Set<() => void>();
@@ -22,11 +27,14 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   private readonly pendingCapture = new Map<string, {before:MobileOwnTimeQueryResponse; followup?:SafeWorkTarget}>();
   private manualAcknowledgementFlight: Promise<void> | null = null;
   private manualAcknowledgementRequested = false;
+  private pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  private unsubscribeConnectivity: (() => void) | null = null;
 
   constructor(
     private readonly session: MobileWorkSessionReader,
     private readonly api: MobileWorkApiPort,
     private readonly offlineCapture: ManualOfflineCapturePort | null = null,
+    private readonly connectivity?: CaptureConnectivityPort,
   ) {}
 
   getState(): MobileWorkState {
@@ -54,6 +62,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         this.boundSessionGeneration = snapshot?.generation ?? null;
         this.pendingManualEventIds = [];
         this.pendingCapture.clear();
+        if(this.pendingTimer!==null)clearTimeout(this.pendingTimer);
+        this.pendingTimer=null;
         this.setState({ status: 'inactive' });
       }
     });
@@ -61,9 +71,13 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
       this.offlineCapture?.subscribeManualAcknowledgements?.(
         () => { void this.handleManualAcknowledgement(); },
       ) ?? null;
+    this.unsubscribeConnectivity = this.connectivity?.subscribe(online => {if(!online)this.releasePendingScreen();}) ?? null;
   }
 
   stop(): void {
+    if(this.pendingTimer!==null)clearTimeout(this.pendingTimer);
+    this.pendingTimer=null;
+    this.unsubscribeConnectivity?.();this.unsubscribeConnectivity=null;
     this.unsubscribe?.();
     this.unsubscribe = null;
     this.unsubscribeManualAcknowledgements?.();
@@ -108,6 +122,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     const generation = ++this.generation;
     this.ownTimeCursors.clear();
     this.setState({ status: 'loading' });
+    const capturePending = this.offlineCapture?.hasUnconfirmedCapture
+      ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
     const result = await this.api.read(snapshot.session.membershipId);
     if (
       generation !== this.generation
@@ -127,7 +143,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         targets: result.targets,
         submitting: false,
         loadingMore: false,
-        outcome: this.pendingManualEventIds.length === 0 ? null : 'pending',
+        outcome: capturePending ? 'pending' : null,
+        capturePending,
       });
       return;
     }
@@ -207,10 +224,15 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
 
   private async capture(target: SafeWorkTarget | 'break', followup?: SafeWorkTarget): Promise<void> {
     const snapshot = this.session.capture(), current = this.state;
-    if (!snapshot || current.status !== 'ready' || current.submitting) return;
+    if (!snapshot || current.status !== 'ready' || current.submitting || current.capturePending) return;
     const generation = ++this.generation, before = current.ownTime;
     this.ownTimeCursors.clear();
     this.setState({...current, submitting:true, loadingMore:false, outcome:null, feedback:null});
+    if(this.offlineCapture?.hasUnconfirmedCapture && await this.hasUnconfirmedCapture()) {
+      if(generation===this.generation && this.state.status==='ready' && this.session.isCurrent(snapshot))this.setState({...this.state,submitting:false,capturePending:true,outcome:'pending'});
+      return;
+    }
+    if(generation!==this.generation || !this.session.isCurrent(snapshot))return;
     try {
       if (this.offlineCapture) {
         await this.enqueueCapture(target, before, followup);
@@ -240,18 +262,21 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
       this.pendingManualEventIds.push(result.workEventId);
     }
     this.setState({...this.state,submitting:result?.status==='saved' && this.offlineCapture?.readManualAcknowledgement!==undefined,
-      outcome:result?.status==='saved'?'pending':'rejected'});
+      capturePending:result?.status==='saved',outcome:result?.status==='saved'?'pending':'rejected'});
+    if(result?.status==='saved')this.armPendingScreen();
     if(result?.status==='saved') await this.handleManualAcknowledgement();
   }
 
   private async reloadAfterCapture(outcome:import('./contracts').ManualTriggerOutcome, before:MobileOwnTimeQueryResponse, generation:number):Promise<void> {
     const snapshot=this.session.capture();if(!snapshot)return;
+    const capturePending=this.offlineCapture?.hasUnconfirmedCapture
+      ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
     const result=await this.api.read(snapshot.session.membershipId).catch(()=>({status:'unavailable' as const}));
     if(generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready')return;
     this.ownTimeCursors.clear();
     if(result.status==='ready' && validOwnTimeProjection(result.ownTime)) {
       this.setState({...this.state,ownTime:freezeOwnTime(result.ownTime),targets:result.targets,
-        submitting:false,loadingMore:false,outcome,feedback:captureFeedback(outcome,before,result.ownTime)});
+        submitting:false,capturePending,loadingMore:false,outcome:capturePending?'pending':outcome,feedback:capturePending?null:captureFeedback(outcome,before,result.ownTime)});
     } else this.setState({status:'unavailable',message:'Bestätigte Zeiten konnten nicht neu geladen werden. Bitte erneut laden.'});
   }
 
@@ -261,13 +286,36 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     if(!snapshot || generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready')return;
     if(result.status==='saved') {
       this.pendingCapture.set(result.workEventId,{before});this.pendingManualEventIds.push(result.workEventId);
-      this.setState({...this.state,submitting:true,outcome:'pending'});
+      this.setState({...this.state,submitting:true,capturePending:true,outcome:'pending'});
+      this.armPendingScreen();
     } else await this.reloadAfterCapture('rejected',before,generation);
   }
 
   private setState(state: MobileWorkState): void {
     this.state = Object.freeze(state);
     for (const listener of this.listeners) listener();
+  }
+
+  private armPendingScreen(): void {
+    if(this.pendingTimer!==null)clearTimeout(this.pendingTimer);
+    this.pendingTimer=setTimeout(()=>{this.pendingTimer=null;this.releasePendingScreen();},15_000);
+    const generation=this.generation;
+    void this.connectivity?.get().then(online=>{if(!online && generation===this.generation)this.releasePendingScreen();}).catch(()=>undefined);
+  }
+
+  private releasePendingScreen(): void {
+    if(this.state.status==='ready' && this.pendingManualEventIds.length>0)
+      this.setState({...this.state,submitting:false,capturePending:true,outcome:'pending'});
+  }
+
+  private async hasUnconfirmedCapture():Promise<boolean> {
+    if(!this.offlineCapture?.hasUnconfirmedCapture)return this.pendingManualEventIds.length>0;
+    try {
+      const pending=await this.offlineCapture.hasUnconfirmedCapture();
+      if(!pending) {this.pendingManualEventIds=[];this.pendingCapture.clear();}
+      return pending;
+    }
+    catch {return true;}
   }
 
   private handleManualAcknowledgement(): Promise<void> {
@@ -307,7 +355,14 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
           const context=this.pendingCapture.get(workEventId);
           if(context)this.pendingCapture.set(workEventId,{before:context.before});
           if(this.state.status==='ready')this.setState({...this.state,submitting:false,outcome:'pending'});
+          if(this.offlineCapture?.hasUnconfirmedCapture && !await this.hasUnconfirmedCapture())await this.refresh();
         }
+        return;
+      }
+      if(acknowledgement.status==='rejected') {
+        const context=this.pendingCapture.get(workEventId);
+        if(context)this.pendingCapture.set(workEventId,{before:context.before});
+        this.releasePendingScreen();
         return;
       }
       const snapshot = this.session.capture();
@@ -321,7 +376,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
       this.pendingManualEventIds.shift();
       const context=this.pendingCapture.get(workEventId);
       this.pendingCapture.delete(workEventId);
-      const outcome='outcome' in acknowledgement ? acknowledgement.outcome : 'rejected';
+      const outcome='outcome' in acknowledgement ? acknowledgement.outcome : acknowledgement.status === 'not_transferred' ? 'not_transferred' : 'pending';
       const generation = ++this.generation;
       this.ownTimeCursors.clear();
       this.setState({...current,submitting:true,loadingMore:false});
@@ -331,6 +386,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
       }
       await this.reloadAfterCapture(outcome,context?.before??current.ownTime,generation);
     }
+    if(this.state.status==='ready' && this.state.capturePending && !await this.hasUnconfirmedCapture())await this.refresh();
   }
 }
 

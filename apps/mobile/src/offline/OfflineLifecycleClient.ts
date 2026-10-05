@@ -68,10 +68,16 @@ const escalationReasons = new Set<BusinessEngineEscalationReason>([
 
 export type OfflineLifecycleTransportResult =
   | OfflineLifecycleEventResultV4
+  | { readonly status: 'permanent_failure'; readonly reason: string }
+  | { readonly status: 'system_failure'; readonly reason: string }
+  | { readonly status: 'update_required' }
   | { readonly status: 'unavailable'; readonly retryAfterSeconds?: number };
 
 export type OfflineReconciliationTransportResult =
   | OfflineReconciliationResultV2
+  | { readonly status: 'permanent_failure'; readonly reason: string }
+  | { readonly status: 'system_failure'; readonly reason: string }
+  | { readonly status: 'update_required' }
   | { readonly status: 'unavailable'; readonly retryAfterSeconds?: number };
 
 export interface OfflineLifecycleApiPort {
@@ -106,9 +112,13 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
       JSON.stringify(command),
     );
     if (response.status !== 'response') return transportFailure(response);
-    if (!isJsonContentType(response.contentType)) return { status: 'unavailable' };
+    if (response.statusCode === 426) return { status: 'update_required' };
+    if (response.statusCode === 429 || response.statusCode >= 500) return { status: 'unavailable', ...(response.retryAfterSeconds === undefined ? {} : {retryAfterSeconds:response.retryAfterSeconds}) };
+    if (isSystemHttpFailure(response.statusCode)) return {status:'system_failure',reason:`http_${response.statusCode}`};
+    if (!isJsonContentType(response.contentType)) return { status: 'permanent_failure', reason: 'invalid_response' };
     const body = parseJsonObject(response.body);
-    if (body === null) return { status: 'unavailable' };
+    if (body === null) return { status: 'permanent_failure', reason: 'invalid_response' };
+    if (Object.hasOwn(body, 'contractVersion') || Object.hasOwn(body, 'responseVersion')) return { status: 'update_required' };
 
     if (response.statusCode === 200) {
       return parseDurableResult(body, command, 'synchronized');
@@ -119,14 +129,14 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
       }
       const pending = parsePendingResult(body);
       if (pending === null || !sameRetryAfter(pending.retryAfterSeconds, response.retryAfterSeconds)) {
-        return { status: 'unavailable' };
+        return { status: 'permanent_failure', reason: 'invalid_response' };
       }
       return pending;
     }
     if (response.statusCode === 409) {
-      return parseConflictResult(body) ?? { status: 'unavailable' };
+      return parseConflictResult(body) ?? { status: 'permanent_failure', reason: 'invalid_response' };
     }
-    return { status: 'unavailable' };
+    return { status: 'permanent_failure', reason: response.statusCode>=400 && response.statusCode<500 ? `http_${response.statusCode}` : 'invalid_response' };
   }
 
   async reconcile(
@@ -143,17 +153,20 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
       JSON.stringify({ workEventIds }),
     );
     if (response.status !== 'response') return transportFailure(response);
-    if (response.statusCode !== 200 || !isJsonContentType(response.contentType)) {
-      return { status: 'unavailable' };
-    }
+    if (response.statusCode === 426) return { status: 'update_required' };
+    if (response.statusCode === 429 || response.statusCode >= 500) return { status: 'unavailable', ...(response.retryAfterSeconds === undefined ? {} : {retryAfterSeconds:response.retryAfterSeconds}) };
+    if (isSystemHttpFailure(response.statusCode)) return {status:'system_failure',reason:`http_${response.statusCode}`};
+    if (response.statusCode !== 200) return {status:'permanent_failure',reason:response.statusCode>=400 && response.statusCode<500?`http_${response.statusCode}`:'invalid_response'};
+    if (!isJsonContentType(response.contentType)) return {status:'permanent_failure',reason:'invalid_response'};
     const body = parseJsonObject(response.body);
+    if(body && (Object.hasOwn(body,'contractVersion') || Object.hasOwn(body,'responseVersion')))return {status:'update_required'};
     if (
       body === null
       || !hasExactKeys(body, ['records', 'status'])
       || body.status !== 'ready'
       || !Array.isArray(body.records)
       || body.records.length > workEventIds.length
-    ) return { status: 'unavailable' };
+    ) return { status: 'permanent_failure', reason:'invalid_response' };
     const allowed = new Set(workEventIds);
     const seen = new Set<string>();
     const records: OfflineReconciliationRecordV2[] = [];
@@ -163,7 +176,7 @@ export class OfflineLifecycleClient implements OfflineLifecycleApiPort {
         record === null
         || !allowed.has(record.workEventId)
         || seen.has(record.workEventId)
-      ) return { status: 'unavailable' };
+      ) return { status: 'permanent_failure', reason:'invalid_response' };
       seen.add(record.workEventId);
       records.push(record);
     }
@@ -244,7 +257,7 @@ function parseDurableResult(
     || body.workEventId !== command.workEvent.id
     || body.receiptId !== command.receipt.id
     || body.deviceSequence !== command.deviceSequence
-  ) return { status: 'unavailable' };
+  ) return { status: 'permanent_failure', reason: 'invalid_response' };
   if (expectedStatus === 'review_pending') {
     if (
       !hasExactKeys(body, [
@@ -258,7 +271,7 @@ function parseDurableResult(
       ])
       || typeof body.reason !== 'string'
       || !reviewReasons.has(body.reason as never)
-    ) return { status: 'unavailable' };
+    ) return { status: 'permanent_failure', reason: 'invalid_response' };
     return {
       status: 'review_pending',
       idempotentRetry: body.idempotentRetry,
@@ -281,10 +294,10 @@ function parseDurableResult(
       'status',
       'workEventId',
     ])
-  ) return { status: 'unavailable' };
+  ) return { status: 'permanent_failure', reason: 'invalid_response' };
   const decision = parseDecision(body.decision);
   return decision === null
-    ? { status: 'unavailable' }
+    ? { status: 'permanent_failure', reason: 'invalid_response' }
     : {
         status: 'synchronized',
         archiveStatus: body.archiveStatus,
@@ -429,6 +442,11 @@ function parseDecision(value: unknown): OfflineCanonicalDecision | null {
     && escalationReasons.has(value.reason as BusinessEngineEscalationReason)
   ) return { status: value.status, reason: value.reason };
   return null;
+}
+
+function isSystemHttpFailure(statusCode: number): boolean {
+  return statusCode >= 300 && statusCode < 500
+    && ![400,409,422,426,429].includes(statusCode);
 }
 
 function transportFailure(

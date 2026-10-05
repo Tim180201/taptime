@@ -55,6 +55,7 @@ export type ProductScanProtectionClassification = readonly [ProductScanProtectio
 type ProductScanStateValue =
   | { readonly status: 'inactive' }
   | { readonly status: 'checking' }
+  | { readonly status: 'archive_signout_pending' }
   | { readonly status: 'not_supported' }
   | { readonly status: 'disabled' }
   | { readonly status: 'unavailable' }
@@ -82,12 +83,17 @@ type ProductScanStateValue =
       readonly status: 'protected_pending';
       readonly reason:
         | 'identity_mismatch'
+        | 'quarantine'
         | 'legacy_membership_unknown'
         | 'local_evidence_protected';
     };
 
 export type ProductScanState = ProductScanStateValue & {
   readonly protection?: ProductScanProtectionClassification;
+  readonly untransferred?: readonly {readonly workEventId:string;readonly occurredAt:string;readonly displayName:string;readonly reason:string}[];
+  readonly updateRequired?: boolean;
+  readonly transmissionPaused?: boolean;
+  readonly transmissionRetryAvailable?: boolean;
 };
 
 export interface ProductScanCapability {

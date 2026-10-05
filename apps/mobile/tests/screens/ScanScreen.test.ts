@@ -30,6 +30,17 @@ const {
 } = await import('../../src/screens/ScanScreen');
 
 describe('ScanScreen presentation', () => {
+  it('T-095 D-121 explains the paused sequence without claiming storage progress',()=>{
+    const state={status:'saved_locally' as const,queueCount:1,transmissionPaused:true,
+      untransferred:[{workEventId:'failed',displayName:'Kunde X',occurredAt:'2026-10-05T06:12:00Z',reason:'lease_binding_conflict'}]};
+    const result=presentScanState(state);
+    expect(`${result.title}: ${result.message}`).toBe('Übertragung angehalten: 1 Erfassung konnte nicht übertragen werden. Bitte wende dich an deine Verwaltung.');
+    expect(result.tone).toBe('warning');
+  });
+  it('T-095 D-120 explains waiting before sign-out separately from another account\'s unbooked events',()=>{
+    expect(presentScanState({status:'archive_signout_pending'}).message).toBe('Deine Erfassungen werden noch gesichert. Abmelden ist gleich möglich.');
+    expect(presentScanState({status:'protected_pending',reason:'identity_mismatch'}).title).toBe('Vorgänge eines anderen Kontos offen');
+  });
   it('explains local storage protection without claiming a membership mismatch', () => {
     const local = presentScanState({ status: 'protected_pending', reason: 'local_evidence_protected' });
     const identity = presentScanState({ status: 'protected_pending', reason: 'identity_mismatch' });

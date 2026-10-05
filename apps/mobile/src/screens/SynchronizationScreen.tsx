@@ -19,16 +19,19 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
     <Card><Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>Zustand</Text>
       <Text accessibilityLiveRegion="polite" style={{ fontSize: 15, fontWeight: '800',
         color: status.kind === 'confirmed' ? mobileTokens.color.accent : mobileTokens.color.notice }}>
-        {status.kind === 'confirmed' ? 'Alles bestätigt' : status.kind === 'pending' ? 'Wird nachgereicht'
+        {state.transmissionPaused ? `Übertragung angehalten: ${presentScanState(state).message}` : state.updateRequired ? 'Bitte App aktualisieren' : state.untransferred?.length ? `${state.untransferred.length} Erfassung konnte nicht übertragen werden` : status.kind === 'confirmed' ? 'Alles bestätigt' : status.kind === 'pending' ? 'Wird nachgereicht'
           : status.kind === 'protected' ? 'Vorgänge geschützt' : status.kind === 'review' ? 'Prüfung erforderlich' : 'Noch nicht bestätigt'}
       </Text>
-      {status.kind === 'protected' || status.kind === 'review' ? <Text>{presentScanState(state).message}</Text> : null}
+      {state.untransferred?.length ? <Text>Der Beleg bleibt erhalten und sperrt den Kontowechsel. Prüfe „Meine Zeiten“; fehlende Zeit kannst du über „Nachtragen“ ergänzen.</Text> : status.kind === 'protected' || status.kind === 'review' ? <Text>{presentScanState(state).message}</Text> : null}
+      {state.transmissionPaused ? state.untransferred?.map(entry=><Text key={entry.workEventId}>{entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>) : null}
     </Card>
     <Card><Text style={{ fontWeight: '800' }}>Wartet auf den Server</Text>
       <Text>{status.count === null ? 'Der aktuelle Stand ist noch nicht bekannt.'
         : status.count === 0 ? 'Keine offenen Übertragungen' : `${status.count} ${status.count === 1 ? 'Vorgang wartet' : 'Vorgänge warten'} auf Bestätigung.`}</Text>
     </Card>
-    {state.status === 'retry_pending' || state.status === 'saved_locally'
+    {state.transmissionPaused && state.transmissionRetryAvailable
+      ? <ActionButton title="Erneut versuchen" onPress={() => scan.retry()} /> : null}
+    {!state.transmissionPaused && (state.status === 'retry_pending' || state.status === 'saved_locally')
       ? <ActionButton title="Abgleich erneut versuchen" onPress={() => scan.retry()} /> : null}
     <Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>
       Nichts löschen, nichts neu installieren. Wenn hier etwas hängt, hilft dir der Support.
