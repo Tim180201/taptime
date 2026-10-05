@@ -58,6 +58,7 @@ export interface RefreshTokenStore {
 }
 
 export type BackendSessionResolution =
+  | { readonly status: 'update_required' }
   | { readonly status: 'organization_paused' }
   | { readonly status: 'resolved'; readonly session: ProductSessionContext }
   | { readonly status: 'authority_rejected' }
@@ -100,7 +101,7 @@ export type MobileSessionState =
       readonly status: 'enrollment_only';
       readonly notice: 'enrollment_unavailable' | 'invalid_request' | 'request_failed' | null;
     }
-  | { readonly status: 'context_unavailable'; readonly identityLabel?: string; readonly organizationPaused?: boolean }
+  | { readonly status: 'context_unavailable'; readonly identityLabel?: string; readonly organizationPaused?: boolean; readonly updateRequired?: boolean }
   | {
       readonly status: 'runtime_unavailable';
       readonly reason: 'authentication_unavailable' | 'storage_unavailable';

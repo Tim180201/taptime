@@ -185,6 +185,11 @@ tb-infra.de {
 		try_files index.html
 	}
 	handle @landingEnabled {
+		handle /.well-known/assetlinks.json {
+			root * /srv/landing-web/current
+			header Content-Type "application/json"
+			file_server
+		}
 		@landingApi path_regexp ^/(v[0-9]+(/|$)|health(/|$))
 		handle @landingApi {
 			respond 404

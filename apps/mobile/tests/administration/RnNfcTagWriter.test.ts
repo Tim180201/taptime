@@ -32,15 +32,13 @@ beforeEach(() => {
 
 function writtenUri(bytes: number[]): string {
   const records = Ndef.decodeMessage(bytes);
-  expect(records).toHaveLength(2);
-  expect(Ndef.isType(records[1], Ndef.TNF_EXTERNAL_TYPE, 'android.com:pkg')).toBe(true);
-  expect(Ndef.util.bytesToString(records[1].payload)).toBe(packageName);
+  expect(records).toHaveLength(1);
   expect(Ndef.isType(records[0], Ndef.TNF_WELL_KNOWN, Ndef.RTD_URI)).toBe(true);
   return Ndef.uri.decodePayload(records[0].payload);
 }
 
 describe('RnNfcTagWriter', () => {
-  it('writes the same URI and Android dispatch record inside an already connected iOS tag session', async () => {
+  it('writes one URI record inside an already connected iOS tag session', async () => {
     manager.getTag.mockResolvedValue({ id: tag.id, type: 'mifare' });
     await expect(new RnNfcTagWriter(packageName, 'ios').write(payload, TAG_URI)).resolves.toEqual({ status: 'written' });
     expect(writtenUri(manager.ndefHandler.writeNdefMessage.mock.calls[0]![0])).toBe(TAG_URI);
@@ -76,7 +74,7 @@ describe('RnNfcTagWriter', () => {
     complete();
     await expect(pending).resolves.toEqual({ status: 'failed', reason: 'cancelled' });
   });
-  it('reuses the captured tag, writes URI then AAR idempotently and releases the native handle', async () => {
+  it('reuses the captured tag, writes one URI idempotently and releases the native handle', async () => {
     const writer = new RnNfcTagWriter(packageName);
     await expect(writer.write(payload, TAG_URI)).resolves.toEqual({ status: 'written' });
     expect(manager.connect).toHaveBeenCalledWith(['Ndef', 'NdefFormatable']);
@@ -121,23 +119,13 @@ describe('RnNfcTagWriter', () => {
     expect(manager.cancelTechnologyRequest).toHaveBeenCalledOnce();
   });
 
-  it.each([undefined, null, '', '   '])('does not touch a tag without a package name (%s)', async (missing) => {
-    await expect(new RnNfcTagWriter(missing).write(payload, TAG_URI)).resolves.toEqual({ status: 'failed', reason: 'write_failed' });
-    expect(manager.connect).not.toHaveBeenCalled();
-    expect(manager.ndefHandler.writeNdefMessage).not.toHaveBeenCalled();
-    expect(manager.ndefFormatableHandlerAndroid.formatNdef).not.toHaveBeenCalled();
-  });
-
-  it('checks capacity against URI plus AAR, not just the URI', async () => {
-    const uriSize = Ndef.encodeMessage([Ndef.uriRecord(TAG_URI)]).length;
-    const totalSize = Ndef.encodeMessage([Ndef.uriRecord(TAG_URI), Ndef.androidApplicationRecord(packageName)]).length;
-    expect(totalSize).toBeGreaterThan(uriSize);
-    manager.ndefHandler.getNdefStatus.mockResolvedValueOnce({ status: 2, capacity: uriSize });
-    await expect(new RnNfcTagWriter(packageName).write(payload, TAG_URI)).resolves.toEqual({ status: 'failed', reason: 'capacity_exceeded' });
-    expect(manager.ndefHandler.writeNdefMessage).not.toHaveBeenCalled();
-    manager.ndefHandler.getNdefStatus.mockResolvedValueOnce({ status: 2, capacity: totalSize });
-    await expect(new RnNfcTagWriter(packageName).write(payload, TAG_URI)).resolves.toEqual({ status: 'written' });
+  it.each([undefined, null, '', '   '])('writes without an app package name (%s)', async (missing) => {
+    await expect(new RnNfcTagWriter(missing).write(payload, TAG_URI)).resolves.toEqual({status:'written'});
     expect(writtenUri(manager.ndefHandler.writeNdefMessage.mock.calls[0]![0])).toBe(TAG_URI);
+  });
+  it('fits the tag when capacity is exactly one URI', async () => {
+    manager.ndefHandler.getNdefStatus.mockResolvedValueOnce({status:2,capacity:Ndef.encodeMessage([Ndef.uriRecord(TAG_URI)]).length});
+    await expect(new RnNfcTagWriter(packageName).write(payload,TAG_URI)).resolves.toEqual({status:'written'});
   });
 
   it('does not mistake a resolved connect for successful writing', async () => {

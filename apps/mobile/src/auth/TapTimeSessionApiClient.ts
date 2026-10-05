@@ -40,7 +40,7 @@ export class TapTimeSessionApiClient implements BackendSessionPort {
       const response = await this.fetchRequest(this.endpoint.href, {
         method: 'GET',
         headers: {
-          Accept: 'application/vnd.taptime.mobile-session.v2+json',
+          Accept: 'application/vnd.taptime.mobile-session.v3+json',
           Authorization: `Bearer ${accessToken}`,
         },
         cache: 'no-store',
@@ -51,6 +51,7 @@ export class TapTimeSessionApiClient implements BackendSessionPort {
       if (response.redirected) {
         return { status: 'unavailable' };
       }
+      if (response.status === 426) return {status:'update_required'};
       if (response.status === 401) {
         return { status: 'authority_rejected' };
       }

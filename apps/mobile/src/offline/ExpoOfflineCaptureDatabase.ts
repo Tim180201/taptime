@@ -1,3 +1,4 @@
+import { ensureOfflineBackupBoundary, OFFLINE_STORAGE_PLATFORM } from './OfflineBackupBoundary';
 import * as SecureStore from 'expo-secure-store';
 import { getRandomBytesAsync } from 'expo-crypto';
 import { readDirectoryAsync, makeDirectoryAsync, deleteAsync } from 'expo-file-system/legacy';
@@ -25,7 +26,10 @@ export function getExpoOfflineCaptureDatabase(databaseKey: Uint8Array, databaseN
     return actor.database;
   }
   const database = new OfflineCaptureDatabase(
-    async name => new ExpoSqliteConnection(await openDatabaseAsync(name, { useNewConnection: true })),
+    async name => {
+      await ensureOfflineBackupBoundary(defaultDatabaseDirectory);
+      return new ExpoSqliteConnection(await openDatabaseAsync(name, { useNewConnection: true }));
+    },
     databaseKey, databaseName,
   );
   actors.set(databaseName, { keyHex, database });
@@ -35,7 +39,7 @@ export function getExpoOfflineCaptureDatabase(databaseKey: Uint8Array, databaseN
 let accountStorage: OfflineAccountStorage | undefined;
 export function getExpoOfflineAccountStorage(): OfflineAccountStorage {
   return accountStorage ??= new OfflineAccountStorage(SecureStore, getRandomBytesAsync,
-    getExpoOfflineCaptureDatabase, expoOfflineDatabaseFiles());
+    getExpoOfflineCaptureDatabase, expoOfflineDatabaseFiles(), OFFLINE_STORAGE_PLATFORM);
 }
 
 export function expoOfflineDatabaseFiles(): OfflineDatabaseFiles {
@@ -43,6 +47,7 @@ export function expoOfflineDatabaseFiles(): OfflineDatabaseFiles {
       async list() {
         const directory = databaseDirectory();
         await makeDirectoryAsync(directory, { intermediates: true });
+        await ensureOfflineBackupBoundary(defaultDatabaseDirectory);
         // The legacy API throws on an unreadable directory; Directory.list() can return [].
         return readDirectoryAsync(directory);
       },

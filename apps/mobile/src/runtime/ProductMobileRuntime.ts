@@ -1,3 +1,5 @@
+import { nativeBuildVersion } from 'expo-application';
+import { versionedAppFetch } from '../transport/versionedAppFetch';
 import * as Network from 'expo-network';
 import { TimeEditingCoordinator } from '../timeEditing/TimeEditingCoordinator';
 import { EmployeesCoordinator } from '../employees/EmployeesCoordinator';
@@ -73,20 +75,26 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     configuration.configuration.supabaseUrl,
     configuration.configuration.supabasePublishableKey,
   );
-  const coordinator = new MobileSessionCoordinator(
+  let coordinator: MobileSessionCoordinator;
+  const appFetch = versionedAppFetch(expoFetch as typeof fetch, {
+    platform: Platform.OS === 'ios' ? 'ios' : 'android',
+    build: Number(nativeBuildVersion) || 0,
+    commit: Constants.expoConfig?.extra?.taptimeBuild?.sourceCommit ?? 'development',
+  }, token => coordinator.appUpdateRequired(token));
+  coordinator = new MobileSessionCoordinator(
     provider,
     new ExpoRefreshTokenStore(),
-    new TapTimeSessionApiClient(configuration.configuration.tapTimeApiBaseUrl),
+    new TapTimeSessionApiClient(configuration.configuration.tapTimeApiBaseUrl, appFetch),
     new TapTimeEmployeeEnrollmentApiClient(
       configuration.configuration.tapTimeApiBaseUrl,
-      expoFetch as typeof fetch,
+      appFetch,
     ),
     randomUUID,
   );
   const appStateLifecycle = createNativeAppStateAutoRefreshLifecycle(provider);
   // Expo's native fetch exposes a real ReadableStream, allowing the transport to stop oversized
   // responses before they are buffered in full by React Native's legacy fetch polyfill.
-  const authenticatedRequests = new AuthenticatedHttpRequestExecutor(coordinator, expoFetch);
+  const authenticatedRequests = new AuthenticatedHttpRequestExecutor(coordinator, appFetch);
   const serverTransport: ProductServerTransport = Object.freeze({
     lifecycle: new TapTimeLifecycleApiClient(
       configuration.configuration.tapTimeApiBaseUrl,
@@ -200,7 +208,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       nativeNfcIngressLifecycle,
       scanOrchestrator,
       scanFeedback,
-      new EmployeesCoordinator(scanSessionContext, new TapTimeEmployeesApiClient(configuration.configuration.tapTimeApiBaseUrl, new AuthenticatedHttpRequestExecutor(coordinator, expoFetch, undefined, true)), randomUUID),
+      new EmployeesCoordinator(scanSessionContext, new TapTimeEmployeesApiClient(configuration.configuration.tapTimeApiBaseUrl, new AuthenticatedHttpRequestExecutor(coordinator, appFetch, undefined, true)), randomUUID),
       new TimeEditingCoordinator(new URL(configuration.configuration.tapTimeApiBaseUrl),authenticatedRequests,scanSessionContext,randomUUID,{
         get:async()=>{const state=await Network.getNetworkStateAsync();return state.isConnected===true && state.isInternetReachable!==false;},
         subscribe:listener=>{const subscription=Network.addNetworkStateListener(state=>listener(state.isConnected===true && state.isInternetReachable!==false));return ()=>subscription.remove();},

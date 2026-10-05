@@ -19,8 +19,8 @@ vi.mock('react-native', () => {
     Easing: {}, AccessibilityInfo: {}, Linking: {}, BackHandler: {} };
 });
 const { AppNavigator } = await import('../../src/navigation/AppNavigator');
-function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'administrator', paused = false) {
-  const session = { getState: () => paused ? {status: 'context_unavailable', organizationPaused: true} : ({ status: 'authenticated', session: {
+function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'administrator', paused = false, updateRequired = false) {
+  const session = { getState: () => updateRequired ? {status: 'context_unavailable', updateRequired: true} : paused ? {status: 'context_unavailable', organizationPaused: true} : ({ status: 'authenticated', session: {
     userId: 'user', organizationId: 'business', membershipId: 'membership', role, nfcSetupAvailable,
   } }), subscribe: () => () => {}, signOut: async () => {}, signIn: async () => ({ status: 'authenticated' }),
     signInForEmployeeEnrollment: async () => ({ status: 'authenticated' }),
@@ -36,6 +36,13 @@ function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'admin
   }));
 }
 describe('rendered navigation', () => {
+  it('T-096 shows the update instruction even when an offline capture shell was ready', () => {
+    const html = markup('employee', false, false, true);
+    expect(html).toContain('Bitte App aktualisieren');
+    expect(html).toContain('Deine Erfassungen bleiben auf dem Handy gespeichert.');
+    expect(html).not.toContain('role="tab"');
+    expect(html).not.toContain('Erneut versuchen');
+  });
   it('T068a shows the pause notice even when an offline capture shell was ready', () => {
     const html = markup('employee', false, true);
     expect(html).toContain('Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.');

@@ -36,7 +36,7 @@ function harness() {
     const db = new OfflineCaptureDatabase(async filename => new NodeSqliteOfflineConnection(join(root, filename)), key, name);
     connections.push(db); return db;
   };
-  const boot = () => new OfflineAccountStorage(port, async n => new Uint8Array(n).fill(++seed), factory, files);
+  const boot = (platform = 'android') => new OfflineAccountStorage(port, async n => new Uint8Array(n).fill(++seed), factory, files, platform);
   const bind = async (store: OfflineAccountStorage) => {
     const opened = await store.open();
     await opened.database.bindOwner({ ...account(), installationBindingDigest: mobileSha256Hex(decodeBase64Url32(opened.secrets.installationBinding)!) });
@@ -48,6 +48,65 @@ function harness() {
 const newAccount = account('30000000-0000-4000-8000-000000000002');
 
 describe('T-076 generations on real SQLite', () => {
+  it('T-096 creates a fresh iOS installation when keychain survives but the database is gone',async()=>{
+    const h=harness();const old=await h.bind(h.boot('ios'));await h.close();
+    for(const name of readdirSync(h.root))rmSync(join(h.root,name));
+    h.values.set('taptime.lifecycle-evidence-outbox.v1','legacy evidence');
+    const fresh=await h.boot('ios').open();
+    expect(fresh.secrets.installationBinding).not.toBe(old.secrets.installationBinding);
+    expect(await fresh.database.queueCount()).toBe(0);
+    expect(h.values.get('taptime.lifecycle-evidence-outbox.v1')).toBe('legacy evidence');
+    await h.close();
+  });
+  it('T-096 recovers a partial first initialization without a marker or database',async()=>{
+    const h=harness();h.values.set('taptime.offline.installation-binding.v1','partial');
+    const opened=await h.boot().open();expect(opened.secrets.installationBinding).not.toBe('partial');await h.close();
+  });
+  it.each(['installation-binding', 'lookup-key', 'database-key'])(
+    'T-096 recovers first-start interruption after %s', async interruptedKey => {
+      const h = harness();
+      h.fault(key => { if (key === `taptime.offline.${interruptedKey}.v1`) throw new Error('process stopped'); });
+      await expect(h.boot().open()).rejects.toThrow();
+      expect(readdirSync(h.root)).toEqual([]);
+      expect(h.values.has('taptime.offline.initialized.v1')).toBe(false);
+      h.fault(null);
+      const fresh = await h.bind(h.boot());
+      expect(await fresh.database.readOwner()).toMatchObject(account());
+      await h.close();
+    },
+  );
+  it('T-096 replaces a missing named iOS generation without removing the retained legacy database', async () => {
+    const h = harness(); const process = h.boot('ios'); const old = await h.bind(process);
+    const next = await process.switchOwner(old.database, old.secrets, newAccount, async () => true);
+    await h.close();
+    const previous = JSON.parse(h.values.get('taptime.offline.generations.v1')!);
+    rmSync(join(h.root, previous.active.name));
+    const fresh = await h.boot('ios').open();
+    expect(fresh.secrets.installationBinding).not.toBe(next!.secrets.installationBinding);
+    expect(await fresh.database.readOwner()).toBeNull();
+    expect(h.files.remove).not.toHaveBeenCalled();
+    expect(readdirSync(h.root)).toContain('taptime-offline-v1.db');
+    await h.close();
+    const reopened = await h.boot('ios').open();
+    expect(reopened.secrets.installationBinding).toBe(fresh.secrets.installationBinding);
+    expect(h.files.remove).not.toHaveBeenCalled();
+    await h.close();
+  });
+  it('T-096 keeps a prepared iOS generation protected even when the active file is absent', async () => {
+    const h = harness(); const process = h.boot('ios'); const old = await h.bind(process);
+    let prepared: string | undefined;
+    h.fault((key, value) => { if (key.includes('generations') && value.includes('"prepared":{')) prepared = value; });
+    await process.switchOwner(old.database, old.secrets, newAccount, async () => true);
+    await h.close();
+    h.values.set('taptime.offline.generations.v1', prepared!);
+    rmSync(join(h.root, 'taptime-offline-v1.db'));
+    const before = new Map(h.values);
+    await expect(h.boot('ios').open()).rejects.toThrow(/protected/i);
+    expect(h.values).toEqual(before);
+    expect(h.files.remove).not.toHaveBeenCalled();
+    await h.close();
+  });
+
   it('T-095b switches after a report but retains the original encrypted generation at every cold start', async () => {
     const h=harness();const process=h.boot();const old=await h.bind(process);
     const native=new NodeSqliteOfflineConnection(join(h.root,'taptime-offline-v1.db'));

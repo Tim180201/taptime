@@ -10,6 +10,10 @@ const session = {
 };
 
 describe('TapTimeSessionApiClient', () => {
+  it('T-096 reports update required without rejecting authority', async () => {
+    const client = new TapTimeSessionApiClient('https://api.example/', async () => Response.json({error:{code:'app_update_required'}},{status:426}));
+    expect(await client.resolve('token')).toEqual({status:'update_required'});
+  });
   it('binds the default browser fetch to its global receiver', async () => {
     vi.stubGlobal('fetch', function (this: unknown) {
       if (this !== globalThis) throw new TypeError('Illegal invocation');
@@ -92,7 +96,7 @@ describe('TapTimeSessionApiClient', () => {
     expect(String(url)).toBe('https://api.taptime.example/base/v1/session');
     expect(init).toEqual({
       method: 'GET',
-      headers: { Accept: 'application/vnd.taptime.mobile-session.v2+json', Authorization: 'Bearer memory-only-access' },
+      headers: { Accept: 'application/vnd.taptime.mobile-session.v3+json', Authorization: 'Bearer memory-only-access' },
       cache: 'no-store',
       credentials: 'omit',
       redirect: 'error',

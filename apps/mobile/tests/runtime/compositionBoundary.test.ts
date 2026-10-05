@@ -6,6 +6,7 @@ import { selectMobileCompositionMode } from '../../src/runtime/compositionMode';
 
 const { writerPackages } = vi.hoisted(() => ({ writerPackages: vi.fn() }));
 vi.mock('expo-constants', () => ({ default: { expoConfig: { android: { package: 'de.example.runtime' } } } }));
+vi.mock('expo-application', () => ({ nativeBuildVersion: '12' }));
 vi.mock('../../src/administration/RnNfcTagWriter', () => ({
   RnNfcTagWriter: class {
     constructor(packageName: string | null | undefined) { writerPackages(packageName); }

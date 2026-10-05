@@ -328,3 +328,5 @@ export * from './administrationStopArchive.js';
 
 export * from './customerHours.js';
 export * from './captureTime.js';
+
+export * from './appVersion.js';

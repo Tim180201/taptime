@@ -12,6 +12,7 @@
     "@taptime/offline-sync-contract": "*",
     "@taptime/time-review-contract": "*",
     "expo": "~57.0.2",
+    "expo-application": "~57.0.0",
     "expo-background-task": "~57.0.5",
     "expo-constants": "~57.0.3",
     "expo-crypto": "~57.0.0",

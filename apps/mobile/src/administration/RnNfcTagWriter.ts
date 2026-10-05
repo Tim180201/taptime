@@ -7,16 +7,13 @@ export class RnNfcTagWriter implements NfcTagWriter {
   private flight: Promise<TagWriteResult> | null = null;
   private generation = 0;
 
-  constructor(private readonly packageName: string | null | undefined, private readonly platform = 'android') {}
+  constructor(_packageName: string | null | undefined, private readonly platform = 'android') {}
 
   write(canonicalPayload: string, uri: string): Promise<TagWriteResult> {
-    if (typeof this.packageName !== 'string' || this.packageName.trim().length === 0) {
-      return Promise.resolve({ status: 'failed', reason: 'write_failed' });
-    }
     if (this.flight !== null) return Promise.resolve({ status: 'failed', reason: 'write_failed' });
     const operation = this.platform === 'ios'
-      ? this.performIosWrite(canonicalPayload, uri, this.packageName, this.generation)
-      : this.performWrite(canonicalPayload, uri, this.packageName, this.generation);
+      ? this.performIosWrite(canonicalPayload, uri, this.generation)
+      : this.performWrite(canonicalPayload, uri, this.generation);
     const flight = operation.finally(() => {
       if (this.flight === flight) this.flight = null;
     });
@@ -34,7 +31,7 @@ export class RnNfcTagWriter implements NfcTagWriter {
     await this.flight;
   }
 
-  private async performIosWrite(canonicalPayload: string, uri: string, packageName: string, generation: number): Promise<TagWriteResult> {
+  private async performIosWrite(canonicalPayload: string, uri: string, generation: number): Promise<TagWriteResult> {
     const cancelled = () => generation !== this.generation;
     try {
       const tag = await NfcManager.getTag();
@@ -42,8 +39,8 @@ export class RnNfcTagWriter implements NfcTagWriter {
       if (typeof tag?.id !== 'string' || createCanonicalNfcUidPayload(tag.id) !== canonicalPayload) {
         return { status: 'failed', reason: 'tag_changed' };
       }
-      // Same bytes as Android, including its dispatch record; neither platform locks tags.
-      const bytes = Ndef.encodeMessage([Ndef.uriRecord(uri), Ndef.androidApplicationRecord(packageName)]);
+      // Same bytes as Android, a single URI record; neither platform locks tags.
+      const bytes = Ndef.encodeMessage([Ndef.uriRecord(uri)]);
       const status = await NfcManager.ndefHandler.getNdefStatus();
       if (cancelled()) return { status: 'failed', reason: 'cancelled' };
       if (status.status === NdefStatus.ReadOnly) return { status: 'failed', reason: 'read_only' };
@@ -56,7 +53,7 @@ export class RnNfcTagWriter implements NfcTagWriter {
     }
   }
 
-  private async performWrite(canonicalPayload: string, uri: string, packageName: string, generation: number): Promise<TagWriteResult> {
+  private async performWrite(canonicalPayload: string, uri: string, generation: number): Promise<TagWriteResult> {
     const cancelled = (): boolean => generation !== this.generation;
     let result: TagWriteResult = { status: 'failed', reason: 'write_failed' };
     try {
@@ -71,7 +68,6 @@ export class RnNfcTagWriter implements NfcTagWriter {
       }
       const bytes = Ndef.encodeMessage([
         Ndef.uriRecord(uri),
-        Ndef.androidApplicationRecord(packageName),
       ]);
       if (tag.techTypes?.includes('android.nfc.tech.Ndef')) {
         const status = await NfcManager.ndefHandler.getNdefStatus();

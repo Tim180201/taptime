@@ -46,17 +46,24 @@ export class OfflineInstallationIdentityStore {
     private readonly randomBytes: (length: number) => Promise<Uint8Array> = getRandomBytesAsync,
   ) {}
 
-  loadOrCreate(): Promise<OfflineInstallationSecretsResult> {
+  loadOrCreate(repairFirstInitialization = false, orphaned = false): Promise<OfflineInstallationSecretsResult> {
     return this.serialized(async () => {
       if (!await this.secureStore.isAvailableAsync()) {
         return { status: 'unavailable' };
       }
-      const [initialized, installationBinding, lookupKey, databaseKey] = await Promise.all([
+      let [initialized, installationBinding, lookupKey, databaseKey] = await Promise.all([
         this.secureStore.getItemAsync(INITIALIZED_KEY, secureStoreOptions),
         this.secureStore.getItemAsync(INSTALLATION_BINDING_KEY, secureStoreOptions),
         this.secureStore.getItemAsync(LOOKUP_KEY, secureStoreOptions),
         this.secureStore.getItemAsync(DATABASE_KEY, secureStoreOptions),
       ]);
+      if (orphaned) {
+        // Called only after the filesystem proves the database and its sidecars absent.
+        // Removing the marker first makes an interrupted reset recoverable on the next start.
+        await this.secureStore.deleteItemAsync(INITIALIZED_KEY, secureStoreOptions);
+        initialized = null;
+        installationBinding = lookupKey = databaseKey = null;
+      }
       if (initialized !== null && initialized !== INITIALIZED_VALUE) {
         return { status: 'protected', reason: 'wrong_key' };
       }
@@ -84,7 +91,7 @@ export class OfflineInstallationIdentityStore {
           }),
         };
       }
-      if (installationBinding !== null || lookupKey !== null || databaseKey !== null) {
+      if (!repairFirstInitialization && (installationBinding !== null || lookupKey !== null || databaseKey !== null)) {
         return { status: 'protected', reason: 'missing_key' };
       }
       const generatedBinding = await this.generate(OFFLINE_INSTALLATION_BINDING_BYTES);

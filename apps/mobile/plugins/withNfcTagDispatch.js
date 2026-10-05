@@ -60,13 +60,14 @@ function mutateAndroidManifest(manifest, hosts) {
       {
         action: [{ $: { 'android:name': NDEF_ACTION } }],
         category: [{ $: { 'android:name': DEFAULT_CATEGORY } }],
-        data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:pathPrefix': '/tag' } }],
+        data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:path': '/tag' } }],
       },
       {
+        $: {'android:autoVerify':'true'},
         action: [{ $: { 'android:name': VIEW_ACTION } }],
         category: [{ $: { 'android:name': DEFAULT_CATEGORY } },
           { $: { 'android:name': 'android.intent.category.BROWSABLE' } }],
-        data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:pathPrefix': '/tag' } }],
+        data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:path': '/tag' } }],
       },
     ]),
   ];

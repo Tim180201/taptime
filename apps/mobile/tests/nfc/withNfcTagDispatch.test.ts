@@ -48,13 +48,13 @@ describe('Android NFC Tag Dispatch configuration plugin', () => {
       exactNfcFilter(),
       ...hosts.flatMap((host) => [
         { ...nfcFilter('android.nfc.action.NDEF_DISCOVERED'),
-          data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:pathPrefix': '/tag' } }] },
-        { action: [named('android.intent.action.VIEW')],
+          data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:path': '/tag' } }] },
+        { $: {'android:autoVerify':'true'}, action: [named('android.intent.action.VIEW')],
           category: [named('android.intent.category.DEFAULT'), named('android.intent.category.BROWSABLE')],
-          data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:pathPrefix': '/tag' } }] },
+          data: [{ $: { 'android:scheme': 'https', 'android:host': host, 'android:path': '/tag' } }] },
       ]),
     ]);
-    expect(JSON.stringify(manifest)).not.toContain('autoVerify');
+    expect(JSON.stringify(manifest)).toContain('autoVerify');
   });
 
   it('canonicalizes only the exact NFC dispatch while preserving unrelated filters idempotently', () => {
@@ -266,8 +266,8 @@ describe('Android NFC Tag Dispatch configuration plugin', () => {
   });
 
   it.each([
-    { label: 'foreign host', data: { 'android:scheme': 'https', 'android:host': 'foreign.example', 'android:pathPrefix': '/tag' } },
-    { label: 'wrong scheme', data: { 'android:scheme': 'http', 'android:host': TAG_HOSTS[0], 'android:pathPrefix': '/tag' } },
+    { label: 'foreign host', data: { 'android:scheme': 'https', 'android:host': 'foreign.example', 'android:path': '/tag' } },
+    { label: 'wrong scheme', data: { 'android:scheme': 'http', 'android:host': TAG_HOSTS[0], 'android:path': '/tag' } },
     { label: 'missing path', data: { 'android:scheme': 'https', 'android:host': TAG_HOSTS[0] } },
   ])('rejects $label without modifying the manifest', ({ data }) => {
     const manifest = manifestFixture({ mainFilters: [{ ...nfcFilter('android.nfc.action.NDEF_DISCOVERED'), data: [{ $: data }] }] });

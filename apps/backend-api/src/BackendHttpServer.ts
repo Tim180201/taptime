@@ -1,3 +1,5 @@
+import { APP_VERSION_HEADER, APP_UPDATE_MESSAGE, MOBILE_SESSION_V2, MOBILE_SESSION_V3, parseAppVersion } from '@taptime/mobile-work-contract';
+import minimumAppBuilds from './minimumAppBuilds.json';
 import { isOfflineSequenceSkipCommand } from '@taptime/offline-sync-contract';
 import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
@@ -310,6 +312,18 @@ async function handleRequest(
   resolveClientAddress: ClientAddressResolver,
   rateLimiter: RequestRateLimiter,
 ): Promise<void> {
+  // A missing header is an installed pre-T-096 app, retained for compatibility.
+  // Version metadata is never authentication or tenant authority.
+  const appHeaders = rawHeaderValues(request, APP_VERSION_HEADER.toLowerCase());
+  const appRoute = requestRoute(request.url);
+  if (appRoute !== null && appRoute !== 'health' && !appRoute.startsWith('operator_') && appHeaders.length > 0) {
+    const version = appHeaders.length === 1 ? parseAppVersion(appHeaders[0]!) : null;
+    if (version === null || version.build < minimumAppBuilds[version.platform]) {
+      request.resume();
+      respondJson(response, 426, {error:{code:'app_update_required',message:APP_UPDATE_MESSAGE}});
+      return;
+    }
+  }
   const rateLimitScope = requestRateLimitScope(request.url);
   const requiresClientAddress = rateLimitScope !== null || requestRoute(request.url) === 'health';
   const clientAddress = requiresClientAddress ? resolveClientAddress(request) : null;
@@ -431,7 +445,7 @@ async function handleRequest(
       options,
       correlationId,
       timeoutMilliseconds,
-      request.headers.accept === 'application/vnd.taptime.mobile-session.v2+json',
+      request.headers.accept === MOBILE_SESSION_V3 ? 3 : request.headers.accept === MOBILE_SESSION_V2 ? 2 : 1,
     );
     return;
   }
@@ -1076,7 +1090,7 @@ async function handleSession(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
-  includeNfcSetup: boolean,
+  representation: 1 | 2 | 3,
 ): Promise<void> {
   try {
     const resolution = await withTimeout(
@@ -1090,8 +1104,8 @@ async function handleSession(
     // Installed Mobile clients reject extra JSON fields. Representation opt-in
     // must never be used as authority; the capability always comes from SQL.
     response.setHeader('Vary', 'Accept');
-    if (includeNfcSetup) {
-      response.setHeader('Content-Type', 'application/vnd.taptime.mobile-session.v2+json; charset=utf-8');
+    if (representation !== 1) {
+      response.setHeader('Content-Type', `${representation === 3 ? MOBILE_SESSION_V3 : MOBILE_SESSION_V2}; charset=utf-8`);
       respondJson(response, 200, resolution.session);
     } else {
       const { userId, membershipId, organizationId, role } = resolution.session;

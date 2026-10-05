@@ -37,6 +37,14 @@ const configuration = {
     taptimeBuild: { sourceCommit: buildSourceCommit },
     nfcTagHosts: TAG_HOSTS,
   },
+  ios: {
+    ...base.expo.ios,
+    supportsTablet: false,
+    infoPlist: {
+      ...base.expo.ios.infoPlist,
+      UIRequiredDeviceCapabilities: ['nfc'],
+    },
+  },
   android: {
     ...base.expo.android,
     package: productionValidation

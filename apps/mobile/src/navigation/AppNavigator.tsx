@@ -106,10 +106,10 @@ export function AppNavigator({
       );
     }
     return (
-      <MessageScreen title={state.organizationPaused
+      <MessageScreen title={state.updateRequired ? 'Bitte App aktualisieren' : state.organizationPaused
         ? 'Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.'
         : 'Sitzungskontext vorübergehend nicht verfügbar.'}>
-        <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />
+        {state.updateRequired ? <Text>Deine Erfassungen bleiben auf dem Handy gespeichert.</Text> : <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />}
         <ActionButton title="Abmelden" tone="quiet" onPress={() => session.signOut()} />
       </MessageScreen>
     );

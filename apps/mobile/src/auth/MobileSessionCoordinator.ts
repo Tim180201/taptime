@@ -44,6 +44,7 @@ export class MobileSessionCoordinator implements
   AuthenticatedRequestCapability {
   private state: MobileSessionState = Object.freeze({ status: 'initializing' });
   private pausedOrganization = false;
+  private updateRequired = false;
   private pauseRevision = 0;
   private readonly listeners = new Set<() => void>();
   private started = false;
@@ -84,6 +85,16 @@ export class MobileSessionCoordinator implements
 
   getState(): MobileSessionState {
     return this.state;
+  }
+
+  appUpdateRequired(accessToken: string): void {
+    if (this.accessToken !== accessToken || !this.providerSessionAllowed) return;
+    this.updateRequired = true;
+    this.pauseRevision += 1;
+    this.offlineCaptureRestorationAllowed = false;
+    this.offlineRestorationRevision += 1;
+    this.contextUnavailableSource = null;
+    this.setState({status:'context_unavailable', updateRequired:true});
   }
 
   organizationPaused(accessToken: string): void {
@@ -288,6 +299,7 @@ export class MobileSessionCoordinator implements
     ) return { status: 'context_unavailable' };
     const generation = this.generation;
     const tokenRevision = this.tokenRevision;
+    const pauseRevision = this.pauseRevision;
     const accessToken = this.accessToken;
     let active = true;
     let result;
@@ -305,7 +317,7 @@ export class MobileSessionCoordinator implements
     } finally {
       active = false;
     }
-    if (generation !== this.generation || tokenRevision !== this.tokenRevision) {
+    if (generation !== this.generation || tokenRevision !== this.tokenRevision || pauseRevision !== this.pauseRevision) {
       return { status: 'context_unavailable' };
     }
     if (result.status === 'authority_rejected') {
@@ -608,6 +620,7 @@ export class MobileSessionCoordinator implements
   }
 
   private async performRefresh(generation: number): Promise<void> {
+    const pauseRevision = this.pauseRevision;
     const enrollmentNotice = this.state.status === 'enrollment_only'
       && this.enrollmentIntentGeneration === generation
       ? this.state.notice
@@ -678,6 +691,7 @@ export class MobileSessionCoordinator implements
       return;
     }
     if (enrollmentNotice !== undefined) {
+      if (pauseRevision !== this.pauseRevision) return;
       this.setState({ status: 'enrollment_only', notice: enrollmentNotice });
       return;
     }
@@ -734,6 +748,7 @@ export class MobileSessionCoordinator implements
         return { status: 'infrastructure_error' };
       }
       this.pausedOrganization = false;
+      this.updateRequired = false;
       this.confirmedIdentity = identity;
       this.offlineCredentialsChanged = false;
       this.enrollmentIntentGeneration = null;
@@ -742,6 +757,10 @@ export class MobileSessionCoordinator implements
       this.contextUnavailableSource = null;
       this.setState({ status: 'authenticated', session: result.session });
       return { status: 'authenticated' };
+    }
+    if (result.status === 'update_required') {
+      this.appUpdateRequired(accessToken);
+      return {status:'context_unavailable'};
     }
     if (result.status === 'organization_paused') {
       this.organizationPaused(accessToken);
@@ -847,6 +866,7 @@ export class MobileSessionCoordinator implements
 
   private invalidateInMemorySession(): number {
     this.pausedOrganization = false;
+    this.updateRequired = false;
     this.generation += 1;
     this.expiredColdStartGeneration = null;
     this.offlineCredentialsChanged = false;
@@ -921,6 +941,7 @@ export class MobileSessionCoordinator implements
 
   private setState(state: MobileSessionState): void {
     if (state.status === 'context_unavailable' && this.pausedOrganization) state = { ...state, organizationPaused: true };
+    if (state.status === 'context_unavailable' && this.updateRequired) state = { ...state, updateRequired: true };
     this.state = Object.freeze((state.status === 'authenticated' || state.status === 'context_unavailable')
       && this.confirmedIdentity !== null ? { ...state, identityLabel: this.confirmedIdentity.email } : state);
     for (const listener of this.listeners) {

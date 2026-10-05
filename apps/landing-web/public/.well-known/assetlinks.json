@@ -1,0 +1,38 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tim180201.mobile",
+      "sha256_cert_fingerprints": [
+        "EAS_SHA256_NOT_CONFIGURED"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tim180201.mobile.productionvalidation",
+      "sha256_cert_fingerprints": [
+        "EAS_SHA256_NOT_CONFIGURED"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.tim180201.mobile.validation",
+      "sha256_cert_fingerprints": [
+        "EAS_SHA256_NOT_CONFIGURED"
+      ]
+    }
+  }
+]

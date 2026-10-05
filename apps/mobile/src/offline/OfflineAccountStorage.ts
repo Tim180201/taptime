@@ -10,6 +10,7 @@ import { PRODUCT_SCAN_PROTECTION_CLASS } from '../scan/contracts';
 const KEY = 'taptime.offline.generations.v1';
 const options: SecureStoreOptions = { keychainAccessible: WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 interface Generation {
+  initializing?: boolean;
   preserveEvidence?: boolean;
   name: string;
   installationBinding: string;
@@ -43,7 +44,8 @@ export class OfflineAccountStorage {
   constructor(private readonly secure: OfflineSecureStorePort,
     private readonly random: (length: number) => Promise<Uint8Array>,
     private readonly factory: AccountDatabaseFactory,
-    private readonly files: OfflineDatabaseFiles) {
+    private readonly files: OfflineDatabaseFiles,
+    private readonly platform = 'android') {
     this.legacy = new OfflineInstallationIdentityStore(secure, random);
   }
 
@@ -53,21 +55,39 @@ export class OfflineAccountStorage {
       let state = await this.read();
       const names = await this.files.list();
       this.checkFiles(names, state);
-      if (state === null) await this.checkLegacyKeys(names);
       if (state?.prepared) throw protectedStorage();
-      const secrets = await this.load(state);
+      if (this.platform === 'ios' && state !== null && !names.includes(state.active.name)) {
+        // checkFiles rejects orphaned sidecars. Existing retired evidence is kept with its keys.
+        const active: Generation = {
+          name: `taptime-offline-g-${await this.generate()}.db`, initializing: true,
+          installationBinding: await this.generate(), lookupKey: await this.generate(), databaseKey: await this.generate(),
+        };
+        state = {version: 1, active, retired: state.retired, prepared: null};
+        await this.write(state);
+      }
+      if (state === null) await this.checkLegacyKeys(names);
+      const secrets = await this.load(state, !names.includes(OFFLINE_DATABASE_NAME),
+        this.platform === 'ios' && cold && !names.includes(OFFLINE_DATABASE_NAME));
       state = await this.read(); // load may have renewed a removed lookup key
       const name = state?.active.name ?? OFFLINE_DATABASE_NAME;
-      if (state !== null && !names.includes(name)) throw protectedStorage();
+      if (state !== null && !names.includes(name) && !state.active.initializing) throw protectedStorage();
       let database;
       try { database = this.factory(secrets.databaseKey, name); }
       catch { throw new OfflineAccountStorageError(PRODUCT_SCAN_PROTECTION_CLASS.databaseInitialization); }
       await initializeAccountDatabase(database);
+      let ownerVerified = false;
       if (state !== null) {
         const owner = await database.readOwner();
-        if (owner === null || owner.installationBindingDigest !== digest(secrets)) throw protectedStorage();
+        if (owner === null && !state.active.initializing) throw protectedStorage();
+        if (owner !== null && owner.installationBindingDigest !== digest(secrets)) throw protectedStorage();
+        ownerVerified = owner !== null;
+        if (owner !== null && state.active.initializing) {
+          const { initializing: _, ...active } = state.active;
+          state = {...state, active};
+          await this.write(state);
+        }
       }
-      if (cold && !this.wrote && state !== null && state.retired.length > 0) {
+      if (cold && !this.wrote && ownerVerified && state !== null && state.retired.length > 0) {
         // The active pointer was read in a new process, and its database was just verified.
         const removable=state.retired.filter(old=>!old.preserveEvidence);
         for (const old of removable) await this.files.remove(old.name);
@@ -166,9 +186,9 @@ export class OfflineAccountStorage {
     return state;
   }
 
-  private async load(state: Generations | null): Promise<OfflineInstallationSecrets> {
+  private async load(state: Generations | null, repairFirstInitialization = false, orphaned = false): Promise<OfflineInstallationSecrets> {
     if (state === null) {
-      const result = await this.legacy.loadOrCreate();
+      const result = await this.legacy.loadOrCreate(repairFirstInitialization, orphaned);
       if (result.status !== 'ready') throw protectedStorage();
       return result.secrets;
     }
@@ -217,6 +237,7 @@ function validGeneration(g: Generation): boolean {
   return g !== null && typeof g === 'object' && typeof g.name === 'string'
     && (g.name === OFFLINE_DATABASE_NAME || /^taptime-offline-g-[A-Za-z0-9_-]{43}\.db$/.test(g.name))
     && (g.preserveEvidence === undefined || typeof g.preserveEvidence === 'boolean')
+    && (g.initializing === undefined || typeof g.initializing === 'boolean')
     && typeof g.installationBinding === 'string' && decodeBase64Url32(g.installationBinding) !== null
     && typeof g.databaseKey === 'string' && decodeBase64Url32(g.databaseKey) !== null
     && (g.lookupKey === null || (typeof g.lookupKey === 'string' && decodeBase64Url32(g.lookupKey) !== null));

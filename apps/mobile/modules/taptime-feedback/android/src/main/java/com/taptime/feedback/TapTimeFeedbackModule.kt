@@ -41,8 +41,15 @@ class TapTimeFeedbackModule : Module() {
 
       val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
       audioExecutor.execute {
-        if (audioManager.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
-          playToneSequence(toneFrequencies, toneDurations, toneVolume)
+        try {
+          if (Thread.currentThread().isInterrupted) return@execute
+          if (audioManager.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+            playToneSequence(toneFrequencies, toneDurations, toneVolume)
+          }
+        } catch (_: InterruptedException) {
+          Thread.currentThread().interrupt()
+        } catch (_: Exception) {
+          // Feedback is best effort. A failed AudioTrack must never end the app.
         }
       }
     }
@@ -119,8 +126,10 @@ class TapTimeFeedbackModule : Module() {
       AudioManager.AUDIO_SESSION_ID_GENERATE,
     )
     try {
-      track.write(pcm, 0, pcm.size)
+      if (track.state != AudioTrack.STATE_INITIALIZED) return
+      if (track.write(pcm, 0, pcm.size) != pcm.size) return
       track.setVolume(volume.toFloat())
+      if (Thread.currentThread().isInterrupted || track.state != AudioTrack.STATE_INITIALIZED) return
       track.play()
       Thread.sleep(durations.sum().toLong() + gapMilliseconds * (durations.size - 1) + 32L)
     } finally {

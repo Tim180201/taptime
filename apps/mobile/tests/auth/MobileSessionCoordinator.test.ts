@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MobileSessionCoordinator } from '../../src/auth/MobileSessionCoordinator';
 import { AuthenticatedHttpRequestExecutor } from '../../src/transport/AuthenticatedHttpRequestExecutor';
+import { versionedAppFetch } from '../../src/transport/versionedAppFetch';
 import type {
   BackendSessionPort,
   BackendSessionResolution,
@@ -204,6 +205,60 @@ function setup(storedRefreshToken: string | null = null) {
 }
 
 describe('MobileSessionCoordinator', () => {
+  it('T-096 retains credentials and disables offline capture after a version rejection', async () => {
+    const { coordinator, provider, store, backend } = setup();
+    await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+    const token = store.value; const clears = store.clearCalls;
+    const executor = new AuthenticatedHttpRequestExecutor(coordinator, versionedAppFetch(
+      async () => Response.json({error: {code: 'app_update_required', message: 'Bitte App aktualisieren'}}, {status: 426}),
+      {platform: 'android', build: 11, commit: 'development'},
+      accessToken => coordinator.appUpdateRequired(accessToken),
+    ));
+    await executor.post(new URL('https://api.example/v4/lifecycle-events/offline'), '{}');
+    expect(coordinator.getState()).toMatchObject({status: 'context_unavailable', updateRequired: true});
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(false);
+    expect(coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+    expect(store.value).toBe(token); expect(store.clearCalls).toBe(clears);
+    expect(provider.signOutCalls).toBe(0);
+    backend.implementation = async () => ({status: 'unavailable'});
+    await coordinator.refresh();
+    expect(coordinator.getState()).toMatchObject({status: 'context_unavailable', updateRequired: true});
+    expect(coordinator.isOfflineCaptureRestorationAllowed()).toBe(false);
+  });
+  it('T-096 handles session negotiation requiring an update without signing out', async () => {
+    const { coordinator, provider, backend, store } = setup();
+    backend.implementation = async () => ({status: 'update_required'});
+    await coordinator.signIn('synthetic@example.invalid', 'synthetic');
+    expect(coordinator.getState()).toMatchObject({status: 'context_unavailable', updateRequired: true});
+    expect(store.value).toBe('signed-in-refresh'); expect(provider.signOutCalls).toBe(0);
+  });
+  it('T-096 keeps the update state when invitation redemption returns after 426', async () => {
+    const { coordinator, backend, enrollment, store } = setup();
+    backend.implementation = async () => ({status: 'authority_rejected'});
+    await coordinator.signInForEmployeeEnrollment('employee@example.invalid', 'password');
+    expect(coordinator.getState().status).toBe('enrollment_only');
+    enrollment.implementation = async () => {
+      coordinator.appUpdateRequired('signed-in-access');
+      return {status: 'transient_failure'};
+    };
+    await expect(coordinator.redeemEmployeeInvitation('invitation-secret')).resolves.toEqual({status: 'context_unavailable'});
+    expect(coordinator.getState()).toMatchObject({status: 'context_unavailable', updateRequired: true});
+    expect(store.value).toBe('signed-in-refresh');
+  });
+  it('T-096 does not restore an old invitation shell after a newer update signal during refresh', async () => {
+    const { coordinator, backend, provider, store } = setup();
+    backend.implementation = async () => ({status: 'authority_rejected'});
+    await coordinator.signInForEmployeeEnrollment('employee@example.invalid', 'password');
+    const pending = deferred<ProviderRefreshResult>();
+    provider.refreshImplementation = () => pending.promise;
+    const refresh = coordinator.refresh();
+    await vi.waitFor(() => expect(provider.refreshCalls).toHaveLength(1));
+    coordinator.appUpdateRequired('signed-in-access');
+    pending.resolve({status: 'refreshed', tokens: {accessToken: 'rotated-access', refreshToken: 'rotated-refresh'}});
+    await refresh;
+    expect(coordinator.getState()).toMatchObject({status: 'context_unavailable', updateRequired: true});
+    expect(store.value).toBe('rotated-refresh');
+  });
   it('T068a ignores an older successful context response after a newer pause signal', async () => {
     const { coordinator, backend, store, provider } = setup();
     await coordinator.signIn('synthetic@example.invalid', 'synthetic');

@@ -31,6 +31,10 @@ before(async()=>{
   mkdirSync(join(root,'landing-web/releases/abcdef0/assets'),{recursive:true});
   mkdirSync(join(root,'landing-web/releases/abcdef0/tag-assets/fonts'),{recursive:true});
   for(const [file,body] of Object.entries({'index.html':'<!doctype html><title>private</title>','tag.html':'<!doctype html><title>tag</title>','robots.txt':'User-agent: *\nDisallow: /','version.txt':'abcdef0','assets/private.js':'private','tag-assets/tag.css':'body {}','tag-assets/fonts.css':'/* local */','tag-assets/fonts/manrope-400.ttf':'synthetic-font'})) writeFileSync(join(root,'landing-web/releases/abcdef0',file),body);
+  mkdirSync(join(root,'landing-web/releases/abcdef0/.well-known'),{recursive:true});
+  const linksPath='apps/landing-web/public/.well-known/assetlinks.json';
+  const links=readFileSync(linksPath,'utf8');
+  writeFileSync(join(root,'landing-web/releases/abcdef0/.well-known/assetlinks.json'),links);
   mkdirSync(join(root,'fault'));
   writeFileSync(join(root,'fault/docker'),`#!/bin/sh
 printf '%s\\n' "$*" >> /trace/argv
@@ -67,6 +71,23 @@ test('private homepage and release assets require auth; only tag resources, robo
   for(const path of ['/tag','/robots.txt','/version.txt','/releases/abcdef0/tag-assets/tag.css','/releases/abcdef0/tag-assets/fonts.css','/releases/abcdef0/tag-assets/fonts/manrope-400.ttf'])assert.equal((await request(path)).status,200,path);
   for(const path of ['/v1/session','/health'])assert.equal((await request(path,oldPassword)).status,404,path);
 });
+test('T-096 Android association is public JSON without redirects; placeholders are reported',async(t)=>{
+  const response=await request('/.well-known/assetlinks.json');
+  assert.equal(response.status,200);assert.equal(response.headers.get('location'),null);
+  assert.match(response.headers.get('content-type'),/^application\/json/);
+  const links=await response.json();
+  assert.deepEqual(links,JSON.parse(readFileSync('apps/landing-web/public/.well-known/assetlinks.json','utf8')));
+  for(const link of links){
+    assert.deepEqual(link.relation,['delegate_permission/common.handle_all_urls']);
+    assert.equal(link.target.namespace,'android_app');
+    assert.ok(link.target.sha256_cert_fingerprints.length>0);
+    for(const fingerprint of link.target.sha256_cert_fingerprints){
+      if(fingerprint==='EAS_SHA256_NOT_CONFIGURED')t.diagnostic(`nicht ausgefüllt: EAS-Fingerabdruck für ${link.target.package_name}`);
+      else assert.match(fingerprint,/^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/);
+    }
+  }
+  assert.equal((await request('/')).status,401);
+});
 test('strict CSP and noindex include authentication failures, public responses and redirects',async()=>{
   for(const path of ['/','/tag','/robots.txt','/version.txt','/health']){
     const response=await request(path);assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow');
@@ -88,7 +109,7 @@ test('stdin password set and disable are atomic, force-provisioned, and quiet',a
 });
 test('no active landing closes every path, including retained releases',async()=>{
   docker('exec',id,'rm','/srv/landing-web/current');
-  for(const path of ['/','/tag','/version.txt','/releases/abcdef0/tag-assets/tag.css'])assert.equal((await request(path)).status,404);
+  for(const path of ['/','/tag','/.well-known/assetlinks.json','/version.txt','/releases/abcdef0/tag-assets/tag.css'])assert.equal((await request(path)).status,404);
 });
 test('missing hash prevents provisioning even when the landing is disabled',()=>{
   docker('run','--rm','--volume',`${id}-auth:/auth`,'--entrypoint','rm','taptime-t031-tools:local','/auth/password.hash');
