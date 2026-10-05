@@ -1,316 +1,91 @@
 # TapTim.e — Status
 
-**Stand:** 04.10.2026 · Produktion läuft auf `b1ecb8c` (Anwendung und Betrieb): T-091, T-092, T-093, T-093b, T-094,
-Migrationen bis 042. Deploy 04.10. erfolgreich (Probe grün, Aufräumen ohne Abbruch), danach Version überall `b1ecb8c`,
-`/health` ok, Startseite 401/200, keine Alarme. App-Builds 04.10. auf `b1ecb8c`: iPhone 1.0.0 (5), Android
-versionCode 12, installiert; Geräteabnahme läuft (PO). „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen
-weiter `taptime`.
-Nach dem Deploy 04.10. (TL): (1) Einladen und „Einladung erneut senden“ meldeten „Kontenerstellung nicht eingerichtet“:
-der seit T-094 nötige öffentliche `SUPABASE_PUBLISHABLE_KEY` fehlte in `/opt/taptime/.env` (PO-Schritt aus `DEPLOY.md`,
-vor dem Deploy nicht abgefragt). Vom PO an der Konsole ergänzt (Sicherheitskopie `/root/env-0410.bak`), danach Deploy
-`b1ecb8c` erneut. **Lehre:** Vor jedem Deploy fragt der TL die PO-Schritte aus `DEPLOY.md` für die enthaltenen Aufgaben
-ab. (2) Ein versehentlicher Neustart über die Hetzner-Konsole (Strg+Alt+Entf) machte das „letzte Ende“ der Sicherung
-unbekannt; die Deploy-Vorprüfung lehnt dann bis zur nächsten stündlichen Sicherung ab (sicher, Meldung unklar → B11).
-(3) „Passwort vergessen“: der Mail-Link landet auf der Anmeldung statt „Neues Passwort setzen“ (T-094b, vor T-103).
-(4) Das EAS-Bau-Paket war 116 MB, weil EAS `.git/info/exclude` nicht liest und lokale Prüfordner mitnimmt (`.easignore`
-mit T-103); lokale Ausschlussliste um `.t[0-9]*-review/` ergänzt (PO).
-(5) Kontowechsel am Android (Admin → Mitarbeiter) zeigte „Vorgänge eines anderen Kontos offen“, obwohl beim Admin alles
-grün war: bestätigte Erfassungen bleiben bis zum Archivnachweis als `confirmed_awaiting_archive` im Gerät und sperren
-den Wechsel (`canReleaseOwner`); nach rund 10 min mit offener App ging der Wechsel. Kein Datenrisiko, aber ohne
-Erklärung → T-095: Zustand „wartet auf Sicherung“ mit Hinweis, Archivnachweis zügig abfragen.
-T-103 (TL-Review 04.10.): APPROVED. Hinweise: (a) In der App bleiben die Knöpfe nach einer gespeicherten manuellen
-Erfassung gesperrt, bis die Bestätigung kommt; ohne Netz ohne Ausweg auf diesem Bildschirm → T-095 („gespeichert, wird
-übertragen“ und Freigabe). (b) Fehlt zum laufenden Eintrag die Zusatzprojektion (043), scheitert das ganze Lesen der
-eigenen Zeiten; bei wiederhergestellten Einträgen beobachten. (c) „Zeit beendet“ nennt die Arbeitsdauer ohne Pausen,
-die Uhrzeitspanne enthält sie (P3).
-T-095 (TL-Review 05.10.): APPROVED nach Kaskadenschutz. P3: Warte-Bildschirm beim Abmelden ohne „Angemeldet bleiben“;
-Web-Export (`expo export --platform all`) scheitert an `wa-sqlite.wasm` (bestehend, nur Web, P2).
-T-096 (TL-Review 05.10.): APPROVED. **Vor dem Deploy von T-096:** Der PO holt die öffentlichen SHA-256-Fingerabdrücke
-der Android-Signatur aus EAS (`npx eas-cli credentials -p android`, je Variante), Codex trägt sie in
-`apps/landing-web/public/.well-known/assetlinks.json` ein (statt `EAS_SHA256_NOT_CONFIGURED`), erst dann Deploy und
-danach erst neue App-Builds installieren; sonst schlägt die App-Link-Prüfung bei der Installation fehl und ein Tag öffnet
-bei geschlossener App den Browser. Apps ohne Versionskopf (vor T-096) werden weiter angenommen; sobald alle Geräte im
-Pilot einen Build ab T-096 haben, kann der Kopf Pflicht werden.
-**Registry-Befund 05.10. (T-098):** Das alte Aufräumen hatte Kind-Manifeste geschützter Abbilder gelöscht. Bei
-`b1ecb8c` (Produktion) fehlen alle fünf Plattform-Manifeste, bei `0230188` vier; `4f6fa75` ist vollständig. Produktion
-läuft mit lokalen Abbildern weiter; der nächste Deploy zieht aber auch den bisherigen Stand aus der Registry und würde
-in der Vorprüfung scheitern. 21 Versionen, gelöscht am 03./04.10., sind über die Packages-API wiederherstellbar
-(Frist etwa Anfang November). **Vor dem nächsten Deploy: T-098b.**
-Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113), Site URL `https://admin.tb-infra.de`.
-Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und IP-Adresse; vor der Ausweitung anheben (T-099).
-frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
-womöglich mit wenigen Lehrern; offene Fragen für den CEO-Termin stehen im PLAN.
-Auf `main`, noch nicht ausgeliefert: T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045), T-098 (`4f6fa75`), T-100 (`b693fde`, Migration 046); Deploy und
-App-Builds sobald der PO am Mac ist. Reihenfolge (TL 05.10.): T-095 bis T-098, T-100 bis T-102 → Deploy und App-Builds
-→ T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht sind Voraussetzung für echte Daten.
-Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+**Stand 05.10.2026.** Produktion läuft auf `b1ecb8c` (Deploy 04.10., Migrationen bis 042). App-Builds 04.10.: iPhone
+1.0.0 (5), Android versionCode 12. „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`.
+**Auf `main`, noch nicht ausgeliefert:** T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095
+(`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045), T-098 (`4f6fa75`),
+T-100 (`b693fde`, Migration 046), T-101 (`1043011`). In Arbeit: T-102.
+**Weg zum Pilot:** T-102 → T-098b → Fingerabdrücke → dritter Deploy → Mail-Vorlage → App-Builds und Geräteabnahme →
+T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht vor echten Daten. Fertig ist
+das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
 
-## Beobachten (TL, 23.–27.09.)
+## Vor dem nächsten Deploy
 
-- Sicherung 25.09. (`taptime-status`): jede stündliche Sicherung dauert 10–44 min (beim Deploy 32 und 30), obwohl
-  die Datenbank winzig ist; der WAL-Zyklus braucht mit einem Segment 142 s, davon 129 s Borg-Abgleich. Ursache aus
-  dem Code: je Stunde ein Basisarchiv und je WAL-Segment ein Borg-Archiv, Aufräumen nur sonntags, zwei getrennte
-  Borg-Caches. Folge: „WAL-Archivierung steht“ jede Stunde, weil der Wächter nur zehn Minuten toleriert; kein
-  Datenrisiko (WAL-Empfänger läuft, Archivierer holt nach). Behebung T-083 vor dem Pilot.
-  Behoben mit T-083 (gemeinsamer Borg-Cache, tägliches Aufräumen, lernender Wächter), ausgeliefert 27.09. mit
-  `e13916b`. Erwartung: die erste Sicherung danach dauert einmal lang (Borg baut den gemeinsamen Cache neu), dazu
-  höchstens eine weitere Meldung „WAL-Archivierung steht“, weil der Wächter ohne gemerkte Dauer noch zehn Minuten
-  toleriert; ab der zweiten Sicherung kurz und still. Prüfen (PO, `taptime-status`): Dauer der nächsten drei Sicherungen
-  und `base_seconds` des Archivierers, Ergebnis hier nachtragen. Die neuen Statuszeilen (Archivzahl, letztes Aufräumen,
-  Wächter-Toleranz) erscheinen erst nach dem Konsolenschritt für `taptime-status`, geplant mit T-024.
-- **Sicherung nach dem Deploy 27.09. (P1 vor dem Pilot, Ursache gefunden 28.09., Fix T-089):** Die Sicherungen sind
-  wieder kurz (28.09. mittags je knapp 7 min; nachts nach dem Deploy einmalig 18–42 min durch Cache-Aufbau und erstes
-  Aufräumen). „WAL-Archivierung steht“ kam trotzdem weiter, 13 Mal zwischen 06:00 und 13:47 Uhr, auch ohne laufende
-  Sicherung. Ursache: Der gründliche Archivierer-Durchlauf alle 15 min braucht 77 s (`borg info` auf die geprüfte Basis)
-  und schreibt das Lebenszeichen erst am Ende; der Wächter erlaubt 120 s (60 s × 2). Kein Datenrisiko. Fix T-089 vor dem
-  Deploy; bis dahin ntfy am Telefon stumm geschaltet (PO). T-089 ausgeliefert 28.09. mit `0230188`; danach ruhig. ntfy wieder einschalten (PO).
-- Controller: Beim Wechsel des Betriebsordners warnt systemd „unit file changed on disk“ für `taptime-wal-receiver`
-  und `taptime-wal-archiver`, weil nur der Inhalt verglichen wird, systemd aber den Zeitstempel sieht. Harmlos;
-  `daemon-reload` künftig auch bei reinem Ordnerwechsel (P3, mit dem nächsten Controller-Stand).
+1. **T-098b:** Das alte Aufräumen hat Plattform-Manifeste von `b1ecb8c` (alle fünf) und `0230188` (vier) gelöscht. Der
+   Deploy zieht beide Stände und würde in der Vorprüfung scheitern. 21 Versionen sind über die Packages-API bis etwa
+   Anfang November wiederherstellbar; vorher gibt der PO `read:packages`/`write:packages` für `gh` frei. Seit T-098
+   überspringt das Aufräumen jeden Lauf mit fehlendem referenziertem Manifest (zuletzt beim Lauf zu `1043011`); gewollt,
+   endet mit T-098b. Dabei prüfen, was der Lauf zu `b693fde` gelöscht hat.
+2. **Fingerabdrücke (T-096):** Der PO holt die SHA-256 der Android-Signatur je Variante aus EAS (`npx eas-cli
+   credentials -p android`), Codex ersetzt in `apps/landing-web/public/.well-known/assetlinks.json` alle Platzhalter
+   `EAS_SHA256_NOT_CONFIGURED` (drei Paketnamen). Erst dann Deploy, danach neue Builds installieren; sonst öffnet ein
+   Tag bei geschlossener App den Browser.
+3. **PO-Schritte aus `infrastructure/DEPLOY.md`** für alle enthaltenen Aufgaben abfragen (AGENTS.md §7).
+4. Vorprüfung: Sicherung und Wiederherstellungsprobe inaktiv, letzte Sicherung mit bekanntem Ende. Nach einem
+   Server-Neustart erst nach der nächsten stündlichen Sicherung (Meldung unklar → B11).
+5. Nach dem Deploy: Supabase-Vorlage „Reset Password“ aus `docs/T-094b-Ruecksetzvorlage.md` (PO).
 
-- Sicherung am 23.09.: Der Fehlschlag um 06:05 UTC wurde sofort wiederholt und lief erfolgreich; alle Läufe
-  seitdem erfolgreich (Journal und `taptime-status`, 24.09.). Die Fehlermeldung selbst ist nicht mehr im Blick.
-- Volle Archiver-Abgleiche zeigen `base_seconds=61`; beobachten, ob der Wert mit dem Archiv wächst.
-- CI: ShellCheck-Version festlegen (lokal 0.11.0, CI 0.9.0).
-- DNS: Wildcard-Eintrag bei INWX nach dem Pilot auf die benötigten Namen reduzieren (api, admin,
-  betreiber, `tb-infra.de`, www).
-- Spool-UID (P2 aus T-035) offen.
-- Sicherungen dauern seit 24.09. 02:05 UTC 13–17 min statt 6–7 min (der Lauf um 02:05 70 min); der Archivierer meldet `base_seconds` 200–215 s (23.09.: 61 s). Ursache prüfen (wachsende Archivliste, `borg check --verify-data`).
+## Geräteabnahme nach dem Deploy (PO, iPhone und Android)
 
-## Vorhanden — und seit heute ausgeliefert
+Erfassen mit laufender Zeit und Pause (T-103) · offline erfassen, abgelehnte Erfassung, Abmelden mit Warten, Kontowechsel
+(T-095, T-095b) · Neuinstallation am iPhone, Tag öffnet die App bei geschlossener App (T-096) · Kunden anlegen,
+umbenennen, löschen, „Tag prüfen“ (T-100) · leere Pflichtfelder, einmal mit VoiceOver/TalkBack: Hinweis einmal vorgelesen
+(T-101) · Beschäftigte nach Standort mit Monatsstunden (T-102) · „Passwort vergessen“ bis zur Anmeldung (T-094b) ·
+Aussperr-Test: Zugang entziehen, die Person kommt in App und Web nicht mehr weiter (PO).
 
-- Domäne und Business Engine: `Trigger → WorkEvent → Engine → TimeEntry`, Korrekturen append-only.
-- Backend: 11 `apps/backend-*`-Workspaces; 52 registrierte HTTP-Pfade aus `BACKEND_HTTP_ROUTES`,
-  jede Route mit Schutzklasse (T-053). 26 Migrationen, in Produktion vollständig angewendet.
-- Mobile: Anmeldung, Einladungseinlösung, NFC, manuelle Erfassung, eigene Zeiten, Offline v4,
-  Abgleich v2, Leases v3; Queue-Löschung erst nach Archivnachweis (T-052). **Seit `3daa09b`
-  (T-058, auf `main`):** Reiter je Rolle, Abgleich hinter dem Statuspunkt, Tap-Moment mit
-  Serverentscheidung, Meine Zeiten als Monatskalender in Europe/Berlin, Tags, Manrope, Taptura.
-  **Seit `b68e48b` (T-043):** „Tag zuordnen“ schreibt NDEF-URI `https://tb-infra.de/tag` plus
-  App-Kennung auf den Tag (D-061); Android öffnet die App ohne Auswahldialog.
-  **Seit `1d0a4e9` (T-060):** Eine Standortleitung ordnet Tags im eigenen Standort zu — die
-  Grenze entscheidet die Datenbank (Migration 027), der Reiter „Tags" folgt der Sitzung.
-  **Seit `91441c8` (T-059):** Reiter Mitarbeiter mit Kachel „x / y gerade aktiv", Liste
-  Aktiv/Inaktiv, Kalender je Person und Einladen vom Handy (Migration 028, D-062). Bei
-  Administrator und Standortleitung ersetzt er „Meine Zeiten" (D-058) — die eigenen Zeiten
-  stehen dort unter der eigenen Person.
-- Verwaltung: Beschäftigte mit Kontoeinladung (T-047), Standorte, Arbeitsziele, Tags, Korrektur,
-  Prüfentscheidung, Pausen, CSV V3; eine Zeitzone Europe/Berlin (T-036); Anmeldefehler mit
-  Ursache (T-040); strikte CSP; Deploy-Tor auf den Backend-Aussteller (T-039).
-- Betrieb: T-035 in Produktion aktiv — physische Basissicherung, fortlaufendes externes WAL
-  (`pg_receivewal` + Borg), versionierter Archivvertrag (Migration 023), Wiederherstellung am
-  18.09. viermal aus dem externen Archiv bewiesen (zuletzt `base-…-20260918T084325Z`, 26
-  Migrationen, RLS erzwungen). Rückweg auf ein Image vor 023 ist keiner mehr.
-- Mail: Supabase → Brevo (D-057) mit DKIM/DMARC bei INWX; Zurücksetzungs-Mail zugestellt.
-- **T-047 am 18.09. am Gerät abgenommen (D-044):** Einladung aus dem Admin-Web, Mail von
-  „Taptura“, `/willkommen`, Passwort, App-Anmeldung, Mitgliedschaft ohne Code. Danach als
-  Administrator getippt: Vorgang im Admin-Web sichtbar — Rundlauf durch den Archivvertrag.
+## Fakten für den Betrieb
 
-## Die zwei Deploys am 18.09.
+- Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113), Site URL `https://admin.tb-infra.de`.
+  Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und IP-Adresse; vor der Ausweitung anheben (T-099).
+- frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
+  womöglich mit wenigen Lehrern. Offene Fragen für den CEO-Termin stehen im PLAN.
+- Apps ohne Versionskopf (vor T-096) werden weiter angenommen; Pflicht erst, wenn alle Pilotgeräte einen Build ab T-096
+  haben.
+- Die getrennt verwahrte `.env`-Kopie des PO stammt eventuell von vor dem 04.10. (ohne `SUPABASE_PUBLISHABLE_KEY`);
+  mit T-024 ohnehin neu verwahren. Auf dem Server liegt seit 04.10. `/root/env-0410.bak`; mit T-024 entfernen.
+- ntfy am Telefon war ab 28.09. stumm geschaltet (Fehlalarme vor T-089); wieder eingeschaltet? (PO)
+- Supabase Pro vor dem ersten zahlenden Kunden (D-039): der kostenlose Tarif pausiert das Projekt.
 
-**Abends, 17:05 Uhr — `939b4ba` → `91441c8`: ein Anlauf, ohne Zwischenfall.** Migration 027
-und 028 wurden erst in einem Wegwerf-Container aus der letzten Sicherung geprobt, dann
-transaktional eingespielt; danach eine frische Basissicherung, extern verschlüsselt abgelegt
-und wiederhergestellt. Die engere Vorprüfung (Sicherung am Zeitstempel der Einheit statt an der
-Statusdatei) hat sich bewährt und gehört nach T-057 ins Skript.
+## Beobachten
 
-**Morgens — fünf Anläufe für den ersten T-035-Deploy;** jeder Fehler ein Erstlauf-Fehler, jeder mit
-Regressionstest behoben, jeder vorwärts repariert, kein Container von Hand gestartet:
+- Sicherungsdauer und `base_seconds` des Archivierers (24.09.: 13–17 min statt 6–7, 200–215 s statt 61); beim nächsten
+  Deploy aus `taptime-status` notieren, Ursache klären (wachsende Archivliste?). Export-Grenztest: absolute
+  Laufzeitwarnung beobachten.
+- Fehlt zu einem laufenden Eintrag die Zusatzprojektion (043), scheitert das Lesen der eigenen Zeiten (T-103); bei
+  wiederhergestellten Einträgen prüfen.
+- Android 17 zeigt für Tags mit Web-Adresse eine Mitteilung (D-037); am ersten Android-17-Gerät prüfen, ob der App
+  Link (T-096) das umgeht.
 
-1. `taptime-backup`: `tar --list | grep --quiet` starb an EPIPE bei 280 KB Liste; dazu ein
-   EXIT-Trap auf einer `local`-Variablen (`d68ff4d`).
-2. `--glob-archives "sh:…"`: Borg 1.2/1.4 sucht das Präfix wörtlich, kein Archiv gefunden;
-   der nachgebaute Borg im Test erwartete genau das falsche Muster (`9ea3b31`).
-3. `taptime-restore-verify`: derselbe Trap-Fehler wie in 1 (`939b4ba`).
-4. Barriere-Fenster 120 s zu knapp für die erste Basis-Registrierung des Archivierers
-   (Quittung 08:31:27, Fenster bis 08:30:45); zweiter Aufruf lief durch.
+## Bekannte Kleinigkeiten (P2/P3, offen)
 
-Mit T-057 lokal behoben und vom TL **APPROVED**: alte Statusdatei nach gescheiterter Sicherung,
-Basisregistrierung vor dem Barriere-Fenster und falsche Cutover-Meldung. DEPLOY.md beschreibt
-jetzt US-Tippregeln ohne Einfügefunktion und den Deploy aus dem Terminal des Product Owners.
-Deploy-Schlüssel `taptime_server` hat keine Passphrase (T-024 rückt vor).
+Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
 
-## Offen bis zum Pilotbetrieb
-
-- **T-066 (22.09.):** vom TL abgenommen und gepusht; CI scheiterte an v4-Exportlaufzeit,
-  Images deshalb übersprungen. Laufzeitkorrektur lokal umgesetzt, noch nicht committet;
-  Rot-/Grün- und EXPLAIN-Nachweise unter `.t066-review/`. Kein Deploy und keine APK.
-- **APK VersionCode 7 am Gerät abgenommen (D-044):** alle acht Punkte bestanden — vier Reiter,
-  Tags neu beschrieben, **App geschlossen plus Dranhalten öffnet ohne Auswahldialog** (T-043),
-  Tap-Moment, Offline in Bernstein, Aktiv-Kachel, Einladen vom Handy, eigener Kalender.
-  Befunde daraus: Systemleiste stört, Symbole zusammengesetzt, Ring soll stärker pulsieren
-  (Variante B gewählt) — zusammen als **T-061** beauftragt.
-- Tagesfreigabe und Pausenautomatik (T-048, T-050): während Pilotmonat 1 bauen, Freigabe zu
-  Monat 2 zuschalten (D-063). T-055 Wiederaufnahme nach Restore.
-- **T-057:** Deploy-Härtung vom TL **APPROVED**; Timer während des Deploys angehalten,
-  begrenztes Warten, eigene Basis je Probe, Vorprüfung und argumentloser Diagnosezugang.
-  Lokale Tests und unabhängiges Review grün; Review-Artefakte auf Auftrag entfernt.
-  CI und Images werden nach dem Push geprüft. Controller-Konsolenschritt gemeinsam mit T-068b;
-  kein Deploy. Nächste Aufgabe: T-068b.
-- T-056 CI baut die Images; T-037; T-043/T-044; T-016; T-024.
-- Firma, Recht, Store, Signierschlüssel; Supabase-Tarif; Aussperr-Test durch den PO.
-
-## Bekannte Kleinigkeiten und offene Risiken
-
-- T-090 (TL 28.09., P3, später): Anlegen im Web bricht bei ungültigem Namen ohne Hinweis ab (B03); ein Fehler 23514 beim
-  Commit des Projektanlegens wird als ungültige Eingabe gemeldet, auch wenn die Standort-Einrichtung selbst unvollständig
-  wäre (B08); unbekannter Standort liefert `forbidden` statt eines eigenen Codes.
-
-- T-088 abgenommen (TL APPROVED 28.09., D-100), auf main; Deploy gebündelt mit T-089. SQL-Prüfgrenze einschließlich Nebenläufigkeit umgesetzt; unabhängiges Review Runde 2 APPROVED.
-
-- **P2 Verifikation (behoben):** Funktionsrecht, Testdaten/-typen/-Mocks, Monatsgrenzen und CSV-Erwartungen korrigiert; identischer Retry nach Rollenwechsel behoben. Frühere Fehlschläge bleiben in `.t088-review/report.md`; absolute Export-Laufzeitwarnung bleibt beobachtet.
-
-- T-085 abgenommen (TL APPROVED 28.09.), auf main (`9c2df50`, CI und Images grün); Deploy gebündelt mit T-088.
-
-- **P2 T-085:** Direkte INSERTs als interne SQL-Rolle `taptime_admin_setup` prüfen über den bestehenden NFC-Helfer keine Betriebspause. HTTP, Coordinator und Kontingent-Schreibfunktion sperren pausierte Betriebe; ein direkter SQL-Pfad bleibt als Härtung offen.
-
-- **P2 T-085 Verifikation (behoben):** Erstläufe fanden lokale PostgreSQL-/UTF-8-Vorlagen, ein fehlendes Funktionsbesitzer-Leserecht, Rechteinventar, Testtypen/-Mocks, Farbtokens und einen zeitabhängigen Export-Bytevergleich. Ursachen und Schlussläufe bleiben in `.t085-review/report.md`; Review-P1 (App-Hinweis übernahm Vormonat) korrigiert; unabhängiges Review Runde 2 APPROVED. Kein Deploy oder App-Build.
-
-- T-084 abgenommen (TL APPROVED 28.09., D-099), auf main (`0bc4760`, CI und Images grün); Deploy gebündelt mit T-085, T-088.
-- **P2 T-084:** Globale Web-Aktualisierung lädt Kundenstunden nicht neu; eigener Aktualisierungsknopf funktioniert. Frühere rote Prüfungen (Typinferenz, Testdaten/-erwartungen, Export-Zeitquelle und Laufzeit) bleiben im Bericht dokumentiert; SQL-Inlining behebt den relativen Laufzeitbefund; der absolute Laufzeithinweis im Export-Grenztest bleibt beobachtet.
-- T-086/T-087 abgenommen (TL APPROVED 28.09.), auf main (`2602ab7`, Testkorrektur `f79d272`, CI und Images grün); Deploy gebündelt mit T-084, T-085, T-088.
-- **P2 Prozess (T-086):** Die erste CI scheiterte, weil die T-062-Migrationsprobe (`backend-time-review`, DA3) die bewusst geänderte NFC-Funktion aus 035 als verboten ansah; lokal lief diese Suite nicht. Korrektur nur im Test, die Probe prüft jetzt genau die Definition aus 035. Ab T-084 laufen lokal alle Suiten, die Migrationen nachspielen.
-- **P2 T-086/T-087 Verifikation (behoben):** Erstläufe fanden Audit-Trigger-/Receipt-Reihenfolge, Rechteinventar, Typ-/Mock-Erwartungen und Replay nach Standort-Umschaltung; Ursachen und Schlussläufe im Bericht. Lint nicht eingerichtet; CI erst nach freigegebenem Commit/Push, Geräteabnahme nach separat freigegebenem Build.
-- P3 T-086: is_current_customer_creation_v1 vergleicht xmin über ::text::xid; bei Epoche > 0 besser xid(pg_current_xact_id()). Mit der nächsten Migration.
-- P3 T-086: Die Standortleitung legt Kunden am Handy an, im Web nicht (Einrichtung dort nur Administrator, siehe P2 T-062).
-- **P1 Geräteabnahme 25.09. (behoben mit T-080):** Die App nahm Offline-Freigaben nur für Administrator und Beschäftigte an; die Standortleitung konnte nicht scannen. Rolle aufgenommen, lokales Schema V6. Geräteabnahme mit dem nächsten App-Build.
-- **P3 T-080:** Noch nicht übertragene Erfassungen aus der Zeit vor einem Rollenwechsel werden beim Abgleich zum Prüffall (`identity_or_membership_not_current`); nichts geht verloren. Im Pilot nur relevant, wenn jemand offline erfasst und danach die Rolle wechselt.
-- **Geräteabnahme 25.09., gelernt:** Der Reiter „Mitarbeiter“ erscheint für die Standortleitung erst mit einer
-  Verwaltungszuweisung; Heimatstandort allein reicht nicht (gewollt, D-059). Wunsch PO: in „Beschäftigte“ zuerst
-  den Standort wählen, in der App Überschrift „Mitarbeiter deines Standorts“ (T-081, nach dem Pilotstart).
-- **P3 T-079:** Kalender über Monatsgrenzen (eine Woche über zwei Monate zeigt „nicht vollständig geladen“) und die Chunk-Warnung des Web-Bündels bleiben offen; beides nach dem Pilot.
-
-- **P2 T-078 Verifikation:** Erstlauf des bestehenden Landing-Workflow-Tests scheiterte am BSD-`install` unter macOS (`-D` hat dort eine andere Bedeutung); unveränderte Tests mit Node 24.17.0 und GNU coreutils 9.1 im lokalen Linux-Container vollständig grün. Für diese Workflow-Tests die Linux-Umgebung verwenden.
-- **P2 T-062 Bestandsaufnahme:** Tags sind für Standortleitung in SQL/App verfügbar, im Web aber hinter Administrator-Setup verborgen. Gemeldet; T-062 öffnet kein allgemeines Setup.
-- **P3 T-062:** Eine Standortleitung, deren eigener Heimatstandort nicht zu ihren Verwaltungsstandorten gehört, kann ihre eigenen Zeiten nicht nachtragen oder ändern; 033 prüft den Heimatstandort der Zielperson, auch bei sich selbst. Im Pilot fallen Heimat- und Verwaltungsstandort zusammen.
-
-- **T-076 (24.09.):** Kontowechsel am Gerät nach ADR-0012 A1: lokale Datenbank-Generationen, ein SecureStore-Wert für Zeiger und Schlüssel, Wechsel nur aus voll angemeldeter Sitzung und nur ohne jede lokale Evidenz; alte Generation erst beim nächsten Kaltstart nach Verifikation entfernt; jeder unklare Zustand → Schutzzustand ohne Löschung. Neue Installation und Lease beim Server ohne Serveränderung. Dazu `ios.config.usesNonExemptEncryption: false` (im erzeugten Projekt belegt). Unabhängiges Review und Technical Lead **APPROVED**. Danach gemeinsamer App-Build mit T-077 und Geräteabnahme.
-- **P2 T-076:** Ein Abbruch im kurzen Vorbereitungsfenster (Generation vorbereitet, noch nicht aktiviert) führt in den Schutzzustand statt zur alten Generation zurück; eine unbenutzte Vorbereitung könnte beim Kaltstart sicher verworfen werden. Später.
-- **P3 T-076:** Die Kaltstart-Dateiprüfung schützt bei jeder unbekannten `.db`-Datei im SQLite-Ordner; heute nutzt nur Taptura diesen Ordner. Bei einer weiteren SQLite-Bibliothek auf `taptime-offline*` einschränken.
-- **P3 Verwaltungsstopp-Anzeige:** Die Anzeige „wird gesichert“ eines Verwaltungsstopps liegt nur im RAM und ist nach einem App-Neustart weg; das Ereignis selbst liegt beim Server. Anzeige nach Neustart wiederherstellen: später.
-- **Beobachten, Android-Härtung (Vorschlag aus T-076):** Expo SecureStore ignoriert auf Android den Rückgabewert von SharedPreferences.commit; ein Upstream-Vorschlag (bei false eine WriteException) wäre eine kleine Härtung. Kein eigener nativer Speicher.
-
-- **T-077 (24.09.):** Reiter „Meine Zeiten“ jetzt auch für Administrator und Standortleitung (D-090): Erfassen · Meine Zeiten · Mitarbeiter · Tags; gleiche Daten und Rechte wie unter der eigenen Person (Standortleitung weiterhin ohne Schreibaktionen, T-062). „Meine Zeiten“ lädt beim Öffnen neu, ohne eine laufende manuelle Erfassung zu überholen. Unabhängiges Review und Technical Lead **APPROVED**. Geräteabnahme mit dem gemeinsamen App-Build nach T-076.
-- **P3 T-077:** „Meine Zeiten“ zeigt wie bei Beschäftigten den laufenden und vorigen Monat; ältere Monate der eigenen Person bleiben über „Mitarbeiter“ erreichbar.
-
-- **T-072b (24.09.):** iPhone-Scan: Der gelesene Tag wird nach erfolgreichem Schließen der Apple-Sitzung ausgeliefert; die Sitzung bleibt bis `SessionClosed` belegt, damit das späte Zurücksetzen der Bibliothek keine neue Sitzung zerstört. Diagnose `TapturaNfc` im Apple-Log (nur Phase, Millisekunden, Zahlencode). Unabhängiges Review und Technical Lead **APPROVED**. Danach iPhone-Build durch den PO und Geräteabnahme.
-
-- **P2 T-072b (erledigt 24.09.):** Geräteabnahme mit dem TestFlight-Build vom 24.09.: Start und Stopp mehrfach hintereinander ohne App-Neustart; `SessionClosed` kommt an. Einmal „Doppelter Scan ignoriert“ bei weniger als 5 s Abstand, gewollt (Duplikatfenster 5 s).
-
-- **Deploy 24.09. `b635c4a`:** Der erste Versuch verlor während der ersten Sicherung (17 min ohne Ausgabe) still die SSH-Verbindung; der Controller lief ohne Anzeige weiter und brach nach der zweiten Sicherung sicher ab, Produktion blieb auf `ff69bfe`. Der zweite Versuch mit SSH-Keepalive (`DEPLOY.md`) lief vollständig durch: `ff69bfe -> b635c4a`, alle Versionen, `/health`, Startseite 401, `/tag` 200, `www` 301 geprüft; Startseiten-Passwort gesetzt.
-
-- **T-074 (24.09.):** Verwaltung und Betreiber-Bereich am Handy umgesetzt (untere Leiste mit „Mehr“, Blätter von unten, Karten statt Tabellen, Layouttest in Chrome als eigener CI-Job); unabhängiges Review und Technical Lead **APPROVED**. Review-Artefakte entfernt; Commit/Push freigegeben. Deploy durch den PO, danach Verhaltensabnahme am Handy.
-- **P3 T-074:** Am PC sind Inhaltslinks 44 px hoch; in der Personenspalte steht der Name dadurch etwas tiefer als die Nachbarzellen, die Initialen sind unterstrichen. Das Zeitbearbeitungs-Blatt hat keine sichtbare Überschrift. Untere Leiste und „Mehr“-Blatt heißen beide „Hauptnavigation“. Bei Gelegenheit bereinigen.
-- **P1 Geräteabnahme iPhone (24.09., TestFlight 1.0.0 (1), behoben mit T-072b `3e5c39c`):** Scan in der offenen App liest den Tag (Apple zeigt den Haken), die App meldet aber „NFC nicht verfügbar“; beim Server kommt nichts an. „Tag zuordnen“ auf dem iPhone ebenso. Vermutete Ursache: die 2-s-Aufräumfrist in `IosNfcSession` wartet auf `SessionClosed`. Korrektur T-072b nach dem Deploy; bis dahin Scannen und Zuordnen nur auf Android.
-- **P2 Kontowechsel am Gerät (24.09.):** `bindOwner` sperrt ein zweites Konto dauerhaft, auch wenn alle Vorgänge bestätigt sind; ADR-0012 erlaubt den Wechsel nach vollständiger Bestätigung. Das revidiert die Notiz „gewollt“ vom 18.09. Relevant bei Geräteweitergabe; Aufgabe T-076 vor dem Pilot, bis dahin ein Gerät, ein Konto.
-- **P2 T-074 Verifikation (behoben):** Fixture-Typ/Rolle, Screenshot-Styleattribute, Hash-Navigation, CI-Skriptverkettung und macOS-Temp-Pfad im Testaufbau korrigiert; Fokusgrenze des neuen Blatts und Farbtoken im Produkt korrigiert. Review 1: fehlende Fehler-/Ladezustände ergänzt. Erstfehler und Schlussnachweise bleiben in `.t074-review/report.md`.
-
-- **T-031 (23.09.):** Caddy-Rückweg unabhängig vom Archivvertrag (D-085) und Startseite hinter Passwort (D-083) umgesetzt; unabhängiges Review Runde 2 und Technical Lead **APPROVED**. Review-Artefakte entfernt; Commit/Push freigegeben. Kein Deploy; Konsolenblock und Passwort nach `infrastructure/DEPLOY.md`.
-- **P2 T-031 lokale Verifikation (behoben):** Faktenprobe zunächst mit unvollständigem Docker-Logkanal; Umsetzungsprüfungen mit korrigierten Fixtures, Browser-Locators, Socket-Wiederverwendung und GNU-/Docker-Helfern. Erstfehler bleiben im gemeinsamen `.t031-review/report.md` samt Logs nachvollziehbar; Schlussprüfungen und Review dort. P2 Entwurf: volle Textdeckkraft während Einblendungen für Kontrast, Bewegung bleibt erhalten.
-- **P2 T-031 Kante und Backend:** Die Kantenprüfung nach dem Caddy-Wechsel schließt die Backend-Gesundheit ein. Ein langsamer oder kranker Backend-Start löst deshalb eine unnötige Caddy-Rücknahme aus, und die Meldung nennt Caddy statt des Backends. Der Deploy scheitert dann ohnehin (Vorwärtsreparatur); später Caddy-Erreichbarkeit und Backend-Gesundheit getrennt prüfen.
-- **P2 T-031 Passwortwerkzeug:** `taptime-landing-password` zeigt keine Eingabeaufforderung (im Runbook beschrieben); später eine kurze Aufforderung ergänzen.
-
-- **T-072 (23.09.):** iPhone Stufe 1 umgesetzt (Core-NFC-Scan in der offenen App, Tag-Zuordnung auf dem iPhone, iOS-Uhr nach D-082, Datenschutz-Manifest 35F9.1); Technical Lead **APPROVED**. Review-Artefakte entfernt; Commit/Push freigegeben. Kein App-Build durch Codex; erster iOS-Build und TestFlight durch den PO nach `apps/mobile/README.md`, danach Geräteabnahme Android und iPhone.
-- **P2 T-072 Feedback:** Der vorhandene native Ton-/Vibrationscode ist Android-only; iOS Stufe 1 zeigt die Serverentscheidung, hat aber noch keinen eigenen Feedback-Port. Geräteabnahme nach separat freigegebenem Build steht aus.
-- **P2 T-072 Verifikation:** Privacy-Rotlauf scheiterte zuerst am plist-Testimport; korrekter Gegenbeleg gegen Altquelle erst nach Änderung (Prozesslücke). Weitere Mock-/Typ-/Xcode-Prüfannahmen und erster Interop-Aufbau der Reviewer-Probe korrigiert. Schlusslauf: gesamte Mobile-Suite und tests-inklusiver Typecheck grün; Belege in `.t072-review/`. Review-P1 zur nativen Abbruchreihenfolge mit vorgezogenem Rotnachweis behoben. Runde 2 formal CHANGES REQUIRED allein wegen P2; keine offenen P0/P1, Technical Lead hat die Abweichung am 23.09. akzeptiert (nachträglicher Gegenbeleg genügt für eine reine Konfigurationsangabe; Suite und Typecheck vom TL unabhängig nachgelaufen), keine dritte Runde.
-- **P2 T-072 Swift-Test nur auf macOS:** Die D-082-Szenarien der iOS-Uhr laufen über `/usr/bin/swift` und werden in der Linux-CI übersprungen. Bis auf Weiteres durch lokale Läufe auf dem Mac abgesichert; ein macOS-Job in der CI folgt bei Bedarf.
-- **P2 T-072 iPhone-Hinweis am Tag:** Tags tragen `https://tb-infra.de/tag`. Ein iPhone zeigt beim Antippen außerhalb der App einen Hinweis zum Öffnen dieser Adresse; dort gibt es heute keine Seite. Bis T-073 kommt dort eine kurze Hilfeseite hin (mit T-031, ohne Passwortschutz).
-- **P2 T-072 bei der Geräteabnahme prüfen:** Ein erfolgreicher Scan mit fehlgeschlagener nativer Bereinigung wird bewusst als nicht verfügbar gemeldet. Die Uhrdatei hat vollständigen Dateischutz und ist bei gesperrtem Gerät nicht lesbar (Erfassung dann zur Prüfung, Offline-Aktivierung beim nächsten Öffnen).
-- **T-068b (23.09.):** Betreiber-Web, Auslieferung und Runbook umgesetzt; unabhängiges Review Runde 2 und Technical Lead **APPROVED**. Review-Artefakte auf Auftrag entfernt; Commit/Push freigegeben, CI und alle vier Abbilder werden anschließend geprüft. Kein Deploy. Gemeinsamer Controller-Konsolenblock T-057/T-068b in `infrastructure/DEPLOY.md`.
-- **P2 T-068b CI-Testaufbau (behoben):** Erster CI-Lauf scheiterte als unprivilegierter Runner an wiederverwendeten schreibgeschützten Release-Fixtures; lokaler Root-Lauf hatte das verdeckt. Testbäume je Fall zurückgesetzt, Cleanup macht eigene Testdateien wieder löschbar. Non-root-Rotnachweis und anschließender grüner Lauf; Produktionscode unverändert.
-- **P2 T-068b Verifikation:** Erste Testharness-/axe-Fehler korrigiert; echter Caddy-Rotnachweis gegen Altquelle erst nach erster Änderung erbracht (Prozesslücke). SDK-/Idle-Befunde aus Review 1 mit Rotnachweis behoben; alle lokalen Schlussläufe grün; CI und Images werden nach dem freigegebenen Push geprüft.
-
-- **T-068a (22.09.):** Server-Umsetzung und unabhängiges Gesamt-Review Runde 2 vom TL **APPROVED**: Migration 032, Betreiber-Konten/MFA/Fähigkeiten, Pause einschließlich Offline/Einlösung, beide Root-Werkzeuge und erlaubte Installationslisten. Lokal 1.062 Backend-, 648 Mobile- und 271 Web-Tests, tests-inklusive Typechecks und ShellCheck 0.9.0 mit `-e SC1091` grün. Review-Artefakte auf Auftrag entfernt; Commit/Push freigegeben, CI und Images werden anschließend geprüft. Kein Deploy; T-068b ist der nächste Brief.
-- **P2 T-068a CI-Testabgleich (behoben):** Erster CI-Lauf scheiterte im B6-Test an der alten `search_path`-Erwartung für `lock_request_actor`; auf den vollständig qualifizierten Resolver aus 032 angepasst. Servercode unverändert. Lokal alle 103 B6-Tests und Typecheck grün. Ein nachlaufendes Leerzeichen im Werkzeugtest ebenfalls entfernt; erneute CI-/Image-Prüfung folgt.
-- **T-068a Review-Korrekturen (behoben):** Runde 1: gemeinsamer 026-E-Mail-Sperrhash und `needsAttention`. Runde 2: pausierte Einladungseinlösung ohne Mitgliedschaft, gemeinsamer Web-API-Client und verspätete mobile Kontextantwort. Jeweils Rotnachweis vor Korrektur; keine dritte Runde.
-- **P2 lokale Verifikation (T-068a, behoben):** Fixture-/Workspace-Aufbau, SQL-Sperrrechte, Spalten-/search_path-Erwartungen, asynchrone Queue-Proben und Linux-Werkzeuge korrigiert; alle Schlussläufe grün. Ein früher Login-Test hielt den psql-Pipe offen, behoben und Rücknahme erneut geprüft. Review-Artefakte nach TL-Abnahme auf Auftrag entfernt. Export-Grenzlasttest ausgelassen (Lastlogik unverändert); bestehende Web-Bündelwarnung bleibt.
-- **P2 lokale Verifikation (T-057, behoben):** Erste Signaltests liefen mit macOS-Bash ohne
-  `BASHPID`; der erste Linux-Lauf hatte kein Node, der sudo-Test noch kein `/usr/local/sbin`.
-  Auf vollständiger Linux-Testumgebung sind Signal-, Deploy-, Backup-, Restore- und
-  Installerprüfungen grün. Frühe Erfolg-/Rücknahmemeldungen im neuen EXIT-Pfad durch Rotnachweise
-  korrigiert. Review Runde 1 fand den verworfenen numerischen WAL-Ergebniscode im Diagnosefilter;
-  mit echten Archivierer-Ausgabezeilen rot belegt und korrigiert. Prozesslücke: Rotnachweise für
-  Vorprüfung/Barriere erst nach erster Änderung; Gegenprüfung ersetzt diese Reihenfolge nicht.
-  Unabhängiges Code-Review Runde 2 und TL-Abnahme **APPROVED**; kein Deploy.
-- **P2 T-069 (geklärt durch D-076):** Verwaltungsstopps umgehen das Duplikatfenster und schließen eine offene Pause zusammen mit der Zeit; lokal geprüft.
-- **T-069:** Server/App/Web einschließlich D-078 umgesetzt und vom TL **APPROVED**; unabhängiges Review Runde 2 sowie lokale Tests/Typechecks grün. Review-Artefakte auf Auftrag entfernt; CI und Images werden nach dem Push geprüft. Kein Deploy, keine APK.
-- **P2 T-069 CI-Bauanbindung (behoben):** B6/DA3 scheiterten nach dem Push an fehlenden Builds neuer Testabhängigkeiten; lokale `dist`-Ausgaben hatten die Lücke verdeckt. CI baut jetzt die transitive Workspace-Hülle einschließlich Entwicklungsabhängigkeiten vor den Prüfungen; dynamischer Guard mit Rotnachweis und frische Builds/Typechecks je Job grün. Unabhängiges Review `APPROVED`; `actionlint` lokal nicht installiert.
-- **P2 T-069 (Review Runde 2):** Die Dreiminutenmeldung kann sich um die Restlaufzeit der letzten Archivnachfrage verzögern; kein verfrühter Erfolg.
-- **P2 T-066 (D-078):** Nachtragen/Korrektur ohne externen Archivnachweis bis T-016.
-- **P2 T-069 (Review):** Frühere Offline-Prüfgründe behalten Vorrang vor `administration_stopped`; Scan-Rückmeldung der App bleibt trotz bekanntem Grund allgemein. Detailmarke ist vorhanden.
-- **P2 lokale Verifikation (T-069, behoben):** Lokale Datenbank zunächst nicht gestartet; SQL-Stopptest scheiterte an verzögerter Prüfung unter der Laufzeitrolle, anschließend Prüfung innerhalb der Schreibfunktion. Syntaxfehler im Review-Nachweis sowie Testannahmen zu SQL-Zeitpräzision, Projektgrenzen, Prüffall-Feld und CSV-Format korrigiert; Tabellen- und Archivfunktionsinventar um 031 ergänzt. Export-Grenztest: absolute Warnschwelle knapp überschritten, relative Grenzen grün. Schlussläufe grün; Review-Artefakte nach TL-Abnahme auf Auftrag entfernt.
-
-- **P2 lokale Verifikation (T-070, behoben):** Messaufbau brauchte Borg-Logging und persistente
-  Testquittungen; der neue Wasserstands-Stub musste append-only abbilden. Linux-Testcontainer
-  anfangs ohne Docker-CLI, nachgerüstet. Schlussläufe einschließlich PITR und unabhängiges
-  read-only Review grün; Review-Artefakte nach TL-Abnahme auf Auftrag entfernt.
-
-- **P2 lokale Verifikation (T-066, behoben):** Erstläufe scheiterten auch an Testaufbau
-  (fehlende lokale DB-Variable, nicht erfasste `.tsx`-Tests, veraltete Schema-/Status-Erwartungen
-  und nach Schema-Neuaufbau fehlende Test-Login-Grants). Web-Fortsetzung: Rollen-/Seitenlimit-
-  Testdaten aktualisiert. Laufzeitkorrektur: falsche Status-Erwartung im neuen Test berichtigt;
-  SQL-NULL-Grenze mit frischer Verbindung belegt. Ursachen/Nachweise im Review-Bericht.
-- **P1 T-068 (Befund 21.09.):** Kein gangbarer Weg, einen Kunden als eigenen Betrieb
-  anzulegen: nur das C3B-Werkzeug `taptime-bootstrap`, in keinem Produktionsabbild, ohne
-  aktuelle Anleitung. Blockiert den Pilot; Betreiber-Bereich nach D-068.
-- **P2 Sicherheit (Befund 21.09.):** Der WAL-Spool `/var/lib/taptime-wal` gehört auf dem Host
-  `dnsmasq:systemd-journal` — Kollision der Benutzernummer aus dem Datenbankcontainer mit einem
-  Hostbenutzer. T-057: Container und Empfänger schreiben fest als 999:999; Änderung braucht
-  einen eigenen Auftrag für Container-/Restore-Identität oder Host-Benutzerbereinigung.
-  Ob `dnsmasq` läuft, wurde ohne Serverzugriff nicht geprüft.
-- **Beobachten (21.09.):** Dauer der stündlichen Basissicherung gegen die Zehn-Minuten-Grenze
-  des Wächters (D-066); ein Lauf endete 16:13 UTC nach bis zu acht Minuten.
-- **T-070 lokal behoben und TL-APPROVED; Produktion offen (22.09.):** Über 20 Alarme „WAL-Archivierung steht" in einer Nacht, ohne
-  fehlende Daten. Ein Leerlauf-Durchlauf dauert 67–68 s (Storage-Box-Zugriffe ohne Arbeit), das
-  Alarmfenster ist 120 s; das Nachholen nach der Sicherung dauerte 451 s (08:05–08:13 UTC,
-  Sicherung selbst 7:20 min). Berichtigung in D-072.
-- **Geprüft 22.09.:** Das Heimverzeichnis des Deploy-Benutzers enthält nur Standarddateien;
-  der Journal-Auszug vom 21.09. ist entfernt.
-- **Erledigt 22.09. — T-067 (Befund 21.09.):** `archive_timeout=15s` (T-063, ausgeliefert 20.09.) lässt den
-  Archivierer seine eigenen Quittungen archivieren — rund 200 Archive je Stunde ohne Taps. Die
-  Durchläufe wachsen auf Stunden, die stündliche Sicherung verhungert, der Spool wächst auf der
-  Datenbankplatte (6,0 → 17 GB in 20 h). Archivierer bis zum Deploy von T-067 angehalten;
-  Basissicherungen laufen weiter. Kein Datenverlust. Berichtigung in D-066.
-
-- **P2 T-059:** Mehrere gleichzeitige Standort-Grants sind im Handy-Vertrag (ein Standort)
-  nicht darstellbar; dann bleibt der Reiter Mitarbeiter aus — es wird kein Standort geraten
-  und keine Betriebsberechtigung angenommen. Eine Oberfläche dafür braucht eine
-  Produktentscheidung.
-- **P3 T-059:** Die Handy-Sitzung vergleicht den Verwaltungsumfang nicht mit, wenn sie prüft,
-  ob es dieselbe Sitzung ist; eine laufende Abfrage kann nach einem Entzug noch zurückkommen.
-  Der Server weist sie ab — die Autorität wird je Seite neu geprüft.
-
-- **P2 Entwicklung (T-060):** Der Root-Build kann mit veralteten Workspace-Deklarationen
-  scheitern; betroffene Abhängigkeiten vor ihren Verbrauchern bauen (Identity → Administration → API).
-- **T-060/T-086:** Die lokale Umsetzung erlaubt „Tags“ auch im noch kundenlosen verwalteten Standort;
-  konkrete Kunden bleiben auf aktive eigene Standortbindungen begrenzt. Produktion bis zum Deploy unverändert.
-
-- **P1 T-055:** Lease-Bindung und Reihenfolge über Installationen nach Restore (D-055).
-- **Bekannt, nicht behebbar (T-043):** Android 17 zeigt für Tags mit Web-Adresse eine
-  Mitteilung, die angetippt werden muss — ein Tap plus Bestätigung wie auf iOS (D-037). Ob der
-  Android Application Record das umgeht, ist offen; wird am ersten Android-17-Gerät geprüft.
-  Test-Tags müssen nach der nächsten APK einmal neu zugeordnet werden (alte Tags ohne NDEF
-  zeigen weiter den Auswahldialog).
-- **P2 App (18.09., aus T-058):** Meine Zeiten summiert nur den geladenen Abfragezeitraum;
-  Schichten davor fehlen im Kalender (wird als „—“ gezeigt, nicht erfunden). „Zuletzt“ zeigt
-  bei einem Abruffehler weiter „Laden“. „Abmelden“ liegt nur auf der Abgleich-Seite.
-  Ein zweites Konto auf demselben Gerät ist per `bindOwner` dauerhaft gesperrt — gewollt.
-  Erledigt mit `3daa09b`: Schutztext je Ursache; Schutzzustand beim Kontowechsel.
-- **P2 lokale Verifikation (T-064):** PITR scheitert auf einem macOS/Colima-Bind-Mount beim
-  Rechteerhalt durch `cp -a`; isoliert reproduziert, unveränderter Test auf nativem Linux-Volume grün.
-- **P2 lokale Verifikation (T-067):** Der neue Messaufbau scheiterte vor dem Messfenster an
-  getrennten Borg-Cachepfaden und am Statusverzeichnisrecht; beides im Aufbau korrigiert.
-  Image-Abhängigkeitstest mit Node 18 (`globSync` fehlt) und Caddy-Test ohne `curl` scheiterten
-  im Helfer; mit CI-Node 24 bzw. vollständiger Linux-Testumgebung grün.
-
-- **P2 Betrieb:** Health-Abfrage ohne Cache; alte Caddy-Assets; Monitoring-Test braucht GNU-Werkzeuge;
-  Caddy-Negativprüfung: EXIT-Trap verliert `holder`, Validator-Cleanup kann ausfallen (T-063-Beleg).
-- **P3 Betrieb:** `registered_chain_watermark` liest `offsite_wal_archive_watermarks`
-  direkt ueber die Superuser-Verbindung statt ueber eine versionierte Lesefunktion mit
-  enger Archivierer-Rolle; spaeter mit einer eigenen Migration schliessen (T-063-Befund).
-- **P2 Sicherheit:** `*.supabase.co` in der CSP auf den Aussteller verengen; SECURITY-DEFINER-
-  Pfade und Policy-Prädikate prüfen; Supabase-Anmeldung außerhalb eigener Ratenbegrenzung.
-- **P2 Fachlich:** Geräteuhr bei manueller Erfassung, unbegrenzter vergessener Stopp, Offline-
-  Pausenkonflikte ohne aktive Zeitreferenz.
-- **P2/P3 Oberfläche und Pflege:** keine APK-Meldung, Prüfposten-Abweisung ohne Erklärung,
-  ungeteiltes Web-Bündel, Fachdokumente in T-019, PostgreSQL-Suiten seriell.
+- **App:** „Zeit beendet“ nennt die Dauer ohne Pausen, die Uhrzeitspanne enthält sie (T-103) · Einladen-Knopf wirkt
+  nach Erfolg aktiv, tut aber nichts (T-101) · Anzeige „wird gesichert“ eines Verwaltungsstopps nur im Speicher ·
+  „Meine Zeiten“ nur laufender und Vormonat, Summe nur über den geladenen Zeitraum (T-077, T-058) · Kalenderwoche über
+  zwei Monate „nicht vollständig geladen“ (T-079) · offline vor einem Rollenwechsel erfasst → Prüffall (T-080) · Abbruch
+  im Vorbereitungsfenster des Kontowechsels → Schutzzustand, jede fremde `.db`-Datei im SQLite-Ordner ebenso (T-076) ·
+  iOS ohne eigenen Ton/Vibration; Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) ·
+  „Zuletzt“ zeigt nach einem Abruffehler weiter „Laden“ · Sitzungsvergleich ohne Verwaltungsumfang (T-059) ·
+  Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an `wa-sqlite.wasm` (P2).
+- **Web:** globale Aktualisierung lädt Kundenstunden nicht neu (T-084) · Tags für die Standortleitung nur in der App
+  (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
+  (T-074) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Anlegen meldet Fehler 23514
+  als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung.
+- **Server und SQL:** direkter SQL-Pfad `taptime_admin_setup` prüft keine Betriebspause (T-085) · `xmin` über
+  `::text::xid` (T-086, mit der nächsten Migration) · Standortleitung mit Heimatstandort außerhalb ihres
+  Verwaltungsbereichs kann eigene Zeiten nicht nachtragen (T-062) · mehrere Standort-Grants im Handy-Vertrag nicht
+  darstellbar (T-059) · Nachtragen ohne externen Archivnachweis bis T-016 (D-078) · frühere Offline-Prüfgründe vor
+  `administration_stopped`, Dreiminutenmeldung kann sich verzögern (T-069) · Geräteuhr bei manueller Erfassung,
+  unbegrenzter vergessener Stopp, Offline-Pausenkonflikte ohne aktive Zeit · Lease-Bindung nach Restore (P1, eigene
+  Aufgabe T-055).
+- **Betrieb:** WAL-Spool gehört UID 999 (Kollision mit `dnsmasq`, T-057) · Kantenprüfung nach dem Caddy-Wechsel schließt
+  die Backend-Gesundheit ein (T-031) · `taptime-landing-password` ohne Eingabeaufforderung · systemd meldet „unit file
+  changed“ beim Ordnerwechsel · `registered_chain_watermark` liest direkt statt über eine Lesefunktion · Health ohne
+  Cache, alte Caddy-Assets · Caddy-Negativprüfung: EXIT-Trap verliert `holder` · Monitoring-Test braucht
+  GNU-Werkzeuge · ShellCheck CI 0.9 gegen lokal 0.11 · DNS-Wildcard nach dem Pilot verengen.
+- **Sicherheit:** CSP `*.supabase.co` auf den Aussteller verengen · SECURITY-DEFINER-Pfade und Policy-Prädikate prüfen ·
+  Supabase-Anmeldung außerhalb der eigenen Ratenbegrenzung.
+- **Entwicklung:** Root-Build mit veralteten Workspace-Deklarationen (Reihenfolge Identity → Administration → API) ·
+  Swift-Tests der iOS-Uhr nur auf macOS · Landing-Workflow-Tests nur unter Linux · PostgreSQL-Suiten seriell.

@@ -155,6 +155,15 @@ Alles unter `ADO/99_Archive/` ist Historie und wird nicht gelesen.
   Zufall.
 - Dass `AGENTS.md` dazugehört, ist Absicht: Ein Regelwerk, das sich selbst nicht ändern lässt,
   ist eine Sackgasse. Diese Zeile existiert, weil die erste Fassung genau das war.
+- Dokumentationsstände des Technical Lead kommen als Patch-Datei: Prüfsumme vergleichen, mit
+  `patch -p1` einspielen (nicht `git apply`), nur die betroffenen Dateien committen, `[skip ci]`,
+  pushen, Patch-Datei löschen.
+- Prüf- und Analyseordner (`.tXXX-review/`, `.audit-*`) werden nie committet.
+- Nach dem Push wird ein roter CI- oder Image-Lauf gemeldet. Eine Nachbesserung wird erst nach
+  Rückfrage beim Technical Lead committet, auch eine reine Test- oder Stilkorrektur (04.10.).
+- Vor jedem Deploy fragt der Technical Lead den Product Owner die PO-Schritte aus
+  `infrastructure/DEPLOY.md` für alle enthaltenen Aufgaben ab. Am 04.10. fehlte deshalb ein
+  Schlüssel in `/opt/taptime/.env`, und Einladungen scheiterten bis zum zweiten Deploy.
 - Ein Deploy wird aus einer interaktiven Terminalsitzung des Product Owners gestartet
   (SSH-Agent geladen, `caffeinate`, Ausgabe per `tee` in eine Log-Datei außerhalb des
   Repositorys). Codex' Werkzeugumgebung beendet Hintergrundprozesse beim Ende eines Befehls und
