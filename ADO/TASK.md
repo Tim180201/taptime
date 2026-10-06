@@ -1,57 +1,45 @@
 # Aktuelle Aufgabe
 
-> **Stand 05.10.2026:** Produktion `b1ecb8c`; auf `main` T-094b bis T-101 (Migrationen 043–046), Auslieferung mit dem
-> nächsten Deploy (vorher T-098b und Fingerabdrücke aus EAS, siehe STATUS). T-102 ist die letzte Codex-Aufgabe vor dem
-> Deploy. Frühere Briefs stehen in der Git-Historie.
+> **Stand 06.10.2026:** Produktion `b1ecb8c`; auf `main` T-094b bis T-102 (Migrationen 043–047), Auslieferung mit dem
+> nächsten Deploy. Vorher T-098b (diese Aufgabe) und die Fingerabdrücke aus EAS (STATUS, „Vor dem nächsten Deploy“).
+> Frühere Briefs stehen in der Git-Historie.
 
-## T-102 · Beschäftigte nach Standort, Stunden des Monats (D-105, T-081)
+## T-098b · Registry wiederherstellen, Abrufprüfung bei jedem Lauf (Befund 05.10.)
 
-**Für:** Development · **Risiko:** mittel (neue Lesefunktion mit Rechteprüfung, neue Vertragsvariante) · **Zeitbox:**
-eine Sitzung. `apps/backend-schema` (Migration 047), `apps/backend-administration`, `apps/backend-api`,
-`packages/administration-contract`, `apps/admin-web`, `apps/mobile`.
+**Für:** Development · **Risiko:** hoch (Registry-Schreibzugriff auf Produktionsabbilder) · **Zeitbox:** eine Sitzung.
+Grundlage: der lokale Plan `.t098-review/restore-plan.md` (05.10.). `.github/workflows/container-image.yml`,
+`.github/scripts/clean-ghcr.mjs` und ihre Tests.
 
 ### Befund
 
-„Beschäftigte“ (Web) und „Mitarbeiter“ (App) sind nach interner ID sortiert, also scheinbar zufällig; der Standort steht
-nur als Spalte. Die Stunden des Monats sieht man erst in der Person (D-105 fehlt). Bei frogs (5 Standorte, etwa 200
-Personen) ist die Liste so nicht zu gebrauchen.
+Das alte Aufräumen hat 21 Versionen im Paket `tim180201/taptime-backend-api` gelöscht: zehn Plattform-Manifeste, zehn
+Attestationen und den Index `operations-0230188` der Stände `b1ecb8c` (Produktion) und `0230188`. Der Deploy zieht den
+laufenden und den neuen Stand und würde daran scheitern. Seit T-098 überspringt der Image-Workflow das Aufräumen bei
+einem fehlenden referenzierten Manifest und damit auch die anschließende Abrufprüfung (zuletzt bei `1043011` und
+`d399c69`); der Lauf bleibt grün. Frist der Wiederherstellung: frühester Eintrag am 02.11.2026, 13:46 UTC.
 
 ### Auftrag
 
-1. **Server (Migration 047):** neue Lesefunktion `read_managed_active_summary_v3` mit derselben Rechte- und
-   Sichtbarkeitsprüfung wie v2 (Administrator alle, Standortleitung ihre Standorte, Ausgeschiedene nach D-101).
-   Zusätzlich je Person die Summe des laufenden Monats in Europe/Berlin: nur beendete Einträge, Pausen abgezogen,
-   stornierte nicht, mit denselben Bausteinen und derselben Monatszuordnung wie 036 (`effective_time_records_v2`,
-   `time_record_duration_v1`). Prüfen, dass der Lohnexport dieselbe Zuordnung nutzt; eine Abweichung melden, nicht
-   raten. Eine Abfrage je Seite, kein Aufruf je Person.
-2. **Reihenfolge:** aktuelle vor ausgeschiedenen Personen, dann Standortname (ohne Standort zuletzt; bei
-   ausgeschalteten Standorten entfällt die Stufe), dann Name, die ID als letzter Schlüssel. Seiten bleiben bei 20. Der
-   Cursor enthält keine Namen (Vertrag: druckbares ASCII, höchstens 256 Zeichen), z. B. die letzte Membership-ID,
-   deren Sortierschlüssel der Server neu liest.
-3. **Vertrag:** neue Variante v3 (`MANAGED_PEOPLE_ACCEPT_V3`, strenger Parser, Feld für die Monatssumme). v1 und v2
-   bleiben unverändert, damit installierte Apps (iPhone 5, Android 12) weiterlaufen. Admin-Web und App fragen v3 an
-   und verstehen weiter v1/v2; ohne v3 zeigen sie die Liste wie bisher ohne Monatsspalte.
-4. **Web „Beschäftigte“:** Zwischenüberschrift je Standort (bei gewähltem Standort nur einer), Spalte „Diesen Monat“
-   im Format des Reiters „Kunden“, „Ausgeschieden“ bleibt eigener Block. Nach „Weitere Personen laden“ läuft die
-   Gruppe weiter, ohne doppelte Überschrift.
-5. **App „Mitarbeiter“:** gleiche Gruppierung mit Überschrift je Standort; je Person zusätzlich „Diesen Monat …“.
-6. **Nebenbei (klein):** (a) Web „Tag neu zuordnen“: gehört der Tag schon zum gewählten Kunden, Hinweis am Feld („Der
-   Tag gehört bereits zu diesem Kunden.“) statt der Meldung „nicht mehr verfügbar“ (P3 aus T-101). (b) App,
-   Warte-Bildschirm beim Abmelden (D-120): Knopf „Angemeldet bleiben“ bricht das Abmelden ab (P3 aus T-095).
+1. **Vorprüfung, nur lesend:** Die lokale `gh`-Anmeldung hat `read:packages` und `write:packages` (der PO hat
+   `gh auth refresh -h github.com -s read:packages,write:packages` ausgeführt). Konto und Paketrechte, Versions-IDs und
+   Digests gegen den Plan prüfen. Zusätzlich: Was haben die Aufräumläufe seit dem Plan gelöscht (`b693fde` lief als
+   „erfolgreich“)? Ist darunter etwas, das ein geschützter Stand referenziert, gehört es in die Wiederherstellung.
+2. **Wiederherstellen:** nur die geprüften Versionen, in der Reihenfolge des Plans (Plattform, Attestation, zuletzt
+   Index), je Version `POST …/versions/{id}/restore`. Nach jeder Version: Antwort protokollieren, Digest direkt aus
+   GHCR lesen. Bei 403/404, unklarer Antwort oder falschem Digest anhalten und melden.
+3. **Abschlussprüfung:** alle fünf Abbilder von `b1ecb8c` und `0230188` vom Tag über Index, Plattform und Attestation
+   bis zu jeder Schicht vollständig abrufen (genug Zeit je Blob), Größen und Digests prüfen. Ebenso `d399c69`.
+4. **Code (Teil 2, erst nach erfolgreichem Teil 1):** Die Abrufprüfung aller geschützten Abbilder läuft bei jedem
+   Image-Lauf, auch wenn das Aufräumen übersprungen wird. Fehlt etwas Geschütztes, wird der Lauf rot (nicht nur eine
+   Warnung). Tests dafür, rot vor der Änderung.
 
-### Tests
+### Grenzen
 
-SQL: Monatssumme je Person gleich der Summe derselben Person im Lohnexport (nur beendete); laufende, stornierte und
-Vormonats-Einträge zählen nicht; Pausen abgezogen; Monat mit Zeitumstellung (Oktober). Rechte: die Standortleitung
-sieht keine fremden Standorte, auch nicht über einen Cursor. Blättern über Gruppengrenzen ohne Lücke oder Doppel
-(z. B. 45 Personen in 3 Standorten plus Ausgeschiedene). Vertrag: v1/v2 unverändert, v3 streng. Web und App: Gruppen,
-Spalte, Rückfall ohne v3, beide Kleinigkeiten. Volle Suiten einschließlich Migrationsproben und Rechteinventar (047),
-Typechecks.
-
-### Nicht Teil
-
-Suche (T-099), Standortwahl als eigener Schritt, „Zugänge verwalten“ (T-105, später), Änderungen an Rechten.
+Kein Deploy, kein Serverzugriff, keine manuelle Löschung, kein manueller Start einer Bereinigung. Token und
+Zugangsdaten nie in Bericht, Log oder Kommandozeile ausgeben. Teil 1 verändert kein Repository; Teil 2 normal mit
+Review.
 
 ### Bericht
 
-`.t102-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit vor `APPROVED`.
+`.t098-review/` (restore-report.md für Teil 1, report.md, tracked.diff, untracked.txt für Teil 2). Teil 1 sofort
+melden; Teil 2 erst danach. Kein Commit vor `APPROVED`.

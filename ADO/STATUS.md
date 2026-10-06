@@ -4,8 +4,8 @@
 1.0.0 (5), Android versionCode 12. „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`.
 **Auf `main`, noch nicht ausgeliefert:** T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095
 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045), T-098 (`4f6fa75`),
-T-100 (`b693fde`, Migration 046), T-101 (`1043011`). In Arbeit: T-102.
-**Weg zum Pilot:** T-102 → T-098b → Fingerabdrücke → dritter Deploy → Mail-Vorlage → App-Builds und Geräteabnahme →
+T-100 (`b693fde`, Migration 046), T-101 (`1043011`), T-102 (`d399c69`, Migration 047). Nächste Aufgabe: T-098b (am Mac).
+**Weg zum Pilot:** T-098b → Fingerabdrücke → dritter Deploy → Mail-Vorlage → App-Builds und Geräteabnahme →
 T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht vor echten Daten. Fertig ist
 das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
@@ -15,7 +15,7 @@ das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständi
 1. **T-098b:** Das alte Aufräumen hat Plattform-Manifeste von `b1ecb8c` (alle fünf) und `0230188` (vier) gelöscht. Der
    Deploy zieht beide Stände und würde in der Vorprüfung scheitern. 21 Versionen sind über die Packages-API bis etwa
    Anfang November wiederherstellbar; vorher gibt der PO `read:packages`/`write:packages` für `gh` frei. Seit T-098
-   überspringt das Aufräumen jeden Lauf mit fehlendem referenziertem Manifest (zuletzt beim Lauf zu `1043011`); gewollt,
+   überspringt das Aufräumen jeden Lauf mit fehlendem referenziertem Manifest (zuletzt bei `1043011` und `d399c69`); gewollt,
    endet mit T-098b. Dabei prüfen, was der Lauf zu `b693fde` gelöscht hat.
 2. **Fingerabdrücke (T-096):** Der PO holt die SHA-256 der Android-Signatur je Variante aus EAS (`npx eas-cli
    credentials -p android`), Codex ersetzt in `apps/landing-web/public/.well-known/assetlinks.json` alle Platzhalter
@@ -69,6 +69,9 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   iOS ohne eigenen Ton/Vibration; Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) ·
   „Zuletzt“ zeigt nach einem Abruffehler weiter „Laden“ · Sitzungsvergleich ohne Verwaltungsumfang (T-059) ·
   Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an `wa-sqlite.wasm` (P2).
+- **Beschäftigte (T-102):** Sortierung nach Bytes (`COLLATE "C"` wie bei den Kunden), Namen mit Umlaut am Anfang stehen
+  am Ende · wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten Seite fehlen
+  (Aktualisieren hilft) · Spalte „Standort“ steht neben der Standort-Überschrift doppelt.
 - **Web:** globale Aktualisierung lädt Kundenstunden nicht neu (T-084) · Tags für die Standortleitung nur in der App
   (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
   (T-074) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Anlegen meldet Fehler 23514
