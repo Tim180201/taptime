@@ -1799,3 +1799,9 @@ D-U-N-S). Nach dem Passwortsetzen und in der Einladungsmail führen Knöpfe dire
 freigegeben sind, steht TestFlight bzw. ein geschlossener Google-Play-Test als gleichwertiger Link bereit. Der App-Name
 steht an genau einer Stelle und wird später festgelegt. Umsetzung in T-109.
 **Warum:** Lehrkräfte sollen die App ohne Hilfe aus dem gewohnten Store laden; Updates kommen dann automatisch.
+
+## D-130 · Supabase Pro mit der Gewerbeanmeldung · 06.10.2026 · Tim (PO)
+Der Wechsel auf Supabase Pro (25 US-Dollar im Monat, Abo-Umstellung im Dashboard, dasselbe Projekt) erfolgt, sobald
+Taptura offiziell wird, also mit der Gewerbeanmeldung. Weil echte Pilotdaten nach D-116 erst danach kommen, liegt Pro
+damit vor den ersten echten Konten. Präzisiert D-039.
+**Warum:** Der kostenlose Tarif pausiert nach einer Woche ohne Aktivität (Vorfall 15.09.) und sichert die Konten nicht.

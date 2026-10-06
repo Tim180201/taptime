@@ -6,13 +6,14 @@
 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045), T-098 (`4f6fa75`),
 T-100 (`b693fde`, Migration 046), T-101 (`1043011`), T-102 (`d399c69`, Migration 047), T-075 (`28e3685`, `5aa8ea2`,
 Migration 048), T-106 (`06b3008`, Migration 049), T-107 (`16670ed`, Migration 050; danach eine Testkorrektur der
-synthetischen WAL-Belege), T-108 (`66b1952`), App-Link-Fingerabdrücke (T-096). In Arbeit: T-110. T-098b Teil 1 erledigt
-(06.10.): 21 Versionen wiederhergestellt, alle Abbilder von `b1ecb8c`, `0230188` und `66b1952` vollständig abrufbar.
-Teil 2 geparkt (siehe unten). UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
-`.audit-ux-2026-10/` (nie committen); daraus T-107, T-108 und T-110; T-109 bereitet die Stores vor (D-129).
-**Weg zum Pilot:** T-110 → dritter Deploy → Mail-Vorlage „Reset Password“ → App-Builds und Geräteabnahme → T-024 →
-Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht vor echten Daten. Fertig ist das
-Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+synthetischen WAL-Belege), T-108 (`66b1952`), App-Link-Fingerabdrücke (`2d21521`), T-110 (`7cd4233`, Migration 051). Als
+Nächstes: dritter Deploy auf `7cd4233`. T-098b Teil 1 erledigt (06.10.): 21 Versionen wiederhergestellt, alle Abbilder
+von `b1ecb8c`, `0230188` und `66b1952` vollständig abrufbar. Teil 2 geparkt (siehe unten). UI/UX-Durchsicht und
+Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen); daraus T-107, T-108 und T-110;
+T-109 bereitet die Stores vor (D-129).
+**Weg zum Pilot:** dritter Deploy → Mail-Vorlage „Reset Password“ → App-Builds und Geräteabnahme → T-024 → Pilot. Pilot
+als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht vor echten Daten. Fertig ist das Produkt, wenn das
+ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
 
 ## Vor dem nächsten Deploy
@@ -25,7 +26,8 @@ Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen 
 2. **Fingerabdrücke (T-096):** eingetragen (06.10.), der Test lässt keinen Platzhalter mehr zu. Nach dem Deploy neue
    Builds installieren; erst dann öffnet eine Karte bei geschlossener App die App. Mit Google Play (T-109) kommt der
    Fingerabdruck der Play-App-Signatur hinzu.
-3. **PO-Schritte aus `infrastructure/DEPLOY.md`** für alle enthaltenen Aufgaben abfragen (AGENTS.md §7).
+3. **PO-Schritte aus `infrastructure/DEPLOY.md`** abgefragt (06.10.): Deploy-Controller seit `b1ecb8c` unverändert
+   (kein Konsolenschritt), keine neuen `.env`-Einträge, Supabase-Einstellungen und Site URL geprüft.
 4. Vorprüfung: Sicherung und Wiederherstellungsprobe inaktiv, letzte Sicherung mit bekanntem Ende. Nach einem
    Server-Neustart erst nach der nächsten stündlichen Sicherung (Meldung unklar → B11).
 5. Nach dem Deploy: Supabase-Vorlage „Reset Password“ aus `docs/T-094b-Ruecksetzvorlage.md` übertragen (PO). „Invite
@@ -54,7 +56,8 @@ Ergebnismeldung mit VoiceOver/TalkBack (T-107).
   mit T-024 ohnehin neu verwahren. Auf dem Server liegt seit 04.10. `/root/env-0410.bak`; mit T-024 entfernen.
 - ntfy am Telefon ist an (PO 06.10.). Letzte Meldungen „WAL-Archivierung steht“ (Phase base, einmal lock) am 29.09.
   und 04.10. um 01:20 und 03:45 UTC, also vor dem Deploy von T-093b; seitdem keine. Das ntfy-Thema mit T-024 erneuern.
-- Supabase Pro vor dem ersten zahlenden Kunden (D-039): der kostenlose Tarif pausiert das Projekt.
+- Supabase Pro mit der Gewerbeanmeldung, vor den ersten echten Konten (D-130): der kostenlose Tarif pausiert das
+  Projekt und sichert die Konten nicht.
 
 ## Beobachten
 
