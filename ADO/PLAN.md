@@ -17,7 +17,7 @@ die vollständige Aufgabentabelle bis 05.10. mit allen Begründungen: `git show 
 | **T-102 ✓** | Beschäftigte nach Standort, Stunden des Monats (D-105, T-081) — abgeschlossen `d399c69` | App und Web: Gruppen je Standort, Spalte „Diesen Monat“ (Migration 047, Vertrag v3, v1/v2 unverändert); „Angemeldet bleiben“ beim Abmelden, Hinweis bei gleicher Tag-Zuordnung. | ✓ |
 | **T-098b** | Registry wiederherstellen, Abrufprüfung immer (Befund 05.10.) — Brief in `5071e6e:ADO/TASK.md`; Teil 2 geprüft auf Branch `t098b-verify` | 21 gelöschte Versionen (Plattform-Manifeste, Attestationen, ein Operations-Index) von `b1ecb8c` und `0230188` über die Packages-API wiederherstellen (Frist bis Anfang November), alle geschützten Abbilder vollständig prüfen; die Abrufprüfung läuft künftig bei jedem Image-Lauf und scheitert laut. PO gibt vorher `read:packages`/`write:packages` für `gh` frei. **Vor dem nächsten Deploy.** | PO, Codex |
 | **App Links** | Fingerabdrücke in `assetlinks.json` (T-096, D-119) | PO holt die SHA-256 je Variante aus EAS, Codex ersetzt alle Platzhalter. Vor dem Deploy. | PO, Codex |
-| **Deploy 3** | Dritter Deploy, Mail-Vorlage, App-Builds, Geräteabnahme | T-094b bis T-102, Migrationen 043–047; Ablauf und Abnahme in STATUS. | PO, TL |
+| **Deploy 3** | Dritter Deploy, Mail-Vorlage, App-Builds, Geräteabnahme | T-094b bis T-102 und T-075, Migrationen 043–048; Ablauf und Abnahme in STATUS. | PO, TL |
 | **T-024** | Geheimnisse rotieren | Datenbank-Zugangsdaten und Cursor-HMAC-Schlüssel aus `/opt/taptime/.env` (Screenshot 25.08.). Reihenfolge: verwahren, rotieren, erneut verwahren; die neue Verwahrung umfasst die ganze `.env` einschließlich `SUPABASE_PUBLISHABLE_KEY`. Dazu ein passphrasegeschützter Deploy-Schlüssel: einrichten, durch eine echte Auslieferung belegen, erst danach den alten entfernen. `/root/env-0410.bak` entfernen; Konsolenschritt für `taptime-status` (DEPLOY.md, MONITORING.md). An der Hetzner-Konsole. | PO, TL |
 | **T-099** | Pilotgröße und Suche | Test in frogs-Größe (5 Standorte, 200 Personen, 500 Kunden und Tags, ein voller Monat) über jede Ansicht in App, Web, Betreiber-Bereich und den Lohnexport, was scheitert wird behoben (u. a. F-018, F-043); Suchfeld auf dem Server für Beschäftigte, Kunden, Tags und jede Kundenauswahl; Supabase-Grenzen anheben. Vor dem Start nur, falls frogs mit allen beginnt (CEO-Termin), sonst vor der Ausweitung. | Codex |
 | **Pilot** | Betrieb frogs | Betrieb anlegen, Standortleitungen einladen, Tags verteilen. Voraussetzung: Gewerbeanmeldung, AVV/TOM nach B15, Haftpflicht mit Cyber-Baustein (D-116), Supabase Pro vor dem ersten zahlenden Kunden (D-039), Aussperr-Test bestanden. | PO |
@@ -30,13 +30,14 @@ die vollständige Aufgabentabelle bis 05.10. mit allen Begründungen: `git show 
 |---|---|---|
 | **T-105** | Zugangsverwaltung im Web überarbeiten (Wunsch PO 04.10.) | Einladen, Entziehen, Rollen und Status der Personen übersichtlicher („Zugänge verwalten“ in „Beschäftigte“). Details mit dem PO, dann Brief. |
 | **B01** | Lohnexport inhaltlich | Vor dem ersten echten Lohnexport (Analyse-Pakete unten). |
-| **T-075** | Paket mit weicher Grenze (D-087) — Brief in TASK, vorgezogen | Paketgröße je Betrieb im Betreiber-Bereich, alle aktiven Zugänge zählen, Hinweis in der Verwaltung, höchste Monatszahl je Betrieb für die Rechnung; nichts wird gesperrt. Vor der ersten Rechnung. |
+| **T-075 ✓** | Paket mit weicher Grenze (D-087) — abgeschlossen `28e3685` (Testnachtrag `5aa8ea2`) | Paketgröße je Betrieb (Migration 048), Änderung mit Grund im Betreiber-Protokoll, Höchstwert aktiver Zugänge je Monat aus der Mitgliedschaftshistorie, Hinweis für Administratoren; nichts wird gesperrt. |
 | **T-073** | Fälschungssichere Tags, iPhone ohne geöffnete App (D-037, D-081, D-088, D-111) | NTAG 424 DNA mit SUN: jede Berührung eine einmalige, vom Server geprüfte Adresse; dieselbe Adresse trägt das Erfassen per Universal Link. |
 | **T-104** | Laufende Zeit auf dem Sperrbildschirm (D-114) | iPhone Live-Aktivität, Android Benachrichtigung mit Ziel und Dauer; Antippen öffnet „Erfassen“. |
 | **T-048, T-050** | Arbeitstag freigeben, Pausenautomatik (D-046, D-047, D-096) | Während Monat 1 bauen, Freigabe zu Monat 2 zuschalten (D-063). |
 | **T-055** | Wiederaufnahme nach Wiederanlauf (D-055) | Lease-Bindung, Reihenfolge über Installationen und Zeitfenster bei spätem Replay nach einem Restore; Nachweis `OfflineRestorePostgres.test.ts` Fall 2. |
 | **T-037** | Ungeprüfte Befunde aus dem Gutachten 06.09. (damals B07–B09, Text in Git) | Erst am Code verifizieren, dann beheben oder verwerfen. |
-| **B02–B06, B12, B16** | Analyse-Pakete | B16 gleicht dabei die älteren Aufgaben ohne ✓ (Tabelle in Git) und die Kleinigkeiten aus STATUS mit dem Code ab. |
+| **T-106** | Plausibilität an der Servergrenze (B02, D-122) — Brief in TASK, vorgezogen | Gerätezeiten gegen die Serveruhr, Korrektur höchstens 24 h, strenge Zeitstempel, Pflichtgründe ohne Leerraum. |
+| **B03–B06, B12, B16** | Analyse-Pakete | B16 gleicht dabei die älteren Aufgaben ohne ✓ (Tabelle in Git) und die Kleinigkeiten aus STATUS mit dem Code ab. |
 
 ## Später, ohne Termin
 

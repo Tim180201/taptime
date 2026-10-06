@@ -1751,3 +1751,10 @@ Prüffall für die Verwaltung an („Erfassung konnte nicht verarbeitet werden �
 die App ehrlich „Übertragung angehalten“ statt eines Fortschritts.
 **Warum:** Belege werden nie umnummeriert oder gelöscht; die Lücke bleibt nachvollziehbar und wird von der Verwaltung
 geklärt statt still auf einem Handy zu liegen.
+
+## D-122 · Korrektur und Prüfentscheidung höchstens 24 Stunden · 06.10.2026 · Tim (PO)
+Ein Zeiteintrag, den Administrator oder Standortleitung korrigieren oder in einer Prüfentscheidung festlegen, dauert
+höchstens 24 Stunden und endet nicht in der Zukunft; dieselbe Grenze gilt schon für Nachtragen und Verwaltungsstopp.
+Der Server weist Verstöße mit eigenem Status und klarer Meldung ab, nicht als Serverfehler (T-106, Befunde F-016, F-062).
+**Warum:** Ein Tippfehler im Datum („Ende eine Woche später“) darf keine Arbeitszeit von Tagen erzeugen; längere echte
+Einsätze kommen bei frogs nicht vor.

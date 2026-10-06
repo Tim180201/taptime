@@ -1,10 +1,11 @@
 # TapTim.e — Status
 
-**Stand 05.10.2026.** Produktion läuft auf `b1ecb8c` (Deploy 04.10., Migrationen bis 042). App-Builds 04.10.: iPhone
+**Stand 06.10.2026.** Produktion läuft auf `b1ecb8c` (Deploy 04.10., Migrationen bis 042). App-Builds 04.10.: iPhone
 1.0.0 (5), Android versionCode 12. „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`.
 **Auf `main`, noch nicht ausgeliefert:** T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095
 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045), T-098 (`4f6fa75`),
-T-100 (`b693fde`, Migration 046), T-101 (`1043011`), T-102 (`d399c69`, Migration 047). T-098b wartet auf den PO am Mac (Teil 2 geprüft, lokaler Branch `t098b-verify`); bis dahin T-075.
+T-100 (`b693fde`, Migration 046), T-101 (`1043011`), T-102 (`d399c69`, Migration 047), T-075 (`28e3685`, `5aa8ea2`,
+Migration 048). T-098b wartet auf den PO am Mac (Teil 2 geprüft, lokaler Branch `t098b-verify`); bis dahin T-106.
 **Weg zum Pilot:** T-098b → Fingerabdrücke → dritter Deploy → Mail-Vorlage → App-Builds und Geräteabnahme →
 T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht vor echten Daten. Fertig ist
 das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -32,7 +33,8 @@ Erfassen mit laufender Zeit und Pause (T-103) · offline erfassen, abgelehnte Er
 (T-095, T-095b) · Neuinstallation am iPhone, Tag öffnet die App bei geschlossener App (T-096) · Kunden anlegen,
 umbenennen, löschen, „Tag prüfen“ (T-100) · leere Pflichtfelder, einmal mit VoiceOver/TalkBack: Hinweis einmal vorgelesen
 (T-101) · Beschäftigte nach Standort mit Monatsstunden (T-102) · „Passwort vergessen“ bis zur Anmeldung (T-094b) ·
-Aussperr-Test: Zugang entziehen, die Person kommt in App und Web nicht mehr weiter (PO).
+Aussperr-Test: Zugang entziehen, die Person kommt in App und Web nicht mehr weiter (PO) · Paket im Betreiber-Bereich
+setzen und ändern, Hinweis beim Administrator (T-075).
 
 ## Fakten für den Betrieb
 
@@ -72,6 +74,8 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
 - **Beschäftigte (T-102):** Sortierung nach Bytes (`COLLATE "C"` wie bei den Kunden), Namen mit Umlaut am Anfang stehen
   am Ende · wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten Seite fehlen
   (Aktualisieren hilft) · Spalte „Standort“ steht neben der Standort-Überschrift doppelt.
+- **Paket (T-075):** eine nie angenommene Einladung belegt den Platz, bis der Zugang entzogen wird (gewollt, D-087) ·
+  `operator_create_organization_v3` ist eine Kopie von v2 mit Paketgröße; v2 beim nächsten Rückbau entfernen.
 - **Web:** globale Aktualisierung lädt Kundenstunden nicht neu (T-084) · Tags für die Standortleitung nur in der App
   (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
   (T-074) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Anlegen meldet Fehler 23514
