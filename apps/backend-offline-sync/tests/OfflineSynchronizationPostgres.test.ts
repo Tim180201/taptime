@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import { SupabaseJwtAccessTokenVerifier } from '@taptime/backend-identity';
@@ -341,6 +341,50 @@ describe('T-095b sequence skip', () => {
 });
 
 describe('complete offline PostgreSQL boundary', () => {
+  it('records consecutive synthetic WAL receipts without changing the overlapping evidence',
+    async () => {
+      const segment = await installerPool.query<{
+        readonly wal_file: string;
+        readonly segment_bytes: string;
+      }>(`
+        SELECT pg_catalog.pg_walfile_name(
+                 '2/0'::pg_lsn + pg_catalog.pg_size_bytes(
+                   pg_catalog.current_setting('wal_segment_size')
+                 )::numeric
+               ) AS wal_file,
+               pg_catalog.pg_size_bytes(
+                 pg_catalog.current_setting('wal_segment_size')
+               )::text AS segment_bytes
+      `);
+      const secondWalFile = segment.rows[0]!.wal_file;
+      const firstWalFile = previousWalFile(secondWalFile, BigInt(segment.rows[0]!.segment_bytes));
+
+      await recordSyntheticArchiveReceipt(firstWalFile);
+      const originalReceipt = await installerPool.query(
+        `SELECT * FROM taptime_server.offsite_wal_archive_receipts WHERE wal_file = $1`,
+        [firstWalFile],
+      );
+      expect(originalReceipt.rows).toEqual([
+        expect.objectContaining({ wal_file: firstWalFile }),
+      ]);
+
+      await recordSyntheticArchiveReceipt(secondWalFile);
+
+      expect((await installerPool.query(
+        `SELECT * FROM taptime_server.offsite_wal_archive_receipts WHERE wal_file = $1`,
+        [firstWalFile],
+      )).rows).toEqual(originalReceipt.rows);
+      expect((await installerPool.query(
+        `SELECT DISTINCT wal_file FROM taptime_server.offsite_wal_archive_watermarks
+         WHERE wal_file = ANY($1::text[])
+         ORDER BY wal_file`,
+        [[firstWalFile, secondWalFile]],
+      )).rows).toEqual([
+        { wal_file: firstWalFile },
+        { wal_file: secondWalFile },
+      ]);
+    });
+
   it.each(['fresh', 'employee_promotion'] as const)(
     'T-080 issues, ingests and reconciles standortleitung without server changes (%s)', async kind => {
       const prior = kind === 'employee_promotion' ? await issueLeaseV3() : null;
@@ -590,7 +634,7 @@ describe('complete offline PostgreSQL boundary', () => {
         );
         await archiverClient.query(
           `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
-          [walFile, gapEvidence.walArchive, '1'.repeat(64)],
+          [walFile, gapEvidence.walArchive, syntheticWalChecksum(walFile)],
         );
         await expect(archiverClient.query(
           `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
@@ -1781,6 +1825,10 @@ function immediatelyArchivedDurability(): OfflineArchiveDurabilityPort {
 
 let syntheticBaseSequence = 0;
 
+function syntheticWalChecksum(walFile: string): string {
+  return createHash('sha256').update(`synthetic-wal:${walFile}`).digest('hex');
+}
+
 async function syntheticArchiveEvidence(
   walFile: string,
   baseStartWalFile?: string,
@@ -1851,7 +1899,8 @@ async function recordSyntheticArchiveReceipt(walFile: string): Promise<void> {
     await client.query(
       `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
       [precedingWalFile,
-        `wal-${evidence.archiveIdentifier}-${precedingWalFile}`, '0'.repeat(64)],
+        `wal-${evidence.archiveIdentifier}-${precedingWalFile}`,
+        syntheticWalChecksum(precedingWalFile)],
     );
     await client.query(
       `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
@@ -1859,7 +1908,7 @@ async function recordSyntheticArchiveReceipt(walFile: string): Promise<void> {
     );
     await client.query(
       `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
-      [walFile, evidence.walArchive, '1'.repeat(64)],
+      [walFile, evidence.walArchive, syntheticWalChecksum(walFile)],
     );
     await client.query(
       `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,

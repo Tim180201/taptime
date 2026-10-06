@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import {
   exportJWK,
@@ -207,7 +208,8 @@ async function recordSyntheticLifecycleArchive(workEventId: string): Promise<voi
     );
     await client.query(
       `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
-      [precedingWalFile, `wal-${archiveIdentifier}-${precedingWalFile}`, '0'.repeat(64)],
+      [precedingWalFile, `wal-${archiveIdentifier}-${precedingWalFile}`,
+        syntheticWalChecksum(precedingWalFile)],
     );
     await client.query(
       `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
@@ -216,7 +218,7 @@ async function recordSyntheticLifecycleArchive(workEventId: string): Promise<voi
     if (precedingWalFile !== walFile) {
       await client.query(
         `SELECT taptime_server.record_offsite_wal_archive_v1($1, $2, $3)`,
-        [walFile, `wal-${archiveIdentifier}-${walFile}`, '1'.repeat(64)],
+        [walFile, `wal-${archiveIdentifier}-${walFile}`, syntheticWalChecksum(walFile)],
       );
       await client.query(
         `SELECT taptime_server.advance_offsite_wal_archive_watermark_v1($1, $2)`,
@@ -230,6 +232,10 @@ async function recordSyntheticLifecycleArchive(workEventId: string): Promise<voi
   } finally {
     client.release();
   }
+}
+
+function syntheticWalChecksum(walFile: string): string {
+  return createHash('sha256').update(`synthetic-wal:${walFile}`).digest('hex');
 }
 
 function precedingLifecycleWalFile(walFile: string, segmentBytes: bigint): string | null {
