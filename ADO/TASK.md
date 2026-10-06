@@ -1,45 +1,50 @@
 # Aktuelle Aufgabe
 
-> **Stand 06.10.2026:** Produktion `b1ecb8c`; auf `main` T-094b bis T-102 (Migrationen 043–047), Auslieferung mit dem
-> nächsten Deploy. Vorher T-098b (diese Aufgabe) und die Fingerabdrücke aus EAS (STATUS, „Vor dem nächsten Deploy“).
-> Frühere Briefs stehen in der Git-Historie.
+> **Stand 06.10.2026:** Produktion `b1ecb8c`; auf `main` T-094b bis T-102 (Migrationen 043–047). T-098b wartet auf den
+> PO am Mac (Brief: `git show 5071e6e:ADO/TASK.md`; Teil 2 liegt geprüft auf dem lokalen Branch `t098b-verify`).
+> Bis dahin T-075 aus Pilotmonat 1. Ausgeliefert wird beim nächsten Deploy ein ausdrücklich genannter Stand.
 
-## T-098b · Registry wiederherstellen, Abrufprüfung bei jedem Lauf (Befund 05.10.)
+## T-075 · Paket mit weicher Grenze (D-087)
 
-**Für:** Development · **Risiko:** hoch (Registry-Schreibzugriff auf Produktionsabbilder) · **Zeitbox:** eine Sitzung.
-Grundlage: der lokale Plan `.t098-review/restore-plan.md` (05.10.). `.github/workflows/container-image.yml`,
-`.github/scripts/clean-ghcr.mjs` und ihre Tests.
+**Für:** Development · **Risiko:** mittel (Migration, Betreiber-Rechte, Vertragsvariante) · **Zeitbox:** eine Sitzung.
+`apps/backend-schema` (Migration 048), Betreiber- und Verwaltungs-Server, `apps/operator-web`, `apps/admin-web`,
+`apps/mobile`, Verträge.
 
 ### Befund
 
-Das alte Aufräumen hat 21 Versionen im Paket `tim180201/taptime-backend-api` gelöscht: zehn Plattform-Manifeste, zehn
-Attestationen und den Index `operations-0230188` der Stände `b1ecb8c` (Produktion) und `0230188`. Der Deploy zieht den
-laufenden und den neuen Stand und würde daran scheitern. Seit T-098 überspringt der Image-Workflow das Aufräumen bei
-einem fehlenden referenzierten Manifest und damit auch die anschließende Abrufprüfung (zuletzt bei `1043011` und
-`d399c69`); der Lauf bleibt grün. Frist der Wiederherstellung: frühester Eintrag am 02.11.2026, 13:46 UTC.
+Betriebe haben keine Paketgröße. Für die Rechnung zählt nach D-087 die höchste Zahl aktiver Zugänge im Monat; heute
+kann das niemand ablesen.
 
 ### Auftrag
 
-1. **Vorprüfung, nur lesend:** Die lokale `gh`-Anmeldung hat `read:packages` und `write:packages` (der PO hat
-   `gh auth refresh -h github.com -s read:packages,write:packages` ausgeführt). Konto und Paketrechte, Versions-IDs und
-   Digests gegen den Plan prüfen. Zusätzlich: Was haben die Aufräumläufe seit dem Plan gelöscht (`b693fde` lief als
-   „erfolgreich“)? Ist darunter etwas, das ein geschützter Stand referenziert, gehört es in die Wiederherstellung.
-2. **Wiederherstellen:** nur die geprüften Versionen, in der Reihenfolge des Plans (Plattform, Attestation, zuletzt
-   Index), je Version `POST …/versions/{id}/restore`. Nach jeder Version: Antwort protokollieren, Digest direkt aus
-   GHCR lesen. Bei 403/404, unklarer Antwort oder falschem Digest anhalten und melden.
-3. **Abschlussprüfung:** alle fünf Abbilder von `b1ecb8c` und `0230188` vom Tag über Index, Plattform und Attestation
-   bis zu jeder Schicht vollständig abrufen (genug Zeit je Blob), Größen und Digests prüfen. Ebenso `d399c69`.
-4. **Code (Teil 2, erst nach erfolgreichem Teil 1):** Die Abrufprüfung aller geschützten Abbilder läuft bei jedem
-   Image-Lauf, auch wenn das Aufräumen übersprungen wird. Fehlt etwas Geschütztes, wird der Lauf rot (nicht nur eine
-   Warnung). Tests dafür, rot vor der Änderung.
+1. **Paketgröße (048):** je Betrieb eine ganze Zahl ab 1 oder leer (kein Paket, kein Hinweis). Der Betreiber setzt sie
+   beim Anlegen und ändert sie mit Grund; beides steht im Betreiber-Protokoll wie Pausieren (D-075). Wer anlegt, ändert
+   und entfernt, im Bericht benennen (AGENTS.md §1.5).
+2. **Zählung:** Aktiv ist jede nicht entzogene Mitgliedschaft aller Rollen, auch mit noch nicht angenommener Einladung
+   (eingeladen belegt den Platz; TL-Annahme, Einspruch des PO möglich). Höchstwert je Kalendermonat in Europe/Berlin.
+   Aus der vorhandenen Historie (Anlage- und Entzugszeitpunkte) berechnen, wenn sie dafür reicht; sonst eine
+   append-only Aufzeichnung. Die Wahl im Bericht begründen. Nichts wird gesperrt.
+3. **Betreiber-Web:** je Betrieb Paket, aktuelle Zahl, Höchstwert im laufenden und im Vormonat; Markierung, wenn die
+   aktuelle Zahl über dem Paket liegt. Paket beim Anlegen und „Paket ändern“ mit Grund. Nur Zählungen, keine Namen
+   (D-068, D-074).
+4. **Verwaltung (nur Administrator):** Web „Beschäftigte“ und App „Mitarbeiter“ zeigen über der Liste „12 Zugänge,
+   Paket 10“, mit Hinweis, sobald die Zahl über dem Paket liegt. Beim Einladen, wenn die Einladung das Paket
+   überschreitet, ein Hinweis im Formular; Einladen bleibt möglich.
+5. **Verträge:** neue Felder nur über neue Vertragsvarianten; installierte Apps und ihre strengen Parser bleiben
+   unverändert (wie T-102).
 
-### Grenzen
+### Tests
 
-Kein Deploy, kein Serverzugriff, keine manuelle Löschung, kein manueller Start einer Bereinigung. Token und
-Zugangsdaten nie in Bericht, Log oder Kommandozeile ausgeben. Teil 1 verändert kein Repository; Teil 2 normal mit
-Review.
+Zählung über Einladen, Annehmen, Entzug, erneutes Einladen und Monatswechsel (Europe/Berlin, Zeitumstellung Oktober);
+Höchstwert innerhalb des Monats, nicht nur am Monatsende. Rechte: der Betreiber sieht nur Zahlen, der Administrator nur
+den eigenen Betrieb, die Standortleitung keinen Pakethinweis. Ändern ohne Grund wird abgewiesen, mit Grund protokolliert.
+Alte Vertragsvarianten unverändert. Volle Suiten einschließlich Migrationsproben und Rechteinventar (048), Typechecks,
+Layoutprüfung der geänderten Ansichten.
+
+### Nicht Teil
+
+Preise, Rechnungsstellung, Sperren oder Drosseln über dem Paket, Paketgröße durch den Kunden selbst.
 
 ### Bericht
 
-`.t098-review/` (restore-report.md für Teil 1, report.md, tracked.diff, untracked.txt für Teil 2). Teil 1 sofort
-melden; Teil 2 erst danach. Kein Commit vor `APPROVED`.
+`.t075-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review. Kein Commit vor `APPROVED`.
