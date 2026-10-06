@@ -1,7 +1,7 @@
 import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import {useContext,useEffect,useRef,useState} from 'react';
 import {View} from 'react-native';
-import {dayStart,shiftDay,formatZonedDateTime} from '@taptime/core';
+import {dayStart,shiftDay,formatZonedDateTime,hasVisibleText} from '@taptime/core';
 import {VOID_REASONS,isVoidReason,type VoidReasonCode,type SafeOwnTimeRecord,type MobileOwnTimeQueryResponse,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import {TimeEditingContext,timeEditMessages} from './TimeEditingControls';
 import {ActionButton,AppText as Text,Card} from '../design/primitives';
@@ -31,7 +31,7 @@ export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;
     <RequiredField form={form} error={!code ? "Wähle einen Grund." : null}><Text>Grund</Text>
     {Object.entries(VOID_REASONS).map(([value,label])=><ActionButton key={value} title={`${code===value?'✓ ':''}${label}`} tone="quiet" disabled={saving}
       onPress={()=>setCode(value as VoidReasonCode)}/>)}</RequiredField>
-    {code==='other'?<><Text>Kurze Begründung (1 bis 500 Zeichen)</Text><RequiredTextField form={form} error={!text.trim() || Array.from(text).length>500 ? "Bitte gib eine Begründung mit 1 bis 500 Zeichen ein." : null} accessibilityLabel="Kurze Begründung" value={text} onChangeText={setText} editable={!saving} multiline/></>:null}
+    {code==='other'?<><Text>Kurze Begründung (1 bis 500 Zeichen)</Text><RequiredTextField form={form} error={!hasVisibleText(text) || Array.from(text).length>500 ? "Bitte gib eine Begründung mit 1 bis 500 Zeichen ein." : null} accessibilityLabel="Kurze Begründung" value={text} onChangeText={setText} editable={!saving} multiline/></>:null}
     {error?<Text accessibilityRole="alert">{error}</Text>:null}
     {!context.online?<Text>Löschen geht nur online. Deine Eingaben bleiben erhalten.</Text>:null}
     <ActionButton title={saving?'Wird gelöscht …':'Löschen'} disabled={saving} onPress={()=>void save()}/>

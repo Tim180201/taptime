@@ -503,7 +503,8 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       let result: LogicalDurableResult;
       // A departed actor can store review evidence but cannot create canonical decisions.
       // Its revoked home must not route an otherwise durable review into the engine.
-      if (reviewReason !== null && (!locationUnavailable || reviewReason === 'customer_deleted' || !actor.membership_current || !actor.identity_current)) {
+      if (reviewReason !== null && (!locationUnavailable || reviewReason === 'customer_deleted' || (reviewReason === 'capture_time_out_of_bounds'
+        && Date.parse(workEvent.occurredAt) > serverTime.rows[0]!.now.getTime() + OFFLINE_CLOCK_TOLERANCE_MILLISECONDS) || !actor.membership_current || !actor.identity_current)) {
         await persistReceipt(client, request.command, workEvent, 'received', null);
         await persistAudit(client, request.command, workEvent, 'OfflineLifecycleReviewStored', {
           status: 'review_pending',
@@ -532,6 +533,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         const activeBreak = await findActiveBreak(client, actor, activeTimeEntry);
         const previousWorkEvent = await findPreviousCanonicalWorkEvent(client, workEvent);
         const decision = this.businessEngine.evaluate(workEvent, {
+          serverNow: createTimestamp(serverTime.rows[0]!.now.toISOString()),
           workLocationUnavailable: locationUnavailable,
           administrationStoppedBeforeTrigger: (await client.query(
           'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
@@ -932,6 +934,7 @@ function automaticReviewReason(input: {
     ||
     occurredAt < issuedAt - OFFLINE_CLOCK_TOLERANCE_MILLISECONDS
     || occurredAt > expiresAt + OFFLINE_CLOCK_TOLERANCE_MILLISECONDS
+    || occurredAt > serverNow.getTime() + OFFLINE_CLOCK_TOLERANCE_MILLISECONDS
     || !clockProofIsConsistent(command, issuedAt, occurredAt)
   ) {
     return 'capture_time_out_of_bounds';

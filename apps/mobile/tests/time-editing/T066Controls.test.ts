@@ -226,3 +226,20 @@ it('T101 review: an empty clock leaves the valid date alone and focuses Von',asy
  const date=container.querySelector('input[aria-label="Datum (JJJJ-MM-TT)"]')!,clock=container.querySelector('input[aria-label="Von (HH:MM)"]')!;
  expect(date.parentElement?.querySelector('[role="alert"]')).toBeNull();expect(clock.parentElement?.querySelector('[role="alert"]')).not.toBeNull();expect(document.activeElement).toBe(clock);
 });
+it.each([
+ ['2026-09-22','11:01','Höchstens 24 Stunden.'],
+ ['2099-09-21','11:00','Das Ende liegt in der Zukunft.'],
+])('T106: correction end %s %s is rejected at the field',async(date,time,message)=>{
+ await render('administrator');await press('Ändern');
+ await fill('Ende am (JJJJ-MM-TT)',date);await fill('Bis (HH:MM)',time);await fill('Grund','Beleg geprüft');await press('Speichern');
+ expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain(message);
+});
+it('T106: required reasons cannot consist only of controls and spaces',async()=>{
+ await render('administrator');await press('Ändern');await fill('Grund','\u00a0\t\u0001');await press('Speichern');
+ expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Bitte Grund eingeben.');
+});
+
+it('T106 shows invisible void reason at the required field',async()=>{
+ await render('employee');await press('Zeiteintrag löschen');await press('Sonstiges');await fill('Kurze Begründung','\u0001\u0085\u200b');await press('Löschen');
+ expect(save).not.toHaveBeenCalled();expect(document.body.textContent).toContain('Bitte gib eine Begründung mit 1 bis 500 Zeichen ein.');
+});

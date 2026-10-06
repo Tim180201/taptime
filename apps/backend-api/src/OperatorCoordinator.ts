@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { hasVisibleText } from '@taptime/core';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import { accountInvitationEmailHash, normalizeInvitationEmail, type AccountInvitationContext, type SupabaseAccountInviter } from '@taptime/backend-administration';
 
@@ -44,13 +45,13 @@ export class OperatorCoordinator {
         result=await query(includePackage ? 'read_platform_audit_v2($1,$2)' : 'read_platform_audit_v1($1,$2)',[input.before??null,input.limit??50]);
       } else if (action==='status' && keys(input,['commandId','organizationId','status','reason','rowVersion'])
         && validUuid(input.commandId) && validUuid(input.organizationId) && (input.status==='active'||input.status==='paused')
-        && typeof input.reason==='string' && input.reason.trim().length>0 && input.reason.length<=500
+        && hasVisibleText(input.reason) && input.reason.length<=500
         && Number.isSafeInteger(input.rowVersion) && Number(input.rowVersion)>0) {
         result=await query('operator_set_organization_status_v1($1,$2,$3,$4,$5)',
           [input.commandId,input.organizationId,input.status,input.reason,input.rowVersion]);
       } else if (action==='package' && keys(input,['commandId','organizationId','packageSize','reason','rowVersion'])
         && validUuid(input.commandId) && validUuid(input.organizationId) && packageSize(input.packageSize)
-        && typeof input.reason==='string' && input.reason.trim().length>0 && input.reason.length<=500
+        && hasVisibleText(input.reason) && input.reason.length<=500
         && Number.isSafeInteger(input.rowVersion) && Number(input.rowVersion)>0) {
         result=await query('operator_set_organization_package_v1($1,$2,$3,$4,$5)',
           [input.commandId,input.organizationId,input.packageSize,input.reason,input.rowVersion]);

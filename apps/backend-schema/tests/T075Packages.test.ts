@@ -108,3 +108,14 @@ it('derives the complete new function privilege inventory and checks all applica
     WHERE n.nspname='taptime_server' AND relkind IN ('r','p') AND NOT (relrowsecurity AND relforcerowsecurity)`)).rows).toEqual([]);
   for(const role of roles) expect((await pool.query("SELECT has_column_privilege($1,'taptime_server.organizations','package_size','UPDATE') allowed",[role.rolname])).rows[0].allowed,role.rolname).toBe(false);
 });
+
+it.each(['\u0001','\u0085','\u200b','\u00a0\t'])('T106 rejects invisible operator reasons in both SQL commands %j',async reason=>{
+  const organization=()=>pool.query('SELECT status,package_size,row_version,pause_reason FROM taptime_server.organizations WHERE id=$1',[ids.organizationA]);
+  const before=(await organization()).rows;
+  for(const [fn,value] of [['operator_set_organization_status_v1','paused'],['operator_set_organization_package_v1',2]] as const){
+    expect(await operator(async c=>(await c.query(`SELECT taptime_server.${fn}($1,$2,$3,$4,$5) result`,
+      [randomUUID(),ids.organizationA,value,reason,1])).rows[0].result)).toEqual({status:'invalid_request'});
+  }
+  expect((await organization()).rows).toEqual(before);
+  expect((await pool.query('SELECT * FROM taptime_server.platform_audit_events WHERE organization_id=$1',[ids.organizationA])).rows).toEqual([]);
+});

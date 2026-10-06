@@ -1,4 +1,5 @@
 import { RequiredForm } from './RequiredForm';
+import { hasVisibleText } from '@taptime/core';
 import {
   useEffect,
   useRef,
@@ -651,7 +652,7 @@ function ActionPanel({
     event.preventDefault();
     if (busy) return;
     if (target !== "create" && !packageChange && !confirmed) {
-      if (reason.trim().length === 0) {
+      if (!hasVisibleText(reason)) {
         setError("Bitte geben Sie einen Grund ein.");
         return;
       }

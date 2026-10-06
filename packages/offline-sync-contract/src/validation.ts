@@ -1,3 +1,4 @@
+import { isIsoTimestamp } from '@taptime/core';
 import {
   OFFLINE_BASE64URL_32_BYTE_LENGTH,
   OFFLINE_LEASE_CURSOR_MAXIMUM_BYTES,
@@ -11,8 +12,7 @@ const canonicalUuidPattern =
 const base64Url32BytePattern = /^[A-Za-z0-9_-]{43}$/;
 const lowercaseSha256Pattern = /^[0-9a-f]{64}$/;
 const asciiPattern = /^[\x20-\x7e]*$/;
-const isoTimestampPattern =
-  /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+
 
 export function isCanonicalOfflineUuid(value: unknown): value is string {
   return typeof value === 'string' && canonicalUuidPattern.test(value);
@@ -37,13 +37,7 @@ export function isOfflineAsciiCursor(value: unknown): value is string {
     && asciiPattern.test(value);
 }
 
-export function isOfflineIsoTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string' || !isoTimestampPattern.test(value)) {
-    return false;
-  }
-  const milliseconds = Date.parse(value);
-  return Number.isFinite(milliseconds);
-}
+export const isOfflineIsoTimestamp = isIsoTimestamp;
 
 export function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;

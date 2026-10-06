@@ -1,3 +1,4 @@
+import { hasVisibleText, isIsoTimestamp } from '@taptime/core';
 import {
   TIME_REVIEW_ROLES,
   TIME_REVIEW_REASONS,
@@ -35,13 +36,13 @@ export function isCanonicalTimeReviewUuid(value: unknown): value is string {
 }
 
 export function isCanonicalTimeReviewTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string' || !canonicalMillisecondUtcPattern.test(value)) return false;
+  if (!isIsoTimestamp(value) || !canonicalMillisecondUtcPattern.test(value)) return false;
   const epoch = Date.parse(value);
   return Number.isFinite(epoch) && new Date(epoch).toISOString() === value;
 }
 
 export function isValidTimeReviewReason(value: unknown): value is string {
-  if (typeof value !== 'string') return false;
+  if (!hasVisibleText(value)) return false;
   // PostgreSQL btrim(text) removes U+0020 spaces by default, and char_length
   // counts Unicode code points rather than UTF-16 code units.
   const postgresTrimmed = value.replace(/^ +/, '').replace(/ +$/, '');

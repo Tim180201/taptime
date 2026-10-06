@@ -75,7 +75,7 @@ export type ApiResult<Value> =
         | 'invitation_created_token_unavailable'
         | 'invitation_limit_reached'
         | 'time_review_conflict'
-        | 'not_adjustable'
+        | 'invalid_interval' | 'not_adjustable'
         | 'invalid_evidence'
         | 'project_in_use'
         | 'project_unavailable'
@@ -1254,14 +1254,14 @@ function parseReassignmentError(
 function parseTimeReviewError(
   value: unknown,
   status: number,
-): 'after_departure' | 'command_id_conflict' | 'time_review_conflict' | 'not_adjustable' | 'invalid_evidence' | null {
+): 'after_departure' | 'command_id_conflict' | 'time_review_conflict' | 'invalid_interval' | 'not_adjustable' | 'invalid_evidence' | null {
   if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error)
     || !exact(value.error, ['code'])) return null;
   if (status === 409) {
     if (value.error.code === 'command_id_conflict') return 'command_id_conflict';
     return value.error.code === 'conflict' ? 'time_review_conflict' : null;
   }
-  return value.error.code === 'after_departure' || value.error.code === 'not_adjustable' || value.error.code === 'invalid_evidence'
+  return value.error.code === 'invalid_interval' || value.error.code === 'after_departure' || value.error.code === 'not_adjustable' || value.error.code === 'invalid_evidence'
     ? value.error.code : null;
 }
 function parseProjectError(

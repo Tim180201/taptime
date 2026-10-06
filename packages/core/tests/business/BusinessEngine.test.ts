@@ -215,3 +215,10 @@ describe('BusinessEngine (F-01 lifecycle)', () => {
     expect(engine.evaluate(workEvent, evaluationContext)).toEqual(engine.evaluate(workEvent, evaluationContext));
   });
 });
+
+it('T106: future device time becomes an unchanged review event at the engine boundary', () => {
+  const event = buildWorkEvent('future', '2026-10-06T10:05:00.001Z');
+  const input = {...context(null,null), serverNow: createTimestamp('2026-10-06T10:00:00.000Z')};
+  expect(new BusinessEngine().evaluate(event,input)).toMatchObject({status:'escalation_required',reason:'capture_time_out_of_bounds',workEvent:event});
+  expect(new BusinessEngine().evaluate({...event,occurredAt:createTimestamp('2026-10-06T10:05:00.000Z')},input).status).toBe('time_entry_started');
+});

@@ -203,3 +203,10 @@ it('T075 invitation reserves one access, accepting/resending/reinviting never do
   expect((await coordinator.createAccountInvitation({...request,commandId:'96000000-0000-4000-8000-000000000006'})).status).toBe('former_membership');
   expect((await read()).active_access_count).toBe(before.active_access_count);
 });
+
+it.each(['\u0001','\u0085','\u200b','\u00a0\t'])('T106 rejects invisible operator input before mutation %j',async reason=>{
+ const coordinator=new OperatorCoordinator(pool,verifier);
+ const base={commandId:'96000000-0000-4000-8000-000000000099',organizationId:ids.organizationA,reason,rowVersion:1};
+ expect(await coordinator.execute('high','status',{...base,status:'paused'})).toEqual({status:'invalid_request'});
+ expect(await coordinator.execute('high','package',{...base,packageSize:2})).toEqual({status:'invalid_request'});
+});

@@ -813,3 +813,64 @@ async function assertFalseCursorClearRejected(installationId: string): Promise<v
     await installerPool.query(`DROP FUNCTION IF EXISTS ${testFunction}(uuid, uuid)`);
   }
 }
+
+describe('T106 interval plausibility',()=>{
+  const start='2026-07-21T12:00:00.000Z';
+  it.each(['correction','review'] as const)('accepts exactly 24 hours for %s',async kind=>{
+    const stoppedAt='2026-07-22T12:00:00.000Z';
+    const result=kind==='correction'?await coordinator.correctTimeRecord({accessToken:tokens.adminA,request:correctionRequest(ids.correctionCommand,start,stoppedAt)}):
+      await coordinator.adjudicateReviewItems({accessToken:tokens.adminA,request:{expectedMembershipId:ids.membershipAdminA,commandId:ids.adjudicationCommand,reviewItemIds:[ids.legacyReviewEventA],resolution:{type:'create_recovered_time_record',startedAt:start,stoppedAt},reason:'Beleg geprüft'}});
+    expect(result.status).toBe('committed');
+  });
+  it.each([['correction','duration'],['review','duration'],['correction','future'],['review','future']] as const)('rejects %s %s without writes',async (kind,violation)=>{
+    {
+      const stoppedAt=violation==='duration'?'2026-07-22T12:01:00.000Z':new Date(Date.now()+60_000).toISOString();
+      const startedAt=stoppedAt.startsWith('2026-07')?start:new Date(Date.parse(stoppedAt)-3_600_000).toISOString();
+      const result=kind==='correction'?await coordinator.correctTimeRecord({accessToken:tokens.adminA,request:correctionRequest(ids.correctionCommand,startedAt,stoppedAt)}):
+        await coordinator.adjudicateReviewItems({accessToken:tokens.adminA,request:{expectedMembershipId:ids.membershipAdminA,commandId:ids.adjudicationCommand,reviewItemIds:[ids.legacyReviewEventA],resolution:{type:'create_recovered_time_record',startedAt,stoppedAt},reason:'Beleg geprüft'}});
+      expect(result.status).toBe('invalid_interval');
+    }
+    expect(await timeReviewCounts()).toEqual({revisions:0,adjudications:0,receipts:0,audits:0});
+  });
+});
+
+it('T106: SQL rejects invisible reasons just like the contract, without ledger writes',async()=>{
+  const {isValidTimeReviewReason}=await import('@taptime/time-review-contract');
+  const client=await writePool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT set_config('app.user_id',$1,true),set_config('app.organization_id',$2,true),
+      set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true)`,[ids.adminA,ids.organizationA,ids.membershipAdminA]);
+    await client.query('SET LOCAL ROLE taptime_time_review_writer');
+    for(const reason of ['\u00a0\t','\n\r','\u0001\u007f\u0085','\u200b\ufeff']) {
+      expect(isValidTimeReviewReason(reason)).toBe(false);
+      await client.query('SAVEPOINT reason_check');
+      await expect(client.query(`SELECT * FROM taptime_server.correct_time_record_v1($1,$2,$3,$4,$5,$6,2,0,
+        '2026-07-21T12:00:00Z','2026-07-21T13:00:00Z',$7)`,
+        [ids.organizationA,ids.adminA,ids.membershipAdminA,ids.correctionCommand,'a'.repeat(64),ids.stoppedEntryA,reason]))
+        .rejects.toMatchObject({code:'42501'});
+      await client.query('ROLLBACK TO SAVEPOINT reason_check');
+    }
+    await client.query('ROLLBACK');
+  } finally {client.release();}
+  expect(await timeReviewCounts()).toEqual({revisions:0,adjudications:0,receipts:0,audits:0});
+});
+
+it('T106: SQL counts 24 elapsed hours over the October fallback and retains the exact reason',async()=>{
+  const result=await coordinator.correctTimeRecord({accessToken:tokens.adminA,request:correctionRequest(ids.correctionCommand,
+    '2025-10-25T10:00:00.000Z','2025-10-26T10:00:00.000Z')});
+  expect(result.status).toBe('committed');
+  const row=(await installerPool.query('SELECT reason FROM taptime_server.time_record_revisions')).rows[0];
+  expect(row.reason).toBe(correctionRequest(ids.correctionCommand,'','').reason);
+  expect(await coordinator.correctTimeRecord({accessToken:tokens.adminA,request:{...correctionRequest(ids.adjudicationCommand,
+    '2025-10-25T10:00:00.000Z','2025-10-26T11:00:00.000Z'),expectedRevisionNumber:1}})).toMatchObject({status:'invalid_interval'});
+});
+it('T106: canonical review adjustments use the same interval boundary',async()=>{
+  const eventId='50000000-0000-4000-8000-000000000321';
+  await insertCanonicalEscalation(eventId,'work_event_precedes_active_time_entry','2026-07-19T08:00:00.000Z');
+  const request={expectedMembershipId:ids.membershipAdminA,commandId:ids.adjudicationCommand,reviewItemIds:[eventId],
+    resolution:{type:'adjust_existing_time_record' as const,timeRecordId:ids.stoppedEntryA,expectedBaseRowVersion:2,
+      expectedRevisionNumber:0,startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-21T08:01:00.000Z'},reason:'Beleg geprüft'};
+  expect(await coordinator.adjudicateReviewItems({accessToken:tokens.adminA,request})).toMatchObject({status:'invalid_interval'});
+  expect(await timeReviewCounts()).toEqual({revisions:0,adjudications:0,receipts:0,audits:0});
+});

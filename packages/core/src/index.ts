@@ -1,3 +1,4 @@
+export * from './domain/InputPlausibility';
 export * from './domain/BusinessTimeZone';
 export * from './domain/ids';
 export * from './domain/NfcPayload';

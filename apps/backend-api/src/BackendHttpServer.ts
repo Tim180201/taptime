@@ -1,3 +1,4 @@
+import { isIsoTimestamp } from '@taptime/core';
 import {isInspectTagRequest} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest} from '@taptime/mobile-work-contract';
 import { APP_VERSION_HEADER, APP_UPDATE_MESSAGE, MOBILE_SESSION_V2, MOBILE_SESSION_V3, parseAppVersion } from '@taptime/mobile-work-contract';
@@ -190,7 +191,6 @@ const HEALTH_CHECK_TIMEOUT_MILLISECONDS = 2_000;
 const compactJwtPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const isoTimestampPattern = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 type ErrorCode =
   | 'location_required'
@@ -209,6 +209,7 @@ type ErrorCode =
   | 'export_limit_exceeded'
   | 'export_schema_incompatible'
   | 'invalid_request'
+  | 'invalid_interval'
   | 'invalid_evidence'
   | 'method_not_allowed'
   | 'not_found'
@@ -2114,7 +2115,7 @@ async function handleTimeReviewWrite<Value>(
   operation: (deadlineEpochMilliseconds: number) => Promise<
     | { readonly status: 'committed'; readonly value: Value }
     | { readonly status: 'authority_rejected' | 'after_departure' | 'not_adjustable' | 'conflict'
-      | 'command_id_conflict' | 'invalid_evidence' | 'unavailable' }
+      | 'command_id_conflict' | 'invalid_evidence' | 'invalid_interval' | 'unavailable' }
   >,
 ): Promise<void> {
   try {
@@ -2127,6 +2128,7 @@ async function handleTimeReviewWrite<Value>(
       case 'authority_rejected': respondError(response, 403, 'forbidden'); return;
       case 'after_departure': respondError(response,422,'after_departure'); return;
       case 'not_adjustable': respondError(response, 422, 'not_adjustable'); return;
+      case 'invalid_interval': respondError(response, 422, 'invalid_interval'); return;
       case 'invalid_evidence': respondError(response, 422, 'invalid_evidence'); return;
       case 'conflict': respondError(response, 409, 'conflict'); return;
       case 'command_id_conflict': respondError(response, 409, 'command_id_conflict'); return;
@@ -3950,41 +3952,6 @@ function isCanonicalUuid(value: unknown): value is string {
   return typeof value === 'string' && canonicalUuidPattern.test(value);
 }
 
-function isIsoTimestamp(value: unknown): value is string {
-  if (typeof value !== 'string') {
-    return false;
-  }
-  const match = isoTimestampPattern.exec(value);
-  if (match === null || Number.isNaN(Date.parse(value))) {
-    return false;
-  }
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  if (year < 1 || month < 1 || month > 12 || day < 1) {
-    return false;
-  }
-  const daysInMonth = [
-    31,
-    isLeapYear(year) ? 29 : 28,
-    31,
-    30,
-    31,
-    30,
-    31,
-    31,
-    30,
-    31,
-    30,
-    31,
-  ];
-  return day <= daysInMonth[month - 1]!;
-}
-
-function isLeapYear(year: number): boolean {
-  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-}
-
 function validateTimeout(value: number): number {
   if (!Number.isSafeInteger(value) || value <= 0) {
     throw new Error('Backend API operation timeout must be a positive safe integer');
@@ -4119,7 +4086,7 @@ function negotiatedLifecycleResult<T>(value: T, includeTimeDetails: boolean, inc
     if (Array.isArray(item)) return item.map(map);
     if (item === null || typeof item !== 'object') return item;
     return Object.fromEntries(Object.entries(item).map(([key, value]) =>
-      [key, key === 'reason' && value === 'customer_deleted' ? 'historical_configuration_not_valid' : key === 'reason' && ((!includeTimeDetails && value === 'administration_stopped')
+      [key, key === 'reason' && value === 'capture_time_out_of_bounds' && (item as { status?: unknown }).status === 'escalation_required' ? 'work_event_precedes_previous_accepted_work_event' : key === 'reason' && value === 'customer_deleted' ? 'historical_configuration_not_valid' : key === 'reason' && ((!includeTimeDetails && value === 'administration_stopped')
         || (!includeLocationDecisions && value === 'work_location_unavailable'))
         ? 'work_event_precedes_previous_accepted_work_event' : map(value)]));
   };

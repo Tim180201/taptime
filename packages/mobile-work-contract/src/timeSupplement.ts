@@ -1,3 +1,4 @@
+import { hasVisibleText } from '@taptime/core';
 import { validateClosedPageRequest, validateWorkTargetResponse, type MobileWorkTargetQueryResponse, type SafeWorkTarget, validateOwnTimeResponse, type SafeOwnTimeRecord, type MobileOwnTimeQueryResponse } from './index.js';
 
 // v3 additionally understands work_location_unavailable; response fields are unchanged.
@@ -33,6 +34,7 @@ const keys = (v:Record<string,unknown>, k:string[]) => Object.keys(v).length===k
 const uuid = (v:unknown):v is string => typeof v==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v);
 const timestamp = (v:unknown):v is string => typeof v==='string' && Number.isFinite(Date.parse(v)) && new Date(v).toISOString()===v;
 const text = (v:unknown):v is string => typeof v==='string' && Array.from(v.trim()).length>=1 && Array.from(v).length<=500;
+const inputText = (v:unknown):v is string => text(v) && hasVisibleText(v);
 // Historical correction reasons use PostgreSQL btrim, including space-padded
 // reasons and whitespace other than U+0020. Do not reinterpret stored history.
 const historicalReason = (v:unknown):v is string => {
@@ -44,11 +46,11 @@ export function isBackfillTimeRequest(v:unknown):v is BackfillTimeRequest {
   return object(v) && keys(v,['expectedMembershipId','targetMembershipId','commandId','targetType','targetId','startedAt','stoppedAt','reason','comment'])
     && uuid(v.expectedMembershipId) && uuid(v.targetMembershipId) && uuid(v.commandId) && uuid(v.targetId)
     && ['customer','project','general_work'].includes(String(v.targetType)) && timestamp(v.startedAt) && timestamp(v.stoppedAt)
-    && (v.reason===null || text(v.reason)) && (v.comment===null || text(v.comment));
+    && (v.reason===null || inputText(v.reason)) && (v.comment===null || inputText(v.comment));
 }
 export function isCommentTimeRequest(v:unknown):v is CommentTimeRequest {
   return object(v) && keys(v,['expectedMembershipId','commandId','timeRecordId','comment'])
-    && uuid(v.expectedMembershipId) && uuid(v.commandId) && uuid(v.timeRecordId) && text(v.comment);
+    && uuid(v.expectedMembershipId) && uuid(v.commandId) && uuid(v.timeRecordId) && inputText(v.comment);
 }
 export function isTimeRecordDetails(v:unknown):v is TimeRecordDetails {
   return object(v) && keys(v,['origin','baseRowVersion','effectiveRevisionNumber','comment','changed','change','overlapsAnotherRecord',

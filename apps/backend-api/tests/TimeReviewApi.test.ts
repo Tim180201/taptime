@@ -484,3 +484,16 @@ it('T092 returns a domain error for adjudication after departure',async()=>{
     expectedMembershipId:ids.membership,commandId:ids.command,reviewItemIds:[ids.reviewItem],
     resolution:{type:'create_recovered_time_record',startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-20T10:00:00.000Z'},reason:'Prüfen'}),422,'after_departure');
 });
+
+it('T106: invalid correction and adjudication intervals are 422, never a retryable 503',async()=>{
+  const origin=await start({timeReview:{...unavailableOfflineDependencies().timeReview,
+    async correctTimeRecord(){return {status:'invalid_interval'};},
+    async adjudicateReviewItems(){return {status:'invalid_interval'};}}});
+  const interval={startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-21T08:01:00.000Z'};
+  await expectError(await post(origin,'/v1/administration/time-records/correct',{
+    expectedMembershipId:ids.membership,commandId:ids.command,timeRecordId:ids.record,
+    expectedBaseRowVersion:1,expectedRevisionNumber:0,...interval,reason:'Beleg geprüft'}),422,'invalid_interval');
+  await expectError(await post(origin,'/v1/administration/review-items/adjudicate',{
+    expectedMembershipId:ids.membership,commandId:ids.command,reviewItemIds:[ids.reviewItem],
+    resolution:{type:'create_recovered_time_record',...interval},reason:'Beleg geprüft'}),422,'invalid_interval');
+});

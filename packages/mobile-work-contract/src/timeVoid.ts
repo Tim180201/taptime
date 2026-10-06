@@ -1,3 +1,4 @@
+import { hasVisibleText } from '@taptime/core';
 /** Stornierungen are separate history, never duration-bearing time records. */
 export const VOID_REASONS = {duplicate:'Doppelt erfasst',misscan:'Fehlscan',other:'Sonstiges'} as const;
 export type VoidReasonCode = keyof typeof VOID_REASONS;
@@ -23,8 +24,9 @@ const object=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==n
 const keys=(v:Record<string,unknown>,names:readonly string[])=>Object.keys(v).length===names.length&&names.every(n=>Object.hasOwn(v,n));
 const uuid=(v:unknown):v is string=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v);
 const timestamp=(v:unknown):v is string=>typeof v==='string'&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString()===v;
-export const isVoidReason=(code:unknown,text:unknown)=>typeof code==='string'&&Object.hasOwn(VOID_REASONS,code)
+const isStoredVoidReason=(code:unknown,text:unknown)=>typeof code==='string'&&Object.hasOwn(VOID_REASONS,code)
   && (code==='other'?typeof text==='string'&&text.trim().length>0&&Array.from(text).length<=500:text===null);
+export const isVoidReason=(code:unknown,text:unknown)=>isStoredVoidReason(code,text)&&(code!=='other'||hasVisibleText(text));
 export function isVoidTimeRequest(v:unknown):v is VoidTimeRequest {
   return object(v)&&keys(v,['expectedMembershipId','commandId','timeRecordId','reasonCode','reasonText'])
     &&uuid(v.expectedMembershipId)&&uuid(v.commandId)&&uuid(v.timeRecordId)&&isVoidReason(v.reasonCode,v.reasonText);
@@ -45,7 +47,7 @@ export function isVoidedTimeResponse(v:unknown):v is VoidedTimeResponse {
   return keys(v,['status','records','nextAfterId'])&&(v.nextAfterId===null||uuid(v.nextAfterId))&&Array.isArray(v.records)&&v.records.length<=100
     &&v.records.every(r=>object(r)&&keys(r,['timeRecordId','targetDisplayName','startedAt','stoppedAt','voidedAt','actorDisplayName','reasonCode','reasonText'])
       &&uuid(r.timeRecordId)&&typeof r.targetDisplayName==='string'&&typeof r.actorDisplayName==='string'
-      &&timestamp(r.startedAt)&&timestamp(r.stoppedAt)&&Date.parse(r.stoppedAt)>=Date.parse(r.startedAt)&&timestamp(r.voidedAt)&&isVoidReason(r.reasonCode,r.reasonText));
+      &&timestamp(r.startedAt)&&timestamp(r.stoppedAt)&&Date.parse(r.stoppedAt)>=Date.parse(r.startedAt)&&timestamp(r.voidedAt)&&isStoredVoidReason(r.reasonCode,r.reasonText));
 }
 export async function loadVoidedTimePages(query:Omit<VoidedTimeQuery,'afterId'|'limit'>,
   read:(query:VoidedTimeQuery)=>Promise<VoidedTimeResponse>):Promise<VoidedTimeSelection> {

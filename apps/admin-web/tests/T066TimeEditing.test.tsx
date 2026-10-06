@@ -230,3 +230,22 @@ it.each(['backfill','correct','stop','comment'] as const)('T101 %s shows missing
 it('T101 review: valid date is preserved when Von is missing',()=>{
  const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});const date=screen.getByLabelText('Datum'),clock=screen.getByLabelText('Von');fireEvent.change(clock,{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(date).not.toHaveAttribute('aria-invalid');expect(clock).toHaveAttribute('aria-invalid','true');expect(clock).toHaveFocus();
 });
+it.each([
+ ['2026-09-22T11:01','Höchstens 24 Stunden.'],
+ ['2099-09-21T11:00','Das Ende liegt in der Zukunft.'],
+])('T106: correction end %s is explained at the field before sending',async(end,message)=>{
+ const {save}=show('administrator');
+ fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ fireEvent.change(screen.getByLabelText('Bis'),{target:{value:end}});
+ fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Beleg geprüft'}});
+ fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ expect(save).not.toHaveBeenCalled();
+ expect(screen.getByText(message)).toBeInTheDocument();
+ expect(screen.getByLabelText('Bis')).toHaveAttribute('aria-invalid','true');
+});
+it('T106: a control-only required reason is explained at the field',()=>{
+ const {save}=show('administrator');fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'\u00a0\t\u0001'}});
+ fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ expect(save).not.toHaveBeenCalled();expect(screen.getByLabelText('Grund')).toHaveAttribute('aria-invalid','true');
+});

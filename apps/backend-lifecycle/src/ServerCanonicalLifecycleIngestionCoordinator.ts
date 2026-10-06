@@ -468,7 +468,9 @@ export class ServerCanonicalLifecycleIngestionCoordinator {
       }
       await afterWrite('work_event', controls);
       await controls.beforeEngineEvaluation?.();
+      const serverTime = await query<{ now: Date }>(client, 'SELECT pg_catalog.transaction_timestamp() AS now');
       const decision = this.businessEngine.evaluate(workEvent, {
+        serverNow: createTimestamp(serverTime.rows[0]!.now.toISOString()),
         workLocationUnavailable: await workEventLocationUnavailable(client, workEvent.organizationId, workEvent.id),
         administrationStoppedBeforeTrigger: (await client.query(
           'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
@@ -1423,6 +1425,7 @@ function isEscalationReason(value: string | null): value is BusinessEngineEscala
     'previous_work_event_organization_mismatch',
     'previous_work_event_user_mismatch',
     'previous_work_event_target_mismatch',
+    'capture_time_out_of_bounds',
     'work_location_unavailable',
     'administration_stopped',
     'previous_work_event_subject_mismatch',

@@ -1483,3 +1483,17 @@ it('T075 administrator sees whole-organization usage and may invite above the pa
   expect(screen.queryByText(/12 Zugänge, Paket/)).toBeNull();
   fireEvent.click(screen.getByRole('button',{name:'Mitarbeiter hinzufügen'}));expect(screen.queryByText(/Mit dieser Einladung wird das Paket/)).toBeNull();
 });
+
+it.each([['2026-07-21T10:01','Höchstens 24 Stunden.'],['2099-07-20T10:00','Das Ende liegt in der Zukunft.']])
+('T106: review end %s fails at the field',async(end,message)=>{
+ window.history.replaceState(null,'','/pruefungen');
+ const capability=new FakeCapability(readyState);await render(<App administration={capability}/>);
+ await userEvent.click(screen.getByRole('button',{name:'Als Arbeitszeit übernehmen'}));
+ fireEvent.change(screen.getByLabelText('Beginn'),{target:{value:'2026-07-20T10:00'}});
+ fireEvent.change(screen.getByLabelText('Ende'),{target:{value:end}});
+ fireEvent.change(screen.getByLabelText('Begründung'),{target:{value:'Beleg geprüft'}});
+ await userEvent.click(screen.getByRole('button',{name:'Entscheidung prüfen'}));
+ expect(capability.prepareAdjudication).not.toHaveBeenCalled();
+ expect(screen.getByText(message)).toBeInTheDocument();
+ expect(screen.getByLabelText('Ende')).toHaveAttribute('aria-invalid','true');
+});

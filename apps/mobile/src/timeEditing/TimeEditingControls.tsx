@@ -1,3 +1,4 @@
+import { hasVisibleText, timeIntervalError } from '@taptime/core';
 import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import {VoidTimeForm} from './TimeVoidControls';
 type Notice = { readonly kind: 'success' | 'info' | 'error'; readonly text: string };
@@ -115,7 +116,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
     else if(kind==='stop') {
       const stoppedAt=parseEditedZonedMinute(`${endDate}T${end}`,originalEnd);
       if(!stoppedAt) {setNotice({ kind: 'error', text: 'Prüfe Datum und Uhrzeit in Europe/Berlin. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.' });return;}
-      if(!reason.trim() || Array.from(reason).length>500) {setNotice({ kind: 'error', text: 'Bitte gib einen Grund mit 1 bis 500 Zeichen ein.' });return;}
+      if(!hasVisibleText(reason) || Array.from(reason).length>500) {setNotice({ kind: 'error', text: 'Bitte gib einen Grund mit 1 bis 500 Zeichen ein.' });return;}
       Object.assign(input,{targetMembershipId,timeRecordId:record!.timeRecordId,expectedRowVersion:record!.details!.baseRowVersion,stoppedAt,reason});
     }
     else {
@@ -151,8 +152,9 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
   const endValue=kind==='backfill'?parseZonedLocalTimestamp(`${startValue && end<=start ? shiftDay(date,1) : date}T${end}`):parseEditedZonedMinute(`${endDate}T${end}`,originalEnd);
   const dateValue=parseZonedLocalTimestamp(`${date}T12:00`);
   const endDateValue=parseZonedLocalTimestamp(`${endDate}T12:00`);
+  const intervalError=kind==='correct' && startValue && endValue ? timeIntervalError(startValue,endValue) : null;
   const timeError='Bitte Datum und Uhrzeit in Europe/Berlin prüfen (Zeitumstellung).';
-  const field=(label:string,value:string,set:(s:string)=>void,multiline=false,invalidTime=false)=><View style={{gap:4}}><Text>{label}</Text><RequiredTextField form={form} error={label.includes("optional") ? null : !value.trim() ? `Bitte ${label} eingeben.` : multiline && Array.from(value).length>500 ? "Bitte höchstens 500 Zeichen eingeben." : invalidTime ? timeError : null} accessibilityLabel={label} value={value} onChangeText={set} multiline={multiline} editable={!saving&&!archivePending} /></View>;
+  const field=(label:string,value:string,set:(s:string)=>void,multiline=false,invalidTime=false,extraError:string|null=null)=><View style={{gap:4}}><Text>{label}</Text><RequiredTextField form={form} error={extraError ?? (label.includes("optional") ? (value && !hasVisibleText(value) ? "Bitte einen Kommentar eingeben." : null) : !hasVisibleText(value) ? `Bitte ${label} eingeben.` : multiline && Array.from(value).length>500 ? "Bitte höchstens 500 Zeichen eingeben." : invalidTime ? timeError : null)} accessibilityLabel={label} value={value} onChangeText={set} multiline={multiline} editable={!saving&&!archivePending} /></View>;
   return <View style={{gap:12}}>
     {kind==='backfill'?<><RequiredField form={form} error={!target || !targets.some(t=>t.targetType===target.targetType && t.targetId===target.targetId) ? "Bitte einen Kunden oder ein Projekt wählen." : null}><Text accessibilityRole="header">Kunde oder Projekt</Text>
       {targets.map(t=><ActionButton key={`${t.targetType}/${t.targetId}`} title={`${target===t?'✓ ':''}${t.displayName}`} tone="quiet" disabled={saving} onPress={()=>setTarget(t)} />)}
@@ -165,7 +167,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
     {kind!=='comment'?<>{kind==='correct'?field('Beginn am (JJJJ-MM-TT)',date,setDate,false,!dateValue):null}
       {kind!=='stop'?field('Von (HH:MM)',start,setStart,false,!!dateValue&&!startValue):null}
       {kind!=='backfill'?field('Ende am (JJJJ-MM-TT)',endDate,setEndDate,false,!endDateValue):null}
-      {field('Bis (HH:MM)',end,setEnd,false,(kind==='backfill'?!!dateValue&&!!startValue:!!endDateValue)&&!endValue)}
+      {field('Bis (HH:MM)',end,setEnd,false,(kind==='backfill'?!!dateValue&&!!startValue:!!endDateValue)&&!endValue,intervalError)}
       <Text>Europe/Berlin{kind==='backfill'?' · Liegt „bis“ vor oder gleich „von“, endet die Zeit am Folgetag. Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</Text></>:null}
     {kind==='comment'||(kind==='backfill'&&context.role==='employee')?field(kind==='comment'?'Kommentar':'Kommentar (optional)',comment,setComment,true):null}
     {kind!=='comment'&&context.role!=='employee'?field('Grund',reason,setReason,true):null}

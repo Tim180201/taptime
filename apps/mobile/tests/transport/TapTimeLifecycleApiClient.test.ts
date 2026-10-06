@@ -326,7 +326,7 @@ describe('TapTimeLifecycleApiClient', () => {
     const { request, client } = setup();
     const invalidAttempt = { ...command(), receipt: { ...command().receipt, attemptNumber: 0 } };
     const invalidTimestamp = {
-      ...command(), workEvent: { ...command().workEvent, occurredAt: createTimestamp('2026-07-14') },
+      ...command(), workEvent: { ...command().workEvent, occurredAt: '2026-07-14' as ReturnType<typeof createTimestamp> },
     };
     const invalidOrganization = {
       ...command(), organizationId: OrganizationId('not-a-uuid'),

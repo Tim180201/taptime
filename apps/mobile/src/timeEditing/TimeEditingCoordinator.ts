@@ -123,7 +123,7 @@ export class TimeEditingCoordinator implements TimeEditingCapability {
           return {status:'committed',timeRecordId:v.timeRecordId as string,idempotentRetry:v.idempotentRetry};
         }
         const code=(v.error as {code?:string}|undefined)?.code;
-        if(code==='after_departure' || code==='conflict' || code==='not_adjustable' || code==='command_id_conflict') return {status:code};
+        if(code==='invalid_interval' || code==='after_departure' || code==='conflict' || code==='not_adjustable' || code==='command_id_conflict') return {status:code};
       }
       return {status:result.statusCode===403?'authority_rejected':'unavailable'};
     } catch { return {status:'unavailable'}; }

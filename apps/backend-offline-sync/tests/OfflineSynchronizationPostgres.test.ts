@@ -1084,8 +1084,8 @@ describe('complete offline PostgreSQL boundary', () => {
     expect(breakItem).toBeDefined();
     if (workItem === undefined || breakItem === undefined) return;
     const startedAt = new Date(Date.parse(lease.issuedAt) + 1_000).toISOString();
-    const breakStartedAt = new Date(Date.parse(lease.issuedAt) + 601_000).toISOString();
-    const breakStoppedAt = new Date(Date.parse(lease.issuedAt) + 1_201_000).toISOString();
+    const breakStartedAt = new Date(Date.parse(lease.issuedAt) + 61_000).toISOString();
+    const breakStoppedAt = new Date(Date.parse(lease.issuedAt) + 121_000).toISOString();
 
     const start = await eventCoordinator.ingest({
       accessToken: 'valid',
@@ -2337,4 +2337,18 @@ it('T100: renaming does not invalidate a captured customer event',async()=>{
  await installerPool.query("UPDATE taptime_server.customers SET display_name='Umbenannt',row_version=row_version+1 WHERE id=$1",[ids.customer]);
  const command=eventCommandV3(lease,item,ids.event1,ids.receipt1,1,new Date(Date.parse(lease.issuedAt)+100).toISOString());
  expect(await eventCoordinator.ingest({accessToken:'valid',command})).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+});
+
+it('T106: future evidence is retained for review and following sequences are accepted',async()=>{
+  const lease=await issueLease();
+  const future=new Date(Date.now()+10*60_000).toISOString();
+  const first=eventCommand(lease,lease.items[0]!.itemId,ids.event1,ids.receipt1,1,future);
+  expect(await eventCoordinator.ingest({accessToken:'valid',command:first})).toMatchObject({status:'review_pending',reason:'capture_time_out_of_bounds'});
+  const next=eventCommand(lease,lease.items[0]!.itemId,ids.event2,ids.receipt2,2,new Date(Date.parse(lease.issuedAt)+1000).toISOString());
+  expect(await eventCoordinator.ingest({accessToken:'valid',command:next})).toMatchObject({status:'review_pending',reason:'predecessor_requires_review',deviceSequence:2});
+  expect(await eventCoordinator.ingest({accessToken:'valid',command:first})).toMatchObject({status:'review_pending',idempotentRetry:true});
+  const events=await installerPool.query('SELECT id,occurred_at FROM taptime_server.work_events ORDER BY id');
+  expect(events.rows.map(row=>row.id)).toEqual([ids.event1,ids.event2]);
+  expect(events.rows[0].occurred_at.toISOString()).toBe(future);
+  expect((await installerPool.query('SELECT count(*) FROM taptime_server.time_entries')).rows[0].count).toBe('0');
 });

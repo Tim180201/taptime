@@ -1,4 +1,5 @@
 import { useId, useLayoutEffect, useRef, type ComponentPropsWithRef } from 'react';
+import { hasVisibleText } from '@taptime/core';
 
 type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLFieldSetElement;
 const selector = 'input,select,textarea,fieldset[data-required-choice]';
@@ -19,7 +20,7 @@ export function RequiredForm({ onSubmit, onSubmitCapture, onChangeCapture, ref, 
     labelNode?.querySelectorAll('input,select,textarea,small,.required-field-error').forEach(node => node.remove());
     const label = field.dataset.fieldLabel ?? field.getAttribute('aria-label')
       ?? labelNode?.textContent?.trim() ?? 'dieses Feld';
-    if (field.required && (!(field instanceof HTMLInputElement && field.type === 'password' ? field.value : field.value.trim()) || field instanceof HTMLInputElement && field.type === 'radio' && !field.checked))
+    if (field.required && (!(field instanceof HTMLInputElement && field.type === 'password' ? field.value : hasVisibleText(field.value)) || field instanceof HTMLInputElement && field.type === 'radio' && !field.checked))
       return `Bitte ${label} ${field instanceof HTMLSelectElement ? 'wählen' : 'eingeben'}.`;
     if (field.validity.typeMismatch) return 'Bitte eine gültige E-Mail-Adresse eingeben.';
     if (field instanceof HTMLInputElement && field.minLength > 0 && field.value.length > 0 && field.value.length < field.minLength)

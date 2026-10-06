@@ -371,3 +371,8 @@ it('D-100 refuses a stale repeatable-read snapshot for function and direct INSER
       VALUES($1,$2,'duplicate',$3,$4,$5)`,[employee.org,ids.stoppedEntryA,employee.member,employee.role,randomUUID()])).rejects.toMatchObject({code:'25001'});
   }finally{await c.query('ROLLBACK');c.release();}
 });
+
+it.each(['\u0001','\u0085','\u200b','\u00a0\t'])('T106 rejects invisible void reason in SQL %j',async reasonText=>transaction(async c=>{
+  expect(await voidTime(c,employee,ids.stoppedEntryA,{reasonCode:'other',reasonText})).toEqual({status:'invalid_request'});
+  expect((await c.query('SELECT * FROM taptime_server.time_record_voids')).rows).toEqual([]);
+}));

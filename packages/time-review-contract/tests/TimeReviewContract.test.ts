@@ -59,7 +59,7 @@ describe('time-review contract', () => {
     expect(validateTimeRecordCorrectionRequest({ ...request, reason: '   ' }).status)
       .toBe('invalid_request');
     expect(validateTimeRecordCorrectionRequest({ ...request, reason: '\u00a0' }).status)
-      .toBe('valid');
+      .toBe('invalid_request');
     expect(validateTimeRecordCorrectionRequest({ ...request, reason: '😀'.repeat(500) }).status)
       .toBe('valid');
     expect(validateTimeRecordCorrectionRequest({ ...request, reason: '😀'.repeat(501) }).status)

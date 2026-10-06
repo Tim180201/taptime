@@ -2409,7 +2409,7 @@ describe('T-012 canonical pause lifecycle', () => {
       SELECT created_at FROM ${B3_SCHEMA}.nfc_tags WHERE id = $1
     `, [breakTagId]);
     const firstOccurredAt = new Date(tagCreated.rows[0]!.created_at.getTime() + 1_000).toISOString();
-    const secondOccurredAt = new Date(tagCreated.rows[0]!.created_at.getTime() + 1_801_000).toISOString();
+    const secondOccurredAt = new Date(tagCreated.rows[0]!.created_at.getTime() + 61_000).toISOString();
 
     const first = await coordinator.ingest(await command({
       eventNumber: 315,
@@ -2476,7 +2476,7 @@ describe('DA5 manual trigger provenance and shared duplicate rule', () => {
     await coordinator.ingest(await command({
       eventNumber: 298,
       receiptNumber: 298,
-      occurredAt: '2090-07-13T08:00:00.000Z',
+      occurredAt: new Date(Date.now() + 60_000).toISOString(),
     }));
     const manual = await manualCoordinator.ingestManual({
       accessToken: await accessToken(),
@@ -2645,4 +2645,14 @@ describe('T-069 administration stop and device lifecycle',()=>{
     expect((await installerPool.query('SELECT status FROM taptime_server.time_entries')).rows).toEqual([{status:'stopped'}]);
     expect((await installerPool.query("SELECT count(*)::int AS n FROM taptime_server.canonical_decisions WHERE decision_type='time_entry_stopped'")).rows[0].n).toBe(1);
   });
+});
+
+it('T106: canonical future capture is preserved with the existing time review reason',async()=>{
+  const occurredAt=new Date(Date.now()+10*60_000).toISOString();
+  const input=await command({eventNumber:890,receiptNumber:890,occurredAt});
+  expect(await coordinator.ingest(input)).toMatchObject({status:'synchronized',decision:{status:'escalation_required',reason:'capture_time_out_of_bounds'}});
+  expect(await coordinator.ingest(input)).toMatchObject({status:'synchronized',decision:{status:'escalation_required',reason:'capture_time_out_of_bounds'}});
+  const events=await installerPool.query('SELECT occurred_at FROM taptime_server.work_events WHERE id=$1',[input.workEvent.id]);
+  expect(events.rows[0].occurred_at.toISOString()).toBe(occurredAt);
+  expect((await installerPool.query('SELECT count(*) FROM taptime_server.time_entries')).rows[0].count).toBe('0');
 });

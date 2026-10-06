@@ -10,7 +10,7 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=neutral --target=es2022 --format=esm --sourcemap --outfile=dist/index.js",
+    "build": "tsc -p tsconfig.build.json --emitDeclarationOnly && esbuild src/index.ts --bundle --platform=neutral --main-fields=main --target=es2022 --format=esm --sourcemap --outfile=dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -19,5 +19,8 @@
     "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"
+  },
+  "dependencies": {
+    "@taptime/core": "*"
   }
 }

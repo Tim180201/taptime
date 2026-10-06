@@ -1,7 +1,7 @@
 import { RequiredForm } from '../RequiredForm';
 import { TimeRecordControls } from '../TimeEditingControls';
 import { exportPresentation } from '../exportPresentation';
-import { BUSINESS_TIME_ZONE } from '@taptime/core';
+import { BUSINESS_TIME_ZONE, timeIntervalError } from '@taptime/core';
 import {
 	useEffect,
 	useRef,
@@ -72,6 +72,9 @@ export default function TimeRecordsView({
       {exportAction}
     </Panel>;
   }
+  const canonicalStart=parseEditedZonedMinute(startedAt,originalStart);
+  const canonicalStop=parseEditedZonedMinute(stoppedAt,originalStop);
+  const intervalError=canonicalStart && canonicalStop ? timeIntervalError(canonicalStart,canonicalStop) : null;
   const visibleRecords = state.timeRecords.filter((record) => {
     const statusMatches = route.status === 'alle'
       || (route.status === 'laufend' && record.status === 'started')
@@ -227,7 +230,7 @@ export default function TimeRecordsView({
             onChange={(event) => setStartedAt(event.target.value)} />
         </label>
         <label>Neues Ende
-          <input data-field-error={stoppedAt && !parseEditedZonedMinute(stoppedAt,originalStop) ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={stoppedAt}
+          <input data-field-error={intervalError ?? (stoppedAt && !parseEditedZonedMinute(stoppedAt,originalStop) ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined)} required type="datetime-local" step="60" value={stoppedAt}
             aria-describedby={timeError === null ? undefined : 'correction-time-error'}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setStoppedAt(event.target.value)} />

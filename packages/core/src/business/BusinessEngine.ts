@@ -1,3 +1,5 @@
+import { CAPTURE_CLOCK_TOLERANCE_MILLISECONDS } from '../domain/InputPlausibility';
+import type { Timestamp } from '../domain/Timestamp';
 import type { WorkEvent } from '../domain/WorkEvent';
 import { isBreakWorkEvent, workEventSubjectType, workEventTriggerType } from '../domain/WorkEvent';
 import type { StartedTimeEntry, StoppedTimeEntry } from '../domain/TimeEntry';
@@ -13,6 +15,7 @@ import { breakIntervalStopped } from '../domain/events/BreakIntervalStopped';
 import type { BusinessEngineDecision, BusinessEngineEscalationReason } from './BusinessEngineDecision';
 
 export interface BusinessEngineEvaluationContext {
+  readonly serverNow?: Timestamp;
   readonly workLocationUnavailable?: boolean;
   readonly administrationStoppedBeforeTrigger?: boolean;
   readonly activeTimeEntryForUser: StartedTimeEntry | null;
@@ -39,6 +42,10 @@ export class BusinessEngine {
   ) {}
 
   evaluate(workEvent: WorkEvent, context: BusinessEngineEvaluationContext): BusinessEngineDecision {
+    if (context.serverNow !== undefined
+      && milliseconds(workEvent.occurredAt) > milliseconds(context.serverNow) + CAPTURE_CLOCK_TOLERANCE_MILLISECONDS) {
+      return { status: 'escalation_required', reason: 'capture_time_out_of_bounds', workEvent };
+    }
     if (context.workLocationUnavailable) {
       return { status: 'escalation_required', reason: 'work_location_unavailable', workEvent };
     }

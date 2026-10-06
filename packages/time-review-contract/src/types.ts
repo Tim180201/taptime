@@ -198,6 +198,7 @@ export type TimeReviewWriteResult<T> =
   | { readonly status: 'conflict'; readonly current?: TimeRecordProjection }
   | { readonly status: 'command_id_conflict' }
   | { readonly status: 'invalid_evidence' }
+  | { readonly status: 'invalid_interval' }
   | { readonly status: 'unavailable' };
 
 export type ValidationResult<T> =

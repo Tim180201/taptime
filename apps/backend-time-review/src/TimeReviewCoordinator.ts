@@ -744,6 +744,7 @@ function mapCorrectionResult(row: CorrectionRow) {
     }
     case 'authority_rejected': return { status: 'authority_rejected' as const };
     case 'after_departure': return { status: 'after_departure' as const };
+    case 'invalid_interval': return { status: 'invalid_interval' as const };
     case 'not_adjustable': return { status: 'not_adjustable' as const };
     case 'conflict': return { status: 'conflict' as const };
     case 'command_id_conflict': return { status: 'command_id_conflict' as const };
@@ -769,6 +770,7 @@ function mapAdjudicationResult(row: AdjudicationRow, commandId: string) {
     }
     case 'authority_rejected': return { status: 'authority_rejected' as const };
     case 'after_departure': return { status: 'after_departure' as const };
+    case 'invalid_interval': return { status: 'invalid_interval' as const };
     case 'conflict': return { status: 'conflict' as const };
     case 'command_id_conflict': return { status: 'command_id_conflict' as const };
     case 'invalid_evidence': return { status: 'invalid_evidence' as const };

@@ -1,3 +1,4 @@
+import { timeIntervalError } from '@taptime/core';
 import { RequiredForm } from '../RequiredForm';
 import { isTimeReviewRole } from '@taptime/time-review-contract';
 import {
@@ -70,6 +71,9 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   const choose=(event:ReactMouseEvent<HTMLButtonElement>,next:typeof resolution)=>{
     rowTrigger.current=event.currentTarget;changeResolution(next);setOpen(true);
   };
+  const canonicalStart=parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null);
+  const canonicalStop=parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null);
+  const intervalError=canonicalStart && canonicalStop ? timeIntervalError(canonicalStart,canonicalStop) : null;
   return <li className="review-case"><div className="review-case-heading"><div>
     <strong>{item.employeeDisplayName} · {item.targetDisplayName}</strong>
     <p className="supporting">{format(item.occurredAt)} · {triggerLabel(item.triggerType)}</p>
@@ -154,7 +158,7 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
               onChange={(event) => setStartedAt(event.target.value)} />
           </label>
           <label>Ende
-            <input data-field-error={stoppedAt && !parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null) ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={stoppedAt}
+            <input data-field-error={intervalError ?? (stoppedAt && !parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null) ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined)} required type="datetime-local" step="60" value={stoppedAt}
               aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
               disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
               onChange={(event) => setStoppedAt(event.target.value)} />

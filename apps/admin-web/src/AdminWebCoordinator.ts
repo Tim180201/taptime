@@ -1,3 +1,4 @@
+import { timeIntervalError } from '@taptime/core';
 import type {CustomerManagementChange,ManageCustomerResult} from '@taptime/mobile-work-contract';
 import { captureFeedback } from '@taptime/mobile-work-contract';
 import { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';
@@ -216,7 +217,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           commandId,record,input.startedAt,input.stoppedAt,input.reason));
         if(result?.status==='succeeded') outcome={status:'committed',timeRecordId:input.record.timeRecordId,idempotentRetry:false};
         else if(result===null || result.status==='rejected') outcome={status:'authority_rejected'};
-        else if(result.status==='conflict') outcome={status:result.code==='after_departure'?'after_departure':result.code==='not_adjustable'?'not_adjustable':result.code==='command_id_conflict'?'command_id_conflict':'conflict'};
+        else if(result.status==='conflict') outcome={status:result.code==='invalid_interval'?'invalid_interval':result.code==='after_departure'?'after_departure':result.code==='not_adjustable'?'not_adjustable':result.code==='command_id_conflict'?'command_id_conflict':'conflict'};
       } else {
         const request=input.kind==='backfill'?{expectedMembershipId:session.membershipId,commandId,targetMembershipId:input.targetMembershipId,
           targetType:input.target.targetType,targetId:input.target.targetId,startedAt:input.startedAt,stoppedAt:input.stoppedAt,reason:input.reason,comment:input.comment}
@@ -2557,7 +2558,7 @@ function locationMutationNotice(code:
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
   | 'time_review_conflict'
-  | 'not_adjustable'
+  | 'invalid_interval' | 'not_adjustable'
   | 'invalid_evidence'
   | 'project_in_use'
   | 'project_unavailable'
@@ -3031,7 +3032,7 @@ function isClosedInterval(startedAt: string, stoppedAt: string, now: number): bo
   return Number.isFinite(start) && Number.isFinite(stop)
     && new Date(start).toISOString() === startedAt
     && new Date(stop).toISOString() === stoppedAt
-    && start <= stop && stop <= now;
+    && timeIntervalError(startedAt,stoppedAt,now) === null;
 }
 
 function buildResolution(intent: ReviewAdjudicationIntent): object | null {
@@ -3054,6 +3055,7 @@ function buildResolution(intent: ReviewAdjudicationIntent): object | null {
 }
 
 function correctionConflictNotice(code: string): string {
+  if (code === 'invalid_interval') return 'Das Ende liegt in der Zukunft oder die Zeit dauert länger als 24 Stunden.';
   if (code === 'after_departure') return 'Zeiten und Prüffälle dürfen nur bis zum Austritt der Person reichen.';
   if (code === 'not_adjustable') {
     return 'Die Korrektur wurde nicht gespeichert, weil die Arbeitszeit noch läuft. Wählen Sie eine abgeschlossene Arbeitszeit.';
@@ -3065,6 +3067,7 @@ function correctionConflictNotice(code: string): string {
 }
 
 function adjudicationConflictNotice(code: string): string {
+  if (code === 'invalid_interval') return 'Das Ende liegt in der Zukunft oder die Zeit dauert länger als 24 Stunden.';
   if (code === 'after_departure') return 'Zeiten und Prüffälle dürfen nur bis zum Austritt der Person reichen.';
   if (code === 'invalid_evidence') {
     return 'Diese Arbeitszeit passt nicht zum Prüffall. Wählen Sie einen Eintrag derselben Person und desselben Arbeitsziels.';

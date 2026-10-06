@@ -472,3 +472,11 @@ it('T075 creates a package, rejects fractional or nonpositive sizes at the field
   await screen.findByText('Betrieb angelegt. Das Administratorkonto ist zugeordnet.');
   expect(calls.find(c=>c.path==='organizations/create')?.body.packageSize).toBe(10);
 });
+
+it('T106 rejects an invisible operator reason at its field without sending',async()=>{
+ await ready();fireEvent.click(screen.getByRole('button',{name:'Pausieren'}));
+ fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'\u0001\u0085\u200b'}});
+ fireEvent.click(screen.getByRole('button',{name:'Weiter zur Bestätigung'}));
+ expect(screen.getByLabelText('Grund')).toHaveAttribute('aria-invalid','true');
+ expect(calls.some(c=>c.path==='organizations/status')).toBe(false);
+});

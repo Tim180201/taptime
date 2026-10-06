@@ -654,6 +654,22 @@ async function close(server: Server): Promise<void> {
   });
 }
 
+it.each([1,2,3,4] as const)('T-106 keeps future-capture escalation compatible with installed v%s clients',async version=>{
+  const result:OfflineLifecycleEventResultV4={status:'synchronized',archiveStatus:'offsite_archived',idempotentRetry:false,
+    workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,
+    decision:{status:'escalation_required',reason:'capture_time_out_of_bounds'}};
+  const origin=await start({offlineLifecycleIngestor:{async ingest(){return result;}}});
+  for(const accept of ['application/json','application/vnd.taptime.time-details.v2+json','application/vnd.taptime.time-details.v3+json']) {
+    const body=version===1?offlineEventBody():version===3?{...offlineEventBodyV2(),provenanceVersion:3,
+      workEvent:{...offlineEventBodyV2().workEvent,subject:{type:'work'}}}:offlineEventBodyV2();
+    const response=await post(origin,`/v${version}/lifecycle-events/offline`,body,{accept});
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({status:'synchronized',
+      decision:{status:'escalation_required',reason:'work_event_precedes_previous_accepted_work_event'}});
+    expect(result.decision).toEqual({status:'escalation_required',reason:'capture_time_out_of_bounds'});
+  }
+});
+
 it.each([1,4] as const)('T-069 protects old offline v%s clients with the closed legacy reason',async version=>{
   const result:OfflineLifecycleEventResultV4={status:'synchronized',archiveStatus:'offsite_archived',idempotentRetry:false,
     workEventId:ids.event,receiptId:ids.receipt,deviceSequence:1,decision:{status:'escalation_required',reason:'administration_stopped'}};

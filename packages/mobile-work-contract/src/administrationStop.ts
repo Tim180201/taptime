@@ -1,3 +1,4 @@
+import { hasVisibleText } from '@taptime/core';
 export interface AdministrationStopRequest {
   readonly expectedMembershipId: string;
   readonly targetMembershipId: string;
@@ -18,7 +19,7 @@ export function isAdministrationStopRequest(v: unknown): v is AdministrationStop
     && uuid(v.expectedMembershipId) && uuid(v.targetMembershipId) && uuid(v.timeRecordId) && uuid(v.commandId)
     && Number.isSafeInteger(v.expectedRowVersion) && Number(v.expectedRowVersion) > 0
     && typeof v.stoppedAt === 'string' && Number.isFinite(Date.parse(v.stoppedAt)) && new Date(v.stoppedAt).toISOString() === v.stoppedAt
-    && typeof v.reason === 'string' && Array.from(v.reason).length <= 500;
+    && hasVisibleText(v.reason) && Array.from(v.reason).length <= 500;
 }
 export function isAdministrationStopResult(v: unknown): v is AdministrationStopResult {
   return object(v) && (v.status === 'committed'
