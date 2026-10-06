@@ -1,4 +1,4 @@
-import { MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedActiveSummary, isManagedActiveSummaryV2, isManagedActiveSummaryV3 } from '@taptime/administration-contract/managed-people';
+import { MANAGED_PEOPLE_ACCEPT_V4, isManagedActiveSummaryV4, MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedActiveSummary, isManagedActiveSummaryV2, isManagedActiveSummaryV3 } from '@taptime/administration-contract/managed-people';
 import { AdminWebApiClient } from '../../admin-web/src/AdminWebApiClient.js';
 import { rangeSummary } from '../../mobile/src/screens/ownTimeCalendar.js';
 import type { Server } from 'node:http';
@@ -125,7 +125,8 @@ beforeAll(async () => {
   await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve));
   origin=`http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
-beforeEach(async () => { await migrate(pool); await truncateC3C(pool); await seed(); });
+// Historical migration probes also revoke legacy synthetic role grants. Restore the test login before HTTP cases.
+beforeEach(async () => { await migrate(pool); await ensureC3E1RuntimeLogins(pool,runtimePassword,runtimePassword); await truncateC3C(pool); await seed(); });
 afterAll(async () => {
   if(server) await new Promise<void>(resolve=>server.close(()=>resolve()));
   await invitations?.end(); await enrollment?.end();
@@ -134,7 +135,7 @@ afterAll(async () => {
 function mobile(token:string) {
   return new TapTimeEmployeesApiClient(origin,{async post(endpoint,body,options){
     rateNow+=60_001; // A new rate-limit window for each independent authorization case.
-    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includeMonthHours?{accept:MANAGED_PEOPLE_ACCEPT_V3}:options?.includeDeparted?{accept:MANAGED_PEOPLE_ACCEPT_V2}:options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
+    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includePackageUsage?{accept:MANAGED_PEOPLE_ACCEPT_V4}:options?.includeMonthHours?{accept:MANAGED_PEOPLE_ACCEPT_V3}:options?.includeDeparted?{accept:MANAGED_PEOPLE_ACCEPT_V2}:options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
     return {status:'response',statusCode:response.status,contentType:response.headers.get('content-type'),body:await response.text()};
   }});
 }
@@ -523,15 +524,15 @@ it('T102 HTTP negotiates v3, preserves exact v1/v2 shapes, and binds cursors to 
   expect(await coordinator.readManagedActiveSummary({...body,accessToken:`header.${fixtureTokens.adminA}.signature`,cursor:v3.nextCursor})).toEqual({status:'invalid_request'});
   expect(await coordinator.readManagedActiveSummary({...body,accessToken:`header.${fixtureTokens.adminA}.signature`,includeMonthHours:true,locationId:a,cursor:v3.nextCursor})).toEqual({status:'invalid_request'});
   const mobileResult=await mobile(fixtureTokens.adminA).summary(body);expect(mobileResult.status).toBe('ready');
-  if(mobileResult.status==='ready')expect(isManagedActiveSummaryV3(mobileResult.value)).toBe(true);
+  if(mobileResult.status==='ready')expect(isManagedActiveSummaryV4(mobileResult.value)).toBe(true);
   const web=new AdminWebApiClient((path,init)=>fetch(`${origin}${path}`,init));
   rateNow+=60_001;
   const webResult=await web.managedActiveSummary(`header.${fixtureTokens.adminA}.signature`,body);
-  expect(webResult.status).toBe('succeeded');if(webResult.status==='succeeded')expect(isManagedActiveSummaryV3(webResult.value)).toBe(true);
+  expect(webResult.status).toBe('succeeded');if(webResult.status==='succeeded')expect(isManagedActiveSummaryV4(webResult.value)).toBe(true);
 });
 it('T102 046→047 preserves old functions and populated rows, rollback and repeated migration are safe',async()=>{
   await pool.query(`DROP SCHEMA ${B3_SCHEMA} CASCADE; DROP TABLE ${B3_MIGRATION_TABLE}`);
-  const migrations=await loadMigrations();await applyMigrationSet(pool,migrations.filter(m=>m.version<'047'));await seed();
+  const migrations=(await loadMigrations()).filter(m=>m.version<='047');await applyMigrationSet(pool,migrations.filter(m=>m.version<'047'));await seed();
   const snapshot=async(c:Pool|PoolClient)=>{
     const tables=(await c.query(`SELECT tablename FROM pg_tables WHERE schemaname='taptime_server' ORDER BY tablename`)).rows;
     const rows:Record<string,unknown>={};for(const {tablename} of tables)rows[tablename]=(await c.query(`SELECT to_jsonb(t) AS row FROM taptime_server.${tablename} t ORDER BY to_jsonb(t)::text`)).rows;
@@ -580,4 +581,26 @@ it('T102 retains the last home of departed people, and skips location sorting wh
     expect(rows.slice(1,3).map(r=>r.membership_display_name)).toEqual(['Administrator','Administrator']);
     expect(rows.at(-1).departed_at).not.toBeNull();
   });
+});
+
+it('T075 v4 keeps organization-wide package counts under filters, hides them from managers and isolates tenants',async()=>{
+  await pool.query('UPDATE taptime_server.organizations SET package_size=CASE WHEN id=$1 THEN 1 ELSE 50 END,row_version=row_version+1',[ids.organizationA]);
+  const request: import('@taptime/administration-contract/managed-people').ManagedActiveSummaryRequest={expectedMembershipId:ids.membershipAdminA,locationId:a,isRunning:true,cursor:null,limit:1};
+  const query=async(token:string,body:typeof request,accept=MANAGED_PEOPLE_ACCEPT_V4)=>{
+    rateNow+=60_001;
+    return fetch(`${origin}/v1/administration/managed-active-summary`,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json',accept},body:JSON.stringify(body)});
+  };
+  const value=await (await query(fixtureTokens.adminA,request)).json();expect(isManagedActiveSummaryV4(value),JSON.stringify(value)).toBe(true);if(!isManagedActiveSummaryV4(value))throw Error('Missing v4 summary');
+  const count=(await pool.query('SELECT count(*)::int count FROM taptime_server.memberships WHERE organization_id=$1 AND revoked_at IS NULL',[ids.organizationA])).rows[0].count;
+  expect(value.packageUsage).toEqual({packageSize:1,activeAccessCount:count});
+  for(const accept of ['application/json',MANAGED_PEOPLE_ACCEPT_V2,MANAGED_PEOPLE_ACCEPT_V3]){
+    const old=await (await query(fixtureTokens.adminA,request,accept)).json();expect(old).not.toHaveProperty('packageUsage');
+  }
+  const manager=await (await query(fixtureTokens.employeeA,{...request,expectedMembershipId:ids.membershipEmployeeA})).json();
+  expect(isManagedActiveSummaryV4(manager)).toBe(true);if(!isManagedActiveSummaryV4(manager))throw Error('Missing manager summary');expect(manager.packageUsage).toBeNull();
+  const other=await (await query(fixtureTokens.adminB,{...request,expectedMembershipId:ids.membershipAdminB,locationId:foreign})).json();
+  if(!isManagedActiveSummaryV4(other))throw Error('Missing other summary');expect(other.packageUsage?.packageSize).toBe(50);
+  expect((await query(fixtureTokens.adminB,request)).status).toBe(403);
+  await pool.query('UPDATE taptime_server.organizations SET package_size=NULL,row_version=row_version+1 WHERE id=$1',[ids.organizationA]);
+  expect(await (await query(fixtureTokens.adminA,request)).json()).toMatchObject({packageUsage:{packageSize:null,activeAccessCount:count}});
 });

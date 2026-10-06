@@ -96,14 +96,14 @@ it('T102 groups appended pages and shows month hours only with v3',async()=>{
   people=[{membershipId:id,displayName:'Anna',role:'employee',location:person.location,isRunning:false,runningSince:null,runningTargetDisplayName:null}];
   expect(render()).not.toContain('Diesen Monat');expect(render()).not.toContain('>Nord<');
 });
-it.each([1,2,3])('T102 mobile negotiates v3 and accepts v%s fallback',async version=>{
+it.each([1,2,3,4])('T102 mobile negotiates v4 and accepts v%s fallback',async version=>{
   const {TapTimeEmployeesApiClient}=await import('../../src/employees/TapTimeEmployeesApiClient');
   const {AuthenticatedHttpRequestExecutor}=await import('../../src/transport/AuthenticatedHttpRequestExecutor');
-  const {MANAGED_PEOPLE_ACCEPT_V3}=await import('@taptime/administration-contract/managed-people');
+  const {MANAGED_PEOPLE_ACCEPT_V4}=await import('@taptime/administration-contract/managed-people');
   const person={membershipId:id,displayName:'Anna',role:'employee',location:null,isRunning:false,runningSince:null,runningTargetDisplayName:null,
-    ...(version>=2?{departedAt:null}:{}),...(version===3?{monthWorkDurationSeconds:0}:{})};
-  const fetcher=vi.fn(async(_path:string,_init:import('../../src/transport/AuthenticatedHttpRequestExecutor').AuthenticatedFetchRequestInit)=>Response.json({serverTime:'2026-10-05T12:00:00.000Z',people:[person],runningCount:0,totalCount:1,nextCursor:null}));
+    ...(version>=2?{departedAt:null}:{}),...(version>=3?{monthWorkDurationSeconds:0}:{})};
+  const fetcher=vi.fn(async(_path:string,_init:import('../../src/transport/AuthenticatedHttpRequestExecutor').AuthenticatedFetchRequestInit)=>Response.json({...(version===4?{packageUsage:{packageSize:1,activeAccessCount:1}}:{}),serverTime:'2026-10-05T12:00:00.000Z',people:[person],runningCount:0,totalCount:1,nextCursor:null}));
   const requests=new AuthenticatedHttpRequestExecutor({executeAuthenticatedRequest:async operation=>operation(()=> 'synthetic')},fetcher);
   const result=await new TapTimeEmployeesApiClient('https://example.test',requests).summary({expectedMembershipId:id,locationId:null,isRunning:null,cursor:null,limit:20});
-  expect(result.status).toBe('ready');expect(fetcher.mock.calls[0]?.[1]).toMatchObject({headers:expect.objectContaining({Accept:MANAGED_PEOPLE_ACCEPT_V3})});
+  expect(result.status).toBe('ready');expect(fetcher.mock.calls[0]?.[1]).toMatchObject({headers:expect.objectContaining({Accept:MANAGED_PEOPLE_ACCEPT_V4})});
 });

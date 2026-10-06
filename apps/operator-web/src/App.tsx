@@ -10,8 +10,8 @@ import {
 import { BUSINESS_TIME_ZONE } from "@taptime/core";
 import { OperatorRuntime, errorText } from "./OperatorRuntime";
 import {
-  overviewResult,
-  auditResult,
+  overviewResultV2,
+  auditResultV2,
   healthResult,
   mutationResult,
   type Overview,
@@ -31,6 +31,7 @@ const date = (value: string | null) =>
       }).format(new Date(value));
 const actions: Record<string, string> = {
   organization_created: "Betrieb angelegt",
+  organization_package_changed: "Paket geändert",
   organization_paused: "Betrieb pausiert",
   organization_resumed: "Betrieb fortgesetzt",
   operator_granted: "Betreiber freigeschaltet",
@@ -216,6 +217,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
   const [loading, setLoading] = useState(false),
     [error, setError] = useState<string>(),
     [notice, setNotice] = useState("");
+  const [packageChange,setPackageChange]=useState(false);
   const [panel, setPanel] = useState<"create" | Organization | null>(null),
     [refresh, setRefresh] = useState(0),
     [before, setBefore] = useState<string | null>(null),
@@ -236,12 +238,12 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
     setError(undefined);
     const work =
       page === "overview"
-        ? runtime.request("overview", {}, overviewResult).then((value) => {
+        ? runtime.request("overview", {}, overviewResultV2).then((value) => {
             if (live) setOverview(value);
           })
         : page === "audit"
           ? runtime
-              .request("audit", { before, limit: 50 }, auditResult)
+              .request("audit", { before, limit: 50 }, auditResultV2)
               .then((value) => {
                 if (live) setAudit(value);
               })
@@ -353,7 +355,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
                   <h2>Betriebe</h2>
                   <button
                     className="primary"
-                    onClick={() => setPanel("create")}
+                    onClick={() => {setPackageChange(false);setPanel("create");}}
                   >
                     Betrieb anlegen
                   </button>
@@ -406,6 +408,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
                           {[
                             "Betrieb",
                             "Status",
+                            "Paket und Zugänge",
                             "Mitarbeiter",
                             "Administratoren",
                             "Standortleitungen",
@@ -432,6 +435,13 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
                                 {row.status === "active" ? "Aktiv" : "Pausiert"}
                               </span>
                             </td>
+                            <td className="package-cell" data-label="Paket und Zugänge">{row.package_usage && <div className="package-counts">
+                              <strong>{row.package_usage.active_access_count} Zugänge, {row.package_usage.package_size === null ? 'kein Paket' : `Paket ${row.package_usage.package_size}`}</strong>
+                              <span>Höchstwert {row.package_usage.current_month}: {row.package_usage.current_month_peak}</span>
+                              <span>Höchstwert {row.package_usage.previous_month}: {row.package_usage.previous_month_peak}</span>
+                              {row.package_usage.package_size !== null && row.package_usage.active_access_count > row.package_usage.package_size
+                                ? <span className="package-warning">Paket überschritten</span> : null}
+                            </div>}</td>
                             <td data-label="Mitarbeiter">{row.employees}</td>
                             <td data-label="Administratoren">{row.administrators}</td>
                             <td data-label="Standortleitungen">{row.location_managers}</td>
@@ -446,7 +456,8 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
                             <td data-label="Einladungen">{row.open_invitations}</td>
                             <td data-label="Angelegt">{date(row.created_at)}</td>
                             <td data-label="Aktion">
-                              <button onClick={() => setPanel(row)}>
+                              <button onClick={()=>{setPackageChange(true);setPanel(row);}}>Paket ändern</button>
+                              <button onClick={() => {setPackageChange(false);setPanel(row);}}>
                                 {row.status === "active"
                                   ? "Pausieren"
                                   : "Fortsetzen"}
@@ -485,6 +496,8 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
                             : ""}
                         </p>
                         {event.reason && <p>Grund: {event.reason}</p>}
+                        {event.action==='organization_package_changed' ? <p>Paket: {event.package_size_before ?? 'kein Paket'} → {event.package_size_after ?? 'kein Paket'}</p>
+                          : event.action==='organization_created' && event.package_size_after != null ? <p>Paket: {event.package_size_after}</p> : null}
                       </div>
                     </li>
                   ))}
@@ -533,6 +546,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
         <ActionPanel
           runtime={runtime}
           target={panel}
+          packageChange={packageChange}
           onClose={() => setPanel(null)}
           onDone={(message) => {
             setNotice(message);
@@ -602,14 +616,17 @@ function SidePanel({
 function ActionPanel({
   runtime,
   target,
+  packageChange,
   onClose,
   onDone,
 }: {
   runtime: OperatorRuntime;
   target: "create" | Organization;
+  packageChange: boolean;
   onClose: () => void;
   onDone: (message: string) => void;
 }) {
+  const [packageSize,setPackageSize]=useState(target !== "create" && target.package_usage?.package_size != null ? String(target.package_usage.package_size) : "");
   const [name, setName] = useState(""),
     [email, setEmail] = useState(""),
     [reason, setReason] = useState(""),
@@ -627,13 +644,13 @@ function ActionPanel({
   const action =
     target === "create"
       ? "Betrieb anlegen"
-      : target.status === "active"
+      : packageChange ? "Paket ändern" : target.status === "active"
         ? "Pausieren"
         : "Fortsetzen";
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
-    if (target !== "create" && !confirmed) {
+    if (target !== "create" && !packageChange && !confirmed) {
       if (reason.trim().length === 0) {
         setError("Bitte geben Sie einen Grund ein.");
         return;
@@ -643,7 +660,8 @@ function ActionPanel({
     }
     const values =
       target === "create"
-        ? { name: name.trim(), email: email.trim() }
+        ? { name: name.trim(), email: email.trim(), packageSize: packageSize.trim()==='' ? null : Number(packageSize) }
+        : packageChange ? {organizationId:target.organization_id,packageSize:packageSize.trim()==='' ? null : Number(packageSize),reason:reason.trim(),rowVersion:target.row_version}
         : {
             organizationId: target.organization_id,
             status: target.status === "active" ? "paused" : "active",
@@ -657,7 +675,7 @@ function ActionPanel({
     setError(undefined);
     try {
       const result=await runtime.request(
-        target === "create" ? "organizations/create" : "organizations/status",
+        target === "create" ? "organizations/create" : packageChange ? "organizations/package" : "organizations/status",
         { ...values, commandId: command.current.id },
         mutationResult,
       );
@@ -667,7 +685,7 @@ function ActionPanel({
             ? result.invitation_status==='succeeded_existing_account'
               ? 'Das Konto besteht bereits; es wurde keine E-Mail verschickt. Informieren Sie die Person, dass sie ihr Passwort oder „Passwort vergessen“ nutzen kann.'
               : "Betrieb angelegt. Das Administratorkonto ist zugeordnet."
-            : target.status === "active"
+            : packageChange ? "Paket geändert." : target.status === "active"
               ? "Betrieb pausiert."
               : "Betrieb fortgesetzt.",
         );
@@ -684,6 +702,10 @@ function ActionPanel({
     >
       <ErrorBand message={error} />
       <RequiredForm onSubmit={submit}>
+        {target === "create" || packageChange ? <label>Paketgröße (optional)
+          <input aria-label="Paketgröße (optional)" aria-describedby="package-help" type="number" min={1} max={2147483647} step={1} inputMode="numeric" value={packageSize} onChange={event=>setPackageSize(event.target.value)} />
+          <span id="package-help" className="muted">Leer lassen für kein Paket. Über dem Paket bleiben alle Zugänge nutzbar.</span>
+        </label> : null}
         {target === "create" ? (
           <>
             <p>
@@ -717,7 +739,10 @@ function ActionPanel({
               {busy ? "Wird angelegt …" : "Anlegen und einladen"}
             </button>
           </>
-        ) : confirmed ? (
+        ) : packageChange ? <>
+          <label>Grund<textarea required maxLength={500} value={reason} onChange={event=>setReason(event.target.value)} /></label>
+          <button className="primary" disabled={busy}>{busy ? 'Wird gespeichert …' : 'Paket ändern'}</button>
+        </> : confirmed ? (
           <>
             <p>
               {target.status === "active"

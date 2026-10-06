@@ -26,7 +26,12 @@ export interface ManagedPerson {
   readonly runningSince: string | null;
   readonly runningTargetDisplayName: string | null;
 }
+export interface OrganizationPackageUsage {
+  readonly packageSize: number | null;
+  readonly activeAccessCount: number;
+}
 export interface ManagedActiveSummary {
+  readonly packageUsage?: OrganizationPackageUsage | null;
   readonly serverTime: string;
   readonly runningCount: number;
   readonly totalCount: number;
@@ -101,4 +106,21 @@ export function isManagedActiveSummaryV3(v: unknown): v is ManagedActiveSummaryV
     people.push(previous);
   }
   return isManagedActiveSummaryV2({...v,people});
+}
+
+/** v4 adds organization-wide package counts only for administrators. */
+export const MANAGED_PEOPLE_ACCEPT_V4 = 'application/vnd.taptime.managed-people.v4+json';
+export interface ManagedActiveSummaryV4 extends ManagedActiveSummaryV3 {
+  readonly packageUsage: OrganizationPackageUsage | null;
+}
+export function isOrganizationPackageUsage(v: unknown): v is OrganizationPackageUsage {
+  return object(v) && keys(v,['packageSize','activeAccessCount'])
+    && (v.packageSize === null || (Number.isSafeInteger(v.packageSize) && Number(v.packageSize) >= 1 && Number(v.packageSize) <= 2147483647))
+    && Number.isSafeInteger(v.activeAccessCount) && Number(v.activeAccessCount) >= 0;
+}
+export function isManagedActiveSummaryV4(v: unknown): v is ManagedActiveSummaryV4 {
+  if (!object(v) || !Object.hasOwn(v,'packageUsage')
+    || !(v.packageUsage === null || isOrganizationPackageUsage(v.packageUsage))) return false;
+  const {packageUsage,...previous}=v;
+  return isManagedActiveSummaryV3(previous);
 }

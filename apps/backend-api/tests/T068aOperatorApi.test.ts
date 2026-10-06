@@ -148,3 +148,58 @@ it('reports external success without a local completion', async () => {
     expect((await pool.query('SELECT FROM taptime_server.identity_bindings WHERE subject=$1', [subject])).rowCount).toBe(0);
   } finally { await pool.query('ALTER TABLE taptime_server.organizations DROP CONSTRAINT t068a_completion_failure'); }
 });
+
+it('T075 negotiates package fields, rejects old request additions and requires MFA for changes',async()=>{
+  const inviter={issuer,invite:vi.fn().mockResolvedValue({status:'invited',subject:'package-admin'}),diagnose:vi.fn(),needsAttention:vi.fn()};
+  const coordinator=new OperatorCoordinator(pool,verifier,inviter);
+  const input={commandId:'96000000-0000-4000-8000-000000000001',name:'Paketbetrieb',email:'package@example.invalid',packageSize:1};
+  expect(await coordinator.execute('high','create',input)).toEqual({status:'invalid_request'});
+  for(const packageSize of [0,-1,1.5,'1',2147483648]) expect(await coordinator.execute('high','create',{...input,packageSize},true)).toEqual({status:'invalid_request'});
+  expect(inviter.invite).not.toHaveBeenCalled();
+  const created=await coordinator.execute('high','create',input,true);expect(created.status).toBe('succeeded');
+  const change={commandId:'96000000-0000-4000-8000-000000000002',organizationId:created.organization_id,packageSize:2,reason:'Mehr Zugänge',rowVersion:1};
+  expect(await coordinator.execute('low','package',change)).toEqual({status:'mfa_required'});
+  expect(await coordinator.execute('member','package',change)).toEqual({status:'forbidden'});
+  expect(await coordinator.execute('high','package',{...change,reason:' '})).toEqual({status:'invalid_request'});
+  expect((await coordinator.execute('high','package',change)).status).toBe('succeeded');
+  const {overviewResult,overviewResultV2,auditResultV2}=await import('../../operator-web/src/contracts.js');
+  const old=await coordinator.execute('high','overview',{}),current=await coordinator.execute('high','overview',{},true);
+  expect(()=>overviewResult(old)).not.toThrow();expect(()=>overviewResult(current)).toThrow();
+  const parsed=overviewResultV2(current);expect(parsed.organizations.find(o=>o.organization_id===created.organization_id)?.package_usage).toMatchObject({package_size:2,active_access_count:1});
+  const audit=await coordinator.execute('high','audit',{},true);expect(()=>auditResultV2(audit)).not.toThrow();
+});
+
+it('T075 invitation reserves one access, accepting/resending/reinviting never doubles it, revocation preserves the peak',async()=>{
+  await pool.query('UPDATE taptime_server.organizations SET package_size=1,row_version=row_version+1 WHERE id=$1',[ids.organizationA]);
+  const inviter={issuer,invite:vi.fn().mockResolvedValue({status:'invited',subject:'package-employee'}),diagnose:vi.fn(),needsAttention:vi.fn()};
+  const memberVerifier={verify:async()=>({status:'verified' as const,identity:{issuer,subject:'admin-a'}})};
+  const coordinator=new EmployeeMembershipEnrollmentCoordinator(pool,pool,memberVerifier,inviter as unknown as SupabaseAccountInviter);
+  const operatorCoordinator=new OperatorCoordinator(pool,verifier);
+  const read=async()=>{
+    const overview=await operatorCoordinator.execute('high','overview',{},true);
+    return (overview.organizations as {organization_id:string;package_usage:{active_access_count:number;current_month_peak:number}}[]).find(o=>o.organization_id===ids.organizationA)!.package_usage;
+  };
+  const before=await read();
+  const request={accessToken:'admin',expectedMembershipId:MembershipId('12000000-0000-4000-8000-000000000001'),commandId:'96000000-0000-4000-8000-000000000003',displayName:'Beispiel',email:'member@example.invalid',locationId:null};
+  expect((await coordinator.createAccountInvitation(request)).status).toBe('succeeded');
+  expect(await read()).toMatchObject({active_access_count:before.active_access_count+1,current_month_peak:before.active_access_count+1});
+  expect((await coordinator.createAccountInvitation(request)).status).toBe('succeeded');
+  inviter.invite.mockResolvedValue({status:'existing',subject:'package-employee',wasInvited:true});
+  expect((await coordinator.createAccountInvitation({...request,commandId:'96000000-0000-4000-8000-000000000004'})).status).toBe('membership_exists');
+  // Accepting the provider invitation only enables authentication; the membership already exists.
+  const member=(await pool.query('SELECT * FROM taptime_server.resolve_request_actor($1,$2)',[issuer,'package-employee'])).rows[0];
+  expect(member.membership_id).toBeTruthy();expect((await read()).active_access_count).toBe(before.active_access_count+1);
+  // Resend reservation targets that same membership and has no count side effect.
+  const c=await pool.connect();try{
+    await c.query('BEGIN; SET LOCAL ROLE taptime_membership_manager');
+    const command='96000000-0000-4000-8000-000000000005';
+    await c.query("SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true),set_config('app.correlation_id',$4,true)",[ids.organizationA,ids.adminA,request.expectedMembershipId,command]);
+    expect((await c.query('SELECT * FROM taptime_server.reserve_account_invitation_resend_v1($1,$2,$3)',[command,member.membership_id,issuer])).rows[0].result_status).toBe('reserved');
+    await c.query('COMMIT');
+  }finally{await c.query('ROLLBACK');c.release();}
+  expect((await read()).active_access_count).toBe(before.active_access_count+1);
+  await pool.query('UPDATE taptime_server.memberships SET revoked_at=clock_timestamp(),row_version=row_version+1 WHERE id=$1',[member.membership_id]);
+  expect(await read()).toMatchObject({active_access_count:before.active_access_count,current_month_peak:before.active_access_count+1});
+  expect((await coordinator.createAccountInvitation({...request,commandId:'96000000-0000-4000-8000-000000000006'})).status).toBe('former_membership');
+  expect((await read()).active_access_count).toBe(before.active_access_count);
+});

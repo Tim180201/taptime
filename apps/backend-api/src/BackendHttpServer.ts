@@ -7,7 +7,8 @@ import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, TIME_DETAILS_ACCEPT_V3, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
-import { MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
+import { OPERATOR_PACKAGE_ACCEPT } from './OperatorCoordinator.js';
+import { MANAGED_PEOPLE_ACCEPT_V4, MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
@@ -98,6 +99,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/operator/session': 'operator_session',
   '/v1/operator/overview': 'operator_overview',
   '/v1/operator/organizations/create': 'operator_create',
+  '/v1/operator/organizations/package': 'operator_package',
   '/v1/operator/organizations/status': 'operator_status',
   '/v1/operator/audit': 'operator_audit',
   '/v1/operator/health': 'operator_health',
@@ -488,7 +490,8 @@ async function handleRequest(
   }
 
   if (route.startsWith('operator_')) {
-    const result = await dependencies.operator!.execute(accessToken,route.slice(9) as import('./OperatorCoordinator.js').OperatorAction,body);
+    response.setHeader('Vary','Accept');
+    const result = await dependencies.operator!.execute(accessToken,route.slice(9) as import('./OperatorCoordinator.js').OperatorAction,body,request.headers.accept === OPERATOR_PACKAGE_ACCEPT);
     respondOperatorResult(response,result); return;
   }
 
@@ -730,7 +733,7 @@ async function handleRequest(
       async (deadlineEpochMilliseconds) => {
         const operation = dependencies.employeeEnrollment.readManagedActiveSummary;
         if (!operation) throw new Error('Managed summary unavailable');
-        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === MANAGED_PEOPLE_ACCEPT_V3 ? {includeMonthHours:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V2 ? {includeDeparted:true} : {}) }, { deadlineEpochMilliseconds });
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === MANAGED_PEOPLE_ACCEPT_V4 ? {includeMonthHours:true,includePackageUsage:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V3 ? {includeMonthHours:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V2 ? {includeDeparted:true} : {}) }, { deadlineEpochMilliseconds });
       }, result => result.value);
     return;
   }
@@ -2873,7 +2876,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'health':
       return null;
     case 'operator_session': case 'operator_overview': case 'operator_create':
-    case 'operator_status': case 'operator_audit': case 'operator_health':
+    case 'operator_package': case 'operator_status': case 'operator_audit': case 'operator_health':
       return 'operator_failed';
     case 'admin_tag_inspect': case 'admin_tag_reuse':
     case 'admin_customer_manage':

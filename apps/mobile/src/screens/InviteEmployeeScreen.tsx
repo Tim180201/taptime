@@ -19,6 +19,8 @@ export function InviteEmployeeScreen({employees,state,scope,locationsEnabled}: {
     <ActionButton title="Zurück zur Liste" tone="quiet" onPress={()=>employees.back()} />
     <Card><Text accessibilityRole="header" style={{fontSize:22,lineHeight:28,fontWeight:'800'}}>Mitarbeiter einladen</Text>
       <Text>Der Zugang wird per E-Mail eingerichtet.</Text></Card>
+    {scope.kind==='organization' && state.packageUsage?.packageSize != null && state.packageUsage.activeAccessCount >= state.packageUsage.packageSize && !succeeded
+      ? <Card><Text style={{color:mobileTokens.color.warning}}>Mit dieser Einladung wird das Paket von {state.packageUsage.packageSize} Zugängen überschritten. Einladen bleibt möglich.</Text></Card> : null}
     <View style={{gap:8}}><Text>Name</Text><RequiredTextField form={form} error={!name.trim() ? "Bitte Name eingeben." : null} accessibilityLabel="Name" value={name} onChangeText={setName} maxLength={80} editable={!state.busy && !succeeded} autoComplete="name" />
       <Text>E-Mail</Text><RequiredTextField form={form} error={!email.trim() ? "Bitte E-Mail eingeben." : null} accessibilityLabel="E-Mail" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" maxLength={254} editable={!state.busy && !succeeded} /></View>
     <Card><Text>Rolle</Text><Text style={{fontWeight:'800'}}>Mitarbeiter</Text></Card>

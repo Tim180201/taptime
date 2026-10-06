@@ -42,6 +42,8 @@ export default function EmployeesView({ state, administration, accountInvitation
   const tooLong = running !== null && Date.now() - Date.parse(running.startedAt) > 24 * 3600_000;
   const personRoute = {...defaultRoute('beschaeftigte',state.selectedLocation?.id ?? null),personId:revocationIntent?.id,
     month:running ? businessDay(Date.parse(running.startedAt)).slice(0,7) : null};
+  const packageUsage=state.managementScope.kind==='organization' && state.managedPeople?.status==='ready'
+    ? state.managedPeople.value.packageUsage : null;
   return <>
     {invitationSuccess === null ? null : <p role="status">{ACCOUNT_INVITATION_SUCCESS_NOTICES[invitationSuccess]}</p>}
     <SectionBoundary state={state.sections.employees}
@@ -49,12 +51,17 @@ export default function EmployeesView({ state, administration, accountInvitation
     <Panel title="Beschäftigte" description={state.selectedLocation === null
       ? 'Beschäftigte und ihre Zugänge.'
       : `Beschäftigte und ihre Zugänge am Standort ${state.selectedLocation.name}.`}>
+      {packageUsage?.packageSize != null ? <p className={packageUsage.activeAccessCount > packageUsage.packageSize ? 'package-warning' : undefined}>
+        {packageUsage.activeAccessCount} Zugänge, Paket {packageUsage.packageSize}
+        {packageUsage.activeAccessCount > packageUsage.packageSize ? ' · Paket überschritten. Alle Zugänge bleiben nutzbar.' : ''}
+      </p> : null}
       <CountTruth count={state.employeeProjection.employeeMemberships.length}
         noun={state.selectedLocation === null
           ? state.locationsEnabled ? 'Beschäftigte im Betrieb' : 'Beschäftigte'
           : `Beschäftigte am Standort ${state.selectedLocation.name}`}
         complete={state.employeeProjection.nextCursor === null} />
       <EmployeeAccountInvitationForm key={state.selectedLocation?.id ?? 'organization'}
+        packageUsage={packageUsage}
         capability={accountInvitations} state={state} open={adding} setOpen={(open) => {
           if (open) setInvitationSuccess(null);
           setAdding(open);

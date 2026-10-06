@@ -827,6 +827,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       return;
     }
     this.setState(applySectionResult(latest, section, result.value));
+    if (section==='employees' && latest.managedPeople !== undefined) await this.refreshManagedPeople(latest.managedPeople.isRunning);
   }
 
   async loadMore(): Promise<void> {

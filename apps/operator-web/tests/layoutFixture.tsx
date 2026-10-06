@@ -13,7 +13,7 @@ const auth: OperatorAuth = {
   verifyMfa: async () => { if (variant === 'mfa-busy') return new Promise(() => {}); throw new OperatorError('mfa_invalid'); },
 };
 const organization = { organization_id: '30000000-0000-4000-8000-000000000001', name: 'Beispiel Gebäudereinigung', status: 'active', created_at: '2026-09-01T10:00:00Z', row_version: 3,
-  administrators: 1, location_managers: 2, employees: 8, active_now: 4, last_tap: '2026-09-23T09:00:00Z', tags: 5, active_assignments: 4, open_invitations: 1 };
+  administrators: 1, location_managers: 2, employees: 8, active_now: 4, last_tap: '2026-09-23T09:00:00Z', tags: 5, active_assignments: 4, open_invitations: 1, package_usage: {package_size:10,active_access_count:12,current_month:"2026-10",current_month_peak:14,previous_month:"2026-09",previous_month_peak:9} };
 sessionStorage.setItem('taptime-operator-last-activity', String(Date.now()));
 const runtime = new OperatorRuntime(auth, sessionStorage, async (input) => {
   const path = String(input).replace('/v1/operator/', '');
@@ -24,7 +24,7 @@ const runtime = new OperatorRuntime(auth, sessionStorage, async (input) => {
     session: { status: token === 'aal2' ? 'active' : 'mfa_required', aal: token },
     overview: { status: 'succeeded', organizations: variant === 'empty' ? [] : [organization, { ...organization, organization_id: '30000000-0000-4000-8000-000000000002', name: 'Beispiel Hausmeisterdienst', status: 'paused', active_now: 0, last_tap: null }],
       totals: { organizations: 2, administrators: 2, location_managers: 2, employees: 16, active_now: 4, taps_today: 27 } },
-    audit: { status: 'succeeded', events: variant === 'audit-empty' ? [] : [{ id: '51', organization_id: organization.organization_id, action: 'organization_paused', reason: 'Auf Wunsch des Betriebs', created_at: '2026-09-23T09:00:00Z', actor: 'operator' }], next_before: '51' },
+    audit: { status: 'succeeded', events: variant === 'audit-empty' ? [] : [{ id: '51', organization_id: organization.organization_id, action: 'organization_paused', reason: 'Auf Wunsch des Betriebs', created_at: '2026-09-23T09:00:00Z', actor: 'operator',package_size_before:null,package_size_after:10 }], next_before: '51' },
     health: { status: 'succeeded', database_bytes: 1048576, last_archived_at: variant === 'health-missing' ? null : '2026-09-23T09:00:00Z', last_base_at: null, version: variant === 'health-missing' ? null : 'example' },
   };
   if (!(path in replies)) throw new Error('Unexpected test request');

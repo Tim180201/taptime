@@ -22,7 +22,7 @@ export type EmployeesState =
   | { readonly status: 'inactive' | 'loading' | 'unavailable' | 'not_authorized' }
   | { readonly status: 'list'; readonly summary: ManagedActiveSummary; readonly filter: boolean; readonly busy: boolean; readonly failed: boolean }
   | { readonly status: 'person'; readonly person: ManagedPerson; readonly value: MobileOwnTimeQueryResponse | null; readonly busy: boolean; readonly failed: boolean }
-  | { readonly status: 'invite'; readonly locations: readonly EmployeeLocation[]; readonly locationsReady: boolean; readonly busy: boolean;
+  | { readonly status: 'invite'; readonly packageUsage?: import('@taptime/administration-contract/managed-people').OrganizationPackageUsage | null; readonly locations: readonly EmployeeLocation[]; readonly locationsReady: boolean; readonly busy: boolean;
       readonly outcome: InvitationStatus | null };
 export interface EmployeesCapability {
   getState(): EmployeesState;

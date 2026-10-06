@@ -20,8 +20,11 @@ export function EmployeesScreen({employees,scope,locationsEnabled}: {
     <Text accessibilityRole={state.status==='not_authorized' || state.status==='unavailable' ? 'alert' : undefined}>
       {state.status==='not_authorized' ? 'Deine Berechtigung ist nicht mehr gültig.' : state.status==='unavailable' ? 'Mitarbeiter sind derzeit nicht erreichbar.' : 'Mitarbeiter werden geladen …'}</Text>
     <ActionButton title="Aktualisieren" onPress={()=>employees.refresh()} /></Card></Screen>;
+  const packageUsage=scope.kind==='organization' ? state.summary.packageUsage : null;
   const monthHours=state.summary.people.length>0 && state.summary.people.every(person=>person.monthWorkDurationSeconds!==undefined);
   return <Screen title="Mitarbeiter"><ScrollView contentContainerStyle={{gap:16,paddingBottom:24}}>
+    {packageUsage?.packageSize != null ? <Card><Text>{packageUsage.activeAccessCount} Zugänge, Paket {packageUsage.packageSize}</Text>
+      {packageUsage.activeAccessCount > packageUsage.packageSize ? <Text style={{color:mobileTokens.color.warning}}>Paket überschritten. Alle Zugänge bleiben nutzbar.</Text> : null}</Card> : null}
     <Card><Text style={{fontSize:40,lineHeight:48,fontWeight:'800'}}>{state.summary.runningCount} / {state.summary.totalCount}</Text>
       <Text>gerade aktiv · {scope.kind==='organization' ? 'Betrieb' : scope.locationName}</Text>
       <Text style={{fontSize:13,color:mobileTokens.color.textMuted}}>Stand {formatOwnTimeTimestamp(state.summary.serverTime)}</Text></Card>

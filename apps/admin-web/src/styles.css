@@ -745,3 +745,5 @@ input, select, textarea { font-size: 16px; min-width: 0; }
 .required-field-error { display: block; color: var(--color-error); font-size: 13px; grid-column: 1 / -1; }
 .input-action:has(.required-field-error) { flex-wrap: wrap; }
 .input-action > .required-field-error { flex-basis: 100%; order: 1; }
+
+.package-warning { color: var(--color-notice); }

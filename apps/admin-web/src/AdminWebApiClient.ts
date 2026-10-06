@@ -3,7 +3,7 @@ import { parseReviewItemQueryResponseV4 } from '@taptime/time-review-contract';
 import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeQuery,isVoidedTimeResponse,type VoidTimeResult,type VoidedTimeResponse,type VoidedTimeQuery} from '@taptime/mobile-work-contract';
 import { isCustomerHoursRequest, isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import { isBackfillTargetQueryRequest, isBackfillTargetQueryResponse, type BackfillTargetQueryRequest, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3 as TIME_DETAILS_ACCEPT, isTimeRecordDetails, isCaptureTimeResponse, isCalendarTimeResponse, isDetailedTimeResponse, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
-import { MANAGED_PEOPLE_ACCEPT_V3,isManagedActiveSummaryV3,isManagedActiveSummaryV2,isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
+import { MANAGED_PEOPLE_ACCEPT_V4,isManagedActiveSummaryV4,isManagedActiveSummaryV3,isManagedActiveSummaryV2,isManagedActiveSummary,isManagedActiveSummaryRequest,isManagedPersonTimeRequest,type ManagedActiveSummary,type ManagedActiveSummaryRequest,type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { parseAdministrationSetupProjectionV2 } from '@taptime/administration-contract/setup-projection';
 import {
 	validateManualBreakLifecycleRequest,
@@ -318,7 +318,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   async managedActiveSummary(token: string, request: ManagedActiveSummaryRequest): Promise<ApiResult<ManagedActiveSummary>> {
     if (!isManagedActiveSummaryRequest(request)) return { status: 'invalid_response' };
     return this.request('/v1/administration/managed-active-summary', token, 'POST', request,
-      value => isManagedActiveSummaryV3(value) || isManagedActiveSummaryV2(value) || isManagedActiveSummary(value) ? value : null, false, false, false, maximumTimeReviewBodyBytes);
+      value => isManagedActiveSummaryV4(value) || isManagedActiveSummaryV3(value) || isManagedActiveSummaryV2(value) || isManagedActiveSummary(value) ? value : null, false, false, false, maximumTimeReviewBodyBytes);
   }
   async recordPasswordReset(token: string): Promise<ApiResult<true>> {
     return this.request('/v1/auth/password-reset/audit', token, 'POST', {}, (value) => (
@@ -748,7 +748,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/administration/managed-active-summary' ? MANAGED_PEOPLE_ACCEPT_V3 : path === '/v1/mobile/own-time/query' ? TIME_CALENDAR_ACCEPT_V2 : path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
+      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/administration/managed-active-summary' ? MANAGED_PEOPLE_ACCEPT_V4 : path === '/v1/mobile/own-time/query' ? TIME_CALENDAR_ACCEPT_V2 : path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
       if (exposeLocationScopeError && response.status === 403) {
         if (
           response.redirected

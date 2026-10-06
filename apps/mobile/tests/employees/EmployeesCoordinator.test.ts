@@ -8,8 +8,8 @@ import type { ManagedActiveSummary } from '@taptime/administration-contract/mana
 const id='12000000-0000-4000-8000-000000000001', location='51000000-0000-4000-8000-000000000001';
 const person={membershipId:id,displayName:'Anna',role:'employee' as const,location:{id:location,name:'Nord'},isRunning:true,runningSince:'2026-09-18T08:00:00.000Z',runningTargetDisplayName:'Projekt'};
 const summary={serverTime:'2026-09-18T12:00:00.000Z',runningCount:1,totalCount:2,people:[person],nextCursor:null};
-function fixture(scope:MobileManagementScope={kind:'organization'}) {
-  let snapshot:InternalAuthenticatedSessionSnapshot|null={generation:1,session:{userId:id,membershipId:id,organizationId:id,role:'administrator',nfcSetupAvailable:true,managementScope:scope,locationsEnabled:true}};
+function fixture(scope:MobileManagementScope={kind:'organization'},locationsEnabled=true) {
+  let snapshot:InternalAuthenticatedSessionSnapshot|null={generation:1,session:{userId:id,membershipId:id,organizationId:id,role:'administrator',nfcSetupAvailable:true,managementScope:scope,locationsEnabled}};
   let notify=()=>{};
   const api:EmployeesApiPort={summary:vi.fn<EmployeesApiPort['summary']>(async()=>({status:'ready',value:summary})),
     personTime:vi.fn<EmployeesApiPort['personTime']>(async request=>({status:'ready',value:{activeRecord:null,records:[],nextCursor:null,windowStartedAt:request.fromInclusive,windowEndedAt:request.toExclusive}})),
@@ -70,4 +70,17 @@ it('g: real authenticated transport preserves named T047 429/503 errors',async()
     const client=new TapTimeEmployeesApiClient('https://example.test',transport);
     expect(await client.invite({expectedMembershipId:id,commandId:id,displayName:'Anna',email:'anna@example.test',locationId:location})).toEqual({status:code});
   }
+});
+
+it.each([true,false])('T075 carries administrator package counts into invitation with locationsEnabled=%s and clears them on session loss',async locationsEnabled=>{
+  const {coordinator,api,revoke}=fixture({kind:'organization'},locationsEnabled);
+  vi.mocked(api.summary).mockResolvedValue({status:'ready',value:{...summary,packageUsage:{packageSize:2,activeAccessCount:3}}});
+  await coordinator.refresh();await coordinator.openInvitation();
+  expect(coordinator.getState()).toMatchObject({status:'invite',packageUsage:{packageSize:2,activeAccessCount:3}});
+  await coordinator.invite('Anna','anna@example.test',locationsEnabled?location:null);expect(api.invite).toHaveBeenCalled();
+  if (!locationsEnabled) expect(api.locations).not.toHaveBeenCalled();
+  revoke();expect(coordinator.getState()).not.toHaveProperty('packageUsage');
+  const manager=fixture({kind:'location',locationId:location,locationName:'Nord'});
+  vi.mocked(manager.api.summary).mockResolvedValue({status:'ready',value:{...summary,packageUsage:{packageSize:2,activeAccessCount:3}}});
+  await manager.coordinator.refresh();await manager.coordinator.openInvitation();expect(manager.coordinator.getState()).toMatchObject({packageUsage:null});
 });

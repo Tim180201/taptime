@@ -1463,3 +1463,23 @@ it('T102 reports an already assigned customer at its field instead of preparing 
  expect(capability.prepareReassignment).not.toHaveBeenCalled();expect(field).toHaveAttribute('aria-invalid','true');
  expect(screen.getByText('Der Tag gehört bereits zu diesem Kunden.')).toBeVisible();
 });
+
+it('T075 administrator sees whole-organization usage and may invite above the package; managers see no hint',async()=>{
+  window.history.replaceState(null,'','/beschaeftigte');
+  const summary={serverTime:'2026-10-06T08:00:00.000Z',runningCount:0,totalCount:1,people:[],nextCursor:null,packageUsage:{packageSize:10 as number|null,activeAccessCount:12}};
+  const state={...readyState,managedPeople:{status:'ready' as const,isRunning:null,value:summary}};
+  const capability=new FakeCapability(state);const invite=vi.fn(async()=>({status:'succeeded' as const}));
+  await render(<App administration={capability} accountInvitations={{invite}}/>);
+  expect(screen.getByText(/12 Zugänge, Paket 10/)).toBeVisible();
+  fireEvent.click(screen.getByRole('button',{name:'Mitarbeiter hinzufügen'}));
+  expect(screen.getByText(/Mit dieser Einladung wird das Paket von 10 Zugängen überschritten/)).toBeVisible();
+  fireEvent.change(screen.getByLabelText('Name',{exact:true}),{target:{value:'Alex'}});
+  fireEvent.change(screen.getByLabelText('E-Mail',{exact:true}),{target:{value:'alex@example.test'}});
+  fireEvent.click(screen.getByRole('button',{name:'Einladung senden'}));
+  await waitFor(()=>expect(invite).toHaveBeenCalledWith('Alex','alex@example.test',null));
+  await act(async()=>capability.emit({...state,managedPeople:{...state.managedPeople,value:{...summary,packageUsage:{packageSize:null,activeAccessCount:12}}}}));
+  expect(screen.queryByText(/12 Zugänge, Paket/)).toBeNull();
+  await act(async()=>capability.emit({...locationReadyState(),managedPeople:state.managedPeople}));
+  expect(screen.queryByText(/12 Zugänge, Paket/)).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Mitarbeiter hinzufügen'}));expect(screen.queryByText(/Mit dieser Einladung wird das Paket/)).toBeNull();
+});

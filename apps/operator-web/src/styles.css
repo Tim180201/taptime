@@ -423,3 +423,10 @@ input, select, textarea { font-size: 16px; }
 .required-field-error { display: block; color: var(--color-error); font-size: 13px; grid-column: 1 / -1; }
 .input-action:has(.required-field-error) { flex-wrap: wrap; }
 .input-action > .required-field-error { flex-basis: 100%; order: 1; }
+
+.package-counts { display: grid; gap: 4px; min-width: 180px; }
+.package-warning { color: #E0A44C; }
+@media screen and (max-width: 1023px) {
+  .tablewrap td.package-cell { grid-column: 1 / -1; }
+  .package-counts { min-width: 0; }
+}

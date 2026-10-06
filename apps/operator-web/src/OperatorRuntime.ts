@@ -1,3 +1,6 @@
+import { OperatorError } from './OperatorError';
+export { OperatorError } from './OperatorError';
+import { OPERATOR_PACKAGE_ACCEPT } from "./contracts";
 export interface MfaFactor {
   factorId: string;
   qrCode?: string;
@@ -10,11 +13,6 @@ export interface OperatorAuth {
   prepareMfa(): Promise<MfaFactor>;
   verifyMfa(factorId: string, code: string): Promise<void>;
   onSignedOut(callback: () => void): () => void;
-}
-export class OperatorError extends Error {
-  constructor(readonly code: string) {
-    super(code);
-  }
 }
 export type OperatorState =
   | { status: "login" | "checking" | "blocked"; message?: string }
@@ -232,6 +230,7 @@ export class OperatorRuntime {
         "overview",
         "organizations/create",
         "organizations/status",
+        "organizations/package",
         "audit",
         "health",
       ].includes(path)
@@ -245,6 +244,7 @@ export class OperatorRuntime {
         method: body === undefined ? "GET" : "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          Accept: OPERATOR_PACKAGE_ACCEPT,
           "Content-Type": "application/json",
         },
         body: body === undefined ? undefined : JSON.stringify(body),

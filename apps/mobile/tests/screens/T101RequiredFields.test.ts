@@ -74,3 +74,11 @@ it.each(['online','offline'])('T101 manual %s requires a choice without capturin
  else await mount(h(OfflineManualCaptureScreen,{manual:{readOfflineManualTargets:async()=>({status:'ready',targets:[target]}),captureManual:capture} as unknown as OfflineManualCaptureCapability,restorationKey:'test'}));
  await press(mode==='online'?'Zeit starten':'Jetzt erfassen');hint(mode==='online'?'Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten.':'Bitte ein Arbeitsziel oder Pause wählen.');expect(capture).not.toHaveBeenCalled();expect(native.focus).toHaveBeenCalledWith(document.activeElement);expect(document.activeElement?.getAttribute('aria-label')).toMatch(/Arbeitsziel/);expect(document.activeElement?.getAttribute('tabindex')).toBe('0');expect(document.activeElement?.getAttribute('data-accessible')).toBe('true');expect(box.querySelector('button')?.closest('[data-accessible="true"]')).toBeNull();await press(mode==='online'?'Zeit starten':'Jetzt erfassen');expect(native.focus).toHaveBeenCalledTimes(2);await press('Kunde A');expect(box.querySelector('[role="alert"]')).toBeNull();
 });
+
+it('T075 warns at the invitation boundary but keeps sending possible; null package and managers have no hint',async()=>{
+  const invite=vi.fn();const props={employees:{invite,back:vi.fn()} as never,state:{status:'invite' as const,busy:false,outcome:null,locationsReady:true,locations:[],packageUsage:{packageSize:2 as number|null,activeAccessCount:2}},scope:{kind:'organization' as const},locationsEnabled:false};
+  await mount(h(InviteEmployeeScreen,props));expect(box.textContent).toContain('Mit dieser Einladung wird das Paket von 2 Zugängen überschritten. Einladen bleibt möglich.');
+  await fill('Name','Alex');await fill('E-Mail','alex@example.test');await press('Einladung senden');expect(invite).toHaveBeenCalledWith('Alex','alex@example.test',null);
+  await mount(h(InviteEmployeeScreen,{...props,state:{...props.state,packageUsage:{packageSize:null,activeAccessCount:2}}}));expect(box.textContent).not.toContain('Paket');
+  await mount(h(InviteEmployeeScreen,{...props,scope:{kind:'location',locationId:'l1',locationName:'Nord'}}));expect(box.textContent).not.toContain('Paket');
+});

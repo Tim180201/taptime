@@ -3,7 +3,7 @@ import { cleanup,render,screen } from '@testing-library/react';
 import { afterEach,expect,it,vi } from 'vitest';
 import { PeopleTable } from '../src/views/PeopleShared';
 import { AdminWebApiClient } from '../src/AdminWebApiClient';
-import { MANAGED_PEOPLE_ACCEPT_V3 } from '@taptime/administration-contract/managed-people';
+import { MANAGED_PEOPLE_ACCEPT_V4 } from '@taptime/administration-contract/managed-people';
 import type { ManagedPerson } from '@taptime/administration-contract/managed-people';
 afterEach(cleanup);
 const id='12000000-0000-4000-8000-000000000001';
@@ -29,9 +29,9 @@ it('falls back to the legacy list without v3, and skips location headings when d
  rerender(<PeopleTable people={[{...person,monthWorkDurationSeconds:0,departedAt:null}]} navigate={vi.fn()} locationId={null}/>);
  expect(screen.getByText('0,0 h')).toBeDefined();expect(screen.queryByRole('heading',{name:'Nord'})).toBeNull();
 });
-it.each([1,2,3])('requests v3 and still reads response v%s',async version=>{
+it.each([1,2,3,4])('requests v4 and still reads response v%s',async version=>{
  const row=version===1?person:version===2?{...person,departedAt:null}:{...person,departedAt:null,monthWorkDurationSeconds:10};
- const fetcher=vi.fn(async(_path:RequestInfo|URL,_init?:RequestInit)=>Response.json({serverTime:'2026-10-05T08:00:00.000Z',runningCount:0,totalCount:1,people:[row],nextCursor:null}));
+ const fetcher=vi.fn(async(_path:RequestInfo|URL,_init?:RequestInit)=>Response.json({...(version===4?{packageUsage:{packageSize:1,activeAccessCount:1}}:{}),serverTime:'2026-10-05T08:00:00.000Z',runningCount:0,totalCount:1,people:[row],nextCursor:null}));
  expect((await new AdminWebApiClient(fetcher).managedActiveSummary('token',{expectedMembershipId:id,locationId:null,isRunning:null,cursor:null,limit:20})).status).toBe('succeeded');
- expect(fetcher.mock.calls[0]?.[1]).toMatchObject({headers:expect.objectContaining({Accept:MANAGED_PEOPLE_ACCEPT_V3})});
+ expect(fetcher.mock.calls[0]?.[1]).toMatchObject({headers:expect.objectContaining({Accept:MANAGED_PEOPLE_ACCEPT_V4})});
 });

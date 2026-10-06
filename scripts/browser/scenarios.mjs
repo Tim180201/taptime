@@ -109,10 +109,21 @@ export const operatorScenarios = [
     async p=>p.locator(state==='error' ? '[role="alert"]' : 'button:disabled').waitFor(),
   ])),
   ...['configuration','storage-error'].map(id=>({...scenario(id,'/','.login h1'), production:true})),
-  scenario('overview','/','table'),
+  scenario('overview','/','table',[async p=>{
+    const overlaps=await p.locator('.package-counts').evaluateAll(nodes=>nodes.some(node=>{
+      const content=node.getBoundingClientRect();
+      return [...node.closest('tr').children].filter(cell=>!cell.contains(node)).some(cell=>{
+        const other=cell.getBoundingClientRect();
+        return content.left<other.right && content.right>other.left && content.top<other.bottom && content.bottom>other.top;
+      });
+    }));
+    if(overlaps) throw new Error('Package counts overlap another organization value');
+  }]),
   ...['empty','error','loading'].map(id=>scenario(id,'/','main')),
   scenario('filter-empty','/','table',[async p=>p.getByLabel('Betrieb suchen').fill('Kein Treffer')]),
   scenario('create','/','table',[click('Betrieb anlegen')]),
+  scenario('package-edit','/','table',[async p=>p.getByRole('button',{name:'Paket ändern',exact:true}).first().click(),
+    async p=>p.getByLabel('Grund',{exact:true}).fill('Mehr Zugänge im Betrieb')]),
   ...['error','busy'].map(state=>scenario('create-'+state,'/','table',[
     click('Betrieb anlegen'), async p=>p.getByLabel('Name des Betriebs').fill('Beispiel Gebäudereinigung'),
     async p=>p.getByLabel('E-Mail des ersten Administrators').fill('admin@example.invalid'), click('Anlegen und einladen'),

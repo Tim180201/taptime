@@ -39,7 +39,8 @@ export class EmployeeAccountInvitationClient implements EmployeeAccountInvitatio
 }
 
 type ReadyState = Extract<AdminWebState, { readonly status: 'ready' }>;
-export function EmployeeAccountInvitationForm({ capability, state, open, setOpen, onCreated }: {
+export function EmployeeAccountInvitationForm({ capability, state, open, setOpen, onCreated, packageUsage }: {
+  readonly packageUsage?: import('@taptime/administration-contract/managed-people').OrganizationPackageUsage | null;
   readonly capability?: EmployeeAccountInvitationCapability;
   readonly state: Pick<ReadyState, 'locationsEnabled' | 'selectedLocation' | 'assignableLocations'>;
   readonly open: boolean;
@@ -94,6 +95,8 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
           }
         });
       }}>
+        {packageUsage?.packageSize != null && packageUsage.activeAccessCount >= packageUsage.packageSize
+          ? <p className="package-warning">Mit dieser Einladung wird das Paket von {packageUsage.packageSize} Zugängen überschritten. Einladen bleibt möglich.</p> : null}
         <label htmlFor="employee-name">Name</label>
         <input ref={nameInput} id="employee-name" autoComplete="name" required maxLength={120} value={name}
           onChange={(event) => setName(event.target.value)} />

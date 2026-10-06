@@ -1,5 +1,15 @@
-import { OperatorError } from "./OperatorRuntime";
+import { OperatorError } from "./OperatorError";
+export const OPERATOR_PACKAGE_ACCEPT = 'application/vnd.taptime.operator.v2+json';
+export interface PackageUsage {
+  package_size: number | null;
+  active_access_count: number;
+  current_month: string;
+  current_month_peak: number;
+  previous_month: string;
+  previous_month_peak: number;
+}
 export interface Organization {
+  package_usage?: PackageUsage;
   organization_id: string;
   name: string;
   status: "active" | "paused";
@@ -26,6 +36,8 @@ export interface Overview {
   };
 }
 export interface AuditEvent {
+  package_size_before?: number | null;
+  package_size_after?: number | null;
   id: string;
   organization_id: string | null;
   action: string;
@@ -173,4 +185,32 @@ export function healthResult(v: Record<string, unknown>): Health {
 export function mutationResult(v: Record<string, unknown>) {
   if (v.status !== "succeeded" || !text(v.organization_id)) invalid();
   return v;
+}
+
+function packageSize(value: unknown): boolean {
+  return value === null || (count(value) && Number(value) >= 1 && Number(value) <= 2147483647);
+}
+export function overviewResultV2(v: Record<string,unknown>): Overview {
+  if (!Array.isArray(v.organizations)) invalid();
+  const organizations=v.organizations.map(value=>{
+    const {package_usage,...previous}=object(value);
+    const usage=object(package_usage);
+    fields(usage,['package_size','active_access_count','current_month','current_month_peak','previous_month','previous_month_peak']);
+    if (!packageSize(usage.package_size)
+      || !['active_access_count','current_month_peak','previous_month_peak'].every(k=>count(usage[k]))
+      || !['current_month','previous_month'].every(k=>typeof usage[k]==='string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(usage[k] as string))) invalid();
+    return previous;
+  });
+  overviewResult({...v,organizations});
+  return v as unknown as Overview;
+}
+export function auditResultV2(v: Record<string,unknown>): Audit {
+  if (!Array.isArray(v.events)) invalid();
+  const events=v.events.map(value=>{
+    const {package_size_before,package_size_after,...previous}=object(value);
+    if (!packageSize(package_size_before) || !packageSize(package_size_after)) invalid();
+    return previous;
+  });
+  auditResult({...v,events});
+  return v as unknown as Audit;
 }

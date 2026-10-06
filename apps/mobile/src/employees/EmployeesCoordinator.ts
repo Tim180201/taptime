@@ -91,11 +91,12 @@ export class EmployeesCoordinator implements EmployeesCapability {
     const snapshot=this.capture(); if (!snapshot) return;
     const generation=++this.generation;
     this.invitation=null;
+    const packageUsage=this.state.status==='list' ? this.state.summary.packageUsage : this.state.status==='invite' ? this.state.packageUsage : null;
     const scope=snapshot.session.managementScope!;
     if (scope.kind==='location') {
-      this.publish({status:'invite',locations:[{id:scope.locationId,name:scope.locationName}],locationsReady:true,busy:false,outcome:null}); return;
+      this.publish({status:'invite',packageUsage:null,locations:[{id:scope.locationId,name:scope.locationName}],locationsReady:true,busy:false,outcome:null}); return;
     }
-    this.publish({status:'invite',locations:[],locationsReady:snapshot.session.locationsEnabled===false,busy:false,outcome:null});
+    this.publish({status:'invite',packageUsage,locations:[],locationsReady:snapshot.session.locationsEnabled===false,busy:false,outcome:null});
     if (snapshot.session.locationsEnabled===false) return;
     let cursor: string|null=null;
     const cursors=new Set<string>();
@@ -105,14 +106,14 @@ export class EmployeesCoordinator implements EmployeesCapability {
       if (!this.current(generation,snapshot)) return;
       if (result.status!=='ready' || result.value.locations.some(l=>locations.some(old=>old.id===l.id))
         || (result.value.nextCursor!==null && cursors.has(result.value.nextCursor))) {
-        this.publish({status:'invite',locations:[],locationsReady:false,busy:false,outcome:result.status==='authority_rejected' ? 'authority_rejected' : 'unavailable'}); return;
+        this.publish({status:'invite',packageUsage:null,locations:[],locationsReady:false,busy:false,outcome:result.status==='authority_rejected' ? 'authority_rejected' : 'unavailable'}); return;
       }
       locations.push(...result.value.locations);
       cursor=result.value.nextCursor;
       if (cursor===null) break;
       cursors.add(cursor);
     }
-    this.publish({status:'invite',locations,locationsReady:true,busy:false,outcome:null});
+    this.publish({status:'invite',packageUsage,locations,locationsReady:true,busy:false,outcome:null});
   }
   async invite(displayName: string,email: string,locationId: string|null): Promise<void> {
     const snapshot=this.capture(); const state=this.state;

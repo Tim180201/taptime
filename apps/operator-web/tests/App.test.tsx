@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import axe from "axe-core";
@@ -32,6 +33,7 @@ const organization = {
   tags: 5,
   active_assignments: 4,
   open_invitations: 1,
+  package_usage: {package_size:10,active_access_count:12,current_month:"2026-10",current_month_peak:14,previous_month:"2026-09",previous_month_peak:9},
 };
 const overview = {
   status: "succeeded",
@@ -107,6 +109,7 @@ beforeEach(() => {
           reason: null,
           created_at: "2026-09-23T09:00:00Z",
           actor: "operator",
+          package_size_before:null,package_size_after:10,
         },
       ],
       next_before: "51",
@@ -436,4 +439,36 @@ it.each(['create','pause','resume'])('T101 business %s locates missing inputs be
  const fields=Array.from(button.closest('form')!.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('[required]'));
  expect(fields[0]).toHaveFocus();
  for(const field of fields){expect(field).toHaveAttribute('aria-invalid','true');expect(document.getElementById(field.getAttribute('aria-describedby')!)).toHaveAttribute('role','alert');fireEvent.change(field,{target:{value:field.type==='email'?'admin@example.test':'Prüfung'}});expect(field).not.toHaveAttribute('aria-invalid');}
+});
+
+it('T075 shows usage and both month peaks, changes or clears the package with a reason',async()=>{
+  replies['organizations/package']=()=>({status:'succeeded',organization_id:organization.organization_id,row_version:4});
+  await ready();expect(screen.getByText('12 Zugänge, Paket 10')).toBeVisible();expect(screen.getByText('Paket überschritten')).toBeVisible();
+  expect(screen.getByText('Höchstwert 2026-10: 14')).toBeVisible();expect(screen.getByText('Höchstwert 2026-09: 9')).toBeVisible();
+  fireEvent.click(within(screen.queryByRole('dialog') ?? document.body).getByRole('button',{name:'Paket ändern'}));
+  fireEvent.change(screen.getByLabelText('Paketgröße (optional)'),{target:{value:''}});
+  fireEvent.click(within(screen.queryByRole('dialog') ?? document.body).getByRole('button',{name:'Paket ändern'}));
+  expect(calls.some(c=>c.path==='organizations/package')).toBe(false);
+  expect(screen.getByText('Bitte Grund eingeben.')).toBeVisible();
+  fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Paket entfernen'}});
+  fireEvent.click(within(screen.queryByRole('dialog') ?? document.body).getByRole('button',{name:'Paket ändern'}));
+  await screen.findByText('Paket geändert.');
+  expect(calls.find(c=>c.path==='organizations/package')?.body).toMatchObject({packageSize:null,reason:'Paket entfernen',rowVersion:3});
+});
+it('T075 creates a package, rejects fractional or nonpositive sizes at the field and does not mark unconfigured packages',async()=>{
+  replies.overview=()=>({...overview,organizations:[{...organization,package_usage:{...organization.package_usage,package_size:null}}]});
+  await ready();expect(screen.queryByText('Paket überschritten')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Betrieb anlegen'}));
+  fireEvent.change(screen.getByLabelText('Name des Betriebs'),{target:{value:'Paketbetrieb'}});
+  fireEvent.change(screen.getByLabelText('E-Mail des ersten Administrators'),{target:{value:'new@example.test'}});
+  for(const value of ['0','1.5']){
+    fireEvent.change(screen.getByLabelText('Paketgröße (optional)'),{target:{value}});
+    fireEvent.click(screen.getByRole('button',{name:'Anlegen und einladen'}));
+    expect(calls.some(c=>c.path==='organizations/create')).toBe(false);
+    expect(screen.getByLabelText('Paketgröße (optional)')).toHaveAttribute('aria-invalid','true');
+  }
+  fireEvent.change(screen.getByLabelText('Paketgröße (optional)'),{target:{value:'10'}});
+  fireEvent.click(screen.getByRole('button',{name:'Anlegen und einladen'}));
+  await screen.findByText('Betrieb angelegt. Das Administratorkonto ist zugeordnet.');
+  expect(calls.find(c=>c.path==='organizations/create')?.body.packageSize).toBe(10);
 });
