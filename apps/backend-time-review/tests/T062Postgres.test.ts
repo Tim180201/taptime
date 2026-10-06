@@ -56,6 +56,36 @@ const records = async (c: PoolClient, who: Person, version = 2) => (await c.quer
 const details = async (c: PoolClient) => (await c.query('SELECT * FROM taptime_server.read_time_record_details_v1($1::uuid[])',
   [people.flatMap(who => [who.closed, who.active])])).rows;
 
+const quoteIdentifier = (name: string) => `"${name.replaceAll('"', '""')}"`;
+const migrationTable = (name: string) => `taptime_server.${quoteIdentifier(name)}`;
+async function migrationColumns(db: Pool | PoolClient, name: string): Promise<string[]> {
+  return (await db.query<{name: string}>(`SELECT attname AS name FROM pg_attribute
+    WHERE attrelid=$1::regclass AND attnum>0 AND NOT attisdropped ORDER BY attnum`, [migrationTable(name)])).rows.map(row=>row.name);
+}
+async function migrationRows(db: Pool | PoolClient, name: string, columns: readonly string[]): Promise<string> {
+  return (await db.query<{data: string}>(`SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text),'[]')::text AS data
+    FROM (SELECT ${columns.map(quoteIdentifier).join(',')} FROM ${migrationTable(name)}) r`)).rows[0]!.data;
+}
+async function captureMigrationData(db: Pool | PoolClient, tableNames: readonly string[]) {
+  return Promise.all(tableNames.map(async name=>{
+    const columns=await migrationColumns(db,name);
+    return {name,columns,data:await migrationRows(db,name,columns)};
+  }));
+}
+async function assertMigrationDataUnchanged(db: Pool | PoolClient, before: Awaited<ReturnType<typeof captureMigrationData>>) {
+  for (const table of before) {
+    expect(await migrationRows(db,table.name,table.columns), `Existing data changed: ${table.name}`).toBe(table.data);
+    // The identical original projection includes every row and its multiplicity. Thus these
+    // are still the pre-migration rows. No exceptions: every added column must be SQL NULL.
+    const added=(await migrationColumns(db,table.name)).filter(column=>!table.columns.includes(column));
+    for (const column of added) {
+      const {rows}=await db.query<{has_value: boolean}>(`SELECT EXISTS (
+        SELECT 1 FROM ${migrationTable(table.name)} WHERE ${quoteIdentifier(column)} IS NOT NULL) AS has_value`);
+      expect(rows[0]!.has_value, `New column must be SQL NULL: ${table.name}.${column}`).toBe(false);
+    }
+  }
+}
+
 beforeAll(async () => {
   await resetMigratePrepareAndSeed(pool, 't062-synthetic', '032');
   await pool.query(`INSERT INTO taptime_server.locations(id,organization_id,display_name) VALUES ($1,$4,'Eins'),($2,$4,'Zwei'),($3,$5,'Fremd')`,
@@ -111,8 +141,7 @@ beforeAll(async () => {
   // Migration rehearsal on populated 032: rows, protected function definitions and administrator
   // responses remain byte-identical; the migration runner also proves a second application is a no-op.
   const tableNames=(await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='taptime_server' ORDER BY tablename")).rows.map(row=>row.tablename as string);
-  const snapshot=async()=>JSON.stringify(await Promise.all(tableNames.map(async name=>(await pool.query(
-    `SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::text),'[]') AS rows FROM taptime_server.${name} r`)).rows)));
+  const dataBefore=await captureMigrationData(pool,tableNames);
   const migration=(await loadMigrations()).filter(m=>m.version>'032');
   const nfcAuthorityMigration=migration.find(m=>m.version==='035');
   const nfcAuthority='taptime_server.has_current_nfc_setup_authority_v1(uuid,uuid)';
@@ -127,11 +156,12 @@ beforeAll(async () => {
     AND (NOT $1::boolean OR oid<>$2::regprocedure) ORDER BY name`, [nfcAuthorityMigration!==undefined,nfcAuthority])).rows);
   const adminResponses=async()=>JSON.stringify(await asActor(admin,reader,async c=>({records1:await records(c,admin,1),records2:await records(c,admin),reviews1:await reviews(c,admin,1),reviews2:await reviews(c,admin),
     details:(await details(c)).sort((x,y)=>x.time_record_id.localeCompare(y.time_record_id))})));
-  const before={data:await snapshot(),definitions:await fixedDefinitions(),responses:await adminResponses()};
+  const before={definitions:await fixedDefinitions(),responses:await adminResponses()};
   // No future migration is guessed here; the source defines the installed set.
   if(migration.length) {
     await applyMigrationSet(pool,migration);
-    expect({data:await snapshot(),definitions:await fixedDefinitions(),responses:await adminResponses()}).toEqual(before);
+    await assertMigrationDataUnchanged(pool,dataBefore);
+    expect({definitions:await fixedDefinitions(),responses:await adminResponses()}).toEqual(before);
     if(nfcAuthorityMigration && nfcBefore) {
       const expectedBody=nfcAuthorityMigration.sql.match(/CREATE OR REPLACE FUNCTION taptime_server\.has_current_nfc_setup_authority_v1\([\s\S]*?AS \$authority\$([\s\S]*?)\$authority\$;/)?.[1];
       expect(expectedBody).toBeDefined();
@@ -142,6 +172,28 @@ beforeAll(async () => {
 
 });
 afterAll(() => pool.end());
+
+describe('T075 migration data probe counterexamples',()=>{
+  it.each([
+    {name:'nullable new column',sql:'ALTER TABLE taptime_server.t075_migration_probe ADD COLUMN added text',failure:null},
+    {name:'new column with a default',sql:"ALTER TABLE taptime_server.t075_migration_probe ADD COLUMN added text DEFAULT 'filled'",failure:'New column must be SQL NULL'},
+    {name:'new column filled on only one existing row',sql:"ALTER TABLE taptime_server.t075_migration_probe ADD COLUMN added text; UPDATE taptime_server.t075_migration_probe SET added='filled' WHERE id=2",failure:'New column must be SQL NULL'},
+    {name:'JSON null is not SQL NULL',sql:"ALTER TABLE taptime_server.t075_migration_probe ADD COLUMN added jsonb DEFAULT 'null'::jsonb",failure:'New column must be SQL NULL'},
+    {name:'changed existing value',sql:"UPDATE taptime_server.t075_migration_probe SET original='changed' WHERE id=2",failure:'Existing data changed'},
+  ])('$name',async ({sql,failure})=>{
+    const client=await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`CREATE TABLE taptime_server.t075_migration_probe(id integer PRIMARY KEY, original text);
+        INSERT INTO taptime_server.t075_migration_probe VALUES (1,'first'),(2,'second')`);
+      const before=await captureMigrationData(client,['t075_migration_probe']);
+      // Real PostgreSQL DDL/DML as a synthetic migration; rollback removes all test objects.
+      await client.query(sql);
+      if (failure===null) await assertMigrationDataUnchanged(client,before);
+      else await expect(assertMigrationDataUnchanged(client,before)).rejects.toThrow(failure);
+    } finally { await client.query('ROLLBACK'); client.release(); }
+  });
+});
 
 it('T097: target-less break cases obey the current home-location and tenant boundary on every read',async()=>{
   const c=await pool.connect();
