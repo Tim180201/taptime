@@ -1,72 +1,60 @@
 # Aktuelle Aufgabe
 
-> **Stand 06.10.2026:** Produktion `b1ecb8c`; auf `main` T-094b bis T-102, T-075, T-106 und T-107 (Migrationen 043–050).
-> T-108 und T-110 gehen noch in den dritten Deploy. T-098b wartet auf den PO am Mac (`git show 5071e6e:ADO/TASK.md`).
-> Befunde: `.audit-ux-2026-10/selbsterklaerend.md` (SE-…, Begriffsliste in Abschnitt 3) und `report.md` (UX-…), nur
-> lokal (D-103).
+> **Stand 06.10.2026:** Produktion `b1ecb8c`; auf `main` T-094b bis T-102, T-075, T-106 bis T-108 und die
+> App-Link-Fingerabdrücke (Migrationen 043–050). T-110 geht noch in den dritten Deploy. T-098b Teil 2 bleibt geparkt
+> (T-098c nach dem Deploy). Befunde: `.audit-ux-2026-10/selbsterklaerend.md` (SE-003 bis SE-005), nur lokal (D-103).
 
-## T-108 · Selbsterklärend I: Begriffe und Bedienmuster (D-124 bis D-127)
+## T-110 · Selbsterklärend II: Führung, Zeiten prüfen, Monatswähler (D-128)
 
-**Für:** Development · **Risiko:** niedrig bis mittel (viele sichtbare Texte, keine Migration) · **Zeitbox:** eine
-Sitzung. App, Verwaltung, Betreiber-Web, Landing (`index.html`, `tag.html`), Mail-Vorlagen in `docs/`.
-
-**Grundsatz:** Nur sichtbare Texte, Bedienungshilfe-Beschriftungen und Bedienmuster. Bezeichner, Routen, Verträge,
-SQL und die CSV-Datei des Lohnexports bleiben; einzige Ausnahme ist die Kundenauswahl in der Web-Route (UX-007). Weicht
-die Begriffsliste des Berichts von D-124 bis D-127 ab, gelten die Entscheidungen.
+**Für:** Development · **Risiko:** mittel (neue Vertragsvariante, Migration 051) · **Zeitbox:** eine bis zwei
+Sitzungen. Verwaltung, App (Mitarbeiterliste), Verwaltungs-Server, Schema.
 
 ### Auftrag
 
-1. **Begriffe:**
-   - Das Medium heißt je Ansicht beim ersten Auftreten „NFC-Karte“, danach „Karte“/„Karten“ (Reiter „Karten“).
-     Aktionen: „Karte scannen“, „Karte einrichten“, „Karte prüfen“, „Zuordnung ändern“. Der Kalendertag bleibt „Tag“.
-   - „Beschäftigte“, „Beschäftigte/r“ und die Rolle „Beschäftigter“ heißen „Mitarbeiter“, ehemalige „Ausgeschiedene
-     Mitarbeiter“, auch in der Lohnexport-Ansicht. „Person“ im Satz bleibt. Den SQL-Ersatznamen ändert T-110.
-   - Web: „Prüfungen“ heißt „Zeiten prüfen“, mit dem Satz aus D-126 wörtlich. Die App hat keinen solchen Bereich; ihre
-     Hinweise auf offene Prüfungen lauten „Wird von der Verwaltung geprüft“.
-   - Die Seite hinter dem Statuspunkt der App heißt „Übertragung“ und hat einen Bereich „Konto“ mit „Abmelden“
-     (Abläufe nach D-120 unverändert); Hinweise wie „Prüfe den Abgleich“ verweisen auf „Übertragung“.
-2. **Wortlaut aus der Begriffsliste**, soweit nicht schon in T-107: „Wofür arbeitest du?“ (App) bzw. „Wofür wird die
-   Zeit erfasst?“ (Web) mit „Kunde, Projekt oder allgemeine Arbeit“; „Allgemeine Arbeitszeit – ohne Kunde oder
-   Projekt“; „Hauptarbeitsstandort“ mit „Der Standort, dem die Person regulär zugeordnet ist.“; „Weitere Standorte, an
-   denen die Person arbeiten darf“; „Standorte, die diese Person verwalten darf“; „Standorte verwenden“ mit „Die
-   vorbereiteten Standortzuordnungen werden jetzt wirksam.“; einmal „Ihr Betrieb umfasst alle zugehörigen Standorte.“;
-   fehlende Zuordnungen als „Für diese Mitarbeiter fehlt der Hauptarbeitsstandort“, „Für diese Kunden fehlt der
-   Standort“, sinngemäß für Projekte und Karten, mit direktem Link und lesbarem Namen statt Kennung; „Deutsche
-   Ortszeit“ statt „Europe/Berlin“, Folgetag ausgeschrieben; Filter „Zeit läuft“ / „Keine laufende Zeit“; Kunden „Für
-   neue Zeiten verfügbar“; „Monatliches Stundenkontingent“ mit „Es dient als Hinweis. Weitere Zeit kann weiterhin
-   erfasst werden.“; „Kommentar (optional)“ und „Grund der Änderung (Pflicht)“; „Erfasst mit“, „Entstehung“,
-   „Änderungen“ statt „Erfassungsart“, „Herkunft“, „Korrekturstand“; Verwaltungsstopp in der Historie „Von der
-   Verwaltung beendet“; Überschneidung „Die Zeit überschneidet sich mit einem anderen Eintrag. Prüfen Sie die Zeiten
-   dieses Tages.“; „Dein Konto hat derzeit keinen aktiven Zugang zu diesem Betrieb.“; unter „Manuell erfassen“: „Für
-   jetzt. Vergessene Zeiten findest du unter Meine Zeiten → Zeit hinzufügen.“; SE-012 und UX-018 wie im Bericht.
-3. **Bedienmuster:**
-   - App-Unteransichten mit Pfeil und Zielname an derselben Stelle; Android-Zurück geht eine Ebene zurück, Regeln für
-     NFC-Abbruch und Schutzzustände bleiben (SE-008). Web: UX-007 wie im Bericht.
-   - UX-003: Die Personenansicht zeigt den Namen; solange er nicht geladen ist, keine Bearbeitung, sondern „Person wird
-     geladen …“ bzw. „Person nicht gefunden“ mit Rückweg.
-   - Ist die Karte der laufenden Zeit auf „Erfassen“ gesperrt, steht der Grund daneben (z. B. „Deine letzte Erfassung
-     wartet noch auf Bestätigung.“, T-107).
-   - „Zeit löschen“, „Kunde löschen“, „Zugang entziehen“ und „Zuordnung ändern“ in eigenem Warnstil mit Text, ohne
-     zusätzlichen Bestätigungsdialog (SE-009).
-   - Mitarbeiter-, Kunden- und Kartenliste der App zusätzlich mit Herunterziehen zum Aktualisieren; nach eigener
-     Änderung beim Zurückkehren neu geladen; „Stand 10:42“ sichtbar; kein Neuladen bei offenem Formular oder während
-     eines Scans, kein Dauerabruf (SE-010).
+1. **Nächster Schritt in der Übersicht (SE-003):** Die Web-Übersicht des Administrators zeigt genau eine nächste
+   fehlende Voraussetzung, nur aus bereits geladenen Daten (keine neue Serverlesung), in dieser Reihenfolge:
+   1. Standorte angelegt, aber nicht eingeschaltet: „Ordnen Sie Mitarbeiter und Kunden ihren Standorten zu und schalten
+      Sie die Standorte ein.“ (ohne Standorte entfällt der Schritt)
+   2. Standortleitung ohne verwalteten Standort: „Weisen Sie den Standortleitungen ihren Bereich zu.“
+   3. keine Kunden und keine Projekte: „Legen Sie Kunden an.“
+   4. keine Karte: „Richten Sie in der App Karten ein.“
+   5. keine weiteren Mitarbeiter: „Laden Sie Mitarbeiter ein.“
+   6. keine beendete Arbeitszeit im geladenen Zeitraum: „Erfassen Sie die erste Arbeitszeit.“
+
+   Jeweils mit einem Knopf zur passenden Stelle; die Karte ersetzt „Ihr Betrieb ist bereit“. Solange ein benötigter
+   Bereich lädt oder fehlt, keine Karte; ist alles erfüllt, verschwindet sie. Kein gespeichertes Objekt, keine Häkchen.
+2. **Rolle geändert (SE-004):** Nach dem Wechsel zur Standortleitung: „Rolle geändert. Weisen Sie jetzt die Standorte
+   zu, die diese Person verwalten darf.“ mit direktem Weg dorthin. Wo Änderungen sofort gelten: „Änderungen werden
+   sofort gespeichert.“ Sonst nichts an der Zugangsverwaltung (T-105).
+3. **Zeiten prüfen mit Zusammenhang (SE-005):** Vor der Entscheidung sieht die Leitung die Zeiten dieser Person an
+   diesem Tag und das auslösende Ereignis. Ein blockierender Vorgänger heißt „Eine frühere Erfassung muss zuerst geprüft
+   werden.“ und ist verlinkt, wenn er in der geladenen Liste eindeutig ist. Knöpfe: „Fehlende Arbeitszeit ergänzen“,
+   „Vorhandene Arbeitszeit ändern“, „Ohne Zeitänderung schließen“; zweiter Schritt „Änderung prüfen“ → „Änderung
+   bestätigen“ bzw. „Abschluss bestätigen“. Gründe als verständlicher Satz, technische Angaben unter „Details“.
+   Dieselben drei Wirkungen wie heute, keine automatische Entscheidung.
+4. **Monatswähler in der Mitarbeiterliste (D-128):** App und Web wie bei der Kundenliste: laufender Monat und 23
+   Vormonate. Neue Vertragsvariante v5 mit `fromInclusive`/`toExclusive` eines vollen Monats in deutscher Ortszeit wie
+   bei den Kundenstunden, eigene strenge Anfrageprüfung; v1 bis v4 antworten unverändert. Neue SQL-Funktion
+   `read_managed_active_summary_v4` per Migration 051 mit ausgeschriebenem Körper. Stunden nach D-105, ein Eintrag zählt
+   in seinem Beginnmonat wie 036/047. Der Monat gehört ins Cursor-Präfix; ein Cursor eines anderen Monats ergibt
+   `invalid_request`, ein Monatswechsel beginnt ohne Cursor. Vorhandene Filter bleiben und gelten zusammen mit dem
+   Monat; die Spalte nennt den Monat („Oktober 2026“).
+5. **SQL-Ersatzname (D-125):** In `read_customer_hours_v1` wird „Beschäftigter“ zu „Mitarbeiter“, neuer Körper in 051.
 
 ### Tests
 
-Je Punkt rot vor der Änderung. Eine Begriffsprüfung über alle sichtbaren Texte findet „Tag“ als Medium,
-„Beschäftigte“, „Prüfungen“, „Prüfung erforderlich“ und „Abgleich“ (Ausnahmen: Kalendertag, Routen wie
-`/beschaeftigte`, `/pruefungen`). Abmelden aus „Konto“ mit wartender Sicherung, Personenansicht per Direktlink,
-Android-Zurück während eines Scans, Herunterziehen bei offenem Formular. Volle Suiten der geänderten Workspaces,
-Typechecks, Layoutprüfung der geänderten Ansichten bei 360/390 dp, großer Systemschrift und 1440 px.
+Je Punkt rot vor der Änderung. Übersicht: jeder Schritt einzeln, Ladezustand ohne Karte, Karte verschwindet,
+Standortleitung sieht sie nicht. Zeiten prüfen: Tageszeiten sichtbar, Vorgänger mit und ohne Link, alle drei Wirkungen
+unverändert. Monatswähler: v5 mit Monat, v1–v4 unverändert, falscher Zeitraum, Cursor eines anderen Monats,
+Standortleitung nur ihr Standort, Eintrag über Mitternacht am Monatsende, Monat ohne Zeiten; die Personenansicht per
+Direktlink findet die Person weiterhin (T-108). Volle Suiten einschließlich aller Suiten, die Migrationen nachspielen,
+T062-Probe, Drift-Probe, Typechecks, Layoutprüfung 360/390 dp und 1440 px.
 
 ### Nicht Teil
 
-Nächster Schritt in der Übersicht, Rollenwechsel-Hinweis, Zeiten prüfen mit Zusammenhang, Monatswähler, SQL-Ersatzname
-(T-110); „Kunde“ als „Schüler“ und Erklärung von Kunde/Projekt (F1, D-009); Store-Links (SE-002, T-109); Suche (T-099);
-Zugangsverwaltung (T-105); UX-010, UX-012, UX-016; übrige Zeilen der Begriffsliste.
+Begriffe und Muster (T-108), F1, T-099, T-105, T-109.
 
 ### Bericht
 
-`.t108-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei P1/P2.
+`.t110-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei P1/P2.
 Kein Commit vor `APPROVED`.

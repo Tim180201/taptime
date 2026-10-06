@@ -6,31 +6,30 @@
 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045), T-098 (`4f6fa75`),
 T-100 (`b693fde`, Migration 046), T-101 (`1043011`), T-102 (`d399c69`, Migration 047), T-075 (`28e3685`, `5aa8ea2`,
 Migration 048), T-106 (`06b3008`, Migration 049), T-107 (`16670ed`, Migration 050; danach eine Testkorrektur der
-synthetischen WAL-Belege). In Arbeit: T-108. T-098b wartet auf den PO am Mac (Teil 2 geprüft, lokaler Branch
-`t098b-verify`). UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie
-committen); daraus T-107, T-108 und T-110; T-109 bereitet die Stores vor (D-129).
-**Weg zum Pilot:** T-108 → T-110 (T-098b, sobald der PO am Mac ist) → Fingerabdrücke → dritter Deploy → Mail-Vorlagen →
-App-Builds und Geräteabnahme → T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht
-vor echten Daten. Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen
-Monatsabschluss übersteht.
+synthetischen WAL-Belege), T-108 (`66b1952`), App-Link-Fingerabdrücke (T-096). In Arbeit: T-110. T-098b Teil 1 erledigt
+(06.10.): 21 Versionen wiederhergestellt, alle Abbilder von `b1ecb8c`, `0230188` und `66b1952` vollständig abrufbar.
+Teil 2 geparkt (siehe unten). UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
+`.audit-ux-2026-10/` (nie committen); daraus T-107, T-108 und T-110; T-109 bereitet die Stores vor (D-129).
+**Weg zum Pilot:** T-110 → dritter Deploy → Mail-Vorlage „Reset Password“ → App-Builds und Geräteabnahme → T-024 →
+Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht vor echten Daten. Fertig ist das
+Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
 
 ## Vor dem nächsten Deploy
 
-1. **T-098b:** Das alte Aufräumen hat Plattform-Manifeste von `b1ecb8c` (alle fünf) und `0230188` (vier) gelöscht. Der
-   Deploy zieht beide Stände und würde in der Vorprüfung scheitern. 21 Versionen sind über die Packages-API bis etwa
-   Anfang November wiederherstellbar; vorher gibt der PO `read:packages`/`write:packages` für `gh` frei. Seit T-098
-   überspringt das Aufräumen jeden Lauf mit fehlendem referenziertem Manifest (zuletzt bei `1043011` und `d399c69`); gewollt,
-   endet mit T-098b. Dabei prüfen, was der Lauf zu `b693fde` gelöscht hat.
-2. **Fingerabdrücke (T-096):** Der PO holt die SHA-256 der Android-Signatur je Variante aus EAS (`npx eas-cli
-   credentials -p android`), Codex ersetzt in `apps/landing-web/public/.well-known/assetlinks.json` alle Platzhalter
-   `EAS_SHA256_NOT_CONFIGURED` (drei Paketnamen). Erst dann Deploy, danach neue Builds installieren; sonst öffnet ein
-   Tag bei geschlossener App den Browser.
+1. **T-098b:** Teil 1 erledigt (06.10.): die 21 gelöschten Versionen von `b1ecb8c` und `0230188` sind wiederhergestellt
+   und vollständig geprüft. Teil 2 (`t098b-verify`, lokal `212486d`) bleibt geparkt: Der Schutzsatz des Servers führt
+   16 alte Stände aus dem September, deren Kind-Manifeste längst fehlen; die Abrufprüfung würde jeden Lauf rot machen,
+   das Aufräumen bleibt übersprungen. Keine Voraussetzung für den Deploy (die Vorprüfung zieht die Abbilder selbst);
+   Lösung mit T-098c nach dem Deploy.
+2. **Fingerabdrücke (T-096):** eingetragen (06.10.), der Test lässt keinen Platzhalter mehr zu. Nach dem Deploy neue
+   Builds installieren; erst dann öffnet eine Karte bei geschlossener App die App. Mit Google Play (T-109) kommt der
+   Fingerabdruck der Play-App-Signatur hinzu.
 3. **PO-Schritte aus `infrastructure/DEPLOY.md`** für alle enthaltenen Aufgaben abfragen (AGENTS.md §7).
 4. Vorprüfung: Sicherung und Wiederherstellungsprobe inaktiv, letzte Sicherung mit bekanntem Ende. Nach einem
    Server-Neustart erst nach der nächsten stündlichen Sicherung (Meldung unklar → B11).
-5. Nach dem Deploy: Supabase-Vorlagen „Reset Password“ aus `docs/T-094b-Ruecksetzvorlage.md` und „Invite user“ aus
-   `docs/T-047-Einladungsvorlage.md` (seit T-107 in der Sie-Form) übertragen (PO).
+5. Nach dem Deploy: Supabase-Vorlage „Reset Password“ aus `docs/T-094b-Ruecksetzvorlage.md` übertragen (PO). „Invite
+   user“ ist seit 06.10. auf dem Stand von `docs/T-047-Einladungsvorlage.md`.
 
 ## Geräteabnahme nach dem Deploy (PO, iPhone und Android)
 
@@ -53,7 +52,8 @@ Ergebnismeldung mit VoiceOver/TalkBack (T-107).
   haben.
 - Die getrennt verwahrte `.env`-Kopie des PO stammt eventuell von vor dem 04.10. (ohne `SUPABASE_PUBLISHABLE_KEY`);
   mit T-024 ohnehin neu verwahren. Auf dem Server liegt seit 04.10. `/root/env-0410.bak`; mit T-024 entfernen.
-- ntfy am Telefon war ab 28.09. stumm geschaltet (Fehlalarme vor T-089); wieder eingeschaltet? (PO)
+- ntfy am Telefon ist an (PO 06.10.). Letzte Meldungen „WAL-Archivierung steht“ (Phase base, einmal lock) am 29.09.
+  und 04.10. um 01:20 und 03:45 UTC, also vor dem Deploy von T-093b; seitdem keine. Das ntfy-Thema mit T-024 erneuern.
 - Supabase Pro vor dem ersten zahlenden Kunden (D-039): der kostenlose Tarif pausiert das Projekt.
 
 ## Beobachten
