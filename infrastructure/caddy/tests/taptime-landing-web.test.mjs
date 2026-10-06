@@ -71,19 +71,24 @@ test('private homepage and release assets require auth; only tag resources, robo
   for(const path of ['/tag','/robots.txt','/version.txt','/releases/abcdef0/tag-assets/tag.css','/releases/abcdef0/tag-assets/fonts.css','/releases/abcdef0/tag-assets/fonts/manrope-400.ttf'])assert.equal((await request(path)).status,200,path);
   for(const path of ['/v1/session','/health'])assert.equal((await request(path,oldPassword)).status,404,path);
 });
-test('T-096 Android association is public JSON without redirects; placeholders are reported',async(t)=>{
+test('T-096 Android association is public JSON without redirects, with configured fingerprints and unique packages',async()=>{
   const response=await request('/.well-known/assetlinks.json');
   assert.equal(response.status,200);assert.equal(response.headers.get('location'),null);
   assert.match(response.headers.get('content-type'),/^application\/json/);
   const links=await response.json();
   assert.deepEqual(links,JSON.parse(readFileSync('apps/landing-web/public/.well-known/assetlinks.json','utf8')));
+  assert.deepEqual(links.map(link=>link.target.package_name).sort(),[
+    'com.tim180201.mobile',
+    'com.tim180201.mobile.productionvalidation',
+    'com.tim180201.mobile.validation'
+  ]);
   for(const link of links){
     assert.deepEqual(link.relation,['delegate_permission/common.handle_all_urls']);
     assert.equal(link.target.namespace,'android_app');
     assert.ok(link.target.sha256_cert_fingerprints.length>0);
     for(const fingerprint of link.target.sha256_cert_fingerprints){
-      if(fingerprint==='EAS_SHA256_NOT_CONFIGURED')t.diagnostic(`nicht ausgefüllt: EAS-Fingerabdruck für ${link.target.package_name}`);
-      else assert.match(fingerprint,/^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/);
+      assert.notEqual(fingerprint,'EAS_SHA256_NOT_CONFIGURED',`nicht ausgefüllt: EAS-Fingerabdruck für ${link.target.package_name}`);
+      assert.match(fingerprint,/^(?:[0-9A-F]{2}:){31}[0-9A-F]{2}$/);
     }
   }
   assert.equal((await request('/')).status,401);

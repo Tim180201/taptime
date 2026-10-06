@@ -7,7 +7,7 @@
       "namespace": "android_app",
       "package_name": "com.tim180201.mobile",
       "sha256_cert_fingerprints": [
-        "EAS_SHA256_NOT_CONFIGURED"
+        "4A:BC:A7:FA:86:C7:21:BC:BE:CC:E8:5A:B6:7C:21:79:91:65:74:39:A3:7D:B1:7D:1E:9E:14:0F:9F:68:D3:A9"
       ]
     }
   },
@@ -19,7 +19,7 @@
       "namespace": "android_app",
       "package_name": "com.tim180201.mobile.productionvalidation",
       "sha256_cert_fingerprints": [
-        "EAS_SHA256_NOT_CONFIGURED"
+        "39:4C:1E:0E:D7:A9:0A:E5:A6:95:6D:7D:15:81:7D:E1:F6:DC:02:C4:05:06:AD:22:18:BD:C5:2B:89:9F:44:22"
       ]
     }
   },
@@ -31,7 +31,7 @@
       "namespace": "android_app",
       "package_name": "com.tim180201.mobile.validation",
       "sha256_cert_fingerprints": [
-        "EAS_SHA256_NOT_CONFIGURED"
+        "C8:41:AB:86:31:99:E6:00:6A:23:A0:B4:96:D4:FB:56:3C:70:F1:AA:A3:79:65:FA:A7:2C:C0:AE:29:D2:FA:F9"
       ]
     }
   }
