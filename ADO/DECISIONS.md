@@ -1772,3 +1772,30 @@ Sichtbare Texte in App, Web, Hilfeseite und Mails nennen das Medium beim ersten 
 D-058; Code, Verträge und Datenmodell behalten ihre Namen. Umsetzung in T-108.
 **Warum:** „Tag“ ist im Deutschen zugleich der Kalendertag und steht in der App direkt neben dem Kalender; bei frogs
 hängt ohnehin eine Karte (D-088).
+
+## D-125 · Überall „Mitarbeiter“ · 06.10.2026 · Tim (PO)
+App und Web nennen Personen eines Betriebs einheitlich „Mitarbeiter“ (Reiter, Überschriften, Texte); „Beschäftigte“
+entfällt in sichtbaren Texten. Ausgeschiedene heißen „Ausgeschiedene Mitarbeiter“. Umsetzung in T-108.
+**Warum:** Zwei Wörter für dieselbe Gruppe kosten neue Nutzer Zeit; „Mitarbeiter“ ist kurz und passt in die Leiste.
+
+## D-126 · „Zeiten prüfen“ statt „Prüfungen“ · 06.10.2026 · Tim (PO)
+Der Bereich mit ungeklärten Erfassungen heißt in App und Web „Zeiten prüfen“, mit dem Satz „Diese Erfassungen konnten
+noch keiner Arbeitszeit sicher zugeordnet werden.“ Umsetzung in T-108.
+**Warum:** In einer Nachhilfeschule bedeutet „Prüfung“ eine Klassenarbeit.
+
+## D-127 · „Übertragung“ statt „Abgleich“, Konto sichtbar · 06.10.2026 · Tim (PO)
+Die Seite hinter dem Statuspunkt der App heißt „Übertragung“ und hat einen eigenen Bereich „Konto“ mit „Abmelden“.
+Ersetzt die sichtbare Bezeichnung aus D-058; der Statuspunkt bleibt. Umsetzung in T-108.
+**Warum:** Neue Lehrkräfte verstehen „Abgleich“ nicht und finden das Abmelden dort nicht.
+
+## D-128 · Monatswähler in der Mitarbeiterliste · 06.10.2026 · Tim (PO)
+Die Mitarbeiterliste in App und Web bekommt einen Monatswähler wie die Kundenliste; die Spalte zeigt die Stunden des
+gewählten Monats nach D-105. Sichtbar wie die Liste selbst (Administrator alle, Standortleitung ihr Standort).
+**Warum:** Die Standortleitung prüft am Monatsende die Stunden aller Lehrkräfte; den Lohnexport hat sie nicht (D-091).
+
+## D-129 · Beide Apps zum Pilotstart im Store · 06.10.2026 · Tim (PO)
+Zum Pilotstart liegen die Apps im App Store (als „unlisted“, nur per Link) und bei Google Play (Organisationskonto mit
+D-U-N-S). Nach dem Passwortsetzen und in der Einladungsmail führen Knöpfe direkt in den passenden Store. Bis die Stores
+freigegeben sind, steht TestFlight bzw. ein geschlossener Google-Play-Test als gleichwertiger Link bereit. Der App-Name
+steht an genau einer Stelle und wird später festgelegt. Umsetzung in T-109.
+**Warum:** Lehrkräfte sollen die App ohne Hilfe aus dem gewohnten Store laden; Updates kommen dann automatisch.
