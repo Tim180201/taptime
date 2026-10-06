@@ -1,3 +1,4 @@
+import { normalizeCustomerNameV1 } from '@taptime/administration-contract';
 import type { Pool } from 'pg';
 import { hasVisibleText } from '@taptime/core';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
@@ -5,6 +6,7 @@ import { accountInvitationEmailHash, normalizeInvitationEmail, type AccountInvit
 
 export type OperatorAction = 'session' | 'overview' | 'create' | 'status' | 'audit' | 'health' | 'package';
 export const OPERATOR_PACKAGE_ACCEPT = 'application/vnd.taptime.operator.v2+json';
+export const OPERATOR_NAMED_ADMIN_ACCEPT = 'application/vnd.taptime.operator.v3+json';
 type Result = Record<string,unknown> & {status:string};
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
@@ -14,7 +16,7 @@ export class OperatorCoordinator {
     private readonly inviter?: Pick<SupabaseAccountInviter,'issuer'|'invite'|'needsAttention'|'diagnose'>,
     private readonly version: string|null = null) {}
 
-  async execute(token: string,action: OperatorAction,input: unknown, includePackage = false): Promise<Result> {
+  async execute(token: string,action: OperatorAction,input: unknown, includePackage = false, includeAdministratorName = false): Promise<Result> {
     const verified = await this.verifier.verify(token);
     if (verified.status !== 'verified') return {status:'unauthorized'};
     const client = await this.pool.connect();
@@ -55,15 +57,19 @@ export class OperatorCoordinator {
         && Number.isSafeInteger(input.rowVersion) && Number(input.rowVersion)>0) {
         result=await query('operator_set_organization_package_v1($1,$2,$3,$4,$5)',
           [input.commandId,input.organizationId,input.packageSize,input.reason,input.rowVersion]);
-      } else if (action==='create' && keys(input,includePackage ? ['commandId','name','email','packageSize'] : ['commandId','name','email'])
+      } else if (action==='create' && keys(input,includeAdministratorName ? ['commandId','name','email','packageSize','administratorName'] : includePackage ? ['commandId','name','email','packageSize'] : ['commandId','name','email'])
         && (!includePackage || packageSize(input.packageSize)) && validUuid(input.commandId)
         && typeof input.name==='string' && input.name.length<=4096) {
+        const administratorName = includeAdministratorName && typeof input.administratorName==='string' ? normalizeCustomerNameV1(input.administratorName) : null;
+        if (includeAdministratorName && (!administratorName || administratorName.status!=='valid')) return {status:'invalid_request'};
         if (!this.inviter) return {status:'account_creation_not_configured'};
         const email=normalizeInvitationEmail(input.email);
         if (email===null) return {status:'invalid_email'};
         const hash=accountInvitationEmailHash(email);
         const args=[input.commandId,input.name,hash,this.inviter.issuer];
-        const create = (subject: string|null, invited: boolean) => includePackage
+        const create = (subject: string|null, invited: boolean) => includeAdministratorName
+          ? query('operator_create_organization_v4($1,$2,$3,$4,$5,$6,$7,$8)',[...args,subject,invited,input.packageSize,administratorName?.status==='valid'?administratorName.canonicalName:null])
+          : includePackage
           ? query('operator_create_organization_v3($1,$2,$3,$4,$5,$6,$7)',[...args,subject,invited,input.packageSize])
           : query('operator_create_organization_v2($1,$2,$3,$4,$5,$6)',[...args,subject,invited]);
         result=await create(null,false);

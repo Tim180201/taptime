@@ -1,3 +1,4 @@
+import { OutcomeNotice } from '../design/OutcomeNotice';
 import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -19,6 +20,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const submitInFlight = useRef(false);
+  const [messageIsError,setMessageIsError]=useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
   async function handleSignIn(employeeEnrollmentIntent = false): Promise<void> {
@@ -28,6 +30,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
     submitInFlight.current = true;
     setSubmitting(true);
     setMessage(null);
+    setMessageIsError(true);
     try {
       const result = await (employeeEnrollmentIntent
         ? signInForEmployeeEnrollment(email, password)
@@ -37,7 +40,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
       } else if (result.status === 'authority_rejected') {
         setMessage('Für dieses Konto ist kein aktiver Taptura-Zugang verfügbar.');
       } else if (result.status === 'context_unavailable') {
-        setMessage('Der Sitzungskontext ist vorübergehend nicht verfügbar.');
+        setMessage('Dein Zugang konnte gerade nicht geladen werden. Versuche es erneut.');
       } else if (result.status === 'infrastructure_error') {
         setMessage('Die Anmeldung ist derzeit nicht verfügbar.');
       }
@@ -53,12 +56,15 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
     if (submitInFlight.current || disabled || !form.validate("email")) return;
     submitInFlight.current = true;
     setSubmitting(true);
-    const result = await requestPasswordReset(email);
-    setMessage(result === 'requested'
-      ? 'Wir haben dir eine E-Mail geschickt. Öffne den Link und setze dein neues Passwort auf der Webseite. Melde dich dann hier an.'
-      : 'Wiederherstellung ist derzeit nicht erreichbar.');
-    submitInFlight.current = false;
-    setSubmitting(false);
+    setMessage(null);
+    try {
+      const result = await requestPasswordReset(email);
+      setMessageIsError(result !== 'requested');
+      setMessage(result === 'requested'
+        ? 'Wir haben dir eine E-Mail geschickt. Öffne den Link und setze dein neues Passwort auf der Webseite. Melde dich dann hier an.'
+        : 'Wiederherstellung ist derzeit nicht erreichbar.');
+    } catch {setMessageIsError(true);setMessage('Wiederherstellung ist derzeit nicht erreichbar.');}
+    finally {submitInFlight.current=false;setSubmitting(false);}
   }
 
   return (
@@ -106,7 +112,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
       <ActionButton title="Passwort vergessen" tone="quiet" onPress={handlePasswordReset}
         disabled={disabled || submitting}
         testID="password-reset-button" />
-      {message !== null ? <Text style={styles.error}>{message}</Text> : null}
+      <OutcomeNotice message={message} error={messageIsError}/>
       <AppBuildIdentity style={styles.buildIdentity} />
     </ScrollView></Screen>
   );

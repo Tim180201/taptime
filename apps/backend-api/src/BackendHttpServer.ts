@@ -8,7 +8,7 @@ import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, TIME_DETAILS_ACCEPT_V3, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
-import { OPERATOR_PACKAGE_ACCEPT } from './OperatorCoordinator.js';
+import { OPERATOR_PACKAGE_ACCEPT, OPERATOR_NAMED_ADMIN_ACCEPT } from './OperatorCoordinator.js';
 import { MANAGED_PEOPLE_ACCEPT_V4, MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
@@ -492,7 +492,7 @@ async function handleRequest(
 
   if (route.startsWith('operator_')) {
     response.setHeader('Vary','Accept');
-    const result = await dependencies.operator!.execute(accessToken,route.slice(9) as import('./OperatorCoordinator.js').OperatorAction,body,request.headers.accept === OPERATOR_PACKAGE_ACCEPT);
+    const result = await dependencies.operator!.execute(accessToken,route.slice(9) as import('./OperatorCoordinator.js').OperatorAction,body,[OPERATOR_PACKAGE_ACCEPT,OPERATOR_NAMED_ADMIN_ACCEPT].includes(request.headers.accept ?? ''),request.headers.accept === OPERATOR_NAMED_ADMIN_ACCEPT);
     respondOperatorResult(response,result); return;
   }
 

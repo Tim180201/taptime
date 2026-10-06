@@ -249,3 +249,17 @@ it('T106: a control-only required reason is explained at the field',()=>{
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  expect(save).not.toHaveBeenCalled();expect(screen.getByLabelText('Grund')).toHaveAttribute('aria-invalid','true');
 });
+it('T107 opens the existing administrative stop directly from the person status',async()=>{
+ const {default:PersonView}=await import('../src/views/PersonView');
+ const entry={...record,status:'started' as const,stoppedAt:null,stoppedVia:null};
+ const state={status:'ready',role:'administrator',membershipId:own,availableSections:['time_records'],managedPeople:{status:'ready',value:{people:[{membershipId:other,displayName:'Erika Beispiel'}]}},calendar:{status:'ready',targetMembershipId:other,month:'2026-09',value:{...page,activeRecord:entry}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
+ const administration={saveTimeEdit:vi.fn(),loadPersonTime:vi.fn(),loadWorkTargets:vi.fn()} as unknown as AdminWebCapability;
+ render(<PersonView state={state} administration={administration} route={{area:'beschaeftigte',personId:other,month:'2026-09'} as never} navigate={()=>{}}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));
+ expect(screen.getByLabelText('Grund')).toBeDefined();
+ expect(screen.getByText(/Erika Beispiel · Werkstatt ·/)).toBeDefined();
+});
+it('T107 names the affected entry in the deletion sheet',async()=>{
+ show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
+ expect(screen.getByText(/Sie selbst · Werkstatt ·.*21\.09\.2026.*10:00.*11:00/)).toBeDefined();
+});

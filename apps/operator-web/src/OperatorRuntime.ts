@@ -1,6 +1,6 @@
 import { OperatorError } from './OperatorError';
 export { OperatorError } from './OperatorError';
-import { OPERATOR_PACKAGE_ACCEPT } from "./contracts";
+import { OPERATOR_NAMED_ADMIN_ACCEPT } from "./contracts";
 export interface MfaFactor {
   factorId: string;
   qrCode?: string;
@@ -244,7 +244,7 @@ export class OperatorRuntime {
         method: body === undefined ? "GET" : "POST",
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: OPERATOR_PACKAGE_ACCEPT,
+          Accept: OPERATOR_NAMED_ADMIN_ACCEPT,
           "Content-Type": "application/json",
         },
         body: body === undefined ? undefined : JSON.stringify(body),

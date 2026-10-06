@@ -136,7 +136,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     expect(container.textContent).toContain('1 Erfassung konnte nicht übertragen werden');
     expect(container.textContent).toContain('Kunde X · 08:12');
     await press('Meine Zeiten');
-    expect(container.textContent).toContain('nicht übertragen');expect(container.textContent).toContain('Nachtragen');
+    expect(container.textContent).toContain('nicht übertragen');expect(container.textContent).toContain('Zeit hinzufügen');
     expect(container.textContent).toContain('sperrt den Kontowechsel');
   });
   it('T-095 leaves the offline manual path available while a confirmed-state action is pending',async()=>{
@@ -232,7 +232,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
       const style = JSON.parse(day.getAttribute('data-style')!);
       expect(style.minWidth).toBe(0);
       expect(style.minHeight).toBeGreaterThanOrEqual(44);
-      expect(Number.parseFloat(style.width)).toBeCloseTo(100 / 7);
+      expect(style.flex).toBe(1);
       expect(day.querySelector('[data-lines="1"][data-shrink="true"]')).not.toBeNull();
     }
   });

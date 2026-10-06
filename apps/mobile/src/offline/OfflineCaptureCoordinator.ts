@@ -211,11 +211,17 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
 
   async hasUnconfirmedCapture(): Promise<boolean> {
     const database=this.database, generation=this.generation, snapshot=this.session.capture();
-    if(!database || !snapshot || !this.canSynchronize())return true;
+    const restoration=this.offlineRestorationSnapshot, offlineContext=this.offlineCaptureContext;
+    const authority=snapshot?.session ?? offlineContext;
+    const current=()=>database===this.database && generation===this.generation && (snapshot
+      ? this.canSynchronize() && this.session.isCurrent(snapshot)
+      : offlineContext!==null && this.offlineCaptureContext===offlineContext
+        && this.isCaptureCurrent(generation,'offline',restoration));
+    if(!database || !authority || !current())return true;
     try {
       const [owner,count,review]=await Promise.all([database.readOwner(),database.queueCount(),database.readReviewPendingSequence()]);
-      if(database!==this.database || generation!==this.generation || !this.session.isCurrent(snapshot)
-        || !owner || owner.organizationId!==snapshot.session.organizationId || owner.userId!==snapshot.session.userId || owner.membershipId!==snapshot.session.membershipId)return true;
+      if(!current() || !owner || owner.organizationId!==authority.organizationId
+        || owner.userId!==authority.userId || owner.membershipId!==authority.membershipId)return true;
       return count>0 || review!==null;
     } catch {return true;}
   }

@@ -562,9 +562,11 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
 function SidePanel({
   title,
   onClose,
+  busy = false,
   children,
 }: {
   title: string;
+  busy?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -585,7 +587,7 @@ function SidePanel({
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();
-            onClose();
+            if (!busy) onClose();
           }
           if (event.key === "Tab") {
             const focusable = Array.from(
@@ -607,7 +609,7 @@ function SidePanel({
       >
         <div className="section-head">
           <h2 id="panel-title">{title}</h2>
-          <button onClick={onClose}>Schließen</button>
+          <button disabled={busy} onClick={onClose}>Schließen</button>
         </div>
         {children}
       </div>
@@ -628,6 +630,7 @@ function ActionPanel({
   onDone: (message: string) => void;
 }) {
   const [packageSize,setPackageSize]=useState(target !== "create" && target.package_usage?.package_size != null ? String(target.package_usage.package_size) : "");
+  const [administratorName,setAdministratorName]=useState('');
   const [name, setName] = useState(""),
     [email, setEmail] = useState(""),
     [reason, setReason] = useState(""),
@@ -661,7 +664,7 @@ function ActionPanel({
     }
     const values =
       target === "create"
-        ? { name: name.trim(), email: email.trim(), packageSize: packageSize.trim()==='' ? null : Number(packageSize) }
+        ? { name: name.trim(), administratorName: administratorName.trim(), email: email.trim(), packageSize: packageSize.trim()==='' ? null : Number(packageSize) }
         : packageChange ? {organizationId:target.organization_id,packageSize:packageSize.trim()==='' ? null : Number(packageSize),reason:reason.trim(),rowVersion:target.row_version}
         : {
             organizationId: target.organization_id,
@@ -700,6 +703,7 @@ function ActionPanel({
     <SidePanel
       title={target === "create" ? action : `${action}: ${target.name}`}
       onClose={onClose}
+      busy={busy}
     >
       <ErrorBand message={error} />
       <RequiredForm onSubmit={submit}>
@@ -724,6 +728,9 @@ function ActionPanel({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
+            </label>
+            <label>Name des ersten Administrators
+              <input required maxLength={120} autoComplete="name" value={administratorName} onChange={event=>setAdministratorName(event.target.value)} />
             </label>
             <label>
               E-Mail des ersten Administrators

@@ -331,7 +331,7 @@ function LocationSetupPanel({
     </li>)}</ul>
 
     <h3>Arbeitsziele zuweisen</h3>
-    <ul className="entity-list">{setup.workTargets.map((target) => <li
+    <ul className="entity-list">{setup.workTargets.filter(target=>target.targetType!=='general_work').map((target) => <li
       key={`${target.targetType}:${target.targetId}`}>
       <span>{target.displayName}</span>
       <small>{target.targetType === 'customer' ? 'Kunde' : target.targetType === 'project'
@@ -353,8 +353,7 @@ function LocationSetupPanel({
     <section className="activation-check" aria-labelledby="location-activation-title">
       <h3 id="location-activation-title">Vor dem Einschalten</h3>
       {setup.activationGaps.length === 0
-        ? <p>Alle aktiven Zugehörigkeiten, Kunden, Projekte, Arbeitsziele und NFC-Zuordnungen
-          sind eindeutig gebunden.</p>
+        ? <p>Alle erforderlichen Standortzuordnungen sind vollständig. Allgemeine Arbeitszeit braucht keine Standortbindung.</p>
         : <><p><strong>Diese Bindungen fehlen noch:</strong></p>
           <ul>{setup.activationGaps.map((gap) => <li key={`${gap.kind}:${gap.id}`}>
             <strong>{gapLabels[gap.kind]}:</strong> {gap.displayName}

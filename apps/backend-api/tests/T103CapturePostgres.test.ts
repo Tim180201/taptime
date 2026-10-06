@@ -90,7 +90,7 @@ it('real mobile sequence starts, pauses, stops the pause and time, with matching
  await work.stopActiveTime();expect(order).toEqual(['work','break','break','work']);
  const stopped=await readOwn();expect(stopped.activeRecord).toBeNull();expect(stopped.records).toHaveLength(1);
  const record=stopped.records[0]!;expect(record.calendar?.breakIntervals).toHaveLength(1);
- expect(work.getState()).toMatchObject({outcome:'time_entry_stopped',feedback:expect.stringMatching(/^Zeit beendet · .* · .*–.* · .* min$/)});
+ expect(work.getState()).toMatchObject({outcome:'time_entry_stopped',feedback:expect.stringMatching(/^Zeit beendet · .* · .*–.* · \d+:\d{2} h$/)});
  const e=await pool.connect();try{await e.query('BEGIN');await e.query("SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true)",[ids.organizationA,ids.adminA,ids.membershipAdminA]);await e.query('SET LOCAL ROLE taptime_time_exporter');
   const exported=(await e.query('SELECT * FROM taptime_server.read_effective_time_entry_export_v3($1,$2,$3,10001)',[ids.organizationA,new Date(Date.parse(record.startedAt)-1).toISOString(),new Date(Date.parse(record.stoppedAt!)+1).toISOString()])).rows.find(r=>r.time_entry_id===record.timeRecordId);
   expect(exported).toBeDefined();expect(Number(exported.effective_work_duration_seconds)).toBe(record.calendar?.workDurationSeconds);expect(Number(exported.break_duration_seconds)).toBe(record.calendar?.breakDurationSeconds);

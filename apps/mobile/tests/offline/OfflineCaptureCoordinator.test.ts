@@ -1,3 +1,4 @@
+import {OfflineActiveCapture} from '../../src/work/OfflineActiveCapture';
 import { OFFLINE_LOCAL_SCHEMA_VERSION_V7 } from '@taptime/offline-sync-contract';
 import { legacyOfflineSchemas } from '../support/LegacyOfflineSchemas';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
@@ -69,6 +70,55 @@ const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));
 
 describe('OfflineCaptureCoordinator', () => {
+  it.each(['stop','pause'] as const)('T107 allows %s from the confirmed active time under real offline authority',async action=>{
+    const h=await accountHarness(false,true);
+    const capture=activeControls(h.coordinator);
+    try {
+      h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      expect(await h.coordinator.hasUnconfirmedCapture()).toBe(false);
+      await capture[action](t107ActiveRecord);
+      expect(await h.database().queueCount()).toBe(1);
+      expect(capture.getState()).toMatchObject({pending:true});
+      expect(h.sent).toHaveLength(0);
+    }finally{capture.dispose();await h.close();}
+  });
+
+  it.each([false,true])('T107 resumes a paused offline stop only while its owner remains active (disposed=%s)',async disposed=>{
+    const h=await accountHarness(false,true);const capture=activeControls(h.coordinator);
+    try {
+      h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      await capture.stop({...t107ActiveRecord,breakStartedAt:'2026-07-18T09:00:00Z'});
+      expect(await h.database().queueCount()).toBe(1);expect(h.sent).toHaveLength(0);
+      if(disposed)capture.dispose();
+      h.mode='t107_stop_after_pause';h.change(session);
+      await vi.waitFor(()=>expect(h.sent.map(event=>event.workEvent.subject.type)).toEqual(disposed?['break']:['break','work']));
+      await h.scheduler().whenIdle();
+      if(!disposed)await vi.waitFor(()=>expect(capture.getState().feedback).toBe('Arbeitszeit gestoppt'));
+      expect(h.sent.every(event=>event.expectedMembershipId===ids.membership)).toBe(true);
+    }finally{capture.dispose();await h.close();}
+  });
+  it('T107 checks a predecessor saved by offline Manuell through the production UI facade',async()=>{
+    const h=await accountHarness();const capture=activeControls(h.coordinator);
+    try {
+      h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      expect(await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer})).toMatchObject({status:'saved'});
+      expect(await h.database().queueCount()).toBe(1);
+      await capture.stop(t107ActiveRecord);
+      expect(await h.database().queueCount()).toBe(1);
+      expect(capture.getState().feedback).toContain('wartet noch auf Bestätigung');
+    }finally{capture.dispose();await h.close();}
+  });
+  it('T107 fails closed if the account changes during the offline predecessor check',async()=>{
+    const h=await accountHarness();const capture=activeControls(h.coordinator);
+    try {
+      h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      const read=h.database().readOwner.bind(h.database());
+      vi.spyOn(h.database(),'readOwner').mockImplementationOnce(async()=>{const owner=await read();h.change({...session,userId:ids.event,membershipId:ids.receipt});return owner;});
+      await capture.stop(t107ActiveRecord);
+      expect(await h.database().queueCount()).toBe(0);
+    }finally{capture.dispose();await h.close();}
+  });
+
   it('T-095 endpoint pause exposes retry and clears the visible stop after recovery',async()=>{
     const h=await accountHarness();
     try {
@@ -1715,7 +1765,7 @@ function identityStore(removeActiveLookupKey = vi.fn(async () => undefined)) {
   } as unknown as OfflineInstallationIdentityStore;
 }
 
-function leaseClient(withManual = false): OfflineCaptureLeaseApiPort {
+function leaseClient(withManual = false,withBreak = false): OfflineCaptureLeaseApiPort {
   const issueCompleteV3 = async () => {
     const items = [{
       itemType: 'nfc_assignment' as const,
@@ -1733,7 +1783,7 @@ function leaseClient(withManual = false): OfflineCaptureLeaseApiPort {
       itemId: 'a0000000-0000-4000-8000-000000000002', itemType: 'manual_target' as const,
       subjectType: 'work' as const, targetType: 'customer' as const, targetId: ids.customer,
       displayName: 'Kunde', targetRowVersion: 1,
-    }] : [])];
+    }] : []),...(withBreak ? [{itemId:'a0000000-0000-4000-8000-000000000003',itemType:'manual_break' as const,subjectType:'break' as const,displayName:'Pause' as const}] : [])];
     return {
       status: 'ready' as const,
       idempotentRetry: false,
@@ -1832,7 +1882,7 @@ function activeContext() {
   };
 }
 
-async function accountHarness(newBusiness=false) {
+async function accountHarness(newBusiness=false,withBreak=false) {
   const root = mkdtempSync(join(tmpdir(), 't076-coordinator-'));
   const values = new Map<string, string>();
   const listeners = new Set<() => void>();
@@ -1864,8 +1914,8 @@ async function accountHarness(newBusiness=false) {
     list: async () => readdirSync(root), remove: async () => { throw new Error('Same-process deletion forbidden'); },
   });
   const bindings: string[] = [];
-  const sent: Array<{deviceSequence: number; expectedMembershipId: string}> = [];
-  const records = new Map<string, {workEventId: string; receiptId: string; deviceSequence: number}>();
+  const sent: Array<Pick<import('@taptime/offline-sync-contract').OfflineLifecycleEventCommandV3,'deviceSequence'|'expectedMembershipId'|'workEvent'>> = [];
+  const records = new Map<string, {workEventId: string; receiptId: string; deviceSequence: number; decision?: {status:'break_stopped';timeEntryId:string;breakIntervalId:string}|{status:'time_entry_stopped';timeEntryId:string}}>();
   const h = { hasTag: !newBusiness, mode: 'archived', bindings, sent, legacyBlocked: false, ingestGate: null as Promise<void> | null, reconcileGate: null as Promise<void> | null, reconcileWaiting: false, sampleGate: null as Promise<void> | null, sampleWaiting: false,
     advance: () => { time += OFFLINE_ARCHIVE_POLL_MILLISECONDS; },
     suspend:()=>{offline=true;for(const l of listeners)l();},
@@ -1875,7 +1925,7 @@ async function accountHarness(newBusiness=false) {
   const client = {
     async reconcile(eventIds: readonly string[]) { if (h.reconcileGate) { h.reconcileWaiting = true; await h.reconcileGate; } return { status: 'ready' as const, records: eventIds.flatMap(id => {
       const record = records.get(id); return record ? [{ ...record, archiveStatus: h.mode === 'unarchived' ? 'archive_pending' as const : 'offsite_archived' as const,
-        result: { status: 'synchronized' as const, decision } }] : [];
+        result: { status: 'synchronized' as const, decision:record.decision??decision } }] : [];
     }) }; },
     async ingest(command: import('@taptime/offline-sync-contract').OfflineLifecycleEventCommandV3) {
       sent.push(command);
@@ -1887,10 +1937,13 @@ async function accountHarness(newBusiness=false) {
         ? {status:'conflict' as const,reason:'event_content_conflict' as const}
         : {status:'pending' as const,reason:'sequence_gap' as const};
       const identity = { workEventId: command.workEvent.id, receiptId: command.receipt.id, deviceSequence: command.deviceSequence };
-      records.set(identity.workEventId, identity);
+      const override=h.mode==='t107_stop_after_pause' ? command.workEvent.subject.type==='break'
+        ? {status:'break_stopped' as const,timeEntryId:ids.event,breakIntervalId:ids.receipt}
+        : {status:'time_entry_stopped' as const,timeEntryId:ids.event} : undefined;
+      records.set(identity.workEventId, {...identity,decision:override});
       return h.mode === 'review_pending'
         ? { ...identity, status: 'review_pending' as const, idempotentRetry: false, archiveStatus: 'offsite_archived' as const, reason: 'capture_clock_unverified' as const }
-        : { ...identity, status: 'synchronized' as const, idempotentRetry: false, archiveStatus: h.mode === 'unarchived' ? 'archive_pending' as const : 'offsite_archived' as const, decision };
+        : { ...identity, status: 'synchronized' as const, idempotentRetry: false, archiveStatus: h.mode === 'unarchived' ? 'archive_pending' as const : 'offsite_archived' as const, decision:override??decision };
     },
     async readReviewState() { return { status: 'unavailable' as const }; },
   };
@@ -1899,7 +1952,7 @@ async function accountHarness(newBusiness=false) {
     payload: createCanonicalNfcUidPayload('04AABBCC'), capturedAt: createTimestamp('2026-07-18T10:00:00.000Z') }; } }, lifecycle, reader,
     storage, factory, { async issueCompleteV3(request) {
       bindings.push(request.installationBinding);
-      const result = await leaseClient(true).issueCompleteV3!(request);
+      const result = await leaseClient(true,withBreak).issueCompleteV3!(request);
       if (result.status !== 'ready') throw new Error('Invalid fixture');
       const items = (h.hasTag ? result.page.items : []).map(item => item.itemType === 'nfc_assignment'
         ? { ...item, lookup: mobileLookupHmac(decodeBase64Url32(request.lookupKey)!, 'nfc:uid:v1:04AABBCC') } : item);
@@ -1963,4 +2016,10 @@ async function sqliteSnapshot(connection: NodeSqliteOfflineConnection): Promise<
     "SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name");
   return Object.fromEntries(await Promise.all(tables.map(async ({ name }) => [name,
     await connection.getAllAsync(`SELECT * FROM "${name.replaceAll('"', '""')}" ORDER BY rowid`)])));
+}
+
+const t107ActiveRecord={timeRecordId:ids.event,source:'canonical' as const,targetType:'customer' as const,targetId:ids.customer,targetDisplayName:'Kunde',status:'started' as const,startedAt:'2026-07-18T08:00:00Z',stoppedAt:null,startedVia:'manual' as const,stoppedVia:null,breakStartedAt:null};
+function activeControls(coordinator:OfflineCaptureCoordinator){
+ const runtime=new DefaultProductMobileRuntime({} as ProductSessionRuntimeOwner,{start(){},stop(){}},{} as ProductServerTransport,coordinator,{} as ProductAdministrationRuntimeOwner,undefined,undefined,undefined,coordinator);
+ const capture=new OfflineActiveCapture(runtime.offlineManual);capture.start();return capture;
 }

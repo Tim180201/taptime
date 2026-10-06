@@ -1,3 +1,5 @@
+import {manualCaptureOutcome} from '../work/manualCaptureFeedback';
+import { ActiveTimeCard } from './ActiveTimeCard';
 import { useRequiredForm, RequiredField } from '../design/RequiredField';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
@@ -5,7 +7,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { captureStatus, captureDuration, type SafeWorkTarget, type WorkTargetType } from '@taptime/mobile-work-contract';
+import { type SafeWorkTarget, type WorkTargetType } from '@taptime/mobile-work-contract';
 import type { MobileWorkCapability } from '../work/contracts';
 import { ActionButton, AppText as Text, Card, Screen, TextField } from '../design/primitives';
 import { RecentTime } from './RecentTimeCard';
@@ -45,14 +47,8 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
   return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
       {state.capturePending ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
-      {state.ownTime.activeRecord ? <Card>
-        <Text style={styles.selection}>{captureStatus(state.ownTime.activeRecord)}</Text>
-        {state.ownTime.activeRecord.calendar ? <Text>{captureDuration(state.ownTime.activeRecord.calendar.workDurationSeconds)}</Text> : null}
-        <ActionButton title={state.ownTime.activeRecord.breakStartedAt ? 'Pause beenden' : 'Zeit beenden'} tone="cta"
-          disabled={state.submitting || state.capturePending} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.triggerBreak() : work.stopActiveTime()} />
-        <ActionButton title={state.ownTime.activeRecord.breakStartedAt ? 'Zeit beenden' : 'Pause starten'} tone="secondary"
-          disabled={state.submitting || state.capturePending} onPress={() => state.ownTime.activeRecord?.breakStartedAt ? work.stopActiveTime() : work.triggerBreak()} />
-      </Card> : <>
+      {state.ownTime.activeRecord ? <ActiveTimeCard record={state.ownTime.activeRecord}
+        disabled={state.submitting || !!state.capturePending} onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : <>
         <Text style={styles.explanation}>Wähle dein Arbeitsziel. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
         <RequiredField form={form} error={selected===null ? "Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten." : null}><Text style={styles.selection}>Arbeitsziel</Text>
         <TextField value={search} onChangeText={setSearch} editable={!state.submitting} placeholder="Kunde oder Projekt suchen" accessibilityLabel="Arbeitsziel suchen" style={styles.search} />
@@ -74,7 +70,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
         </Card>
       </>}
       {state.submitting ? <Text accessibilityLiveRegion="polite">Bestätigung wird angefordert …</Text> : null}
-      {state.feedback || state.outcome ? <Text accessibilityLiveRegion="polite" style={styles.outcome}>{state.feedback ?? outcomeLabel(state.outcome!)}</Text> : null}
+      {state.feedback || state.outcome ? <Text accessibilityLiveRegion="polite" style={styles.outcome}>{state.feedback ?? manualCaptureOutcome(state.outcome!)}</Text> : null}
       <RecentTime ownTime={state.ownTime} />
     </ScrollView>
   </Screen>;
@@ -84,30 +80,6 @@ function groupLabel(type: WorkTargetType): string {
   if (type === 'customer') return 'Kunden';
   if (type === 'project') return 'Projekte';
   return 'Allgemeine Arbeit';
-}
-
-function outcomeLabel(outcome: NonNullable<
-  Extract<ReturnType<MobileWorkCapability['getState']>, { status: 'ready' }>['outcome']
->): string {
-  if (outcome === 'time_entry_started') return 'Arbeitszeit gestartet';
-  if (outcome === 'time_entry_stopped') return 'Arbeitszeit gestoppt';
-  if (outcome === 'duplicate_scan_ignored') return 'Doppelte Erfassung; deine Arbeitszeit bleibt unverändert';
-  if (outcome === 'active_entry_for_other_target_rejected') {
-    return 'Eine andere Arbeitszeit ist aktiv.';
-  }
-  if (outcome === 'break_started') return 'Pause begonnen';
-  if (outcome === 'break_stopped') return 'Pause beendet';
-  if (outcome === 'break_without_active_time_entry_rejected') {
-    return 'Ohne laufende Arbeitszeit ist keine Pause möglich.';
-  }
-  if (outcome === 'work_trigger_during_break_rejected') {
-    return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über „Pause beenden“.';
-  }
-  if (outcome === 'work_location_unavailable') return 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.';
-  if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';
-  if (outcome === 'rejected') return 'Sitzung nicht mehr gültig';
-  if (outcome === 'not_transferred') return 'Deine Erfassung konnte nicht übertragen werden. Der Beleg bleibt auf dem Handy. Prüfe „Meine Zeiten“.';
-  return 'Deine Erfassung ist gespeichert, wird übertragen.';
 }
 
 const styles = StyleSheet.create({

@@ -87,7 +87,7 @@ it('T102 groups appended pages and shows month hours only with v3',async()=>{
   };
   const render=(enabled=true)=>renderToStaticMarkup(createElement(EmployeesScreen,{employees,scope:{kind:'organization'},locationsEnabled:enabled}));
   people=[person,{...person,membershipId:'two',displayName:'Berta'},{...person,membershipId:'three',location:{id:'south',name:'Süd'}}];
-  const html=render();expect(html.match(/>Nord</g)).toHaveLength(1);expect(html.match(/>Süd</g)).toHaveLength(1);expect(html.match(/Diesen Monat 2,5 h/g)).toHaveLength(3);
+  const html=render();expect(html.match(/>Nord</g)).toHaveLength(1);expect(html.match(/>Süd</g)).toHaveLength(1);expect(html.match(/Diesen Monat 2:30 h/g)).toHaveLength(3);
   expect(render(false)).not.toContain('>Nord<');
   // Equal location names can interleave in the server's specified name/person ordering.
   // Accumulated pages still have one heading per location identity, in both clients.

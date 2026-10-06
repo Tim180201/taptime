@@ -16,7 +16,7 @@ it('administrator edits half hours, invalid input and removal; list and detail s
  const setCustomerQuota=vi.fn(async()=>({status:'succeeded' as const}));
  const administration={getState:()=>({status:'ready',role:'administrator'}),readCustomerHours:async()=>({status:'ready',value:quota}),setCustomerQuota} as unknown as AdminWebCapability;
  render(<CustomersView administration={administration} route={defaultRoute('kunden')} navigate={()=>{}}/>);
- expect(await screen.findByText('36,0 / 40,0 h')).toBeInTheDocument();expect(screen.getByText('Kontingent fast erreicht')).toBeInTheDocument();
+ expect(await screen.findByText('36:00 von 40 h')).toBeInTheDocument();expect(screen.getByText('Kontingent fast erreicht')).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:/Werkstatt/}));fireEvent.click(screen.getByText('Ändern'));
  fireEvent.change(screen.getByLabelText('Stunden pro Monat (optional)'),{target:{value:'40,25'}});fireEvent.click(screen.getByText('Kontingent speichern'));
  expect(await screen.findByRole('alert')).toHaveTextContent('halben oder ganzen');expect(setCustomerQuota).not.toHaveBeenCalled();

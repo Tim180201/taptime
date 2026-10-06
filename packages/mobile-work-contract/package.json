@@ -15,6 +15,7 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "@taptime/administration-contract": "*"
+    "@taptime/administration-contract": "*",
+    "@taptime/core": "*"
   }
 }

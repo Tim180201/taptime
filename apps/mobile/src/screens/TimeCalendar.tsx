@@ -33,7 +33,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
       <Card style={styles.summary}><Text style={styles.muted}>{`Woche vom ${thisWeek.split('-').reverse().join('.')}`}</Text>
         <Text style={styles.number} numberOfLines={1} adjustsFontSizeToFit>{weekSummary.complete ? `${formatHours(weekSummary.milliseconds)} h` : '—'}</Text><Text style={styles.muted}>{weekSummary.complete ? `${formatDuration(weekSummary.breakMilliseconds)} Pause` : '—'}</Text></Card>
     </View>
-    <Card>
+    <Card style={styles.calendar}>
       <View style={styles.monthHeading}>
         <TouchTarget accessibilityRole="button" accessibilityLabel="Voriger Monat" style={styles.arrow} onPress={() => changeMonth(-1)}>
           <LineIcon name="back" /></TouchTarget>
@@ -42,9 +42,9 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
           <LineIcon name="arrow" /></TouchTarget>
       </View>
       <View>
-      <View style={styles.grid}>{['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day) =>
-        <Text key={day} style={styles.weekday}>{day}</Text>)}</View>
-      <View style={styles.grid}>{monthDays(month).map((day, index) => {
+      <View testID="calendar-weekdays" style={styles.grid}>{['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map((day) =>
+        <Text key={day} numberOfLines={1} adjustsFontSizeToFit style={styles.weekday}>{day}</Text>)}</View>
+      {Array.from({length:Math.ceil(monthDays(month).length/7)},(_,week)=><View key={week} testID="calendar-week" style={styles.grid}>{Array.from({length:7},(_,column)=>monthDays(month)[week*7+column]??null).map((day, index) => {
         if (day === null) return <View key={`space-${index}`} style={styles.daySpace} />;
         const summary = rangeSummary(ownTime, day, shiftDay(day, 1));
         return <TouchTarget key={day} accessibilityRole="button"
@@ -56,7 +56,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
             {summary.complete ? summary.milliseconds > 0 ? formatHours(summary.milliseconds) : '' : '—'}
           </Text>
         </TouchTarget>;
-      })}</View></View>
+      })}</View>)}</View>
     </Card>
     <Text onLayout={event => { dayHeadingY.current = event.nativeEvent.layout.y; }} style={styles.monthTitle}>{new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE,
       weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${selected}T12:00:00Z`))}</Text>
@@ -75,8 +75,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
       : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</Text></Card> : null}
     <Text style={styles.muted}>Arbeitszeit nach Pausen · Europe/Berlin</Text>
     <Text style={styles.muted}>{ownTimeLoadStatus(ownTime.records.length, ownTime.nextCursor)}</Text>
-    {ownTime.nextCursor !== null ? <Text style={styles.muted}>Weitere Zeiten werden geladen …</Text> : null}
-    <Text style={styles.muted}>Geladener Zeitraum: {formatOwnTimeTimestamp(ownTime.windowStartedAt)} – {formatOwnTimeTimestamp(ownTime.windowEndedAt)}</Text>
+    <Text style={styles.muted}>Zeiten vom {formatOwnTimeTimestamp(ownTime.windowStartedAt)} bis {formatOwnTimeTimestamp(ownTime.windowEndedAt)} geladen.</Text>
     <ActionButton title="Aktualisieren" tone="quiet" onPress={() => onRefresh()} />
   </ScrollView>;
 }
@@ -85,8 +84,8 @@ export function formatOwnTimeTimestamp(value: string): string {
 }
 export function resolveDisplayTimeZone(): string { return BUSINESS_TIME_ZONE; }
 export function ownTimeLoadStatus(count: number, nextCursor: string | null): string {
-  return nextCursor === null ? `${count} Einträge geladen · vollständig im Abfragezeitraum`
-    : `${count} Einträge geladen · weitere verfügbar; Summen noch unvollständig`;
+  return nextCursor === null ? `${count} Einträge geladen.`
+    : 'Weitere Zeiten werden geladen. Summen sind noch unvollständig.';
 }
 const styles = StyleSheet.create({
   content: { gap: 16, paddingBottom: 24 }, summaries: { flexDirection: 'row', gap: 16 },
@@ -94,8 +93,9 @@ const styles = StyleSheet.create({
   muted: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted },
   monthHeading: { flexDirection: 'row', alignItems: 'center' }, monthTitle: { flex: 1, fontSize: 15, fontWeight: '800' },
   arrow: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap' }, weekday: { width: '14.285714%', textAlign: 'center', fontSize: 13, color: mobileTokens.color.textMuted },
-  daySpace: { width: '14.285714%', minWidth: 0, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
+  calendar: { paddingHorizontal: 4 },
+  grid: { flexDirection: 'row' }, weekday: { flex: 1, minWidth: 0, textAlign: 'center', fontSize: 13, color: mobileTokens.color.textMuted },
+  daySpace: { flex: 1, minWidth: 0, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
   dayNumber: { fontSize: 13, fontWeight: '600' }, dayHours: { maxWidth: '100%', fontSize: 13, lineHeight: 16, color: mobileTokens.color.textMuted },
   selected: { backgroundColor: mobileTokens.color.accent }, selectedText: { color: mobileTokens.color.onAccent },
   duration: { fontSize: 15, fontWeight: '800', fontVariant: ['tabular-nums'] },

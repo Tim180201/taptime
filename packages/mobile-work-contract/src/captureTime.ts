@@ -1,3 +1,4 @@
+import { formatDuration } from '@taptime/core';
 import { isCanonicalUuid, type SafeOwnTimeRecord, type MobileOwnTimeQueryResponse } from './index.js';
 import { isCalendarTimeResponse, type DetailedTimeResponse, type DetailedTimeRecord } from './timeSupplement.js';
 
@@ -31,8 +32,7 @@ export function captureClock(at: string): string {
   return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(new Date(at));
 }
 export function captureDuration(seconds: number): string {
-  const minutes = Math.floor(Math.max(0, seconds) / 60);
-  return minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
+  return formatDuration(seconds * 1000);
 }
 export function captureStatus(record: SafeOwnTimeRecord): string {
   return `${record.breakStartedAt ? 'Pause' : 'Läuft'} seit ${captureClock(record.breakStartedAt ?? record.startedAt)} · ${record.targetDisplayName}`;

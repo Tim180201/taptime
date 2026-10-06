@@ -169,6 +169,7 @@ async function create() {
   fireEvent.change(screen.getByLabelText("Name des Betriebs"), {
     target: { value: "Neuer Betrieb" },
   });
+  fireEvent.change(screen.getByLabelText("Name des ersten Administrators"), {target:{value:"Erika Beispiel"}});
   fireEvent.change(screen.getByLabelText("E-Mail des ersten Administrators"), {
     target: { value: "new@example.test" },
   });
@@ -460,6 +461,7 @@ it('T075 creates a package, rejects fractional or nonpositive sizes at the field
   await ready();expect(screen.queryByText('Paket überschritten')).toBeNull();
   fireEvent.click(screen.getByRole('button',{name:'Betrieb anlegen'}));
   fireEvent.change(screen.getByLabelText('Name des Betriebs'),{target:{value:'Paketbetrieb'}});
+  fireEvent.change(screen.getByLabelText('Name des ersten Administrators'),{target:{value:'Erika Beispiel'}});
   fireEvent.change(screen.getByLabelText('E-Mail des ersten Administrators'),{target:{value:'new@example.test'}});
   for(const value of ['0','1.5']){
     fireEvent.change(screen.getByLabelText('Paketgröße (optional)'),{target:{value}});
@@ -479,4 +481,21 @@ it('T106 rejects an invisible operator reason at its field without sending',asyn
  fireEvent.click(screen.getByRole('button',{name:'Weiter zur Bestätigung'}));
  expect(screen.getByLabelText('Grund')).toHaveAttribute('aria-invalid','true');
  expect(calls.some(c=>c.path==='organizations/status')).toBe(false);
+});
+
+it('T107 requires the administrator name and prevents closing a pending creation',async()=>{
+ await ready();fireEvent.click(screen.getByRole('button',{name:'Betrieb anlegen'}));
+ fireEvent.change(screen.getByLabelText('Name des Betriebs'),{target:{value:'Beispielbetrieb'}});
+ fireEvent.change(screen.getByLabelText('E-Mail des ersten Administrators'),{target:{value:'admin@example.invalid'}});
+ fireEvent.click(screen.getByRole('button',{name:'Anlegen und einladen'}));
+ expect(calls.filter(c=>c.path==='organizations/create')).toHaveLength(0);
+ fireEvent.change(screen.getByLabelText('Name des ersten Administrators'),{target:{value:'Erika Beispiel'}});
+ let finish!:(value:unknown)=>void;replies['organizations/create']=()=>new Promise(resolve=>{finish=resolve;});
+ fireEvent.click(screen.getByRole('button',{name:'Anlegen und einladen'}));
+ await waitFor(()=>expect(calls.find(c=>c.path==='organizations/create')?.body).toMatchObject({administratorName:'Erika Beispiel'}));
+ expect(screen.getByRole('button',{name:'Schließen'})).toBeDisabled();
+ fireEvent.keyDown(screen.getByRole('dialog'),{key:'Escape'});expect(screen.getByRole('dialog')).toBeDefined();
+ await act(async()=>finish({status:'succeeded',organization_id:organization.organization_id}));
+ await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
+ expect(screen.getByText('Betrieb angelegt. Das Administratorkonto ist zugeordnet.')).toBeDefined();
 });

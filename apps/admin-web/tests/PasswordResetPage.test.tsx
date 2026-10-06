@@ -20,7 +20,7 @@ const token = 'c'.repeat(64);
 const configuration = {
   supabaseUrl: 'https://synthetic.supabase.co', supabasePublishableKey: 'synthetic-public-key',
 };
-const expired = 'Der Link ist abgelaufen oder wurde schon benutzt. Fordern Sie in der App oder hier unter „Passwort vergessen“ einen neuen an.';
+const expired = 'Der Link ist abgelaufen oder wurde schon benutzt. Öffnen Sie „Im Browser anmelden“ und wählen Sie dort „Passwort vergessen“. Sie können auch in der App einen neuen Link anfordern.';
 
 function submit(password = 'new-test-password') {
   fireEvent.change(screen.getByLabelText('Neues Passwort'), { target: { value: password } });

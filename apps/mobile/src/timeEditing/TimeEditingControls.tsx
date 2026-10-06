@@ -4,7 +4,7 @@ import {VoidTimeForm} from './TimeVoidControls';
 type Notice = { readonly kind: 'success' | 'info' | 'error'; readonly text: string };
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { View } from 'react-native';
-import { BUSINESS_TIME_ZONE, parseZonedLocalTimestamp, toZonedMinuteInput, parseEditedZonedMinute, shiftDay } from '@taptime/core';
+import { BUSINESS_TIME_ZONE, formatZonedDateTime, parseZonedLocalTimestamp, toZonedMinuteInput, parseEditedZonedMinute, shiftDay } from '@taptime/core';
 import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type BackfillTargetSelection, type SafeOwnTimeRecord, type SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type { MobileManagementScope } from '../auth/contracts';
 import type { MobileWorkCapability } from '../work/contracts';
@@ -55,13 +55,17 @@ export function AddTimeControl({day,targetMembershipId,onSaved}:{day:string;targ
     {open?<TimeEditForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}`} kind="backfill" day={day} targetMembershipId={targetMembershipId??context.membershipId} onSaved={onSaved} onClose={()=>setOpen(false)} />:null}
   </Card>;
 }
-export function TimeRecordControls({record,targetMembershipId,onSaved}:{record:SafeOwnTimeRecord;targetMembershipId?:string;onSaved:()=>Promise<void>}) {
+export function TimeRecordControls({record,targetMembershipId,onSaved,directStop=false,personName}:{directStop?:boolean;personName?:string;record:SafeOwnTimeRecord;targetMembershipId?:string;onSaved:()=>Promise<void>}) {
   const context=useContext(TimeEditingContext);
   const [form,setForm]=useState<'comment'|'correct'|'stop'|'void'|null>(null);
   const details=record.details;
   const own=context && (targetMembershipId===undefined || targetMembershipId===context.membershipId);
   const canEdit=context!==null && canManageTime(context);
   const canStop=canEdit && (!own || context?.role==='standortleitung');
+  if(directStop) return context && !own && canStop && details && record.status==='started' ? <View style={{gap:8}}>
+    <ActionButton title="Zeit beenden" disabled={!context.online || context.busy} onPress={()=>setForm('stop')}/>
+    {form==='stop'?<TimeEditForm kind="stop" personName={personName} record={record} targetMembershipId={targetMembershipId!} onSaved={onSaved} onClose={()=>setForm(null)}/>:null}
+  </View> : null;
   return <View style={{gap:8}}>
     {details?.overlapsAnotherRecord?<Text accessibilityRole="alert">überschneidet sich</Text>:null}
     {details?.change?<Text>{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {new Intl.DateTimeFormat('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:BUSINESS_TIME_ZONE}).format(new Date(details.change.at))} · {details.change.actor==='self'?'durch Beschäftigten':'durch Verwaltung'}: {details.change.reason}</Text>:null}
@@ -77,7 +81,7 @@ export function TimeRecordControls({record,targetMembershipId,onSaved}:{record:S
     {form==='void' && context?<VoidTimeForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} record={record} onSaved={onSaved} onClose={()=>setForm(null)}/>:form && form!=='void' && context?<TimeEditForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} kind={form} record={record} targetMembershipId={targetMembershipId??context.membershipId} onSaved={onSaved} onClose={()=>setForm(null)} />:null}
   </View>;
 }
-function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind:Exclude<TimeEditKind,'void'>;day?:string;record?:SafeOwnTimeRecord;targetMembershipId:string;onSaved:()=>Promise<void>;onClose:()=>void}) {
+function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,personName}:{personName?:string;kind:Exclude<TimeEditKind,'void'>;day?:string;record?:SafeOwnTimeRecord;targetMembershipId:string;onSaved:()=>Promise<void>;onClose:()=>void}) {
   const form = useRequiredForm();
   const context=useContext(TimeEditingContext)!;
   const [target,setTarget]=useState<SafeWorkTarget|null>(null);
@@ -156,6 +160,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose}:{kind
   const timeError='Bitte Datum und Uhrzeit in Europe/Berlin prüfen (Zeitumstellung).';
   const field=(label:string,value:string,set:(s:string)=>void,multiline=false,invalidTime=false,extraError:string|null=null)=><View style={{gap:4}}><Text>{label}</Text><RequiredTextField form={form} error={extraError ?? (label.includes("optional") ? (value && !hasVisibleText(value) ? "Bitte einen Kommentar eingeben." : null) : !hasVisibleText(value) ? `Bitte ${label} eingeben.` : multiline && Array.from(value).length>500 ? "Bitte höchstens 500 Zeichen eingeben." : invalidTime ? timeError : null)} accessibilityLabel={label} value={value} onChangeText={set} multiline={multiline} editable={!saving&&!archivePending} /></View>;
   return <View style={{gap:12}}>
+    {kind==='stop' && record ? <Text>{personName ? `${personName} · ` : ''}{record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</Text> : null}
     {kind==='backfill'?<><RequiredField form={form} error={!target || !targets.some(t=>t.targetType===target.targetType && t.targetId===target.targetId) ? "Bitte einen Kunden oder ein Projekt wählen." : null}><Text accessibilityRole="header">Kunde oder Projekt</Text>
       {targets.map(t=><ActionButton key={`${t.targetType}/${t.targetId}`} title={`${target===t?'✓ ':''}${t.displayName}`} tone="quiet" disabled={saving} onPress={()=>setTarget(t)} />)}
       {targets.length===0?<Text>Arbeitsziele sind noch nicht geladen. Aktualisiere die Ansicht.</Text>:null}

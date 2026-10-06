@@ -6,6 +6,7 @@ import { functionBodyDrift, latestFunctionBodies, type StoredFunction } from './
 import { closePoolAndDropTestDatabase } from './support/postgresTestDatabaseCleanup.mjs';
 
 const requiredFunctions = [
+  'operator_create_organization_v4', 'read_customer_hours_v1',
   'correct_time_record_v1', 'adjudicate_time_review_items_legacy_v1',
   'adjudicate_time_review_items_before_skip_v1', 'adjudicate_time_review_items_v1',
   'backfill_time_record_v1', 'comment_time_record_v1', 'prepare_administration_stop_v1',

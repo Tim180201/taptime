@@ -1,3 +1,4 @@
+import { OutcomeNotice } from '../design/OutcomeNotice';
 import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -24,9 +25,9 @@ export function EmployeeEnrollmentScreen({
     submission.current = true;
     setSubmitting(true);
     const submittedSecret = invitationSecret;
-    setInvitationSecret('');
     try {
-      await redeem(submittedSecret);
+      const result=await redeem(submittedSecret);
+      if(result.status==='enrolled')setInvitationSecret('');
     } finally {
       submission.current = false;
       setSubmitting(false);
@@ -38,7 +39,7 @@ export function EmployeeEnrollmentScreen({
     : notice === 'invalid_request'
       ? 'Das Einladungsgeheimnis hat kein gültiges Format.'
       : notice === 'request_failed'
-        ? 'Die Einladung konnte vorübergehend nicht geprüft werden. Du kannst es erneut versuchen.'
+        ? 'Die Einladung konnte gerade nicht geprüft werden. Versuche es erneut; deine Eingabe bleibt erhalten.'
         : null;
   return <Screen title="Als Beschäftigter beitreten"><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <Text style={styles.description}>
@@ -63,7 +64,7 @@ export function EmployeeEnrollmentScreen({
       loading={submitting}
       testID="redeem-employee-invitation-button"
     />
-    {message === null ? null : <Text style={styles.message}>{message}</Text>}
+    <OutcomeNotice message={submitting ? null : message} error/>
     <View style={styles.signOut}><ActionButton title="Abmelden" tone="quiet" onPress={signOut} /></View>
   </ScrollView></Screen>;
 }

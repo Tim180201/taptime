@@ -48,7 +48,7 @@ it('T100 allows rename and requires explicit deletion confirmation, preserving t
  render(<CustomersView administration={{readCustomerHours,manageCustomer} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:/Werkstatt/}));
  fireEvent.click(screen.getByText('Kunde löschen'));
- expect(screen.getByText('Kunde Werkstatt löschen? Stunden bleiben erhalten.')).toBeInTheDocument();
+ expect(screen.getByText('Kunde Werkstatt löschen? Der Kunde verschwindet aus der Auswahl; zugeordnete Tags werden frei. Bisherige Stunden bleiben erhalten.')).toBeInTheDocument();
  expect(manageCustomer).not.toHaveBeenCalled();
  fireEvent.click(screen.getByText('Löschen bestätigen'));
  expect(await screen.findByText('Erst die laufende Zeit beenden')).toBeInTheDocument();

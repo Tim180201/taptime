@@ -45,7 +45,7 @@ describe('rendered navigation', () => {
   });
   it('T068a shows the pause notice even when an offline capture shell was ready', () => {
     const html = markup('employee', false, true);
-    expect(html).toContain('Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.');
+    expect(html).toContain('Dein Betrieb ist pausiert. Bitte wende dich an Taptura.');
     expect(html).not.toContain('role="tab"');
   });
   it.each(['standortleitung', 'administrator'] as const)('T060 h: renders Tags only with NFC capability (%s)', role => {

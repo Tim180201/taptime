@@ -10,13 +10,13 @@ import { timeEditMessages,type TimeEditInput } from './timeEditing';
 import { ResponsiveSheet } from './MobileSheet';
 
 type ReadyState=Pick<Extract<AdminWebState,{status:'ready'}>,'role'|'membershipId'|'timeEditBusy'|'workTargets'|'availableSections'>;
-type Context={state:ReadyState;administration:AdminWebCapability;targetMembershipId:string;online:boolean};
+type Context={personLabel?:string;state:ReadyState;administration:AdminWebCapability;targetMembershipId:string;online:boolean};
 export const TimeEditingContext=createContext<Context|null>(null);
-export function TimeEditingProvider({state,administration,targetMembershipId,children}:{state:ReadyState;administration:AdminWebCapability;targetMembershipId?:string;children:ReactNode}) {
+export function TimeEditingProvider({state,administration,targetMembershipId,personLabel,children}:{personLabel?:string;state:ReadyState;administration:AdminWebCapability;targetMembershipId?:string;children:ReactNode}) {
   const [online,setOnline]=useState(()=>navigator.onLine);
   useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
   useEffect(()=>{void administration.loadWorkTargets?.();},[administration,state.membershipId]);
-  return <TimeEditingContext.Provider value={state.membershipId?{state,administration,targetMembershipId:targetMembershipId??state.membershipId,online}:null}>{children}</TimeEditingContext.Provider>;
+  return <TimeEditingContext.Provider value={state.membershipId?{state,administration,targetMembershipId:targetMembershipId??state.membershipId,personLabel:personLabel??'Sie selbst',online}:null}>{children}</TimeEditingContext.Provider>;
 }
 function canManageTime(state:ReadyState) {
   return state.role==='administrator' || (state.role==='standortleitung' && state.availableSections.includes('time_records'));
@@ -31,7 +31,7 @@ export function AddTimeControl({day}:{day:string}) {
     {open?<TimeEditForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}`} kind="backfill" day={day} onClose={close}/>:null}
   </div>;
 }
-export function TimeRecordControls({record}:{record:SafeOwnTimeRecord}) {
+export function TimeRecordControls({record,directStop=false}:{record:SafeOwnTimeRecord;directStop?:boolean}) {
   const context=useContext(TimeEditingContext),[form,setForm]=useState<'comment'|'correct'|'stop'|'void'|null>(null);
   const opener=useRef<HTMLButtonElement|null>(null);
   const own=context && context.targetMembershipId===context.state.membershipId;
@@ -39,6 +39,10 @@ export function TimeRecordControls({record}:{record:SafeOwnTimeRecord}) {
   const canStop=canEdit && (!own || context?.state.role==='standortleitung');
   const details=record.details;
   const close=()=>{setForm(null);opener.current?.focus();};
+  if(directStop) return !own && canStop && details && context.administration.saveTimeEdit && record.status==='started' ? <div className="time-edit-controls">
+    <button ref={opener} disabled={!context.online||context.state.timeEditBusy} onClick={()=>setForm('stop')}>Zeit beenden</button>
+    {form==='stop'?<TimeEditForm kind="stop" record={record} onClose={close}/>:null}
+  </div> : null;
   return <div className="time-edit-controls">
     {details?.overlapsAnotherRecord?<p className="time-overlap">überschneidet sich</p>:null}
     {details?.change?<p className="verbatim-reason">{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {formatZonedDateTime(details.change.at)} · {details.change.actor==='self'?'durch Beschäftigten':'durch Verwaltung'}: {details.change.reason}</p>:null}
@@ -123,6 +127,7 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
   const dateValue=parseZonedLocalTimestamp(`${date}T12:00`);
   const label=kind==='backfill'?'Zeit hinzufügen':kind==='comment'?'Kommentar schreiben':kind==='stop'?'Zeit beenden':'Zeit ändern';
   return <ResponsiveSheet label={label} onCancel={onClose} busy={saving}><RequiredForm ref={form} className="form-grid time-edit-form" aria-label={label} onSubmit={e=>{e.preventDefault();void save();}}>
+    {kind==='stop' && record ? <p className="full-field">{context.personLabel} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</p> : null}
     {kind==='backfill'?<><label>Kunde oder Projekt<select required value={selected} disabled={saving||archivePending} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>{targets?.status==='ready'?targets.value.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{t.displayName}</option>):null}</select></label>
       {targets?.status!=='ready'?<p role="status">{targets?.status==='unavailable'?targets.message:'Arbeitsziele werden geladen.'} <button type="button" className="quiet" disabled={saving||archivePending} onClick={()=>{if(managedBackfill) setTargetReload(value=>value+1);else void context.administration.loadWorkTargets?.();}}>Arbeitsziele erneut laden</button></p>:targets.value.length===0?<p>Es sind keine Arbeitsziele verfügbar.</p>:null}
       <label>Datum<input data-field-error={date && !dateValue ? "Bitte Datum in Europe/Berlin prüfen." : undefined} type="date" required value={date} disabled={saving||archivePending} onChange={e=>setDate(e.target.value)}/></label></>:null}

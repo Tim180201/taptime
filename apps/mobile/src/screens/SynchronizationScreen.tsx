@@ -12,6 +12,9 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
 }) {
   const state = useSyncExternalStore((listener) => scan.subscribe(listener), () => scan.getState(), () => scan.getState());
   const status = indicator ?? syncIndicator(state);
+  const unreported=state.untransferred?.filter(entry=>!entry.reported) ?? [];
+  const reported=state.untransferred?.filter(entry=>entry.reported) ?? [];
+  const pendingCount='queueCount' in state ? state.queueCount : state.status==='ready' && state.outcome===null ? 0 : null;
   return <Screen title="Abgleich"><ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 24 }}>
     <Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>
       Jeder Tap bleibt auf deinem Handy, bis seine externe Sicherung nachgewiesen ist.
@@ -19,15 +22,16 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
     <Card><Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>Zustand</Text>
       <Text accessibilityLiveRegion="polite" style={{ fontSize: 15, fontWeight: '800',
         color: status.kind === 'confirmed' ? mobileTokens.color.accent : mobileTokens.color.notice }}>
-        {state.transmissionPaused ? `Übertragung angehalten: ${presentScanState(state).message}` : state.updateRequired ? 'Bitte App aktualisieren' : state.untransferred?.length ? `${state.untransferred.length} Erfassung konnte nicht übertragen werden` : status.kind === 'confirmed' ? 'Alles bestätigt' : status.kind === 'pending' ? 'Wird nachgereicht'
+        {state.transmissionPaused ? `Übertragung angehalten: ${presentScanState(state).message}` : state.updateRequired ? 'Bitte App aktualisieren' : unreported.length ? `${unreported.length} Erfassung konnte nicht übertragen werden` : reported.length ? `${reported.length} Erfassung wird von deiner Verwaltung geprüft` : status.kind === 'confirmed' ? 'Alles bestätigt' : status.kind === 'pending' ? 'Wird nachgereicht'
           : status.kind === 'protected' ? 'Vorgänge geschützt' : status.kind === 'review' ? 'Prüfung erforderlich' : 'Noch nicht bestätigt'}
       </Text>
-      {state.untransferred?.length ? <Text>Der Beleg bleibt erhalten und sperrt den Kontowechsel. Prüfe „Meine Zeiten“; fehlende Zeit kannst du über „Nachtragen“ ergänzen.</Text> : status.kind === 'protected' || status.kind === 'review' ? <Text>{presentScanState(state).message}</Text> : null}
+      {unreported.length ? <Text>Der Beleg bleibt erhalten und sperrt den Kontowechsel. Prüfe „Meine Zeiten“; fehlende Zeit kannst du über „Zeit hinzufügen“ ergänzen.</Text> : !reported.length && (status.kind === 'protected' || status.kind === 'review') ? <Text>{presentScanState(state).message}</Text> : null}
+      {reported.length ? <Text>Die Verwaltung prüft diese Erfassung. Der Originalbeleg bleibt auf dem Handy erhalten.</Text> : null}
       {state.transmissionPaused ? state.untransferred?.map(entry=><Text key={entry.workEventId}>{entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>) : null}
     </Card>
     <Card><Text style={{ fontWeight: '800' }}>Wartet auf den Server</Text>
-      <Text>{status.count === null ? 'Der aktuelle Stand ist noch nicht bekannt.'
-        : status.count === 0 ? 'Keine offenen Übertragungen' : `${status.count} ${status.count === 1 ? 'Vorgang wartet' : 'Vorgänge warten'} auf Bestätigung.`}</Text>
+      <Text>{pendingCount === null ? 'Der aktuelle Stand ist noch nicht bekannt.'
+        : pendingCount === 0 ? 'Keine offenen Übertragungen' : `${pendingCount} ${pendingCount === 1 ? 'Vorgang wartet' : 'Vorgänge warten'} auf Bestätigung.`}</Text>
     </Card>
     {state.transmissionPaused && state.transmissionRetryAvailable
       ? <ActionButton title="Erneut versuchen" onPress={() => scan.retry()} /> : null}

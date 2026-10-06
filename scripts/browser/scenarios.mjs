@@ -126,8 +126,9 @@ export const operatorScenarios = [
     async p=>p.getByLabel('Grund',{exact:true}).fill('Mehr Zugänge im Betrieb')]),
   ...['error','busy'].map(state=>scenario('create-'+state,'/','table',[
     click('Betrieb anlegen'), async p=>p.getByLabel('Name des Betriebs').fill('Beispiel Gebäudereinigung'),
+    async p=>p.getByLabel('Name des ersten Administrators',{exact:true}).fill('Erika Beispiel'),
     async p=>p.getByLabel('E-Mail des ersten Administrators').fill('admin@example.invalid'), click('Anlegen und einladen'),
-    async p=>p.locator(state==='error' ? '[role="alert"]' : 'button:disabled').waitFor(),
+    async p=>p.locator(state==='error' ? '[role="alert"]' : 'button:disabled').first().waitFor(),
   ])),
   ...['Pausieren','Fortsetzen'].flatMap((name,i)=>[
     scenario('status-form-'+i,'/','table',[click(name)]),

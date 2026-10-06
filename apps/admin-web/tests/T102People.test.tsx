@@ -15,7 +15,7 @@ it('groups loaded pages once per location, keeps departed separate and shows cus
  expect(screen.getAllByRole('heading',{name:'Nord'})).toHaveLength(2); // once current, once departed
  expect(screen.getAllByRole('heading',{name:'Süd'})).toHaveLength(1);
  expect(screen.getByRole('heading',{name:'Ausgeschieden'})).toBeDefined();
- expect(screen.getAllByText('2,5 h')).toHaveLength(4);
+ expect(screen.getAllByText('2:30 h')).toHaveLength(4);
  expect(screen.getAllByRole('columnheader',{name:'Diesen Monat'})).toHaveLength(3);
 });
 it('keeps two equal-named location identities separate without repeating their headings across loaded pages',()=>{
@@ -27,7 +27,7 @@ it('falls back to the legacy list without v3, and skips location headings when d
  const {rerender}=render(<PeopleTable people={[person]} navigate={vi.fn()} locationId={null} locationsEnabled/>);
  expect(screen.queryByText('Diesen Monat')).toBeNull();expect(screen.queryByRole('heading',{name:'Nord'})).toBeNull();
  rerender(<PeopleTable people={[{...person,monthWorkDurationSeconds:0,departedAt:null}]} navigate={vi.fn()} locationId={null}/>);
- expect(screen.getByText('0,0 h')).toBeDefined();expect(screen.queryByRole('heading',{name:'Nord'})).toBeNull();
+ expect(screen.getByText('0:00 h')).toBeDefined();expect(screen.queryByRole('heading',{name:'Nord'})).toBeNull();
 });
 it.each([1,2,3,4])('requests v4 and still reads response v%s',async version=>{
  const row=version===1?person:version===2?{...person,departedAt:null}:{...person,departedAt:null,monthWorkDurationSeconds:10};

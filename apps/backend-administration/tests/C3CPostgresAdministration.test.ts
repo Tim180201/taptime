@@ -1889,7 +1889,6 @@ describe('Location setup administration workflow', () => {
       { kind: 'membership', displayName: `Zugehörigkeit ${ids.membershipEmployeeA}` },
       { kind: 'customer', displayName: 'Active Customer A' },
       { kind: 'project', displayName: 'Projekt Polaris' },
-      { kind: 'work_target', displayName: 'Allgemeine Arbeitszeit' },
       { kind: 'nfc_assignment', displayName: 'Assigned Tag A → Active Customer A' },
     ]);
   });
@@ -1946,6 +1945,7 @@ describe('Location setup administration workflow', () => {
     ]);
     for (const item of workTargets.items) {
       if (!('targetType' in item)) throw new Error('Expected a work target item');
+      if (item.targetType === 'general_work') continue; // D-102: deliberately unbound.
       await expect(coordinator.mutateLocationSetup({
         ...actor,
         commandId: randomUUID(),

@@ -1,3 +1,5 @@
+import type {OfflineActiveCapture} from '../work/OfflineActiveCapture';
+import {OfflineActiveTimeCard} from './OfflineActiveTimeCard';
 import { useRequiredForm, RequiredField } from '../design/RequiredField';
 import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -24,6 +26,7 @@ type OfflineManualOutcome =
 
 export function OfflineManualCaptureScreen({
   manual,
+  offlineActive,
   restorationKey,
   confirmedOwnTime,
   capturePending=false,
@@ -31,6 +34,7 @@ export function OfflineManualCaptureScreen({
   transmissionRetryAvailable=false,
 }: {
   readonly manual: OfflineManualCaptureCapability;
+  readonly offlineActive?:OfflineActiveCapture;
   readonly confirmedOwnTime?: MobileOwnTimeQueryResponse | null;
   readonly capturePending?: boolean;
   readonly transmissionPaused?: boolean;
@@ -124,6 +128,7 @@ export function OfflineManualCaptureScreen({
 
   return <Screen title="Manuell erfassen" eyebrow="OFFLINE">
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+      {offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard capture={offlineActive} value={confirmedOwnTime} disabled={capturePending||transmissionPaused||pendingWorkEventId!==null}/> : null}
       <Card>
         {transmissionPaused ? <Text accessibilityRole="alert">{transmissionRetryAvailable
           ? 'Übertragung angehalten. Bitte versuche es erneut.' : 'Übertragung angehalten. Bitte wende dich an deine Verwaltung.'}</Text>

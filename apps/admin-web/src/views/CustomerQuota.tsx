@@ -1,6 +1,6 @@
 import { RequiredForm } from '../RequiredForm';
 import { useState } from 'react';
-import { formatHours } from '@taptime/core';
+import { formatHours, formatQuotaHours } from '@taptime/core';
 import { parseQuotaHours, quotaStageLabel, type QuotaStage } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability } from '../contracts';
 export interface QuotaCustomer {customerId:string;workDurationSeconds:number;quotaSeconds?:number|null;quotaStage?:QuotaStage}
@@ -8,7 +8,7 @@ export function QuotaProgress({customer}:{customer:QuotaCustomer}) {
   if(customer.quotaSeconds==null) return null;
   const label=quotaStageLabel(customer.quotaStage);
   return <div className={`quota-progress quota-${customer.quotaStage}`}>
-    <strong>{formatHours(customer.workDurationSeconds*1000)} / {formatHours(customer.quotaSeconds*1000)} h</strong>
+    <strong>{formatHours(customer.workDurationSeconds*1000)} von {formatQuotaHours(customer.quotaSeconds)} h</strong>
     <progress aria-label="Monatskontingent" max={customer.quotaSeconds} value={Math.min(customer.workDurationSeconds,customer.quotaSeconds)}/>
     {label?<span>{label}</span>:null}
   </div>;
@@ -24,7 +24,7 @@ export function CustomerQuota({customer,administration,onSaved,editable}:{custom
     if(result?.status==='succeeded'){setEditing(false);onSaved();}
     else setError(result?.status==='forbidden'?'Sie dürfen das Kontingent dieses Kunden nicht mehr ändern.':'Das Kontingent konnte nicht gespeichert werden. Bitte versuchen Sie es erneut. Ihre Eingabe bleibt erhalten.');
   };
-  return <section aria-label="Kontingent"><p>Kontingent: {customer.quotaSeconds==null?'Kein Kontingent':`${formatHours(customer.quotaSeconds*1000)} h pro Monat`}</p>
+  return <section aria-label="Kontingent"><p>Kontingent: {customer.quotaSeconds==null?'Kein Kontingent':`${formatQuotaHours(customer.quotaSeconds)} h pro Monat`}</p>
     <QuotaProgress customer={customer}/>
     {editing?<RequiredForm onSubmit={event=>{event.preventDefault();if(!busy)void save();}}>
       {error?<p role="alert">{error}</p>:null}

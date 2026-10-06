@@ -164,7 +164,7 @@ describe('T-077 own times through the product navigation', () => {
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     await press('Meine Zeiten');
     expect(container.textContent).toContain('Für diesen Tag zählt keine Arbeitszeit.');
-    expect(container.textContent).toContain('0,0 h');
+    expect(container.textContent).toContain('0:00 h');
     await act(async () => h.workStore.publish({ status: 'unavailable', message: 'Arbeitsdaten sind derzeit nicht erreichbar.' }));
     expect(container.querySelector('[role="alert"]')?.textContent).toBe('Arbeitsdaten sind derzeit nicht erreichbar.');
     expect(container.textContent).not.toContain('Für diesen Tag zählt keine Arbeitszeit.');

@@ -1,4 +1,7 @@
-import { captureStatus } from '@taptime/mobile-work-contract';
+import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
+import type { OfflineActiveCapture } from '../work/OfflineActiveCapture';
+import { OfflineActiveTimeCard } from './OfflineActiveTimeCard';
+import { ActiveTimeCard } from './ActiveTimeCard';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +18,9 @@ import {
 } from '../scan/contracts';
 
 interface ScanScreenProps {
+  readonly offline?:boolean;
+  readonly offlineActive?:OfflineActiveCapture;
+  readonly confirmedOwnTime?:MobileOwnTimeQueryResponse|null;
   readonly actor: ProductMembershipRole | 'offline';
   readonly scan: ProductScanCapability;
   readonly signOut: () => Promise<void>;
@@ -29,7 +35,7 @@ export interface ScanScreenPresentation {
   readonly tone: 'neutral' | 'success' | 'warning' | 'error';
 }
 
-export function ScanScreen({ actor, scan, signOut, embedded = false, work, onManualCapture }: ScanScreenProps) {
+export function ScanScreen({ actor, scan, signOut, embedded = false, work, onManualCapture, offline=false,offlineActive,confirmedOwnTime }: ScanScreenProps) {
   const workState = useSyncExternalStore(listener=>work?.subscribe(listener)??(()=>{}),()=>work?.getState()??null,()=>work?.getState()??null);
   const ios = Platform.OS === 'ios';
   const state = useSyncExternalStore((listener) => scan.subscribe(listener),
@@ -41,7 +47,8 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
     return () => { unsubscribe(); presenter.dispose(); };
   }, [scan, presenter, work]);
   const showMoment = moment !== null && !state.transmissionPaused;
-  const ready = isScanReadyState(state);
+  const ready = isScanReadyState(state) && !(workState?.status==='ready' && workState.submitting);
+  const scanBusy=state.status==='scanning' || state.status==='submitting';
   const resting = !state.transmissionPaused && ((ready && (state.status === 'saved_locally' || state.status === 'server_decision' && presentScanState(state).tone === 'success' || ('outcome' in state && (state.outcome === null || presentScanState(state).tone === 'success'))))
     || state.status === 'scanning');
   const presentation = presentScanState(state, Platform.OS);
@@ -49,6 +56,11 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
     {embedded ? null : <View style={styles.header}><Text style={styles.brand}>Taptura</Text>
       <Text style={styles.role}>{presentActor(actor)}</Text></View>}
     <ScrollView contentContainerStyle={styles.content}>
+      {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard capture={offlineActive} value={confirmedOwnTime} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
+      {!offline && work && workState?.status==='ready' && workState.ownTime.activeRecord ? <ActiveTimeCard record={workState.ownTime.activeRecord}
+        disabled={scanBusy || workState.submitting || !!workState.capturePending || !!state.transmissionPaused || !!state.updateRequired}
+        onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : null}
+      {workState?.status==='ready' && workState.feedback ? <Text accessibilityLiveRegion="polite">{workState.feedback}</Text> : null}
       <View style={styles.scene} accessibilityLiveRegion="polite" testID="scan-status">
         <TouchTarget accessibilityRole="button" accessibilityLabel={ios ? 'Tag scannen' : 'NFC-Tag jetzt scannen'}
           accessibilityState={{ disabled: !ready }} disabled={!ready}
@@ -92,7 +104,6 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
     {onManualCapture ? <ActionButton title="Manuell erfassen" tone="secondary"
       accessibilityLabel="Manuell erfassen" accessibilityHint="Arbeitsziel oder Pause auswählen. Start, Pause, Fortsetzen und Stopp von Hand erfassen."
       disabled={workState?.status==='ready' && workState.submitting} onPress={onManualCapture} /> : null}
-    {workState?.status==='ready' && workState.ownTime.activeRecord ? <Text style={styles.statusMessage}>{captureStatus(workState.ownTime.activeRecord)}</Text> : null}
     {embedded ? null : <ActionButton title="Abmelden" tone="quiet" onPress={signOut} />}
   </SafeAreaView>;
 }

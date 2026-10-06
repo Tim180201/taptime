@@ -27,6 +27,7 @@ export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:
   return <ResponsiveSheet label="Zeiteintrag löschen" onCancel={onClose} busy={saving}>
     <RequiredForm className="form-grid time-edit-form" aria-label="Zeiteintrag löschen" onSubmit={event=>{event.preventDefault();void save();}}>
       <h3 className="full-field">Zeiteintrag löschen</h3>
+      <p className="full-field">{context.personLabel ?? 'Sie selbst'} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – {record.stoppedAt ? formatZonedDateTime(record.stoppedAt) : 'läuft'}</p>
       <p className="full-field">Der Eintrag zählt danach nicht mehr. Er bleibt mit dem Grund in der Historie sichtbar. Das Löschen kann nicht rückgängig gemacht werden.</p>
       <label className="full-field">Grund<select data-field-error={!code ? "Wählen Sie einen Grund." : undefined} required aria-label="Grund" autoFocus value={code} disabled={saving} onChange={e=>setCode(e.target.value as VoidReasonCode|'')}>
         <option value="">Bitte auswählen</option>{Object.entries(VOID_REASONS).map(([value,label])=><option key={value} value={value}>{label}</option>)}

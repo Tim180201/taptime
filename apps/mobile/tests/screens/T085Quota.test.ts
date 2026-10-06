@@ -43,12 +43,12 @@ it('manager edits half hours, removes quota and sees server progress and stage',
  const setCustomerQuota=vi.fn(async()=>({status:'succeeded' as const})),readCustomerHours=vi.fn(async()=>({status:'ready' as const,value:quota}));
  const work={readCustomerHours,setCustomerQuota} as unknown as MobileWorkCapability;
  await act(async()=>root.render(createElement(CustomersScreen,{work,authorityContext:{role:'standortleitung'}})));
- expect(container.textContent).toContain('36,0 / 40,0 h');expect(container.textContent).toContain('Kontingent fast erreicht');
- await click('Werkstatt');await click('Ändern');
+ expect(container.textContent).toContain('36:00 von 40 h');expect(container.textContent).toContain('Kontingent fast erreicht');
+ await click('Werkstatt');await click('Kontingent ändern');
  const input=container.querySelector('input')!;
  const change=async(value:string)=>{await act(async()=>{const current=container.querySelector('input')!;Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(current,value);current.dispatchEvent(new Event('input',{bubbles:true}));});};
  await change('40,5');await click('Kontingent speichern');expect(setCustomerQuota).toHaveBeenCalledWith(cid,2430);
- await click('Ändern');await change('');await click('Kontingent speichern');expect(setCustomerQuota).toHaveBeenLastCalledWith(cid,null);
+ await click('Kontingent ändern');await change('');await click('Kontingent speichern');expect(setCustomerQuota).toHaveBeenLastCalledWith(cid,null);
 });
 it('quota notice acknowledges each stage, isolates membership and hides pending old reply',async()=>{
  const saved=new Map<string,string>(),storage={read:async(key:string)=>saved.get(key)??null,write:async(key:string)=>{saved.set(key,'1');}};

@@ -52,6 +52,7 @@ textarea {
   background: var(--raised);
   padding: 10px 12px;
 }
+input, select, textarea { border-color: var(--muted); }
 button {
   cursor: pointer;
 }

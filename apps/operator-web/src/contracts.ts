@@ -1,5 +1,6 @@
 import { OperatorError } from "./OperatorError";
 export const OPERATOR_PACKAGE_ACCEPT = 'application/vnd.taptime.operator.v2+json';
+export const OPERATOR_NAMED_ADMIN_ACCEPT = 'application/vnd.taptime.operator.v3+json';
 export interface PackageUsage {
   package_size: number | null;
   active_access_count: number;

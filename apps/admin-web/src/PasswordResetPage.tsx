@@ -4,7 +4,7 @@ import type { Notice } from './contracts';
 import type { RecoveryPasswordCapability, RecoveryPasswordResult } from './SupabaseRecoveryAuth';
 import './styles.css';
 
-export const expiredResetLinkMessage = 'Der Link ist abgelaufen oder wurde schon benutzt. Fordern Sie in der App oder hier unter „Passwort vergessen“ einen neuen an.';
+export const expiredResetLinkMessage = 'Der Link ist abgelaufen oder wurde schon benutzt. Öffnen Sie „Im Browser anmelden“ und wählen Sie dort „Passwort vergessen“. Sie können auch in der App einen neuen Link anfordern.';
 const messages: Record<Exclude<RecoveryPasswordResult, 'succeeded'>, string> = {
   invalid_link: expiredResetLinkMessage,
   weak_password: 'Dieses Passwort wurde nicht angenommen. Bitte wählen Sie ein längeres, neues Passwort.',

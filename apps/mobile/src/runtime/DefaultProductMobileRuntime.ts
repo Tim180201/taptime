@@ -197,6 +197,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     });
     this.offlineManualCapability = Object.freeze({
       readOfflineManualTargets: () => offlineManualCapture.readOfflineManualTargets(),
+      hasUnconfirmedCapture: () => offlineManualCapture.hasUnconfirmedCapture?.() ?? Promise.resolve(true),
       captureManual: (target: SafeWorkTarget) => offlineManualCapture.captureManual(target),
       captureBreak: () => offlineManualCapture.captureBreak?.()
         ?? Promise.resolve({ status: 'unavailable' as const }),

@@ -1326,7 +1326,7 @@ it('T103 own/manual: keyboard selects a target and starts one event without a pa
   await render(<App administration={{...capability,getState:capability.getState,subscribe:capability.subscribe,captureManual}}/>);
   const choice=await screen.findByRole('button',{name:'Werkstatt'});
   choice.focus();await userEvent.keyboard('{Enter}');
-  screen.getByRole('button',{name:'Zeit starten'}).focus();await userEvent.keyboard('{Enter}');
+  screen.getByRole('button',{name:/^Zeit starten/}).focus();await userEvent.keyboard('{Enter}');
   expect(captureManual).toHaveBeenCalledExactlyOnceWith(target);
   expect(screen.queryByRole('radio')).not.toBeInTheDocument();
 });
@@ -1496,4 +1496,17 @@ it.each([['2026-07-21T10:01','Höchstens 24 Stunden.'],['2099-07-20T10:00','Das 
  expect(capability.prepareAdjudication).not.toHaveBeenCalled();
  expect(screen.getByText(message)).toBeInTheDocument();
  expect(screen.getByLabelText('Ende')).toHaveAttribute('aria-invalid','true');
+});
+
+it('T107 permits location activation with unbound general work and offers no binding field for it', async () => {
+  window.history.replaceState(null, '', '/einrichtung');
+  const capability = new FakeCapability({...readyState, locationSetup:{
+    locations:[{id:berlin.id,displayName:berlin.name,active:true,rowVersion:1}],
+    memberships:[],workTargets:[{targetType:'general_work',targetId:'general',displayName:'Allgemeine Arbeitszeit',locationId:null}],activationGaps:[],
+  }});
+  await render(<App administration={capability}/>);
+  await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
+  expect(screen.getByRole('button',{name:'Standort-Funktion einschalten'})).toBeEnabled();
+  expect(screen.queryByRole('combobox',{name:/Allgemeine Arbeitszeit/})).toBeNull();
+  expect(screen.getByText(/Allgemeine Arbeitszeit braucht keine Standortbindung/)).toBeInTheDocument();
 });

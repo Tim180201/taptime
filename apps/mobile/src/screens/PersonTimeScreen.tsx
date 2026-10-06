@@ -1,3 +1,4 @@
+import {TimeRecordControls} from '../timeEditing/TimeEditingControls';
 import { useState } from 'react';
 import { invitationMessage } from '../employees/presentation';
 import type { InvitationStatus } from '../employees/contracts';
@@ -21,7 +22,8 @@ export function PersonTimeScreen({person,value,onBack,onRefresh,busy=false,faile
       <Card><View style={{flexDirection:'row',gap:8,alignItems:'center'}}><LineIcon name="person" /><Text accessibilityRole="header" style={{fontSize:22,lineHeight:28,fontWeight:'800',flex:1}}>{person.displayName}</Text></View>
         <Text>{roleName(person.role)}{person.location ? ` · ${person.location.name}` : ''}</Text>
         <Text>{value?.activeRecord ? `Aktiv seit ${formatClock(Date.parse(value.activeRecord.startedAt))} · ${value.activeRecord.targetDisplayName}`
-          : value ? 'Gerade inaktiv' : 'Arbeitszeiten werden geladen …'}</Text></Card>
+          : value ? 'Gerade inaktiv' : 'Arbeitszeiten werden geladen …'}</Text>
+        {value?.activeRecord ? <TimeRecordControls directStop personName={person.displayName} record={value.activeRecord} targetMembershipId={person.membershipId} onSaved={onRefresh}/> : null}</Card>
       {onResend ? <ActionButton title="Einladung erneut senden" disabled={resending} onPress={async()=>{
         setResending(true);
         try { const status=await onResend(); setResendNotice(status==='succeeded'?'Die Einladung wurde per E-Mail versendet.':

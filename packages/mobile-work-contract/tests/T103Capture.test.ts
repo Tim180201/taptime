@@ -34,6 +34,6 @@ it('uses newly loaded server durations and pause intervals in confirmed feedback
     calendar:{asOf:'2026-10-04T09:47:00.000Z',workDurationSeconds:12900,breakDurationSeconds:1320,
       breakIntervals:[{startedAt:'2026-10-04T08:30:00.000Z',stoppedAt:'2026-10-04T08:52:00.000Z'}]}};
   const after={...page,activeRecord:null,records:[record]};
-  expect(contract.captureFeedback('time_entry_stopped',before,after)).toBe('Zeit beendet · Kunde X · 08:12–11:47 · 3 h 35 min');
-  expect(contract.captureFeedback('break_stopped',before,after)).toBe('Pause beendet · 10:30–10:52 · 22 min');
+  expect(contract.captureFeedback('time_entry_stopped',before,after)).toBe('Zeit beendet · Kunde X · 08:12–11:47 · 3:35 h');
+  expect(contract.captureFeedback('break_stopped',before,after)).toBe('Pause beendet · 10:30–10:52 · 0:22 h');
 });

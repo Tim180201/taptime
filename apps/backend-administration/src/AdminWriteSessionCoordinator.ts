@@ -1253,19 +1253,6 @@ async function readLocationSetupPage(
              AND binding.revoked_at IS NULL
          ))
        UNION ALL
-       SELECT 3, 'work_target', target.target_id, target.display_name
-       FROM taptime_server.work_targets AS target
-       WHERE target.organization_id = $1 AND target.active AND target.target_type = 'general_work'
-         AND 1 <> (
-           SELECT count(*) FROM taptime_server.work_target_location_assignments AS binding
-           JOIN taptime_server.locations AS location
-             ON location.organization_id = binding.organization_id
-            AND location.id = binding.location_id AND location.active
-           WHERE binding.organization_id = target.organization_id
-             AND binding.target_type = target.target_type
-             AND binding.target_id = target.target_id AND binding.revoked_at IS NULL
-         )
-       UNION ALL
        SELECT 4, 'nfc_assignment', assignment.id,
               tag.display_name || ' → ' || COALESCE(target.display_name, 'Arbeitsziel fehlt')
        FROM taptime_server.nfc_assignments AS assignment

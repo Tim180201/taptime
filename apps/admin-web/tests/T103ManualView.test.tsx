@@ -25,3 +25,17 @@ it('T101 start marks the target choice and clears it before any capture',async()
  fireEvent.click(screen.getByRole('button',{name:'Zeit starten'}));expect(captureManual).not.toHaveBeenCalled();expect(screen.getByRole('group',{name:'Arbeitsziel'}).getAttribute('aria-invalid')).toBe('true');expect(document.activeElement).toBe(screen.getByRole('group',{name:'Arbeitsziel'}));
  fireEvent.click(screen.getByRole('button',{name:'Kunde X'}));expect(screen.getByRole('group',{name:'Arbeitsziel'}).hasAttribute('aria-invalid')).toBe(false);expect(screen.queryByRole('alert')).toBeNull();
 });
+
+it('T107 clears a selected target hidden by search and never submits it',async()=>{
+ const {fireEvent}=await import('@testing-library/react');const captureManual=vi.fn();
+ const state={status:'ready',workTargets:{status:'ready',value:[target]},manual:{busy:false,pending:false,message:null},calendar:{status:'ready',targetMembershipId:null,month:'2026-10',value:{activeRecord:null,records:[],nextCursor:null}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
+ render(<ManualView state={state} administration={{...administration,captureManual} as AdminWebCapability}/>);
+ fireEvent.click(screen.getByRole('button',{name:'Kunde X'}));
+ expect(screen.getByRole('button',{name:'Zeit starten · Kunde X'})).toBeDefined();
+ fireEvent.change(screen.getByRole('searchbox'),{target:{value:'anders'}});
+ expect(screen.getByText('Keine Arbeitsziele für ‚anders‘ gefunden.')).toBeDefined();
+ fireEvent.click(screen.getByRole('button',{name:'Zeit starten'})); expect(captureManual).not.toHaveBeenCalled();
+ fireEvent.click(screen.getByRole('button',{name:'Suche löschen'}));
+ expect(screen.getByRole('button',{name:'Kunde X'}).getAttribute('aria-pressed')).toBe('false');
+ fireEvent.click(screen.getByRole('button',{name:'Zeit starten'})); expect(captureManual).not.toHaveBeenCalled();
+});

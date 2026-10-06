@@ -2,7 +2,7 @@ import type { InvitationStatus } from './contracts';
 const messages: Record<InvitationStatus,string> = {
   rate_limited:'Zu viele Anfragen. Bitte warte eine Minute, bevor du die Einladung erneut sendest.',
   succeeded:'Die Einladung wurde per E-Mail versendet.',
-  succeeded_existing_account:'Das Konto besteht bereits; es wurde keine E-Mail verschickt. Informieren Sie die Person, dass sie ihr Passwort oder „Passwort vergessen“ nutzen kann.',
+  succeeded_existing_account:'Das Konto besteht bereits. Es wurde keine E-Mail verschickt. Bitte die Person, sich mit ihrem Passwort anzumelden oder „Passwort vergessen“ zu nutzen.',
   invalid_request:'Bitte prüfe Name, E-Mail und Standort.',
   invalid_email:'Bitte gib eine gültige E-Mail-Adresse ein.',
   command_id_conflict:'Diese Anfrage wurde mit anderen Angaben verwendet. Bitte öffne die Einladung erneut.',

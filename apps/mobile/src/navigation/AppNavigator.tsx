@@ -1,3 +1,4 @@
+import {OfflineActiveCapture} from '../work/OfflineActiveCapture';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { CustomerQuotaNotice } from '../screens/QuotaNotice';
 import { CustomersScreen } from '../screens/CustomersScreen';
@@ -5,7 +6,7 @@ import { TimeEditingProvider } from '../timeEditing/TimeEditingControls';
 import type { TimeEditingCapability } from '../timeEditing/TimeEditingCoordinator';
 import type { EmployeesCapability } from '../employees/contracts';
 import { EmployeesScreen } from '../screens/EmployeesScreen';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MobileSessionCapability, ProductMembershipRole, MobileManagementScope } from '../auth/contracts';
@@ -71,6 +72,9 @@ export function AppNavigator({
   } else if (state.status !== 'context_unavailable') {
     confirmedOwnTime.current=null;confirmedOwner.current=null;
   }
+  const offlineActive=useMemo(()=>new OfflineActiveCapture(offlineManual),[offlineManual,confirmedOwner.current]);
+  useLayoutEffect(()=>{offlineActive.start();return()=>offlineActive.dispose();},[offlineActive]);
+  useLayoutEffect(()=>{if(state.status==='authenticated' && workState?.status==='ready')offlineActive.updateSnapshot(workState.ownTime);},[offlineActive,state.status,workState]);
   useEffect(() => {
     if (state.status === 'authenticated' && work !== undefined) {
       void work.refresh();
@@ -90,7 +94,7 @@ export function AppNavigator({
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
     return <TimeEditingProvider key={accountKey} capability={timeEditing} work={work} membershipId={state.session.membershipId} role={state.session.role} managementScope={state.session.managementScope}><ProductShell key={accountKey} identityLabel={state.identityLabel} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
-      scan={scan} administration={administration} work={work} customerAuthority={state.session} offlineManual={offlineManual} /></TimeEditingProvider>;
+      scan={scan} administration={administration} work={work} customerAuthority={state.session} offlineManual={offlineManual} offlineActive={offlineActive} /></TimeEditingProvider>;
   }
   if (state.status === 'enrollment_only') {
     return <EmployeeEnrollmentScreen
@@ -103,13 +107,13 @@ export function AppNavigator({
     if (canPresentOfflineCaptureShell(state, scanState)) {
       return (
         <ProductShell key="offline" identityLabel={state.identityLabel} role="offline" session={session} scan={scan}
-          administration={administration} offlineManual={offlineManual} confirmedOwnTime={confirmedOwnTime.current} />
+          administration={administration} offlineManual={offlineManual} offlineActive={offlineActive} confirmedOwnTime={confirmedOwnTime.current} />
       );
     }
     return (
       <MessageScreen title={state.updateRequired ? 'Bitte App aktualisieren' : state.organizationPaused
-        ? 'Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.'
-        : 'Sitzungskontext vorübergehend nicht verfügbar.'}>
+        ? 'Dein Betrieb ist pausiert. Bitte wende dich an Taptura.'
+        : 'Dein Zugang konnte gerade nicht geladen werden. Versuche es erneut.'}>
         {state.updateRequired ? <Text>Deine Erfassungen bleiben auf dem Handy gespeichert.</Text> : <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />}
         <ActionButton title="Abmelden" tone="quiet" onPress={() => session.signOut()} />
       </MessageScreen>
@@ -134,7 +138,7 @@ export function AppNavigator({
   );
 }
 
-function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual, confirmedOwnTime }: {
+function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual, confirmedOwnTime, offlineActive }: {
   readonly customerAuthority?: {readonly membershipId:string;readonly role:string};
   readonly role: ProductMembershipRole | 'offline';
   readonly identityLabel?: string;
@@ -146,6 +150,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   readonly administration: AdminSetupCapability;
   readonly employees?: EmployeesCapability;
   readonly work?: MobileWorkCapability;
+  readonly offlineActive:OfflineActiveCapture;
   readonly confirmedOwnTime?: MobileOwnTimeQueryResponse | null;
   readonly offlineManual: OfflineManualCaptureCapability;
 }) {
@@ -211,12 +216,14 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
           accessibilityElementsHidden={showSync || destination !== 'capture'}
           importantForAccessibility={showSync || destination !== 'capture' ? 'no-hide-descendants' : 'auto'}>
           {role==='offline'?<View><ActionButton title="Zeit hinzufügen" disabled onPress={()=>{}} /><Text>Nachtragen ist nur online möglich.</Text></View>:null}
-          <ScanScreen actor={role} scan={scan} work={work} signOut={() => session.signOut()} onManualCapture={() => navigate('manual')} embedded />
+          <ScanScreen actor={role} scan={scan} work={work} signOut={() => session.signOut()} onManualCapture={() => navigate('manual')} embedded
+            offlineActive={offlineActive} confirmedOwnTime={workState?.status==='ready'?workState.ownTime:confirmedOwnTime}
+            offline={role==='offline' || !!scanState.transmissionPaused || !!(workState?.status==='ready' && workState.capturePending && !workState.submitting)} />
         </View>
         {showSync ? <SynchronizationScreen scan={scan} indicator={status} signOut={() => session.signOut()} />
           : destination === 'capture' ? null
           : destination === 'manual' ? role === 'offline' || scanState.transmissionPaused || workState?.status === 'ready' && workState.capturePending && !workState.submitting
-              ? <OfflineManualCaptureScreen manual={offlineManual} restorationKey={role === 'offline' ? 'offline' : 'pending'} transmissionPaused={scanState.transmissionPaused} transmissionRetryAvailable={scanState.transmissionRetryAvailable} capturePending={workState?.status==='ready' && workState.capturePending} confirmedOwnTime={workState?.status === 'ready' ? workState.ownTime : confirmedOwnTime} />
+              ? <OfflineManualCaptureScreen manual={offlineManual} offlineActive={offlineActive} restorationKey={role === 'offline' ? 'offline' : 'pending'} transmissionPaused={scanState.transmissionPaused} transmissionRetryAvailable={scanState.transmissionRetryAvailable} capturePending={workState?.status==='ready' && workState.capturePending} confirmedOwnTime={workState?.status === 'ready' ? workState.ownTime : confirmedOwnTime} />
               : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
           : destination === 'customers' ? work && customerAuthority ? <CustomersScreen administration={nfcSetupAvailable ? administration : undefined} work={work} authorityContext={customerAuthority} openCustomer={quotaCustomer}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
           : destination === 'employees' ? managementScope && employees ? <EmployeesScreen employees={employees} scope={managementScope} locationsEnabled={locationsEnabled} /> : null

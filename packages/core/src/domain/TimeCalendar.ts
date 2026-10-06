@@ -131,13 +131,17 @@ export function formatClock(value: string | number): string {
   return new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE, hour: '2-digit', minute: '2-digit' })
     .format(new Date(value));
 }
+/** Display durations in whole minutes; totals and payroll retain their exact seconds. */
 export function formatHours(milliseconds: number): string {
-  return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1, minimumFractionDigits: 1 })
-    .format(milliseconds / 3_600_000);
+  const minutes = Math.floor(Math.max(0, milliseconds) / 60_000);
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`;
 }
 export function formatDuration(milliseconds: number): string {
-  const minutes = Math.floor(milliseconds / 60_000);
-  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')} h`;
+  return `${formatHours(milliseconds)} h`;
+}
+/** A quota is an entered number of hours, not an elapsed duration. */
+export function formatQuotaHours(seconds: number): string {
+  return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 10 }).format(seconds / 3600);
 }
 export function provenance(record: CalendarInterval): string {
   if (record.startedVia === 'manual' || record.stoppedVia === 'manual') return 'manuell erfasst';

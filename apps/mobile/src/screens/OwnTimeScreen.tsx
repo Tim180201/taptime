@@ -19,7 +19,7 @@ export function OwnTimeScreen({ work, scan }: { readonly work: MobileWorkCapabil
   }, [state, work]);
   const untransferred=scanState?.untransferred?.length ? <Card>
     {scanState.untransferred.map(entry => <Text key={entry.workEventId}>{entry.displayName} · {new Date(entry.occurredAt).toLocaleString('de-DE',{timeZone:'Europe/Berlin'})} · {entry.reported ? 'wird von deiner Verwaltung geprüft' : 'nicht übertragen'}</Text>)}
-    <Text>Prüfe die gespeicherten Zeiten. Fehlende Zeit kannst du über „Nachtragen“ ergänzen. Der Originalbeleg bleibt erhalten. Nicht gemeldete Belege sperren den Kontowechsel.</Text>
+    <Text>Prüfe die gespeicherten Zeiten. Fehlende Zeit kannst du über „Zeit hinzufügen“ ergänzen. Der Originalbeleg bleibt erhalten. Nicht gemeldete Belege sperren den Kontowechsel.</Text>
   </Card> : null;
   if (state.status !== 'ready') return <Screen title="Meine Zeiten">{untransferred}<Card>
     <Text accessibilityRole={state.status === 'unavailable' ? 'alert' : undefined}>

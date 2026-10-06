@@ -1,6 +1,7 @@
+import {captureStatus} from '@taptime/mobile-work-contract';
 import type { EmployeeAccountInvitationCapability } from '../EmployeeAccountInvitationForm';
 import { ACCOUNT_INVITATION_NOTICES } from '../accountInvitation';
-import { TimeEditingProvider } from '../TimeEditingControls';
+import { TimeEditingProvider, TimeRecordControls } from '../TimeEditingControls';
 import { businessDay } from '@taptime/core';
 import {
 	useEffect, useState
@@ -27,7 +28,7 @@ export default function PersonView({state,administration,route,navigate,accountI
   useEffect(()=>{ void administration.loadPersonTime?.(personId,month); },[administration,personId,month,state.selectedLocation?.id]);
   const calendar=state.calendar;
   const person=state.managedPeople?.status === 'ready' ? state.managedPeople.value.people.find(person=>person.membershipId === personId) : null;
-  return <TimeEditingProvider key={personId} state={state} administration={administration} targetMembershipId={personId}><a href={canonicalRoutePath(defaultRoute('beschaeftigte',route.locationId))}
+  return <TimeEditingProvider key={personId} state={state} administration={administration} targetMembershipId={personId} personLabel={person?.displayName ?? 'Ausgewählte Person'}><a href={canonicalRoutePath(defaultRoute('beschaeftigte',route.locationId))}
     onClick={event=>navigateFromLink(event,defaultRoute('beschaeftigte',route.locationId),navigate)}>Zurück zu Beschäftigte</a>
     {accountInvitations?.resend ? <button disabled={resending} onClick={async()=>{
       setResending(true);
@@ -39,8 +40,8 @@ export default function PersonView({state,administration,route,navigate,accountI
     {resendNotice ? <p role="status">{resendNotice}</p> : null}
     <h2>{person?.displayName ?? 'Zeiten der Person'}</h2>
     {calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'ready'
-      ? <TimeCalendar value={calendar.value} month={month} onMonthChange={month=>navigate({...route,month})}
-        onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/>
+      ? <>{calendar.value.activeRecord ? <div className="feedback-band"><p>{captureStatus(calendar.value.activeRecord)}</p><TimeRecordControls directStop record={calendar.value.activeRecord}/></div> : null}<TimeCalendar value={calendar.value} month={month} onMonthChange={month=>navigate({...route,month})}
+        onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/></>
       : calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'unavailable'
         ? <div role="alert"><p>{calendar.message}</p><button onClick={()=>void administration.loadPersonTime?.(personId,month)}>Monat erneut laden</button></div>
         : <DelayedSkeleton label="Zeiten werden geladen"/>}</TimeEditingProvider>;

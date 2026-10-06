@@ -31,7 +31,7 @@ describe('OwnTimeScreen presentation', () => {
   });
 
   it('distinguishes loaded history from complete history', () => {
-    expect(ownTimeLoadStatus(20, 'v1:next')).toContain('weitere verfügbar');
-    expect(ownTimeLoadStatus(27, null)).toContain('vollständig');
+    expect(ownTimeLoadStatus(20, 'v1:next')).toContain('Weitere Zeiten werden geladen');
+    expect(ownTimeLoadStatus(27, null)).toBe('27 Einträge geladen.');
   });
 });

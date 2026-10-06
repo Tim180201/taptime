@@ -210,3 +210,26 @@ it.each(['\u0001','\u0085','\u200b','\u00a0\t'])('T106 rejects invisible operato
  expect(await coordinator.execute('high','status',{...base,status:'paused'})).toEqual({status:'invalid_request'});
  expect(await coordinator.execute('high','package',{...base,packageSize:2})).toEqual({status:'invalid_request'});
 });
+
+it('T107 requires and persists the first administrator name with an idempotent new contract',async()=>{
+ const inviter={issuer,invite:vi.fn().mockResolvedValue({status:'invited',subject:'named-admin'}),diagnose:vi.fn(),needsAttention:vi.fn()};
+ const coordinator=new OperatorCoordinator(pool,verifier,inviter);
+ const input={commandId:'97000000-0000-4000-8000-000000000001',name:'Namensbetrieb',email:'name@example.invalid',packageSize:2,administratorName:'  Erika Beispiel  '};
+ for(const administratorName of ['', '\u00a0\t','\u200b','x'.repeat(121)]) expect(await coordinator.execute('high','create',{...input,administratorName},true,true)).toEqual({status:'invalid_request'});
+ expect(inviter.invite).not.toHaveBeenCalled();
+ const result=await coordinator.execute('high','create',input,true,true);expect(result.status).toBe('succeeded');
+ expect((await pool.query('SELECT display_name FROM taptime_server.memberships WHERE organization_id=$1',[result.organization_id])).rows).toEqual([{display_name:'Erika Beispiel'}]);
+ expect(await coordinator.execute('high','create',input,true,true)).toEqual(result);
+ expect(await coordinator.execute('high','create',{...input,administratorName:'Andere Person'},true,true)).toEqual({status:'command_id_conflict'});
+ expect(inviter.invite).toHaveBeenCalledOnce();
+});
+
+it('T107 negotiates the named administrator while preserving older HTTP variants',async()=>{
+ const execute=vi.fn().mockResolvedValue({status:'invalid_request'});
+ const server=createBackendHttpServer({operator:{execute}} as unknown as BackendApiDependencies);
+ await listen(server);const address=server.address();if(!address||typeof address==='string')throw Error('No address');
+ try{for(const [accept,withPackage,withName] of [['application/json',false,false],['application/vnd.taptime.operator.v2+json',true,false],['application/vnd.taptime.operator.v3+json',true,true]] as const){
+  const response=await fetch(`http://127.0.0.1:${address.port}/v1/operator/organizations/create`,{method:'POST',headers:{'x-forwarded-host':'betreiber.tb-infra.de',authorization:'Bearer a.b.c','content-type':'application/json',accept},body:'{}'});
+  await response.text();expect(execute).toHaveBeenLastCalledWith('a.b.c','create',{},withPackage,withName);
+ }}finally{await closeServer(server);}
+});
