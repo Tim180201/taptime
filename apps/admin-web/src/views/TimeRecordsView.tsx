@@ -63,7 +63,7 @@ export default function TimeRecordsView({
   const format = formatZonedDateTime;
   const formatExact = formatZonedDateTime;
   const exportText = exportPresentation(state.timeWindow, route.month !== null);
-  const exportAction=state.availableSections.includes('time_export') ? <div className="export-options"><label>CSV-Format<select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4)}><option value={4}>Standard (mit Herkunft und Kommentar)</option><option value={3}>Bisheriges Format</option></select></label><button className="header-primary"
+  const exportAction=state.availableSections.includes('time_export') ? <div className="export-options"><label>Datei für die Lohnbuchhaltung (CSV)<select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4)}><option value={4}>Standard (mit Entstehung und Kommentar)</option><option value={3}>Früheres CSV-Format – nur verwenden, wenn Ihre Lohnbuchhaltung es benötigt</option></select></label><button className="header-primary"
     disabled={state.timeReviewBusy} aria-busy={state.timeReviewBusy}
     onClick={()=>void administration.exportTimeRecords(exportVersion)}>{exportText.label}</button><small>{exportText.hint}</small></div> : null;
   if (!state.availableSections.includes('time_records')) {
@@ -109,7 +109,7 @@ export default function TimeRecordsView({
             <option value="abgeschlossen">Abgeschlossen</option>
           </select>
         </label>
-        <label>Erfassungsart
+        <label>Erfasst mit
           <select value={captureType}
             onChange={(event) => navigate({...route,captureType:event.target.value as typeof captureType})}>
             <option value="alle">Alle</option>
@@ -145,13 +145,13 @@ export default function TimeRecordsView({
       </div>
       <div className="table-scroll" role="region" tabIndex={0} aria-label="Geladene Arbeitszeiten">
         <table>
-          <thead><tr><th>Beschäftigte</th><th>Arbeitsziel</th><th>Zeitraum</th><th>Erfassungsart</th><th>Herkunft</th><th>Korrekturstand</th><th>Status</th></tr></thead>
+          <thead><tr><th>Mitarbeiter</th><th>Arbeitsziel</th><th>Zeitraum</th><th>Erfasst mit</th><th>Entstehung</th><th>Änderungen</th><th>Status</th></tr></thead>
           <tbody>{visibleRecords.map((record) => <tr key={record.timeRecordId}>
-            <td data-label="Beschäftigte">{record.employeeDisplayName}</td><td data-label="Arbeitsziel">{targetLabel(record.targetType)} · {record.targetDisplayName}</td>
+            <td data-label="Mitarbeiter">{record.employeeDisplayName}</td><td data-label="Arbeitsziel">{targetLabel(record.targetType)} · {record.targetDisplayName}</td>
             <td data-label="Zeitraum">{format(record.startedAt)} – {record.stoppedAt === null ? 'läuft' : format(record.stoppedAt)}</td>
-            <td data-label="Erfassungsart">{captureLabel(record.startedVia, record.stoppedVia)}</td>
-            <td data-label="Herkunft">{record.details ? {nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin] : record.source === 'canonical' ? 'Regulär' : 'Wiederhergestellt'}</td>
-            <td data-label="Korrekturstand">{record.effectiveRevisionNumber}<TimeRecordControls record={record}/></td>
+            <td data-label="Erfasst mit">{captureLabel(record.startedVia, record.stoppedVia)}</td>
+            <td data-label="Entstehung">{record.details ? {nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin] : record.source === 'canonical' ? 'Regulär' : 'Wiederhergestellt'}</td>
+            <td data-label="Änderungen">{record.effectiveRevisionNumber}<TimeRecordControls record={record}/></td>
             <td data-label="Status">{record.status === 'started' ? 'Läuft' : 'Abgeschlossen'}
               {record.overlapsAnotherRecord ? ' · Überschneidung' : ''}</td>
           </tr>)}</tbody>
@@ -171,7 +171,7 @@ export default function TimeRecordsView({
       {visibleRecords.length === 0 && state.timeRecordsNextCursor === null && !hasFilters
         ? <div className="empty first-list-empty">
             <strong>Noch keine Arbeitszeiten</strong>
-            <p>Sobald Beschäftigte ein Arbeitsziel auslösen, erscheinen ihre Arbeitszeiten hier.</p>
+            <p>Sobald Mitarbeiter ein Arbeitsziel auslösen, erscheinen ihre Arbeitszeiten hier.</p>
             <a className="button-link secondary-link"
               href={canonicalRoutePath(defaultRoute('einrichtung', route.locationId))}
               onClick={(event) => navigateFromLink(
@@ -224,13 +224,13 @@ export default function TimeRecordsView({
         {timeError === null ? null : <p id="correction-time-error"
           className="field-error" role="alert">{timeError}</p>}
         <label>Neuer Beginn
-          <input data-field-error={startedAt && !parseEditedZonedMinute(startedAt,originalStart) ? "Bitte Beginn in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={startedAt}
+          <input data-field-error={startedAt && !parseEditedZonedMinute(startedAt,originalStart) ? "Bitte Beginn in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={startedAt}
             aria-describedby={timeError === null ? undefined : 'correction-time-error'}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setStartedAt(event.target.value)} />
         </label>
         <label>Neues Ende
-          <input data-field-error={intervalError ?? (stoppedAt && !parseEditedZonedMinute(stoppedAt,originalStop) ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined)} required type="datetime-local" step="60" value={stoppedAt}
+          <input data-field-error={intervalError ?? (stoppedAt && !parseEditedZonedMinute(stoppedAt,originalStop) ? "Bitte Ende in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined)} required type="datetime-local" step="60" value={stoppedAt}
             aria-describedby={timeError === null ? undefined : 'correction-time-error'}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setStoppedAt(event.target.value)} />

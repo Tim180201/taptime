@@ -25,7 +25,7 @@ export function reviewReasonLabel(value: string): string {
     previous_work_event_organization_mismatch: 'Vorherige Erfassung gehört zu einem anderen Betrieb',
     previous_work_event_user_mismatch: 'Vorherige Erfassung gehört zu einer anderen Person',
     previous_work_event_target_mismatch: 'Vorherige Erfassung gehört zu einem anderen Ziel',
-    previous_work_event_subject_mismatch: 'Vorherige Erfassung gehört zu einer anderen Erfassungsart',
+    previous_work_event_subject_mismatch: 'Vorherige Erfassung wurde auf andere Weise ausgelöst',
     active_break_organization_mismatch: 'Laufende Pause gehört zu einem anderen Betrieb',
     active_break_user_mismatch: 'Laufende Pause gehört zu einer anderen Person',
     active_break_time_entry_mismatch: 'Laufende Pause gehört zu einer anderen Arbeitszeit',
@@ -51,7 +51,7 @@ export function targetLabel(value: 'customer' | 'project' | 'general_work'): str
 }
 
 export function triggerLabel(value: 'nfc' | 'manual' | 'administration'): string {
-  return value === 'administration' ? 'Beendet durch Verwaltung' : value === 'nfc' ? 'Gescannt' : 'Manuell erfasst';
+  return value === 'administration' ? 'Von der Verwaltung beendet' : value === 'nfc' ? 'Gescannt' : 'Manuell erfasst';
 }
 
 export function captureLabel(

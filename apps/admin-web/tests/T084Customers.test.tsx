@@ -4,7 +4,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import type { CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability } from '../src/contracts';
-import CustomersView from '../src/views/CustomersView';
+import CustomerPage from '../src/views/CustomersView';
+import {useState, type ComponentProps} from 'react';
+function CustomersView(props:ComponentProps<typeof CustomerPage>){
+ const [route,setRoute]=useState(props.route);
+ return <CustomerPage {...props} route={route} navigate={next=>{setRoute(next);props.navigate(next);}}/>;
+}
 import { defaultRoute } from '../src/navigation';
 import { AdminWebApiClient } from '../src/AdminWebApiClient';
 const cid='40000000-0000-4000-8000-000000000001',mid='70000000-0000-4000-8000-000000000001';
@@ -24,7 +29,7 @@ it.each([own,people])('shows server-delivered $scope breakdown, running state an
   expect(screen.getByLabelText('Nächster Monat')).toBeDisabled();
   expect(screen.getAllByRole('option')).toHaveLength(24);
   fireEvent.change(screen.getByRole('combobox',{name:'Monat'}),{target:{value:'2026-08'}});
-  expect(navigate).toHaveBeenCalledWith({...defaultRoute('kunden'),month:'2026-08'});
+  expect(navigate).toHaveBeenCalledWith({...defaultRoute('kunden'),customerId:cid,month:'2026-08'});
 });
 it('distinguishes empty and unavailable, retries and does not show stale response after a month change',async()=>{
  const readCustomerHours=vi.fn<NonNullable<AdminWebCapability['readCustomerHours']>>().mockResolvedValueOnce({status:'unavailable'}).mockResolvedValueOnce({status:'ready',value:{...own,customers:[]}});
@@ -48,7 +53,7 @@ it('T100 allows rename and requires explicit deletion confirmation, preserving t
  render(<CustomersView administration={{readCustomerHours,manageCustomer} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:/Werkstatt/}));
  fireEvent.click(screen.getByText('Kunde löschen'));
- expect(screen.getByText('Kunde Werkstatt löschen? Der Kunde verschwindet aus der Auswahl; zugeordnete Tags werden frei. Bisherige Stunden bleiben erhalten.')).toBeInTheDocument();
+ expect(screen.getByText('Kunde Werkstatt löschen? Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.')).toBeInTheDocument();
  expect(manageCustomer).not.toHaveBeenCalled();
  fireEvent.click(screen.getByText('Löschen bestätigen'));
  expect(await screen.findByText('Erst die laufende Zeit beenden')).toBeInTheDocument();

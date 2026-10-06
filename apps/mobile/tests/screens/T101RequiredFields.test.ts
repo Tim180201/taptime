@@ -8,7 +8,7 @@ import type { OfflineManualCaptureCapability } from '../../src/offline/OfflineCa
 const native=vi.hoisted(()=>({announce:vi.fn(),focus:vi.fn()}));
 vi.mock('react-native',()=>{
  const view=({children,ref,style,focusable,accessible,accessibilityLabel}:{children?:ReactNode;ref?:Ref<HTMLDivElement>;style?:unknown;focusable?:boolean;accessible?:boolean;accessibilityLabel?:string})=>h('div',{ref,tabIndex:focusable?0:undefined,'aria-label':accessibilityLabel,'data-accessible':accessible,'data-style':JSON.stringify(style)},children);
- return {View:view,ScrollView:view,StyleSheet:{create:(v:unknown)=>v},Platform:{OS:'android'},BackHandler:{addEventListener:()=>({remove(){}})},findNodeHandle:(node:unknown)=>node,AccessibilityInfo:{announceForAccessibility:native.announce,setAccessibilityFocus:native.focus}};
+ return {RefreshControl:()=>null,View:view,ScrollView:view,StyleSheet:{create:(v:unknown)=>v},Platform:{OS:'android'},BackHandler:{addEventListener:()=>({remove(){}})},findNodeHandle:(node:unknown)=>node,AccessibilityInfo:{announceForAccessibility:native.announce,setAccessibilityFocus:native.focus}};
 });
 vi.mock('../../src/design/LineIcon',()=>({LineIcon:()=>null}));
 vi.mock('../../src/design/AppBuildIdentity',()=>({AppBuildIdentity:()=>null}));
@@ -54,10 +54,10 @@ it('T101 invitation marks name, email and location independently',async()=>{
  expect(invite).not.toHaveBeenCalled();await fill('Name','Alex');await fill('E-Mail','alex@example.test');await press('Berlin');expect(box.querySelector('[role="alert"]')).toBeNull();
 });
 it.each([false,true])('T101 tag assignment / pause=%s requires its label and choice',async pause=>{
- const api=admin();await mount(h(AdminSetupScreen,{administration:api as unknown as AdminSetupCapability}));await press('Tag zuordnen');if(pause)await press('Pause');await press('Tag erfassen');hint('Bitte Bezeichnung eingeben.');if(!pause){hint('Bitte einen Kunden oder Pause wählen.');expect(document.activeElement?.getAttribute('aria-label')).toContain('Kunden');}
- expect(api.provision).not.toHaveBeenCalled();expect(api.provisionBreak).not.toHaveBeenCalled();await fill('Bezeichnung des NFC-Tags','Eingang');if(!pause)await press('Kunde A');expect(box.querySelector('[role="alert"]')).toBeNull();
+ const api=admin();await mount(h(AdminSetupScreen,{administration:api as unknown as AdminSetupCapability}));await press('Karte einrichten');if(pause)await press('Pause');await press('Karte einrichten');hint('Bitte Bezeichnung eingeben.');if(!pause){hint('Bitte einen Kunden oder Pause wählen.');expect(document.activeElement?.getAttribute('aria-label')).toContain('Kunden');}
+ expect(api.provision).not.toHaveBeenCalled();expect(api.provisionBreak).not.toHaveBeenCalled();await fill('Bezeichnung der Karte','Eingang');if(!pause)await press('Kunde A');expect(box.querySelector('[role="alert"]')).toBeNull();
 });
-it.each(['Nur anlegen','NFC-Tag zuordnen'])('T101 customer creation via %s marks name and location before any creation',async title=>{
+it.each(['Nur anlegen','Karte einrichten'])('T101 customer creation via %s marks name and location before any creation',async title=>{
  const api=admin();await mount(h(CustomerCreation,{administration:api as unknown as AdminSetupCapability,onCreated:vi.fn()}));await press('+ Kunde hinzufügen');await press(title);hint('Bitte Name eingeben.');hint('Bitte einen Standort wählen.');expect(api.createCustomer).not.toHaveBeenCalled();expect(api.provision).not.toHaveBeenCalled();await fill('Name des neuen Kunden','Alex');await press('Berlin');expect(box.querySelector('[role="alert"]')).toBeNull();
 });
 it('T101 customer rename rejects blank names at the field',async()=>{

@@ -138,9 +138,9 @@ export function OfflineManualCaptureScreen({
         <Text>{confirmedOwnTime ? `Stand ${captureClock(confirmedOwnTime.activeRecord?.calendar?.asOf ?? confirmedOwnTime.windowEndedAt)}, offline` : 'Offline'}</Text>
       </Card>
       <Text style={styles.explanation}>
-        Wähle dein Arbeitsziel. Deine Erfassung bleibt auf dem Handy gespeichert und startet oder stoppt die Arbeitszeit nach der Übertragung.
+        Kunde, Projekt oder allgemeine Arbeit. Deine Erfassung bleibt auf dem Handy gespeichert und startet oder stoppt die Arbeitszeit nach der Übertragung.
       </Text>
-      <RequiredField form={form} error={selected===null && !pause ? "Bitte ein Arbeitsziel oder Pause wählen." : null}><Text style={styles.group}>Arbeitsziel</Text>
+      <RequiredField form={form} error={selected===null && !pause ? "Bitte ein Arbeitsziel oder Pause wählen." : null}><Text style={styles.group}>Wofür arbeitest du?</Text>
       <TextField
         value={search}
         onChangeText={setSearch}
@@ -190,7 +190,7 @@ export function OfflineManualCaptureScreen({
             </Text>}
       </Card>
       <Card><Text style={styles.group}>Zuletzt</Text><Text>
-        {outcome === null ? 'Bestätigte Zeiten siehst du nach dem Abgleich.' : offlineOutcomeLabel(outcome,transmissionPaused)}
+        {outcome === null ? 'Bestätigte Zeiten siehst du nach der Übertragung.' : offlineOutcomeLabel(outcome,transmissionPaused)}
       </Text></Card>
     </ScrollView>
   </Screen>;
@@ -212,7 +212,7 @@ function offlineOutcomeLabel(outcome: OfflineManualOutcome,transmissionPaused=fa
     return 'Eine andere Arbeitszeit ist aktiv.';
   }
   if (outcome === 'work_location_unavailable') return 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.';
-  if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';
+  if (outcome === 'escalation_required') return 'Wird von der Verwaltung geprüft. Deine Arbeitszeit bleibt unverändert.';
   return 'Deine Erfassung wurde abgelehnt. Melde dich erneut an.';
 }
 
@@ -223,7 +223,7 @@ function sameTarget(left: SafeWorkTarget, right: SafeWorkTarget): boolean {
 function groupLabel(type: SafeWorkTarget['targetType']): string {
   if (type === 'customer') return 'Kunden';
   if (type === 'project') return 'Projekte';
-  return 'Allgemeine Arbeit';
+  return 'Allgemeine Arbeitszeit – ohne Kunde oder Projekt';
 }
 
 const styles = StyleSheet.create({

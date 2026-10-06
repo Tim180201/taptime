@@ -14,7 +14,7 @@ it('groups loaded pages once per location, keeps departed separate and shows cus
  rerender(<PeopleTable people={[a,{...a,membershipId:'two',displayName:'Berta'},{...a,membershipId:'three',displayName:'Cem',location:{id:'south',name:'Süd'}},{...a,membershipId:'four',displayName:'Dora',departedAt:'2026-10-01T00:00:00.000Z'}]} navigate={vi.fn()} locationId={null} locationsEnabled/>);
  expect(screen.getAllByRole('heading',{name:'Nord'})).toHaveLength(2); // once current, once departed
  expect(screen.getAllByRole('heading',{name:'Süd'})).toHaveLength(1);
- expect(screen.getByRole('heading',{name:'Ausgeschieden'})).toBeDefined();
+ expect(screen.getByRole('heading',{name:'Ausgeschiedene Mitarbeiter'})).toBeDefined();
  expect(screen.getAllByText('2:30 h')).toHaveLength(4);
  expect(screen.getAllByRole('columnheader',{name:'Diesen Monat'})).toHaveLength(3);
 });

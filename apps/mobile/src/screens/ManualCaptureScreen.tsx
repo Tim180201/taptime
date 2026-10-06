@@ -49,8 +49,8 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
       {state.capturePending ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
       {state.ownTime.activeRecord ? <ActiveTimeCard record={state.ownTime.activeRecord}
         disabled={state.submitting || !!state.capturePending} onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : <>
-        <Text style={styles.explanation}>Wähle dein Arbeitsziel. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
-        <RequiredField form={form} error={selected===null ? "Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten." : null}><Text style={styles.selection}>Arbeitsziel</Text>
+        <Text style={styles.explanation}>Kunde, Projekt oder allgemeine Arbeit. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
+        <RequiredField form={form} error={selected===null ? "Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten." : null}><Text style={styles.selection}>Wofür arbeitest du?</Text>
         <TextField value={search} onChangeText={setSearch} editable={!state.submitting} placeholder="Kunde oder Projekt suchen" accessibilityLabel="Arbeitsziel suchen" style={styles.search} />
         <View style={styles.list}>
           {(['customer', 'project', 'general_work'] as const).map(type => {
@@ -79,7 +79,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
 function groupLabel(type: WorkTargetType): string {
   if (type === 'customer') return 'Kunden';
   if (type === 'project') return 'Projekte';
-  return 'Allgemeine Arbeit';
+  return 'Allgemeine Arbeitszeit – ohne Kunde oder Projekt';
 }
 
 const styles = StyleSheet.create({

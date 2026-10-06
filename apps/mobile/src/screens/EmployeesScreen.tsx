@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useSyncExternalStore } from 'react';
-import { ScrollView, View } from 'react-native';
+import { RefreshControl, ScrollView, View } from 'react-native';
 import type { MobileManagementScope } from '../auth/contracts';
 import type { EmployeesCapability } from '../employees/contracts';
 import { initials } from '../employees/presentation';
@@ -22,30 +22,30 @@ export function EmployeesScreen({employees,scope,locationsEnabled}: {
     <ActionButton title="Aktualisieren" onPress={()=>employees.refresh()} /></Card></Screen>;
   const packageUsage=scope.kind==='organization' ? state.summary.packageUsage : null;
   const monthHours=state.summary.people.length>0 && state.summary.people.every(person=>person.monthWorkDurationSeconds!==undefined);
-  return <Screen title="Mitarbeiter"><ScrollView contentContainerStyle={{gap:16,paddingBottom:24}}>
+  return <Screen title="Mitarbeiter"><ScrollView refreshControl={<RefreshControl refreshing={state.busy} onRefresh={()=>{if(employees.getState().status==='list' && !state.busy)void employees.refresh();}}/>} contentContainerStyle={{gap:16,paddingBottom:24}}>
     {packageUsage?.packageSize != null ? <Card><Text>{packageUsage.activeAccessCount} Zugänge, Paket {packageUsage.packageSize}</Text>
       {packageUsage.activeAccessCount > packageUsage.packageSize ? <Text style={{color:mobileTokens.color.warning}}>Paket überschritten. Alle Zugänge bleiben nutzbar.</Text> : null}</Card> : null}
     <Card><Text style={{fontSize:40,lineHeight:48,fontWeight:'800'}}>{state.summary.runningCount} / {state.summary.totalCount}</Text>
-      <Text>gerade aktiv · {scope.kind==='organization' ? 'Betrieb' : scope.locationName}</Text>
-      <Text style={{fontSize:13,color:mobileTokens.color.textMuted}}>Stand {formatOwnTimeTimestamp(state.summary.serverTime)}</Text></Card>
-    <View style={{flexDirection:'row',gap:12}}>{[true,false].map(active=><TouchTarget key={String(active)} accessibilityRole="tab" accessibilityLabel={active ? 'Aktiv' : 'Inaktiv'}
+      <Text>mit laufender Zeit · {scope.kind==='organization' ? 'Betrieb' : scope.locationName}</Text>
+      <Text style={{fontSize:13,color:mobileTokens.color.textMuted}}>Stand {formatClock(Date.parse(state.summary.serverTime))}</Text></Card>
+    <View style={{flexDirection:'row',gap:12}}>{[true,false].map(active=><TouchTarget key={String(active)} accessibilityRole="tab" accessibilityLabel={active ? 'Zeit läuft' : 'Keine laufende Zeit'}
       accessibilityState={{selected:state.filter===active}} onPress={()=>employees.filter(active)}
       style={{flex:1,minHeight:48,padding:12,borderRadius:10,backgroundColor:state.filter===active ? mobileTokens.color.accent : mobileTokens.color.surface}}>
-      <Text style={{textAlign:'center',fontWeight:'800',color:state.filter===active ? mobileTokens.color.onAccent : mobileTokens.color.text}}>{active ? 'Aktiv' : 'Inaktiv'}</Text></TouchTarget>)}</View>
-    {[{title:null,people:state.summary.people.filter(p=>!p.departedAt)},{title:'Ausgeschieden',people:state.summary.people.filter(p=>p.departedAt)}].map(group=><Fragment key={group.title ?? 'current'}>{group.title && group.people.length>0 ? <Text accessibilityRole="header" style={{fontWeight:'800'}}>{group.title}</Text> : null}{(monthHours && locationsEnabled ? [...new Set(group.people.map(person=>person.location?.id ?? ''))].map(id=>({
+      <Text style={{textAlign:'center',fontWeight:'800',color:state.filter===active ? mobileTokens.color.onAccent : mobileTokens.color.text}}>{active ? 'Zeit läuft' : 'Keine laufende Zeit'}</Text></TouchTarget>)}</View>
+    {[{title:null,people:state.summary.people.filter(p=>!p.departedAt)},{title:'Ausgeschiedene Mitarbeiter',people:state.summary.people.filter(p=>p.departedAt)}].map(group=><Fragment key={group.title ?? 'current'}>{group.title && group.people.length>0 ? <Text accessibilityRole="header" style={{fontWeight:'800'}}>{group.title}</Text> : null}{(monthHours && locationsEnabled ? [...new Set(group.people.map(person=>person.location?.id ?? ''))].map(id=>({
       title:group.people.find(person=>(person.location?.id ?? '')===id)?.location?.name ?? 'Ohne Standort',
       people:group.people.filter(person=>(person.location?.id ?? '')===id),key:id,
     })) : [{title:null,people:group.people,key:'all'}]).map(locationGroup=><Fragment key={locationGroup.key}>
       {locationGroup.title ? <Text accessibilityRole="header" style={{fontWeight:'800'}}>{locationGroup.title}</Text> : null}
-      {locationGroup.people.map(person=>      <TouchTarget key={person.membershipId} accessibilityRole="button" accessibilityLabel={`${person.displayName}, ${person.departedAt ? 'ausgeschieden' : person.isRunning ? 'aktiv' : 'inaktiv'}${monthHours ? `, Diesen Monat ${formatHours(person.monthWorkDurationSeconds!*1000)} Stunden` : ''}`} onPress={()=>employees.openPerson(person)}
+      {locationGroup.people.map(person=>      <TouchTarget key={person.membershipId} accessibilityRole="button" accessibilityLabel={`${person.displayName}, ${person.departedAt ? 'ausgeschieden' : person.isRunning ? 'Zeit läuft' : 'Keine laufende Zeit'}${monthHours ? `, Diesen Monat ${formatHours(person.monthWorkDurationSeconds!*1000)} Stunden` : ''}`} onPress={()=>employees.openPerson(person)}
       style={{minHeight:72,padding:12,gap:12,flexDirection:'row',alignItems:'center',backgroundColor:mobileTokens.color.surface,borderRadius:12,borderWidth:1,borderColor:mobileTokens.color.line}}>
       <View style={{width:40,height:40,borderRadius:20,alignItems:'center',justifyContent:'center',backgroundColor:mobileTokens.color.surfaceRaised}}><Text style={{fontWeight:'800'}}>{initials(person.displayName)}</Text></View>
       <View style={{flex:1}}><Text style={{fontWeight:'800'}}>{person.displayName}</Text>
-        <Text style={{fontSize:13,color:mobileTokens.color.textMuted}}>{person.isRunning ? `seit ${formatClock(Date.parse(person.runningSince!))} · ${person.runningTargetDisplayName}` : person.departedAt ? `Ausgeschieden am ${formatOwnTimeTimestamp(person.departedAt)}` : 'Gerade inaktiv'}</Text>
+        <Text style={{fontSize:13,color:mobileTokens.color.textMuted}}>{person.isRunning ? `seit ${formatClock(Date.parse(person.runningSince!))} · ${person.runningTargetDisplayName}` : person.departedAt ? `Ausgeschieden am ${formatOwnTimeTimestamp(person.departedAt)}` : 'Keine laufende Zeit'}</Text>
         {monthHours ? <Text style={{fontSize:13}}>Diesen Monat {formatHours(person.monthWorkDurationSeconds!*1000)} h</Text> : null}</View>
       <View style={{width:10,height:10,borderRadius:5,backgroundColor:person.isRunning ? mobileTokens.color.accent : mobileTokens.color.border}} />
     </TouchTarget>)}</Fragment>)}</Fragment>)}
-    {state.summary.people.length===0 ? <Card><Text>{state.filter ? 'Gerade ist niemand aktiv.' : 'Gerade ist niemand inaktiv.'}</Text></Card> : null}
+    {state.summary.people.length===0 ? <Card><Text>{state.filter ? 'Gerade läuft bei niemandem eine Zeit.' : 'Alle haben eine laufende Zeit.'}</Text></Card> : null}
     {state.failed ? <Text accessibilityRole="alert">Weitere Personen konnten nicht geladen werden. Bitte versuche es erneut.</Text> : null}
     {state.summary.nextCursor!==null ? <ActionButton title="Weitere laden" tone="quiet" disabled={state.busy} loading={state.busy} onPress={()=>employees.loadMore()} /> : null}
     <ActionButton title="Mitarbeiter einladen" onPress={()=>employees.openInvitation()} />

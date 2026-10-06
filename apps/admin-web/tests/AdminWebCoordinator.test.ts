@@ -897,7 +897,7 @@ describe('AdminWebCoordinator', () => {
         sections: {
           employees: {
             status: 'unavailable',
-            message: 'Die weiteren Beschäftigten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
+            message: 'Die weiteren Mitarbeiter passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -980,7 +980,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       reassignmentIntent: null,
-      notice: { kind: 'success', text: 'NFC-Tag wurde sicher neu zugeordnet.' },
+      notice: { kind: 'success', text: 'Karte wurde sicher neu zugeordnet.' },
     });
   });
 
@@ -1010,7 +1010,7 @@ describe('AdminWebCoordinator', () => {
     expect(coordinator.getState()).toMatchObject({
       status: 'ready',
       reassignmentIntent: null,
-      notice: { kind: 'error', text: 'Der Tag oder das Arbeitsziel ist nicht mehr verfügbar; die Zuordnung bleibt unverändert. Laden Sie die Einrichtung neu und wählen Sie erneut.' },
+      notice: { kind: 'error', text: 'Die Karte oder das Arbeitsziel ist nicht mehr verfügbar; die Zuordnung bleibt unverändert. Laden Sie die Einrichtung neu und wählen Sie erneut.' },
     });
     expect(api.reassignNfcTag).not.toHaveBeenCalled();
   });
@@ -1264,7 +1264,7 @@ describe('AdminWebCoordinator', () => {
         timeRecords: { status: 'ready' },
         reviewItems: {
           status: 'unavailable',
-          message: 'Die offenen Prüfungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
+          message: 'Die ungeklärten Erfassungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1357,7 +1357,7 @@ describe('AdminWebCoordinator', () => {
         timeRecords: { status: 'ready' },
         reviewItems: {
           status: 'unavailable',
-          message: 'Die offenen Prüfungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
+          message: 'Die ungeklärten Erfassungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
         },
       },
     });
@@ -1390,7 +1390,7 @@ describe('AdminWebCoordinator', () => {
             ? { status: 'ready' }
             : {
                 status: 'unavailable',
-                message: 'Die Beschäftigten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
+                message: 'Die Mitarbeiter konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
               },
         },
       });
@@ -1828,7 +1828,7 @@ it.each([
   ['Standort wurde angelegt.', (c:AdminWebCoordinator)=>c.createLocation('Halle')],
   ['Standort wurde umbenannt.', (c:AdminWebCoordinator)=>c.renameLocation(membershipId,1,'Halle')],
   ['Standort wurde stillgelegt.', (c:AdminWebCoordinator)=>c.deactivateLocation(membershipId,1)],
-  ['Heimatstandort wurde zugewiesen.', (c:AdminWebCoordinator)=>c.setHomeLocation(membershipId,membershipId)],
+  ['Hauptarbeitsstandort wurde zugewiesen.', (c:AdminWebCoordinator)=>c.setHomeLocation(membershipId,membershipId)],
   ['Arbeitszuweisung wurde vergeben.', (c:AdminWebCoordinator)=>c.setWorkLocation(membershipId,membershipId,true)],
   ['Arbeitszuweisung wurde widerrufen.', (c:AdminWebCoordinator)=>c.setWorkLocation(membershipId,membershipId,false)],
   ['Verwaltungszuweisung wurde vergeben.', (c:AdminWebCoordinator)=>c.setManagementLocation(membershipId,membershipId,true)],

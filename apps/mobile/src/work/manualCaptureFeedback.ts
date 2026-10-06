@@ -16,7 +16,7 @@ export function manualCaptureOutcome(outcome: ManualTriggerOutcome): string {
     return 'Deine Arbeitszeit bleibt unverändert. Beende zuerst die Pause über „Pause beenden“.';
   }
   if (outcome === 'work_location_unavailable') return 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.';
-  if (outcome === 'escalation_required') return 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.';
+  if (outcome === 'escalation_required') return 'Wird von der Verwaltung geprüft. Deine Arbeitszeit bleibt unverändert.';
   if (outcome === 'rejected') return 'Sitzung nicht mehr gültig';
   if (outcome === 'not_transferred') return 'Deine Erfassung konnte nicht übertragen werden. Der Beleg bleibt auf dem Handy. Prüfe „Meine Zeiten“.';
   if (outcome === 'pending') return 'Deine Erfassung ist gespeichert, wird übertragen.';

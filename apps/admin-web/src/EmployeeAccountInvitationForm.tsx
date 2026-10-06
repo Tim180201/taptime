@@ -70,9 +70,9 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
 
   return <>
     {!open ? <button ref={trigger} onClick={() => setOpen(true)}>Mitarbeiter hinzufügen</button>
-      : <dialog ref={dialog} className="invitation-panel" aria-label="Beschäftigte Person einladen"
+      : <dialog ref={dialog} className="invitation-panel" aria-label="Mitarbeiter einladen"
         open={nativeDialog ? undefined : true} onCancel={event=>{event.preventDefault();if(!busy) setOpen(false);}}>
-        <h2>Beschäftigte Person einladen</h2>
+        <h2>Mitarbeiter einladen</h2>
         {notice === null ? null : <p role={notice.kind === 'error' ? 'alert' : 'status'}>{notice.text}</p>}
         <button className="quiet" disabled={busy} onClick={()=>{setOpen(false);requestAnimationFrame(()=>trigger.current?.focus());}}>Einladen schließen</button>
         <RequiredForm className="inline-form" onSubmit={(event) => {
@@ -104,7 +104,8 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
         <input id="employee-email" type="email" inputMode="email" autoComplete="email" required maxLength={254}
           value={email} onChange={(event) => setEmail(event.target.value)} />
         {state.locationsEnabled ? <>
-          <label htmlFor="employee-location">Heimatstandort</label>
+          <label htmlFor="employee-location">Hauptarbeitsstandort</label>
+          <p>Der Standort, dem die Person regulär zugeordnet ist.</p>
           <select id="employee-location" required value={locationId}
             onChange={(event) => setLocationId(event.target.value)}>
             <option value="">Standort auswählen</option>

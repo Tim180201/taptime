@@ -7,7 +7,7 @@ import * as calendar from '../../src/screens/ownTimeCalendar';
 
 vi.mock('react-native', () => {
   const element = ({ children, accessibilityLabel }: {children?: ReactNode; accessibilityLabel?: string}) => createElement('div', {'aria-label':accessibilityLabel},children);
-  return {View:element,Text:element,ScrollView:element,Pressable:element,TextInput:element,ActivityIndicator:element,
+  return {RefreshControl:()=>null,View:element,Text:element,ScrollView:element,Pressable:element,TextInput:element,ActivityIndicator:element,
     StyleSheet:{create:(v:unknown)=>v,flatten:()=>({})}};
 });
 const id = '12000000-0000-4000-8000-000000000001';

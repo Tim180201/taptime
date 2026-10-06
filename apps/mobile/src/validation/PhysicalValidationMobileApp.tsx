@@ -28,7 +28,7 @@ export function PhysicalValidationMobileApp() {
         </View>
 
         <Text style={styles.title}>NFC-Gerätetest</Text>
-        <Text style={styles.subtitle}>Prüft zwei reale Tags lokal auf stabile, unterscheidbare Kennungen. Es findet keine Zeiterfassung und keine Serverübertragung statt.</Text>
+        <Text style={styles.subtitle}>Prüft zwei reale Karten lokal auf stabile, unterscheidbare Kennungen. Es findet keine Zeiterfassung und keine Serverübertragung statt.</Text>
 
         <View style={styles.notice}>
           <Text style={styles.noticeTitle}>{capabilityTitle(state.capability)}</Text>
@@ -46,12 +46,12 @@ export function PhysicalValidationMobileApp() {
 
         <Pressable style={({ pressed }) => [styles.primary, (pressed || state.capability !== 'ready') && styles.dim]}
           disabled={state.capability !== 'ready'} onPress={() => controller.scan()} accessibilityRole="button">
-          <Text style={styles.primaryText}>{state.scanning ? 'Tag jetzt an das Gerät halten …' : `Tag ${state.activeSlot} scannen`}</Text>
+          <Text style={styles.primaryText}>{state.scanning ? 'Karte jetzt an das Gerät halten …' : `Karte ${state.activeSlot} scannen`}</Text>
         </Pressable>
         {state.scanning ? <Pressable style={styles.secondary} onPress={() => controller.cancel()}><Text style={styles.secondaryText}>Scan abbrechen</Text></Pressable> : null}
 
         <View style={[styles.result, readiness && styles.resultReady]}>
-          <Text style={styles.resultTitle}>{readiness ? 'Stabilitätstest vollständig' : 'Ziel: 10 stabile Scans je Tag'}</Text>
+          <Text style={styles.resultTitle}>{readiness ? 'Stabilitätstest vollständig' : 'Ziel: 10 stabile Scans je Karte'}</Text>
           <Text style={styles.resultText}>{readiness ? 'Beide Fingerprints sind stabil und voneinander verschieden. Weitere Pflichtfälle der Checkliste bleiben separat zu protokollieren.' : 'Abweichende Kennungen werden nicht als erfolgreicher Scan gezählt.'}</Text>
         </View>
         <Pressable disabled={state.scanning} onPress={() => controller.reset()}><Text style={styles.reset}>Lokale Testwerte zurücksetzen</Text></Pressable>
@@ -74,8 +74,8 @@ function capabilityTitle(capability: string): string {
   return ({ checking: 'NFC wird geprüft', ready: 'NFC ist bereit', not_supported: 'NFC nicht unterstützt', disabled: 'NFC ist ausgeschaltet', unavailable: 'NFC nicht verfügbar' } as Record<string, string>)[capability];
 }
 function outcomeText(outcome: string | null, scanning: boolean): string {
-  if (scanning) return 'Halte den gewählten Tag ruhig an die NFC-Antenne.';
-  return ({ captured: 'Stabile Kennung erkannt.', mismatch: 'Achtung: Dieser Scan weicht vom ersten Scan des gewählten Tags ab.', unreadable: 'Der Tag war nicht eindeutig lesbar.', timed_out: 'Zeitüberschreitung: Es wurde kein Tag erkannt.', cancelled: 'Der Scan wurde sauber abgebrochen.', unavailable: 'Der Scan konnte nicht sicher gestartet werden.' } as Record<string, string>)[outcome ?? ''] ?? 'Wähle Tag A oder B und starte einen einzelnen Scan.';
+  if (scanning) return 'Halte die gewählte Karte ruhig an die NFC-Antenne.';
+  return ({ captured: 'Stabile Kennung erkannt.', mismatch: 'Achtung: Dieser Scan weicht vom ersten Scan der gewählten Karte ab.', unreadable: 'Die Karte war nicht eindeutig lesbar.', timed_out: 'Zeitüberschreitung: Es wurde keine Karte erkannt.', cancelled: 'Der Scan wurde sauber abgebrochen.', unavailable: 'Der Scan konnte nicht sicher gestartet werden.' } as Record<string, string>)[outcome ?? ''] ?? 'Wähle Karte A oder B und starte einen einzelnen Scan.';
 }
 
 const styles = StyleSheet.create({

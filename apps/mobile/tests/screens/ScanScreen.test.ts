@@ -52,7 +52,7 @@ describe('ScanScreen presentation', () => {
 
   it('labels offline capture without disclosing a retained account identity', () => {
     expect(presentActor('administrator')).toBe('Administrator');
-    expect(presentActor('employee')).toBe('Beschäftigter');
+    expect(presentActor('employee')).toBe('Mitarbeiter');
     expect(presentActor('offline')).toBe('Offline-Erfassung');
   });
 
@@ -63,7 +63,7 @@ describe('ScanScreen presentation', () => {
       message: 'Dein Arbeitsbeginn ist gespeichert.',
     });
     expect(presentScanState({ status: 'server_review_pending', queueCount: 0 }).title)
-      .toBe('Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.');
+      .toBe('Wird von der Verwaltung geprüft. Deine Arbeitszeit bleibt unverändert.');
   });
 
   it.each([
@@ -83,11 +83,11 @@ describe('ScanScreen presentation', () => {
     [{ status: 'protected_pending', reason: 'identity_mismatch' }, 'Vorgänge eines anderen Kontos offen'],
     [{ status: 'protected_pending', reason: 'legacy_membership_unknown' }, 'Älterer Vorgang geschützt'],
     [{ status: 'ready', outcome: null }, 'Bereit zum Scannen'],
-    [{ status: 'ready', outcome: { status: 'unreadable' } }, 'Tag nicht lesbar'],
+    [{ status: 'ready', outcome: { status: 'unreadable' } }, 'Karte nicht lesbar'],
     [{ status: 'ready', outcome: { status: 'timed_out' } }, 'Scan abgelaufen'],
     [{ status: 'ready', outcome: { status: 'cancelled' } }, 'Scan abgebrochen'],
     [{ status: 'ready', outcome: { status: 'nfc_unavailable' } }, 'NFC nicht verfügbar'],
-    [{ status: 'ready', outcome: { status: 'tag_not_assigned' } }, 'Tag nicht zugeordnet'],
+    [{ status: 'ready', outcome: { status: 'tag_not_assigned' } }, 'Karte nicht zugeordnet'],
     [{ status: 'ready', outcome: { status: 'scan_context_unavailable' } }, 'Zuordnung nicht erreichbar'],
     [{ status: 'ready', outcome: { status: 'time_entry_started' } }, 'Arbeitszeit gestartet'],
     [{ status: 'ready', outcome: { status: 'time_entry_stopped' } }, 'Arbeitszeit gestoppt'],
@@ -97,7 +97,7 @@ describe('ScanScreen presentation', () => {
     [{ status: 'ready', outcome: { status: 'work_trigger_during_break_rejected' } }, 'Pause ist aktiv'],
     [{ status: 'ready', outcome: { status: 'duplicate_scan_ignored' } }, 'Doppelter Scan ignoriert'],
     [{ status: 'ready', outcome: { status: 'active_entry_for_other_target_rejected' } }, 'Andere Arbeitszeit ist aktiv'],
-    [{ status: 'ready', outcome: { status: 'escalation_required' } }, 'Prüfung erforderlich'],
+    [{ status: 'ready', outcome: { status: 'escalation_required' } }, 'Wird von der Verwaltung geprüft'],
     [{ status: 'ready', outcome: { status: 'server_review_pending' } }, 'Scan sicher gespeichert'],
     [{ status: 'ready', outcome: { status: 'session_rejected' } }, 'Sitzung nicht mehr gültig'],
   ] as Array<[ProductScanState, string]>)('presents %s truthfully', (state, title) => {

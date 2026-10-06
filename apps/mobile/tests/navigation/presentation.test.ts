@@ -5,14 +5,14 @@ describe('role navigation and synchronization status', () => {
   it.each([
     ['employee', false], ['standortleitung', false], ['administrator', false],
     ['standortleitung', true], ['administrator', true],
-  ] as const)('T060 h: Tags follows capability for %s (%s)', (role, nfcSetupAvailable) => {
+  ] as const)('T060 h: Karten follows capability for %s (%s)', (role, nfcSetupAvailable) => {
     expect(productDestinations({ role, nfcSetupAvailable })).toEqual(
       nfcSetupAvailable ? ['capture', 'times', 'customers', 'setup'] : ['capture', 'times', 'customers'],
     );
   });
   it('distinguishes no pending transmissions from pending transmissions, even while scanning', () => {
     expect(syncIndicator({ status: 'server_decision', outcome: { status: 'time_entry_started' }, queueCount: 0 }))
-      .toEqual({ kind: 'confirmed', count: 0, label: 'Abgleich: alles bestätigt' });
+      .toEqual({ kind: 'confirmed', count: 0, label: 'Übertragung: alles bestätigt' });
     expect(syncIndicator({ status: 'saved_locally', queueCount: 3 })).toMatchObject({ kind: 'pending', count: 3 });
     expect(syncIndicator({ status: 'scanning' }, 3)).toMatchObject({ kind: 'pending', count: 3 });
   });

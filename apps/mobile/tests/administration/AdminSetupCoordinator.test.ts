@@ -128,7 +128,7 @@ describe('AdminSetupCoordinator', () => {
     expect(JSON.stringify(context.coordinator.getState())).toContain('A1B2C3D4E5F6');
   });
 
-  it('captures one Pausen-Tag command without a customer or boundary direction', async () => {
+  it('captures one Pausenkarte command without a customer or boundary direction', async () => {
     const context = setup();
     await context.coordinator.start();
     await context.coordinator.provisionBreak('Pause');

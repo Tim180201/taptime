@@ -14,7 +14,7 @@ it.each(['break_stopped','duplicate_scan_ignored','escalation_required'] as cons
  await capture.stop(record);expect(manual.captureBreak).toHaveBeenCalledOnce();
  acknowledge({status:'server_decision',outcome});
  if(outcome==='break_stopped')await vi.waitFor(()=>expect(manual.captureManual).toHaveBeenCalledExactlyOnceWith({targetType:'customer',targetId:'customer'}));
- else {await vi.waitFor(()=>expect(capture.getState().feedback).toBe(outcome==='duplicate_scan_ignored'?'Doppelte Erfassung; deine Arbeitszeit bleibt unverändert':'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.'));expect(manual.captureManual).not.toHaveBeenCalled();}
+ else {await vi.waitFor(()=>expect(capture.getState().feedback).toBe(outcome==='duplicate_scan_ignored'?'Doppelte Erfassung; deine Arbeitszeit bleibt unverändert':'Wird von der Verwaltung geprüft. Deine Arbeitszeit bleibt unverändert.'));expect(manual.captureManual).not.toHaveBeenCalled();}
  capture.dispose();
 });
 it('never continues the old account after disposal',async()=>{

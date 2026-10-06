@@ -14,7 +14,7 @@ vi.mock('react-native', () => {
     return createElement(onPress ? 'button' : 'div', { onClick: onPress, disabled, role: accessibilityRole,
       'aria-label': accessibilityLabel, 'aria-selected': accessibilityState?.selected }, children);
   };
-  return { View: element, Text: element, Pressable: element,
+  return { RefreshControl: () => null, View: element, Text: element, Pressable: element,
     ScrollView: ({ ref, children }: { ref?: Ref<unknown>; children?: ReactNode }) => {
       useImperativeHandle(ref, () => ({ scrollTo: native.scroll })); return createElement('div', {}, children);
     },

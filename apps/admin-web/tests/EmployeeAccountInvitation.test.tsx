@@ -50,7 +50,7 @@ describe('T-047 employee account interface', () => {
     fill();
     const error=await screen.findByRole('alert');
     expect(error).toHaveTextContent('Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.');
-    expect(screen.getByRole('dialog',{name:'Beschäftigte Person einladen'})).toContainElement(error);
+    expect(screen.getByRole('dialog',{name:'Mitarbeiter einladen'})).toContainElement(error);
   });
   it.each(Object.entries(ACCOUNT_INVITATION_NOTICES))('shows %s by name and retains the inputs', async (code, text) => {
     render(<Harness capability={{ invite: async () => ({ status: 'failed', code: code as keyof typeof ACCOUNT_INVITATION_NOTICES }) }} />);
@@ -86,5 +86,5 @@ it('T049: an employee cannot submit invitations through the capability directly'
 it('T101 invitation displays name, email and location hints without inviting',()=>{
  const invite=vi.fn();render(<EmployeeAccountInvitationForm capability={{invite}} state={{locationsEnabled:true,selectedLocation:null,assignableLocations:[{id:'one',name:'Berlin'},{id:'two',name:'Bonn'}]}} open setOpen={()=>{}} onCreated={async()=>{}}/>);
  fireEvent.click(screen.getByRole('button',{name:'Einladung senden'}));expect(invite).not.toHaveBeenCalled();expect(screen.getByLabelText('Name')).toHaveFocus();
- for(const [label,value] of [['Name','Alex'],['E-Mail','alex@example.test'],['Heimatstandort','one']]){const field=screen.getByLabelText(label!);expect(field).toHaveAttribute('aria-invalid','true');expect(document.getElementById(field.getAttribute('aria-describedby')!)).toHaveAttribute('role','alert');fireEvent.change(field,{target:{value}});expect(field).not.toHaveAttribute('aria-invalid');}
+ for(const [label,value] of [['Name','Alex'],['E-Mail','alex@example.test'],['Hauptarbeitsstandort','one']]){const field=screen.getByLabelText(label!);expect(field).toHaveAttribute('aria-invalid','true');expect(document.getElementById(field.getAttribute('aria-describedby')!)).toHaveAttribute('role','alert');fireEvent.change(field,{target:{value}});expect(field).not.toHaveAttribute('aria-invalid');}
 });

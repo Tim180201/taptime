@@ -225,7 +225,7 @@ if (['review-confirm','manager-review-confirm'].includes(variant)) ready = { ...
 if (variant === 'tag-confirm') ready = { ...ready, reassignmentIntent: { commandId: 'test', nfcTagId: tag.id, expectedActiveAssignmentId: tag.activeAssignmentId, targetCustomerId: customer.id } };
 if (variant === 'manual-pending') ready = { ...ready, manual: { busy: false, pending: true, message: 'Wird gesichert …' } };
 if (variant === 'notice-saved') ready = { ...ready, notice: { kind: 'success', text: 'Gespeichert.' } };
-if (variant === 'notice-location') ready = { ...ready, notice: { kind: 'success', text: 'Heimatstandort wurde zugewiesen.' } };
+if (variant === 'notice-location') ready = { ...ready, notice: { kind: 'success', text: 'Hauptarbeitsstandort wurde zugewiesen.' } };
 if (variant === 'notice-info') ready = { ...ready, notice: { kind: 'info', text: 'Änderung wurde verworfen.' } };
 const authStates: Record<string, AdminWebState> = {
   login: { status: 'signed_out' }, 'login-error': { status: 'signed_out', notice: { kind: 'error', text: 'E-Mail-Adresse oder Passwort stimmen nicht. Bitte prüfen Sie Ihre Eingaben.' } },

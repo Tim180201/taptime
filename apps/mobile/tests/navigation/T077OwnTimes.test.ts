@@ -12,6 +12,7 @@ import type { ManualOfflineAcknowledgement, ManualOfflineCaptureResult, OfflineM
 import type { TimeEditingCapability } from '../../src/timeEditing/TimeEditingCoordinator';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 
+const nativeBack=vi.hoisted(()=>({handler:null as null|(()=>boolean)}));
 vi.mock('expo-constants', () => ({ default: { expoConfig: null } }));
 vi.mock('../../src/design/ScanRing', () => ({ ScanRing: () => null }));
 vi.mock('react-native', () => {
@@ -26,13 +27,13 @@ vi.mock('react-native', () => {
       'aria-selected': accessibilityState?.selected, onClick: onPress, disabled,
       style: { display: resolved.display as string }, 'data-style': JSON.stringify(resolved), 'data-lines': numberOfLines }, children);
   };
-  return { View: element, Text: element, ScrollView: element, Pressable: element,
+  return { RefreshControl: () => null, View: element, Text: element, ScrollView: element, Pressable: element,
     TextInput: ({ value, onChangeText, accessibilityLabel }: { value: string; onChangeText: (value: string) => void; accessibilityLabel: string }) =>
       createElement('input', { value, 'aria-label': accessibilityLabel, onChange: (event: React.ChangeEvent<HTMLInputElement>) => onChangeText(event.target.value) }),
     AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
     StyleSheet: { create: (value: unknown) => value, flatten }, Platform: { OS: 'android' },
     Linking: { getInitialURL: async () => null, addEventListener: () => ({ remove() {} }) },
-    BackHandler: { addEventListener: () => ({ remove() {} }) },
+    BackHandler: { addEventListener: (_:string,handler:()=>boolean) => {nativeBack.handler=handler;return {remove(){if(nativeBack.handler===handler)nativeBack.handler=null;}};} },
   };
 });
 const { AppNavigator } = await import('../../src/navigation/AppNavigator');
@@ -107,6 +108,21 @@ const selected = () => container.querySelector('[role="tablist"] [aria-selected=
 const writeActions = () => buttons().map(node => node.textContent).filter(text => ['Zeit hinzufügen', 'Ändern', 'Kommentar schreiben', 'Beenden'].includes(text!));
 
 describe('T-077 own times through the product navigation', () => {
+  it('T108 Android back closes the most recently opened equal-priority time form first',async()=>{
+    const h=harness('administrator');const previous=h.workStore.getState();
+    if(previous.status!=='ready')throw new Error('Ready fixture required');
+    h.workStore.publish({...previous,ownTime:{...value,records:[value.records[0]!,{...value.records[0]!,timeRecordId:'second-entry'}]}});
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    await press('Meine Zeiten');
+    const edits=buttons().filter(b=>b.textContent==='Ändern');
+    await act(async()=>edits[0]!.click());await fill('Grund der Änderung (Pflicht)','Erstes Formular behalten');
+    await act(async()=>edits[1]!.click());
+    expect(container.querySelectorAll('input[aria-label="Grund der Änderung (Pflicht)"]')).toHaveLength(2);
+    await act(async()=>{expect(nativeBack.handler?.()).toBe(true);});
+    const fields=container.querySelectorAll<HTMLInputElement>('input[aria-label="Grund der Änderung (Pflicht)"]');
+    expect(fields).toHaveLength(1);expect(fields[0]!.value).toBe('Erstes Formular behalten');
+  });
+
   it('T084 removes loaded foreign customer hours after same-membership role replacement', async () => {
     const h=harness('administrator');
     const readCustomerHours=vi.fn<NonNullable<MobileWorkCapability['readCustomerHours']>>()
@@ -127,17 +143,17 @@ describe('T-077 own times through the product navigation', () => {
   it.each([
     ['employee', false, ['Erfassen', 'Meine Zeiten', 'Kunden']],
     ['standortleitung', false, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter']],
-    ['standortleitung', true, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter', 'Tags']],
+    ['standortleitung', true, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter', 'Karten']],
     ['administrator', false, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter']],
-    ['administrator', true, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter', 'Tags']],
+    ['administrator', true, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter', 'Karten']],
     ['offline', false, ['Erfassen']],
   ] as const)('orders destinations for %s with tags=%s', async (role, tagsAvailable, expected) => {
     const h = harness(role, tagsAvailable);
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     expect(tabs()).toEqual(expected);
     expect(selected()).toBe('Erfassen');
-    await press('Abgleich: alles bestätigt');
-    expect(container.textContent).toContain('Abgleich');
+    await press('Übertragung: alles bestätigt');
+    expect(container.textContent).toContain('Übertragung');
     expect(selected()).toBeUndefined();
     await press('Erfassen');
     expect(button('Manuell erfassen')).toBeDefined();
@@ -148,11 +164,11 @@ describe('T-077 own times through the product navigation', () => {
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     await press('Meine Zeiten');
     expect(selected()).toBe('Meine Zeiten');
-    for (const text of ['September 2026', '10:00 – 11:00', 'Europe/Berlin', 'Eigene Notiz', 'Ende berichtigt']) expect(container.textContent).toContain(text);
+    for (const text of ['September 2026', '10:00 – 11:00', 'Deutsche Ortszeit', 'Eigene Notiz', 'Ende berichtigt']) expect(container.textContent).toContain(text);
     const ownActions = writeActions();
     expect(ownActions).toEqual(['Zeit hinzufügen', 'Kommentar schreiben', 'Ändern']);
     expect(h.props.employees.refresh).not.toHaveBeenCalled();
-    await press('Mitarbeiter'); await press('Eigene Person, inaktiv');
+    await press('Mitarbeiter'); await press('Eigene Person, Keine laufende Zeit');
     expect(writeActions()).toEqual(ownActions);
     expect(h.props.employees.openPerson).toHaveBeenCalledWith(expect.objectContaining({ membershipId }));
   });
@@ -172,7 +188,7 @@ describe('T-077 own times through the product navigation', () => {
     await press('Aktualisieren'); expect(h.props.work.refresh).toHaveBeenCalledOnce();
   });
 
-  it('follows role/scope and Tags changes in the same session, and resets when a destination disappears', async () => {
+  it('follows role/scope and Karten changes in the same session, and resets when a destination disappears', async () => {
     const h = harness('administrator', true);
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     await press('Mitarbeiter');
@@ -182,9 +198,9 @@ describe('T-077 own times through the product navigation', () => {
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: sessionContext('standortleitung', true) }));
     expect(selected()).toBe('Meine Zeiten'); expect(writeActions()).toEqual(['Zeit hinzufügen', 'Kommentar schreiben', 'Ändern']);
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: { ...sessionContext('standortleitung', true), managementScope: null } }));
-    expect(selected()).toBe('Meine Zeiten'); expect(tabs()).toEqual(['Erfassen', 'Meine Zeiten', 'Kunden', 'Tags']);
+    expect(selected()).toBe('Meine Zeiten'); expect(tabs()).toEqual(['Erfassen', 'Meine Zeiten', 'Kunden', 'Karten']);
     expect(writeActions()).toEqual(['Kommentar schreiben']);
-    await press('Tags');
+    await press('Karten');
     await act(async () => h.sessionStore.publish({ status: 'authenticated', session: sessionContext('standortleitung') }));
     expect(selected()).toBe('Erfassen');
     await press('Meine Zeiten');
@@ -197,14 +213,14 @@ describe('T-077 own times through the product navigation', () => {
     const h = harness('administrator');
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     await press('Meine Zeiten'); await press('Zeit hinzufügen'); await press(target.displayName);
-    await fill('Grund', 'Vergessen');
+    await fill('Grund der Änderung (Pflicht)', 'Vergessen');
     h.save.mockResolvedValueOnce({ status: 'reason_required' });
     await press('Speichern');
     expect(container.textContent).toContain('Bitte begründe den Nachtrag.');
-    expect((container.querySelector('input[aria-label="Grund"]') as HTMLInputElement).value).toBe('Vergessen');
+    expect((container.querySelector('input[aria-label="Grund der Änderung (Pflicht)"]') as HTMLInputElement).value).toBe('Vergessen');
     await press('Speichern');
     expect(h.save).toHaveBeenLastCalledWith('backfill', expect.objectContaining({ targetMembershipId: membershipId, reason: 'Vergessen', comment: null }));
-    await press('Ändern'); await fill('Grund', 'Korrigiert'); await press('Speichern');
+    await press('Ändern'); await fill('Grund der Änderung (Pflicht)', 'Korrigiert'); await press('Speichern');
     expect(h.save).toHaveBeenLastCalledWith('correct', expect.objectContaining({ timeRecordId: value.records[0]!.timeRecordId,
       expectedBaseRowVersion: 2, expectedRevisionNumber: 1, reason: 'Korrigiert' }));
     await press('Kommentar schreiben'); await fill('Kommentar', 'Neue Notiz'); await press('Speichern');
@@ -218,8 +234,8 @@ describe('T-077 own times through the product navigation', () => {
   it('reloads own times after a correction under the own person in employees', async () => {
     const h = harness('administrator');
     await act(async () => root.render(createElement(AppNavigator, h.props)));
-    await press('Mitarbeiter'); await press('Eigene Person, inaktiv');
-    await press('Ändern'); await fill('Grund', 'Zeit berichtigt'); await press('Speichern');
+    await press('Mitarbeiter'); await press('Eigene Person, Keine laufende Zeit');
+    await press('Ändern'); await fill('Grund der Änderung (Pflicht)', 'Zeit berichtigt'); await press('Speichern');
     expect(h.props.employees.refresh).toHaveBeenCalled();
     const previous = h.workStore.getState();
     expect(previous.status).toBe('ready');

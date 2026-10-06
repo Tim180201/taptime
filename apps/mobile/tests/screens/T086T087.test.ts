@@ -19,7 +19,7 @@ vi.mock('react-native', () => {
     return createElement(onPress ? 'button' : 'div', { onClick: onPress, disabled, role: accessibilityRole,
       'aria-label': accessibilityLabel, 'aria-selected': accessibilityState?.selected }, children);
   };
-  return { View: element, Text: element, Pressable: element,
+  return { RefreshControl: () => null, View: element, Text: element, Pressable: element,
     ScrollView: ({ ref, children }: { ref?: Ref<unknown>; children?: ReactNode }) => {
       useImperativeHandle(ref, () => ({ scrollTo: native.scroll })); return createElement('div', {}, children);
     },
@@ -65,7 +65,7 @@ it.each([1, 2])('T100 creates from Customers and immediately assigns a tag (%s l
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
   if (count === 2) await click('Nord');
   h.api.readProjection.mockResolvedValue({ ...empty, customers: [customer] });
-  await click('NFC-Tag zuordnen');
+  await click('Karte einrichten');
   expect(h.api.createCustomer).toHaveBeenCalledWith({ expectedMembershipId: snapshot.session.membershipId,
     commandId: '60000000-0000-4000-8000-000000000001', displayName: customer.displayName, locationId: locationA });
   expect(h.api.provisionTag).toHaveBeenCalledWith(expect.objectContaining({customerId:customer.id, displayName:customer.displayName}));
@@ -116,10 +116,10 @@ it.each([false, true])('scrolls a selected calendar day to its measured heading 
   expect(changeMonth).toHaveBeenCalledWith('2026-08'); expect(native.scroll).not.toHaveBeenCalled();
 });
 
-it('T100 removes customer creation from Tags and hides customer actions from employees', async () => {
+it('T100 removes customer creation from Karten and hides customer actions from employees', async () => {
   const h = harness(); await h.coordinator.start();
   await act(async () => root.render(createElement(AdminSetupScreen, {administration:h.coordinator})));
-  await click('Tag zuordnen'); expect(container.textContent).not.toContain('+ Neuer Kunde');
+  await click('Karte einrichten'); expect(container.textContent).not.toContain('+ Neuer Kunde');
   await act(async () => root.render(createElement(CustomersScreen, {administration:h.coordinator,
     authorityContext:{role:'employee'}, work:{} as unknown as import('../../src/work/contracts').MobileWorkCapability})));
   expect(container.textContent).not.toContain('+ Kunde hinzufügen');
@@ -141,19 +141,19 @@ it('T100 retries tag writing without creating another customer', async () => {
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
   h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
   h.writer.write.mockResolvedValueOnce({status:'failed',reason:'write_failed'});
-  await click('NFC-Tag zuordnen'); expect(container.textContent).toContain('Tag konnte nicht beschrieben');
-  await click('Tag-Zuordnung erneut versuchen');
+  await click('Karte einrichten'); expect(container.textContent).toContain('Karte konnte nicht beschrieben');
+  await click('Kartenzuordnung erneut versuchen');
   expect(h.api.createCustomer).toHaveBeenCalledTimes(1); expect(h.api.provisionTag).toHaveBeenCalledTimes(1);
-  expect(container.textContent).toContain('Kunde angelegt und Tag zugeordnet');
+  expect(container.textContent).toContain('Kunde angelegt und Karte zugeordnet');
 });
 it('T100 reloads a confirmed customer before retrying a failed list refresh, without another insert', async () => {
   const h=harness(); await h.coordinator.start();
   await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
     authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
-  await click('NFC-Tag zuordnen'); expect(h.nfc.scan).not.toHaveBeenCalled();
+  await click('Karte einrichten'); expect(h.nfc.scan).not.toHaveBeenCalled();
   h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
-  await click('Tag-Zuordnung erneut versuchen');
+  await click('Kartenzuordnung erneut versuchen');
   expect(h.api.createCustomer).toHaveBeenCalledTimes(1); expect(h.api.provisionTag).toHaveBeenCalledTimes(1);
 });
 it('T100 cancels a running setup scan when leaving Customers', async () => {
@@ -163,7 +163,7 @@ it('T100 cancels a running setup scan when leaving Customers', async () => {
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
   h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
   h.nfc.scan.mockImplementationOnce(()=>new Promise(()=>{}));
-  await click('NFC-Tag zuordnen'); h.nfc.cancelCapture.mockClear();
+  await click('Karte einrichten'); h.nfc.cancelCapture.mockClear();
   await act(async()=>root.render(createElement('div')));
   expect(h.nfc.cancelCapture).toHaveBeenCalledTimes(1);
 });

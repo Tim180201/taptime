@@ -61,7 +61,6 @@ export function App({
   const [password, setPassword] = useState('');
   const [recoveryLinkError, setRecoveryLinkError] = useState(initialRecoveryLinkError);
   const [route, setRoute] = useState<AdminRoute>(() => currentRoute());
-  const [quotaCustomer,setQuotaCustomer]=useState<{membership:string;id:string}|null>(null);
   const previousView = useRef(route.view);
   const appliedMonth = useRef<string | null>(null);
   const mainHeading = useRef<HTMLHeadingElement>(null);
@@ -222,7 +221,7 @@ export function App({
       <div className="sidebar-footer">
         <span>Angemeldet für</span>
         <strong>{state.projection.organization.name}</strong>
-        <span>{state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Beschäftigte/r'}</span>
+        <span>{state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter'}</span>
         <button className="quiet" onClick={() => void administration.signOut()}>Abmelden</button>
       </div>
     </aside>
@@ -269,9 +268,9 @@ export function App({
           </div>
       </header>
       <p className="timezone-declaration">
-        Zeitdarstellung: {BUSINESS_TIME_ZONE}
+        Deutsche Ortszeit
       </p>
-      {state.membershipId?<CustomerQuotaNotice key={`${state.membershipId}/${state.role}`} administration={administration} membership={state.membershipId} role={state.role} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} onView={(id,month)=>{setQuotaCustomer({membership:state.membershipId!,id});navigate({...defaultRoute('kunden'),month});}}/>:null}
+      {state.membershipId?<CustomerQuotaNotice key={`${state.membershipId}/${state.role}`} administration={administration} membership={state.membershipId} role={state.role} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} onView={(id,month)=>{navigate({...defaultRoute('kunden'),month,customerId:id});}}/>:null}
       {state.notice ? <FeedbackBand message={state.notice} /> : null}
       <Suspense fallback={<DelayedSkeleton label="Bereich wird geladen"/>}>
       {activeRoute.view === 'uebersicht'
@@ -284,7 +283,7 @@ export function App({
         ? <TimeRecordsView state={state} administration={administration}
             route={activeRoute} navigate={navigate} /> : null}
       {activeRoute.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} /> : null}
-      {activeRoute.view === 'kunden' ? <CustomersView key={`${state.membershipId}/${state.role}`} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} openCustomerId={quotaCustomer?.membership===state.membershipId?quotaCustomer?.id:undefined} administration={administration} route={activeRoute} navigate={navigate}/> : null}
+      {activeRoute.view === 'kunden' ? <CustomersView key={`${state.membershipId}/${state.role}`} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} administration={administration} route={activeRoute} navigate={navigate}/> : null}
       {activeRoute.view === 'meine-zeiten' ? <OwnTimeView state={state} administration={administration} route={activeRoute} navigate={navigate}/> : null}
       {activeRoute.view === 'manuell' ? <ManualView state={state} administration={administration}/> : null}
       </Suspense>
@@ -314,8 +313,8 @@ export function App({
         }}><SectionIcon view={item.slug} /><span>{item.label}</span></a>)}</nav>
       <div className="sidebar-footer">
         <span>Angemeldet für</span><strong>{state.projection.organization.name}</strong>
-        <span>{state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Beschäftigte/r'}</span>
-        <span>Zeitdarstellung: {BUSINESS_TIME_ZONE}</span>
+        <span>{state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter'}</span>
+        <span>Deutsche Ortszeit</span>
         <button className="quiet" onClick={() => void administration.signOut()}>Abmelden</button>
       </div>
       <button className="secondary" onClick={() => setMoreOpen(false)}>Abbrechen</button>

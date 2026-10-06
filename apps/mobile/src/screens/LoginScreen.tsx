@@ -38,7 +38,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
       if (result.status === 'invalid_credentials') {
         setMessage('E-Mail-Adresse oder Passwort ist nicht gültig.');
       } else if (result.status === 'authority_rejected') {
-        setMessage('Für dieses Konto ist kein aktiver Taptura-Zugang verfügbar.');
+        setMessage('Dein Konto hat derzeit keinen aktiven Zugang zu diesem Betrieb.');
       } else if (result.status === 'context_unavailable') {
         setMessage('Dein Zugang konnte gerade nicht geladen werden. Versuche es erneut.');
       } else if (result.status === 'infrastructure_error') {
@@ -101,6 +101,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
         testID="sign-in-button"
       />
       <View style={styles.enrollmentAction}>
+        <Text>Einladung erhalten? Öffne zuerst den Link aus deiner E-Mail und lege dort dein Passwort fest. Melde dich danach hier an.</Text>
         <ActionButton
           title="Mit Einladung beitreten"
           tone="secondary"

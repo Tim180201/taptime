@@ -6,14 +6,14 @@ import { FeedbackBand } from '../src/viewHelpers';
 afterEach(cleanup);
 it.each([
   'Gespeichert.', 'Standort wurde angelegt.', 'Standort wurde umbenannt.', 'Standort wurde stillgelegt.',
-  'Heimatstandort wurde zugewiesen.', 'Arbeitszuweisung wurde vergeben.', 'Arbeitszuweisung wurde widerrufen.',
+  'Hauptarbeitsstandort wurde zugewiesen.', 'Arbeitszuweisung wurde vergeben.', 'Arbeitszuweisung wurde widerrufen.',
   'Verwaltungszuweisung wurde vergeben.', 'Verwaltungszuweisung wurde widerrufen.',
   'Arbeitsziel wurde einem Standort zugewiesen.', 'Standort-Funktion wurde eingeschaltet.', 'Standort-Funktion wurde ausgeschaltet.',
   'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.',
   'Das Passwort wurde geändert. Melden Sie sich mit dem neuen Passwort an.',
   'Kunde wurde sicher angelegt.', 'Projekt wurde sicher angelegt.', 'Projekt wurde deaktiviert.',
   'Einladung wurde einmalig erzeugt.', 'Zugang wurde entzogen.', 'Rolle wurde geändert.',
-  'NFC-Tag wurde sicher neu zugeordnet.', 'Die Zuordnung war bereits korrekt.',
+  'Karte wurde sicher neu zugeordnet.', 'Die Zuordnung war bereits korrekt.',
   'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt erhalten.',
   'Die Entscheidung wurde gespeichert.', 'Die CSV-Datei wurde erstellt und heruntergeladen.',
   'Ein beliebig umformulierter Erfolg.',

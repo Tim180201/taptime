@@ -10,7 +10,7 @@ export const ACCOUNT_INVITATION_NOTICES = {
   invitation_needs_attention: 'Die Einladung ist unvollständig; Konto oder E-Mail können bereits erstellt sein. Bitte wenden Sie sich zur Klärung an die Betriebsverwaltung.',
   invalid_email: 'Diese E-Mail-Adresse wurde nicht angenommen. Bitte prüfen Sie die Adresse.',
   command_id_conflict: 'Dieser Auftrag wurde bereits mit anderen Angaben verwendet. Bitte öffnen Sie das Formular erneut.',
-  invalid_request: 'Die Einladung konnte nicht verarbeitet werden. Bitte prüfen Sie Name, E-Mail und gegebenenfalls Heimatstandort.',
+  invalid_request: 'Die Einladung konnte nicht verarbeitet werden. Bitte prüfen Sie Name, E-Mail und gegebenenfalls Hauptarbeitsstandort.',
 } as const;
 export type AccountInvitationFailureCode = keyof typeof ACCOUNT_INVITATION_NOTICES;
 export const ACCOUNT_INVITATION_SUCCESS_NOTICES = {

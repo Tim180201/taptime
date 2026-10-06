@@ -21,7 +21,7 @@ describe('T-072 iOS configuration', () => {
     const entitlements = await result.mods.ios.entitlements({ ...result, modRequest: {}, modResults: {} });
     expect(entitlements.modResults['com.apple.developer.nfc.readersession.formats']).toEqual(['TAG']);
     const plist = await result.mods.ios.infoPlist({ ...result, modRequest: {}, modResults: {} });
-    expect(plist.modResults.NFCReaderUsageDescription).toBe('Taptura liest NFC-Tags zur Zeiterfassung und beschreibt sie beim Zuordnen.');
+    expect(plist.modResults.NFCReaderUsageDescription).toBe('Taptura liest NFC-Karten zur Zeiterfassung und beschreibt sie beim Zuordnen.');
     expect(plist.modResults['com.apple.developer.nfc.readersession.iso7816.select-identifiers']).toBeUndefined();
     expect(plist.modResults['com.apple.developer.nfc.readersession.felica.systemcodes']).toBeUndefined();
   });

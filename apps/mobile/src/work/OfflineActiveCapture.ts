@@ -39,7 +39,7 @@ export class OfflineActiveCapture {
       const target={targetType:record.targetType,targetId:record.targetId};
       this.nextTarget=stop && record.breakStartedAt ? target : null;
       await this.save(stop && !record.breakStartedAt ? ()=>this.manual.captureManual(target) : ()=>this.manual.captureBreak?.()??Promise.resolve({status:'unavailable'}));
-    } catch {this.nextTarget=null;this.publish({busy:false,pending:true,feedback:'Die Erfassung konnte nicht bestätigt werden. Prüfe den Abgleich.'});}
+    } catch {this.nextTarget=null;this.publish({busy:false,pending:true,feedback:'Die Erfassung konnte nicht bestätigt werden. Prüfe „Übertragung“.'});}
   }
   private async save(capture:()=>Promise<ManualOfflineCaptureResult>){
     if(this.disposed)return;
@@ -47,7 +47,7 @@ export class OfflineActiveCapture {
     const result=await capture();if(this.disposed)return;
     if(result.status!=='saved'){
       this.nextTarget=null;
-      this.publish({busy:false,pending:false,feedback:'Die Erfassung konnte nicht gespeichert werden. Prüfe den Abgleich.'});return;
+      this.publish({busy:false,pending:false,feedback:'Die Erfassung konnte nicht gespeichert werden. Prüfe „Übertragung“.'});return;
     }
     this.pendingId=result.workEventId;
     this.publish({busy:false,pending:true,feedback:this.nextTarget
@@ -67,7 +67,7 @@ export class OfflineActiveCapture {
       }
       this.publish({busy:false,pending:true,feedback:ack.status==='server_decision'
         ? manualCaptureOutcome(ack.outcome)
-        : ack.status==='review_pending' ? 'Die Verwaltung prüft deine Erfassung.' : 'Die Erfassung konnte nicht bestätigt werden. Prüfe den Abgleich.'});
-    }).catch(()=>{this.nextTarget=null;this.publish({busy:false,pending:true,feedback:'Die Erfassung konnte nicht bestätigt werden. Prüfe den Abgleich.'});});
+        : ack.status==='review_pending' ? 'Wird von der Verwaltung geprüft' : 'Die Erfassung konnte nicht bestätigt werden. Prüfe „Übertragung“.'});
+    }).catch(()=>{this.nextTarget=null;this.publish({busy:false,pending:true,feedback:'Die Erfassung konnte nicht bestätigt werden. Prüfe „Übertragung“.'});});
   };
 }

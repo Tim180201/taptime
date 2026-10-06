@@ -90,6 +90,26 @@ function harness(role: 'employee' | 'administrator' | 'standortleitung' | 'offli
 }
 
 describe('T-065 rendered navigation and manual lifecycle', () => {
+  it('T108 sign out from Konto keeps pending archives behind the existing protected screen',async()=>{
+    const h=harness('employee');
+    let scanState:ProductScanState={status:'ready',outcome:null};
+    const listeners=new Set<()=>void>();
+    h.props.scan.getState=()=>scanState;
+    h.props.scan.subscribe=listener=>{listeners.add(listener);return()=>{listeners.delete(listener);};};
+    h.props.session.signOut=vi.fn(async()=>{scanState={status:'archive_signout_pending'};listeners.forEach(listener=>listener());});
+    h.props.session.cancelSignOut=vi.fn(async()=>{scanState={status:'ready',outcome:null};listeners.forEach(listener=>listener());});
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    await press('Übertragung: alles bestätigt');
+    expect(container.textContent).toContain('Konto');
+    await press('Abmelden');
+    expect(h.props.session.signOut).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('Deine Erfassungen werden noch gesichert. Abmelden ist gleich möglich.');
+    expect(container.querySelector('[aria-label="Manuell erfassen"]')).toBeNull();
+    await press('Angemeldet bleiben');
+    expect(h.props.session.cancelSignOut).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('Erfassen');
+  });
+
   it('T-095 endpoint pause offers retry without blaming or quarantining an individual capture',async()=>{
     const h=harness('employee');
     const paused={status:'saved_locally' as const,queueCount:1,transmissionPaused:true,transmissionRetryAvailable:true};
@@ -99,7 +119,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     expect(container.textContent).not.toContain('1 Erfassung konnte nicht übertragen werden');
     expect(container.textContent).not.toContain('Sicher lokal gespeichert');
     await press('Erneut versuchen');expect(h.props.scan.retry).toHaveBeenCalledOnce();
-    await press('Abgleich: Übertragung angehalten');
+    await press('Übertragung: Übertragung angehalten');
     await press('Erneut versuchen');expect(h.props.scan.retry).toHaveBeenCalledTimes(2);
   });
   it('T-095 D-121 displays the halted transfer with target/time and no progress message',async()=>{
@@ -111,7 +131,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     expect(container.textContent).toContain('Kunde X · 08:12');
     expect(container.textContent).not.toContain('Sicher lokal gespeichert');
     expect(container.textContent).not.toContain('Wird übertragen');
-    await press('Abgleich: Übertragung angehalten');
+    await press('Übertragung: Übertragung angehalten');
     expect(container.textContent).toContain('Bitte wende dich an deine Verwaltung.');
     expect(container.textContent).not.toContain('Wird nachgereicht');
   });
@@ -198,7 +218,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     }
     await act(async () => { expect(native.back?.()).toBe(true); });
     button('Manuell erfassen');
-    await press('Manuell erfassen'); await press('Zurück');
+    await press('Manuell erfassen'); await press('Zurück zu Erfassen');
     button('Manuell erfassen');
     await act(async () => { expect(native.back?.()).toBe(false); });
   });
@@ -215,7 +235,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     } }));
     expect(container.textContent).toContain('confirmed@example.invalid · Administrator');
     expect(container.querySelector('[aria-label="Mitarbeiter"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Tags"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Karten"]')).not.toBeNull();
     await act(async () => h.publish({ status: 'signed_out' }));
     expect(container.textContent).not.toContain('confirmed@example.invalid');
     expect(container.querySelector('[role="tablist"]')).toBeNull();

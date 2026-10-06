@@ -13,10 +13,10 @@ export function CustomerManagement({customer,administration,onSaved}:{readonly c
     if(result.status==='succeeded'){setMode(null);onSaved();}
   };
   return <div className="customer-management">
-    {mode===null?<><button className="quiet" onClick={()=>{setName(customer.displayName);setMode('rename');setMessage('');}}>Kunde umbenennen</button><button className="quiet" onClick={()=>{setMode('delete');setMessage('');}}>Kunde löschen</button></>:mode==='rename'?<RequiredForm onSubmit={event=>{event.preventDefault();if(!busy)void save({action:'rename',displayName:name});}}>
+    {mode===null?<><button className="quiet" onClick={()=>{setName(customer.displayName);setMode('rename');setMessage('');}}>Kunde umbenennen</button><button className="warning-action" onClick={()=>{setMode('delete');setMessage('');}}>Kunde löschen</button></>:mode==='rename'?<RequiredForm onSubmit={event=>{event.preventDefault();if(!busy)void save({action:'rename',displayName:name});}}>
       <label>Neuer Kundenname<input required data-field-label="Neuen Kundenname" value={name} onChange={event=>setName(event.target.value)} disabled={busy}/></label>
       <button disabled={busy}>Namen speichern</button>
-    </RequiredForm>:<><p>Kunde {customer.displayName} löschen? Der Kunde verschwindet aus der Auswahl; zugeordnete Tags werden frei. Bisherige Stunden bleiben erhalten.</p><button disabled={busy} onClick={()=>void save({action:'deactivate'})}>Löschen bestätigen</button></>}
+    </RequiredForm>:<><p>Kunde {customer.displayName} löschen? Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.</p><button className="warning-action" disabled={busy} onClick={()=>void save({action:'deactivate'})}>Löschen bestätigen</button></>}
     {mode!==null?<button className="quiet" disabled={busy} onClick={()=>{setMode(null);setMessage('');}}>Abbrechen</button>:null}
     {message?<p role="status">{message}</p>:null}
   </div>;

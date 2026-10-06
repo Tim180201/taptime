@@ -1,3 +1,4 @@
+import {useSubviewBack} from '../navigation/SubviewBack';
 import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
@@ -5,9 +6,10 @@ import type { AdminSetupCapability, CustomerCreationOptions } from '../administr
 import { ActionButton, AppText as Text, Card } from '../design/primitives';
 import { presentAdminSetupState } from './AdminSetupScreen';
 
-export function CustomerCreation({ administration, onCreated }: {
+export function CustomerCreation({ administration, onCreated, onEditingChange }: {
   readonly administration: AdminSetupCapability;
   readonly onCreated: () => void;
+  readonly onEditingChange?: (open:boolean) => void;
 }) {
   const state = useSyncExternalStore(administration.subscribe.bind(administration),
     administration.getState.bind(administration));
@@ -18,6 +20,7 @@ export function CustomerCreation({ administration, onCreated }: {
   const [createdId, setCreatedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  useEffect(()=>{onEditingChange?.(open);return()=>onEditingChange?.(false);},[open,onEditingChange]);
   const generation = useRef(0);
   const operation = useRef(false);
   useEffect(() => () => {
@@ -68,7 +71,7 @@ export function CustomerCreation({ administration, onCreated }: {
         customerId = result.outcome.customerId;
         setCreatedId(customerId); onCreated();
         if (withTag && result.outcome.refreshFailed) {
-          setMessage('Kunde angelegt. Versuche die Tag-Zuordnung erneut; dabei wird die Kundenliste neu geladen.');
+          setMessage('Kunde angelegt. Versuche die Kartenzuordnung erneut; dabei wird die Kundenliste neu geladen.');
           return;
         }
       } else if (withTag) {
@@ -86,7 +89,7 @@ export function CustomerCreation({ administration, onCreated }: {
           projection = administration.getState();
         }
         if (projection.status !== 'ready' || !projection.projection.customers.some(customer => customer.id === customerId && customer.active)) {
-          setMessage('Kunde angelegt. Die Kundenliste konnte noch nicht aktualisiert werden. Versuche die Tag-Zuordnung erneut.');
+          setMessage('Kunde angelegt. Die Kundenliste konnte noch nicht aktualisiert werden. Versuche die Kartenzuordnung erneut.');
           return;
         }
       }
@@ -96,18 +99,20 @@ export function CustomerCreation({ administration, onCreated }: {
         if (request !== generation.current) return;
         const result = administration.getState();
         if (result.status !== 'ready' || result.outcome?.status !== 'tag_provisioned') return;
-        setMessage('Kunde angelegt und Tag zugeordnet.');
+        setMessage('Kunde angelegt und Karte zugeordnet.');
       } else setMessage('Kunde angelegt.');
       setOpen(false); setName(''); setCreatedId(null);
     } catch {
       if (request === generation.current) setMessage(createdId === null
         ? 'Noch keine Bestätigung. Prüfe deine Verbindung und versuche es mit denselben Eingaben erneut.'
-        : 'Kunde angelegt. Die Tag-Zuordnung konnte nicht abgeschlossen werden.');
+        : 'Kunde angelegt. Die Kartenzuordnung konnte nicht abgeschlossen werden.');
     } finally {
       operation.current = false;
       if (request === generation.current) setBusy(false);
     }
   };
+  const close=()=>{generation.current+=1;setOpen(false);setCreatedId(null);setName('');};
+  useSubviewBack(open?()=>{if(state.status==='capturing'||state.status==='writing'){void administration.cancel();return;}if(!busy)close();}:null,3);
   const presentation = presentAdminSetupState(state, Platform.OS);
   return <Card>
     {!open ? <ActionButton title="+ Kunde hinzufügen" onPress={() => { void prepare(); }} /> : <>
@@ -125,12 +130,12 @@ export function CustomerCreation({ administration, onCreated }: {
             accessibilityState={{ selected: location.id === locationId }} disabled={busy || createdId !== null}
             tone={location.id === locationId ? 'primary' : 'secondary'} onPress={() => setLocationId(location.id)} />)}</RequiredField>
         </> : options.locationsEnabled && options.locations.length === 0 ? <Text>Du hast keinen aktiven Standort zum Anlegen.</Text> : null}
-        <Text>Zum Zuordnen hältst du dein Handy an den Tag. Sein bisheriger Inhalt wird dabei ersetzt.</Text>
-        <ActionButton title={createdId === null ? 'NFC-Tag zuordnen' : 'Tag-Zuordnung erneut versuchen'} disabled={busy} onPress={() => { void submit(true); }} />
+        <Text>Zum Einrichten hältst du dein Handy an die NFC-Karte. Ihr bisheriger Inhalt wird dabei ersetzt.</Text>
+        <ActionButton title={createdId === null ? 'Karte einrichten' : 'Kartenzuordnung erneut versuchen'} disabled={busy} onPress={() => { void submit(true); }} />
         {createdId === null ? <ActionButton title="Nur anlegen" disabled={busy} tone="secondary" onPress={() => { void submit(false); }} /> : null}
       </>}
       {state.status !== 'ready' || state.outcome !== null ? <><Text accessibilityLiveRegion="polite">{presentation.title}</Text><Text>{presentation.message}</Text></> : null}
-      <ActionButton title={createdId === null ? 'Abbrechen' : 'Fertig'} tone="quiet" disabled={busy} onPress={() => { generation.current += 1; setOpen(false); setCreatedId(null); setName(''); }} />
+      <ActionButton title={createdId === null ? 'Abbrechen' : 'Fertig'} tone="quiet" disabled={busy} onPress={close} />
     </>}
     {message ? <Text accessibilityLiveRegion="polite">{message}</Text> : null}
   </Card>;

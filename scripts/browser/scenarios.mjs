@@ -26,7 +26,7 @@ export const adminScenarios = [
   scenario('five-areas','/uebersicht','.metric-card'),
   scenario('employees','/beschaeftigte','.membership-tools'),
   scenario('departed','/beschaeftigte','.membership-tools',[async p=>{
-    await p.getByRole('heading',{name:'Ausgeschieden',exact:true}).waitFor();
+    await p.getByRole('heading',{name:'Ausgeschiedene Mitarbeiter',exact:true}).waitFor();
     await p.getByRole('link',{name:'Erika Ausgeschieden'}).waitFor();
   }]),
   ...['running','long'].map(kind=>scenario('employee-revoke-'+kind,'/beschaeftigte','.membership-tools',[summary,click('Zugang entziehen'),async p=>{
@@ -48,7 +48,7 @@ export const adminScenarios = [
   ...['error','busy'].map(state=>scenario('invitation-'+state,'/beschaeftigte','.membership-tools',[
     click('Mitarbeiter hinzufügen'), async p=>p.getByLabel('Name',{exact:true}).fill('Alexandra Beispiel'),
     async p=>p.getByLabel('E-Mail',{exact:true}).fill('person@example.invalid'),
-    async p=>p.getByLabel('Heimatstandort').selectOption('31000000-0000-4000-8000-000000000001'),
+    async p=>p.getByLabel('Hauptarbeitsstandort').selectOption('31000000-0000-4000-8000-000000000001'),
     click('Einladung senden'), async p=>p.locator(state==='error' ? '[role="alert"]' : 'button:disabled').first().waitFor(),
   ])),
   ...['empty','section-error','section-loading'].map(id=>scenario(id,'/beschaeftigte','main')),
@@ -72,7 +72,7 @@ export const adminScenarios = [
     async p=>p.locator('form').filter({has:p.getByRole('button',{name:'Projekt anlegen',exact:true})})
       .getByRole('combobox').selectOption('31000000-0000-4000-8000-000000000002'),
   ]),
-  scenario('setup-tags','/einrichtung','.filter-chips',[click('Tags')]),
+  scenario('setup-tags','/einrichtung','.filter-chips',[click('Karten')]),
   scenario('tag-confirm','/einrichtung','[role="alertdialog"]'),
   scenario('payroll','/lohnexport','.table-scroll'),
   scenario('payroll-month','/lohnexport?monat=2026-09','.table-scroll'),

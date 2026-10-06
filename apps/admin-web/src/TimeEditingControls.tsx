@@ -45,13 +45,13 @@ export function TimeRecordControls({record,directStop=false}:{record:SafeOwnTime
   </div> : null;
   return <div className="time-edit-controls">
     {details?.overlapsAnotherRecord?<p className="time-overlap">überschneidet sich</p>:null}
-    {details?.change?<p className="verbatim-reason">{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {formatZonedDateTime(details.change.at)} · {details.change.actor==='self'?'durch Beschäftigten':'durch Verwaltung'}: {details.change.reason}</p>:null}
-    {details?.administrationStop?<p className="verbatim-reason">Beendet durch Verwaltung · {formatZonedDateTime(details.administrationStop.at)} · {details.administrationStop.reason}</p>:null}
+    {details?.change?<p className="verbatim-reason">{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {formatZonedDateTime(details.change.at)} · {details.change.actor==='self'?'durch Mitarbeiter':'durch Verwaltung'}: {details.change.reason}</p>:null}
+    {details?.administrationStop?<p className="verbatim-reason">Von der Verwaltung beendet · {formatZonedDateTime(details.administrationStop.at)} · {details.administrationStop.reason}</p>:null}
     {details?.comment?<p className="verbatim-reason">Kommentar: {details.comment}</p>:null}
     {own && details && context.administration.saveTimeEdit?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('comment');}}>Kommentar schreiben</button>:null}
     {canEdit && details && context.administration.saveTimeEdit && record.status==='stopped'?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('correct');}}>Ändern</button>:null}
     {canStop && details && context.administration.saveTimeEdit && record.status==='started'?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('stop');}}>Beenden</button>:null}
-    {context && (own||canEdit) && context.administration.saveTimeEdit && record.status==='stopped'?<button className="quiet" disabled={context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('void');}}>Zeiteintrag löschen</button>:null}
+    {context && (own||canEdit) && context.administration.saveTimeEdit && record.status==='stopped'?<button className="warning-action" disabled={context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('void');}}>Zeiteintrag löschen</button>:null}
     {record.status==='started' && own && !canStop?<p>Läuft noch — erst beenden, dann ändern</p>:null}
     {record.status==='started' && canStop && !context.online?<p role="status">Nur online möglich. Verbinden Sie sich mit dem Internet, um die Zeit zu beenden.</p>:null}
     {form==='void' && context?<VoidTimeForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}/${record.timeRecordId}`} record={record} onClose={close}/>:form && form!=='void' && context?<TimeEditForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}/${record.timeRecordId}`} kind={form} record={record} onClose={close}/>:null}
@@ -91,13 +91,13 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     if(kind==='comment') input={kind,record:record!,targetMembershipId:context.targetMembershipId,comment};
     else if(kind==='stop') {
       const stoppedAt=parseEditedZonedMinute(end,originalEnd);
-      if(!stoppedAt){setNotice({ kind: 'error', text: 'Prüfen Sie Datum und Uhrzeit in Europe/Berlin. Nicht eindeutige Zeiten bei der Zeitumstellung können nicht übernommen werden.' });return;}
+      if(!stoppedAt){setNotice({ kind: 'error', text: 'Prüfen Sie Datum und Uhrzeit in deutscher Ortszeit. Nicht eindeutige Zeiten bei der Zeitumstellung können nicht übernommen werden.' });return;}
       if(!reason.trim() || Array.from(reason).length>500){setNotice({ kind: 'error', text: 'Bitte geben Sie einen Grund mit 1 bis 500 Zeichen ein.' });return;}
       input={kind,record:record!,targetMembershipId:context.targetMembershipId,stoppedAt,reason};
     } else {
       const startedAt=kind==='backfill'?parseZonedLocalTimestamp(`${date}T${start}`):parseEditedZonedMinute(start,record?.startedAt);
       const stoppedAt=startedAt?(kind==='backfill'?parseZonedLocalTimestamp(`${end<=start?shiftDay(date,1):date}T${end}`):parseEditedZonedMinute(end,originalEnd)):null;
-      if(!startedAt || !stoppedAt){setNotice({ kind: 'error', text: 'Prüfen Sie Datum und Uhrzeiten in Europe/Berlin. Nicht eindeutige Zeiten bei der Zeitumstellung können nicht übernommen werden.' });return;}
+      if(!startedAt || !stoppedAt){setNotice({ kind: 'error', text: 'Prüfen Sie Datum und Uhrzeiten in deutscher Ortszeit. Nicht eindeutige Zeiten bei der Zeitumstellung können nicht übernommen werden.' });return;}
       if(kind==='backfill') {
         if(!target){setNotice({ kind: 'error', text: 'Wählen Sie einen Kunden oder ein Projekt.' });return;}
         input={kind,targetMembershipId:context.targetMembershipId,target,startedAt,stoppedAt,reason:administrator?reason:null,comment:!administrator&&comment.trim()?comment:null};
@@ -130,12 +130,12 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     {kind==='stop' && record ? <p className="full-field">{context.personLabel} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</p> : null}
     {kind==='backfill'?<><label>Kunde oder Projekt<select required value={selected} disabled={saving||archivePending} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>{targets?.status==='ready'?targets.value.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{t.displayName}</option>):null}</select></label>
       {targets?.status!=='ready'?<p role="status">{targets?.status==='unavailable'?targets.message:'Arbeitsziele werden geladen.'} <button type="button" className="quiet" disabled={saving||archivePending} onClick={()=>{if(managedBackfill) setTargetReload(value=>value+1);else void context.administration.loadWorkTargets?.();}}>Arbeitsziele erneut laden</button></p>:targets.value.length===0?<p>Es sind keine Arbeitsziele verfügbar.</p>:null}
-      <label>Datum<input data-field-error={date && !dateValue ? "Bitte Datum in Europe/Berlin prüfen." : undefined} type="date" required value={date} disabled={saving||archivePending} onChange={e=>setDate(e.target.value)}/></label></>:null}
-    {kind!=='comment'?<>{kind!=='stop'?<label>Von<input data-field-error={start && (kind!=='backfill'||dateValue) && !startValue ? "Bitte Beginn in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type={kind==='backfill'?'time':'datetime-local'} step="60" value={start} disabled={saving||archivePending} onChange={e=>setStart(e.target.value)}/></label>:null}
-      <label>Bis<input data-field-error={intervalError ?? (end && (kind!=='backfill'||(dateValue&&startValue)) && !endValue ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined)} required type={kind==='backfill'?'time':'datetime-local'} step="60" value={end} disabled={saving||archivePending} onChange={e=>setEnd(e.target.value)}/></label>
-      <p className="full-field supporting">{BUSINESS_TIME_ZONE}{kind==='backfill'?' · Liegt „bis“ vor oder gleich „von“, endet die Zeit am Folgetag. Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}
+      <label>Datum<input data-field-error={date && !dateValue ? "Bitte Datum in deutscher Ortszeit prüfen." : undefined} type="date" required value={date} disabled={saving||archivePending} onChange={e=>setDate(e.target.value)}/></label></>:null}
+    {kind!=='comment'?<>{kind!=='stop'?<label>Von<input data-field-error={start && (kind!=='backfill'||dateValue) && !startValue ? "Bitte Beginn in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined} required type={kind==='backfill'?'time':'datetime-local'} step="60" value={start} disabled={saving||archivePending} onChange={e=>setStart(e.target.value)}/></label>:null}
+      <label>Bis<input data-field-error={intervalError ?? (end && (kind!=='backfill'||(dateValue&&startValue)) && !endValue ? "Bitte Ende in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined)} required type={kind==='backfill'?'time':'datetime-local'} step="60" value={end} disabled={saving||archivePending} onChange={e=>setEnd(e.target.value)}/></label>
+      <p className="full-field supporting">Deutsche Ortszeit{kind==='backfill'?' · Liegt „bis“ vor oder gleich „von“, endet die Zeit am nächsten Tag. Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}
     {kind==='comment'||(kind==='backfill'&&!administrator)?<label className="full-field">{kind==='comment'?'Kommentar':'Kommentar (optional)'}<textarea required={kind==='comment'} value={comment} disabled={saving||archivePending} onChange={e=>setComment(e.target.value)}/></label>:null}
-    {kind!=='comment'&&administrator?<label className="full-field">Grund<textarea required value={reason} disabled={saving||archivePending} onChange={e=>setReason(e.target.value)}/></label>:null}
+    {kind!=='comment'&&administrator?<label className="full-field">Grund der Änderung (Pflicht)<textarea required value={reason} disabled={saving||archivePending} onChange={e=>setReason(e.target.value)}/></label>:null}
     {notice?<p className={notice.kind==='error'?'full-field field-error':'full-field'} role={notice.kind==='error'?'alert':'status'}>{notice.text}</p>:null}
     {!context.online?<p role="status">Nur online möglich. Ihre Eingaben bleiben erhalten.</p>:null}
     <button disabled={saving||!context.online} aria-busy={saving}>{saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'}</button>

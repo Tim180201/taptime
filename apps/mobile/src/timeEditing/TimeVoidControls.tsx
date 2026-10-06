@@ -1,3 +1,4 @@
+import {useSubviewBack} from '../navigation/SubviewBack';
 import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import {useContext,useEffect,useRef,useState} from 'react';
 import {View} from 'react-native';
@@ -11,6 +12,7 @@ export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;
   const form = useRequiredForm();
   const context=useContext(TimeEditingContext)!;
   const [code,setCode]=useState<VoidReasonCode|null>(null),[text,setText]=useState(''),[error,setError]=useState(''),[saving,setSaving]=useState(false);
+  useSubviewBack(()=>{if(!saving)onClose();},2);
   const mounted=useRef(true);
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   const save=async()=>{
@@ -34,7 +36,7 @@ export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;
     {code==='other'?<><Text>Kurze Begründung (1 bis 500 Zeichen)</Text><RequiredTextField form={form} error={!hasVisibleText(text) || Array.from(text).length>500 ? "Bitte gib eine Begründung mit 1 bis 500 Zeichen ein." : null} accessibilityLabel="Kurze Begründung" value={text} onChangeText={setText} editable={!saving} multiline/></>:null}
     {error?<Text accessibilityRole="alert">{error}</Text>:null}
     {!context.online?<Text>Löschen geht nur online. Deine Eingaben bleiben erhalten.</Text>:null}
-    <ActionButton title={saving?'Wird gelöscht …':'Löschen'} disabled={saving} onPress={()=>void save()}/>
+    <ActionButton title={saving?'Wird gelöscht …':'Löschen'} tone="warning" disabled={saving} onPress={()=>void save()}/>
     <ActionButton title="Abbrechen" tone="quiet" disabled={saving} onPress={onClose}/>
   </Card>;
 }

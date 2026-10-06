@@ -1,3 +1,4 @@
+import {useSubviewBack} from '../navigation/SubviewBack';
 import { hasVisibleText, timeIntervalError } from '@taptime/core';
 import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import {VoidTimeForm} from './TimeVoidControls';
@@ -32,14 +33,14 @@ export function TimeEditingProvider({capability,work,membershipId,role,managemen
 export const timeEditMessages:Record<TimeEditResult['status'],string>={
   forbidden:'Du darfst diesen Zeiteintrag nicht löschen.',
   running:'Die Zeit läuft noch. Beende sie zuerst.',
-  review_open:'Zu diesem Eintrag ist noch eine Prüfung offen. Lass sie zuerst entscheiden.',
+  review_open:'Wird von der Verwaltung geprüft. Warte bitte auf das Ergebnis.',
   already_voided:'Dieser Zeiteintrag wurde bereits gelöscht. Aktualisiere die Ansicht.',
   end_before_break:'Die Endzeit liegt vor einer erfassten Pause.',
   committed:'Gespeichert.',offline:'Zeit hinzufügen und ändern geht nur online. Deine Eingaben bleiben erhalten.',busy:'Ein Eintrag wird noch gespeichert.',
   authority_rejected:'Deine Berechtigung ist nicht mehr gültig. Aktualisiere deine Sitzung.',invalid_request:'Prüfe Datum, Uhrzeiten und die Texte (höchstens 500 Zeichen).',
   after_departure:'Zeiten dürfen nur bis zum Austritt der Person reichen.',
   invalid_interval:'Die Zeit muss beendet sein, in der Vergangenheit liegen und darf höchstens 24 Stunden dauern.',outside_window:'Du kannst Zeiten im laufenden Monat und im Vormonat nachtragen.',
-  reason_required:'Bitte begründe den Nachtrag.',invalid_comment:'Der Kommentar braucht 1 bis 500 Zeichen.',overlap:'Die Zeit überschneidet sich mit einem anderen Eintrag. Prüfe deine Zeiten.',
+  reason_required:'Bitte begründe den Nachtrag.',invalid_comment:'Der Kommentar braucht 1 bis 500 Zeichen.',overlap:'Die Zeit überschneidet sich mit einem anderen Eintrag. Prüfe die Zeiten dieses Tages.',
   command_id_conflict:'Dieser Speichervorgang wurde bereits mit anderen Angaben verwendet. Aktualisiere die Ansicht.',unavailable:'Die Speicherung konnte nicht bestätigt werden. Versuche es erneut; deine Eingaben bleiben erhalten.',
   conflict:'Der Eintrag wurde inzwischen geändert. Aktualisiere die Ansicht.',not_adjustable:'Dieser Eintrag kann nicht geändert werden. Aktualisiere die Ansicht.',
 };
@@ -68,14 +69,14 @@ export function TimeRecordControls({record,targetMembershipId,onSaved,directStop
   </View> : null;
   return <View style={{gap:8}}>
     {details?.overlapsAnotherRecord?<Text accessibilityRole="alert">überschneidet sich</Text>:null}
-    {details?.change?<Text>{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {new Intl.DateTimeFormat('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:BUSINESS_TIME_ZONE}).format(new Date(details.change.at))} · {details.change.actor==='self'?'durch Beschäftigten':'durch Verwaltung'}: {details.change.reason}</Text>:null}
-    {details?.administrationStop?<Text>Beendet durch Verwaltung · {new Intl.DateTimeFormat('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:BUSINESS_TIME_ZONE}).format(new Date(details.administrationStop.at))} · {details.administrationStop.reason}</Text>:null}
+    {details?.change?<Text>{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {new Intl.DateTimeFormat('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:BUSINESS_TIME_ZONE}).format(new Date(details.change.at))} · {details.change.actor==='self'?'durch Mitarbeiter':'durch Verwaltung'}: {details.change.reason}</Text>:null}
+    {details?.administrationStop?<Text>Von der Verwaltung beendet · {new Intl.DateTimeFormat('de-DE',{dateStyle:'short',timeStyle:'short',timeZone:BUSINESS_TIME_ZONE}).format(new Date(details.administrationStop.at))} · {details.administrationStop.reason}</Text>:null}
     {details?.comment?<Text>Kommentar: {details.comment}</Text>:null}
     {own && details?<ActionButton title="Kommentar schreiben" tone="quiet" disabled={!context?.online || context.busy} onPress={()=>setForm('comment')} />:null}
     {context && canEdit && details ? record.status==='stopped'
       ? <ActionButton title="Ändern" tone="quiet" disabled={!context.online || context.busy} onPress={()=>setForm('correct')} />
       : canStop ? <ActionButton title="Beenden" tone="quiet" disabled={!context.online || context.busy} onPress={()=>setForm('stop')} /> : null : null}
-    {context && (own||canEdit) && record.status==='stopped'?<ActionButton title="Zeiteintrag löschen" tone="quiet" disabled={context.busy} onPress={()=>setForm('void')}/>:null}
+    {context && (own||canEdit) && record.status==='stopped'?<ActionButton title="Zeiteintrag löschen" tone="warning" disabled={context.busy} onPress={()=>setForm('void')}/>:null}
     {record.status==='started' && own && !canStop?<Text>Läuft noch — erst beenden, dann ändern</Text>:null}
     {record.status==='started' && context && canStop && !context.online?<Text>Nur online möglich. Verbinde dich mit dem Internet, um die Zeit zu beenden.</Text>:null}
     {form==='void' && context?<VoidTimeForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} record={record} onSaved={onSaved} onClose={()=>setForm(null)}/>:form && form!=='void' && context?<TimeEditForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} kind={form} record={record} targetMembershipId={targetMembershipId??context.membershipId} onSaved={onSaved} onClose={()=>setForm(null)} />:null}
@@ -110,6 +111,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,person
   const [archivePending,setArchivePending]=useState(false);
   const mounted=useRef(true);
   const member=useRef(context.membershipId);member.current=context.membershipId;
+  useSubviewBack(()=>{if(!saving&&!archivePending)onClose();},2);
   const pendingInput=useRef<Record<string,unknown>|null>(null);
   useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
   const save=async()=>{
@@ -119,7 +121,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,person
     if(kind==='comment') {input.timeRecordId=record!.timeRecordId;input.comment=comment;}
     else if(kind==='stop') {
       const stoppedAt=parseEditedZonedMinute(`${endDate}T${end}`,originalEnd);
-      if(!stoppedAt) {setNotice({ kind: 'error', text: 'Prüfe Datum und Uhrzeit in Europe/Berlin. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.' });return;}
+      if(!stoppedAt) {setNotice({ kind: 'error', text: 'Prüfe Datum und Uhrzeit in deutscher Ortszeit. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.' });return;}
       if(!hasVisibleText(reason) || Array.from(reason).length>500) {setNotice({ kind: 'error', text: 'Bitte gib einen Grund mit 1 bis 500 Zeichen ein.' });return;}
       Object.assign(input,{targetMembershipId,timeRecordId:record!.timeRecordId,expectedRowVersion:record!.details!.baseRowVersion,stoppedAt,reason});
     }
@@ -128,7 +130,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,person
       const startedAt=kind==='backfill'?parseZonedLocalTimestamp(from):parseEditedZonedMinute(from,record?.startedAt);
       const to=startedAt?`${kind==='backfill'?(end<=start?shiftDay(date,1):date):endDate}T${end}`:'';
       const stoppedAt=kind==='backfill'?parseZonedLocalTimestamp(to):parseEditedZonedMinute(to,originalEnd);
-      if(!startedAt || !stoppedAt) {setNotice({ kind: 'error', text: 'Prüfe Datum und Uhrzeiten in Europe/Berlin. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.' });return;}
+      if(!startedAt || !stoppedAt) {setNotice({ kind: 'error', text: 'Prüfe Datum und Uhrzeiten in deutscher Ortszeit. Eine nicht eindeutige Uhrzeit bei der Zeitumstellung kann nicht übernommen werden.' });return;}
       Object.assign(input,{startedAt,stoppedAt,reason:context.role!=='employee'?reason:null});
       if(kind==='backfill') {
         if(!target || !targets.some(t=>t.targetType===target.targetType && t.targetId===target.targetId)) {setNotice({ kind: 'error', text: 'Wähle einen Kunden oder ein Projekt.' });return;}
@@ -157,7 +159,7 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,person
   const dateValue=parseZonedLocalTimestamp(`${date}T12:00`);
   const endDateValue=parseZonedLocalTimestamp(`${endDate}T12:00`);
   const intervalError=kind==='correct' && startValue && endValue ? timeIntervalError(startValue,endValue) : null;
-  const timeError='Bitte Datum und Uhrzeit in Europe/Berlin prüfen (Zeitumstellung).';
+  const timeError='Bitte Datum und Uhrzeit in deutscher Ortszeit prüfen (Zeitumstellung).';
   const field=(label:string,value:string,set:(s:string)=>void,multiline=false,invalidTime=false,extraError:string|null=null)=><View style={{gap:4}}><Text>{label}</Text><RequiredTextField form={form} error={extraError ?? (label.includes("optional") ? (value && !hasVisibleText(value) ? "Bitte einen Kommentar eingeben." : null) : !hasVisibleText(value) ? `Bitte ${label} eingeben.` : multiline && Array.from(value).length>500 ? "Bitte höchstens 500 Zeichen eingeben." : invalidTime ? timeError : null)} accessibilityLabel={label} value={value} onChangeText={set} multiline={multiline} editable={!saving&&!archivePending} /></View>;
   return <View style={{gap:12}}>
     {kind==='stop' && record ? <Text>{personName ? `${personName} · ` : ''}{record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</Text> : null}
@@ -173,9 +175,9 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,person
       {kind!=='stop'?field('Von (HH:MM)',start,setStart,false,!!dateValue&&!startValue):null}
       {kind!=='backfill'?field('Ende am (JJJJ-MM-TT)',endDate,setEndDate,false,!endDateValue):null}
       {field('Bis (HH:MM)',end,setEnd,false,(kind==='backfill'?!!dateValue&&!!startValue:!!endDateValue)&&!endValue,intervalError)}
-      <Text>Europe/Berlin{kind==='backfill'?' · Liegt „bis“ vor oder gleich „von“, endet die Zeit am Folgetag. Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</Text></>:null}
+      <Text>Deutsche Ortszeit{kind==='backfill'?' · Liegt „bis“ vor oder gleich „von“, endet die Zeit am nächsten Tag. Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</Text></>:null}
     {kind==='comment'||(kind==='backfill'&&context.role==='employee')?field(kind==='comment'?'Kommentar':'Kommentar (optional)',comment,setComment,true):null}
-    {kind!=='comment'&&context.role!=='employee'?field('Grund',reason,setReason,true):null}
+    {kind!=='comment'&&context.role!=='employee'?field('Grund der Änderung (Pflicht)',reason,setReason,true):null}
     {notice?<Text accessibilityRole={notice.kind==='error'?'alert':'text'}>{notice.text}</Text>:null}
     {!context.online?<Text>Nur online möglich. Deine Eingaben bleiben erhalten.</Text>:null}
     <ActionButton title={saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'} loading={saving} disabled={saving||!context.online} onPress={()=>{void save();}} />

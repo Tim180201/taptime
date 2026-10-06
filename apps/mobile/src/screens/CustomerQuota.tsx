@@ -1,5 +1,6 @@
+import {useSubviewBack} from '../navigation/SubviewBack';
 import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { formatHours, formatQuotaHours } from '@taptime/core';
 import { parseQuotaHours, quotaStageLabel, type QuotaStage } from '@taptime/mobile-work-contract';
@@ -11,13 +12,15 @@ export function QuotaProgress({customer}:{customer:QuotaCustomer}) {
   if(customer.quotaSeconds==null) return null;
   const label=quotaStageLabel(customer.quotaStage),color=label?mobileTokens.color.warning:mobileTokens.color.accent;
   return <View style={{gap:8,flex:1}}><Text style={{fontWeight:'800'}}>{formatHours(customer.workDurationSeconds*1000)} von {formatQuotaHours(customer.quotaSeconds)} h</Text>
-    <View accessibilityRole="progressbar" accessibilityLabel="Monatskontingent" accessibilityValue={{min:0,max:customer.quotaSeconds,now:Math.min(customer.workDurationSeconds,customer.quotaSeconds)}} style={{height:8,backgroundColor:mobileTokens.color.border,borderRadius:4,overflow:'hidden'}}>
+    <View accessibilityRole="progressbar" accessibilityLabel="Monatliches Stundenkontingent" accessibilityValue={{min:0,max:customer.quotaSeconds,now:Math.min(customer.workDurationSeconds,customer.quotaSeconds)}} style={{height:8,backgroundColor:mobileTokens.color.border,borderRadius:4,overflow:'hidden'}}>
       <View style={{height:8,width:`${Math.min(100,customer.workDurationSeconds/customer.quotaSeconds*100)}%`,backgroundColor:color}}/>
     </View>{label?<Text style={{color}}>{label}</Text>:null}</View>;
 }
-export function CustomerQuota({customer,work,onSaved,editable}:{customer:QuotaCustomer;work:MobileWorkCapability;onSaved:()=>void;editable:boolean}) {
+export function CustomerQuota({customer,work,onSaved,editable,onEditingChange}:{customer:QuotaCustomer;work:MobileWorkCapability;onSaved:()=>void;editable:boolean;onEditingChange?:(open:boolean)=>void}) {
   const form = useRequiredForm();
   const [editing,setEditing]=useState(false),[input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  useEffect(()=>{onEditingChange?.(editing);return()=>onEditingChange?.(false);},[editing,onEditingChange]);
+  useSubviewBack(editing?()=>{if(!busy)setEditing(false);}:null,2);
   const save=async()=>{
     if(busy || !form.validate())return;
     const minutes=parseQuotaHours(input);
@@ -28,7 +31,7 @@ export function CustomerQuota({customer,work,onSaved,editable}:{customer:QuotaCu
     if(result?.status==='succeeded'){setEditing(false);onSaved();}
     else setError(result?.status==='forbidden'?'Du darfst das Kontingent dieses Kunden nicht mehr ändern.':'Das Kontingent konnte nicht gespeichert werden. Versuche es erneut. Deine Eingabe bleibt erhalten.');
   };
-  return <View style={{gap:12}}><Text>Kontingent: {customer.quotaSeconds==null?'Kein Kontingent':`${formatQuotaHours(customer.quotaSeconds)} h pro Monat`}</Text><QuotaProgress customer={customer}/>
+  return <View style={{gap:12}}><Text>Monatliches Stundenkontingent: {customer.quotaSeconds==null?'Kein Kontingent':`${formatQuotaHours(customer.quotaSeconds)} h pro Monat`}</Text><Text>Es dient als Hinweis. Weitere Zeit kann weiterhin erfasst werden.</Text><QuotaProgress customer={customer}/>
     {editing?<><Text>Stunden pro Monat (optional)</Text><RequiredTextField form={form} error={parseQuotaHours(input)===undefined ? "Gib 0,5 bis 744 Stunden in halben oder ganzen Stunden ein." : null} accessibilityLabel="Stunden pro Monat (optional)" keyboardType="decimal-pad" value={input} editable={!busy} onChangeText={setInput}/>
       <Text>0,5 bis 744 Stunden. Leer lassen entfernt das Kontingent. Änderungen gelten ab dem laufenden Monat.</Text>
       {error?<Text accessibilityRole="alert">{error}</Text>:null}

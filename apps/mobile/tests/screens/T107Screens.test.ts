@@ -43,7 +43,7 @@ it('keeps reported evidence separate from outstanding transfers',()=>{
  const entry={workEventId:'failed',displayName:'Kunde X',occurredAt:'2026-10-04T08:00:00Z',reason:'rejected',reported:true};
  const reported={...scanState,untransferred:[entry]};
  render(h(SynchronizationScreen,{scan:{...scan,getState:()=>reported} as ProductScanCapability}));
- expect(screen.getByText('Die Verwaltung prüft diese Erfassung. Der Originalbeleg bleibt auf dem Handy erhalten.')).toBeDefined();
+ expect(screen.getByText('Wird von der Verwaltung geprüft. Der Originalbeleg bleibt auf dem Handy erhalten.')).toBeDefined();
  expect(screen.queryByText(/sperrt den Kontowechsel/)).toBeNull();
  expect(screen.queryByText(/wartet auf Bestätigung/)).toBeNull();
 });
@@ -79,7 +79,7 @@ it('offers a direct administrative stop at the person status with its context',a
  const context={membershipId:'manager',role:'administrator' as const,online:true,busy:false,targets:[],capability:{save:vi.fn(),subscribe:()=>()=>{},getState:()=>({online:true,busy:false})}};
  render(h(TimeEditingContext.Provider,{value:context},h(PersonTimeScreen,{person:{membershipId:'other',displayName:'Erika Beispiel',role:'employee',location:null,isRunning:true,runningSince:active.startedAt,runningTargetDisplayName:'Kunde X'},value:{...ownTime,activeRecord:entry},onBack:()=>{},onRefresh:async()=>{}})));
  fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));
- expect(screen.getByLabelText('Grund')).toBeDefined();
+ expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/)).toBeDefined();
  expect(screen.getByText(/Erika Beispiel · Kunde X ·/)).toBeDefined();
 });
 

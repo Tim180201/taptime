@@ -1284,7 +1284,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   async setHomeLocation(membershipId: string, locationId: string): Promise<void> {
     await this.runLocationMutation({ action: 'set_home_location', membershipId, locationId },
-      'Heimatstandort wurde zugewiesen.');
+      'Hauptarbeitsstandort wurde zugewiesen.');
   }
 
   async setWorkLocation(membershipId: string, locationId: string,
@@ -1429,7 +1429,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
             ...latest.sections,
             employees: {
               status: 'unavailable',
-              message: 'Die weiteren Beschäftigten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
+              message: 'Die weiteren Mitarbeiter passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
             },
           },
         });
@@ -1443,7 +1443,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           ...latest.sections,
           employees: {
             status: 'unavailable',
-            message: 'Weitere Beschäftigte konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
+            message: 'Weitere Mitarbeiter konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.',
           },
         },
       });
@@ -1515,7 +1515,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         ? 'Es bestehen bereits fünf aktive Einladungen; eine weitere wurde nicht erstellt. Verwerfen Sie eine nicht mehr benötigte Einladung und versuchen Sie es erneut.'
         : result.code === 'invitation_created_token_unavailable'
           ? 'Der Zugangscode dieser Einladung kann nur einmal angezeigt werden. Erzeugen Sie bei Bedarf eine neue Einladung.'
-          : 'Ein anderer Vorgang hat das Erstellen der Einladung unterbrochen. Laden Sie die Beschäftigten neu und versuchen Sie es erneut.';
+          : 'Ein anderer Vorgang hat das Erstellen der Einladung unterbrochen. Laden Sie die Mitarbeiter neu und versuchen Sie es erneut.';
       this.setState({ ...latest, creatingEmployee: false, invitation: null, notice: { kind: 'error', text: notice } });
     } else {
       this.setState({
@@ -1625,7 +1625,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
               : 'Ein anderer Vorgang hat Ihre Änderung an der Person unterbrochen. Laden Sie den Bereich neu und versuchen Sie es erneut.';
       this.setState({ ...latest, notice: { kind: 'error', text: notice } });
     } else {
-      this.setState({ ...latest, notice: { kind: 'error', text: 'Ob die Änderung gespeichert wurde, ist noch unklar. Laden Sie die Beschäftigten neu und prüfen Sie den Stand.' } });
+      this.setState({ ...latest, notice: { kind: 'error', text: 'Ob die Änderung gespeichert wurde, ist noch unklar. Laden Sie die Mitarbeiter neu und prüfen Sie den Stand.' } });
     }
   }
 
@@ -1662,7 +1662,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.setState({
         ...current,
         reassignmentIntent: null,
-        notice: { kind: 'error', text: 'Der Tag oder das Arbeitsziel ist nicht mehr verfügbar; die Zuordnung bleibt unverändert. Laden Sie die Einrichtung neu und wählen Sie erneut.' },
+        notice: { kind: 'error', text: 'Die Karte oder das Arbeitsziel ist nicht mehr verfügbar; die Zuordnung bleibt unverändert. Laden Sie die Einrichtung neu und wählen Sie erneut.' },
       });
       return;
     }
@@ -1735,7 +1735,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         this.setState({
           ...refreshed,
           notice: { kind: 'success', text: result.value.assignmentChanged
-            ? 'NFC-Tag wurde sicher neu zugeordnet.'
+            ? 'Karte wurde sicher neu zugeordnet.'
             : 'Die Zuordnung war bereits korrekt.' },
         });
       }
@@ -2579,7 +2579,7 @@ function locationMutationNotice(code:
     case 'setup_incomplete': return 'Die Standort-Funktion bleibt ausgeschaltet. Mindestens eine der namentlich aufgeführten Bindungen fehlt noch.';
     case 'location_in_use': return 'Der Standort bleibt aktiv, weil noch eine aktuelle Bindung daran hängt. Weisen Sie diese zuerst einem anderen Standort zu.';
     case 'management_role_required': return 'Die Verwaltungszuweisung wurde abgewiesen. Sie ist ausschließlich für die Rolle Standortleitung zulässig.';
-    case 'home_work_conflict': return 'Heimatstandort und zusätzliche Arbeitszuweisung müssen getrennt bleiben. Widerrufen Sie zuerst die kollidierende Arbeitszuweisung.';
+    case 'home_work_conflict': return 'Hauptarbeitsstandort und weitere erlaubte Arbeitsstandorte müssen getrennt bleiben. Widerrufen Sie zuerst die kollidierende Arbeitszuweisung.';
     case 'stale_row_version': return 'Der Standort wurde zwischenzeitlich geändert. Die aktuelle Fassung wurde neu geladen.';
     case 'location_unavailable': return 'Der gewählte Standort ist nicht mehr aktiv oder nicht verfügbar.';
     case 'membership_unavailable': return 'Die gewählte Zugehörigkeit ist nicht mehr aktiv oder nicht verfügbar.';
@@ -2814,16 +2814,16 @@ function sectionUnavailableMessage(
   switch (failure) {
     case 'unreachable':
       switch (section) {
-        case 'employees': return 'Die Beschäftigten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
+        case 'employees': return 'Die Mitarbeiter konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
         case 'timeRecords': return 'Die Arbeitszeiten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
-        case 'reviewItems': return 'Die offenen Prüfungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
+        case 'reviewItems': return 'Die ungeklärten Erfassungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
         default: return section satisfies never;
       }
     case 'invalid_response':
       switch (section) {
-        case 'employees': return 'Die Beschäftigten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
+        case 'employees': return 'Die Mitarbeiter konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
         case 'timeRecords': return 'Die Arbeitszeiten konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
-        case 'reviewItems': return 'Die offenen Prüfungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
+        case 'reviewItems': return 'Die ungeklärten Erfassungen konnten nicht geladen werden; gespeicherte Daten bleiben erhalten. Laden Sie den Bereich erneut.';
         default: return section satisfies never;
       }
     default: return failure satisfies never;
@@ -2916,7 +2916,7 @@ function applySectionResult(
           ...current.sections,
           employees: {
             status: 'unavailable',
-            message: 'Die Beschäftigten gehören nicht zu Ihrem Betrieb und werden nicht angezeigt. Melden Sie sich ab und erneut an.',
+            message: 'Die Mitarbeiter gehören nicht zu Ihrem Betrieb und werden nicht angezeigt. Melden Sie sich ab und erneut an.',
           },
         },
       };
@@ -3073,7 +3073,7 @@ function adjudicationConflictNotice(code: string): string {
     return 'Diese Arbeitszeit passt nicht zum Prüffall. Wählen Sie einen Eintrag derselben Person und desselben Arbeitsziels.';
   }
   if (code === 'command_id_conflict') {
-    return 'Die Entscheidung wurde nicht gespeichert, weil dieser Speichervorgang bereits verwendet wurde. Laden Sie die Prüfungen neu und versuchen Sie es erneut.';
+    return 'Die Entscheidung wurde nicht gespeichert, weil dieser Speichervorgang bereits verwendet wurde. Laden Sie „Zeiten prüfen“ neu und versuchen Sie es erneut.';
   }
   return 'Der Prüffall wurde inzwischen geändert; Ihre Entscheidung wurde nicht gespeichert. Prüfen Sie die neu geladenen Daten und versuchen Sie es erneut.';
 }

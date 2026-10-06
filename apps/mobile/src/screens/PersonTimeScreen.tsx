@@ -1,3 +1,4 @@
+import {SubviewBack} from '../navigation/SubviewBack';
 import {TimeRecordControls} from '../timeEditing/TimeEditingControls';
 import { useState } from 'react';
 import { invitationMessage } from '../employees/presentation';
@@ -18,7 +19,7 @@ export function PersonTimeScreen({person,value,onBack,onRefresh,busy=false,faile
   const [resending,setResending]=useState(false);
   const [resendNotice,setResendNotice]=useState<string|null>(null);
   return <Screen title={person.displayName}>
-    <View style={{gap:16}}><ActionButton title="Zurück zur Liste" tone="quiet" onPress={onBack} />
+    <View style={{gap:16}}><SubviewBack label="Mitarbeiter" onBack={onBack} />
       <Card><View style={{flexDirection:'row',gap:8,alignItems:'center'}}><LineIcon name="person" /><Text accessibilityRole="header" style={{fontSize:22,lineHeight:28,fontWeight:'800',flex:1}}>{person.displayName}</Text></View>
         <Text>{roleName(person.role)}{person.location ? ` · ${person.location.name}` : ''}</Text>
         <Text>{value?.activeRecord ? `Aktiv seit ${formatClock(Date.parse(value.activeRecord.startedAt))} · ${value.activeRecord.targetDisplayName}`

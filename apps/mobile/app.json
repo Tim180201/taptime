@@ -41,7 +41,7 @@
       [
         "react-native-nfc-manager",
         {
-          "nfcPermission": "Taptura liest NFC-Tags zur Zeiterfassung und beschreibt sie beim Zuordnen.",
+          "nfcPermission": "Taptura liest NFC-Karten zur Zeiterfassung und beschreibt sie beim Zuordnen.",
           "includeNdefEntitlement": false,
           "selectIdentifiers": [],
           "systemCodes": []

@@ -5,8 +5,8 @@ import type { AdministrationSection } from './contracts';
 export const adminViews = [
   { slug: 'uebersicht', label: 'Übersicht' },
   { slug: 'kunden', label: 'Kunden' },
-  { slug: 'beschaeftigte', label: 'Beschäftigte' },
-  { slug: 'pruefungen', label: 'Prüfungen' },
+  { slug: 'beschaeftigte', label: 'Mitarbeiter' },
+  { slug: 'pruefungen', label: 'Zeiten prüfen' },
   { slug: 'meine-zeiten', label: 'Meine Zeiten' },
   { slug: 'manuell', label: 'Manuell' },
   { slug: 'einrichtung', label: 'Einrichtung' },
@@ -24,6 +24,7 @@ const allowedCaptureTypes = new Set<string>(['alle', 'gescannt', 'manuell-erfass
 export interface AdminRoute {
   readonly view: AdminView;
   readonly personId?: string;
+  readonly customerId?: string;
   readonly locationId: string | null;
   readonly month: string | null;
   readonly status: TimeRecordStatusFilter;
@@ -37,7 +38,7 @@ export function routeFromLocation(pathname: string, search: string): AdminRoute 
   const view = allowedViews.has(candidate) ? candidate as AdminView : 'uebersicht';
   const parameters = new URLSearchParams(search);
   const locationId = validLocationId(parameters.get('standort'));
-  if (view !== 'lohnexport') return { ...defaultRoute(view, locationId), month: validMonth(parameters.get('monat')), ...(personId === null ? {} : {personId}) };
+  if (view !== 'lohnexport') return { ...defaultRoute(view, locationId), month: validMonth(parameters.get('monat')), ...(personId === null ? {} : {personId}), ...(view==='kunden' && validLocationId(parameters.get('kunde')) ? {customerId:validLocationId(parameters.get('kunde'))!} : {}) };
   const month = validMonth(parameters.get('monat'));
   const statusCandidate = parameters.get('status') ?? 'alle';
   const captureCandidate = parameters.get('erfassungsart') ?? 'alle';
@@ -60,6 +61,7 @@ export function canonicalRoutePath(route: AdminRoute): string {
   const parameters = new URLSearchParams();
   if (route.locationId !== null) parameters.set('standort', route.locationId);
   if (route.month !== null) parameters.set('monat', route.month);
+  if (route.view==='kunden' && route.customerId) parameters.set('kunde',route.customerId);
   if (route.view !== 'lohnexport') {
     const search = parameters.toString();
     return search.length === 0 ? pathname : `${pathname}?${search}`;

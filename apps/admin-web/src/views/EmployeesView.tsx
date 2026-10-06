@@ -48,17 +48,17 @@ export default function EmployeesView({ state, administration, accountInvitation
     {invitationSuccess === null ? null : <p role="status">{ACCOUNT_INVITATION_SUCCESS_NOTICES[invitationSuccess]}</p>}
     <SectionBoundary state={state.sections.employees}
     onRetry={() => void administration.retrySection('employees')}>
-    <Panel title="Beschäftigte" description={state.selectedLocation === null
-      ? 'Beschäftigte und ihre Zugänge.'
-      : `Beschäftigte und ihre Zugänge am Standort ${state.selectedLocation.name}.`}>
+    <Panel title="Mitarbeiter" description={state.selectedLocation === null
+      ? 'Mitarbeiter und ihre Zugänge.'
+      : `Mitarbeiter und ihre Zugänge am Standort ${state.selectedLocation.name}.`}>
       {packageUsage?.packageSize != null ? <p className={packageUsage.activeAccessCount > packageUsage.packageSize ? 'package-warning' : undefined}>
         {packageUsage.activeAccessCount} Zugänge, Paket {packageUsage.packageSize}
         {packageUsage.activeAccessCount > packageUsage.packageSize ? ' · Paket überschritten. Alle Zugänge bleiben nutzbar.' : ''}
       </p> : null}
       <CountTruth count={state.employeeProjection.employeeMemberships.length}
         noun={state.selectedLocation === null
-          ? state.locationsEnabled ? 'Beschäftigte im Betrieb' : 'Beschäftigte'
-          : `Beschäftigte am Standort ${state.selectedLocation.name}`}
+          ? state.locationsEnabled ? 'Mitarbeiter im Betrieb' : 'Mitarbeiter'
+          : `Mitarbeiter am Standort ${state.selectedLocation.name}`}
         complete={state.employeeProjection.nextCursor === null} />
       <EmployeeAccountInvitationForm key={state.selectedLocation?.id ?? 'organization'}
         packageUsage={packageUsage}
@@ -70,7 +70,7 @@ export default function EmployeesView({ state, administration, accountInvitation
           await administration.retrySection('employees');
         }} />
       <ActivityTile state={state} administration={administration}/>
-      <div className="filter-chips" role="group" aria-label="Aktivitätsfilter">{[['Alle',null],['Aktiv',true],['Inaktiv',false]].map(([label,value])=>
+      <div className="filter-chips" role="group" aria-label="Aktivitätsfilter">{[['Alle',null],['Zeit läuft',true],['Keine laufende Zeit',false]].map(([label,value])=>
         <button key={String(label)} className="secondary" aria-pressed={runningFilter === value}
           onClick={()=>setRunningFilter(value as boolean|null)}>{label}</button>)}</div>
       {state.managedPeople?.status === 'ready' ? <><PeopleTable people={state.managedPeople.value.people}
@@ -83,8 +83,8 @@ export default function EmployeesView({ state, administration, accountInvitation
           <small className={`pill ${membership.active ? 'success' : ''}`}>
             {membership.role === 'administrator'
               ? 'Administrator'
-              : membership.role === 'standortleitung' ? 'Standortleitung' : 'Beschäftigter'}
-            {' · '}{membership.active ? 'Aktiv' : 'Zugang entzogen'}
+              : membership.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter'}
+            {' · '}{membership.active ? 'Zugang aktiv' : 'Zugang entzogen'}
           </small>
           {state.locationsEnabled && membership.location !== null
             ? <small>Standort {membership.location.name}</small> : null}
@@ -100,13 +100,13 @@ export default function EmployeesView({ state, administration, accountInvitation
                       membership.rowVersion,
                       event.target.value as 'administrator' | 'standortleitung' | 'employee',
                     )}>
-                    <option value="employee">Beschäftigter</option>
+                    <option value="employee">Mitarbeiter</option>
                     <option value="standortleitung">Standortleitung</option>
                     <option value="administrator">Administrator</option>
                   </select>
                 </label> : <button className="quiet" onClick={()=>setEditingMembership(membership.id)}>Rolle bearbeiten</button>
               : null}
-            <button className="quiet" onClick={(event) => {
+            <button className="warning-action" onClick={(event) => {
               revocationTrigger.current = event.currentTarget;
               void administration.loadPersonTime?.(membership.id,businessDay(Date.now()).slice(0,7));
               setRevocationIntent({
@@ -120,6 +120,7 @@ export default function EmployeesView({ state, administration, accountInvitation
       {revocationIntent === null ? null : <Confirmation
         label="Zugangsentzug ausdrücklich bestätigen"
         title={`Zugang für ${revocationIntent.displayName} wirklich entziehen?`}
+        warning
         confirmLabel="Zugang entziehen"
         busyLabel="Zugang wird entzogen …"
         busy={revoking}
@@ -136,7 +137,7 @@ export default function EmployeesView({ state, administration, accountInvitation
         }}
         onCancel={() => setRevocationIntent(null)}
       >
-        <p>Der Beschäftigte kann sich danach nicht mehr anmelden.</p>
+        <p>Der Mitarbeiter kann sich danach nicht mehr anmelden.</p>
         {checking ? <p role="status">{revocationCalendar?.status === 'unavailable' ? 'Die laufende Zeit konnte nicht geladen werden. Bitte öffnen Sie die Personenansicht.' : 'Laufende Zeit wird geprüft …'}</p>
           : tooLong && running ? <p>Diese Zeit läuft seit {formatZonedDateTime(running.startedAt)}. Bitte zuerst in der Personenansicht mit passender Endzeit beenden, dann den Zugang entziehen.</p>
           : <p>Läuft gerade eine Zeit, wird sie jetzt beendet{running ? `: ${running.targetDisplayName} · seit ${formatZonedDateTime(running.startedAt)}` : ''}.</p>}
@@ -146,19 +147,19 @@ export default function EmployeesView({ state, administration, accountInvitation
       {state.employeeProjection.employeeMemberships.length === 0
         && state.employeeProjection.nextCursor === null
         ? state.selectedLocation === null
-          ? <p className="empty">Keine Beschäftigten vorhanden.</p>
+          ? <p className="empty">Keine Mitarbeiter vorhanden.</p>
           : <div className="empty first-list-empty">
-              <strong>Noch keine Beschäftigten am Standort {state.selectedLocation.name}</strong>
+              <strong>Noch keine Mitarbeiter am Standort {state.selectedLocation.name}</strong>
               <p>Laden Sie die erste beschäftigte Person für diesen Standort ein.</p>
               <button className="secondary" onClick={() => setAdding(true)}>
-                Beschäftigte Person einladen
+                Mitarbeiter einladen
               </button>
             </div>
         : null}
       {state.employeeProjection.nextCursor === null ? null
         : <button className="secondary load-more"
             onClick={() => void administration.loadMoreEmployees()}>
-            Weitere Beschäftigte laden
+            Weitere Mitarbeiter laden
           </button>}
     </Panel>
   </SectionBoundary></>;

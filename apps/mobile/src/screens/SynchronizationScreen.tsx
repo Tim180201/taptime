@@ -15,18 +15,18 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
   const unreported=state.untransferred?.filter(entry=>!entry.reported) ?? [];
   const reported=state.untransferred?.filter(entry=>entry.reported) ?? [];
   const pendingCount='queueCount' in state ? state.queueCount : state.status==='ready' && state.outcome===null ? 0 : null;
-  return <Screen title="Abgleich"><ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 24 }}>
+  return <Screen title="Übertragung"><ScrollView contentContainerStyle={{ gap: 16, paddingBottom: 24 }}>
     <Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>
       Jeder Tap bleibt auf deinem Handy, bis seine externe Sicherung nachgewiesen ist.
     </Text>
     <Card><Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>Zustand</Text>
       <Text accessibilityLiveRegion="polite" style={{ fontSize: 15, fontWeight: '800',
         color: status.kind === 'confirmed' ? mobileTokens.color.accent : mobileTokens.color.notice }}>
-        {state.transmissionPaused ? `Übertragung angehalten: ${presentScanState(state).message}` : state.updateRequired ? 'Bitte App aktualisieren' : unreported.length ? `${unreported.length} Erfassung konnte nicht übertragen werden` : reported.length ? `${reported.length} Erfassung wird von deiner Verwaltung geprüft` : status.kind === 'confirmed' ? 'Alles bestätigt' : status.kind === 'pending' ? 'Wird nachgereicht'
-          : status.kind === 'protected' ? 'Vorgänge geschützt' : status.kind === 'review' ? 'Prüfung erforderlich' : 'Noch nicht bestätigt'}
+        {state.transmissionPaused ? `Übertragung angehalten: ${presentScanState(state).message}` : state.updateRequired ? 'Bitte App aktualisieren' : unreported.length ? `${unreported.length} Erfassung konnte nicht übertragen werden` : reported.length ? `${reported.length} Erfassung · Wird von der Verwaltung geprüft` : status.kind === 'confirmed' ? 'Alles bestätigt' : status.kind === 'pending' ? 'Wird nachgereicht'
+          : status.kind === 'protected' ? 'Vorgänge geschützt' : status.kind === 'review' ? 'Wird von der Verwaltung geprüft' : 'Noch nicht bestätigt'}
       </Text>
       {unreported.length ? <Text>Der Beleg bleibt erhalten und sperrt den Kontowechsel. Prüfe „Meine Zeiten“; fehlende Zeit kannst du über „Zeit hinzufügen“ ergänzen.</Text> : !reported.length && (status.kind === 'protected' || status.kind === 'review') ? <Text>{presentScanState(state).message}</Text> : null}
-      {reported.length ? <Text>Die Verwaltung prüft diese Erfassung. Der Originalbeleg bleibt auf dem Handy erhalten.</Text> : null}
+      {reported.length ? <Text>Wird von der Verwaltung geprüft. Der Originalbeleg bleibt auf dem Handy erhalten.</Text> : null}
       {state.transmissionPaused ? state.untransferred?.map(entry=><Text key={entry.workEventId}>{entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>) : null}
     </Card>
     <Card><Text style={{ fontWeight: '800' }}>Wartet auf den Server</Text>
@@ -36,11 +36,11 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
     {state.transmissionPaused && state.transmissionRetryAvailable
       ? <ActionButton title="Erneut versuchen" onPress={() => scan.retry()} /> : null}
     {!state.transmissionPaused && (state.status === 'retry_pending' || state.status === 'saved_locally')
-      ? <ActionButton title="Abgleich erneut versuchen" onPress={() => scan.retry()} /> : null}
+      ? <ActionButton title="Übertragung erneut versuchen" onPress={() => scan.retry()} /> : null}
     <Text style={{ color: mobileTokens.color.textMuted, fontSize: 13 }}>
       Nichts löschen, nichts neu installieren. Wenn hier etwas hängt, hilft dir der Support.
     </Text>
-    {signOut ? <ActionButton title="Abmelden" tone="quiet" onPress={signOut} /> : null}
+    {signOut ? <Card><Text accessibilityRole="header" style={{fontWeight:'800'}}>Konto</Text><ActionButton title="Abmelden" tone="secondary" onPress={signOut} /></Card> : null}
     <AppBuildIdentity />
   </ScrollView></Screen>;
 }

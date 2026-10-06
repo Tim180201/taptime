@@ -73,7 +73,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
     <VoidedTimeRows day={selected} value={ownTime} targetMembershipId={targetMembershipId}/>
     {records.length === 0 ? <Card><Text>{daily.complete ? 'Für diesen Tag zählt keine Arbeitszeit.'
       : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</Text></Card> : null}
-    <Text style={styles.muted}>Arbeitszeit nach Pausen · Europe/Berlin</Text>
+    <Text style={styles.muted}>Arbeitszeit nach Pausen · Deutsche Ortszeit</Text>
     <Text style={styles.muted}>{ownTimeLoadStatus(ownTime.records.length, ownTime.nextCursor)}</Text>
     <Text style={styles.muted}>Zeiten vom {formatOwnTimeTimestamp(ownTime.windowStartedAt)} bis {formatOwnTimeTimestamp(ownTime.windowEndedAt)} geladen.</Text>
     <ActionButton title="Aktualisieren" tone="quiet" onPress={() => onRefresh()} />

@@ -35,7 +35,7 @@ export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:
       {code==='other'?<label className="full-field">Kurze Begründung<textarea required maxLength={500} aria-label="Kurze Begründung" value={text} disabled={saving} onChange={e=>setText(e.target.value)}/><small>1 bis 500 Zeichen</small></label>:null}
       {error?<p className="full-field field-error" role="alert">{error}</p>:null}
       {!context.online?<p role="status">Löschen geht nur online. Ihre Eingaben bleiben erhalten.</p>:null}
-      <button disabled={saving} aria-busy={saving}>{saving?'Wird gelöscht …':'Löschen'}</button>
+      <button className="warning-action" disabled={saving} aria-busy={saving}>{saving?'Wird gelöscht …':'Löschen'}</button>
       <button type="button" className="quiet" disabled={saving} onClick={onClose}>Abbrechen</button>
     </RequiredForm>
   </ResponsiveSheet>;

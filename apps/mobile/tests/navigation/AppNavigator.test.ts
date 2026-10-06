@@ -48,15 +48,15 @@ describe('rendered navigation', () => {
     expect(html).toContain('Dein Betrieb ist pausiert. Bitte wende dich an Taptura.');
     expect(html).not.toContain('role="tab"');
   });
-  it.each(['standortleitung', 'administrator'] as const)('T060 h: renders Tags only with NFC capability (%s)', role => {
-    expect(markup(role, true)).toContain('aria-label="Tags"');
-    expect(markup(role, false)).not.toContain('aria-label="Tags"');
+  it.each(['standortleitung', 'administrator'] as const)('T060 h: renders Karten only with NFC capability (%s)', role => {
+    expect(markup(role, true)).toContain('aria-label="Karten"');
+    expect(markup(role, false)).not.toContain('aria-label="Karten"');
   });
   it.each(['employee', 'standortleitung', 'administrator'] as const)('renders the role-specific bottom tabs for %s', (role) => {
     const html = markup(role);
     const tabs = [...html.matchAll(/role="tab"[^>]*aria-label="([^"]+)"/g)].map((match) => match[1]);
     expect(tabs).toEqual(role === 'administrator'
-      ? ['Erfassen', 'Meine Zeiten', 'Kunden', 'Tags'] : ['Erfassen', 'Meine Zeiten', 'Kunden']);
-    expect(html).toContain('aria-label="Abgleich: alles bestätigt"');
+      ? ['Erfassen', 'Meine Zeiten', 'Kunden', 'Karten'] : ['Erfassen', 'Meine Zeiten', 'Kunden']);
+    expect(html).toContain('aria-label="Übertragung: alles bestätigt"');
   });
 });

@@ -47,7 +47,7 @@ describe('iOS explicit tag reader', () => {
     const ios = await adapter().scan();
     expect(ios).toEqual(normalizeTag(tag, capturedAt));
     expect(ios).toEqual({ status: 'captured', payload: 'nfc:uid:v1:0400A1B2C3D4E5', capturedAt });
-    expect(manager.requestTechnology).toHaveBeenCalledWith('mifare', { alertMessage: 'Halte dein iPhone an den Tag.' });
+    expect(manager.requestTechnology).toHaveBeenCalledWith('mifare', { alertMessage: 'Halte dein iPhone an die Karte.' });
     expect(manager.cancelTechnologyRequest).toHaveBeenCalledOnce();
     expect(listeners.get('closed')).toBeNull();
   });

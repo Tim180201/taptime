@@ -1,3 +1,4 @@
+import {SubviewBack} from '../navigation/SubviewBack';
 import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
@@ -16,7 +17,7 @@ export function InviteEmployeeScreen({employees,state,scope,locationsEnabled}: {
   const [locationId,setLocationId]=useState<string|null>(scope.kind==='location' ? scope.locationId : null);
   const succeeded=state.outcome==='succeeded' || state.outcome==='succeeded_existing_account';
   return <Screen title="Mitarbeiter einladen"><ScrollView contentContainerStyle={{gap:16,paddingBottom:24}} keyboardShouldPersistTaps="handled">
-    <ActionButton title="Zurück zur Liste" tone="quiet" onPress={()=>employees.back()} />
+    <SubviewBack label="Mitarbeiter" disabled={state.busy} onBack={()=>{void employees.back();}} />
     <Card><Text accessibilityRole="header" style={{fontSize:22,lineHeight:28,fontWeight:'800'}}>Mitarbeiter einladen</Text>
       <Text>Der Zugang wird per E-Mail eingerichtet.</Text></Card>
     {scope.kind==='organization' && state.packageUsage?.packageSize != null && state.packageUsage.activeAccessCount >= state.packageUsage.packageSize && !succeeded

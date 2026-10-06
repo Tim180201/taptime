@@ -80,7 +80,7 @@ export function ActionButton({
   ...props
 }: PressableProps & {
   readonly title: string;
-  readonly tone?: 'primary' | 'secondary' | 'quiet' | 'cta';
+  readonly tone?: 'primary' | 'secondary' | 'quiet' | 'cta' | 'warning';
   readonly loading?: boolean;
 }) {
   const [focused, setFocused] = useState(false);
@@ -122,7 +122,7 @@ export function ActionButton({
       });
       return [
         styles.action,
-        tone === 'cta' ? styles.cta : tone === 'primary' ? styles.primary : tone === 'secondary'
+        tone === 'warning' ? styles.warning : tone === 'cta' ? styles.cta : tone === 'primary' ? styles.primary : tone === 'secondary'
           ? styles.secondary : styles.quiet,
         styles[visualState],
         typeof props.style === 'function' ? props.style({ pressed }) : props.style,
@@ -132,9 +132,9 @@ export function ActionButton({
     {loading
       ? <View style={styles.loadingContent}><LineIcon name="pending" color={tone === 'primary' || tone === 'cta'
           ? mobileTokens.color.onAccent : mobileTokens.color.textMuted} />
-          <AppText style={tone === 'primary' || tone === 'cta' ? styles.primaryLabel : styles.secondaryLabel}>{title}</AppText>
+          <AppText style={tone === 'primary' || tone === 'cta' ? styles.primaryLabel : tone === 'warning' ? styles.warningLabel : styles.secondaryLabel}>{title}</AppText>
         </View>
-      : <AppText style={tone === 'primary' || tone === 'cta' ? styles.primaryLabel : styles.secondaryLabel}>
+      : <AppText style={tone === 'primary' || tone === 'cta' ? styles.primaryLabel : tone === 'warning' ? styles.warningLabel : styles.secondaryLabel}>
           {title}
         </AppText>}
   </Pressable>;
@@ -218,6 +218,8 @@ const styles = StyleSheet.create({
     backgroundColor: mobileTokens.color.surfaceRaised,
     borderColor: mobileTokens.color.textMuted,
   },
+  warning: { backgroundColor: mobileTokens.color.surfaceRaised, borderColor:mobileTokens.color.warning },
+  warningLabel: {color:mobileTokens.color.warning,fontSize:15,fontWeight:'600',flexShrink:1,textAlign:'center'},
   quiet: { backgroundColor: mobileTokens.color.transparent },
   idle: {},
   hovered: { borderColor: mobileTokens.color.accent },

@@ -1,3 +1,4 @@
+import {SubviewBack, SubviewBackContext, type BackAction, type RegisterBack} from './SubviewBack';
 import {OfflineActiveCapture} from '../work/OfflineActiveCapture';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { CustomerQuotaNotice } from '../screens/QuotaNotice';
@@ -158,6 +159,9 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   const workState = useSyncExternalStore(listener=>work?.subscribe(listener) ?? (()=>{}),()=>work?.getState() ?? null,()=>work?.getState() ?? null);
   const [destination, setDestination] = useState<ProductDestination>('capture');
   const [showSync, setShowSync] = useState(false);
+  const backActions=useRef(new Map<BackAction,number>());
+  const registerBack=useMemo<RegisterBack>(()=>(action,priority)=>{backActions.current.set(action,priority);return()=>{backActions.current.delete(action);};},[]);
+  const syncReturn=useRef<ProductDestination>('capture');
   const scanState = useSyncExternalStore((listener) => scan.subscribe(listener),
     () => scan.getState(), () => scan.getState());
   const [quotaCustomer,setQuotaCustomer]=useState<{customerId:string;month:string}|undefined>();
@@ -178,26 +182,26 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   const openSync = () => {
     void scan.cancel();
     void administration.cancel();
+    if(!showSync)syncReturn.current=destination;
     setShowSync(true);
   };
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (showSync) { navigate('capture'); return true; }
+      const action=[...backActions.current].reverse().sort((a,b)=>b[1]-a[1])[0]?.[0];
+      if(action){action();return true;}
+      if (showSync) { navigate(syncReturn.current); return true; }
+      if (scanState.status==='scanning' || scanState.status==='submitting') { if(scanState.status==='scanning')void scan.cancel();return true; }
       if (destination !== 'capture') { navigate('capture'); return true; }
       return false;
     });
     return () => subscription.remove();
-  }, [showSync, destination, scan, administration]);
+  }, [showSync, destination, scan, administration, scanState.status]);
   const roleLabel = role === 'administrator' ? 'Administrator' : role === 'standortleitung'
     ? 'Standortleitung' : role === 'offline' ? 'Offline' : 'Mitarbeiter';
   return <View style={[styles.productShell, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]}>
     <View style={styles.header}>
-      {showSync || destination === 'manual' ? <TouchTarget accessibilityRole="button" accessibilityLabel="Zurück"
-        onPress={() => navigate('capture')} style={styles.iconAction}>
-        <LineIcon name="back" />
-      </TouchTarget> : null}
       <View style={styles.heading}>
-        <Text accessibilityRole="header" style={styles.title}>{showSync ? 'Abgleich' : destinationLabels[destination]}</Text>
+        <Text accessibilityRole="header" style={styles.title}>{showSync ? 'Übertragung' : destinationLabels[destination]}</Text>
         <Text style={styles.subtitle} numberOfLines={1} accessibilityLabel={identityLabel ? `${identityLabel} · ${roleLabel}` : roleLabel}>{identityLabel ? `${identityLabel} · ${roleLabel}` : roleLabel}</Text>
       </View>
       <TouchTarget accessibilityRole="button" accessibilityLabel={status.label}
@@ -210,7 +214,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
       </TouchTarget>
     </View>
     {work && customerAuthority && role!=='offline'?<CustomerQuotaNotice work={work} membership={customerAuthority.membershipId} role={role} authorityContext={customerAuthority} onView={(customerId,month)=>{setQuotaCustomer({customerId,month});navigate('customers');}}/>:null}
-    <EmbeddedScreenContext.Provider value>
+    <SubviewBackContext.Provider value={registerBack}><EmbeddedScreenContext.Provider value>
       <View style={styles.productContent}>
         <View style={{ flex: 1, display: !showSync && destination === 'capture' ? 'flex' : 'none' }}
           accessibilityElementsHidden={showSync || destination !== 'capture'}
@@ -220,6 +224,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
             offlineActive={offlineActive} confirmedOwnTime={workState?.status==='ready'?workState.ownTime:confirmedOwnTime}
             offline={role==='offline' || !!scanState.transmissionPaused || !!(workState?.status==='ready' && workState.capturePending && !workState.submitting)} />
         </View>
+        {showSync || destination==='manual' ? <View style={{paddingHorizontal:20,paddingBottom:8}}><SubviewBack label={destinationLabels[showSync?syncReturn.current:'capture']} onBack={()=>navigate(showSync?syncReturn.current:'capture')}/></View>:null}
         {showSync ? <SynchronizationScreen scan={scan} indicator={status} signOut={() => session.signOut()} />
           : destination === 'capture' ? null
           : destination === 'manual' ? role === 'offline' || scanState.transmissionPaused || workState?.status === 'ready' && workState.capturePending && !workState.submitting
@@ -231,7 +236,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
               : <MessageScreen title="Deine Zeiten sind derzeit nicht verfügbar." />
           : nfcSetupAvailable ? <AdminSetupScreen administration={administration} /> : null}
       </View>
-    </EmbeddedScreenContext.Provider>
+    </EmbeddedScreenContext.Provider></SubviewBackContext.Provider>
     <View style={[styles.destinationBar, { paddingBottom: insets.bottom }]} accessibilityRole="tablist">
       {destinations.map((item) => <TouchTarget key={item} accessibilityRole="tab"
         accessibilityLabel={destinationLabels[item]}

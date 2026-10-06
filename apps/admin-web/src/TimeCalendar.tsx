@@ -57,7 +57,7 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
       {records.length === 0 ? <p>{rangeSummary(value,selected,shiftDay(selected,1)).complete
         ? 'Für diesen Tag zählt keine Arbeitszeit.' : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</p> : null}
     </Panel></div></div>
-    <p className="supporting">Arbeitszeit nach Pausen · {BUSINESS_TIME_ZONE}</p>
+    <p className="supporting">Arbeitszeit nach Pausen · Deutsche Ortszeit</p>
     <p className="supporting">Geladener Zeitraum: {new Date(value.windowStartedAt).toLocaleString('de-DE',{timeZone:BUSINESS_TIME_ZONE})} – {new Date(value.windowEndedAt).toLocaleString('de-DE',{timeZone:BUSINESS_TIME_ZONE})}</p>
     <button className="secondary" onClick={onRefresh}>Zeiten aktualisieren</button>
   </section>;

@@ -282,6 +282,49 @@ afterEach(() => {
 });
 
 describe('professional Admin Web shell', () => {
+  it('T108 keeps account access separate from a person with no running time', async()=>{
+    window.history.replaceState(null,'','/beschaeftigte');
+    const membership=readyState.employeeProjection.employeeMemberships[0]!;
+    const capability=new FakeCapability({...readyState,managedPeople:{status:'ready',isRunning:null,value:{serverTime:'2026-10-06T08:00:00Z',runningCount:0,totalCount:1,nextCursor:null,people:[{membershipId:membership.id,displayName:membership.displayName,role:'employee',location:null,isRunning:false,runningSince:null,runningTargetDisplayName:null}]}}});
+    await render(<App administration={capability}/>);
+    await userEvent.click(screen.getByText('Zugänge verwalten'));
+    const access=document.querySelector('.membership-tools')!;
+    expect(access.textContent).toContain('Zugang aktiv');
+    expect(access.textContent).not.toContain('Zeit läuft');
+    expect(screen.getAllByText('Keine laufende Zeit').length).toBeGreaterThan(0);
+  });
+  it('T108 renders German local time in the shell rather than the technical zone constant',async()=>{
+    await render(<App administration={new FakeCapability(readyState)}/>);
+    expect(document.body.textContent).not.toContain('Europe/Berlin');
+    expect(screen.getAllByText(/Deutsche Ortszeit/).length).toBeGreaterThan(0);
+  });
+  it('T108 resolves a card gap through later projection pages despite the loading boundary',async()=>{
+    HTMLElement.prototype.scrollIntoView=vi.fn();window.history.replaceState(null,'','/einrichtung');
+    const initial={...readyState,projection:{...readyState.projection,nfcTags:[],nextCursor:'more'},locationSetup:{locations:[],memberships:[],workTargets:[{targetType:'customer' as const,targetId:customer.id,displayName:customer.displayName,locationId:null}],activationGaps:[{kind:'nfc_assignment' as const,id:tag.activeAssignmentId,displayName:'Eingang → Werkstatt'}]}};
+    const capability=new FakeCapability(initial);
+    capability.loadMore.mockImplementation(async()=>{
+      capability.emit({...initial,sections:{...initial.sections,setup:{status:'loading'}}});
+      await new Promise(resolve=>setTimeout(resolve,0));
+      capability.emit({...initial,projection:{...initial.projection,nfcTags:[tag],nextCursor:null}});
+    });
+    await render(<App administration={capability}/>);await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
+    await userEvent.click(screen.getByRole('link',{name:'Eingang → Werkstatt'}));
+    await waitFor(()=>expect(capability.loadMore).toHaveBeenCalledOnce());
+    await waitFor(()=>expect(screen.getByLabelText('Standort für Werkstatt')).toHaveFocus());
+  });
+  it.each([true,false])('T108 card gap focuses the concrete customer location or card assignment: target available=%s',async available=>{
+    HTMLElement.prototype.scrollIntoView=vi.fn();
+    window.history.replaceState(null,'','/einrichtung');
+    const capability=new FakeCapability({...readyState,locationSetup:{locations:[],memberships:[],workTargets:available?[{targetType:'customer',targetId:customer.id,displayName:customer.displayName,locationId:null}]:[],activationGaps:[{kind:'nfc_assignment',id:tag.activeAssignmentId,displayName:'Eingang → Werkstatt'}]}});
+    await render(<App administration={capability}/>);
+    await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
+    const link=screen.getByRole('link',{name:'Eingang → Werkstatt'});
+    expect(link).toHaveAttribute('href',available?`#setup-customer-${customer.id}`:'#setup-reassignment');
+    await userEvent.click(link);
+    await waitFor(()=>expect(screen.getByLabelText(available?'Standort für Werkstatt':'Karte')).toHaveFocus());
+    if(!available)expect(screen.getByLabelText('Karte')).toHaveValue(tag.id);
+  });
+
   it('names every missing Location binding and blocks activation until none remain', async () => {
     window.history.replaceState(null, '', '/einrichtung');
     const capability = new FakeCapability({
@@ -319,13 +362,13 @@ describe('professional Admin Web shell', () => {
     await render(<App administration={capability} />);
 
     await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
-    expect(screen.getByText('Zugehörigkeit:')).toBeInTheDocument();
+    expect(screen.getByText('Für diese Mitarbeiter fehlt der Hauptarbeitsstandort:')).toBeInTheDocument();
     expect(screen.getAllByText('Employee Alpha')).toHaveLength(2);
-    expect(screen.getByText('Kunde:')).toBeInTheDocument();
+    expect(screen.getByText('Für diese Kunden fehlt der Standort:')).toBeInTheDocument();
     expect(screen.getByText('Projekt Polaris')).toBeInTheDocument();
     expect(screen.getByText('Allgemeine Arbeitszeit')).toBeInTheDocument();
     expect(screen.getByText('Eingang → Werkstatt')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Standort-Funktion einschalten' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Standorte verwenden' })).toBeDisabled();
   });
 
   it('changes the sidebar when only availableSections changes', async () => {
@@ -336,10 +379,10 @@ describe('professional Admin Web shell', () => {
 
     act(() => capability.emit({ ...readyState, availableSections: ['employees'] }));
 
-    expect(screen.getByRole('link', { name: 'Beschäftigte' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mitarbeiter' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Einrichtung' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Lohnexport' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Prüfungen' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Zeiten prüfen' })).not.toBeInTheDocument();
   });
 
   it('shows a located administration without requesting closed projections or drawing their cards', async () => {
@@ -361,7 +404,7 @@ describe('professional Admin Web shell', () => {
     await render(<App administration={capability} />);
 
     await waitFor(() => expect(window.location.href).toContain(`standort=${berlin.id}`));
-    expect(screen.getByRole('heading', { level: 1, name: 'Beschäftigte' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Mitarbeiter' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Übersicht' }))
       .toHaveAttribute('href', `/uebersicht?standort=${berlin.id}`);
   });
@@ -371,9 +414,9 @@ describe('professional Admin Web shell', () => {
     const capability = new FakeCapability(locationReadyState([]));
     await render(<App administration={capability} />);
 
-    expect(screen.getByText('Noch keine Beschäftigten am Standort Berlin')).toBeInTheDocument();
+    expect(screen.getByText('Noch keine Mitarbeiter am Standort Berlin')).toBeInTheDocument();
     expect(screen.queryByLabelText('Rolle')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Beschäftigte Person einladen' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Mitarbeiter einladen' }));
     expect(screen.getByLabelText('Name')).toHaveFocus();
   });
 
@@ -382,7 +425,7 @@ describe('professional Admin Web shell', () => {
     const capability = new FakeCapability(readyState);
     const { rerender } = await render(<App administration={capability} />);
     await userEvent.click(screen.getByRole('button', { name: 'Mitarbeiter hinzufügen' }));
-    expect(screen.queryByLabelText('Heimatstandort')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Hauptarbeitsstandort')).not.toBeInTheDocument();
 
     const enabled = {
       ...readyState,
@@ -391,7 +434,7 @@ describe('professional Admin Web shell', () => {
     } as ReadyStateForTest;
     act(() => capability.emit(enabled));
     rerender(<App administration={capability} />);
-    expect(screen.getByLabelText('Heimatstandort')).toBeRequired();
+    expect(screen.getByLabelText('Hauptarbeitsstandort')).toBeRequired();
     expect(screen.getByRole('option', { name: 'Berlin' })).toBeInTheDocument();
   });
 
@@ -472,13 +515,13 @@ describe('professional Admin Web shell', () => {
     await render(<App administration={capability} />);
 
     expect(screen.getByRole('heading', { name: 'Übersicht', level: 1 })).toHaveFocus();
-    const setup = screen.getByRole('link', { name: 'Prüfungen' });
+    const setup = screen.getAllByRole('link', { name: 'Zeiten prüfen' })[0]!;
     setup.focus();
     expect(setup).toHaveFocus();
     await user.keyboard('{Enter}');
 
     expect(window.location.pathname).toBe('/pruefungen');
-    expect(await screen.findByRole('heading', { name: 'Prüfungen', level: 1 })).toHaveFocus();
+    expect(await screen.findByRole('heading', { name: 'Zeiten prüfen', level: 1 })).toHaveFocus();
   });
 
   it('restores a linked month and every active filter from the address', async () => {
@@ -492,7 +535,7 @@ describe('professional Admin Web shell', () => {
 
     expect(screen.getByLabelText('Monat')).toHaveValue('2026-08');
     expect(screen.getByLabelText('Status')).toHaveValue('abgeschlossen');
-    expect(screen.getByLabelText('Erfassungsart')).toHaveValue('manuell-erfasst');
+    expect(screen.getByLabelText('Erfasst mit')).toHaveValue('manuell-erfasst');
     expect(screen.getByText(/Monat August 2026/)).toBeInTheDocument();
     await waitFor(() => expect(capability.setTimeWindow).toHaveBeenCalledWith(
       '2026-07-31T22:00:00.000Z',
@@ -632,8 +675,8 @@ describe('professional Admin Web shell', () => {
     await render(<App administration={capability} />);
 
     expect(screen.getByText('Kunden bisher geladen')).toBeInTheDocument();
-    expect(screen.getByText('NFC-Tags bisher geladen')).toBeInTheDocument();
-    expect(screen.getByText('Pausen-Tag')).toBeInTheDocument();
+    expect(screen.getByText('Karten bisher geladen')).toBeInTheDocument();
+    expect(screen.getByText('Pausenkarte')).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /Pause/ })).toBeNull();
   });
 
@@ -752,8 +795,8 @@ describe('professional Admin Web shell', () => {
 
     await userEvent.click(screen.getByRole('link', { name: 'Übersicht' }));
     await waitFor(() => expect(capability.dismissInvitation).toHaveBeenCalledOnce());
-    await userEvent.click(screen.getByRole('link', { name: 'Beschäftigte' }));
-    expect(await screen.findByRole('heading', { name: 'Beschäftigte', level: 1 }))
+    await userEvent.click(screen.getByRole('link', { name: 'Mitarbeiter' }));
+    expect(await screen.findByRole('heading', { name: 'Mitarbeiter', level: 1 }))
       .toBeInTheDocument();
     expect(document.querySelector('.invitation')).toBeNull();
   });
@@ -771,8 +814,8 @@ describe('professional Admin Web shell', () => {
     expect(capability.loadMoreTimeRecords).toHaveBeenCalledOnce();
     window.history.pushState(null, '', '/pruefungen');
     fireEvent(window, new PopStateEvent('popstate'));
-    expect(await screen.findByText('Prüfungen bisher geladen')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Weitere Prüfungen laden' }));
+    expect(await screen.findByText('ungeklärte Erfassungen bisher geladen')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Weitere Erfassungen laden' }));
     expect(capability.loadMoreReviewItems).toHaveBeenCalledOnce();
   });
 
@@ -1024,26 +1067,26 @@ describe('professional Admin Web shell', () => {
           }],
         },
         reassignmentIntent: null,
-        notice: { kind: 'success', text: 'NFC-Tag wurde sicher neu zugeordnet.' },
+        notice: { kind: 'success', text: 'Karte wurde sicher neu zugeordnet.' },
       });
     });
     window.history.replaceState(null, '', '/einrichtung');
     await render(<App administration={capability} />);
-    await userEvent.click(screen.getByRole('button',{name:'Tags'}));
-    fireEvent.change(screen.getByLabelText('NFC-Tag'), {
+    await userEvent.click(screen.getByRole('button',{name:'Karten'}));
+    fireEvent.change(screen.getByLabelText('Karte'), {
       target: { value: tag.id },
     });
     fireEvent.change(screen.getByLabelText('Neuer aktiver Kunde'), {
       target: { value: targetCustomer.id },
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Zuordnung prüfen' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Zuordnung ändern' }));
     await userEvent.click(screen.getByRole('button', {
       name: 'Änderung ausdrücklich bestätigen',
     }));
 
-    const reassignmentTrigger = screen.getByRole('button', { name: 'Zuordnung prüfen' });
-    const tagSelection = screen.getByLabelText('NFC-Tag');
+    const reassignmentTrigger = screen.getByRole('button', { name: 'Zuordnung ändern' });
+    const tagSelection = screen.getByLabelText('Karte');
     await waitFor(() => expect(reassignmentTrigger).toHaveFocus());
     expect(reassignmentTrigger).not.toBeDisabled();
     expect(document.activeElement).toBe(reassignmentTrigger);
@@ -1180,7 +1223,7 @@ describe('professional Admin Web shell', () => {
     const capability = new FakeCapability(readyState);
     window.history.replaceState(null, '', '/lohnexport');
     await render(<App administration={capability} />);
-    expect(screen.getByText('Zeitdarstellung: Europe/Berlin')).toBeInTheDocument();
+    expect(screen.getByText('Deutsche Ortszeit')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
       target: { value: record.timeRecordId },
     });
@@ -1198,7 +1241,7 @@ describe('professional Admin Web shell', () => {
     browserZone = 'Asia/Tokyo';
     fireEvent.focus(window);
     fireEvent(document, new Event('visibilitychange'));
-    expect(screen.getByText('Zeitdarstellung: Europe/Berlin')).toBeInTheDocument();
+    expect(screen.getByText('Deutsche Ortszeit')).toBeInTheDocument();
     expect(screen.getByRole('alertdialog')).toHaveTextContent('10:00');
     expect(screen.getByLabelText('Neuer Beginn')).toHaveValue('2026-07-20T10:00');
   });
@@ -1289,7 +1332,7 @@ it('T049 c: location people open their server-backed calendar without showing an
   const person=await screen.findByRole('link',{name:/Employee Alpha/});
   await userEvent.click(person);
   expect(window.location.pathname).toBe('/beschaeftigte/70000000-0000-4000-8000-000000000001');
-  expect(screen.queryByRole('link',{name:'Prüfungen'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('link',{name:'Zeiten prüfen'})).not.toBeInTheDocument();
   expect(screen.queryByText('Süd')).not.toBeInTheDocument();
 });
 
@@ -1338,15 +1381,15 @@ it('T049 review: locks prepared decisions and retains keyboard focus after the r
  await render(<App administration={capability}/>);
  for(const name of ['Als Arbeitszeit übernehmen','Korrigieren','Ablehnen']) expect(screen.getByRole('button',{name})).toBeDisabled();
  await userEvent.click(screen.getByRole('button',{name:'Entscheidung protokollieren'}));
- expect(screen.getByRole('region',{name:'Prüfungen'})).toHaveFocus();
+ expect(screen.getByRole('region',{name:'Ungeklärte Erfassungen'})).toHaveFocus();
 });
 
 it('T066 keeps both export formats reachable from the payroll view',async()=>{
  window.history.replaceState(null,'','/lohnexport');const capability=new FakeCapability(readyState);
  await render(<App administration={capability}/>);
- expect(await screen.findByLabelText('CSV-Format')).toHaveValue('4');
+ expect(await screen.findByLabelText('Datei für die Lohnbuchhaltung (CSV)')).toHaveValue('4');
  fireEvent.click(screen.getByRole('button',{name:/CSV .+ herunterladen/}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
- fireEvent.change(screen.getByLabelText('CSV-Format'),{target:{value:'3'}});fireEvent.click(screen.getByRole('button',{name:/CSV .+ herunterladen/}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
+ fireEvent.change(screen.getByLabelText('Datei für die Lohnbuchhaltung (CSV)'),{target:{value:'3'}});fireEvent.click(screen.getByRole('button',{name:/CSV .+ herunterladen/}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
 });
 it('T066 exposes the own-comment form through the actual own-time route',async()=>{
  const membershipId='20000000-0000-4000-8000-000000000001';
@@ -1366,9 +1409,9 @@ it.each([
  const capability=new FakeCapability({...readyState,timeWindow});await render(<App administration={capability}/>);
  expect(screen.getByText(hint)).toBeVisible();
  expect(screen.getByLabelText('Status')).toHaveValue('laufend');
- expect(screen.getByLabelText('Erfassungsart')).toHaveValue('gescannt');
+ expect(screen.getByLabelText('Erfasst mit')).toHaveValue('gescannt');
  fireEvent.click(screen.getByRole('button',{name:label}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
- fireEvent.change(screen.getByLabelText('CSV-Format'),{target:{value:'3'}});
+ fireEvent.change(screen.getByLabelText('Datei für die Lohnbuchhaltung (CSV)'),{target:{value:'3'}});
  fireEvent.click(screen.getByRole('button',{name:label}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
 });
 it('T079 replaces the month label when the selection is cleared and a new real window arrives',async()=>{
@@ -1410,7 +1453,7 @@ it.each([
   ['/einrichtung','Projekt anlegen','createProject'],
   ['/einrichtung','Standort anlegen','createLocation'],
   ['/einrichtung','Namen speichern','renameLocation'],
-  ['/einrichtung','Zuordnung prüfen','prepareReassignment'],
+  ['/einrichtung','Zuordnung ändern','prepareReassignment'],
   ['/arbeitszeiten','Korrektur prüfen','prepareCorrection'],
   ['/pruefungen','Entscheidung prüfen','prepareAdjudication'],
 ] as const)('T101 %s / %s shows each missing input and clears it on editing',async(path,title,method)=>{
@@ -1418,7 +1461,7 @@ it.each([
   const capability=new FakeCapability({...readyState,projection:{...readyState.projection,customers:[customer,{...customer,id:'other-customer',displayName:'Kunde B'}]},locationSetup:{locations:[{id:berlin.id,displayName:'Berlin',active:true,rowVersion:1}],memberships:[],workTargets:[],activationGaps:[]}});
   const createProject=vi.fn(async()=>undefined);Object.assign(capability,{createProject});
   await render(<App administration={capability}/>);
-  if(path==='/einrichtung')fireEvent.click(screen.getByRole('button',{name:method==='createLocation'||method==='renameLocation'?'Standorte':method==='prepareReassignment'?'Tags':'Arbeitsziele'}));
+  if(path==='/einrichtung')fireEvent.click(screen.getByRole('button',{name:method==='createLocation'||method==='renameLocation'?'Standorte':method==='prepareReassignment'?'Karten':'Arbeitsziele'}));
   if(path==='/pruefungen')fireEvent.click(screen.getByRole('button',{name:'Ablehnen'}));
   const button=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.textContent?.trim()===title)!;
   expect(button,title).toBeTruthy();expect(button).not.toBeDisabled();
@@ -1456,12 +1499,12 @@ it('T101 login and password reset keep their own required scope',async()=>{
 it('T102 reports an already assigned customer at its field instead of preparing an unavailable reassignment',async()=>{
  const capability=new FakeCapability(readyState);
  window.history.replaceState(null,'','/einrichtung');await render(<App administration={capability}/>);
- await userEvent.click(screen.getByRole('button',{name:'Tags'}));
- fireEvent.change(screen.getByLabelText('NFC-Tag'),{target:{value:tag.id}});
+ await userEvent.click(screen.getByRole('button',{name:'Karten'}));
+ fireEvent.change(screen.getByLabelText('Karte'),{target:{value:tag.id}});
  const field=screen.getByLabelText('Neuer aktiver Kunde');fireEvent.change(field,{target:{value:customer.id}});
- await userEvent.click(screen.getByRole('button',{name:'Zuordnung prüfen'}));
+ await userEvent.click(screen.getByRole('button',{name:'Zuordnung ändern'}));
  expect(capability.prepareReassignment).not.toHaveBeenCalled();expect(field).toHaveAttribute('aria-invalid','true');
- expect(screen.getByText('Der Tag gehört bereits zu diesem Kunden.')).toBeVisible();
+ expect(screen.getByText('Die Karte gehört bereits zu diesem Kunden.')).toBeVisible();
 });
 
 it('T075 administrator sees whole-organization usage and may invite above the package; managers see no hint',async()=>{
@@ -1506,7 +1549,7 @@ it('T107 permits location activation with unbound general work and offers no bin
   }});
   await render(<App administration={capability}/>);
   await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
-  expect(screen.getByRole('button',{name:'Standort-Funktion einschalten'})).toBeEnabled();
+  expect(screen.getByRole('button',{name:'Standorte verwenden'})).toBeEnabled();
   expect(screen.queryByRole('combobox',{name:/Allgemeine Arbeitszeit/})).toBeNull();
   expect(screen.getByText(/Allgemeine Arbeitszeit braucht keine Standortbindung/)).toBeInTheDocument();
 });

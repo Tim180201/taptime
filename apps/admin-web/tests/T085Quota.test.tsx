@@ -5,7 +5,12 @@ import '@testing-library/jest-dom/vitest';
 import type { CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import { isCustomerHoursResponse, parseQuotaHours, unseenQuotaNotices } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability } from '../src/contracts';
-import CustomersView from '../src/views/CustomersView';
+import CustomerPage from '../src/views/CustomersView';
+import {useState, type ComponentProps} from 'react';
+function CustomersView(props:ComponentProps<typeof CustomerPage>){
+ const [route,setRoute]=useState(props.route);
+ return <CustomerPage {...props} route={route} navigate={next=>{setRoute(next);props.navigate(next);}}/>;
+}
 import { CustomerQuotaNotice } from '../src/QuotaNotice';
 import { defaultRoute } from '../src/navigation';
 const cid='40000000-0000-4000-8000-000000000001',mid='70000000-0000-4000-8000-000000000001';

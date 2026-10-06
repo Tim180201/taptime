@@ -39,14 +39,14 @@ export default function Overview({state,administration,navigate}: {
     <div className="metric-grid">
       <ActivityTile state={state} administration={administration}/>
       {reviewCountKnown ? <article className="metric-card"><span>Braucht Ihre Entscheidung</span>
-        <strong>{state.reviewItems.length}</strong><small>Offene Prüfungen · vollständig geladen</small>
-        <a href="/pruefungen" onClick={event=>navigateFromLink(event,defaultRoute('pruefungen'),navigate)}>Prüfungen öffnen</a>
+        <strong>{state.reviewItems.length}</strong><small>Zeiten prüfen · vollständig geladen</small>
+        <a href="/pruefungen" onClick={event=>navigateFromLink(event,defaultRoute('pruefungen'),navigate)}>Zeiten prüfen</a>
       </article> : null}
     </div>
     {summary?.status === 'ready' ? <Panel title="Gerade aktiv">
       <PeopleTable people={summary.value.people} navigate={navigate} locationId={state.selectedLocation?.id ?? null}/>
-      {summary.value.nextCursor !== null ? <p className="supporting">Weitere Personen finden Sie unter Beschäftigte.</p> : null}
+      {summary.value.nextCursor !== null ? <p className="supporting">Weitere Personen finden Sie unter Mitarbeiter.</p> : null}
     </Panel> : null}
-    {reviewsAvailable ? <Suspense fallback={<DelayedSkeleton label="Prüfungen werden geladen"/>}><ReviewsView state={state} administration={administration}/></Suspense> : null}
+    {reviewsAvailable ? <Suspense fallback={<DelayedSkeleton label="Ungeklärte Erfassungen werden geladen"/>}><ReviewsView state={state} administration={administration}/></Suspense> : null}
   </>;
 }

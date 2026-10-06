@@ -56,30 +56,31 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
     {embedded ? null : <View style={styles.header}><Text style={styles.brand}>Taptura</Text>
       <Text style={styles.role}>{presentActor(actor)}</Text></View>}
     <ScrollView contentContainerStyle={styles.content}>
-      {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard capture={offlineActive} value={confirmedOwnTime} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
+      {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard capture={offlineActive} value={confirmedOwnTime} disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':'Deine letzte Erfassung wartet noch auf Bestätigung.'} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
       {!offline && work && workState?.status==='ready' && workState.ownTime.activeRecord ? <ActiveTimeCard record={workState.ownTime.activeRecord}
         disabled={scanBusy || workState.submitting || !!workState.capturePending || !!state.transmissionPaused || !!state.updateRequired}
+        disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':workState.capturePending?'Deine letzte Erfassung wartet noch auf Bestätigung.':undefined}
         onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : null}
       {workState?.status==='ready' && workState.feedback ? <Text accessibilityLiveRegion="polite">{workState.feedback}</Text> : null}
       <View style={styles.scene} accessibilityLiveRegion="polite" testID="scan-status">
-        <TouchTarget accessibilityRole="button" accessibilityLabel={ios ? 'Tag scannen' : 'NFC-Tag jetzt scannen'}
+        <TouchTarget accessibilityRole="button" accessibilityLabel="Karte scannen"
           accessibilityState={{ disabled: !ready }} disabled={!ready}
           onPress={() => scan.scan()} testID="scan-button">
           <ScanRing animate={!showMoment && resting} scanning={!state.transmissionPaused && state.status === 'scanning'}
             result={showMoment ? moment.confirmed ? 'confirmed' : 'pending' : null} />
-          {ios ? <Text style={styles.statusTitle}>Tag scannen</Text> : null}
+          {ios ? <Text style={styles.statusTitle}>Karte scannen</Text> : null}
         </TouchTarget>
         <Text style={[styles.statusTitle, showMoment && { color: moment.confirmed
           ? mobileTokens.color.accent : mobileTokens.color.notice }]}>
-          {state.transmissionPaused ? `${presentation.title}: ${presentation.message}` : showMoment ? moment.title : resting ? ios ? 'Bereit zum Erfassen' : 'Tag antippen' : presentation.title}
+          {state.transmissionPaused ? `${presentation.title}: ${presentation.message}` : showMoment ? moment.title : resting ? ios ? 'Bereit zum Erfassen' : 'Karte antippen' : presentation.title}
         </Text>
         <Text style={styles.statusMessage}>
           {state.transmissionPaused ? null : showMoment ? moment.confirmed ? 'Gespeichert'
             : 'Sicher gespeichert, wird nachgereicht'
             : resting ? state.status === 'scanning'
-              ? 'Halte dein Handy an den Tag.'
-              : ios ? 'Tippe auf „Tag scannen“ und halte dein iPhone an den Tag. Start und Stopp erkennt Taptura selbst.'
-                : 'Tippe auf den Kreis und halte dein Handy an den Tag. Start und Stopp erkennt Taptura selbst.'
+              ? 'Halte dein Handy an die Karte.'
+              : ios ? 'Tippe auf „Karte scannen“ und halte dein iPhone an die NFC-Karte. Start und Stopp erkennt Taptura selbst.'
+                : 'Tippe auf den Kreis und halte dein Handy an die NFC-Karte. Start und Stopp erkennt Taptura selbst.'
               : presentation.message}
         </Text>
         {showMoment ? <Text style={styles.statusMessage}>Bereit für den nächsten Tap</Text> : null}
@@ -94,23 +95,24 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
       {state.updateRequired ? <Card><Text accessibilityRole="alert">Bitte App aktualisieren</Text><Text>Deine Erfassungen bleiben auf dem Handy gespeichert. Die Übertragung wartet auf die neue App.</Text></Card> : null}
       {state.untransferred?.length ? <Card>
         {state.untransferred.map(entry => <View key={entry.workEventId}>
-          <Text accessibilityRole="alert">{entry.reported ? '1 Erfassung wird von deiner Verwaltung geprüft' : '1 Erfassung konnte nicht übertragen werden'} · {entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>
+          <Text accessibilityRole="alert">{entry.reported ? '1 Erfassung · Wird von der Verwaltung geprüft' : '1 Erfassung konnte nicht übertragen werden'} · {entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>
           <Text>{entry.reported ? 'Der Originalbeleg bleibt auf dem Handy erhalten.' : 'Siehe „Meine Zeiten“. Der Beleg bleibt erhalten und sperrt den Kontowechsel.'}</Text>
         </View>)}
       </Card> : null}
       {work ? <RecentTimeCard work={work} /> : <Card><Text style={styles.role}>Zuletzt</Text>
-        <Text>Bestätigte Zeiten siehst du nach dem Abgleich.</Text></Card>}
+        <Text>Bestätigte Zeiten siehst du nach der Übertragung.</Text></Card>}
     </ScrollView>
     {onManualCapture ? <ActionButton title="Manuell erfassen" tone="secondary"
       accessibilityLabel="Manuell erfassen" accessibilityHint="Arbeitsziel oder Pause auswählen. Start, Pause, Fortsetzen und Stopp von Hand erfassen."
       disabled={workState?.status==='ready' && workState.submitting} onPress={onManualCapture} /> : null}
+      {onManualCapture?<Text>Für jetzt. Vergessene Zeiten findest du unter Meine Zeiten → Zeit hinzufügen.</Text>:null}
     {embedded ? null : <ActionButton title="Abmelden" tone="quiet" onPress={signOut} />}
   </SafeAreaView>;
 }
 
 export function presentActor(actor: ProductMembershipRole | 'offline'): string {
   return actor === 'administrator' ? 'Administrator' : actor === 'standortleitung' ? 'Standortleitung'
-    : actor === 'offline' ? 'Offline-Erfassung' : 'Beschäftigter';
+    : actor === 'offline' ? 'Offline-Erfassung' : 'Mitarbeiter';
 }
 
 export function shouldAnimateScanIndicator(state: ProductScanState, reducedMotion: boolean): boolean {
@@ -143,7 +145,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
     case 'not_supported':
       return {
         title: 'NFC nicht unterstützt',
-        message: platform === 'ios' ? 'Dieses iPhone unterstützt das Lesen unserer NFC-Tags nicht.'
+        message: platform === 'ios' ? 'Dieses iPhone unterstützt das Lesen unserer Karten nicht.'
           : 'NFC-Scans sind in dieser App-Version nur auf unterstützten Android-Geräten möglich.',
         tone: 'warning',
       };
@@ -162,7 +164,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
     case 'scanning':
       return {
         title: 'Bereit zum Erfassen',
-        message: platform === 'ios' ? 'Halte dein iPhone an den NFC-Tag.' : 'Halte das Android-Gerät an den NFC-Tag.',
+        message: platform === 'ios' ? 'Halte dein iPhone an die Karte.' : 'Halte das Android-Gerät an die Karte.',
         tone: 'neutral',
       };
     case 'submitting':
@@ -181,7 +183,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
       return state.outcome === null
         ? {
             title: 'Offline bereit',
-            message: `Du kannst Tags scannen; deine Erfassungen bleiben auf dem Handy gespeichert. ${state.queueCount} Erfassungen warten auf Bestätigung.`,
+            message: `Du kannst Karten scannen; deine Erfassungen bleiben auf dem Handy gespeichert. ${state.queueCount} Erfassungen warten auf Bestätigung.`,
             tone: 'success',
           }
         : presentOutcome(state.outcome.status);
@@ -199,8 +201,8 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
       };
     case 'server_review_pending':
       return {
-        title: 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, die Erfassung zu prüfen.',
-        message: 'Dein Scan ist zur Prüfung aufgenommen.',
+        title: 'Wird von der Verwaltung geprüft. Deine Arbeitszeit bleibt unverändert.',
+        message: 'Wird von der Verwaltung geprüft',
         tone: 'warning',
       };
     case 'server_decision':
@@ -237,7 +239,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
       return state.outcome === null
         ? {
             title: 'Bereit zum Scannen',
-            message: 'Tippe auf „NFC-Tag scannen“ und halte das Gerät anschließend an den Tag.',
+            message: 'Tippe auf „Karte scannen“ und halte das Gerät anschließend an die Karte.',
             tone: 'success',
           }
         : presentOutcome(state.outcome.status);
@@ -251,15 +253,15 @@ function presentOutcome(
 ): ScanScreenPresentation {
   switch (status) {
     case 'unreadable':
-      return { title: 'Tag nicht lesbar', message: 'Bitte versuche den Scan erneut.', tone: 'error' };
+      return { title: 'Karte nicht lesbar', message: 'Bitte versuche den Scan erneut.', tone: 'error' };
     case 'timed_out':
-      return { title: 'Scan abgelaufen', message: 'Es wurde kein Tag erkannt und nichts gesendet. Versuche den Scan erneut.', tone: 'warning' };
+      return { title: 'Scan abgelaufen', message: 'Es wurde keine Karte erkannt und nichts gesendet. Versuche den Scan erneut.', tone: 'warning' };
     case 'cancelled':
       return { title: 'Scan abgebrochen', message: 'Es wurden keine Scan-Daten gesendet.', tone: 'neutral' };
     case 'nfc_unavailable':
       return { title: 'NFC nicht verfügbar', message: 'Ein Scan ist gerade nicht möglich; deine Zeiten bleiben erhalten. Prüfe, ob NFC am Handy eingeschaltet ist.', tone: 'error' };
     case 'tag_not_assigned':
-      return { title: 'Tag nicht zugeordnet', message: 'Der Tag gehört zu keinem verfügbaren Arbeitsziel; deine Zeiten bleiben unverändert. Bitte die Verwaltung, die Zuordnung zu prüfen.', tone: 'warning' };
+      return { title: 'Karte nicht zugeordnet', message: 'Die Karte gehört zu keinem verfügbaren Arbeitsziel; deine Zeiten bleiben unverändert. Bitte die Verwaltung, die Zuordnung zu prüfen.', tone: 'warning' };
     case 'scan_context_unavailable':
       return { title: 'Zuordnung nicht erreichbar', message: 'Es wurden noch keine Arbeitszeit-Daten gesendet. Bitte starte später einen neuen Scan.', tone: 'error' };
     case 'time_entry_started':
@@ -281,9 +283,9 @@ function presentOutcome(
     case 'work_location_unavailable':
       return { title: 'Arbeitsziel nicht verfügbar', message: 'Das Arbeitsziel ist keinem für dich berechtigten Standort zugeordnet. Deine Arbeitszeit bleibt unverändert; bitte die Verwaltung um Prüfung.', tone: 'warning' };
     case 'escalation_required':
-      return { title: 'Prüfung erforderlich', message: 'Deine Arbeitszeit bleibt unverändert. Bitte die Verwaltung, den Scan zu prüfen.', tone: 'warning' };
+      return { title: 'Wird von der Verwaltung geprüft', message: 'Wird von der Verwaltung geprüft. Deine Arbeitszeit bleibt unverändert.', tone: 'warning' };
     case 'server_review_pending':
-      return { title: 'Scan sicher gespeichert', message: 'Dein Scan ist gespeichert; deine Arbeitszeit bleibt vorerst unverändert. Bitte die Verwaltung, den Scan zu prüfen.', tone: 'warning' };
+      return { title: 'Scan sicher gespeichert', message: 'Wird von der Verwaltung geprüft. Dein Scan ist gespeichert; deine Arbeitszeit bleibt vorerst unverändert.', tone: 'warning' };
     case 'session_rejected':
       return { title: 'Sitzung nicht mehr gültig', message: 'Bitte melde dich erneut an.', tone: 'error' };
     case 'queue_full':

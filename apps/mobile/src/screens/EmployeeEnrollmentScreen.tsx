@@ -41,7 +41,7 @@ export function EmployeeEnrollmentScreen({
       : notice === 'request_failed'
         ? 'Die Einladung konnte gerade nicht geprüft werden. Versuche es erneut; deine Eingabe bleibt erhalten.'
         : null;
-  return <Screen title="Als Beschäftigter beitreten"><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+  return <Screen title="Als Mitarbeiter beitreten"><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <Text style={styles.description}>
       Du bist sicher beim Anmeldedienst angemeldet, hast aber noch keinen Taptura-Zugang.
     </Text>

@@ -747,3 +747,7 @@ input, select, textarea { font-size: 16px; min-width: 0; }
 .input-action > .required-field-error { flex-basis: 100%; order: 1; }
 
 .package-warning { color: var(--color-notice); }
+
+/* Consequential actions keep their explicit text and existing confirmation. */
+button.warning-action { color: var(--color-notice); background: var(--color-surface-raised); border: 1px solid var(--color-notice); }
+button.warning-action:hover:not(:disabled) { background: var(--color-line); }

@@ -110,7 +110,7 @@ export class IosNfcSession {
         requested = true;
         diagnose('requested');
         await NfcManager.requestTechnology(NfcTech.MifareIOS, {
-          alertMessage: 'Halte dein iPhone an den Tag.',
+          alertMessage: 'Halte dein iPhone an die Karte.',
         });
         diagnose('connected');
         if (outcome !== null) return;

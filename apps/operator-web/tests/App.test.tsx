@@ -447,11 +447,11 @@ it('T075 shows usage and both month peaks, changes or clears the package with a 
   await ready();expect(screen.getByText('12 Zugänge, Paket 10')).toBeVisible();expect(screen.getByText('Paket überschritten')).toBeVisible();
   expect(screen.getByText('Höchstwert 2026-10: 14')).toBeVisible();expect(screen.getByText('Höchstwert 2026-09: 9')).toBeVisible();
   fireEvent.click(within(screen.queryByRole('dialog') ?? document.body).getByRole('button',{name:'Paket ändern'}));
-  fireEvent.change(screen.getByLabelText('Paketgröße (optional)'),{target:{value:''}});
+  fireEvent.change(screen.getByLabelText('Paketgröße: Anzahl Zugänge (optional)'),{target:{value:''}});
   fireEvent.click(within(screen.queryByRole('dialog') ?? document.body).getByRole('button',{name:'Paket ändern'}));
   expect(calls.some(c=>c.path==='organizations/package')).toBe(false);
   expect(screen.getByText('Bitte Grund eingeben.')).toBeVisible();
-  fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'Paket entfernen'}});
+  fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Paket entfernen'}});
   fireEvent.click(within(screen.queryByRole('dialog') ?? document.body).getByRole('button',{name:'Paket ändern'}));
   await screen.findByText('Paket geändert.');
   expect(calls.find(c=>c.path==='organizations/package')?.body).toMatchObject({packageSize:null,reason:'Paket entfernen',rowVersion:3});
@@ -464,12 +464,12 @@ it('T075 creates a package, rejects fractional or nonpositive sizes at the field
   fireEvent.change(screen.getByLabelText('Name des ersten Administrators'),{target:{value:'Erika Beispiel'}});
   fireEvent.change(screen.getByLabelText('E-Mail des ersten Administrators'),{target:{value:'new@example.test'}});
   for(const value of ['0','1.5']){
-    fireEvent.change(screen.getByLabelText('Paketgröße (optional)'),{target:{value}});
+    fireEvent.change(screen.getByLabelText('Paketgröße: Anzahl Zugänge (optional)'),{target:{value}});
     fireEvent.click(screen.getByRole('button',{name:'Anlegen und einladen'}));
     expect(calls.some(c=>c.path==='organizations/create')).toBe(false);
-    expect(screen.getByLabelText('Paketgröße (optional)')).toHaveAttribute('aria-invalid','true');
+    expect(screen.getByLabelText('Paketgröße: Anzahl Zugänge (optional)')).toHaveAttribute('aria-invalid','true');
   }
-  fireEvent.change(screen.getByLabelText('Paketgröße (optional)'),{target:{value:'10'}});
+  fireEvent.change(screen.getByLabelText('Paketgröße: Anzahl Zugänge (optional)'),{target:{value:'10'}});
   fireEvent.click(screen.getByRole('button',{name:'Anlegen und einladen'}));
   await screen.findByText('Betrieb angelegt. Das Administratorkonto ist zugeordnet.');
   expect(calls.find(c=>c.path==='organizations/create')?.body.packageSize).toBe(10);
@@ -477,9 +477,9 @@ it('T075 creates a package, rejects fractional or nonpositive sizes at the field
 
 it('T106 rejects an invisible operator reason at its field without sending',async()=>{
  await ready();fireEvent.click(screen.getByRole('button',{name:'Pausieren'}));
- fireEvent.change(screen.getByLabelText('Grund'),{target:{value:'\u0001\u0085\u200b'}});
+ fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'\u0001\u0085\u200b'}});
  fireEvent.click(screen.getByRole('button',{name:'Weiter zur Bestätigung'}));
- expect(screen.getByLabelText('Grund')).toHaveAttribute('aria-invalid','true');
+ expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/)).toHaveAttribute('aria-invalid','true');
  expect(calls.some(c=>c.path==='organizations/status')).toBe(false);
 });
 

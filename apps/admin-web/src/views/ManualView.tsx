@@ -30,11 +30,11 @@ export default function ManualView({state,administration}: {
       <button disabled={locked} onClick={()=>void administration.captureManual?.(active.breakStartedAt?'stop':'break')}>
         {active.breakStartedAt?'Zeit beenden':'Pause starten'}</button>
     </div> : <RequiredForm onSubmit={event=>{event.preventDefault();if(target && !locked)void administration.captureManual?.(target);}}>
-      {targets?.status === 'ready' ? <fieldset data-required-choice tabIndex={-1} data-field-error={target ? "" : "Bitte einen Kunden oder ein Projekt wählen."} disabled={locked}><legend>Arbeitsziel</legend>
+      {targets?.status === 'ready' ? <fieldset data-required-choice tabIndex={-1} data-field-error={target ? "" : "Bitte einen Kunden oder ein Projekt wählen."} disabled={locked}><legend>Wofür wird die Zeit erfasst?</legend><p>Kunde, Projekt oder allgemeine Arbeit</p>
         <label>Arbeitsziel suchen<input type="search" value={search} onChange={event=>setSearch(event.target.value)} placeholder="Kunde oder Projekt suchen"/></label>
         {(['customer','project','general_work'] as const).map(type=>{
           const visible=visibleTargets.filter(item=>item.targetType===type);
-          return visible.length===0?null:<div key={type}><h3>{type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeit'}</h3>
+          return visible.length===0?null:<div key={type}><h3>{type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit – ohne Kunde oder Projekt'}</h3>
             {visible.map(item=><button type="button" className="target-choice secondary" aria-pressed={selected===`${item.targetType}:${item.targetId}`} key={`${item.targetType}:${item.targetId}`}
               onClick={()=>setSelected(`${item.targetType}:${item.targetId}`)}>{item.displayName}</button>)}</div>;
         })}

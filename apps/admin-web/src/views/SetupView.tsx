@@ -10,6 +10,8 @@ import type {
 import { Confirmation,CountTruth,DelayedSkeleton,Panel,SectionBoundary } from '../ui';
 import { returnFocus,useIntentFocusReturn } from '../viewHelpers';
 type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { status: 'ready' }>;
+type ActivationGap = NonNullable<ReadyState['locationSetup']>['activationGaps'][number];
+const authorityKey=(state:ReadyState)=>JSON.stringify([state.membershipId,state.role,state.projection.organization.id,state.managementScope,state.selectedLocation?.id]);
 export default function SetupView({
   state,
   administration,
@@ -30,6 +32,41 @@ export default function SetupView({
   const tagSelect = useRef<HTMLSelectElement>(null);
   const targetSelect = useRef<HTMLSelectElement>(null);
   const sectionRetryButton = useRef<HTMLButtonElement>(null);
+  const gapNavigation=useRef(0);
+  const [gapNotice,setGapNotice]=useState<string|null>(null);
+  useEffect(()=>()=>{gapNavigation.current+=1;},[]);
+  const navigateGap=async(gap:ActivationGap)=>{
+    const request=++gapNavigation.current,authority=authorityKey(state);
+    setGapNotice(null);
+    const current=()=>{
+      const latest=administration.getState();
+      return request===gapNavigation.current&&latest.status==='ready'&&authorityKey(latest)===authority?latest:null;
+    };
+    try {
+      let latest=current();if(!latest)return;
+      let destination=`setup-${gap.kind}-${gap.id}`;
+      if(gap.kind==='nfc_assignment'){
+        let card=latest.projection.nfcTags.find(tag=>tag.activeAssignmentId===gap.id);
+        const seen=new Set<string>();
+        while(!card&&latest.projection.nextCursor!==null&&!seen.has(latest.projection.nextCursor)){
+          seen.add(latest.projection.nextCursor);
+          await administration.loadMore();
+          latest=current();if(!latest||latest.sections.setup.status!=='ready')return;
+          card=latest.projection.nfcTags.find(tag=>tag.activeAssignmentId===gap.id);
+        }
+        if(!card){setGapNotice('Die Karte ist nicht mehr verfügbar. Bitte aktualisieren Sie die Einrichtung.');return;}
+        const customer=latest.locationSetup?.workTargets.find(target=>target.targetType==='customer'&&target.targetId===card.targetCustomerId);
+        destination=customer?`setup-customer-${customer.targetId}`:'setup-reassignment';
+        if(!customer){setTab('tags');setTagId(card.id);}
+      }
+      requestAnimationFrame(()=>{
+        if(!current())return;
+        const target=document.getElementById(destination);
+        target?.scrollIntoView({block:'center'});(target?.querySelector('select')??target)?.focus();
+      });
+    } catch {if(current())setGapNotice('Die Zuordnung konnte nicht geladen werden. Bitte versuchen Sie es erneut.');}
+  };
+
   useEffect(() => {
     if (state.completedAction === 'customer_created') setCustomerName('');
     if (state.completedAction === 'project_created') setProjectName('');
@@ -61,12 +98,13 @@ export default function SetupView({
     onRetry={() => void administration.retrySection('setup')}>
     <div className="filter-chips" role="group" aria-label="Einrichtungsbereiche">{[
       ...(state.managementScope.kind === 'organization' ? [['standorte','Standorte']] : []),
-      ['arbeitsziele','Arbeitsziele'],['tags','Tags'],
+      ['arbeitsziele','Arbeitsziele'],['tags','Karten'],
     ].map(([value,label])=><button key={value} className="secondary" aria-pressed={tab === value}
       disabled={state.reassignmentIntent !== null} onClick={()=>setTab(value!)}>{label}</button>)}</div>
+    {gapNotice?<p role="alert">{gapNotice}</p>:null}
     <div className="content-grid">
       {state.managementScope.kind === 'organization'
-        ? <div className="full-width" hidden={tab !== 'standorte'}><LocationSetupPanel state={state} administration={administration} /></div>
+        ? <div className="full-width" hidden={tab !== 'standorte'}><LocationSetupPanel state={state} administration={administration} onGap={gap=>{void navigateGap(gap);}} /></div>
         : null}
       <div hidden={tab !== 'arbeitsziele'}><Panel title="Kunden" description="Aktive und inaktive Kunden der geladenen Seiten.">
         <CountTruth count={state.projection.customers.length} noun="Kunden"
@@ -93,28 +131,28 @@ export default function SetupView({
         <ul className="entity-list">{state.projection.customers.map((customer) => <li key={customer.id}>
           <span>{customer.displayName}</span>
           <small className={`pill ${customer.active ? 'success' : ''}`}>
-            {customer.active ? 'Aktiv' : 'Inaktiv'}
+            {customer.active ? 'Für neue Zeiten verfügbar' : 'Für neue Zeiten nicht verfügbar'}
           </small>
         </li>)}</ul>
         {state.projection.customers.length === 0 && state.projection.nextCursor === null
           && state.projection.customersComplete
           ? <p className="empty">Keine Kunden vorhanden.</p> : null}
       </Panel></div>
-      <div className="full-width" hidden={tab !== 'tags'}><Panel title="NFC-Tags" description="Tags werden mit dem Handy zugeordnet. Hier sehen Sie den Bestand und ändern eine bestehende Zuordnung.">
-        <CountTruth count={state.projection.nfcTags.length} noun="NFC-Tags"
+      <div className="full-width" hidden={tab !== 'tags'}><div id="setup-card-assignments" tabIndex={-1}><Panel title="NFC-Karten" description="Karten werden mit dem Handy zugeordnet. Hier sehen Sie den Bestand und ändern eine bestehende Zuordnung.">
+        <CountTruth count={state.projection.nfcTags.length} noun="Karten"
           complete={state.projection.nextCursor === null && state.projection.nfcTagsComplete} />
         <ul className="entity-list">{state.projection.nfcTags.map((tag) => <li key={tag.id}>
           <div><span>{tag.displayName}</span><small>Technische Kennung {tag.validationFingerprint}</small></div>
           <small>{tag.assignmentType === 'break'
-            ? 'Pausen-Tag'
+            ? 'Pausenkarte'
             : tag.assignmentType === null
               ? 'Nicht zugeordnet'
               : customerNameById.get(tag.targetCustomerId) ?? 'Zugeordnet'}</small>
         </li>)}</ul>
         {state.projection.nfcTags.length === 0 && state.projection.nextCursor === null
           && state.projection.nfcTagsComplete
-          ? <p className="empty">Keine NFC-Tags registriert.</p> : null}
-      </Panel></div>
+          ? <p className="empty">Keine Karten registriert.</p> : null}
+      </Panel></div></div>
       <div hidden={tab !== 'arbeitsziele'}><Panel title="Projekte" description="Eigenständige Arbeitsziele ohne Kundenbeziehung.">
         <CountTruth count={state.projects?.length ?? 0} noun="Projekte"
           complete={state.projectsNextCursor === null} />
@@ -167,17 +205,17 @@ export default function SetupView({
           Projektnamen bleiben unverändert. Laufende Arbeitszeit blockiert die Deaktivierung.
         </p>
       </Panel></div>
-      <div className="full-width" hidden={tab !== 'tags'}><Panel title="Tag neu zuordnen" description="Eine laufende Arbeitszeit blockiert die Änderung."
+      <div id="setup-reassignment" className="full-width" hidden={tab !== 'tags'}><Panel title="Zuordnung ändern" description="Eine laufende Arbeitszeit blockiert die Änderung."
         className="full-width">
         <RequiredForm className="form-grid" onSubmit={(event) => {
           event.preventDefault();
           administration.prepareReassignment(tagId, targetId);
         }}>
-          <label>NFC-Tag
-            <select data-field-error={tagId && selectedTag?.assignmentState!=="assigned" ? "Bitte einen zugeordneten NFC-Tag wählen." : undefined} ref={tagSelect} required value={tagId}
+          <label>Karte
+            <select data-field-error={tagId && selectedTag?.assignmentState!=="assigned" ? "Bitte eine zugeordnete Karte wählen." : undefined} ref={tagSelect} required value={tagId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTagId(event.target.value)}>
-              <option value="">NFC-Tag auswählen</option>
+              <option value="">Karte auswählen</option>
               {state.projection.nfcTags.filter((tag) => tag.assignmentType === 'work')
                 .map((tag) => <option key={tag.id} value={tag.id}>
                   {tag.displayName} · {tag.validationFingerprint}
@@ -185,7 +223,7 @@ export default function SetupView({
             </select>
           </label>
           <label>Neuer aktiver Kunde
-            <select data-field-error={targetId && selectedTag?.targetCustomerId === targetId ? "Der Tag gehört bereits zu diesem Kunden." : undefined} ref={targetSelect} required value={targetId}
+            <select data-field-error={targetId && selectedTag?.targetCustomerId === targetId ? "Die Karte gehört bereits zu diesem Kunden." : undefined} ref={targetSelect} required value={targetId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTargetId(event.target.value)}>
               <option value="">Arbeitsziel auswählen</option>
@@ -195,14 +233,15 @@ export default function SetupView({
                 </option>)}
             </select>
           </label>
-          <button ref={prepareButton} disabled={
+          <button className="warning-action" ref={prepareButton} disabled={
             state.reassigning
             || state.reassignmentIntent !== null
 
-          }>Zuordnung prüfen</button>
+          }>Zuordnung ändern</button>
         </RequiredForm>
         {state.reassignmentIntent !== null && intentTag !== null && intentTarget !== null
           ? <Confirmation
+              warning
               label="Zuordnung ausdrücklich bestätigen"
               title="Zuordnung wirklich ändern?"
               confirmLabel="Änderung ausdrücklich bestätigen"
@@ -215,7 +254,7 @@ export default function SetupView({
               }}
             >
               <dl>
-                <dt>NFC-Tag</dt><dd>{intentTag.displayName} · {intentTag.validationFingerprint}</dd>
+                <dt>Karte</dt><dd>{intentTag.displayName} · {intentTag.validationFingerprint}</dd>
                 <dt>Vorher</dt><dd>{customerNameById.get(intentTag.targetCustomerId!) ?? 'Bisheriger Kunde'}</dd>
                 <dt>Nachher</dt><dd>{intentTarget.displayName}</dd>
               </dl>
@@ -233,7 +272,9 @@ export default function SetupView({
 function LocationSetupPanel({
   state,
   administration,
+  onGap,
 }: {
+  readonly onGap:(gap:ActivationGap)=>void;
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
 }) {
@@ -242,8 +283,8 @@ function LocationSetupPanel({
   const setup = state.locationSetup;
   const activeLocations = setup?.locations.filter((location) => location.active) ?? [];
   const gapLabels = {
-    membership: 'Zugehörigkeit', customer: 'Kunde', project: 'Projekt',
-    work_target: 'Arbeitsziel', nfc_assignment: 'NFC-Zuordnung',
+    membership: 'Für diese Mitarbeiter fehlt der Hauptarbeitsstandort', customer: 'Für diese Kunden fehlt der Standort', project: 'Für diese Projekte fehlt der Standort',
+    work_target: 'Für diese Arbeitsziele fehlt der Standort', nfc_assignment: 'Für diese Karten fehlt der Standort',
   } as const;
   if (setup === null) {
     return <Panel title="Standorte" description="Standorte und Bindungen werden vollständig geladen."
@@ -256,7 +297,7 @@ function LocationSetupPanel({
     </Panel>;
   }
   return <Panel title="Standorte"
-    description="Ordnen Sie Beschäftigte und Arbeitsziele den Standorten zu. Aktivieren Sie anschließend die vorbereiteten Standorte."
+    description="Ihr Betrieb umfasst alle zugehörigen Standorte. Ordnen Sie Mitarbeiter und Arbeitsziele den Standorten zu."
     className="full-width">
     <RequiredForm className="inline-form" onSubmit={(event) => {
       event.preventDefault();
@@ -291,11 +332,11 @@ function LocationSetupPanel({
     </li>)}</ul>
     {setup.locations.length === 0 ? <p className="empty">Noch kein Standort vorhanden.</p> : null}
 
-    <h3>Menschen zuweisen</h3>
-    <ul className="entity-list">{setup.memberships.map((membership) => <li key={membership.id}>
+    <h3>Mitarbeiter zuweisen</h3><p className="supporting">Änderungen werden sofort gespeichert.</p>
+    <ul className="entity-list">{setup.memberships.map((membership) => <li id={`setup-membership-${membership.id}`} tabIndex={-1} key={membership.id}>
       <div><strong>{membership.displayName}</strong><small>{membership.role === 'administrator'
-        ? 'Administrator' : membership.role === 'standortleitung' ? 'Standortleitung' : 'Beschäftigter'}</small></div>
-      <label>Heimatstandort
+        ? 'Administrator' : membership.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter'}</small></div>
+      <label>Hauptarbeitsstandort<small>Der Standort, dem die Person regulär zugeordnet ist.</small>
         <select value={membership.homeLocationId ?? ''} disabled={state.locationSetupBusy}
           onChange={(event) => {
             if (event.target.value.length > 0) void administration.setHomeLocation?.(
@@ -308,7 +349,7 @@ function LocationSetupPanel({
           </option>)}
         </select>
       </label>
-      <fieldset><legend>Zusätzliche Arbeitszuweisungen</legend>
+      <fieldset><legend>Weitere Standorte, an denen die Person arbeiten darf</legend>
         {activeLocations.filter((location) => location.id !== membership.homeLocationId)
           .map((location) => <label key={location.id}>
             <input type="checkbox" checked={membership.workLocationIds.includes(location.id)}
@@ -319,7 +360,7 @@ function LocationSetupPanel({
           </label>)}
       </fieldset>
       {membership.role === 'standortleitung' ? <fieldset>
-        <legend>Verwaltungszuweisungen</legend>
+        <legend>Standorte, die diese Person verwalten darf</legend>
         {activeLocations.map((location) => <label key={location.id}>
           <input type="checkbox" checked={membership.managementLocationIds.includes(location.id)}
             disabled={state.locationSetupBusy}
@@ -332,7 +373,7 @@ function LocationSetupPanel({
 
     <h3>Arbeitsziele zuweisen</h3>
     <ul className="entity-list">{setup.workTargets.filter(target=>target.targetType!=='general_work').map((target) => <li
-      key={`${target.targetType}:${target.targetId}`}>
+      id={`setup-${target.targetType}-${target.targetId}`} tabIndex={-1} key={`${target.targetType}:${target.targetId}`}>
       <span>{target.displayName}</span>
       <small>{target.targetType === 'customer' ? 'Kunde' : target.targetType === 'project'
         ? 'Projekt' : 'Allgemeines Arbeitsziel'}</small>
@@ -354,14 +395,25 @@ function LocationSetupPanel({
       <h3 id="location-activation-title">Vor dem Einschalten</h3>
       {setup.activationGaps.length === 0
         ? <p>Alle erforderlichen Standortzuordnungen sind vollständig. Allgemeine Arbeitszeit braucht keine Standortbindung.</p>
-        : <><p><strong>Diese Bindungen fehlen noch:</strong></p>
-          <ul>{setup.activationGaps.map((gap) => <li key={`${gap.kind}:${gap.id}`}>
-            <strong>{gapLabels[gap.kind]}:</strong> {gap.displayName}
-          </li>)}</ul></>}
+        : <><p><strong>Diese Standortzuordnungen fehlen noch:</strong></p>
+          <ul>{setup.activationGaps.map((gap) => {
+            const card=gap.kind==='nfc_assignment'?state.projection.nfcTags.find(tag=>tag.activeAssignmentId===gap.id):undefined;
+            const customer=card?setup.workTargets.find(target=>target.targetType==='customer'&&target.targetId===card.targetCustomerId):undefined;
+            const destination=gap.kind==='nfc_assignment'
+              ? customer?`setup-customer-${customer.targetId}`:'setup-reassignment'
+              : `setup-${gap.kind}-${gap.id}`;
+            return <li key={`${gap.kind}:${gap.id}`}>
+              <strong>{gapLabels[gap.kind]}:</strong>{' '}
+              <a href={`#${destination}`} onClick={event=>{
+                event.preventDefault();onGap(gap);
+              }}>{gap.displayName}</a>
+            </li>;
+          })}</ul></>}
+      <p>Die vorbereiteten Standortzuordnungen werden jetzt wirksam.</p>
       <button disabled={state.locationSetupBusy || (!state.locationsEnabled
         && setup.activationGaps.length > 0)}
         onClick={() => void administration.setLocationsEnabled?.(!state.locationsEnabled)}>
-        {state.locationsEnabled ? 'Standort-Funktion ausschalten' : 'Standort-Funktion einschalten'}
+        {state.locationsEnabled ? 'Standorte nicht mehr verwenden' : 'Standorte verwenden'}
       </button>
     </section>
   </Panel>;

@@ -11,7 +11,7 @@ it('T097: keeps known and unknown reasons on the same response page',async()=>{
   const fetcher=vi.fn<typeof fetch>(async()=>Response.json({status:'ready',items:[item,{...item,reviewItemId:'20000000-0000-4000-8000-000000000001',reviewReason:'future_reason'}],nextCursor:null}));
   const result=await new AdminWebApiClient(fetcher).reviewItems('token',id,null);
   expect(result).toMatchObject({status:'succeeded',value:{items:[{reviewReason:'active_break_time_entry_mismatch',employeeMembershipId:id},{reviewReason:'future_reason'}]}});
-  expect(reviewReasonLabel('active_break_time_entry_mismatch')).not.toBe('Prüfung erforderlich');
+  expect(reviewReasonLabel('active_break_time_entry_mismatch')).not.toBe('Wird von der Verwaltung geprüft');
   expect(reviewReasonLabel('future_reason')).toBe('Sonstiger Prüfgrund');
 });
 it('T097: accepts a break without a fabricated target identifier',async()=>{

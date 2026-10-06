@@ -32,13 +32,13 @@ export default function ReviewsView({state,administration}: {readonly state:Read
     lastIntent.current=null;
   },[state.adjudicationIntent,state.sections.reviewItems.status,state.reviewItems]);
   if (!isTimeReviewRole(state.role)) return null;
-  return <section ref={focusFallback} tabIndex={-1} aria-label="Prüfungen"><SectionBoundary state={state.sections.reviewItems} retryButtonRef={retry} onRetry={()=>void administration.retrySection('reviewItems')}>
-    <Panel title="Offene Prüfungen" description="Jede Entscheidung bleibt mit Begründung erhalten. Originale werden nie überschrieben.">
-      <CountTruth count={state.reviewItems.length} noun="Prüfungen" complete={state.reviewItemsNextCursor === null}/>
+  return <section ref={focusFallback} tabIndex={-1} aria-label="Ungeklärte Erfassungen"><SectionBoundary state={state.sections.reviewItems} retryButtonRef={retry} onRetry={()=>void administration.retrySection('reviewItems')}>
+    <Panel title="Zeiten prüfen" description="Diese Erfassungen konnten noch keiner Arbeitszeit sicher zugeordnet werden.">
+      <CountTruth count={state.reviewItems.length} noun="ungeklärte Erfassungen" complete={state.reviewItemsNextCursor === null}/>
       <ul className="review-list">{state.reviewItems.map(item=><ReviewDecisionRow key={item.reviewItemId}
         item={item} state={state} administration={administration}/>)}</ul>
-      {state.reviewItems.length === 0 && state.reviewItemsNextCursor === null ? <p className="empty">Keine offenen Prüfungen.</p> : null}
-      {state.reviewItemsNextCursor === null ? null : <button className="secondary" onClick={()=>void administration.loadMoreReviewItems()}>Weitere Prüfungen laden</button>}
+      {state.reviewItems.length === 0 && state.reviewItemsNextCursor === null ? <p className="empty">Keine ungeklärten Erfassungen.</p> : null}
+      {state.reviewItemsNextCursor === null ? null : <button className="secondary" onClick={()=>void administration.loadMoreReviewItems()}>Weitere Erfassungen laden</button>}
     </Panel>
   </SectionBoundary></section>;
 }
@@ -152,13 +152,13 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
           {timeError === null ? null : <p id={`review-time-error-${item.reviewItemId}`}
             className="field-error" role="alert">{timeError}</p>}
           <label>Beginn
-            <input data-field-error={startedAt && !parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null) ? "Bitte Beginn in Europe/Berlin prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={startedAt}
+            <input data-field-error={startedAt && !parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null) ? "Bitte Beginn in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={startedAt}
               aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
               disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
               onChange={(event) => setStartedAt(event.target.value)} />
           </label>
           <label>Ende
-            <input data-field-error={intervalError ?? (stoppedAt && !parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null) ? "Bitte Ende in Europe/Berlin prüfen (Zeitumstellung)." : undefined)} required type="datetime-local" step="60" value={stoppedAt}
+            <input data-field-error={intervalError ?? (stoppedAt && !parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null) ? "Bitte Ende in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined)} required type="datetime-local" step="60" value={stoppedAt}
               aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
               disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
               onChange={(event) => setStoppedAt(event.target.value)} />

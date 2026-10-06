@@ -326,7 +326,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
           </div>
           <p className="muted">
             Über jeden Betrieb: Status, Zahlen und letzte Aktivität. Keine Namen
-            oder Arbeitszeiten der Beschäftigten.
+            oder Arbeitszeiten der Mitarbeiter.
           </p>
           <ErrorBand message={error} />
           {notice && (
@@ -415,7 +415,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
                             "Standortleitungen",
                             "Jetzt aktiv",
                             "Letzter Tap",
-                            "Tags",
+                            "Karten",
                             "Zuordnungen",
                             "Einladungen",
                             "Angelegt",
@@ -452,7 +452,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
                                 ? date(row.last_tap)
                                 : "Noch kein Tap"}
                             </td>
-                            <td data-label="Tags">{row.tags}</td>
+                            <td data-label="Karten">{row.tags}</td>
                             <td data-label="Zuordnungen">{row.active_assignments}</td>
                             <td data-label="Einladungen">{row.open_invitations}</td>
                             <td data-label="Angelegt">{date(row.created_at)}</td>
@@ -707,15 +707,15 @@ function ActionPanel({
     >
       <ErrorBand message={error} />
       <RequiredForm onSubmit={submit}>
-        {target === "create" || packageChange ? <label>Paketgröße (optional)
-          <input aria-label="Paketgröße (optional)" aria-describedby="package-help" type="number" min={1} max={2147483647} step={1} inputMode="numeric" value={packageSize} onChange={event=>setPackageSize(event.target.value)} />
+        {target === "create" || packageChange ? <label>Paketgröße: Anzahl Zugänge (optional)
+          <input aria-label="Paketgröße: Anzahl Zugänge (optional)" aria-describedby="package-help" type="number" min={1} max={2147483647} step={1} inputMode="numeric" value={packageSize} onChange={event=>setPackageSize(event.target.value)} />
           <span id="package-help" className="muted">Leer lassen für kein Paket. Über dem Paket bleiben alle Zugänge nutzbar.</span>
         </label> : null}
         {target === "create" ? (
           <>
             <p>
               Der erste Administrator richtet danach Mitarbeiter, Arbeitsziele
-              und Tags selbst ein. Ein neues Konto erhält eine Einladung; bei
+              und Karten selbst ein. Ein neues Konto erhält eine Einladung; bei
               einem vorhandenen freien Konto erfolgt die Zuordnung ohne neue
               Mail.
             </p>

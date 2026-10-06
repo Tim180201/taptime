@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 vi.mock('../../src/design/LineIcon',()=>({LineIcon:()=>null}));
 vi.mock('react-native',()=>({
+  BackHandler:{addEventListener:()=>({remove(){}})},
   findNodeHandle:()=>null,
   View:({children,ref,style,focusable}:{children?:ReactNode;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children),
   ScrollView:({children,ref,style,focusable}:{children?:ReactNode;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children),
@@ -49,7 +50,7 @@ it('shows durable provenance, correction reason, current comment and overlap; em
   expect(save).toHaveBeenCalledWith('comment',{timeRecordId:id,comment:'Neue Fassung'});expect(refresh).toHaveBeenCalled();
 });
 it.each(['administrator','standortleitung'] as const)('%s corrects a completed entry with reason and concurrency versions',async role=>{
-  await render(role);expect(button('Kommentar schreiben')).toBeUndefined();await press('Ändern');await fill('Grund','Prüfung');await press('Speichern');
+  await render(role);expect(button('Kommentar schreiben')).toBeUndefined();await press('Ändern');await fill('Grund der Änderung (Pflicht)','Prüfung');await press('Speichern');
   expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({timeRecordId:id,expectedBaseRowVersion:0,expectedRevisionNumber:2,reason:'Prüfung'}));
 });
 it('running entries have the D-071 hint and no change action',async()=>{
@@ -73,7 +74,7 @@ it('offline remains visibly disabled and sends nothing',async()=>{
 });
 it('invalid dates are shown as a field problem even for overnight time',async()=>{
   await render('employee');await press('Zeit hinzufügen');await press('Kunde');await fill('Datum (JJJJ-MM-TT)','falsch');await fill('Von (HH:MM)','22:00');await fill('Bis (HH:MM)','06:00');await press('Speichern');
-  expect(container.textContent).toContain('Datum und Uhrzeit in Europe/Berlin');expect(save).not.toHaveBeenCalled();
+  expect(container.textContent).toContain('Datum und Uhrzeit in deutscher Ortszeit');expect(save).not.toHaveBeenCalled();
 });
 
 it.each([['nfc','gescannt'],['manual','manuell'],['backfilled','nachgetragen'],['recovered','wiederhergestellt']] as const)('shows the explicit %s provenance as %s',async(origin,label)=>{
@@ -81,13 +82,13 @@ it.each([['nfc','gescannt'],['manual','manuell'],['backfilled','nachgetragen'],[
   expect(container.textContent).toContain(label);expect(container.textContent).not.toContain('überschneidet sich');
 });
 it.each(['administrator','standortleitung'] as const)('%s backfills for the selected person with a required reason and no employee comment',async role=>{
-  await render(role);await press('Zeit hinzufügen');await press('Zielperson C2');await fill('Grund','Tag ergänzt');await press('Speichern');
+  await render(role);await press('Zeit hinzufügen');await press('Zielperson C2');await fill('Grund der Änderung (Pflicht)','Tag ergänzt');await press('Speichern');
   expect(save).toHaveBeenCalledWith('backfill',expect.objectContaining({targetMembershipId:'10000000-0000-4000-8000-000000000002',reason:'Tag ergänzt',comment:null}));
   expect(container.querySelector('input[aria-label="Kommentar (optional)"]')).toBeNull();
 });
 it('a first self backfill remains visibly distinct from an administrative correction',async()=>{
   await render('employee',true,{...record,details:{...record.details!,changed:false,effectiveRevisionNumber:1,change:{at:'2026-09-21T10:00:00.000Z',reason:'Selbst nachgetragen',actor:'self'}}});
-  expect(container.textContent).toContain('Nachgetragen');expect(container.textContent).toContain('durch Beschäftigten: Selbst nachgetragen');
+  expect(container.textContent).toContain('Nachgetragen');expect(container.textContent).toContain('durch Mitarbeiter: Selbst nachgetragen');
 });
 
 it.each(['administrator','standortleitung'] as const)('%s can comment their own entry, never another person’s',async role=>{
@@ -106,9 +107,9 @@ it.each(['administrator','standortleitung'] as const)('T-069 lets an %s stop ano
   expect(container.querySelector('input[aria-label="Von (HH:MM)"]')).toBeNull();
   await fill('Ende am (JJJJ-MM-TT)','2026-09-21');await fill('Bis (HH:MM)','14:00');await press('Zeit beenden');
   expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Grund');
-  await fill('Grund','Pause vergessen');save.mockResolvedValueOnce({status:'end_before_break'} as never);
+  await fill('Grund der Änderung (Pflicht)','Pause vergessen');save.mockResolvedValueOnce({status:'end_before_break'} as never);
   await press('Zeit beenden');expect(container.textContent).toContain('Die Endzeit liegt vor einer erfassten Pause');
-  expect((container.querySelector('input[aria-label="Grund"]') as HTMLInputElement).value).toBe('Pause vergessen');
+  expect((container.querySelector('input[aria-label="Grund der Änderung (Pflicht)"]') as HTMLInputElement).value).toBe('Pause vergessen');
   save.mockResolvedValueOnce({status:'committed',timeRecordId:id,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:true} as never);
   await press('Zeit beenden');
   expect(save).toHaveBeenLastCalledWith('stop',{targetMembershipId:'10000000-0000-4000-8000-000000000002',timeRecordId:id,
@@ -123,7 +124,7 @@ it('T-069 retains own running hint and prevents offline stopping',async()=>{
 });
 it('T-069 shows the employee the administration mark independently of later corrections',async()=>{
   await render('employee',true,{...record,stoppedVia:'administration',details:{...record.details!,administrationStop:{at:'2026-09-21T10:00:00.000Z',reason:'Stopp vergessen'}}});
-  expect(container.textContent).toContain('Beendet durch Verwaltung');expect(container.textContent).toContain('Stopp vergessen');
+  expect(container.textContent).toContain('Von der Verwaltung beendet');expect(container.textContent).toContain('Stopp vergessen');
   expect(container.textContent).toContain('Ende berichtigt');
 });
 
@@ -137,7 +138,7 @@ it('D-078 keeps the form pending and polls before reloading the calendar',async(
   vi.useFakeTimers();
   try {
     await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');
-    await fill('Grund','Vergessen');
+    await fill('Grund der Änderung (Pflicht)','Vergessen');
     const pending={status:'committed',timeRecordId:id,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
     save.mockResolvedValueOnce(pending as never).mockResolvedValueOnce({...pending,idempotentRetry:true,offsiteArchived:true} as never);
     await press('Zeit beenden');
@@ -149,7 +150,7 @@ it('D-078 keeps the form pending and polls before reloading the calendar',async(
 it('D-078 stops polling after three minutes, retains the command inputs and permits checking again',async()=>{
   vi.useFakeTimers();
   try {
-    await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');await fill('Grund','Vergessen');
+    await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');await fill('Grund der Änderung (Pflicht)','Vergessen');
     save.mockResolvedValue({status:'committed',timeRecordId:id,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:false} as never);
     await press('Zeit beenden');await act(async()=>{await vi.advanceTimersByTimeAsync(180000);});
     expect(container.textContent).toContain('Noch nicht extern gesichert — bitte später prüfen');expect(refresh).not.toHaveBeenCalled();
@@ -161,7 +162,7 @@ it('D-078 stops polling after three minutes, retains the command inputs and perm
 
 it('T-062 manager can stop their own entry and retains the existing rejection text',async()=>{
  await render('standortleitung',true,{...record,status:'started',stoppedAt:null},id);
- await press('Beenden');await fill('Grund','Vergessen');
+ await press('Beenden');await fill('Grund der Änderung (Pflicht)','Vergessen');
  save.mockResolvedValueOnce({status:'authority_rejected'} as never);await press('Zeit beenden');
  expect(save).toHaveBeenCalledWith('stop',expect.objectContaining({targetMembershipId:id,reason:'Vergessen'}));
  expect(container.textContent).toContain('Die Berechtigung zum Beenden fehlt.');
@@ -171,7 +172,7 @@ it('T-062 manager can stop their own entry and retains the existing rejection te
 it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target person choices, not the actor choices',async role=>{
  await render(role);await press('Zeit hinzufügen');
  expect(button('Zielperson C2')).toBeDefined();expect(button('Kunde')).toBeUndefined();
- await press('Zielperson C2');await fill('Grund','Zielperson');await press('Speichern');
+ await press('Zielperson C2');await fill('Grund der Änderung (Pflicht)','Zielperson');await press('Speichern');
  expect(save).toHaveBeenCalledWith('backfill',expect.objectContaining({targetId:'20000000-0000-4000-8000-000000000002'}));
 });
 
@@ -180,11 +181,11 @@ it('T079 splits dates and minute clocks while preserving exact unchanged values'
  await render('administrator',true,precise);await press('Ändern');
  for(const [label,value] of [['Beginn am (JJJJ-MM-TT)','2026-09-21'],['Ende am (JJJJ-MM-TT)','2026-09-21'],['Von (HH:MM)','10:00'],['Bis (HH:MM)','11:00']])
   expect((container.querySelector(`input[aria-label="${label}"]`) as HTMLInputElement).value).toBe(value);
- await fill('Grund','Nur Grund');await press('Speichern');
+ await fill('Grund der Änderung (Pflicht)','Nur Grund');await press('Speichern');
  expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({startedAt:precise.startedAt,stoppedAt:precise.stoppedAt}));
 });
 it.each(['2026-10-25','2027-03-28'])('T079 rejects newly edited ambiguous or absent time on %s',async day=>{
- await render('administrator');await press('Ändern');await fill('Beginn am (JJJJ-MM-TT)',day);await fill('Von (HH:MM)','02:30');await fill('Grund','Prüfung');await press('Speichern');
+ await render('administrator');await press('Ändern');await fill('Beginn am (JJJJ-MM-TT)',day);await fill('Von (HH:MM)','02:30');await fill('Grund der Änderung (Pflicht)','Prüfung');await press('Speichern');
  expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Zeitumstellung');
  expect((container.querySelector('input[aria-label="Von (HH:MM)"]') as HTMLInputElement).value).toBe('02:30');
 });
@@ -192,7 +193,7 @@ it.each(['2026-10-25','2027-03-28'])('T079 rejects newly edited ambiguous or abs
 it.each(['employee','administrator','standortleitung'] as const)('T-088 %s requires a reason and preserves the form until confirmed success',async role=>{
  await render(role);await press('Zeiteintrag löschen');await press('Löschen');expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Wähle einen Grund');
  await press('Sonstiges');await press('Löschen');expect(save).not.toHaveBeenCalled();await fill('Kurze Begründung','Falscher Tag');
- save.mockResolvedValueOnce({status:'review_open'} as never);await press('Löschen');expect(container.textContent).toContain('noch eine Prüfung offen');
+ save.mockResolvedValueOnce({status:'review_open'} as never);await press('Löschen');expect(container.textContent).toContain('Wird von der Verwaltung geprüft');
  expect((container.querySelector('input[aria-label="Kurze Begründung"]') as HTMLInputElement).value).toBe('Falscher Tag');
  await press('Löschen');expect(save).toHaveBeenLastCalledWith('void',{timeRecordId:id,reasonCode:'other',reasonText:'Falscher Tag'});expect(refresh).toHaveBeenCalled();
 });
@@ -213,7 +214,7 @@ it.each(['backfill','correct','stop','comment'] as const)('T101 %s marks each re
  await render('administrator',true,kind==='stop'?{...record,status:'started',stoppedAt:null}:record,kind==='stop'?'10000000-0000-4000-8000-000000000002':id);
  await press(kind==='backfill'?'Zeit hinzufügen':kind==='correct'?'Ändern':kind==='stop'?'Beenden':'Kommentar schreiben');
  if(kind==='backfill')await press('Kunde');
- const labels=kind==='comment'?['Kommentar']:kind==='stop'?['Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund']:kind==='correct'?['Beginn am (JJJJ-MM-TT)','Von (HH:MM)','Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund']:['Datum (JJJJ-MM-TT)','Von (HH:MM)','Bis (HH:MM)','Grund'];
+ const labels=kind==='comment'?['Kommentar']:kind==='stop'?['Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund der Änderung (Pflicht)']:kind==='correct'?['Beginn am (JJJJ-MM-TT)','Von (HH:MM)','Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund der Änderung (Pflicht)']:['Datum (JJJJ-MM-TT)','Von (HH:MM)','Bis (HH:MM)','Grund der Änderung (Pflicht)'];
  for(const label of labels)await fill(label,'');await press(kind==='stop'?'Zeit beenden':'Speichern');expect(save).not.toHaveBeenCalled();
  expect(document.activeElement).toBe(container.querySelector(`input[aria-label="${labels[0]}"]`));
  for(const label of labels){const input=container.querySelector(`input[aria-label="${label}"]`)!;expect(input.parentElement?.getAttribute('data-style')).toContain('#FF8F8F');expect(input.parentElement?.querySelector('[role="alert"]')?.getAttribute('aria-live')).toBe('polite');}
@@ -231,12 +232,12 @@ it.each([
  ['2099-09-21','11:00','Das Ende liegt in der Zukunft.'],
 ])('T106: correction end %s %s is rejected at the field',async(date,time,message)=>{
  await render('administrator');await press('Ändern');
- await fill('Ende am (JJJJ-MM-TT)',date);await fill('Bis (HH:MM)',time);await fill('Grund','Beleg geprüft');await press('Speichern');
+ await fill('Ende am (JJJJ-MM-TT)',date);await fill('Bis (HH:MM)',time);await fill('Grund der Änderung (Pflicht)','Beleg geprüft');await press('Speichern');
  expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain(message);
 });
 it('T106: required reasons cannot consist only of controls and spaces',async()=>{
- await render('administrator');await press('Ändern');await fill('Grund','\u00a0\t\u0001');await press('Speichern');
- expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Bitte Grund eingeben.');
+ await render('administrator');await press('Ändern');await fill('Grund der Änderung (Pflicht)','\u00a0\t\u0001');await press('Speichern');
+ expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Bitte Grund der Änderung (Pflicht) eingeben.');
 });
 
 it('T106 shows invisible void reason at the required field',async()=>{
