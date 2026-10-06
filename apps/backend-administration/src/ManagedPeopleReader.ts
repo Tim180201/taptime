@@ -1,11 +1,11 @@
 import type { PoolClient, QueryResultRow } from 'pg';
-import { isManagedActiveSummary, isManagedActiveSummaryV2, isManagedActiveSummaryV3, isManagedActiveSummaryV4, isManagedPersonTimeRequest, isManagedActiveSummaryRequest,
+import { isManagedActiveSummary, isManagedActiveSummaryV2, isManagedActiveSummaryV3, isManagedActiveSummaryV4, isManagedPersonTimeRequest, isManagedActiveSummaryRequest, isManagedActiveSummaryRequestV5,
   isManagedTimestamp, isManagedUuid, type ManagedActiveSummary, type ManagedActiveSummaryRequest,
   type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { isCalendarTimeResponse, isDetailedTimeResponse, validateOwnTimeResponse, type MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 
 export type ManagedPersonTimeCommand = ManagedPersonTimeRequest & { readonly accessToken: string; readonly includeTimeDetails?: boolean; readonly includeCalendarBreaks?: boolean };
-export type ManagedActiveSummaryCommand = ManagedActiveSummaryRequest & { readonly accessToken: string; readonly includeDeparted?: boolean; readonly includeMonthHours?: boolean; readonly includePackageUsage?: boolean };
+export type ManagedActiveSummaryCommand = ManagedActiveSummaryRequest & { readonly accessToken: string; readonly includeDeparted?: boolean; readonly includeMonthHours?: boolean; readonly includePackageUsage?: boolean; readonly includeSelectedMonth?: boolean; readonly fromInclusive?: string; readonly toExclusive?: string };
 export type ManagedReadResult<T> = { readonly status: 'succeeded'; readonly value: T }
   | { readonly status: 'forbidden' | 'unauthorized' | 'invalid_request' };
 export type ManagedPersonTimeResult = ManagedReadResult<MobileOwnTimeQueryResponse>;
@@ -23,20 +23,25 @@ export function personCursor(request: ManagedPersonTimeRequest): { startedAt: st
   return { startedAt: parts[5], id: parts[6] };
 }
 function summaryPrefix(request: ManagedActiveSummaryRequest): string {
+  if ('includeSelectedMonth' in request && request.includeSelectedMonth) {
+    const month=request as ManagedActiveSummaryCommand;
+    return ['s5',request.expectedMembershipId,request.locationId ?? '-',String(request.isRunning),month.fromInclusive,month.toExclusive].join('/');
+  }
   return ['includeMonthHours' in request && request.includeMonthHours ? 's3' : 's1',request.expectedMembershipId,request.locationId ?? '-',String(request.isRunning)].join('/');
 }
 export function summaryCursor(request: ManagedActiveSummaryRequest): string | null | undefined {
   if (request.cursor === null) return null;
   const parts = request.cursor.split('/');
-  return parts.length === 5 && parts.slice(0,4).join('/') === summaryPrefix(request) && isManagedUuid(parts[4]) ? parts[4] : undefined;
+  const prefix=summaryPrefix(request).split('/');
+  return parts.length === prefix.length+1 && parts.slice(0,-1).join('/') === prefix.join('/') && isManagedUuid(parts.at(-1)) ? parts.at(-1)! : undefined;
 }
 export function validPersonCommand(command: ManagedPersonTimeCommand): boolean {
   const {accessToken,includeTimeDetails,includeCalendarBreaks,...request}=command;
   return typeof accessToken === 'string' && accessToken.length > 0 && isManagedPersonTimeRequest(request) && personCursor(request) !== undefined;
 }
 export function validSummaryCommand(command: ManagedActiveSummaryCommand): boolean {
-  const {accessToken,includeDeparted,includeMonthHours,includePackageUsage,...request}=command;
-  return typeof accessToken === 'string' && accessToken.length > 0 && isManagedActiveSummaryRequest(request) && summaryCursor(command) !== undefined;
+  const {accessToken,includeDeparted,includeMonthHours,includePackageUsage,includeSelectedMonth,...request}=command;
+  return typeof accessToken === 'string' && accessToken.length > 0 && (includeSelectedMonth ? isManagedActiveSummaryRequestV5(request) : isManagedActiveSummaryRequest(request)) && summaryCursor(command) !== undefined;
 }
 const timestamp = (value: unknown): string => {
   if (!(value instanceof Date) && typeof value !== 'string') throw new Error('Invalid managed timestamp');
@@ -82,8 +87,8 @@ export async function readManagedPerson(client: PoolClient, command: ManagedPers
   return {status:'succeeded',value};
 }
 export async function readManagedSummary(client: PoolClient, command: ManagedActiveSummaryCommand): Promise<ManagedActiveSummaryResult> {
-  const result=await client.query(`SELECT *${command.includePackageUsage ? ',taptime_server.read_organization_package_v1() AS package_usage' : ''} FROM taptime_server.${command.includeMonthHours ? 'read_managed_active_summary_v3' : command.includeDeparted ? 'read_managed_active_summary_v2' : 'read_managed_active_summary_v1'}($1,$2,$3,$4)`,
-    [command.locationId,command.isRunning,summaryCursor(command),command.limit]);
+  const result=await client.query(`SELECT *${command.includePackageUsage ? ',taptime_server.read_organization_package_v1() AS package_usage' : ''} FROM taptime_server.${command.includeSelectedMonth ? 'read_managed_active_summary_v4' : command.includeMonthHours ? 'read_managed_active_summary_v3' : command.includeDeparted ? 'read_managed_active_summary_v2' : 'read_managed_active_summary_v1'}($1,$2,$3,$4${command.includeSelectedMonth ? ',$5,$6' : ''})`,
+    [command.locationId,command.isRunning,summaryCursor(command),command.limit,...(command.includeSelectedMonth ? [command.fromInclusive,command.toExclusive] : [])]);
   const first=result.rows[0];
   if (first?.result_status === 'forbidden' || first?.result_status === 'invalid_request') return {status:first.result_status};
   if (first?.result_status !== 'succeeded') throw new Error('Managed summary omitted status');

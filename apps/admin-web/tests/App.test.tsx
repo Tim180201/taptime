@@ -67,15 +67,15 @@ it.each(['offline_v2','server_legacy'] as const)('T097: %s break can only be clo
   const pause={...reviewItem,source,targetType:'break' as const,targetDisplayName:'Pause'};
   const capability=new FakeCapability({...readyState,reviewItems:[pause]});
   await render(<App administration={capability}/>);
-  expect(screen.queryByRole('button',{name:'Als Arbeitszeit übernehmen'})).not.toBeInTheDocument();
-  expect(screen.queryByRole('button',{name:'Korrigieren'})).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button',{name:'Mit Notiz schließen'}));
+  expect(screen.queryByRole('button',{name:'Fehlende Arbeitszeit ergänzen'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Vorhandene Arbeitszeit ändern'})).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button',{name:'Ohne Zeitänderung schließen'}));
   expect(screen.getAllByRole('option').map(option=>option.getAttribute('value'))).toEqual(['no_time_record_change']);
   expect(screen.getByLabelText('Begründung')).toBeRequired();
-  await userEvent.click(screen.getByRole('button',{name:'Entscheidung prüfen'}));
+  await userEvent.click(screen.getByRole('button',{name:'Änderung prüfen'}));
   expect(capability.prepareAdjudication).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText('Begründung'),{target:{value:'Pause geprüft.'}});
-  await userEvent.click(screen.getByRole('button',{name:'Entscheidung prüfen'}));
+  await userEvent.click(screen.getByRole('button',{name:'Änderung prüfen'}));
   expect(capability.prepareAdjudication).toHaveBeenCalledExactlyOnceWith(
     pause.reviewItemId,'no_time_record_change',null,null,null,'Pause geprüft.',
   );
@@ -86,13 +86,13 @@ it.each(['administrator','standortleitung'] as const)('T095b %s sees the separat
   const skipped={...reviewItem,source:'offline_skip' as const,reviewReason:'http_422',predecessorBlocked:false};
   const capability=new FakeCapability({...readyState,role,reviewItems:[skipped]});
   await render(<App administration={capability}/>);
-  expect(screen.getByText('Fehlende Zeit über „Nachtragen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.')).toBeVisible();
-  expect(screen.queryByRole('button',{name:'Als Arbeitszeit übernehmen'})).not.toBeInTheDocument();
-  expect(screen.queryByRole('button',{name:'Korrigieren'})).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button',{name:'Mit Notiz schließen'}));
+  expect(screen.getByText('Fehlende Zeit über „Zeit hinzufügen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.')).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Fehlende Arbeitszeit ergänzen'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Vorhandene Arbeitszeit ändern'})).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button',{name:'Ohne Zeitänderung schließen'}));
   expect(screen.getAllByRole('option').map(option=>option.getAttribute('value'))).toEqual(['no_time_record_change']);
   fireEvent.change(screen.getByLabelText('Begründung'),{target:{value:'Fehlende Zeit separat nachgetragen.'}});
-  await userEvent.click(screen.getByRole('button',{name:'Entscheidung prüfen'}));
+  await userEvent.click(screen.getByRole('button',{name:'Änderung prüfen'}));
   expect(capability.prepareAdjudication).toHaveBeenCalledExactlyOnceWith(
     skipped.reviewItemId,'no_time_record_change',null,null,null,'Fehlende Zeit separat nachgetragen.',
   );
@@ -101,8 +101,8 @@ it.each(['administrator','standortleitung'] as const)('T095b %s sees the separat
 it('T095b keeps existing review decisions without the separate backfill guidance',async()=>{
   window.history.replaceState(null,'','/pruefungen');
   await render(<App administration={new FakeCapability(readyState)}/>);
-  expect(screen.queryByText('Fehlende Zeit über „Nachtragen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.')).not.toBeInTheDocument();
-  expect(screen.getByRole('button',{name:'Als Arbeitszeit übernehmen'})).toBeVisible();
+  expect(screen.queryByText('Fehlende Zeit über „Zeit hinzufügen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.')).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Fehlende Arbeitszeit ergänzen'})).toBeVisible();
 });
 
 it.each([
@@ -225,6 +225,9 @@ class FakeCapability implements AdminWebCapability {
   state: AdminWebState;
   private readonly listeners = new Set<() => void>();
   constructor(state: AdminWebState) { this.state = state; }
+  loadReviewDay = async (reviewItemId:string) => {
+    if(this.state.status==='ready')this.emit({...this.state,reviewDay:{reviewItemId,status:'ready',value:{activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}});
+  };
   getState = () => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -561,6 +564,7 @@ describe('professional Admin Web shell', () => {
         organization, customers: [], nfcTags: [], nextCursor: null,
         customersComplete: true, nfcTagsComplete: true,
       },
+      locationSetup:{locations:[],memberships:[],workTargets:[],activationGaps:[]},
       projects: [],
       projectsNextCursor: null,
       projectBusy: false,
@@ -569,9 +573,9 @@ describe('professional Admin Web shell', () => {
     };
     await render(<App administration={new FakeCapability(emptyState)} />);
 
-    expect(screen.getByRole('heading', { name: 'Ihr Betrieb ist bereit' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Erstes Arbeitsziel anlegen' }))
-      .toHaveAttribute('href', '/einrichtung');
+    expect(screen.getByRole('heading', { name: 'Ihr nächster Schritt' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Kunden anlegen' }))
+      .toHaveAttribute('href', '/kunden');
     expect(document.querySelectorAll('.first-empty .button-link')).toHaveLength(1);
   });
 
@@ -607,6 +611,7 @@ describe('professional Admin Web shell', () => {
         organization, customers: [], nfcTags: [], nextCursor: null,
         customersComplete: true, nfcTagsComplete: true,
       },
+      locationSetup:{locations:[],memberships:[],workTargets:[],activationGaps:[]},
       projects: [],
       projectsNextCursor: null,
       projectBusy: false,
@@ -622,7 +627,7 @@ describe('professional Admin Web shell', () => {
     };
     await render(<App administration={new FakeCapability(failedEmptyState)} />);
 
-    expect(screen.queryByRole('heading', { name: 'Ihr Betrieb ist bereit' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Ihr nächster Schritt' })).toBeNull();
     expect(screen.queryByText('Arbeitszeiten geladen')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Bereich erneut laden' })).not.toBeInTheDocument();
   });
@@ -647,7 +652,7 @@ describe('professional Admin Web shell', () => {
     };
     await render(<App administration={new FakeCapability(projectOnlyState)} />);
 
-    expect(screen.queryByRole('heading', { name: 'Ihr Betrieb ist bereit' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Ihr nächster Schritt' })).toBeNull();
     expect(screen.getByText('Aktivübersicht wird geladen …')).toBeInTheDocument();
   });
 
@@ -683,6 +688,7 @@ describe('professional Admin Web shell', () => {
   it('clears successful form inputs by stable action identifiers, not notice wording', async () => {
     const capability = new FakeCapability({
       ...readyState,
+      locationSetup:{locations:[],memberships:[],workTargets:[],activationGaps:[]},
       projects: [],
       projectsNextCursor: null,
       projectBusy: false,
@@ -967,6 +973,7 @@ describe('professional Admin Web shell', () => {
     ) => {
       capability.emit({
         ...readyState,
+        reviewDay:capability.state.status==='ready' ? capability.state.reviewDay : undefined,
         adjudicationIntent: {
           commandId: 'a0000000-0000-4000-8000-000000000002',
           reviewItem,
@@ -983,13 +990,14 @@ describe('professional Admin Web shell', () => {
     capability.confirmAdjudication.mockImplementation(async () => {
       capability.emit({
         ...readyState,
+        reviewDay:capability.state.status==='ready' ? capability.state.reviewDay : undefined,
         adjudicationIntent: null,
         notice: { kind: 'error', text: 'Review-Entscheidung konnte nicht protokolliert werden.' },
       });
     });
     window.history.replaceState(null, '', '/pruefungen');
     await render(<App administration={capability} />);
-    await userEvent.click(screen.getByRole('button',{name:'Als Arbeitszeit übernehmen'}));
+    await userEvent.click(screen.getByRole('button',{name:'Fehlende Arbeitszeit ergänzen'}));
     fireEvent.change(screen.getByLabelText('Entscheidung'), {
       target: { value: 'create_recovered_time_record' },
     });
@@ -1003,7 +1011,7 @@ describe('professional Admin Web shell', () => {
       target: { value: reason },
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Entscheidung prüfen' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Änderung prüfen' }));
 
     expect(capability.prepareAdjudication).toHaveBeenCalledWith(
       reviewItem.reviewItemId,
@@ -1021,10 +1029,10 @@ describe('professional Admin Web shell', () => {
     expect(confirmation.querySelector('.verbatim-reason')?.textContent).toBe(reason);
 
     await userEvent.click(screen.getByRole('button', {
-      name: 'Entscheidung protokollieren',
+      name: 'Änderung bestätigen',
     }));
     const adjudicationTrigger = screen.getByRole('button', {
-      name: 'Entscheidung prüfen',
+      name: 'Änderung prüfen',
     });
     await waitFor(() => expect(adjudicationTrigger).toHaveFocus());
     expect(document.activeElement).toBe(adjudicationTrigger);
@@ -1205,7 +1213,7 @@ describe('professional Admin Web shell', () => {
     await render(<App administration={capability} />);
 
     await userEvent.click(screen.getByRole('button', {
-      name: 'Entscheidung protokollieren',
+      name: 'Abschluss bestätigen',
     }));
 
     const retry = screen.getByRole('button', { name: 'Bereich erneut laden' });
@@ -1317,16 +1325,16 @@ it('T049 f: role changes are opened deliberately instead of selecting a role in 
 it('T049 f: each review row owns its keyboard-accessible decision', async () => {
   window.history.replaceState(null,'','/pruefungen');
   await render(<App administration={new FakeCapability(readyState)} />);
-  const reject=await screen.findByRole('button',{name:'Ablehnen'});
+  const reject=await screen.findByRole('button',{name:'Ohne Zeitänderung schließen'});
   reject.focus();
   await userEvent.keyboard('{Enter}');
   expect(reject.closest('li')).toContainElement(screen.getByLabelText('Begründung'));
   expect(screen.queryByLabelText('Prüffall')).not.toBeInTheDocument();
 });
 it('T049 c: location people open their server-backed calendar without showing another scope', async () => {
-  window.history.replaceState(null,'','/beschaeftigte');
+  window.history.replaceState(null,'','/beschaeftigte?monat=2026-09');
   const capability=new FakeCapability({...locationReadyState(),role:'standortleitung',
-    managedPeople:{status:'ready',isRunning:null,value:{serverTime:'2026-09-18T14:07:00.000Z',runningCount:1,totalCount:1,nextCursor:null,
+    managedPeople:{month:'2026-09',status:'ready',isRunning:null,value:{serverTime:'2026-09-18T14:07:00.000Z',runningCount:1,totalCount:1,nextCursor:null,
       people:[{membershipId:'70000000-0000-4000-8000-000000000001',displayName:'Employee Alpha',role:'employee',location:berlin,isRunning:true,runningSince:'2026-09-18T06:00:00.000Z',runningTargetDisplayName:'Werkstatt'}]}}});
   await render(<App administration={capability} />);
   const person=await screen.findByRole('link',{name:/Employee Alpha/});
@@ -1356,7 +1364,7 @@ it.each([
   await render(<App administration={new FakeCapability(state)}/>);
   if(path.includes('monat=')) expect(await screen.findByRole('region',{name:'Zeitkalender'})).toBeVisible();
   if(path === '/manuell') expect(await screen.findByRole('button',{name:'Zeit starten'})).toBeVisible();
-  if(path === '/pruefungen') await userEvent.click(await screen.findByRole('button',{name:'Ablehnen'}));
+  if(path === '/pruefungen') await userEvent.click(await screen.findByRole('button',{name:'Ohne Zeitänderung schließen'}));
   const result=await axe.run(document.body,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}});
   expect(result.violations).toEqual([]);
 });
@@ -1379,8 +1387,8 @@ it('T049 review: locks prepared decisions and retains keyboard focus after the r
  const capability=new FakeCapability({...readyState,adjudicationIntent:intent});
  capability.confirmAdjudication.mockImplementation(async()=>{capability.emit({...readyState,adjudicationIntent:null,reviewItems:[]});});
  await render(<App administration={capability}/>);
- for(const name of ['Als Arbeitszeit übernehmen','Korrigieren','Ablehnen']) expect(screen.getByRole('button',{name})).toBeDisabled();
- await userEvent.click(screen.getByRole('button',{name:'Entscheidung protokollieren'}));
+ for(const name of ['Fehlende Arbeitszeit ergänzen','Vorhandene Arbeitszeit ändern','Ohne Zeitänderung schließen']) expect(screen.getByRole('button',{name})).toBeDisabled();
+ await userEvent.click(screen.getByRole('button',{name:'Abschluss bestätigen'}));
  expect(screen.getByRole('region',{name:'Ungeklärte Erfassungen'})).toHaveFocus();
 });
 
@@ -1436,7 +1444,7 @@ it('T097: correction picker shows only loaded person records and offers the next
       status:'ready',records:append?[record,second]:[record],nextCursor:append?null:'next',usedCursors:[],message:null}});
   });
   await render(<App administration={capability}/>);
-  await userEvent.click(screen.getByRole('button',{name:'Korrigieren'}));
+  await userEvent.click(screen.getByRole('button',{name:'Vorhandene Arbeitszeit ändern'}));
   expect(capability.loadReviewCorrectionRecords).toHaveBeenCalledWith(reviewItem.reviewItemId,'2026-07',false);
   const select=screen.getByLabelText('Bestehende Arbeitszeit');
   expect(within(select).queryByRole('option',{name:/Employee Alpha/})).not.toBeInTheDocument();
@@ -1455,14 +1463,14 @@ it.each([
   ['/einrichtung','Namen speichern','renameLocation'],
   ['/einrichtung','Zuordnung ändern','prepareReassignment'],
   ['/arbeitszeiten','Korrektur prüfen','prepareCorrection'],
-  ['/pruefungen','Entscheidung prüfen','prepareAdjudication'],
+  ['/pruefungen','Änderung prüfen','prepareAdjudication'],
 ] as const)('T101 %s / %s shows each missing input and clears it on editing',async(path,title,method)=>{
   window.history.replaceState(null,'',path);
   const capability=new FakeCapability({...readyState,projection:{...readyState.projection,customers:[customer,{...customer,id:'other-customer',displayName:'Kunde B'}]},locationSetup:{locations:[{id:berlin.id,displayName:'Berlin',active:true,rowVersion:1}],memberships:[],workTargets:[],activationGaps:[]}});
   const createProject=vi.fn(async()=>undefined);Object.assign(capability,{createProject});
   await render(<App administration={capability}/>);
   if(path==='/einrichtung')fireEvent.click(screen.getByRole('button',{name:method==='createLocation'||method==='renameLocation'?'Standorte':method==='prepareReassignment'?'Karten':'Arbeitsziele'}));
-  if(path==='/pruefungen')fireEvent.click(screen.getByRole('button',{name:'Ablehnen'}));
+  if(path==='/pruefungen')fireEvent.click(screen.getByRole('button',{name:'Ohne Zeitänderung schließen'}));
   const button=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.textContent?.trim()===title)!;
   expect(button,title).toBeTruthy();expect(button).not.toBeDisabled();
   const form=button.closest('form')!;
@@ -1531,11 +1539,11 @@ it.each([['2026-07-21T10:01','Höchstens 24 Stunden.'],['2099-07-20T10:00','Das 
 ('T106: review end %s fails at the field',async(end,message)=>{
  window.history.replaceState(null,'','/pruefungen');
  const capability=new FakeCapability(readyState);await render(<App administration={capability}/>);
- await userEvent.click(screen.getByRole('button',{name:'Als Arbeitszeit übernehmen'}));
+ await userEvent.click(screen.getByRole('button',{name:'Fehlende Arbeitszeit ergänzen'}));
  fireEvent.change(screen.getByLabelText('Beginn'),{target:{value:'2026-07-20T10:00'}});
  fireEvent.change(screen.getByLabelText('Ende'),{target:{value:end}});
  fireEvent.change(screen.getByLabelText('Begründung'),{target:{value:'Beleg geprüft'}});
- await userEvent.click(screen.getByRole('button',{name:'Entscheidung prüfen'}));
+ await userEvent.click(screen.getByRole('button',{name:'Änderung prüfen'}));
  expect(capability.prepareAdjudication).not.toHaveBeenCalled();
  expect(screen.getByText(message)).toBeInTheDocument();
  expect(screen.getByLabelText('Ende')).toHaveAttribute('aria-invalid','true');

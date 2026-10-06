@@ -11,6 +11,7 @@ export class EmployeesCoordinator implements EmployeesCapability {
   private generation = 0;
   private entered = false;
   private running = true;
+  private listMonth: string | null = null;
   private personMonth: string | null = null;
   private invitation: InvitationCommand | null = null;
   constructor(private readonly session: AdminSessionContextReader, private readonly api: EmployeesApiPort,
@@ -32,24 +33,32 @@ export class EmployeesCoordinator implements EmployeesCapability {
     await this.loadList();
   }
   async filter(isRunning: boolean): Promise<void> { this.running=isRunning; await this.loadList(); }
+  async loadMonth(month: string): Promise<void> {
+    const current=businessDay(this.now()).slice(0,7);
+    if (!Array.from({length:24},(_,i)=>shiftMonth(current,-i)).includes(month)) return;
+    this.listMonth=month;
+    await this.loadList();
+  }
   async back(): Promise<void> { this.invitation=null; await this.loadList(); }
   async loadMore(): Promise<void> { if (this.state.status==='list' && !this.state.busy && this.state.summary.nextCursor!==null) await this.loadList(true); }
   private async loadList(more=false): Promise<void> {
     const snapshot=this.capture(); if (!snapshot) return;
     const current=this.state;
-    const old=more && current.status==='list' ? current.summary : null;
+    const month=this.listMonth ?? businessDay(this.now()).slice(0,7);
+    this.listMonth=month;
+    const old=more && current.status==='list' && current.month===month ? current.summary : null;
     const cursor=old?.nextCursor ?? null;
     const generation=++this.generation;
-    this.publish(old ? {status:'list',summary:old,filter:this.running,busy:true,failed:false} : {status:'loading'});
-    const result=await this.api.summary({expectedMembershipId:snapshot.session.membershipId,locationId:null,isRunning:this.running,cursor,limit:20});
+    this.publish(old ? {status:'list',month,summary:old,filter:this.running,busy:true,failed:false} : {status:'loading'});
+    const result=await this.api.summary({expectedMembershipId:snapshot.session.membershipId,locationId:null,isRunning:this.running,cursor,limit:20,fromInclusive:new Date(dayStart(`${month}-01`)).toISOString(),toExclusive:new Date(dayStart(`${shiftMonth(month,1)}-01`)).toISOString()});
     if (!this.current(generation,snapshot)) return;
     if (result.status==='authority_rejected') { this.publish({status:'not_authorized'}); return; }
     if (result.status!=='ready' || (old && (result.value.nextCursor===cursor || result.value.people.some(p=>old.people.some(o=>o.membershipId===p.membershipId))))) {
-      this.publish(old ? {status:'list',summary:old,filter:this.running,busy:false,failed:true} : {status:'unavailable'}); return;
+      this.publish(old ? {status:'list',month,summary:old,filter:this.running,busy:false,failed:true} : {status:'unavailable'}); return;
     }
-    this.publish({status:'list',summary:{...result.value,people:old ? [...old.people,...result.value.people] : result.value.people},filter:this.running,busy:false,failed:false});
+    this.publish({status:'list',month,summary:{...result.value,people:old ? [...old.people,...result.value.people] : result.value.people},filter:this.running,busy:false,failed:false});
   }
-  async openPerson(person: ManagedPerson): Promise<void> { await this.readPerson(person); }
+  async openPerson(person: ManagedPerson): Promise<void> { await this.readPerson(person,this.listMonth ?? undefined); }
   async loadPersonMonth(month: string): Promise<void> {
     if (this.state.status !== 'person' || !/^\d{4}-\d{2}$/.test(month) || Number(month.slice(5)) < 1 || Number(month.slice(5)) > 12) return;
     if (dayStart(`${month}-01`) >= this.now()) return; // Future days remain outside the loaded window.

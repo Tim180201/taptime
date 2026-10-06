@@ -3,6 +3,9 @@ const summary = async p => p.locator('summary').click();
 export const personPath = '/beschaeftigte/70000000-0000-4000-8000-000000000001?monat=2026-09';
 const scenario = (id, path, wait, steps = [], variant = id) => ({id,path,wait,steps,variant});
 export const adminScenarios = [
+  ...[1,2,3,4,5,6].map(step=>scenario(`t110-next-${step}`,'/uebersicht','.first-empty')),
+  scenario('t110-role','/beschaeftigte','.membership-tools'),
+  scenario('t110-review-context','/pruefungen','.review-case'),
   ...['warning','exceeded','manager','employee'].map(kind=>scenario(`quota-${kind}`,'/kunden','.customer-card',[],`quota-${kind}`)),
   scenario('quota-edit','/kunden','.customer-card',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click(),click('Ändern')],'quota-warning'),
   scenario('quota-notice-view','/uebersicht','.quota-notice',[click('Ansehen')],'quota-warning'),
@@ -54,7 +57,7 @@ export const adminScenarios = [
   ...['empty','section-error','section-loading'].map(id=>scenario(id,'/beschaeftigte','main')),
   scenario('manager','/beschaeftigte','.membership-tools'),
   scenario('manager-reviews','/pruefungen','.review-case'),
-  ...['Als Arbeitszeit übernehmen','Korrigieren','Ablehnen'].map((name,i)=>scenario('manager-review-form-'+i,'/pruefungen','.review-case',[click(name)])),
+  ...['Fehlende Arbeitszeit ergänzen','Vorhandene Arbeitszeit ändern','Ohne Zeitänderung schließen'].map((name,i)=>scenario('manager-review-form-'+i,'/pruefungen','.review-case',[click(name)])),
   scenario('manager-review-confirm','/pruefungen','[role="alertdialog"]'),
   scenario('manager-person',personPath,'.calendar-grid'),
   scenario('manager-time-add',personPath,'.calendar-grid',[click('Zeit hinzufügen')]),
@@ -63,8 +66,8 @@ export const adminScenarios = [
   scenario('manager-own-stop','/meine-zeiten?monat=2026-09','.calendar-grid',[click('Beenden')]),
   scenario('manager-comment','/meine-zeiten?monat=2026-09','.calendar-grid',[click('Kommentar schreiben')]),
   scenario('reviews','/pruefungen','.review-case'),
-  scenario('review-location','/pruefungen','.review-case',[async p=>p.getByText('Arbeitsziel keinem berechtigten Standort zugeordnet',{exact:true}).waitFor()]),
-  ...['Als Arbeitszeit übernehmen','Korrigieren','Ablehnen'].map((name,i)=>scenario('review-form-'+i,'/pruefungen','.review-case',[click(name)])),
+  scenario('review-location','/pruefungen','.review-case',[async p=>p.getByText('Die Person durfte an dem zugeordneten Standort keine Zeit erfassen.',{exact:true}).waitFor()]),
+  ...['Fehlende Arbeitszeit ergänzen','Vorhandene Arbeitszeit ändern','Ohne Zeitänderung schließen'].map((name,i)=>scenario('review-form-'+i,'/pruefungen','.review-case',[click(name)])),
   scenario('review-confirm','/pruefungen','[role="alertdialog"]'),
   scenario('setup-locations','/einrichtung','.filter-chips',[click('Standorte')]),
   scenario('setup-targets','/einrichtung','.filter-chips',[click('Arbeitsziele')]),

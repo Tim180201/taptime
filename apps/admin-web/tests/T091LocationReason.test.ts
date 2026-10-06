@@ -11,5 +11,5 @@ it('preserves and displays a durable location rejection in manual capture and re
     decision:{status:'escalation_required',reason:'work_location_unavailable'}},request);
   expect(parsed).toEqual({status:'synchronized',decision:'escalation_required',reason:'work_location_unavailable'});
   expect(manualResultMessage(parsed!)).toContain('keinem für Sie berechtigten Standort');
-  expect(reviewReasonLabel('work_location_unavailable')).toBe('Arbeitsziel keinem berechtigten Standort zugeordnet');
+  expect(reviewReasonLabel('work_location_unavailable')).toBe('Die Person durfte an dem zugeordneten Standort keine Zeit erfassen.');
 });

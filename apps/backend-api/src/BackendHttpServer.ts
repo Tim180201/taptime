@@ -9,7 +9,7 @@ import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobi
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, TIME_DETAILS_ACCEPT_V3, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import { OPERATOR_PACKAGE_ACCEPT, OPERATOR_NAMED_ADMIN_ACCEPT } from './OperatorCoordinator.js';
-import { MANAGED_PEOPLE_ACCEPT_V4, MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
+import { MANAGED_PEOPLE_ACCEPT_V5, isManagedActiveSummaryRequestV5, MANAGED_PEOPLE_ACCEPT_V4, MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
@@ -729,12 +729,13 @@ async function handleRequest(
   }
   if (route === 'admin_managed_active_summary') {
     response.setHeader('Vary','Accept');
-    if (!isManagedActiveSummaryRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
+    if ((!isManagedActiveSummaryRequest(body) && !isManagedActiveSummaryRequestV5(body))
+      || (request.headers.accept === MANAGED_PEOPLE_ACCEPT_V5) !== ('fromInclusive' in body)) { respondError(response, 400, 'invalid_request'); return; }
     await handleAdministrationOperation(response, options, correlationId, timeoutMilliseconds,
       async (deadlineEpochMilliseconds) => {
         const operation = dependencies.employeeEnrollment.readManagedActiveSummary;
         if (!operation) throw new Error('Managed summary unavailable');
-        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === MANAGED_PEOPLE_ACCEPT_V4 ? {includeMonthHours:true,includePackageUsage:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V3 ? {includeMonthHours:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V2 ? {includeDeparted:true} : {}) }, { deadlineEpochMilliseconds });
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === MANAGED_PEOPLE_ACCEPT_V5 ? {includeSelectedMonth:true,includeMonthHours:true,includePackageUsage:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V4 ? {includeMonthHours:true,includePackageUsage:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V3 ? {includeMonthHours:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V2 ? {includeDeparted:true} : {}) }, { deadlineEpochMilliseconds });
       }, result => result.value);
     return;
   }

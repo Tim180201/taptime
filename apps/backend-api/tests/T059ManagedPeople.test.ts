@@ -25,11 +25,11 @@ const from = '2026-10-01T00:00:00+02:00';
 const to = '2026-11-01T00:00:00+01:00';
 const records: string[] = [];
 
-async function seed(carry = false) {
+async function seed(carry = false, unnamed = false) {
   await seedC3C(pool);
   await pool.query(`UPDATE taptime_server.memberships SET role = 'standortleitung', row_version = row_version + 1 WHERE id = $1`, [ids.membershipEmployeeA]);
   await pool.query(`INSERT INTO taptime_server.memberships (id, organization_id, user_id, role, created_by_user_id, display_name)
-    VALUES ($1, $2, $3, 'employee', $4, 'Person B')`, [targetB, ids.organizationA, ids.orphan, ids.adminA]);
+    VALUES ($1, $2, $3, 'employee', $4, $5)`, [targetB, ids.organizationA, ids.orphan, ids.adminA,unnamed?null:'Person B']);
   records.length = 0;
   // Real source rows with deferred canonical-decision constraints, before location activation.
   for (const [org, user, customer] of [[ids.organizationA, ids.adminA2, ids.customerA],
@@ -135,7 +135,7 @@ afterAll(async () => {
 function mobile(token:string) {
   return new TapTimeEmployeesApiClient(origin,{async post(endpoint,body,options){
     rateNow+=60_001; // A new rate-limit window for each independent authorization case.
-    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includePackageUsage?{accept:MANAGED_PEOPLE_ACCEPT_V4}:options?.includeMonthHours?{accept:MANAGED_PEOPLE_ACCEPT_V3}:options?.includeDeparted?{accept:MANAGED_PEOPLE_ACCEPT_V2}:options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
+    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includeSelectedMonth?{accept:'application/vnd.taptime.managed-people.v5+json'}:options?.includePackageUsage?{accept:MANAGED_PEOPLE_ACCEPT_V4}:options?.includeMonthHours?{accept:MANAGED_PEOPLE_ACCEPT_V3}:options?.includeDeparted?{accept:MANAGED_PEOPLE_ACCEPT_V2}:options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
     return {status:'response',statusCode:response.status,contentType:response.headers.get('content-type'),body:await response.text()};
   }});
 }
@@ -603,4 +603,49 @@ it('T075 v4 keeps organization-wide package counts under filters, hides them fro
   expect((await query(fixtureTokens.adminB,request)).status).toBe(403);
   await pool.query('UPDATE taptime_server.organizations SET package_size=NULL,row_version=row_version+1 WHERE id=$1',[ids.organizationA]);
   expect(await (await query(fixtureTokens.adminA,request)).json()).toMatchObject({packageUsage:{packageSize:null,activeAccessCount:count}});
+});
+
+it('T110 selected-month SQL retains scope and assigns a night shift to its start month',async()=>{
+  await truncateC3C(pool); await seed(true);
+  const read=(actor:Parameters<typeof context>[0],start=from,end=to,location:string|null=null)=>context(actor,async c=>(await c.query(
+    'SELECT * FROM taptime_server.read_managed_active_summary_v4($1,NULL,NULL,20,$2,$3)',[location,start,end])).rows);
+  const october=await read('manager');
+  expect(october.find(row=>row.membership_id===ids.membershipAdminA2)?.month_work_duration_seconds).toBe('18000');
+  expect(october.every(row=>row.location_id===a)).toBe(true);
+  expect(await read('manager',from,to,b)).toMatchObject([{result_status:'forbidden'}]);
+  expect(await read('employee')).toMatchObject([{result_status:'forbidden'}]);
+  expect((await read('foreign')).every(row=>row.membership_id===ids.membershipAdminB)).toBe(true);
+  const september=await read('admin','2026-08-31T22:00:00.000Z','2026-09-30T22:00:00.000Z');
+  expect(september.find(row=>row.membership_id===ids.membershipAdminA2)?.month_work_duration_seconds).toBe('28800');
+  expect((await read('admin','2026-07-31T22:00:00.000Z','2026-08-31T22:00:00.000Z')).every(row=>row.month_work_duration_seconds==='0')).toBe(true);
+  expect(await read('admin','2026-10-01T00:00:00.000Z','2026-11-01T00:00:00.000Z')).toMatchObject([{result_status:'invalid_request'}]);
+});
+it('T110 v5 HTTP requires the month and rejects cross-month cursors, v1-v4 still reject extra fields',async()=>{
+  const v5='application/vnd.taptime.managed-people.v5+json';
+  const base={expectedMembershipId:ids.membershipAdminA,locationId:null,isRunning:null,cursor:null,limit:1};
+  const month={fromInclusive:new Date(from).toISOString(),toExclusive:new Date(to).toISOString()};
+  const read=async(accept:string,body:unknown)=>{
+    rateNow+=60_001;
+    const response=await fetch(`${origin}/v1/administration/managed-active-summary`,{method:'POST',headers:{authorization:`Bearer header.${fixtureTokens.adminA}.signature`,'content-type':'application/json',accept},body:JSON.stringify(body)});
+    return {code:response.status,body:await response.json()};
+  };
+  expect((await read(v5,base)).code).toBe(400);
+  const first=await read(v5,{...base,...month});expect(first.code).toBe(200);if(!isManagedActiveSummaryV4(first.body))throw Error('Missing v5 response');expect(first.body.nextCursor).not.toBeNull();
+  expect((await read(v5,{...base,...month,cursor:first.body.nextCursor})).code).toBe(200);
+  const web=new AdminWebApiClient((path,init)=>fetch(`${origin}${path}`,init));rateNow+=60_001;
+  expect(await web.managedActiveSummary(`header.${fixtureTokens.adminA}.signature`,{...base,...month})).toMatchObject({status:'succeeded'});
+  expect(await mobile(fixtureTokens.adminA).summary({...base,...month})).toMatchObject({status:'ready'});
+  expect(await read(v5,{...base,fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z',cursor:first.body.nextCursor})).toMatchObject({code:400,body:{error:{code:'invalid_request'}}});
+  for(const accept of ['application/json',MANAGED_PEOPLE_ACCEPT_V2,MANAGED_PEOPLE_ACCEPT_V3,MANAGED_PEOPLE_ACCEPT_V4]) {
+    expect((await read(accept,base)).code).toBe(200);
+    expect((await read(accept,{...base,...month})).code).toBe(400);
+  }
+});
+it('T110 customer hours use Mitarbeiter for a missing employee display name',async()=>{
+  await truncateC3C(pool); await seed(false,true);
+  const result=await context('admin',async c=>{
+    await c.query('SET LOCAL ROLE taptime_mobile_own_time_reader');
+    return (await c.query('SELECT taptime_server.read_customer_hours_v1($1,$2) AS value',[from,to])).rows[0].value;
+  });
+  expect(result.customers.flatMap((customer:{people:unknown[]})=>customer.people)).toContainEqual(expect.objectContaining({membershipId:targetB,displayName:'Mitarbeiter'}));
 });

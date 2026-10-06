@@ -1,4 +1,4 @@
-import { LONGEST_BERLIN_CALENDAR_MONTH_MILLISECONDS } from '@taptime/core';
+import { businessDay, dayStart, shiftMonth, LONGEST_BERLIN_CALENDAR_MONTH_MILLISECONDS } from '@taptime/core';
 
 export interface ManagedPersonTimeRequest {
   readonly expectedMembershipId: string;
@@ -124,3 +124,21 @@ export function isManagedActiveSummaryV4(v: unknown): v is ManagedActiveSummaryV
   const {packageUsage,...previous}=v;
   return isManagedActiveSummaryV3(previous);
 }
+
+/** v5 selects a full business month; the response retains the exact v4 shape. */
+export const MANAGED_PEOPLE_ACCEPT_V5 = 'application/vnd.taptime.managed-people.v5+json';
+export interface ManagedActiveSummaryRequestV5 extends ManagedActiveSummaryRequest {
+  readonly fromInclusive: string;
+  readonly toExclusive: string;
+}
+export function isManagedActiveSummaryRequestV5(v: unknown): v is ManagedActiveSummaryRequestV5 {
+  if (!object(v) || !isManagedTimestamp(v.fromInclusive) || !isManagedTimestamp(v.toExclusive)) return false;
+  const {fromInclusive,toExclusive,...previous}=v;
+  if (!isManagedActiveSummaryRequest(previous)) return false;
+  try {
+    const month=businessDay(Date.parse(fromInclusive)).slice(0,7);
+    return Date.parse(fromInclusive)===dayStart(`${month}-01`)
+      && Date.parse(toExclusive)===dayStart(`${shiftMonth(month,1)}-01`);
+  } catch { return false; }
+}
+export const isManagedActiveSummaryV5 = isManagedActiveSummaryV4;

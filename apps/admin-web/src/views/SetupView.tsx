@@ -1,3 +1,4 @@
+import type { AdminRoute } from '../navigation';
 import { RequiredForm } from '../RequiredForm';
 import {
 	useEffect,
@@ -15,11 +16,18 @@ const authorityKey=(state:ReadyState)=>JSON.stringify([state.membershipId,state.
 export default function SetupView({
   state,
   administration,
+  route,
 }: {
+  readonly route?: AdminRoute;
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
 }) {
-  const [tab,setTab]=useState(state.reassignmentIntent === null ? 'arbeitsziele' : 'tags');
+  const [tab,setTab]=useState(route?.setupTab ?? (state.reassignmentIntent === null ? 'arbeitsziele' : 'tags'));
+  useEffect(()=>{if(route?.setupTab)setTab(route.setupTab);},[route?.setupTab]);
+  useEffect(()=>{
+    if(tab==='standorte' && route?.setupMembershipId && state.locationSetup && !state.locationSetupBusy)
+      document.getElementById(`setup-membership-${route.setupMembershipId}`)?.focus();
+  },[tab,route?.setupMembershipId,state.locationSetup,state.locationSetupBusy]);
   const [customerName, setCustomerName] = useState('');
   const [customerLocationId, setCustomerLocationId] = useState('');
   const selectedCustomerLocation = customerLocationId || (state.assignableLocations.length === 1 ? state.assignableLocations[0]!.id : '');
@@ -275,6 +283,7 @@ function LocationSetupPanel({
   onGap,
 }: {
   readonly onGap:(gap:ActivationGap)=>void;
+  readonly route?: AdminRoute;
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
 }) {

@@ -1,4 +1,4 @@
-import { timeIntervalError } from '@taptime/core';
+import { businessDay, dayStart, shiftDay, timeIntervalError } from '@taptime/core';
 import type {CustomerManagementChange,ManageCustomerResult} from '@taptime/mobile-work-contract';
 import { captureFeedback } from '@taptime/mobile-work-contract';
 import { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';
@@ -108,6 +108,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private pendingTimeEdit: {generation:number;key:string;commandId:string} | null = null;
   private refreshEpoch = 0;
   private timeWindowPinned = false;
+  private reviewDayEpoch = 0;
   private reviewCorrectionEpoch = 0;
   private readonly sectionEpochs: Record<AdminSection, number> = {
     setup: 0,
@@ -469,21 +470,24 @@ export class AdminWebCoordinator implements AdminWebCapability {
       message:'Die Zeiten konnten nicht vollständig bestätigt werden. Laden Sie den Monat erneut.'}});
   }
 
-  async refreshManagedPeople(isRunning: boolean | null = null, append = false): Promise<void> {
+  async refreshManagedPeople(isRunning: boolean | null = null, append = false, requestedMonth?: string): Promise<void> {
     const current = this.state;
     const session = this.session;
     if (current.status !== 'ready' || session === null || !session.availableSections.includes('employees')) return;
     const previous = current.managedPeople;
-    const cursor = append && previous?.status === 'ready' && previous.isRunning === isRunning
+    const month=requestedMonth ?? (append ? previous?.month : undefined) ?? businessDay(this.now()).slice(0,7);
+    const window=monthTimeWindow(month);
+    if (!window) return;
+    const cursor = append && previous?.status === 'ready' && previous.isRunning === isRunning && previous.month === month
       ? previous.value.nextCursor : null;
     if (append && cursor === null) return;
     const generation = this.generation;
     const epoch = ++this.peopleEpoch;
     const locationId = current.selectedLocation?.id ?? null;
-    this.setState({ ...current, managedPeople: { status: 'loading', value: null, isRunning } });
+    this.setState({ ...current, managedPeople: { status: 'loading', value: null, isRunning, month } });
     const result = await this.safeSectionRead(() => this.auth.withAccessToken(token =>
       this.api.managedActiveSummary?.(token, {expectedMembershipId: session.membershipId,
-        locationId, isRunning, cursor, limit: 20}) ?? Promise.resolve({status:'unreachable'})));
+        locationId, isRunning, cursor, limit: 20,...window}) ?? Promise.resolve({status:'unreachable'})));
     if (generation !== this.generation || epoch !== this.peopleEpoch || this.state.status !== 'ready'
       || locationId !== (this.state.selectedLocation?.id ?? null)) return;
     if (result.status === 'rejected') {
@@ -496,11 +500,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (new Set(people.map(person=>person.membershipId)).size === people.length
         && (cursor === null || result.value.nextCursor !== cursor)
         && (result.value.nextCursor === null || result.value.people.length > 0)) {
-        this.setState({...this.state,managedPeople:{status:'ready',isRunning,value:{...result.value,people}}});
+        this.setState({...this.state,managedPeople:{status:'ready',isRunning,month,value:{...result.value,people}}});
         return;
       }
     }
-    this.setState({...this.state,managedPeople:{status:'unavailable',value:null,isRunning,
+    this.setState({...this.state,managedPeople:{status:'unavailable',value:null,isRunning,month,
       message:'Die Aktivübersicht konnte nicht bestätigt werden. Laden Sie sie erneut.'}});
   }
 
@@ -585,6 +589,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       reassignmentIntent: null,
       correctionIntent: null,
       adjudicationIntent: null,
+      reviewDay: undefined,
       reviewCorrectionRecords: undefined,
       sections: sectionStatesWithValue(current.availableSections, { status: 'loading' }),
       notice: null,
@@ -621,7 +626,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const opened=this.state;
     if(opened.status !== 'ready') return;
     await Promise.all([
-      opened.managedPeople === undefined ? undefined : this.refreshManagedPeople(opened.managedPeople.isRunning),
+      opened.managedPeople === undefined ? undefined : this.refreshManagedPeople(opened.managedPeople.isRunning,false,opened.managedPeople.month),
       opened.calendar === undefined ? undefined : opened.calendar.targetMembershipId === null
         ? this.loadOwnTime(opened.calendar.month) : this.loadPersonTime(opened.calendar.targetMembershipId,opened.calendar.month),
       opened.workTargets === undefined ? undefined : this.loadWorkTargets(),
@@ -828,7 +833,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       return;
     }
     this.setState(applySectionResult(latest, section, result.value));
-    if (section==='employees' && latest.managedPeople !== undefined) await this.refreshManagedPeople(latest.managedPeople.isRunning);
+    if (section==='employees' && latest.managedPeople !== undefined) await this.refreshManagedPeople(latest.managedPeople.isRunning,false,latest.managedPeople.month);
   }
 
   async loadMore(): Promise<void> {
@@ -1603,7 +1608,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (latest.status === 'ready') {
         this.setState({
           ...latest,
-          notice: { kind: 'success', text: role === null ? 'Zugang wurde entzogen.' : 'Rolle wurde geändert.' },
+          roleAssignmentMembershipId:role==='standortleitung'?targetMembershipId:undefined,
+          notice: { kind: 'success', text: role === null ? 'Zugang wurde entzogen.' : role==='standortleitung' ? 'Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.' : 'Rolle wurde geändert.' },
         });
       }
       return;
@@ -1862,6 +1868,43 @@ export class AdminWebCoordinator implements AdminWebCapability {
         notice: { kind: 'error', text: 'Die Bestätigung für die Korrektur fehlt. Bestätigen Sie erneut; dabei entsteht keine doppelte Korrektur.' },
       });
     }
+  }
+
+  async loadReviewDay(reviewItemId:string):Promise<void> {
+    const current=this.state,session=this.session;
+    if (current.status!=='ready' || !session || !current.availableSections.includes('review_items') || current.timeReviewBusy) return;
+    const item=current.reviewItems.find(item=>item.reviewItemId===reviewItemId);
+    if (!item) return;
+    const day=businessDay(item.occurredAt);
+    const fromInclusive=new Date(dayStart(day)).toISOString(),toExclusive=new Date(dayStart(shiftDay(day,1))).toISOString();
+    const generation=this.generation,refreshEpoch=this.refreshEpoch,epoch=++this.reviewDayEpoch;
+    this.setState({...current,reviewDay:{reviewItemId,status:'loading',value:null}});
+    let cursor:string|null=null,value:MobileOwnTimeQueryResponse|null=null;
+    const seen=new Set<string>();
+    do {
+      const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.managedPersonTime?.(token,
+        {expectedMembershipId:session.membershipId,targetMembershipId:item.employeeMembershipId,fromInclusive,toExclusive,cursor,limit:20}) ?? Promise.resolve({status:'unreachable'})));
+      if (generation!==this.generation || refreshEpoch!==this.refreshEpoch || epoch!==this.reviewDayEpoch || this.state.status!=='ready'
+        || !this.state.reviewItems.some(row=>row.reviewItemId===reviewItemId)) return;
+      if (result.status==='rejected') {
+        await this.rejectOutsideAuthentication(generation,'Ihre Berechtigung wurde nicht bestätigt. Melden Sie sich erneut an.');return;
+      }
+      if(result.status!=='succeeded') break;
+      const page=result.value;
+      const records:MobileOwnTimeQueryResponse['records']=[...(value?.records ?? []),...page.records];
+      if(page.windowStartedAt!==fromInclusive || page.windowEndedAt!==toExclusive
+        || (value && !sameActiveRecord(value.activeRecord,page.activeRecord))
+        || new Set(records.map(record=>record.timeRecordId)).size!==records.length
+        || (page.nextCursor!==null && (seen.has(page.nextCursor) || page.records.length===0))) break;
+      value={...page,records};cursor=page.nextCursor;
+      if(cursor!==null) seen.add(cursor);
+      else {
+        const activeRecord=value.activeRecord && value.activeRecord.startedAt<toExclusive ? value.activeRecord : null;
+        this.setState({...this.state,reviewDay:{reviewItemId,status:'ready',value:{...value,activeRecord}}});return;
+      }
+    } while(cursor!==null);
+    if(this.state.status==='ready')this.setState({...this.state,reviewDay:{reviewItemId,status:'unavailable',value:null,
+      message:'Die Tageszeiten konnten nicht vollständig geladen werden. Bitte versuchen Sie es erneut.'}});
   }
 
   async loadReviewCorrectionRecords(reviewItemId: string, month: string, append = false): Promise<void> {

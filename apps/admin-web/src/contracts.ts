@@ -141,7 +141,7 @@ export type RemoteValue<T> =
   | { readonly status: 'loading'; readonly value: null }
   | { readonly status: 'ready'; readonly value: T }
   | { readonly status: 'unavailable'; readonly value: null; readonly message: string };
-export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null };
+export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null; readonly month?: string };
 export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string };
 export interface ReviewCorrectionRecords {
   readonly toExclusive: string;
@@ -164,8 +164,10 @@ export type AdminWebState =
   | { readonly status: 'unavailable'; readonly message: string }
   | {
       readonly status: 'ready';
+      readonly roleAssignmentMembershipId?: string;
       readonly membershipId?: string;
       readonly timeEditBusy?: boolean;
+      readonly reviewDay?: RemoteValue<MobileOwnTimeQueryResponse> & {readonly reviewItemId:string};
       readonly reviewCorrectionRecords?: ReviewCorrectionRecords;
       readonly role: 'administrator' | 'standortleitung' | 'employee';
       readonly calendar?: CalendarState;
@@ -211,7 +213,7 @@ export interface AdminWebCapability {
   readonly loadBackfillTargets?: (targetMembershipId:string) => Promise<import("@taptime/mobile-work-contract").BackfillTargetSelection>;
   readonly loadWorkTargets?: () => Promise<void>;
   readonly captureManual?: (target: SafeWorkTarget | 'break' | 'stop') => Promise<void>;
-  readonly refreshManagedPeople?: (isRunning?: boolean | null, append?: boolean) => Promise<void>;
+  readonly refreshManagedPeople?: (isRunning?: boolean | null, append?: boolean, month?: string) => Promise<void>;
   readonly loadPersonTime?: (targetMembershipId: string, month: string) => Promise<void>;
   getState(): AdminWebState;
   subscribe(listener: () => void): () => void;
@@ -257,6 +259,7 @@ export interface AdminWebCapability {
   exportTimeRecords(version?: 3 | 4): Promise<void>;
   loadMoreTimeRecords(): Promise<void>;
   loadMoreReviewItems(): Promise<void>;
+  readonly loadReviewDay?: (reviewItemId: string) => Promise<void>;
   readonly loadReviewCorrectionRecords?: (reviewItemId: string, month: string, append?: boolean) => Promise<void>;
   readonly refreshProjects?: () => Promise<void>;
   readonly loadMoreProjects?: () => Promise<void>;

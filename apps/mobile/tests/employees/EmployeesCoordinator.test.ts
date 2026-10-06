@@ -84,3 +84,30 @@ it.each([true,false])('T075 carries administrator package counts into invitation
   vi.mocked(manager.api.summary).mockResolvedValue({status:'ready',value:{...summary,packageUsage:{packageSize:2,activeAccessCount:3}}});
   await manager.coordinator.refresh();await manager.coordinator.openInvitation();expect(manager.coordinator.getState()).toMatchObject({packageUsage:null});
 });
+
+it('T110 month changes keep the running filter, restart pagination and discard the previous response',async()=>{
+ const {coordinator,api}=fixture();await coordinator.refresh();await coordinator.filter(false);
+ vi.mocked(api.summary).mockResolvedValueOnce({status:'ready',value:{...summary,nextCursor:'old-month'}});
+ await coordinator.refresh();
+ let finish!:(v:ReadResult<ManagedActiveSummary>)=>void;
+ vi.mocked(api.summary).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const old=coordinator.loadMore();await coordinator.loadMonth('2026-08');
+ expect(api.summary).toHaveBeenLastCalledWith(expect.objectContaining({isRunning:false,cursor:null,fromInclusive:'2026-07-31T22:00:00.000Z',toExclusive:'2026-08-31T22:00:00.000Z'}));
+ finish({status:'ready',value:{...summary,people:[],nextCursor:null}});await old;
+ expect(coordinator.getState()).toMatchObject({status:'list',month:'2026-08',summary:{people:[person]}});
+ await coordinator.openPerson(person);await coordinator.back();
+ expect(coordinator.getState()).toMatchObject({status:'list',month:'2026-08'});
+ const calls=vi.mocked(api.summary).mock.calls.length;
+ await coordinator.loadMonth('2023-01');await coordinator.loadMonth('2026-10');
+ expect(api.summary).toHaveBeenCalledTimes(calls);
+});
+it('T110 real transport negotiates v5 for month requests and never accepts an older response without monthly hours',async()=>{
+ let accept:string|null=null;
+ let response:unknown={...summary,packageUsage:null,people:[{...person,departedAt:null,monthWorkDurationSeconds:3600}]};
+ const transport=new AuthenticatedHttpRequestExecutor({async executeAuthenticatedRequest(attempt){return attempt(()=> 'synthetic-token');}},async(_url,init)=>{accept=new Headers(init?.headers).get('Accept');return Response.json(response);},undefined,true);
+ const client=new TapTimeEmployeesApiClient('https://example.test',transport);
+ const request={expectedMembershipId:id,locationId:null,isRunning:false,cursor:null,limit:20,fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'};
+ expect(await client.summary(request)).toMatchObject({status:'ready',value:{people:[{monthWorkDurationSeconds:3600}]}});
+ expect(accept).toBe('application/vnd.taptime.managed-people.v5+json');
+ response=summary;expect(await client.summary(request)).toEqual({status:'unavailable'});
+});

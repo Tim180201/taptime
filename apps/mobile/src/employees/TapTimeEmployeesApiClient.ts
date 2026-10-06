@@ -1,4 +1,4 @@
-import { isManagedActiveSummaryV4,isManagedActiveSummaryV3, isManagedActiveSummaryV2, isManagedActiveSummary, isManagedActiveSummaryRequest, isManagedPersonTimeRequest, type ManagedActiveSummaryRequest, type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
+import { isManagedActiveSummaryRequestV5,isManagedActiveSummaryV5,type ManagedActiveSummaryRequestV5,isManagedActiveSummaryV4,isManagedActiveSummaryV3, isManagedActiveSummaryV2, isManagedActiveSummary, isManagedActiveSummaryRequest, isManagedPersonTimeRequest, type ManagedActiveSummaryRequest, type ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import { isCalendarTimeResponse, validateOwnTimeResponse, type MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import { hasExactKeys, isJsonContentType, isObject, isUuid, parseJsonObject } from '../transport/strictJson';
@@ -10,9 +10,10 @@ const locationCursor = /^v1:l:[0-9a-f-]{36}$/;
 export class TapTimeEmployeesApiClient implements EmployeesApiPort {
   private readonly base: URL;
   constructor(baseUrl: string, private readonly requests: AuthenticatedJsonPostPort) { this.base = new URL(baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`); }
-  summary(request: ManagedActiveSummaryRequest) {
-    if (!isManagedActiveSummaryRequest(request)) return Promise.resolve({status:'unavailable'} as const);
-    return this.read('managed-active-summary',request,(v): v is import('@taptime/administration-contract/managed-people').ManagedActiveSummary => isManagedActiveSummaryV4(v) || isManagedActiveSummaryV3(v) || isManagedActiveSummaryV2(v) || isManagedActiveSummary(v));
+  summary(request: ManagedActiveSummaryRequest | ManagedActiveSummaryRequestV5) {
+    const selectedMonth='fromInclusive' in request;
+    if (!(selectedMonth ? isManagedActiveSummaryRequestV5(request) : isManagedActiveSummaryRequest(request))) return Promise.resolve({status:'unavailable'} as const);
+    return this.read('managed-active-summary',request,(v): v is import('@taptime/administration-contract/managed-people').ManagedActiveSummary => selectedMonth ? isManagedActiveSummaryV5(v) : isManagedActiveSummaryV4(v) || isManagedActiveSummaryV3(v) || isManagedActiveSummaryV2(v) || isManagedActiveSummary(v));
   }
   personTime(request: ManagedPersonTimeRequest) {
     if (!isManagedPersonTimeRequest(request)) return Promise.resolve({status:'unavailable'} as const);
@@ -59,7 +60,7 @@ export class TapTimeEmployeesApiClient implements EmployeesApiPort {
     return {status:'unavailable'};
   }
   private async read<T>(path: string, request: unknown, validate: (v: unknown)=>v is T): Promise<ReadResult<T>> {
-    const response = await this.requests.post(new URL(`v1/administration/${path}`,this.base),JSON.stringify(request),path==='managed-person-time'?{includeTimeDetails:true,includeCalendarBreaks:true}:path==='managed-active-summary'?{includePackageUsage:true}:undefined);
+    const response = await this.requests.post(new URL(`v1/administration/${path}`,this.base),JSON.stringify(request),path==='managed-person-time'?{includeTimeDetails:true,includeCalendarBreaks:true}:path==='managed-active-summary'?{includePackageUsage:true,...(typeof request==='object' && request!==null && 'fromInclusive' in request ? {includeSelectedMonth:true} : {})}:undefined);
     if (response.status !== 'response') return response;
     if (response.statusCode === 401 || response.statusCode === 403) return {status:'authority_rejected'};
     if (response.statusCode !== 200 || !isJsonContentType(response.contentType)) return {status:'unavailable'};

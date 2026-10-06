@@ -4,22 +4,22 @@ import { useEffect,useRef,type MouseEvent as ReactMouseEvent,type RefObject } fr
 import type { AdminRoute } from './navigation';
 export function reviewReasonLabel(value: string): string {
   const labels: Record<TimeReviewReason, string> = {
-    event_content_conflict:'Erfassungsinhalt widerspricht einem vorhandenen Beleg',
-    sequence_content_conflict:'Gerätesequenz widerspricht einem vorhandenen Beleg',
-    lease_binding_conflict:'Erfassung passt nicht zur Offline-Freigabe',
-    receipt_metadata_conflict:'Belegkennung widerspricht einem vorhandenen Beleg',
+    event_content_conflict:'Diese Erfassung unterscheidet sich von einem bereits gespeicherten Beleg.',
+    sequence_content_conflict:'Das Gerät hat unterschiedliche Angaben für dieselbe Erfassung gesendet.',
+    lease_binding_conflict:'Die Berechtigung für diese offline erfasste Zeit konnte nicht bestätigt werden.',
+    receipt_metadata_conflict:'Diese Erfassung passt nicht zu dem bereits gespeicherten Beleg.',
     invalid_response:'Die App konnte die Serverantwort nicht verarbeiten',
-    http_400:'Der Server hat die Erfassung abgelehnt (400)',
-    http_409:'Der Server hat einen Konflikt gemeldet (409)',
-    http_422:'Der Server konnte die Erfassung nicht verarbeiten (422)',
+    http_400:'Diese Erfassung enthielt ungültige Angaben.',
+    http_409:'Diese Erfassung widerspricht bereits gespeicherten Angaben.',
+    http_422:'Diese Erfassung konnte nicht verarbeitet werden.',
 
-    identity_or_membership_not_current: 'Identität oder Mitgliedschaft nicht aktuell',
-    capture_time_out_of_bounds: 'Erfassungszeit außerhalb des Fensters',
-    automatic_window_elapsed: 'Automatisches Zeitfenster abgelaufen',
+    identity_or_membership_not_current: 'Der Zugang der Person war bei der Verarbeitung nicht mehr gültig.',
+    capture_time_out_of_bounds: 'Der Zeitpunkt dieser Erfassung konnte nicht sicher bestätigt werden.',
+    automatic_window_elapsed: 'Diese Erfassung wurde zu spät übertragen, um sie automatisch zuzuordnen.',
     customer_deleted: 'Kunde wurde gelöscht',
-    historical_configuration_not_valid: 'Historische Konfiguration ungültig',
-    predecessor_requires_review: 'Vorgänger muss geprüft werden',
-    server_lifecycle_deferred: 'Verarbeitung auf dem Server zurückgestellt',
+    historical_configuration_not_valid: 'Die damalige Zuordnung konnte nicht mehr bestätigt werden.',
+    predecessor_requires_review: 'Die Reihenfolge der Erfassungen muss geklärt werden.',
+    server_lifecycle_deferred: 'Diese Erfassung konnte noch keiner Arbeitszeit sicher zugeordnet werden.',
     active_time_entry_organization_mismatch: 'Laufende Arbeitszeit gehört zu einem anderen Betrieb',
     active_time_entry_user_mismatch: 'Laufende Arbeitszeit gehört zu einer anderen Person',
     previous_work_event_organization_mismatch: 'Vorherige Erfassung gehört zu einem anderen Betrieb',
@@ -30,7 +30,7 @@ export function reviewReasonLabel(value: string): string {
     active_break_user_mismatch: 'Laufende Pause gehört zu einer anderen Person',
     active_break_time_entry_mismatch: 'Laufende Pause gehört zu einer anderen Arbeitszeit',
     work_event_precedes_active_break: 'Erfassung liegt vor dem Beginn der laufenden Pause',
-    work_location_unavailable: 'Arbeitsziel keinem berechtigten Standort zugeordnet',
+    work_location_unavailable: 'Die Person durfte an dem zugeordneten Standort keine Zeit erfassen.',
     administration_stopped: 'Zeit wurde von der Verwaltung beendet',
     work_event_precedes_active_time_entry: 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit',
     work_event_precedes_previous_accepted_work_event: 'Erfassung liegt vor der vorherigen bestätigten Erfassung',
@@ -39,9 +39,9 @@ export function reviewReasonLabel(value: string): string {
 }
 
 export function resolutionLabel(value: string): string {
-  if (value === 'no_time_record_change') return 'Keine Arbeitszeit ändern';
-  if (value === 'create_recovered_time_record') return 'Arbeitszeit wiederherstellen';
-  return 'Bestehende Arbeitszeit korrigieren';
+  if (value === 'no_time_record_change') return 'Ohne Zeitänderung schließen';
+  if (value === 'create_recovered_time_record') return 'Fehlende Arbeitszeit ergänzen';
+  return 'Vorhandene Arbeitszeit ändern';
 }
 
 export function targetLabel(value: 'customer' | 'project' | 'general_work'): string {

@@ -43,6 +43,7 @@ export default function ReviewsView({state,administration}: {readonly state:Read
   </SectionBoundary></section>;
 }
 function ReviewDecisionRow({item,state,administration}: {readonly item:SafeReviewItem;readonly state:ReadyState;readonly administration:AdminWebCapability}) {
+  const day=state.reviewDay?.reviewItemId===item.reviewItemId ? state.reviewDay : undefined;
   const noteOnly=item.source==='offline_skip' || item.targetType==='break';
   const [open,setOpen]=useState(state.adjudicationIntent?.reviewItem.reviewItemId === item.reviewItemId);
   const [resolution,setResolution]=useState<'no_time_record_change'|'adjust_existing_time_record'|'create_recovered_time_record'>('no_time_record_change');
@@ -70,19 +71,37 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   const formatExact=formatZonedDateTime;
   const choose=(event:ReactMouseEvent<HTMLButtonElement>,next:typeof resolution)=>{
     rowTrigger.current=event.currentTarget;changeResolution(next);setOpen(true);
+    if(day?.status!=='ready')void administration.loadReviewDay?.(item.reviewItemId);
   };
   const canonicalStart=parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null);
   const canonicalStop=parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null);
   const intervalError=canonicalStart && canonicalStop ? timeIntervalError(canonicalStart,canonicalStop) : null;
-  return <li className="review-case"><div className="review-case-heading"><div>
+  return <li className="review-case" id={`review-${item.reviewItemId}`} tabIndex={-1}><div className="review-case-heading"><div>
     <strong>{item.employeeDisplayName} · {item.targetDisplayName}</strong>
-    <p className="supporting">{format(item.occurredAt)} · {triggerLabel(item.triggerType)}</p>
-    <p className="review-reason">{item.source==='offline_skip' ? 'Erfassung konnte nicht verarbeitet werden · ' : ''}{reviewReasonLabel(item.reviewReason)}{item.predecessorBlocked ? ' · Vorgänger blockiert' : ''}</p>
-    {item.source==='offline_skip' ? <p className="supporting">Fehlende Zeit über „Nachtragen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.</p> : null}
+    <p className="supporting">Auslösende Erfassung: {format(item.occurredAt)} · {triggerLabel(item.triggerType)}</p>
+    <p className="review-reason">{reviewReasonLabel(item.reviewReason)}</p>
+    {item.reviewReason==='predecessor_requires_review' ? <p>Eine frühere Erfassung muss zuerst geprüft werden.</p> : null}
+    <details><summary>Details</summary><dl><dt>Prüfgrund</dt><dd>{item.reviewReason}</dd><dt>Entstehung</dt><dd>{item.source}</dd>
+      {item.deviceSequence!==null ? <><dt>Gerätesequenz</dt><dd>{item.deviceSequence}</dd></> : null}
+      {item.predecessorBlocked ? <><dt>Abhängige Erfassungen</dt><dd>Weitere Erfassungen warten auf die Klärung dieses Falls.</dd></> : null}</dl></details>
+    <section aria-label={`Tageszeiten von ${item.employeeDisplayName}`}>
+      <h3>Arbeitszeiten an diesem Tag</h3>
+      {day?.status==='ready' ? <>
+        {day.value.records.length===0 && !day.value.activeRecord ? <p>Keine Arbeitszeiten an diesem Tag.</p> : <ul>
+          {[...day.value.records,...(day.value.activeRecord ? [day.value.activeRecord] : [])].map(record=><li key={record.timeRecordId}>
+            {format(record.startedAt)} – {record.stoppedAt ? format(record.stoppedAt) : 'Zeit läuft'} · {record.targetDisplayName}
+          </li>)}
+        </ul>}
+      </> : day?.status==='loading' ? <p role="status">Tageszeiten werden geladen …</p> : <>
+        {day?.status==='unavailable' ? <p role="alert">{day.message}</p> : null}
+        <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent!==null} onClick={()=>void administration.loadReviewDay?.(item.reviewItemId)}>Tageszeiten anzeigen</button>
+      </>}
+    </section>
+    {item.source==='offline_skip' ? <p className="supporting">Fehlende Zeit über „Zeit hinzufügen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.</p> : null}
   </div><div className="entity-actions">
-    {noteOnly ? null : <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Als Arbeitszeit übernehmen</button>}
-    {noteOnly ? null : <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Korrigieren</button>}
-    <button className="quiet" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>{noteOnly ? 'Mit Notiz schließen' : 'Ablehnen'}</button>
+    {noteOnly ? null : <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Fehlende Arbeitszeit ergänzen</button>}
+    {noteOnly ? null : <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Vorhandene Arbeitszeit ändern</button>}
+    <button className="quiet" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>Ohne Zeitänderung schließen</button>
   </div></div>
   {open ? <div className="row-decision">
     <p className="supporting">{resolutionLabel(resolution)}. Bitte begründen Sie Ihre Entscheidung.</p>
@@ -112,9 +131,9 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
           <select value={resolution}
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
             onChange={(event) => changeResolution(event.target.value as typeof resolution)}>
-            <option value="no_time_record_change">Keine Arbeitszeit ändern</option>
-            {noteOnly ? null : <option value="create_recovered_time_record">Arbeitszeit wiederherstellen</option>}
-            {noteOnly ? null : <option value="adjust_existing_time_record">Bestehende Arbeitszeit korrigieren</option>}
+            <option value="no_time_record_change">Ohne Zeitänderung schließen</option>
+            {noteOnly ? null : <option value="create_recovered_time_record">Fehlende Arbeitszeit ergänzen</option>}
+            {noteOnly ? null : <option value="adjust_existing_time_record">Vorhandene Arbeitszeit ändern</option>}
           </select>
         </label>
         {resolution === 'adjust_existing_time_record' ? <>
@@ -169,14 +188,14 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
             onChange={(event) => setReason(event.target.value)} />
         </label>
-        <button ref={prepareButton} disabled={state.timeReviewBusy || state.adjudicationIntent !== null}>
-          Entscheidung prüfen
+        <button ref={prepareButton} disabled={day?.status!=='ready' || state.timeReviewBusy || state.adjudicationIntent !== null}>
+          Änderung prüfen
         </button>
       </RequiredForm>
       {state.adjudicationIntent?.reviewItem.reviewItemId !== item.reviewItemId ? null : <Confirmation
         label="Entscheidung ausdrücklich bestätigen"
         title="Entscheidung speichern?"
-        confirmLabel="Entscheidung protokollieren"
+        confirmLabel={state.adjudicationIntent.resolution==='no_time_record_change' ? 'Abschluss bestätigen' : 'Änderung bestätigen'}
         busyLabel="Wird protokolliert …"
         busy={state.timeReviewBusy}
         onConfirm={() => void administration.confirmAdjudication()}

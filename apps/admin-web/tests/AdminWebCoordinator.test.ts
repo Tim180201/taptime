@@ -1979,3 +1979,41 @@ it.each(['break_stopped','duplicate_scan_ignored','work_trigger_during_break_rej
  if(decision==='break_stopped')expect(manualLifecycle.mock.calls[1]![1].workEvent).toMatchObject({target:{targetType:'customer',targetId}});
  expect(ownTime).toHaveBeenCalledTimes(2);
 });
+
+it('T110 review day loads all authorized pages, uses Berlin boundaries and hides a current entry from another day',async()=>{
+ const {api,coordinator}=setup();api.reviewItems.mockResolvedValue({status:'succeeded',value:{items:[reviewItem],nextCursor:null}});
+ const managed=vi.fn<NonNullable<AdminWebApiPort['managedPersonTime']>>(async(_token,request)=>({status:'succeeded',value:{
+  activeRecord:{...stoppedRecord,timeRecordId:'active',status:'started',startedAt:'2026-07-21T08:00:00.000Z',stoppedAt:null},
+  records:[{...stoppedRecord,timeRecordId:request.cursor===null?'first':'second'}],nextCursor:request.cursor===null?'page2':null,
+  windowStartedAt:request.fromInclusive,windowEndedAt:request.toExclusive,
+ }}));Object.assign(api,{managedPersonTime:managed});
+ await coordinator.signIn('admin@example.test','password');await coordinator.loadReviewDay(reviewItem.reviewItemId);
+ expect(managed.mock.calls.map(call=>call[1])).toEqual([expect.objectContaining({targetMembershipId:reviewItem.employeeMembershipId,fromInclusive:'2026-07-19T22:00:00.000Z',toExclusive:'2026-07-20T22:00:00.000Z',cursor:null}),expect.objectContaining({cursor:'page2'})]);
+ expect(coordinator.getState()).toMatchObject({reviewDay:{status:'ready',reviewItemId:reviewItem.reviewItemId,value:{activeRecord:null,records:[{timeRecordId:'first'},{timeRecordId:'second'}]}}});
+});
+it('T110 review context rejects repeated pages and ignores a late result after sign-out',async()=>{
+ const {api,coordinator}=setup();api.reviewItems.mockResolvedValue({status:'succeeded',value:{items:[reviewItem],nextCursor:null}});
+ const managed=vi.fn<NonNullable<AdminWebApiPort['managedPersonTime']>>(async(_token,request)=>({status:'succeeded',value:{activeRecord:null,records:[stoppedRecord],nextCursor:'repeat',windowStartedAt:request.fromInclusive,windowEndedAt:request.toExclusive}}));
+ Object.assign(api,{managedPersonTime:managed});await coordinator.signIn('admin@example.test','password');
+ await coordinator.loadReviewDay(reviewItem.reviewItemId);expect(coordinator.getState()).toMatchObject({reviewDay:{status:'unavailable',value:null}});
+ const pending=deferred<Awaited<ReturnType<NonNullable<AdminWebApiPort['managedPersonTime']>>>>();managed.mockReturnValueOnce(pending.promise);
+ const read=coordinator.loadReviewDay(reviewItem.reviewItemId);await coordinator.signOut();pending.resolve({status:'unreachable'});await read;
+ expect(coordinator.getState()).toMatchObject({status:'signed_out'});
+});
+it('T110 changing the list month clears the cursor, keeps filters, discards late responses and preserves month on refresh',async()=>{
+ const {api,coordinator}=setup();const summary={serverTime:'2026-07-21T12:00:00.000Z',runningCount:0,totalCount:0,people:[],nextCursor:null};
+ const managed=vi.fn<NonNullable<AdminWebApiPort['managedActiveSummary']>>(async()=>({status:'succeeded',value:summary}));
+ Object.assign(api,{managedActiveSummary:managed});await coordinator.signIn('admin@example.test','password');
+ const pending=deferred<Awaited<ReturnType<NonNullable<AdminWebApiPort['managedActiveSummary']>>>>();managed.mockReturnValueOnce(pending.promise);
+ const old=coordinator.refreshManagedPeople(false,false,'2026-07');await coordinator.refreshManagedPeople(false,false,'2026-06');
+ expect(managed).toHaveBeenLastCalledWith(expect.any(String),expect.objectContaining({isRunning:false,cursor:null,fromInclusive:'2026-05-31T22:00:00.000Z',toExclusive:'2026-06-30T22:00:00.000Z'}));
+ pending.resolve({status:'succeeded',value:{...summary,runningCount:1}});await old;
+ expect(coordinator.getState()).toMatchObject({managedPeople:{month:'2026-06',status:'ready',value:{runningCount:0}}});
+ await coordinator.retrySection('employees');expect(managed).toHaveBeenLastCalledWith(expect.any(String),expect.objectContaining({fromInclusive:'2026-05-31T22:00:00.000Z'}));
+});
+it('T110 a successful role change offers the management-location step',async()=>{
+ const {api,coordinator}=setup();const person=employeeMemberships(1,1)[0]!;
+ api.employeeProjection.mockResolvedValue({status:'succeeded',value:{...employeeProjection,employeeMemberships:[person]}});
+ await coordinator.signIn('admin@example.test','password');await coordinator.changeMembershipRole(person.id,person.rowVersion,'standortleitung');
+ expect(coordinator.getState()).toMatchObject({roleAssignmentMembershipId:person.id,notice:{kind:'success',text:'Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.'}});
+});

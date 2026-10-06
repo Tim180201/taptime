@@ -23,6 +23,8 @@ const allowedCaptureTypes = new Set<string>(['alle', 'gescannt', 'manuell-erfass
 
 export interface AdminRoute {
   readonly view: AdminView;
+  readonly setupTab?: 'standorte'|'tags';
+  readonly setupMembershipId?: string;
   readonly personId?: string;
   readonly customerId?: string;
   readonly locationId: string | null;
@@ -38,7 +40,7 @@ export function routeFromLocation(pathname: string, search: string): AdminRoute 
   const view = allowedViews.has(candidate) ? candidate as AdminView : 'uebersicht';
   const parameters = new URLSearchParams(search);
   const locationId = validLocationId(parameters.get('standort'));
-  if (view !== 'lohnexport') return { ...defaultRoute(view, locationId), month: validMonth(parameters.get('monat')), ...(personId === null ? {} : {personId}), ...(view==='kunden' && validLocationId(parameters.get('kunde')) ? {customerId:validLocationId(parameters.get('kunde'))!} : {}) };
+  if (view !== 'lohnexport') return { ...(view==='einrichtung' ? {setupTab:parameters.get('bereich')==='standorte' ? 'standorte' as const : parameters.get('bereich')==='tags' ? 'tags' as const : undefined,setupMembershipId:validLocationId(parameters.get('mitarbeiter')) ?? undefined} : {}), ...defaultRoute(view, locationId), month: validMonth(parameters.get('monat')), ...(personId === null ? {} : {personId}), ...(view==='kunden' && validLocationId(parameters.get('kunde')) ? {customerId:validLocationId(parameters.get('kunde'))!} : {}) };
   const month = validMonth(parameters.get('monat'));
   const statusCandidate = parameters.get('status') ?? 'alle';
   const captureCandidate = parameters.get('erfassungsart') ?? 'alle';
@@ -62,6 +64,10 @@ export function canonicalRoutePath(route: AdminRoute): string {
   if (route.locationId !== null) parameters.set('standort', route.locationId);
   if (route.month !== null) parameters.set('monat', route.month);
   if (route.view==='kunden' && route.customerId) parameters.set('kunde',route.customerId);
+  if (route.view==='einrichtung') {
+    if (route.setupTab) parameters.set('bereich',route.setupTab);
+    if (route.setupMembershipId) parameters.set('mitarbeiter',route.setupMembershipId);
+  }
   if (route.view !== 'lohnexport') {
     const search = parameters.toString();
     return search.length === 0 ? pathname : `${pathname}?${search}`;

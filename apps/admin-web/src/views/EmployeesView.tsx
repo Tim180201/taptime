@@ -1,4 +1,4 @@
-import { businessDay,formatZonedDateTime } from '@taptime/core';
+import { businessDay,shiftMonth,formatZonedDateTime } from '@taptime/core';
 import {
 	useEffect,
 	useRef,
@@ -10,22 +10,26 @@ import type {
 	AdminWebCapability
 } from '../contracts';
 import {
-	canonicalRoutePath, defaultRoute, type AdminRoute
+	monthLabel,canonicalRoutePath, defaultRoute, type AdminRoute
 } from '../navigation';
 import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
 import { useIntentFocusReturn } from '../viewHelpers';
 import { ActivityTile,PeopleTable } from './PeopleShared';
 type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { status: 'ready' }>;
-export default function EmployeesView({ state, administration, accountInvitations, navigate }: {
+export default function EmployeesView({ state, administration, accountInvitations, navigate, route }: {
+  readonly route?: AdminRoute;
   readonly navigate: (route:AdminRoute)=>void;
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
   readonly accountInvitations?: EmployeeAccountInvitationCapability;
 }) {
+  const current=businessDay(Date.now()).slice(0,7),months=Array.from({length:24},(_,i)=>shiftMonth(current,-i));
+  const month=route?.month && months.includes(route.month) ? route.month : current;
+  const changeMonth=(month:string)=>navigate({...route ?? defaultRoute('beschaeftigte',state.selectedLocation?.id ?? null),month});
   const [adding, setAdding] = useState(false);
   const [editingMembership,setEditingMembership]=useState<string|null>(null);
   const [runningFilter,setRunningFilter] = useState<boolean|null>(null);
-  useEffect(()=>{ void administration.refreshManagedPeople?.(runningFilter); },[administration,state.selectedLocation?.id,runningFilter]);
+  useEffect(()=>{ void administration.refreshManagedPeople?.(runningFilter,false,month); },[administration,state.selectedLocation?.id,runningFilter,month]);
   const [invitationSuccess, setInvitationSuccess] = useState<AccountInvitationSuccess | null>(null);
   useEffect(() => { setInvitationSuccess(null); }, [state.selectedLocation?.id]);
   const [revocationIntent, setRevocationIntent] = useState<{
@@ -69,14 +73,22 @@ export default function EmployeesView({ state, administration, accountInvitation
           setInvitationSuccess(status);
           await administration.retrySection('employees');
         }} />
+      {state.roleAssignmentMembershipId && state.notice?.kind==='success' && state.notice.text==='Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.' ? <a className="button-link"
+        href={canonicalRoutePath({...defaultRoute('einrichtung'),setupTab:'standorte',setupMembershipId:state.roleAssignmentMembershipId})}
+        onClick={event=>{event.preventDefault();navigate({...defaultRoute('einrichtung'),setupTab:'standorte',setupMembershipId:state.roleAssignmentMembershipId});}}>Verwaltete Standorte zuweisen</a> : null}
+      <div className="toolbar customer-month">
+        <button className="quiet" aria-label="Voriger Monat" disabled={month===months.at(-1)} onClick={()=>changeMonth(shiftMonth(month,-1))}>←</button>
+        <label>Monat<select value={month} onChange={event=>changeMonth(event.target.value)}>{months.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}</select></label>
+        <button className="quiet" aria-label="Nächster Monat" disabled={month===current} onClick={()=>changeMonth(shiftMonth(month,1))}>→</button>
+      </div>
       <ActivityTile state={state} administration={administration}/>
       <div className="filter-chips" role="group" aria-label="Aktivitätsfilter">{[['Alle',null],['Zeit läuft',true],['Keine laufende Zeit',false]].map(([label,value])=>
         <button key={String(label)} className="secondary" aria-pressed={runningFilter === value}
           onClick={()=>setRunningFilter(value as boolean|null)}>{label}</button>)}</div>
-      {state.managedPeople?.status === 'ready' ? <><PeopleTable people={state.managedPeople.value.people}
-        navigate={navigate} locationId={state.selectedLocation?.id ?? null} locationsEnabled={state.locationsEnabled}/>
+      {state.managedPeople?.status === 'ready' && state.managedPeople.month===month ? <><PeopleTable people={state.managedPeople.value.people}
+        navigate={navigate} locationId={state.selectedLocation?.id ?? null} locationsEnabled={state.locationsEnabled} month={month}/>
         {state.managedPeople.value.nextCursor === null ? null : <button className="secondary"
-          onClick={()=>void administration.refreshManagedPeople?.(runningFilter,true)}>Weitere Personen laden</button>}</> : null}
+          onClick={()=>void administration.refreshManagedPeople?.(runningFilter,true,month)}>Weitere Personen laden</button>}</> : null}
       <details className="membership-tools"><summary>Zugänge verwalten</summary>
       <ul className="entity-list">{state.employeeProjection.employeeMemberships.map((membership) =>
         <li key={membership.id}><span>{membership.displayName}</span>
@@ -92,7 +104,7 @@ export default function EmployeesView({ state, administration, accountInvitation
             && (state.managementScope.kind === 'organization' || membership.role === 'employee')
             ? <div className="entity-actions">
             {state.managementScope.kind === 'organization'
-              ? editingMembership === membership.id ? <label>Rolle
+              ? editingMembership === membership.id ? <><p className="supporting">Änderungen werden sofort gespeichert.</p><label>Rolle
                   <select value={membership.role}
                     aria-label={`Rolle für ${membership.displayName}`}
                     onChange={(event) => void administration.changeMembershipRole(
@@ -104,7 +116,7 @@ export default function EmployeesView({ state, administration, accountInvitation
                     <option value="standortleitung">Standortleitung</option>
                     <option value="administrator">Administrator</option>
                   </select>
-                </label> : <button className="quiet" onClick={()=>setEditingMembership(membership.id)}>Rolle bearbeiten</button>
+                </label></> : <button className="quiet" onClick={()=>setEditingMembership(membership.id)}>Rolle bearbeiten</button>
               : null}
             <button className="warning-action" onClick={(event) => {
               revocationTrigger.current = event.currentTarget;

@@ -1,4 +1,4 @@
-import type { ManagedActiveSummary, ManagedActiveSummaryRequest, ManagedPerson, ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
+import type { ManagedActiveSummary, ManagedActiveSummaryRequest, ManagedActiveSummaryRequestV5, ManagedPerson, ManagedPersonTimeRequest } from '@taptime/administration-contract/managed-people';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 export type { ManagedPerson };
 export type Failure = 'authority_rejected' | 'transient_failure' | 'unavailable';
@@ -12,7 +12,7 @@ export interface InvitationCommand {
 }
 export interface EmployeeLocation { readonly id: string; readonly name: string }
 export interface EmployeesApiPort {
-  summary(request: ManagedActiveSummaryRequest): Promise<ReadResult<ManagedActiveSummary>>;
+  summary(request: ManagedActiveSummaryRequest | ManagedActiveSummaryRequestV5): Promise<ReadResult<ManagedActiveSummary>>;
   personTime(request: ManagedPersonTimeRequest): Promise<ReadResult<MobileOwnTimeQueryResponse>>;
   locations(expectedMembershipId: string, cursor: string | null): Promise<ReadResult<{readonly locations: readonly EmployeeLocation[]; readonly nextCursor: string | null}>>;
   resend?(request:{expectedMembershipId:string;commandId:string;targetMembershipId:string}): Promise<{status:string}>;
@@ -20,7 +20,7 @@ export interface EmployeesApiPort {
 }
 export type EmployeesState =
   | { readonly status: 'inactive' | 'loading' | 'unavailable' | 'not_authorized' }
-  | { readonly status: 'list'; readonly summary: ManagedActiveSummary; readonly filter: boolean; readonly busy: boolean; readonly failed: boolean }
+  | { readonly status: 'list'; readonly month?: string; readonly summary: ManagedActiveSummary; readonly filter: boolean; readonly busy: boolean; readonly failed: boolean }
   | { readonly status: 'person'; readonly person: ManagedPerson; readonly value: MobileOwnTimeQueryResponse | null; readonly busy: boolean; readonly failed: boolean }
   | { readonly status: 'invite'; readonly packageUsage?: import('@taptime/administration-contract/managed-people').OrganizationPackageUsage | null; readonly locations: readonly EmployeeLocation[]; readonly locationsReady: boolean; readonly busy: boolean;
       readonly outcome: InvitationStatus | null };
@@ -29,6 +29,7 @@ export interface EmployeesCapability {
   subscribe(listener: () => void): () => void;
   refresh(): Promise<void>;
   filter(isRunning: boolean): Promise<void>;
+  loadMonth?(month: string): Promise<void>;
   loadMore(): Promise<void>;
   openPerson(person: ManagedPerson): Promise<void>;
   loadPersonMonth(month: string): Promise<void>;

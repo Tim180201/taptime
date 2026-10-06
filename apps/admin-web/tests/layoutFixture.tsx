@@ -105,6 +105,9 @@ class FakeCapability implements AdminWebCapability {
   state: AdminWebState;
   private readonly listeners = new Set<() => void>();
   constructor(state: AdminWebState) { this.state = state; }
+  loadReviewDay = async (reviewItemId:string) => {
+    if(this.state.status==='ready')this.emit({...this.state,reviewDay:{reviewItemId,status:'ready',value:{activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}});
+  };
   getState = () => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -185,7 +188,7 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
   projects: [{ projectId: customer.id, displayName: 'Projekt Nord', active: true, rowVersion: 1 }], projectsNextCursor: null,
   workTargets: { status: 'ready', value: [{ targetType: 'customer', targetId: customer.id, displayName: 'Werkstatt am Beispielweg' }] },
   manual: { busy: false, pending: false, message: null },
-  managedPeople: { status: 'ready', isRunning: null, value: { packageUsage:{packageSize:10,activeAccessCount:12}, serverTime: '2026-09-23T11:00:00.000Z', runningCount: 1, totalCount: 2, nextCursor: null,
+  managedPeople: { month:'2026-09',status: 'ready', isRunning: null, value: { packageUsage:{packageSize:10,activeAccessCount:12}, serverTime: '2026-09-23T11:00:00.000Z', runningCount: 1, totalCount: 2, nextCursor: null,
     people: [{ membershipId: person.id, displayName: 'Alexandra Beispiel', role: 'employee', location, isRunning: true, runningSince: entry.startedAt, runningTargetDisplayName: entry.targetDisplayName },
       { membershipId: own, displayName: 'Martin Beispiel', role: 'administrator', location: null, isRunning: false, runningSince: null, runningTargetDisplayName: null }] } },
   calendar: { status: 'ready', targetMembershipId: window.location.pathname.includes('/beschaeftigte/') ? person.id : null, month: '2026-09',
@@ -195,7 +198,16 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
     memberships: [{ id: own, displayName: 'Martin Beispiel', role: 'administrator', homeLocationId: location.id, workLocationIds: [location.id], managementLocationIds: [] }],
     workTargets: [{ targetType: 'customer', targetId: customer.id, displayName: 'Werkstatt', locationId: location.id }], activationGaps: [] },
 };
-if (variant==='departed') ready={...ready,managedPeople:{status:'ready',isRunning:null,value:{...ready.managedPeople!.value!,
+if (variant.startsWith('t110-next-')) {
+  const step=Number(variant.slice('t110-next-'.length));
+  ready={...ready,locationsEnabled:step>1,
+    locationSetup:{...ready.locationSetup!,memberships:[{...ready.locationSetup!.memberships[0]!,role:'standortleitung',managementLocationIds:step>2?[location.id]:[]}]},
+    projection:{...ready.projection,customers:step>3?[customer]:[],nfcTags:step>4?[tag]:[]},projects:[],
+    employeeProjection:{...ready.employeeProjection,employeeMemberships:step>5?[person]:[]},timeRecords:[],reviewItems:[]};
+}
+if (variant==='t110-role') ready={...ready,roleAssignmentMembershipId:person.id,notice:{kind:'success',text:'Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.'}};
+if (variant==='t110-review-context') ready={...ready,reviewDay:{reviewItemId:reviewItem.reviewItemId,status:'ready',value:{activeRecord:null,records:[record],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}};
+if (variant==='departed') ready={...ready,managedPeople:{month:'2026-09',status:'ready',isRunning:null,value:{...ready.managedPeople!.value!,
   people:[...ready.managedPeople!.value!.people,{membershipId:'70000000-0000-4000-8000-000000000002',displayName:'Erika Ausgeschieden',
     role:'employee',location,isRunning:false,runningSince:null,runningTargetDisplayName:null,departedAt:'2026-09-01T12:00:00.000Z'}]}}};
 if (['employees','manager','departed'].includes(variant)) ready={...ready,locationsEnabled:true,

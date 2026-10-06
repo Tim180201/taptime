@@ -275,10 +275,10 @@ export function App({
       <Suspense fallback={<DelayedSkeleton label="Bereich wird geladen"/>}>
       {activeRoute.view === 'uebersicht'
         ? <Overview state={state} administration={administration} navigate={navigate} /> : null}
-      {activeRoute.view === 'einrichtung' ? <SetupView state={state} administration={administration} /> : null}
+      {activeRoute.view === 'einrichtung' ? <SetupView route={activeRoute} state={state} administration={administration} /> : null}
       {activeRoute.view === 'beschaeftigte' ? activeRoute.personId
         ? <PersonView accountInvitations={accountInvitations} state={state} administration={administration} route={activeRoute} navigate={navigate}/>
-        : <EmployeesView state={state} administration={administration} accountInvitations={accountInvitations} navigate={navigate}/> : null}
+        : <EmployeesView route={activeRoute} state={state} administration={administration} accountInvitations={accountInvitations} navigate={navigate}/> : null}
       {activeRoute.view === 'lohnexport'
         ? <TimeRecordsView state={state} administration={administration}
             route={activeRoute} navigate={navigate} /> : null}

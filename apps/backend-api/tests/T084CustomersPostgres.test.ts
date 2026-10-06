@@ -186,5 +186,5 @@ it('T107 uses the role for an unnamed person in customer hours',()=>transaction(
  await c.query("INSERT INTO taptime_server.memberships(id,organization_id,user_id,role) VALUES($1,$2,$3,'employee')",[unnamed.member,unnamed.org,unnamed.user]);
  await record(unnamed,ids.customerA,'2026-10-15T08:00Z','2026-10-15T09:00Z',c);
  const result=await read(c);
- expect(result.customers.find((r:any)=>r.customerId===ids.customerA).people).toContainEqual(expect.objectContaining({membershipId:unnamed.member,displayName:'Beschäftigter'}));
+ expect(result.customers.find((r:any)=>r.customerId===ids.customerA).people).toContainEqual(expect.objectContaining({membershipId:unnamed.member,displayName:'Mitarbeiter'}));
 }));
