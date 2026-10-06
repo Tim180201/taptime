@@ -1758,3 +1758,17 @@ höchstens 24 Stunden und endet nicht in der Zukunft; dieselbe Grenze gilt schon
 Der Server weist Verstöße mit eigenem Status und klarer Meldung ab, nicht als Serverfehler (T-106, Befunde F-016, F-062).
 **Warum:** Ein Tippfehler im Datum („Ende eine Woche später“) darf keine Arbeitszeit von Tagen erzeugen; längere echte
 Einsätze kommen bei frogs nicht vor.
+
+## D-123 · Dauern überall als Stunden:Minuten · 06.10.2026 · Tim (PO)
+App und Web zeigen jede Dauer als Stunden:Minuten („9:54 h“): Einträge, Tage, Wochen, Monate, Pausen, Personen- und
+Kundenstunden. Bei Kontingenten erscheint die verbrauchte Zeit ebenso, das Kontingent selbst wie eingegeben in Stunden
+(„32:30 von 40 h“). Der Lohnexport bleibt unverändert. Umsetzung in T-107.
+**Warum:** Heute stehen „9,9 h“ und „0:00 h Pause“ auf derselben Karte; Dezimalstunden runden auf sechs Minuten und
+sind für Lehrkräfte schwerer zu lesen.
+
+## D-124 · Das Erfassungsmedium heißt „Karte“ · 06.10.2026 · Tim (PO)
+Sichtbare Texte in App, Web, Hilfeseite und Mails nennen das Medium beim ersten Auftreten „NFC-Karte“, danach „Karte“
+(„Karte scannen“, „Karte einrichten“, „Karte prüfen“, Reiter „Karten“). Ersetzt die sichtbare Bezeichnung „Tags“ aus
+D-058; Code, Verträge und Datenmodell behalten ihre Namen. Umsetzung in T-108.
+**Warum:** „Tag“ ist im Deutschen zugleich der Kalendertag und steht in der App direkt neben dem Kalender; bei frogs
+hängt ohnehin eine Karte (D-088).

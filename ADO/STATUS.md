@@ -5,8 +5,10 @@
 **Auf `main`, noch nicht ausgeliefert:** T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095
 (`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045), T-098 (`4f6fa75`),
 T-100 (`b693fde`, Migration 046), T-101 (`1043011`), T-102 (`d399c69`, Migration 047), T-075 (`28e3685`, `5aa8ea2`,
-Migration 048). T-098b wartet auf den PO am Mac (Teil 2 geprüft, lokaler Branch `t098b-verify`); bis dahin T-106.
-**Weg zum Pilot:** T-098b → Fingerabdrücke → dritter Deploy → Mail-Vorlage → App-Builds und Geräteabnahme →
+Migration 048), T-106 (`06b3008`, Migration 049). In Arbeit: T-107. T-098b wartet auf den PO am Mac (Teil 2 geprüft,
+lokaler Branch `t098b-verify`). UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
+`.audit-ux-2026-10/` (nie committen); daraus T-107 und T-108.
+**Weg zum Pilot:** T-107 → T-098b → Fingerabdrücke → dritter Deploy → Mail-Vorlage → App-Builds und Geräteabnahme →
 T-024 → Pilot. Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht vor echten Daten. Fertig ist
 das Produkt, wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
