@@ -1452,3 +1452,14 @@ it('T101 login and password reset keep their own required scope',async()=>{
   fireEvent.click(screen.getByRole('button',{name:'Passwort vergessen'}));expect(capability.requestPasswordReset).toHaveBeenCalledExactlyOnceWith('admin@example.test');
   fireEvent.click(screen.getByRole('button',{name:'Sicher anmelden'}));expect(capability.signIn).not.toHaveBeenCalled();expect(screen.getByLabelText('Passwort')).toHaveAttribute('aria-invalid','true');
 });
+
+it('T102 reports an already assigned customer at its field instead of preparing an unavailable reassignment',async()=>{
+ const capability=new FakeCapability(readyState);
+ window.history.replaceState(null,'','/einrichtung');await render(<App administration={capability}/>);
+ await userEvent.click(screen.getByRole('button',{name:'Tags'}));
+ fireEvent.change(screen.getByLabelText('NFC-Tag'),{target:{value:tag.id}});
+ const field=screen.getByLabelText('Neuer aktiver Kunde');fireEvent.change(field,{target:{value:customer.id}});
+ await userEvent.click(screen.getByRole('button',{name:'Zuordnung prüfen'}));
+ expect(capability.prepareReassignment).not.toHaveBeenCalled();expect(field).toHaveAttribute('aria-invalid','true');
+ expect(screen.getByText('Der Tag gehört bereits zu diesem Kunden.')).toBeVisible();
+});

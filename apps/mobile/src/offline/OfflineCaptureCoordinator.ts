@@ -401,6 +401,16 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     return {wait: true, accountKey: `${owner.organizationId}/${owner.membershipId}/${owner.userId}`};
   }
 
+  async cancelSignOut(): Promise<void> {
+    if (!this.logoutWaiting) return;
+    this.logoutWaiting = false;
+    this.logoutOwner = null;
+    // Re-enter through the ordinary live session/owner checks, including offline
+    // restoration. Retained evidence and its archive requirement stay untouched.
+    this.setState({status:'checking'});
+    await this.scheduleSessionTransition(++this.generation);
+  }
+
   async pollArchiveForSignOut(): Promise<boolean> {
     const database = this.database;
     if (!database || !this.logoutWaiting || !this.isLogoutOwnerCurrent()) return false;

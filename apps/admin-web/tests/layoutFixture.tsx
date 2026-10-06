@@ -198,6 +198,10 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
 if (variant==='departed') ready={...ready,managedPeople:{status:'ready',isRunning:null,value:{...ready.managedPeople!.value!,
   people:[...ready.managedPeople!.value!.people,{membershipId:'70000000-0000-4000-8000-000000000002',displayName:'Erika Ausgeschieden',
     role:'employee',location,isRunning:false,runningSince:null,runningTargetDisplayName:null,departedAt:'2026-09-01T12:00:00.000Z'}]}}};
+if (['employees','manager','departed'].includes(variant)) ready={...ready,locationsEnabled:true,
+  managedPeople:{...ready.managedPeople!,status:'ready',value:{...ready.managedPeople!.value!,
+    people:ready.managedPeople!.value!.people.map((person,index)=>({...person,departedAt:person.departedAt??null,
+      location:variant==='manager'?location:person.location,monthWorkDurationSeconds:index===0?129600:0}))}}};
 if (['employee-revoke-running','employee-revoke-long'].includes(variant)) ready={...ready,calendar:{...ready.calendar!,status:'ready',value:{...ready.calendar!.value!,
   activeRecord:{...entry,status:'started',stoppedAt:null,startedAt:variant==='employee-revoke-long'?'2026-09-22T11:59:00.000Z':'2026-09-22T12:01:00.000Z'}}}};
 if (variant==='review-location') ready={...ready,reviewItems:[{...reviewItem,reviewReason:'work_location_unavailable',predecessorBlocked:false}]};

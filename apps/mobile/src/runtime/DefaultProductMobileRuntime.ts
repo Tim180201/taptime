@@ -40,6 +40,7 @@ export interface ProductScanRuntimeOwner extends ProductScanCapability {
   refreshOfflineGrant?(): Promise<void>;
   prepareSignOut?(): Promise<OfflineSignOutPreparation>;
   pollArchiveForSignOut?(): Promise<boolean>;
+  cancelSignOut?(): Promise<void>;
 }
 
 export interface ProductAdministrationRuntimeOwner extends AdminSetupCapability {
@@ -140,6 +141,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       refresh: () => this.coordinator.refresh(),
       signOut: () => this.requestSignOut(),
       signOutImmediately: () => this.forceSignOut(),
+      cancelSignOut: () => this.keepSignedIn(),
     });
     // React receives state/actions only: no native manager, C2 client, token or raw UID.
     this.scanCapability = Object.freeze({
@@ -372,6 +374,14 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     return flight;
   }
 
+  private async keepSignedIn(): Promise<void> {
+    if (this.signOutCompletionFlight) return;
+    if (this.protectionState?.status !== 'archive_signout_pending'
+      && this.scanOrchestrator.getState().status !== 'archive_signout_pending') return;
+    this.cancelSignOutWait();
+    await this.scanOrchestrator.cancelSignOut?.();
+  }
+
   private forceSignOut(): Promise<void> {
     if (this.signOutCompletionFlight) return this.signOutCompletionFlight;
     const account = this.signOutAccountKey();
@@ -384,6 +394,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     if (this.signOutCompletionFlight) return this.signOutCompletionFlight;
     if (this.signOutTimer !== null) clearInterval(this.signOutTimer);
     this.signOutTimer = null;
+    // Archive proof has committed the sign-out; the waiting actions no longer apply.
+    this.publishProtection({status:'checking'});
     const operation = async () => {
       await this.scanOrchestrator.onExplicitLogout?.();
       if (!this.signOutIsCurrent(revision, account)) return;

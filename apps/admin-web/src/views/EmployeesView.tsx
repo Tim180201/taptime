@@ -67,7 +67,7 @@ export default function EmployeesView({ state, administration, accountInvitation
         <button key={String(label)} className="secondary" aria-pressed={runningFilter === value}
           onClick={()=>setRunningFilter(value as boolean|null)}>{label}</button>)}</div>
       {state.managedPeople?.status === 'ready' ? <><PeopleTable people={state.managedPeople.value.people}
-        navigate={navigate} locationId={state.selectedLocation?.id ?? null}/>
+        navigate={navigate} locationId={state.selectedLocation?.id ?? null} locationsEnabled={state.locationsEnabled}/>
         {state.managedPeople.value.nextCursor === null ? null : <button className="secondary"
           onClick={()=>void administration.refreshManagedPeople?.(runningFilter,true)}>Weitere Personen laden</button>}</> : null}
       <details className="membership-tools"><summary>Zugänge verwalten</summary>

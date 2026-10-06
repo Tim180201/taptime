@@ -19,40 +19,40 @@ async function context(c:PoolClient,role:string,who:'admin'|'self'|'foreign'='ad
   foreign?ids.membershipAdminB:self?personMember:ids.membershipAdminA,self?'employee':'administrator']);
  await c.query(`SET LOCAL ROLE ${role}`);
 }
-async function seedRecord(start:string,stop:string|undefined,pauses:readonly (readonly [string,string])[]) {
+async function seedRecord(start:string,stop:string|undefined,pauses:readonly (readonly [string,string])[],user=personUser) {
  const c=await pool.connect(),id=randomUUID(),startEvent=randomUUID(),stopEvent=randomUUID();
  try {
   await c.query('BEGIN');
   for(const [event,at] of [[startEvent,start],...(stop?[[stopEvent,stop]]:[])]) await c.query(`INSERT INTO taptime_server.work_events(id,organization_id,triggered_by_user_id,target_type,target_customer_id,occurred_at,trigger_type,content_hash,content_hash_algorithm,content_hash_version)
-   VALUES($1,$2,$3,'customer',$4,$5,'manual',repeat('a',64),'sha256',2)`,[event,ids.organizationA,personUser,ids.customerA,at]);
+   VALUES($1,$2,$3,'customer',$4,$5,'manual',repeat('a',64),'sha256',2)`,[event,ids.organizationA,user,ids.customerA,at]);
   await c.query(`INSERT INTO taptime_server.time_entries(id,organization_id,user_id,target_type,target_customer_id,status,start_work_event_id,started_at,started_via)
-   VALUES($1,$2,$3,'customer',$4,'started',$5,$6,'manual')`,[id,ids.organizationA,personUser,ids.customerA,startEvent,start]);
+   VALUES($1,$2,$3,'customer',$4,'started',$5,$6,'manual')`,[id,ids.organizationA,user,ids.customerA,startEvent,start]);
   await c.query(`INSERT INTO taptime_server.canonical_decisions(work_event_id,organization_id,actor_user_id,target_type,target_customer_id,decision_type,time_entry_id,engine_version,decision_payload)
-   VALUES($1,$2,$3,'customer',$4,'time_entry_started',$5,'test','{}')`,[startEvent,ids.organizationA,personUser,ids.customerA,id]);
+   VALUES($1,$2,$3,'customer',$4,'time_entry_started',$5,'test','{}')`,[startEvent,ids.organizationA,user,ids.customerA,id]);
   await c.query('COMMIT');
   if(!stop)return id;
-  for(const [a,b] of pauses) await seedBreak(id,a,b);
+  for(const [a,b] of pauses) await seedBreak(id,a,b,user);
   await c.query('BEGIN');
   await c.query("UPDATE taptime_server.time_entries SET status='stopped',stopped_at=$1,stop_work_event_id=$2,stopped_via='manual',row_version=row_version+1 WHERE id=$3",[stop,stopEvent,id]);
   await c.query(`INSERT INTO taptime_server.canonical_decisions(work_event_id,organization_id,actor_user_id,target_type,target_customer_id,decision_type,time_entry_id,engine_version,decision_payload)
-   VALUES($1,$2,$3,'customer',$4,'time_entry_stopped',$5,'test','{}')`,[stopEvent,ids.organizationA,personUser,ids.customerA,id]);
+   VALUES($1,$2,$3,'customer',$4,'time_entry_stopped',$5,'test','{}')`,[stopEvent,ids.organizationA,user,ids.customerA,id]);
   await c.query('COMMIT');return id;
  } catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }
-async function seedBreak(entry:string,start:string,stop?:string) {
+async function seedBreak(entry:string,start:string,stop?:string,user=personUser) {
  const c=await pool.connect(),id=randomUUID(),a=randomUUID(),b=randomUUID();
  try {
   await c.query('BEGIN');
   for(const [event,at] of [[a,start],...(stop?[[b,stop]]:[])]) await c.query(`INSERT INTO taptime_server.work_events(id,organization_id,triggered_by_user_id,occurred_at,subject_type,trigger_type,content_hash,content_hash_algorithm,content_hash_version)
-   VALUES($1,$2,$3,$4,'break','manual',repeat('a',64),'sha256',3)`,[event,ids.organizationA,personUser,at]);
+   VALUES($1,$2,$3,$4,'break','manual',repeat('a',64),'sha256',3)`,[event,ids.organizationA,user,at]);
   await c.query(`INSERT INTO taptime_server.break_intervals(id,organization_id,user_id,time_entry_id,status,start_work_event_id,started_at,started_via)
-   VALUES($1,$2,$3,$4,'started',$5,$6,'manual')`,[id,ids.organizationA,personUser,entry,a,start]);
+   VALUES($1,$2,$3,$4,'started',$5,$6,'manual')`,[id,ids.organizationA,user,entry,a,start]);
   await c.query(`INSERT INTO taptime_server.canonical_decisions(work_event_id,organization_id,actor_user_id,subject_type,decision_type,time_entry_id,break_interval_id,engine_version,decision_payload)
-   VALUES($1,$2,$3,'break','break_started',$4,$5,'test','{}')`,[a,ids.organizationA,personUser,entry,id]);
+   VALUES($1,$2,$3,'break','break_started',$4,$5,'test','{}')`,[a,ids.organizationA,user,entry,id]);
   await c.query('COMMIT');
   if(stop){await c.query('BEGIN');await c.query("UPDATE taptime_server.break_intervals SET status='stopped',stopped_at=$1,stop_work_event_id=$2,stopped_via='manual',row_version=row_version+1 WHERE id=$3",[stop,b,id]);
    await c.query(`INSERT INTO taptime_server.canonical_decisions(work_event_id,organization_id,actor_user_id,subject_type,decision_type,time_entry_id,break_interval_id,engine_version,decision_payload)
-    VALUES($1,$2,$3,'break','break_stopped',$4,$5,'test','{}')`,[b,ids.organizationA,personUser,entry,id]);await c.query('COMMIT');}
+    VALUES($1,$2,$3,'break','break_stopped',$4,$5,'test','{}')`,[b,ids.organizationA,user,entry,id]);await c.query('COMMIT');}
  }catch(e){await c.query('ROLLBACK');throw e;}finally{c.release();}
 }
 beforeAll(async()=>{
@@ -154,5 +154,60 @@ it('uses current home-location authority on every new-calendar read',async()=>{
   await c.query('RESET ROLE');await c.query('UPDATE taptime_server.membership_home_location_assignments SET revoked_at=clock_timestamp() WHERE membership_id=$1',[personMember]);
   await c.query(`INSERT INTO taptime_server.membership_home_location_assignments(id,organization_id,membership_id,location_id) VALUES(gen_random_uuid(),$1,$2,$3)`,[ids.organizationA,personMember,other]);
   await context(c,'taptime_membership_manager');expect((await c.query('SELECT * FROM taptime_server.read_time_record_calendar_v1($1::uuid[])',[[example]])).rows).toEqual([]);
+ }finally{await c.query('ROLLBACK');c.release();}
+});
+
+async function monthlyPerson() {
+ const user=randomUUID(),member=randomUUID();
+ await pool.query('INSERT INTO taptime_server.users(id) VALUES($1)',[user]);
+ await pool.query("INSERT INTO taptime_server.memberships(id,organization_id,user_id,role,display_name) VALUES($1,$2,$3,'employee','Monatsperson')",[member,ids.organizationA,user]);
+ return {user,member};
+}
+it('T102 current Berlin month totals match completed payroll rows, with breaks, revisions, voids and boundary carry excluded',async()=>{
+ await pool.query("UPDATE taptime_server.memberships SET role='administrator',row_version=row_version+1 WHERE id=$1",[ids.membershipAdminA]);
+ const {user,member}=await monthlyPerson();
+ // Derive the month from the actual server clock; this proof keeps working next month.
+ const month=(await pool.query(`SELECT date_trunc('month',transaction_timestamp() AT TIME ZONE 'Europe/Berlin') AT TIME ZONE 'Europe/Berlin' AS start,
+   (date_trunc('month',transaction_timestamp() AT TIME ZONE 'Europe/Berlin')+interval '1 month') AT TIME ZONE 'Europe/Berlin' AS stop`)).rows[0];
+ const at=(seconds:number)=>new Date(month.start.getTime()+seconds*1000).toISOString();
+ const current=await seedRecord(at(3600),at(14400),[[at(7200),at(9000)]],user);
+ const canceled=await seedRecord(at(18000),at(21600),[],user);
+ const previous=await seedRecord(at(-3600),at(1800),[],user);
+ const ongoing=await seedRecord(at(25000),undefined,[],user);
+ const c=await pool.connect();try {
+   await c.query('BEGIN');
+   // Earlier authorization test rolls its changes back; all locations remain disabled here.
+   await context(c,'taptime_time_review_writer');
+   expect((await c.query('SELECT taptime_server.void_time_record_v1($1::jsonb) AS result',[JSON.stringify({expectedMembershipId:ids.membershipAdminA,commandId:randomUUID(),timeRecordId:canceled,reasonCode:'duplicate',reasonText:null})])).rows[0].result.status).toBe('committed');
+   await context(c,'taptime_membership_manager');
+   const summary=(await c.query('SELECT * FROM taptime_server.read_managed_active_summary_v3(NULL,NULL,NULL,20)')).rows;
+   await context(c,'taptime_time_exporter');
+   const exported=(await c.query('SELECT * FROM taptime_server.read_effective_time_entry_export_v3($1,$2,$3,10001)',[ids.organizationA,month.start,month.stop])).rows;
+   for(const person of summary.filter(r=>r.membership_id)) {
+     expect(Number(person.month_work_duration_seconds)).toBe(exported.filter(r=>r.employee_membership_id===person.membership_id&&r.stopped_at!==null).reduce((sum,r)=>sum+Number(r.effective_work_duration_seconds),0));
+   }
+   expect(exported.find(r=>r.time_entry_id===current)).toMatchObject({effective_work_duration_seconds:'9000',break_duration_seconds:'1800'});
+   expect(exported.some(r=>r.time_entry_id===canceled||r.time_entry_id===previous)).toBe(false);
+   expect(exported.find(r=>r.time_entry_id===ongoing)?.stopped_at).toBeNull();
+ }finally{await c.query('ROLLBACK');c.release();}
+});
+it('T102 October repeated hour and start-month assignment use payroll seconds, including a shift into November',async()=>{
+ const {user,member}=await monthlyPerson();
+ const autumn=await seedRecord('2026-10-25T01:30:00+02:00','2026-10-25T03:30:00+01:00',[
+   ['2026-10-25T02:15:00+02:00','2026-10-25T02:15:00+01:00']],user);
+ const boundary=await seedRecord('2026-10-31T23:30:00+01:00','2026-11-01T01:30:00+01:00',[],user);
+ const c=await pool.connect();try {
+   await c.query('BEGIN');await context(c,'taptime_time_exporter');
+   const october=(await c.query(`SELECT * FROM taptime_server.read_effective_time_entry_export_v3($1,'2026-10-01T00:00:00+02:00','2026-11-01T00:00:00+01:00',10001)`,[ids.organizationA])).rows;
+   expect(october.find(r=>r.time_entry_id===autumn)).toMatchObject({effective_work_duration_seconds:'7200',break_duration_seconds:'3600'});
+   expect(october.find(r=>r.time_entry_id===boundary)).toMatchObject({effective_work_duration_seconds:'7200'});
+   await c.query('RESET ROLE');
+   // Replay exactly migration 047's read function at a fixed statement time, transactionally.
+   // Only the clock expression is replaced; production has no caller-controlled month.
+   const definition=(await c.query(`SELECT pg_get_functiondef('taptime_server.read_managed_active_summary_v3(uuid,boolean,uuid,integer)'::regprocedure) AS sql`)).rows[0].sql;
+   await c.query(definition.replaceAll('transaction_timestamp()',"TIMESTAMPTZ '2026-10-31T22:59:00Z'"));
+   await context(c,'taptime_membership_manager');
+   const people=(await c.query('SELECT * FROM taptime_server.read_managed_active_summary_v3(NULL,NULL,NULL,20)')).rows;
+   expect(Number(people.find(r=>r.membership_id===member).month_work_duration_seconds)).toBe(october.filter(r=>r.employee_membership_id===member&&r.stopped_at!==null).reduce((sum,r)=>sum+Number(r.effective_work_duration_seconds),0));
  }finally{await c.query('ROLLBACK');c.release();}
 });

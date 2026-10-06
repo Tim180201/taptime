@@ -16,6 +16,7 @@ export interface ManagedActiveSummaryRequest {
   readonly limit: number;
 }
 export interface ManagedPerson {
+  readonly monthWorkDurationSeconds?: number;
   readonly departedAt?: string | null;
   readonly membershipId: string;
   readonly displayName: string;
@@ -83,4 +84,21 @@ export function isManagedActiveSummaryV2(v: unknown): v is ManagedActiveSummary 
     people.push(current);
   }
   return isManagedActiveSummary({...v,people});
+}
+
+/** Only v3 carries monthly seconds; old exact-key parsers still reject these rows. */
+export const MANAGED_PEOPLE_ACCEPT_V3 = 'application/vnd.taptime.managed-people.v3+json';
+export interface ManagedActiveSummaryV3 extends ManagedActiveSummary {
+  readonly people: readonly (ManagedPerson & { readonly departedAt: string | null; readonly monthWorkDurationSeconds: number })[];
+}
+export function isManagedActiveSummaryV3(v: unknown): v is ManagedActiveSummaryV3 {
+  if (!object(v) || !Array.isArray(v.people)) return false;
+  const people: unknown[] = [];
+  for (const person of v.people) {
+    if (!object(person) || !Number.isSafeInteger(person.monthWorkDurationSeconds)
+      || Number(person.monthWorkDurationSeconds) < 0) return false;
+    const { monthWorkDurationSeconds, ...previous } = person;
+    people.push(previous);
+  }
+  return isManagedActiveSummaryV2({...v,people});
 }

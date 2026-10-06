@@ -1,4 +1,4 @@
-import { MANAGED_PEOPLE_ACCEPT_V2 } from '@taptime/administration-contract/managed-people';
+import { MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedActiveSummary, isManagedActiveSummaryV2, isManagedActiveSummaryV3 } from '@taptime/administration-contract/managed-people';
 import { AdminWebApiClient } from '../../admin-web/src/AdminWebApiClient.js';
 import { rangeSummary } from '../../mobile/src/screens/ownTimeCalendar.js';
 import type { Server } from 'node:http';
@@ -134,7 +134,7 @@ afterAll(async () => {
 function mobile(token:string) {
   return new TapTimeEmployeesApiClient(origin,{async post(endpoint,body,options){
     rateNow+=60_001; // A new rate-limit window for each independent authorization case.
-    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includeDeparted?{accept:MANAGED_PEOPLE_ACCEPT_V2}:options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
+    const response=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer header.${token}.signature`,'content-type':'application/json', ...(options?.includeMonthHours?{accept:MANAGED_PEOPLE_ACCEPT_V3}:options?.includeDeparted?{accept:MANAGED_PEOPLE_ACCEPT_V2}:options?.includeCalendarBreaks?{accept:TIME_CALENDAR_ACCEPT}:options?.includeTimeDetails?{accept:TIME_DETAILS_ACCEPT}:{})},body});
     return {status:'response',statusCode:response.status,contentType:response.headers.get('content-type'),body:await response.text()};
   }});
 }
@@ -406,4 +406,178 @@ it('T092 negotiates departed people for web/mobile and preserves the shipped v1 
   expect(await mobile(fixtureTokens.employeeA).summary(request)).toMatchObject({status:'ready',value:{people:expect.arrayContaining([expect.objectContaining({membershipId:target,departedAt:expect.any(String)})])}});
   const web=new AdminWebApiClient((path,init)=>fetch(`${origin}${path}`,init));
   expect(await web.managedActiveSummary(`header.${fixtureTokens.employeeA}.signature`,request)).toMatchObject({status:'succeeded',value:{people:expect.arrayContaining([expect.objectContaining({membershipId:target,departedAt:expect.any(String)})])}});
+});
+
+const summaryV3=(actor:Parameters<typeof context>[0],cursor:string|null=null,location:string|null=null)=>context(actor,async c=>
+  (await c.query('SELECT * FROM taptime_server.read_managed_active_summary_v3($1,NULL,$2,20)',[location,cursor])).rows);
+it.each([
+  {transport:'SQL',isRunning:true},{transport:'SQL',isRunning:false},
+  {transport:'HTTP',isRunning:true},{transport:'HTTP',isRunning:false},
+])('T102 $transport keeps paging when the anchor leaves the isRunning=$isRunning filter',async({transport,isRunning})=>{
+  const people=Array.from({length:22},(_,i)=>({member:randomUUID(),user:randomUUID(),entry:randomUUID(),name:`Cursor ${String(i).padStart(2,'0')}`}));
+  const changeRunning=async(c:PoolClient,person:typeof people[number],running:boolean)=>{
+    const event=randomUUID(),at=running?'2026-10-06T08:00:00Z':'2026-10-06T09:00:00Z';
+    await c.query(`INSERT INTO taptime_server.work_events(id,organization_id,triggered_by_user_id,target_type,target_customer_id,occurred_at,trigger_type,content_hash,content_hash_algorithm,content_hash_version)
+      VALUES($1,$2,$3,'customer',$4,$5,'manual',repeat('a',64),'sha256',2)`,[event,ids.organizationA,person.user,ids.customerA,at]);
+    if(running)await c.query(`INSERT INTO taptime_server.time_entries(id,organization_id,user_id,target_type,target_customer_id,status,start_work_event_id,started_at,started_via)
+      VALUES($1,$2,$3,'customer',$4,'started',$5,$6,'manual')`,[person.entry,ids.organizationA,person.user,ids.customerA,event,at]);
+    else await c.query(`UPDATE taptime_server.time_entries SET status='stopped',stop_work_event_id=$2,stopped_at=$3,stopped_via='manual',row_version=row_version+1 WHERE id=$1`,[person.entry,event,at]);
+    await c.query(`INSERT INTO taptime_server.canonical_decisions(work_event_id,organization_id,actor_user_id,target_type,target_customer_id,decision_type,time_entry_id,engine_version,decision_payload)
+      VALUES($1,$2,$3,'customer',$4,$5,$6,'test','{}')`,[event,ids.organizationA,person.user,ids.customerA,running?'time_entry_started':'time_entry_stopped',person.entry]);
+  };
+  const c=await pool.connect();try {
+    await c.query('BEGIN');
+    for(const person of people) {
+      await c.query('INSERT INTO taptime_server.users(id) VALUES($1)',[person.user]);
+      await c.query(`INSERT INTO taptime_server.memberships(id,organization_id,user_id,role,display_name)
+        VALUES($1,$2,$3,'employee',$4)`,[person.member,ids.organizationA,person.user,person.name]);
+      await c.query(`INSERT INTO taptime_server.membership_home_location_assignments(id,organization_id,membership_id,location_id)
+        VALUES(gen_random_uuid(),$1,$2,$3)`,[ids.organizationA,person.member,a]);
+      if(isRunning)await changeRunning(c,person,true);
+    }
+    await c.query('COMMIT');
+    const readPage=async(cursor:string|null)=>{
+      if(transport==='SQL')return context('admin',async reader=>{
+        const rows=(await reader.query('SELECT * FROM taptime_server.read_managed_active_summary_v3($1,$2,$3,20)',[a,isRunning,cursor])).rows;
+        expect(rows[0].result_status).toBe('succeeded');
+        expect(rows.every(row=>row.is_running===isRunning)).toBe(true);
+        const shown=rows.slice(0,20);
+        return {ids:shown.map(row=>row.membership_id as string),cursor:rows.length>20?shown.at(-1)!.membership_id as string:null};
+      });
+      rateNow+=60_001;
+      const response=await fetch(`${origin}/v1/administration/managed-active-summary`,{method:'POST',headers:{
+        authorization:`Bearer header.${fixtureTokens.adminA}.signature`,'content-type':'application/json',accept:MANAGED_PEOPLE_ACCEPT_V3,
+      },body:JSON.stringify({expectedMembershipId:ids.membershipAdminA,locationId:a,isRunning,cursor,limit:20})});
+      expect(response.status).toBe(200);
+      const value=await response.json();
+      if(!isManagedActiveSummaryV3(value))throw Error('Missing v3 summary');
+      expect(value.people.every(person=>person.isRunning===isRunning)).toBe(true);
+      return {ids:value.people.map(person=>person.membershipId),cursor:value.nextCursor};
+    };
+    const expected=[isRunning?ids.membershipAdminA2:ids.membershipAdminA,...people.map(person=>person.member),...(isRunning?[]:[ids.membershipEmployeeA])];
+    const first=await readPage(null);
+    expect(first.ids).toEqual(expected.slice(0,20));expect(first.cursor).not.toBeNull();
+    const anchor=people.find(person=>person.member===first.ids.at(-1))!;
+    await c.query('BEGIN');await changeRunning(c,anchor,!isRunning);await c.query('COMMIT');
+    expect((await c.query('SELECT status FROM taptime_server.time_entries WHERE id=$1',[anchor.entry])).rows[0].status).toBe(isRunning?'stopped':'started');
+    const second=await readPage(first.cursor);
+    expect(second.ids).toEqual(expected.slice(first.ids.length));expect(second.cursor).toBeNull();
+    const combined=[...first.ids,...second.ids];
+    expect(combined).toEqual(expected);expect(new Set(combined).size).toBe(expected.length);
+  }finally{await c.query('ROLLBACK');c.release();}
+});
+it('T102 pages 45 people across location boundaries, then departed people without gaps or repeats',async()=>{
+  const third=randomUUID();
+  await pool.query(`INSERT INTO taptime_server.locations(id,organization_id,display_name) VALUES($1,$2,'Standort C')`,[third,ids.organizationA]);
+  const c=await pool.connect();try {
+    await c.query('BEGIN');
+  for(let i=0;i<45;i++) {
+    const user=randomUUID(),member=randomUUID();
+    await c.query('INSERT INTO taptime_server.users(id) VALUES($1)',[user]);
+    await c.query(`INSERT INTO taptime_server.memberships(id,organization_id,user_id,role,display_name)
+      VALUES($1,$2,$3,'employee',$4)`,[member,ids.organizationA,user,`Name ${String(44-i).padStart(2,'0')}`]);
+    await c.query(`INSERT INTO taptime_server.membership_home_location_assignments(id,organization_id,membership_id,location_id)
+      VALUES(gen_random_uuid(),$1,$2,$3)`,[ids.organizationA,member,[a,b,third][i%3]]);
+    if(i===0)await c.query('UPDATE taptime_server.memberships SET revoked_at=clock_timestamp(),row_version=row_version+1 WHERE id=$1',[member]);
+  }
+    await c.query('COMMIT');
+  }finally{await c.query('ROLLBACK');c.release();}
+  const expected=(await pool.query(`SELECT m.id FROM taptime_server.memberships m
+    LEFT JOIN taptime_server.locations l ON l.id=taptime_server.membership_management_home_v1(m.organization_id,m.id)
+    WHERE m.organization_id=$1 ORDER BY m.revoked_at IS NOT NULL,l.display_name COLLATE "C",COALESCE(m.display_name,CASE m.role WHEN 'administrator' THEN 'Administrator' WHEN 'standortleitung' THEN 'Standortleitung' ELSE 'Mitarbeiter' END) COLLATE "C",m.id`,[ids.organizationA])).rows.map(r=>r.id);
+  const actual:string[]=[];let cursor:string|null=null;
+  do {
+    const page=await summaryV3('admin',cursor);
+    expect(page[0].result_status).toBe('succeeded');
+    const shown=page.slice(0,20);actual.push(...shown.map(r=>r.membership_id));
+    cursor=page.length>20?shown.at(-1)!.membership_id:null;
+  }while(cursor);
+  expect(actual).toEqual(expected);expect(new Set(actual).size).toBe(expected.length);
+  const own=await summaryV3('manager');expect(own.every(r=>r.location_id===a)).toBe(true);
+  const tail=await summaryV3('manager',own[19]?.membership_id ?? own[0].membership_id);
+  expect(tail.filter(r=>r.membership_id).every(r=>r.location_id===a)).toBe(true);
+});
+it('T102 rejects foreign, unselected and unknown cursor anchors and reevaluates grants',async()=>{
+  for(const cursor of [targetB,ids.membershipAdminB,randomUUID()]) {
+    expect(await summaryV3('manager',cursor)).toMatchObject([{result_status:'invalid_request',membership_id:null}]);
+  }
+  expect(await summaryV3('admin',targetB,a)).toMatchObject([{result_status:'invalid_request',membership_id:null}]);
+  expect(await summaryV3('employee')).toMatchObject([{result_status:'forbidden',membership_id:null}]);
+  expect(await summaryV3('admin',null,foreign)).toMatchObject([{result_status:'forbidden'}]);
+  const own=await summaryV3('manager');
+  await pool.query('UPDATE taptime_server.membership_management_location_grants SET revoked_at=clock_timestamp() WHERE membership_id=$1',[ids.membershipEmployeeA]);
+  expect(await summaryV3('manager',own[0].membership_id)).toMatchObject([{result_status:'forbidden',membership_id:null}]);
+});
+it('T102 HTTP negotiates v3, preserves exact v1/v2 shapes, and binds cursors to version and filter',async()=>{
+  const body={expectedMembershipId:ids.membershipAdminA,locationId:null,isRunning:null,cursor:null,limit:1};
+  const query=async(accept:string)=>{
+    rateNow+=60_001;
+    const response=await fetch(`${origin}/v1/administration/managed-active-summary`,{method:'POST',headers:{authorization:`Bearer header.${fixtureTokens.adminA}.signature`,'content-type':'application/json',accept},body:JSON.stringify(body)});
+    expect(response.status).toBe(200);expect(response.headers.get('vary')).toBe('Accept');return response.json();
+  };
+  expect(isManagedActiveSummary(await query('application/json'))).toBe(true);
+  expect(isManagedActiveSummaryV2(await query(MANAGED_PEOPLE_ACCEPT_V2))).toBe(true);
+  const v3=await query(MANAGED_PEOPLE_ACCEPT_V3);expect(isManagedActiveSummaryV3(v3)).toBe(true);
+  if(!isManagedActiveSummaryV3(v3))throw Error('Missing v3 summary');
+  expect(v3.nextCursor).toMatch(/^[\x20-\x7e]{1,256}$/);expect(v3.nextCursor).not.toContain(v3.people[0]!.displayName);
+  expect(await coordinator.readManagedActiveSummary({...body,accessToken:`header.${fixtureTokens.adminA}.signature`,cursor:v3.nextCursor})).toEqual({status:'invalid_request'});
+  expect(await coordinator.readManagedActiveSummary({...body,accessToken:`header.${fixtureTokens.adminA}.signature`,includeMonthHours:true,locationId:a,cursor:v3.nextCursor})).toEqual({status:'invalid_request'});
+  const mobileResult=await mobile(fixtureTokens.adminA).summary(body);expect(mobileResult.status).toBe('ready');
+  if(mobileResult.status==='ready')expect(isManagedActiveSummaryV3(mobileResult.value)).toBe(true);
+  const web=new AdminWebApiClient((path,init)=>fetch(`${origin}${path}`,init));
+  rateNow+=60_001;
+  const webResult=await web.managedActiveSummary(`header.${fixtureTokens.adminA}.signature`,body);
+  expect(webResult.status).toBe('succeeded');if(webResult.status==='succeeded')expect(isManagedActiveSummaryV3(webResult.value)).toBe(true);
+});
+it('T102 046→047 preserves old functions and populated rows, rollback and repeated migration are safe',async()=>{
+  await pool.query(`DROP SCHEMA ${B3_SCHEMA} CASCADE; DROP TABLE ${B3_MIGRATION_TABLE}`);
+  const migrations=await loadMigrations();await applyMigrationSet(pool,migrations.filter(m=>m.version<'047'));await seed();
+  const snapshot=async(c:Pool|PoolClient)=>{
+    const tables=(await c.query(`SELECT tablename FROM pg_tables WHERE schemaname='taptime_server' ORDER BY tablename`)).rows;
+    const rows:Record<string,unknown>={};for(const {tablename} of tables)rows[tablename]=(await c.query(`SELECT to_jsonb(t) AS row FROM taptime_server.${tablename} t ORDER BY to_jsonb(t)::text`)).rows;
+    return rows;
+  };
+  const oldFunctions=async(c:Pool|PoolClient)=>(await c.query(`SELECT proname,pg_get_functiondef(oid) AS definition,proacl::text FROM pg_proc
+    WHERE pronamespace='taptime_server'::regnamespace AND proname IN ('read_managed_active_summary_v1','read_managed_active_summary_v2') ORDER BY proname`)).rows;
+  const before=await snapshot(pool),definitions=await oldFunctions(pool);
+  const c=await pool.connect();try {
+    await c.query('BEGIN');await c.query(migrations.find(m=>m.version==='047')!.sql);
+    expect(await snapshot(c)).toEqual(before);expect(await oldFunctions(c)).toEqual(definitions);
+    await c.query('ROLLBACK');expect((await c.query(`SELECT to_regprocedure('taptime_server.read_managed_active_summary_v3(uuid,boolean,uuid,integer)') AS function`)).rows[0].function).toBeNull();
+  }finally{await c.query('ROLLBACK');c.release();}
+  expect((await applyMigrationSet(pool,migrations)).applied).toEqual(['047']);expect((await applyMigrationSet(pool,migrations)).applied).toEqual([]);
+  expect(await snapshot(pool)).toEqual(before);expect(await oldFunctions(pool)).toEqual(definitions);
+  const protection=(await pool.query(`SELECT pg_get_userbyid(proowner) AS owner,prosecdef,provolatile,proconfig FROM pg_proc
+    WHERE oid='taptime_server.read_managed_active_summary_v3(uuid,boolean,uuid,integer)'::regprocedure`)).rows[0];
+  expect(protection).toEqual({owner:'taptime_membership_management_function_owner',prosecdef:true,provolatile:'s',proconfig:['search_path=pg_catalog']});
+  const callers=(await pool.query(`SELECT grantee.rolname FROM pg_proc p CROSS JOIN LATERAL aclexplode(p.proacl) acl
+    LEFT JOIN pg_roles grantee ON grantee.oid=acl.grantee
+    WHERE p.oid='taptime_server.read_managed_active_summary_v3(uuid,boolean,uuid,integer)'::regprocedure AND acl.privilege_type='EXECUTE' ORDER BY grantee.rolname`)).rows;
+  expect(callers).toEqual([{rolname:'taptime_membership_management_function_owner'},{rolname:'taptime_membership_manager'}]);
+  await context('admin',async c=>{await expect(c.query('SELECT * FROM taptime_server.break_intervals')).rejects.toMatchObject({code:'42501'});});
+  await context('admin',async c=>{await expect(c.query('SELECT * FROM taptime_server.time_record_duration_v1($1,NULL,now(),now())',[ids.organizationA])).rejects.toMatchObject({code:'42501'});});
+  expect((await pool.query(`SELECT c.relname FROM pg_class c WHERE c.relnamespace='taptime_server'::regnamespace AND c.relkind='r' AND NOT(c.relrowsecurity AND c.relforcerowsecurity)`)).rows).toEqual([]);
+});
+
+it('T102 retains the last home of departed people, and skips location sorting when disabled',async()=>{
+  // A fresh read follows the committed command, as on the HTTP path.
+  await pool.query('UPDATE taptime_server.memberships SET revoked_at=clock_timestamp(),row_version=row_version+1 WHERE id=$1',[ids.membershipEmployeeA]);
+  await context('admin',async c=>{
+    // Revocation already ends the home assignment through the production trigger.
+    // D-115 still resolves the last home assignment for departed people.
+    await c.query('SET LOCAL ROLE taptime_membership_manager');
+    expect((await c.query('SELECT * FROM taptime_server.read_managed_active_summary_v3(NULL,NULL,NULL,20)')).rows.at(-1)).toMatchObject({membership_id:ids.membershipEmployeeA,location_id:a});
+    await c.query('RESET ROLE');
+    await c.query('UPDATE taptime_server.organizations SET locations_enabled=false,row_version=row_version+1 WHERE id=$1',[ids.organizationA]);
+    const user=randomUUID(),member=randomUUID();
+    await c.query('INSERT INTO taptime_server.users(id) VALUES($1)',[user]);
+    await c.query(`INSERT INTO taptime_server.memberships(id,organization_id,user_id,role,display_name)
+      VALUES($1,$2,$3,'employee','Aaron')`,[member,ids.organizationA,user]);
+    await c.query('SET LOCAL ROLE taptime_membership_manager');
+    const rows=(await c.query('SELECT * FROM taptime_server.read_managed_active_summary_v3(NULL,NULL,NULL,20)')).rows;
+    expect(rows.every(r=>r.location_id===null)).toBe(true);
+    expect(rows.map(r=>r.membership_id)).toEqual([member,...[ids.membershipAdminA,ids.membershipAdminA2].sort(),targetB,ids.membershipEmployeeA]);
+    expect(rows.slice(1,3).map(r=>r.membership_display_name)).toEqual(['Administrator','Administrator']);
+    expect(rows.at(-1).departed_at).not.toBeNull();
+  });
 });

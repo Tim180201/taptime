@@ -133,6 +133,7 @@ export interface MobileSessionCapability {
   refresh(): Promise<void>;
   signOut(): Promise<void>;
   signOutImmediately?(): Promise<void>;
+  cancelSignOut?(): Promise<void>;
   readonly requestPasswordReset?: (email: string) => Promise<'requested' | 'unavailable'>;
 }
 

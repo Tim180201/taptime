@@ -120,8 +120,10 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     const waiting={status:'archive_signout_pending' as const};
     h.props.scan.getState=()=>waiting;
     h.props.session.signOutImmediately=vi.fn(async()=>{});
+    h.props.session.cancelSignOut=vi.fn(async()=>{});
     await act(async()=>root.render(createElement(AppNavigator,h.props)));
     expect(container.textContent).toContain('Deine Erfassungen werden noch gesichert. Abmelden ist gleich möglich.');
+    await press('Angemeldet bleiben');expect(h.props.session.cancelSignOut).toHaveBeenCalledOnce();
     await press('Trotzdem abmelden');expect(h.props.session.signOutImmediately).toHaveBeenCalledOnce();
     expect(container.querySelector('[aria-label="Manuell erfassen"]')).toBeNull();
   });

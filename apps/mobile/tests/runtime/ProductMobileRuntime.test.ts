@@ -169,6 +169,18 @@ describe('DefaultProductMobileRuntime lifecycle', () => {
       expect(h.session.signOut).toHaveBeenCalledOnce();expect(scan.pollArchiveForSignOut).toHaveBeenCalledOnce();
     } finally {h.runtime.stop();vi.useRealTimers();}
   });
+  it('T102 cancel sign-out stops polling and ignores a late archive proof',async()=>{
+    const h=setup();
+    vi.spyOn(h.session,'getState').mockReturnValue({status:'authenticated',session:{userId:'A',organizationId:'org',membershipId:'A-member',role:'employee',nfcSetupAvailable:false}});
+    let resolve!:(value:boolean)=>void;
+    const scan=Object.assign(h.scan,{prepareSignOut:vi.fn(async()=>({wait:true as const,accountKey:'org/A-member/A'})),pollArchiveForSignOut:vi.fn(()=>new Promise<boolean>(r=>{resolve=r;}))});
+    await h.runtime.start();vi.useFakeTimers();
+    try {
+      await h.runtime.session.signOut();await h.runtime.session.cancelSignOut!();resolve(true);await vi.advanceTimersByTimeAsync(90_000);
+      expect(h.session.signOut).not.toHaveBeenCalled();expect(scan.pollArchiveForSignOut).toHaveBeenCalledOnce();
+      expect(h.runtime.scan.getState().status).not.toBe('archive_signout_pending');
+    } finally {h.runtime.stop();vi.useRealTimers();}
+  });
   it('T-095 D-120 stops waiting when the runtime stops and ignores the old proof',async()=>{
     const h=setup();
     vi.spyOn(h.session,'getState').mockReturnValue({status:'authenticated',session:{userId:'A',organizationId:'org',membershipId:'A-member',role:'employee',nfcSetupAvailable:false}});

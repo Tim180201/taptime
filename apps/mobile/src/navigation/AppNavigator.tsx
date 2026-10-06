@@ -83,6 +83,7 @@ export function AppNavigator({
 
   if ((state.status === 'authenticated' || state.status === 'context_unavailable') && scanState.status === 'archive_signout_pending') {
     return <MessageScreen title="Deine Erfassungen werden noch gesichert. Abmelden ist gleich möglich.">
+      <ActionButton title="Angemeldet bleiben" onPress={() => session.cancelSignOut?.()} />
       <ActionButton title="Trotzdem abmelden" tone="quiet" onPress={() => session.signOutImmediately?.()} />
     </MessageScreen>;
   }

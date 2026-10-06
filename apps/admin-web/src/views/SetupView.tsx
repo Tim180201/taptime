@@ -185,13 +185,12 @@ export default function SetupView({
             </select>
           </label>
           <label>Neuer aktiver Kunde
-            <select ref={targetSelect} required value={targetId}
+            <select data-field-error={targetId && selectedTag?.targetCustomerId === targetId ? "Der Tag gehört bereits zu diesem Kunden." : undefined} ref={targetSelect} required value={targetId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTargetId(event.target.value)}>
               <option value="">Arbeitsziel auswählen</option>
               {state.projection.customers.filter((customer) => customer.active)
-                .map((customer) => <option key={customer.id} value={customer.id}
-                  disabled={customer.id === selectedTag?.targetCustomerId}>
+                .map((customer) => <option key={customer.id} value={customer.id}>
                   {customer.displayName}
                 </option>)}
             </select>

@@ -75,3 +75,35 @@ it('T092 mobile lists departed people as a separate, navigable section',async()=
   expect(html).toContain('Ausgeschieden');expect(html).toContain('Anna Ausgeschieden, ausgeschieden');
   expect(html).toContain('Ausgeschieden am');
 });
+
+it('T102 groups appended pages and shows month hours only with v3',async()=>{
+  const {EmployeesScreen}=await import('../../src/screens/EmployeesScreen');
+  const person={membershipId:id,displayName:'Anna',role:'employee' as const,location:{id:locationId,name:'Nord'},
+    isRunning:false,runningSince:null,runningTargetDisplayName:null,departedAt:null,monthWorkDurationSeconds:9000};
+  let people:import('../../src/employees/contracts').ManagedPerson[]=[person];
+  const employees:import('../../src/employees/contracts').EmployeesCapability={
+    getState:()=>({status:'list',filter:false,busy:false,failed:false,summary:{serverTime:'2026-10-05T12:00:00.000Z',people,runningCount:0,totalCount:people.length,nextCursor:null}}),subscribe:()=>()=>{},
+    refresh:async()=>{},filter:async()=>{},loadMore:async()=>{},openPerson:vi.fn(async()=>{}),loadPersonMonth:async()=>{},openInvitation:async()=>{},invite:async()=>{},back:async()=>{},leave:()=>{},
+  };
+  const render=(enabled=true)=>renderToStaticMarkup(createElement(EmployeesScreen,{employees,scope:{kind:'organization'},locationsEnabled:enabled}));
+  people=[person,{...person,membershipId:'two',displayName:'Berta'},{...person,membershipId:'three',location:{id:'south',name:'Süd'}}];
+  const html=render();expect(html.match(/>Nord</g)).toHaveLength(1);expect(html.match(/>Süd</g)).toHaveLength(1);expect(html.match(/Diesen Monat 2,5 h/g)).toHaveLength(3);
+  expect(render(false)).not.toContain('>Nord<');
+  // Equal location names can interleave in the server's specified name/person ordering.
+  // Accumulated pages still have one heading per location identity, in both clients.
+  people=[person,{...person,membershipId:'other',location:{id:'other-location',name:'Nord'}},{...person,membershipId:'later'}];
+  expect(render().match(/>Nord</g)).toHaveLength(2);
+  people=[{membershipId:id,displayName:'Anna',role:'employee',location:person.location,isRunning:false,runningSince:null,runningTargetDisplayName:null}];
+  expect(render()).not.toContain('Diesen Monat');expect(render()).not.toContain('>Nord<');
+});
+it.each([1,2,3])('T102 mobile negotiates v3 and accepts v%s fallback',async version=>{
+  const {TapTimeEmployeesApiClient}=await import('../../src/employees/TapTimeEmployeesApiClient');
+  const {AuthenticatedHttpRequestExecutor}=await import('../../src/transport/AuthenticatedHttpRequestExecutor');
+  const {MANAGED_PEOPLE_ACCEPT_V3}=await import('@taptime/administration-contract/managed-people');
+  const person={membershipId:id,displayName:'Anna',role:'employee',location:null,isRunning:false,runningSince:null,runningTargetDisplayName:null,
+    ...(version>=2?{departedAt:null}:{}),...(version===3?{monthWorkDurationSeconds:0}:{})};
+  const fetcher=vi.fn(async(_path:string,_init:import('../../src/transport/AuthenticatedHttpRequestExecutor').AuthenticatedFetchRequestInit)=>Response.json({serverTime:'2026-10-05T12:00:00.000Z',people:[person],runningCount:0,totalCount:1,nextCursor:null}));
+  const requests=new AuthenticatedHttpRequestExecutor({executeAuthenticatedRequest:async operation=>operation(()=> 'synthetic')},fetcher);
+  const result=await new TapTimeEmployeesApiClient('https://example.test',requests).summary({expectedMembershipId:id,locationId:null,isRunning:null,cursor:null,limit:20});
+  expect(result.status).toBe('ready');expect(fetcher.mock.calls[0]?.[1]).toMatchObject({headers:expect.objectContaining({Accept:MANAGED_PEOPLE_ACCEPT_V3})});
+});

@@ -127,6 +127,21 @@ describe('OfflineCaptureCoordinator', () => {
       expect(await h.database().readOwnerReleaseBlock()).toBeNull();
     } finally {await h.close();}
   });
+  it.each([false,true])('T102 staying signed in restores capture with retained archive evidence, offline=%s',async offline=>{
+    const h=await accountHarness();
+    try {
+      h.mode='unarchived';await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer});await h.scheduler().whenIdle();
+      if(offline){h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));}
+      expect(await h.coordinator.prepareSignOut()).toMatchObject({wait:true});
+      const runtime=new DefaultProductMobileRuntime({} as ProductSessionRuntimeOwner,{start(){},stop(){}},{} as ProductServerTransport,h.coordinator,{} as ProductAdministrationRuntimeOwner);
+      await runtime.session.cancelSignOut!();
+      expect(h.coordinator.getState().status).not.toBe('archive_signout_pending');
+      expect(await h.database().readOwnerReleaseBlock()).toBe('archive_pending');
+      expect(await h.coordinator.pollArchiveForSignOut()).toBe(false);
+      expect(await h.coordinator.captureManual({targetType:'customer',targetId:ids.customer})).not.toMatchObject({status:'unavailable'});
+      expect(await h.database().queueCount()).toBeGreaterThan(0);
+    }finally{await h.close();}
+  });
   it('T-095 D-120 retains the old account hint after forced logout with archive still pending',async()=>{
     const h=await accountHarness();
     try {

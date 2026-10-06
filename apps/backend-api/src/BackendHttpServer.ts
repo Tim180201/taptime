@@ -7,7 +7,7 @@ import {isVoidTimeRequest,isVoidedTimeQuery} from '@taptime/mobile-work-contract
 import { isCustomerHoursRequest, isSetCustomerQuotaRequest } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isAdministrationStopRequest, TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT, TIME_DETAILS_ACCEPT_V3, isBackfillTimeRequest, isCommentTimeRequest } from '@taptime/mobile-work-contract';
-import { MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
+import { MANAGED_PEOPLE_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V2, isManagedPersonTimeRequest, isManagedActiveSummaryRequest } from '@taptime/administration-contract/managed-people';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
@@ -730,7 +730,7 @@ async function handleRequest(
       async (deadlineEpochMilliseconds) => {
         const operation = dependencies.employeeEnrollment.readManagedActiveSummary;
         if (!operation) throw new Error('Managed summary unavailable');
-        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === MANAGED_PEOPLE_ACCEPT_V2 ? {includeDeparted:true} : {}) }, { deadlineEpochMilliseconds });
+        return operation.call(dependencies.employeeEnrollment, { accessToken, ...body, ...(request.headers.accept === MANAGED_PEOPLE_ACCEPT_V3 ? {includeMonthHours:true} : request.headers.accept === MANAGED_PEOPLE_ACCEPT_V2 ? {includeDeparted:true} : {}) }, { deadlineEpochMilliseconds });
       }, result => result.value);
     return;
   }
