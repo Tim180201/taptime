@@ -1805,3 +1805,12 @@ Der Wechsel auf Supabase Pro (25 US-Dollar im Monat, Abo-Umstellung im Dashboard
 Taptura offiziell wird, also mit der Gewerbeanmeldung. Weil echte Pilotdaten nach D-116 erst danach kommen, liegt Pro
 damit vor den ersten echten Konten. Präzisiert D-039.
 **Warum:** Der kostenlose Tarif pausiert nach einer Woche ohne Aktivität (Vorfall 15.09.) und sichert die Konten nicht.
+
+## D-131 · Eigene Zeiten ohne Grund · 07.10.2026 · Tim (PO)
+Wer eigene Zeiten nachträgt oder ändert, braucht keinen Grund, gleich in welcher Rolle; ein Kommentar bleibt freiwillig.
+Die eigene laufende Zeit beendet man wie bisher unter „Erfassen“ bzw. „Manuell“, ohne Grund. Wer Zeiten einer anderen
+Person nachträgt, ändert oder beendet, gibt weiter einen Grund an (D-122). Löschen und „Zeiten prüfen“ bleiben mit Grund.
+Nachvollziehbar bleibt jede Änderung über Zeitpunkt, Urheber und das unveränderte Original; ohne Grund speichert der
+Server „Selbst nachgetragen“ bzw. „Selbst geändert“, die Historie zeigt „selbst“. Umsetzung in T-113.
+**Warum:** Der Grund erklärt der betroffenen Person eine fremde Änderung. Bei eigenen Zeiten gibt es niemanden, dem er
+etwas erklärt; er ist nur eine zusätzliche Hürde.

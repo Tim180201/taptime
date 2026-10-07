@@ -2,14 +2,14 @@
 
 **Stand 07.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
 Migrationen 043–051, zwei Probe-Wiederherstellungen grün). T-109 (Weg zur App, D-129) ist abgeschlossen (`d72ba94`, CI
-und Image grün) und geht mit Deploy 4 auf den Server. „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen
-weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`. T-098b Teil 1 erledigt (21 Versionen
-wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
-`.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Deploy 4 und Geräteabnahme abschließen → T-024 → Pilot. Pilot als Einzelunternehmer (D-116):
-Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten Daten; beide Apps zum
-Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
-vollständigen Monatsabschluss übersteht.
+und Image grün). Deploy 4 ist verschoben und bringt T-109 und T-113 zusammen; in Arbeit: T-113. „Taptura“ ist der
+Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
+T-098b Teil 1 erledigt (21 Versionen wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und
+Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen).
+**Weg zum Pilot:** T-113 → Deploy 4 → T-112 mit neuen App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
+Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
+Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
+wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
 
 ## Geräteabnahme nach dem dritten Deploy (PO)
@@ -17,16 +17,17 @@ vollständigen Monatsabschluss übersteht.
 **iPhone (07.10.):** bestanden: Anmeldung, Begriffe und Reiter, „Übertragung“ mit Konto, Erfassen mit laufender Zeit und
 Pause samt „Zeit beenden“ aus der Pause, offline, Kalender, „Zeit hinzufügen“, Kunden anlegen/umbenennen/löschen,
 Mitarbeiter mit Monatswähler und Herunterziehen, „Passwort vergessen“ mit neuer Vorlage, große Schrift.
-**Offen:** am iPhone die Scan-Teile (Karte startet und beendet, „Karte prüfen“, Karte öffnet die App bei geschlossener
-App); Android komplett; Web (Übersicht mit nächstem Schritt, „Zeiten prüfen“, Mitarbeiter mit Monat, Betreiber-Paket);
-Aussperr-Test mit einem zweiten Konto; einmal VoiceOver/TalkBack. Nach Deploy 4 die Einladung dieses zweiten Kontos
-einmal bis „App laden“ durchspielen.
+**Offen:** am iPhone die Scan-Teile (Karte startet und beendet, „Karte prüfen“; bei geschlossener App erscheint nur die
+Hinweisseite `/tag`, keine Erfassung, D-081); Android komplett (dort öffnet die Karte die App und erfasst); Web
+(Übersicht mit nächstem Schritt, „Zeiten prüfen“, Mitarbeiter mit Monat, Betreiber-Paket); Aussperr-Test mit einem
+zweiten Konto; einmal VoiceOver/TalkBack. Nach Deploy 4 die Einladung dieses zweiten Kontos bis „App laden“
+durchspielen. Befunde des PO-Tests vom 07.10. (Karte einrichten, Zeitformulare, „Erfassen“) gehen in T-112 und T-113.
 
-## Deploy 4 (T-109)
+## Deploy 4 (T-109 und T-113)
 
-1. **Ziel `d72ba94`:** öffentliche Seite `/app` auf der Startseite, Caddyfile, Verwaltung (Willkommen, neues Passwort).
-   Keine Migration, keine neuen Schlüssel, Steuerung unverändert; laut `infrastructure/DEPLOY.md` keine PO-Schritte vor
-   dem Deploy. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt).
+1. **Ziel:** der Commit von T-113. Neu: öffentliche Seite `/app`, Caddyfile, Verwaltung, Migration 052. Keine neuen
+   Schlüssel, Steuerung unverändert. PO-Schritte aus `infrastructure/DEPLOY.md` vorher abfragen. Durch den Caddy-Wechsel
+   ist einmal `curl: (7)` möglich (bekannt).
 2. **Danach (PO):** Einladungsvorlage aus `docs/T-047-Einladungsvorlage.md` vollständig übertragen (zweiter Link „App
    laden“, neuer Satz zum abgelaufenen Link). `https://tb-infra.de/app` am Handy und am Rechner öffnen: ohne
    Passwortabfrage, „Die App erhalten Sie von Ihrer Verwaltung.“, solange die Links leer sind.
