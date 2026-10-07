@@ -1,48 +1,32 @@
 # TapTim.e — Status
 
-**Stand 06.10.2026.** Produktion läuft auf `b1ecb8c` (Deploy 04.10., Migrationen bis 042). App-Builds 04.10.: iPhone
-1.0.0 (5), Android versionCode 12. „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`.
-**Auf `main`, noch nicht ausgeliefert:** T-094b (`2a9eb73`), T-103 (`d807da6`, `15ba7a4`, Migration 043), T-095
-(`df19da8`), T-095b (`bc4e2dc`, Migration 044), T-096 (`e7cad13`), T-097 (`58e8bba`, Migration 045), T-098 (`4f6fa75`),
-T-100 (`b693fde`, Migration 046), T-101 (`1043011`), T-102 (`d399c69`, Migration 047), T-075 (`28e3685`, `5aa8ea2`,
-Migration 048), T-106 (`06b3008`, Migration 049), T-107 (`16670ed`, Migration 050; danach eine Testkorrektur der
-synthetischen WAL-Belege), T-108 (`66b1952`), App-Link-Fingerabdrücke (`2d21521`), T-110 (`7cd4233`, Migration 051). Als
-Nächstes: dritter Deploy auf `7cd4233`. T-098b Teil 1 erledigt (06.10.): 21 Versionen wiederhergestellt, alle Abbilder
-von `b1ecb8c`, `0230188` und `66b1952` vollständig abrufbar. Teil 2 geparkt (siehe unten). UI/UX-Durchsicht und
-Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen); daraus T-107, T-108 und T-110;
-T-109 bereitet die Stores vor (D-129).
-**Weg zum Pilot:** dritter Deploy → Mail-Vorlage „Reset Password“ → App-Builds und Geräteabnahme → T-024 → Pilot. Pilot
-als Einzelunternehmer (D-116): Gewerbeanmeldung, AVV und Haftpflicht vor echten Daten. Fertig ist das Produkt, wenn das
-ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+**Stand 07.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
+Migrationen 043–051, zwei Probe-Wiederherstellungen grün). Damit sind T-094b bis T-110 und die App-Link-Fingerabdrücke
+auf dem Server. Neue App-Builds nach dem Deploy: iPhone über TestFlight installiert, Android-Build läuft. „Taptura“ ist
+der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`. In Arbeit: T-109 (Weg zur App, D-129). T-098b Teil 1
+erledigt (21 Versionen wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und Persona-Walkthrough vom
+06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen).
+**Weg zum Pilot:** Geräteabnahme abschließen → T-109 → T-024 → Pilot. Pilot als Einzelunternehmer (D-116):
+Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten Daten. Fertig ist das Produkt,
+wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
+
+## Geräteabnahme nach dem dritten Deploy (PO)
+
+**iPhone (07.10.):** bestanden: Anmeldung, Begriffe und Reiter, „Übertragung“ mit Konto, Erfassen mit laufender Zeit und
+Pause samt „Zeit beenden“ aus der Pause, offline, Kalender, „Zeit hinzufügen“, Kunden anlegen/umbenennen/löschen,
+Mitarbeiter mit Monatswähler und Herunterziehen, „Passwort vergessen“ mit neuer Vorlage, große Schrift.
+**Offen:** am iPhone die Scan-Teile (Karte startet und beendet, „Karte prüfen“, Karte öffnet die App bei geschlossener
+App); Android komplett; Web (Übersicht mit nächstem Schritt, „Zeiten prüfen“, Mitarbeiter mit Monat, Betreiber-Paket);
+Aussperr-Test mit einem zweiten Konto; einmal VoiceOver/TalkBack.
 
 ## Vor dem nächsten Deploy
 
-1. **T-098b:** Teil 1 erledigt (06.10.): die 21 gelöschten Versionen von `b1ecb8c` und `0230188` sind wiederhergestellt
-   und vollständig geprüft. Teil 2 (`t098b-verify`, lokal `212486d`) bleibt geparkt: Der Schutzsatz des Servers führt
-   16 alte Stände aus dem September, deren Kind-Manifeste längst fehlen; die Abrufprüfung würde jeden Lauf rot machen,
-   das Aufräumen bleibt übersprungen. Keine Voraussetzung für den Deploy (die Vorprüfung zieht die Abbilder selbst);
-   Lösung mit T-098c nach dem Deploy.
-2. **Fingerabdrücke (T-096):** eingetragen (06.10.), der Test lässt keinen Platzhalter mehr zu. Nach dem Deploy neue
-   Builds installieren; erst dann öffnet eine Karte bei geschlossener App die App. Mit Google Play (T-109) kommt der
-   Fingerabdruck der Play-App-Signatur hinzu.
-3. **PO-Schritte aus `infrastructure/DEPLOY.md`** abgefragt (06.10.): Deploy-Controller seit `b1ecb8c` unverändert
-   (kein Konsolenschritt), keine neuen `.env`-Einträge, Supabase-Einstellungen und Site URL geprüft.
-4. Vorprüfung: Sicherung und Wiederherstellungsprobe inaktiv, letzte Sicherung mit bekanntem Ende. Nach einem
-   Server-Neustart erst nach der nächsten stündlichen Sicherung (Meldung unklar → B11).
-5. Nach dem Deploy: Supabase-Vorlage „Reset Password“ aus `docs/T-094b-Ruecksetzvorlage.md` übertragen (PO). „Invite
-   user“ ist seit 06.10. auf dem Stand von `docs/T-047-Einladungsvorlage.md`.
-
-## Geräteabnahme nach dem Deploy (PO, iPhone und Android)
-
-Erfassen mit laufender Zeit und Pause (T-103) · offline erfassen, abgelehnte Erfassung, Abmelden mit Warten, Kontowechsel
-(T-095, T-095b) · Neuinstallation am iPhone, Tag öffnet die App bei geschlossener App (T-096) · Kunden anlegen,
-umbenennen, löschen, „Tag prüfen“ (T-100) · leere Pflichtfelder, einmal mit VoiceOver/TalkBack: Hinweis einmal vorgelesen
-(T-101) · Beschäftigte nach Standort mit Monatsstunden (T-102) · „Passwort vergessen“ bis zur Anmeldung (T-094b) ·
-Aussperr-Test: Zugang entziehen, die Person kommt in App und Web nicht mehr weiter (PO) · Paket im Betreiber-Bereich
-setzen und ändern, Hinweis beim Administrator (T-075) · Kalender mit Monatsbeginn am Sonntag, „Erfassen“ laufend, in der
-Pause und offline, „Zeit beenden“ aus der Personenansicht, Dauern als „9:54 h“, große Systemschrift und eine
-Ergebnismeldung mit VoiceOver/TalkBack (T-107).
+1. **T-109:** Weg zur App; danach überträgt der PO die Einladungsvorlage mit dem Link „App laden“.
+2. **T-098c:** Teil 2 von T-098b (`t098b-verify`, lokal `212486d`) bleibt bis dahin geparkt: Der Schutzsatz des Servers
+   führt 16 alte Stände aus dem September ohne Kind-Manifeste; die Abrufprüfung würde jeden Lauf rot machen.
+3. **PO-Schritte aus `infrastructure/DEPLOY.md`** für alle enthaltenen Aufgaben abfragen (AGENTS.md §7).
+4. Mit Google Play kommt der Fingerabdruck der Play-App-Signatur in `assetlinks.json` hinzu.
 
 ## Fakten für den Betrieb
 
@@ -61,9 +45,8 @@ Ergebnismeldung mit VoiceOver/TalkBack (T-107).
 
 ## Beobachten
 
-- Sicherungsdauer und `base_seconds` des Archivierers (24.09.: 13–17 min statt 6–7, 200–215 s statt 61); beim nächsten
-  Deploy aus `taptime-status` notieren, Ursache klären (wachsende Archivliste?). Export-Grenztest: absolute
-  Laufzeitwarnung beobachten.
+- Sicherung beim Deploy 06.10.: WAL-Zyklus 64–66 s, `base_seconds` 40 (24.09. noch 200–215 s). Weiter beobachten;
+  Export-Grenztest: absolute Laufzeitwarnung beobachten.
 - Fehlt zu einem laufenden Eintrag die Zusatzprojektion (043), scheitert das Lesen der eigenen Zeiten (T-103); bei
   wiederhergestellten Einträgen prüfen.
 - Android 17 zeigt für Tags mit Web-Adresse eine Mitteilung (D-037); am ersten Android-17-Gerät prüfen, ob der App
@@ -100,10 +83,11 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   `administration_stopped`, Dreiminutenmeldung kann sich verzögern (T-069) · Geräteuhr bei manueller Erfassung,
   unbegrenzter vergessener Stopp, Offline-Pausenkonflikte ohne aktive Zeit · Lease-Bindung nach Restore (P1, eigene
   Aufgabe T-055).
-- **Betrieb:** WAL-Spool gehört UID 999 (Kollision mit `dnsmasq`, T-057) · Kantenprüfung nach dem Caddy-Wechsel schließt
-  die Backend-Gesundheit ein (T-031) · `taptime-landing-password` ohne Eingabeaufforderung · systemd meldet „unit file
-  changed“ beim Ordnerwechsel · `registered_chain_watermark` liest direkt statt über eine Lesefunktion · Health ohne
-  Cache, alte Caddy-Assets · Caddy-Negativprüfung: EXIT-Trap verliert `holder` · Monitoring-Test braucht
+- **Betrieb:** Deploy-Kantenprüfung zeigt direkt nach dem Caddy-Neustart einmal `curl: (7)`, der nächste Versuch ist
+  grün (06.10.) · WAL-Spool gehört UID 999 (Kollision mit `dnsmasq`, T-057) · Kantenprüfung nach dem Caddy-Wechsel
+  schließt die Backend-Gesundheit ein (T-031) · `taptime-landing-password` ohne Eingabeaufforderung · systemd meldet
+  „unit file changed“ beim Ordnerwechsel · `registered_chain_watermark` liest direkt statt über eine Lesefunktion ·
+  Health ohne Cache, alte Caddy-Assets · Caddy-Negativprüfung: EXIT-Trap verliert `holder` · Monitoring-Test braucht
   GNU-Werkzeuge · ShellCheck CI 0.9 gegen lokal 0.11 · DNS-Wildcard nach dem Pilot verengen.
 - **Sicherheit:** CSP `*.supabase.co` auf den Aussteller verengen · SECURITY-DEFINER-Pfade und Policy-Prädikate prüfen ·
   Supabase-Anmeldung außerhalb der eigenen Ratenbegrenzung.
