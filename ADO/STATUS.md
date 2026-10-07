@@ -1,14 +1,15 @@
 # TapTim.e — Status
 
 **Stand 07.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
-Migrationen 043–051, zwei Probe-Wiederherstellungen grün). Damit sind T-094b bis T-110 und die App-Link-Fingerabdrücke
-auf dem Server. Neue App-Builds nach dem Deploy: iPhone über TestFlight installiert, Android-Build läuft. „Taptura“ ist
-der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`. In Arbeit: T-109 (Weg zur App, D-129). T-098b Teil 1
-erledigt (21 Versionen wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und Persona-Walkthrough vom
-06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Geräteabnahme abschließen → T-109 → T-024 → Pilot. Pilot als Einzelunternehmer (D-116):
-Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten Daten. Fertig ist das Produkt,
-wenn das ausgelieferte, wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
+Migrationen 043–051, zwei Probe-Wiederherstellungen grün). T-109 (Weg zur App, D-129) ist abgeschlossen (`d72ba94`, CI
+und Image grün) und geht mit Deploy 4 auf den Server. „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen
+weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`. T-098b Teil 1 erledigt (21 Versionen
+wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
+`.audit-ux-2026-10/` (nie committen).
+**Weg zum Pilot:** Deploy 4 und Geräteabnahme abschließen → T-024 → Pilot. Pilot als Einzelunternehmer (D-116):
+Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten Daten; beide Apps zum
+Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte, wiederherstellbare System einen
+vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
 
 ## Geräteabnahme nach dem dritten Deploy (PO)
@@ -18,15 +19,23 @@ Pause samt „Zeit beenden“ aus der Pause, offline, Kalender, „Zeit hinzufü
 Mitarbeiter mit Monatswähler und Herunterziehen, „Passwort vergessen“ mit neuer Vorlage, große Schrift.
 **Offen:** am iPhone die Scan-Teile (Karte startet und beendet, „Karte prüfen“, Karte öffnet die App bei geschlossener
 App); Android komplett; Web (Übersicht mit nächstem Schritt, „Zeiten prüfen“, Mitarbeiter mit Monat, Betreiber-Paket);
-Aussperr-Test mit einem zweiten Konto; einmal VoiceOver/TalkBack.
+Aussperr-Test mit einem zweiten Konto; einmal VoiceOver/TalkBack. Nach Deploy 4 die Einladung dieses zweiten Kontos
+einmal bis „App laden“ durchspielen.
 
-## Vor dem nächsten Deploy
+## Deploy 4 (T-109)
 
-1. **T-109:** Weg zur App; danach überträgt der PO die Einladungsvorlage mit dem Link „App laden“.
-2. **T-098c:** Teil 2 von T-098b (`t098b-verify`, lokal `212486d`) bleibt bis dahin geparkt: Der Schutzsatz des Servers
-   führt 16 alte Stände aus dem September ohne Kind-Manifeste; die Abrufprüfung würde jeden Lauf rot machen.
-3. **PO-Schritte aus `infrastructure/DEPLOY.md`** für alle enthaltenen Aufgaben abfragen (AGENTS.md §7).
-4. Mit Google Play kommt der Fingerabdruck der Play-App-Signatur in `assetlinks.json` hinzu.
+1. **Ziel `d72ba94`:** öffentliche Seite `/app` auf der Startseite, Caddyfile, Verwaltung (Willkommen, neues Passwort).
+   Keine Migration, keine neuen Schlüssel, Steuerung unverändert; laut `infrastructure/DEPLOY.md` keine PO-Schritte vor
+   dem Deploy. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt).
+2. **Danach (PO):** Einladungsvorlage aus `docs/T-047-Einladungsvorlage.md` vollständig übertragen (zweiter Link „App
+   laden“, neuer Satz zum abgelaufenen Link). `https://tb-infra.de/app` am Handy und am Rechner öffnen: ohne
+   Passwortabfrage, „Die App erhalten Sie von Ihrer Verwaltung.“, solange die Links leer sind.
+3. **T-098c** nach dem Deploy: Teil 2 von T-098b (`t098b-verify`, lokal `212486d`) bleibt bis dahin geparkt. Der
+   Schutzsatz des Servers führt 16 alte Stände aus dem September ohne Kind-Manifeste; bis dahin überspringt jeder
+   Image-Lauf die Bereinigung mit einer Warnung (Manifest-404). Das ist gewollt.
+4. **Store-Links:** Der PO liefert TestFlight- und Play-Test-Link; Development trägt sie in
+   `apps/landing-web/src/appLinks.json` ein (kleiner Auftrag, danach regulärer Deploy). Mit Google Play kommt der
+   Fingerabdruck der Play-App-Signatur in `assetlinks.json` hinzu.
 
 ## Fakten für den Betrieb
 
@@ -42,6 +51,9 @@ Aussperr-Test mit einem zweiten Konto; einmal VoiceOver/TalkBack.
   und 04.10. um 01:20 und 03:45 UTC, also vor dem Deploy von T-093b; seitdem keine. Das ntfy-Thema mit T-024 erneuern.
 - Supabase Pro mit der Gewerbeanmeldung, vor den ersten echten Konten (D-130): der kostenlose Tarif pausiert das
   Projekt und sichert die Konten nicht.
+- Android: Prüf-APK (`com.tim180201.mobile.productionvalidation`) und Store-App (`com.tim180201.mobile`, EAS-Profil
+  `store`) sind verschiedene Apps mit getrennten Daten. Pilotnutzer bekommen nur die Store-App; „App aktualisieren“
+  führt immer dorthin. Unter iOS teilen sich beide Profile eine App.
 
 ## Beobachten
 
@@ -65,7 +77,8 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   Vorbereitungsfenster des Kontowechsels → Schutzzustand, jede fremde `.db`-Datei im SQLite-Ordner ebenso (T-076) · iOS
   ohne eigenen Ton/Vibration; Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) · „Zuletzt“
   zeigt nach einem Abruffehler weiter „Laden“ · Sitzungsvergleich ohne Verwaltungsumfang (T-059) · Android SecureStore
-  prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an `wa-sqlite.wasm` (P2).
+  prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an `wa-sqlite.wasm` (P2) · „1 Erfassungen
+  warten auf Bestätigung“ ohne Einzahl (Erfassen-Hinweis).
 - **Beschäftigte (T-102):** Sortierung nach Bytes (`COLLATE "C"` wie bei den Kunden), Namen mit Umlaut am Anfang stehen
   am Ende · wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten Seite fehlen
   (Aktualisieren hilft) · Spalte „Standort“ steht neben der Standort-Überschrift doppelt.
@@ -75,7 +88,8 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
 - **Web:** globale Aktualisierung lädt Kundenstunden nicht neu (T-084) · Tags für die Standortleitung nur in der App
   (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
   (T-074) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Anlegen meldet Fehler 23514
-  als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung.
+  als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung ·
+  Erfolgskarte nach „Passwort setzen“ ohne Überschrift (T-109).
 - **Server und SQL:** direkter SQL-Pfad `taptime_admin_setup` prüft keine Betriebspause (T-085) · `xmin` über
   `::text::xid` (T-086, mit der nächsten Migration) · Standortleitung mit Heimatstandort außerhalb ihres
   Verwaltungsbereichs kann eigene Zeiten nicht nachtragen (T-062) · mehrere Standort-Grants im Handy-Vertrag nicht
@@ -88,7 +102,8 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   schließt die Backend-Gesundheit ein (T-031) · `taptime-landing-password` ohne Eingabeaufforderung · systemd meldet
   „unit file changed“ beim Ordnerwechsel · `registered_chain_watermark` liest direkt statt über eine Lesefunktion ·
   Health ohne Cache, alte Caddy-Assets · Caddy-Negativprüfung: EXIT-Trap verliert `holder` · Monitoring-Test braucht
-  GNU-Werkzeuge · ShellCheck CI 0.9 gegen lokal 0.11 · DNS-Wildcard nach dem Pilot verengen.
+  GNU-Werkzeuge · ShellCheck CI 0.9 gegen lokal 0.11 · DNS-Wildcard nach dem Pilot verengen · `/app/` mit
+  Schrägstrich landet bei der Passwortabfrage der Startseite (T-109).
 - **Sicherheit:** CSP `*.supabase.co` auf den Aussteller verengen · SECURITY-DEFINER-Pfade und Policy-Prädikate prüfen ·
   Supabase-Anmeldung außerhalb der eigenen Ratenbegrenzung.
 - **Entwicklung:** Root-Build mit veralteten Workspace-Deklarationen (Reihenfolge Identity → Administration → API) ·
