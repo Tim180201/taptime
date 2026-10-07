@@ -1,9 +1,10 @@
+import { APP_NAME } from '../../../../shared/product';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
-const config = require('../../app.json').expo;
+const config = require('../../app.config.js');
 const eas = require('../../eas.json');
 
 describe('T-072 iOS configuration', () => {
@@ -21,7 +22,7 @@ describe('T-072 iOS configuration', () => {
     const entitlements = await result.mods.ios.entitlements({ ...result, modRequest: {}, modResults: {} });
     expect(entitlements.modResults['com.apple.developer.nfc.readersession.formats']).toEqual(['TAG']);
     const plist = await result.mods.ios.infoPlist({ ...result, modRequest: {}, modResults: {} });
-    expect(plist.modResults.NFCReaderUsageDescription).toBe('Taptura liest NFC-Karten zur Zeiterfassung und beschreibt sie beim Zuordnen.');
+    expect(plist.modResults.NFCReaderUsageDescription).toBe(`${APP_NAME} liest NFC-Karten zur Zeiterfassung und beschreibt sie beim Zuordnen.`);
     expect(plist.modResults['com.apple.developer.nfc.readersession.iso7816.select-identifiers']).toBeUndefined();
     expect(plist.modResults['com.apple.developer.nfc.readersession.felica.systemcodes']).toBeUndefined();
   });

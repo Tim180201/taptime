@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../../shared/product';
 import type { InvitationStatus } from './contracts';
 const messages: Record<InvitationStatus,string> = {
   rate_limited:'Zu viele Anfragen. Bitte warte eine Minute, bevor du die Einladung erneut sendest.',
@@ -6,7 +7,7 @@ const messages: Record<InvitationStatus,string> = {
   invalid_request:'Bitte prüfe Name, E-Mail und Standort.',
   invalid_email:'Bitte gib eine gültige E-Mail-Adresse ein.',
   command_id_conflict:'Diese Anfrage wurde mit anderen Angaben verwendet. Bitte öffne die Einladung erneut.',
-  email_unavailable: 'Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.',
+  email_unavailable: `Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder ${APP_NAME} kontaktieren.`,
   email_exists:'Diese E-Mail-Adresse ist bereits vergeben.',
   membership_exists:'Diese Person ist bereits Mitglied des Betriebs.',
   former_membership:'Für diese Person besteht eine frühere Mitgliedschaft. Bitte kläre den Zugang in der Verwaltung.',

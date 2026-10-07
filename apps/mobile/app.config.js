@@ -1,3 +1,4 @@
+const { name: appName } = require('../../shared/product.json');
 const base = require('./app.json');
 const withNfcTagDispatch = require('./plugins/withNfcTagDispatch');
 const TAG_HOSTS = require('./src/nfc/tagHosts.json');
@@ -6,6 +7,7 @@ const appVariant = process.env.APP_VARIANT;
 const runtimeVariant = process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT;
 const physicalValidation = appVariant === 'physical-validation';
 const productionValidation = appVariant === 'production-validation';
+const store = appVariant === 'store';
 const buildSourceCommit = /^[0-9a-f]{40}$/u.test(process.env.EAS_BUILD_GIT_COMMIT_HASH ?? '')
   ? process.env.EAS_BUILD_GIT_COMMIT_HASH
   : null;
@@ -13,7 +15,7 @@ const buildSourceCommit = /^[0-9a-f]{40}$/u.test(process.env.EAS_BUILD_GIT_COMMI
 const validVariantPair = (
   (appVariant === undefined && runtimeVariant === undefined)
   || (physicalValidation && runtimeVariant === 'physical-validation')
-  || (productionValidation && runtimeVariant === 'production-validation')
+  || ((productionValidation || store) && runtimeVariant === 'production-validation')
 );
 if (!validVariantPair) {
   throw new Error('APP_VARIANT and EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT must select the same runtime.');
@@ -22,10 +24,13 @@ if (!validVariantPair) {
 const configuration = {
   ...base.expo,
   name: productionValidation
-    ? 'Taptura Produktionstest'
+    ? `${appName} Produktionstest`
     : physicalValidation
-      ? 'Taptura Validation'
-      : 'Taptura',
+      ? `${appName} Validation`
+      : appName,
+  plugins: base.expo.plugins.map(plugin => Array.isArray(plugin) && plugin[0] === 'react-native-nfc-manager'
+    ? [plugin[0], { ...plugin[1], nfcPermission: plugin[1].nfcPermission.replace('%APP_NAME%', appName) }]
+    : plugin),
   slug: 'mobile',
   scheme: physicalValidation
     ? 'taptime-validation'

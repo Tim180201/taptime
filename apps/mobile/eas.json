@@ -51,6 +51,17 @@
     "production": {
       "extends": "base",
       "autoIncrement": true
+    },
+    "store": {
+      "extends": "production-validation",
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "APP_VARIANT": "store"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {

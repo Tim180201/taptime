@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 import { RequiredForm } from './RequiredForm';
 import { hasVisibleText } from '@taptime/core';
 import {
@@ -70,7 +71,7 @@ function Brand() {
         <circle cx="12" cy="12" r="9" />
         <circle cx="12" cy="12" r="4" />
       </svg>
-      Taptura <span className="badge">Betreiber</span>
+      {APP_NAME} <span className="badge">Betreiber</span>
     </div>
   );
 }

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, chmodSync, cpSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { request as httpRequest } from 'node:http';
 import { after, before, test } from 'node:test';
+import { build } from 'vite';
 const id=`t031-landing-${process.pid}`;
 const root=mkdtempSync(join(process.cwd(),'.t031-local-'));
 const docker=(...args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
@@ -29,8 +30,11 @@ before(async()=>{
     .replace(/^www\.tb-infra\.de, http:\/\/www\.tb-infra\.de \{/gm,'http://www.tb-infra.de:8080 {');
   writeFileSync(join(root,'Caddyfile'),'{\n auto_https off\n}\n'+production);
   mkdirSync(join(root,'landing-web/releases/abcdef0/assets'),{recursive:true});
+  mkdirSync(join(root,'landing-web/releases/abcdef0/app-assets'),{recursive:true});
   mkdirSync(join(root,'landing-web/releases/abcdef0/tag-assets/fonts'),{recursive:true});
-  for(const [file,body] of Object.entries({'index.html':'<!doctype html><title>private</title>','tag.html':'<!doctype html><title>tag</title>','robots.txt':'User-agent: *\nDisallow: /','version.txt':'abcdef0','assets/private.js':'private','tag-assets/tag.css':'body {}','tag-assets/fonts.css':'/* local */','tag-assets/fonts/manrope-400.ttf':'synthetic-font'})) writeFileSync(join(root,'landing-web/releases/abcdef0',file),body);
+  for(const [file,body] of Object.entries({'app.html':'<!doctype html><title>app</title>','app-assets/app-ABC123.js':'/* app */','app-assets/app-ABC123.css':'body {}','index.html':'<!doctype html><title>private</title>','tag.html':'<!doctype html><title>tag</title>','robots.txt':'User-agent: *\nDisallow: /','version.txt':'abcdef0','assets/private.js':'private','tag-assets/tag.css':'body {}','tag-assets/fonts.css':'/* local */','tag-assets/fonts/manrope-400.ttf':'synthetic-font'})) writeFileSync(join(root,'landing-web/releases/abcdef0',file),body);
+  await build({ root: resolve('apps/landing-web'), envDir: false, logLevel: 'warn', base: '/releases/abcdef0/', build: { outDir: join(root, 'built'), emptyOutDir: true } });
+  for (const path of ['app.html', 'app-assets', 'tag-assets']) cpSync(join(root, 'built', path), join(root, 'landing-web/releases/abcdef0', path), {recursive:true});
   mkdirSync(join(root,'landing-web/releases/abcdef0/.well-known'),{recursive:true});
   const linksPath='apps/landing-web/public/.well-known/assetlinks.json';
   const links=readFileSync(linksPath,'utf8');
@@ -64,12 +68,33 @@ exec /usr/bin/curl "$@"
   throw new Error('Local landing Caddy did not start');
 });
 after(()=>{try{docker('rm','-f',id);}catch{}for(const resource of ['auth','trace'])try{docker('volume','rm',`${id}-${resource}`);}catch{}try{docker('network','rm',id);}catch{}rmSync(root,{recursive:true,force:true});});
-test('private homepage and release assets require auth; only tag resources, robots and version are public',async()=>{
-  for(const path of ['/','/index.html','/tag.html','/releases/abcdef0/index.html','/releases/abcdef0/assets/private.js']){
+test('private homepage and release assets require auth; only named public pages and their assets bypass it',async()=>{
+  for(const path of ['/','/app.html','/index.html','/tag.html','/releases/abcdef0/index.html','/releases/abcdef0/assets/private.js']){
     assert.equal((await request(path)).status,401,path);assert.equal((await request(path,oldPassword)).status,200,path);
   }
-  for(const path of ['/tag','/robots.txt','/version.txt','/releases/abcdef0/tag-assets/tag.css','/releases/abcdef0/tag-assets/fonts.css','/releases/abcdef0/tag-assets/fonts/manrope-400.ttf'])assert.equal((await request(path)).status,200,path);
+  for(const path of ['/app','/releases/abcdef0/app-assets/app-ABC123.js','/releases/abcdef0/app-assets/app-ABC123.css','/tag','/robots.txt','/version.txt','/releases/abcdef0/tag-assets/tag.css','/releases/abcdef0/tag-assets/fonts.css','/releases/abcdef0/tag-assets/fonts/manrope-400.ttf'])assert.equal((await request(path)).status,200,path);
+  assert.equal((await request('/app/unknown')).status,401);
+  assert.equal((await request('/app/unknown',oldPassword)).status,404);
   for(const path of ['/v1/session','/health'])assert.equal((await request(path,oldPassword)).status,404,path);
+});
+test('T-109 serves every resource of the real download build without authentication',async()=>{
+  const response = await request('/app?redirect=https://foreign.invalid');
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('location'),null);
+  const html = await response.text();
+  assert.match(html, /Die App erhalten Sie von Ihrer Verwaltung/);
+  assert.doesNotMatch(html, /foreign.invalid|%APP_NAME%/);
+  const resources = [...html.matchAll(/(?:src|href)="([^"]+)"/g)].map(match=>match[1]);
+  assert.ok(resources.some(path=>path.endsWith('.js')));
+  for (const path of resources) {
+    const asset = await request(path);
+    assert.equal(asset.status,200,path);
+    assert.equal(asset.headers.get('content-security-policy'),response.headers.get('content-security-policy'));
+    if (path.endsWith('.js')) assert.match(asset.headers.get('content-type'), /javascript/);
+    if (path.endsWith('.css')) assert.match(asset.headers.get('content-type'), /css/);
+  }
+  assert.equal(response.headers.get('content-security-policy'),(await request('/tag')).headers.get('content-security-policy'));
+  for (const path of ['/app-assets/app-ABC123.js','/releases/abcdef0/assets/private.js','/releases/abcdef0/app-assets/private.json']) assert.equal((await request(path)).status,401,path);
 });
 test('T-096 Android association is public JSON without redirects, with configured fingerprints and unique packages',async()=>{
   const response=await request('/.well-known/assetlinks.json');
@@ -94,7 +119,7 @@ test('T-096 Android association is public JSON without redirects, with configure
   assert.equal((await request('/')).status,401);
 });
 test('strict CSP and noindex include authentication failures, public responses and redirects',async()=>{
-  for(const path of ['/','/tag','/robots.txt','/version.txt','/health']){
+  for(const path of ['/','/app','/tag','/robots.txt','/version.txt','/health']){
     const response=await request(path);assert.equal(response.headers.get('x-robots-tag'),'noindex, nofollow');
     assert.equal(response.headers.get('x-frame-options'),'DENY');const csp=response.headers.get('content-security-policy');assert.match(csp,/connect-src 'none'/);assert.doesNotMatch(csp,/https:|unsafe-|data:/);
   }
@@ -114,7 +139,7 @@ test('stdin password set and disable are atomic, force-provisioned, and quiet',a
 });
 test('no active landing closes every path, including retained releases',async()=>{
   docker('exec',id,'rm','/srv/landing-web/current');
-  for(const path of ['/','/tag','/.well-known/assetlinks.json','/version.txt','/releases/abcdef0/tag-assets/tag.css'])assert.equal((await request(path)).status,404);
+  for(const path of ['/','/app','/releases/abcdef0/app-assets/app-ABC123.js','/tag','/.well-known/assetlinks.json','/version.txt','/releases/abcdef0/tag-assets/tag.css'])assert.equal((await request(path)).status,404);
 });
 test('missing hash prevents provisioning even when the landing is disabled',()=>{
   docker('run','--rm','--volume',`${id}-auth:/auth`,'--entrypoint','rm','taptime-t031-tools:local','/auth/password.hash');

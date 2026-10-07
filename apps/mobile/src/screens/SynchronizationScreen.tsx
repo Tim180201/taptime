@@ -1,3 +1,4 @@
+import { AppUpdateButton } from '../design/AppUpdateButton';
 import { useSyncExternalStore } from 'react';
 import { ScrollView } from 'react-native';
 import type { ProductScanCapability } from '../scan/contracts';
@@ -29,6 +30,7 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
       {reported.length ? <Text>Wird von der Verwaltung geprüft. Der Originalbeleg bleibt auf dem Handy erhalten.</Text> : null}
       {state.transmissionPaused ? state.untransferred?.map(entry=><Text key={entry.workEventId}>{entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>) : null}
     </Card>
+    {state.updateRequired ? <AppUpdateButton /> : null}
     <Card><Text style={{ fontWeight: '800' }}>Wartet auf den Server</Text>
       <Text>{pendingCount === null ? 'Der aktuelle Stand ist noch nicht bekannt.'
         : pendingCount === 0 ? 'Keine offenen Übertragungen' : `${pendingCount} ${pendingCount === 1 ? 'Vorgang wartet' : 'Vorgänge warten'} auf Bestätigung.`}</Text>

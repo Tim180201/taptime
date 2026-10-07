@@ -1,3 +1,5 @@
+import { AppDownloadSuccess } from './AppDownloadSuccess';
+import { APP_NAME } from '../../../shared/product';
 import { RequiredForm } from './RequiredForm';
 import { useRef, useState } from 'react';
 import type { Notice } from './contracts';
@@ -25,9 +27,9 @@ export function PasswordResetPage({ recovery }: { readonly recovery: RecoveryPas
 
   return <main className="login-shell">
     <section className="login-card" aria-labelledby="reset-title">
-      <span className="eyebrow">Taptura</span>
+      <span className="eyebrow">{APP_NAME}</span>
       <h1 id="reset-title">Neues Passwort setzen</h1>
-      {completed ? <p role="status">Passwort geändert. Melden Sie sich jetzt in der App oder hier mit dem neuen Passwort an.</p>
+      {completed ? <AppDownloadSuccess />
         : <>
           {notice === null ? null : <p role="alert">{notice.text}</p>}
           {recovery?.hasRecovery ? <RequiredForm onSubmit={(event) => {

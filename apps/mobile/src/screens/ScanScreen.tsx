@@ -1,3 +1,5 @@
+import { AppUpdateButton } from '../design/AppUpdateButton';
+import { APP_NAME } from '../../../../shared/product';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { OfflineActiveCapture } from '../work/OfflineActiveCapture';
 import { OfflineActiveTimeCard } from './OfflineActiveTimeCard';
@@ -53,7 +55,7 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
     || state.status === 'scanning');
   const presentation = presentScanState(state, Platform.OS);
   return <SafeAreaView edges={embedded ? [] : ['top', 'bottom', 'left', 'right']} style={[styles.container, embedded && styles.embeddedContainer]}>
-    {embedded ? null : <View style={styles.header}><Text style={styles.brand}>Taptura</Text>
+    {embedded ? null : <View style={styles.header}><Text style={styles.brand}>{APP_NAME}</Text>
       <Text style={styles.role}>{presentActor(actor)}</Text></View>}
     <ScrollView contentContainerStyle={styles.content}>
       {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard capture={offlineActive} value={confirmedOwnTime} disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':'Deine letzte Erfassung wartet noch auf Bestätigung.'} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
@@ -79,8 +81,8 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
             : 'Sicher gespeichert, wird nachgereicht'
             : resting ? state.status === 'scanning'
               ? 'Halte dein Handy an die Karte.'
-              : ios ? 'Tippe auf „Karte scannen“ und halte dein iPhone an die NFC-Karte. Start und Stopp erkennt Taptura selbst.'
-                : 'Tippe auf den Kreis und halte dein Handy an die NFC-Karte. Start und Stopp erkennt Taptura selbst.'
+              : ios ? `Tippe auf „Karte scannen“ und halte dein iPhone an die NFC-Karte. Start und Stopp erkennt ${APP_NAME} selbst.`
+                : `Tippe auf den Kreis und halte dein Handy an die NFC-Karte. Start und Stopp erkennt ${APP_NAME} selbst.`
               : presentation.message}
         </Text>
         {showMoment ? <Text style={styles.statusMessage}>Bereit für den nächsten Tap</Text> : null}
@@ -92,7 +94,7 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
           onPress={() => scan.retry()} testID="retry-same-evidence-button" /> : null}
       </View>
       {workState?.status==='ready' && workState.capturePending && !state.transmissionPaused ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
-      {state.updateRequired ? <Card><Text accessibilityRole="alert">Bitte App aktualisieren</Text><Text>Deine Erfassungen bleiben auf dem Handy gespeichert. Die Übertragung wartet auf die neue App.</Text></Card> : null}
+      {state.updateRequired ? <Card><Text accessibilityRole="alert">Bitte App aktualisieren</Text><Text>Deine Erfassungen bleiben auf dem Handy gespeichert. Die Übertragung wartet auf die neue App.</Text><AppUpdateButton /></Card> : null}
       {state.untransferred?.length ? <Card>
         {state.untransferred.map(entry => <View key={entry.workEventId}>
           <Text accessibilityRole="alert">{entry.reported ? '1 Erfassung · Wird von der Verwaltung geprüft' : '1 Erfassung konnte nicht übertragen werden'} · {entry.displayName} · {new Date(entry.occurredAt).toLocaleTimeString('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'})}</Text>

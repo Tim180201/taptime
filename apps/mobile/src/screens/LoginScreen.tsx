@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../../shared/product';
 import { OutcomeNotice } from '../design/OutcomeNotice';
 import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import { useRef, useState } from 'react';
@@ -68,7 +69,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   }
 
   return (
-    <Screen title="Taptura — Anmeldung"><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <Screen title={`${APP_NAME} — Anmeldung`}><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text>E-Mail-Adresse</Text>
       <RequiredTextField form={form} scope="email" error={email.trim().length < 3 ? "Bitte E-Mail-Adresse eingeben." : null}
         accessibilityLabel="E-Mail-Adresse"

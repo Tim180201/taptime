@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   OperatorError,
@@ -108,7 +109,7 @@ export class SupabaseOperatorAuth implements OperatorAuth {
       }
       const enrollment = await this.client.auth.mfa.enroll({
         factorType: "totp",
-        friendlyName: "Taptura Betreiber",
+        friendlyName: `${APP_NAME} Betreiber`,
       });
       if (enrollment.error) throw new OperatorError("service_unavailable");
       return {

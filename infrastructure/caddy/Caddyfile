@@ -194,11 +194,19 @@ tb-infra.de {
 		handle @landingApi {
 			respond 404
 		}
-		@landingPublic path /tag /robots.txt /version.txt
+		@landingPublic path /tag /app /robots.txt /version.txt
 		handle @landingPublic {
 			root * /srv/landing-web/current
 			@tag path /tag
 			rewrite @tag /tag.html
+			@app path /app
+			rewrite @app /app.html
+			file_server
+		}
+		# The download page has its own bundle; private homepage assets stay protected.
+		@appAsset path_regexp ^/releases/[0-9a-f]{7}/app-assets/[A-Za-z0-9_-]+\.(js|css)$
+		handle @appAsset {
+			root * /srv/landing-web
 			file_server
 		}
 		# Only the tag page's styles and local fonts bypass authentication.

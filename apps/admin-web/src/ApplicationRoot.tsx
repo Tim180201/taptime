@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 import { EmployeeAccountInvitationClient } from './EmployeeAccountInvitationForm';
 import { App } from './App';
 import { AdminWebCoordinator } from './AdminWebCoordinator';
@@ -11,7 +12,7 @@ import type { AdminWebConfiguration } from './runtimeConfiguration';
 
 export function createApplicationPage(configuration: AdminWebConfiguration | null) {
   if (window.location.pathname === '/passwort-neu') {
-    document.title = 'Taptura · Neues Passwort setzen';
+    document.title = `${APP_NAME} · Neues Passwort setzen`;
     const recoveryUrl = window.location.href;
     window.history.replaceState(null, '', '/passwort-neu');
     return <PasswordResetPage recovery={configuration === null ? null : new SupabaseRecoveryAuth(
@@ -19,7 +20,7 @@ export function createApplicationPage(configuration: AdminWebConfiguration | nul
     )} />;
   }
   if (window.location.pathname === '/willkommen') {
-    document.title = 'Taptura · Passwort setzen';
+    document.title = `${APP_NAME} · Passwort setzen`;
     const invitationUrl = window.location.href;
     // Remove even malformed links before rendering. Tokens never enter admin state,
     // query parameters, storage, diagnostics or subsequent browser navigation.

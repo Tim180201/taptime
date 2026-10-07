@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -25,5 +26,5 @@ it.each(['session', 'invitation'] as const)('T068a shows the pause from the prod
   await page.props.accountInvitations!.invite('Neue Person', 'new@example.invalid', null);
   expect(page.props.administration.getState()).toEqual({ status: 'organization_paused' });
   render(page);
-  expect(screen.getByText('Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.')).toBeInTheDocument();
+  expect(screen.getByText(`Ihr Betrieb ist pausiert. Bitte wenden Sie sich an ${APP_NAME}.`)).toBeInTheDocument();
 });

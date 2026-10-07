@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../../shared/product';
 import { OutcomeNotice } from '../design/OutcomeNotice';
 import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import { useRef, useState } from 'react';
@@ -43,7 +44,7 @@ export function EmployeeEnrollmentScreen({
         : null;
   return <Screen title="Als Mitarbeiter beitreten"><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
     <Text style={styles.description}>
-      Du bist sicher beim Anmeldedienst angemeldet, hast aber noch keinen Taptura-Zugang.
+      Du bist sicher beim Anmeldedienst angemeldet, hast aber noch keinen {APP_NAME}-Zugang.
     </Text>
     <Text>Einladungsgeheimnis</Text>
     <RequiredTextField form={form} error={!invitationSecret.trim() ? "Bitte Einladungsgeheimnis eingeben." : null}

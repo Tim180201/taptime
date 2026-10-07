@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../../shared/product';
 import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -45,7 +46,7 @@ describe('rendered navigation', () => {
   });
   it('T068a shows the pause notice even when an offline capture shell was ready', () => {
     const html = markup('employee', false, true);
-    expect(html).toContain('Dein Betrieb ist pausiert. Bitte wende dich an Taptura.');
+    expect(html).toContain(`Dein Betrieb ist pausiert. Bitte wende dich an ${APP_NAME}.`);
     expect(html).not.toContain('role="tab"');
   });
   it.each(['standortleitung', 'administrator'] as const)('T060 h: renders Karten only with NFC capability (%s)', role => {

@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../../shared/product';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,7 +24,7 @@ export function PhysicalValidationMobileApp() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.brandRow}>
-          <View><Text style={styles.brand}>TapTim.e</Text><Text style={styles.eyebrow}>INTERNAL VALIDATION</Text></View>
+          <View><Text style={styles.brand}>{APP_NAME}</Text><Text style={styles.eyebrow}>INTERNAL VALIDATION</Text></View>
           <View style={styles.badge}><Text style={styles.badgeText}>ANDROID · NFC</Text></View>
         </View>
 

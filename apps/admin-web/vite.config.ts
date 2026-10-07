@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { productHtml } from '../../shared/productHtml';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'TAPTIME_');
@@ -8,7 +9,7 @@ export default defineConfig(({ mode }) => {
     throw new Error('TAPTIME_API_PROXY_TARGET must be a loopback origin');
   }
   return {
-    plugins: [react()],
+    plugins: [react(), productHtml()],
     server: proxyTarget === undefined ? undefined : {
       proxy: {
         '/v1': { target: proxyTarget, changeOrigin: false },

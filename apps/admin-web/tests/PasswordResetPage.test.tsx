@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 import { PasswordResetPage } from '../src/PasswordResetPage';
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -54,14 +55,15 @@ describe('T-094b real application entry', () => {
     expect(sdk.updateUser).not.toHaveBeenCalled();
     expect(sdk.setSession).not.toHaveBeenCalled();
     render(page);
-    expect(document.title).toBe('Taptura · Neues Passwort setzen');
+    expect(document.title).toBe(`${APP_NAME} · Neues Passwort setzen`);
     expect(screen.getByLabelText('Neues Passwort')).toHaveAttribute('minlength', '8');
     expect(sdk.createClient).toHaveBeenCalledExactlyOnceWith(configuration.supabaseUrl,
       configuration.supabasePublishableKey,
       { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
     submit();
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(
-      'Passwort geändert. Melden Sie sich jetzt in der App oder hier mit dem neuen Passwort an.'));
+      'Ihr Passwort ist eingerichtet. Laden Sie jetzt die App und melden Sie sich dort mit Ihrer E-Mail-Adresse und diesem Passwort an.'));
+    expect(screen.getByRole('link', { name: 'App laden' })).toHaveAttribute('href', 'https://tb-infra.de/app');
     expect(sdk.verifyOtp).toHaveBeenCalledExactlyOnceWith({ token_hash: token, type: 'recovery' });
     expect(sdk.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'new-test-password' });
     expect(sdk.signOut).toHaveBeenCalledExactlyOnceWith({ scope: 'local' });
@@ -136,7 +138,7 @@ describe('T-094b real application entry', () => {
     expect(screen.queryByText(expired)).not.toBeInTheDocument();
   });
 
-  it('retains the existing access-token recovery route', async () => {
+  it('completes the existing access-token recovery route with the app download after audit and sign-out', async () => {
     window.history.replaceState(null, '', '/#access_token=aaaaaaaaaaaaaaaa&refresh_token=bbbbbbbbbbbbbbbb&type=recovery&token_type=bearer');
     render(createApplicationPage(configuration));
     await screen.findByRole('heading', { name: 'Neues Passwort setzen' });
@@ -144,6 +146,20 @@ describe('T-094b real application entry', () => {
     expect(sdk.setSession).toHaveBeenCalledExactlyOnceWith({ access_token: 'aaaaaaaaaaaaaaaa', refresh_token: 'bbbbbbbbbbbbbbbb' });
     expect(sdk.verifyOtp).not.toHaveBeenCalled();
     expect(sdk.updateUser).not.toHaveBeenCalled();
+    submit();
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(
+      'Ihr Passwort ist eingerichtet. Laden Sie jetzt die App und melden Sie sich dort mit Ihrer E-Mail-Adresse und diesem Passwort an.'));
+    expect(screen.getByRole('link', { name: 'App laden' })).toHaveAttribute('href', 'https://tb-infra.de/app');
+    expect(screen.getByRole('link', { name: 'Im Browser anmelden' })).toHaveAttribute('href', '/');
+    expect(sdk.updateUser).toHaveBeenCalledExactlyOnceWith({ password: 'new-test-password' });
+    expect(sdk.audit).toHaveBeenCalledExactlyOnceWith('memory-only-session');
+    expect(sdk.signOut).toHaveBeenCalledExactlyOnceWith({ scope: 'local' });
+    expect(sdk.updateUser.mock.invocationCallOrder[0]).toBeLessThan(sdk.audit.mock.invocationCallOrder[0]!);
+    expect(sdk.audit.mock.invocationCallOrder[0]).toBeLessThan(sdk.signOut.mock.invocationCallOrder[0]!);
+    expect(sdk.signInWithPassword).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText('Neues Passwort')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('E-Mail')).not.toBeInTheDocument();
+    expect(localStorage.length + sessionStorage.length).toBe(0);
   });
 
   it('reuses the memory session after a password-policy rejection', async () => {

@@ -22,6 +22,8 @@ export const adminScenarios = [
   ...['welcome-success','welcome-error','welcome-busy'].map(id=>scenario(id,'/willkommen','form',[
     async p=>p.getByLabel('Neues Passwort').fill('synthetic example password'), click('Passwort setzen')
   ])),
+  scenario('password-reset-success','/passwort-neu','form',[async p=>p.getByLabel('Neues Passwort',{exact:true}).fill('synthetic example password'), click('Passwort ändern')]),
+  scenario('recovery-success','/','h1'),
   scenario('overview','/uebersicht','.metric-card'),
   ...['notice-saved','notice-location','notice-info'].map(id=>scenario(id,'/uebersicht','.notice')),
   { ...scenario('more','/uebersicht','.metric-card',[click('Mehr')], 'overview'), mobileOnly: true },

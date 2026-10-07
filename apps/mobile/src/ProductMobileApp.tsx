@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -63,7 +64,7 @@ function ReadyProductMobileApp({
 function UnavailableProductRuntime() {
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Taptura ist nicht verfügbar.</Text>
+      <Text style={styles.title}>{APP_NAME} ist nicht verfügbar.</Text>
       <Text>Die sichere Laufzeitkonfiguration konnte nicht geladen werden.</Text>
       <AppBuildIdentity style={styles.buildIdentity} />
     </SafeAreaView>

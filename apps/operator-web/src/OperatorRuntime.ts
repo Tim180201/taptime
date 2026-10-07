@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 import { OperatorError } from './OperatorError';
 export { OperatorError } from './OperatorError';
 import { OPERATOR_NAMED_ADMIN_ACCEPT } from "./contracts";
@@ -290,7 +291,7 @@ export function errorText(error: unknown): string {
     session_ended: "Die Sitzung ist beendet. Bitte melden Sie sich erneut an.",
     mfa_invalid:
       "Der Code konnte nicht bestätigt werden. Bitte geben Sie einen aktuellen Code ein.",
-    email_unavailable: "Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.",
+    email_unavailable: `Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder ${APP_NAME} kontaktieren.`,
     identity_unavailable:
       "Diese E-Mail-Adresse gehört bereits einem Zugang in einem Betrieb oder einem Betreiberkonto. Bitte verwenden Sie eine andere Adresse.",
     invitation_delivery_failed:

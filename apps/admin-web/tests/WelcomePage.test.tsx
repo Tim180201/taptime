@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 import { WelcomePage } from '../src/WelcomePage';
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -36,7 +37,7 @@ describe('T-047 standalone welcome route', () => {
 
   it('routes the real entry point around all administration and consumes the token only on submit', async () => {
     render(createApplicationPage(configuration));
-    expect(document.title).toBe('Taptura · Passwort setzen');
+    expect(document.title).toBe(`${APP_NAME} · Passwort setzen`);
     expect(window.location.hash).toBe('');
     expect(window.location.search).toBe('');
     expect(sdk.verifyOtp).not.toHaveBeenCalled();
@@ -48,10 +49,10 @@ describe('T-047 standalone welcome route', () => {
 
     fireEvent.change(screen.getByLabelText('Neues Passwort'), { target: { value: 'new-test-password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Passwort setzen' }));
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ihr Passwort ist gespeichert.'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ihr Passwort ist eingerichtet. Laden Sie jetzt die App und melden Sie sich dort mit Ihrer E-Mail-Adresse und diesem Passwort an.'));
     expect(screen.getByRole('link',{name:'Im Browser anmelden'})).toHaveAttribute('href','/');
-    expect(screen.getByText('In der App anmelden; die App erhalten Sie von Ihrem Betrieb.')).toBeVisible();
-    expect(screen.getAllByRole('link')).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'App laden' })).toHaveAttribute('href', 'https://tb-infra.de/app');
+    expect(screen.getAllByRole('link')).toHaveLength(2);
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument();
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByRole('link',{name:'Im Browser anmelden'})).toHaveAttribute('href','/');
@@ -74,7 +75,7 @@ describe('T-047 standalone welcome route', () => {
   ])('rejects missing, ambiguous or wrong-purpose credentials at %s', (path) => {
     window.history.replaceState(null, '', path);
     render(createApplicationPage(configuration));
-    expect(screen.getByRole('alert')).toHaveTextContent('ungültig oder abgelaufen');
+    expect(screen.getByRole('alert')).toHaveTextContent('Bitten Sie die Person, die Sie eingeladen hat, um einen neuen Einladungslink.');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(sdk.createClient).not.toHaveBeenCalled();
     expect(sdk.administration).not.toHaveBeenCalled();

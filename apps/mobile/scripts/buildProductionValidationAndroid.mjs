@@ -8,6 +8,7 @@ const repositoryRoot = execFileSync('git', ['rev-parse', '--show-toplevel'], {
 }).trim();
 const sourcePathspec = [
   'apps/mobile',
+  'shared',
   'packages/core',
   'packages/administration-contract',
   'packages/mobile-work-contract',

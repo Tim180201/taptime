@@ -1,3 +1,4 @@
+import { PasswordResetPage } from '../src/PasswordResetPage';
 import { createRoot } from 'react-dom/client';
 import { App } from '../src/App';
 import { WelcomePage } from '../src/WelcomePage';
@@ -247,6 +248,7 @@ const authStates: Record<string, AdminWebState> = {
   'recovery-standortleitung': { status:'password_recovery',completing:false,notice:null },
   'recovery-administrator': { status:'password_recovery',completing:false,notice:null },
   'recovery-busy': { status: 'password_recovery', completing: true, notice: null }, paused: { status: 'organization_paused' },
+  'recovery-success': { status: 'signed_out', passwordResetCompleted: true },
   forbidden: { status: 'forbidden', message: 'Für diesen Zugang ist die Verwaltung nicht verfügbar.' },
   unavailable: { status: 'unavailable', message: 'Die Verwaltung ist vorübergehend nicht erreichbar.' }, loading: { status: 'loading' },
 };
@@ -270,4 +272,5 @@ capability.cancelReassignment = () => stateful.emit({ ...ready, reassignmentInte
 const root = createRoot(document.getElementById('root')!);
 root.render(variant === 'configuration' ? createApplicationPage(null) : variant.startsWith('welcome')
   ? <WelcomePage invitation={variant === 'welcome-unavailable' ? null : { hasInvitation: variant !== 'welcome-invalid', setPassword: async () => variant === 'welcome-error' ? 'weak_password' : variant === 'welcome-busy' ? new Promise(() => {}) : 'succeeded' }} />
+  : variant.startsWith('password-reset') ? <PasswordResetPage recovery={{hasRecovery: true, setPassword: async () => 'succeeded'}} />
   : <App administration={capability} accountInvitations={{ invite: async () => variant === 'invitation-busy' ? new Promise(() => {}) : ({ status: 'failed', code: 'invitation_needs_attention' }) }} />);

@@ -156,7 +156,7 @@ export interface ReviewCorrectionRecords {
 }
 export type AdminWebState =
   | { readonly status: 'organization_paused' }
-  | { readonly status: 'signed_out'; readonly notice?: Notice }
+  | { readonly status: 'signed_out'; readonly notice?: Notice; readonly passwordResetCompleted?: true }
   | { readonly status: 'signing_in' }
   | { readonly status: 'password_recovery'; readonly completing: boolean; readonly notice: Notice | null }
   | { readonly status: 'loading' }

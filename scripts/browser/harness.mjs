@@ -6,13 +6,14 @@ import { chromium } from 'playwright-core';
 import { build } from 'vite';
 import react from '@vitejs/plugin-react';
 import axe from 'axe-core';
+import { productHtml } from '../../shared/productHtml.ts';
 export async function launchBrowser() {
   const mac = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   return chromium.launch({ executablePath: process.env.CHROME_BIN ?? (existsSync(mac) ? mac : '/usr/bin/google-chrome'), headless: true, args: ['--no-sandbox'] });
 }
 export async function buildWeb(app, fixture = false, storageProbe = false) {
   const root = realpathSync(resolve(process.env.TAPTIME_LAYOUT_SOURCE ?? '.', 'apps', app)), output = mkdtempSync(join(tmpdir(), 'taptime-layout-'));
-  const plugins = [react()];
+  const plugins = [react(), productHtml()];
   if (!fixture) plugins.push({ name: 'no-production-test-fixtures', generateBundle() {
     if ([...this.getModuleIds()].some(id => id.includes('/tests/'))) throw new Error('Test module reached the production bundle');
   } });

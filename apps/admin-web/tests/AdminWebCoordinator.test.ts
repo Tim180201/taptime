@@ -220,7 +220,7 @@ describe('AdminWebCoordinator', () => {
     expect(auth.signOut).toHaveBeenCalledOnce();
     expect(coordinator.getState()).toEqual({
       status: 'signed_out',
-      notice: { kind: 'success', text: 'Das Passwort wurde geändert. Sie können sich jetzt auch in der App mit dem neuen Passwort anmelden.' },
+      passwordResetCompleted: true,
     });
   });
 

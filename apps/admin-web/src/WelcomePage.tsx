@@ -1,3 +1,5 @@
+import { AppDownloadSuccess } from './AppDownloadSuccess';
+import { APP_NAME } from '../../../shared/product';
 import { RequiredForm } from './RequiredForm';
 import type { Notice } from './contracts';
 import { useRef, useState } from 'react';
@@ -8,7 +10,7 @@ import '@fontsource/inter/latin-700.css';
 import './styles.css';
 
 const messages: Record<Exclude<InvitePasswordResult, 'succeeded'>, string> = {
-  invalid_invitation: 'Dieser Einladungslink ist ungültig oder abgelaufen. Bitte wenden Sie sich an Ihren Administrator.',
+  invalid_invitation: 'Dieser Einladungslink ist ungültig oder abgelaufen. Bitten Sie die Person, die Sie eingeladen hat, um einen neuen Einladungslink.',
   weak_password: 'Dieses Passwort wurde nicht angenommen. Bitte wählen Sie ein längeres, neues Passwort.',
   rate_limited: 'Zu viele Versuche. Bitte warten Sie kurz und versuchen Sie es erneut.',
   unavailable: 'Das Passwort konnte nicht gespeichert werden. Bitte versuchen Sie es erneut, sobald die Verbindung wieder funktioniert.',
@@ -25,15 +27,14 @@ export function WelcomePage({ invitation }: { readonly invitation: InvitePasswor
 
   if (completed) return <main className="login-shell">
     <section className="login-card" aria-label="Passwort gespeichert">
-      <p role="status">Ihr Passwort ist gespeichert.</p>
-      <a className="button-link" href="/">Im Browser anmelden</a>
-      <p>In der App anmelden; die App erhalten Sie von Ihrem Betrieb.</p>
+      <AppDownloadSuccess />
+      <p><a className="button-link secondary-link" href="/">Im Browser anmelden</a></p>
     </section>
   </main>;
 
   return <main className="login-shell">
     <section className="login-card" aria-labelledby="welcome-title">
-      <span className="eyebrow">Taptura</span>
+      <span className="eyebrow">{APP_NAME}</span>
       <h1 id="welcome-title">Passwort setzen</h1>
       {notice === null ? null : <p role="alert">{notice.text}</p>}
       {invitation?.hasInvitation ? <RequiredForm onSubmit={(event) => {

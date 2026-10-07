@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../../shared/product';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -121,7 +122,7 @@ describe('production validation build configuration', () => {
         eas: { projectId: 'a585d394-130a-41d9-af16-53038ce2e7ff' },
         taptimeBuild: { sourceCommit: commit },
       },
-      name: 'Taptura Produktionstest',
+      name: `${APP_NAME} Produktionstest`,
       packageName: 'com.tim180201.mobile.productionvalidation',
       scheme: 'taptime-production-validation',
     });

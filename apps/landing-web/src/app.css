@@ -1,0 +1,6 @@
+.app-actions { display: flex; flex-wrap: wrap; gap: 16px; }
+.app-button { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 24px; border: 1px solid #7ee0c0; border-radius: 10px; background: #7ee0c0; color: #0e1512; font: 700 16px "Manrope", sans-serif; text-decoration: none; }
+.app-button:hover { background: #a4ebd3; }
+.app-button:active { background: #60c7a7; }
+.app-button:focus-visible { outline: 3px solid #7ee0c0; outline-offset: 4px; }
+@media (max-width: 480px) { h1 { font-size: 36px; } main { padding-block: 32px; } .app-button { width: 100%; } }

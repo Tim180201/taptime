@@ -1,3 +1,5 @@
+import { APP_NAME } from '../../../shared/product';
+import { AppDownloadSuccess } from './AppDownloadSuccess';
 import { RequiredForm } from './RequiredForm';
 import { CustomerQuotaNotice } from './QuotaNotice';
 import type { Notice } from './contracts';
@@ -137,6 +139,16 @@ export function App({
     return <PasswordRecovery administration={administration} completing={state.completing}
       notice={state.notice} />;
   }
+  if (state.status === 'signed_out' && state.passwordResetCompleted) {
+    return <main className="login-shell">
+      <section className="login-card" aria-labelledby="recovery-title">
+        <Brand />
+        <h1 id="recovery-title">Neues Passwort setzen</h1>
+        <AppDownloadSuccess />
+        <p><a className="button-link secondary-link" href="/">Im Browser anmelden</a></p>
+      </section>
+    </main>;
+  }
   if (state.status === 'signed_out' || state.status === 'signing_in') {
     return <main className="login-shell">
       <section className="login-card" aria-labelledby="login-title">
@@ -178,7 +190,7 @@ export function App({
   }
   if (state.status === 'organization_paused') {
     return <main className="center"><Brand />
-      <p role="alert">Ihr Betrieb ist pausiert. Bitte wenden Sie sich an Taptura.</p>
+      <p role="alert">Ihr Betrieb ist pausiert. Bitte wenden Sie sich an {APP_NAME}.</p>
       <button onClick={() => void administration.refresh()}>Erneut versuchen</button>
       <button onClick={() => void administration.signOut()}>Abmelden</button>
     </main>;
@@ -360,7 +372,7 @@ type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { readonly
 function Brand() {
   return <div className="brand">
     <span className="brand-mark" aria-hidden="true">T</span>
-    <span><strong>Taptura</strong><small>ZEIT. EINFACH. KLAR.</small></span>
+    <span><strong>{APP_NAME}</strong><small>ZEIT. EINFACH. KLAR.</small></span>
   </div>;
 }
 

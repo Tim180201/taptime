@@ -4,30 +4,39 @@ import { join, resolve, extname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createServer } from 'node:http';
 import { after, before, test } from 'node:test';
-import { launchBrowser } from '../../../scripts/browser/harness.mjs';
+import { launchBrowser, measure } from '../../../scripts/browser/harness.mjs';
 import { build } from 'vite';
 import axe from 'axe-core';
 
 const root = resolve(import.meta.dirname, '..');
 const output = mkdtempSync(join(tmpdir(), 't031-browser-'));
+const actualLinks = JSON.parse(readFileSync(join(root, 'src/appLinks.json'), 'utf8'));
 const screenshots = process.env.TAPTIME_SCREENSHOTS;
 const caddy = readFileSync(resolve(root, '../../infrastructure/caddy/Caddyfile'), 'utf8');
 const csp = caddy.split('(landing_headers)')[1].match(/Content-Security-Policy "([^"]+)"/)[1];
 let browser, server, origin;
 before(async () => {
-  await build({ root, envDir: false, logLevel: 'warn', build: { emptyOutDir:true, outDir: join(output, 'empty') } });
+  await build({ root, envDir: false, logLevel: 'warn', plugins: [{ name: 'test-empty-app-links', enforce: 'pre', transform(_code, id) {
+    if (id === join(root, 'src/appLinks.json')) return JSON.stringify({ ios: '', android: '' });
+  } }], build: { emptyOutDir:true, outDir: join(output, 'empty') } });
   await build({ root, envDir: false, logLevel: 'warn', plugins: [{ name: 'test-contact-configuration', enforce: 'pre', transform(code, id) {
     if (id === join(root, 'src/config.ts')) return code.replace("contactEmail = ''", "contactEmail = 'pilot@example.invalid'");
+    if (id === join(root, 'src/appLinks.json')) return JSON.stringify({ ios: 'https://testflight.apple.com/join/Synthetic', android: 'https://play.google.com/apps/testing/com.example.synthetic' });
   } }], build: { emptyOutDir:true, outDir: join(output, 'set') } });
+  await build({ root, envDir: false, logLevel: 'warn', build: { emptyOutDir:true, outDir: join(output, 'actual') } });
   server = createServer((req, res) => {
     const url = new URL(req.url, 'http://local');
-    const configured = url.pathname.startsWith('/configured/');
-    let path = configured ? url.pathname.slice('/configured'.length) : url.pathname;
+    const prefix = ['/configured', '/actual'].find(prefix => url.pathname.startsWith(prefix + '/'));
+    const variant = prefix === '/configured' ? 'set' : prefix === '/actual' ? 'actual' : 'empty';
+    let path = prefix ? url.pathname.slice(prefix.length) : url.pathname;
     if (path === '/') path = '/index.html';
     if (path === '/tag') path = '/tag.html';
-    // Assets for the configured build have content-derived names; serve from either build.
-    let file = join(output, configured ? 'set' : 'empty', path);
-    if (!existsSync(file) && path.startsWith('/assets/')) file = join(output, 'set', path);
+    if (path === '/app') path = '/app.html';
+    // Assets have content-derived names; locate them across all fixture builds.
+    let file = join(output, variant, path);
+    if (!existsSync(file) && /^\/(assets|app-assets)\//.test(path)) {
+      file = ['empty', 'set', 'actual'].map(variant => join(output, variant, path)).find(existsSync) ?? file;
+    }
     if (!existsSync(file)) { res.writeHead(404); res.end(); return; }
     res.setHeader('Content-Security-Policy', csp);
     res.setHeader('Content-Type', ({ '.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.ttf':'font/ttf' })[extname(file)] ?? 'text/plain');
@@ -38,7 +47,7 @@ before(async () => {
   browser = await launchBrowser();
 });
 after(async () => { await browser?.close(); await new Promise(resolve => server ? server.close(resolve) : resolve()); rmSync(output, { recursive:true,force:true }); });
-for (const width of [320,390,1440]) for (const route of ['/', '/tag']) test(`${route} at ${width}px: axe, overflow, same-origin resources, strict markup`, async () => {
+for (const width of [320,360,390,1440]) for (const route of ['/', '/tag', '/app', '/configured/app']) test(`${route} at ${width}px: axe, overflow, same-origin resources, strict markup`, async () => {
   const page = await browser.newPage({ viewport: { width, height:900 } });
   const foreign = [], errors = [];
   page.on('request', request => { if (!request.url().startsWith(origin + '/')) foreign.push(request.url()); });
@@ -55,13 +64,70 @@ for (const width of [320,390,1440]) for (const route of ['/', '/tag']) test(`${r
     const before = await page.locator('main').innerText();
     await page.goto(origin+'/tag?tag=must-not-be-read#private');
     assert.equal(await page.locator('main').innerText(), before);
-  } else assert.equal(await page.locator('#contact a').count(), 0);
+  } else if (route === '/') assert.equal(await page.locator('#contact a').count(), 0);
+  else {
+    assert.deepEqual((await measure(page)).geometry, []);
+    if (route === '/app') {
+      assert.equal(await page.locator('#app-download a').count(), 0);
+      assert.match(await page.locator('#app-download').innerText(), /Die App erhalten Sie von Ihrer Verwaltung/);
+    } else {
+      assert.equal(await page.getByRole('link', {name:'App Store'}).getAttribute('href'), 'https://testflight.apple.com/join/Synthetic');
+      assert.equal(await page.getByRole('link', {name:'Google Play'}).getAttribute('href'), 'https://play.google.com/apps/testing/com.example.synthetic');
+    }
+  }
   if (screenshots && width !== 320) {
     mkdirSync(screenshots, {recursive:true});
     await page.emulateMedia({reducedMotion:'reduce'});
-    await page.screenshot({ path: join(screenshots, `${route==='/'?'landing':'tag'}-${width}.png`), fullPage:true });
+    await page.screenshot({ path: join(screenshots, `${route==='/'?'landing':route.slice(1).replaceAll('/','-')}-${width}.png`), fullPage:true });
   }
   await page.close();
+});
+test('the built page redirects only to the file-configured destinations under strict CSP', async () => {
+  for (const [userAgent, target] of [
+    ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', 'https://testflight.apple.com/join/Synthetic'],
+    ['Mozilla/5.0 (Linux; Android 15)', 'https://play.google.com/apps/testing/com.example.synthetic'],
+  ]) {
+    const page = await browser.newPage({ userAgent });
+    const external = [];
+    await page.route('**/*', route => {
+      if (route.request().url().startsWith(origin + '/')) return route.continue();
+      external.push(route.request().url());
+      return route.fulfill({ body: 'Synthetic store destination' });
+    });
+    await page.goto(origin + '/configured/app?redirect=https://foreign.invalid#ios=https://foreign.invalid');
+    await page.waitForURL(target);
+    assert.deepEqual(external, [target]);
+    await page.goto(origin + '/app?redirect=https://foreign.invalid');
+    await page.getByText('Die App erhalten Sie von Ihrer Verwaltung.').waitFor();
+    assert.deepEqual(external, [target]);
+    await page.close();
+  }
+});
+test('the real configuration renders its available desktop destinations and redirects each device only when configured', async () => {
+  const desktop = await browser.newPage();
+  await desktop.goto(origin + '/actual/app');
+  await desktop.locator('.app-actions').waitFor({ state: 'attached' });
+  const expectedLinks = [actualLinks.ios, actualLinks.android].filter(Boolean);
+  assert.deepEqual(await desktop.locator('#app-download a').evaluateAll(links => links.map(link => link.getAttribute('href'))), expectedLinks);
+  assert.equal(await desktop.getByText('Die App erhalten Sie von Ihrer Verwaltung.').count(), expectedLinks.length < 2 ? 1 : 0);
+  await desktop.close();
+  for (const [userAgent, target] of [
+    ['Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', actualLinks.ios],
+    ['Mozilla/5.0 (Linux; Android 15)', actualLinks.android],
+  ]) {
+    const page = await browser.newPage({ userAgent });
+    const external = [];
+    await page.route('**/*', route => {
+      if (route.request().url().startsWith(origin + '/')) return route.continue();
+      external.push(route.request().url());
+      return route.fulfill({ body: 'Intercepted configured destination' });
+    });
+    await page.goto(origin + '/actual/app?redirect=https://foreign.invalid');
+    if (target) await page.waitForURL(target);
+    else await page.getByText('Die App erhalten Sie von Ihrer Verwaltung.').waitFor();
+    assert.deepEqual(external, target ? [target] : []);
+    await page.close();
+  }
 });
 test('pause cancels motion, resumes once, and reduced motion responds dynamically', async () => {
   const page = await browser.newPage(); await page.goto(origin);

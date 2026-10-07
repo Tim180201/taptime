@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../../shared/product';
 import {SubviewBack, useSubviewBack} from '../navigation/SubviewBack';
 import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -75,7 +76,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <ActionButton title="Abbrechen" tone="quiet" disabled={locked} onPress={goBack} />
     </> : <>
       <Text style={styles.muted}>{projection.organization.name}</Text>
-      <Text style={styles.muted}>Jede NFC-Karte gehört zu einem Arbeitsziel. Start und Stopp erkennt Taptura selbst.</Text>
+      <Text style={styles.muted}>Jede NFC-Karte gehört zu einem Arbeitsziel. Start und Stopp erkennt {APP_NAME} selbst.</Text>
       {loadedAt!==null?<Text style={styles.muted}>Stand {new Intl.DateTimeFormat('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'}).format(loadedAt)}</Text>:null}
       {projection.nfcTags.map((tag) => <Card key={tag.id}>
         <View style={styles.row}><LineIcon name="setup" size={24} />

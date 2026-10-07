@@ -554,7 +554,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       return;
     }
     await this.safeSignOut();
-    this.setState({ status: 'signed_out', notice: { kind: 'success', text: 'Das Passwort wurde geändert. Sie können sich jetzt auch in der App mit dem neuen Passwort anmelden.' } });
+    this.setState({ status: 'signed_out', passwordResetCompleted: true });
   }
 
   async signOut(): Promise<void> {

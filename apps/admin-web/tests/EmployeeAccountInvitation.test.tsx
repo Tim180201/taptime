@@ -1,3 +1,4 @@
+import { APP_NAME } from '../../../shared/product';
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
@@ -49,7 +50,7 @@ describe('T-047 employee account interface', () => {
     render(<Harness capability={{ invite: async () => ({ status: 'failed', code: 'email_exists' }) }} />);
     fill();
     const error=await screen.findByRole('alert');
-    expect(error).toHaveTextContent('Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder Taptura kontaktieren.');
+    expect(error).toHaveTextContent(`Diese Adresse kann nicht aufgenommen werden. Bitte prüfen oder ${APP_NAME} kontaktieren.`);
     expect(screen.getByRole('dialog',{name:'Mitarbeiter einladen'})).toContainElement(error);
   });
   it.each(Object.entries(ACCOUNT_INVITATION_NOTICES))('shows %s by name and retains the inputs', async (code, text) => {

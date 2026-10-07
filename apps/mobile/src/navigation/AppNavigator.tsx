@@ -1,3 +1,5 @@
+import { AppUpdateButton } from '../design/AppUpdateButton';
+import { APP_NAME } from '../../../../shared/product';
 import {SubviewBack, SubviewBackContext, type BackAction, type RegisterBack} from './SubviewBack';
 import {OfflineActiveCapture} from '../work/OfflineActiveCapture';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
@@ -113,15 +115,15 @@ export function AppNavigator({
     }
     return (
       <MessageScreen title={state.updateRequired ? 'Bitte App aktualisieren' : state.organizationPaused
-        ? 'Dein Betrieb ist pausiert. Bitte wende dich an Taptura.'
+        ? `Dein Betrieb ist pausiert. Bitte wende dich an ${APP_NAME}.`
         : 'Dein Zugang konnte gerade nicht geladen werden. Versuche es erneut.'}>
-        {state.updateRequired ? <Text>Deine Erfassungen bleiben auf dem Handy gespeichert.</Text> : <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />}
+        {state.updateRequired ? <><Text>Deine Erfassungen bleiben auf dem Handy gespeichert.</Text><AppUpdateButton /></> : <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />}
         <ActionButton title="Abmelden" tone="quiet" onPress={() => session.signOut()} />
       </MessageScreen>
     );
   }
   if (state.status === 'runtime_unavailable') {
-    return <MessageScreen title="Taptura ist derzeit nicht verfügbar." />;
+    return <MessageScreen title={`${APP_NAME} ist derzeit nicht verfügbar.`} />;
   }
   if (state.status === 'initializing') {
     return <MessageScreen title="Sitzung wird sicher wiederhergestellt …" />;
@@ -261,7 +263,7 @@ function MessageScreen({
   readonly children?: React.ReactNode;
 }) {
   return (
-    <Screen title="Taptura"><ScrollView contentContainerStyle={styles.formContent}>
+    <Screen title={APP_NAME}><ScrollView contentContainerStyle={styles.formContent}>
       <Text style={styles.title}>{title}</Text>
       {children}
     </ScrollView></Screen>

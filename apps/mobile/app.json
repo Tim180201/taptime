@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "%APP_NAME%",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -41,7 +41,7 @@
       [
         "react-native-nfc-manager",
         {
-          "nfcPermission": "Taptura liest NFC-Karten zur Zeiterfassung und beschreibt sie beim Zuordnen.",
+          "nfcPermission": "%APP_NAME% liest NFC-Karten zur Zeiterfassung und beschreibt sie beim Zuordnen.",
           "includeNdefEntitlement": false,
           "selectIdentifiers": [],
           "systemCodes": []
