@@ -90,6 +90,8 @@ type ProductScanStateValue =
 
 export type ProductScanState = ProductScanStateValue & {
   readonly protection?: ProductScanProtectionClassification;
+  /** Set only for a rejected native SecureStore read/write; P01 alone also covers integrity. */
+  readonly identityRecovery?: 'secure_store';
   readonly untransferred?: readonly {readonly reported?:boolean;readonly workEventId:string;readonly occurredAt:string;readonly displayName:string;readonly reason:string}[];
   readonly updateRequired?: boolean;
   readonly transmissionPaused?: boolean;

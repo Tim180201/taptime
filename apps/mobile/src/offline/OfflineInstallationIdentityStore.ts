@@ -1,3 +1,4 @@
+import { classifySecureStoreReadWriteErrors } from './OfflineSecureStoreError';
 import { getRandomBytesAsync } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import {
@@ -44,7 +45,9 @@ export class OfflineInstallationIdentityStore {
   constructor(
     private readonly secureStore: OfflineSecureStorePort = SecureStore,
     private readonly randomBytes: (length: number) => Promise<Uint8Array> = getRandomBytesAsync,
-  ) {}
+  ) {
+    this.secureStore = classifySecureStoreReadWriteErrors(secureStore);
+  }
 
   loadOrCreate(repairFirstInitialization = false, orphaned = false): Promise<OfflineInstallationSecretsResult> {
     return this.serialized(async () => {

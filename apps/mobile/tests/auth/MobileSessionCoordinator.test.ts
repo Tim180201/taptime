@@ -394,8 +394,8 @@ describe('MobileSessionCoordinator', () => {
       };
       await coordinator.refresh();
       expect(coordinator.getState()).toEqual({
-        status: 'runtime_unavailable',
-        reason: 'storage_unavailable',
+        status: 'recovery_required',
+        reason: 'session_cleanup',
       });
       expect(coordinator.isOfflineRestorationSnapshotCurrent(beforeStorageFailure)).toBe(false);
       expect(provider.signOutCalls).toBeGreaterThan(0);
@@ -592,7 +592,7 @@ describe('MobileSessionCoordinator', () => {
     await expect(unavailable.coordinator.signIn('a@example.invalid', 'bad'))
       .resolves.toEqual({ status: 'infrastructure_error' });
     expect(unavailable.coordinator.getState()).toEqual({
-      status: 'runtime_unavailable', reason: 'authentication_unavailable',
+      status: 'unauthenticated', reason: 'sign_in_unavailable',
     });
   });
 
@@ -659,7 +659,7 @@ describe('MobileSessionCoordinator', () => {
     };
     await failingStorage.coordinator.signIn('a@example.invalid', 'password');
     expect(failingStorage.coordinator.getState()).toEqual({
-      status: 'runtime_unavailable', reason: 'storage_unavailable',
+      status: 'recovery_required', reason: 'session_cleanup',
     });
     expect(failingStorage.provider.signOutCalls).toBe(1);
   });
@@ -704,7 +704,7 @@ describe('MobileSessionCoordinator', () => {
     await expect(coordinator.signIn('a@example.invalid', 'password'))
       .resolves.toEqual({ status: 'infrastructure_error' });
     expect(coordinator.getState()).toEqual({
-      status: 'runtime_unavailable', reason: 'storage_unavailable',
+      status: 'unauthenticated', reason: 'sign_in_unavailable',
     });
     expect(store.value).toBeNull();
     expect(provider.signOutCalls).toBe(1);
@@ -744,11 +744,12 @@ describe('MobileSessionCoordinator', () => {
       type: 'token_refreshed',
       tokens: { accessToken: 'event-access-1', refreshToken: 'event-refresh-1' },
     });
+    // Exercise a native write already in flight; queued obsolete writes are now skipped (D-133).
+    await vi.waitFor(() => expect(store.writes).toContain('event-refresh-1'));
     provider.emit({
       type: 'token_refreshed',
       tokens: { accessToken: 'event-access-2', refreshToken: 'event-refresh-2' },
     });
-    await vi.waitFor(() => expect(store.writes).toContain('event-refresh-1'));
     firstWrite.resolve();
     await vi.waitFor(() => expect(store.value).toBe('event-refresh-2'));
     expect(store.writes.slice(-2)).toEqual(['event-refresh-1', 'event-refresh-2']);
@@ -1439,4 +1440,74 @@ it('T-065 applies an expired display deadline when secure identity storage compl
     expect(store.identity).toBeNull();
     expect(coordinator.getState()).not.toHaveProperty('identityLabel');
   } finally { coordinator.stop(); vi.useRealTimers(); }
+});
+
+
+describe('T-115 recovery', () => {
+  const identity = {providerUserId:'provider-A', email:'a@example.invalid'};
+  function confirmed() {
+    const h = setup('stored-refresh');
+    h.store.identity = identity;
+    h.provider.refreshImplementation = async () => ({status:'refreshed', tokens:{accessToken:'access', refreshToken:'renewed', identity}});
+    return h;
+  }
+  it('retries a failed startup via initializing and reloads the confirmed identity', async () => {
+    const h=confirmed();
+    h.store.readImplementation=async()=>{throw new Error('locked');};
+    await h.coordinator.start();
+    expect(h.coordinator.getState().status).toBe('runtime_unavailable');
+    h.store.readImplementation=async()=>h.store.value;
+    const states:string[]=[];h.coordinator.subscribe(()=>states.push(h.coordinator.getState().status));
+    await h.coordinator.retryContext();
+    expect(states).toContain('initializing');
+    expect(h.coordinator.getState()).toMatchObject({status:'authenticated',identityLabel:identity.email});
+    expect(h.store.identity).toEqual(identity);
+    expect(h.provider.signOutCalls).toBe(0);
+  });
+  it('contains a throwing listener without changing session authority',async()=>{
+    const h=confirmed();const other=vi.fn();
+    h.coordinator.subscribe(()=>{throw new Error('listener');});h.coordinator.subscribe(other);
+    await expect(h.coordinator.start()).resolves.toBeUndefined();
+    expect(h.coordinator.getState().status).toBe('authenticated');expect(other).toHaveBeenCalled();
+  });
+  it('retains a same-account renewal and retries only its newest token without another refresh',async()=>{
+    const h=confirmed();await h.coordinator.start();
+    const clears=h.store.clearCalls;
+    h.store.writeImplementation=async()=>{throw new Error('locked');};
+    h.provider.emit({type:'token_refreshed',tokens:{accessToken:'access2',refreshToken:'refresh2',identity}});
+    await vi.waitFor(()=>expect(h.store.writes).toContain('refresh2'));
+    await new Promise(r=>setTimeout(r,0));
+    expect(h.coordinator.getState().status).toBe('authenticated');
+    expect(h.store.clearCalls).toBe(clears);expect(h.provider.signOutCalls).toBe(0);
+    const refreshes=h.provider.refreshCalls.length;
+    await h.coordinator.refresh();expect(h.provider.refreshCalls).toHaveLength(refreshes);
+    await expect(h.coordinator.executeAuthenticatedRequest(async()=>({status:'authority_rejected'})))
+      .resolves.toEqual({status:'unavailable'});
+    h.store.writeImplementation=async()=>{};
+    await h.coordinator.retryContext();
+    expect(h.store.value).toBe('refresh2');expect(h.store.identity).toEqual(identity);
+    expect(h.coordinator.getState().status).toBe('authenticated');h.coordinator.stop();
+  });
+  it.each(['provider','clear','token','identity'] as const)('keeps %s sign-in failures on login, with no authority',async(kind)=>{
+    const h=setup();
+    if(kind==='provider')h.provider.signInImplementation=async()=>{throw new Error('unavailable');};
+    if(kind==='clear')h.store.clearImplementation=async()=>{throw new Error('locked');};
+    if(kind==='token')h.store.writeImplementation=async()=>{throw new Error('locked');};
+    if(kind==='identity')h.store.writeIdentity=async value=>{if(value)throw new Error('locked');};
+    if(kind==='identity')h.provider.signInImplementation=async()=>({status:'authenticated',tokens:{accessToken:'a',refreshToken:'r',identity}});
+    await h.coordinator.signIn('a@example.invalid','secret');
+    expect(h.coordinator.getState()).toMatchObject({status:'unauthenticated',reason:'sign_in_unavailable'});
+    expect(h.coordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+  });
+  it('keeps a failed sign-out closed until deletion succeeds, never restores the old token',async()=>{
+    const h=confirmed();await h.coordinator.start();
+    h.store.clearImplementation=async()=>{throw new Error('locked');};
+    await h.coordinator.signOut();
+    expect(h.coordinator.getState().status).toBe('recovery_required');
+    const refreshes=h.provider.refreshCalls.length;
+    await h.coordinator.retryContext();expect(h.coordinator.getState().status).toBe('recovery_required');
+    h.store.clearImplementation=async()=>{};await h.coordinator.retryContext();
+    expect(h.coordinator.getState().status).toBe('signed_out');expect(h.store.value).toBeNull();
+    expect(h.provider.refreshCalls).toHaveLength(refreshes);
+  });
 });

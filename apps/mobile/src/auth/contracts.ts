@@ -93,7 +93,7 @@ export type MobileSessionState =
   | { readonly status: 'initializing' }
   | {
       readonly status: 'unauthenticated';
-      readonly reason: 'not_signed_in' | 'invalid_credentials' | 'authority_rejected';
+      readonly reason: 'not_signed_in' | 'invalid_credentials' | 'authority_rejected' | 'sign_in_unavailable';
     }
   | { readonly status: 'signing_in' }
   | { readonly status: 'authenticated'; readonly session: ProductSessionContext; readonly identityLabel?: string }
@@ -104,8 +104,9 @@ export type MobileSessionState =
   | { readonly status: 'context_unavailable'; readonly identityLabel?: string; readonly organizationPaused?: boolean; readonly updateRequired?: boolean }
   | {
       readonly status: 'runtime_unavailable';
-      readonly reason: 'authentication_unavailable' | 'storage_unavailable';
+      readonly reason: 'authentication_unavailable' | 'storage_unavailable' | 'runtime_start_failed';
     }
+  | { readonly status: 'recovery_required'; readonly reason: 'token_persistence' | 'session_cleanup' }
   | { readonly status: 'signed_out' };
 
 export type SignInResult =

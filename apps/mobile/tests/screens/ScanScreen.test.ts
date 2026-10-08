@@ -147,7 +147,7 @@ describe('ScanScreen presentation', () => {
     const presentation = presentScanState({ status: 'secure_storage_unavailable' });
     expect(presentation.message).toContain('Bleibt die Meldung bestehen');
     expect(presentation.message).toContain('wende dich an den Support');
-    expect(presentation.message).toContain('lösche weder die App noch ihre Daten');
+    expect(presentation.message).toContain('Lösche weder die App noch ihre Daten');
     expect(presentation.message).not.toContain('versuche es dann noch einmal');
   });
 
@@ -159,4 +159,8 @@ it('T-091 shows the location reason without a location name',()=>{
   expect(presentation.title).toBe('Arbeitsziel nicht verfügbar');
   expect(presentation.message).toContain('keinem für dich berechtigten Standort');
   expect(presentation.tone).toBe('warning');
+});
+
+it('T-115 storage failure text does not require a process restart',()=>{
+  expect(presentScanState({status:'secure_storage_unavailable'}).message).not.toMatch(/starte die App neu/);
 });

@@ -23,7 +23,7 @@ describe('iPhone capture screen', () => {
   it('opens no session on render and offers an explicit Karte scannen action', () => {
     const state: ProductScanState = { status: 'ready', outcome: null };
     const scan = { getState: () => state, subscribe: () => () => {}, scan: vi.fn(async () => {}), cancel: vi.fn(async () => {}), retry: vi.fn(async () => {}) };
-    const html = renderToStaticMarkup(createElement(ScanScreen, { actor: 'employee', scan, signOut: async () => {} }));
+    const html = renderToStaticMarkup(createElement(ScanScreen, { actor: 'employee', scan, signOut: async () => {}, retryRecovery: async () => {} }));
     expect(html).toContain('aria-label="Karte scannen"');
     expect(html).toContain('Karte scannen');
     expect(scan.scan).not.toHaveBeenCalled();

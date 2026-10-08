@@ -1,10 +1,11 @@
+import { MobileAppActivity } from './MobileAppActivity';
 import { nativeBuildVersion } from 'expo-application';
 import { versionedAppFetch } from '../transport/versionedAppFetch';
 import * as Network from 'expo-network';
 import { TimeEditingCoordinator } from '../timeEditing/TimeEditingCoordinator';
 import { EmployeesCoordinator } from '../employees/EmployeesCoordinator';
 import { TapTimeEmployeesApiClient } from '../employees/TapTimeEmployeesApiClient';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { fetch as expoFetch } from 'expo/fetch';
 import { randomUUID } from 'expo-crypto';
 import Constants from 'expo-constants';
@@ -75,6 +76,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     configuration.configuration.supabaseUrl,
     configuration.configuration.supabasePublishableKey,
   );
+  const activity = new MobileAppActivity(Platform.OS, AppState);
   let coordinator: MobileSessionCoordinator;
   const appFetch = versionedAppFetch(expoFetch as typeof fetch, {
     platform: Platform.OS === 'ios' ? 'ios' : 'android',
@@ -90,8 +92,9 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       appFetch,
     ),
     randomUUID,
+    activity,
   );
-  const appStateLifecycle = createNativeAppStateAutoRefreshLifecycle(provider);
+  const appStateLifecycle = createNativeAppStateAutoRefreshLifecycle(provider, coordinator);
   // Expo's native fetch exposes a real ReadableStream, allowing the transport to stop oversized
   // responses before they are buffered in full by React Native's legacy fetch polyfill.
   const authenticatedRequests = new AuthenticatedHttpRequestExecutor(coordinator, appFetch);
@@ -163,6 +166,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     offlineBackgroundSchedulerBinding,
     undefined,
     accountStorage,
+    activity,
   );
   const offlineSchedulingLifecycle = new OfflineSchedulingLifecycle(scanOrchestrator);
   const nativeNfcIngressLifecycle = new NativeNfcIngressLifecycle(
@@ -214,6 +218,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
         get:async()=>{const state=await Network.getNetworkStateAsync();return state.isConnected===true && state.isInternetReachable!==false;},
         subscribe:listener=>{const subscription=Network.addNetworkStateListener(state=>listener(state.isConnected===true && state.isInternetReachable!==false));return ()=>subscription.remove();},
       }),
+      activity,
     ),
   };
 }

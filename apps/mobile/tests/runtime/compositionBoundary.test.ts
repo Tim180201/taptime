@@ -1,3 +1,4 @@
+import { ProductRuntimeStartup } from '../../src/runtime/ProductRuntimeStartup';
 vi.mock('expo-file-system/legacy', () => ({ readDirectoryAsync: vi.fn(), makeDirectoryAsync: vi.fn(), deleteAsync: vi.fn() }));
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -187,7 +188,15 @@ describe('C1 Mobile composition boundary', () => {
       fileURLToPath(new URL('../../src/ProductMobileApp.tsx', import.meta.url)),
       'utf8',
     );
-    expect(productAppSource).toMatch(/active = false;\s+runtime\.stop\(\);/);
+    expect(productAppSource).toContain('return () => startup.stop()');
+    let reject!: (error: Error) => void;
+    const runtime = {start: vi.fn<() => Promise<void>>()
+      .mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }))
+      .mockResolvedValue(undefined), stop: vi.fn()};
+    const startup = new ProductRuntimeStartup(runtime, () => () => {});
+    const obsolete = startup.start();startup.stop();await startup.start();
+    reject(new Error('obsolete startup'));await obsolete;
+    expect(startup.getState()).toBe('ready');startup.stop();
   });
 
   it('keeps the physical validation UI local and free of raw UID disclosure', async () => {

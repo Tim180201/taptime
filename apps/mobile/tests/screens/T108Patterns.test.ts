@@ -62,7 +62,7 @@ it('explains why active controls are locked after an unconfirmed capture',()=>{
  const work={getState:()=>state,subscribe:()=>()=>{}} as never;
  const scanState={status:'ready' as const,outcome:null};
  const scan={getState:()=>scanState,subscribe:()=>()=>{}} as never;
- render(h(ScanScreen,{actor:'employee',work,scan,signOut:async()=>{}}));
+ render(h(ScanScreen,{actor:'employee',work,scan,signOut:async()=>{},retryRecovery:async()=>{}}));
  expect(screen.getByText('Deine letzte Erfassung wartet noch auf Bestätigung.')).toBeDefined();
 });
 

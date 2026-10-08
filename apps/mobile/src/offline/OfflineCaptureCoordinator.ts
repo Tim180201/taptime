@@ -1,3 +1,5 @@
+import { OfflineSecureStoreError } from './OfflineSecureStoreError';
+import { alwaysForeground, type SessionActivity } from '../runtime/MobileAppActivity';
 import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import type { OfflineAccountStorage } from './OfflineAccountStorage';
 import { OfflineAccountStorageError } from './OfflineCaptureDiagnostic';
@@ -189,6 +191,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     private readonly backgroundBinding: OfflineBackgroundSchedulerBinding = { bind() {} },
     private readonly now: () => Date = () => new Date(),
     private readonly accountStorage?: OfflineAccountStorage,
+    private readonly activity: SessionActivity = alwaysForeground,
   ) {}
 
   getState(): ProductScanState {
@@ -493,6 +496,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       opened = await this.accountStorage?.open();
       identity = opened ? { status: 'ready' as const, secrets: opened.secrets } : await this.identityStore.loadOrCreate();
     } catch (error) {
+      if (error instanceof OfflineSecureStoreError) {
+        this.setState(nativeSecureStoreFailureState(this.accountStorage !== undefined));
+        return false;
+      }
       if (error instanceof OfflineAccountStorageError) {
         this.setState(protectedScanState('local_evidence_protected', error.protection));
         return false;
@@ -675,7 +682,13 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     let secrets = this.secrets;
     if (database === null) return;
     if (secrets === null) {
-      const loaded = await this.identityStore.loadOrCreate();
+      let loaded;
+      try { loaded = await this.identityStore.loadOrCreate(); }
+      catch (error) {
+        if (!(error instanceof OfflineSecureStoreError)) throw error;
+        this.setState(nativeSecureStoreFailureState(this.accountStorage !== undefined));
+        return;
+      }
       if (loaded.status !== 'ready') {
         this.setState(classifiedScanState(
           { status: 'secure_storage_unavailable' },
@@ -1407,6 +1420,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     await database?.invalidateCapture().catch(() => undefined);
     if (generation !== this.generation) return;
     if (removeLookupKey) {
+      // A late provider sign-out revokes authority immediately, but iOS keychain mutation
+      // must wait for the foreground. A newer capture generation cancels this deletion.
+      await this.activity.waitForForeground();
+      if (generation !== this.generation) return;
       await this.identityStore.removeActiveLookupKey().catch(() => undefined);
       if (generation !== this.generation) return;
       this.secrets?.lookupKey.fill(0);
@@ -1567,6 +1584,15 @@ function classifiedScanState(
     writable: false,
   });
   return Object.freeze(classified);
+}
+
+function nativeSecureStoreFailureState(accountStorage: boolean): ProductScanState {
+  return classifiedScanState({
+    ...(accountStorage
+      ? { status: 'protected_pending' as const, reason: 'local_evidence_protected' as const }
+      : { status: 'secure_storage_unavailable' as const }),
+    identityRecovery: 'secure_store',
+  }, PRODUCT_SCAN_PROTECTION_CLASS.secureIdentity);
 }
 
 function protectedScanState(

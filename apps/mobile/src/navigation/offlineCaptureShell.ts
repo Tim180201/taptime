@@ -17,3 +17,10 @@ export function canPresentOfflineCaptureShell(
     || scan.status === 'server_review_pending'
     || scan.status === 'server_decision';
 }
+
+/** P01 includes integrity failures; only an explicit native read/write cause is retryable. */
+export function isRecoverableIdentityProtection(scan: ProductScanState): boolean {
+  return scan.identityRecovery === 'secure_store' && scan.protection?.[0] === 'P01'
+    && (scan.status === 'secure_storage_unavailable'
+      || scan.status === 'protected_pending' && scan.reason === 'local_evidence_protected');
+}

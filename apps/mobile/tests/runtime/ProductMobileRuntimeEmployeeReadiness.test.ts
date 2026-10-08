@@ -1,3 +1,5 @@
+import type { AppStateStatus } from 'react-native';
+import { MobileAppActivity } from '../../src/runtime/MobileAppActivity';
 import type {
   OfflineCaptureLeasePageV3,
 } from '@taptime/offline-sync-contract';
@@ -25,6 +27,8 @@ import {
   OfflineCaptureCoordinator,
   type OfflineCaptureSessionReader,
 } from '../../src/offline/OfflineCaptureCoordinator';
+import { OfflineAccountStorage, type OfflineDatabaseFiles } from '../../src/offline/OfflineAccountStorage';
+import { encodeBase64Url } from '../../src/offline/encoding';
 import { OfflineCaptureDatabase } from '../../src/offline/OfflineCaptureDatabase';
 import { OfflineCaptureLeaseClient } from '../../src/offline/OfflineCaptureLeaseClient';
 import {
@@ -232,6 +236,8 @@ function productRuntimeHarness(
   nativeDatabase: MemoryOfflineDatabase,
   beforeDatabaseOpen: () => void = () => {},
   auth?: { provider: MemoryProvider; store: MemoryRefreshTokenStore; resolveBackend?: () => Promise<BackendSessionResolution> },
+  activity?: MobileAppActivity,
+  accountFiles?: OfflineDatabaseFiles,
 ) {
   const provider = auth?.provider ?? new MemoryProvider();
   const store = auth?.store ?? new MemoryRefreshTokenStore();
@@ -244,6 +250,7 @@ function productRuntimeHarness(
       },
       async recordPasswordReset() { return { status: 'unavailable' as const }; },
     } satisfies BackendSessionPort,
+    undefined, undefined, activity,
   );
   const sessionReader: OfflineCaptureSessionReader = {
     capture: () => sessionCoordinator.captureAuthenticatedSessionSnapshot(),
@@ -279,6 +286,7 @@ function productRuntimeHarness(
     nativeDatabase.closed = false;
     return nativeDatabase;
   }, key);
+  const accountStorage = accountFiles ? new OfflineAccountStorage(secureStore,async length=>new Uint8Array(length).fill(6),databaseFactory,accountFiles) : undefined;
   const clock = new AndroidMonotonicClock({
     async sample() {
       return {
@@ -304,7 +312,7 @@ function productRuntimeHarness(
       async stop() {},
     },
     sessionReader,
-    identityStore,
+    accountStorage ?? identityStore,
     databaseFactory,
     new OfflineCaptureLeaseClient(new URL('https://api.example/'), leaseRequests),
     clock,
@@ -322,6 +330,7 @@ function productRuntimeHarness(
     () => ids.command,
     { bind() {} },
     () => new Date(wallClock),
+    accountStorage, activity,
   );
   const runtime = new DefaultProductMobileRuntime(
     sessionCoordinator,
@@ -341,12 +350,14 @@ function productRuntimeHarness(
       async start() {},
       async stop() {},
     },
+    undefined, undefined, undefined, undefined, undefined, undefined, undefined, activity,
   );
   return { leaseRequests, runtime, store, sessionCoordinator, scanCoordinator: scan };
 }
 
 class MemoryProvider implements ProviderAuthPort {
   private readonly listeners = new Set<(event: ProviderAuthEvent) => void>();
+  emit(event: ProviderAuthEvent) { for (const listener of this.listeners) listener(event); }
 
   async signInWithPassword() {
     return {
@@ -458,3 +469,108 @@ function readinessTimeline(timeline: readonly string[]): readonly string[] {
     || status === 'unavailable'
   ));
 }
+
+
+it.each(['background','read-failure'] as const)('T-115 restores the actual offline coordinator after %s with retained keys, owner and lease',async(mode)=>{
+  const secure=memorySecureStore(), db=new MemoryOfflineDatabase();
+  const first=productRuntimeHarness(session(ids.employee,ids.membership),secure.port,db);
+  await first.runtime.start();await first.runtime.session.signIn('ignored@example.invalid','password');
+  await vi.waitFor(()=>expect(first.runtime.scan.getState().status).toBe('ready'));
+  first.runtime.stop();await vi.waitFor(()=>expect(db.closed).toBe(true));
+  const owner=structuredClone(db.owner), leases=structuredClone(db.leases), keys=new Map(secure.values);
+  const listeners=new Set<(state:AppStateStatus)=>void>();
+  const appState={currentState:(mode==='background'?'background':'active') as AppStateStatus,
+    addEventListener:(_type:'change',listener:(state:AppStateStatus)=>void)=>{listeners.add(listener);return {remove:()=>listeners.delete(listener)};}};
+  const emit=(state:AppStateStatus)=>{appState.currentState=state;for(const listener of [...listeners])listener(state);};
+  const activity=new MobileAppActivity('ios',appState);let locked=true;
+  const read=secure.port.getItemAsync;
+  const secured={...secure.port,getItemAsync:vi.fn(async(...args:Parameters<typeof read>)=>{
+    if(locked)throw new Error('locked');return read(...args);
+  })};
+  const provider=new MemoryProvider();provider.refreshImplementation=async()=>({status:'refreshed',tokens:{accessToken:'new',refreshToken:'new',identity:{providerUserId:'provider-user',email:'server@example.invalid'}}});
+  const storeRead=first.store.read.bind(first.store);
+  first.store.read=async()=>{if(locked)throw new Error('locked');return storeRead();};
+  const next=productRuntimeHarness(session(ids.employee,ids.membership),secured,db,()=>{},{provider,store:first.store},activity);
+  const starting=next.runtime.start();
+  if(mode==='background') {
+    await new Promise(r=>setTimeout(r,0));expect(secured.getItemAsync).not.toHaveBeenCalled();
+    emit('inactive');await new Promise(r=>setTimeout(r,0));expect(secured.getItemAsync).not.toHaveBeenCalled();
+  } else {
+    await starting;expect(next.runtime.session.getState().status).toBe('runtime_unavailable');
+    expect(next.runtime.scan.getState().protection).toEqual(['P01']);emit('background');
+  }
+  locked=false;emit('active');await starting;
+  await vi.waitFor(()=>expect(next.runtime.session.getState().status).toBe('authenticated'));
+  await vi.waitFor(()=>expect(next.runtime.scan.getState().status).toBe('ready'));
+  expect(secure.values).toEqual(keys);expect(db.owner).toEqual(owner);expect(db.leases).toEqual(leases);
+  next.runtime.stop();
+});
+
+
+it('T-115 review P1: a late provider sign-out defers the real offline lookup-key deletion',async()=>{
+  const secure=memorySecureStore(), db=new MemoryOfflineDatabase();
+  const listeners=new Set<(state:AppStateStatus)=>void>();
+  const appState={currentState:'active' as AppStateStatus,
+    addEventListener:(_type:'change',listener:(state:AppStateStatus)=>void)=>{listeners.add(listener);return {remove:()=>listeners.delete(listener)};}};
+  const emit=(state:AppStateStatus)=>{appState.currentState=state;for(const listener of [...listeners])listener(state);};
+  const activity=new MobileAppActivity('ios',appState), provider=new MemoryProvider(), store=new MemoryRefreshTokenStore();
+  const deletes=vi.fn(secure.port.deleteItemAsync);
+  const h=productRuntimeHarness(session(ids.employee,ids.membership),{...secure.port,deleteItemAsync:deletes},db,()=>{},{provider,store},activity);
+  await h.runtime.start();await h.runtime.session.signIn('ignored@example.invalid','password');
+  await vi.waitFor(()=>expect(h.runtime.scan.getState().status).toBe('ready'));
+  deletes.mockClear();emit('background');provider.emit({type:'signed_out'});
+  await new Promise(r=>setTimeout(r,20));
+  expect(h.sessionCoordinator.captureAuthenticatedSessionSnapshot()).toBeNull();
+  expect(deletes).not.toHaveBeenCalled();
+  expect(secure.values.has('taptime.offline.lookup-key.v1')).toBe(true);
+  emit('active');await vi.waitFor(()=>expect(deletes).toHaveBeenCalledWith('taptime.offline.lookup-key.v1',expect.any(Object)));
+  h.runtime.stop();
+});
+
+
+it.each([['prepared','active'],['owner-mismatch','active'],['native-read','active'],['native-write','active'],['native-read','button'],['native-write','button']] as const)('T-115 TL production accountStorage distinguishes %s while authenticated via %s',async(failure,trigger)=>{
+  const secure=memorySecureStore(),db=new MemoryOfflineDatabase();
+  const key='taptime.offline.generations.v1',bytes=encodeBase64Url(new Uint8Array(32).fill(6));
+  const active={name:`taptime-offline-g-${bytes}.db`,installationBinding:bytes,databaseKey:bytes,lookupKey:failure==='native-write'?null:bytes};
+  secure.values.set(key,JSON.stringify({version:1,active,retired:[],prepared:failure==='prepared'?{...active,name:`taptime-offline-g-${encodeBase64Url(new Uint8Array(32).fill(7))}.db`}:null}));
+  // Persist a structurally valid owner with a deliberately foreign binding for the integrity case.
+  if(failure==='owner-mismatch') db.owner={organization_id:ids.organization,user_id:ids.employee,membership_id:ids.membership,installation_binding_digest:'0'.repeat(64),installation_id:null,identity_binding_id:null,next_device_sequence:1,review_pending_sequence:null,capture_invalidated:0};
+  else if(failure!=='prepared') {
+    // Initializing generations may be opened before their first owner has been bound.
+    const state=JSON.parse(secure.values.get(key)!);state.active.initializing=true;secure.values.set(key,JSON.stringify(state));
+  }
+  const appState={currentState:'active' as AppStateStatus,listeners:new Set<(s:AppStateStatus)=>void>(),
+    addEventListener(_type:'change',listener:(s:AppStateStatus)=>void){this.listeners.add(listener);return {remove:()=>this.listeners.delete(listener)};}};
+  const emit=(state:AppStateStatus)=>{appState.currentState=state;for(const listener of [...appState.listeners])listener(state);};
+  const activity=new MobileAppActivity('ios',appState),provider=new MemoryProvider(),store=new MemoryRefreshTokenStore();
+  const tokens={accessToken:'access-token',refreshToken:'refresh-token',identity:{providerUserId:'provider-user',email:'server@example.invalid'}};
+  await store.write(tokens.refreshToken);await store.writeIdentity(tokens.identity);
+  provider.refreshImplementation=async()=>({status:'refreshed',tokens});const refresh=vi.spyOn(provider,'refreshSession');
+  let failing=true;
+  const port={...secure.port,getItemAsync:async(...args:Parameters<OfflineSecureStorePort['getItemAsync']>)=>{
+    if(failing && failure==='native-read')throw new Error('native read failed');return secure.port.getItemAsync(...args);
+  },setItemAsync:async(...args:Parameters<OfflineSecureStorePort['setItemAsync']>)=>{
+    if(failing && failure==='native-write')throw new Error('native write failed');return secure.port.setItemAsync(...args);
+  }};
+  const h=productRuntimeHarness(session(ids.employee,ids.membership),port,db,()=>{},{provider,store},activity,{list:async()=>[active.name],remove:async()=>{}});
+  const start=vi.spyOn(h.scanCoordinator,'start'),stop=vi.spyOn(h.scanCoordinator,'stop');
+  try {
+    await h.runtime.start();await new Promise(r=>setTimeout(r,0));
+    expect(h.runtime.session.getState().status).toBe('authenticated');
+    expect(h.runtime.scan.getState()).toMatchObject({status:'protected_pending',reason:'local_evidence_protected',protection:['P01']});
+    const retryable=failure.startsWith('native-');
+    expect(h.runtime.scan.getState().identityRecovery).toBe(retryable?'secure_store':undefined);
+    const starts=start.mock.calls.length,stops=stop.mock.calls.length,refreshes=refresh.mock.calls.length;
+    failing=false;
+    if(trigger==='button')await h.runtime.session.retryContext();else {emit('background');emit('active');}
+    await new Promise(r=>setTimeout(r,20));
+    if(retryable) {
+      await vi.waitFor(()=>expect(h.runtime.scan.getState().status).toBe('ready'));
+      expect(start).toHaveBeenCalledTimes(starts+1);expect(stop).toHaveBeenCalledTimes(stops+1);
+    } else {
+      expect(start).toHaveBeenCalledTimes(starts);expect(stop).toHaveBeenCalledTimes(stops);
+      expect(refresh).toHaveBeenCalledTimes(refreshes);
+      expect(h.runtime.scan.getState()).toMatchObject({status:'protected_pending',reason:'local_evidence_protected'});
+    }
+  } finally {h.runtime.stop();}
+});

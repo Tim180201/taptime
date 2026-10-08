@@ -140,7 +140,7 @@ describe('T-114 height and navigation', () => {
   });
 
   it.each([true, false])('removes Zuletzt and its fallback from Erfassen (work: %s)', withWork => {
-    render(h(ScanScreen, { actor: 'employee', scan, work: withWork ? workFor(active) : undefined, signOut: async () => {}, embedded: true }));
+    render(h(ScanScreen, { actor: 'employee', scan, work: withWork ? workFor(active) : undefined, signOut: async () => {}, retryRecovery: async () => {}, embedded: true }));
     expect(screen.queryByText('Zuletzt')).toBeNull();
     expect(screen.queryByText('Bestätigte Zeiten siehst du nach der Übertragung.')).toBeNull();
   });

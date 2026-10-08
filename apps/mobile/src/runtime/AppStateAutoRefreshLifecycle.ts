@@ -16,37 +16,49 @@ export interface AppStatePort {
 export class AppStateAutoRefreshLifecycle {
   private subscription: AppStateSubscription | null = null;
   private appliedRunning = false;
+  private currentState: AppStateStatus = 'unknown';
+  private unsubscribePolicy: (() => void) | null = null;
   private operationTail: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly provider: Pick<ProviderAuthPort, 'startAutoRefresh' | 'stopAutoRefresh'>,
     private readonly appState: AppStatePort,
+    private readonly policy?: {
+      canAutoRefresh(): boolean;
+      subscribeRefreshPolicy(listener: () => void): () => void;
+    },
   ) {}
 
   start(): void {
     if (this.subscription !== null) {
       return;
     }
-    this.requestState(this.appState.currentState);
+    this.currentState = this.appState.currentState;
+    this.unsubscribePolicy = this.policy?.subscribeRefreshPolicy(() => this.requestState(this.currentState)) ?? null;
+    this.requestState(this.currentState);
     this.subscription = this.appState.addEventListener('change', (state) => this.applyState(state));
   }
 
   stop(): void {
+    this.unsubscribePolicy?.();
+    this.unsubscribePolicy = null;
     this.subscription?.remove();
     this.subscription = null;
     this.requestRunning(false);
   }
 
   private applyState(state: AppStateStatus): void {
+    this.currentState = state;
     this.requestState(state);
   }
 
   private requestState(state: AppStateStatus): void {
-    this.requestRunning(state === 'active');
+    this.requestRunning(state === 'active' && (this.policy?.canAutoRefresh() ?? true));
   }
 
   private requestRunning(shouldRun: boolean): void {
     this.operationTail = this.operationTail.then(async () => {
+      shouldRun = shouldRun && this.currentState === 'active' && (this.policy?.canAutoRefresh() ?? true);
       if (shouldRun === this.appliedRunning) {
         return;
       }
@@ -64,6 +76,7 @@ export class AppStateAutoRefreshLifecycle {
 
 export function createNativeAppStateAutoRefreshLifecycle(
   provider: Pick<ProviderAuthPort, 'startAutoRefresh' | 'stopAutoRefresh'>,
+  policy?: { canAutoRefresh(): boolean; subscribeRefreshPolicy(listener: () => void): () => void },
 ): AppStateAutoRefreshLifecycle {
-  return new AppStateAutoRefreshLifecycle(provider, AppState);
+  return new AppStateAutoRefreshLifecycle(provider, AppState, policy);
 }

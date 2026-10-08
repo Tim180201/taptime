@@ -1,3 +1,4 @@
+import { classifySecureStoreReadWriteErrors, OfflineSecureStoreError } from './OfflineSecureStoreError';
 import type { SecureStoreOptions } from 'expo-secure-store';
 import { WHEN_UNLOCKED_THIS_DEVICE_ONLY } from 'expo-secure-store';
 import { OfflineCaptureDatabase, OFFLINE_DATABASE_NAME, type OfflineDatabaseOwner } from './OfflineCaptureDatabase';
@@ -46,6 +47,7 @@ export class OfflineAccountStorage {
     private readonly factory: AccountDatabaseFactory,
     private readonly files: OfflineDatabaseFiles,
     private readonly platform = 'android') {
+    this.secure = classifySecureStoreReadWriteErrors(secure);
     this.legacy = new OfflineInstallationIdentityStore(secure, random);
   }
 
@@ -114,7 +116,10 @@ export class OfflineAccountStorage {
         if (state === null) await this.checkLegacyKeys(names);
         if (state?.prepared) throw protectedStorage();
         return { status: 'ready', secrets: await this.load(state) };
-      } catch { return { status: 'protected', reason: 'missing_key' }; }
+      } catch (error) {
+        if (error instanceof OfflineSecureStoreError) throw error;
+        return { status: 'protected', reason: 'missing_key' };
+      }
     });
   }
 

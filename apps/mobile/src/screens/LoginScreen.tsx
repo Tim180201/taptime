@@ -9,13 +9,14 @@ import { ActionButton, AppText as Text, Screen } from '../design/primitives';
 import { mobileTokens } from '../design/tokens';
 
 interface LoginScreenProps {
+  readonly unavailable?: boolean;
   readonly signIn: (email: string, password: string) => Promise<SignInResult>;
   readonly signInForEmployeeEnrollment: (email: string, password: string) => Promise<SignInResult>;
   readonly disabled: boolean;
   readonly requestPasswordReset: (email: string) => Promise<'requested' | 'unavailable'>;
 }
 
-export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswordReset, disabled }: LoginScreenProps) {
+export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswordReset, disabled, unavailable = false }: LoginScreenProps) {
   const form = useRequiredForm();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,10 +44,10 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
       } else if (result.status === 'context_unavailable') {
         setMessage('Dein Zugang konnte gerade nicht geladen werden. Versuche es erneut.');
       } else if (result.status === 'infrastructure_error') {
-        setMessage('Die Anmeldung ist derzeit nicht verfügbar.');
+        setMessage('Anmeldung gerade nicht möglich. Prüfe die Verbindung und versuche es erneut.');
       }
     } catch {
-      setMessage('Die Anmeldung ist derzeit nicht verfügbar.');
+      setMessage('Anmeldung gerade nicht möglich. Prüfe die Verbindung und versuche es erneut.');
     } finally {
       submitInFlight.current = false;
       setSubmitting(false);
@@ -70,6 +71,8 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
 
   return (
     <Screen title={`${APP_NAME} — Anmeldung`}><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      {unavailable ? <><Text>Anmeldung gerade nicht möglich. Prüfe die Verbindung und versuche es erneut.</Text>
+        <Text style={{fontSize: 12}}>Code S5</Text></> : null}
       <Text>E-Mail-Adresse</Text>
       <RequiredTextField form={form} scope="email" error={email.trim().length < 3 ? "Bitte E-Mail-Adresse eingeben." : null}
         accessibilityLabel="E-Mail-Adresse"

@@ -120,17 +120,25 @@ export function AppNavigator({
         : 'Dein Zugang konnte gerade nicht geladen werden. Versuche es erneut.'}>
         {state.updateRequired ? <><Text>Deine Erfassungen bleiben auf dem Handy gespeichert.</Text><AppUpdateButton /></> : <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />}
         <ActionButton title="Abmelden" tone="quiet" onPress={() => session.signOut()} />
+        <Text style={styles.diagnosticCode}>Code S7</Text>
       </MessageScreen>
     );
   }
-  if (state.status === 'runtime_unavailable') {
-    return <MessageScreen title={`${APP_NAME} ist derzeit nicht verfügbar.`} />;
+  if (state.status === 'runtime_unavailable' || state.status === 'recovery_required') {
+    const code = state.status === 'runtime_unavailable'
+      ? state.reason === 'runtime_start_failed' ? 'R2' : state.reason === 'authentication_unavailable' ? 'S1' : 'S2'
+      : state.reason === 'token_persistence' ? 'S3' : 'S4';
+    return <MessageScreen title={`${APP_NAME} ist derzeit nicht verfügbar.`}>
+      <ActionButton title="Erneut versuchen" onPress={() => session.retryContext()} />
+      <Text style={styles.diagnosticCode}>Code {code}</Text>
+    </MessageScreen>;
   }
   if (state.status === 'initializing') {
     return <MessageScreen title="Sitzung wird sicher wiederhergestellt …" />;
   }
   return (
     <LoginScreen
+      unavailable={state.status === 'unauthenticated' && state.reason === 'sign_in_unavailable'}
       signIn={(email, password) => session.signIn(email, password)}
       signInForEmployeeEnrollment={(email, password) => (
         session.signInForEmployeeEnrollment(email, password)
@@ -223,7 +231,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
           accessibilityElementsHidden={showSync || destination !== 'capture'}
           importantForAccessibility={showSync || destination !== 'capture' ? 'no-hide-descendants' : 'auto'}>
           {role==='offline'?<View><ActionButton title="Zeit hinzufügen" disabled onPress={()=>{}} /><Text>Nachtragen ist nur online möglich.</Text></View>:null}
-          <ScanScreen actor={role} scan={scan} work={work} signOut={() => session.signOut()} onManualCapture={() => navigate('manual')} embedded
+          <ScanScreen actor={role} scan={scan} work={work} retryRecovery={() => session.retryContext()} signOut={() => session.signOut()} onManualCapture={() => navigate('manual')} embedded
             offlineActive={offlineActive} confirmedOwnTime={workState?.status==='ready'?workState.ownTime:confirmedOwnTime}
             offline={role==='offline' || !!scanState.transmissionPaused || !!(workState?.status==='ready' && workState.capturePending && !workState.submitting)} />
         </View>
@@ -270,6 +278,7 @@ function MessageScreen({
 }
 
 const styles = StyleSheet.create({
+  diagnosticCode: { fontSize: 12, color: mobileTokens.color.textMuted },
   productShell: { flex: 1, backgroundColor: mobileTokens.color.canvas },
   productContent: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20,

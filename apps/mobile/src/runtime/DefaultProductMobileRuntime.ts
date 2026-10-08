@@ -1,7 +1,9 @@
+import type { MobileAppActivity } from './MobileAppActivity';
+import { isRecoverableIdentityProtection } from '../navigation/offlineCaptureShell';
 import type { TimeEditingCapability, TimeEditingCoordinator } from '../timeEditing/TimeEditingCoordinator';
 import type { EmployeesCapability } from '../employees/contracts';
 import type { EmployeesCoordinator } from '../employees/EmployeesCoordinator';
-import type { MobileSessionCapability } from '../auth/contracts';
+import type { MobileSessionCapability, MobileSessionState } from '../auth/contracts';
 import type { AdminSetupCapability } from '../administration/contracts';
 import type { ProductScanCapability, ProductScanState } from '../scan/contracts';
 import type { ProductServerTransport } from '../transport/contracts';
@@ -29,6 +31,8 @@ export interface ProductMobileRuntime {
 export interface ProductSessionRuntimeOwner extends MobileSessionCapability {
   start(): Promise<void>;
   stop(): void;
+  onActive?(): Promise<void>;
+  canAutoRefresh?(): boolean;
   requestPasswordReset(email: string): Promise<'requested' | 'unavailable'>;
 }
 
@@ -73,6 +77,11 @@ export interface ProductNativeIngressRuntimeOwner {
  */
 export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   private started = false;
+  private activitySubscription: { remove(): void } | null = null;
+  private recoveryState: MobileSessionState | null = null;
+  private readonly recoveryListeners = new Set<() => void>();
+  private recoveryFlight: Promise<void> | null = null;
+  private stoppingFlight: Promise<unknown> | null = null;
   private runtimeGeneration = 0;
   private readonly sessionCapability: MobileSessionCapability;
   private readonly scanCapability: ProductScanCapability;
@@ -115,6 +124,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     },
     private readonly employeesCoordinator?: EmployeesCoordinator,
     private readonly timeEditingCoordinator?: TimeEditingCoordinator,
+    private readonly activity?: MobileAppActivity,
   ) {
     const employees = this.employeesCoordinator;
     this.employeesCapability = employees ? Object.freeze({
@@ -127,8 +137,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     }) : undefined;
     // React receives a real narrow facade, not the coordinator object that owns C2 token access.
     this.sessionCapability = Object.freeze({
-      getState: () => this.coordinator.getState(),
-      subscribe: (listener: () => void) => this.coordinator.subscribe(listener),
+      getState: () => this.recoveryState ?? this.coordinator.getState(),
+      subscribe: (listener: () => void) => {
+        this.recoveryListeners.add(listener);
+        const unsubscribe = this.coordinator.subscribe(listener);
+        return () => { this.recoveryListeners.delete(listener); unsubscribe(); };
+      },
       signIn: (email: string, password: string) => this.coordinator.signIn(email, password),
       signInForEmployeeEnrollment: (email: string, password: string) => (
         this.coordinator.signInForEmployeeEnrollment(email, password)
@@ -136,7 +150,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       redeemEmployeeInvitation: (invitationSecret: string) => (
         this.coordinator.redeemEmployeeInvitation(invitationSecret)
       ),
-      retryContext: () => this.coordinator.retryContext(),
+      retryContext: () => this.retryRecovery(true),
       requestPasswordReset: (email: string) => this.coordinator.requestPasswordReset(email),
       refresh: () => this.coordinator.refresh(),
       signOut: () => this.requestSignOut(),
@@ -245,6 +259,17 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     }
     this.started = true;
     const runtimeGeneration = ++this.runtimeGeneration;
+    if (this.activity !== undefined) {
+      let previous = this.activity.appState.currentState;
+      this.activitySubscription = this.activity.appState.addEventListener('change', state => {
+        const returning = state === 'active' && previous !== 'active';
+        previous = state;
+        if (returning) void this.retryRecovery(false).catch(() => undefined);
+      });
+      if (this.activity.isBackground()) await this.activity.waitForForeground();
+    }
+    if (this.stoppingFlight !== null) await this.stoppingFlight;
+    if (!this.isCurrentRuntime(runtimeGeneration)) return;
     // Keep the private capability graph owned for the complete product-runtime lifetime.
     void this.serverTransport;
     void this.timeEditingCoordinator?.start();
@@ -295,6 +320,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       return;
     }
     this.started = false;
+    this.activitySubscription?.remove();
+    this.activitySubscription = null;
     this.runtimeGeneration += 1;
     this.protectionRevision += 1;
     this.unsubscribeProtection?.();
@@ -306,9 +333,48 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     this.employeesCoordinator?.stop();
     this.nativeIngressLifecycle.stop();
     this.scanFeedbackLifecycle.stop();
-    void this.administrationCoordinator.stop();
-    void this.scanOrchestrator.stop();
+    this.stoppingFlight = Promise.all([this.administrationCoordinator.stop(), this.scanOrchestrator.stop()]);
     this.coordinator.stop();
+  }
+
+  private retryRecovery(explicit: boolean): Promise<void> {
+    if (this.recoveryFlight !== null) return this.recoveryFlight;
+    if (this.activity?.isBackground()) return Promise.resolve();
+    const operation = async () => {
+      const session = this.session.getState();
+      if (session.status === 'runtime_unavailable' && session.reason !== 'runtime_start_failed') {
+        await this.coordinator.retryContext();
+        return;
+      }
+      if (session.status === 'runtime_unavailable'
+        || isRecoverableIdentityProtection(this.scan.getState())) {
+        // Never discard a newly rotated token to reopen the offline store.
+        await this.coordinator.onActive?.();
+        if (this.coordinator.canAutoRefresh?.() === false) return;
+        this.publishRecovery({status:'initializing'});
+        try {
+          this.stop();
+          await this.start();
+          this.publishRecovery(null);
+        } catch {
+          this.publishRecovery({status:'runtime_unavailable',reason:'runtime_start_failed'});
+        }
+      } else if (explicit) {
+        await this.coordinator.retryContext();
+      } else {
+        await this.coordinator.onActive?.();
+      }
+    };
+    const flight = operation().finally(() => {
+      if (this.recoveryFlight === flight) this.recoveryFlight = null;
+    });
+    this.recoveryFlight = flight;
+    return flight;
+  }
+
+  private publishRecovery(state: MobileSessionState | null): void {
+    this.recoveryState = state;
+    for (const listener of this.recoveryListeners) { try { listener(); } catch {} }
   }
 
   private isCurrentRuntime(runtimeGeneration: number): boolean {
@@ -361,11 +427,15 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
   }
 
   private pollSignOutArchive(revision: number, account: string | null): Promise<void> {
+    if (this.activity?.isBackground()) return Promise.resolve();
     if (!this.signOutIsCurrent(revision, account) || account !== this.signOutAccountKey()) return Promise.resolve();
     if (this.signOutPollFlight) return this.signOutPollFlight;
     const operation = async () => {
       const archived = await this.scanOrchestrator.pollArchiveForSignOut?.().catch(() => false);
-      if (archived && this.signOutIsCurrent(revision, account)) await this.finishSignOut(revision, account);
+      if (archived) {
+        await this.activity?.waitForForeground();
+        if (this.signOutIsCurrent(revision, account)) await this.finishSignOut(revision, account);
+      }
     };
     let flight!: Promise<void>;
     flight = operation().finally(() => {

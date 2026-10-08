@@ -19,7 +19,7 @@ it.each(['session', 'scan', 'sync'])('opens the fixed download URL from the %s u
   const sessionState = { status: 'context_unavailable', updateRequired: true };
   render(surface === 'session'
     ? h(AppNavigator, { session: { subscribe: () => () => {}, getState: () => sessionState } as never, scan, administration: {} as never, offlineManual: {} as never })
-    : surface === 'scan' ? h(ScanScreen, { scan, actor: 'employee', signOut: async () => {} })
+    : surface === 'scan' ? h(ScanScreen, { scan, actor: 'employee', signOut: async () => {}, retryRecovery: async () => {} })
     : h(SynchronizationScreen, { scan }));
   fireEvent.click(screen.getByRole('button', { name: 'App aktualisieren' }));
   await waitFor(() => expect(native.openURL).toHaveBeenCalledExactlyOnceWith('https://tb-infra.de/app'));

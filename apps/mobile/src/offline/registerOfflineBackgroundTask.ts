@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as BackgroundTask from 'expo-background-task';
 import * as TaskManager from 'expo-task-manager';
 import NativeNfcIngress from '../../modules/taptime-nfc-ingress';
@@ -14,6 +15,7 @@ let activeScheduler: OfflineSyncScheduler | null = null;
 if (!TaskManager.isTaskDefined(OFFLINE_BACKGROUND_TASK_NAME)) {
   TaskManager.defineTask(OFFLINE_BACKGROUND_TASK_NAME, async ({ error }) => {
     // A WorkManager-started headless process cannot lend start provenance to a later NFC Intent.
+    if (Platform.OS === 'ios') return BackgroundTask.BackgroundTaskResult.Success;
     NativeNfcIngress.closeProcessStartIntentWindow();
     if (error !== null || activeScheduler === null) {
       return BackgroundTask.BackgroundTaskResult.Failed;
@@ -37,6 +39,12 @@ export const offlineBackgroundSchedulerBinding: OfflineBackgroundSchedulerBindin
 };
 
 export async function registerOfflineBackgroundTask(): Promise<void> {
+  if (Platform.OS === 'ios') {
+    if (await TaskManager.isTaskRegisteredAsync(OFFLINE_BACKGROUND_TASK_NAME)) {
+      await BackgroundTask.unregisterTaskAsync(OFFLINE_BACKGROUND_TASK_NAME);
+    }
+    return;
+  }
   const status = await BackgroundTask.getStatusAsync();
   if (status !== BackgroundTask.BackgroundTaskStatus.Available) return;
   if (await TaskManager.isTaskRegisteredAsync(OFFLINE_BACKGROUND_TASK_NAME)) return;

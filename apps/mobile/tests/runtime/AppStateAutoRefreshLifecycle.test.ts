@@ -80,3 +80,14 @@ describe('AppStateAutoRefreshLifecycle', () => {
     lifecycle.stop();
   });
 });
+
+it('T-115 stops automatic refresh while token persistence is pending, including foreground return',async()=>{
+  const provider={startAutoRefresh:vi.fn(async()=>{}),stopAutoRefresh:vi.fn(async()=>{})};
+  const appState=new FakeAppState('active');let allowed=true;let changed=()=>{};
+  const lifecycle=new AppStateAutoRefreshLifecycle(provider,appState,{canAutoRefresh:()=>allowed,subscribeRefreshPolicy:l=>{changed=l;return()=>{};}});
+  lifecycle.start();await vi.waitFor(()=>expect(provider.startAutoRefresh).toHaveBeenCalledOnce());
+  allowed=false;changed();await vi.waitFor(()=>expect(provider.stopAutoRefresh).toHaveBeenCalledOnce());
+  appState.emit('background');appState.emit('active');await new Promise(r=>setTimeout(r,0));
+  expect(provider.startAutoRefresh).toHaveBeenCalledOnce();
+  allowed=true;changed();await vi.waitFor(()=>expect(provider.startAutoRefresh).toHaveBeenCalledTimes(2));lifecycle.stop();
+});

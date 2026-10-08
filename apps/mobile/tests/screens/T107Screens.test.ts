@@ -23,7 +23,7 @@ afterEach(()=>{cleanup();vi.clearAllMocks();});
 it.each([null,'2026-10-04T08:30:00.000Z'])('puts active actions before NFC and calls the same work capability (%s)',async breakStartedAt=>{
  const state={status:'ready' as const,ownTime:{...ownTime,activeRecord:{...active,breakStartedAt}},targets:{targets:[],nextCursor:null},submitting:false,outcome:null,loadingMore:false};
  const work={subscribe:()=>()=>{},getState:()=>state,refresh:vi.fn(),stopActiveTime:vi.fn(),triggerBreak:vi.fn()} as unknown as MobileWorkCapability;
- render(h(ScanScreen,{actor:'employee',scan,work,signOut:async()=>{}}));
+ render(h(ScanScreen,{actor:'employee',scan,work,signOut:async()=>{},retryRecovery:async()=>{}}));
  const stop=screen.getByRole('button',{name:'Zeit beenden'});
  expect(stop.compareDocumentPosition(screen.getByTestId('scan-ring')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
  fireEvent.click(stop);expect(work.stopActiveTime).toHaveBeenCalledOnce();
@@ -87,7 +87,7 @@ it('does not start a manual action while the NFC operation is in progress',()=>{
  const scanning={status:'scanning' as const};
  const state={status:'ready' as const,ownTime,targets:{targets:[],nextCursor:null},submitting:false,outcome:null,loadingMore:false};
  const work={subscribe:()=>()=>{},getState:()=>state,refresh:vi.fn(),stopActiveTime:vi.fn(),triggerBreak:vi.fn()} as unknown as MobileWorkCapability;
- render(h(ScanScreen,{actor:'employee',scan:{...scan,getState:()=>scanning},work,signOut:async()=>{}}));
+ render(h(ScanScreen,{actor:'employee',scan:{...scan,getState:()=>scanning},work,signOut:async()=>{},retryRecovery:async()=>{}}));
  fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));
  expect(work.stopActiveTime).not.toHaveBeenCalled();
 });

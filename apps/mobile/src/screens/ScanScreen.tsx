@@ -1,3 +1,4 @@
+import { isRecoverableIdentityProtection } from '../navigation/offlineCaptureShell';
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { APP_NAME } from '../../../../shared/product';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
@@ -25,6 +26,7 @@ interface ScanScreenProps {
   readonly actor: ProductMembershipRole | 'offline';
   readonly scan: ProductScanCapability;
   readonly signOut: () => Promise<void>;
+  readonly retryRecovery: () => Promise<void>;
   readonly embedded?: boolean;
   readonly onManualCapture?: () => void;
   readonly work?: MobileWorkCapability;
@@ -36,7 +38,7 @@ export interface ScanScreenPresentation {
   readonly tone: 'neutral' | 'success' | 'warning' | 'error';
 }
 
-export function ScanScreen({ actor, scan, signOut, embedded = false, work, onManualCapture, offline=false,offlineActive,confirmedOwnTime }: ScanScreenProps) {
+export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = false, work, onManualCapture, offline=false,offlineActive,confirmedOwnTime }: ScanScreenProps) {
   const workState = useSyncExternalStore(listener=>work?.subscribe(listener)??(()=>{}),()=>work?.getState()??null,()=>work?.getState()??null);
   const ios = Platform.OS === 'ios';
   const state = useSyncExternalStore((listener) => scan.subscribe(listener),
@@ -103,6 +105,10 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
               : presentation.message}
         </Text>
         {showMoment ? <Text style={styles.statusMessage}>Bereit für den nächsten Tap</Text> : null}
+        {isRecoverableIdentityProtection(state) ? <>
+          <ActionButton title="Erneut versuchen" onPress={retryRecovery} testID="retry-secure-storage-button" />
+          <Text style={styles.diagnosticCode}>Code P01</Text>
+        </> : null}
         {state.status === 'scanning' ? <ActionButton title="Scan abbrechen" tone="quiet"
           onPress={() => scan.cancel()} testID="cancel-scan-button" /> : null}
         {state.transmissionPaused && state.transmissionRetryAvailable ? <ActionButton title="Erneut versuchen"
@@ -143,6 +149,11 @@ export function shouldAnimateScanIndicator(state: ProductScanState, reducedMotio
 }
 
 export function presentScanState(state: ProductScanState, platform = 'android'): ScanScreenPresentation {
+  if (isRecoverableIdentityProtection(state)) return {
+    title: 'Sicherer Speicher gerade nicht lesbar',
+    message: 'Neue Scans sind gesperrt, bis der Speicher wieder lesbar ist. Deine Erfassungen bleiben erhalten.',
+    tone: 'warning',
+  };
   if(state.transmissionPaused) {
     if (state.transmissionRetryAvailable) return {
       title:'Übertragung angehalten',
@@ -233,7 +244,7 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
     case 'secure_storage_unavailable':
       return {
         title: 'Sicherer Speicher nicht verfügbar',
-        message: 'Neue Scans sind gesperrt; starte die App neu, aber lösche weder die App noch ihre Daten. Bleibt die Meldung bestehen, wende dich an den Support.',
+        message: 'Neue Scans sind gesperrt. Lösche weder die App noch ihre Daten. Bleibt die Meldung bestehen, wende dich an den Support.',
         tone: 'error',
       };
     case 'protected_pending':
@@ -343,5 +354,6 @@ const styles = StyleSheet.create({
   role: { fontSize: 13, color: mobileTokens.color.textMuted },
   statusTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', textAlign: 'center' },
   statusMessage: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted, textAlign: 'center', maxWidth: 320 },
+  diagnosticCode: { fontSize: 12, color: mobileTokens.color.textMuted },
   manualHint: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted, textAlign: 'center' },
 });
