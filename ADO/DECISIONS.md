@@ -1823,3 +1823,14 @@ Beim bloßen Erkennen der Karte gibt die App kein Signal; Android liest dafür o
 eigene Signal von Apple beim Erkennen lässt sich nicht abschalten. Umsetzung in T-112.
 **Warum:** Ein Signal beim Erkennen verleitet dazu, das Handy wegzunehmen, bevor die Karte beschrieben ist (PO-Test
 07.10., etwa jede fünfte Einrichtung scheiterte).
+
+## D-133 · Kein Fehler beim Öffnen braucht einen Neustart · 08.10.2026 · TL (Befund PO)
+Ein Fehler beim Öffnen der App ist nie endgültig: Die App versucht es bei jeder Rückkehr in den Vordergrund und per Knopf
+erneut. Unter iOS gleicht die App nur im Vordergrund ab; einen Hintergrundauftrag gibt es dort nicht mehr, und ein Start
+ohne Vordergrund wartet, bis die App sichtbar ist. Im Hintergrund erneuert die App unter iOS keine Anmeldung und schreibt
+nichts in den Schlüsselbund. Scheitert das Speichern eines erneuerten Tokens, bleibt die Sitzung gültig und das Speichern
+wird wiederholt; Anmeldung, Abmelden und Kontowechsel bleiben streng, enden aber nie in einem Zustand ohne Ausweg. Die
+Schutzklasse des Schlüsselbunds bleibt „nur entsperrt“. Umsetzung in T-115.
+**Warum:** iOS startet die App für den Hintergrundauftrag meist bei gesperrtem Handy. Der Schlüsselbund ist dann
+gesperrt, und die App blieb bis zum Beenden bei „derzeit nicht verfügbar“ (PO 08.10.). Abgleichen konnte sie in dieser
+Lage ohnehin nicht.

@@ -3,11 +3,12 @@
 **Stand 08.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
 Migrationen 043–051, zwei Probe-Wiederherstellungen grün). Abgeschlossen, CI und Image grün: T-109 (Weg zur App,
 `d72ba94`), T-113 (Zeiten im Web, D-131, `2c9f7b8`), T-112 (Karte einrichten, D-132, `280c057`), T-114 („Erfassen“,
-`af86406`). Als Nächstes Deploy 4, dann App-Builds und Geräteabnahme.
+`af86406`). Als Nächstes T-115 (App bleibt nach dem Sperren nicht mehr bei „derzeit nicht verfügbar“ stehen, D-133)
+und Deploy 4, dann App-Builds und Geräteabnahme.
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b Teil 1 erledigt (21 Versionen wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und
 Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Deploy 4 → App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
+**Weg zum Pilot:** T-115 und Deploy 4 → App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -26,12 +27,14 @@ durchspielen. Befunde des PO-Tests vom 07.10. sind in T-112 bis T-114 erledigt; 
 Scrollen, Reiter bei großer Schrift. Mit den neuen Builds zusätzlich: je 20 Einrichtungen am iPhone und am Android (am iPhone dreimal bewusst zu
 früh wegnehmen, Karten über „Kunde löschen“ wieder frei); Apple-Fenster ohne Haken bei Fehlern; Vibration und Ton
 (Stummschalter); Android ohne Systemton, nach dem Einrichten startet keine Zeit, nach einer Erfassung keine zweite.
+T-115 am iPhone: einmal über Nacht gesperrt am Ladekabel, dazu zehnmal nach mehr als einer Stunde Sperre öffnen; 0 von
+10 mit „derzeit nicht verfügbar“, ein angezeigter Code mit Foto melden.
 
-## Deploy 4 (T-109 und T-113, danach App-Builds mit T-109 bis T-114)
+## Deploy 4 (T-109 und T-113; App-Builds mit T-109 bis T-115 nach T-115)
 
 1. **Ziel `af86406`** (Server-Stand wie `2c9f7b8`). Neu: öffentliche Seite `/app`, Caddyfile,
    Verwaltung, Migration 052. Keine neuen Schlüssel, Steuerung unverändert. PO-Schritte aus `infrastructure/DEPLOY.md`
-   vorher abfragen. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt). Danach neue App-Builds; der
+   vorher abfragen. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt). Neue App-Builds erst nach T-115; der
    iOS-Build kompiliert das neue Signalmodul aus T-112 zum ersten Mal (lokal kein Xcode).
 2. **Danach (PO):** Einladungsvorlage aus `docs/T-047-Einladungsvorlage.md` vollständig übertragen (zweiter Link „App
    laden“, neuer Satz zum abgelaufenen Link). `https://tb-infra.de/app` am Handy und am Rechner öffnen: ohne
