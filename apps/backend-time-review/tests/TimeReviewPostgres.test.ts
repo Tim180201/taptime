@@ -848,7 +848,7 @@ it('T106: SQL rejects invisible reasons just like the contract, without ledger w
       await expect(client.query(`SELECT * FROM taptime_server.correct_time_record_v1($1,$2,$3,$4,$5,$6,2,0,
         '2026-07-21T12:00:00Z','2026-07-21T13:00:00Z',$7)`,
         [ids.organizationA,ids.adminA,ids.membershipAdminA,ids.correctionCommand,'a'.repeat(64),ids.stoppedEntryA,reason]))
-        .rejects.toMatchObject({code:'42501'});
+        .resolves.toMatchObject({rows:[{result_status:'reason_required'}]});
       await client.query('ROLLBACK TO SAVEPOINT reason_check');
     }
     await client.query('ROLLBACK');

@@ -646,7 +646,7 @@ describe('AdminWebApiClient', () => {
     expect(chunkIndex).toBe(3);
   });
 
-  it('strictly parses bounded effective records while discarding authority-only identifiers', async () => {
+  it('strictly parses bounded effective records and keeps membership for the self-edit form', async () => {
     const recordId = '90000000-0000-4000-8000-000000000001';
     const fetchRequest = vi.fn<typeof fetch>(async () => json({
       status: 'ready',
@@ -673,7 +673,7 @@ describe('AdminWebApiClient', () => {
       status: 'succeeded',
       value: {
         items: [{
-          timeRecordId: recordId, employeeDisplayName: 'Employee Alpha',
+          timeRecordId: recordId, employeeMembershipId: '70000000-0000-4000-8000-000000000001', employeeDisplayName: 'Employee Alpha',
           targetType: 'project', targetDisplayName: 'Werkstatt',
           source: 'canonical', status: 'stopped',
           startedVia: 'manual', stoppedVia: 'nfc',

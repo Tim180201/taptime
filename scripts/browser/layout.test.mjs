@@ -123,3 +123,32 @@ test('mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!
     assert.equal(await page.getByRole('button',{name:'Mitarbeiter hinzufügen',exact:true}).evaluate(el=>el===document.activeElement),true);
   } finally {await page.close();}
 });
+
+for(const width of [360,390,1440]) test(`T113 time form visibility and keyboard ${width}`,async()=>{
+ const page=await browser.newPage({viewport:{width,height:900}});
+ page.setDefaultTimeout(5000);
+ try{
+  await page.clock.setFixedTime(new Date('2026-09-23T12:00:00Z'));
+  await page.addInitScript(()=>{window.layoutScenario='time-add';});
+  await page.goto(webs['admin-web'].origin+'/beschaeftigte/70000000-0000-4000-8000-000000000001?monat=2026-09');
+  await page.getByRole('button',{name:'Zeit hinzufügen',exact:true}).click();
+  const form=page.getByRole('form',{name:'Zeit hinzufügen',exact:true});
+  const heading=form.getByRole('heading',{name:'Zeit hinzufügen',exact:true});
+  const top=await heading.boundingBox();assert.ok(top && top.y>=0 && top.y+top.height<=900,JSON.stringify(top));
+  if(width===1440){
+   const save=await form.getByRole('button',{name:'Speichern',exact:true}).boundingBox();assert.ok(save && save.y+save.height<=900,JSON.stringify(save));
+   const boxes=await Promise.all(['Datum','Von','Bis'].map(label=>form.getByLabel(label,{exact:true}).boundingBox()));
+   assert.ok(boxes.every(box=>box && Math.abs(box.y-boxes[0].y)<1));
+  }
+  assert.equal(await form.locator('input[type="datetime-local"]').count(),0);
+  for(const [from,to] of [['Kunde oder Projekt','Datum'],['Datum','Von'],['Von','Bis'],['Bis','Grund der Änderung (Pflicht)']]){
+   await form.getByLabel(from,{exact:from!=='Kunde oder Projekt'}).press('Enter');
+   assert.equal(await form.getByLabel(to,{exact:true}).evaluate(el=>el===document.activeElement),true,`${from} → ${to}`);
+  }
+  await form.getByLabel('Grund der Änderung (Pflicht)',{exact:false}).fill('Erste Zeile');
+  await form.getByLabel('Grund der Änderung (Pflicht)',{exact:false}).press('End');
+  await form.getByLabel('Grund der Änderung (Pflicht)',{exact:false}).press('Enter');
+  assert.match(await form.getByLabel('Grund der Änderung (Pflicht)',{exact:false}).inputValue(),/\n/);
+  if(artifacts){mkdirSync(artifacts,{recursive:true});await page.screenshot({path:join(artifacts,`t113-time-add-${width}.png`)});}
+ }finally{await page.close();}
+});

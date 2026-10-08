@@ -87,7 +87,8 @@ it.each(['administrator','standortleitung'] as const)('T-069 %s stops another pe
   const {save}=show(role,other,{...record,status:'started',stoppedAt:null,details:{...record.details!,baseRowVersion:2}});
   fireEvent.click(screen.getByRole('button',{name:'Beenden'}));
   expect(screen.queryByLabelText('Von')).not.toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'2026-09-21T14:00'}});
+  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-09-21'}});
+  fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'14:00'}});
   fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Vergessen'}});
   save.mockResolvedValueOnce({status:'end_before_break'} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
@@ -167,16 +168,16 @@ it('D-092 sends both memberships to the dedicated endpoint and rejects extra tar
 it('T079 displays minutes and preserves exact unchanged correction instants',async()=>{
  const precise={...record,startedAt:'2026-09-21T08:00:37.123Z',stoppedAt:'2026-09-21T09:00:48.987Z'};
  const {save}=show('administrator',other,precise);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
- expect(screen.getByLabelText('Von')).toHaveValue('2026-09-21T10:00');
- expect(screen.getByLabelText('Bis')).toHaveValue('2026-09-21T11:00');
+ expect(screen.getByLabelText('Von')).toHaveValue('10:00');
+ expect(screen.getByLabelText('Bis')).toHaveValue('11:00');
  expect(screen.getByLabelText('Von')).toHaveAttribute('step','60');
  fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Nur Grund'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({startedAt:precise.startedAt,stoppedAt:precise.stoppedAt})));
 });
 it.each(['2026-10-25T02:30','2027-03-28T02:30'])('T079 rejects an edited DST minute %s and retains the input',async value=>{
  const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
- fireEvent.change(screen.getByLabelText('Von'),{target:{value}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Prüfung'}});
- fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(screen.getAllByRole('alert').every(node=>node.textContent?.includes('Zeitumstellung'))).toBe(true);expect(screen.getByLabelText('Von')).toHaveValue(value);
+ fireEvent.change(screen.getByLabelText('Datum'),{target:{value:value.slice(0,10)}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:value.slice(11)}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Prüfung'}});
+ fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(screen.getAllByRole('alert').every(node=>node.textContent?.includes('Zeitumstellung'))).toBe(true);expect(screen.getByLabelText('Von')).toHaveValue(value.slice(11));
 });
 
 it.each(['employee','administrator','standortleitung'] as const)('T-088 %s confirms a required reason, preserves errors and closes after success',async role=>{
@@ -231,12 +232,13 @@ it('T101 review: valid date is preserved when Von is missing',()=>{
  const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});const date=screen.getByLabelText('Datum'),clock=screen.getByLabelText('Von');fireEvent.change(clock,{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(date).not.toHaveAttribute('aria-invalid');expect(clock).toHaveAttribute('aria-invalid','true');expect(clock).toHaveFocus();
 });
 it.each([
- ['2026-09-22T11:01','Höchstens 24 Stunden.'],
+ ['2025-10-25T10:00','Höchstens 24 Stunden.'],
  ['2099-09-21T11:00','Das Ende liegt in der Zukunft.'],
 ])('T106: correction end %s is explained at the field before sending',async(end,message)=>{
- const {save}=show('administrator');
+ const {save}=show('administrator',other);
  fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
- fireEvent.change(screen.getByLabelText('Bis'),{target:{value:end}});
+ fireEvent.change(screen.getByLabelText('Datum'),{target:{value:end.slice(0,10)}});
+ fireEvent.change(screen.getByLabelText('Bis'),{target:{value:end.slice(11)}});
  fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Beleg geprüft'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  expect(save).not.toHaveBeenCalled();
@@ -244,7 +246,7 @@ it.each([
  expect(screen.getByLabelText('Bis')).toHaveAttribute('aria-invalid','true');
 });
 it('T106: a control-only required reason is explained at the field',()=>{
- const {save}=show('administrator');fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
  fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'\u00a0\t\u0001'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  expect(save).not.toHaveBeenCalled();expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/)).toHaveAttribute('aria-invalid','true');
@@ -262,4 +264,42 @@ it('T107 opens the existing administrative stop directly from the person status'
 it('T107 names the affected entry in the deletion sheet',async()=>{
  show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
  expect(screen.getByText(/Sie selbst · Werkstatt ·.*21\.09\.2026.*10:00.*11:00/)).toBeDefined();
+});
+
+it.each(['administrator','standortleitung'] as const)('T113 %s sends null for own corrections and offers own backfill comments',async role=>{
+ const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ expect(screen.queryByLabelText(/Grund der Änderung/)).toBeNull();
+ expect(screen.getByLabelText('Datum')).toHaveAttribute('type','date');
+ expect(screen.getByLabelText('Von')).toHaveAttribute('type','time');
+ fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'11:30'}});
+ fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'correct',reason:null})));
+ fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
+ expect(screen.getByRole('heading',{name:'Zeit hinzufügen'})).toBeVisible();
+ expect(screen.queryByLabelText(/Grund der Änderung/)).toBeNull();
+ fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
+ fireEvent.change(screen.getByLabelText('Kommentar (optional)'),{target:{value:'Notiz'}});
+ fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',reason:null,comment:'Notiz'})));
+});
+it('T113 Enter follows time fields and leaves textareas alone',()=>{
+ show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
+ for(const [from,to] of [['Kunde oder Projekt','Datum'],['Datum','Von'],['Von','Bis'],['Bis','Kommentar (optional)']]){
+  const field=screen.getByLabelText(from!);field.focus();fireEvent.keyDown(field,{key:'Enter'});expect(screen.getByLabelText(to!)).toHaveFocus();
+ }
+ const comment=screen.getByLabelText('Kommentar (optional)');fireEvent.keyDown(comment,{key:'Enter'});expect(comment).toHaveFocus();
+});
+
+it('T113 keeps null correction reasons and reads reason_required at the HTTP boundary',async()=>{
+ const fetcher=vi.fn<typeof fetch>(async()=>Response.json({error:{code:'reason_required'}},{status:422}));
+ const api=new AdminWebApiClient(fetcher);
+ expect(await api.correctTimeRecord('token',own,other,{...record,baseRowVersion:0,effectiveRevisionNumber:2,employeeDisplayName:'Eigen',overlapsAnotherRecord:false},record.startedAt,record.stoppedAt!,null))
+  .toEqual({status:'conflict',code:'reason_required'});
+ expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body)).reason).toBeNull();
+});
+it('T113 Enter in the final single-line field submits through RequiredForm validation',async()=>{
+ const {RequiredForm}=await import('../src/RequiredForm');const {advanceTimeField}=await import('../src/TimeFields');
+ const submit=vi.fn((e:React.FormEvent)=>e.preventDefault());
+ render(<RequiredForm onKeyDown={advanceTimeField} onSubmit={submit}><label>Einzelfeld<input required defaultValue="fertig"/></label><button>Speichern</button></RequiredForm>);
+ fireEvent.keyDown(screen.getByLabelText('Einzelfeld'),{key:'Enter'});expect(submit).toHaveBeenCalledTimes(1);
 });

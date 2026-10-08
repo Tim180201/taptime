@@ -75,7 +75,7 @@ export type ApiResult<Value> =
         | 'invitation_created_token_unavailable'
         | 'invitation_limit_reached'
         | 'time_review_conflict'
-        | 'invalid_interval' | 'not_adjustable'
+        | 'reason_required' | 'invalid_interval' | 'not_adjustable'
         | 'invalid_evidence'
         | 'project_in_use'
         | 'project_unavailable'
@@ -170,7 +170,7 @@ export interface AdminWebApiPort {
     record: SafeTimeRecord,
     startedAt: string,
     stoppedAt: string,
-    reason: string,
+    reason: string | null,
   ): Promise<ApiResult<true>>;
   adjudicateReviewItem(
     token: string,
@@ -539,7 +539,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     record: SafeTimeRecord,
     startedAt: string,
     stoppedAt: string,
-    reason: string,
+    reason: string | null,
   ): Promise<ApiResult<true>> {
     return this.request(
       '/v1/administration/time-records/correct', token, 'POST',
@@ -1183,6 +1183,7 @@ function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
     return Object.freeze({
       ...(Object.hasOwn(entry,'details')?{details:entry.details as import('@taptime/mobile-work-contract').TimeRecordDetails}:{}),
       timeRecordId: String(entry.timeRecordId),
+      employeeMembershipId: String(entry.employeeMembershipId),
       employeeDisplayName: entry.employeeDisplayName,
       targetType: entry.targetType as SafeTimeRecord['targetType'],
       targetDisplayName: entry.targetDisplayName,
@@ -1256,14 +1257,14 @@ function parseReassignmentError(
 function parseTimeReviewError(
   value: unknown,
   status: number,
-): 'after_departure' | 'command_id_conflict' | 'time_review_conflict' | 'invalid_interval' | 'not_adjustable' | 'invalid_evidence' | null {
+): 'after_departure' | 'command_id_conflict' | 'time_review_conflict' | 'reason_required' | 'invalid_interval' | 'not_adjustable' | 'invalid_evidence' | null {
   if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error)
     || !exact(value.error, ['code'])) return null;
   if (status === 409) {
     if (value.error.code === 'command_id_conflict') return 'command_id_conflict';
     return value.error.code === 'conflict' ? 'time_review_conflict' : null;
   }
-  return value.error.code === 'invalid_interval' || value.error.code === 'after_departure' || value.error.code === 'not_adjustable' || value.error.code === 'invalid_evidence'
+  return value.error.code === 'reason_required' || value.error.code === 'invalid_interval' || value.error.code === 'after_departure' || value.error.code === 'not_adjustable' || value.error.code === 'invalid_evidence'
     ? value.error.code : null;
 }
 function parseProjectError(

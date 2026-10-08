@@ -179,7 +179,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if(input.kind!=='backfill' && ![...calendar.value.records,...(calendar.value.activeRecord?[calendar.value.activeRecord]:[])]
       .some(r=>r.timeRecordId===input.record.timeRecordId)) return {status:'authority_rejected'};
     if(input.kind==='correct' && (input.record.status!=='stopped' || !input.record.details)) return {status:'not_adjustable'};
-    if(input.kind==='correct' && !isValidTimeReviewReason(input.reason)) return {status:'invalid_request'};
+    if(input.kind==='correct' && input.reason!==null && !isValidTimeReviewReason(input.reason)) return {status:'invalid_request'};
     if(input.kind==='stop' && (input.record.status!=='started' || !input.record.details || (session.role==='administrator' && input.targetMembershipId===session.membershipId))) return {status:'not_adjustable'};
     const key=JSON.stringify(input);
     let commandId:string;
@@ -218,7 +218,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
           commandId,record,input.startedAt,input.stoppedAt,input.reason));
         if(result?.status==='succeeded') outcome={status:'committed',timeRecordId:input.record.timeRecordId,idempotentRetry:false};
         else if(result===null || result.status==='rejected') outcome={status:'authority_rejected'};
-        else if(result.status==='conflict') outcome={status:result.code==='invalid_interval'?'invalid_interval':result.code==='after_departure'?'after_departure':result.code==='not_adjustable'?'not_adjustable':result.code==='command_id_conflict'?'command_id_conflict':'conflict'};
+        else if(result.status==='conflict') outcome={status:result.code==='reason_required'?'reason_required':result.code==='invalid_interval'?'invalid_interval':result.code==='after_departure'?'after_departure':result.code==='not_adjustable'?'not_adjustable':result.code==='command_id_conflict'?'command_id_conflict':'conflict'};
       } else {
         const request=input.kind==='backfill'?{expectedMembershipId:session.membershipId,commandId,targetMembershipId:input.targetMembershipId,
           targetType:input.target.targetType,targetId:input.target.targetId,startedAt:input.startedAt,stoppedAt:input.stoppedAt,reason:input.reason,comment:input.comment}
@@ -1783,14 +1783,14 @@ export class AdminWebCoordinator implements AdminWebCapability {
     timeRecordId: string,
     startedAt: string,
     stoppedAt: string,
-    reason: string,
+    reason: string | null,
   ): void {
     const current = this.state;
     if (current.status !== 'ready' || current.timeReviewBusy || !current.availableSections.includes('time_records')) return;
     const record = current.timeRecords.find((candidate) => candidate.timeRecordId === timeRecordId);
     if (
       record === undefined || record.status !== 'stopped' || record.stoppedAt === null
-      || !isClosedInterval(startedAt, stoppedAt, this.now()) || !isValidTimeReviewReason(reason)
+      || !isClosedInterval(startedAt, stoppedAt, this.now()) || (reason!==null && !isValidTimeReviewReason(reason))
       || (record.startedAt === startedAt && record.stoppedAt === stoppedAt)
     ) {
       this.setState({ ...current, correctionIntent: null, notice: { kind: 'error', text: 'Die Korrektur wurde nicht gespeichert, weil Angaben fehlen oder veraltet sind. Prüfen Sie die erhaltenen Eingaben und versuchen Sie es erneut.' } });
@@ -2601,7 +2601,7 @@ function locationMutationNotice(code:
   | 'invitation_created_token_unavailable'
   | 'invitation_limit_reached'
   | 'time_review_conflict'
-  | 'invalid_interval' | 'not_adjustable'
+  | 'reason_required' | 'invalid_interval' | 'not_adjustable'
   | 'invalid_evidence'
   | 'project_in_use'
   | 'project_unavailable'
@@ -3098,6 +3098,7 @@ function buildResolution(intent: ReviewAdjudicationIntent): object | null {
 }
 
 function correctionConflictNotice(code: string): string {
+  if (code === 'reason_required') return 'Bitte geben Sie einen Grund an.';
   if (code === 'invalid_interval') return 'Das Ende liegt in der Zukunft oder die Zeit dauert länger als 24 Stunden.';
   if (code === 'after_departure') return 'Zeiten und Prüffälle dürfen nur bis zum Austritt der Person reichen.';
   if (code === 'not_adjustable') {

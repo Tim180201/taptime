@@ -173,6 +173,29 @@ beforeAll(async () => {
 });
 afterAll(() => pool.end());
 
+// D-131: ownership, independent of the actor's management role.
+it.each([admin,a])('T113 $role owns its backfill, comment and correction without a reason',async who=>{
+ await asActor(who,writer,async c=>{
+  const request=backfill(who,who,{reason:null,comment:'Eigene Notiz'});
+  const first=await json(c,'backfill_time_record_v1',request);
+  expect(first.status).toBe('committed');
+  expect(await json(c,'backfill_time_record_v1',request)).toEqual({...first,idempotentRetry:true});
+  const command=randomUUID();
+  const correction=()=>c.query(`SELECT * FROM taptime_server.correct_time_record_v1($1,$2,$3,$4,repeat('c',64),$5,0,1,'2026-06-01T08:00:00Z','2026-06-01T10:00:00Z',NULL)`,[who.org,who.user,who.member,command,first.timeRecordId]);
+  expect((await correction()).rows[0]).toMatchObject({result_status:'committed',idempotent_retry:false});
+  expect((await correction()).rows[0]).toMatchObject({result_status:'committed',idempotent_retry:true});
+  await c.query('SET LOCAL ROLE taptime_time_review_reader');
+  const details=(await c.query('SELECT details FROM taptime_server.read_time_record_details_v1($1::uuid[])',[[first.timeRecordId]])).rows[0].details;
+  expect(details).toMatchObject({comment:'Eigene Notiz',change:{actor:'self',reason:'Selbst geändert'}});
+ });
+});
+it.each([admin,a])('T113 $role receives reason_required for another person',async who=>{
+ await asActor(who,writer,async c=>{
+  expect(await json(c,'backfill_time_record_v1',backfill(who,p,{reason:null}))).toEqual({status:'reason_required'});
+  expect((await c.query(`SELECT * FROM taptime_server.correct_time_record_v1($1,$2,$3,$4,repeat('c',64),$5,0,1,'2026-07-20T07:00:00Z','2026-07-20T16:00:00Z',NULL)`,[who.org,who.user,who.member,randomUUID(),p.closed])).rows[0].result_status).toBe('reason_required');
+ });
+});
+
 describe('T075 migration data probe counterexamples',()=>{
   it.each([
     {name:'nullable new column',sql:'ALTER TABLE taptime_server.t075_migration_probe ADD COLUMN added text',failure:null},

@@ -1,7 +1,8 @@
+import {TimeFields,resolveTimeFields,advanceTimeField,overnightHint} from '../TimeFields';
 import { RequiredForm } from '../RequiredForm';
 import { TimeRecordControls } from '../TimeEditingControls';
 import { exportPresentation } from '../exportPresentation';
-import { BUSINESS_TIME_ZONE, timeIntervalError } from '@taptime/core';
+import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import {
 	useEffect,
 	useRef,
@@ -18,7 +19,6 @@ import {
 } from '../navigation';
 import {
 	formatZonedDateTime,
-	parseEditedZonedMinute,
 	toZonedMinuteInput,
 } from '../timeZone';
 import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
@@ -37,6 +37,7 @@ export default function TimeRecordsView({
 }) {
   const [exportVersion,setExportVersion]=useState<3|4>(4);
   const [recordId, setRecordId] = useState('');
+  const [date,setDate]=useState('');
   const [startedAt, setStartedAt] = useState('');
   const [stoppedAt, setStoppedAt] = useState('');
   const [reason, setReason] = useState('');
@@ -72,9 +73,7 @@ export default function TimeRecordsView({
       {exportAction}
     </Panel>;
   }
-  const canonicalStart=parseEditedZonedMinute(startedAt,originalStart);
-  const canonicalStop=parseEditedZonedMinute(stoppedAt,originalStop);
-  const intervalError=canonicalStart && canonicalStop ? timeIntervalError(canonicalStart,canonicalStop) : null;
+  const own=state.timeRecords.find(record=>record.timeRecordId===recordId)?.employeeMembershipId===state.membershipId && !!state.membershipId;
   const visibleRecords = state.timeRecords.filter((record) => {
     const statusMatches = route.status === 'alle'
       || (route.status === 'laufend' && record.status === 'started')
@@ -191,16 +190,15 @@ export default function TimeRecordsView({
     </Panel>
     <Panel title="Abgeschlossene Arbeitszeit korrigieren"
       description={`Alle Uhrzeiten gelten für ${BUSINESS_TIME_ZONE}.`}>
-      <RequiredForm className="form-grid" onSubmit={(event) => {
+      <RequiredForm className="form-grid" onKeyDown={advanceTimeField} onSubmit={(event) => {
         event.preventDefault();
-        const canonicalStart = parseEditedZonedMinute(startedAt,originalStart);
-        const canonicalStop = parseEditedZonedMinute(stoppedAt,originalStop);
+        const {startedAt:canonicalStart,stoppedAt:canonicalStop}=resolveTimeFields({date,start:startedAt,end:stoppedAt,originalStart,originalEnd:originalStop});
         if (canonicalStart === null || canonicalStop === null) {
           setTimeError('Die Uhrzeit ist wegen der Zeitumstellung ungültig oder nicht eindeutig. Ihre Eingaben bleiben erhalten; prüfen Sie Beginn und Ende.');
           return;
         }
         setTimeError(null);
-        administration.prepareCorrection(recordId, canonicalStart, canonicalStop, reason);
+        administration.prepareCorrection(recordId, canonicalStart, canonicalStop, own?null:reason);
       }}>
         <label>Arbeitszeit
           <select ref={recordSelect} required value={recordId}
@@ -211,8 +209,9 @@ export default function TimeRecordsView({
               setRecordId(id);
               setOriginalStart(selected?.startedAt??null);
               setOriginalStop(selected?.stoppedAt??null);
-              setStartedAt(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt));
-              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedMinuteInput(selected.stoppedAt));
+              setDate(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt).slice(0,10));
+              setStartedAt(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt).slice(11));
+              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedMinuteInput(selected.stoppedAt).slice(11));
             }}>
             <option value="">Arbeitszeit auswählen</option>
             {state.timeRecords.filter((record) => record.status === 'stopped').map((record) =>
@@ -223,23 +222,15 @@ export default function TimeRecordsView({
         </label>
         {timeError === null ? null : <p id="correction-time-error"
           className="field-error" role="alert">{timeError}</p>}
-        <label>Neuer Beginn
-          <input data-field-error={startedAt && !parseEditedZonedMinute(startedAt,originalStart) ? "Bitte Beginn in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={startedAt}
-            aria-describedby={timeError === null ? undefined : 'correction-time-error'}
-            disabled={state.timeReviewBusy || state.correctionIntent !== null}
-            onChange={(event) => setStartedAt(event.target.value)} />
-        </label>
-        <label>Neues Ende
-          <input data-field-error={intervalError ?? (stoppedAt && !parseEditedZonedMinute(stoppedAt,originalStop) ? "Bitte Ende in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined)} required type="datetime-local" step="60" value={stoppedAt}
-            aria-describedby={timeError === null ? undefined : 'correction-time-error'}
-            disabled={state.timeReviewBusy || state.correctionIntent !== null}
-            onChange={(event) => setStoppedAt(event.target.value)} />
-        </label>
-        <label className="full-field">Begründung
+        <TimeFields date={date} start={startedAt} end={stoppedAt} originalStart={originalStart} originalEnd={originalStop}
+            onDate={setDate} onStart={setStartedAt} onEnd={setStoppedAt} checkInterval
+            disabled={state.timeReviewBusy || state.correctionIntent !== null}/>
+          <p className="full-field supporting">{overnightHint}</p>
+        {!own?<label className="full-field">Begründung
           <textarea required maxLength={500} value={reason}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setReason(event.target.value)} />
-        </label>
+        </label>:null}
         <button ref={prepareButton} disabled={state.timeReviewBusy || state.correctionIntent !== null}>
           Korrektur prüfen
         </button>
@@ -259,7 +250,7 @@ export default function TimeRecordsView({
         <dl>
           <dt>Vorher</dt><dd>{formatExact(state.correctionIntent.timeRecord.startedAt)} – {formatExact(state.correctionIntent.timeRecord.stoppedAt!)}</dd>
           <dt>Nachher</dt><dd>{formatExact(state.correctionIntent.startedAt)} – {formatExact(state.correctionIntent.stoppedAt)}</dd>
-          <dt>Begründung</dt><dd className="verbatim-reason">{state.correctionIntent.reason}</dd>
+          <dt>Begründung</dt><dd className="verbatim-reason">{state.correctionIntent.reason??'Selbst geändert'}</dd>
         </dl>
       </Confirmation>}
     </Panel>

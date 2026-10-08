@@ -7,7 +7,7 @@ export type TimeEditInput =
       readonly startedAt: string; readonly stoppedAt: string; readonly reason: string | null; readonly comment: string | null }
   | { readonly kind: 'comment'; readonly targetMembershipId: string; readonly record: SafeOwnTimeRecord; readonly comment: string }
   | { readonly kind: 'correct'; readonly targetMembershipId: string; readonly record: SafeOwnTimeRecord;
-      readonly startedAt: string; readonly stoppedAt: string; readonly reason: string };
+      readonly startedAt: string; readonly stoppedAt: string; readonly reason: string | null };
 export type TimeEditResult = TimeSupplementResult | AdministrationStopResult | VoidTimeResult | { readonly status: 'offline' | 'busy' | 'conflict' | 'not_adjustable' };
 export const timeEditMessages: Record<TimeEditResult['status'], string> = {
   forbidden:'Sie dürfen diesen Zeiteintrag nicht löschen.',
@@ -21,7 +21,7 @@ export const timeEditMessages: Record<TimeEditResult['status'], string> = {
   after_departure:'Zeiten dürfen nur bis zum Austritt der Person reichen.',
   invalid_interval: 'Die Zeit muss beendet sein, in der Vergangenheit liegen und darf höchstens 24 Stunden dauern.',
   outside_window: 'Sie können Zeiten im laufenden Monat und im Vormonat nachtragen.',
-  reason_required: 'Bitte begründen Sie den Nachtrag.', invalid_comment: 'Der Kommentar braucht 1 bis 500 Zeichen.',
+  reason_required: 'Bitte geben Sie einen Grund an.', invalid_comment: 'Der Kommentar braucht 1 bis 500 Zeichen.',
   overlap: 'Die Zeit überschneidet sich mit einem anderen Eintrag. Prüfen Sie die Zeiten dieses Tages.',
   command_id_conflict: 'Dieser Speichervorgang wurde bereits mit anderen Angaben verwendet. Aktualisieren Sie die Ansicht.',
   unavailable: 'Die Speicherung konnte nicht bestätigt werden. Versuchen Sie es erneut; Ihre Eingaben bleiben erhalten.',

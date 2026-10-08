@@ -115,12 +115,12 @@ describe('T-077 own times through the product navigation', () => {
     await act(async()=>root.render(createElement(AppNavigator,h.props)));
     await press('Meine Zeiten');
     const edits=buttons().filter(b=>b.textContent==='Ändern');
-    await act(async()=>edits[0]!.click());await fill('Grund der Änderung (Pflicht)','Erstes Formular behalten');
+    await act(async()=>edits[0]!.click());await fill('Bis (HH:MM)','18:30');
     await act(async()=>edits[1]!.click());
-    expect(container.querySelectorAll('input[aria-label="Grund der Änderung (Pflicht)"]')).toHaveLength(2);
+    expect(container.querySelectorAll('input[aria-label="Bis (HH:MM)"]')).toHaveLength(2);
     await act(async()=>{expect(nativeBack.handler?.()).toBe(true);});
-    const fields=container.querySelectorAll<HTMLInputElement>('input[aria-label="Grund der Änderung (Pflicht)"]');
-    expect(fields).toHaveLength(1);expect(fields[0]!.value).toBe('Erstes Formular behalten');
+    const fields=container.querySelectorAll<HTMLInputElement>('input[aria-label="Bis (HH:MM)"]');
+    expect(fields).toHaveLength(1);expect(fields[0]!.value).toBe('18:30');
   });
 
   it('T084 removes loaded foreign customer hours after same-membership role replacement', async () => {
@@ -213,16 +213,16 @@ describe('T-077 own times through the product navigation', () => {
     const h = harness('administrator');
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     await press('Meine Zeiten'); await press('Zeit hinzufügen'); await press(target.displayName);
-    await fill('Grund der Änderung (Pflicht)', 'Vergessen');
+    await fill('Kommentar (optional)', 'Vergessen');
     h.save.mockResolvedValueOnce({ status: 'reason_required' });
     await press('Speichern');
-    expect(container.textContent).toContain('Bitte begründe den Nachtrag.');
-    expect((container.querySelector('input[aria-label="Grund der Änderung (Pflicht)"]') as HTMLInputElement).value).toBe('Vergessen');
+    expect(container.textContent).toContain('Bitte gib einen Grund an.');
+    expect((container.querySelector('input[aria-label="Kommentar (optional)"]') as HTMLInputElement).value).toBe('Vergessen');
     await press('Speichern');
-    expect(h.save).toHaveBeenLastCalledWith('backfill', expect.objectContaining({ targetMembershipId: membershipId, reason: 'Vergessen', comment: null }));
-    await press('Ändern'); await fill('Grund der Änderung (Pflicht)', 'Korrigiert'); await press('Speichern');
+    expect(h.save).toHaveBeenLastCalledWith('backfill', expect.objectContaining({ targetMembershipId: membershipId, reason: null, comment: 'Vergessen' }));
+    await press('Ändern'); await press('Speichern');
     expect(h.save).toHaveBeenLastCalledWith('correct', expect.objectContaining({ timeRecordId: value.records[0]!.timeRecordId,
-      expectedBaseRowVersion: 2, expectedRevisionNumber: 1, reason: 'Korrigiert' }));
+      expectedBaseRowVersion: 2, expectedRevisionNumber: 1, reason: null }));
     await press('Kommentar schreiben'); await fill('Kommentar', 'Neue Notiz'); await press('Speichern');
     expect(h.save).toHaveBeenLastCalledWith('comment', { timeRecordId: value.records[0]!.timeRecordId, comment: 'Neue Notiz' });
     await act(async () => h.editingStore.publish({ online: false, busy: false }));
@@ -235,7 +235,7 @@ describe('T-077 own times through the product navigation', () => {
     const h = harness('administrator');
     await act(async () => root.render(createElement(AppNavigator, h.props)));
     await press('Mitarbeiter'); await press('Eigene Person, Keine laufende Zeit');
-    await press('Ändern'); await fill('Grund der Änderung (Pflicht)', 'Zeit berichtigt'); await press('Speichern');
+    await press('Ändern'); await press('Speichern');
     expect(h.props.employees.refresh).toHaveBeenCalled();
     const previous = h.workStore.getState();
     expect(previous.status).toBe('ready');

@@ -1,4 +1,4 @@
-import { timeIntervalError } from '@taptime/core';
+import {TimeFields,resolveTimeFields,advanceTimeField,overnightHint} from '../TimeFields';
 import { RequiredForm } from '../RequiredForm';
 import { isTimeReviewRole } from '@taptime/time-review-contract';
 import {
@@ -13,7 +13,6 @@ import type {
 } from '../contracts';
 import {
 	formatZonedDateTime,
-	parseEditedZonedMinute,
 	toZonedMinuteInput,
 } from '../timeZone';
 import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
@@ -52,10 +51,11 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   const records=selection?.records ?? [];
   const loadRecords=(nextMonth=month,append=false)=>void administration.loadReviewCorrectionRecords?.(item.reviewItemId,nextMonth,append);
   const changeResolution=(next:typeof resolution)=>{
-    setResolution(next);setRecordId('');setStartedAt('');setStoppedAt('');setOriginalStart(null);setOriginalStop(null);
+    setResolution(next);setRecordId('');setDate('');setStartedAt('');setStoppedAt('');setOriginalStart(null);setOriginalStop(null);
     if(next==='adjust_existing_time_record') loadRecords();
   };
   const [recordId,setRecordId]=useState('');
+  const [date,setDate]=useState('');
   const [startedAt,setStartedAt]=useState('');
   const [stoppedAt,setStoppedAt]=useState('');
   const [reason,setReason]=useState('');
@@ -73,9 +73,6 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
     rowTrigger.current=event.currentTarget;changeResolution(next);setOpen(true);
     if(day?.status!=='ready')void administration.loadReviewDay?.(item.reviewItemId);
   };
-  const canonicalStart=parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null);
-  const canonicalStop=parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null);
-  const intervalError=canonicalStart && canonicalStop ? timeIntervalError(canonicalStart,canonicalStop) : null;
   return <li className="review-case" id={`review-${item.reviewItemId}`} tabIndex={-1}><div className="review-case-heading"><div>
     <strong>{item.employeeDisplayName} · {item.targetDisplayName}</strong>
     <p className="supporting">Auslösende Erfassung: {format(item.occurredAt)} · {triggerLabel(item.triggerType)}</p>
@@ -105,13 +102,12 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   </div></div>
   {open ? <div className="row-decision">
     <p className="supporting">{resolutionLabel(resolution)}. Bitte begründen Sie Ihre Entscheidung.</p>
-      <RequiredForm className="form-grid" onSubmit={(event) => {
+      <RequiredForm className="form-grid" onKeyDown={advanceTimeField} onSubmit={(event) => {
         event.preventDefault();
         let canonicalStart: string | null = null;
         let canonicalStop: string | null = null;
         if (resolution !== 'no_time_record_change') {
-          canonicalStart = parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null);
-          canonicalStop = parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null);
+          ({startedAt:canonicalStart,stoppedAt:canonicalStop}=resolveTimeFields({date,start:startedAt,end:stoppedAt,originalStart:resolution==='adjust_existing_time_record'?originalStart:null,originalEnd:resolution==='adjust_existing_time_record'?originalStop:null}));
           if (canonicalStart === null || canonicalStop === null) {
             setTimeError('Die Uhrzeit ist wegen der Zeitumstellung ungültig oder nicht eindeutig. Ihre Eingaben bleiben erhalten; prüfen Sie Beginn und Ende.');
             return;
@@ -139,7 +135,7 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
         {resolution === 'adjust_existing_time_record' ? <>
           <label>Monat der Arbeitszeit<input type="month" value={month}
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
-            onChange={event=>{setMonth(event.target.value);setRecordId('');setStartedAt('');setStoppedAt('');loadRecords(event.target.value);}}/></label>
+            onChange={event=>{setMonth(event.target.value);setRecordId('');setDate('');setStartedAt('');setStoppedAt('');loadRecords(event.target.value);}}/></label>
           <p className="supporting">Arbeitszeiten von {item.employeeDisplayName}</p>
           {selection?.status==='loading' ? <p role="status">Arbeitszeiten werden geladen …</p> : null}
           {selection?.status==='unavailable' ? <div role="alert"><p>{selection.message}</p><button type="button" className="secondary" onClick={()=>loadRecords(month,selection.records.length>0)}>Erneut laden</button></div> : null}
@@ -153,8 +149,9 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
               setRecordId(id);
               setOriginalStart(selected?.startedAt??null);
               setOriginalStop(selected?.stoppedAt??null);
-              setStartedAt(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt));
-              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedMinuteInput(selected.stoppedAt));
+              setDate(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt).slice(0,10));
+              setStartedAt(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt).slice(11));
+              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedMinuteInput(selected.stoppedAt).slice(11));
             }}>
             <option value="">Arbeitszeit auswählen</option>
             {records.map((record) =>
@@ -170,18 +167,10 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
         {resolution === 'no_time_record_change' ? null : <>
           {timeError === null ? null : <p id={`review-time-error-${item.reviewItemId}`}
             className="field-error" role="alert">{timeError}</p>}
-          <label>Beginn
-            <input data-field-error={startedAt && !parseEditedZonedMinute(startedAt,resolution==='adjust_existing_time_record'?originalStart:null) ? "Bitte Beginn in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined} required type="datetime-local" step="60" value={startedAt}
-              aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
-              disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
-              onChange={(event) => setStartedAt(event.target.value)} />
-          </label>
-          <label>Ende
-            <input data-field-error={intervalError ?? (stoppedAt && !parseEditedZonedMinute(stoppedAt,resolution==='adjust_existing_time_record'?originalStop:null) ? "Bitte Ende in deutscher Ortszeit prüfen (Zeitumstellung)." : undefined)} required type="datetime-local" step="60" value={stoppedAt}
-              aria-describedby={timeError === null ? undefined : `review-time-error-${item.reviewItemId}`}
-              disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
-              onChange={(event) => setStoppedAt(event.target.value)} />
-          </label>
+          <TimeFields date={date} start={startedAt} end={stoppedAt} originalStart={resolution==='adjust_existing_time_record'?originalStart:null} originalEnd={resolution==='adjust_existing_time_record'?originalStop:null}
+            onDate={setDate} onStart={setStartedAt} onEnd={setStoppedAt} checkInterval
+            disabled={state.timeReviewBusy || state.adjudicationIntent !== null}/>
+          <p className="full-field supporting">{overnightHint}</p>
         </>}
         <label className="full-field">Begründung
           <textarea ref={reasonInput} required maxLength={500} value={reason}

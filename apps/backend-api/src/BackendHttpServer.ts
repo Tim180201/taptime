@@ -209,6 +209,7 @@ type ErrorCode =
   | 'export_limit_exceeded'
   | 'export_schema_incompatible'
   | 'invalid_request'
+  | 'reason_required'
   | 'invalid_interval'
   | 'invalid_evidence'
   | 'method_not_allowed'
@@ -2116,7 +2117,7 @@ async function handleTimeReviewWrite<Value>(
   operation: (deadlineEpochMilliseconds: number) => Promise<
     | { readonly status: 'committed'; readonly value: Value }
     | { readonly status: 'authority_rejected' | 'after_departure' | 'not_adjustable' | 'conflict'
-      | 'command_id_conflict' | 'invalid_evidence' | 'invalid_interval' | 'unavailable' }
+      | 'command_id_conflict' | 'invalid_evidence' | 'invalid_interval' | 'reason_required' | 'unavailable' }
   >,
 ): Promise<void> {
   try {
@@ -2128,6 +2129,7 @@ async function handleTimeReviewWrite<Value>(
       case 'committed': respondJson(response, 200, { status: 'committed', ...result.value }); return;
       case 'authority_rejected': respondError(response, 403, 'forbidden'); return;
       case 'after_departure': respondError(response,422,'after_departure'); return;
+      case 'reason_required': respondError(response, 422, 'reason_required'); return;
       case 'not_adjustable': respondError(response, 422, 'not_adjustable'); return;
       case 'invalid_interval': respondError(response, 422, 'invalid_interval'); return;
       case 'invalid_evidence': respondError(response, 422, 'invalid_evidence'); return;

@@ -88,7 +88,7 @@ it.each(['administrator','standortleitung'] as const)('%s backfills for the sele
 });
 it('a first self backfill remains visibly distinct from an administrative correction',async()=>{
   await render('employee',true,{...record,details:{...record.details!,changed:false,effectiveRevisionNumber:1,change:{at:'2026-09-21T10:00:00.000Z',reason:'Selbst nachgetragen',actor:'self'}}});
-  expect(container.textContent).toContain('Nachgetragen');expect(container.textContent).toContain('durch Mitarbeiter: Selbst nachgetragen');
+  expect(container.textContent).toContain('Nachgetragen');expect(container.textContent).toContain('· selbst');expect(container.textContent).not.toContain('Selbst nachgetragen');
 });
 
 it.each(['administrator','standortleitung'] as const)('%s can comment their own entry, never another person’s',async role=>{
@@ -214,7 +214,7 @@ it.each(['backfill','correct','stop','comment'] as const)('T101 %s marks each re
  await render('administrator',true,kind==='stop'?{...record,status:'started',stoppedAt:null}:record,kind==='stop'?'10000000-0000-4000-8000-000000000002':id);
  await press(kind==='backfill'?'Zeit hinzufügen':kind==='correct'?'Ändern':kind==='stop'?'Beenden':'Kommentar schreiben');
  if(kind==='backfill')await press('Kunde');
- const labels=kind==='comment'?['Kommentar']:kind==='stop'?['Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund der Änderung (Pflicht)']:kind==='correct'?['Beginn am (JJJJ-MM-TT)','Von (HH:MM)','Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund der Änderung (Pflicht)']:['Datum (JJJJ-MM-TT)','Von (HH:MM)','Bis (HH:MM)','Grund der Änderung (Pflicht)'];
+ const labels=kind==='comment'?['Kommentar']:kind==='stop'?['Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund der Änderung (Pflicht)']:kind==='correct'?['Beginn am (JJJJ-MM-TT)','Von (HH:MM)','Ende am (JJJJ-MM-TT)','Bis (HH:MM)']:['Datum (JJJJ-MM-TT)','Von (HH:MM)','Bis (HH:MM)'];
  for(const label of labels)await fill(label,'');await press(kind==='stop'?'Zeit beenden':'Speichern');expect(save).not.toHaveBeenCalled();
  expect(document.activeElement).toBe(container.querySelector(`input[aria-label="${labels[0]}"]`));
  for(const label of labels){const input=container.querySelector(`input[aria-label="${label}"]`)!;expect(input.parentElement?.getAttribute('data-style')).toContain('#FF8F8F');expect(input.parentElement?.querySelector('[role="alert"]')?.getAttribute('aria-live')).toBe('polite');}
@@ -243,4 +243,12 @@ it('T106: required reasons cannot consist only of controls and spaces',async()=>
 it('T106 shows invisible void reason at the required field',async()=>{
  await render('employee');await press('Zeiteintrag löschen');await press('Sonstiges');await fill('Kurze Begründung','\u0001\u0085\u200b');await press('Löschen');
  expect(save).not.toHaveBeenCalled();expect(document.body.textContent).toContain('Bitte gib eine Begründung mit 1 bis 500 Zeichen ein.');
+});
+
+it.each(['administrator','standortleitung'] as const)('T113 %s hides own reason and sends own comment',async role=>{
+ await render(role,true,record,id);await press('Ändern');
+ expect(container.querySelector('input[aria-label="Grund der Änderung (Pflicht)"]')).toBeNull();
+ await press('Speichern');expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({reason:null}));
+ await press('Zeit hinzufügen');await press('Kunde');await fill('Kommentar (optional)','Eigene Notiz');await press('Speichern');
+ expect(save).toHaveBeenLastCalledWith('backfill',expect.objectContaining({reason:null,comment:'Eigene Notiz'}));
 });

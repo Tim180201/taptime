@@ -91,3 +91,15 @@ it('T-088 sends an online void with a stable retry command, never a role or offl
  expect(post.mock.calls[0]).toEqual(post.mock.calls[1]);expect(post.mock.calls[0]![0].pathname).toBe('/v1/time-records/void');
  expect(JSON.parse(post.mock.calls[0]![1])).toEqual({...request,expectedMembershipId:snapshot.session.membershipId,commandId:'50000000-0000-4000-8000-000000000001'});coordinator.stop();
 });
+
+it('T113 sends null correction reasons and maps reason_required without losing command identity',async()=>{
+ const admin={...snapshot,session:{...snapshot.session,role:'administrator' as const}};
+ const post=vi.fn(async(_url:URL,_body:string)=>({status:'response' as const,statusCode:422,contentType:'application/json',body:JSON.stringify({error:{code:'reason_required'}})}));
+ const coordinator=new TimeEditingCoordinator(new URL('https://example.invalid'),{post},{capture:()=>admin,isCurrent:()=>true,subscribe:()=>()=>{}},()=> '50000000-0000-4000-8000-000000000001',{get:async()=>true,subscribe:()=>()=>{}});
+ await coordinator.start();
+ const correction={timeRecordId:data.targetId,expectedBaseRowVersion:1,expectedRevisionNumber:0,startedAt:data.startedAt,stoppedAt:data.stoppedAt,reason:null};
+ expect(await coordinator.save('correct',correction)).toEqual({status:'reason_required'});
+ expect(await coordinator.save('correct',correction)).toEqual({status:'reason_required'});
+ expect(post.mock.calls[0]).toEqual(post.mock.calls[1]);expect(JSON.parse(post.mock.calls[0]![1]).reason).toBeNull();
+ coordinator.stop();
+});

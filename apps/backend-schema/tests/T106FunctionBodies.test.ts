@@ -9,7 +9,7 @@ const requiredFunctions = [
   'operator_create_organization_v4', 'read_customer_hours_v1', 'read_managed_active_summary_v4',
   'correct_time_record_v1', 'adjudicate_time_review_items_legacy_v1',
   'adjudicate_time_review_items_before_skip_v1', 'adjudicate_time_review_items_v1',
-  'backfill_time_record_v1', 'comment_time_record_v1', 'prepare_administration_stop_v1',
+  'read_time_record_details_v1', 'backfill_time_record_v1', 'comment_time_record_v1', 'prepare_administration_stop_v1',
   'void_time_record_v1', 'operator_set_organization_status_v1', 'operator_set_organization_package_v1',
 ];
 const connectionString = process.env.B3_DATABASE_URL ?? 'postgresql://timbartz@127.0.0.1:5432/taptime_b3';

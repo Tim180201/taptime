@@ -497,3 +497,12 @@ it('T106: invalid correction and adjudication intervals are 422, never a retryab
     expectedMembershipId:ids.membership,commandId:ids.command,reviewItemIds:[ids.reviewItem],
     resolution:{type:'create_recovered_time_record',...interval},reason:'Beleg geprüft'}),422,'invalid_interval');
 });
+
+it('T113 accepts null correction reasons and returns reason_required as a readable 422',async()=>{
+ const correctTimeRecord=vi.fn(async()=>({status:'reason_required' as const}));
+ const origin=await start({timeReview:{...unavailableOfflineDependencies().timeReview,correctTimeRecord}});
+ const request={expectedMembershipId:ids.membership,commandId:ids.command,timeRecordId:ids.record,
+  expectedBaseRowVersion:1,expectedRevisionNumber:0,startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-20T10:00:00.000Z',reason:null};
+ await expectError(await post(origin,'/v1/administration/time-records/correct',request),422,'reason_required');
+ expect(correctTimeRecord).toHaveBeenCalledWith(expect.objectContaining({request}),expect.objectContaining({deadlineEpochMilliseconds:expect.any(Number)}));
+});

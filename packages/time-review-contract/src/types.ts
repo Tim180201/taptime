@@ -64,7 +64,7 @@ export interface TimeRecordCorrectionRequest {
   readonly expectedRevisionNumber: number;
   readonly startedAt: string;
   readonly stoppedAt: string;
-  readonly reason: string;
+  readonly reason: string | null;
 }
 
 export interface CorrectedTimeRecord {
@@ -199,6 +199,7 @@ export type TimeReviewWriteResult<T> =
   | { readonly status: 'command_id_conflict' }
   | { readonly status: 'invalid_evidence' }
   | { readonly status: 'invalid_interval' }
+  | { readonly status: 'reason_required' }
   | { readonly status: 'unavailable' };
 
 export type ValidationResult<T> =

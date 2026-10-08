@@ -81,6 +81,7 @@ export interface SafeProject {
   readonly rowVersion: number;
 }
 export interface SafeTimeRecord {
+  readonly employeeMembershipId?: string;
   readonly details?: import('@taptime/mobile-work-contract').TimeRecordDetails;
   readonly timeRecordId: string;
   readonly employeeDisplayName: string;
@@ -125,7 +126,7 @@ export interface TimeCorrectionIntent {
   readonly timeRecord: SafeTimeRecord;
   readonly startedAt: string;
   readonly stoppedAt: string;
-  readonly reason: string;
+  readonly reason: string | null;
 }
 export interface ReviewAdjudicationIntent {
   readonly commandId: string;
@@ -243,7 +244,7 @@ export interface AdminWebCapability {
   prepareReassignment(nfcTagId: string, targetCustomerId: string): void;
   cancelReassignment(): void;
   confirmReassignment(): Promise<void>;
-  prepareCorrection(timeRecordId: string, startedAt: string, stoppedAt: string, reason: string): void;
+  prepareCorrection(timeRecordId: string, startedAt: string, stoppedAt: string, reason: string | null): void;
   cancelCorrection(): void;
   confirmCorrection(): Promise<void>;
   prepareAdjudication(

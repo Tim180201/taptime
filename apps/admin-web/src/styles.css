@@ -751,3 +751,10 @@ input, select, textarea { font-size: 16px; min-width: 0; }
 /* Consequential actions keep their explicit text and existing confirmation. */
 button.warning-action { color: var(--color-notice); background: var(--color-surface-raised); border: 1px solid var(--color-notice); }
 button.warning-action:hover:not(:disabled) { background: var(--color-line); }
+
+/* T-113: time input is a single row on wide screens, in reading order on phones. */
+.time-fields { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--space-4); }
+.time-edit-form { scroll-margin-top: 24px; }
+.time-edit-form h3 { margin:0; }
+.time-edit-form textarea { min-height:72px; }
+@media (max-width: 767px) { .time-fields { grid-template-columns:minmax(0,1fr); } }

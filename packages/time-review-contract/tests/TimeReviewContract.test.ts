@@ -136,3 +136,10 @@ describe('time-review contract', () => {
     expect(validateMobileReviewStateRequest({ expectedMembershipId }).status).toBe('invalid_request');
   });
 });
+
+it('T113 correction accepts a null reason without weakening adjudication',()=>{
+ const correction={expectedMembershipId,commandId,timeRecordId,expectedBaseRowVersion:0,expectedRevisionNumber:1,startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-20T10:00:00.000Z',reason:null};
+ expect(validateTimeRecordCorrectionRequest(correction)).toEqual({status:'valid',request:correction});
+ expect(validateTimeRecordCorrectionRequest({...correction,reason:42}).status).toBe('invalid_request');
+ expect(validateReviewAdjudicationRequest({expectedMembershipId,commandId,reviewItemIds:[reviewItemId],resolution:{type:'no_time_record_change'},reason:null}).status).toBe('invalid_request');
+});

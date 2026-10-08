@@ -927,11 +927,11 @@ describe('professional Admin Web shell', () => {
     fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
       target: { value: record.timeRecordId },
     });
-    fireEvent.change(screen.getByLabelText('Neuer Beginn'), {
-      target: { value: '2026-07-20T08:15:30.123' },
+    fireEvent.change(screen.getByLabelText('Von'), {
+      target: { value: '08:15' },
     });
-    fireEvent.change(screen.getByLabelText('Neues Ende'), {
-      target: { value: '2026-07-20T16:45:59.987' },
+    fireEvent.change(screen.getByLabelText('Bis'), {
+      target: { value: '16:45' },
     });
     fireEvent.change(screen.getByLabelText('Begründung'), {
       target: { value: reason },
@@ -941,8 +941,8 @@ describe('professional Admin Web shell', () => {
 
     expect(capability.prepareCorrection).toHaveBeenCalledWith(
       record.timeRecordId,
-      '2026-07-20T06:15:30.123Z',
-      '2026-07-20T14:45:59.987Z',
+      '2026-07-20T06:15:00.000Z',
+      '2026-07-20T14:45:00.000Z',
       reason,
     );
     const confirmation = screen.getByRole('alertdialog', {
@@ -1001,11 +1001,12 @@ describe('professional Admin Web shell', () => {
     fireEvent.change(screen.getByLabelText('Entscheidung'), {
       target: { value: 'create_recovered_time_record' },
     });
-    fireEvent.change(screen.getByLabelText('Beginn'), {
-      target: { value: '2026-07-20T07:01:02.003' },
+    fireEvent.change(screen.getByLabelText('Datum'), {target: {value: '2026-07-20'}});
+    fireEvent.change(screen.getByLabelText('Von'), {
+      target: { value: '07:01' },
     });
-    fireEvent.change(screen.getByLabelText('Ende'), {
-      target: { value: '2026-07-20T08:04:05.006' },
+    fireEvent.change(screen.getByLabelText('Bis'), {
+      target: { value: '08:04' },
     });
     fireEvent.change(screen.getByLabelText('Begründung'), {
       target: { value: reason },
@@ -1017,8 +1018,8 @@ describe('professional Admin Web shell', () => {
       reviewItem.reviewItemId,
       'create_recovered_time_record',
       null,
-      '2026-07-20T05:01:02.003Z',
-      '2026-07-20T06:04:05.006Z',
+      '2026-07-20T05:01:00.000Z',
+      '2026-07-20T06:04:00.000Z',
       reason,
     );
     const confirmation = screen.getByRole('alertdialog', {
@@ -1235,7 +1236,7 @@ describe('professional Admin Web shell', () => {
     fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
       target: { value: record.timeRecordId },
     });
-    expect(screen.getByLabelText('Neuer Beginn')).toHaveValue('2026-07-20T10:00');
+    expect(screen.getByLabelText('Von')).toHaveValue('10:00');
     act(() => capability.emit({
       ...readyState,
       correctionIntent: {
@@ -1251,7 +1252,7 @@ describe('professional Admin Web shell', () => {
     fireEvent(document, new Event('visibilitychange'));
     expect(screen.getByText('Deutsche Ortszeit')).toBeInTheDocument();
     expect(screen.getByRole('alertdialog')).toHaveTextContent('10:00');
-    expect(screen.getByLabelText('Neuer Beginn')).toHaveValue('2026-07-20T10:00');
+    expect(screen.getByLabelText('Von')).toHaveValue('10:00');
   });
 
   it('returns focus to the preparation button when a confirmation is cancelled', async () => {
@@ -1535,18 +1536,19 @@ it('T075 administrator sees whole-organization usage and may invite above the pa
   fireEvent.click(screen.getByRole('button',{name:'Mitarbeiter hinzufügen'}));expect(screen.queryByText(/Mit dieser Einladung wird das Paket/)).toBeNull();
 });
 
-it.each([['2026-07-21T10:01','Höchstens 24 Stunden.'],['2099-07-20T10:00','Das Ende liegt in der Zukunft.']])
+it.each([['2025-10-25T10:00','Höchstens 24 Stunden.'],['2099-07-20T10:00','Das Ende liegt in der Zukunft.']])
 ('T106: review end %s fails at the field',async(end,message)=>{
  window.history.replaceState(null,'','/pruefungen');
  const capability=new FakeCapability(readyState);await render(<App administration={capability}/>);
  await userEvent.click(screen.getByRole('button',{name:'Fehlende Arbeitszeit ergänzen'}));
- fireEvent.change(screen.getByLabelText('Beginn'),{target:{value:'2026-07-20T10:00'}});
- fireEvent.change(screen.getByLabelText('Ende'),{target:{value:end}});
+ fireEvent.change(screen.getByLabelText('Datum'),{target:{value:end.slice(0,10)}});
+ fireEvent.change(screen.getByLabelText('Von'),{target:{value:'10:00'}});
+ fireEvent.change(screen.getByLabelText('Bis'),{target:{value:end.slice(11)}});
  fireEvent.change(screen.getByLabelText('Begründung'),{target:{value:'Beleg geprüft'}});
  await userEvent.click(screen.getByRole('button',{name:'Änderung prüfen'}));
  expect(capability.prepareAdjudication).not.toHaveBeenCalled();
  expect(screen.getByText(message)).toBeInTheDocument();
- expect(screen.getByLabelText('Ende')).toHaveAttribute('aria-invalid','true');
+ expect(screen.getByLabelText('Bis')).toHaveAttribute('aria-invalid','true');
 });
 
 it('T107 permits location activation with unbound general work and offers no binding field for it', async () => {
@@ -1560,4 +1562,14 @@ it('T107 permits location activation with unbound general work and offers no bin
   expect(screen.getByRole('button',{name:'Standorte verwenden'})).toBeEnabled();
   expect(screen.queryByRole('combobox',{name:/Allgemeine Arbeitszeit/})).toBeNull();
   expect(screen.getByText(/Allgemeine Arbeitszeit braucht keine Standortbindung/)).toBeInTheDocument();
+});
+
+it('T113 the payroll correction identifies own membership and submits a null reason',async()=>{
+ const record={...readyState.timeRecords[0]!,employeeMembershipId:'10000000-0000-4000-8000-000000000001'};
+ const state={...readyState,membershipId:record.employeeMembershipId,timeRecords:[record]};
+ const capability=new FakeCapability(state);window.history.replaceState(null,'','/lohnexport');await render(<App administration={capability}/>);
+ fireEvent.change(screen.getByLabelText('Arbeitszeit'),{target:{value:record.timeRecordId}});
+ expect(screen.queryByLabelText('Begründung')).toBeNull();expect(screen.getByLabelText('Datum')).toHaveAttribute('type','date');
+ fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'19:00'}});fireEvent.click(screen.getByRole('button',{name:'Korrektur prüfen'}));
+ expect(capability.prepareCorrection).toHaveBeenCalledWith(record.timeRecordId,record.startedAt,expect.any(String),null);
 });

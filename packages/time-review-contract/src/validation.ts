@@ -88,7 +88,7 @@ export function validateTimeRecordCorrectionRequest(
     || !isNonNegativeInteger(value.expectedBaseRowVersion)
     || !isNonNegativeInteger(value.expectedRevisionNumber)
     || !isClosedInterval(value.startedAt, value.stoppedAt)
-    || !isValidTimeReviewReason(value.reason)
+    || (value.reason !== null && !isValidTimeReviewReason(value.reason))
   ) return invalid();
   return valid(Object.freeze({
     expectedMembershipId: value.expectedMembershipId,
