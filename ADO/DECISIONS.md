@@ -1814,3 +1814,12 @@ Nachvollziehbar bleibt jede Änderung über Zeitpunkt, Urheber und das unveränd
 Server „Selbst nachgetragen“ bzw. „Selbst geändert“, die Historie zeigt „selbst“. Umsetzung in T-113.
 **Warum:** Der Grund erklärt der betroffenen Person eine fremde Änderung. Bei eigenen Zeiten gibt es niemanden, dem er
 etwas erklärt; er ist nur eine zusätzliche Hürde.
+
+## D-132 · Signal erst bei echtem Erfolg · 08.10.2026 · Tim (PO)
+Vibration und Ton der App bestätigen nur ein abgeschlossenes Ergebnis. Beim Einrichten einer Karte erst, wenn sie
+geprüft beschrieben und beim Server gespeichert ist; das Apple-Fenster schließt erst dann mit „Karte zugeordnet“. Beim
+Erfassen per Karte wie bisher je Ergebnis (gestartet, beendet, Pause, sicher gespeichert, Fehler), jetzt auch am iPhone.
+Beim bloßen Erkennen der Karte gibt die App kein Signal; Android liest dafür ohne Systemton, wo die App selbst liest. Das
+eigene Signal von Apple beim Erkennen lässt sich nicht abschalten. Umsetzung in T-112.
+**Warum:** Ein Signal beim Erkennen verleitet dazu, das Handy wegzunehmen, bevor die Karte beschrieben ist (PO-Test
+07.10., etwa jede fünfte Einrichtung scheiterte).

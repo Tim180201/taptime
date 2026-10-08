@@ -1,12 +1,12 @@
 # TapTim.e — Status
 
-**Stand 07.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
-Migrationen 043–051, zwei Probe-Wiederherstellungen grün). T-109 (Weg zur App, D-129) ist abgeschlossen (`d72ba94`, CI
-und Image grün). Deploy 4 ist verschoben und bringt T-109 und T-113 zusammen; in Arbeit: T-113. „Taptura“ ist der
+**Stand 08.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
+Migrationen 043–051, zwei Probe-Wiederherstellungen grün). T-109 (Weg zur App, D-129, `d72ba94`) und T-113 (Zeiten im Web,
+D-131, `2c9f7b8`) sind abgeschlossen, CI und Image grün. In Arbeit: T-112, dann T-114; danach Deploy 4. „Taptura“ ist der
 Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b Teil 1 erledigt (21 Versionen wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und
 Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-113 → Deploy 4 → T-112 mit neuen App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
+**Weg zum Pilot:** T-112 → T-114 → Deploy 4 → App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -21,13 +21,14 @@ Mitarbeiter mit Monatswähler und Herunterziehen, „Passwort vergessen“ mit n
 Hinweisseite `/tag`, keine Erfassung, D-081); Android komplett (dort öffnet die Karte die App und erfasst); Web
 (Übersicht mit nächstem Schritt, „Zeiten prüfen“, Mitarbeiter mit Monat, Betreiber-Paket); Aussperr-Test mit einem
 zweiten Konto; einmal VoiceOver/TalkBack. Nach Deploy 4 die Einladung dieses zweiten Kontos bis „App laden“
-durchspielen. Befunde des PO-Tests vom 07.10. (Karte einrichten, Zeitformulare, „Erfassen“) gehen in T-112 und T-113.
+durchspielen. Befunde des PO-Tests vom 07.10.: Zeitformulare in T-113 erledigt; Karte einrichten in T-112,
+„Erfassen“ in T-114.
 
-## Deploy 4 (T-109 und T-113)
+## Deploy 4 (T-109 und T-113, danach App-Builds mit T-109 bis T-114)
 
-1. **Ziel:** der Commit von T-113. Neu: öffentliche Seite `/app`, Caddyfile, Verwaltung, Migration 052. Keine neuen
-   Schlüssel, Steuerung unverändert. PO-Schritte aus `infrastructure/DEPLOY.md` vorher abfragen. Durch den Caddy-Wechsel
-   ist einmal `curl: (7)` möglich (bekannt).
+1. **Ziel:** der neueste Commit nach T-114 (Server-Stand wie `2c9f7b8`). Neu: öffentliche Seite `/app`, Caddyfile,
+   Verwaltung, Migration 052. Keine neuen Schlüssel, Steuerung unverändert. PO-Schritte aus `infrastructure/DEPLOY.md`
+   vorher abfragen. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt). Danach neue App-Builds.
 2. **Danach (PO):** Einladungsvorlage aus `docs/T-047-Einladungsvorlage.md` vollständig übertragen (zweiter Link „App
    laden“, neuer Satz zum abgelaufenen Link). `https://tb-infra.de/app` am Handy und am Rechner öffnen: ohne
    Passwortabfrage, „Die App erhalten Sie von Ihrer Verwaltung.“, solange die Links leer sind.
@@ -88,8 +89,9 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   beim nächsten Rückbau entfernen.
 - **Web:** globale Aktualisierung lädt Kundenstunden nicht neu (T-084) · Tags für die Standortleitung nur in der App
   (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
-  (T-074) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Anlegen meldet Fehler 23514
-  als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung ·
+  (T-074) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Zeitfehler in
+  Lohnexport-Korrektur und „Zeiten prüfen“ nicht mehr per `aria-describedby` an den Feldern (T-113) · Anlegen meldet
+  Fehler 23514 als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung ·
   Erfolgskarte nach „Passwort setzen“ ohne Überschrift (T-109).
 - **Server und SQL:** direkter SQL-Pfad `taptime_admin_setup` prüft keine Betriebspause (T-085) · `xmin` über
   `::text::xid` (T-086, mit der nächsten Migration) · Standortleitung mit Heimatstandort außerhalb ihres
