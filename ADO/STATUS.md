@@ -3,12 +3,12 @@
 **Stand 08.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
 Migrationen 043–051, zwei Probe-Wiederherstellungen grün). Abgeschlossen, CI und Image grün: T-109 (Weg zur App,
 `d72ba94`), T-113 (Zeiten im Web, D-131, `2c9f7b8`), T-112 (Karte einrichten, D-132, `280c057`), T-114 („Erfassen“,
-`af86406`). Als Nächstes T-115 (App bleibt nach dem Sperren nicht mehr bei „derzeit nicht verfügbar“ stehen, D-133)
-und Deploy 4, dann App-Builds und Geräteabnahme.
+`af86406`), T-115 (App öffnet immer, D-133, `831cb29`). Als Nächstes Deploy 4, dann App-Builds und Geräteabnahme;
+T-098c läuft parallel und wird erst nach Deploy 4 committet.
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
-T-098b Teil 1 erledigt (21 Versionen wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und
+T-098b Teil 1 erledigt (21 Versionen wiederhergestellt), Teil 2 geht in T-098c. UI/UX-Durchsicht und
 Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-115 und Deploy 4 → App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
+**Weg zum Pilot:** Deploy 4 → App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -30,18 +30,18 @@ früh wegnehmen, Karten über „Kunde löschen“ wieder frei); Apple-Fenster o
 T-115 am iPhone: einmal über Nacht gesperrt am Ladekabel, dazu zehnmal nach mehr als einer Stunde Sperre öffnen; 0 von
 10 mit „derzeit nicht verfügbar“, ein angezeigter Code mit Foto melden.
 
-## Deploy 4 (T-109 und T-113; App-Builds mit T-109 bis T-115 nach T-115)
+## Deploy 4 (T-109 und T-113, danach App-Builds mit T-109 bis T-115)
 
-1. **Ziel `af86406`** (Server-Stand wie `2c9f7b8`). Neu: öffentliche Seite `/app`, Caddyfile,
-   Verwaltung, Migration 052. Keine neuen Schlüssel, Steuerung unverändert. PO-Schritte aus `infrastructure/DEPLOY.md`
-   vorher abfragen. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt). Neue App-Builds erst nach T-115; der
-   iOS-Build kompiliert das neue Signalmodul aus T-112 zum ersten Mal (lokal kein Xcode).
+1. **Ziel `831cb29`** (Server-Stand wie `2c9f7b8`; T-114 und T-115 betreffen nur die App). Neu: öffentliche Seite
+   `/app`, Caddyfile, Verwaltung, Migration 052. Keine neuen Schlüssel, Steuerung unverändert. PO-Schritte aus
+   `infrastructure/DEPLOY.md` vorher abfragen. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt). Danach
+   neue App-Builds; der iOS-Build kompiliert das neue Signalmodul aus T-112 zum ersten Mal (lokal kein Xcode).
 2. **Danach (PO):** Einladungsvorlage aus `docs/T-047-Einladungsvorlage.md` vollständig übertragen (zweiter Link „App
    laden“, neuer Satz zum abgelaufenen Link). `https://tb-infra.de/app` am Handy und am Rechner öffnen: ohne
    Passwortabfrage, „Die App erhalten Sie von Ihrer Verwaltung.“, solange die Links leer sind.
-3. **T-098c** nach dem Deploy: Teil 2 von T-098b (`t098b-verify`, lokal `212486d`) bleibt bis dahin geparkt. Der
-   Schutzsatz des Servers führt 16 alte Stände aus dem September ohne Kind-Manifeste; bis dahin überspringt jeder
-   Image-Lauf die Bereinigung mit einer Warnung (Manifest-404). Das ist gewollt.
+3. **T-098c:** Umsetzung und Trockenlauf jetzt, Commit erst nach Deploy 4 mit frischem Trockenlauf. Der erste echte
+   Lauf löscht wieder, und das Deploy-Ziel ist vorher nur als eine der neuesten zwanzig Versionen geschützt. Bis dahin
+   überspringt jeder Image-Lauf die Bereinigung mit einer Warnung (Manifest-404, 16 alte Stände aus dem September).
 4. **Store-Links:** Der PO liefert TestFlight- und Play-Test-Link; Development trägt sie in
    `apps/landing-web/src/appLinks.json` ein (kleiner Auftrag, danach regulärer Deploy). Mit Google Play kommt der
    Fingerabdruck der Play-App-Signatur in `assetlinks.json` hinzu.
@@ -79,7 +79,9 @@ T-115 am iPhone: einmal über Nacht gesperrt am Ladekabel, dazu zehnmal nach meh
 
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
 
-- **App:** Kopf zeigt die E-Mail statt „Name · Rolle“, die Sitzung liefert keinen Namen (T-107) · nach einer
+- **App:** nach gescheitertem Neustart der Laufzeit kann die Sitzung außerhalb der Startreihenfolge starten (T-115,
+  P2) · „Anmeldung gerade nicht möglich“ kann nach einem weiteren Fehlversuch doppelt stehen (T-115) · ein dauerhaft
+  defekter Android-Schlüsselspeicher zeigt P01 mit „Erneut versuchen“ statt Support-Hinweis (T-115) · Kopf zeigt die E-Mail statt „Name · Rolle“, die Sitzung liefert keinen Namen (T-107) · nach einer
   Offline-Aktion bleibt die Karte der laufenden Zeit auf „Erfassen“ bis zur Bestätigung gesperrt (T-107) · „Zeit
   beendet“ nennt die Dauer ohne Pausen, die Uhrzeitspanne enthält sie (T-103) · Einladen-Knopf wirkt nach Erfolg aktiv,
   tut aber nichts (T-101) · Anzeige „wird gesichert“ eines Verwaltungsstopps nur im Speicher · „Meine Zeiten“ nur
