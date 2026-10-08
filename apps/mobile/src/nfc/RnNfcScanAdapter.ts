@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import NfcManager, { NfcEvents, type TagEvent } from 'react-native-nfc-manager';
+import NfcManager, { NfcAdapter, NfcEvents, type TagEvent } from 'react-native-nfc-manager';
 import { IosNfcSession, isIosTagReaderSupported, type CapturedTagAction } from './IosNfcSession';
 import {
   createCanonicalNfcUidPayload,
@@ -12,7 +12,7 @@ import {
 export type NfcCapabilityState = 'ready' | 'not_supported' | 'disabled';
 
 export interface NfcCaptureLifecyclePort {
-  /** iOS setup only: hold the connected tag and ownership until writing has finished. */
+  /** Hold the connected tag and reader ownership throughout setup. */
   readonly scanWithTagAction?: (action: CapturedTagAction) => Promise<NfcScanCaptureResult>;
   checkCapability(): Promise<NfcCapabilityState>;
   cancelCapture(): Promise<void>;
@@ -82,6 +82,7 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
       ? new IosNfcSession(() => this.ensureStarted(), (tag) => normalizeTag(tag, this.captureTimestamp()), this.timeoutMilliseconds)
       : null;
     if (this.iosSession !== null) this.scanWithTagAction = (action) => this.iosSession!.scan(action);
+    else if (this.platform === 'android') this.scanWithTagAction = (action) => this.scanAndroid(action);
   }
 
   async checkCapability(): Promise<NfcCapabilityState> {
@@ -105,6 +106,10 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
 
   scan(): Promise<NfcScanCaptureResult> {
     if (this.iosSession !== null) return this.iosSession.scan();
+    return this.scanAndroid();
+  }
+
+  private scanAndroid(action?: CapturedTagAction): Promise<NfcScanCaptureResult> {
     if (this.captureFlight !== null) {
       return this.captureFlight;
     }
@@ -112,7 +117,7 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
       return Promise.resolve({ status: 'unavailable' });
     }
     const cancellationVersion = this.cancellationVersion;
-    const operation = this.performScan(cancellationVersion);
+    const operation = this.performScan(cancellationVersion, action);
     const flight = operation.finally(() => {
       if (this.captureFlight === flight) {
         this.captureFlight = null;
@@ -134,7 +139,7 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
     await this.cancelCapture();
   }
 
-  private async performScan(cancellationVersion: number): Promise<NfcScanCaptureResult> {
+  private async performScan(cancellationVersion: number, action?: CapturedTagAction): Promise<NfcScanCaptureResult> {
     if (this.platform !== 'android') {
       return { status: 'unavailable' };
     }
@@ -149,6 +154,8 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
 
     return new Promise<NfcScanCaptureResult>((resolve) => {
       let settled = false;
+      let discovered = false;
+      let actionFlight: Promise<unknown> = Promise.resolve();
       let cleanupFlight: Promise<void> | null = null;
       let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
       let registrationSettled = false;
@@ -179,8 +186,8 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
           // later scans until that attempt settles and can be unregistered exactly once. This
           // avoids both a hanging UI promise and a late cleanup unregistering a newer capture.
           const nativeCleanup = registrationSettled
-            ? this.unregisterNativeCapture()
-            : (this.holdRegistrationDrain(registrationSettlement), Promise.resolve());
+            ? actionFlight.then(() => this.unregisterNativeCapture())
+            : (this.holdRegistrationDrain(Promise.all([registrationSettlement, actionFlight]).then(() => undefined)), actionFlight.then(() => undefined));
           cleanupFlight = nativeCleanup
             .then(() => {
               if (this.activeCapture === capture) {
@@ -195,13 +202,20 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
 
       try {
         NfcManager.setEventListener(NfcEvents.DiscoverTag, (tag: TagEvent) => {
+          if (discovered || settled) return;
+          discovered = true;
           let result: NfcScanCaptureResult;
           try {
             result = normalizeTag(tag, this.captureTimestamp());
           } catch {
             result = { status: 'unavailable' };
           }
-          void capture.finish(result);
+          if (action !== undefined && result.status === 'captured') {
+            if (timeoutHandle !== null) { this.clearScheduledTimeout(timeoutHandle); timeoutHandle = null; }
+            actionFlight = Promise.resolve().then(() => action(result as Extract<NfcScanCaptureResult, { status: 'captured' }>))
+              .catch(() => { result = { status: 'unavailable' }; });
+            void actionFlight.then(() => capture.finish(result));
+          } else void capture.finish(result);
         });
       } catch {
         registrationSettled = true;
@@ -216,7 +230,10 @@ export class RnNfcScanAdapter implements NfcScanPort, NfcCaptureLifecyclePort {
 
       let registration: Promise<void>;
       try {
-        registration = Promise.resolve(NfcManager.registerTagEvent());
+        registration = Promise.resolve(NfcManager.registerTagEvent({
+          isReaderModeEnabled: true,
+          readerModeFlags: NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_NO_PLATFORM_SOUNDS,
+        }));
       } catch {
         registrationSettled = true;
         releaseRegistrationSettlement();

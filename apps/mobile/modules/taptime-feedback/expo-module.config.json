@@ -1,6 +1,5 @@
 {
-  "platforms": ["android"],
-  "android": {
-    "modules": ["com.taptime.feedback.TapTimeFeedbackModule"]
-  }
+  "platforms": ["android", "apple"],
+  "apple": { "modules": ["TapTimeFeedbackModule"] },
+  "android": { "modules": ["com.taptime.feedback.TapTimeFeedbackModule"] }
 }

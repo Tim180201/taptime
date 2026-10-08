@@ -4,7 +4,7 @@ import { TAG_URI } from '../../src/nfc/tagAddress';
 
 const manager = vi.hoisted(() => ({
   connect: vi.fn(), getTag: vi.fn(), cancelTechnologyRequest: vi.fn(),
-  ndefHandler: { getNdefStatus: vi.fn(), writeNdefMessage: vi.fn(), makeReadOnly: vi.fn() },
+  ndefHandler: { getNdefStatus: vi.fn(), writeNdefMessage: vi.fn(), getNdefMessage: vi.fn(), makeReadOnly: vi.fn() },
   ndefFormatableHandlerAndroid: { formatNdef: vi.fn() },
 }));
 vi.mock('react-native-nfc-manager', () => ({
@@ -27,6 +27,7 @@ beforeEach(() => {
   manager.cancelTechnologyRequest.mockResolvedValue(undefined);
   manager.ndefHandler.getNdefStatus.mockResolvedValue({ status: 2, capacity: 256 });
   manager.ndefHandler.writeNdefMessage.mockResolvedValue(undefined);
+  manager.ndefHandler.getNdefMessage.mockResolvedValue({ ndefMessage: [Ndef.uriRecord(TAG_URI)] });
   manager.ndefFormatableHandlerAndroid.formatNdef.mockResolvedValue(undefined);
 });
 
@@ -134,14 +135,14 @@ describe('RnNfcTagWriter', () => {
     expect(manager.cancelTechnologyRequest).toHaveBeenCalledOnce();
   });
 
-  it('reports native connect, formatting and cleanup errors safely', async () => {
+  it('reports native I/O errors but keeps verified writing after a cleanup error', async () => {
     manager.connect.mockRejectedValueOnce(new Error('connect failure'));
     await expect(new RnNfcTagWriter(packageName).write(payload, TAG_URI)).resolves.toEqual({ status: 'failed', reason: 'write_failed' });
     manager.getTag.mockResolvedValueOnce({ ...tag, techTypes: ['android.nfc.tech.NdefFormatable'] });
     manager.ndefFormatableHandlerAndroid.formatNdef.mockRejectedValueOnce(new Error('format failure'));
     await expect(new RnNfcTagWriter(packageName).write(payload, TAG_URI)).resolves.toEqual({ status: 'failed', reason: 'write_failed' });
     manager.cancelTechnologyRequest.mockRejectedValueOnce(new Error('cleanup failure'));
-    await expect(new RnNfcTagWriter(packageName).write(payload, TAG_URI)).resolves.toEqual({ status: 'failed', reason: 'write_failed' });
+    await expect(new RnNfcTagWriter(packageName).write(payload, TAG_URI)).resolves.toEqual({ status: 'written' });
   });
 
   it('does not write after cancellation during connect and drains before reuse', async () => {
@@ -170,4 +171,40 @@ describe('RnNfcTagWriter', () => {
     await expect(pending).resolves.toEqual({ status: 'failed', reason: 'cancelled' });
     expect(manager.cancelTechnologyRequest).toHaveBeenCalledOnce();
   });
+});
+
+// The discovery message is only enough to skip writing. After a write the live
+// reader must confirm the bytes; a cached getTag would certify its own old value.
+it.each(['ios', 'android'])('T112 skips an already exact URI even on a read-only card (%s)', async platform => {
+  manager.getTag.mockResolvedValue({ ...tag, ndefMessage: [Ndef.uriRecord(TAG_URI)] });
+  manager.ndefHandler.getNdefStatus.mockResolvedValue({status: 3, capacity: 256});
+  await expect(new RnNfcTagWriter(null, platform).write(payload, TAG_URI)).resolves.toEqual({status:'written'});
+  expect(manager.ndefHandler.writeNdefMessage).not.toHaveBeenCalled();
+});
+it.each(['ios', 'android'])('T112 verifies a write with a live NDEF read (%s)', async platform => {
+  await expect(new RnNfcTagWriter(null, platform).write(payload,TAG_URI)).resolves.toEqual({status:'written'});
+  expect(manager.ndefHandler.getNdefMessage).toHaveBeenCalledOnce();
+  expect(manager.ndefHandler.writeNdefMessage.mock.invocationCallOrder[0]).toBeLessThan(manager.ndefHandler.getNdefMessage.mock.invocationCallOrder[0]!);
+  if(platform==='android')expect(manager.ndefHandler.writeNdefMessage).toHaveBeenCalledWith(expect.any(Array),{reconnectAfterWrite:true});
+});
+it.each(['ios', 'android'])('T112 rejects differing readback (%s)', async platform => {
+  manager.ndefHandler.getNdefMessage.mockResolvedValue({ndefMessage:[Ndef.uriRecord('https://different.example/tag')]});
+  await expect(new RnNfcTagWriter(null, platform).write(payload,TAG_URI)).resolves.toEqual({status:'failed',reason:'write_failed'});
+});
+
+it('T112 retries a recoverable iOS write via its owning session and rechecks the card',async()=>{
+ const error=new Error('connection lost');
+ manager.ndefHandler.writeNdefMessage.mockRejectedValueOnce(error);
+ const session={isOpen:()=>true,reconnect:vi.fn(async()=>true),diagnose:vi.fn(),registrationStarted:vi.fn(),afterClosed:vi.fn()};
+ await expect(new RnNfcTagWriter(null,'ios').write(payload,TAG_URI,session)).resolves.toEqual({status:'written'});
+ expect(session.reconnect).toHaveBeenCalledExactlyOnceWith(error,payload);
+ expect(manager.getTag).toHaveBeenCalledTimes(2);
+ expect(manager.ndefHandler.getNdefMessage).toHaveBeenCalledOnce();
+ expect(manager.cancelTechnologyRequest).not.toHaveBeenCalled();
+});
+it('T112 rechecks before rewriting after a lost readback',async()=>{
+ manager.ndefHandler.getNdefMessage.mockRejectedValueOnce(new Error('lost'));
+ const session={isOpen:()=>true,reconnect:vi.fn(async()=>{manager.getTag.mockResolvedValue({...tag,ndefMessage:[Ndef.uriRecord(TAG_URI)]});return true;}),diagnose:vi.fn(),registrationStarted:vi.fn(),afterClosed:vi.fn()};
+ await expect(new RnNfcTagWriter(null,'ios').write(payload,TAG_URI,session)).resolves.toEqual({status:'written'});
+ expect(manager.ndefHandler.writeNdefMessage).toHaveBeenCalledOnce();
 });

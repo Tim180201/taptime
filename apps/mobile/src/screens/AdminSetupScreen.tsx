@@ -26,13 +26,21 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       initialProjection.current=projectionVersion;setLoadedAt(Date.now());
     }
   },[projectionVersion,state.status]);
-  const [assigning, setAssigning] = useState(false);
-  const [customerId, setCustomerId] = useState('');
-  const [tagName, setTagName] = useState('');
-  const [pauseTag, setPauseTag] = useState(false);
+  const [assigning, setAssigning] = useState(state.pendingTag !== undefined);
+  const [customerId, setCustomerId] = useState(state.pendingTag?.customerId ?? '');
+  const [tagName, setTagName] = useState(state.pendingTag?.displayName ?? '');
+  const [nameEdited, setNameEdited] = useState(false);
+  const [pauseTag, setPauseTag] = useState(state.pendingTag?.customerId === null);
+  const pending = state.pendingTag !== undefined;
+  useEffect(() => {
+    if (state.pendingTag) {
+      setAssigning(true); setCustomerId(state.pendingTag.customerId ?? '');
+      setPauseTag(state.pendingTag.customerId === null); setTagName(state.pendingTag.displayName);
+    }
+  }, [state.pendingTag?.customerId, state.pendingTag?.displayName]);
   useEffect(() => {
     if (state.status === 'ready' && state.outcome?.status === 'tag_provisioned') {
-      setAssigning(false); setCustomerId(''); setTagName('');
+      setAssigning(false); setCustomerId(''); setTagName(''); setNameEdited(false);
     }
   }, [state]);
   const scanning=state.status==='capturing'||state.status==='writing';
@@ -59,19 +67,19 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <RequiredField form={form} error={!pauseTag && !customerId ? "Bitte einen Kunden oder Pause wählen." : null}><Text style={styles.label}>Arbeitsziel</Text>
       {projection.customers.filter((customer) => customer.active).map((customer) => <ActionButton
         key={customer.id} title={customer.displayName} tone={!pauseTag && customerId === customer.id ? 'primary' : 'secondary'}
-        accessibilityState={{ selected: !pauseTag && customerId === customer.id }} disabled={busy}
-        onPress={() => { setCustomerId(customer.id); setPauseTag(false); }} />)}
+        accessibilityState={{ selected: !pauseTag && customerId === customer.id }} disabled={busy || pending}
+        onPress={() => { setCustomerId(customer.id); setPauseTag(false); if (!nameEdited) setTagName(Array.from(customer.displayName.trim()).slice(0,80).join('')); }} />)}
       {projection.customers.filter((customer) => customer.active).length === 0
         ? <Text>Lege deinen ersten Kunden im Reiter „Kunden“ an. Danach kannst du seine Karte einrichten.</Text> : null}
-      <ActionButton title="Pause" tone={pauseTag ? 'primary' : 'quiet'} disabled={busy}
-        accessibilityState={{ selected: pauseTag }} onPress={() => setPauseTag(true)} /></RequiredField>
+      <ActionButton title="Pause" tone={pauseTag ? 'primary' : 'quiet'} disabled={busy || pending}
+        accessibilityState={{ selected: pauseTag }} onPress={() => {setPauseTag(true); if (!nameEdited) setTagName('Pause');}} /></RequiredField>
       <Text style={styles.label}>Bezeichnung</Text>
-      <RequiredTextField form={form} error={!tagName.trim() ? "Bitte Bezeichnung eingeben." : null} value={tagName} onChangeText={setTagName} maxLength={80} editable={!busy}
+      <RequiredTextField form={form} error={!tagName.trim() ? "Bitte Bezeichnung eingeben." : null} value={tagName} onChangeText={value => {setTagName(value); setNameEdited(true);}} maxLength={80} editable={!busy && !pending}
         placeholder="z. B. Eingang Werkstatt" accessibilityLabel="Bezeichnung der Karte" />
-      <TouchTarget accessibilityRole="button" accessibilityLabel="Karte einrichten" disabled={busy}
+      <TouchTarget accessibilityRole="button" accessibilityLabel={pending ? "Zuordnung erneut versuchen" : "Karte einrichten"} disabled={busy}
         accessibilityState={{ disabled: busy }} onPress={capture} style={styles.capture}>
         <LineIcon name="capture" size={48} color={mobileTokens.color.accent} />
-        <Text style={{ fontWeight: '800', textAlign: 'center' }}>{state.status === 'creating_customer' ? 'Kunde wird angelegt …' : busy ? 'Jetzt die Karte antippen' : 'Karte einrichten'}</Text>
+        <Text style={{ fontWeight: '800', textAlign: 'center' }}>{state.status === 'creating_customer' ? 'Kunde wird angelegt …' : busy ? 'Karte wird eingerichtet …' : pending ? 'Zuordnung erneut versuchen' : 'Karte einrichten'}</Text>
       </TouchTarget>
       <ActionButton title="Abbrechen" tone="quiet" disabled={locked} onPress={goBack} />
     </> : <>
@@ -112,12 +120,13 @@ export function presentAdminSetupState(state: AdminSetupState, platform = 'andro
   if (state.status === 'capturing') return { title: 'Bereit zum Erfassen', message: platform === 'ios' ? 'Halte dein iPhone an die neue Karte.' : 'Halte das Android-Gerät an die neue Karte.' };
   if (state.status === 'writing') return { title: 'Karte wird beschrieben', message: 'Halte dein Handy weiter an die Karte.' };
   if (state.status === 'submitting') return { title: 'Karte wird sicher eingerichtet', message: 'Die Karte und ihre Zuordnung werden gemeinsam gespeichert.' };
-  if (state.status !== 'ready' || state.outcome === null) return { title: 'Einrichtung bereit', message: 'Wähle einen Kunden und gib eine eindeutige Kartenbezeichnung ein.' };
+  if (state.status !== 'ready' || state.outcome === null) return { title: 'Einrichtung bereit', message: 'Wähle einen Kunden und gib eine Kartenbezeichnung ein.' };
   switch (state.outcome.status) {
     case 'tag_checked': return {title: state.outcome.assignment==='customer'?state.outcome.customerName??'Kunde':state.outcome.assignment==='break'?'Pause':'Nicht zugeordnet', message:`Standort: ${state.outcome.locationName??'Ohne Standortzuordnung'}`};
     case 'customer_created': return { title: 'Kunde angelegt', message: state.outcome.refreshFailed
       ? 'Der Kunde ist gespeichert. Die Liste konnte noch nicht neu geladen werden. Aktualisiere die Ansicht, bevor du die Karte zuordnest.'
       : 'Der neue Kunde ist ausgewählt. Du kannst jetzt seine Karte einrichten.' };
+    case 'setup_offline': return { title: 'Du bist offline', message: 'Zum Einrichten brauchst du eine Internetverbindung.' };
     case 'customer_offline': return { title: 'Du bist offline', message: 'Verbinde dich mit dem Internet, um den Kunden anzulegen. Deine Eingaben bleiben erhalten; es wird nichts automatisch nachgesendet.' };
     case 'customer_location_required': return { title: 'Standort fehlt', message: 'Wähle einen Standort für den neuen Kunden. Deine Eingaben bleiben erhalten.' };
     case 'customer_forbidden': return { title: 'Kunde nicht angelegt', message: 'Du darfst an diesem Standort keinen Kunden anlegen. Aktualisiere die Standortauswahl. Deine Eingaben bleiben erhalten.' };
@@ -139,7 +148,7 @@ export function presentAdminSetupState(state: AdminSetupState, platform = 'andro
     case 'cancelled': return { title: 'Erfassung abgebrochen', message: 'Es wurden keine Kartendaten gesendet.' };
     case 'nfc_unavailable': return { title: 'NFC nicht verfügbar', message: 'Die Karte wurde nicht eingerichtet. Prüfe, ob NFC am Handy eingeschaltet ist.' };
     case 'session_rejected': return { title: 'Sitzung nicht mehr gültig', message: 'Bitte melde dich erneut an.' };
-    case 'request_failed': return { title: 'Einrichtung nicht abgeschlossen', message: 'Ob die Zuordnung gespeichert wurde, ist noch unklar. Aktualisiere die Kartenliste und prüfe die Zuordnung.' };
+    case 'request_failed': return { title: 'Einrichtung nicht abgeschlossen', message: 'Ob die Zuordnung gespeichert wurde, ist noch unklar. Versuche die Zuordnung erneut. Die Angaben bleiben dafür erhalten; die Karte musst du nicht erneut antippen.' };
     default: return state.outcome satisfies never;
   }
 }

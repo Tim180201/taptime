@@ -41,9 +41,9 @@ export type AdminSetupOutcome =
   | { readonly status: 'tag_provisioned'; readonly validationFingerprint: string }
   | { readonly status: 'unreadable' | 'timed_out' | 'cancelled' | 'nfc_unavailable' }
   | { readonly status: 'invalid_input' | 'tag_already_registered' | 'customer_unavailable' }
-  | { readonly status: 'session_rejected' | 'request_failed' };
+  | { readonly status: 'setup_offline' | 'session_rejected' | 'request_failed' };
 
-export type AdminSetupState =
+export type AdminSetupState = { readonly pendingTag?: { readonly customerId: string | null; readonly displayName: string } } & (
   | { readonly status: 'inactive' }
   | { readonly status: 'loading' }
   | { readonly status: 'not_authorized' }
@@ -51,7 +51,7 @@ export type AdminSetupState =
   | { readonly status: 'capturing'; readonly projection: AdminSetupProjection }
   | { readonly status: 'writing'; readonly projection: AdminSetupProjection }
   | { readonly status: 'creating_customer'; readonly projection: AdminSetupProjection }
-  | { readonly status: 'submitting'; readonly projection: AdminSetupProjection };
+  | { readonly status: 'submitting'; readonly projection: AdminSetupProjection });
 
 export interface AdminSetupCapability {
   inspectTag?():Promise<void>;

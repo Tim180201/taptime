@@ -5,7 +5,9 @@ import os.log
 public class TapTimeNfcDiagnosticsModule: Module {
   private let log = OSLog(subsystem: "com.taptura.nfc", category: "lifecycle")
   private let phases: Set<String> = ["requested", "connected", "read", "action_finished",
-    "cancel_ok", "cancel_failed", "session_closed", "deadline_expired"]
+    "cancel_ok", "cancel_failed", "session_closed", "deadline_expired",
+    "write_started", "readback_started", "readback_verified", "reconnect_started",
+    "registration_started", "registration_finished"]
 
   public func definition() -> ModuleDefinition {
     Name("TapTimeNfcDiagnostics")

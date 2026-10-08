@@ -54,7 +54,7 @@ it('T101 invitation marks name, email and location independently',async()=>{
  expect(invite).not.toHaveBeenCalled();await fill('Name','Alex');await fill('E-Mail','alex@example.test');await press('Berlin');expect(box.querySelector('[role="alert"]')).toBeNull();
 });
 it.each([false,true])('T101 tag assignment / pause=%s requires its label and choice',async pause=>{
- const api=admin();await mount(h(AdminSetupScreen,{administration:api as unknown as AdminSetupCapability}));await press('Karte einrichten');if(pause)await press('Pause');await press('Karte einrichten');hint('Bitte Bezeichnung eingeben.');if(!pause){hint('Bitte einen Kunden oder Pause wählen.');expect(document.activeElement?.getAttribute('aria-label')).toContain('Kunden');}
+ const api=admin();await mount(h(AdminSetupScreen,{administration:api as unknown as AdminSetupCapability}));await press('Karte einrichten');if(pause){await press('Pause');await fill('Bezeichnung der Karte','');}await press('Karte einrichten');hint('Bitte Bezeichnung eingeben.');if(!pause){hint('Bitte einen Kunden oder Pause wählen.');expect(document.activeElement?.getAttribute('aria-label')).toContain('Kunden');}
  expect(api.provision).not.toHaveBeenCalled();expect(api.provisionBreak).not.toHaveBeenCalled();await fill('Bezeichnung der Karte','Eingang');if(!pause)await press('Kunde A');expect(box.querySelector('[role="alert"]')).toBeNull();
 });
 it.each(['Nur anlegen','Karte einrichten'])('T101 customer creation via %s marks name and location before any creation',async title=>{

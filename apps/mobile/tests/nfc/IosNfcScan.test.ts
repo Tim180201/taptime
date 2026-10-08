@@ -3,9 +3,9 @@ import { createTimestamp } from '@taptime/core';
 
 const { manager, errors, listeners, alert, diagnostic } = vi.hoisted(() => ({
   manager: { start: vi.fn(), isSupported: vi.fn(), isEnabled: vi.fn(), requestTechnology: vi.fn(),
-    getTag: vi.fn(), cancelTechnologyRequest: vi.fn(), setEventListener: vi.fn(),
+    getTag: vi.fn(), cancelTechnologyRequest: vi.fn(), setAlertMessageIOS: vi.fn(), invalidateSessionWithErrorIOS: vi.fn(), restartTechnologyRequestIOS: vi.fn(), setEventListener: vi.fn(),
     registerTagEvent: vi.fn(), unregisterTagEvent: vi.fn() },
-  errors: { UserCancel: class extends Error {}, Timeout: class extends Error {} },
+  errors: { UserCancel: class extends Error {}, Timeout: class extends Error {}, TagConnectionLost: class extends Error {}, RetryExceeded: class extends Error {}, TagResponseError: class extends Error {}, TagNotConnected: class extends Error {}, TagUpdateFailure: class extends Error {}, TagNotWritable: class extends Error {} },
   alert: vi.fn(), diagnostic: vi.fn(),
   listeners: new Map<string, ((value: unknown) => void) | null>(),
 }));
@@ -27,6 +27,9 @@ function close(error: unknown = null) { listeners.get('closed')?.(error); }
 
 beforeEach(() => {
   vi.resetAllMocks(); listeners.clear();
+  manager.setAlertMessageIOS.mockResolvedValue(undefined);
+  manager.restartTechnologyRequestIOS.mockResolvedValue('mifare');
+  manager.invalidateSessionWithErrorIOS.mockImplementation(async () => { queueMicrotask(() => close()); });
   manager.start.mockResolvedValue(undefined); manager.isSupported.mockResolvedValue(true);
   manager.requestTechnology.mockResolvedValue('mifare'); manager.getTag.mockResolvedValue(tag);
   manager.setEventListener.mockImplementation((name, listener) => { listeners.set(name, listener); });
@@ -232,21 +235,100 @@ describe('iOS explicit tag reader', () => {
       await coordinator.start(); const pending = coordinator.provision(customerId, 'Eingang');
       await vi.advanceTimersByTimeAsync(2_500);
       expect(writer.write).toHaveBeenCalledOnce();
-      if (scenario === 'success' || scenario === 'server_failed') {
-        // Native invalidation succeeded, but no SessionClosed was sent. Only the
-        // server response, not the Apple checkmark, may produce assignment success.
+      if (scenario !== 'write_failed') {
+        // The window stays open while the registration runs. A later cleanup failure
+        // cannot erase a server-confirmed assignment.
         expect(api.provisionTag).toHaveBeenCalledWith(expect.objectContaining({ canonicalPayload: 'nfc:uid:v1:0400A1B2C3D4E5' }));
         expect(coordinator.getState()).toMatchObject({ status: 'submitting' });
-        submitted.resolve(scenario === 'success'
+        submitted.resolve(scenario !== 'server_failed'
           ? { status: 'succeeded', validationFingerprint: 'A1B2C3D4E5F6' }
           : { status: 'unavailable' });
       } else {
         expect(api.provisionTag).not.toHaveBeenCalled();
       }
+      await vi.advanceTimersByTimeAsync(2_001);
       await pending;
-      const status = { success: 'tag_provisioned', write_failed: 'tag_write_failed', cancel_failed: 'nfc_unavailable', server_failed: 'request_failed' }[scenario];
+      const status = { success: 'tag_provisioned', write_failed: 'tag_write_failed', cancel_failed: 'tag_provisioned', server_failed: 'request_failed' }[scenario];
       expect(coordinator.getState()).toMatchObject({ status: 'ready', outcome: { status } });
       close(); await coordinator.stop();
     });
 
+});
+
+it('T112 closes setup once with an error, never a checkmark',async()=>{
+ const nfc=adapter();await nfc.scanWithTagAction!(async()=>({status:'failed',message:'Karte ist schreibgeschützt.'}));
+ expect(manager.invalidateSessionWithErrorIOS).toHaveBeenCalledExactlyOnceWith('Karte ist schreibgeschützt.');
+ expect(manager.cancelTechnologyRequest).not.toHaveBeenCalled();
+});
+it.each(['cancel','deadline','native_close'] as const)('T112 a sent registration survives %s and the cleanup deadline',async interruption=>{
+ vi.useFakeTimers();const nfc=adapter(),server=deferred<void>();let closed=false;
+ const result=nfc.scanWithTagAction!(async(_capture,session)=>{
+   session!.registrationStarted();session!.afterClosed(()=>{closed=true;});await server.promise;return {status:'succeeded'};
+ });
+ await vi.advanceTimersByTimeAsync(0);
+ expect(manager.cancelTechnologyRequest).not.toHaveBeenCalled();
+ if(interruption==='cancel')void nfc.cancelCapture();
+ else if(interruption==='native_close')close();
+ else await vi.advanceTimersByTimeAsync(25_000);
+ await vi.advanceTimersByTimeAsync(2_001);
+ let done=false;void result.then(()=>{done=true;});await vi.advanceTimersByTimeAsync(0);expect(done).toBe(false);
+ server.resolve();await vi.advanceTimersByTimeAsync(0);
+ await expect(result).resolves.toMatchObject({status:'captured'});
+ expect(closed).toBe(true);
+ expect(manager.cancelTechnologyRequest).not.toHaveBeenCalled();
+ expect(manager.invalidateSessionWithErrorIOS.mock.calls.length).toBe(interruption==='native_close'?0:1);
+});
+it('T112 has a fresh 25 second budget after discovery, then succeeds with the server text',async()=>{
+ vi.useFakeTimers();const request=deferred<string>();manager.requestTechnology.mockReturnValueOnce(request.promise);
+ const server=deferred<void>(),nfc=adapter();let control:any;
+ const result=nfc.scanWithTagAction!(async(_capture,session)=>{control=session;session!.registrationStarted();await server.promise;return {status:'succeeded'};});
+ await vi.advanceTimersByTimeAsync(19_000);request.resolve('mifare');await vi.advanceTimersByTimeAsync(2_000);
+ expect(control.isOpen()).toBe(true);expect(manager.cancelTechnologyRequest).not.toHaveBeenCalled();
+ server.resolve();await vi.advanceTimersByTimeAsync(0);await result;
+ expect(manager.setAlertMessageIOS).toHaveBeenLastCalledWith('Karte zugeordnet');
+ expect(manager.cancelTechnologyRequest).toHaveBeenCalledOnce();expect(manager.invalidateSessionWithErrorIOS).not.toHaveBeenCalled();
+});
+it('T112 reconnects only to the original card, with at most three rediscoveries',async()=>{
+ const nfc=adapter();await nfc.scanWithTagAction!(async(capture,session)=>{
+   manager.getTag.mockResolvedValueOnce({...tag,id:'ABCD'}).mockResolvedValue(tag);
+   expect(await session!.reconnect(new errors.TagConnectionLost(),capture.payload)).toBe(true);
+   expect(manager.restartTechnologyRequestIOS).toHaveBeenCalledTimes(2);
+   expect(await session!.reconnect(new errors.TagUpdateFailure(),capture.payload)).toBe(true);
+   expect(await session!.reconnect(new errors.TagConnectionLost(),capture.payload)).toBe(false);
+   return {status:'failed',message:'Verbindung verloren'};
+ });
+ expect(manager.restartTechnologyRequestIOS).toHaveBeenCalledTimes(3);
+ expect(manager.setAlertMessageIOS).toHaveBeenCalledWith('Halte das iPhone wieder an dieselbe Karte.');
+});
+
+it.each(['TagConnectionLost','RetryExceeded','TagResponseError','TagNotConnected','TagUpdateFailure'] as const)('T112 recovers the native %s error class only',async name=>{
+ await adapter().scanWithTagAction!(async(capture,session)=>{
+   expect(await session!.reconnect(new errors[name](),capture.payload)).toBe(true);
+   expect(await session!.reconnect(new errors.TagNotWritable(),capture.payload)).toBe(false);
+   return {status:'succeeded'};
+ });
+ expect(manager.restartTechnologyRequestIOS).toHaveBeenCalledOnce();
+});
+it('T112 waits for a dispatched result even when native cleanup itself hangs past two seconds',async()=>{
+ vi.useFakeTimers();const server=deferred<void>();manager.invalidateSessionWithErrorIOS.mockReturnValue(new Promise(()=>{}));
+ const nfc=adapter();const result=nfc.scanWithTagAction!(async(_capture,session)=>{session!.registrationStarted();await server.promise;return {status:'succeeded'};});
+ await vi.advanceTimersByTimeAsync(28_000);
+ server.resolve();await vi.advanceTimersByTimeAsync(0);
+ await expect(result).resolves.toMatchObject({status:'captured'});
+ // A missing native reset still prevents a new session; the business answer is separate.
+ await expect(nfc.scan()).resolves.toMatchObject({status:'cancelled'});close();
+});
+it('T112 does not signal assignment until the actual native SessionClosed, and never on refresh',async()=>{
+ vi.useFakeTimers();manager.cancelTechnologyRequest.mockResolvedValue(undefined);
+ const snapshot:AdminSessionSnapshot={generation:1,session:{userId:'user',membershipId:'member',organizationId:'org',role:'administrator',nfcSetupAvailable:true}};
+ const projection={status:'succeeded' as const,organization:{id:'org',name:'Betrieb'},customers:[],nfcTags:[],nextCursor:null};
+ const api={readProjection:vi.fn(async()=>projection),provisionTag:vi.fn(),provisionBreakTag:vi.fn(async()=>({status:'succeeded' as const,validationFingerprint:'A1B2'}))};
+ const feedback={perform:vi.fn(async()=>{})};
+ const coordinator=new AdminSetupCoordinator({capture:()=>snapshot,isCurrent:()=>true,subscribe:()=>()=>{}},new ExclusiveNfcCaptureArbiter(adapter()).scope('administration'),api,()=> 'cmd',{write:vi.fn(async()=>({status:'written' as const})),cancel:vi.fn(async()=>{})},async()=>true,feedback);
+ await coordinator.start();await coordinator.provisionBreak('Pause');
+ expect(feedback.perform).not.toHaveBeenCalled();expect(api.provisionBreakTag).toHaveBeenCalledOnce();
+ expect(manager.setAlertMessageIOS).toHaveBeenLastCalledWith('Karte zugeordnet');
+ close();expect(feedback.perform).toHaveBeenCalledExactlyOnceWith('tag_assigned');
+ await coordinator.refresh();expect(feedback.perform).toHaveBeenCalledOnce();
+ await coordinator.stop();
 });

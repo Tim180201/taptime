@@ -28,7 +28,7 @@ describe('AdminSetupCoordinator', () => {
     { name: 'break', run: (coordinator: AdminSetupCoordinator) => coordinator.provisionBreak('Pause'), method: 'provisionBreakTag' },
   ] as const;
 
-  it.each(provisions)('keeps iOS setup writing inside capture and registers only after closure ($name)', async ({ run, method }) => {
+  it.each(provisions)('keeps iOS setup writing and registration inside the same capture ($name)', async ({ run, method }) => {
     const context = setup(); let open = false; let release!: () => void;
     const closed = new Promise<void>((resolve) => { release = resolve; });
     context.nfc.scanWithTagAction = vi.fn(async (action) => {
@@ -45,7 +45,7 @@ describe('AdminSetupCoordinator', () => {
     await context.coordinator.start(); const pending = run(context.coordinator);
     await vi.waitFor(() => expect(context.writer.write).toHaveBeenCalled());
     expect(context.nfc.scanWithTagAction).toHaveBeenCalledOnce();
-    expect(context.api[method]).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(context.api[method]).toHaveBeenCalled());
     release(); await pending;
     expect(context.api[method]).toHaveBeenCalled();
     expect(open).toBe(false);
@@ -189,6 +189,7 @@ describe('AdminSetupCoordinator', () => {
         nfcTags: projection.nfcTags,
         nextCursor: null,
       }, outcome: { status: expected },
+      ...(result.status === 'unavailable' || result.status === 'transient_failure' ? {pendingTag:{customerId:projection.customers[0]!.id,displayName:'Eingang'}} : {}),
     });
     expect(JSON.stringify(context.coordinator.getState())).not.toContain('nfc:uid');
   });
@@ -318,4 +319,89 @@ it('T100 refreshes a deferred management projection after a read-only tag check'
  scan();await capture;
  await vi.waitFor(()=>expect(context.coordinator.getState()).toMatchObject({status:'ready',projection:{customers:[]},outcome:{status:'tag_checked'}}));
  expect(context.writer.write).not.toHaveBeenCalled();
+});
+
+it.each(['provisionTag','provisionBreakTag'] as const)('T112 a sent %s wins cancellation and refresh',async method=>{
+ const c=setup();let reply!:(value:any)=>void;
+ vi.mocked(c.api[method]!).mockImplementationOnce(()=>new Promise(resolve=>{reply=resolve;}));
+ await c.coordinator.start();
+ const pending=method==='provisionTag'?c.coordinator.provision(projection.customers[0]!.id,'Eingang'):c.coordinator.provisionBreak('Pause');
+ await vi.waitFor(()=>expect(c.api[method]).toHaveBeenCalled());
+ await c.coordinator.cancel();await c.coordinator.refresh();
+ expect(c.coordinator.getState()).toMatchObject({status:'submitting'});
+ reply({status:'succeeded',validationFingerprint:'A1B2C3D4E5F6'});await pending;
+ expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned'}});
+ await c.coordinator.cancel();await c.coordinator.refresh();
+ expect(c.coordinator.getState()).toMatchObject({outcome:{status:'tag_provisioned'}});
+});
+it('T112 retries an uncertain registration with the same ID, locks its inputs and does not capture another card',async()=>{
+ const c=setup(); const ids=vi.fn().mockReturnValueOnce('first').mockReturnValue('second');
+ const coordinator=new AdminSetupCoordinator(c.session,c.nfc,c.api,ids,c.writer);
+ vi.mocked(c.api.provisionTag).mockResolvedValueOnce({status:'unavailable'});
+ await coordinator.start();await coordinator.provision(projection.customers[0]!.id,'Eingang');
+ expect(coordinator.getState()).toMatchObject({pendingTag:{customerId:projection.customers[0]!.id,displayName:'Eingang'}});
+ await coordinator.provision(projection.customers[0]!.id,'Different');
+ expect(c.api.provisionTag).toHaveBeenCalledOnce();
+ await coordinator.provision(projection.customers[0]!.id,'Eingang');
+ expect(vi.mocked(c.api.provisionTag).mock.calls.map(([command])=>command.commandId)).toEqual(['first','first']);
+ expect(c.nfc.scan).toHaveBeenCalledOnce();
+ expect(coordinator.getState()).not.toHaveProperty('pendingTag');
+});
+it('T112 checks online before opening NFC',async()=>{
+ const c=setup(); const coordinator=new AdminSetupCoordinator(c.session,c.nfc,c.api,()=> 'id',c.writer,async()=>false);
+ await coordinator.start();await coordinator.provisionBreak('Pause');
+ expect(c.nfc.scan).not.toHaveBeenCalled();expect(c.writer.write).not.toHaveBeenCalled();
+ expect(coordinator.getState()).toMatchObject({outcome:{status:'setup_offline'}});
+});
+it('T112 a failed list refresh after navigation cannot erase a confirmed registration',async()=>{
+ const c=setup();await c.coordinator.start();await c.coordinator.provisionBreak('Pause');
+ vi.mocked(c.api.readProjection).mockResolvedValueOnce({status:'unavailable'});
+ await c.coordinator.cancel();
+ expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned'}});
+ vi.mocked(c.api.readProjection).mockRejectedValueOnce(new Error('network'));
+ await c.coordinator.refresh();
+ expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned'}});
+});
+it('T112 review: switches account immediately while the old sent command and native close are pending',async()=>{
+ const c=setup();const feedback={perform:vi.fn(async()=>{})};
+ const coordinator=new AdminSetupCoordinator(c.session,c.nfc,c.api,()=> 'cmd',c.writer,async()=>true,feedback);
+ let reply!:(value:Awaited<ReturnType<AdminSetupApiPort['provisionTag']>>)=>void;
+ vi.mocked(c.api.provisionTag).mockImplementationOnce(()=>new Promise(resolve=>{reply=resolve;}));
+ await coordinator.start();const pending=coordinator.provision(projection.customers[0]!.id,'Eingang');
+ await vi.waitFor(()=>expect(c.api.provisionTag).toHaveBeenCalled());
+ c.nfc.cancelCapture.mockReturnValueOnce(new Promise(()=>{}));
+ vi.mocked(c.api.readProjection).mockResolvedValueOnce({...projection,organization:{id:'new-org',name:'New'},customers:[]});
+ c.replace({...snapshot,generation:2,session:{...snapshot.session,membershipId:'new-member',organizationId:'new-org',userId:'new-user'}});
+ expect(JSON.stringify(coordinator.getState())).not.toContain('Werkstatt');
+ expect(coordinator.getState()).not.toHaveProperty('pendingTag');
+ await vi.waitFor(()=>expect(coordinator.getState()).toMatchObject({status:'ready',projection:{organization:{id:'new-org'}}}));
+ reply({status:'succeeded',validationFingerprint:'OLD-RECEIPT'});await pending;
+ expect(JSON.stringify(coordinator.getState())).not.toMatch(/Werkstatt|OLD-RECEIPT/);
+ expect(feedback.perform).not.toHaveBeenCalled();
+});
+it('T112 review: retains the uncertain command privately across missing context and restores only its identity',async()=>{
+ const c=setup();const ids=vi.fn().mockReturnValueOnce('cmd-1').mockReturnValue('cmd-2');
+ const coordinator=new AdminSetupCoordinator(c.session,c.nfc,c.api,ids,c.writer);
+ vi.mocked(c.api.provisionTag).mockResolvedValueOnce({status:'unavailable'});
+ await coordinator.start();await coordinator.provision(projection.customers[0]!.id,'Eingang');
+ c.replace(null as unknown as AdminSessionSnapshot);
+ await vi.waitFor(()=>expect(coordinator.getState()).toEqual({status:'inactive'}));
+ c.replace({...snapshot,generation:2});
+ await vi.waitFor(()=>expect(coordinator.getState()).toMatchObject({status:'ready',pendingTag:{displayName:'Eingang'}}));
+ await coordinator.provision(projection.customers[0]!.id,'Eingang');
+ expect(vi.mocked(c.api.provisionTag).mock.calls.map(([command])=>command.commandId)).toEqual(['cmd-1','cmd-1']);
+ expect(c.nfc.scan).toHaveBeenCalledOnce();
+});
+it('T112 review: a receipt arriving without context stays private and reappears for the same identity',async()=>{
+ const c=setup();let reply!:(value:Awaited<ReturnType<AdminSetupApiPort['provisionTag']>>)=>void;
+ vi.mocked(c.api.provisionTag).mockImplementationOnce(()=>new Promise(resolve=>{reply=resolve;}));
+ await c.coordinator.start();const pending=c.coordinator.provision(projection.customers[0]!.id,'Eingang');
+ await vi.waitFor(()=>expect(c.api.provisionTag).toHaveBeenCalled());
+ c.replace(null as unknown as AdminSessionSnapshot);
+ await vi.waitFor(()=>expect(c.coordinator.getState()).toEqual({status:'inactive'}));
+ reply({status:'succeeded',validationFingerprint:'RECEIPT'});await pending;
+ expect(c.coordinator.getState()).toEqual({status:'inactive'});
+ c.replace({...snapshot,generation:3});
+ await vi.waitFor(()=>expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned',validationFingerprint:'RECEIPT'}}));
+ expect(c.coordinator.getState()).not.toHaveProperty('pendingTag');
 });

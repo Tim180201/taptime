@@ -190,6 +190,7 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
     randomUUID,
     new RnNfcTagWriter(Constants.expoConfig?.android?.package, Platform.OS),
     async () => { const state = await Network.getNetworkStateAsync(); return state.isConnected === true && state.isInternetReachable !== false; },
+    new NativeAndroidFeedback(),
   );
   const scanFeedback = new ScanFeedbackCoordinator(
     scanOrchestrator,

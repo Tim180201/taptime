@@ -18,6 +18,7 @@ vi.mock('react-native', () => ({ Platform: { OS: 'android' } }));
 vi.mock('react-native-nfc-manager', () => ({
   default: nfcManagerMock,
   NfcEvents: { DiscoverTag: 'NfcManagerDiscoverTag' },
+  NfcAdapter: {FLAG_READER_NFC_A:1, FLAG_READER_NO_PLATFORM_SOUNDS:256},
 }));
 
 const { RnNfcScanAdapter } = await import('../../src/nfc/RnNfcScanAdapter');
@@ -332,4 +333,18 @@ describe('RnNfcScanAdapter (Block D)', () => {
     await expect(later).resolves.toEqual({ status: 'captured', payload: 'nfc:uid:v1:A1B2', capturedAt });
     expect(nfcManagerMock.start).toHaveBeenCalledTimes(2);
   });
+});
+
+it('T112 holds quiet Android reader mode until setup I/O drains',async()=>{
+ vi.clearAllMocks();
+ nfcManagerMock.start.mockResolvedValue(undefined);nfcManagerMock.registerTagEvent.mockResolvedValue(undefined);nfcManagerMock.unregisterTagEvent.mockResolvedValue(undefined);
+ const nfc=createAdapter({platform:'android'}),written=deferred<void>();
+ const action=vi.fn(async()=>{await written.promise;});
+ const pending=nfc.scanWithTagAction!(action);
+ await vi.waitFor(()=>expect(nfcManagerMock.registerTagEvent).toHaveBeenCalled());
+ expect(nfcManagerMock.registerTagEvent).toHaveBeenLastCalledWith({isReaderModeEnabled:true,readerModeFlags:257});
+ discoverListener()({id:'04A1B2C3'});
+ await vi.waitFor(()=>expect(action).toHaveBeenCalled());
+ expect(nfcManagerMock.unregisterTagEvent).not.toHaveBeenCalled();
+ written.resolve();await pending;expect(nfcManagerMock.unregisterTagEvent).toHaveBeenCalledOnce();
 });

@@ -75,10 +75,10 @@ export function feedbackKindForOutcome(
       // BusinessEngine decision is still open. The hand must match the visible review state.
       return 'pending_confirmation';
     case 'duplicate_scan_ignored':
+    case 'cancelled':
       return null;
     case 'unreadable':
     case 'timed_out':
-    case 'cancelled':
     case 'nfc_unavailable':
     case 'tag_not_assigned':
     case 'scan_context_unavailable':

@@ -5,6 +5,7 @@ export type ScanFeedbackKind =
   | 'work_stopped'
   | 'break_changed'
   | 'pending_confirmation'
+  | 'tag_assigned'
   | 'failed';
 
 export const scanFeedbackProfiles: Readonly<Record<
@@ -21,6 +22,7 @@ export const scanFeedbackProfiles: Readonly<Record<
     [48, 40, 24],
     0.45,
   ),
+  tag_assigned: profile([0, 96, 48, 160], [0, 200, 0, 255], [523, 784, 1047], [64, 64, 128], 0.75),
   failed: profile([0, 400], [0, 255], [196], [400], 0.9),
 });
 

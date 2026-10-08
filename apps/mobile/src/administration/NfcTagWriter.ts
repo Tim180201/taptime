@@ -1,3 +1,5 @@
+import type { ConnectedTagSession } from '../nfc/IosNfcSession';
+
 export type TagWriteFailureReason =
   | 'ndef_not_supported' | 'read_only' | 'capacity_exceeded'
   | 'tag_changed' | 'write_failed' | 'cancelled';
@@ -8,6 +10,6 @@ export type TagWriteResult =
 
 /** Private setup capability; does not change scan evidence or transport contracts. */
 export interface NfcTagWriter {
-  write(canonicalPayload: string, uri: string): Promise<TagWriteResult>;
+  write(canonicalPayload: string, uri: string, session?: ConnectedTagSession): Promise<TagWriteResult>;
   cancel(): Promise<void>;
 }

@@ -136,3 +136,16 @@ function pulseDurations(profile: typeof scanFeedbackProfiles.work_started): read
     profile.vibrationAmplitudes[index]! > 0
   ));
 }
+
+it('T112 adds card assignment as its own profile and keeps cancellation silent', () => {
+  expect(scanFeedbackProfiles).toHaveProperty('tag_assigned');
+  expect(feedbackKindForOutcome({status:'cancelled'})).toBeNull();
+});
+it('T112 autolinks iOS feedback and honors the mute switch via ambient audio',async()=>{
+  const config=JSON.parse(await readFile(new URL('../../modules/taptime-feedback/expo-module.config.json',import.meta.url),'utf8'));
+  expect(config.platforms).toContain('apple');
+  expect(config.apple.modules).toContain('TapTimeFeedbackModule');
+  const swift=await readFile(new URL('../../modules/taptime-feedback/ios/TapTimeFeedbackModule.swift',import.meta.url),'utf8');
+  expect(swift).toContain('.ambient');
+  expect(swift).toContain('CHHapticPattern');
+});
