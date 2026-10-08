@@ -32,6 +32,7 @@ import {
   OFFLINE_PRODUCT_DESTINATIONS,
 } from './offlineCaptureShell';
 import { LineIcon } from '../design/LineIcon';
+import { TabLabel } from '../design/TabLabel';
 import { destinationLabels, productDestinations, syncIndicator, type ProductDestination } from './presentation';
 import { mobileTokens } from '../design/tokens';
 import { ActionButton, AppText as Text, TouchTarget, EmbeddedScreenContext, Screen, TextField } from '../design/primitives';
@@ -247,9 +248,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
         style={({ pressed }) => [styles.destination, pressed && styles.pressed]}>
         <LineIcon name={item} size={24} color={!showSync && item === destination
           ? mobileTokens.color.accent : mobileTokens.color.textMuted} />
-        <Text style={[styles.tabLabel, !showSync && item === destination && styles.activeLabel]}>
-          {destinationLabels[item]}
-        </Text>
+        <TabLabel label={destinationLabels[item]} active={!showSync && item === destination} />
       </TouchTarget>)}
     </View>
   </View>;
@@ -285,9 +284,7 @@ const styles = StyleSheet.create({
   badgeText: { color: mobileTokens.color.onAccent, fontSize: 13, fontWeight: '800' },
   destinationBar: { flexDirection: 'row', backgroundColor: mobileTokens.color.ground,
     borderTopColor: mobileTokens.color.border, borderTopWidth: 1 },
-  destination: { flex: 1, minHeight: 56, paddingVertical: 8, justifyContent: 'center', alignItems: 'center', gap: 2 },
-  tabLabel: { color: mobileTokens.color.textMuted, fontSize: 11, lineHeight: 16, fontWeight: '600' },
-  activeLabel: { color: mobileTokens.color.accent },
+  destination: { flex: 1, minWidth: 0, minHeight: 56, paddingVertical: 8, justifyContent: 'center', alignItems: 'center', gap: 2 },
   pressed: { backgroundColor: mobileTokens.color.surfaceRaised },
   focused: { outlineWidth: 3, outlineColor: mobileTokens.color.focus, outlineStyle: 'solid' },
   formContent: { gap: 16, paddingBottom: 16 },

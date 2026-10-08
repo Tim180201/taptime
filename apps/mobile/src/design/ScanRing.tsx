@@ -4,8 +4,9 @@ import { LineIcon } from './LineIcon';
 import { mobileTokens } from './tokens';
 import { useReducedMotion } from './useReducedMotion';
 
-export function ScanRing({ animate, scanning, result }: {
+export function ScanRing({ animate, scanning, result, size = 300 }: {
   readonly animate: boolean; readonly scanning: boolean; readonly result: 'confirmed' | 'pending' | null;
+  readonly size?: number;
 }) {
   const reducedMotion = useReducedMotion();
   const breath = useRef(new Animated.Value(0)).current;
@@ -42,21 +43,23 @@ export function ScanRing({ animate, scanning, result }: {
   const color = result === 'pending' ? mobileTokens.color.notice : mobileTokens.color.accent;
   const scale = breathing && !reducedMotion
     ? breath.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.10] }) : 1;
-  return <View style={styles.wrap} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+  const diameter = Math.floor(size * (236 / 300) / 4) * 4;
+  const ringSize = { width: diameter, height: diameter };
+  return <View style={[styles.wrap, { width: size, height: size }]} testID="scan-ring" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
     {breathing && !reducedMotion ? [wave1, wave2].map((wave, index) => <Animated.View key={index}
-      style={[styles.wave, { borderColor: color,
+      style={[styles.wave, ringSize, { borderColor: color,
         opacity: wave.interpolate({ inputRange: [0, 0.08, 1], outputRange: [0, 0.4, 0] }),
         transform: [{ scale: wave.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.25] }) }],
       }]} />) : null}
-    <Animated.View style={[styles.ring, { borderColor: result === null ? mobileTokens.color.line : color,
+    <Animated.View style={[styles.ring, ringSize, { borderColor: result === null ? mobileTokens.color.line : color,
       backgroundColor: result === null ? mobileTokens.color.surface : color,
       transform: [{ scale }] }]}>
-      {breathing && !reducedMotion ? <Animated.View pointerEvents="none" style={[styles.glow, {
+      {breathing && !reducedMotion ? <Animated.View pointerEvents="none" style={[styles.glow, ringSize, {
         opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.65] }),
       }]} /> : null}
-      <LineIcon size={result === null ? 92 : 76} name={result === null ? 'capture' : result === 'confirmed' ? 'check' : 'pending'}
+      <LineIcon size={Math.floor(size * ((result === null ? 92 : 76) / 300) / 4) * 4} name={result === null ? 'capture' : result === 'confirmed' ? 'check' : 'pending'}
         color={result === null ? color : mobileTokens.color.onAccent} />
-      <Animated.View pointerEvents="none" style={[styles.flash, { opacity: flash }]} />
+      <Animated.View pointerEvents="none" style={[styles.flash, { width: diameter - 4, height: diameter - 4, opacity: flash }]} />
     </Animated.View>
   </View>;
 }

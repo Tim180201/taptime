@@ -4,13 +4,12 @@ import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { OfflineActiveCapture } from '../work/OfflineActiveCapture';
 import { OfflineActiveTimeCard } from './OfflineActiveTimeCard';
 import { ActiveTimeCard } from './ActiveTimeCard';
-import { useEffect, useMemo, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { ProductMembershipRole } from '../auth/contracts';
 import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/primitives';
 import { ScanRing } from '../design/ScanRing';
-import { RecentTimeCard } from './RecentTimeCard';
 import { connectTapMoment, TapMomentPresenter } from './tapMoment';
 import type { MobileWorkCapability } from '../work/contracts';
 import { mobileTokens } from '../design/tokens';
@@ -54,35 +53,53 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
   const resting = !state.transmissionPaused && ((ready && (state.status === 'saved_locally' || state.status === 'server_decision' && presentScanState(state).tone === 'success' || ('outcome' in state && (state.outcome === null || presentScanState(state).tone === 'success'))))
     || state.status === 'scanning');
   const presentation = presentScanState(state, Platform.OS);
+  const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const [beforeHeight, setBeforeHeight] = useState(0);
+  const [copyHeight, setCopyHeight] = useState(0);
+  const [afterHeight, setAfterHeight] = useState(0);
+  const hasBefore = !!(offline && offlineActive && confirmedOwnTime?.activeRecord
+    || !offline && work && workState?.status === 'ready' && workState.ownTime.activeRecord
+    || workState?.status === 'ready' && workState.feedback);
+  const hasAfter = !!(workState?.status === 'ready' && workState.capturePending && !state.transmissionPaused
+    || state.updateRequired || state.untransferred?.length || onManualCapture || !embedded);
+  // Measure text and controls independently of the ring. More text can exceed this
+  // budget: the minimum keeps the scan target usable and ScrollView retains it all.
+  const ringSize = viewport.height === 0 ? 300 : Math.min(300, viewport.width,
+    Math.max(112, viewport.height - (hasBefore ? beforeHeight : 0) - copyHeight - (hasAfter ? afterHeight : 0)
+      - styles.content.paddingBottom - styles.scene.gap - styles.content.gap * (Number(hasBefore) + Number(hasAfter))));
   return <SafeAreaView edges={embedded ? [] : ['top', 'bottom', 'left', 'right']} style={[styles.container, embedded && styles.embeddedContainer]}>
     {embedded ? null : <View style={styles.header}><Text style={styles.brand}>{APP_NAME}</Text>
       <Text style={styles.role}>{presentActor(actor)}</Text></View>}
-    <ScrollView contentContainerStyle={styles.content}>
-      {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard capture={offlineActive} value={confirmedOwnTime} disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':'Deine letzte Erfassung wartet noch auf Bestätigung.'} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
-      {!offline && work && workState?.status==='ready' && workState.ownTime.activeRecord ? <ActiveTimeCard record={workState.ownTime.activeRecord}
+    <ScrollView style={styles.scroller} contentContainerStyle={styles.content} testID="scan-scroll"
+      onLayout={({ nativeEvent: { layout } }) => setViewport(previous => previous.width === layout.width && previous.height === layout.height
+        ? previous : { width: layout.width, height: layout.height })}>
+      {hasBefore ? <View style={styles.group} testID="scan-before" onLayout={({ nativeEvent: { layout } }) => setBeforeHeight(layout.height)}>
+      {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard compact capture={offlineActive} value={confirmedOwnTime} disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':'Deine letzte Erfassung wartet noch auf Bestätigung.'} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
+      {!offline && work && workState?.status==='ready' && workState.ownTime.activeRecord ? <ActiveTimeCard compact record={workState.ownTime.activeRecord}
         disabled={scanBusy || workState.submitting || !!workState.capturePending || !!state.transmissionPaused || !!state.updateRequired}
         disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':workState.capturePending?'Deine letzte Erfassung wartet noch auf Bestätigung.':undefined}
         onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : null}
       {workState?.status==='ready' && workState.feedback ? <Text accessibilityLiveRegion="polite">{workState.feedback}</Text> : null}
+      </View> : null}
       <View style={styles.scene} accessibilityLiveRegion="polite" testID="scan-status">
         <TouchTarget accessibilityRole="button" accessibilityLabel="Karte scannen"
           accessibilityState={{ disabled: !ready }} disabled={!ready}
           onPress={() => scan.scan()} testID="scan-button">
-          <ScanRing animate={!showMoment && resting} scanning={!state.transmissionPaused && state.status === 'scanning'}
+          <ScanRing size={ringSize} animate={!showMoment && resting} scanning={!state.transmissionPaused && state.status === 'scanning'}
             result={showMoment ? moment.confirmed ? 'confirmed' : 'pending' : null} />
-          {ios ? <Text style={styles.statusTitle}>Karte scannen</Text> : null}
         </TouchTarget>
+        <View style={styles.copy} testID="scan-copy" onLayout={({ nativeEvent: { layout } }) => setCopyHeight(layout.height)}>
         <Text style={[styles.statusTitle, showMoment && { color: moment.confirmed
           ? mobileTokens.color.accent : mobileTokens.color.notice }]}>
-          {state.transmissionPaused ? `${presentation.title}: ${presentation.message}` : showMoment ? moment.title : resting ? ios ? 'Bereit zum Erfassen' : 'Karte antippen' : presentation.title}
+          {state.transmissionPaused ? `${presentation.title}: ${presentation.message}` : showMoment ? moment.title : resting ? ios ? 'Karte scannen' : 'Karte antippen' : presentation.title}
         </Text>
         <Text style={styles.statusMessage}>
           {state.transmissionPaused ? null : showMoment ? moment.confirmed ? 'Gespeichert'
             : 'Sicher gespeichert, wird nachgereicht'
             : resting ? state.status === 'scanning'
               ? 'Halte dein Handy an die Karte.'
-              : ios ? `Tippe auf „Karte scannen“ und halte dein iPhone an die NFC-Karte. Start und Stopp erkennt ${APP_NAME} selbst.`
-                : `Tippe auf den Kreis und halte dein Handy an die NFC-Karte. Start und Stopp erkennt ${APP_NAME} selbst.`
+              : ios ? 'Tippe auf den Kreis und halte dein iPhone an die Karte. Die App erkennt Start und Stopp.'
+                : 'Tippe auf den Kreis und halte dein Handy an die Karte. Die App erkennt Start und Stopp.'
               : presentation.message}
         </Text>
         {showMoment ? <Text style={styles.statusMessage}>Bereit für den nächsten Tap</Text> : null}
@@ -92,7 +109,9 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
           onPress={() => scan.retry()} /> : null}
         {!state.transmissionPaused && state.status === 'retry_pending' ? <ActionButton title="Unveränderte Daten erneut senden"
           onPress={() => scan.retry()} testID="retry-same-evidence-button" /> : null}
+        </View>
       </View>
+      {hasAfter ? <View style={styles.group} testID="scan-after" onLayout={({ nativeEvent: { layout } }) => setAfterHeight(layout.height)}>
       {workState?.status==='ready' && workState.capturePending && !state.transmissionPaused ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
       {state.updateRequired ? <Card><Text accessibilityRole="alert">Bitte App aktualisieren</Text><Text>Deine Erfassungen bleiben auf dem Handy gespeichert. Die Übertragung wartet auf die neue App.</Text><AppUpdateButton /></Card> : null}
       {state.untransferred?.length ? <Card>
@@ -101,14 +120,13 @@ export function ScanScreen({ actor, scan, signOut, embedded = false, work, onMan
           <Text>{entry.reported ? 'Der Originalbeleg bleibt auf dem Handy erhalten.' : 'Siehe „Meine Zeiten“. Der Beleg bleibt erhalten und sperrt den Kontowechsel.'}</Text>
         </View>)}
       </Card> : null}
-      {work ? <RecentTimeCard work={work} /> : <Card><Text style={styles.role}>Zuletzt</Text>
-        <Text>Bestätigte Zeiten siehst du nach der Übertragung.</Text></Card>}
-    </ScrollView>
-    {onManualCapture ? <ActionButton title="Manuell erfassen" tone="secondary"
+      {onManualCapture ? <ActionButton title="Manuell erfassen" tone="secondary"
       accessibilityLabel="Manuell erfassen" accessibilityHint="Arbeitsziel oder Pause auswählen. Start, Pause, Fortsetzen und Stopp von Hand erfassen."
       disabled={workState?.status==='ready' && workState.submitting} onPress={onManualCapture} /> : null}
-      {onManualCapture?<Text>Für jetzt. Vergessene Zeiten findest du unter Meine Zeiten → Zeit hinzufügen.</Text>:null}
-    {embedded ? null : <ActionButton title="Abmelden" tone="quiet" onPress={signOut} />}
+      {onManualCapture ? <Text style={styles.manualHint}>Vergessene Zeiten unter „Meine Zeiten“.</Text> : null}
+      {embedded ? null : <ActionButton title="Abmelden" tone="quiet" onPress={signOut} />}
+      </View> : null}
+    </ScrollView>
   </SafeAreaView>;
 }
 
@@ -185,20 +203,23 @@ export function presentScanState(state: ProductScanState, platform = 'android'):
       return state.outcome === null
         ? {
             title: 'Offline bereit',
-            message: `Du kannst Karten scannen; deine Erfassungen bleiben auf dem Handy gespeichert. ${state.queueCount} Erfassungen warten auf Bestätigung.`,
+            message: 'Du kannst Karten scannen; deine Erfassungen bleiben auf dem Handy gespeichert.'
+              + (state.queueCount > 0 ? ` ${state.queueCount} ${state.queueCount === 1 ? 'Erfassung wartet' : 'Erfassungen warten'} auf Bestätigung.` : ''),
             tone: 'success',
           }
         : presentOutcome(state.outcome.status);
     case 'saved_locally':
       return {
         title: 'Sicher lokal gespeichert',
-        message: `${state.queueCount} Erfassungen sind auf dem Handy gespeichert und warten auf Bestätigung.`,
+        message: state.queueCount > 0
+          ? `${state.queueCount} ${state.queueCount === 1 ? 'Erfassung ist' : 'Erfassungen sind'} auf dem Handy gespeichert und ${state.queueCount === 1 ? 'wartet' : 'warten'} auf Bestätigung.`
+          : 'Deine Erfassungen sind auf dem Handy gespeichert.',
         tone: 'warning',
       };
     case 'synchronizing':
       return {
         title: 'Synchronisierung läuft',
-        message: `${state.queueCount} Vorgänge werden der Reihe nach sicher bestätigt.`,
+        message: state.queueCount > 0 ? `${state.queueCount} ${state.queueCount === 1 ? 'Vorgang wird' : 'Vorgänge werden'} der Reihe nach sicher bestätigt.` : '',
         tone: 'neutral',
       };
     case 'server_review_pending':
@@ -312,11 +333,15 @@ function isScanReadyState(state: ProductScanState): boolean {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: 16, paddingHorizontal: 20, backgroundColor: mobileTokens.color.ground },
   embeddedContainer: { paddingTop: 0 },
-  content: { flexGrow: 1, paddingBottom: 16, gap: 16 },
-  scene: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  scroller: { flex: 1 },
+  content: { flexGrow: 1, paddingBottom: 12, gap: 12 },
+  group: { gap: 8 },
+  scene: { flexGrow: 1, flexShrink: 0, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  copy: { alignSelf: 'stretch', alignItems: 'center', gap: 8 },
   header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   brand: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
   role: { fontSize: 13, color: mobileTokens.color.textMuted },
   statusTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', textAlign: 'center' },
-  statusMessage: { fontSize: 13, lineHeight: 22, color: mobileTokens.color.textMuted, textAlign: 'center', maxWidth: 320 },
+  statusMessage: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted, textAlign: 'center', maxWidth: 320 },
+  manualHint: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted, textAlign: 'center' },
 });
