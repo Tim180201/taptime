@@ -2,11 +2,12 @@
 
 **Stand 08.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
 Migrationen 043–051, zwei Probe-Wiederherstellungen grün). Abgeschlossen, CI und Image grün: T-109 (Weg zur App,
-`d72ba94`), T-113 (Zeiten im Web, D-131, `2c9f7b8`), T-112 (Karte einrichten, D-132, `280c057`). In Arbeit: T-114.
+`d72ba94`), T-113 (Zeiten im Web, D-131, `2c9f7b8`), T-112 (Karte einrichten, D-132, `280c057`), T-114 („Erfassen“,
+`af86406`). Als Nächstes Deploy 4, dann App-Builds und Geräteabnahme.
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b Teil 1 erledigt (21 Versionen wiederhergestellt), Teil 2 geparkt bis T-098c. UI/UX-Durchsicht und
 Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-114 → Deploy 4 → App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
+**Weg zum Pilot:** Deploy 4 → App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -21,14 +22,14 @@ Mitarbeiter mit Monatswähler und Herunterziehen, „Passwort vergessen“ mit n
 Hinweisseite `/tag`, keine Erfassung, D-081); Android komplett (dort öffnet die Karte die App und erfasst); Web
 (Übersicht mit nächstem Schritt, „Zeiten prüfen“, Mitarbeiter mit Monat, Betreiber-Paket); Aussperr-Test mit einem
 zweiten Konto; einmal VoiceOver/TalkBack. Nach Deploy 4 die Einladung dieses zweiten Kontos bis „App laden“
-durchspielen. Befunde des PO-Tests vom 07.10.: Zeitformulare (T-113) und Karte einrichten (T-112) erledigt, „Erfassen“
-in T-114. Mit den neuen Builds zusätzlich: je 20 Einrichtungen am iPhone und am Android (am iPhone dreimal bewusst zu
+durchspielen. Befunde des PO-Tests vom 07.10. sind in T-112 bis T-114 erledigt; „Erfassen“ bereit, laufend und in Pause ohne
+Scrollen, Reiter bei großer Schrift. Mit den neuen Builds zusätzlich: je 20 Einrichtungen am iPhone und am Android (am iPhone dreimal bewusst zu
 früh wegnehmen, Karten über „Kunde löschen“ wieder frei); Apple-Fenster ohne Haken bei Fehlern; Vibration und Ton
 (Stummschalter); Android ohne Systemton, nach dem Einrichten startet keine Zeit, nach einer Erfassung keine zweite.
 
 ## Deploy 4 (T-109 und T-113, danach App-Builds mit T-109 bis T-114)
 
-1. **Ziel:** der neueste Commit nach T-114 (Server-Stand wie `2c9f7b8`). Neu: öffentliche Seite `/app`, Caddyfile,
+1. **Ziel `af86406`** (Server-Stand wie `2c9f7b8`). Neu: öffentliche Seite `/app`, Caddyfile,
    Verwaltung, Migration 052. Keine neuen Schlüssel, Steuerung unverändert. PO-Schritte aus `infrastructure/DEPLOY.md`
    vorher abfragen. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt). Danach neue App-Builds; der
    iOS-Build kompiliert das neue Signalmodul aus T-112 zum ersten Mal (lokal kein Xcode).
@@ -82,12 +83,10 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   laufender und Vormonat, Summe nur über den geladenen Zeitraum (T-077, T-058) · Kalenderwoche über zwei Monate „nicht
   vollständig geladen“ (T-079) · offline vor einem Rollenwechsel erfasst → Prüffall (T-080) · Abbruch im
   Vorbereitungsfenster des Kontowechsels → Schutzzustand, jede fremde `.db`-Datei im SQLite-Ordner ebenso (T-076) · iOS
-  ohne eigenen Ton/Vibration; Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) · „Zuletzt“
-  zeigt nach einem Abruffehler weiter „Laden“ · Sitzungsvergleich ohne Verwaltungsumfang (T-059) · Android SecureStore
-  prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an `wa-sqlite.wasm` (P2) · „1 Erfassungen
-  warten auf Bestätigung“ ohne Einzahl (Erfassen-Hinweis, T-114) · eine alte Registrierungsantwort kann nach einer
-  Sitzungsmeldung derselben Person erneut erscheinen (`tagReceipt`, T-112) · `NativeAndroidFeedback` bedient auch iOS
-  (Name, T-112).
+  Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) · Sitzungsvergleich ohne
+  Verwaltungsumfang (T-059) · Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an
+  `wa-sqlite.wasm` (P2) · eine alte Registrierungsantwort kann nach einer Sitzungsmeldung derselben Person erneut
+  erscheinen (`tagReceipt`, T-112) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112).
 - **Beschäftigte (T-102):** Sortierung nach Bytes (`COLLATE "C"` wie bei den Kunden), Namen mit Umlaut am Anfang stehen
   am Ende · wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten Seite fehlen
   (Aktualisieren hilft) · Spalte „Standort“ steht neben der Standort-Überschrift doppelt.
