@@ -6,6 +6,14 @@ const IMAGE_TYPES = ['application/vnd.oci.image.manifest.v1+json', 'application/
 export const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const digestOf = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 
+export class GhcrHttpError extends Error {
+  constructor(path, status) {
+    super(`GHCR ${path} failed (${status}).`);
+    this.path = path;
+    this.status = status;
+  }
+}
+
 function descriptor(value) {
   if (!DIGEST_PATTERN.test(value?.digest ?? '') || !Number.isSafeInteger(value.size) || value.size < 0 ||
       typeof value.mediaType !== 'string' || !value.mediaType) {
@@ -33,7 +41,8 @@ export function manifestParts(manifest) {
 
 export async function collectManifests(versions, readManifest) {
   const manifests = {};
-  const pending = new Set(versions.map(version => version.name));
+  const roots = new Set(versions.map(version => version.name));
+  const pending = new Set(roots);
   while (pending.size) {
     const batch = [...pending].slice(0, 8);
     for (const digest of batch) {
@@ -41,10 +50,17 @@ export async function collectManifests(versions, readManifest) {
       pending.delete(digest);
     }
     await Promise.all(batch.map(async digest => {
-      const manifest = await readManifest(digest);
-      manifests[digest] = manifest;
+      try {
+        manifests[digest] = await readManifest(digest);
+      } catch (error) {
+        // Only an absent referenced child is a known gap. An unreadable listed
+        // package root still makes the inventory/graph uncertain.
+        if (!(error instanceof GhcrHttpError) || error.status !== 404 || roots.has(digest)) throw error;
+        manifests[digest] = null;
+      }
     }));
     for (const digest of batch) {
+      if (manifests[digest] === null) continue;
       for (const child of manifestParts(manifests[digest]).manifests) {
         if (!Object.hasOwn(manifests, child.digest)) pending.add(child.digest);
       }
@@ -69,7 +85,7 @@ export function createGhcrRegistry(repository, fetcher = fetch) {
     const response = await fetcher(`https://ghcr.io/v2/${repository}/${path}`, {
       headers: { Authorization: `Bearer ${token}`, Accept: accept }, signal: AbortSignal.timeout(60_000),
     });
-    if (!response.ok) throw new Error(`GHCR ${path} failed (${response.status}).`);
+    if (!response.ok) throw new GhcrHttpError(path, response.status);
     return response;
   }
   return {
@@ -133,12 +149,13 @@ export async function verifyProtectedImages(snapshot, protectedVersions, registr
     return capabilities;
   }
   // Require tags implied by the production snapshot, even if missing in the package listing.
-  for (const version of snapshot.known_versions) {
+  for (const version of new Set([snapshot.current_version, snapshot.previous_version])) {
     const features = await verify(version);
     await verify(`admin-web-${version}`);
     for (const feature of features) await verify(`${feature}-${version}`);
   }
   if (snapshot.operations_version) await verify(`operations-${snapshot.operations_version}`);
+  await verify('ops');
   for (const version of protectedVersions) {
     await verify(version.name);
     for (const tag of version.metadata.container.tags) await verify(tag);
