@@ -95,7 +95,9 @@ it('creates revision 1 without WorkEvent, deduplicates commands, rejects a confl
 it('allows employee current/previous Berlin month and admin unlimited past/exactly 24h',async () => {
   const now = new Date(); const berlin = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit'}).formatToParts(now);
   const y=Number(berlin.find(p=>p.type==='year')!.value),m=Number(berlin.find(p=>p.type==='month')!.value);
-  for (const startedAt of [interval(1).startedAt,new Date(Date.UTC(y,m-2,15,8)).toISOString()]) {
+  // 12:00 UTC keeps this fixed previous-month entry out of the 08:00-09:00 windows of interval(),
+  // whose day can fall on the same 15th (CI failure on 09.10.: interval(24) met 15.09.).
+  for (const startedAt of [interval(1).startedAt,new Date(Date.UTC(y,m-2,15,12)).toISOString()]) {
     expect(await write(employee,input({expectedMembershipId:employee.membership,targetMembershipId:employee.membership,
       startedAt,stoppedAt:new Date(Date.parse(startedAt)+3600000).toISOString(),reason:null,comment:'Vergessen'})))
       .toMatchObject({status:'committed'});
