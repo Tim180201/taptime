@@ -1,20 +1,20 @@
 # TapTim.e — Status
 
-**Stand 08.10.2026.** Produktion läuft auf `7cd4233` (dritter Deploy 06.10., 19:30–20:00 UTC, `b1ecb8c` → `7cd4233`,
-Migrationen 043–051, zwei Probe-Wiederherstellungen grün). Abgeschlossen, CI und Image grün: T-109 (Weg zur App,
-`d72ba94`), T-113 (Zeiten im Web, D-131, `2c9f7b8`), T-112 (Karte einrichten, D-132, `280c057`), T-114 („Erfassen“,
-`af86406`), T-115 (App öffnet immer, D-133, `831cb29`). Als Nächstes Deploy 4, dann App-Builds und Geräteabnahme;
-T-098c läuft parallel und wird erst nach Deploy 4 committet.
+**Stand 09.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., `7cd4233` → `831cb29`, Migration 052, zwei
+Probe-Wiederherstellungen grün, WAL-Zyklus 75–79 s). Ausgeliefert: T-109, T-113, T-112, T-114, T-115. T-098c
+abgeschlossen (`f97bc4e`): Die Registry räumt wieder auf, erster Lauf 234 Versionen. Davor zwei wacklige Tests behoben
+(`80bbb3a` festes Datum in T-066, `4598d25` Ansage in T-107). Als Nächstes Geräteabnahme mit den neuen Builds, danach
+T-116 (D-134).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
-T-098b Teil 1 erledigt (21 Versionen wiederhergestellt), Teil 2 geht in T-098c. UI/UX-Durchsicht und
-Persona-Walkthrough vom 06.10. liegen nur lokal in `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Deploy 4 → App-Builds → Geräteabnahme abschließen → T-024 → Pilot. Pilot als
+T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
+`.audit-ux-2026-10/` (nie committen).
+**Weg zum Pilot:** Geräteabnahme abschließen → T-116 und Deploy 5 → T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
 
-## Geräteabnahme nach dem dritten Deploy (PO)
+## Geräteabnahme (PO)
 
 **iPhone (07.10.):** bestanden: Anmeldung, Begriffe und Reiter, „Übertragung“ mit Konto, Erfassen mit laufender Zeit und
 Pause samt „Zeit beenden“ aus der Pause, offline, Kalender, „Zeit hinzufügen“, Kunden anlegen/umbenennen/löschen,
@@ -30,24 +30,21 @@ früh wegnehmen, Karten über „Kunde löschen“ wieder frei); Apple-Fenster o
 T-115 am iPhone: einmal über Nacht gesperrt am Ladekabel, dazu zehnmal nach mehr als einer Stunde Sperre öffnen; 0 von
 10 mit „derzeit nicht verfügbar“, ein angezeigter Code mit Foto melden.
 
-## Deploy 4 (T-109 und T-113, danach App-Builds mit T-109 bis T-115)
+## Nach Deploy 4 (PO)
 
-1. **Ziel `831cb29`** (Server-Stand wie `2c9f7b8`; T-114 und T-115 betreffen nur die App). Neu: öffentliche Seite
-   `/app`, Caddyfile, Verwaltung, Migration 052. Keine neuen Schlüssel, Steuerung unverändert. PO-Schritte aus
-   `infrastructure/DEPLOY.md` vorher abfragen. Durch den Caddy-Wechsel ist einmal `curl: (7)` möglich (bekannt). Danach
-   neue App-Builds; der iOS-Build kompiliert das neue Signalmodul aus T-112 zum ersten Mal (lokal kein Xcode).
-2. **Danach (PO):** Einladungsvorlage aus `docs/T-047-Einladungsvorlage.md` vollständig übertragen (zweiter Link „App
+1. **Einladungsvorlage** aus `docs/T-047-Einladungsvorlage.md` vollständig in Supabase übertragen (zweiter Link „App
    laden“, neuer Satz zum abgelaufenen Link). `https://tb-infra.de/app` am Handy und am Rechner öffnen: ohne
    Passwortabfrage, „Die App erhalten Sie von Ihrer Verwaltung.“, solange die Links leer sind.
-3. **T-098c:** Umsetzung und Trockenlauf jetzt, Commit erst nach Deploy 4 mit frischem Trockenlauf. Der erste echte
-   Lauf löscht wieder, und das Deploy-Ziel ist vorher nur als eine der neuesten zwanzig Versionen geschützt. Bis dahin
-   überspringt jeder Image-Lauf die Bereinigung mit einer Warnung (Manifest-404, 16 alte Stände aus dem September).
-4. **Store-Links:** Der PO liefert TestFlight- und Play-Test-Link; Development trägt sie in
+2. **App-Builds** mit T-109 bis T-115 (`production-validation`): iOS gebaut und an TestFlight übergeben (09.10.); der
+   iOS-Build hat das Signalmodul aus T-112 erstmals kompiliert. Android folgt.
+3. **Store-Links:** Der PO liefert TestFlight- und Play-Test-Link; Development trägt sie in
    `apps/landing-web/src/appLinks.json` ein (kleiner Auftrag, danach regulärer Deploy). Mit Google Play kommt der
    Fingerabdruck der Play-App-Signatur in `assetlinks.json` hinzu.
 
 ## Fakten für den Betrieb
 
+- Jeder Image-Lauf warnt einmal: 74 fehlende Kind-Manifeste von 16 alten Ständen aus dem September. Gewollt (T-098c);
+  die Stände bleiben in `known_versions`, ihre Indizes bleiben erhalten.
 - Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113), Site URL `https://admin.tb-infra.de`.
   Grenzen: 30 Mails je Stunde, 30 Anmeldungen je 5 min und IP-Adresse; vor der Ausweitung anheben (T-099).
 - frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start

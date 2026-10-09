@@ -1834,3 +1834,12 @@ Schutzklasse des Schlüsselbunds bleibt „nur entsperrt“. Umsetzung in T-115.
 **Warum:** iOS startet die App für den Hintergrundauftrag meist bei gesperrtem Handy. Der Schlüsselbund ist dann
 gesperrt, und die App blieb bis zum Beenden bei „derzeit nicht verfügbar“ (PO 08.10.). Abgleichen konnte sie in dieser
 Lage ohnehin nicht.
+
+## D-134 · Grund nur bei fremden Zeiten durch die Standortleitung · 09.10.2026 · Tim (PO)
+Löschen braucht in keiner Rolle einen Grund, ob eigene oder fremde Zeit; eine Rückfrage schützt vor Versehen. Eigene
+Zeiten ändert und trägt jede Rolle ohne Grund nach (D-131). Fremde Zeiten ändert, trägt nach oder beendet die
+Standortleitung mit Grund, der Administrator ohne. Wo der Grund nicht Pflicht ist, bleibt ein freiwilliges Feld; ohne
+Angabe speichert der Server „Selbst …“ bzw. „Kein Grund angegeben“. „Zeiten prüfen“ bleibt unverändert. Präzisiert
+D-122 und D-131. Umsetzung in T-116.
+**Warum:** Der Administrator verantwortet den Betrieb; ein Pflichtgrund bremst ihn nur. Die Historie zeigt weiter
+Zeitpunkt, Urheber und Original.
