@@ -52,7 +52,8 @@ it('announces reset success once without an alert',async()=>{
  fireEvent.change(screen.getByLabelText('E-Mail-Adresse'),{target:{value:'test@example.invalid'}});
  fireEvent.click(screen.getByRole('button',{name:'Passwort vergessen'}));
  await screen.findByText(/Wir haben dir eine E-Mail/);
- expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1);
+ // The announcement runs in an effect after the text is committed (flaky CI on 09.10.).
+ await waitFor(()=>expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledTimes(1));
  expect(screen.queryByRole('alert')).toBeNull();
 });
 it('retains enrollment input after a temporary failure and announces each result once',async()=>{
