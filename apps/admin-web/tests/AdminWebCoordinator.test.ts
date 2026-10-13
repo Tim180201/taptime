@@ -2017,3 +2017,9 @@ it('T110 a successful role change offers the management-location step',async()=>
  await coordinator.signIn('admin@example.test','password');await coordinator.changeMembershipRole(person.id,person.rowVersion,'standortleitung');
  expect(coordinator.getState()).toMatchObject({roleAssignmentMembershipId:person.id,notice:{kind:'success',text:'Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.'}});
 });
+
+it.each([null,'',' \t\u200b'])('T116 calendar correction carries optional text %j unchanged to the API',async reason=>{
+ const h=t066Setup('administrator');await h.coordinator.signIn('a@example.test','secret');await h.coordinator.loadOwnTime('2026-07');
+ expect((await h.coordinator.saveTimeEdit({kind:'correct',record:h.record,targetMembershipId:membershipId,startedAt:h.record.startedAt,stoppedAt:h.record.stoppedAt!,reason})).status).toBe('committed');
+ expect(h.api.correctTimeRecord).toHaveBeenCalledWith('memory-only-token',membershipId,expect.any(String),expect.any(Object),h.record.startedAt,h.record.stoppedAt,reason);
+});

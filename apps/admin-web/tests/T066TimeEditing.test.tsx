@@ -37,12 +37,12 @@ it.each(['employee','administrator','standortleitung'] as const)('%s comments on
  cleanup();show(role,other);expect(screen.queryByRole('button',{name:'Kommentar schreiben'})).not.toBeInTheDocument();
 });
 it('administrator corrects completed time with the original versions and sees the running hint',async()=>{
- const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Prüfung'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Prüfung'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'correct',record,reason:'Prüfung'})));
  cleanup();show('administrator',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Ändern'})).not.toBeInTheDocument();expect(screen.getByText('Läuft noch — erst beenden, dann ändern')).toBeInTheDocument();
 });
 it.each(['administrator','standortleitung'] as const)('%s backfills another person with reason',async role=>{
- const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Zielperson C2'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Zielperson C2'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',targetMembershipId:other,reason:'Tag vergessen',comment:null})));
  cleanup();show('standortleitung',other,record,false);for(const name of ['Zeit hinzufügen','Ändern','Kommentar schreiben']) expect(screen.queryByRole('button',{name})).not.toBeInTheDocument();
 });
@@ -89,14 +89,14 @@ it.each(['administrator','standortleitung'] as const)('T-069 %s stops another pe
   expect(screen.queryByLabelText('Von')).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-09-21'}});
   fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'14:00'}});
-  fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Vergessen'}});
+  fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Vergessen'}});
   save.mockResolvedValueOnce({status:'end_before_break'} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
   expect(screen.getByRole('alert')).toHaveTextContent('Die Endzeit liegt vor einer erfassten Pause');
   const pending={status:'committed',timeRecordId:other,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
   save.mockResolvedValueOnce(pending as never).mockResolvedValueOnce({...pending,idempotentRetry:true,offsiteArchived:true} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
-  expect(screen.getByRole('status')).toHaveTextContent('Wird gesichert …');expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/)).toBeDisabled();
+  expect(screen.getByRole('status')).toHaveTextContent('Wird gesichert …');expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/)).toBeDisabled();
   await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
   expect(save.mock.calls.at(-1)).toEqual(save.mock.calls.at(-2));
   expect(save).toHaveBeenLastCalledWith(expect.objectContaining({kind:'stop',targetMembershipId:other,stoppedAt:'2026-09-21T12:00:00.000Z',reason:'Vergessen'}));
@@ -107,7 +107,7 @@ it('D-078 limits archive polling to three minutes and cancels it when the form u
  vi.useFakeTimers();
  try {
   const {save,unmount}=show('administrator',other,{...record,status:'started',stoppedAt:null});
-  fireEvent.click(screen.getByRole('button',{name:'Beenden'}));fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Vergessen'}});
+  fireEvent.click(screen.getByRole('button',{name:'Beenden'}));fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Vergessen'}});
   save.mockResolvedValue({status:'committed',timeRecordId:other,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:false} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
   await act(async()=>{await vi.advanceTimersByTimeAsync(180000);});
@@ -140,18 +140,18 @@ it('T-069 validates archive metadata and details v2 representation at the HTTP b
 
 it('T-062 manager stops own running time and keeps boundary rejection visible',async()=>{
  const {save}=show('standortleitung',own,{...record,status:'started',stoppedAt:null});
- fireEvent.click(screen.getByRole('button',{name:'Beenden'}));fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Vergessen'}});
+ fireEvent.click(screen.getByRole('button',{name:'Beenden'}));
  save.mockResolvedValueOnce({status:'authority_rejected'} as never);
  await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
- expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'stop',targetMembershipId:own}));
+ expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'stop',targetMembershipId:own,reason:null}));
  expect(screen.getByRole('alert')).toHaveTextContent('Die Berechtigung zum Beenden fehlt.');
- expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/)).toHaveValue('Vergessen');
+ expect(screen.queryByLabelText(/Grund/)).toBeNull();
 });
 
 it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target person choices, not the actor choices',async role=>{
  const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
  await screen.findByRole('option',{name:'Zielperson C2'});expect(screen.queryByRole('option',{name:'Werkstatt'})).not.toBeInTheDocument();
- fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Zielperson'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Zielperson'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',targetMembershipId:other,target:expect.objectContaining({targetId:other})})));
 });
 
@@ -171,42 +171,40 @@ it('T079 displays minutes and preserves exact unchanged correction instants',asy
  expect(screen.getByLabelText('Von')).toHaveValue('10:00');
  expect(screen.getByLabelText('Bis')).toHaveValue('11:00');
  expect(screen.getByLabelText('Von')).toHaveAttribute('step','60');
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Nur Grund'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Nur Grund'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({startedAt:precise.startedAt,stoppedAt:precise.stoppedAt})));
 });
 it.each(['2026-10-25T02:30','2027-03-28T02:30'])('T079 rejects an edited DST minute %s and retains the input',async value=>{
  const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
- fireEvent.change(screen.getByLabelText('Datum'),{target:{value:value.slice(0,10)}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:value.slice(11)}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Prüfung'}});
+ fireEvent.change(screen.getByLabelText('Datum'),{target:{value:value.slice(0,10)}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:value.slice(11)}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Prüfung'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(screen.getAllByRole('alert').every(node=>node.textContent?.includes('Zeitumstellung'))).toBe(true);expect(screen.getByLabelText('Von')).toHaveValue(value.slice(11));
 });
 
-it.each(['employee','administrator','standortleitung'] as const)('T-088 %s confirms a required reason, preserves errors and closes after success',async role=>{
+it.each(['employee','administrator','standortleitung'] as const)('T-088 %s validates a selected other reason, preserves errors and closes after success',async role=>{
  const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
- fireEvent.click(screen.getByRole('button',{name:'Löschen'}));expect(save).not.toHaveBeenCalled();
- expect(screen.getByRole('alert')).toHaveTextContent('Wählen Sie einen Grund');
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'other'}});
- fireEvent.click(screen.getByRole('button',{name:'Löschen'}));expect(save).not.toHaveBeenCalled();
+ fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'other'}});
+ fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));expect(save).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Kurze Begründung'),{target:{value:'Doppelt nachgetragen'}});
- save.mockResolvedValueOnce({status:'review_open'} as never);fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
+ save.mockResolvedValueOnce({status:'review_open'} as never);fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));
  await screen.findByText(/unter „Zeiten prüfen“ geklärt/);expect(screen.getByLabelText('Kurze Begründung')).toHaveValue('Doppelt nachgetragen');
- fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
+ fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));
  await waitFor(()=>expect(save).toHaveBeenLastCalledWith(expect.objectContaining({kind:'void',reasonCode:'other',reasonText:'Doppelt nachgetragen'})));
- await waitFor(()=>expect(screen.queryByRole('button',{name:'Löschen'})).not.toBeInTheDocument());
+ await waitFor(()=>expect(screen.queryByRole('button',{name:'Löschen bestätigen'})).not.toBeInTheDocument());
 });
 it('T-088 hides cancellation for running or unauthorized entries and reports offline without sending',async()=>{
  show('employee',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Zeiteintrag löschen'})).not.toBeInTheDocument();cleanup();
  show('employee',other);expect(screen.queryByRole('button',{name:'Zeiteintrag löschen'})).not.toBeInTheDocument();cleanup();
  vi.spyOn(navigator,'onLine','get').mockReturnValue(false);const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'misscan'}});fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
+ fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'misscan'}});fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));
  expect(save).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('Nur online');
- fireEvent.click(screen.getByRole('button',{name:'Abbrechen'}));expect(screen.queryByRole('button',{name:'Löschen'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Abbrechen'}));expect(screen.queryByRole('button',{name:'Löschen bestätigen'})).not.toBeInTheDocument();
 });
-it('T-088 historical rows carry who/when/why, no duration, and cannot be edited',async()=>{
+it.each([['misscan','Fehlscan'],['none','Kein Grund angegeben']] as const)('T-088 historical %s rows carry who/when/why, no duration, and cannot be edited',async(reasonCode,label)=>{
  const state={role:'employee',membershipId:own,availableSections:[],workTargets:{status:'ready',value:[]}} as unknown as Extract<AdminWebState,{status:'ready'}>;
- const loadVoidedTime=vi.fn(async()=>({status:'ready',records:[{timeRecordId:other,targetDisplayName:'Gelöschter Kunde',startedAt:record.startedAt,stoppedAt:record.stoppedAt,voidedAt:'2026-09-21T10:00:00.000Z',actorDisplayName:'Testperson',reasonCode:'misscan',reasonText:null}]}));
+ const loadVoidedTime=vi.fn(async()=>({status:'ready',records:[{timeRecordId:other,targetDisplayName:'Gelöschter Kunde',startedAt:record.startedAt,stoppedAt:record.stoppedAt,voidedAt:'2026-09-21T10:00:00.000Z',actorDisplayName:'Testperson',reasonCode,reasonText:null}]}));
  const capability={loadVoidedTime,loadWorkTargets:async()=>{}} as unknown as AdminWebCapability;
  render(<TimeEditingProvider state={state} administration={capability}><TimeCalendar value={{...page,records:[]}} month="2026-09" onMonthChange={()=>{}} onRefresh={()=>{}}/></TimeEditingProvider>);
- await screen.findByText(/Gelöscht am .* von Testperson · Fehlscan/);
+ await screen.findByText(new RegExp(`Gelöscht am .* von Testperson · ${label}`));
  const row=screen.getByText('Gelöschter Kunde').closest('li')!;expect(row).not.toHaveTextContent(/Arbeitszeit|Pause|1:00|1 h/);expect(row.querySelector('button')).toBeNull();
  expect(loadVoidedTime).toHaveBeenCalledWith(own,'2026-09-20T22:00:00.000Z',page.windowEndedAt);
 });
@@ -239,17 +237,17 @@ it.each([
  fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:end.slice(0,10)}});
  fireEvent.change(screen.getByLabelText('Bis'),{target:{value:end.slice(11)}});
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'Beleg geprüft'}});
+ fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Beleg geprüft'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  expect(save).not.toHaveBeenCalled();
  expect(screen.getByText(message)).toBeInTheDocument();
  expect(screen.getByLabelText('Bis')).toHaveAttribute('aria-invalid','true');
 });
 it('T106: a control-only required reason is explained at the field',()=>{
- const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/),{target:{value:'\u00a0\t\u0001'}});
+ const {save}=show('standortleitung',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'\u00a0\t\u0001'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
- expect(save).not.toHaveBeenCalled();expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/)).toHaveAttribute('aria-invalid','true');
+ expect(save).not.toHaveBeenCalled();expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/)).toHaveAttribute('aria-invalid','true');
 });
 it('T107 opens the existing administrative stop directly from the person status',async()=>{
  const {default:PersonView}=await import('../src/views/PersonView');
@@ -258,7 +256,7 @@ it('T107 opens the existing administrative stop directly from the person status'
  const administration={getState:()=>state,saveTimeEdit:vi.fn(),loadPersonTime:vi.fn(),loadWorkTargets:vi.fn()} as unknown as AdminWebCapability;
  render(<PersonView state={state} administration={administration} route={{area:'beschaeftigte',personId:other,month:'2026-09'} as never} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:'Zeit beenden'}));
- expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/)).toBeDefined();
+ expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/)).toBeDefined();
  expect(screen.getByText(/Erika Beispiel · Werkstatt ·/)).toBeDefined();
 });
 it('T107 names the affected entry in the deletion sheet',async()=>{
@@ -302,4 +300,31 @@ it('T113 Enter in the final single-line field submits through RequiredForm valid
  const submit=vi.fn((e:React.FormEvent)=>e.preventDefault());
  render(<RequiredForm onKeyDown={advanceTimeField} onSubmit={submit}><label>Einzelfeld<input required defaultValue="fertig"/></label><button>Speichern</button></RequiredForm>);
  fireEvent.keyDown(screen.getByLabelText('Einzelfeld'),{key:'Enter'});expect(submit).toHaveBeenCalledTimes(1);
+});
+
+it.each(['administrator','standortleitung'] as const)('T116 %s shows exactly its foreign reason requirement',async role=>{
+ const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ const field=screen.getByLabelText(role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)');
+ expect(field.hasAttribute('required')).toBe(role==='standortleitung');
+ fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ if(role==='administrator')await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({reason:''})));else expect(save).not.toHaveBeenCalled();
+});
+it.each(['employee','administrator','standortleitung'] as const)('T116 %s confirms deletion without a reason',async role=>{
+ const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
+ expect(screen.getByRole('heading',{name:'Zeiteintrag löschen?'})).toBeInTheDocument();
+ expect(screen.getByLabelText('Grund (freiwillig)')).not.toBeRequired();
+ fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'void',reasonCode:null,reasonText:null})));
+});
+it('T116 shows own administrative stop as selbst',()=>{
+ show('employee',own,{...record,details:{...record.details!,administrationStop:{at:record.startedAt,reason:'Selbst beendet'}}});
+ expect(screen.getByText(/Von der Verwaltung beendet.*selbst/)).toBeInTheDocument();expect(screen.queryByText(/Selbst beendet/)).toBeNull();
+});
+it('T116 optional reason accepts 500 code points and rejects 501 at its field',async()=>{
+ const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
+ const field=screen.getByLabelText('Grund (freiwillig)');
+ fireEvent.change(field,{target:{value:'x'.repeat(501)}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ expect(save).not.toHaveBeenCalled();expect(field).toHaveAttribute('aria-invalid','true');
+ fireEvent.change(field,{target:{value:'😀'.repeat(500)}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({reason:'😀'.repeat(500)})));
 });

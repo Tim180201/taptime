@@ -933,7 +933,7 @@ describe('professional Admin Web shell', () => {
     fireEvent.change(screen.getByLabelText('Bis'), {
       target: { value: '16:45' },
     });
-    fireEvent.change(screen.getByLabelText('Begründung'), {
+    fireEvent.change(screen.getByLabelText('Grund (freiwillig)'), {
       target: { value: reason },
     });
 
@@ -1569,7 +1569,23 @@ it('T113 the payroll correction identifies own membership and submits a null rea
  const state={...readyState,membershipId:record.employeeMembershipId,timeRecords:[record]};
  const capability=new FakeCapability(state);window.history.replaceState(null,'','/lohnexport');await render(<App administration={capability}/>);
  fireEvent.change(screen.getByLabelText('Arbeitszeit'),{target:{value:record.timeRecordId}});
- expect(screen.queryByLabelText('Begründung')).toBeNull();expect(screen.getByLabelText('Datum')).toHaveAttribute('type','date');
+ expect(screen.queryByLabelText(/Grund/)).toBeNull();expect(screen.getByLabelText('Datum')).toHaveAttribute('type','date');
  fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'19:00'}});fireEvent.click(screen.getByRole('button',{name:'Korrektur prüfen'}));
  expect(capability.prepareCorrection).toHaveBeenCalledWith(record.timeRecordId,record.startedAt,expect.any(String),null);
+});
+
+it.each(['administrator','standortleitung'] as const)('T116 the second correction form applies the %s foreign reason rule',async role=>{
+ const {default:TimeRecordsView}=await import('../src/views/TimeRecordsView');
+ const {defaultRoute}=await import('../src/navigation');
+ const record={...readyState.timeRecords[0]!,employeeMembershipId:'10000000-0000-4000-8000-000000000002'};
+ const state={...readyState,role,membershipId:'10000000-0000-4000-8000-000000000001',timeRecords:[record]};
+ const capability=new FakeCapability(state);
+ await render(<TimeRecordsView state={state} administration={capability} route={defaultRoute('lohnexport')} navigate={()=>{}}/>);
+ fireEvent.change(screen.getByLabelText('Arbeitszeit'),{target:{value:record.timeRecordId}});
+ const reason=screen.getByLabelText(role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)');
+ expect(reason.hasAttribute('required')).toBe(role==='standortleitung');
+ fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'19:00'}});
+ fireEvent.click(screen.getByRole('button',{name:'Korrektur prüfen'}));
+ if(role==='administrator')expect(capability.prepareCorrection).toHaveBeenCalledWith(record.timeRecordId,record.startedAt,expect.any(String),'');
+ else expect(capability.prepareCorrection).not.toHaveBeenCalled();
 });

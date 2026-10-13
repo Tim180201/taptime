@@ -9,7 +9,7 @@ import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import { isAdministrationStopRequest, isAdministrationStopResult, isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import type { ManualBreakLifecycleRequest,ManualLifecycleRequest,MobileOwnTimeQueryResponse,SafeWorkTarget } from '@taptime/mobile-work-contract';
 import { TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS } from '@taptime/time-entry-export-contract';
-import { isValidTimeReviewReason, isTimeReviewRole } from '@taptime/time-review-contract';
+import { isValidTimeReviewReason, isOptionalTimeRecordReason, isTimeReviewRole } from '@taptime/time-review-contract';
 import {
 	AdminWebApiClient,
 	type AdminWebApiPort,
@@ -179,7 +179,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if(input.kind!=='backfill' && ![...calendar.value.records,...(calendar.value.activeRecord?[calendar.value.activeRecord]:[])]
       .some(r=>r.timeRecordId===input.record.timeRecordId)) return {status:'authority_rejected'};
     if(input.kind==='correct' && (input.record.status!=='stopped' || !input.record.details)) return {status:'not_adjustable'};
-    if(input.kind==='correct' && input.reason!==null && !isValidTimeReviewReason(input.reason)) return {status:'invalid_request'};
+    if(input.kind==='correct' && !isOptionalTimeRecordReason(input.reason)) return {status:'invalid_request'};
     if(input.kind==='stop' && (input.record.status!=='started' || !input.record.details || (session.role==='administrator' && input.targetMembershipId===session.membershipId))) return {status:'not_adjustable'};
     const key=JSON.stringify(input);
     let commandId:string;
@@ -1790,7 +1790,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const record = current.timeRecords.find((candidate) => candidate.timeRecordId === timeRecordId);
     if (
       record === undefined || record.status !== 'stopped' || record.stoppedAt === null
-      || !isClosedInterval(startedAt, stoppedAt, this.now()) || (reason!==null && !isValidTimeReviewReason(reason))
+      || !isClosedInterval(startedAt, stoppedAt, this.now()) || !isOptionalTimeRecordReason(reason)
       || (record.startedAt === startedAt && record.stoppedAt === stoppedAt)
     ) {
       this.setState({ ...current, correctionIntent: null, notice: { kind: 'error', text: 'Die Korrektur wurde nicht gespeichert, weil Angaben fehlen oder veraltet sind. Prüfen Sie die erhaltenen Eingaben und versuchen Sie es erneut.' } });
@@ -3098,7 +3098,7 @@ function buildResolution(intent: ReviewAdjudicationIntent): object | null {
 }
 
 function correctionConflictNotice(code: string): string {
-  if (code === 'reason_required') return 'Bitte geben Sie einen Grund an.';
+  if (code === 'reason_required') return 'Bitte geben Sie einen Grund mit 1 bis 500 Zeichen ein.';
   if (code === 'invalid_interval') return 'Das Ende liegt in der Zukunft oder die Zeit dauert länger als 24 Stunden.';
   if (code === 'after_departure') return 'Zeiten und Prüffälle dürfen nur bis zum Austritt der Person reichen.';
   if (code === 'not_adjustable') {

@@ -1,7 +1,7 @@
 import { RequiredForm } from './RequiredForm';
 import {useContext,useEffect,useRef,useState} from 'react';
 import {dayStart,shiftDay,formatZonedDateTime} from '@taptime/core';
-import {VOID_REASONS,isVoidReason,type VoidReasonCode,type SafeOwnTimeRecord,type MobileOwnTimeQueryResponse,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
+import {VOID_REASONS,voidReasonLabel,isVoidReason,type VoidReasonCode,type SafeOwnTimeRecord,type MobileOwnTimeQueryResponse,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import {TimeEditingContext} from './TimeEditingControls';
 import {ResponsiveSheet} from './MobileSheet';
 import {timeEditMessages} from './timeEditing';
@@ -15,10 +15,10 @@ export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:
     if(saving)return;
     if(!context.online||navigator.onLine===false){setError(timeEditMessages.offline);return;}
     const reasonText=code==='other'?text:null;
-    if(!isVoidReason(code,reasonText)){setError('Wählen Sie einen Grund. Bei „Sonstiges“ sind 1 bis 500 Zeichen erforderlich.');return;}
+    if(!isVoidReason(code||null,reasonText)){setError('Bei „Sonstiges“ sind 1 bis 500 Zeichen erforderlich.');return;}
     setSaving(true);setError('');
     try {
-      const result=await context.administration.saveTimeEdit!({kind:'void',record,targetMembershipId:context.targetMembershipId,reasonCode:code as VoidReasonCode,reasonText});
+      const result=await context.administration.saveTimeEdit!({kind:'void',record,targetMembershipId:context.targetMembershipId,reasonCode:code||null,reasonText});
       if(!mounted.current)return;
       if(result.status==='committed')onClose();else setError(timeEditMessages[result.status]);
     }catch{if(mounted.current)setError(timeEditMessages.unavailable);}
@@ -26,16 +26,16 @@ export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:
   };
   return <ResponsiveSheet label="Zeiteintrag löschen" onCancel={onClose} busy={saving}>
     <RequiredForm className="form-grid time-edit-form" aria-label="Zeiteintrag löschen" onSubmit={event=>{event.preventDefault();void save();}}>
-      <h3 className="full-field">Zeiteintrag löschen</h3>
+      <h3 className="full-field">Zeiteintrag löschen?</h3>
       <p className="full-field">{context.personLabel ?? 'Sie selbst'} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – {record.stoppedAt ? formatZonedDateTime(record.stoppedAt) : 'läuft'}</p>
-      <p className="full-field">Der Eintrag zählt danach nicht mehr. Er bleibt mit dem Grund in der Historie sichtbar. Das Löschen kann nicht rückgängig gemacht werden.</p>
-      <label className="full-field">Grund<select data-field-error={!code ? "Wählen Sie einen Grund." : undefined} required aria-label="Grund" autoFocus value={code} disabled={saving} onChange={e=>setCode(e.target.value as VoidReasonCode|'')}>
-        <option value="">Bitte auswählen</option>{Object.entries(VOID_REASONS).map(([value,label])=><option key={value} value={value}>{label}</option>)}
+      <p className="full-field">Der Eintrag zählt danach nicht mehr. Er bleibt in der Historie sichtbar. Das Löschen kann nicht rückgängig gemacht werden.</p>
+      <label className="full-field">Grund (freiwillig)<select aria-label="Grund (freiwillig)" autoFocus value={code} disabled={saving} onChange={e=>setCode(e.target.value as VoidReasonCode|'')}>
+        <option value="">Kein Grund angegeben</option>{Object.entries(VOID_REASONS).map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </select></label>
       {code==='other'?<label className="full-field">Kurze Begründung<textarea required maxLength={500} aria-label="Kurze Begründung" value={text} disabled={saving} onChange={e=>setText(e.target.value)}/><small>1 bis 500 Zeichen</small></label>:null}
       {error?<p className="full-field field-error" role="alert">{error}</p>:null}
       {!context.online?<p role="status">Löschen geht nur online. Ihre Eingaben bleiben erhalten.</p>:null}
-      <button className="warning-action" disabled={saving} aria-busy={saving}>{saving?'Wird gelöscht …':'Löschen'}</button>
+      <button className="warning-action" disabled={saving} aria-busy={saving}>{saving?'Wird gelöscht …':'Löschen bestätigen'}</button>
       <button type="button" className="quiet" disabled={saving} onClick={onClose}>Abbrechen</button>
     </RequiredForm>
   </ResponsiveSheet>;
@@ -60,6 +60,6 @@ export function VoidedTimeRows({day,value}:{day:string;value:MobileOwnTimeQueryR
   if(loadedKey!==key||state.status==='loading')return <p className="supporting" role="status">Historie wird geladen …</p>;
   if(state.status!=='ready')return <p role="status">Die gelöschten Einträge konnten nicht geladen werden. <button className="quiet" onClick={()=>setReload(n=>n+1)}>Historie erneut laden</button></p>;
   return <ul className="time-day-list voided-time-list">{state.records.map(record=><li key={record.timeRecordId}>
-    <strong>{record.targetDisplayName}</strong><p className="verbatim-reason">Gelöscht am {formatZonedDateTime(record.voidedAt)} von {record.actorDisplayName} · {VOID_REASONS[record.reasonCode]}{record.reasonText?`: ${record.reasonText}`:''}</p>
+    <strong>{record.targetDisplayName}</strong><p className="verbatim-reason">Gelöscht am {formatZonedDateTime(record.voidedAt)} von {record.actorDisplayName} · {voidReasonLabel(record.reasonCode)}{record.reasonText?`: ${record.reasonText}`:''}</p>
   </li>)}</ul>;
 }

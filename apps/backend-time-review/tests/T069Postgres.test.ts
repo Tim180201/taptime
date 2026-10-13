@@ -41,7 +41,6 @@ it.each([
   ['same as beginning', 'admin', { stoppedAt: '2026-07-21T08:00:00.000Z' }, 'invalid_interval'],
   ['over 24 hours', 'admin', { stoppedAt: '2026-07-22T08:00:00.001Z' }, 'invalid_interval'],
   ['future', 'admin', { stoppedAt: '2099-07-22T08:00:00.000Z' }, 'invalid_interval'],
-  ['no reason', 'admin', { reason: ' ' }, 'reason_required'],
 ] as const)('rejects %s at the database boundary', async (_label, who, overrides, status) => {
   expect(await prepare(request(overrides), who)).toEqual({ status });
 });
@@ -82,6 +81,7 @@ it('rejects an end before a closed pause end and before an open pause start', as
   openBreak = await seedBreak('2026-07-21T10:00:00.000Z');
   expect(await prepare(request({ stoppedAt: '2026-07-21T09:45:00.000Z' }))).toEqual({ status: 'end_before_break' });
 });
+it('T116 administrator prepares a foreign stop without a reason',async()=>{expect(await prepare(request({reason:null}))).toMatchObject({status:'ready'});});
 it('stops through live authority and the engine, closes the pause and retains immutable audit/idempotency', async () => {
   const runtime = new Pool({ connectionString: runtimeConnectionString(pool.options.connectionString!, DA3_WRITE_LOGIN, 't069-synthetic') });
   try {

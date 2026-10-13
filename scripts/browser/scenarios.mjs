@@ -88,11 +88,11 @@ export const adminScenarios = [
   scenario('time-stop',personPath,'.calendar-grid',[click('Beenden')]),
   ...['employee-void','manager-void','administrator-void'].flatMap(variant=>[
     {...scenario(variant,variant==='employee-void'?'/meine-zeiten?monat=2026-09':personPath,'.calendar-grid',[
-      click('Zeiteintrag löschen'),async p=>p.getByLabel('Grund',{exact:true}).selectOption('other'),
+      click('Zeiteintrag löschen'),async p=>p.getByLabel('Grund (freiwillig)',{exact:true}).selectOption('other'),
       async p=>p.getByLabel('Kurze Begründung').fill('Dieser Eintrag wurde versehentlich doppelt nachgetragen.'),
     ]),variant},
     {...scenario(variant+'-history',variant==='employee-void'?'/meine-zeiten?monat=2026-09':personPath,'.calendar-grid',[
-      click('Zeiteintrag löschen'),async p=>p.getByLabel('Grund',{exact:true}).selectOption('duplicate'),click('Löschen'),
+      click('Zeiteintrag löschen'),async p=>p.getByLabel('Grund (freiwillig)',{exact:true}).selectOption('duplicate'),click('Löschen bestätigen'),
       async p=>p.getByText(/Gelöscht am .* von Martin Beispiel/).waitFor(),
     ]),variant},
   ]),

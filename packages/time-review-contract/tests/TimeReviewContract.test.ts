@@ -42,7 +42,7 @@ describe('time-review contract', () => {
     }).status).toBe('invalid_request');
   });
 
-  it('preserves the verbatim Human reason while enforcing btrim length and interval shape', () => {
+  it('preserves optional correction text while enforcing length and interval shape', () => {
     const request = {
       expectedMembershipId,
       commandId,
@@ -57,9 +57,9 @@ describe('time-review contract', () => {
     expect(result).toMatchObject({ status: 'valid' });
     if (result.status === 'valid') expect(result.request.reason).toBe(request.reason);
     expect(validateTimeRecordCorrectionRequest({ ...request, reason: '   ' }).status)
-      .toBe('invalid_request');
+      .toBe('valid');
     expect(validateTimeRecordCorrectionRequest({ ...request, reason: '\u00a0' }).status)
-      .toBe('invalid_request');
+      .toBe('valid');
     expect(validateTimeRecordCorrectionRequest({ ...request, reason: '😀'.repeat(500) }).status)
       .toBe('valid');
     expect(validateTimeRecordCorrectionRequest({ ...request, reason: '😀'.repeat(501) }).status)

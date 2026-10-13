@@ -50,7 +50,7 @@ it('shows durable provenance, correction reason, current comment and overlap; em
   expect(save).toHaveBeenCalledWith('comment',{timeRecordId:id,comment:'Neue Fassung'});expect(refresh).toHaveBeenCalled();
 });
 it.each(['administrator','standortleitung'] as const)('%s corrects a completed entry with reason and concurrency versions',async role=>{
-  await render(role);expect(button('Kommentar schreiben')).toBeUndefined();await press('Ändern');await fill('Grund der Änderung (Pflicht)','Prüfung');await press('Speichern');
+  await render(role);expect(button('Kommentar schreiben')).toBeUndefined();await press('Ändern');await fill(role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)','Prüfung');await press('Speichern');
   expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({timeRecordId:id,expectedBaseRowVersion:0,expectedRevisionNumber:2,reason:'Prüfung'}));
 });
 it('running entries have the D-071 hint and no change action',async()=>{
@@ -82,7 +82,7 @@ it.each([['nfc','gescannt'],['manual','manuell'],['backfilled','nachgetragen'],[
   expect(container.textContent).toContain(label);expect(container.textContent).not.toContain('überschneidet sich');
 });
 it.each(['administrator','standortleitung'] as const)('%s backfills for the selected person with a required reason and no employee comment',async role=>{
-  await render(role);await press('Zeit hinzufügen');await press('Zielperson C2');await fill('Grund der Änderung (Pflicht)','Tag ergänzt');await press('Speichern');
+  await render(role);await press('Zeit hinzufügen');await press('Zielperson C2');await fill(role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)','Tag ergänzt');await press('Speichern');
   expect(save).toHaveBeenCalledWith('backfill',expect.objectContaining({targetMembershipId:'10000000-0000-4000-8000-000000000002',reason:'Tag ergänzt',comment:null}));
   expect(container.querySelector('input[aria-label="Kommentar (optional)"]')).toBeNull();
 });
@@ -105,11 +105,11 @@ it.each(['administrator','standortleitung'] as const)('T-069 lets an %s stop ano
   expect(container.textContent).not.toContain('Läuft noch — erst beenden');
   await press('Beenden');
   expect(container.querySelector('input[aria-label="Von (HH:MM)"]')).toBeNull();
-  await fill('Ende am (JJJJ-MM-TT)','2026-09-21');await fill('Bis (HH:MM)','14:00');await press('Zeit beenden');
-  expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Grund');
-  await fill('Grund der Änderung (Pflicht)','Pause vergessen');save.mockResolvedValueOnce({status:'end_before_break'} as never);
+  await fill('Ende am (JJJJ-MM-TT)','2026-09-21');await fill('Bis (HH:MM)','14:00');
+  if(role==='standortleitung'){await press('Zeit beenden');expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Grund');}
+  await fill(role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)','Pause vergessen');save.mockResolvedValueOnce({status:'end_before_break'} as never);
   await press('Zeit beenden');expect(container.textContent).toContain('Die Endzeit liegt vor einer erfassten Pause');
-  expect((container.querySelector('input[aria-label="Grund der Änderung (Pflicht)"]') as HTMLInputElement).value).toBe('Pause vergessen');
+  expect((container.querySelector(`input[aria-label="${role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)'}"]`) as HTMLInputElement).value).toBe('Pause vergessen');
   save.mockResolvedValueOnce({status:'committed',timeRecordId:id,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:true} as never);
   await press('Zeit beenden');
   expect(save).toHaveBeenLastCalledWith('stop',{targetMembershipId:'10000000-0000-4000-8000-000000000002',timeRecordId:id,
@@ -138,7 +138,7 @@ it('D-078 keeps the form pending and polls before reloading the calendar',async(
   vi.useFakeTimers();
   try {
     await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');
-    await fill('Grund der Änderung (Pflicht)','Vergessen');
+    await fill('Grund (freiwillig)','Vergessen');
     const pending={status:'committed',timeRecordId:id,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
     save.mockResolvedValueOnce(pending as never).mockResolvedValueOnce({...pending,idempotentRetry:true,offsiteArchived:true} as never);
     await press('Zeit beenden');
@@ -150,7 +150,7 @@ it('D-078 keeps the form pending and polls before reloading the calendar',async(
 it('D-078 stops polling after three minutes, retains the command inputs and permits checking again',async()=>{
   vi.useFakeTimers();
   try {
-    await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');await fill('Grund der Änderung (Pflicht)','Vergessen');
+    await render('administrator',true,{...record,status:'started',stoppedAt:null});await press('Beenden');await fill('Grund (freiwillig)','Vergessen');
     save.mockResolvedValue({status:'committed',timeRecordId:id,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:false} as never);
     await press('Zeit beenden');await act(async()=>{await vi.advanceTimersByTimeAsync(180000);});
     expect(container.textContent).toContain('Noch nicht extern gesichert — bitte später prüfen');expect(refresh).not.toHaveBeenCalled();
@@ -162,9 +162,9 @@ it('D-078 stops polling after three minutes, retains the command inputs and perm
 
 it('T-062 manager can stop their own entry and retains the existing rejection text',async()=>{
  await render('standortleitung',true,{...record,status:'started',stoppedAt:null},id);
- await press('Beenden');await fill('Grund der Änderung (Pflicht)','Vergessen');
+ await press('Beenden');expect(container.querySelector('input[aria-label^="Grund"]')).toBeNull();
  save.mockResolvedValueOnce({status:'authority_rejected'} as never);await press('Zeit beenden');
- expect(save).toHaveBeenCalledWith('stop',expect.objectContaining({targetMembershipId:id,reason:'Vergessen'}));
+ expect(save).toHaveBeenCalledWith('stop',expect.objectContaining({targetMembershipId:id,reason:null}));
  expect(container.textContent).toContain('Die Berechtigung zum Beenden fehlt.');
  expect(refresh).not.toHaveBeenCalled();
 });
@@ -172,7 +172,7 @@ it('T-062 manager can stop their own entry and retains the existing rejection te
 it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target person choices, not the actor choices',async role=>{
  await render(role);await press('Zeit hinzufügen');
  expect(button('Zielperson C2')).toBeDefined();expect(button('Kunde')).toBeUndefined();
- await press('Zielperson C2');await fill('Grund der Änderung (Pflicht)','Zielperson');await press('Speichern');
+ await press('Zielperson C2');await fill(role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)','Zielperson');await press('Speichern');
  expect(save).toHaveBeenCalledWith('backfill',expect.objectContaining({targetId:'20000000-0000-4000-8000-000000000002'}));
 });
 
@@ -181,32 +181,32 @@ it('T079 splits dates and minute clocks while preserving exact unchanged values'
  await render('administrator',true,precise);await press('Ändern');
  for(const [label,value] of [['Beginn am (JJJJ-MM-TT)','2026-09-21'],['Ende am (JJJJ-MM-TT)','2026-09-21'],['Von (HH:MM)','10:00'],['Bis (HH:MM)','11:00']])
   expect((container.querySelector(`input[aria-label="${label}"]`) as HTMLInputElement).value).toBe(value);
- await fill('Grund der Änderung (Pflicht)','Nur Grund');await press('Speichern');
+ await fill('Grund (freiwillig)','Nur Grund');await press('Speichern');
  expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({startedAt:precise.startedAt,stoppedAt:precise.stoppedAt}));
 });
 it.each(['2026-10-25','2027-03-28'])('T079 rejects newly edited ambiguous or absent time on %s',async day=>{
- await render('administrator');await press('Ändern');await fill('Beginn am (JJJJ-MM-TT)',day);await fill('Von (HH:MM)','02:30');await fill('Grund der Änderung (Pflicht)','Prüfung');await press('Speichern');
+ await render('administrator');await press('Ändern');await fill('Beginn am (JJJJ-MM-TT)',day);await fill('Von (HH:MM)','02:30');await fill('Grund (freiwillig)','Prüfung');await press('Speichern');
  expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Zeitumstellung');
  expect((container.querySelector('input[aria-label="Von (HH:MM)"]') as HTMLInputElement).value).toBe('02:30');
 });
 
-it.each(['employee','administrator','standortleitung'] as const)('T-088 %s requires a reason and preserves the form until confirmed success',async role=>{
- await render(role);await press('Zeiteintrag löschen');await press('Löschen');expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Wähle einen Grund');
- await press('Sonstiges');await press('Löschen');expect(save).not.toHaveBeenCalled();await fill('Kurze Begründung','Falscher Tag');
- save.mockResolvedValueOnce({status:'review_open'} as never);await press('Löschen');expect(container.textContent).toContain('Wird von der Verwaltung geprüft');
+it.each(['employee','administrator','standortleitung'] as const)('T-088 %s validates a selected other reason and preserves the form until confirmed success',async role=>{
+ await render(role);await press('Zeiteintrag löschen');
+ await press('Sonstiges');await press('Löschen bestätigen');expect(save).not.toHaveBeenCalled();await fill('Kurze Begründung','Falscher Tag');
+ save.mockResolvedValueOnce({status:'review_open'} as never);await press('Löschen bestätigen');expect(container.textContent).toContain('Wird von der Verwaltung geprüft');
  expect((container.querySelector('input[aria-label="Kurze Begründung"]') as HTMLInputElement).value).toBe('Falscher Tag');
- await press('Löschen');expect(save).toHaveBeenLastCalledWith('void',{timeRecordId:id,reasonCode:'other',reasonText:'Falscher Tag'});expect(refresh).toHaveBeenCalled();
+ await press('Löschen bestätigen');expect(save).toHaveBeenLastCalledWith('void',{timeRecordId:id,reasonCode:'other',reasonText:'Falscher Tag'});expect(refresh).toHaveBeenCalled();
 });
 it('T-088 running time has no void action; offline cannot send and cancellation keeps data',async()=>{
  await render('employee',true,{...record,status:'started',stoppedAt:null});expect(button('Zeiteintrag löschen')).toBeUndefined();
- await render('employee',false);await press('Zeiteintrag löschen');await press('Fehlscan');await press('Löschen');expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Löschen geht nur online');
- await press('Abbrechen');expect(button('Löschen')).toBeUndefined();
+ await render('employee',false);await press('Zeiteintrag löschen');await press('Fehlscan');await press('Löschen bestätigen');expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Löschen geht nur online');
+ await press('Abbrechen');expect(button('Löschen bestätigen')).toBeUndefined();
 });
-it('T-088 renders separate cancellation history with who and why, without a duration',async()=>{
+it.each([['misscan','Fehlscan'],['none','Kein Grund angegeben']] as const)('T-088 renders %s cancellation history with who and why, without a duration',async(reasonCode,label)=>{
  const {VoidedTimeRows}=await import('../../src/timeEditing/TimeVoidControls');
- const loadVoided=vi.fn(async()=>({status:'ready' as const,records:[{timeRecordId:id,targetDisplayName:'Gelöschter Kunde',startedAt:record.startedAt,stoppedAt:record.stoppedAt!,voidedAt:'2026-09-21T10:00:00.000Z',actorDisplayName:'Alex Beispiel',reasonCode:'misscan' as const,reasonText:null}]}));
+ const loadVoided=vi.fn(async()=>({status:'ready' as const,records:[{timeRecordId:id,targetDisplayName:'Gelöschter Kunde',startedAt:record.startedAt,stoppedAt:record.stoppedAt!,voidedAt:'2026-09-21T10:00:00.000Z',actorDisplayName:'Alex Beispiel',reasonCode,reasonText:null}]}));
  await act(async()=>root.render(createElement(TimeEditingContext.Provider,{value:{membershipId:id,role:'employee',targets:[],online:true,busy:false,capability:{save,getState:()=>({online:true,busy:false}),subscribe:()=>()=>{},loadVoided}}},createElement(VoidedTimeRows,{day:'2026-09-21',value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'}}))));
- expect(container.textContent).toContain('Gelöscht am');expect(container.textContent).toContain('von Alex Beispiel · Fehlscan');expect(container.textContent).not.toMatch(/1,0 h|1:00 h|08:00|09:00/);
+ expect(container.textContent).toContain('Gelöscht am');expect(container.textContent).toContain(`von Alex Beispiel · ${label}`);expect(container.textContent).not.toMatch(/1,0 h|1:00 h|08:00|09:00/);
  expect(loadVoided).toHaveBeenCalledWith(id,'2026-09-20T22:00:00.000Z','2026-09-21T12:00:00.000Z');
 });
 
@@ -214,7 +214,7 @@ it.each(['backfill','correct','stop','comment'] as const)('T101 %s marks each re
  await render('administrator',true,kind==='stop'?{...record,status:'started',stoppedAt:null}:record,kind==='stop'?'10000000-0000-4000-8000-000000000002':id);
  await press(kind==='backfill'?'Zeit hinzufügen':kind==='correct'?'Ändern':kind==='stop'?'Beenden':'Kommentar schreiben');
  if(kind==='backfill')await press('Kunde');
- const labels=kind==='comment'?['Kommentar']:kind==='stop'?['Ende am (JJJJ-MM-TT)','Bis (HH:MM)','Grund der Änderung (Pflicht)']:kind==='correct'?['Beginn am (JJJJ-MM-TT)','Von (HH:MM)','Ende am (JJJJ-MM-TT)','Bis (HH:MM)']:['Datum (JJJJ-MM-TT)','Von (HH:MM)','Bis (HH:MM)'];
+ const labels=kind==='comment'?['Kommentar']:kind==='stop'?['Ende am (JJJJ-MM-TT)','Bis (HH:MM)']:kind==='correct'?['Beginn am (JJJJ-MM-TT)','Von (HH:MM)','Ende am (JJJJ-MM-TT)','Bis (HH:MM)']:['Datum (JJJJ-MM-TT)','Von (HH:MM)','Bis (HH:MM)'];
  for(const label of labels)await fill(label,'');await press(kind==='stop'?'Zeit beenden':'Speichern');expect(save).not.toHaveBeenCalled();
  expect(document.activeElement).toBe(container.querySelector(`input[aria-label="${labels[0]}"]`));
  for(const label of labels){const input=container.querySelector(`input[aria-label="${label}"]`)!;expect(input.parentElement?.getAttribute('data-style')).toContain('#FF8F8F');expect(input.parentElement?.querySelector('[role="alert"]')?.getAttribute('aria-live')).toBe('polite');}
@@ -232,16 +232,16 @@ it.each([
  ['2099-09-21','11:00','Das Ende liegt in der Zukunft.'],
 ])('T106: correction end %s %s is rejected at the field',async(date,time,message)=>{
  await render('administrator');await press('Ändern');
- await fill('Ende am (JJJJ-MM-TT)',date);await fill('Bis (HH:MM)',time);await fill('Grund der Änderung (Pflicht)','Beleg geprüft');await press('Speichern');
+ await fill('Ende am (JJJJ-MM-TT)',date);await fill('Bis (HH:MM)',time);await fill('Grund (freiwillig)','Beleg geprüft');await press('Speichern');
  expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain(message);
 });
 it('T106: required reasons cannot consist only of controls and spaces',async()=>{
- await render('administrator');await press('Ändern');await fill('Grund der Änderung (Pflicht)','\u00a0\t\u0001');await press('Speichern');
+ await render('standortleitung');await press('Ändern');await fill('Grund der Änderung (Pflicht)','\u00a0\t\u0001');await press('Speichern');
  expect(save).not.toHaveBeenCalled();expect(container.textContent).toContain('Bitte Grund der Änderung (Pflicht) eingeben.');
 });
 
 it('T106 shows invisible void reason at the required field',async()=>{
- await render('employee');await press('Zeiteintrag löschen');await press('Sonstiges');await fill('Kurze Begründung','\u0001\u0085\u200b');await press('Löschen');
+ await render('employee');await press('Zeiteintrag löschen');await press('Sonstiges');await fill('Kurze Begründung','\u0001\u0085\u200b');await press('Löschen bestätigen');
  expect(save).not.toHaveBeenCalled();expect(document.body.textContent).toContain('Bitte gib eine Begründung mit 1 bis 500 Zeichen ein.');
 });
 
@@ -251,4 +251,17 @@ it.each(['administrator','standortleitung'] as const)('T113 %s hides own reason 
  await press('Speichern');expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({reason:null}));
  await press('Zeit hinzufügen');await press('Kunde');await fill('Kommentar (optional)','Eigene Notiz');await press('Speichern');
  expect(save).toHaveBeenLastCalledWith('backfill',expect.objectContaining({reason:null,comment:'Eigene Notiz'}));
+});
+
+it('T116 administrator corrects foreign time with an optional blank reason',async()=>{
+ await render('administrator');await press('Ändern');expect(container.querySelector('input[aria-label="Grund (freiwillig)"]')).not.toBeNull();await press('Speichern');
+ expect(save).toHaveBeenCalledWith('correct',expect.objectContaining({reason:''}));
+});
+it.each(['employee','administrator','standortleitung'] as const)('T116 %s confirms deletion without a reason',async role=>{
+ await render(role);await press('Zeiteintrag löschen');expect(container.textContent).toContain('Zeiteintrag löschen?');expect(container.textContent).toContain('Grund (freiwillig)');await press('Löschen bestätigen');
+ expect(save).toHaveBeenCalledWith('void',{timeRecordId:id,reasonCode:null,reasonText:null});
+});
+it('T116 shows own administrative stop as selbst',async()=>{
+ await render('employee',true,{...record,details:{...record.details!,administrationStop:{at:record.startedAt,reason:'Selbst beendet'}}});
+ expect(container.textContent).toContain('· selbst');expect(container.textContent).not.toContain('Selbst beendet');
 });

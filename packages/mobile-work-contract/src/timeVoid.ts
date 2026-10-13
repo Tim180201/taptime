@@ -4,13 +4,13 @@ export const VOID_REASONS = {duplicate:'Doppelt erfasst',misscan:'Fehlscan',othe
 export type VoidReasonCode = keyof typeof VOID_REASONS;
 export interface VoidTimeRequest {
   readonly expectedMembershipId:string; readonly commandId:string; readonly timeRecordId:string;
-  readonly reasonCode:VoidReasonCode; readonly reasonText:string|null;
+  readonly reasonCode:VoidReasonCode|null; readonly reasonText:string|null;
 }
 export type VoidTimeResult = {readonly status:'committed';readonly timeRecordId:string;readonly idempotentRetry:boolean}
   | {readonly status:'forbidden'|'running'|'review_open'|'already_voided'|'command_id_conflict'|'invalid_request'|'unavailable'|'authority_rejected'};
 export interface VoidedTimeRecord {
   readonly timeRecordId:string; readonly targetDisplayName:string; readonly startedAt:string; readonly stoppedAt:string;
-  readonly voidedAt:string; readonly actorDisplayName:string; readonly reasonCode:VoidReasonCode; readonly reasonText:string|null;
+  readonly voidedAt:string; readonly actorDisplayName:string; readonly reasonCode:VoidReasonCode|'none'; readonly reasonText:string|null;
 }
 export interface VoidedTimeQuery {
   readonly expectedMembershipId:string; readonly targetMembershipId:string; readonly fromInclusive:string; readonly toExclusive:string;
@@ -24,9 +24,10 @@ const object=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==n
 const keys=(v:Record<string,unknown>,names:readonly string[])=>Object.keys(v).length===names.length&&names.every(n=>Object.hasOwn(v,n));
 const uuid=(v:unknown):v is string=>typeof v==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(v);
 const timestamp=(v:unknown):v is string=>typeof v==='string'&&Number.isFinite(Date.parse(v))&&new Date(v).toISOString()===v;
-const isStoredVoidReason=(code:unknown,text:unknown)=>typeof code==='string'&&Object.hasOwn(VOID_REASONS,code)
+const isStoredVoidReason=(code:unknown,text:unknown)=>typeof code==='string'&&(code==='none'||Object.hasOwn(VOID_REASONS,code))
   && (code==='other'?typeof text==='string'&&text.trim().length>0&&Array.from(text).length<=500:text===null);
-export const isVoidReason=(code:unknown,text:unknown)=>isStoredVoidReason(code,text)&&(code!=='other'||hasVisibleText(text));
+export const isVoidReason=(code:unknown,text:unknown)=>(code===null&&text===null)||(code!=='none'&&isStoredVoidReason(code,text)&&(code!=='other'||hasVisibleText(text)));
+export const voidReasonLabel=(code:VoidedTimeRecord['reasonCode']):string=>code==='none'?'Kein Grund angegeben':VOID_REASONS[code];
 export function isVoidTimeRequest(v:unknown):v is VoidTimeRequest {
   return object(v)&&keys(v,['expectedMembershipId','commandId','timeRecordId','reasonCode','reasonText'])
     &&uuid(v.expectedMembershipId)&&uuid(v.commandId)&&uuid(v.timeRecordId)&&isVoidReason(v.reasonCode,v.reasonText);

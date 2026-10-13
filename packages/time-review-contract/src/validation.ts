@@ -50,6 +50,11 @@ export function isValidTimeReviewReason(value: unknown): value is string {
   return characterCount >= 1 && characterCount <= TIME_REVIEW_MAXIMUM_REASON_CHARACTERS;
 }
 
+/** Optional correction text stays untouched until live role and ownership are resolved. */
+export function isOptionalTimeRecordReason(value: unknown): value is string | null {
+  return value === null || (typeof value === 'string' && Array.from(value).length <= TIME_REVIEW_MAXIMUM_REASON_CHARACTERS);
+}
+
 export function validateTimeRecordQueryRequest(
   value: unknown,
 ): ValidationResult<TimeRecordQueryRequest> {
@@ -88,7 +93,7 @@ export function validateTimeRecordCorrectionRequest(
     || !isNonNegativeInteger(value.expectedBaseRowVersion)
     || !isNonNegativeInteger(value.expectedRevisionNumber)
     || !isClosedInterval(value.startedAt, value.stoppedAt)
-    || (value.reason !== null && !isValidTimeReviewReason(value.reason))
+    || !isOptionalTimeRecordReason(value.reason)
   ) return invalid();
   return valid(Object.freeze({
     expectedMembershipId: value.expectedMembershipId,

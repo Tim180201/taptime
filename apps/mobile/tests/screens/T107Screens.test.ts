@@ -80,7 +80,7 @@ it('offers a direct administrative stop at the person status with its context',a
  const context={membershipId:'manager',role:'administrator' as const,online:true,busy:false,targets:[],capability:{save:vi.fn(),subscribe:()=>()=>{},getState:()=>({online:true,busy:false})}};
  render(h(TimeEditingContext.Provider,{value:context},h(PersonTimeScreen,{person:{membershipId:'other',displayName:'Erika Beispiel',role:'employee',location:null,isRunning:true,runningSince:active.startedAt,runningTargetDisplayName:'Kunde X'},value:{...ownTime,activeRecord:entry},onBack:()=>{},onRefresh:async()=>{}})));
  fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));
- expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\))?$/)).toBeDefined();
+ expect(screen.getByLabelText('Grund (freiwillig)')).toBeDefined();
  expect(screen.getByText(/Erika Beispiel · Kunde X ·/)).toBeDefined();
 });
 

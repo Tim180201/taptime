@@ -141,14 +141,14 @@ for(const width of [360,390,1440]) test(`T113 time form visibility and keyboard 
    assert.ok(boxes.every(box=>box && Math.abs(box.y-boxes[0].y)<1));
   }
   assert.equal(await form.locator('input[type="datetime-local"]').count(),0);
-  for(const [from,to] of [['Kunde oder Projekt','Datum'],['Datum','Von'],['Von','Bis'],['Bis','Grund der Änderung (Pflicht)']]){
+  for(const [from,to] of [['Kunde oder Projekt','Datum'],['Datum','Von'],['Von','Bis'],['Bis','Grund (freiwillig)']]){
    await form.getByLabel(from,{exact:from!=='Kunde oder Projekt'}).press('Enter');
    assert.equal(await form.getByLabel(to,{exact:true}).evaluate(el=>el===document.activeElement),true,`${from} → ${to}`);
   }
-  await form.getByLabel('Grund der Änderung (Pflicht)',{exact:false}).fill('Erste Zeile');
-  await form.getByLabel('Grund der Änderung (Pflicht)',{exact:false}).press('End');
-  await form.getByLabel('Grund der Änderung (Pflicht)',{exact:false}).press('Enter');
-  assert.match(await form.getByLabel('Grund der Änderung (Pflicht)',{exact:false}).inputValue(),/\n/);
+  await form.getByLabel('Grund (freiwillig)',{exact:false}).fill('Erste Zeile');
+  await form.getByLabel('Grund (freiwillig)',{exact:false}).press('End');
+  await form.getByLabel('Grund (freiwillig)',{exact:false}).press('Enter');
+  assert.match(await form.getByLabel('Grund (freiwillig)',{exact:false}).inputValue(),/\n/);
   if(artifacts){mkdirSync(artifacts,{recursive:true});await page.screenshot({path:join(artifacts,`t113-time-add-${width}.png`)});}
  }finally{await page.close();}
 });

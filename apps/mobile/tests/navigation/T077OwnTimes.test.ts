@@ -216,7 +216,7 @@ describe('T-077 own times through the product navigation', () => {
     await fill('Kommentar (optional)', 'Vergessen');
     h.save.mockResolvedValueOnce({ status: 'reason_required' });
     await press('Speichern');
-    expect(container.textContent).toContain('Bitte gib einen Grund an.');
+    expect(container.textContent).toContain('Bitte gib einen Grund mit 1 bis 500 Zeichen ein.');
     expect((container.querySelector('input[aria-label="Kommentar (optional)"]') as HTMLInputElement).value).toBe('Vergessen');
     await press('Speichern');
     expect(h.save).toHaveBeenLastCalledWith('backfill', expect.objectContaining({ targetMembershipId: membershipId, reason: null, comment: 'Vergessen' }));

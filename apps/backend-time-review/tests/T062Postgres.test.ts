@@ -189,10 +189,10 @@ it.each([admin,a])('T113 $role owns its backfill, comment and correction without
   expect(details).toMatchObject({comment:'Eigene Notiz',change:{actor:'self',reason:'Selbst geändert'}});
  });
 });
-it.each([admin,a])('T113 $role receives reason_required for another person',async who=>{
+it.each([admin,a])('T116 $role applies its foreign-time reason rule',async who=>{
  await asActor(who,writer,async c=>{
-  expect(await json(c,'backfill_time_record_v1',backfill(who,p,{reason:null}))).toEqual({status:'reason_required'});
-  expect((await c.query(`SELECT * FROM taptime_server.correct_time_record_v1($1,$2,$3,$4,repeat('c',64),$5,0,1,'2026-07-20T07:00:00Z','2026-07-20T16:00:00Z',NULL)`,[who.org,who.user,who.member,randomUUID(),p.closed])).rows[0].result_status).toBe('reason_required');
+  expect(await json(c,'backfill_time_record_v1',backfill(who,p,{reason:null}))).toMatchObject({status:who.role==='standortleitung'?'reason_required':'committed'});
+  expect((await c.query(`SELECT * FROM taptime_server.correct_time_record_v1($1,$2,$3,$4,repeat('c',64),$5,0,1,'2026-07-20T07:00:00Z','2026-07-20T16:00:00Z',NULL)`,[who.org,who.user,who.member,randomUUID(),p.closed])).rows[0].result_status).toBe(who.role==='standortleitung'?'reason_required':'committed');
  });
 });
 

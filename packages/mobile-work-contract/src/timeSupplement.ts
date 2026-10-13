@@ -46,7 +46,7 @@ export function isBackfillTimeRequest(v:unknown):v is BackfillTimeRequest {
   return object(v) && keys(v,['expectedMembershipId','targetMembershipId','commandId','targetType','targetId','startedAt','stoppedAt','reason','comment'])
     && uuid(v.expectedMembershipId) && uuid(v.targetMembershipId) && uuid(v.commandId) && uuid(v.targetId)
     && ['customer','project','general_work'].includes(String(v.targetType)) && timestamp(v.startedAt) && timestamp(v.stoppedAt)
-    && (v.reason===null || inputText(v.reason)) && (v.comment===null || inputText(v.comment));
+    && (v.reason===null || (typeof v.reason==='string' && Array.from(v.reason).length<=500)) && (v.comment===null || inputText(v.comment));
 }
 export function isCommentTimeRequest(v:unknown):v is CommentTimeRequest {
   return object(v) && keys(v,['expectedMembershipId','commandId','timeRecordId','comment'])

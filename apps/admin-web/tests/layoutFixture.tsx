@@ -260,7 +260,7 @@ if(variant.endsWith('-void')) {
   saveTimeEdit:async(input:import('../src/timeEditing').TimeEditInput)=>{
     if(input.kind!=='void')return {status:'unavailable'};
     history.push({timeRecordId:entry.timeRecordId,targetDisplayName:entry.targetDisplayName,
-      startedAt:entry.startedAt,stoppedAt:entry.stoppedAt!,voidedAt:'2026-09-23T12:00:00.000Z',actorDisplayName:'Martin Beispiel',reasonCode:input.reasonCode,reasonText:input.reasonText});
+      startedAt:entry.startedAt,stoppedAt:entry.stoppedAt!,voidedAt:'2026-09-23T12:00:00.000Z',actorDisplayName:'Martin Beispiel',reasonCode:input.reasonCode??'none',reasonText:input.reasonText});
     ready={...ready,calendar:{...ready.calendar!,status:'ready',value:{...ready.calendar!.value!,records:[]}},notice:{kind:'success',text:'Zeiteintrag gelöscht.'}};
     stateful.emit(ready);
     return {status:'committed',timeRecordId:entry.timeRecordId,idempotentRetry:false};

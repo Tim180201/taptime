@@ -834,7 +834,7 @@ describe('T106 interval plausibility',()=>{
   });
 });
 
-it('T106: SQL rejects invisible reasons just like the contract, without ledger writes',async()=>{
+it('T116: SQL defaults invisible administrator correction reasons; review reasons stay required',async()=>{
   const {isValidTimeReviewReason}=await import('@taptime/time-review-contract');
   const client=await writePool.connect();
   try {
@@ -848,11 +848,13 @@ it('T106: SQL rejects invisible reasons just like the contract, without ledger w
       await expect(client.query(`SELECT * FROM taptime_server.correct_time_record_v1($1,$2,$3,$4,$5,$6,2,0,
         '2026-07-21T12:00:00Z','2026-07-21T13:00:00Z',$7)`,
         [ids.organizationA,ids.adminA,ids.membershipAdminA,ids.correctionCommand,'a'.repeat(64),ids.stoppedEntryA,reason]))
-        .resolves.toMatchObject({rows:[{result_status:'reason_required'}]});
+        .resolves.toMatchObject({rows:[{result_status:'committed'}]});
+      await client.query('ROLLBACK TO SAVEPOINT reason_check');
+      await expect(client.query(`SELECT * FROM taptime_server.adjudicate_time_review_items_v1($1,$2,$3,$4,repeat('d',64),$5,'no_time_record_change',NULL,NULL,NULL,NULL,NULL,$6)`,[ids.organizationA,ids.adminA,ids.membershipAdminA,ids.adjudicationCommand,[ids.legacyReviewEventA],reason])).rejects.toMatchObject({code:'42501'});
       await client.query('ROLLBACK TO SAVEPOINT reason_check');
     }
     await client.query('ROLLBACK');
-  } finally {client.release();}
+  } finally {await client.query('ROLLBACK');client.release();}
   expect(await timeReviewCounts()).toEqual({revisions:0,adjudications:0,receipts:0,audits:0});
 });
 

@@ -226,8 +226,8 @@ export default function TimeRecordsView({
             onDate={setDate} onStart={setStartedAt} onEnd={setStoppedAt} checkInterval
             disabled={state.timeReviewBusy || state.correctionIntent !== null}/>
           <p className="full-field supporting">{overnightHint}</p>
-        {!own?<label className="full-field">Begründung
-          <textarea required maxLength={500} value={reason}
+        {!own?<label className="full-field">{state.role==='standortleitung'?'Grund der Änderung (Pflicht)':'Grund (freiwillig)'}
+          <textarea required={state.role==='standortleitung'} data-field-error={Array.from(reason).length>500?'Bitte höchstens 500 Zeichen eingeben.':undefined} value={reason}
             disabled={state.timeReviewBusy || state.correctionIntent !== null}
             onChange={(event) => setReason(event.target.value)} />
         </label>:null}
@@ -250,7 +250,7 @@ export default function TimeRecordsView({
         <dl>
           <dt>Vorher</dt><dd>{formatExact(state.correctionIntent.timeRecord.startedAt)} – {formatExact(state.correctionIntent.timeRecord.stoppedAt!)}</dd>
           <dt>Nachher</dt><dd>{formatExact(state.correctionIntent.startedAt)} – {formatExact(state.correctionIntent.stoppedAt)}</dd>
-          <dt>Begründung</dt><dd className="verbatim-reason">{state.correctionIntent.reason??'Selbst geändert'}</dd>
+          <dt>Begründung</dt><dd className="verbatim-reason">{state.correctionIntent.reason || (own?'Selbst geändert':'Kein Grund angegeben')}</dd>
         </dl>
       </Confirmation>}
     </Panel>

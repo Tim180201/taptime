@@ -3,7 +3,7 @@ import { RequiredForm } from './RequiredForm';
 import {VoidTimeForm} from './TimeVoidControls';
 import type { Notice } from './contracts';
 import { createContext,useContext,useEffect,useRef,useState,type ReactNode } from 'react';
-import { formatZonedDateTime,toZonedMinuteInput } from '@taptime/core';
+import { formatZonedDateTime,toZonedMinuteInput,hasVisibleText } from '@taptime/core';
 import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type BackfillTargetSelection, type SafeOwnTimeRecord,type SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability,AdminWebState } from './contracts';
 import { timeEditMessages,type TimeEditInput } from './timeEditing';
@@ -45,8 +45,8 @@ export function TimeRecordControls({record,directStop=false}:{record:SafeOwnTime
   </div> : null;
   return <div className="time-edit-controls">
     {details?.overlapsAnotherRecord?<p className="time-overlap">überschneidet sich</p>:null}
-    {details?.change?<p className="verbatim-reason">{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {formatZonedDateTime(details.change.at)} · {details.change.actor==='self'?'selbst':'durch Verwaltung'}{['Selbst nachgetragen','Selbst geändert'].includes(details.change.reason)?'':`: ${details.change.reason}`}</p>:null}
-    {details?.administrationStop?<p className="verbatim-reason">Von der Verwaltung beendet · {formatZonedDateTime(details.administrationStop.at)} · {details.administrationStop.reason}</p>:null}
+    {details?.change?<p className="verbatim-reason">{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {formatZonedDateTime(details.change.at)} · {details.change.actor==='self'?'selbst':'durch Verwaltung'}{['Selbst nachgetragen','Selbst geändert','Selbst beendet'].includes(details.change.reason)?'':`: ${details.change.reason}`}</p>:null}
+    {details?.administrationStop?<p className="verbatim-reason">Von der Verwaltung beendet · {formatZonedDateTime(details.administrationStop.at)} · {details.administrationStop.reason==='Selbst beendet'?'selbst':details.administrationStop.reason}</p>:null}
     {details?.comment?<p className="verbatim-reason">Kommentar: {details.comment}</p>:null}
     {own && details && context.administration.saveTimeEdit?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('comment');}}>Kommentar schreiben</button>:null}
     {canEdit && details && context.administration.saveTimeEdit && record.status==='stopped'?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('correct');}}>Ändern</button>:null}
@@ -84,6 +84,7 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
   const targets=managedBackfill?(targetPage.status==='ready'?{status:'ready' as const,value:targetPage.targets}:targetPage.status==='loading'?{status:'loading' as const,value:null}:{status:'unavailable' as const,value:null,message:timeEditMessages[targetPage.status]}):context.state.workTargets;
   const target:SafeWorkTarget|undefined=targets?.status==='ready'?targets.value.find(t=>`${t.targetType}:${t.targetId}`===selected):undefined;
   const own=context.targetMembershipId===context.state.membershipId;
+  const reasonRequired=!own && context.state.role==='standortleitung';
   const values={date,start,end,originalStart:record?.startedAt,originalEnd,stopOnly:kind==='stop'};
   const {startedAt,stoppedAt}=resolveTimeFields(values);
   const save=async()=>{
@@ -93,8 +94,8 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     if(kind==='comment') input={kind,record:record!,targetMembershipId:context.targetMembershipId,comment};
     else if(kind==='stop') {
       if(!stoppedAt){setNotice({ kind: 'error', text: 'Prüfen Sie Datum und Uhrzeit in deutscher Ortszeit. Nicht eindeutige Zeiten bei der Zeitumstellung können nicht übernommen werden.' });return;}
-      if(!reason.trim() || Array.from(reason).length>500){setNotice({ kind: 'error', text: 'Bitte geben Sie einen Grund mit 1 bis 500 Zeichen ein.' });return;}
-      input={kind,record:record!,targetMembershipId:context.targetMembershipId,stoppedAt,reason};
+      if((reasonRequired && !hasVisibleText(reason)) || Array.from(reason).length>500){setNotice({ kind: 'error', text: 'Bitte geben Sie einen Grund mit 1 bis 500 Zeichen ein.' });return;}
+      input={kind,record:record!,targetMembershipId:context.targetMembershipId,stoppedAt,reason:own?null:reason};
     } else {
       if(!startedAt || !stoppedAt){setNotice({ kind: 'error', text: 'Prüfen Sie Datum und Uhrzeiten in deutscher Ortszeit. Nicht eindeutige Zeiten bei der Zeitumstellung können nicht übernommen werden.' });return;}
       if(kind==='backfill') {
@@ -130,7 +131,7 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     {kind!=='comment'?<><TimeFields {...values} onDate={setDate} onStart={setStart} onEnd={setEnd} disabled={saving||archivePending} checkInterval={kind==='correct'}/>
       <p className="full-field supporting">Deutsche Ortszeit{kind!=='stop'?` · ${overnightHint}`:''}{kind==='backfill'?' Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}
     {kind==='comment'||(kind==='backfill'&&own)?<label className="full-field">{kind==='comment'?'Kommentar':'Kommentar (optional)'}<textarea required={kind==='comment'} value={comment} disabled={saving||archivePending} onChange={e=>setComment(e.target.value)}/></label>:null}
-    {kind!=='comment'&&(kind==='stop'||!own)?<label className="full-field">Grund der Änderung (Pflicht)<textarea required value={reason} disabled={saving||archivePending} onChange={e=>setReason(e.target.value)}/></label>:null}
+    {kind!=='comment'&&!own?<label className="full-field">{reasonRequired?'Grund der Änderung (Pflicht)':'Grund (freiwillig)'}<textarea required={reasonRequired} data-field-error={Array.from(reason).length>500?'Bitte höchstens 500 Zeichen eingeben.':undefined} value={reason} disabled={saving||archivePending} onChange={e=>setReason(e.target.value)}/></label>:null}
     {notice?<p className={notice.kind==='error'?'full-field field-error':'full-field'} role={notice.kind==='error'?'alert':'status'}>{notice.text}</p>:null}
     {!context.online?<p role="status">Nur online möglich. Ihre Eingaben bleiben erhalten.</p>:null}
     <button disabled={saving||!context.online} aria-busy={saving}>{saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'}</button>
