@@ -258,7 +258,7 @@ describe('AdminSetupCoordinator', () => {
 
 it('T100 checks a tag without writing it or registering a time/assignment',async()=>{
   const context=setup();
-  context.api.inspectTag=vi.fn(async()=>({status:'succeeded' as const,assignment:'customer' as const,customerName:'Werkstatt',locationName:'Nord'}));
+  context.api.inspectTag=vi.fn(async()=>({status:'succeeded' as const,assignment:'customer' as const,customerName:'Werkstatt',locationName:'Nord',nfcTagId:'card',activeAssignmentId:'assignment'}));
   await context.coordinator.start();
   await context.coordinator.inspectTag();
   expect(context.nfc.scan).toHaveBeenCalledOnce();
@@ -307,7 +307,7 @@ it('T100 confirms management without cancelling a concurrent tag capture',async(
 it('T100 refreshes a deferred management projection after a read-only tag check',async()=>{
  const context=setup();let finish!:(value:{status:'succeeded'})=>void,scan!:()=>void;
  context.api.manageCustomer=vi.fn(()=>new Promise<{status:'succeeded'}>(resolve=>{finish=resolve;}));
- context.api.inspectTag=vi.fn(async()=>({status:'succeeded' as const,assignment:'unassigned' as const,customerName:null,locationName:null}));
+ context.api.inspectTag=vi.fn(async()=>({status:'succeeded' as const,assignment:'unassigned' as const,customerName:null,locationName:null,nfcTagId:null,activeAssignmentId:null}));
  context.nfc.scan.mockImplementationOnce(async()=>{await new Promise<void>(resolve=>{scan=resolve;});return {status:'captured',payload:createCanonicalNfcUidPayload('AA'),capturedAt:createTimestamp('2026-07-15T07:00:00.000Z')};});
  await context.coordinator.start();
  const pending=context.coordinator.manageCustomer(projection.customers[0]!.id,{action:'deactivate'});
@@ -404,4 +404,36 @@ it('T112 review: a receipt arriving without context stays private and reappears 
  c.replace({...snapshot,generation:3});
  await vi.waitFor(()=>expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned',validationFingerprint:'RECEIPT'}}));
  expect(c.coordinator.getState()).not.toHaveProperty('pendingTag');
+});
+
+it('T116 removal refreshes projection and reuses a command after uncertain transport',async()=>{
+ const c=setup();c.api.removeTag=vi.fn().mockResolvedValueOnce({status:'unavailable'}).mockResolvedValue({status:'succeeded',removedAt:new Date().toISOString()});await c.coordinator.start();
+ expect(await c.coordinator.removeTag('tag','assignment')).toEqual({status:'unavailable'});expect(await c.coordinator.removeTag('tag','assignment')).toMatchObject({status:'succeeded'});
+ expect(c.api.removeTag).toHaveBeenCalledTimes(2);expect(vi.mocked(c.api.removeTag).mock.calls[0]).toEqual(vi.mocked(c.api.removeTag).mock.calls[1]);expect(c.api.readProjection).toHaveBeenCalledTimes(2);
+});
+it('T116 inspect loads the scanned card name from subsequent projection pages',async()=>{
+ const c=setup();const tag={id:'card',displayName:'Eingang',validationFingerprint:'AAAAAAAAAAAA',assignmentState:'assigned' as const,assignmentType:'work' as const,targetCustomerId:projection.customers[0]!.id,activeAssignmentId:'assignment'};
+ c.api.inspectTag=vi.fn<NonNullable<AdminSetupApiPort['inspectTag']>>(async()=>({status:'succeeded',assignment:'customer',customerName:'Werkstatt',locationName:null,nfcTagId:'card',activeAssignmentId:'assignment'}));
+ vi.mocked(c.api.readProjection).mockResolvedValueOnce({...projection,nextCursor:'next'}).mockResolvedValueOnce({...projection,nextCursor:'next'}).mockResolvedValueOnce({...projection,customers:[],nfcTags:[tag]});await c.coordinator.start();await c.coordinator.inspectTag();
+ expect(c.coordinator.getState()).toMatchObject({status:'ready',projection:{nfcTags:[tag]},outcome:{status:'tag_checked',nfcTagId:'card',activeAssignmentId:'assignment'}});expect(c.api.readProjection).toHaveBeenLastCalledWith(snapshot.session.membershipId,'next');
+});
+
+it('T116 keeps confirmed removal visible if the list refresh fails',async()=>{
+ const c=setup();const tag={id:'card',displayName:'Eingang',validationFingerprint:'AAAAAAAAAAAA',assignmentState:'assigned' as const,assignmentType:'work' as const,targetCustomerId:projection.customers[0]!.id,activeAssignmentId:'assignment'};
+ c.api.removeTag=vi.fn<NonNullable<AdminSetupApiPort['removeTag']>>(async()=>({status:'succeeded',removedAt:new Date().toISOString()}));
+ vi.mocked(c.api.readProjection).mockResolvedValueOnce({...projection,nfcTags:[tag]}).mockRejectedValueOnce(new Error('offline'));await c.coordinator.start();
+ expect(await c.coordinator.removeTag('card','assignment')).toMatchObject({status:'succeeded'});expect(c.coordinator.getState()).toMatchObject({status:'ready',projection:{nfcTags:[{id:'card',assignmentState:'unassigned',activeAssignmentId:null}]}});
+});
+it('T116 rejects a late removal response after the session changes',async()=>{
+ const c=setup();let finish!:(value:{status:'succeeded';removedAt:string})=>void;c.api.removeTag=vi.fn(()=>new Promise<{status:'succeeded';removedAt:string}>(resolve=>{finish=resolve;}));await c.coordinator.start();
+ const pending=c.coordinator.removeTag('card','assignment');await vi.waitFor(()=>expect(c.api.removeTag).toHaveBeenCalledOnce());c.replace({...snapshot,generation:2,session:{...snapshot.session,membershipId:'other',role:'employee',nfcSetupAvailable:false}});finish({status:'succeeded',removedAt:new Date().toISOString()});expect(await pending).toEqual({status:'forbidden'});expect(c.coordinator.getState().status).toBe('not_authorized');
+});
+
+it('T116 refreshes the first page after inspecting a new card absent from a complete cached projection',async()=>{
+ const c=setup();const tag={id:'new-card',displayName:'Neuer Eingang',validationFingerprint:'AAAAAAAAAAAA',assignmentState:'assigned' as const,assignmentType:'work' as const,targetCustomerId:projection.customers[0]!.id,activeAssignmentId:'new-assignment'};
+ c.api.inspectTag=vi.fn<NonNullable<AdminSetupApiPort['inspectTag']>>(async()=>({status:'succeeded',assignment:'customer',customerName:'Werkstatt',locationName:null,nfcTagId:tag.id,activeAssignmentId:tag.activeAssignmentId}));
+ vi.mocked(c.api.readProjection).mockResolvedValueOnce(projection).mockResolvedValueOnce({...projection,nfcTags:[tag]});
+ await c.coordinator.start();await c.coordinator.inspectTag();
+ expect(c.api.readProjection).toHaveBeenCalledTimes(2);expect(c.api.readProjection).toHaveBeenLastCalledWith(snapshot.session.membershipId,null);
+ expect(c.coordinator.getState()).toMatchObject({status:'ready',projection:{nfcTags:[tag]},outcome:{status:'tag_checked',nfcTagId:tag.id,activeAssignmentId:tag.activeAssignmentId}});
 });

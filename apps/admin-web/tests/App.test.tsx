@@ -222,6 +222,7 @@ function locationReadyState(
 }
 
 class FakeCapability implements AdminWebCapability {
+  removeTag=vi.fn<NonNullable<AdminWebCapability['removeTag']>>(async()=>({status:'unavailable'}));
   state: AdminWebState;
   private readonly listeners = new Set<() => void>();
   constructor(state: AdminWebState) { this.state = state; }
@@ -1588,4 +1589,11 @@ it.each(['administrator','standortleitung'] as const)('T116 the second correctio
  fireEvent.click(screen.getByRole('button',{name:'Korrektur prüfen'}));
  if(role==='administrator')expect(capability.prepareCorrection).toHaveBeenCalledWith(record.timeRecordId,record.startedAt,expect.any(String),'');
  else expect(capability.prepareCorrection).not.toHaveBeenCalled();
+});
+
+it('T116 card removal confirms the named card and preserves its expected assignment',async()=>{
+ window.history.replaceState(null,'','/einrichtung');const capability=new FakeCapability(readyState);capability.removeTag=vi.fn(async()=>({status:'succeeded',removedAt:new Date().toISOString()}));
+ await render(<App administration={capability}/>);await userEvent.click(screen.getByRole('button',{name:'Karten'}));await userEvent.click(screen.getByRole('button',{name:'Karte Eingang entfernen'}));
+ expect(screen.getByText('Karte „Eingang“ entfernen?')).toBeInTheDocument();expect(capability.removeTag).not.toHaveBeenCalled();await userEvent.click(screen.getByRole('button',{name:'Abbrechen'}));expect(capability.removeTag).not.toHaveBeenCalled();
+ await userEvent.click(screen.getByRole('button',{name:'Karte Eingang entfernen'}));await userEvent.click(screen.getByRole('button',{name:'Entfernen bestätigen'}));expect(capability.removeTag).toHaveBeenCalledWith(tag.id,tag.activeAssignmentId);expect(await screen.findByText('Karte entfernt. Sie kann neu eingerichtet werden.')).toBeInTheDocument();
 });

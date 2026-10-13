@@ -2023,3 +2023,10 @@ it.each([null,'',' \t\u200b'])('T116 calendar correction carries optional text %
  expect((await h.coordinator.saveTimeEdit({kind:'correct',record:h.record,targetMembershipId:membershipId,startedAt:h.record.startedAt,stoppedAt:h.record.stoppedAt!,reason})).status).toBe('committed');
  expect(h.api.correctTimeRecord).toHaveBeenCalledWith('memory-only-token',membershipId,expect.any(String),expect.any(Object),h.record.startedAt,h.record.stoppedAt,reason);
 });
+
+it('T116 removal retries the same command and refreshes the list after success',async()=>{
+ const {coordinator,api}=setup();const removeTag=vi.fn().mockResolvedValueOnce({status:'unreachable'}).mockResolvedValue({status:'succeeded',value:{status:'succeeded',removedAt:new Date().toISOString()}});Object.assign(api,{removeTag});await coordinator.signIn('synthetic@example.invalid','synthetic');
+ const before=vi.mocked(api.projection).mock.calls.length;
+ expect(await coordinator.removeTag('tag','assignment')).toEqual({status:'unavailable'});expect(await coordinator.removeTag('tag','assignment')).toMatchObject({status:'succeeded'});
+ expect(removeTag.mock.calls[0]).toEqual(removeTag.mock.calls[1]);expect(vi.mocked(api.projection).mock.calls.length).toBeGreaterThan(before);
+});

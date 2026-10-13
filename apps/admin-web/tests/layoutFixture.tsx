@@ -150,6 +150,10 @@ class FakeCapability implements AdminWebCapability {
   dismissInvitation = () => undefined;
   prepareReassignment = () => undefined;
   cancelReassignment = () => undefined;
+  removeTag = async (nfcTagId:string,expectedAssignmentId:string):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult> => {
+    if(this.state.status==='ready')this.emit({...this.state,projection:{...this.state.projection,nfcTags:this.state.projection.nfcTags.map(tag=>tag.id===nfcTagId&&tag.activeAssignmentId===expectedAssignmentId?{...tag,assignmentState:'unassigned',assignmentType:null,targetCustomerId:null,activeAssignmentId:null}:tag)}});
+    return {status:'succeeded',removedAt:'2026-09-23T12:00:00.000Z'};
+  };
   confirmReassignment = async () => undefined;
   prepareCorrection = () => undefined;
   cancelCorrection = () => undefined;

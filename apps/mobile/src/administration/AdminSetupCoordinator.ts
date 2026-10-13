@@ -97,9 +97,57 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       }
       const result=await this.api.inspectTag?.({expectedMembershipId:snapshot.session.membershipId,canonicalPayload:capture.payload})??{status:'unavailable'};
       if(!this.isCurrent(generation,snapshot))return;
-      if(result.status==='succeeded')await this.finish(current.projection,{...result,status:'tag_checked'});
+      if(result.status==='succeeded'){
+        let projection=current.projection;
+        if(result.nfcTagId!==null&&!projection.nfcTags.some(tag=>tag.id===result.nfcTagId)){
+          // Another device may have added the inspected tag after our cached list was complete.
+          const fresh=await this.api.readProjection(snapshot.session.membershipId,null);
+          if(!this.isCurrent(generation,snapshot))return;
+          if(fresh.status!=='succeeded'){
+            await this.finish(current.projection,{status:fresh.status==='authority_rejected'?'session_rejected':'request_failed'});return;
+          }
+          projection=fresh;
+        }
+        const seen=new Set<string>();
+        while(result.nfcTagId!==null&&!projection.nfcTags.some(tag=>tag.id===result.nfcTagId)&&projection.nextCursor!==null&&!seen.has(projection.nextCursor)){
+          const cursor=projection.nextCursor;seen.add(cursor);
+          const page=await this.api.readProjection(snapshot.session.membershipId,cursor);
+          if(!this.isCurrent(generation,snapshot))return;
+          if(page.status!=='succeeded')break;
+          const merged=mergeProjection(projection,page,cursor);if(!merged)break;projection=merged;
+        }
+        await this.finish(projection,{...result,status:'tag_checked'});
+      }
       else await this.finish(current.projection,{status:result.status==='forbidden'||result.status==='unauthorized'?'session_rejected':'request_failed'});
     }catch{if(this.isCurrent(generation,snapshot))await this.finish(current.projection,{status:'request_failed'});}
+  }
+
+  private pendingRemoval:{key:string;commandId:string}|null=null;
+  async removeTag(nfcTagId:string,expectedAssignmentId:string):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>{
+    const snapshot=this.session.capture(),authorityGeneration=this.authorityGeneration;
+    if(!this.active||!snapshot?.session.nfcSetupAvailable)return {status:'forbidden'};
+    if(this.managementBusy||this.state.status!=='ready')return {status:'unavailable'};
+    const key=JSON.stringify([snapshot.session.membershipId,nfcTagId,expectedAssignmentId]);
+    if(this.pendingRemoval?.key!==key)this.pendingRemoval={key,commandId:this.createCommandId()};
+    const pending=this.pendingRemoval,previous=this.state.projection;this.managementBusy=true;
+    try{
+      if(!await this.isOnline())return {status:'unavailable'};
+      if(!this.isManagementCurrent(authorityGeneration,snapshot))return {status:'forbidden'};
+      const result=await this.api.removeTag?.({expectedMembershipId:snapshot.session.membershipId,commandId:pending.commandId,nfcTagId,expectedAssignmentId})??{status:'unavailable' as const};
+      if(!this.isManagementCurrent(authorityGeneration,snapshot))return {status:'forbidden'};
+      if(result.status==='succeeded'){
+        this.pendingRemoval=null;
+        const refreshed=await this.api.readProjection(snapshot.session.membershipId,null).catch(()=>({status:'unavailable' as const}));
+        if(!this.isManagementCurrent(authorityGeneration,snapshot))return {status:'forbidden'};
+        if(refreshed.status==='authority_rejected'){this.setState({status:'inactive'});return {status:'forbidden'};}
+        // Preserve the confirmed removal even if its list reload loses connectivity.
+        const projection=refreshed.status==='succeeded'?refreshed:{...previous,nfcTags:previous.nfcTags.map(tag=>
+          tag.id===nfcTagId&&tag.activeAssignmentId===expectedAssignmentId?{...tag,assignmentState:'unassigned' as const,assignmentType:null,targetCustomerId:null,activeAssignmentId:null}:tag)};
+        this.projectionInvalidated=false;
+        this.setState({status:'ready',projection,outcome:null});
+      }
+      return result;
+    }catch{return {status:'unavailable'};}finally{this.managementBusy=false;}
   }
 
   private pendingManagement:{key:string;commandId:string}|null=null;

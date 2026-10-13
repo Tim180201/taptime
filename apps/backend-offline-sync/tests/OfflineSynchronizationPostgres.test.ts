@@ -2401,3 +2401,17 @@ it('T106: future evidence is retained for review and following sequences are acc
   expect(events.rows[0].occurred_at.toISOString()).toBe(future);
   expect((await installerPool.query('SELECT count(*) FROM taptime_server.time_entries')).rows[0].count).toBe('0');
 });
+
+it.each(['removed','reassigned'] as const)('T116: %s assignment accepts pre-close evidence but rejects evidence at valid_to',async closure=>{
+ const lease=await issueLeaseV3();
+ const item=lease.items.find(i=>i.itemType==='nfc_assignment'&&i.subjectType==='work'&&i.targetType==='customer')!;
+ expect(item).toBeDefined();
+ const captured=new Date(Date.parse(lease.issuedAt)+100).toISOString(),closed=new Date(Date.parse(lease.issuedAt)+200).toISOString();
+ await installerPool.query('UPDATE taptime_server.nfc_assignments SET active=false,valid_to=$2,row_version=row_version+1 WHERE id=$1',[ids.assignment,closed]);
+ if(closure==='reassigned')await installerPool.query("INSERT INTO taptime_server.nfc_assignments(id,organization_id,nfc_tag_id,target_type,target_customer_id,assignment_type,active,valid_from) SELECT gen_random_uuid(),organization_id,nfc_tag_id,target_type,target_customer_id,assignment_type,true,$2 FROM taptime_server.nfc_assignments WHERE id=$1",[ids.assignment,closed]);
+ const first=eventCommandV3(lease,item,ids.event1,ids.receipt1,1,captured);
+ expect(await eventCoordinator.ingest({accessToken:'valid',command:first})).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+ const second=eventCommandV3(lease,item,ids.event2,ids.receipt2,2,closed);
+ expect(await eventCoordinator.ingest({accessToken:'valid',command:second})).toMatchObject({status:'review_pending',reason:'historical_configuration_not_valid'});
+ expect((await installerPool.query('SELECT status FROM taptime_server.time_entries')).rows).toEqual([{status:'started'}]);
+});

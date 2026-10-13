@@ -4144,3 +4144,14 @@ describe('B3 structural constraints and idempotency primitives', () => {
     ]);
   });
 });
+
+it('T116 grants removal and inspect v2 only to setup; callers receive no direct assignment writes',async()=>{
+ const signatures=['taptime_server.remove_nfc_tag_v1(uuid,uuid,uuid)','taptime_server.inspect_nfc_tag_v2(text)'];
+ for(const signature of signatures){
+  const functionRow=(await installerPool.query("SELECT pg_get_userbyid(proowner) owner,prosecdef,proconfig FROM pg_proc WHERE oid=$1::regprocedure",[signature])).rows[0];
+  expect(functionRow).toMatchObject({owner:'taptime_admin_setup_data_function_owner',prosecdef:true,proconfig:['search_path=pg_catalog']});
+  const grants=(await installerPool.query("SELECT r.rolname,has_function_privilege(r.oid,$1,'EXECUTE') allowed FROM pg_roles r WHERE r.rolname LIKE 'taptime_%' AND r.rolname NOT LIKE '%function_owner' AND NOT r.rolsuper",[signature])).rows;
+  for(const grant of grants)expect(grant.allowed,`${signature}: ${grant.rolname}`).toBe(grant.rolname==='taptime_admin_setup');
+ }
+ expect((await installerPool.query("SELECT has_any_column_privilege('taptime_admin_setup','taptime_server.nfc_assignments','UPDATE') allowed")).rows[0].allowed).toBe(false);
+});

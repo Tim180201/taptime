@@ -61,6 +61,7 @@ class FakeScanRuntimeOwner implements ProductScanRuntimeOwner {
 }
 
 class FakeAdministrationRuntimeOwner {
+  readonly removeTag=vi.fn<NonNullable<import('../../src/administration/contracts').AdminSetupCapability['removeTag']>>(async()=>({status:'succeeded',removedAt:new Date().toISOString()}));
   async prepareCustomer() { return { status: 'unavailable' as const }; }
   async createCustomer() {}
   readonly manageCustomer=vi.fn<NonNullable<import('../../src/administration/contracts').AdminSetupCapability['manageCustomer']>>(async()=>({status:'succeeded'}));
@@ -336,3 +337,5 @@ describe('account-scoped scan protection', () => {
     context.runtime.stop();
   });
 });
+
+it('T116 refreshes the grant only after confirmed card removal',async()=>{const {runtime,scan,administration}=setup();administration.removeTag.mockResolvedValueOnce({status:'assignment_changed'});await runtime.administration.removeTag?.('tag','assignment');expect(scan.refreshOfflineGrant).not.toHaveBeenCalled();await runtime.administration.removeTag?.('tag','assignment');expect(scan.refreshOfflineGrant).toHaveBeenCalledOnce();});

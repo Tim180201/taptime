@@ -855,3 +855,10 @@ it.each(([3,4] as const).flatMap(version=>[
  expect(new Uint8Array(await result.value.blob.arrayBuffer())).toEqual(csv);
  expect(JSON.parse(String(fetcher.mock.calls[0]![1]!.body))).toEqual({expectedMembershipId:ids.membership,fromInclusive:from,toExclusive:to});
 });
+
+it('T116 posts a closed removal request and preserves conflict status',async()=>{
+ const fetchRequest=vi.fn<typeof fetch>(async()=>json({status:'command_id_conflict'},409));const client=new AdminWebApiClient(fetchRequest);
+ const request={expectedMembershipId:ids.membership,commandId:ids.command,nfcTagId:ids.tag,expectedAssignmentId:ids.assignment};
+ expect(await client.removeTag('token',request)).toEqual({status:'succeeded',value:{status:'command_id_conflict'}});
+ expect(fetchRequest.mock.calls[0]![0]).toBe('/v1/administration/nfc-tags/remove');
+});

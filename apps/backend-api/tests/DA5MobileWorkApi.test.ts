@@ -589,3 +589,18 @@ it.each(['customer','break'] as const)('T100 reuses a free tag for %s with a clo
  await expectError(await post(origin,'/v1/administration/nfc-tags/reuse',{...request,organizationId:ids.project}),400,'invalid_request');
  expect(reuseTag).toHaveBeenCalledOnce();
 });
+
+it.each(['succeeded','assignment_changed','command_id_conflict','forbidden','unauthorized','invalid_request','unavailable'] as const)('T116 removal route maps %s and validates closed payload',async status=>{
+ const result=status==='succeeded'?{status,removedAt:new Date().toISOString()}:{status};const removeTag=vi.fn(async()=>result);
+ const origin=await start({administration:{removeTag} as unknown as BackendApiDependencies['administration']});
+ const request={expectedMembershipId:ids.membership,commandId:ids.project,nfcTagId:ids.project,expectedAssignmentId:ids.project};
+ const response=await post(origin,'/v1/administration/nfc-tags/remove',request);
+ expect(response.status).toBe({succeeded:200,assignment_changed:409,command_id_conflict:409,forbidden:403,unauthorized:401,invalid_request:400,unavailable:503}[status]);expect(await response.json()).toEqual(result);
+ expect(removeTag).toHaveBeenCalledWith({...request,accessToken:'abc.def.ghi'});
+ await expectError(await post(origin,'/v1/administration/nfc-tags/remove',{...request,reason:'x'}),400,'invalid_request');expect(removeTag).toHaveBeenCalledOnce();
+});
+it('T116 inspect v2 dispatches independently and preserves identifiers',async()=>{
+ const result={status:'succeeded',assignment:'customer',customerName:'Kunde',locationName:null,nfcTagId:ids.project,activeAssignmentId:ids.project};
+ const inspectTagV2=vi.fn(async()=>result),inspectTag=vi.fn();const origin=await start({administration:{inspectTagV2,inspectTag} as unknown as BackendApiDependencies['administration']});
+ const response=await post(origin,'/v2/administration/nfc-tags/inspect',{expectedMembershipId:ids.membership,canonicalPayload:'nfc:uid:v1:AA'});expect(response.status).toBe(200);expect(await response.json()).toEqual(result);expect(inspectTag).not.toHaveBeenCalled();
+});

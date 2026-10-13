@@ -205,6 +205,7 @@ export type AdminWebState =
       readonly completedAction?: CompletedAdminAction | null;
     };
 export interface AdminWebCapability {
+  removeTag?(nfcTagId:string,expectedAssignmentId:string):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   manageCustomer?(customerId:string,change:import('@taptime/mobile-work-contract').CustomerManagementChange):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
   setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   readCustomerHours?(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult>;

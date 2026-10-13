@@ -170,6 +170,14 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       retry: () => this.scanOrchestrator.retry(),
     });
     this.administrationCapability = Object.freeze({
+      removeTag: async (nfcTagId:string,expectedAssignmentId:string) => {
+        const result=await this.administrationCoordinator.removeTag?.(nfcTagId,expectedAssignmentId)??{status:'unavailable' as const};
+        if(result.status==='succeeded'){
+          await this.scanOrchestrator.refreshOfflineGrant?.().catch(()=>undefined);
+          await this.mobileWorkCoordinator.refresh().catch(()=>undefined);
+        }
+        return result;
+      },
       inspectTag: () => this.administrationCoordinator.inspectTag?.()??Promise.resolve(),
       manageCustomer: async (customerId:string,change:import('@taptime/mobile-work-contract').CustomerManagementChange) => {
         const result=await this.administrationCoordinator.manageCustomer?.(customerId,change)??{status:'unavailable' as const};

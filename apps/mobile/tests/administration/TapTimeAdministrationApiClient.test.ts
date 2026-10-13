@@ -249,3 +249,16 @@ it.each(['customer','break'] as const)('T100 reuses an available registered tag 
  expect(request.calls.map(call=>new URL(call.endpoint).pathname)).toEqual([`/base/v1/administration/nfc-tags/${target==='customer'?'provision':'provision-break'}`,'/base/v1/administration/nfc-tags/reuse']);
  expect(request.calls.map(call=>JSON.parse(call.body))).toEqual([command,command]);
 });
+
+it('T116 uses inspect v2 and a strict removal command',async()=>{
+ const transport=new FakeJsonPost();const client=new TapTimeAdministrationApiClient('https://example.invalid',transport);
+ const inspection={status:'succeeded',assignment:'customer',customerName:'Werkstatt',locationName:null,nfcTagId:ids.tag,activeAssignmentId:ids.assignment};transport.result=projectionResponse(inspection);
+ expect(await client.inspectTag({expectedMembershipId:ids.membership,canonicalPayload:'nfc:uid:v1:AA'})).toEqual(inspection);expect(transport.calls[0]!.endpoint).toBe('https://example.invalid/v2/administration/nfc-tags/inspect');
+ const command={expectedMembershipId:ids.membership,commandId:ids.command,nfcTagId:ids.tag,expectedAssignmentId:ids.assignment};transport.result={status:'response',statusCode:409,contentType:'application/json',body:JSON.stringify({status:'command_id_conflict'})};expect(await client.removeTag(command)).toEqual({status:'command_id_conflict'});expect(transport.calls[1]!.endpoint).toBe('https://example.invalid/v1/administration/nfc-tags/remove');expect(JSON.parse(transport.calls[1]!.body)).toEqual(command);
+});
+
+it('T116 inspect v2 preserves a configured API base path',async()=>{
+ const transport=new FakeJsonPost();const client=new TapTimeAdministrationApiClient('https://example.invalid/api/',transport);
+ transport.result=projectionResponse({status:'succeeded',assignment:'unassigned',customerName:null,locationName:null,nfcTagId:null,activeAssignmentId:null});
+ expect(await client.inspectTag({expectedMembershipId:ids.membership,canonicalPayload:'nfc:uid:v1:AA'})).toMatchObject({status:'succeeded'});expect(transport.calls[0]!.endpoint).toBe('https://example.invalid/api/v2/administration/nfc-tags/inspect');
+});

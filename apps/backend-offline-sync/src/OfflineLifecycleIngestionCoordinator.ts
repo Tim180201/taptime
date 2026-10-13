@@ -950,7 +950,7 @@ function automaticReviewReason(input: {
   // A customer's name/version is mutable; its identity and activation interval are not.
   const customerVersionValid = lease.target_type === 'customer' && lease.target_row_version !== null
     && configuration.target_row_version !== null && BigInt(configuration.target_row_version) >= BigInt(lease.target_row_version);
-  const assignmentClosedByDeletion = deletedCustomer && configuration.assignment_valid_to?.getTime() === configuration.target_deactivated_at!.getTime()
+  const assignmentClosed = configuration.assignment_valid_to !== null
     && lease.assignment_row_version !== null && configuration.assignment_row_version !== null
     && BigInt(configuration.assignment_row_version) === BigInt(lease.assignment_row_version) + 1n;
   if (
@@ -970,7 +970,7 @@ function automaticReviewReason(input: {
       && (
         configuration.assignment_valid_from === null
         || configuration.tag_created_at === null
-        || (!assignmentClosedByDeletion && configuration.assignment_row_version !== lease.assignment_row_version)
+        || (!assignmentClosed && configuration.assignment_row_version !== lease.assignment_row_version)
         || occurredAt < configuration.assignment_valid_from.getTime()
         || (
           configuration.assignment_valid_to !== null

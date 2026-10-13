@@ -59,3 +59,16 @@ it('T112 restores and locks an uncertain command after reopening, offering its e
 it('T112 explains offline setup before NFC opens',()=>{
  expect(presentAdminSetupState({status:'ready',projection,outcome:{status:'setup_offline'}}).message).toBe('Zum Einrichten brauchst du eine Internetverbindung.');
 });
+
+it.each(['work','break'] as const)('T116 confirms removal of a listed %s card with its name and expected assignment',async type=>{
+ const tag={id:'card',displayName:'Eingang',validationFingerprint:'AAAAAAAAAAAA',assignmentState:'assigned' as const,assignmentType:type,targetCustomerId:type==='work'?'one':null,activeAssignmentId:'assignment'};
+ const c=setup({status:'ready',projection:{...projection,nfcTags:[tag]},outcome:null});
+ c.administration.removeTag=vi.fn<NonNullable<AdminSetupCapability['removeTag']>>(async()=>({status:'succeeded',removedAt:new Date().toISOString()}));
+ await act(async()=>root.render(createElement(AdminSetupScreen,{administration:c.administration})));await click('Karte Eingang entfernen');
+ expect(c.administration.removeTag).not.toHaveBeenCalled();expect(container.textContent).toContain('Karte „Eingang“ entfernen?');expect(container.textContent).toContain('Bisherige Zeiten bleiben unverändert. Läuft gerade eine Zeit über diese Karte, läuft sie weiter und wird in der App beendet.');
+ await click('Abbrechen');expect(c.administration.removeTag).not.toHaveBeenCalled();await click('Karte Eingang entfernen');await click('Entfernen bestätigen');expect(c.administration.removeTag).toHaveBeenCalledWith('card','assignment');expect(container.textContent).toContain('Karte entfernt. Sie kann neu eingerichtet werden.');
+});
+it('T116 offers removal after inspect and keeps the inspected assignment in the confirmation',async()=>{
+ const c=setup({status:'ready',projection:{...projection,nfcTags:[{id:'card',displayName:'Eingang',validationFingerprint:'AAAAAAAAAAAA',assignmentState:'assigned',assignmentType:'work',targetCustomerId:'one',activeAssignmentId:'new-assignment'}]},outcome:{status:'tag_checked',assignment:'customer',customerName:'Werkstatt',locationName:null,nfcTagId:'card',activeAssignmentId:'inspected-assignment'}});
+ c.administration.removeTag=vi.fn<NonNullable<AdminSetupCapability['removeTag']>>(async()=>({status:'assignment_changed'}));await act(async()=>root.render(createElement(AdminSetupScreen,{administration:c.administration})));await click('Karte entfernen');await click('Entfernen bestätigen');expect(c.administration.removeTag).toHaveBeenCalledWith('card','inspected-assignment');expect(container.textContent).toContain('Die Karte wurde inzwischen geändert. Bitte die Liste aktualisieren.');
+});

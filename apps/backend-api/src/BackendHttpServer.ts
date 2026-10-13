@@ -1,5 +1,5 @@
 import { isIsoTimestamp } from '@taptime/core';
-import {isInspectTagRequest} from '@taptime/mobile-work-contract';
+import {isInspectTagRequest,isRemoveNfcTagRequest} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest} from '@taptime/mobile-work-contract';
 import { APP_VERSION_HEADER, APP_UPDATE_MESSAGE, MOBILE_SESSION_V2, MOBILE_SESSION_V3, parseAppVersion } from '@taptime/mobile-work-contract';
 import minimumAppBuilds from './minimumAppBuilds.json';
@@ -112,6 +112,8 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v4/time-entries/export': 'time_entry_export_v4',
   '/v1/customers/hours/query': 'customer_hours',
   '/v1/administration/nfc-tags/inspect':'admin_tag_inspect',
+  '/v2/administration/nfc-tags/inspect':'admin_tag_inspect_v2',
+  '/v1/administration/nfc-tags/remove':'admin_tag_remove',
   '/v1/administration/nfc-tags/reuse':'admin_tag_reuse',
   '/v1/administration/customers/manage': 'admin_customer_manage',
   '/v1/administration/customers/quota': 'admin_customer_quota',
@@ -535,12 +537,23 @@ async function handleRequest(
     }
     return;
   }
-  if(route==='admin_tag_inspect'){
+  if(route==='admin_tag_inspect'||route==='admin_tag_inspect_v2'){
     if(!isInspectTagRequest(body)){respondError(response,400,'invalid_request');return;}
-    if(!dependencies.administration.inspectTag){respondError(response,503,'service_unavailable');return;}
+    const inspect=route==='admin_tag_inspect_v2'?dependencies.administration.inspectTagV2:dependencies.administration.inspectTag;
+    if(!inspect){respondError(response,503,'service_unavailable');return;}
     try{
-      const result=await withTimeout(dependencies.administration.inspectTag({...body,accessToken}),timeoutMilliseconds);
+      const result=await withTimeout(inspect.call(dependencies.administration,{...body,accessToken}),timeoutMilliseconds);
       respondJson(response,result.status==='succeeded'?200:result.status==='forbidden'?403:result.status==='unauthorized'?401:503,result);
+    }catch(error){if(isOrganizationPausedError(error)){respondError(response,403,'organization_paused');return;}respondError(response,503,'service_unavailable');}
+    return;
+  }
+  if(route==='admin_tag_remove'){
+    if(!isRemoveNfcTagRequest(body)){respondError(response,400,'invalid_request');return;}
+    if(!dependencies.administration.removeTag){respondError(response,503,'service_unavailable');return;}
+    try{
+      const result=await withTimeout(dependencies.administration.removeTag({...body,accessToken}),timeoutMilliseconds);
+      respondJson(response,result.status==='succeeded'?200:result.status==='forbidden'?403:result.status==='unauthorized'?401:
+        result.status==='invalid_request'?400:result.status==='unavailable'?503:409,result);
     }catch(error){if(isOrganizationPausedError(error)){respondError(response,403,'organization_paused');return;}respondError(response,503,'service_unavailable');}
     return;
   }
@@ -2883,7 +2896,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'operator_session': case 'operator_overview': case 'operator_create':
     case 'operator_package': case 'operator_status': case 'operator_audit': case 'operator_health':
       return 'operator_failed';
-    case 'admin_tag_inspect': case 'admin_tag_reuse':
+    case 'admin_tag_inspect': case 'admin_tag_inspect_v2': case 'admin_tag_remove': case 'admin_tag_reuse':
     case 'admin_customer_manage':
     case 'admin_customer_quota':
     case 'admin_create_customer':
@@ -2968,7 +2981,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
 }
 
 function isAdministrationRoute(route: Route): boolean {
-  return route === 'admin_tag_inspect' || route === 'admin_tag_reuse' || route === 'admin_customer_manage' || route === 'admin_customer_quota' || route === 'admin_create_customer'
+  return route === 'admin_tag_inspect_v2' || route === 'admin_tag_remove' || route === 'admin_tag_inspect' || route === 'admin_tag_reuse' || route === 'admin_customer_manage' || route === 'admin_customer_quota' || route === 'admin_create_customer'
     || route === 'admin_resend_employee_account_invitation'
     || route === 'admin_create_employee_account_invitation'
     || route === 'admin_create_employee_invitation'

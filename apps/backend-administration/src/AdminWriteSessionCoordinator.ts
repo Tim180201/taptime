@@ -1,3 +1,4 @@
+import {isRemoveNfcTagRequest,type RemoveNfcTagRequest,type RemoveNfcTagResult,type InspectTagResultV2} from '@taptime/mobile-work-contract';
 import {isInspectTagRequest,type InspectTagRequest,type InspectTagResult} from '@taptime/mobile-work-contract';
 import { isManageCustomerRequest, type ManageCustomerRequest, type ManageCustomerResult } from '@taptime/mobile-work-contract';
 import { isSetCustomerQuotaRequest, type SetCustomerQuotaRequest, type SetCustomerQuotaResult } from '@taptime/mobile-work-contract';
@@ -866,6 +867,25 @@ export class AdminWriteSessionCoordinator {
     },null);
   }
 
+  async inspectTagV2(command:InspectTagRequest & {readonly accessToken:string}):Promise<InspectTagResultV2> {
+    const {accessToken,...request}=command;
+    if(!isInspectTagRequest(request))return {status:'invalid_request'};
+    return this.runWithAuthority<InspectTagResultV2>(accessToken,request.expectedMembershipId as MembershipId,null,{},async client=>{
+      const row=await client.query<{result:InspectTagResultV2}>('SELECT taptime_server.inspect_nfc_tag_v2($1) result',[request.canonicalPayload]);
+      return {disposition:'commit',value:row.rows[0]!.result};
+    },null);
+  }
+
+  async removeTag(command:RemoveNfcTagRequest & {readonly accessToken:string},controls:AdminCoordinatorControls={}):Promise<RemoveNfcTagResult> {
+    const {accessToken,...request}=command;
+    if(!isRemoveNfcTagRequest(request))return {status:'invalid_request'};
+    return this.runWithAuthority<RemoveNfcTagResult>(accessToken,request.expectedMembershipId as MembershipId,request.commandId,controls,async client=>{
+      const row=await client.query<{result:RemoveNfcTagResult}>('SELECT taptime_server.remove_nfc_tag_v1($1,$2,$3) result',
+        [request.nfcTagId,request.expectedAssignmentId,request.commandId]);
+      return {disposition:'commit',value:row.rows[0]!.result};
+    },null);
+  }
+
   async reuseTag(command:ProvisionNfcTagCommand|ProvisionBreakNfcTagCommand):Promise<{readonly status:string;readonly validationFingerprint?:string}> {
     const customerId='customerId' in command?command.customerId:null;
     const name=normalizeNfcTagNameV1(command.displayName);
@@ -1017,7 +1037,8 @@ export class AdminWriteSessionCoordinator {
       return outcome.value;
     } catch (error) {
       if (transactionOpen) {
-        await rollbackPreservingOriginalError(client);
+        const rollbackFailure = await rollbackPreservingOriginalError(client);
+        connectionFailure ??= rollbackFailure;
       }
       if (isPostgresError(error, '42501')) return { status: 'forbidden' };
       throw error;
@@ -1975,10 +1996,11 @@ async function setDatabaseDeadlines(client: PoolClient, deadlineEpochMillisecond
   );
 }
 
-async function rollbackPreservingOriginalError(client: PoolClient): Promise<void> {
+async function rollbackPreservingOriginalError(client: PoolClient): Promise<Error | undefined> {
   try {
     await client.query('ROLLBACK');
-  } catch {
-    // Preserve the original verification, database, deadline, mapping or test-injection error.
+  } catch (error) {
+    // Keep the original operation error, but discard a connection that cannot roll back.
+    return error instanceof Error ? error : new Error(String(error));
   }
 }

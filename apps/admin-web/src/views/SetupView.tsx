@@ -1,3 +1,4 @@
+import {nfcTagRemovalMessage,NFC_TAG_REMOVAL_EXPLANATION} from '@taptime/mobile-work-contract';
 import type { AdminRoute } from '../navigation';
 import { RequiredForm } from '../RequiredForm';
 import {
@@ -22,6 +23,20 @@ export default function SetupView({
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
 }) {
+  const [removal,setRemoval]=useState<{id:string;assignmentId:string;name:string}|null>(null);
+  const [removing,setRemoving]=useState(false);
+  const [removalMessage,setRemovalMessage]=useState<string|null>(null);
+  const removalAuthority=authorityKey(state);
+  useEffect(()=>{setRemoval(null);setRemovalMessage(null);},[removalAuthority]);
+  const confirmRemoval=async()=>{
+    if(!removal||removing)return;
+    setRemoving(true);
+    try{
+      const result=await administration.removeTag?.(removal.id,removal.assignmentId)??{status:'unavailable' as const};
+      const latest=administration.getState();if(latest.status!=='ready'||authorityKey(latest)!==removalAuthority)return;
+      setRemovalMessage(nfcTagRemovalMessage(result));if(result.status!=='unavailable')setRemoval(null);
+    }catch{setRemovalMessage(nfcTagRemovalMessage({status:'unavailable'}));}finally{setRemoving(false);}
+  };
   const [tab,setTab]=useState(route?.setupTab ?? (state.reassignmentIntent === null ? 'arbeitsziele' : 'tags'));
   useEffect(()=>{if(route?.setupTab)setTab(route.setupTab);},[route?.setupTab]);
   useEffect(()=>{
@@ -40,6 +55,9 @@ export default function SetupView({
   const tagSelect = useRef<HTMLSelectElement>(null);
   const targetSelect = useRef<HTMLSelectElement>(null);
   const sectionRetryButton = useRef<HTMLButtonElement>(null);
+  const removalButton=useRef<HTMLButtonElement>(null);
+  const cardsPanel=useRef<HTMLDivElement>(null);
+  useIntentFocusReturn(removal!==null,removalButton,cardsPanel,sectionRetryButton);
   const gapNavigation=useRef(0);
   const [gapNotice,setGapNotice]=useState<string|null>(null);
   useEffect(()=>()=>{gapNavigation.current+=1;},[]);
@@ -146,7 +164,7 @@ export default function SetupView({
           && state.projection.customersComplete
           ? <p className="empty">Keine Kunden vorhanden.</p> : null}
       </Panel></div>
-      <div className="full-width" hidden={tab !== 'tags'}><div id="setup-card-assignments" tabIndex={-1}><Panel title="NFC-Karten" description="Karten werden mit dem Handy zugeordnet. Hier sehen Sie den Bestand und ändern eine bestehende Zuordnung.">
+      <div className="full-width" hidden={tab !== 'tags'}><div ref={cardsPanel} id="setup-card-assignments" tabIndex={-1}><Panel title="NFC-Karten" description="Karten werden mit dem Handy zugeordnet. Hier sehen Sie den Bestand und ändern eine bestehende Zuordnung.">
         <CountTruth count={state.projection.nfcTags.length} noun="Karten"
           complete={state.projection.nextCursor === null && state.projection.nfcTagsComplete} />
         <ul className="entity-list">{state.projection.nfcTags.map((tag) => <li key={tag.id}>
@@ -156,7 +174,12 @@ export default function SetupView({
             : tag.assignmentType === null
               ? 'Nicht zugeordnet'
               : customerNameById.get(tag.targetCustomerId) ?? 'Zugeordnet'}</small>
+          {state.role==='administrator'&&tag.activeAssignmentId!==null?<button className="warning-action" aria-label={`Karte ${tag.displayName} entfernen`} disabled={removing||state.reassignmentIntent!==null}
+            onClick={event=>{removalButton.current=event.currentTarget;setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}>Entfernen</button>:null}
         </li>)}</ul>
+        {removal?<Confirmation label="Karte entfernen" title={`Karte „${removal.name}“ entfernen?`} confirmLabel="Entfernen bestätigen" busyLabel="Wird entfernt …" busy={removing} warning
+          onConfirm={()=>void confirmRemoval()} onCancel={()=>setRemoval(null)}><p>{NFC_TAG_REMOVAL_EXPLANATION}</p></Confirmation>:null}
+        {removalMessage?<p role="status">{removalMessage}</p>:null}
         {state.projection.nfcTags.length === 0 && state.projection.nextCursor === null
           && state.projection.nfcTagsComplete
           ? <p className="empty">Keine Karten registriert.</p> : null}

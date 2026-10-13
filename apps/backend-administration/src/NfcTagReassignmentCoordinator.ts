@@ -404,7 +404,8 @@ export class NfcTagReassignmentCoordinator {
       return outcome.value;
     } catch (error) {
       if (transactionOpen) {
-        await rollbackPreservingOriginalError(client);
+        const rollbackFailure = await rollbackPreservingOriginalError(client);
+        connectionFailure ??= rollbackFailure;
       }
       if (typeof error === 'object' && error !== null && 'code' in error
         && error.code === '42501') return { status: 'forbidden' };
@@ -716,10 +717,11 @@ async function setDatabaseDeadlines(
   );
 }
 
-async function rollbackPreservingOriginalError(client: PoolClient): Promise<void> {
+async function rollbackPreservingOriginalError(client: PoolClient): Promise<Error | undefined> {
   try {
     await client.query('ROLLBACK');
-  } catch {
-    // Preserve the original verification, database, deadline, mapping or test-injection error.
+  } catch (error) {
+    // Keep the original operation error, but discard a connection that cannot roll back.
+    return error instanceof Error ? error : new Error(String(error));
   }
 }

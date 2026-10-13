@@ -1,4 +1,4 @@
-import {isInspectTagResult,type InspectTagRequest,type InspectTagResult} from '@taptime/mobile-work-contract';
+import {isInspectTagResultV2,type InspectTagRequest,type InspectTagResultV2,isRemoveNfcTagRequest,isRemoveNfcTagResult,type RemoveNfcTagRequest,type RemoveNfcTagResult} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest,isManageCustomerResult,type ManageCustomerRequest,type ManageCustomerResult} from '@taptime/mobile-work-contract';
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import { hasExactKeys, isJsonContentType, isObject, isUuid, parseJsonObject } from '../transport/strictJson';
@@ -8,6 +8,7 @@ const fingerprintPattern = /^[A-F0-9]{12}$/;
 const cursorPattern = /^v1:[ct]:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
+  private readonly inspectEndpoint: URL;
   private readonly createCustomerEndpoint: URL;
   private readonly locationsEndpoint: URL;
   private readonly projectionEndpoint: URL;
@@ -16,6 +17,7 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
 
   constructor(baseUrl: string, private readonly request: AuthenticatedJsonPostPort) {
     const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+    this.inspectEndpoint = new URL('v2/administration/nfc-tags/inspect',base);
     this.createCustomerEndpoint = new URL('v1/administration/customers', base);
     this.locationsEndpoint = new URL('v1/administration/locations/query', base);
     this.projectionEndpoint = new URL('v1/administration/setup-projection', base);
@@ -23,12 +25,21 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
     this.provisionBreakEndpoint = new URL('v1/administration/nfc-tags/provision-break', base);
   }
 
-  async inspectTag(command:InspectTagRequest):Promise<InspectTagResult>{
-    const response=await this.request.post(new URL('inspect',this.provisionEndpoint),JSON.stringify(command));
+  async inspectTag(command:InspectTagRequest):Promise<InspectTagResultV2>{
+    const response=await this.request.post(this.inspectEndpoint,JSON.stringify(command));
     if(response.status!=='response')return {status:response.status==='authority_rejected'?'forbidden':'unavailable'};
     if(response.statusCode===401||response.statusCode===403)return {status:'forbidden'};
     const body=isJsonContentType(response.contentType)?parseJsonObject(response.body):null;
-    return response.statusCode===200&&isInspectTagResult(body)?body:{status:'unavailable'};
+    return response.statusCode===200&&isInspectTagResultV2(body)?body:{status:'unavailable'};
+  }
+
+  async removeTag(command:RemoveNfcTagRequest):Promise<RemoveNfcTagResult>{
+    if(!isRemoveNfcTagRequest(command))return {status:'invalid_request'};
+    const response=await this.request.post(new URL('remove',this.provisionEndpoint),JSON.stringify(command));
+    if(response.status!=='response')return {status:response.status==='authority_rejected'?'forbidden':'unavailable'};
+    if(response.statusCode===401||response.statusCode===403)return {status:'forbidden'};
+    const body=isJsonContentType(response.contentType)?parseJsonObject(response.body):null;
+    return [200,400,409,503].includes(response.statusCode)&&isRemoveNfcTagResult(body)?body:{status:'unavailable'};
   }
 
   async manageCustomer(command:ManageCustomerRequest):Promise<ManageCustomerResult> {

@@ -246,6 +246,31 @@ export class AdminWebCoordinator implements AdminWebCapability {
     return outcome;
   }
 
+  private pendingTagRemoval:{key:string;commandId:string;generation:number}|null=null;
+  private tagRemovalBusy=false;
+  async removeTag(nfcTagId:string,expectedAssignmentId:string):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>{
+    const session=this.session,generation=this.generation;
+    if(this.state.status!=='ready'||!session||session.role!=='administrator')return {status:'forbidden'};
+    if(this.tagRemovalBusy)return {status:'unavailable'};
+    const key=JSON.stringify([nfcTagId,expectedAssignmentId]);
+    if(this.pendingTagRemoval?.key!==key||this.pendingTagRemoval.generation!==generation)
+      this.pendingTagRemoval={key,commandId:crypto.randomUUID(),generation};
+    const pending=this.pendingTagRemoval;this.tagRemovalBusy=true;
+    try{
+      const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.removeTag?.(token,
+        {expectedMembershipId:session.membershipId,commandId:pending.commandId,nfcTagId,expectedAssignmentId})??Promise.resolve({status:'unreachable'})));
+      if(generation!==this.generation||session!==this.session||this.state.status!=='ready')return {status:'forbidden'};
+      if(result.status==='succeeded'){
+        if(result.value.status==='succeeded'){
+          this.pendingTagRemoval=null;
+          await this.refresh();
+        }
+        return result.value;
+      }
+      return {status:result.status==='rejected'?'forbidden':'unavailable'};
+    }finally{this.tagRemovalBusy=false;}
+  }
+
   private pendingCustomerManagement:{key:string;commandId:string;generation:number}|null=null;
   private customerManagementBusy=false;
   async manageCustomer(customerId:string,change:CustomerManagementChange):Promise<ManageCustomerResult> {

@@ -1,3 +1,4 @@
+import {isRemoveNfcTagRequest,isRemoveNfcTagResult,type RemoveNfcTagRequest,type RemoveNfcTagResult} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest,isManageCustomerResult,type ManageCustomerRequest,type ManageCustomerResult} from '@taptime/mobile-work-contract';
 import { parseReviewItemQueryResponseV4 } from '@taptime/time-review-contract';
 import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeQuery,isVoidedTimeResponse,type VoidTimeResult,type VoidedTimeResponse,type VoidedTimeQuery} from '@taptime/mobile-work-contract';
@@ -94,6 +95,7 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  removeTag?(token:string,request:RemoveNfcTagRequest):Promise<ApiResult<RemoveNfcTagResult>>;
   manageCustomer?(token:string,request:ManageCustomerRequest):Promise<ApiResult<ManageCustomerResult>>;
   setCustomerQuota?(token:string,request:import('@taptime/mobile-work-contract').SetCustomerQuotaRequest):Promise<ApiResult<true>>;
   customerHours?(token: string, request: CustomerHoursRequest): Promise<ApiResult<CustomerHoursResponse>>;
@@ -268,6 +270,11 @@ export class AdminWebApiClient implements AdminWebApiPort {
     return this.request(`/v1/time-records/${kind}`,token,'POST',request as object,
       value => isTimeSupplementResult(value) ? value : null,false,false,false,maximumJsonBodyBytes,
       false,false,false,false,[200,422]);
+  }
+  async removeTag(token:string,request:RemoveNfcTagRequest):Promise<ApiResult<RemoveNfcTagResult>> {
+    if(!isRemoveNfcTagRequest(request))return {status:'invalid_response'};
+    return this.request('/v1/administration/nfc-tags/remove',token,'POST',request,value=>isRemoveNfcTagResult(value)?value:null,
+      false,false,false,maximumJsonBodyBytes,false,false,false,false,[200,400,409,503]);
   }
   async manageCustomer(token:string,request:ManageCustomerRequest):Promise<ApiResult<ManageCustomerResult>> {
     if(!isManageCustomerRequest(request))return {status:'invalid_response'};

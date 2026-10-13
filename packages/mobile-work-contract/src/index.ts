@@ -331,3 +331,4 @@ export * from './captureTime.js';
 
 export * from './appVersion.js';
 export * from './customerManagement.js';
+export * from './nfcTagRemoval.js';

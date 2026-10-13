@@ -1,3 +1,4 @@
+import {nfcTagRemovalMessage,NFC_TAG_REMOVAL_EXPLANATION} from '@taptime/mobile-work-contract';
 import { APP_NAME } from '../../../../shared/product';
 import {SubviewBack, useSubviewBack} from '../navigation/SubviewBack';
 import { useRequiredForm, RequiredField, RequiredTextField } from '../design/RequiredField';
@@ -12,6 +13,19 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   const state = useSyncExternalStore((listener) => administration.subscribe(listener),
     () => administration.getState(), () => administration.getState());
   useEffect(()=>()=>{const current=administration.getState();if(current.status==='capturing'||current.status==='writing')void administration.cancel();},[administration]);
+  const [removal,setRemoval]=useState<{id:string;assignmentId:string;name:string}|null>(null);
+  const [removing,setRemoving]=useState(false);
+  const removalPending=useRef(false);
+  const [removalMessage,setRemovalMessage]=useState<string|null>(null);
+  const confirmRemoval=async()=>{
+    if(!removal||removalPending.current)return;
+    removalPending.current=true;setRemoving(true);
+    try{
+      const result=await administration.removeTag?.(removal.id,removal.assignmentId)??{status:'unavailable' as const};
+      setRemovalMessage(nfcTagRemovalMessage(result));
+      if(result.status!=='unavailable')setRemoval(null);
+    }catch{setRemovalMessage(nfcTagRemovalMessage({status:'unavailable'}));}finally{removalPending.current=false;setRemoving(false);}
+  };
   const form = useRequiredForm();
   const [loadedAt,setLoadedAt]=useState<number|null>(null);
   const initialProjection=useRef('projection' in state?state.projection:null);
@@ -46,11 +60,11 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   const scanning=state.status==='capturing'||state.status==='writing';
   const locked=state.status==='submitting'||state.status==='creating_customer';
   const goBack=()=>{if(locked)return;if(scanning){void administration.cancel();return;}setAssigning(false);};
-  useSubviewBack(scanning||locked?goBack:null,3);
+  useSubviewBack(removal?()=>{if(!removing)setRemoval(null);}:scanning||locked?goBack:null,3);
   if (state.status === 'inactive' || state.status === 'loading') return <Message title="Karten werden geladen …" />;
   if (state.status === 'not_authorized') return <Message title="Du hast keine Berechtigung zum Zuordnen von Karten." />;
   const projection = state.projection;
-  const busy = state.status === 'creating_customer' || state.status === 'capturing' || state.status === 'writing' || state.status === 'submitting';
+  const busy = removing || state.status === 'creating_customer' || state.status === 'capturing' || state.status === 'writing' || state.status === 'submitting';
   const presentation = presentAdminSetupState(state, Platform.OS);
   const capture = () => {
     if (busy) return;
@@ -91,6 +105,8 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
           <View style={{ flex: 1 }}><Text style={styles.label}>{tag.displayName}</Text>
             <Text style={styles.muted}>{projection.customers.find((customer) => customer.id === tag.targetCustomerId)?.displayName
               ?? presentAssignment(tag.assignmentState, tag.assignmentType)}</Text></View></View>
+        {tag.assignmentState==='assigned'&&tag.activeAssignmentId!==null?<ActionButton title="Entfernen" accessibilityLabel={`Karte ${tag.displayName} entfernen`} tone="warning" disabled={busy||removing}
+          onPress={()=>{setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}/>:null}
       </Card>)}
       {projection.nfcTags.length === 0 ? <Card><Text>Noch keine Karten. Ordne deine erste Karte einem Arbeitsziel zu.</Text></Card> : null}
       <ActionButton title="Karte einrichten" tone="cta" disabled={busy} onPress={() => {form.reset();setAssigning(true);}} />
@@ -100,6 +116,16 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
         onPress={() => administration.loadMore()} /> : null}
       <ActionButton title="Aktualisieren" tone="quiet" disabled={busy} onPress={() => administration.refresh()} />
     </>}
+    {state.status==='ready'&&state.outcome?.status==='tag_checked'&&state.outcome.nfcTagId!==null&&state.outcome.activeAssignmentId!==null&&projection.nfcTags.some(tag=>tag.id===(state.outcome?.status==='tag_checked'?state.outcome.nfcTagId:null))?
+      <ActionButton title="Karte entfernen" tone="warning" disabled={removing} onPress={()=>{
+        if(state.outcome?.status!=='tag_checked'||!state.outcome.nfcTagId||!state.outcome.activeAssignmentId)return;
+        const inspected=state.outcome;const tag=projection.nfcTags.find(tag=>tag.id===inspected.nfcTagId);
+        if(tag){setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:state.outcome.activeAssignmentId,name:tag.displayName});}
+      }}/>:null}
+    {removal?<Card><Text accessibilityRole="header" style={styles.label}>{`Karte „${removal.name}“ entfernen?`}</Text><Text>{NFC_TAG_REMOVAL_EXPLANATION}</Text>
+      <ActionButton title="Entfernen bestätigen" tone="warning" disabled={removing} onPress={()=>void confirmRemoval()}/>
+      <ActionButton title="Abbrechen" tone="quiet" disabled={removing} onPress={()=>setRemoval(null)}/></Card>:null}
+    {removalMessage?<Text accessibilityLiveRegion="polite">{removalMessage}</Text>:null}
     {state.status !== 'ready' || state.outcome !== null ? <Card>
       <Text accessibilityLiveRegion="polite" style={styles.label}>{presentation.title}</Text>
       <Text>{presentation.message}</Text>
