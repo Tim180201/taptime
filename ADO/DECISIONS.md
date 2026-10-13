@@ -1843,3 +1843,24 @@ Angabe speichert der Server „Selbst …“ bzw. „Kein Grund angegeben“. �
 D-122 und D-131. Umsetzung in T-116.
 **Warum:** Der Administrator verantwortet den Betrieb; ein Pflichtgrund bremst ihn nur. Die Historie zeigt weiter
 Zeitpunkt, Urheber und Original.
+
+## D-135 · Kunden und Projekte Mitarbeitern zuordnen, ohne Sperre · 10.10.2026 · Tim (PO)
+Administrator und Standortleitung (eigener Bereich) können Kunden und Projekte einzelnen Mitarbeitern zuordnen; das ist
+freiwillig. Zugeordnete stehen für den Mitarbeiter oben als „Meine Kunden/Projekte“. Alle übrigen findet jeder über die
+Suche, etwa für Vertretungen; ohne Zuordnung bleibt alles wie heute. Sichtbar bleibt nur, was die Standortgrenzen heute
+erlauben (D-102). Karten erfassen unabhängig von der Zuordnung. Umsetzung in T-118 nach der Suche (T-117).
+**Warum:** Kurze Listen und weniger Fehlbuchungen, ohne Vertretungen zu blockieren. Datenschutz bringt diese Form nicht;
+ein strenger Modus je Betrieb bleibt auf demselben Datenmodell möglich, falls frogs ihn verlangt.
+
+## D-136 · Systemicon „Funk-Zifferblatt“, ohne Namen · 13.10.2026 · Tim (PO)
+Das Zeichen des Produkts ist Entwurf G der Icon-Runde 2: ein Zifferblatt in Mint, das oben rechts in Lime übergeht und
+in zwei Funkwellen ausläuft; die Zeiger stehen auf 10:08, der Minutenzeiger zeigt auf das Signal. Es enthält keinen
+Buchstaben und keinen Namen und übersteht so eine Namensänderung; der Name steht als Text daneben (`shared/product.json`).
+Quelle ist `shared/brand/`: Geometrie in `mark.json`, Variante „full“ ab 48 px, „compact“ darunter. Bilddateien werden
+nur daraus abgeleitet, nie von Hand nachgezeichnet. Farben: Mint #7EE0C0 und Lime #C9F24D auf Grund #0E1512; einfarbig
+nur, wo das System es verlangt (Android-Themensymbol, iOS getönt). Kein Schriftzug im Zeichen und im Startbild. Einsatz:
+App-Symbol, Startbild, Favicons, Markenzeichen in Verwaltung, Betreiber-Bereich und Startseite, `/app` und `/tag`,
+Anmeldung und Kopf der App. Umsetzung in T-120. Vor dem Eintrag in die Stores klärt der PO mit dem Anwalt die
+Ähnlichkeit zu bestehenden Zeichen, besonders zum Kontaktlos-Zeichen der Kartenzahlung.
+**Warum:** Ein Zeichen zeigt, was das Produkt tut: Antippen startet die Zeit. Bisher hatte jede Oberfläche ein anderes
+Platzhalterzeichen („T“ in der Verwaltung, Ringe auf Startseite und im Betreiber-Bereich, Expo-Vorgaben in der App).
