@@ -3,8 +3,8 @@
 **Stand 09.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., `7cd4233` → `831cb29`, Migration 052, zwei
 Probe-Wiederherstellungen grün, WAL-Zyklus 75–79 s). Ausgeliefert: T-109, T-113, T-112, T-114, T-115. T-098c
 abgeschlossen (`f97bc4e`): Die Registry räumt wieder auf, erster Lauf 234 Versionen. Davor zwei wacklige Tests behoben
-(`80bbb3a` festes Datum in T-066, `4598d25` Ansage in T-107). Als Nächstes Geräteabnahme mit den neuen Builds, danach
-T-116a und T-116b (D-134).
+(`80bbb3a` festes Datum in T-066, `4598d25` Ansage in T-107). Die Geräteabnahme ist verschoben (PO 13.10.);
+in Arbeit ist T-116a (D-134).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
