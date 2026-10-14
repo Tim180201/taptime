@@ -1,64 +1,75 @@
 # Aktuelle Aufgabe
 
-> **Stand 14.10.2026:** T-120 abgeschlossen (`d193725`). Deploy 5 mit neuen App-Builds und Geräteabnahme liegen beim PO.
-> Parallel dazu **T-119** (Code-Teil). Ausgeliefert wird T-119 zusammen mit T-024, vor den ersten echten Konten.
+> **Stand 14.10.2026:** Deploy 5 ist auf `d193725` (Migrationen 053–057). T-119 liegt auf main (`3284c99`, Migration
+> 058), ausgeliefert wird es mit T-024. Die Geräteabnahme vom 14.10. ergab einen P1 und drei Befunde: **T-121**.
 
-## T-119 · Sicherheit vor echten Daten
+## T-121 · Befunde der Geräteabnahme Deploy 5
 
-**Für:** Development · **Risiko:** hoch (Inhaltsrichtlinie, Rechteprüfung, Anmeldung) · **Zeitbox:** ein bis zwei
-Sitzungen. Kein Zugriff auf Supabase oder Produktion, kein Deploy.
+**Für:** Development · **Risiko:** hoch (Teil 1 betrifft die Erfassungskette auf Android) · **Zeitbox:** eine Sitzung für
+Teil 1, eine zweite für Teile 2 bis 4; reißt Teil 1, wird allein gemeldet. Nur die App und das Web; kein Server, keine
+Migration, kein Deploy.
 
-### Ausgangslage (`d193725`)
+### Teil 1 · P1: Android erfasst die Karte nur nach Antippen
 
-- Die Inhaltsrichtlinie (CSP) von Verwaltung und Betreiber-Bereich erlaubt `connect-src https://*.supabase.co`.
-  Die genaue Supabase-Herkunft steht in `apps/mobile/eas.json`; der Image-Bau liest sie dort.
-- Viele SECURITY-DEFINER-Funktionen; `B3SchemaSecurity` prüft Eigentümer und Rechte nur für einzelne Gruppen.
-- Die Passwort-Mindestlänge 8 steht an mehreren Stellen fest im Code. Die App meldet eine Supabase-Drosselung (HTTP 429)
-  als „nicht verfügbar“.
-- Die Anmeldung geht direkt von App und Web an Supabase (D-010); D-139 regelt den Schutz.
+**Beobachtung (PO, 14.10., neue Prüf-APK zu `d193725`):** Auf Android startet die Karte keine Zeit, solange der Kreis
+in „Erfassen“ nicht angetippt wurde.
+- App offen auf „Erfassen“, Karte angehalten, nicht getippt: der Statuspunkt oben rechts zeigt kurz „…“ (orange), sonst
+  nichts. Keine Zeit, keine Meldung.
+- App geschlossen, Karte angehalten: die App öffnet sich, keine Zeit.
+- Kreis antippen, dann Karte: Zeit läuft (Lesemodus aus T-112). Start, Stopp und zwei Karten nacheinander stimmen.
 
-### Teil 1 · Inhaltsrichtlinie
+**Erwartung:** Android erfasst ohne Antippen, bei offener App sofort und bei geschlossener App beim Öffnen (D-042,
+D-043, STATUS „Geräteabnahme“). Das Antippen ist der iPhone-Weg (D-081), nicht der Android-Weg.
 
-1. `connect-src` erlaubt statt `*.supabase.co` genau die Supabase-Herkunft, überall, wo die CSP sie heute nennt.
-2. Ein Test leitet die erlaubte Herkunft aus `apps/mobile/eas.json` ab und vergleicht sie mit dem Caddyfile (AGENTS
-   1.6). Keine Wildcard für Supabase mehr.
+**Weg im Code:** System-Intent → `TapTimeNfcIngress.captureActivityCreateIntent/DeliveryIntent` (Kotlin) →
+`NativeNfcIngressLifecycle.tick` → `OfflineCaptureCoordinator.captureNativeNfcIngressAuthority` → `scan()` →
+`ExclusiveNfcCaptureArbiter` → `ingress.consume()`. Der kurze Zustand „…“ zeigt, dass die Kette bis zum Scan kommt und
+ohne Ergebnis endet. Verdächtige, in dieser Reihenfolge prüfen: die Autoritätsgrenze (`intentOrigin`,
+`closeProcessStartIntentWindow` nur in der Hintergrundaufgabe, `canStartScan`, `operationFlight`); der Arbiter
+(`activeOwner`, ein nicht beendeter Verwaltungs-Scan); die Lesemodus-Registrierung aus T-112
+(`registerTagEvent`/`unregisterTagEvent`, verbleibender Lesemodus unterdrückt den System-Dispatch); die Startfolge
+seit T-115 und T-120 (`StartupBoundary`, Zeitpunkt von `start()` der Ingress-Lifecycle); `consume()` in
+`NativeNfcIngress.ts` (Normalisierung von UID und Zeit). Der letzte grüne Android-Test dieses Wegs liegt vor T-107;
+die Ursache kann in jedem Commit seit `831cb29` oder davor liegen.
 
-### Teil 2 · SECURITY DEFINER und Policies
+1. **Rot zuerst:** ein Test über die echte Kette mit simuliertem System-Intent bei offener App
+   (`nativeNfcIntentBoundary.test.ts`, `NativeNfcIngress.test.ts`), der heute scheitern muss, wenn die Ursache im
+   JS liegt. Liegt sie im nativen Teil, der Test auf der Kotlin-Seite (`TapTimeNfcIngressModule`) oder im
+   Config-Plugin (`withNfcTagDispatch`).
+2. Ursache benennen, Test grün machen. Die Grenze aus D-043 (keine Erfassung von vor dem Laufzeitstart) bleibt
+   bestehen und begründet im Test.
+3. Ist die Ursache ohne Gerät nicht zu bestimmen: STOPP und dem TL genau sagen, welche Beobachtung am Gerät fehlt.
+   Keine Diagnoseansicht bauen.
 
-Dauerhafte Prüfungen in `B3SchemaSecurity`, abgeleitet aus dem Katalog, ohne feste Zahlen:
-3. Jede SECURITY-DEFINER-Funktion im Schema hat einen festen `search_path` (`pg_catalog`). Ihr Eigentümer ist eine
-   NOLOGIN-Rolle ohne Superuser. `PUBLIC` und LOGIN-Rollen haben kein direktes EXECUTE.
-4. Jede RLS-Policy auf einer Tabelle mit `organization_id` bindet an den Mandanten aus dem Anfragekontext. Ausnahmen
-   stehen im Test auf einer Liste mit Begründung je Eintrag und werden im Bericht genannt.
-5. Befunde werden als P0–P3 gemeldet. P0 und P1 werden in T-119 behoben (Migration 058 mit vollständigen Körpern),
-   P2 und P3 nur notiert.
+### Teil 2 · „Meine Kunden und Projekte“ ohne Altliste (D-135)
 
-### Teil 3 · Anmeldung (D-139)
+Wer Zuordnungen hat, sieht ohne Suchbegriff **nur** „Meine Kunden und Projekte“ und darunter den Hinweis „Weitere
+Kunden und Projekte über die Suche“. „Alle Kunden und Projekte“ erscheint nur, wenn keine Zuordnung besteht. Mit
+Suchbegriff bleibt die Trefferliste wie heute. Gilt in App und Web für „Manuell“ und „Zeit hinzufügen“ (eigene Zeit:
+„Meine“, fremde Person: „Zugeordnete Kunden und Projekte“ dieser Person). Die feste Startleiste, die Auswahlregel und
+„Manuell“ ohne Netz bleiben unverändert.
 
-6. Die Mindestlänge für Passwörter steht in einer gemeinsamen Quelle (`shared/`), Wert 10. Alle Stellen in App, Web und
-   Betreiber-Bereich, die ein Passwort setzen oder prüfen, lesen sie von dort. Die Meldung lautet „mindestens 10
-   Zeichen“.
-7. Drosselt Supabase (429 oder `over_request_rate_limit`), zeigen App, Web und Betreiber-Bereich „Zu viele Versuche.
-   Bitte warten Sie einige Minuten.“ (App: „warte“). Nicht „nicht verfügbar“, nicht „falsches Passwort“.
-8. `infrastructure/DEPLOY.md`, Supabase-Abschnitt: die PO-Schritte nach D-139. Mindestlänge 10, Anmeldegrenze je IP
-   100 in 5 Minuten. Nach dem Wechsel auf Pro (D-130) den Schutz vor bekannten geleakten Passwörtern einschalten.
-   Jeweils mit Hinweis, wer ändert und wann.
+### Teil 3 · Tastatur schließt beim Antippen (App)
+
+In „Manuell“ und „Zeit hinzufügen“ schließt die Tastatur, sobald ein Ziel angetippt wird, so wie beim Tippen neben das
+Feld. Der Suchbegriff bleibt stehen.
+
+### Teil 4 · Symbol im Kreis (Android, P2)
+
+Das Symbol „Zeit gespeichert“, das im Kreis von „Erfassen“ das Funkzeichen ersetzt, flackert nach dem PO-Bericht
+gelegentlich. Nur ansehen und Ursache notieren, falls sie ohne Gerät erkennbar ist; sonst als P2 im Bericht.
 
 ### Tests
 
-Je Punkt rot vor der Änderung:
-- CSP mit genau einer Supabase-Herkunft, gleich `eas.json`; die Browserläufe mit CSP bleiben grün.
-- Katalogprüfungen 3 und 4 über alle Funktionen und Policies; ein absichtlich falsches Testobjekt wird erkannt.
-- Mindestlänge: 9 Zeichen abgewiesen, 10 angenommen, in jedem betroffenen Formular. Alle lesen dieselbe Quelle.
-- Drosselung: die Meldung in App, Web und Betreiber-Bereich.
-- Alle Suiten, Postgres-Tests, Typecheck, Builds, Bundles und Browserläufe grün.
+Je Punkt rot vor der Änderung: Teil 1 wie oben; Teil 2 mit und ohne Zuordnung, mit und ohne Suchbegriff, für eigene
+und fremde Person, App und Web; Teil 3 Tastatur-Ereignis beim Antippen. Alle Suiten, Typecheck, Builds, Bundles und
+Browserläufe grün.
 
 ### Grenzen
 
-Keine Vorschaltstelle für die Anmeldung, kein CAPTCHA, kein Zugriff auf das Supabase-Dashboard (D-139). Kein Deploy.
-ADO nicht ändern; DEPLOY.md gehört zur Umsetzung (AGENTS 7).
+Kein Server, keine Migration, keine Vertragsänderung. Kein Deploy, kein EAS-Build. ADO nicht ändern.
 
 ### Bericht
 
-`.t119-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
-P1/P2. Kein Commit vor `APPROVED` durch den TL.
+`.t121-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
+P1/P2. Kein Commit vor `APPROVED` durch den TL. Danach neue App-Builds und Nachtest am Android durch den PO.

@@ -1,47 +1,46 @@
 # TapTim.e — Status
 
-**Stand 14.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., Migration 052). Ausgeliefert: T-109,
-T-113, T-112, T-114, T-115. Auf main, noch nicht ausgeliefert: T-116a (`2596899`, `a9d5c54`; Migrationen 053 und 054,
-D-134, D-137), T-116b (`514f919`, Migration 055), T-117a (`1372b81`, Migration 056, D-138), T-117b (`e9bf389`),
-T-118a (`8eff459`, Migration 057), T-118b (`41d68dc`) und T-120 (`d193725`, D-136). Als Nächstes Deploy 5 mit
-neuen App-Builds und Geräteabnahme (PO); parallel T-119 (D-139). Supabase-Projekt am 14.10. vom PO aufgeräumt: die
-unbenutzte Kopie aus der Zeit vor D-010 (Schema `taptime_server`, Tabelle in `public`, Rollen ohne Anmelderecht) ist
-entfernt; der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
+**Stand 14.10.2026.** Produktion läuft auf `d193725` (Deploy 5 am 14.10., Migrationen 053–057). Ausgeliefert: T-116a,
+T-116b, T-117a, T-117b, T-118a, T-118b, T-120 (D-134 bis D-138). Neue App-Builds (TestFlight, Prüf-APK) zu `d193725`
+sind auf den PO-Geräten. Auf main, noch nicht ausgeliefert: T-119 (`3284c99`, Migration 058, D-139); kommt mit T-024.
+In Arbeit: T-121 (Befunde der Geräteabnahme, zuerst Android-Karte ohne Antippen). Supabase-Projekt am 14.10. vom PO
+aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
+der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Deploy 5, neue App-Builds und Geräteabnahme → T-119 und T-024 → Pilot. Pilot als
-Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
+**Weg zum Pilot:** T-121 und Nachtest am Android → T-122 (Web-Politur) → T-024 mit Deploy 6 (T-119) → Pilot.
+Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
 
 ## Geräteabnahme (PO)
 
-**iPhone (07.10.):** bestanden: Anmeldung, Begriffe und Reiter, „Übertragung“ mit Konto, Erfassen mit laufender Zeit und
-Pause samt „Zeit beenden“ aus der Pause, offline, Kalender, „Zeit hinzufügen“, Kunden anlegen/umbenennen/löschen,
-Mitarbeiter mit Monatswähler und Herunterziehen, „Passwort vergessen“ mit neuer Vorlage, große Schrift.
-**Offen:** am iPhone die Scan-Teile (Karte startet und beendet, „Karte prüfen“; bei geschlossener App erscheint nur die
-Hinweisseite `/tag`, keine Erfassung, D-081); Android komplett (dort öffnet die Karte die App und erfasst); Web
-(Übersicht mit nächstem Schritt, „Zeiten prüfen“, Mitarbeiter mit Monat, Betreiber-Paket); Aussperr-Test mit einem
-zweiten Konto; einmal VoiceOver/TalkBack. Nach Deploy 4 die Einladung dieses zweiten Kontos bis „App laden“
-durchspielen. Befunde des PO-Tests vom 07.10. sind in T-112 bis T-114 erledigt; „Erfassen“ bereit, laufend und in Pause ohne
-Scrollen, Reiter bei großer Schrift. Mit den neuen Builds zusätzlich: je 20 Einrichtungen am iPhone und am Android (am iPhone dreimal bewusst zu
-früh wegnehmen, Karten über „Kunde löschen“ wieder frei); Apple-Fenster ohne Haken bei Fehlern; Vibration und Ton
-(Stummschalter); Android ohne Systemton, nach dem Einrichten startet keine Zeit, nach einer Erfassung keine zweite.
-T-115 am iPhone: einmal über Nacht gesperrt am Ladekabel, dazu zehnmal nach mehr als einer Stunde Sperre öffnen; 0 von
-10 mit „derzeit nicht verfügbar“, ein angezeigter Code mit Foto melden.
+**Deploy 5, 14.10., iPhone und Android, Web (31 von 43 Punkten bestanden):** neues Symbol und Startbild, Zeichen in
+App und Web, Favicons; Karte startet und stoppt am iPhone, geschlossene App zeigt nur `/tag` (D-081); zwei Karten
+nacheinander mit klarer Meldung; offline mit Abgleich von selbst; Vibration und Ton; Karte einrichten mit Suche,
+„Karte prüfen“ und „Karte entfernen“, entfernte Karte erfasst nicht; eigene Zeit ändern und löschen ohne Grund,
+Standortleitung mit Pflichtgrund; Kunden mit Suche und Detail; Kontingent-Hinweis; Pause als eigene Zeile; Web-Übersicht,
+„Zeiten prüfen“, Betreiber-Bereich; Aussperr-Test.
+**Befunde:** Android erfasst die Karte nur nach Antippen des Kreises, bei offener wie geschlossener App (P1, T-121) ·
+unter „Meine Kunden und Projekte“ stehen weiter alle (T-121) · Tastatur bleibt nach Antippen eines Ziels offen (T-121) ·
+Symbol „Zeit gespeichert“ im Kreis flackert gelegentlich (P2, T-121) · Web: Farben teils zu grell, „Kunde anlegen“ fehlt im
+Reiter Kunden, „Manuell“ und „Einrichtung“ unübersichtlich (T-122).
+**Noch offen:** je 20 Einrichtungen am iPhone und am Android; Einladung eines zweiten Kontos bis „App laden“; einmal
+VoiceOver und TalkBack; große Schrift; T-115 über Nacht am Ladekabel und zehnmal nach langer Sperre (0 von 10 mit
+„derzeit nicht verfügbar“, Code mit Foto melden). Nach T-121: Android-Karte ohne Antippen bei offener und geschlossener
+App erneut prüfen.
 
-## Nach Deploy 4 (PO)
+## Beim PO (nach Deploy 5)
 
 1. **Einladungsvorlage** aus `docs/T-047-Einladungsvorlage.md` vollständig in Supabase übertragen (zweiter Link „App
-   laden“, neuer Satz zum abgelaufenen Link). `https://tb-infra.de/app` am Handy und am Rechner öffnen: ohne
-   Passwortabfrage, „Die App erhalten Sie von Ihrer Verwaltung.“, solange die Links leer sind.
-2. **App-Builds** mit T-109 bis T-115 (`production-validation`): iOS gebaut und an TestFlight übergeben (09.10.); der
-   iOS-Build hat das Signalmodul aus T-112 erstmals kompiliert. Android folgt.
-3. **Store-Links:** Der PO liefert TestFlight- und Play-Test-Link; Development trägt sie in
+   laden“, neuer Satz zum abgelaufenen Link); `https://tb-infra.de/app` am Handy und am Rechner prüfen.
+2. **Store-Links:** Der PO liefert TestFlight- und Play-Test-Link; Development trägt sie in
    `apps/landing-web/src/appLinks.json` ein (kleiner Auftrag, danach regulärer Deploy). Mit Google Play kommt der
-   Fingerabdruck der Play-App-Signatur in `assetlinks.json` hinzu.
+   Fingerabdruck der Play-App-Signatur in `assetlinks.json` hinzu; das 512-px-Symbol liegt in `shared/brand/store/`.
+3. **Supabase nach D-139** (mit T-024): Mindestlänge 10, Anmeldegrenze je IP 100 in 5 min, nach Pro der Schutz vor
+   geleakten Passwörtern (`infrastructure/DEPLOY.md`).
 
 ## Fakten für den Betrieb
 
