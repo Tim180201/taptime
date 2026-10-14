@@ -1,3 +1,4 @@
+import type {QuotaAlertsCapability as importQuotaAlertsCapability} from '../search/search';
 import type { ClientSearchCapability } from '../search/search';
 import type {
   MobileOwnTimeQueryResponse,
@@ -39,7 +40,7 @@ export type MobileWorkState =
       readonly feedback?: string | null;
     };
 
-export interface MobileWorkCapability extends ClientSearchCapability {
+export interface MobileWorkCapability extends ClientSearchCapability, importQuotaAlertsCapability {
   searchTargets?(search:string|null,more?:boolean):Promise<void>;
 
   setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
@@ -76,6 +77,7 @@ export type ManualTriggerResult =
   | { readonly status: 'authority_rejected' | 'unavailable' };
 
 export interface MobileWorkApiPort {
+  readQuotaAlerts?(request:import('@taptime/mobile-work-contract').QuotaAlertsQueryRequest):Promise<import('../search/search').PageResult<import('@taptime/mobile-work-contract').QuotaAlertsQueryResponse>>;
   querySearch?<K extends import('@taptime/mobile-work-contract').SearchKind>(kind:K,request:import('@taptime/mobile-work-contract').SearchRequests[K]):Promise<import('../search/search').PageResult<import('@taptime/mobile-work-contract').SearchResponses[K]>>;
   setCustomerQuota?(membershipId:string,customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   readCustomerHours?(request: import('@taptime/mobile-work-contract').CustomerHoursRequest): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult>;

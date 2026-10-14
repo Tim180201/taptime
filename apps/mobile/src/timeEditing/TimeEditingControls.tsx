@@ -1,3 +1,4 @@
+import {useAssignedTargets,combineTargets,targetLabel,targetKey} from '../search/useAssignedTargets';
 import {useSearchPages} from '../search/useSearchPages';
 import {SearchField,SearchStatus} from '../search/SearchControls';
 import {useSubviewBack} from '../navigation/SubviewBack';
@@ -95,8 +96,10 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,person
     ?context.capability.querySearch?.('backfill_targets',{targetMembershipId,search,cursor})??Promise.resolve({status:'unavailable'} as const)
     :context.capability.querySearch?.('work_targets',{search,cursor})??Promise.resolve({status:'unavailable'} as const),
     value=>value.targets,target=>`${target.targetType}:${target.targetId}`,[context.capability,targetMembershipId,managedBackfill],kind==='backfill');
-  const targets=page.state.items;
-  useEffect(()=>{if(page.state.status==='ready'&&!page.state.busy&&!page.state.failed&&target&&!targets.some(t=>t.targetType===target.targetType&&t.targetId===target.targetId))setTarget(null);},[page.state,target]);
+  const assigned=useAssignedTargets(context.capability,managedBackfill?targetMembershipId:null,page.state.search,[context.membershipId,context.role],kind==='backfill');
+  const favorites=page.state.search===null?assigned.state.items:[];
+  const targets=combineTargets(page.state.items,favorites);
+  useEffect(()=>{if(page.state.status==='ready'&&!page.state.busy&&!page.state.failed&&!assigned.state.busy&&target&&!targets.some(t=>t.targetType===target.targetType&&t.targetId===target.targetId))setTarget(null);},[page.state,target]);
 
   const [originalEnd]=useState(()=>kind==='stop'?new Date().toISOString():record?.stoppedAt);
   const [date,setDate]=useState(record?toZonedMinuteInput(record.startedAt).slice(0,10):day??'');
@@ -165,9 +168,15 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,person
     {kind==='backfill'?<><RequiredField form={form} error={!target || !targets.some(t=>t.targetType===target.targetType && t.targetId===target.targetId) ? "Bitte einen Kunden oder ein Projekt wählen." : null}><Text accessibilityRole="header">Kunde oder Projekt</Text>
       <SearchField value={page.input} onChange={page.setSearch}/>
       <SearchStatus state={page.state} onRetry={page.pager.retry} onClear={()=>page.setSearch('')}/>
+      {page.state.search===null&&assigned.state.failed?<SearchStatus state={assigned.state} onRetry={assigned.pager.retry}/>:null}
+      {favorites.length?<View><Text accessibilityRole="header">{managedBackfill?'Zugeordnete Kunden und Projekte':'Meine Kunden und Projekte'}</Text>
+        {favorites.map(t=><ActionButton key={targetKey(t)} title={t.displayName} accessibilityState={{selected:target!==null&&targetKey(target)===targetKey(t)}} disabled={saving||assigned.state.busy||assigned.state.failed} onPress={()=>setTarget(t)}/>)}
+        {assigned.state.nextCursor?<ActionButton title="Weitere zugeordnete laden" disabled={assigned.state.busy||saving} onPress={()=>assigned.pager.loadMore()}/>:null}
+      </View>:null}
+      <Text accessibilityRole="header">{page.state.search?'Treffer':'Alle Kunden und Projekte'}</Text>
       {(['customer','project','general_work'] as const).map(type=>{
-        const group=targets.filter(t=>t.targetType===type);
-        return group.length?<View key={type} accessibilityRole="list"><Text accessibilityRole="header">{type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}</Text>{group.map(t=><ActionButton key={`${t.targetType}/${t.targetId}`} title={`${target?.targetType===t.targetType&&target.targetId===t.targetId?'✓ ':''}${t.displayName}`} tone="quiet" disabled={saving||page.state.busy||page.state.failed} onPress={()=>setTarget(t)}/>)}</View>:null;
+        const group=page.state.items.filter(t=>t.targetType===type);
+        return group.length?<View key={type} accessibilityRole="list"><Text accessibilityRole="header">{type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}</Text>{group.map(t=><ActionButton key={`${t.targetType}/${t.targetId}`} title={`${target?.targetType===t.targetType&&target.targetId===t.targetId?'✓ ':''}${targetLabel(t,page.state.search)}`} tone="quiet" disabled={saving||page.state.busy||page.state.failed} onPress={()=>setTarget(t)}/>)}</View>:null;
       })}
       {page.state.nextCursor?<ActionButton title="Weitere laden" disabled={page.state.busy} onPress={()=>page.pager.loadMore()}/>:null}
       </RequiredField>{field('Datum (JJJJ-MM-TT)',date,setDate,false,!dateValue)}</>:null}

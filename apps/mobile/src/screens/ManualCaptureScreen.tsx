@@ -1,3 +1,5 @@
+import {useAssignedTargets,combineTargets,targetLabel} from '../search/useAssignedTargets';
+import {SearchStatus} from '../search/SearchControls';
 import { useDebouncedSearch } from '../search/useSearchPages';
 import { SearchField } from '../search/SearchControls';
 import {manualCaptureOutcome} from '../work/manualCaptureFeedback';
@@ -28,10 +30,12 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
   useEffect(() => { void work.refresh(); }, [work]);
   const query=useDebouncedSearch(search);
   useEffect(()=>{if(query!==null||work.getState().status==='ready')void work.searchTargets?.(query);},[work,query]);
+  const assigned=useAssignedTargets(work,null,query,[],state.status==='ready');
+  const favorites=query===null?assigned.state.items:[];
   const visible=state.status==='ready'?state.targets.targets:[];
-  const selectedTarget = visible.find(target => target.targetId === selected?.targetId
+  const selectedTarget = combineTargets(visible,favorites).find(target => target.targetId === selected?.targetId
     && target.targetType === selected.targetType);
-  useEffect(() => { if (state.status==='ready'&&!state.targetsBusy&&!state.targetsFailed&&selected&&!selectedTarget) setSelected(null); }, [selected, selectedTarget,state]);
+  useEffect(() => { if (state.status==='ready'&&!state.targetsBusy&&!state.targetsFailed&&!assigned.state.busy&&selected&&!selectedTarget) setSelected(null); }, [selected, selectedTarget,state]);
 
   if (state.status === 'inactive' || state.status === 'loading') {
     return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
@@ -58,12 +62,20 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
         <Text accessibilityLiveRegion="polite">{state.targetsBusy?'Wird geladen …':`${state.targets.nextCursor!==null?'mehr als ':''}${visible.length} Treffer`}</Text>
         {state.targetsFailed?<View><Text accessibilityRole="alert">Arbeitsziele konnten nicht geladen werden.</Text><ActionButton title="Erneut versuchen" onPress={()=>work.searchTargets?.(query,state.targets.nextCursor!==null)}/></View>:null}
         {!state.targetsBusy&&!state.targetsFailed&&visible.length===0&&query?<View><Text>{`Keine Treffer für „${query}“`}</Text><ActionButton title="Suche löschen" onPress={()=>setSearch('')}/></View>:null}
+        {query===null&&assigned.state.failed?<SearchStatus state={assigned.state} onRetry={assigned.pager.retry}/>:null}
+        {favorites.length?<View style={styles.list}><Text accessibilityRole="header">Meine Kunden und Projekte</Text>
+          {favorites.map(target=><ActionButton key={`${target.targetType}:${target.targetId}`} title={target.displayName} disabled={state.submitting||assigned.state.busy||assigned.state.failed}
+            tone={selected?.targetId===target.targetId?'primary':'secondary'} accessibilityState={{selected:selected?.targetId===target.targetId}}
+            onPress={()=>{setSelected(target);AccessibilityInfo.announceForAccessibility(`Ausgewählt: ${target.displayName}`);}}/>)}
+          {assigned.state.nextCursor?<ActionButton title="Weitere zugeordnete laden" disabled={assigned.state.busy||state.submitting} onPress={()=>assigned.pager.loadMore()}/>:null}
+        </View>:null}
+        <Text accessibilityRole="header">{query?'Treffer':'Alle Kunden und Projekte'}</Text>
         <View style={styles.list}>
           {(['customer', 'project', 'general_work'] as const).map(type => {
             const targets = visible.filter(target => target.targetType === type);
             return targets.length === 0 ? null : <View key={type} accessibilityRole="list" style={styles.list}>
               <Text style={styles.group}>{groupLabel(type)}</Text>
-              {targets.map(target => <ActionButton key={`${target.targetType}:${target.targetId}`} title={target.displayName}
+              {targets.map(target => <ActionButton key={`${target.targetType}:${target.targetId}`} title={targetLabel(target,query)}
                 disabled={state.submitting} tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
                 accessibilityState={{selected:selected?.targetId === target.targetId}}
                 onPress={() => {setSelected(target); AccessibilityInfo.announceForAccessibility(`Ausgewählt: ${target.displayName}`);}} />)}
@@ -79,7 +91,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
     </ScrollView>
     {!state.ownTime.activeRecord && selectedTarget ? <Card style={{flexShrink: 0}}>
       <Text style={styles.selection}>{selectedTarget.displayName}</Text>
-      <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting || state.capturePending || state.targetsBusy || state.targetsFailed} loading={state.submitting}
+      <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting || state.capturePending || state.targetsBusy || state.targetsFailed || (!visible.some(t=>t.targetId===selectedTarget.targetId&&t.targetType===selectedTarget.targetType)&&(assigned.state.busy||assigned.state.failed))} loading={state.submitting}
         onPress={() => {if(form.validate())void work.triggerManual(selectedTarget);}} />
     </Card> : null}
   </Screen>;

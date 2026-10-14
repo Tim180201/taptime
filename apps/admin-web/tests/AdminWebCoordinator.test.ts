@@ -471,42 +471,27 @@ describe('AdminWebCoordinator', () => {
     expect(auth.active).toBe(false);
   });
 
-  it('loads and merges exactly one cursor-bounded page', async () => {
-    const { api, coordinator } = setup();
-    const cursor = 'v1:c:40000000-0000-4000-8000-000000000001';
-    api.projection.mockResolvedValueOnce({
-      status: 'succeeded', value: { ...projection, nextCursor: cursor },
+  it('K7 sign-in, setup retry and global refresh read exactly one mixed first page and keep complete location setup', async () => {
+    const {api,coordinator}=setup();
+    const requests:{path:string;body:any}[]=[];
+    const client=new AdminWebApiClient(async(path,init)=>{
+      requests.push({path:String(path),body:JSON.parse(String(init?.body))});
+      return Response.json({status:'succeeded',organization:projection.organization,customers:projection.customers,nfcTags:[],nextCursor:'v1:c:40000000-0000-4000-8000-000000000001'});
     });
-    await coordinator.signIn('administrator@example.test', 'secret');
-    api.projection.mockResolvedValueOnce({
-      status: 'succeeded',
-      value: {
-        organization: projection.organization,
-        customers: [{ id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
-        nfcTags: [],
-        nextCursor: null,
-        customersComplete: true,
-        nfcTagsComplete: true,
-      },
-    });
-
-    await coordinator.loadMore();
-
-    expect(api.projection).toHaveBeenLastCalledWith('memory-only-token', membershipId, cursor);
-    expect(coordinator.getState()).toEqual({
-      ...readyTimeReviewState,
-      status: 'ready', creating: false, creatingEmployee: false,
-      invitation: null, reassignmentIntent: null, reassigning: false,
-      notice: null, employeeProjection,
-      projection: {
-        organization: projection.organization,
-        customers: [...projection.customers, { id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
-        nfcTags: [],
-        nextCursor: null,
-        customersComplete: true,
-        nfcTagsComplete: true,
-      },
-    });
+    api.projection.mockImplementation((...args)=>client.projection(...args));
+    const locationSetupPage=vi.fn(async(_token:string,_member:string,kind:string,cursor:string|null)=>({status:'succeeded',value:{locationsEnabled:false,items:[],nextCursor:cursor===null?`next-${kind}`:null}}));
+    Object.assign(api,{assignableLocations:async()=>({status:'succeeded',value:{items:[],nextCursor:null}}),locationSetupPage,
+      customerHours:client.customerHours.bind(client)});
+    await coordinator.signIn('administrator@example.test','secret');
+    expect(requests).toHaveLength(1);
+    for(const kind of ['locations','memberships','work_targets','activation_gaps']){
+      expect(locationSetupPage.mock.calls.filter(call=>call[2]===kind).map(call=>call[3])).toEqual([null,`next-${kind}`]);
+    }
+    await coordinator.retrySection('setup');expect(requests).toHaveLength(2);
+    await coordinator.refresh();expect(requests).toHaveLength(3);
+    expect(requests.every(r=>r.path==='/v2/administration/setup-projection'&&r.body.cursor===null&&r.body.limit===20)).toBe(true);
+    expect(requests.some(r=>r.path==='/v1/customers/hours/query')).toBe(false);
+    expect('loadMore' in coordinator).toBe(false);
   });
 
   it('loads and merges one bounded Project page without replacing prior rows', async () => {
@@ -544,69 +529,6 @@ describe('AdminWebCoordinator', () => {
       projectsNextCursor: null,
       projectBusy: false,
     });
-  });
-
-  it('fails closed when a pagination response does not advance its cursor', async () => {
-    const { api, coordinator } = setup();
-    const cursor = 'v1:c:40000000-0000-4000-8000-000000000001';
-    api.projection.mockResolvedValueOnce({
-      status: 'succeeded', value: { ...projection, nextCursor: cursor },
-    });
-    await coordinator.signIn('administrator@example.test', 'secret');
-    api.projection.mockResolvedValueOnce({
-      status: 'succeeded', value: { ...projection, customers: [], nextCursor: cursor },
-    });
-
-    await coordinator.loadMore();
-
-    expect(coordinator.getState()).toMatchObject({
-      status: 'ready',
-      sections: {
-        setup: {
-          status: 'unavailable',
-          message: 'Die weiteren Einrichtungsdaten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
-        },
-      },
-    });
-  });
-
-  it('fails closed for cross-Organization or duplicate pagination data', async () => {
-    const cursor = 'v1:c:40000000-0000-4000-8000-000000000001';
-    const invalidPages: readonly SafeProjection[] = [
-      {
-        organization: { id: '30000000-0000-4000-8000-000000000002', name: 'Andere Organisation' },
-        customers: [{ id: '40000000-0000-4000-8000-000000000002', displayName: 'Lager', active: true }],
-        nfcTags: [],
-        nextCursor: null,
-        customersComplete: true,
-        nfcTagsComplete: true,
-      },
-      {
-        ...projection,
-        nextCursor: null,
-      },
-    ];
-
-    for (const invalidPage of invalidPages) {
-      const { api, coordinator } = setup();
-      api.projection.mockResolvedValueOnce({
-        status: 'succeeded', value: { ...projection, nextCursor: cursor },
-      });
-      await coordinator.signIn('administrator@example.test', 'secret');
-      api.projection.mockResolvedValueOnce({ status: 'succeeded', value: invalidPage });
-
-      await coordinator.loadMore();
-
-      expect(coordinator.getState()).toMatchObject({
-        status: 'ready',
-        sections: {
-          setup: {
-            status: 'unavailable',
-            message: 'Die weiteren Einrichtungsdaten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
-          },
-        },
-      });
-    }
   });
 
   it('holds an invitation secret only in the ready generation and clears it on sign-out', async () => {
@@ -681,6 +603,18 @@ describe('AdminWebCoordinator', () => {
     });
   });
 
+  it('K5 treats retained location setup as unknown after a failed refresh',async()=>{
+    const {api,coordinator}=setup();
+    const locationSetupPage=vi.fn(async()=>({status:'succeeded',value:{locationsEnabled:false,items:[],nextCursor:null}}));
+    Object.assign(api,{assignableLocations:async()=>({status:'succeeded',value:{items:[],nextCursor:null}}),locationSetupPage});
+    await coordinator.signIn('administrator@example.test','secret');
+    locationSetupPage.mockRejectedValueOnce(new Error('offline'));
+    await coordinator.refreshLocationSetup();
+    expect(coordinator.getState()).toMatchObject({locationSetupFailed:true,locationSetupBusy:false});
+    await coordinator.refreshLocationSetup();
+    expect(coordinator.getState()).toMatchObject({locationSetupFailed:false,locationSetupBusy:false});
+  });
+
   it('never restores a once-disclosed secret on refresh or command replay conflict', async () => {
     const { api, coordinator } = setup();
     await coordinator.signIn('administrator@example.test', 'secret');
@@ -727,7 +661,7 @@ describe('AdminWebCoordinator', () => {
     });
   });
 
-  it('never restores a once-disclosed secret after setup pagination leaves the ready screen', async () => {
+  it('never restores a once-disclosed secret after setup retry leaves the ready screen', async () => {
     const { api, coordinator } = setup();
     const cursor = 'v1:c:40000000-0000-4000-8000-000000000001';
     api.projection.mockResolvedValueOnce({
@@ -752,7 +686,7 @@ describe('AdminWebCoordinator', () => {
       },
     });
 
-    await coordinator.loadMore();
+    await coordinator.retrySection('setup');
 
     expect(coordinator.getState()).toMatchObject({ status: 'ready', invitation: null });
   });
@@ -2076,4 +2010,60 @@ it('T117 managed search keeps counters while paging, retries errors and discards
  expect(managed).toHaveBeenLastCalledWith(expect.any(String),expect.objectContaining({search:'Müller',cursor:null}));
  finishOld({status:'succeeded',value:summary});await old;
  expect(coordinator.getState()).toMatchObject({managedPeople:{search:'Müller',value:{people:[]}}});
+});
+
+it('T118 retries each unconfirmed pair with its own commandId and ignores an old authority response',async()=>{
+ const {coordinator,api}=setup();
+ const changeTargetAssignment=vi.fn().mockResolvedValueOnce({status:'unreachable'}).mockResolvedValueOnce({status:'succeeded',value:{status:'succeeded'}}).mockResolvedValueOnce({status:'succeeded',value:{status:'succeeded'}});
+ Object.assign(api,{changeTargetAssignment});await coordinator.signIn('synthetic@example.invalid','synthetic');
+ const pair={membershipId,targetType:'customer' as const,targetId:'40000000-0000-4000-8000-000000000001',assigned:true};
+ expect(await coordinator.changeTargetAssignment?.(pair)).toEqual({status:'unavailable'});
+ await coordinator.changeTargetAssignment?.({...pair,targetId:'40000000-0000-4000-8000-000000000002'});
+ await coordinator.changeTargetAssignment?.(pair);
+ expect(changeTargetAssignment).toHaveBeenCalledTimes(3);
+ const commands=changeTargetAssignment.mock.calls.map(c=>c[1]);expect(commands[2].commandId).toBe(commands[0].commandId);expect(commands[1].commandId).not.toBe(commands[0].commandId);
+ const response=deferred<any>();Object.assign(api,{targetAssignments:()=>response.promise});
+ const pending=coordinator.readTargetAssignments?.({membershipId,search:null,cursor:null});await coordinator.signOut();response.resolve({status:'succeeded',value:{items:[],nextCursor:null}});
+ expect(await pending).toEqual({status:'authority_rejected'});
+});
+it('T118 keeps assigned and all target pages independent and allows a visible favorite to start',async()=>{
+ const {api,coordinator}=setup();api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,availableSections:['own_time','manual_capture']}});
+ const favorite={targetType:'customer' as const,targetId:membershipId,displayName:'Mein Kunde',assignedToMe:true};
+ const assigned=deferred<any>();const querySearch=vi.fn(async(_token,kind,request)=>request.assignedOnly?assigned.promise:{status:'succeeded',value:{targets:[],nextCursor:null}});
+ const workTargets=vi.fn().mockResolvedValue({status:'succeeded',value:{targets:[],nextCursor:null}}),manualLifecycle=vi.fn().mockResolvedValue({status:'unreachable'});
+ Object.assign(api,{querySearch,workTargets,manualLifecycle});await coordinator.signIn('synthetic@example.invalid','synthetic');
+ await coordinator.loadWorkTargets();const pending=coordinator.querySearch('work_targets',{search:null,cursor:null,assignedOnly:true});
+ await coordinator.querySearch('work_targets',{search:null,cursor:null});assigned.resolve({status:'succeeded',value:{targets:[favorite],nextCursor:null}});
+ expect(await pending).toEqual({status:'ready',value:{targets:[favorite],nextCursor:null}});
+ await coordinator.captureManual(favorite);expect(manualLifecycle).toHaveBeenCalledTimes(1);
+});
+it.each([true,false])('T118 review: a new %s intention after the opposite command never replays an old receipt',async assigned=>{
+ for(const oppositeConfirmed of [true,false]) {
+  const {coordinator,api}=setup();let stored=!assigned,calls=0;const receipts=new Set<string>();
+  // Migration 057 replays a receipt without reapplying its historical change.
+  const changeTargetAssignment=vi.fn(async(_token:string,command:any)=>{
+   if(receipts.has(command.commandId))return {status:'succeeded',value:{status:'succeeded'}};
+   receipts.add(command.commandId);stored=command.assigned;calls++;
+   return calls===1||calls===2&&!oppositeConfirmed?{status:'unreachable'}:{status:'succeeded',value:{status:'succeeded'}};
+  });
+  Object.assign(api,{changeTargetAssignment});await coordinator.signIn('synthetic@example.invalid','synthetic');
+  const pair={membershipId,targetType:'customer' as const,targetId:projection.customers[0]!.id,assigned};
+  expect(await coordinator.changeTargetAssignment(pair)).toEqual({status:'unavailable'});
+  await coordinator.changeTargetAssignment({...pair,assigned:!assigned});
+  expect(await coordinator.changeTargetAssignment(pair)).toEqual({status:'succeeded'});
+  expect(stored).toBe(assigned);
+  expect(changeTargetAssignment.mock.calls[2]![1].commandId).not.toBe(changeTargetAssignment.mock.calls[0]![1].commandId);
+ }
+});
+it('T118 review: a favorite on page one still starts after retrying page two',async()=>{
+ const {api,coordinator}=setup();api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,availableSections:['own_time','manual_capture']}});
+ const favorite={targetType:'customer' as const,targetId:membershipId,displayName:'Mein Kunde',assignedToMe:true};
+ const querySearch=vi.fn().mockResolvedValueOnce({status:'succeeded',value:{targets:[favorite],nextCursor:'next'}})
+  .mockResolvedValueOnce({status:'unreachable'}).mockResolvedValueOnce({status:'succeeded',value:{targets:[{...favorite,targetId:projection.customers[0]!.id}],nextCursor:null}});
+ const workTargets=vi.fn().mockResolvedValue({status:'succeeded',value:{targets:[],nextCursor:null}}),manualLifecycle=vi.fn().mockResolvedValue({status:'unreachable'});
+ Object.assign(api,{querySearch,workTargets,manualLifecycle});await coordinator.signIn('synthetic@example.invalid','synthetic');await coordinator.loadWorkTargets();
+ await coordinator.querySearch('work_targets',{search:null,cursor:null,assignedOnly:true});
+ expect(await coordinator.querySearch('work_targets',{search:null,cursor:'next',assignedOnly:true})).toEqual({status:'unavailable'});
+ await coordinator.querySearch('work_targets',{search:null,cursor:'next',assignedOnly:true});
+ await coordinator.captureManual(favorite);expect(manualLifecycle).toHaveBeenCalledOnce();
 });

@@ -105,6 +105,18 @@ const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
 };
 class FakeCapability implements AdminWebCapability {
   querySearch:NonNullable<AdminWebCapability['querySearch']>=async(kind,request)=>{
+    if(variant.startsWith('t118-')&&(kind==='work_targets'||kind==='backfill_targets')) {
+      const marker=kind==='work_targets'?'assignedToMe':'assignedToPerson';
+      const targets=variant==='t118-person'?[
+        {targetType:'customer',targetId:customer.id,displayName:'Schon zugeordnet',[marker]:true},
+        {targetType:'project',targetId:'40000000-0000-4000-8000-000000000002',displayName:'Neue Zuordnung mit einem ausführlichen lesbaren Namen',[marker]:false},
+      ]:[{targetType:'project',targetId:'40000000-0000-4000-8000-000000000003',displayName:'Zugeordnetes Projekt mit ausführlichem lesbarem Namen',[marker]:true}];
+      return {status:'ready',value:{targets,nextCursor:null}} as any;
+    }
+    if(variant==='t118-customer'&&kind==='memberships')return {status:'ready',value:{employeeMemberships:[
+      {id:'70000000-0000-4000-8000-000000000001',displayName:'Schon zugeordnet',role:'employee',active:true},
+      {id:'70000000-0000-4000-8000-000000000002',displayName:'Neue Zuordnung mit einem ausführlichen lesbaren Namen',role:'employee',active:true},
+    ],nextCursor:null}} as any;
     const result=kind==='customer_hours'||kind==='customer_detail'
       ?await customerSearch(()=>this.readCustomerHours())(kind,request)
       :await stateSearch(()=>this.state)(kind,request);
@@ -114,6 +126,19 @@ class FakeCapability implements AdminWebCapability {
     const value=result.value as any,search='search' in request&&typeof request.search==='string'?request.search:null;
     const rows=value[key] as any[];
     return {status:'ready',value:{...value,[key]:rows.filter(row=>!search||row.displayName.toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de')))}} as any;
+  };
+  readTargetAssignments:NonNullable<AdminWebCapability['readTargetAssignments']>=async request=>{
+    if(!variant.startsWith('t118-'))return {status:'forbidden'};
+    const first='70000000-0000-4000-8000-000000000001';
+    return {status:'ready',value:{items:'membershipId' in request
+      ?request.membershipId===first?[{assignmentId:'60000000-0000-4000-8000-000000000011',displayName:'Schon zugeordnet',targetType:'customer',targetId:customer.id}]:[]
+      :[{assignmentId:'60000000-0000-4000-8000-000000000011',displayName:'Schon zugeordnet',membershipId:first}],nextCursor:null}};
+  };
+  changeTargetAssignment:NonNullable<AdminWebCapability['changeTargetAssignment']>=async()=>({status:'succeeded'});
+  readQuotaAlerts:NonNullable<AdminWebCapability['readQuotaAlerts']>=async()=>{
+    const result=await this.readCustomerHours();
+    return result.status==='ready'?{status:'ready',value:{version:'customer-quota-alerts.v1',scope:result.value.scope,asOf:result.value.asOf,
+      customers:result.value.scope==='people'?result.value.customers.filter(c=>c.quotaStage==='warning'||c.quotaStage==='exceeded').map(({people,...c})=>c):[],nextCursor:null} as any}:{status:result.status};
   };
   refreshManagedPeople=async(isRunning:boolean|null=null,_append=false,month='2026-09',search:string|null=null)=>{
     if(this.state.status!=='ready'||ready.managedPeople?.status!=='ready')return;

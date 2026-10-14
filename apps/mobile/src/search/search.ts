@@ -44,8 +44,13 @@ export function parseSearchResponse<K extends SearchKind>(kind:K,value:unknown,r
   if(!object(value)||!isSearchCursor(value.nextCursor))return null;
   let valid=false;
   if(kind==='managed_people')valid=isManagedActiveSummaryV6(value)&&(value.nextCursor===null||value.people.length>0);
-  else if(kind==='work_targets'||kind==='backfill_targets')valid=keys(value,['targets','nextCursor'])
-    &&rows(value.targets,value.nextCursor,t=>`${t.targetType}:${t.targetId}`)&&validateWorkTargetResponse({...value,nextCursor:null});
+  else if(kind==='work_targets'||kind==='backfill_targets') {
+    const marker=kind==='work_targets'?'assignedToMe':'assignedToPerson';
+    valid=keys(value,['targets','nextCursor'])
+      &&rows(value.targets,value.nextCursor,t=>`${t.targetType}:${t.targetId}`)
+      &&value.targets.every(t=>keys(t,['targetType','targetId','displayName',marker])&&typeof t[marker]==='boolean')
+      &&validateWorkTargetResponse({targets:value.targets.map(({targetType,targetId,displayName})=>({targetType,targetId,displayName})),nextCursor:null});
+  }
   else if(kind==='customer_hours'||kind==='customer_detail') {
     const people=value.scope==='people', detail=kind==='customer_detail';
     if(!['self','people'].includes(String(value.scope))||!date(value.asOf))return null;
@@ -119,4 +124,25 @@ function sameContext(previous:unknown,next:unknown):boolean {
   if(object(previous.customer)&&object(next.customer)&&previous.customer.customerId!==next.customer.customerId)return false;
   if(object(previous.organization)&&object(next.organization)&&previous.organization.id!==next.organization.id)return false;
   return true;
+}
+
+export function parseQuotaAlertsResponse(value:unknown):import('@taptime/mobile-work-contract').QuotaAlertsQueryResponse|null {
+  if(!object(value)||value.version!=='customer-quota-alerts.v1'||!keys(value,['version','scope','asOf','customers','nextCursor'])
+    ||!isSearchCursor(value.nextCursor)||!date(value.asOf)||!rows(value.customers,value.nextCursor,c=>c.customerId))return null;
+  if(value.scope==='self')return value.customers.length===0&&value.nextCursor===null?value as unknown as import('@taptime/mobile-work-contract').QuotaAlertsQueryResponse:null;
+  return value.scope==='people'&&value.customers.every(c=>customer(c,true)&&['warning','exceeded'].includes(String(c.quotaStage)))
+    ?value as unknown as import('@taptime/mobile-work-contract').QuotaAlertsQueryResponse:null;
+}
+
+export function parseTargetAssignmentsResponse(value:unknown,request:import('@taptime/mobile-work-contract').TargetAssignmentQueryRequest):import('@taptime/mobile-work-contract').TargetAssignmentQueryResponse|null {
+  const byPerson='membershipId' in request;
+  if(!object(value)||!keys(value,['items','nextCursor'])||!isSearchCursor(value.nextCursor)
+    ||!rows(value.items,value.nextCursor,i=>byPerson?`${i.targetType}:${i.targetId}`:i.membershipId)
+    ||new Set(value.items.map(i=>i.assignmentId)).size!==value.items.length)return null;
+  return value.items.every(i=>keys(i,['assignmentId','displayName',...(byPerson?['targetType','targetId']:['membershipId'])])
+    &&isCanonicalUuid(i.assignmentId)&&name(i.displayName)&&(byPerson?['customer','project'].includes(String(i.targetType))&&isCanonicalUuid(i.targetId):isCanonicalUuid(i.membershipId)))
+    ?value as unknown as import('@taptime/mobile-work-contract').TargetAssignmentQueryResponse:null;
+}
+export interface QuotaAlertsCapability {
+  readQuotaAlerts?(month:string,cursor:string|null):Promise<PageResult<import('@taptime/mobile-work-contract').QuotaAlertsQueryResponse>>;
 }

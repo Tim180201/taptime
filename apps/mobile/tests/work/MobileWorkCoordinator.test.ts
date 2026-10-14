@@ -485,3 +485,24 @@ function sessionReader(
     subscribe: () => () => undefined,
   };
 }
+it('T118 starts a loaded assigned target outside the all-page, but never a favorite hidden by search',async()=>{
+ const favorite={...target,targetType:'customer' as const,targetId:'40000000-0000-4000-8000-000000000099',assignedToMe:true};
+ const api:MobileWorkApiPort={read:async()=>readyRead,readOwnTimePage:async()=>({status:'unavailable'}),querySearch:vi.fn().mockResolvedValue({status:'ready',value:{targets:[favorite],nextCursor:null}}),triggerManual:vi.fn().mockResolvedValue({status:'accepted',outcome:'time_entry_started'})};
+ const coordinator=new MobileWorkCoordinator(sessionReader(()=>true),api);await coordinator.refresh();
+ await coordinator.querySearch('work_targets',{search:null,cursor:null,assignedOnly:true});
+ await coordinator.triggerManual(favorite);expect(api.triggerManual).toHaveBeenCalledTimes(1);
+ vi.mocked(api.querySearch!).mockResolvedValue({status:'ready',value:{targets:[],nextCursor:null}} as never);
+ await coordinator.searchTargets('missing');await coordinator.triggerManual(favorite);expect(api.triggerManual).toHaveBeenCalledTimes(1);
+});
+it.each(['unavailable','throws'])('T118 review: page-one favorite survives a %s second page and its successful retry',async failure=>{
+ const favorite={...target,targetType:'customer' as const,targetId:'40000000-0000-4000-8000-000000000099',assignedToMe:true};
+ const querySearch=vi.fn().mockResolvedValueOnce({status:'ready',value:{targets:[favorite],nextCursor:'next'}})
+  .mockImplementationOnce(async()=>{if(failure==='throws')throw new Error('Network');return {status:'unavailable'};})
+  .mockResolvedValueOnce({status:'ready',value:{targets:[{...favorite,targetId:'40000000-0000-4000-8000-000000000098'}],nextCursor:null}});
+ const api:MobileWorkApiPort={read:async()=>readyRead,readOwnTimePage:async()=>({status:'unavailable'}),querySearch,triggerManual:vi.fn().mockResolvedValue({status:'accepted',outcome:'time_entry_started'})};
+ const coordinator=new MobileWorkCoordinator(sessionReader(()=>true),api);await coordinator.refresh();
+ await coordinator.querySearch('work_targets',{search:null,cursor:null,assignedOnly:true});
+ expect(await coordinator.querySearch('work_targets',{search:null,cursor:'next',assignedOnly:true})).toEqual({status:'unavailable'});
+ await coordinator.querySearch('work_targets',{search:null,cursor:'next',assignedOnly:true});
+ await coordinator.triggerManual(favorite);expect(api.triggerManual).toHaveBeenCalledOnce();
+});

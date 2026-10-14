@@ -1,3 +1,4 @@
+import TargetAssignments from './TargetAssignments';
 import { useCustomerSearch } from '../../../mobile/src/search/useCustomerSearch';
 import { SearchField, SearchStatus } from '../SearchControls';
 import {CustomerManagement} from './CustomerManagement';
@@ -46,6 +47,7 @@ export default function CustomersView({ administration, route, navigate, authori
           <p className="customer-total">{formatHours(customer.workDurationSeconds*1000)} h {customer.running ? <span className="status-pill">läuft</span> : null}</p>
           {customer.active && value.scope==='people'?<CustomerManagement key={`${authorityContext}/${customer.customerId}`} customer={customer} administration={administration} onSaved={()=>setRefresh(n=>n+1)}/>:null}
           {'quotaStage' in customer?<CustomerQuota key={`${month}/${customer.customerId}`} customer={customer} administration={administration} editable={month===current && administration.getState().status==='ready' && (administration.getState() as {role:string}).role!=='employee' && (customer.active || (administration.getState() as {role:string}).role==='administrator')} onSaved={()=>setRefresh(n=>n+1)}/>:null}
+          {customer.active&&value.scope==='people'?<TargetAssignments administration={administration} selector={{targetType:'customer',targetId:customer.customerId}} targetName={customer.displayName}/>:null}
           <h3>{'people' in customer ? 'Stunden je Person' : 'Ihre Stunden je Tag'}</h3>
           <ul className="customer-rows">{('people' in customer ? customer.people.map(p=>({key:p.membershipId,label:p.displayName,...p})) : customer.days.map(d=>({key:d.date,label:d.date.split('-').reverse().join('.'),...d}))).map(p=><li key={p.key}><span>{p.label}{p.running ? <small> · läuft</small> : null}</span><strong>{formatHours(p.workDurationSeconds*1000)} h</strong></li>)}</ul>
           {detail.state.nextCursor!==null?<button disabled={detail.state.busy} onClick={()=>void detail.pager.loadMore()}>Weitere Personen laden</button>:null}

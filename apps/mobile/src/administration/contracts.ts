@@ -93,7 +93,7 @@ export type ProvisionAdminTagResult =
 
 export interface AdminSetupApiPort {
   querySearch?<K extends SearchKind>(kind:K,request:SearchRequests[K]):Promise<PageResult<SearchResponses[K]>>;
-  readCustomerCreationProjection?(expectedMembershipId:string,cursor:string|null):Promise<AdminProjectionResult>;
+  readCustomerCreationProjection?(expectedMembershipId:string,cursor:string|null,displayName:string):Promise<AdminProjectionResult>;
   removeTag?(command:import('@taptime/mobile-work-contract').RemoveNfcTagRequest):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   inspectTag?(command:import('@taptime/mobile-work-contract').InspectTagRequest):Promise<import('@taptime/mobile-work-contract').InspectTagResultV2>;
   manageCustomer?(request:import('@taptime/mobile-work-contract').ManageCustomerRequest):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;

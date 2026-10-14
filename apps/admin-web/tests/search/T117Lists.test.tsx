@@ -87,7 +87,7 @@ it.each([false,true])('web: adding time loads only its own first target page (ma
  render(<TimeEditingProvider state={state} administration={{querySearch,loadWorkTargets,saveTimeEdit:vi.fn()} as any} targetMembershipId={managed?'20000000-0000-4000-8000-000000000001':id}><AddTimeControl day="2026-10-13"/></TimeEditingProvider>);
  expect(loadWorkTargets).not.toHaveBeenCalled();expect(querySearch).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await flush();
- expect(querySearch).toHaveBeenCalledTimes(1);expect(querySearch).toHaveBeenCalledWith(managed?'backfill_targets':'work_targets',expect.objectContaining({cursor:null,search:null}));
+ expect(querySearch).toHaveBeenCalledTimes(2);expect(querySearch).toHaveBeenCalledWith(managed?'backfill_targets':'work_targets',expect.objectContaining({cursor:null,search:null}));
  expect(screen.getByLabelText('Suchen')).toBeInTheDocument();
 });
 
@@ -103,7 +103,7 @@ it.each(['setup_customers','setup_tags','projects','memberships','work_targets',
   .mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve;}))
   .mockResolvedValueOnce({status:'ready',value:value([])})
   .mockResolvedValueOnce({status:'ready',value:value([row('Wieder da',3)])});
- const querySearch=vi.fn((requested:string,request:unknown)=>requested===kind?read(request):Promise.resolve({status:'ready',value:page(requested)}));
+ const querySearch=vi.fn((requested:string,request:any)=>request.assignedOnly?Promise.resolve({status:'ready',value:{targets:[],nextCursor:null}}):requested===kind?read(request):Promise.resolve({status:'ready',value:page(requested)}));
  const administration={querySearch,getState:()=>state,refreshManagedPeople:vi.fn(),saveTimeEdit:vi.fn()} as any;
  let panel:HTMLElement;
  if(kind.startsWith('setup_')||kind==='projects'){

@@ -213,6 +213,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       searchTargets: (search:string|null,more?:boolean) => this.mobileWorkCoordinator.searchTargets?.(search,more) ?? Promise.resolve(),
       querySearch: this.mobileWorkCoordinator.querySearch?.bind(this.mobileWorkCoordinator),
       setCustomerQuota: (customerId: string, minutes: number|null) => this.mobileWorkCoordinator.setCustomerQuota?.(customerId,minutes) ?? Promise.resolve({status:'unavailable' as const}),
+      readQuotaAlerts: (month:string,cursor:string|null) => this.mobileWorkCoordinator.readQuotaAlerts?.(month,cursor) ?? Promise.resolve({status:'unavailable' as const}),
       readCustomerHours: (month: string) => this.mobileWorkCoordinator.readCustomerHours?.(month) ?? Promise.resolve({status:'unavailable' as const}),
       getState: () => this.mobileWorkCoordinator.getState(),
       subscribe: (listener: () => void) => this.mobileWorkCoordinator.subscribe(listener),

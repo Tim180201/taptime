@@ -60,8 +60,8 @@ it.each(['administrator','standortleitung'] as const)('D-078 preserves the stop 
 
 it('T117 bounds target-person choices to one page without changing own capture state and drops a stale session',async()=>{
  let current=true;
- const second={targetType:'project',targetId:'40000000-0000-4000-8000-000000000002',displayName:'Projekt P'};
- const first={targetType:'customer',targetId:data.targetId,displayName:'Kunde P'};
+ const second={targetType:'project',targetId:'40000000-0000-4000-8000-000000000002',displayName:'Projekt P',assignedToPerson:false};
+ const first={targetType:'customer',targetId:data.targetId,displayName:'Kunde P',assignedToPerson:false};
  const post=vi.fn(async(_url:URL,body:string)=>({status:'response' as const,statusCode:200,contentType:'application/json',body:JSON.stringify({targets:[JSON.parse(body).cursor===null?first:second],nextCursor:JSON.parse(body).cursor===null?'next':null})}));
  const coordinator=new TimeEditingCoordinator(new URL('https://example.invalid'),{post},{capture:()=>snapshot,isCurrent:()=>current,subscribe:()=>()=>{}},()=>'',{get:async()=>true,subscribe:()=>()=>{}});
  await coordinator.start();

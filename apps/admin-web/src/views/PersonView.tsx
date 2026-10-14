@@ -1,3 +1,4 @@
+import TargetAssignments from './TargetAssignments';
 import {captureStatus} from '@taptime/mobile-work-contract';
 import type { EmployeeAccountInvitationCapability } from '../EmployeeAccountInvitationForm';
 import { ACCOUNT_INVITATION_NOTICES } from '../accountInvitation';
@@ -70,6 +71,7 @@ export default function PersonView({state,administration,route,navigate,accountI
     }}>Einladung erneut senden</button> : null}
     {resendNotice ? <p role="status">{resendNotice}</p> : null}
     <h2>{person.displayName}</h2>
+    <TargetAssignments administration={administration} selector={{membershipId:personId}} personName={person.displayName}/>
     {calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'ready'
       ? <>{calendar.value.activeRecord ? <div className="feedback-band"><p>{captureStatus(calendar.value.activeRecord)}</p><TimeRecordControls directStop record={calendar.value.activeRecord}/></div> : null}<TimeCalendar value={calendar.value} month={month} onMonthChange={month=>navigate({...route,month})}
         onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/></>

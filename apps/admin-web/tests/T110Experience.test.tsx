@@ -23,12 +23,14 @@ it('selects exactly the first missing prerequisite and disappears when complete'
  state.locationSetup={...state.locationSetup!,memberships:[{...member,homeLocationId:null,workLocationIds:[],managementLocationIds:[]}]};expect(nextSetupStep(state)?.text).toBe('Weisen Sie den Standortleitungen ihren Bereich zu.');
  state.locationSetup={...state.locationSetup!,locations:[{id,displayName:'Nord',active:true,rowVersion:1}]};expect(nextSetupStep(state)?.text).toBe('Ordnen Sie Mitarbeiter und Kunden ihren Standorten zu und schalten Sie die Standorte ein.');
 });
-it('has no card for missing/loading/partial data or a location manager and makes no guidance reads',()=>{
+it('K5 skips unknown prerequisites, keeps administrator scope and avoids another location read',async()=>{
  const base=ready();base.projection={...base.projection,customers:[],nfcTags:[]};
- for(const patch of [{role:'standortleitung'},{locationSetup:null},{locationSetupBusy:true},{projectBusy:true},{projects:undefined},{projection:{...base.projection,customersComplete:false}},{sections:{...base.sections,employees:{status:'loading'}}}])expect(nextSetupStep({...base,...patch} as Ready)).toBeNull();
- const administration={refreshManagedPeople:vi.fn(),refreshProjects:vi.fn(),refreshLocationSetup:vi.fn()} as unknown as AdminWebCapability;
+ expect(nextSetupStep({...base,role:'standortleitung'})).toBeNull();
+ for(const patch of [{locationSetup:null},{locationSetupBusy:true},{sections:{...base.sections,employees:{status:'loading'}}}])expect(nextSetupStep({...base,...patch} as Ready)?.label).toBe('Kunden anlegen');
+ for(const patch of [{projectBusy:true},{projects:undefined},{projection:{...base.projection,customersComplete:false}}])expect(nextSetupStep({...base,...patch} as Ready)?.label).toBe('Karteneinrichtung ansehen');
+ const administration={querySearch:stateSearch(()=>base),refreshManagedPeople:vi.fn(),refreshLocationSetup:vi.fn()} as unknown as AdminWebCapability;
  render(<Overview state={base} administration={administration} navigate={vi.fn()}/>);
- expect(screen.getByText('Legen Sie Kunden an.')).toBeVisible();
+ expect(await screen.findByText('Legen Sie Kunden an.')).toBeVisible();
  expect(administration.refreshLocationSetup).not.toHaveBeenCalled();
 });
 it('employee month chooser names the month, preserves filters and loads without the old cursor',()=>{

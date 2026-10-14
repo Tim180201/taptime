@@ -41,9 +41,15 @@ function harness(locations = [{ id: locationA, displayName: 'Nord' }]) {
   let current = snapshot;
   const online = vi.fn(async () => true);
   const api = { manageCustomer: vi.fn<NonNullable<AdminSetupApiPort['manageCustomer']>>(async()=>({status:'succeeded'})), readProjection: vi.fn<AdminSetupApiPort['readProjection']>(async () => empty),
+    readCustomerCreationProjection: vi.fn<NonNullable<AdminSetupApiPort['readCustomerCreationProjection']>>(async()=>empty),
     readCustomerLocations: vi.fn(async () => ({ status: 'succeeded' as const, locations, nextCursor: null })),
     createCustomer: vi.fn<NonNullable<AdminSetupApiPort['createCustomer']>>(async () => ({ status: 'succeeded', customer })),
     provisionTag: vi.fn<AdminSetupApiPort['provisionTag']>(async () => ({ status: 'succeeded', validationFingerprint:'ABCDEF123456' })) };
+  const querySearch=vi.fn(async(kind:string,request:any)=>{
+    const page=await (kind==='setup_customers'?api.readCustomerCreationProjection(request.expectedMembershipId,request.cursor,request.search):api.readProjection(request.expectedMembershipId,request.cursor));
+    return page.status==='succeeded'?{status:'ready',value:page}:{status:page.status};
+  });
+  Object.assign(api,{querySearch});
   const nfc = { scan: vi.fn(async () => ({ status: 'captured' as const, payload: createCanonicalNfcUidPayload('04AABBCCDD1122') })), checkCapability: vi.fn(), cancelCapture: vi.fn(), stop: vi.fn() };
   const writer = { write: vi.fn<import('../../src/administration/NfcTagWriter').NfcTagWriter['write']>(async () => ({ status: 'written' })), cancel: vi.fn() };
   const coordinator = new AdminSetupCoordinator({ capture: () => current, isCurrent: candidate => candidate === current, subscribe: () => () => {} },
@@ -64,7 +70,7 @@ it.each([1, 2])('T100 creates from Customers and immediately assigns a tag (%s l
   await act(async () => root.render(createElement(CustomersScreen, { administration: h.coordinator, authorityContext: snapshot.session, work: {readCustomerHours: async () => ({status:'ready', value:{version:'customer-hours.v1',scope:'people',asOf:new Date().toISOString(),customers:[]}})} as unknown as import('../../src/work/contracts').MobileWorkCapability })));
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
   if (count === 2) await click('Nord');
-  h.api.readProjection.mockResolvedValue({ ...empty, customers: [customer] });
+  h.api.readCustomerCreationProjection.mockResolvedValue({ ...empty, customers: [customer] });
   await click('Karte einrichten');
   expect(h.api.createCustomer).toHaveBeenCalledWith({ expectedMembershipId: snapshot.session.membershipId,
     commandId: '60000000-0000-4000-8000-000000000001', displayName: customer.displayName, locationId: locationA });
@@ -129,7 +135,7 @@ it('T100 only creates without reading or writing a tag', async () => {
   await act(async () => root.render(createElement(CustomersScreen, {administration:h.coordinator,
     authorityContext:snapshot.session, work:{} as unknown as import('../../src/work/contracts').MobileWorkCapability})));
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
-  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  h.api.readCustomerCreationProjection.mockResolvedValue({...empty,customers:[customer]});
   await click('Nur anlegen'); expect(h.api.createCustomer).toHaveBeenCalledTimes(1);
   expect(h.api.provisionTag).not.toHaveBeenCalled(); expect(h.nfc.scan).not.toHaveBeenCalled(); expect(h.writer.write).not.toHaveBeenCalled(); expect(container.textContent).toContain('Kunde angelegt');
 });
@@ -139,7 +145,7 @@ it('T100 retries tag writing without creating another customer', async () => {
   await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
     authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
-  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  h.api.readCustomerCreationProjection.mockResolvedValue({...empty,customers:[customer]});
   h.writer.write.mockResolvedValueOnce({status:'failed',reason:'write_failed'});
   await click('Karte einrichten'); expect(container.textContent).toContain('Karte konnte nicht beschrieben');
   await click('Kartenzuordnung erneut versuchen');
@@ -152,7 +158,7 @@ it('T100 reloads a confirmed customer before retrying a failed list refresh, wit
     authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
   await click('Karte einrichten'); expect(h.nfc.scan).not.toHaveBeenCalled();
-  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  h.api.readCustomerCreationProjection.mockResolvedValue({...empty,customers:[customer]});
   await click('Kartenzuordnung erneut versuchen');
   expect(h.api.createCustomer).toHaveBeenCalledTimes(1); expect(h.api.provisionTag).toHaveBeenCalledTimes(1);
 });
@@ -161,7 +167,7 @@ it('T100 cancels a running setup scan when leaving Customers', async () => {
   await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
     authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden', customer.displayName);
-  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  h.api.readCustomerCreationProjection.mockResolvedValue({...empty,customers:[customer]});
   h.nfc.scan.mockImplementationOnce(()=>new Promise(()=>{}));
   await click('Karte einrichten'); h.nfc.cancelCapture.mockClear();
   await act(async()=>root.render(createElement('div')));
@@ -185,7 +191,7 @@ it('T100 recovers customer creation after initial setup loading failed', async (
   await act(async()=>root.render(createElement(CustomersScreen,{administration:h.coordinator,
     authorityContext:snapshot.session,work:{} as import('../../src/work/contracts').MobileWorkCapability})));
   await click('+ Kunde hinzufügen'); await fill('Name des neuen Kunden',customer.displayName);
-  h.api.readProjection.mockResolvedValue({...empty,customers:[customer]});
+  h.api.readCustomerCreationProjection.mockResolvedValue({...empty,customers:[customer]});
   await click('Nur anlegen'); expect(h.api.createCustomer).toHaveBeenCalledTimes(1);
   expect(container.textContent).toContain('Kunde angelegt');
 });
@@ -216,7 +222,7 @@ it.each(['succeeded','unavailable'] as const)('T100 keeps confirmed creation dur
  await click('+ Kunde hinzufügen');await fill('Name des neuen Kunden',customer.displayName);
  await click('Nur anlegen');expect(h.api.createCustomer).toHaveBeenCalledOnce();
  await act(async()=>{finishManagement({status:'succeeded'});await management;});
- h.api.readProjection.mockResolvedValueOnce({...empty,customers:[customer]})
+ h.api.readCustomerCreationProjection.mockResolvedValueOnce({...empty,customers:[customer]})
    .mockImplementationOnce(()=>new Promise(resolve=>{finishReload=resolve;}));
  await act(async()=>finishCreation({status:'succeeded',customer}));
  expect(h.coordinator.getState().status).toBe('loading');
@@ -224,4 +230,14 @@ it.each(['succeeded','unavailable'] as const)('T100 keeps confirmed creation dur
  expect(container.textContent).toContain('Kunde angelegt.');
  expect(container.querySelector('[aria-label="Name des neuen Kunden"]')).toBeNull();
  expect(h.api.createCustomer).toHaveBeenCalledOnce();
+});
+it('T118 confirms the new customer by name and preserves the card projection',async()=>{
+ const h=harness();
+ const tag={id:locationA,displayName:'Vorhandene Karte',validationFingerprint:'ABCDEF123456',assignmentState:'unassigned' as const,assignmentType:null,targetCustomerId:null,activeAssignmentId:null};
+ h.api.readProjection.mockResolvedValue({...empty,nfcTags:[tag],nextCursor:'card-next'});
+ const readCustomerCreationProjection=vi.fn(async()=>({...empty,customers:[customer],nextCursor:null}));
+ Object.assign(h.api,{readCustomerCreationProjection});await h.coordinator.start();
+ await h.coordinator.createCustomer(customer.displayName,locationA);
+ expect(readCustomerCreationProjection).toHaveBeenCalledWith(snapshot.session.membershipId,null,customer.displayName);
+ expect(h.coordinator.getState()).toMatchObject({status:'ready',projection:{nfcTags:[tag],nextCursor:'card-next'},outcome:{status:'customer_created',refreshFailed:false}});
 });

@@ -1,3 +1,4 @@
+import {useAssignedTargets,combineTargets,targetLabel,targetKey} from '../../mobile/src/search/useAssignedTargets';
 import {useSearchPages} from '../../mobile/src/search/useSearchPages';
 import {SearchField,SearchStatus} from './SearchControls';
 import {TimeFields,resolveTimeFields,advanceTimeField,overnightHint} from './TimeFields';
@@ -76,8 +77,10 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     ?context.administration.querySearch?.('backfill_targets',{search,cursor,targetMembershipId:context.targetMembershipId})??Promise.resolve({status:'unavailable'} as const)
     :context.administration.querySearch?.('work_targets',{search,cursor})??Promise.resolve({status:'unavailable'} as const),
     value=>value.targets,t=>`${t.targetType}:${t.targetId}`,[context.administration,context.state.membershipId,context.targetMembershipId],kind==='backfill');
-  const target=page.state.items.find(t=>`${t.targetType}:${t.targetId}`===selected);
-  useEffect(()=>{if(page.state.status==='ready'&&!page.state.busy&&!page.state.failed&&selected&&!target)setSelected('');},[page.state,selected,target]);
+  const assigned=useAssignedTargets(context.administration,managedBackfill?context.targetMembershipId:null,page.state.search,[context.state.membershipId,context.state.role],kind==='backfill');
+  const favorites=page.state.search===null?assigned.state.items:[];
+  const target=combineTargets(page.state.items,favorites).find(t=>`${t.targetType}:${t.targetId}`===selected);
+  useEffect(()=>{if(page.state.status==='ready'&&!page.state.busy&&!page.state.failed&&!assigned.state.busy&&selected&&!target)setSelected('');},[page.state,selected,target]);
   const own=context.targetMembershipId===context.state.membershipId;
   const reasonRequired=!own && context.state.role==='standortleitung';
   const values={date,start,end,originalStart:record?.startedAt,originalEnd,stopOnly:kind==='stop'};
@@ -122,10 +125,17 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     {kind==='stop' && record ? <p className="full-field">{context.personLabel} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</p> : null}
     {kind==='backfill'?<div className="full-field">
       <SearchField value={page.input} onChange={page.setSearch}/><SearchStatus state={page.state} onRetry={page.pager.retry} onClear={()=>page.setSearch('')}/>
+      {page.state.search===null&&assigned.state.failed?<SearchStatus state={assigned.state} onRetry={assigned.pager.retry}/>:null}
+      {favorites.length?<div><h4>{managedBackfill?'Zugeordnete Kunden und Projekte':'Meine Kunden und Projekte'}</h4>
+        {favorites.map(t=><button type="button" className="target-choice secondary" key={targetKey(t)} aria-pressed={selected===targetKey(t)} disabled={saving||assigned.state.busy||assigned.state.failed} onClick={()=>setSelected(targetKey(t))}>{t.displayName}</button>)}
+        {assigned.state.nextCursor?<button type="button" disabled={assigned.state.busy||saving} onClick={()=>void assigned.pager.loadMore()}>Weitere zugeordnete laden</button>:null}
+      </div>:null}
+      <h4>{page.state.search?'Treffer':'Alle Kunden und Projekte'}</h4>
       <label>Kunde oder Projekt<select required value={selected} disabled={saving||archivePending||page.state.busy||page.state.failed} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>
+      {target&&!page.state.items.some(t=>targetKey(t)===selected)?<option hidden value={selected}>{target.displayName}</option>:null}
       {(['customer','project','general_work'] as const).map(type=>{
         const group=page.state.items.filter(t=>t.targetType===type);
-        return group.length?<optgroup key={type} label={type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}>{group.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{t.displayName}</option>)}</optgroup>:null;
+        return group.length?<optgroup key={type} label={type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}>{group.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{targetLabel(t,page.state.search)}</option>)}</optgroup>:null;
       })}</select></label>
       {page.state.nextCursor?<button type="button" disabled={page.state.busy} onClick={()=>void page.pager.loadMore()}>Weitere laden</button>:null}
     </div>:null}

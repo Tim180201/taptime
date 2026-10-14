@@ -262,6 +262,7 @@ describe('AdminWebApiClient', () => {
     await expect(client.projection('token', ids.membership, null)).resolves.toEqual({ status: 'invalid_response' });
 
     await expect(client.projection('token', ids.membership, 'not-a-cursor')).resolves.toEqual({ status: 'invalid_response' });
+    await expect(client.projection('token', ids.membership, 'v1:c:40000000-0000-4000-8000-000000000001')).resolves.toEqual({ status: 'invalid_response' });
     expect(fetchRequest).toHaveBeenCalledTimes(3);
   });
 

@@ -49,12 +49,12 @@ for(const mode of ['web']) {
     expect(screen.getByText('Person 1')).toBeInTheDocument();expect(screen.getByText('Person 2')).toBeInTheDocument();
   });
   it(`${mode}: global quota notices still include a customer beyond the first search page (K1–K3)`,async()=>{
-    const readCustomerHours=vi.fn().mockResolvedValue({status:'ready',value:{version:'customer-hours.v2',scope:'people',asOf,customers:[{...last,workDurationSeconds:1800,quotaSeconds:1800,quotaStage:'exceeded',people:[]}]}});
+    const readQuotaAlerts=vi.fn().mockResolvedValue({status:'ready',value:{version:'customer-quota-alerts.v1',scope:'people',asOf,nextCursor:null,customers:[{...last,workDurationSeconds:1800,quotaSeconds:1800,quotaStage:'exceeded'}]}});
     const querySearch=vi.fn().mockResolvedValue({status:'ready',value:page([first],'next')});
-    const cap={readCustomerHours,querySearch},storage={read:async()=>null,write:async()=>{}},onView=vi.fn();
+    const cap={readQuotaAlerts,querySearch},storage={read:async()=>null,write:async()=>{}},onView=vi.fn();
     render(<><View mode={mode} cap={cap}/>{<WebNotice administration={cap as unknown as AdminWebCapability} membership={id(5)} role="administrator" authorityContext="admin" storage={storage} onView={onView}/>}</>);await flush();
     expect(screen.getByText(/Zeta: Kontingent überschritten/)).toBeInTheDocument();expect(screen.getByText('Alpha')).toBeInTheDocument();
-    expect(querySearch).toHaveBeenCalledTimes(1);expect(readCustomerHours).toHaveBeenCalledWith('2026-10');
+    expect(querySearch).toHaveBeenCalledTimes(1);expect(readQuotaAlerts).toHaveBeenCalledWith('2026-10',null);
     fireEvent.click(screen.getByRole('button',{name:'Ansehen'}));await flush();expect(onView).toHaveBeenCalledWith(last.customerId,'2026-10');
   });
 }

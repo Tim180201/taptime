@@ -156,7 +156,7 @@ it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target 
 });
 
 it('D-092 sends both memberships to the dedicated endpoint and rejects extra target data',async()=>{
- const page={targets:[{targetType:'customer',targetId:other,displayName:'C2'}],nextCursor:null};
+ const page={targets:[{targetType:'customer',targetId:other,displayName:'C2',assignedToPerson:false}],nextCursor:null};
  const fetcher=vi.fn<typeof fetch>(async()=>Response.json(page));const api=new AdminWebApiClient(fetcher);
  const request={expectedMembershipId:own,targetMembershipId:other,limit:50,cursor:null};
  expect(await api.backfillTargets('token',request)).toEqual({status:'succeeded',value:{targets:page.targets,nextCursor:null}});

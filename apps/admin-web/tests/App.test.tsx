@@ -318,6 +318,24 @@ describe('professional Admin Web shell', () => {
     expect(capability.loadMore).not.toHaveBeenCalled();
     expect(screen.getByText('Die Karte ist noch nicht geladen. Nutzen Sie die Suche oder „Weitere laden“.')).toBeVisible();
   });
+  it('K7a finds activation-gap cards in loaded search pages without another query',async()=>{
+    HTMLElement.prototype.scrollIntoView=vi.fn();window.history.replaceState(null,'','/einrichtung');
+    const initial={...readyState,projection:{...readyState.projection,nfcTags:[],nextCursor:'more'},locationSetup:{locations:[],memberships:[],workTargets:[{targetType:'customer' as const,targetId:customer.id,displayName:customer.displayName,locationId:null}],activationGaps:[{kind:'nfc_assignment' as const,id:tag.activeAssignmentId,displayName:'Eingang → Werkstatt'}]}};
+    const capability=new FakeCapability(initial);
+    capability.querySearch=vi.fn((async(kind:string,request:any)=>kind==='setup_tags'?{status:'ready',value:{status:'succeeded',organization,customers:[],nfcTags:request.search?[{...tag,customerDisplayName:'Werkstatt'}]:[],nextCursor:null}}:stateSearch(()=>initial)(kind as any,request))) as typeof capability.querySearch;
+    await render(<App administration={capability}/>);
+    await userEvent.click(screen.getByRole('button',{name:'Karten'}));
+    fireEvent.change(within(document.getElementById('setup-card-assignments')!).getByRole('searchbox'),{target:{value:'Eingang'}});
+    await within(document.getElementById('setup-card-assignments')!).findByText('Eingang');
+    await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
+    const count=vi.mocked(capability.querySearch).mock.calls.length;
+    const link=screen.getByRole('link',{name:'Eingang → Werkstatt'});
+    expect(link).toHaveAttribute('href',`#setup-customer-${customer.id}`);
+    await userEvent.click(link);
+    await waitFor(()=>expect(screen.getByLabelText('Standort für Werkstatt')).toHaveFocus());
+    expect(capability.querySearch).toHaveBeenCalledTimes(count);
+    expect(screen.queryByText('Die Karte ist noch nicht geladen. Nutzen Sie die Suche oder „Weitere laden“.')).toBeNull();
+  });
   it.each([true,false])('T108 card gap focuses the concrete customer location or card assignment: target available=%s',async available=>{
     HTMLElement.prototype.scrollIntoView=vi.fn();
     window.history.replaceState(null,'','/einrichtung');
@@ -607,7 +625,7 @@ describe('professional Admin Web shell', () => {
     expect(firstMetric?.querySelector('strong')).toBeNull();
   });
 
-  it('does not disguise a failed initial section as a new Betrieb', async () => {
+  it('K5 still recommends a proven missing customer when time data failed', async () => {
     const failedEmptyState = {
       ...readyState,
       projection: {
@@ -630,7 +648,7 @@ describe('professional Admin Web shell', () => {
     };
     await render(<App administration={new FakeCapability(failedEmptyState)} />);
 
-    expect(screen.queryByRole('heading', { name: 'Ihr nächster Schritt' })).toBeNull();
+    expect(screen.getByText('Legen Sie Kunden an.')).toBeVisible();
     expect(screen.queryByText('Arbeitszeiten geladen')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Bereich erneut laden' })).not.toBeInTheDocument();
   });
@@ -655,10 +673,18 @@ describe('professional Admin Web shell', () => {
     };
     await render(<App administration={new FakeCapability(projectOnlyState)} />);
 
-    expect(screen.queryByRole('heading', { name: 'Ihr nächster Schritt' })).toBeNull();
+    expect(screen.queryByText('Legen Sie Kunden an.')).toBeNull();
+    expect(screen.getByText('Richten Sie in der App Karten ein.')).toBeVisible();
     expect(screen.getByText('Aktivübersicht wird geladen …')).toBeInTheDocument();
   });
 
+  it('K7 independent complete empty lists do not depend on the mixed completeness flags',async()=>{
+    window.history.replaceState(null,'','/einrichtung');
+    const capability=new FakeCapability({...readyState,projection:{organization,customers:[],nfcTags:[],nextCursor:'more',customersComplete:false,nfcTagsComplete:false}});
+    await render(<App administration={capability}/>);
+    expect(screen.getByText('Keine Kunden vorhanden.')).toBeInTheDocument();
+    expect(screen.getByText('Keine Karten registriert.')).toBeInTheDocument();
+  });
   it('shows independent search counts and identifies a valid Break Tag truthfully', async () => {
     const breakTag = {
       id: '50000000-0000-4000-8000-000000000002',

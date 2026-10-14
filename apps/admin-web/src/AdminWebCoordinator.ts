@@ -145,7 +145,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.refreshEpoch += 1;
       this.membershipId = null;
       this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();this.pendingAssignments.clear();this.assignedTargets=null;
       this.clearInvitationExpiryTimer();
       this.setState({ status: 'password_recovery', completing: false, notice: null });
     });
@@ -315,20 +315,25 @@ export class AdminWebCoordinator implements AdminWebCapability {
     return {status:result.status==='rejected'?'forbidden':'unavailable'};
   }
 
-  private readonly searchEpochs=new Map<SearchKind,number>();
+  private readonly searchEpochs=new Map<string,number>();
+  private assignedTargets:{session:Session;targets:readonly SafeWorkTarget[]}|null=null;
   private searchedSetup:Partial<Pick<SafeProjection,'customers'|'nfcTags'>>={};
   private searchedMembers:SafeEmployeeProjection['employeeMemberships']|null=null;
   private searchedProjects:readonly SafeProject[]|null=null;
   async querySearch<K extends SearchKind>(kind:K,request:ClientSearchRequest<K>):Promise<PageResult<SearchResponses[K]>> {
     const session=this.session,generation=this.generation,calendarEpoch=this.calendarEpoch;
     if(this.state.status!=='ready'||!session)return {status:'authority_rejected'};
-    const epoch=(this.searchEpochs.get(kind)??0)+1;this.searchEpochs.set(kind,epoch);
+    const searchKey=kind==='work_targets'||kind==='backfill_targets'?JSON.stringify([kind,'assignedOnly' in request&&request.assignedOnly===true,'targetMembershipId' in request?request.targetMembershipId:null]):kind;
+    const epoch=(this.searchEpochs.get(searchKey)??0)+1;this.searchEpochs.set(searchKey,epoch);
+    const assigned=kind==='work_targets'&&'assignedOnly' in request&&request.assignedOnly===true&&'search' in request&&request.search===null;
+    if(assigned&&request.cursor===null)this.assignedTargets=null;
     const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.querySearch?.(token,kind,
       {...request,expectedMembershipId:session.membershipId,limit:50} as SearchRequests[K])??Promise.resolve({status:'unreachable'})));
     if(generation!==this.generation||session!==this.session||this.state.status!=='ready')return {status:'authority_rejected'};
     if(result.status==='rejected'){await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.');return {status:'authority_rejected'};}
     if((kind==='backfill_targets'||kind==='work_targets')&&calendarEpoch!==this.calendarEpoch)return {status:'authority_rejected'};
-    if(epoch!==this.searchEpochs.get(kind))return {status:'unavailable'};
+    if(epoch!==this.searchEpochs.get(searchKey))return {status:'unavailable'};
+    if(assigned&&result.status==='succeeded')this.assignedTargets={session,targets:[...(request.cursor!==null&&this.assignedTargets?.session===session?this.assignedTargets.targets:[]),...(result.value as SearchResponses['work_targets']).targets]};
     if(result.status!=='succeeded')return {status:'unavailable'};
     const current=this.state;
     if(kind==='setup_customers'||kind==='setup_tags') {
@@ -352,6 +357,49 @@ export class AdminWebCoordinator implements AdminWebCapability {
       this.searchedProjects=projects;
     }
     return {status:'ready',value:result.value};
+  }
+
+  private readonly pendingAssignments=new Map<string,string>();
+  private assignmentBusy=false;
+  async readTargetAssignments(request:import('./targetAssignments').AssignmentQuery):Promise<PageResult<import('@taptime/mobile-work-contract').TargetAssignmentQueryResponse>> {
+    const session=this.session,generation=this.generation;
+    if(this.state.status!=='ready'||!session)return {status:'authority_rejected'};
+    const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.targetAssignments?.(token,
+      {...request,expectedMembershipId:session.membershipId,limit:50})??Promise.resolve({status:'unreachable'})));
+    if(generation!==this.generation||session!==this.session||this.state.status!=='ready')return {status:'authority_rejected'};
+    if(result.status==='conflict'&&result.code==='forbidden')return {status:'forbidden'};
+    return result.status==='succeeded'?{status:'ready',value:result.value}:{status:result.status==='rejected'?'authority_rejected':'unavailable'};
+  }
+  async changeTargetAssignment(pair:import('./targetAssignments').AssignmentPair):Promise<import('@taptime/mobile-work-contract').TargetAssignmentChangeResult> {
+    const session=this.session,generation=this.generation;
+    if(this.state.status!=='ready'||!session||session.role==='employee')return {status:'forbidden'};
+    if(this.assignmentBusy)return {status:'unavailable'};
+    const identity=[generation,session.membershipId,pair.membershipId,pair.targetType,pair.targetId];
+    // A contrary intention supersedes even an unconfirmed historical receipt.
+    this.pendingAssignments.delete(JSON.stringify([...identity,!pair.assigned]));
+    const key=JSON.stringify([...identity,pair.assigned]);
+    let commandId=this.pendingAssignments.get(key);
+    if(!commandId){commandId=crypto.randomUUID();this.pendingAssignments.set(key,commandId);}
+    this.assignmentBusy=true;
+    try {
+      const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.changeTargetAssignment?.(token,
+        {...pair,expectedMembershipId:session.membershipId,commandId})??Promise.resolve({status:'unreachable'})));
+      if(generation!==this.generation||session!==this.session||this.state.status!=='ready')return {status:'forbidden'};
+      if(result.status==='succeeded') {
+        if(result.value.status!=='unavailable')this.pendingAssignments.delete(key);
+        return result.value;
+      }
+      return {status:result.status==='rejected'?'forbidden':'unavailable'};
+    }finally{this.assignmentBusy=false;}
+  }
+
+  async readQuotaAlerts(month:string,cursor:string|null):Promise<PageResult<import('@taptime/mobile-work-contract').QuotaAlertsQueryResponse>> {
+    const session=this.session,generation=this.generation,window=monthTimeWindow(month);
+    if(this.state.status!=='ready'||!session||!window)return {status:'unavailable'};
+    const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.quotaAlerts?.(token,
+      {expectedMembershipId:session.membershipId,...window,cursor,limit:50})??Promise.resolve({status:'unreachable'})));
+    if(generation!==this.generation||session!==this.session||this.state.status!=='ready')return {status:'authority_rejected'};
+    return result.status==='succeeded'?{status:'ready',value:result.value}:{status:result.status==='rejected'?'authority_rejected':'unavailable'};
   }
 
   async readCustomerHours(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult> {
@@ -428,7 +476,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         if(active.breakStartedAt)followup=activeTarget;
       } else if (target !== 'break') {
         const selectedTarget=target;
-        if(current.workTargets?.status !== 'ready' || current.workTargets.busy || current.workTargets.failed || !current.workTargets.value.some(item=>item.targetId===selectedTarget.targetId && item.targetType===selectedTarget.targetType))return;
+        if(current.workTargets?.status !== 'ready' || current.workTargets.busy || current.workTargets.failed || ![...current.workTargets.value,...(current.workTargets.search==null&&this.assignedTargets?.session===session?this.assignedTargets.targets:[])].some(item=>item.targetId===selectedTarget.targetId && item.targetType===selectedTarget.targetType))return;
       }
       pending={generation,request:this.manualRequest(session.membershipId,target),before,followup};this.pendingManual=pending;
     }
@@ -553,7 +601,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.refreshEpoch += 1;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();this.pendingAssignments.clear();this.assignedTargets=null;
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signing_in' });
     await this.enqueueAuthentication(() => this.completeSignIn(generation, email, password));
@@ -602,7 +650,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     this.refreshEpoch += 1;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();this.pendingAssignments.clear();this.assignedTargets=null;
     this.clearInvitationExpiryTimer();
     this.setState({ status: 'signed_out' });
     await this.enqueueAuthentication(() => this.safeSignOut());
@@ -874,82 +922,6 @@ export class AdminWebCoordinator implements AdminWebCapability {
     }
     this.setState(applySectionResult(latest, section, result.value));
     if (section==='employees' && latest.managedPeople !== undefined) await this.refreshManagedPeople(latest.managedPeople.isRunning,false,latest.managedPeople.month,latest.managedPeople.search);
-  }
-
-  async loadMore(): Promise<void> {
-    let current = this.state;
-    const membershipId = this.membershipId;
-    if (
-      current.status !== 'ready'
-      || membershipId === null
-      || !current.availableSections.includes('setup')
-      || current.projection.nextCursor === null
-    ) return;
-    const generation = this.generation;
-    const refreshEpoch = this.refreshEpoch;
-    const sectionEpoch = ++this.sectionEpochs.setup;
-    const requestedCursor = current.projection.nextCursor;
-    current = {
-      ...current,
-      invitation: null,
-      reassignmentIntent: null,
-      reassigning: false,
-    };
-    this.setState({
-      ...current,
-      sections: { ...current.sections, setup: { status: 'loading' } },
-    });
-    let result;
-    try {
-      result = await this.auth.withAccessToken((token) => this.api.projection(token, membershipId, requestedCursor));
-    } catch {
-      result = { status: 'unreachable' as const };
-    }
-    if (
-      generation !== this.generation
-      || refreshEpoch !== this.refreshEpoch
-      || sectionEpoch !== this.sectionEpochs.setup
-    ) return;
-    const latest = this.state;
-    if (
-      latest.status !== 'ready'
-      || latest.projection.nextCursor !== requestedCursor
-    ) return;
-    if (result?.status === 'succeeded') {
-      const merged = mergeProjection(latest.projection, result.value, requestedCursor);
-      if (merged !== null) {
-        this.setState({
-          ...latest,
-          projection: merged,
-          creating: false,
-          sections: { ...latest.sections, setup: { status: 'ready' } },
-        });
-      } else {
-        this.setState({
-          ...latest,
-          sections: {
-            ...latest.sections,
-            setup: {
-              status: 'unavailable',
-              message: 'Die weiteren Einrichtungsdaten passen nicht zu den bereits geladenen Daten. Laden Sie den Bereich erneut.',
-            },
-          },
-        });
-      }
-    } else if (result === null || result.status === 'rejected') {
-      await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
-    } else {
-      this.setState({
-        ...latest,
-        sections: {
-          ...latest.sections,
-          setup: {
-            status: 'unavailable',
-            message: setupPageUnavailableMessage(apiFailureStatus(result), true),
-          },
-        },
-      });
-    }
   }
 
   private creationIdentity(key: string) {
@@ -1297,12 +1269,12 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const latest = this.state;
     if (latest.status !== 'ready') return;
     if (result === null) {
-      this.setState({ ...latest, locationSetupBusy: false,
+      this.setState({ ...latest, locationSetupBusy: false, locationSetupFailed:true,
         notice: { kind: 'error', text: 'Die Standort-Einrichtung konnte nicht vollständig geladen werden. Versuchen Sie es erneut.' } });
       return;
     }
     this.setState({ ...latest, assignableLocations: result.locations,
-      locationSetup: result.setup, locationSetupBusy: false,
+      locationSetup: result.setup, locationSetupBusy: false, locationSetupFailed:false,
       locationsEnabled: result.locationsEnabled });
   }
 
@@ -2496,7 +2468,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (generation === this.generation) {
         this.membershipId = null;
         this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();this.pendingAssignments.clear();this.assignedTargets=null;
         this.setState({ status: 'unavailable', message: 'Die Anmeldung ist derzeit nicht erreichbar. Versuchen Sie es später erneut.' });
       }
     }
@@ -2506,7 +2478,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (generation !== this.generation) { await this.safeSignOut(); return; }
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();this.pendingAssignments.clear();this.assignedTargets=null;
     const invalidatedGeneration = ++this.generation;
     await this.safeSignOut();
     if (invalidatedGeneration === this.generation) this.setState({ status: forbidden ? 'forbidden' : 'unavailable', message });
@@ -2516,7 +2488,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     if (generation !== this.generation) return;
     this.membershipId = null;
     this.session = null;
-    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();
+    this.pendingManual = null;this.pendingStops.clear();this.pendingCreations.clear();this.pendingAssignments.clear();this.assignedTargets=null;
     this.generation += 1;
     this.setState({ status: 'unavailable', message });
     await this.enqueueAuthentication(() => this.safeSignOut());
@@ -3050,21 +3022,6 @@ function mergeCursorPage<Value extends Record<Key, string>, Key extends keyof Va
   return Object.freeze({
     items: Object.freeze([...current, ...next.items]),
     nextCursor: next.nextCursor,
-  });
-}
-
-function mergeProjection(current: SafeProjection, next: SafeProjection, requestedCursor: string): SafeProjection | null {
-  if (current.organization.id !== next.organization.id || current.organization.name !== next.organization.name || next.nextCursor === requestedCursor) return null;
-  const customerIds = new Set(current.customers.map((customer) => customer.id));
-  const tagIds = new Set(current.nfcTags.map((tag) => tag.id));
-  if (next.customers.some((customer) => customerIds.has(customer.id)) || next.nfcTags.some((tag) => tagIds.has(tag.id))) return null;
-  return Object.freeze({
-    organization: current.organization,
-    customers: Object.freeze([...current.customers, ...next.customers]),
-    nfcTags: Object.freeze([...current.nfcTags, ...next.nfcTags]),
-    nextCursor: next.nextCursor,
-    customersComplete: current.customersComplete && next.customersComplete,
-    nfcTagsComplete: current.nfcTagsComplete && next.nfcTagsComplete,
   });
 }
 

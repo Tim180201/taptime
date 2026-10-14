@@ -1,3 +1,5 @@
+import type {AssignmentCapability} from './targetAssignments';
+import type {QuotaAlertsCapability} from '../../mobile/src/search/search';
 import type { ClientSearchCapability } from '../../mobile/src/search/search';
 export interface Notice { readonly kind: 'success' | 'info' | 'error'; readonly text: string; }
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
@@ -183,6 +185,7 @@ export type AdminWebState =
       readonly assignableLocations: readonly AdministrationLocation[];
       readonly locationSetup: LocationSetupState | null;
       readonly locationSetupBusy: boolean;
+      readonly locationSetupFailed?: boolean;
       readonly projection: SafeProjection;
       readonly employeeProjection: SafeEmployeeProjection;
       readonly creating: boolean;
@@ -205,7 +208,7 @@ export type AdminWebState =
       readonly notice: Notice | null;
       readonly completedAction?: CompletedAdminAction | null;
     };
-export interface AdminWebCapability extends ClientSearchCapability {
+export interface AdminWebCapability extends ClientSearchCapability, QuotaAlertsCapability, AssignmentCapability {
   removeTag?(nfcTagId:string,expectedAssignmentId:string):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   manageCustomer?(customerId:string,change:import('@taptime/mobile-work-contract').CustomerManagementChange):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
   setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
@@ -227,7 +230,6 @@ export interface AdminWebCapability extends ClientSearchCapability {
   selectLocation(locationId: string | null): Promise<void>;
   setTimeWindow(fromInclusive: string, toExclusive: string, pinned?: boolean): Promise<void>;
   retrySection(section: AdminSection): Promise<void>;
-  loadMore(): Promise<void>;
   createCustomer(displayName: string, locationId?: string): Promise<void>;
   createEmployeeInvitation(
     displayName: string,

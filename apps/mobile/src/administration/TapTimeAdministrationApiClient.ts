@@ -100,17 +100,10 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
     return result.status==='ready'&&result.value?{...result.value,status:'succeeded'}:{status:result.status==='authority_rejected'?'authority_rejected':result.status==='transient_failure'?'transient_failure':'unavailable'};
   }
 
-  // K4: customer-creation confirmation still locates the newly created customer on the old projection.
-  async readCustomerCreationProjection(expectedMembershipId: string, cursor: string | null): Promise<AdminProjectionResult> {
-    if (!isUuid(expectedMembershipId) || (cursor !== null && !cursorPattern.test(cursor))) return { status: 'unavailable' };
-    const response = await this.request.post(this.projectionEndpoint, JSON.stringify({
-      expectedMembershipId, cursor, limit: 20,
-    }));
-    if (response.status !== 'response') return response;
-    if (response.statusCode === 401 || response.statusCode === 403) return { status: 'authority_rejected' };
-    if (response.statusCode !== 200 || !isJsonContentType(response.contentType)) return { status: 'unavailable' };
-    const value = parseProjection(response.body);
-    return value === null ? { status: 'unavailable' } : value;
+  async readCustomerCreationProjection(expectedMembershipId:string,cursor:string|null,displayName:string):Promise<AdminProjectionResult> {
+    const search=Array.from(displayName).slice(0,80).join('').trim();
+    const result=await this.querySearch('setup_customers',{expectedMembershipId,cursor,limit:50,search,kind:'customers'});
+    return result.status==='ready'&&result.value?{...result.value,status:'succeeded'}:{status:result.status==='authority_rejected'?'authority_rejected':'unavailable'};
   }
 
   async provisionTag(command: Parameters<AdminSetupApiPort['provisionTag']>[0]): Promise<ProvisionAdminTagResult> {

@@ -5,6 +5,8 @@ import { Platform } from 'react-native';
 import type { AdminSetupCapability, CustomerCreationOptions } from '../administration/contracts';
 import { ActionButton, AppText as Text, Card } from '../design/primitives';
 import { presentAdminSetupState } from './AdminSetupScreen';
+import type { PageResult } from '../search/search';
+import type { SearchResponses } from '@taptime/mobile-work-contract';
 
 export function CustomerCreation({ administration, onCreated, onEditingChange }: {
   readonly administration: AdminSetupCapability;
@@ -75,20 +77,18 @@ export function CustomerCreation({ administration, onCreated, onEditingChange }:
           return;
         }
       } else if (withTag) {
-        // Creation is confirmed. Reload its projection instead of sending a new creation.
-        await administration.refresh();
-        if (request !== generation.current) return;
-        let projection = administration.getState();
-        const seen = new Set<string>();
-        while (projection.status === 'ready'
-          && !projection.projection.customers.some(customer => customer.id === customerId)
-          && projection.projection.nextCursor !== null && !seen.has(projection.projection.nextCursor)) {
-          seen.add(projection.projection.nextCursor);
-          await administration.loadMore();
-          if (request !== generation.current) return;
-          projection = administration.getState();
-        }
-        if (projection.status !== 'ready' || !projection.projection.customers.some(customer => customer.id === customerId && customer.active)) {
+        // Re-find only this customer's name; card pages have their own cursor.
+        let cursor:string|null=null,found=false;const seen=new Set<string>();
+        do {
+          const page:PageResult<SearchResponses['setup_customers']>|undefined=await administration.querySearch?.('setup_customers',{kind:'customers',search:Array.from(name.normalize('NFC').trim()).slice(0,80).join('').trim(),cursor});
+          if(request!==generation.current)return;
+          if(page?.status!=='ready'||!page.value)break;
+          found=page.value.customers.some(customer=>customer.id===customerId&&customer.active);
+          cursor=page.value.nextCursor;
+          if(cursor&&seen.has(cursor))break;
+          if(cursor)seen.add(cursor);
+        }while(!found&&cursor!==null);
+        if(!found) {
           setMessage('Kunde angelegt. Die Kundenliste konnte noch nicht aktualisiert werden. Versuche die Kartenzuordnung erneut.');
           return;
         }

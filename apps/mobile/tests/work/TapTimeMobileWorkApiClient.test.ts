@@ -42,7 +42,7 @@ describe('TapTimeMobileWorkApiClient', () => {
         targets: [{
           targetType: 'general_work',
           targetId: ids.target,
-          displayName: 'Allgemeine Arbeitszeit',
+          displayName: 'Allgemeine Arbeitszeit', assignedToMe:false,
         }],
         nextCursor: null,
       }));
@@ -105,14 +105,14 @@ describe('TapTimeMobileWorkApiClient', () => {
         windowEndedAt: '2026-07-24T10:00:00.000Z',
       }))
       .mockResolvedValueOnce(response({
-        targets: [{ targetType: 'customer', targetId: ids.target, displayName: 'Kunde' }],
+        targets: [{ targetType: 'customer', targetId: ids.target, displayName: 'Kunde', assignedToMe:false }],
         nextCursor: 'v1:next',
       }))
       .mockResolvedValueOnce(response({
         targets: [{
           targetType: 'general_work',
           targetId: '20000000-0000-4000-8000-000000000002',
-          displayName: 'Allgemeine Arbeitszeit',
+          displayName: 'Allgemeine Arbeitszeit', assignedToMe:false,
         }],
         nextCursor: null,
       }));
@@ -121,7 +121,7 @@ describe('TapTimeMobileWorkApiClient', () => {
     );
     await expect(client.read(ids.membership)).resolves.toMatchObject({
       status: 'ready',
-      targets: { targets: [{ displayName: 'Kunde' }], nextCursor:'v1:next' },
+      targets: { targets: [{ displayName: 'Kunde', assignedToMe:false }], nextCursor:'v1:next' },
     });
     expect(post).toHaveBeenCalledTimes(2);
   });

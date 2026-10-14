@@ -62,7 +62,7 @@ it('parses bounded customer summaries and partial person details without inventi
 });
 
 it('accepts new cursors for work targets and rejects unknown fields and empty nonterminal pages', () => {
-  const page={targets:[{targetType:'general_work',targetId:id,displayName:'Allgemeine Arbeitszeit'}],nextCursor:'q1:opaque'};
+  const page={targets:[{targetType:'general_work',targetId:id,displayName:'Allgemeine Arbeitszeit',assignedToMe:false}],nextCursor:'q1:opaque'};
   expect(parseSearchResponse('work_targets',page)).toEqual(page);
   expect(parseSearchResponse('work_targets',{...page,extra:true})).toBeNull();
   expect(parseSearchResponse('work_targets',{...page,targets:[]})).toBeNull();

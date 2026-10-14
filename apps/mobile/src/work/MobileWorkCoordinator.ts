@@ -25,6 +25,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   private unsubscribeManualAcknowledgements: (() => void) | null = null;
   private generation = 0;
   private targetEpoch = 0;
+  private assignedEpoch=0;
+  private assignedTargets:{sessionGeneration:number;targets:readonly SafeWorkTarget[]}|null=null;
   private ownTimeCursors = new Set<string>();
   private boundSessionGeneration: number | null = null;
   private pendingManualEventIds: string[] = [];
@@ -106,10 +108,31 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   async querySearch<K extends SearchKind>(kind:K,request:ClientSearchRequest<K>):Promise<PageResult<SearchResponses[K]>> {
     const snapshot=this.session.capture();
     if(!snapshot)return {status:'authority_rejected'};
+    const assigned=kind==='work_targets'&&'assignedOnly' in request&&request.assignedOnly===true&&'search' in request&&request.search===null;
+    const epoch=assigned?++this.assignedEpoch:0;
+    if(assigned&&request.cursor===null)this.assignedTargets=null;
     try {
       const result=await this.api.querySearch?.(kind,{...request,expectedMembershipId:snapshot.session.membershipId,limit:50} as SearchRequests[K])??{status:'unavailable'};
-      return this.session.isCurrent(snapshot)?result:{status:'authority_rejected'};
+      if(!this.session.isCurrent(snapshot))return {status:'authority_rejected'};
+      if(assigned&&epoch===this.assignedEpoch&&result.status==='ready'&&result.value) {
+        this.assignedTargets={sessionGeneration:snapshot.generation,targets:[
+          ...(request.cursor!==null&&this.assignedTargets?.sessionGeneration===snapshot.generation?this.assignedTargets.targets:[]),
+          ...(result.value as SearchResponses['work_targets']).targets]};
+      }
+      if(assigned&&epoch===this.assignedEpoch&&result.status==='authority_rejected')this.assignedTargets=null;
+      return result;
     } catch {return {status:'unavailable'};}
+  }
+
+  async readQuotaAlerts(month:string,cursor:string|null):Promise<PageResult<import('@taptime/mobile-work-contract').QuotaAlertsQueryResponse>> {
+    const snapshot=this.session.capture();
+    if(!snapshot)return {status:'authority_rejected'};
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(month))return {status:'unavailable'};
+    try {
+      const result=await this.api.readQuotaAlerts?.({expectedMembershipId:snapshot.session.membershipId,cursor,limit:50,
+        fromInclusive:new Date(dayStart(`${month}-01`)).toISOString(),toExclusive:new Date(dayStart(`${shiftMonth(month,1)}-01`)).toISOString()})??{status:'unavailable'};
+      return this.session.isCurrent(snapshot)?result:{status:'authority_rejected'};
+    }catch{return {status:'unavailable'};}
   }
 
   async readCustomerHours(month: string): Promise<CustomerHoursResult> {
@@ -240,7 +263,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
 
   async triggerManual(target: SafeWorkTarget): Promise<void> {
     const current = this.state;
-    if (current.status !== 'ready' || current.targetsBusy || current.targetsFailed || !current.targets.targets.some(candidate =>
+    if (current.status !== 'ready' || current.targetsBusy || current.targetsFailed || ![...current.targets.targets,...(current.targetsSearch==null&&this.assignedTargets?.sessionGeneration===this.session.capture()?.generation?this.assignedTargets?.targets??[]:[])].some(candidate =>
       candidate.targetType === target.targetType && candidate.targetId === target.targetId)) return;
     await this.capture(target);
   }

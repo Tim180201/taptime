@@ -40,6 +40,7 @@ const own:CustomerHoursResponse={version:'customer-hours.v1',scope:'self',asOf:'
 const people:CustomerHoursResponse={...own,scope:'people',customers:[{...customer,people:[{membershipId:mid,displayName:'Person B',workDurationSeconds:7200,running:true}]}]};
 const click=async(text:string)=>{const b=[...container.querySelectorAll('button')].find(b=>b.textContent===text||b.getAttribute('aria-label')?.includes(text));if(!b)throw Error(text);await act(async()=>b.click());};
 const quota:CustomerHoursResponse={version:'customer-hours.v2',asOf:people.asOf,scope:'people',customers:[{...customer,active:true,workDurationSeconds:129600,quotaSeconds:144000,quotaStage:'warning',people:[{membershipId:mid,displayName:'Person B',workDurationSeconds:129600,running:true}]}]};
+const quotaAlerts={...quota,version:'customer-quota-alerts.v1' as const,nextCursor:null,customers:quota.customers.map(({people,...c}:any)=>c)};
 it('manager edits half hours, removes quota and sees server progress and stage',async()=>{
  const setCustomerQuota=vi.fn(async()=>({status:'succeeded' as const})),readCustomerHours=vi.fn(async()=>({status:'ready' as const,value:quota}));
  const work={readCustomerHours,querySearch:customerSearch(readCustomerHours),setCustomerQuota} as unknown as MobileWorkCapability;
@@ -53,7 +54,7 @@ it('manager edits half hours, removes quota and sees server progress and stage',
 });
 it('quota notice acknowledges each stage, isolates membership and hides pending old reply',async()=>{
  const saved=new Map<string,string>(),storage={read:async(key:string)=>saved.get(key)??null,write:async(key:string)=>{saved.set(key,'1');}};
- const work={readCustomerHours:vi.fn(async()=>({status:'ready' as const,value:quota}))} as unknown as MobileWorkCapability;
+ const work={readQuotaAlerts:vi.fn(async()=>({status:'ready' as const,value:quotaAlerts}))} as unknown as MobileWorkCapability;
  const authority={role:'administrator'},onView=vi.fn();
  const props={work,membership:mid,role:'administrator',authorityContext:authority,onView,storage};
  await act(async()=>root.render(createElement(CustomerQuotaNotice,props)));expect(container.textContent).toContain('fast erreicht');

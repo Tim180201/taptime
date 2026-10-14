@@ -1,4 +1,4 @@
-import { parseSearchResponse } from '../search/search';
+import { parseQuotaAlertsResponse, parseSearchResponse } from '../search/search';
 import { readSearch } from '../search/readSearch';
 import type { SearchKind, SearchRequests } from '@taptime/mobile-work-contract';
 import { isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResult } from '@taptime/mobile-work-contract';
@@ -24,6 +24,13 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
   ) {}
 
   querySearch<K extends SearchKind>(kind:K,request:SearchRequests[K]) { return readSearch(this.requests,this.baseUrl,kind,request); }
+
+  async readQuotaAlerts(request:import('@taptime/mobile-work-contract').QuotaAlertsQueryRequest):Promise<import('../search/search').PageResult<import('@taptime/mobile-work-contract').QuotaAlertsQueryResponse>> {
+    const result=await this.requests.post(new URL('/v2/customers/quota-alerts/query',this.baseUrl),JSON.stringify(request));
+    if(result.status==='authority_rejected'||result.status==='response'&&(result.statusCode===401||result.statusCode===403))return {status:'authority_rejected'};
+    if(result.status!=='response'||result.statusCode!==200||!isJson(result.contentType))return {status:'unavailable'};
+    try {const value=parseQuotaAlertsResponse(JSON.parse(result.body));return value?{status:'ready',value}:{status:'unavailable'};}catch{return {status:'unavailable'};}
+  }
 
   private pendingQuota: {key:string;commandId:string}|null=null;
   async setCustomerQuota(expectedMembershipId:string,customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult> {

@@ -83,7 +83,8 @@ export default function SetupView({
       let latest=current();if(!latest)return;
       let destination=`setup-${gap.kind}-${gap.id}`;
       if(gap.kind==='nfc_assignment'){
-        let card=latest.projection.nfcTags.find(tag=>tag.activeAssignmentId===gap.id);
+        const card=tags.state.items.find(tag=>tag.activeAssignmentId===gap.id)
+          ??latest.projection.nfcTags.find(tag=>tag.activeAssignmentId===gap.id);
         if(!card){setTab('tags');setGapNotice('Die Karte ist noch nicht geladen. Nutzen Sie die Suche oder „Weitere laden“.');return;}
         const customer=latest.locationSetup?.workTargets.find(target=>target.targetType==='customer'&&target.targetId===card.targetCustomerId);
         destination=customer?`setup-customer-${customer.targetId}`:'setup-reassignment';
@@ -130,7 +131,7 @@ export default function SetupView({
     {gapNotice?<p role="alert">{gapNotice}</p>:null}
     <div className="content-grid">
       {state.managementScope.kind === 'organization'
-        ? <div className="full-width" hidden={tab !== 'standorte'}><LocationSetupPanel state={state} administration={administration} onGap={gap=>{void navigateGap(gap);}} /></div>
+        ? <div className="full-width" hidden={tab !== 'standorte'}><LocationSetupPanel cards={[...tags.state.items,...state.projection.nfcTags]} state={state} administration={administration} onGap={gap=>{void navigateGap(gap);}} /></div>
         : null}
       <div hidden={tab !== 'arbeitsziele'}><Panel title="Kunden" description="Aktive und inaktive Kunden der geladenen Seiten.">
         {customerControls}
@@ -161,7 +162,6 @@ export default function SetupView({
         </li>)}</ul>
         {moreCustomers}
         {customers.state.status==='ready' && !customers.state.search && customers.state.items.length === 0 && customers.state.nextCursor === null
-          && state.projection.customersComplete
           ? <p className="empty">Keine Kunden vorhanden.</p> : null}
       </Panel></div>
       <div className="full-width" hidden={tab !== 'tags'}><div ref={cardsPanel} id="setup-card-assignments" tabIndex={-1}><Panel title="NFC-Karten" description="Karten werden mit dem Handy zugeordnet. Hier sehen Sie den Bestand und ändern eine bestehende Zuordnung.">
@@ -181,7 +181,6 @@ export default function SetupView({
         {removalMessage?<p role="status">{removalMessage}</p>:null}
         {moreTags}
         {tags.state.status==='ready' && !tags.state.search && tags.state.items.length === 0 && tags.state.nextCursor === null
-          && state.projection.nfcTagsComplete
           ? <p className="empty">Keine Karten registriert.</p> : null}
       </Panel></div></div>
       <div hidden={tab !== 'arbeitsziele'}><Panel title="Projekte" description="Eigenständige Arbeitsziele ohne Kundenbeziehung.">
@@ -295,10 +294,12 @@ export default function SetupView({
 }
 
 function LocationSetupPanel({
+  cards,
   state,
   administration,
   onGap,
 }: {
+  readonly cards:ReadyState['projection']['nfcTags'];
   readonly onGap:(gap:ActivationGap)=>void;
   readonly route?: AdminRoute;
   readonly state: ReadyState;
@@ -423,7 +424,7 @@ function LocationSetupPanel({
         ? <p>Alle erforderlichen Standortzuordnungen sind vollständig. Allgemeine Arbeitszeit braucht keine Standortbindung.</p>
         : <><p><strong>Diese Standortzuordnungen fehlen noch:</strong></p>
           <ul>{setup.activationGaps.map((gap) => {
-            const card=gap.kind==='nfc_assignment'?state.projection.nfcTags.find(tag=>tag.activeAssignmentId===gap.id):undefined;
+            const card=gap.kind==='nfc_assignment'?cards.find(tag=>tag.activeAssignmentId===gap.id):undefined;
             const customer=card?setup.workTargets.find(target=>target.targetType==='customer'&&target.targetId===card.targetCustomerId):undefined;
             const destination=gap.kind==='nfc_assignment'
               ? customer?`setup-customer-${customer.targetId}`:'setup-reassignment'

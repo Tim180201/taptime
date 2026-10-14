@@ -1,3 +1,5 @@
+import {parseQuotaAlertsResponse,parseTargetAssignmentsResponse} from '../../mobile/src/search/search';
+import {parseQuotaAlertsQuery,parseTargetAssignmentQuery,isTargetAssignmentChangeRequest,type QuotaAlertsQueryRequest,type QuotaAlertsQueryResponse,type TargetAssignmentQueryRequest,type TargetAssignmentQueryResponse,type TargetAssignmentChangeRequest,type TargetAssignmentChangeResult} from '@taptime/mobile-work-contract';
 import { parseSearchRequest, MANAGED_PEOPLE_ACCEPT_V6, type SearchKind, type SearchRequests, type SearchResponses } from '@taptime/mobile-work-contract';
 import { parseSearchResponse, searchPaths } from '../../mobile/src/search/search';
 import {isRemoveNfcTagRequest,isRemoveNfcTagResult,type RemoveNfcTagRequest,type RemoveNfcTagResult} from '@taptime/mobile-work-contract';
@@ -97,6 +99,9 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  quotaAlerts?(token:string,request:QuotaAlertsQueryRequest):Promise<ApiResult<QuotaAlertsQueryResponse>>;
+  targetAssignments?(token:string,request:TargetAssignmentQueryRequest):Promise<ApiResult<TargetAssignmentQueryResponse>>;
+  changeTargetAssignment?(token:string,request:TargetAssignmentChangeRequest):Promise<ApiResult<TargetAssignmentChangeResult>>;
   querySearch?<K extends SearchKind>(token:string,kind:K,request:SearchRequests[K]):Promise<ApiResult<SearchResponses[K]>>;
   removeTag?(token:string,request:RemoveNfcTagRequest):Promise<ApiResult<RemoveNfcTagResult>>;
   manageCustomer?(token:string,request:ManageCustomerRequest):Promise<ApiResult<ManageCustomerResult>>;
@@ -294,6 +299,21 @@ export class AdminWebApiClient implements AdminWebApiPort {
     return this.request(searchPaths[kind],token,'POST',parsed,value=>parseSearchResponse(kind,value,parsed),false,false,false,maximumJsonBodyBytes,false,false,kind==='memberships'||kind==='managed_people');
   }
 
+  async quotaAlerts(token:string,request:QuotaAlertsQueryRequest):Promise<ApiResult<QuotaAlertsQueryResponse>> {
+    if(!parseQuotaAlertsQuery(request))return {status:'invalid_response'};
+    return this.request('/v2/customers/quota-alerts/query',token,'POST',request,parseQuotaAlertsResponse);
+  }
+  async targetAssignments(token:string,request:TargetAssignmentQueryRequest):Promise<ApiResult<TargetAssignmentQueryResponse>> {
+    const parsed=parseTargetAssignmentQuery(request);if(!parsed)return {status:'invalid_response'};
+    return this.request('/v1/administration/target-assignments/query',token,'POST',parsed,value=>parseTargetAssignmentsResponse(value,parsed));
+  }
+  async changeTargetAssignment(token:string,request:TargetAssignmentChangeRequest):Promise<ApiResult<TargetAssignmentChangeResult>> {
+    if(!isTargetAssignmentChangeRequest(request))return {status:'invalid_response'};
+    return this.request('/v1/administration/target-assignments/change',token,'POST',request,value=>
+      isRecord(value)&&exact(value,['status'])&&['succeeded','command_id_conflict','target_not_selectable','forbidden','unauthorized','invalid_request','unavailable'].includes(String(value.status))
+        ?value as unknown as TargetAssignmentChangeResult:null,false,false,false,maximumJsonBodyBytes,false,false,false,false,[200,400,403,409,503]);
+  }
+
   async customerHours(token: string, request: CustomerHoursRequest): Promise<ApiResult<CustomerHoursResponse>> {
     if (!isCustomerHoursRequest(request)) return {status:'invalid_response'};
     return this.request('/v1/customers/hours/query',token,'POST',request,
@@ -345,9 +365,9 @@ export class AdminWebApiClient implements AdminWebApiPort {
       false, false, false, maximumSessionBodyBytes,
     );
   }
-  // K4: the overview setup guidance still uses the existing mixed projection.
+  // Organization and section status use only the bounded first mixed page.
   async projection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeProjection>> {
-    if (nextCursor !== null && !cursor.test(nextCursor)) return { status: 'invalid_response' };
+    if (nextCursor !== null) return { status: 'invalid_response' };
     return this.request('/v2/administration/setup-projection', token, 'POST', { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 }, parseAdministrationSetupProjectionV2);
   }
   async createCustomer(token: string, membershipId: string, commandId: string, displayName: string, locationId?: string): Promise<ApiResult<true>> {
@@ -767,7 +787,13 @@ export class AdminWebApiClient implements AdminWebApiPort {
         }
         return { status: 'invalid_response' };
       }
-      if (response.status === 401 || response.status === 403) return { status: 'rejected' };
+      if(path==='/v1/administration/target-assignments/query'&&response.status===403) {
+        if(response.redirected||!isJsonContentType(response.headers.get('content-type'))||!hasSafeDeclaredLength(response,maximumResponseBytes))return {status:'invalid_response'};
+        const text=await readBoundedResponseText(response,maximumResponseBytes),value:unknown=text===null?null:JSON.parse(text);
+        return isRecord(value)&&exact(value,['error'])&&isRecord(value.error)&&exact(value.error,['code'])&&value.error.code==='forbidden'
+          ?{status:'conflict',code:'forbidden'}:{status:'invalid_response'};
+      }
+      if (response.status === 401 || response.status === 403 && path!=='/v1/administration/target-assignments/change') return { status: 'rejected' };
       if (exposeLocationSetupErrors && (response.status === 404 || response.status === 409)) {
         if (response.redirected || !isJsonContentType(response.headers.get('content-type'))
           || !hasSafeDeclaredLength(response, maximumResponseBytes)) return { status: 'invalid_response' };

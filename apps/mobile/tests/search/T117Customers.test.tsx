@@ -55,12 +55,12 @@ for(const mode of ['app']) {
     expect(screen.getByText('Person 1')).toBeInTheDocument();expect(screen.getByText('Person 2')).toBeInTheDocument();
   });
   it(`${mode}: global quota notices still include a customer beyond the first search page (K1–K3)`,async()=>{
-    const readCustomerHours=vi.fn().mockResolvedValue({status:'ready',value:{version:'customer-hours.v2',scope:'people',asOf,customers:[{...last,workDurationSeconds:1800,quotaSeconds:1800,quotaStage:'exceeded',people:[]}]}});
+    const readQuotaAlerts=vi.fn().mockResolvedValue({status:'ready',value:{version:'customer-quota-alerts.v1',scope:'people',asOf,nextCursor:null,customers:[{...last,workDurationSeconds:1800,quotaSeconds:1800,quotaStage:'exceeded'}]}});
     const querySearch=vi.fn().mockResolvedValue({status:'ready',value:page([first],'next')});
-    const cap={readCustomerHours,querySearch},storage={read:async()=>null,write:async()=>{}},onView=vi.fn();
+    const cap={readQuotaAlerts,querySearch},storage={read:async()=>null,write:async()=>{}},onView=vi.fn();
     render(<><View mode={mode} cap={cap}/>{<AppNotice work={cap as unknown as MobileWorkCapability} membership={id(5)} role="administrator" authorityContext={authority} storage={storage} onView={onView}/>}</>);await flush();
     expect(screen.getByText(/Zeta: Kontingent überschritten/)).toBeInTheDocument();expect(screen.getByText('Alpha')).toBeInTheDocument();
-    expect(querySearch).toHaveBeenCalledTimes(1);expect(readCustomerHours).toHaveBeenCalledWith('2026-10');
+    expect(querySearch).toHaveBeenCalledTimes(1);expect(readQuotaAlerts).toHaveBeenCalledWith('2026-10',null);
     fireEvent.click(screen.getByRole('button',{name:'Ansehen'}));await flush();expect(onView).toHaveBeenCalledWith(last.customerId,'2026-10');
   });
 }
@@ -75,11 +75,11 @@ it('app: employee list exposes a debounced server search',async()=>{
 });
 it('app: adding own time loads its own bounded target list when opened',async()=>{
   const {AddTimeControl,TimeEditingContext}=await import('../../src/timeEditing/TimeEditingControls');
-  const querySearch=vi.fn().mockResolvedValue({status:'ready',value:{targets:[{targetType:'customer',targetId:id(9),displayName:'Suchkunde'}],nextCursor:'more'}});
+  const querySearch=vi.fn(async(_kind:string,request:any)=>({status:'ready',value:{targets:request.assignedOnly?[]:[{targetType:'customer',targetId:id(9),displayName:'Suchkunde',assignedToMe:false}],nextCursor:request.assignedOnly?null:'more'}}));
   const context={role:'employee',membershipId:id(1),targets:[],online:true,busy:false,capability:{querySearch,save:vi.fn(),getState:()=>({online:true,busy:false}),subscribe:()=>()=>{}}};
   render(<TimeEditingContext.Provider value={context as any}><AddTimeControl day="2026-10-13" onSaved={async()=>{}}/></TimeEditingContext.Provider>);
   expect(querySearch).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await flush();
-  expect(querySearch).toHaveBeenCalledTimes(1);expect(querySearch).toHaveBeenCalledWith('work_targets',{cursor:null,search:null});
+  expect(querySearch).toHaveBeenCalledTimes(2);expect(querySearch).toHaveBeenCalledWith('work_targets',{cursor:null,search:null});
   expect(screen.getByLabelText('Suchen')).toBeInTheDocument();expect(screen.getByText('Suchkunde')).toBeInTheDocument();
 });
 it('app: an inspected card outside loaded results can be removed as diese Karte',async()=>{
@@ -167,7 +167,7 @@ it.each(['setup_tags','setup_customers','work_targets','backfill_targets'])
   .mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve;}))
   .mockResolvedValueOnce({status:'ready',value:page([])})
   .mockResolvedValueOnce({status:'ready',value:page([row('Wieder da',4)])});
- const querySearch=vi.fn((requested:string,request:unknown)=>requested===kind?read(request):Promise.resolve({status:'ready',value:projection}));
+ const querySearch=vi.fn((requested:string,request:any)=>request.assignedOnly?Promise.resolve({status:'ready',value:{targets:[],nextCursor:null}}):requested===kind?read(request):Promise.resolve({status:'ready',value:projection}));
  if(kind.startsWith('setup_')){
   const {AdminSetupScreen}=await import('../../src/screens/AdminSetupScreen');
   const value={status:'ready',projection,outcome:null};

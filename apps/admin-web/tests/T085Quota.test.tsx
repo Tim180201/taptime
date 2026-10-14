@@ -16,6 +16,7 @@ import { CustomerQuotaNotice } from '../src/QuotaNotice';
 import { defaultRoute } from '../src/navigation';
 const cid='40000000-0000-4000-8000-000000000001',mid='70000000-0000-4000-8000-000000000001';
 const quota:CustomerHoursResponse={version:'customer-hours.v2',scope:'people',asOf:'2026-09-28T08:00:00.000Z',customers:[{customerId:cid,displayName:'Werkstatt',active:true,workDurationSeconds:129600,running:true,quotaSeconds:144000,quotaStage:'warning',people:[{membershipId:mid,displayName:'Person B',workDurationSeconds:129600,running:true}]}]};
+const quotaAlerts={...quota,version:'customer-quota-alerts.v1' as const,nextCursor:null,customers:quota.customers.map(({people,...c}:any)=>c)};
 afterEach(()=>{cleanup();vi.useRealTimers();});
 it('administrator edits half hours, invalid input and removal; list and detail show progress',async()=>{
  vi.setSystemTime(new Date('2026-09-28T08:00Z'));
@@ -34,11 +35,11 @@ it('administrator edits half hours, invalid input and removal; list and detail s
 it('notice appears once per member/customer/month/stage; opening detail acknowledges',async()=>{
  vi.setSystemTime(new Date('2026-09-28T08:00Z'));
  const saved=new Map<string,string>(),storage={read:async(key:string)=>saved.get(key)??null,write:async(key:string)=>{saved.set(key,'1');}};
- const administration={readCustomerHours:vi.fn(async()=>({status:'ready',value:quota}))} as unknown as AdminWebCapability,onView=vi.fn();
+ const administration={readQuotaAlerts:vi.fn(async()=>({status:'ready',value:quotaAlerts}))} as unknown as AdminWebCapability,onView=vi.fn();
  const props={administration,membership:mid,role:'administrator',authorityContext:'one',onView,storage};
  const view=render(<CustomerQuotaNotice {...props}/>);expect(await screen.findByText(/fast erreicht/)).toBeInTheDocument();
  fireEvent.click(screen.getByText('Ansehen'));await waitFor(()=>expect(onView).toHaveBeenCalledWith(cid,'2026-09'));
- view.rerender(<CustomerQuotaNotice {...props} authorityContext="two"/>);await waitFor(()=>expect(administration.readCustomerHours).toHaveBeenCalledTimes(2));expect(screen.queryByText(/fast erreicht/)).toBeNull();
+ view.rerender(<CustomerQuotaNotice {...props} authorityContext="two"/>);await waitFor(()=>expect(administration.readQuotaAlerts).toHaveBeenCalledTimes(2));expect(screen.queryByText(/fast erreicht/)).toBeNull();
  view.rerender(<CustomerQuotaNotice {...props} membership={cid}/>);expect(await screen.findByText(/fast erreicht/)).toBeInTheDocument();
  view.rerender(<CustomerQuotaNotice {...props} role="employee"/>);expect(screen.queryByText(/fast erreicht/)).toBeNull();
  const exceeded:CustomerHoursResponse={...quota,scope:'people',customers:quota.scope==='people'?quota.customers.map(c=>({...c,quotaStage:'exceeded'})):[]};
@@ -47,10 +48,10 @@ it('notice appears once per member/customer/month/stage; opening detail acknowle
 });
 it('late result from previous membership never displays after account or role change',async()=>{
  let finish!:(v:unknown)=>void;
- const administration={readCustomerHours:()=>new Promise(resolve=>{finish=resolve;})} as unknown as AdminWebCapability;
+ const administration={readQuotaAlerts:()=>new Promise(resolve=>{finish=resolve;})} as unknown as AdminWebCapability;
  const view=render(<CustomerQuotaNotice administration={administration} membership={mid} role="administrator" authorityContext="old" onView={()=>{}}/>);
  view.rerender(<CustomerQuotaNotice administration={administration} membership={cid} role="employee" authorityContext="new" onView={()=>{}}/>);
- finish({status:'ready',value:quota});await waitFor(()=>expect(screen.queryByText(/Kontingent/)).toBeNull());
+ finish({status:'ready',value:quotaAlerts});await waitFor(()=>expect(screen.queryByText(/Kontingent/)).toBeNull());
 });
 it('strict v2 parser never accepts quota fields for employees and validates stage from seconds',()=>{
  expect(isCustomerHoursResponse(quota)).toBe(true);
