@@ -26,7 +26,8 @@ export function WelcomePage({ invitation }: { readonly invitation: InvitePasswor
     : invitation.hasInvitation ? null : { kind: 'error', text: messages.invalid_invitation });
 
   if (completed) return <main className="login-shell">
-    <section className="login-card" aria-label="Passwort gespeichert">
+    <section className="login-card" aria-labelledby="welcome-success-title">
+      <h1 id="welcome-success-title">Passwort gespeichert</h1>
       <AppDownloadSuccess />
       <p><a className="button-link secondary-link" href="/">Im Browser anmelden</a></p>
     </section>

@@ -77,6 +77,14 @@ test('private homepage and release assets require auth; only named public pages 
   assert.equal((await request('/app/unknown',oldPassword)).status,404);
   for(const path of ['/v1/session','/health'])assert.equal((await request(path,oldPassword)).status,404,path);
 });
+test('T116b redirects only the public page trailing slashes',async()=>{
+  for(const path of ['/app','/tag']) {
+    const response=await request(path+'/');
+    assert.equal(response.status,308);
+    assert.equal(response.headers.get('location'),path);
+  }
+  assert.equal((await request('/app/unknown')).status,401);
+});
 test('T-109 serves every resource of the real download build without authentication',async()=>{
   const response = await request('/app?redirect=https://foreign.invalid');
   assert.equal(response.status,200);

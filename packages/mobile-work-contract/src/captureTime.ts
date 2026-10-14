@@ -46,7 +46,8 @@ export function captureFeedback(outcome: string, before: MobileOwnTimeQueryRespo
   }
   const record = [after.activeRecord, ...after.records].find(r => r !== null && r.timeRecordId === before.activeRecord?.timeRecordId);
   if (outcome === 'time_entry_stopped' && record?.stoppedAt && record.calendar) {
-    return `Zeit beendet · ${record.targetDisplayName} · ${captureClock(record.startedAt)}–${captureClock(record.stoppedAt)} · ${captureDuration(record.calendar.workDurationSeconds)}`;
+    return `Zeit beendet · ${record.targetDisplayName} · ${captureClock(record.startedAt)}–${captureClock(record.stoppedAt)} · ${captureDuration(record.calendar.workDurationSeconds)}`
+      + (record.calendar.breakDurationSeconds > 0 ? ` · Pause ${captureDuration(record.calendar.breakDurationSeconds)}` : '');
   }
   if (outcome === 'break_started' && record?.breakStartedAt) return `Pause gestartet · ${captureClock(record.breakStartedAt)}`;
   if (outcome === 'break_stopped' && record?.calendar && before.activeRecord?.breakStartedAt) {

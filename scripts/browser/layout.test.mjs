@@ -152,3 +152,19 @@ for(const width of [360,390,1440]) test(`T113 time form visibility and keyboard 
   if(artifacts){mkdirSync(artifacts,{recursive:true});await page.screenshot({path:join(artifacts,`t113-time-add-${width}.png`)});}
  }finally{await page.close();}
 });
+
+for(const width of [390,1440])test(`T116b manual start stays visible after scrolling at ${width}px`,async()=>{
+ const page=await browser.newPage({viewport:{width,height:900}});
+ try {
+  await page.goto(webs['admin-web'].origin+'/manuell#manual');
+  const start=page.getByRole('button',{name:/Zeit starten/});await start.waitFor();
+  const sticky=await start.evaluate(node=>{for(let el=node;el;el=el.parentElement)if(getComputedStyle(el).position==='sticky')return true;return false;});
+  assert.equal(sticky,true);
+  await page.evaluate(()=>{document.documentElement.style.fontSize='200%';window.scrollTo(0,document.body.scrollHeight);});
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(resolve)));
+  const bounds=await start.boundingBox();assert.ok(bounds&&bounds.height>0&&bounds.y>=0);
+  const nav=page.locator('.mobile-navigation');
+  const navBounds=await nav.isVisible()?await nav.boundingBox():null;
+  assert.ok(bounds.y+bounds.height<=(navBounds?.y??900));
+ }finally{await page.close();}
+});

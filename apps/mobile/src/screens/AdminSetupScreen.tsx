@@ -100,21 +100,9 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <Text style={styles.muted}>{projection.organization.name}</Text>
       <Text style={styles.muted}>Jede NFC-Karte gehört zu einem Arbeitsziel. Start und Stopp erkennt {APP_NAME} selbst.</Text>
       {loadedAt!==null?<Text style={styles.muted}>Stand {new Intl.DateTimeFormat('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'}).format(loadedAt)}</Text>:null}
-      {projection.nfcTags.map((tag) => <Card key={tag.id}>
-        <View style={styles.row}><LineIcon name="setup" size={24} />
-          <View style={{ flex: 1 }}><Text style={styles.label}>{tag.displayName}</Text>
-            <Text style={styles.muted}>{projection.customers.find((customer) => customer.id === tag.targetCustomerId)?.displayName
-              ?? presentAssignment(tag.assignmentState, tag.assignmentType)}</Text></View></View>
-        {tag.assignmentState==='assigned'&&tag.activeAssignmentId!==null?<ActionButton title="Entfernen" accessibilityLabel={`Karte ${tag.displayName} entfernen`} tone="warning" disabled={busy||removing}
-          onPress={()=>{setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}/>:null}
-      </Card>)}
-      {projection.nfcTags.length === 0 ? <Card><Text>Noch keine Karten. Ordne deine erste Karte einem Arbeitsziel zu.</Text></Card> : null}
       <ActionButton title="Karte einrichten" tone="cta" disabled={busy} onPress={() => {form.reset();setAssigning(true);}} />
       <ActionButton title="Karte prüfen" disabled={busy} onPress={()=>void administration.inspectTag?.()}/>
       {busy?<ActionButton title="Scan abbrechen" tone="quiet" onPress={()=>void administration.cancel()}/>:null}
-      {projection.nextCursor !== null ? <ActionButton title="Weitere Karten laden" tone="secondary" disabled={busy}
-        onPress={() => administration.loadMore()} /> : null}
-      <ActionButton title="Aktualisieren" tone="quiet" disabled={busy} onPress={() => administration.refresh()} />
     </>}
     {state.status==='ready'&&state.outcome?.status==='tag_checked'&&state.outcome.nfcTagId!==null&&state.outcome.activeAssignmentId!==null&&projection.nfcTags.some(tag=>tag.id===(state.outcome?.status==='tag_checked'?state.outcome.nfcTagId:null))?
       <ActionButton title="Karte entfernen" tone="warning" disabled={removing} onPress={()=>{
@@ -130,6 +118,20 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <Text accessibilityLiveRegion="polite" style={styles.label}>{presentation.title}</Text>
       <Text>{presentation.message}</Text>
     </Card> : null}
+    {!assigning ? <>
+      {projection.nfcTags.map((tag) => <Card key={tag.id}>
+        <View style={styles.row}><LineIcon name="setup" size={24} />
+          <View style={{ flex: 1 }}><Text style={styles.label}>{tag.displayName}</Text>
+            <Text style={styles.muted}>{projection.customers.find((customer) => customer.id === tag.targetCustomerId)?.displayName
+              ?? presentAssignment(tag.assignmentState, tag.assignmentType)}</Text></View></View>
+        {tag.assignmentState==='assigned'&&tag.activeAssignmentId!==null?<ActionButton title="Entfernen" accessibilityLabel={`Karte ${tag.displayName} entfernen`} tone="warning" disabled={busy||removing}
+          onPress={()=>{setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}/>:null}
+      </Card>)}
+      {projection.nfcTags.length === 0 ? <Card><Text>Noch keine Karten. Ordne deine erste Karte einem Arbeitsziel zu.</Text></Card> : null}
+      {projection.nextCursor !== null ? <ActionButton title="Weitere Karten laden" tone="secondary" disabled={busy}
+        onPress={() => administration.loadMore()} /> : null}
+      <ActionButton title="Aktualisieren" tone="quiet" disabled={busy} onPress={() => administration.refresh()} />
+    </> : null}
   </ScrollView></Screen>;
 }
 

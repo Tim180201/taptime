@@ -318,8 +318,9 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
         : result.status === 'tag_payload_already_registered' ? 'tag_already_registered'
           : result.status === 'assignment_target_unavailable' ? 'customer_unavailable'
             : result.status === 'invalid_request' ? 'invalid_input' : 'request_failed';
-      outcome = { status };
-      this.tagReceipt = { authorityKey: command.authorityKey, projection: current.projection, outcome: { status } };
+      const receiptOutcome: AdminSetupOutcome = { status };
+      outcome = receiptOutcome;
+      this.tagReceipt = { authorityKey: command.authorityKey, projection: current.projection, outcome: receiptOutcome };
       signal('failed', connected);
       return { status: 'failed', message: status === 'tag_already_registered' ? 'Karte bereits registriert. Die bisherige Zuordnung bleibt erhalten.'
         : status === 'customer_unavailable' ? 'Kunde nicht verfügbar. Aktualisiere die Ansicht.'
@@ -366,6 +367,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       if (this.tagOperation === operation) this.tagOperation = null;
       if (outcome !== null && this.isTagAuthorityCurrent(snapshot) && (operation.sent || generation === this.generation)) {
         // A projection fetch must never replace an already confirmed registration.
+        this.consumeTagReceipt(outcome);
         this.setState({ status: 'ready', projection: current.projection, outcome });
         if ((outcome as AdminSetupOutcome).status === 'tag_provisioned') {
           const result = await this.api.readProjection(snapshot.session.membershipId, null).catch(() => null);
@@ -426,16 +428,21 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     if (operation?.sent) void this.nfc.cancelCapture().catch(() => undefined);
     else await this.nfc.cancelCapture();
     if (snapshot === null || !this.isCurrent(generation, snapshot) || !snapshot.session.nfcSetupAvailable) return;
+    // A superseded reload must leave the private receipt for the next one.
     const receipt = this.tagReceipt;
-    if (receipt) this.setState({ status: 'ready', projection: receipt.projection, outcome: receipt.outcome });
-    await this.loadProjection(receipt?.outcome ?? null, snapshot, generation);
+    await this.loadProjection(receipt?.outcome ?? null, snapshot, generation, receipt?.projection);
   }
 
-  private async loadProjection(outcome: AdminSetupOutcome | null, supplied = this.session.capture(), suppliedGeneration = ++this.generation): Promise<void> {
+  private consumeTagReceipt(outcome: AdminSetupOutcome): void {
+    if (this.tagReceipt?.outcome === outcome) this.tagReceipt = null;
+  }
+
+  private async loadProjection(outcome: AdminSetupOutcome | null, supplied = this.session.capture(), suppliedGeneration = ++this.generation,
+    receiptProjection?: AdminSetupProjection): Promise<void> {
     const snapshot = supplied;
     if (!this.active || snapshot === null || snapshot.session.nfcSetupAvailable !== true) return;
     const generation = suppliedGeneration;
-    const previous = 'projection' in this.state ? this.state.projection : null;
+    const previous = receiptProjection ?? ('projection' in this.state ? this.state.projection : null);
     this.projectionInvalidated = false;
     this.setState({ status: 'loading' });
     let result = await this.api.readProjection(snapshot.session.membershipId, null).catch(() => ({ status: 'unavailable' as const }));
@@ -452,12 +459,14 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       result={status:'succeeded',...merged};
     }
     if (!this.isCurrent(generation, snapshot)) return;
-    if(this.projectionInvalidated){await this.loadProjection(outcome,snapshot,generation);return;}
+    if(this.projectionInvalidated){await this.loadProjection(outcome,snapshot,generation,receiptProjection);return;}
     if (result.status === 'succeeded') {
+      if (outcome !== null) this.consumeTagReceipt(outcome);
       this.setState({ status: 'ready', projection: { organization: result.organization, customers: result.customers, nfcTags: result.nfcTags, nextCursor: result.nextCursor }, outcome });
     } else if (result.status === 'authority_rejected') {
       this.setState({ status: 'inactive' });
-    } else if (previous !== null && (outcome?.status === 'tag_provisioned' || this.pendingTag !== null)) {
+    } else if (previous !== null && (outcome?.status === 'tag_provisioned' || this.pendingTag !== null || receiptProjection !== undefined)) {
+      if (outcome !== null) this.consumeTagReceipt(outcome);
       this.setState({ status: 'ready', projection: previous, outcome });
     } else {
       this.setState({ status: 'inactive' });

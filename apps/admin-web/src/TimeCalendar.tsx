@@ -2,7 +2,7 @@ import {VoidedTimeRows} from './TimeVoidControls';
 import { AddTimeControl,TimeRecordControls } from './TimeEditingControls';
 import {
 	BUSINESS_TIME_ZONE,businessDay,dayStart,formatClock,formatDuration,formatHours,
-	intervalMilliseconds,monthDays,provenance,rangeSummary,monthTimeSummary,recordDaySummary,recordsForDay,shiftDay,shiftMonth,weekStart
+	intervalMilliseconds,monthDays,provenance,rangeSummary,monthTimeSummary,recordDaySummary,recordDaySectionLabels,recordsForDay,shiftDay,shiftMonth,weekStart
 } from '@taptime/core';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { useRef, useState } from 'react';
@@ -46,13 +46,19 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
             ? summary.milliseconds > 0 ? formatHours(summary.milliseconds) : '' : '—'}</small></button>;
       })}</div>
     </Panel><div ref={dayList}><Panel title={new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,weekday:'long',day:'numeric',month:'long'}).format(new Date(`${selected}T12:00:00Z`))}>
-      <AddTimeControl day={selected}/><ul className="time-day-list">{records.map(record=><li key={record.timeRecordId}><strong>{record.targetDisplayName}</strong>
+      <AddTimeControl day={selected}/><ul className="time-day-list">{records.map(record=>{
+        const sections=recordDaySectionLabels(record,selected);
+        const origin=record.details?({nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin]):provenance(record);
+        return <li key={record.timeRecordId}>
+        {sections.length ? <>
+          {sections.map((label,index)=><p key={index}>{label}</p>)}<p>{origin}</p>
+        </> : <><strong>{record.targetDisplayName}</strong>
         <p>{formatClock(Math.max(dayStart(selected),Date.parse(record.startedAt)))} – {record.stoppedAt === null ? 'läuft'
-          : formatClock(Math.min(dayStart(shiftDay(selected,1)),Date.parse(record.stoppedAt)))} · {record.details?({nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin]):provenance(record)}</p>
+          : formatClock(Math.min(dayStart(shiftDay(selected,1)),Date.parse(record.stoppedAt)))} · {origin}</p>
         <strong>{formatDuration(recordDaySummary(record,selected).milliseconds)}</strong>
-        <p>{formatDuration(recordDaySummary(record,selected).breakMilliseconds)} Pause</p>
+        </>}
         <TimeRecordControls record={record}/>
-      </li>)}</ul>
+      </li>; })}</ul>
       <VoidedTimeRows day={selected} value={value}/>
       {records.length === 0 ? <p>{rangeSummary(value,selected,shiftDay(selected,1)).complete
         ? 'Für diesen Tag zählt keine Arbeitszeit.' : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</p> : null}

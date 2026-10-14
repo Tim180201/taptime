@@ -30,7 +30,7 @@ vi.mock('react-native', () => {
   return { RefreshControl: () => null, View: element, Text: element, ScrollView: element, Pressable: element,
     TextInput: ({ value, onChangeText, accessibilityLabel }: { value: string; onChangeText: (value: string) => void; accessibilityLabel: string }) =>
       createElement('input', { value, 'aria-label': accessibilityLabel, onChange: (event: React.ChangeEvent<HTMLInputElement>) => onChangeText(event.target.value) }),
-    AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
+    AccessibilityInfo: { announceForAccessibility: vi.fn(), isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
     StyleSheet: { create: (value: unknown) => value, flatten }, Platform: { OS: 'android' },
     Linking: { getInitialURL: async () => null, addEventListener: () => ({ remove() {} }) },
     BackHandler: { addEventListener: (_:string,handler:()=>boolean) => {nativeBack.handler=handler;return {remove(){if(nativeBack.handler===handler)nativeBack.handler=null;}};} },

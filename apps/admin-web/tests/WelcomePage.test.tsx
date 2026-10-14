@@ -50,6 +50,8 @@ describe('T-047 standalone welcome route', () => {
     fireEvent.change(screen.getByLabelText('Neues Passwort'), { target: { value: 'new-test-password' } });
     fireEvent.click(screen.getByRole('button', { name: 'Passwort setzen' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Ihr Passwort ist eingerichtet. Laden Sie jetzt die App und melden Sie sich dort mit Ihrer E-Mail-Adresse und diesem Passwort an.'));
+    expect(screen.getByRole('heading',{name:'Passwort gespeichert'})).toHaveAttribute('id','welcome-success-title');
+    expect(screen.getByRole('region',{name:'Passwort gespeichert'})).toHaveAttribute('aria-labelledby','welcome-success-title');
     expect(screen.getByRole('link',{name:'Im Browser anmelden'})).toHaveAttribute('href','/');
     expect(screen.getByRole('link', { name: 'App laden' })).toHaveAttribute('href', 'https://tb-infra.de/app');
     expect(screen.getAllByRole('link')).toHaveLength(2);

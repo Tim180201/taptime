@@ -16,8 +16,11 @@ beforeAll(async () => { await pool.query(`DROP SCHEMA IF EXISTS ${B3_SCHEMA} CAS
 beforeEach(async () => { await truncateC3C(pool); await seedC3C(pool); });
 afterAll(async () => { await pool.end(); });
 const lifecycle=new ServerCanonicalLifecycleIngestionCoordinator(pool,fixtureAccessTokenVerifier as SupabaseJwtAccessTokenVerifier,{async requireOffsiteArchive(){return {requiredWalFile:'000000010000000000000000',offsiteArchived:true};}});
-const event=():LifecycleIngestionCommand=>({accessToken:fixtureTokens.employeeA,requestedOrganizationId:OrganizationId(ids.organizationA),
- workEvent:{id:WorkEventId(randomUUID()),assignmentId:NfcAssignmentId(ids.assignmentA),nfcTagId:NfcTagId(ids.tagAssignedA),target:customerAssignmentTarget(CustomerId(ids.customerA)),occurredAt:createTimestamp(new Date().toISOString())},receipt:{id:randomUUID(),attemptNumber:1}});
+// The assignment and event share the database clock: a local Docker VM can be
+// milliseconds ahead of the host without making this an invalid-assignment test.
+const serverNow=async()=>createTimestamp((await pool.query('SELECT clock_timestamp() AS now')).rows[0].now.toISOString());
+const event=async():Promise<LifecycleIngestionCommand>=>({accessToken:fixtureTokens.employeeA,requestedOrganizationId:OrganizationId(ids.organizationA),
+ workEvent:{id:WorkEventId(randomUUID()),assignmentId:NfcAssignmentId(ids.assignmentA),nfcTagId:NfcTagId(ids.tagAssignedA),target:customerAssignmentTarget(CustomerId(ids.customerA)),occurredAt:await serverNow()},receipt:{id:randomUUID(),attemptNumber:1}});
 
 const removal=()=>({...admin,commandId:randomUUID(),nfcTagId:ids.tagAssignedA,expectedAssignmentId:ids.assignmentA});
 async function payload(){return (await pool.query('SELECT payload_value FROM taptime_server.nfc_tags WHERE id=$1',[ids.tagAssignedA])).rows[0].payload_value;}
@@ -82,7 +85,7 @@ async function remainsPending(operation:Promise<unknown>){
 it.each(['start','remove'] as const)('serializes card start/remove when %s acquires the shared target lock first',async first=>{
  const locked=latch(),release=latch();
  if(first==='start'){
-  const start=lifecycle.ingest(event(),membershipIds.employeeA,{afterConfigurationLocked:async()=>{locked.resolve();await release.promise;}});
+  const start=lifecycle.ingest(await event(),membershipIds.employeeA,{afterConfigurationLocked:async()=>{locked.resolve();await release.promise;}});
   await Promise.race([locked.promise,start.then(()=>{throw new Error('start completed before gate');})]);
   let remove!:ReturnType<typeof setup.removeTag>;
   try{remove=setup.removeTag(removal());await remainsPending(remove);}finally{release.resolve();await Promise.allSettled([start,...(remove?[remove]:[])]);}
@@ -92,7 +95,7 @@ it.each(['start','remove'] as const)('serializes card start/remove when %s acqui
   const remove=setup.removeTag(removal(),{beforeCommit:async()=>{locked.resolve();await release.promise;}});
   await Promise.race([locked.promise,remove.then(()=>{throw new Error('remove completed before gate');})]);
   let start!:ReturnType<typeof lifecycle.ingest>;
-  try{start=lifecycle.ingest(event(),membershipIds.employeeA);await remainsPending(start);}finally{release.resolve();await Promise.allSettled([remove,...(start?[start]:[])]);}
+  try{start=lifecycle.ingest(await event(),membershipIds.employeeA);await remainsPending(start);}finally{release.resolve();await Promise.allSettled([remove,...(start?[start]:[])]);}
   expect(await remove).toMatchObject({status:'succeeded'});expect(await start).not.toMatchObject({decision:{status:'time_entry_started'}});
   expect((await pool.query('SELECT 1 FROM taptime_server.time_entries')).rows).toEqual([]);
  }
@@ -108,12 +111,12 @@ it.each(['delete','remove'] as const)('serializes customer deletion/remove witho
 
 const manual=new ManualLifecycleIngestionCoordinator(pool,fixtureAccessTokenVerifier,{async requireOffsiteArchive(){return {requiredWalFile:'000000010000000000000000',offsiteArchived:true};}});
 it.each(['work','break'] as const)('removing a %s card leaves running time and permits ending it online',async type=>{
- const started=await lifecycle.ingest(event(),membershipIds.employeeA);expect(started).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+ const started=await lifecycle.ingest(await event(),membershipIds.employeeA);expect(started,JSON.stringify(started)).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
  let command=removal();
  if(type==='break'){
   await setup.provisionBreakNfcTag({...admin,commandId:randomUUID(),displayName:'Pause',canonicalPayload:'nfc:uid:v1:DD'});
   const pause=await setup.inspectTagV2({...admin,canonicalPayload:'nfc:uid:v1:DD'});if(pause.status!=='succeeded'||!pause.nfcTagId||!pause.activeAssignmentId)throw new Error('pause');
-  expect(await lifecycle.ingest({accessToken:fixtureTokens.employeeA,requestedOrganizationId:OrganizationId(ids.organizationA),workEvent:{id:WorkEventId(randomUUID()),assignmentId:NfcAssignmentId(pause.activeAssignmentId),nfcTagId:NfcTagId(pause.nfcTagId),subject:{type:'break'},occurredAt:createTimestamp(new Date().toISOString())},receipt:{id:randomUUID(),attemptNumber:1}},membershipIds.employeeA)).toMatchObject({decision:{status:'break_started'}});
+  expect(await lifecycle.ingest({accessToken:fixtureTokens.employeeA,requestedOrganizationId:OrganizationId(ids.organizationA),workEvent:{id:WorkEventId(randomUUID()),assignmentId:NfcAssignmentId(pause.activeAssignmentId),nfcTagId:NfcTagId(pause.nfcTagId),subject:{type:'break'},occurredAt:await serverNow()},receipt:{id:randomUUID(),attemptNumber:1}},membershipIds.employeeA)).toMatchObject({decision:{status:'break_started'}});
   command={...command,nfcTagId:pause.nfcTagId as typeof ids.tagAssignedA,expectedAssignmentId:pause.activeAssignmentId as typeof ids.assignmentA};
  }
  expect(await setup.removeTag(command)).toMatchObject({status:'succeeded'});

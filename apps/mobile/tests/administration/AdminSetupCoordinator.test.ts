@@ -404,6 +404,8 @@ it('T112 review: a receipt arriving without context stays private and reappears 
  c.replace({...snapshot,generation:3});
  await vi.waitFor(()=>expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned',validationFingerprint:'RECEIPT'}}));
  expect(c.coordinator.getState()).not.toHaveProperty('pendingTag');
+ c.replace({...snapshot,generation:3});
+ await vi.waitFor(()=>expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:null}));
 });
 
 it('T116 removal refreshes projection and reuses a command after uncertain transport',async()=>{
@@ -436,4 +438,40 @@ it('T116 refreshes the first page after inspecting a new card absent from a comp
  await c.coordinator.start();await c.coordinator.inspectTag();
  expect(c.api.readProjection).toHaveBeenCalledTimes(2);expect(c.api.readProjection).toHaveBeenLastCalledWith(snapshot.session.membershipId,null);
  expect(c.coordinator.getState()).toMatchObject({status:'ready',projection:{nfcTags:[tag]},outcome:{status:'tag_checked',nfcTagId:tag.id,activeAssignmentId:tag.activeAssignmentId}});
+});
+
+it('T116b consumes a displayed receipt before later session notifications',async()=>{
+ const c=setup(); await c.coordinator.start();
+ await c.coordinator.provision(projection.customers[0]!.id,'Karte');
+ expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned'}});
+ c.replace({...snapshot,generation:2});
+ await vi.waitFor(()=>expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:null}));
+ c.replace({...snapshot,generation:3});
+ await vi.waitFor(()=>expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:null}));
+});
+
+it.each(['succeeded','unavailable'] as const)('T116b retains a private receipt through overlapping restoration reads (%s)',async reload=>{
+ const c=setup();let reply!:(value:Awaited<ReturnType<AdminSetupApiPort['provisionTag']>>)=>void;
+ vi.mocked(c.api.provisionTag).mockImplementationOnce(()=>new Promise(resolve=>{reply=resolve;}));
+ await c.coordinator.start();const pending=c.coordinator.provision(projection.customers[0]!.id,'Eingang');
+ await vi.waitFor(()=>expect(c.api.provisionTag).toHaveBeenCalledOnce());
+ c.replace(null as unknown as AdminSessionSnapshot);
+ await vi.waitFor(()=>expect(c.coordinator.getState()).toEqual({status:'inactive'}));
+ reply({status:'succeeded',validationFingerprint:'RECEIPT'});await pending;
+ const displayed:unknown[]=[];
+ c.coordinator.subscribe(()=>{const state=c.coordinator.getState();if(state.status==='ready'&&state.outcome?.status==='tag_provisioned')displayed.push(state.outcome);});
+ let finish!:(value:typeof projection)=>void;
+ const delayed=new Promise<typeof projection>(resolve=>{finish=resolve;});
+ vi.mocked(c.api.readProjection).mockImplementationOnce(()=>delayed).mockResolvedValueOnce(reload==='succeeded'?projection:{status:'unavailable'});
+ c.replace({...snapshot,generation:2});
+ await vi.waitFor(()=>expect(c.api.readProjection).toHaveBeenCalledTimes(2));
+ expect(c.coordinator.getState().status).toBe('loading');
+ c.replace({...snapshot,generation:3});
+ await vi.waitFor(()=>expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned',validationFingerprint:'RECEIPT'}}));
+ finish(projection);await delayed;await Promise.resolve();
+ expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:{status:'tag_provisioned',validationFingerprint:'RECEIPT'}});
+ expect(displayed).toHaveLength(1);
+ c.replace({...snapshot,generation:4});
+ await vi.waitFor(()=>expect(c.coordinator.getState()).toMatchObject({status:'ready',outcome:null}));
+ expect(displayed).toHaveLength(1);
 });

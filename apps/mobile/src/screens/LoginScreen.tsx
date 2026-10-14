@@ -71,7 +71,8 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
 
   return (
     <Screen title={`${APP_NAME} — Anmeldung`}><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      {unavailable ? <><Text>Anmeldung gerade nicht möglich. Prüfe die Verbindung und versuche es erneut.</Text>
+      {unavailable ? <>{message === 'Anmeldung gerade nicht möglich. Prüfe die Verbindung und versuche es erneut.' ? null
+        : <Text>Anmeldung gerade nicht möglich. Prüfe die Verbindung und versuche es erneut.</Text>}
         <Text style={{fontSize: 12}}>Code S5</Text></> : null}
       <Text>E-Mail-Adresse</Text>
       <RequiredTextField form={form} scope="email" error={email.trim().length < 3 ? "Bitte E-Mail-Adresse eingeben." : null}

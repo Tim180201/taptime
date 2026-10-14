@@ -9,7 +9,7 @@ import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/prim
 import { LineIcon } from '../design/LineIcon';
 import { mobileTokens } from '../design/tokens';
 import { businessDay, dayStart, formatClock, formatDuration, formatHours, intervalMilliseconds,
-  monthDays, provenance, rangeSummary, monthTimeSummary, recordDaySummary, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
+  monthDays, provenance, rangeSummary, monthTimeSummary, recordDaySummary, recordDaySectionLabels, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
 
 export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembershipId}: {readonly targetMembershipId?: string; readonly value: MobileOwnTimeQueryResponse; readonly onRefresh: ()=>Promise<void>; readonly onMonthChange?: (month: string)=>void}) {
   const scroll = useRef<ScrollView>(null);
@@ -62,14 +62,21 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
       weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${selected}T12:00:00Z`))}</Text>
     <Text style={styles.muted}>{daily.complete ? `${formatDuration(daily.milliseconds)} Arbeitszeit · ${formatDuration(daily.breakMilliseconds)} Pause` : 'Zeitraum nicht vollständig geladen'}</Text>
     <AddTimeControl day={selected} targetMembershipId={targetMembershipId} onSaved={onRefresh} />
-    {records.map((record) => <Card key={record.timeRecordId}>
+    {records.map((record) => {
+      const sections = recordDaySectionLabels(record, selected);
+      const origin = record.details ? ({nfc:'gescannt',manual:'manuell erfasst',backfilled:'nachgetragen',recovered:'wiederhergestellt'} as const)[record.details.origin] : provenance(record);
+      return <Card key={record.timeRecordId}>
+      {sections.length ? <>
+        {sections.map((label, index) => <Text key={index} style={styles.duration}>{label}</Text>)}
+        <Text style={styles.muted}>{origin}</Text>
+      </> : <>
       <Text style={{ fontWeight: '800' }}>{record.targetDisplayName}</Text>
       <Text style={styles.muted}>{formatClock(Math.max(dayStart(selected), Date.parse(record.startedAt)))} – {
-        record.stoppedAt === null ? 'läuft' : formatClock(Math.min(dayStart(shiftDay(selected, 1)), Date.parse(record.stoppedAt)))} · {record.details ? ({nfc:'gescannt',manual:'manuell erfasst',backfilled:'nachgetragen',recovered:'wiederhergestellt'} as const)[record.details.origin] : provenance(record)}</Text>
+        record.stoppedAt === null ? 'läuft' : formatClock(Math.min(dayStart(shiftDay(selected, 1)), Date.parse(record.stoppedAt)))} · {origin}</Text>
       <Text style={styles.duration}>{formatDuration(recordDaySummary(record,selected).milliseconds)}</Text>
-      <Text style={styles.muted}>{formatDuration(recordDaySummary(record,selected).breakMilliseconds)} Pause</Text>
+      </>}
       <TimeRecordControls record={record} targetMembershipId={targetMembershipId} onSaved={onRefresh} />
-    </Card>)}
+    </Card>; })}
     <VoidedTimeRows day={selected} value={ownTime} targetMembershipId={targetMembershipId}/>
     {records.length === 0 ? <Card><Text>{daily.complete ? 'Für diesen Tag zählt keine Arbeitszeit.'
       : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</Text></Card> : null}

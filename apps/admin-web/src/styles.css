@@ -509,6 +509,11 @@ button.calendar-day:hover { background: var(--color-line); }
 .target-choice:has(:checked), .target-choice[aria-pressed="true"] { border-color: var(--color-accent); background: var(--color-surface-raised); }
 .target-choice input { width: 1.25rem; min-height: 1.25rem; accent-color: var(--color-accent); }
 button.capture-primary { background: var(--color-call-to-action); border-color: var(--color-call-to-action); min-height: 3.25rem; }
+.manual-start-bar { position: sticky; bottom: 0; z-index: 2; padding-block: var(--space-3); background: var(--color-ground); }
+.manual-start-bar button { width: 100%; white-space: normal; }
+@media (max-width: 68rem) {
+  .manual-start-bar { bottom: calc(88px + env(safe-area-inset-bottom)); }
+}
 .feedback-band { border: 1px solid var(--color-notice); border-radius: var(--radius-card); padding: var(--space-4); }
 @media (max-width: 68rem) { .calendar-layout { grid-template-columns: 1fr; } }
 @media (max-width: 48rem) { .calendar-layout { min-width: 0; } .calendar-day small { font-size: .65rem; } }

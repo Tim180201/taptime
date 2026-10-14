@@ -28,7 +28,7 @@ vi.mock('react-native', () => {
     }, children);
   };
   return { View: element, Text: element, Pressable: element, ScrollView: element, TextInput: element,
-    AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
+    AccessibilityInfo: { announceForAccessibility: vi.fn(), isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
     StyleSheet: { create: (value: unknown) => value, flatten }, Platform: { OS: 'android' },
     Linking: { getInitialURL: async () => null, addEventListener: () => ({ remove() {} }) },
     BackHandler: { addEventListener: (_: string, listener: () => boolean) => {

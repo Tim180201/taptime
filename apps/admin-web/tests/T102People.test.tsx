@@ -12,6 +12,8 @@ it('groups loaded pages once per location, keeps departed separate and shows cus
  const a={...person,departedAt:null,monthWorkDurationSeconds:9000};
  const {rerender}=render(<PeopleTable people={[a]} navigate={vi.fn()} locationId={null} locationsEnabled/>);
  rerender(<PeopleTable people={[a,{...a,membershipId:'two',displayName:'Berta'},{...a,membershipId:'three',displayName:'Cem',location:{id:'south',name:'Süd'}},{...a,membershipId:'four',displayName:'Dora',departedAt:'2026-10-01T00:00:00.000Z'}]} navigate={vi.fn()} locationId={null} locationsEnabled/>);
+ expect(screen.queryAllByRole('columnheader',{name:'Standort'})).toHaveLength(0);
+ expect(document.querySelectorAll('td[data-label="Standort"]')).toHaveLength(0);
  expect(screen.getAllByRole('heading',{name:'Nord'})).toHaveLength(2); // once current, once departed
  expect(screen.getAllByRole('heading',{name:'Süd'})).toHaveLength(1);
  expect(screen.getByRole('heading',{name:'Ausgeschiedene Mitarbeiter'})).toBeDefined();
@@ -25,6 +27,7 @@ it('keeps two equal-named location identities separate without repeating their h
 });
 it('falls back to the legacy list without v3, and skips location headings when disabled',()=>{
  const {rerender}=render(<PeopleTable people={[person]} navigate={vi.fn()} locationId={null} locationsEnabled/>);
+ expect(screen.getByRole('columnheader',{name:'Standort'})).toBeDefined();
  expect(screen.queryByText('Diesen Monat')).toBeNull();expect(screen.queryByRole('heading',{name:'Nord'})).toBeNull();
  rerender(<PeopleTable people={[{...person,monthWorkDurationSeconds:0,departedAt:null}]} navigate={vi.fn()} locationId={null}/>);
  expect(screen.getByText('0:00 h')).toBeDefined();expect(screen.queryByRole('heading',{name:'Nord'})).toBeNull();

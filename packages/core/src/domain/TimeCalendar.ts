@@ -104,6 +104,40 @@ export function recordDaySummary(record: CalendarInterval, day:string) {
   const portion=calendarDayAllocations(record).find(p=>p.day===day);
   return {milliseconds:(portion?.workSeconds??0)*1000,breakMilliseconds:(portion?.breakSeconds??0)*1000};
 }
+/** Display only: split a day's entry while preserving its allocated server seconds. */
+export function recordDaySectionLabels(record: CalendarInterval & {
+  readonly targetDisplayName: string; readonly breakStartedAt?: string | null;
+}, day: string): readonly string[] {
+  if (!record.calendar) return [];
+  const from = Math.max(dayStart(day), Date.parse(record.startedAt));
+  const to = Math.min(dayStart(shiftDay(day, 1)), Date.parse(record.stoppedAt ?? record.calendar.asOf));
+  const breakStart = record.stoppedAt === null && record.breakStartedAt ? Date.parse(record.breakStartedAt) : null;
+  const newPause = breakStart !== null && breakStart >= to && businessDay(breakStart) === day;
+  const pauses = record.calendar.breakIntervals.map(pause => ({
+    from: Math.max(from, Date.parse(pause.startedAt)), to: Math.min(to, Date.parse(pause.stoppedAt)),
+  })).filter(pause => pause.to > pause.from).sort((a, b) => a.from - b.from);
+  if (!pauses.length && !newPause) return [];
+  const sections: { kind: 'work' | 'pause'; from: number; to: number }[] = [];
+  let cursor = from;
+  for (const pause of pauses) {
+    if (pause.from > cursor) sections.push({ kind: 'work', from: cursor, to: pause.from });
+    if (pause.to > cursor) sections.push({ kind: 'pause', from: Math.max(cursor, pause.from), to: pause.to });
+    cursor = Math.max(cursor, pause.to);
+  }
+  if (cursor < to) sections.push({ kind: 'work', from: cursor, to });
+  const daily = recordDaySummary(record, day);
+  const work = allocateSeconds(daily.milliseconds / 1000, sections.map(s => s.kind === 'work' ? s.to - s.from : 0));
+  const pause = allocateSeconds(daily.breakMilliseconds / 1000, sections.map(s => s.kind === 'pause' ? s.to - s.from : 0));
+  const labels = sections.map((section, index) => {
+    const ongoing = record.stoppedAt === null && section.to === Date.parse(record.calendar!.asOf)
+      && (section.kind === 'work' || record.breakStartedAt !== null);
+    if (section.kind === 'pause' && ongoing && record.breakStartedAt
+      && Date.parse(record.breakStartedAt) <= section.to) return `seit ${formatClock(section.from)} · Pause`;
+    return `${formatClock(section.from)}–${ongoing && !newPause ? 'läuft' : formatClock(section.to)} · ${section.kind === 'pause' ? 'Pause' : record.targetDisplayName} · ${formatDuration((work[index]! + pause[index]!) * 1000)}`;
+  });
+  if (newPause) labels.push(`seit ${formatClock(breakStart!)} · Pause`);
+  return labels;
+}
 export function rangeSummary<Record extends CalendarInterval>(ownTime: CalendarWindow<Record>, firstDay: string, endDay: string) {
   const from=dayStart(firstDay),to=Math.min(dayStart(endDay),Date.parse(ownTime.windowEndedAt));
   const records=timeRecords(ownTime);

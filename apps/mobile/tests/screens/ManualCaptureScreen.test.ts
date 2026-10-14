@@ -58,8 +58,7 @@ async function press(label: string) {
 describe('T103 ManualCaptureScreen states', () => {
   it('starts only a selected work target, without a pause entry', async () => {
     expect([...container.querySelectorAll('button')].some(b=>b.textContent==='Pause')).toBe(false);
-    await press('Zeit starten');
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain('Wähle ein Arbeitsziel');
+    expect([...container.querySelectorAll('button')].some(b=>b.textContent==='Zeit starten')).toBe(false);
     await press(target.displayName); await press('Zeit starten');
     expect(work.triggerManual).toHaveBeenCalledExactlyOnceWith(target);
   });

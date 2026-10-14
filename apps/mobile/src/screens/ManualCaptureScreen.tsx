@@ -3,6 +3,7 @@ import { ActiveTimeCard } from './ActiveTimeCard';
 import { useRequiredForm, RequiredField } from '../design/RequiredField';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
+  AccessibilityInfo,
   ScrollView,
   StyleSheet,
   View,
@@ -29,6 +30,9 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
           .includes(search.trim().toLocaleLowerCase('de-DE'))
       ))
     : [], [search, state]);
+  const selectedTarget = visible.find(target => target.targetId === selected?.targetId
+    && target.targetType === selected.targetType);
+  useEffect(() => { if (selected && !selectedTarget) setSelected(null); }, [selected, selectedTarget]);
 
   if (state.status === 'inactive' || state.status === 'loading') {
     return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
@@ -45,7 +49,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
   }
 
   return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
-    <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+    <ScrollView style={{flex: 1}} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
       {state.capturePending ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
       {state.ownTime.activeRecord ? <ActiveTimeCard record={state.ownTime.activeRecord}
         disabled={state.submitting || !!state.capturePending} onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : <>
@@ -60,19 +64,20 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
               {targets.map(target => <ActionButton key={`${target.targetType}:${target.targetId}`} title={target.displayName}
                 disabled={state.submitting} tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
                 accessibilityState={{selected:selected?.targetId === target.targetId}}
-                onPress={() => {setSelected(target);}} />)}
+                onPress={() => {setSelected(target); AccessibilityInfo.announceForAccessibility(`Ausgewählt: ${target.displayName}`);}} />)}
             </View>;
           })}
         </View></RequiredField>
-        <Card><Text style={styles.selection}>{selected?.displayName ?? 'Noch kein Arbeitsziel ausgewählt'}</Text>
-          <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting || state.capturePending} loading={state.submitting}
-            onPress={() => {if(form.validate() && selected)void work.triggerManual(selected);}} />
-        </Card>
       </>}
       {state.submitting ? <Text accessibilityLiveRegion="polite">Bestätigung wird angefordert …</Text> : null}
       {state.feedback || state.outcome ? <Text accessibilityLiveRegion="polite" style={styles.outcome}>{state.feedback ?? manualCaptureOutcome(state.outcome!)}</Text> : null}
       <RecentTime ownTime={state.ownTime} />
     </ScrollView>
+    {!state.ownTime.activeRecord && selectedTarget ? <Card style={{flexShrink: 0}}>
+      <Text style={styles.selection}>{selectedTarget.displayName}</Text>
+      <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting || state.capturePending} loading={state.submitting}
+        onPress={() => {if(form.validate())void work.triggerManual(selectedTarget);}} />
+    </Card> : null}
   </Screen>;
 }
 

@@ -41,7 +41,7 @@ export default function ManualView({state,administration}: {
         {visibleTargets.length===0 && search.trim() ? <p>Keine Arbeitsziele für ‚{search.trim()}‘ gefunden. <button type="button" onClick={()=>setSearch('')}>Suche löschen</button></p> : null}
         {targets.value.length===0 && !search.trim()?<p>Es sind keine Arbeitsziele verfügbar. Wenden Sie sich an Ihre Betriebsverwaltung.</p>:null}
       </fieldset> : targets?.status==='unavailable'?<p role="status">{targets.message}</p>:<DelayedSkeleton label="Arbeitsziele werden geladen"/>}
-      <button className="capture-primary" disabled={locked}>{target ? `Zeit starten · ${target.displayName}` : 'Zeit starten'}</button>
+      <div className="manual-start-bar"><button className="capture-primary" disabled={locked}>{target ? `Zeit starten · ${target.displayName}` : 'Zeit starten'}</button></div>
     </RequiredForm>}
     {state.manual?.busy ? <p role="status">Bestätigung wird angefordert …</p> : state.manual?.pending ?
       <button className="capture-primary" onClick={()=>void administration.captureManual?.('break')}>Bestätigung erneut abrufen</button> : null}

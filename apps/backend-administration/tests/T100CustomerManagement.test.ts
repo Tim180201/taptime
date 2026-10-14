@@ -55,10 +55,13 @@ it('deactivates customer and assignments atomically, keeps history and replays d
 });
 
 const lifecycle=new ServerCanonicalLifecycleIngestionCoordinator(pool,fixtureAccessTokenVerifier as SupabaseJwtAccessTokenVerifier,{async requireOffsiteArchive(){return {requiredWalFile:'000000010000000000000000',offsiteArchived:true};}});
-const event=():LifecycleIngestionCommand=>({accessToken:fixtureTokens.employeeA,requestedOrganizationId:OrganizationId(ids.organizationA),
- workEvent:{id:WorkEventId(randomUUID()),assignmentId:NfcAssignmentId(ids.assignmentA),nfcTagId:NfcTagId(ids.tagAssignedA),target:customerAssignmentTarget(CustomerId(ids.customerA)),occurredAt:createTimestamp(new Date().toISOString())},receipt:{id:randomUUID(),attemptNumber:1}});
+// The assignment and event share the database clock: a local Docker VM can be
+// milliseconds ahead of the host without making this an invalid-assignment test.
+const serverNow=async()=>createTimestamp((await pool.query('SELECT clock_timestamp() AS now')).rows[0].now.toISOString());
+const event=async():Promise<LifecycleIngestionCommand>=>({accessToken:fixtureTokens.employeeA,requestedOrganizationId:OrganizationId(ids.organizationA),
+ workEvent:{id:WorkEventId(randomUUID()),assignmentId:NfcAssignmentId(ids.assignmentA),nfcTagId:NfcTagId(ids.tagAssignedA),target:customerAssignmentTarget(CustomerId(ids.customerA)),occurredAt:await serverNow()},receipt:{id:randomUUID(),attemptNumber:1}});
 it('running time of any person blocks deletion without changing customer, assignment or audit',async()=>{
- expect(await lifecycle.ingest(event(),membershipIds.employeeA)).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
+ const started=await lifecycle.ingest(await event(),membershipIds.employeeA);expect(started,JSON.stringify(started)).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
  const command=deactivate();
  expect(await setup.manageCustomer(command)).toEqual({status:'running_time'});
  expect((await pool.query('SELECT active FROM taptime_server.customers WHERE id=$1',[ids.customerA])).rows).toEqual([{active:true}]);
@@ -68,17 +71,19 @@ function latch(){let resolve!:()=>void;const promise=new Promise<void>(r=>resolv
 it.each(['start','delete'] as const)('serializes concurrent NFC start/delete when %s wins the lock',async first=>{
  const locked=latch(),release=latch();
  if(first==='start'){
-  const start=lifecycle.ingest(event(),membershipIds.employeeA,{afterConfigurationLocked:async()=>{locked.resolve();await release.promise;}});
+  const start=lifecycle.ingest(await event(),membershipIds.employeeA,{afterConfigurationLocked:async()=>{locked.resolve();await release.promise;}});
   await Promise.race([locked.promise,start.then(()=>{throw new Error('Start completed before lock hook');})]);
   const deletion=setup.manageCustomer(deactivate());
   release.resolve();
+  await Promise.allSettled([start,deletion]);
   expect(await start).toMatchObject({status:'synchronized',decision:{status:'time_entry_started'}});
   expect(await deletion).toEqual({status:'running_time'});
  }else{
   const deletion=setup.manageCustomer(deactivate(),{beforeCommit:async()=>{locked.resolve();await release.promise;}});
   await locked.promise;
-  const start=lifecycle.ingest(event(),membershipIds.employeeA);
+  const start=lifecycle.ingest(await event(),membershipIds.employeeA);
   release.resolve();
+  await Promise.allSettled([start,deletion]);
   expect(await deletion).toEqual({status:'succeeded'});
   expect(await start).not.toMatchObject({decision:{status:'time_entry_started'}});
   expect((await pool.query('SELECT 1 FROM taptime_server.time_entries')).rows).toEqual([]);

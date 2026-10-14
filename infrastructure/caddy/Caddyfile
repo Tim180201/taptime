@@ -185,6 +185,12 @@ tb-infra.de {
 		try_files index.html
 	}
 	handle @landingEnabled {
+		handle /app/ {
+			redir * /app 308
+		}
+		handle /tag/ {
+			redir * /tag 308
+		}
 		handle /.well-known/assetlinks.json {
 			root * /srv/landing-web/current
 			header Content-Type "application/json"

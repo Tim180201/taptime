@@ -36,7 +36,11 @@ export function InviteEmployeeScreen({employees,state,scope,locationsEnabled}: {
       </RequiredField></Card> : <Card><Text>Standort</Text><Text>Gesamter Betrieb</Text></Card>}
     {state.outcome ? <Text accessibilityRole={succeeded ? undefined : 'alert'}>{invitationMessage(state.outcome)}</Text> : null}
     <ActionButton title={state.busy ? 'Wird gesendet …' : 'Einladung senden'} loading={state.busy}
-      disabled={state.busy}
+      disabled={state.busy || succeeded}
       onPress={()=>{if(!state.busy && !succeeded && form.validate())employees.invite(name,email,locationId);}} />
+    {succeeded ? <ActionButton title="Weitere Person einladen" tone="secondary" onPress={()=>{
+      setName(''); setEmail(''); setLocationId(scope.kind==='location' ? scope.locationId : null);
+      form.reset(); void employees.openInvitation();
+    }}/> : null}
   </ScrollView></Screen>;
 }
