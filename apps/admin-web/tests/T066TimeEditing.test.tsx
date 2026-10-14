@@ -15,13 +15,13 @@ afterEach(()=>{cleanup();vi.restoreAllMocks();});
 function show(role:'employee'|'administrator'|'standortleitung',target=own,entry=record,scoped=true) {
  const save=vi.fn(async()=>({status:'committed' as const,timeRecordId:other,idempotentRetry:false}));
  const state={role,membershipId:own,availableSections:scoped?['time_records','review_items']:[],timeEditBusy:false,workTargets:{status:'ready',value:[{targetType:'customer',targetId:own,displayName:'Werkstatt'}]}} as Pick<Extract<AdminWebState,{status:'ready'}>,'role'|'membershipId'|'timeEditBusy'|'workTargets'|'availableSections'>;
- const capability={saveTimeEdit:save,loadWorkTargets:vi.fn(async()=>{}),loadBackfillTargets:vi.fn(async()=>({status:"ready",targets:[{targetType:"customer",targetId:other,displayName:"Zielperson C2"}]}))} as unknown as AdminWebCapability;
+ const capability={querySearch:async(kind:string)=>({status:'ready',value:{targets:kind==='backfill_targets'?[{targetType:'customer',targetId:other,displayName:'Zielperson C2'}]:[{targetType:'customer',targetId:own,displayName:'Werkstatt'}],nextCursor:null}}),saveTimeEdit:save,loadWorkTargets:vi.fn(async()=>{}),loadBackfillTargets:vi.fn(async()=>({status:"ready",targets:[{targetType:"customer",targetId:other,displayName:"Zielperson C2"}]}))} as unknown as AdminWebCapability;
  const view=render(<TimeEditingProvider state={state} administration={capability} targetMembershipId={target}><TimeCalendar value={{...page,activeRecord:entry.status==='started'?entry:null,records:entry.status==='stopped'?[entry]:[]}} month="2026-09" onMonthChange={()=>{}} onRefresh={()=>{}}/></TimeEditingProvider>);
  return {save,...view};
 }
 it('lets an employee save a backfill, keeps rejected inputs, and cancels',async()=>{
  const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
- fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
+ await screen.findByRole('option',{name:'Werkstatt'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
  fireEvent.change(screen.getByLabelText('Kommentar (optional)'),{target:{value:'Vergessen'}});
  save.mockResolvedValueOnce({status:'overlap'} as never);fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await screen.findByText(/überschneidet sich mit einem anderen Eintrag/);
@@ -42,7 +42,7 @@ it('administrator corrects completed time with the original versions and sees th
  cleanup();show('administrator',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Ändern'})).not.toBeInTheDocument();expect(screen.getByText('Läuft noch — erst beenden, dann ändern')).toBeInTheDocument();
 });
 it.each(['administrator','standortleitung'] as const)('%s backfills another person with reason',async role=>{
- const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Zielperson C2'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Zielperson C2'});await screen.findByRole('option',{name:'Zielperson C2'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',targetMembershipId:other,reason:'Tag vergessen',comment:null})));
  cleanup();show('standortleitung',other,record,false);for(const name of ['Zeit hinzufügen','Ändern','Kommentar schreiben']) expect(screen.queryByRole('button',{name})).not.toBeInTheDocument();
 });
@@ -68,7 +68,7 @@ it.each(['comment','correct'] as const)('has no axe violations in the open %s fo
  show(kind==='comment'?'employee':'administrator');fireEvent.click(screen.getByRole('button',{name:kind==='comment'?'Kommentar schreiben':'Ändern'}));expect((await axe.run(document.body,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}})).violations).toEqual([]);
 });
 it('keeps Berlin DST gaps invalid and overnight dates explicit',async()=>{
- const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
+ const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Werkstatt'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-03-29'}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:'02:30'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(screen.getAllByRole('alert').every(node=>node.textContent?.includes('Zeitumstellung'))).toBe(true);expect(save).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-09-20'}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:'22:00'}});fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'06:00'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({startedAt:'2026-09-20T20:00:00.000Z',stoppedAt:'2026-09-21T04:00:00.000Z'})));
@@ -151,16 +151,16 @@ it('T-062 manager stops own running time and keeps boundary rejection visible',a
 it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target person choices, not the actor choices',async role=>{
  const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
  await screen.findByRole('option',{name:'Zielperson C2'});expect(screen.queryByRole('option',{name:'Werkstatt'})).not.toBeInTheDocument();
- fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Zielperson'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ await screen.findByRole('option',{name:'Zielperson C2'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Zielperson'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',targetMembershipId:other,target:expect.objectContaining({targetId:other})})));
 });
 
 it('D-092 sends both memberships to the dedicated endpoint and rejects extra target data',async()=>{
- const page={status:'ready',targets:[{targetType:'customer',targetId:other,displayName:'C2'}],nextCursor:null};
+ const page={targets:[{targetType:'customer',targetId:other,displayName:'C2'}],nextCursor:null};
  const fetcher=vi.fn<typeof fetch>(async()=>Response.json(page));const api=new AdminWebApiClient(fetcher);
  const request={expectedMembershipId:own,targetMembershipId:other,limit:50,cursor:null};
  expect(await api.backfillTargets('token',request)).toEqual({status:'succeeded',value:{targets:page.targets,nextCursor:null}});
- expect(fetcher.mock.lastCall?.[0]).toBe('/v1/administration/time-records/backfill-targets/query');expect(JSON.parse(String(fetcher.mock.lastCall?.[1]?.body))).toEqual(request);
+ expect(fetcher.mock.lastCall?.[0]).toBe('/v2/administration/time-records/backfill-targets/query');expect(JSON.parse(String(fetcher.mock.lastCall?.[1]?.body))).toEqual({...request,search:null});
  fetcher.mockResolvedValueOnce(Response.json({...page,targets:[{...page.targets[0],private:'hidden'}]}));
  expect(await api.backfillTargets('token',request)).toEqual({status:'invalid_response'});
 });
@@ -218,6 +218,7 @@ it('T-088 validates closed requests and preserves meaningful conflict responses'
 it.each(['backfill','correct','stop','comment'] as const)('T101 %s shows missing fields before contacting the capability',async kind=>{
  const {save}=show('administrator',kind==='stop'?other:own,kind==='stop'?{...record,status:'started',stoppedAt:null}:record);
  fireEvent.click(screen.getByRole('button',{name:kind==='backfill'?'Zeit hinzufügen':kind==='correct'?'Ändern':kind==='stop'?'Beenden':'Kommentar schreiben'}));
+ if(kind==='backfill')await screen.findByRole('option',{name:'Werkstatt'});
  const button=screen.getByRole('button',{name:kind==='stop'?'Zeit beenden':'Speichern'}),form=button.closest('form')!;
  const fields=Array.from(form.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('[required]'));
  for(const field of fields)fireEvent.change(field,{target:{value:''}});fireEvent.click(button);expect(save).not.toHaveBeenCalled();expect(fields[0]).toHaveFocus();
@@ -226,8 +227,8 @@ it.each(['backfill','correct','stop','comment'] as const)('T101 %s shows missing
  for(const field of fields)expect(field).not.toHaveAttribute('aria-invalid');
 });
 
-it('T101 review: valid date is preserved when Von is missing',()=>{
- const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});const date=screen.getByLabelText('Datum'),clock=screen.getByLabelText('Von');fireEvent.change(clock,{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(date).not.toHaveAttribute('aria-invalid');expect(clock).toHaveAttribute('aria-invalid','true');expect(clock).toHaveFocus();
+it('T101 review: valid date is preserved when Von is missing',async()=>{
+ const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Werkstatt'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});const date=screen.getByLabelText('Datum'),clock=screen.getByLabelText('Von');fireEvent.change(clock,{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(date).not.toHaveAttribute('aria-invalid');expect(clock).toHaveAttribute('aria-invalid','true');expect(clock).toHaveFocus();
 });
 it.each([
  ['2025-10-25T10:00','Höchstens 24 Stunden.'],
@@ -275,13 +276,13 @@ it.each(['administrator','standortleitung'] as const)('T113 %s sends null for ow
  fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
  expect(screen.getByRole('heading',{name:'Zeit hinzufügen'})).toBeVisible();
  expect(screen.queryByLabelText(/Grund der Änderung/)).toBeNull();
- fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
+ await screen.findByRole('option',{name:'Werkstatt'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
  fireEvent.change(screen.getByLabelText('Kommentar (optional)'),{target:{value:'Notiz'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',reason:null,comment:'Notiz'})));
 });
-it('T113 Enter follows time fields and leaves textareas alone',()=>{
- show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
+it('T113 Enter follows time fields and leaves textareas alone',async()=>{
+ show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Werkstatt'});
  for(const [from,to] of [['Kunde oder Projekt','Datum'],['Datum','Von'],['Von','Bis'],['Bis','Kommentar (optional)']]){
   const field=screen.getByLabelText(from!);field.focus();fireEvent.keyDown(field,{key:'Enter'});expect(screen.getByLabelText(to!)).toHaveFocus();
  }

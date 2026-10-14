@@ -845,7 +845,7 @@ describe('AdminWebCoordinator', () => {
     });
   });
 
-  it('fails closed for duplicate, unordered, cursor-regressing, or discontinuous Employee pages', async () => {
+  it('fails closed for duplicate, unsafe, cursor-regressing, or discontinuous Employee pages', async () => {
     const firstPage = employeeMemberships(1, 20);
     const cursor = `v1:m:${firstPage.at(-1)!.id}`;
     const nextPage = employeeMemberships(21, 20);
@@ -857,7 +857,7 @@ describe('AdminWebCoordinator', () => {
       },
       {
         organization: projection.organization,
-        employeeMemberships: [nextPage[1]!, nextPage[0]!],
+        employeeMemberships: [{...nextPage[0]!,displayName:'Employee\u0000'}],
         nextCursor: null,
       },
       {
@@ -868,7 +868,7 @@ describe('AdminWebCoordinator', () => {
       {
         organization: projection.organization,
         employeeMemberships: nextPage,
-        nextCursor: `v1:m:${nextPage[18]!.id}`,
+        nextCursor: cursor,
       },
       {
         organization: projection.organization,
@@ -1728,7 +1728,7 @@ function t066Setup(role:Session['role']='employee',running=false) {
  const supplementTime=vi.fn<NonNullable<AdminWebApiPort['supplementTime']>>(async()=>({status:'succeeded',value:{status:'committed',timeRecordId:record.timeRecordId,idempotentRetry:false}}));
  const stopTime=vi.fn<NonNullable<AdminWebApiPort['stopTime']>>();
  const backfillTargets=vi.fn<NonNullable<AdminWebApiPort['backfillTargets']>>();
- const coordinator=new AdminWebCoordinator(auth,{...api,ownTime,managedPersonTime,supplementTime,stopTime,backfillTargets},()=>fixedNow);
+ const coordinator=new AdminWebCoordinator(auth,{...api,ownTime,managedPersonTime,supplementTime,stopTime,backfillTargets,querySearch:((token:string,_kind:string,request:any)=>backfillTargets(token,request)) as NonNullable<AdminWebApiPort['querySearch']>},()=>fixedNow);
  return {auth,api,coordinator,record,page,ownTime,managedPersonTime,supplementTime,stopTime,backfillTargets};
 }
 it('T066 retains an uncertain command, releases confirmed identity and permits own comments for both management roles',async()=>{
@@ -1817,11 +1817,11 @@ it('D-092 loads person-bound targets separately from personal capture and drops 
  const c2={targetType:'customer' as const,targetId:target,displayName:'C2'};
  h.backfillTargets.mockResolvedValueOnce({status:'succeeded',value:{targets:[c2],nextCursor:'next'}})
   .mockResolvedValueOnce({status:'succeeded',value:{targets:[{...c2,targetId:'20000000-0000-4000-8000-000000000003'}],nextCursor:null}});
- expect((await h.coordinator.loadBackfillTargets(target)).status).toBe('ready');
- expect(h.backfillTargets.mock.calls.map(call=>call[1].targetMembershipId)).toEqual([target,target]);
+ expect((await h.coordinator.querySearch('backfill_targets',{targetMembershipId:target,cursor:null,search:null})).status).toBe('ready');
+ expect(h.backfillTargets.mock.calls.map(call=>call[1].targetMembershipId)).toEqual([target]);
  expect(h.coordinator.getState()).toBe(before);
- h.backfillTargets.mockImplementationOnce(async()=>{await h.coordinator.loadOwnTime('2026-08');return {status:'succeeded',value:{targets:[c2],nextCursor:null}};});
- expect(await h.coordinator.loadBackfillTargets(target)).toEqual({status:'authority_rejected'});
+ h.backfillTargets.mockReset();h.backfillTargets.mockImplementationOnce(async()=>{await h.coordinator.loadOwnTime('2026-08');return {status:'succeeded',value:{targets:[c2],nextCursor:null}};});
+ expect(await h.coordinator.querySearch('backfill_targets',{targetMembershipId:target,cursor:null,search:null})).toEqual({status:'authority_rejected'});
 });
 
 it.each([
@@ -2029,4 +2029,51 @@ it('T116 removal retries the same command and refreshes the list after success',
  const before=vi.mocked(api.projection).mock.calls.length;
  expect(await coordinator.removeTag('tag','assignment')).toEqual({status:'unavailable'});expect(await coordinator.removeTag('tag','assignment')).toMatchObject({status:'succeeded'});
  expect(removeTag.mock.calls[0]).toEqual(removeTag.mock.calls[1]);expect(vi.mocked(api.projection).mock.calls.length).toBeGreaterThan(before);
+});
+it('T117: manual targets use only one page and append on explicit request',async()=>{
+ const auth=new FakeAuth(),api=new FakeApi();api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,availableSections:['own_time','manual_capture']}});
+ const target={targetType:'customer' as const,targetId:membershipId,displayName:'Alpha'};
+ const workTargets=vi.fn().mockResolvedValueOnce({status:'succeeded',value:{targets:[target],nextCursor:'next'}}).mockResolvedValueOnce({status:'succeeded',value:{targets:[{...target,targetId:projection.customers[0]!.id,displayName:'Zeta'}],nextCursor:null}});
+ const coordinator=new AdminWebCoordinator(auth,{...api,workTargets},()=>fixedNow);await coordinator.signIn('employee@example.test','secret');
+ await coordinator.loadWorkTargets();expect(workTargets).toHaveBeenCalledTimes(1);
+ expect(coordinator.getState()).toMatchObject({workTargets:{value:[target],nextCursor:'next'}});
+ await coordinator.loadWorkTargets(null,true);expect(workTargets).toHaveBeenCalledTimes(2);
+ expect(coordinator.getState()).toMatchObject({workTargets:{value:[target,expect.objectContaining({displayName:'Zeta'})],nextCursor:null}});
+});
+
+it.each(['section','global'] as const)('T117 R4: %s refresh retains the active people and target searches',async mode=>{
+ const {api,coordinator}=setup();
+ api.session.mockResolvedValue({status:'succeeded',value:{...administratorSession,availableSections:[...administratorSession.availableSections,'manual_capture']}});
+ const managedActiveSummary=vi.fn().mockResolvedValue({status:'succeeded',value:{serverTime:new Date(fixedNow).toISOString(),totalCount:0,runningCount:0,people:[],nextCursor:null,packageUsage:null}});
+ const workTargets=vi.fn().mockResolvedValue({status:'succeeded',value:{targets:[],nextCursor:null}});
+ Object.assign(api,{managedActiveSummary,workTargets});await coordinator.signIn('admin@example.test','password');
+ await coordinator.refreshManagedPeople(true,false,'2026-06','Ada');await coordinator.loadWorkTargets('Müller');
+ if(mode==='section')await coordinator.retrySection('employees');else await coordinator.refresh();
+ expect(managedActiveSummary).toHaveBeenLastCalledWith(expect.any(String),expect.objectContaining({search:'Ada',isRunning:true,cursor:null,fromInclusive:'2026-05-31T22:00:00.000Z'}));
+ expect(coordinator.getState()).toMatchObject({managedPeople:{search:'Ada',month:'2026-06'}});
+ if(mode==='global'){
+  expect(workTargets).toHaveBeenLastCalledWith(expect.any(String),expect.objectContaining({search:'Müller',cursor:null}));
+  expect(coordinator.getState()).toMatchObject({workTargets:{search:'Müller'}});
+ }
+});
+
+it('T117 managed search keeps counters while paging, retries errors and discards older searches',async()=>{
+ const {api,coordinator}=setup();
+ const person={membershipId,displayName:'Alpha',role:'employee',location:null,isRunning:false,runningSince:null,runningTargetDisplayName:null,departedAt:null,monthWorkDurationSeconds:0};
+ const summary={serverTime:new Date(fixedNow).toISOString(),totalCount:31,runningCount:12,people:[person],nextCursor:'next',packageUsage:null};
+ let finishOld!:(value:unknown)=>void;
+ const managed=vi.fn().mockResolvedValueOnce({status:'succeeded',value:summary})
+  .mockResolvedValueOnce({status:'unreachable'})
+  .mockResolvedValueOnce({status:'succeeded',value:{...summary,people:[{...person,membershipId:'20000000-0000-4000-8000-000000000099',displayName:'Zeta'}],nextCursor:null}})
+  .mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve;}))
+  .mockResolvedValueOnce({status:'succeeded',value:{...summary,people:[],nextCursor:null}});
+ Object.assign(api,{managedActiveSummary:managed});await coordinator.signIn('admin@example.test','password');
+ await coordinator.refreshManagedPeople(null,false,'2026-07');expect(managed).toHaveBeenCalledTimes(1);
+ await coordinator.refreshManagedPeople(null,true,'2026-07');expect(coordinator.getState()).toMatchObject({managedPeople:{failed:true,value:{people:[person]}}});
+ await coordinator.refreshManagedPeople(null,true,'2026-07');
+ expect(coordinator.getState()).toMatchObject({managedPeople:{failed:false,value:{totalCount:31,runningCount:12,people:[person,expect.objectContaining({displayName:'Zeta'})]}}});
+ const old=coordinator.refreshManagedPeople(null,false,'2026-07','Alt');await coordinator.refreshManagedPeople(null,false,'2026-07','  Mu\u0308ller  ');
+ expect(managed).toHaveBeenLastCalledWith(expect.any(String),expect.objectContaining({search:'Müller',cursor:null}));
+ finishOld({status:'succeeded',value:summary});await old;
+ expect(coordinator.getState()).toMatchObject({managedPeople:{search:'Müller',value:{people:[]}}});
 });

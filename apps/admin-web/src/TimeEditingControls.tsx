@@ -1,10 +1,12 @@
+import {useSearchPages} from '../../mobile/src/search/useSearchPages';
+import {SearchField,SearchStatus} from './SearchControls';
 import {TimeFields,resolveTimeFields,advanceTimeField,overnightHint} from './TimeFields';
 import { RequiredForm } from './RequiredForm';
 import {VoidTimeForm} from './TimeVoidControls';
 import type { Notice } from './contracts';
 import { createContext,useContext,useEffect,useRef,useState,type ReactNode } from 'react';
 import { formatZonedDateTime,toZonedMinuteInput,hasVisibleText } from '@taptime/core';
-import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type BackfillTargetSelection, type SafeOwnTimeRecord,type SafeWorkTarget } from '@taptime/mobile-work-contract';
+import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability,AdminWebState } from './contracts';
 import { timeEditMessages,type TimeEditInput } from './timeEditing';
 import { ResponsiveSheet } from './MobileSheet';
@@ -15,7 +17,6 @@ export const TimeEditingContext=createContext<Context|null>(null);
 export function TimeEditingProvider({state,administration,targetMembershipId,personLabel,children}:{personLabel?:string;state:ReadyState;administration:AdminWebCapability;targetMembershipId?:string;children:ReactNode}) {
   const [online,setOnline]=useState(()=>navigator.onLine);
   useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
-  useEffect(()=>{void administration.loadWorkTargets?.();},[administration,state.membershipId]);
   return <TimeEditingContext.Provider value={state.membershipId?{state,administration,targetMembershipId:targetMembershipId??state.membershipId,personLabel:personLabel??'Sie selbst',online}:null}>{children}</TimeEditingContext.Provider>;
 }
 function canManageTime(state:ReadyState) {
@@ -71,18 +72,12 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
   const member=useRef(context.state.membershipId);member.current=context.state.membershipId;
   useEffect(()=>{mounted.current=true;form.current?.querySelector<HTMLElement>('select,input,textarea')?.focus({preventScroll:true});form.current?.scrollIntoView?.({block:'start'});return()=>{mounted.current=false;};},[]);
   const managedBackfill=kind==='backfill' && context.state.role!=='employee' && context.targetMembershipId!==context.state.membershipId;
-  const [targetPage,setTargetPage]=useState<BackfillTargetSelection|{status:'loading'}>({status:'loading'});
-  const [targetReload,setTargetReload]=useState(0);
-  const loadTargets=context.administration.loadBackfillTargets;
-  useEffect(()=>{
-    if(!managedBackfill) return;
-    let current=true;setSelected('');setTargetPage({status:'loading'});
-    void (loadTargets?.call(context.administration,context.targetMembershipId) ?? Promise.resolve({status:'unavailable'} as const))
-      .then(result=>{if(current) setTargetPage(result);}).catch(()=>{if(current) setTargetPage({status:'unavailable'});});
-    return ()=>{current=false;};
-  },[managedBackfill,context.targetMembershipId,context.administration,loadTargets,targetReload]);
-  const targets=managedBackfill?(targetPage.status==='ready'?{status:'ready' as const,value:targetPage.targets}:targetPage.status==='loading'?{status:'loading' as const,value:null}:{status:'unavailable' as const,value:null,message:timeEditMessages[targetPage.status]}):context.state.workTargets;
-  const target:SafeWorkTarget|undefined=targets?.status==='ready'?targets.value.find(t=>`${t.targetType}:${t.targetId}`===selected):undefined;
+  const page=useSearchPages((search,cursor)=>managedBackfill
+    ?context.administration.querySearch?.('backfill_targets',{search,cursor,targetMembershipId:context.targetMembershipId})??Promise.resolve({status:'unavailable'} as const)
+    :context.administration.querySearch?.('work_targets',{search,cursor})??Promise.resolve({status:'unavailable'} as const),
+    value=>value.targets,t=>`${t.targetType}:${t.targetId}`,[context.administration,context.state.membershipId,context.targetMembershipId],kind==='backfill');
+  const target=page.state.items.find(t=>`${t.targetType}:${t.targetId}`===selected);
+  useEffect(()=>{if(page.state.status==='ready'&&!page.state.busy&&!page.state.failed&&selected&&!target)setSelected('');},[page.state,selected,target]);
   const own=context.targetMembershipId===context.state.membershipId;
   const reasonRequired=!own && context.state.role==='standortleitung';
   const values={date,start,end,originalStart:record?.startedAt,originalEnd,stopOnly:kind==='stop'};
@@ -99,7 +94,7 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     } else {
       if(!startedAt || !stoppedAt){setNotice({ kind: 'error', text: 'Prüfen Sie Datum und Uhrzeiten in deutscher Ortszeit. Nicht eindeutige Zeiten bei der Zeitumstellung können nicht übernommen werden.' });return;}
       if(kind==='backfill') {
-        if(!target){setNotice({ kind: 'error', text: 'Wählen Sie einen Kunden oder ein Projekt.' });return;}
+        if(page.state.busy||page.state.failed||!target){setNotice({ kind: 'error', text: 'Wählen Sie einen Kunden oder ein Projekt.' });return;}
         input={kind,targetMembershipId:context.targetMembershipId,target,startedAt,stoppedAt,reason:own?null:reason,comment:own&&comment.trim()?comment:null};
       } else input={kind,record:record!,targetMembershipId:context.targetMembershipId,startedAt,stoppedAt,reason:own?null:reason};
     }
@@ -125,9 +120,15 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
   return <ResponsiveSheet label={label} onCancel={onClose} busy={saving}><RequiredForm ref={form} className="form-grid time-edit-form" aria-label={label} onKeyDown={advanceTimeField} onSubmit={e=>{e.preventDefault();void save();}}>
     <h3 className="full-field">{label}</h3>
     {kind==='stop' && record ? <p className="full-field">{context.personLabel} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</p> : null}
-    {kind==='backfill'?<><label className="full-field">Kunde oder Projekt<select required value={selected} disabled={saving||archivePending} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>{targets?.status==='ready'?targets.value.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{t.displayName}</option>):null}</select></label>
-      {targets?.status!=='ready'?<p role="status">{targets?.status==='unavailable'?targets.message:'Arbeitsziele werden geladen.'} <button type="button" className="quiet" disabled={saving||archivePending} onClick={()=>{if(managedBackfill) setTargetReload(value=>value+1);else void context.administration.loadWorkTargets?.();}}>Arbeitsziele erneut laden</button></p>:targets.value.length===0?<p>Es sind keine Arbeitsziele verfügbar.</p>:null}
-      </>:null}
+    {kind==='backfill'?<div className="full-field">
+      <SearchField value={page.input} onChange={page.setSearch}/><SearchStatus state={page.state} onRetry={page.pager.retry} onClear={()=>page.setSearch('')}/>
+      <label>Kunde oder Projekt<select required value={selected} disabled={saving||archivePending||page.state.busy||page.state.failed} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>
+      {(['customer','project','general_work'] as const).map(type=>{
+        const group=page.state.items.filter(t=>t.targetType===type);
+        return group.length?<optgroup key={type} label={type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}>{group.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{t.displayName}</option>)}</optgroup>:null;
+      })}</select></label>
+      {page.state.nextCursor?<button type="button" disabled={page.state.busy} onClick={()=>void page.pager.loadMore()}>Weitere laden</button>:null}
+    </div>:null}
     {kind!=='comment'?<><TimeFields {...values} onDate={setDate} onStart={setStart} onEnd={setEnd} disabled={saving||archivePending} checkInterval={kind==='correct'}/>
       <p className="full-field supporting">Deutsche Ortszeit{kind!=='stop'?` · ${overnightHint}`:''}{kind==='backfill'?' Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}
     {kind==='comment'||(kind==='backfill'&&own)?<label className="full-field">{kind==='comment'?'Kommentar':'Kommentar (optional)'}<textarea required={kind==='comment'} value={comment} disabled={saving||archivePending} onChange={e=>setComment(e.target.value)}/></label>:null}

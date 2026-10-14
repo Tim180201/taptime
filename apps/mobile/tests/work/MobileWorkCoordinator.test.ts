@@ -32,6 +32,46 @@ const readyRead = {
   targets: { targets: [target], nextCursor: null },
 };
 
+it('T117 R3: capture refresh keeps the searched targets and their matching cursor',async()=>{
+ const filtered={...target,displayName:'Müller'};
+ const filteredPage={targets:[filtered],nextCursor:'filtered-next'};
+ const read=vi.fn(async(_membership:string,search?:string|null)=>({...readyRead,targets:search==='Müller'?filteredPage:{targets:[target],nextCursor:'unfiltered-next'}}));
+ const querySearch=vi.fn().mockResolvedValue({status:'ready',value:filteredPage});
+ const api:MobileWorkApiPort={read,querySearch,readOwnTimePage:async()=>({status:'unavailable'}),
+  triggerManual:vi.fn().mockResolvedValueOnce({status:'accepted',outcome:'time_entry_started'}).mockResolvedValueOnce({status:'accepted',outcome:'time_entry_stopped'})};
+ const coordinator=new MobileWorkCoordinator(sessionReader(()=>true),api);
+ await coordinator.refresh();await coordinator.searchTargets('Müller');
+ for(let capture=0;capture<2;capture++){
+  await coordinator.triggerManual(filtered);
+  expect(coordinator.getState()).toMatchObject({targetsSearch:'Müller',targets:filteredPage,targetsBusy:false,targetsFailed:false});
+ }
+ querySearch.mockResolvedValue({status:'ready',value:{targets:[],nextCursor:null}});
+ await coordinator.searchTargets('Müller',true);
+ expect(querySearch).toHaveBeenLastCalledWith('work_targets',expect.objectContaining({search:'Müller',cursor:'filtered-next'}));
+ expect(api.triggerManual).toHaveBeenCalledTimes(2);
+});
+
+it('T117 manual search retries an explicit page and rejects stale results and stale selections',async()=>{
+ let finishOld!:(value:unknown)=>void;
+ const second={...target,targetId:'40000000-0000-4000-8000-000000000002',displayName:'Zeta'};
+ const querySearch=vi.fn().mockResolvedValueOnce({status:'unavailable'})
+  .mockResolvedValueOnce({status:'ready',value:{targets:[second],nextCursor:null}})
+  .mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve;}))
+  .mockResolvedValueOnce({status:'ready',value:{targets:[],nextCursor:null}});
+ const api:MobileWorkApiPort={querySearch,read:vi.fn(async()=>({...readyRead,targets:{targets:[target],nextCursor:'next'}})),
+  readOwnTimePage:async()=>({status:'unavailable'}),triggerManual:vi.fn(async()=>({status:'unavailable' as const}))};
+ const coordinator=new MobileWorkCoordinator(sessionReader(()=>true),api);
+ await coordinator.refresh();expect(api.read).toHaveBeenCalledTimes(1);expect(querySearch).not.toHaveBeenCalled();
+ await coordinator.searchTargets(null,true);expect(coordinator.getState()).toMatchObject({targetsFailed:true,targets:{targets:[target],nextCursor:'next'}});
+ await coordinator.searchTargets(null,true);expect(querySearch).toHaveBeenLastCalledWith('work_targets',expect.objectContaining({cursor:'next',search:null}));
+ expect(coordinator.getState()).toMatchObject({targetsFailed:false,targets:{targets:[target,second],nextCursor:null}});
+ const old=coordinator.searchTargets('Alt');await coordinator.searchTargets('  Mu\u0308ller  ');
+ expect(querySearch).toHaveBeenLastCalledWith('work_targets',expect.objectContaining({cursor:null,search:'Müller'}));
+ finishOld({status:'ready',value:{targets:[target],nextCursor:null}});await old;
+ expect(coordinator.getState()).toMatchObject({targets:{targets:[],nextCursor:null}});
+ await coordinator.triggerManual(target);expect(api.triggerManual).not.toHaveBeenCalled();
+});
+
 describe('MobileWorkCoordinator', () => {
   it('T084 derives the Berlin month and drops customer hours after a session change', async () => {
     let current = true;

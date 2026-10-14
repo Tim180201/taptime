@@ -1,16 +1,18 @@
+import {readSearch} from '../search/readSearch';
+import type {ClientSearchCapability,ClientSearchRequest,PageResult} from '../search/search';
+import type {SearchKind,SearchRequests,SearchResponses} from '@taptime/mobile-work-contract';
 import {isVoidTimeRequest,isVoidTimeResult,isVoidedTimeResponse,loadVoidedTimePages,type VoidTimeResult,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
-import { isBackfillTargetQueryResponse, type BackfillTargetSelection, type SafeWorkTarget, isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
+import { isAdministrationStopRequest, isAdministrationStopResult, type AdministrationStopResult, isBackfillTimeRequest, isCommentTimeRequest, isTimeSupplementResult, type TimeSupplementResult } from '@taptime/mobile-work-contract';
 import { validateTimeRecordCorrectionRequest } from '@taptime/time-review-contract';
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
 import type { MobileWorkSessionReader } from '../work/contracts';
 export type TimeEditKind = 'backfill'|'comment'|'correct'|'stop'|'void';
 export type TimeEditResult = TimeSupplementResult | AdministrationStopResult | VoidTimeResult | {readonly status:'offline'|'busy'|'conflict'|'not_adjustable'};
 export interface TimeEditingState { readonly online: boolean; readonly busy: boolean }
-export interface TimeEditingCapability {
+export interface TimeEditingCapability extends ClientSearchCapability {
   getState(): TimeEditingState;
   subscribe(listener:()=>void):()=>void;
   loadVoided?(targetMembershipId:string,fromInclusive:string,toExclusive:string):Promise<VoidedTimeSelection>;
-  loadBackfillTargets?(targetMembershipId:string):Promise<BackfillTargetSelection>;
   save(kind:TimeEditKind,input:Record<string,unknown>):Promise<TimeEditResult>;
 }
 export class TimeEditingCoordinator implements TimeEditingCapability {
@@ -33,6 +35,14 @@ export class TimeEditingCoordinator implements TimeEditingCapability {
     catch { if(generation===this.generation) this.publish({...this.state,online:false}); }
   }
   stop() { ++this.generation; this.unsubscribe?.();this.unsubscribe=undefined;this.last=undefined;this.pendingStops.clear();this.publish({online:false,busy:false}); }
+  async querySearch<K extends SearchKind>(kind:K,request:ClientSearchRequest<K>):Promise<PageResult<SearchResponses[K]>> {
+    const snapshot=this.session.capture(),generation=this.generation;
+    if(!snapshot||!this.session.isCurrent(snapshot))return {status:'authority_rejected'};
+    if(!await this.network.get())return {status:'offline'};
+    if(generation!==this.generation||!this.session.isCurrent(snapshot))return {status:'authority_rejected'};
+    const result=await readSearch(this.requests,this.base,kind,{...request,expectedMembershipId:snapshot.session.membershipId,limit:50} as SearchRequests[K]);
+    return generation===this.generation&&this.session.isCurrent(snapshot)?result:{status:'authority_rejected'};
+  }
   async loadVoided(targetMembershipId:string,fromInclusive:string,toExclusive:string):Promise<VoidedTimeSelection> {
     const snapshot=this.session.capture(),generation=this.generation;
     const current=()=>generation===this.generation&&snapshot!==null&&this.session.isCurrent(snapshot);
@@ -47,33 +57,6 @@ export class TimeEditingCoordinator implements TimeEditingCapability {
         const value:unknown=JSON.parse(response.body);return isVoidedTimeResponse(value)?value:{status:'unavailable'};
       });
     }catch{return {status:'unavailable'};}
-  }
-  async loadBackfillTargets(targetMembershipId:string):Promise<BackfillTargetSelection> {
-    const snapshot=this.session.capture(),generation=this.generation;
-    const current=()=>generation===this.generation && snapshot!==null && this.session.isCurrent(snapshot);
-    if(!snapshot || !current()) return {status:'authority_rejected'};
-    try {
-      if(!await this.network.get()) return {status:'offline'};
-      const targets:SafeWorkTarget[]=[],seen=new Set<string>();let cursor:string|null=null;
-      do {
-        if(!current()) return {status:'authority_rejected'};
-        const response=await this.requests.post(new URL('/v1/administration/time-records/backfill-targets/query',this.base),
-          JSON.stringify({expectedMembershipId:snapshot.session.membershipId,targetMembershipId,cursor,limit:50}));
-        if(!current() || response.status==='authority_rejected'
-          || (response.status==='response' && response.statusCode===403)) return {status:'authority_rejected'};
-        if(response.status!=='response' || response.statusCode!==200 || !response.contentType?.startsWith('application/json')) return {status:'unavailable'};
-        const value:unknown=JSON.parse(response.body);
-        if(!isBackfillTargetQueryResponse(value) || value.targets.length>50) return {status:'unavailable'};
-        targets.push(...value.targets);
-        if(new Set(targets.map(t=>`${t.targetType}:${t.targetId}`)).size!==targets.length) return {status:'unavailable'};
-        cursor=value.nextCursor;
-        if(cursor!==null) {
-          if(seen.has(cursor) || value.targets.length===0) return {status:'unavailable'};
-          seen.add(cursor);
-        }
-      } while(cursor!==null);
-      return {status:'ready',targets};
-    } catch {return {status:'unavailable'};}
   }
 
   async save(kind:TimeEditKind,input:Record<string,unknown>):Promise<TimeEditResult> {

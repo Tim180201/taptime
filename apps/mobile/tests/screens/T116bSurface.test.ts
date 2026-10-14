@@ -1,3 +1,4 @@
+import {setupSearch} from '../search/fixtures';
 // @vitest-environment jsdom
 import { act, createElement as h, type ReactNode, type Ref } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -20,7 +21,7 @@ vi.mock('../../src/design/primitives',()=>{
 });
 let root:Root,box:HTMLDivElement;
 beforeEach(()=>{vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT',true);box=document.createElement('div');document.body.append(box);root=createRoot(box);native.announce.mockClear();native.focus.mockClear();});
-afterEach(async()=>{await act(async()=>root.unmount());box.remove();vi.unstubAllGlobals();});
+afterEach(async()=>{await act(async()=>root.unmount());box.remove();vi.unstubAllGlobals();vi.useRealTimers();});
 async function mount(ui:ReactNode){await act(async()=>root.render(ui));}
 async function press(title:string){const button=Array.from(box.querySelectorAll('button')).find(b=>b.textContent===title)!;expect(button,title).toBeTruthy();expect(button.disabled).toBe(false);await act(async()=>{button.focus();button.click();});}
 async function fill(label:string,value:string){const input=box.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`)!;expect(input,label).toBeTruthy();await act(async()=>{Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new Event('input',{bubbles:true}));});}
@@ -33,7 +34,8 @@ const target={targetType:'customer' as const,targetId:'customer',displayName:'Ku
 const ownTime={records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-09-01T00:00:00Z',windowEndedAt:'2026-09-30T12:00:00Z'};
 const ready={status:'ready' as const,targets:{targets:[target],nextCursor:null},ownTime,submitting:false,capturePending:false,outcome:null};
 it('T116b manual selection has a fixed, announced footer and is cleared when filtered out',async()=>{
- const capture=vi.fn();const work={getState:()=>ready,subscribe:()=>()=>{},refresh:vi.fn(async()=>{}),triggerManual:capture} as unknown as MobileWorkCapability;
+ vi.useFakeTimers();let current=ready;const listeners=new Set<()=>void>();
+ const capture=vi.fn();const work={getState:()=>current,subscribe:(fn:()=>void)=>{listeners.add(fn);return()=>listeners.delete(fn);},searchTargets:async(search:string|null)=>{current={...ready,targets:{targets:search?[]:[target],nextCursor:null}};listeners.forEach(fn=>fn());},refresh:vi.fn(async()=>{}),triggerManual:capture} as unknown as MobileWorkCapability;
  await mount(h(ManualCaptureScreen,{work}));
  expect([...box.querySelectorAll('button')].some(b=>b.textContent==='Zeit starten')).toBe(false);
  await press('Kunde A');
@@ -41,9 +43,9 @@ it('T116b manual selection has a fixed, announced footer and is cleared when fil
  const start=[...box.querySelectorAll('button')].find(b=>b.textContent==='Zeit starten')!;
  expect(start.closest('[data-scroll]')).toBeNull();
  expect(start.parentElement?.textContent).toContain('Kunde A');
- await fill('Arbeitsziel suchen','anderer Kunde');
+ await fill('Suchen','anderer Kunde');await act(()=>vi.advanceTimersByTimeAsync(300));
  expect([...box.querySelectorAll('button')].some(b=>b.textContent==='Zeit starten')).toBe(false);
- await fill('Arbeitsziel suchen','');
+ await fill('Suchen','');await act(()=>vi.advanceTimersByTimeAsync(300));
  expect([...box.querySelectorAll('button')].some(b=>b.textContent==='Zeit starten')).toBe(false);
  expect(capture).not.toHaveBeenCalled();
  await press('Kunde A');await press('Zeit starten');expect(capture).toHaveBeenCalledExactlyOnceWith(target);
@@ -80,14 +82,14 @@ it.each(['ready','capturing'] as const)('T116b card actions, result and removal 
  const tag={id:'tag',displayName:'Kartenliste beginnt hier',activeAssignmentId:'assignment',assignmentState:'assigned',assignmentType:'work',targetCustomerId:'customer'};
  const projection={organization:{id:'org',name:'Betrieb'},customers:[{id:'customer',displayName:'Prüfergebnis',active:true}],nfcTags:[tag],nextCursor:'next'};
  const state={status,projection,outcome:status==='ready'?{status:'tag_checked',assignment:'customer',customerName:'Prüfergebnis',locationName:null,nfcTagId:'tag',activeAssignmentId:'assignment'}:null};
- const administration={getState:()=>state,subscribe:()=>()=>{},refresh:vi.fn(async()=>{}),cancel:vi.fn(async()=>{})} as unknown as AdminSetupCapability;
+ const administration={querySearch:setupSearch(()=>state),getState:()=>state,subscribe:()=>()=>{},refresh:vi.fn(async()=>{}),cancel:vi.fn(async()=>{})} as unknown as AdminSetupCapability;
  await mount(h(AdminSetupScreen,{administration}));
  const listLabel=()=>[...box.querySelectorAll('span')].find(node=>node.textContent===tag.displayName)!;
  const before=(label:string)=>{const node=[...box.querySelectorAll('button,span')].find(node=>node.textContent===label)!;expect(node,label).toBeTruthy();expect(node.compareDocumentPosition(listLabel()) & Node.DOCUMENT_POSITION_FOLLOWING,label).toBeTruthy();};
  before('Karte einrichten');before('Karte prüfen');
  if(status==='ready'){before('Standort: Ohne Standortzuordnung');before('Karte entfernen');await press('Karte entfernen');before('Entfernen bestätigen');}
  else before('Scan abbrechen');
- for(const label of ['Weitere Karten laden','Aktualisieren'])expect(box.textContent!.indexOf(label)).toBeGreaterThan(box.textContent!.indexOf(tag.displayName));
+ for(const label of ['Weitere laden','Aktualisieren'])expect(box.textContent!.indexOf(label)).toBeGreaterThan(box.textContent!.indexOf(tag.displayName));
 });
 
 vi.mock('../../src/timeEditing/TimeEditingControls',()=>({AddTimeControl:()=>null,TimeRecordControls:()=>h('div',{'data-record-controls':true},'Ändern Löschen Kommentar Verlauf')}));

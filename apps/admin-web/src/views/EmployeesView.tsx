@@ -1,3 +1,5 @@
+import {useSearchPages,useDebouncedSearch} from '../../../mobile/src/search/useSearchPages';
+import {SearchField,SearchStatus} from '../SearchControls';
 import { businessDay,shiftMonth,formatZonedDateTime } from '@taptime/core';
 import {
 	useEffect,
@@ -28,8 +30,10 @@ export default function EmployeesView({ state, administration, accountInvitation
   const changeMonth=(month:string)=>navigate({...route ?? defaultRoute('beschaeftigte',state.selectedLocation?.id ?? null),month});
   const [adding, setAdding] = useState(false);
   const [editingMembership,setEditingMembership]=useState<string|null>(null);
+  const [input,setInput]=useState('');const search=useDebouncedSearch(input);
+  const members=useSearchPages((term,cursor)=>administration.querySearch?.('memberships',{search:term,cursor,locationId:state.selectedLocation?.id??null})??Promise.resolve({status:'unavailable'} as const),value=>value.employeeMemberships,member=>member.id,[administration,state.membershipId,state.selectedLocation?.id]);
   const [runningFilter,setRunningFilter] = useState<boolean|null>(null);
-  useEffect(()=>{ void administration.refreshManagedPeople?.(runningFilter,false,month); },[administration,state.selectedLocation?.id,runningFilter,month]);
+  useEffect(()=>{ void administration.refreshManagedPeople?.(runningFilter,false,month,search); },[administration,state.selectedLocation?.id,runningFilter,month,search]);
   const [invitationSuccess, setInvitationSuccess] = useState<AccountInvitationSuccess | null>(null);
   useEffect(() => { setInvitationSuccess(null); }, [state.selectedLocation?.id]);
   const [revocationIntent, setRevocationIntent] = useState<{
@@ -71,7 +75,7 @@ export default function EmployeesView({ state, administration, accountInvitation
           setAdding(open);
         }} onCreated={async (status) => {
           setInvitationSuccess(status);
-          await administration.retrySection('employees');
+          await administration.retrySection('employees');await members.pager.refresh();
         }} />
       {state.roleAssignmentMembershipId && state.notice?.kind==='success' && state.notice.text==='Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.' ? <a className="button-link"
         href={canonicalRoutePath({...defaultRoute('einrichtung'),setupTab:'standorte',setupMembershipId:state.roleAssignmentMembershipId})}
@@ -81,6 +85,10 @@ export default function EmployeesView({ state, administration, accountInvitation
         <label>Monat<select value={month} onChange={event=>changeMonth(event.target.value)}>{months.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}</select></label>
         <button className="quiet" aria-label="Nächster Monat" disabled={month===current} onClick={()=>changeMonth(shiftMonth(month,1))}>→</button>
       </div>
+      <SearchField value={input} onChange={setInput}/>
+      <p role="status">{state.managedPeople?.status==='ready'?`${state.managedPeople.value.nextCursor?'mehr als ':''}${state.managedPeople.value.people.length} Treffer`:'Wird geladen …'}</p>
+      {state.managedPeople?.status==='ready'&&!state.managedPeople.value.people.length&&search?<p>{`Keine Treffer für „${search}“`} <button type="button" onClick={()=>setInput('')}>Suche löschen</button></p>:null}
+      {state.managedPeople?.failed?<button onClick={()=>void administration.refreshManagedPeople?.(runningFilter,state.managedPeople?.status==='ready',month,search)}>Erneut versuchen</button>:null}
       <ActivityTile state={state} administration={administration}/>
       <div className="filter-chips" role="group" aria-label="Aktivitätsfilter">{[['Alle',null],['Zeit läuft',true],['Keine laufende Zeit',false]].map(([label,value])=>
         <button key={String(label)} className="secondary" aria-pressed={runningFilter === value}
@@ -88,9 +96,10 @@ export default function EmployeesView({ state, administration, accountInvitation
       {state.managedPeople?.status === 'ready' && state.managedPeople.month===month ? <><PeopleTable people={state.managedPeople.value.people}
         navigate={navigate} locationId={state.selectedLocation?.id ?? null} locationsEnabled={state.locationsEnabled} month={month}/>
         {state.managedPeople.value.nextCursor === null ? null : <button className="secondary"
-          onClick={()=>void administration.refreshManagedPeople?.(runningFilter,true,month)}>Weitere Personen laden</button>}</> : null}
+          onClick={()=>void administration.refreshManagedPeople?.(runningFilter,true,month,search)} disabled={state.managedPeople.busy}>Weitere laden</button>}</> : null}
       <details className="membership-tools"><summary>Zugänge verwalten</summary>
-      <ul className="entity-list">{state.employeeProjection.employeeMemberships.map((membership) =>
+      <SearchField value={members.input} onChange={members.setSearch}/><SearchStatus state={members.state} onRetry={members.pager.retry} onClear={()=>members.setSearch('')}/>
+      <ul className="entity-list">{members.state.items.map((membership) =>
         <li key={membership.id}><span>{membership.displayName}</span>
           <small className={`pill ${membership.active ? 'success' : ''}`}>
             {membership.role === 'administrator'
@@ -111,7 +120,7 @@ export default function EmployeesView({ state, administration, accountInvitation
                       membership.id,
                       membership.rowVersion,
                       event.target.value as 'administrator' | 'standortleitung' | 'employee',
-                    )}>
+                    ).then(()=>members.pager.refresh())}>
                     <option value="employee">Mitarbeiter</option>
                     <option value="standortleitung">Standortleitung</option>
                     <option value="administrator">Administrator</option>
@@ -142,7 +151,7 @@ export default function EmployeesView({ state, administration, accountInvitation
           void administration.revokeMembership(
             revocationIntent.id,
             revocationIntent.rowVersion,
-          ).finally(() => {
+          ).then(()=>members.pager.refresh()).finally(() => {
             setRevoking(false);
             setRevocationIntent(null);
           });
@@ -155,6 +164,7 @@ export default function EmployeesView({ state, administration, accountInvitation
           : <p>Läuft gerade eine Zeit, wird sie jetzt beendet{running ? `: ${running.targetDisplayName} · seit ${formatZonedDateTime(running.startedAt)}` : ''}.</p>}
         <a href={canonicalRoutePath(personRoute)} onClick={event=>{event.preventDefault();setRevocationIntent(null);navigate(personRoute);}}>Zur Personenansicht</a>
       </Confirmation>}
+      {members.state.nextCursor?<button disabled={members.state.busy} onClick={()=>void members.pager.loadMore()}>Weitere laden</button>:null}
       </details>
       {state.employeeProjection.employeeMemberships.length === 0
         && state.employeeProjection.nextCursor === null
@@ -168,11 +178,7 @@ export default function EmployeesView({ state, administration, accountInvitation
               </button>
             </div>
         : null}
-      {state.employeeProjection.nextCursor === null ? null
-        : <button className="secondary load-more"
-            onClick={() => void administration.loadMoreEmployees()}>
-            Weitere Mitarbeiter laden
-          </button>}
+
     </Panel>
   </SectionBoundary></>;
 }

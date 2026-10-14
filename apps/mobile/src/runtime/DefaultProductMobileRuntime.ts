@@ -129,6 +129,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     const employees = this.employeesCoordinator;
     this.employeesCapability = employees ? Object.freeze({
       getState: () => employees.getState(), subscribe: (listener: ()=>void) => employees.subscribe(listener),
+      search: (term:string|null) => employees.search(term),
+      loadMonth: (month:string) => employees.loadMonth(month),
       refresh: () => employees.refresh(), filter: (running: boolean) => employees.filter(running),
       loadMore: () => employees.loadMore(), openPerson: (person: import('../employees/contracts').ManagedPerson) => employees.openPerson(person),
       loadPersonMonth: (month: string) => employees.loadPersonMonth(month),
@@ -170,6 +172,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       retry: () => this.scanOrchestrator.retry(),
     });
     this.administrationCapability = Object.freeze({
+      querySearch: this.administrationCoordinator.querySearch?.bind(this.administrationCoordinator),
       removeTag: async (nfcTagId:string,expectedAssignmentId:string) => {
         const result=await this.administrationCoordinator.removeTag?.(nfcTagId,expectedAssignmentId)??{status:'unavailable' as const};
         if(result.status==='succeeded'){
@@ -207,6 +210,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       cancel: () => this.administrationCoordinator.cancel(),
     });
     this.workCapability = Object.freeze({
+      searchTargets: (search:string|null,more?:boolean) => this.mobileWorkCoordinator.searchTargets?.(search,more) ?? Promise.resolve(),
+      querySearch: this.mobileWorkCoordinator.querySearch?.bind(this.mobileWorkCoordinator),
       setCustomerQuota: (customerId: string, minutes: number|null) => this.mobileWorkCoordinator.setCustomerQuota?.(customerId,minutes) ?? Promise.resolve({status:'unavailable' as const}),
       readCustomerHours: (month: string) => this.mobileWorkCoordinator.readCustomerHours?.(month) ?? Promise.resolve({status:'unavailable' as const}),
       getState: () => this.mobileWorkCoordinator.getState(),
@@ -234,7 +239,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
 
   get timeEditing(): TimeEditingCapability | undefined {
     const c=this.timeEditingCoordinator;
-    return c ? this.timeEditingFacade ??= Object.freeze({getState:c.getState,subscribe:c.subscribe,loadBackfillTargets:(targetMembershipId:string)=>c.loadBackfillTargets(targetMembershipId),save:(kind:import('../timeEditing/TimeEditingCoordinator').TimeEditKind,input:Record<string,unknown>)=>c.save(kind,input)}) : undefined;
+    return c ? this.timeEditingFacade ??= Object.freeze({querySearch:c.querySearch.bind(c),getState:c.getState,subscribe:c.subscribe,save:(kind:import('../timeEditing/TimeEditingCoordinator').TimeEditKind,input:Record<string,unknown>)=>c.save(kind,input)}) : undefined;
   }
   private timeEditingFacade: TimeEditingCapability | undefined;
 

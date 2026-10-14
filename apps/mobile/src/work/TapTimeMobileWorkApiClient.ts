@@ -1,3 +1,6 @@
+import { parseSearchResponse } from '../search/search';
+import { readSearch } from '../search/readSearch';
+import type { SearchKind, SearchRequests } from '@taptime/mobile-work-contract';
 import { isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResult } from '@taptime/mobile-work-contract';
 import {
   validateOwnTimeResponse,
@@ -19,6 +22,8 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     private readonly requests: AuthenticatedJsonPostPort,
     private readonly createUuid: () => string,
   ) {}
+
+  querySearch<K extends SearchKind>(kind:K,request:SearchRequests[K]) { return readSearch(this.requests,this.baseUrl,kind,request); }
 
   private pendingQuota: {key:string;commandId:string}|null=null;
   async setCustomerQuota(expectedMembershipId:string,customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult> {
@@ -48,7 +53,7 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     } catch { return {status:'unavailable'}; }
   }
 
-  async read(expectedMembershipId: string): Promise<MobileWorkReadResult> {
+  async read(expectedMembershipId: string, targetsSearch: string | null = null): Promise<MobileWorkReadResult> {
     const body = JSON.stringify({
       expectedMembershipId,
       cursor: null,
@@ -56,10 +61,10 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     });
     const [ownTime, targets] = await Promise.all([
       this.requests.post(new URL('/v1/mobile/own-time/query', this.baseUrl), body, {includeTimeDetails:true,includeCalendarBreaks:true,includeActiveCapture:true}),
-      this.requests.post(new URL('/v1/mobile/work-targets/query', this.baseUrl), JSON.stringify({
+      this.requests.post(new URL('/v2/mobile/work-targets/query', this.baseUrl), JSON.stringify({
         expectedMembershipId,
         cursor: null,
-        limit: 50,
+        limit: 50, search:targetsSearch,
       })),
     ]);
     if (ownTime.status === 'authority_rejected' || targets.status === 'authority_rejected') {
@@ -76,44 +81,12 @@ export class TapTimeMobileWorkApiClient implements MobileWorkApiPort {
     try {
       const ownTimeValue: unknown = JSON.parse(ownTime.body);
       const targetsValue: unknown = JSON.parse(targets.body);
-      if (!isCaptureTimeResponse(ownTimeValue)
-        || !validateWorkTargetResponse(targetsValue)) {
-        return { status: 'unavailable' };
-      }
-      const allTargets = [...targetsValue.targets];
-      const identities = new Set(allTargets.map((target) => (
-        `${target.targetType}\u001f${target.targetId}`
-      )));
-      let cursor = targetsValue.nextCursor;
-      const cursors = new Set<string>();
-      for (let page = 1; cursor !== null && page < 82; page += 1) {
-        if (cursors.has(cursor)) return { status: 'unavailable' };
-        cursors.add(cursor);
-        const next = await this.requests.post(
-          new URL('/v1/mobile/work-targets/query', this.baseUrl),
-          JSON.stringify({ expectedMembershipId, cursor, limit: 50 }),
-        );
-        if (next.status === 'authority_rejected') return next;
-        if (
-          next.status !== 'response'
-          || next.statusCode !== 200
-          || !isJson(next.contentType)
-        ) return { status: 'unavailable' };
-        const value: unknown = JSON.parse(next.body);
-        if (!validateWorkTargetResponse(value)) return { status: 'unavailable' };
-        for (const target of value.targets) {
-          const identity = `${target.targetType}\u001f${target.targetId}`;
-          if (identities.has(identity)) return { status: 'unavailable' };
-          identities.add(identity);
-          allTargets.push(target);
-        }
-        cursor = value.nextCursor;
-      }
-      if (cursor !== null) return { status: 'unavailable' };
+      const targetPage=parseSearchResponse('work_targets',targetsValue);
+      if (!isCaptureTimeResponse(ownTimeValue)||!targetPage) return {status:'unavailable'};
       return {
         status: 'ready',
         ownTime: ownTimeValue,
-        targets: { targets: Object.freeze(allTargets), nextCursor: null },
+        targets: targetPage,
       };
     } catch {
       return { status: 'unavailable' };

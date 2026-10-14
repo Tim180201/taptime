@@ -8,6 +8,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['tests/design/nativeUiMocks.ts'],
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
 });

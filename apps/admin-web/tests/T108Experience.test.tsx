@@ -1,3 +1,4 @@
+import {customerSearch} from './searchFixtures';
 // @vitest-environment jsdom
 import {useState} from 'react';
 import {afterEach,expect,it,vi} from 'vitest';
@@ -17,7 +18,7 @@ it('roundtrips the selected customer and keeps the month and location',()=>{
 it('navigates to customer details and restores keyboard focus on return',async()=>{
  const navigate=vi.fn();
  const value={scope:'self',asOf:'2026-10-06T08:42:00Z',customers:[{customerId:id,displayName:'Beispielkunde',active:true,workDurationSeconds:0,running:false,days:[]}]};
- const administration={readCustomerHours:async()=>({status:'ready',value})} as unknown as AdminWebCapability;
+ const administration={querySearch:customerSearch(async()=>({status:'ready',value}))} as unknown as AdminWebCapability;
  function Routed(){const [route,setRoute]=useState(defaultRoute('kunden'));return <CustomersView administration={administration} route={route} navigate={next=>{navigate(next);setRoute(next);}}/>;}
  render(<Routed/>);
  const card=await screen.findByRole('button',{name:/Beispielkunde/});

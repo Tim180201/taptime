@@ -1,3 +1,5 @@
+import {useSearchPages} from '../../../mobile/src/search/useSearchPages';
+import {SearchField,SearchStatus} from '../SearchControls';
 import {nfcTagRemovalMessage,NFC_TAG_REMOVAL_EXPLANATION} from '@taptime/mobile-work-contract';
 import type { AdminRoute } from '../navigation';
 import { RequiredForm } from '../RequiredForm';
@@ -23,6 +25,13 @@ export default function SetupView({
   readonly state: ReadyState;
   readonly administration: AdminWebCapability;
 }) {
+  const customers=useSearchPages((search,cursor)=>administration.querySearch?.('setup_customers',{kind:'customers',search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.customers,item=>item.id,[administration,state.membershipId,state.selectedLocation?.id]);
+  const tags=useSearchPages((search,cursor)=>administration.querySearch?.('setup_tags',{kind:'nfc_tags',search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.nfcTags,item=>item.id,[administration,state.membershipId,state.selectedLocation?.id]);
+  const projects=useSearchPages((search,cursor)=>administration.querySearch?.('projects',{search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.projects,item=>item.projectId,[administration,state.membershipId,state.selectedLocation?.id]);
+  const customerControls=<><SearchField value={customers.input} onChange={customers.setSearch} disabled={state.reassigning||state.reassignmentIntent!==null}/><SearchStatus state={customers.state} onRetry={customers.pager.retry} onClear={()=>customers.setSearch('')}/></>;
+  const tagControls=<><SearchField value={tags.input} onChange={tags.setSearch} disabled={state.reassigning||state.reassignmentIntent!==null}/><SearchStatus state={tags.state} onRetry={tags.pager.retry} onClear={()=>tags.setSearch('')}/></>;
+  const moreCustomers=customers.state.nextCursor?<button type="button" disabled={customers.state.busy||state.reassignmentIntent!==null} onClick={()=>void customers.pager.loadMore()}>Weitere laden</button>:null;
+  const moreTags=tags.state.nextCursor?<button type="button" disabled={tags.state.busy||state.reassignmentIntent!==null} onClick={()=>void tags.pager.loadMore()}>Weitere laden</button>:null;
   const [removal,setRemoval]=useState<{id:string;assignmentId:string;name:string}|null>(null);
   const [removing,setRemoving]=useState(false);
   const [removalMessage,setRemovalMessage]=useState<string|null>(null);
@@ -34,7 +43,7 @@ export default function SetupView({
     try{
       const result=await administration.removeTag?.(removal.id,removal.assignmentId)??{status:'unavailable' as const};
       const latest=administration.getState();if(latest.status!=='ready'||authorityKey(latest)!==removalAuthority)return;
-      setRemovalMessage(nfcTagRemovalMessage(result));if(result.status!=='unavailable')setRemoval(null);
+      setRemovalMessage(nfcTagRemovalMessage(result));if(result.status!=='unavailable')setRemoval(null);if(result.status==='succeeded')void tags.pager.refresh();
     }catch{setRemovalMessage(nfcTagRemovalMessage({status:'unavailable'}));}finally{setRemoving(false);}
   };
   const [tab,setTab]=useState(route?.setupTab ?? (state.reassignmentIntent === null ? 'arbeitsziele' : 'tags'));
@@ -51,6 +60,8 @@ export default function SetupView({
   const selectedProjectLocation = projectLocationId || (state.assignableLocations.length === 1 ? state.assignableLocations[0]!.id : '');
   const [tagId, setTagId] = useState('');
   const [targetId, setTargetId] = useState('');
+  useEffect(()=>{if(customers.state.status==='ready'&&!customers.state.busy&&!customers.state.failed&&targetId&&!customers.state.items.some(c=>c.id===targetId))setTargetId('');},[customers.state,targetId]);
+  useEffect(()=>{if(tags.state.status==='ready'&&!tags.state.busy&&!tags.state.failed&&tagId&&!tags.state.items.some(t=>t.id===tagId))setTagId('');},[tags.state,tagId]);
   const prepareButton = useRef<HTMLButtonElement>(null);
   const tagSelect = useRef<HTMLSelectElement>(null);
   const targetSelect = useRef<HTMLSelectElement>(null);
@@ -73,14 +84,7 @@ export default function SetupView({
       let destination=`setup-${gap.kind}-${gap.id}`;
       if(gap.kind==='nfc_assignment'){
         let card=latest.projection.nfcTags.find(tag=>tag.activeAssignmentId===gap.id);
-        const seen=new Set<string>();
-        while(!card&&latest.projection.nextCursor!==null&&!seen.has(latest.projection.nextCursor)){
-          seen.add(latest.projection.nextCursor);
-          await administration.loadMore();
-          latest=current();if(!latest||latest.sections.setup.status!=='ready')return;
-          card=latest.projection.nfcTags.find(tag=>tag.activeAssignmentId===gap.id);
-        }
-        if(!card){setGapNotice('Die Karte ist nicht mehr verfügbar. Bitte aktualisieren Sie die Einrichtung.');return;}
+        if(!card){setTab('tags');setGapNotice('Die Karte ist noch nicht geladen. Nutzen Sie die Suche oder „Weitere laden“.');return;}
         const customer=latest.locationSetup?.workTargets.find(target=>target.targetType==='customer'&&target.targetId===card.targetCustomerId);
         destination=customer?`setup-customer-${customer.targetId}`:'setup-reassignment';
         if(!customer){setTab('tags');setTagId(card.id);}
@@ -94,11 +98,10 @@ export default function SetupView({
   };
 
   useEffect(() => {
-    if (state.completedAction === 'customer_created') setCustomerName('');
-    if (state.completedAction === 'project_created') setProjectName('');
+    if (state.completedAction === 'customer_created') {setCustomerName('');void customers.pager.refresh();}
+    if (state.completedAction === 'project_created') {setProjectName('');void projects.pager.refresh();}
   }, [state.completedAction]);
   useEffect(() => {
-    void administration.refreshProjects?.();
     void administration.refreshLocationSetup?.();
   }, [administration]);
   useIntentFocusReturn(
@@ -108,16 +111,13 @@ export default function SetupView({
     targetSelect,
     sectionRetryButton,
   );
-  const customerNameById = new Map(
-    state.projection.customers.map((customer) => [customer.id, customer.displayName]),
-  );
-  const selectedTag = state.projection.nfcTags.find((tag) => tag.id === tagId);
+  const selectedTag = tags.state.items.find((tag) => tag.id === tagId);
   const intentTag = state.reassignmentIntent === null
     ? null
-    : state.projection.nfcTags.find((tag) => tag.id === state.reassignmentIntent?.nfcTagId) ?? null;
+    : tags.state.items.find((tag) => tag.id === state.reassignmentIntent?.nfcTagId) ?? null;
   const intentTarget = state.reassignmentIntent === null
     ? null
-    : state.projection.customers.find(
+    : customers.state.items.find(
         (customer) => customer.id === state.reassignmentIntent?.targetCustomerId,
       ) ?? null;
   return <SectionBoundary state={state.sections.setup} retryButtonRef={sectionRetryButton}
@@ -133,8 +133,7 @@ export default function SetupView({
         ? <div className="full-width" hidden={tab !== 'standorte'}><LocationSetupPanel state={state} administration={administration} onGap={gap=>{void navigateGap(gap);}} /></div>
         : null}
       <div hidden={tab !== 'arbeitsziele'}><Panel title="Kunden" description="Aktive und inaktive Kunden der geladenen Seiten.">
-        <CountTruth count={state.projection.customers.length} noun="Kunden"
-          complete={state.projection.nextCursor === null && state.projection.customersComplete} />
+        {customerControls}
         <RequiredForm className="inline-form" onSubmit={(event) => {
           event.preventDefault();
           void administration.createCustomer(customerName, state.locationsEnabled ? selectedCustomerLocation || undefined : undefined);
@@ -154,39 +153,39 @@ export default function SetupView({
             </button>
           </div>
         </RequiredForm>
-        <ul className="entity-list">{state.projection.customers.map((customer) => <li key={customer.id}>
+        <ul className="entity-list">{customers.state.items.map((customer) => <li key={customer.id}>
           <span>{customer.displayName}</span>
           <small className={`pill ${customer.active ? 'success' : ''}`}>
             {customer.active ? 'Für neue Zeiten verfügbar' : 'Für neue Zeiten nicht verfügbar'}
           </small>
         </li>)}</ul>
-        {state.projection.customers.length === 0 && state.projection.nextCursor === null
+        {moreCustomers}
+        {customers.state.status==='ready' && !customers.state.search && customers.state.items.length === 0 && customers.state.nextCursor === null
           && state.projection.customersComplete
           ? <p className="empty">Keine Kunden vorhanden.</p> : null}
       </Panel></div>
       <div className="full-width" hidden={tab !== 'tags'}><div ref={cardsPanel} id="setup-card-assignments" tabIndex={-1}><Panel title="NFC-Karten" description="Karten werden mit dem Handy zugeordnet. Hier sehen Sie den Bestand und ändern eine bestehende Zuordnung.">
-        <CountTruth count={state.projection.nfcTags.length} noun="Karten"
-          complete={state.projection.nextCursor === null && state.projection.nfcTagsComplete} />
-        <ul className="entity-list">{state.projection.nfcTags.map((tag) => <li key={tag.id}>
+        {tagControls}
+        <ul className="entity-list">{tags.state.items.map((tag) => <li key={tag.id}>
           <div><span>{tag.displayName}</span><small>Technische Kennung {tag.validationFingerprint}</small></div>
           <small>{tag.assignmentType === 'break'
             ? 'Pausenkarte'
             : tag.assignmentType === null
               ? 'Nicht zugeordnet'
-              : customerNameById.get(tag.targetCustomerId) ?? 'Zugeordnet'}</small>
+              : tag.customerDisplayName ?? 'Zugeordnet'}</small>
           {state.role==='administrator'&&tag.activeAssignmentId!==null?<button className="warning-action" aria-label={`Karte ${tag.displayName} entfernen`} disabled={removing||state.reassignmentIntent!==null}
             onClick={event=>{removalButton.current=event.currentTarget;setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}>Entfernen</button>:null}
         </li>)}</ul>
         {removal?<Confirmation label="Karte entfernen" title={`Karte „${removal.name}“ entfernen?`} confirmLabel="Entfernen bestätigen" busyLabel="Wird entfernt …" busy={removing} warning
           onConfirm={()=>void confirmRemoval()} onCancel={()=>setRemoval(null)}><p>{NFC_TAG_REMOVAL_EXPLANATION}</p></Confirmation>:null}
         {removalMessage?<p role="status">{removalMessage}</p>:null}
-        {state.projection.nfcTags.length === 0 && state.projection.nextCursor === null
+        {moreTags}
+        {tags.state.status==='ready' && !tags.state.search && tags.state.items.length === 0 && tags.state.nextCursor === null
           && state.projection.nfcTagsComplete
           ? <p className="empty">Keine Karten registriert.</p> : null}
       </Panel></div></div>
       <div hidden={tab !== 'arbeitsziele'}><Panel title="Projekte" description="Eigenständige Arbeitsziele ohne Kundenbeziehung.">
-        <CountTruth count={state.projects?.length ?? 0} noun="Projekte"
-          complete={state.projectsNextCursor === null} />
+        <SearchField value={projects.input} onChange={projects.setSearch}/><SearchStatus state={projects.state} onRetry={projects.pager.retry} onClear={()=>projects.setSearch('')}/>
         <RequiredForm className="inline-form" onSubmit={(event) => {
           event.preventDefault();
           void administration.createProject?.(projectName, state.locationsEnabled ? selectedProjectLocation || undefined : undefined);
@@ -206,7 +205,7 @@ export default function SetupView({
             </button>
           </div>
         </RequiredForm>
-        <ul className="entity-list">{(state.projects ?? []).map((project) =>
+        <ul className="entity-list">{projects.state.items.map((project) =>
           <li key={project.projectId}>
             <span>{project.displayName}</span>
             <div>
@@ -216,22 +215,16 @@ export default function SetupView({
               {project.active
                 ? <button className="text-button" disabled={state.projectBusy === true}
                     aria-label={`${project.displayName} deaktivieren`}
-                    onClick={() => void administration.deactivateProject?.(project.projectId)}>
+                    onClick={() => void administration.deactivateProject?.(project.projectId).then(()=>projects.pager.refresh())}>
                     Deaktivieren
                   </button>
                 : null}
             </div>
           </li>)}</ul>
-        {(state.projects?.length ?? 0) === 0 && state.projectBusy !== true
+        {projects.state.status==='ready' && projects.state.items.length === 0 && !projects.state.search && state.projectBusy !== true
           ? <p className="empty">Keine Projekte vorhanden.</p>
           : null}
-        {state.projectsNextCursor === null || state.projectsNextCursor === undefined
-          ? null
-          : <button className="secondary load-more"
-              disabled={state.projectBusy === true}
-              onClick={() => void administration.loadMoreProjects?.()}>
-              Weitere Projekte laden
-            </button>}
+        {projects.state.nextCursor?<button type="button" disabled={projects.state.busy} onClick={()=>void projects.pager.loadMore()}>Weitere laden</button>:null}
         <p className="supporting">
           Projektnamen bleiben unverändert. Laufende Arbeitszeit blockiert die Deaktivierung.
         </p>
@@ -242,30 +235,32 @@ export default function SetupView({
           event.preventDefault();
           administration.prepareReassignment(tagId, targetId);
         }}>
+          <fieldset><legend>Karte suchen</legend>{tagControls}{moreTags}</fieldset>
           <label>Karte
             <select data-field-error={tagId && selectedTag?.assignmentState!=="assigned" ? "Bitte eine zugeordnete Karte wählen." : undefined} ref={tagSelect} required value={tagId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTagId(event.target.value)}>
               <option value="">Karte auswählen</option>
-              {state.projection.nfcTags.filter((tag) => tag.assignmentType === 'work')
+              {tags.state.items.filter((tag) => tag.assignmentType === 'work')
                 .map((tag) => <option key={tag.id} value={tag.id}>
                   {tag.displayName} · {tag.validationFingerprint}
                 </option>)}
             </select>
           </label>
+          <fieldset><legend>Kunde suchen</legend>{customerControls}{moreCustomers}</fieldset>
           <label>Neuer aktiver Kunde
             <select data-field-error={targetId && selectedTag?.targetCustomerId === targetId ? "Die Karte gehört bereits zu diesem Kunden." : undefined} ref={targetSelect} required value={targetId}
               disabled={state.reassigning || state.reassignmentIntent !== null}
               onChange={(event) => setTargetId(event.target.value)}>
               <option value="">Arbeitsziel auswählen</option>
-              {state.projection.customers.filter((customer) => customer.active)
+              {customers.state.items.filter((customer) => customer.active)
                 .map((customer) => <option key={customer.id} value={customer.id}>
                   {customer.displayName}
                 </option>)}
             </select>
           </label>
           <button className="warning-action" ref={prepareButton} disabled={
-            state.reassigning
+            state.reassigning || tags.state.busy || customers.state.busy || tags.state.failed || customers.state.failed
             || state.reassignmentIntent !== null
 
           }>Zuordnung ändern</button>
@@ -278,7 +273,10 @@ export default function SetupView({
               confirmLabel="Änderung ausdrücklich bestätigen"
               busyLabel="Wird sicher geändert …"
               busy={state.reassigning}
-              onConfirm={() => void administration.confirmReassignment()}
+              onConfirm={() => void administration.confirmReassignment().then(()=>{
+                const latest=administration.getState();
+                if(latest.status==='ready'&&authorityKey(latest)===authorityKey(state)&&latest.reassignmentIntent===null)return tags.pager.refresh();
+              })}
               onCancel={() => {
                 administration.cancelReassignment();
                 returnFocus(prepareButton, tagSelect, targetSelect);
@@ -286,17 +284,13 @@ export default function SetupView({
             >
               <dl>
                 <dt>Karte</dt><dd>{intentTag.displayName} · {intentTag.validationFingerprint}</dd>
-                <dt>Vorher</dt><dd>{customerNameById.get(intentTag.targetCustomerId!) ?? 'Bisheriger Kunde'}</dd>
+                <dt>Vorher</dt><dd>{intentTag.customerDisplayName ?? 'Bisheriger Kunde'}</dd>
                 <dt>Nachher</dt><dd>{intentTarget.displayName}</dd>
               </dl>
             </Confirmation>
           : null}
       </Panel></div>
     </div>
-    {state.projection.nextCursor === null ? null
-      : <button className="secondary load-more" onClick={() => void administration.loadMore()}>
-          Weitere Einrichtungsdaten laden
-        </button>}
   </SectionBoundary>;
 }
 

@@ -1,3 +1,5 @@
+import {readSearch} from '../search/readSearch';
+import type {SearchKind,SearchRequests} from '@taptime/mobile-work-contract';
 import {isInspectTagResultV2,type InspectTagRequest,type InspectTagResultV2,isRemoveNfcTagRequest,isRemoveNfcTagResult,type RemoveNfcTagRequest,type RemoveNfcTagResult} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest,isManageCustomerResult,type ManageCustomerRequest,type ManageCustomerResult} from '@taptime/mobile-work-contract';
 import type { AuthenticatedJsonPostPort } from '../transport/AuthenticatedHttpRequestExecutor';
@@ -91,7 +93,15 @@ export class TapTimeAdministrationApiClient implements AdminSetupApiPort {
     return { status: 'unavailable' };
   }
 
-  async readProjection(expectedMembershipId: string, cursor: string | null): Promise<AdminProjectionResult> {
+  querySearch<K extends SearchKind>(kind:K,request:SearchRequests[K]) {return readSearch(this.request,this.projectionEndpoint,kind,request);}
+
+  async readProjection(expectedMembershipId:string,cursor:string|null):Promise<AdminProjectionResult> {
+    const result=await this.querySearch('setup_tags',{expectedMembershipId,cursor,limit:50,search:null,kind:'nfc_tags'});
+    return result.status==='ready'&&result.value?{...result.value,status:'succeeded'}:{status:result.status==='authority_rejected'?'authority_rejected':result.status==='transient_failure'?'transient_failure':'unavailable'};
+  }
+
+  // K4: customer-creation confirmation still locates the newly created customer on the old projection.
+  async readCustomerCreationProjection(expectedMembershipId: string, cursor: string | null): Promise<AdminProjectionResult> {
     if (!isUuid(expectedMembershipId) || (cursor !== null && !cursorPattern.test(cursor))) return { status: 'unavailable' };
     const response = await this.request.post(this.projectionEndpoint, JSON.stringify({
       expectedMembershipId, cursor, limit: 20,

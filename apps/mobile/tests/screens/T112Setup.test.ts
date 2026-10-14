@@ -1,3 +1,4 @@
+import {setupSearch} from '../search/fixtures';
 // @vitest-environment jsdom
 import { act, createElement, useEffect, useImperativeHandle, type ReactNode, type Ref } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -36,7 +37,7 @@ const customers=[{id:'one',displayName:'Werkstatt',active:true},{id:'two',displa
 const projection={organization:{id:'org',name:'Betrieb'},customers,nfcTags:[],nextCursor:null};
 function setup(state:AdminSetupState={status:'ready',projection,outcome:null}){
  const listeners=new Set<()=>void>();
- const administration={getState:()=>state,subscribe:(fn:()=>void)=>{listeners.add(fn);return()=>listeners.delete(fn);},refresh:vi.fn(async()=>{}),cancel:vi.fn(async()=>{}),provision:vi.fn(async()=>{}),provisionBreak:vi.fn(async()=>{})} as unknown as AdminSetupCapability;
+ const administration={querySearch:setupSearch(()=>state),getState:()=>state,subscribe:(fn:()=>void)=>{listeners.add(fn);return()=>listeners.delete(fn);},refresh:vi.fn(async()=>{}),cancel:vi.fn(async()=>{}),provision:vi.fn(async()=>{}),provisionBreak:vi.fn(async()=>{})} as unknown as AdminSetupCapability;
  return {administration,set(next:AdminSetupState){state=next;listeners.forEach(fn=>fn());}};
 }
 const click=async(text:string)=>{const b=[...container.querySelectorAll('button')].find(b=>b.textContent===text||b.getAttribute('aria-label')===text);if(!b)throw Error(text);await act(async()=>b.click());};

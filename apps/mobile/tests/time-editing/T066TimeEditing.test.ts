@@ -58,18 +58,18 @@ it.each(['administrator','standortleitung'] as const)('D-078 preserves the stop 
  expect(post.mock.calls[0]).toEqual(post.mock.calls[2]);coordinator.stop();
 });
 
-it('D-092 pages target-person choices without changing own capture state and drops a stale session',async()=>{
+it('T117 bounds target-person choices to one page without changing own capture state and drops a stale session',async()=>{
  let current=true;
  const second={targetType:'project',targetId:'40000000-0000-4000-8000-000000000002',displayName:'Projekt P'};
  const first={targetType:'customer',targetId:data.targetId,displayName:'Kunde P'};
- const post=vi.fn(async(_url:URL,body:string)=>({status:'response' as const,statusCode:200,contentType:'application/json',body:JSON.stringify({status:'ready',targets:[JSON.parse(body).cursor===null?first:second],nextCursor:JSON.parse(body).cursor===null?'next':null})}));
+ const post=vi.fn(async(_url:URL,body:string)=>({status:'response' as const,statusCode:200,contentType:'application/json',body:JSON.stringify({targets:[JSON.parse(body).cursor===null?first:second],nextCursor:JSON.parse(body).cursor===null?'next':null})}));
  const coordinator=new TimeEditingCoordinator(new URL('https://example.invalid'),{post},{capture:()=>snapshot,isCurrent:()=>current,subscribe:()=>()=>{}},()=>'',{get:async()=>true,subscribe:()=>()=>{}});
  await coordinator.start();
- expect(await coordinator.loadBackfillTargets(data.targetMembershipId)).toEqual({status:'ready',targets:[first,second]});
- expect(post.mock.calls.map(([url,body])=>[url.pathname,JSON.parse(body).targetMembershipId])).toEqual(Array(2).fill(['/v1/administration/time-records/backfill-targets/query',data.targetMembershipId]));
+ expect(await coordinator.querySearch('backfill_targets',{targetMembershipId:data.targetMembershipId,cursor:null,search:null})).toEqual({status:'ready',value:{targets:[first],nextCursor:'next'}});
+ expect(post.mock.calls.map(([url,body])=>[url.pathname,JSON.parse(body).targetMembershipId])).toEqual(Array(1).fill(['/v2/administration/time-records/backfill-targets/query',data.targetMembershipId]));
  expect(coordinator.getState()).toEqual({online:true,busy:false});
  post.mockImplementationOnce(async()=>{current=false;return {status:'response',statusCode:200,contentType:'application/json',body:JSON.stringify({status:'ready',targets:[first],nextCursor:null})};});
- expect(await coordinator.loadBackfillTargets(data.targetMembershipId)).toEqual({status:'authority_rejected'});
+ expect(await coordinator.querySearch('backfill_targets',{targetMembershipId:data.targetMembershipId,cursor:null,search:null})).toEqual({status:'authority_rejected'});
  coordinator.stop();
 });
 
@@ -77,7 +77,7 @@ it('D-092 maps an actual HTTP 403 target-scope rejection to the existing authori
  const post=vi.fn(async()=>({status:'response' as const,statusCode:403,contentType:'application/json',body:JSON.stringify({error:{code:'forbidden'}})}));
  const coordinator=new TimeEditingCoordinator(new URL('https://example.invalid'),{post},{capture:()=>snapshot,isCurrent:()=>true,subscribe:()=>()=>{}},()=>'',{get:async()=>true,subscribe:()=>()=>{}});
  await coordinator.start();
- expect(await coordinator.loadBackfillTargets(data.targetMembershipId)).toEqual({status:'authority_rejected'});
+ expect(await coordinator.querySearch('backfill_targets',{targetMembershipId:data.targetMembershipId,cursor:null,search:null})).toEqual({status:'authority_rejected'});
  coordinator.stop();
 });
 

@@ -32,7 +32,7 @@ class FakeJsonPost implements AuthenticatedJsonPostPort {
 function projectionResponse(body: unknown = {
   status: 'succeeded',
   organization: { id: ids.organization, name: 'TapTim.e' },
-  customers: [{ id: ids.customer, displayName: 'Werkstatt', active: true }],
+  customers: [],
   nfcTags: [{
     id: ids.tag,
     displayName: 'Eingang',
@@ -40,7 +40,7 @@ function projectionResponse(body: unknown = {
     assignmentState: 'assigned',
     assignmentType: 'work',
     targetCustomerId: ids.customer,
-    activeAssignmentId: ids.assignment,
+    activeAssignmentId: ids.assignment,customerDisplayName:'Werkstatt',
   }],
   nextCursor: null,
 }): AuthenticatedHttpResult {
@@ -81,7 +81,7 @@ describe('TapTimeAdministrationApiClient', () => {
     await expect(client.readProjection(ids.membership, null)).resolves.toEqual({
       status: 'succeeded',
       organization: { id: ids.organization, name: 'TapTim.e' },
-      customers: [{ id: ids.customer, displayName: 'Werkstatt', active: true }],
+      customers: [],
       nfcTags: [{
         id: ids.tag,
         displayName: 'Eingang',
@@ -89,13 +89,13 @@ describe('TapTimeAdministrationApiClient', () => {
         assignmentState: 'assigned',
         assignmentType: 'work',
         targetCustomerId: ids.customer,
-        activeAssignmentId: ids.assignment,
+        activeAssignmentId: ids.assignment,customerDisplayName:'Werkstatt',
       }],
       nextCursor: null,
     });
     expect(request.calls).toEqual([{
-      endpoint: 'https://api.example/base/v1/administration/setup-projection',
-      body: JSON.stringify({ expectedMembershipId: ids.membership, cursor: null, limit: 20 }),
+      endpoint: 'https://api.example/v3/administration/setup-projection',
+      body: JSON.stringify({ expectedMembershipId: ids.membership, cursor: null, limit: 50, search:null, kind:'nfc_tags' }),
       options: undefined,
     }]);
   });
@@ -103,7 +103,7 @@ describe('TapTimeAdministrationApiClient', () => {
   it('rejects malformed Membership/cursor and over-broad or malformed projection results', async () => {
     const { request, client } = setup();
     await expect(client.readProjection('not-a-uuid', null)).resolves.toEqual({ status: 'unavailable' });
-    await expect(client.readProjection(ids.membership, 'not-a-cursor')).resolves.toEqual({ status: 'unavailable' });
+    await expect(client.readProjection(ids.membership, 'not a cursor')).resolves.toEqual({ status: 'unavailable' });
     expect(request.calls).toEqual([]);
 
     for (const body of [

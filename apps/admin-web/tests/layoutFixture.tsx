@@ -1,3 +1,4 @@
+import {customerSearch,stateSearch} from './searchFixtures';
 import { PasswordResetPage } from '../src/PasswordResetPage';
 import { createRoot } from 'react-dom/client';
 import { App } from '../src/App';
@@ -103,6 +104,26 @@ const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
   completedAction: null,
 };
 class FakeCapability implements AdminWebCapability {
+  querySearch:NonNullable<AdminWebCapability['querySearch']>=async(kind,request)=>{
+    const result=kind==='customer_hours'||kind==='customer_detail'
+      ?await customerSearch(()=>this.readCustomerHours())(kind,request)
+      :await stateSearch(()=>this.state)(kind,request);
+    if(result.status!=='ready'||!result.value)return result;
+    if(kind==='customer_detail')return result;
+    const key=kind==='customer_hours'?'customers':kind==='setup_customers'?'customers':kind==='setup_tags'?'nfcTags':kind==='memberships'?'employeeMemberships':kind==='projects'?'projects':'targets';
+    const value=result.value as any,search='search' in request&&typeof request.search==='string'?request.search:null;
+    const rows=value[key] as any[];
+    return {status:'ready',value:{...value,[key]:rows.filter(row=>!search||row.displayName.toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de')))}} as any;
+  };
+  refreshManagedPeople=async(isRunning:boolean|null=null,_append=false,month='2026-09',search:string|null=null)=>{
+    if(this.state.status!=='ready'||ready.managedPeople?.status!=='ready')return;
+    const source=ready.managedPeople.value;
+    this.emit({...this.state,managedPeople:{status:'ready',month,isRunning,search,value:{...source,people:source.people.filter(person=>(isRunning===null||person.isRunning===isRunning)&&(!search||person.displayName.toLocaleLowerCase('de').includes(search.toLocaleLowerCase('de'))))}}});
+  };
+  loadWorkTargets=async(search:string|null=null)=>{
+    if(this.state.status==='ready')this.emit({...this.state,workTargets:{status:'ready',value:!search||'Werkstatt am Beispielweg'.toLowerCase().includes(search.toLowerCase())?[{targetType:'customer',targetId:customer.id,displayName:'Werkstatt am Beispielweg'}]:[],search,nextCursor:null}});
+  };
+
   state: AdminWebState;
   private readonly listeners = new Set<() => void>();
   constructor(state: AdminWebState) { this.state = state; }

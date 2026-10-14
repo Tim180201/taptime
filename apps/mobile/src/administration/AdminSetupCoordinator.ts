@@ -1,3 +1,5 @@
+import type {SearchKind,SearchRequests,SearchResponses} from '@taptime/mobile-work-contract';
+import type {ClientSearchRequest,PageResult} from '../search/search';
 import {normalizeCustomerNameV1} from '@taptime/administration-contract/names';
 import type {CustomerManagementChange,ManageCustomerResult} from '@taptime/mobile-work-contract';
 import type { NfcScanCaptureResult, NfcScanPort } from '@taptime/core';
@@ -34,6 +36,33 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
 
   getState(): AdminSetupState { return this.state; }
   subscribe(listener: () => void): () => void { this.listeners.add(listener); return () => this.listeners.delete(listener); }
+
+  private readonly searchEpochs=new Map<SearchKind,number>();
+  private rejectAuthority():void {
+    this.tagReceipt=null;this.pendingTag=null;this.pendingCustomer=null;this.pendingRemoval=null;
+    this.projectionInvalidated=false;this.generation++;this.authorityGeneration++;
+    this.setState({status:'inactive'});
+  }
+  private readCreationProjection(member:string,cursor:string|null) {
+    return this.api.readCustomerCreationProjection?.(member,cursor)??this.api.readProjection(member,cursor);
+  }
+  async querySearch<K extends SearchKind>(kind:K,request:ClientSearchRequest<K>):Promise<PageResult<SearchResponses[K]>> {
+    const snapshot=this.session.capture(),authority=this.authorityGeneration;
+    if(!this.active||!snapshot?.session.nfcSetupAvailable)return {status:'authority_rejected'};
+    const epoch=(this.searchEpochs.get(kind)??0)+1;this.searchEpochs.set(kind,epoch);
+    const result=await this.api.querySearch?.(kind,{...request,expectedMembershipId:snapshot.session.membershipId,limit:50} as SearchRequests[K])??{status:'unavailable'};
+    if(!this.isManagementCurrent(authority,snapshot)||epoch!==this.searchEpochs.get(kind))return {status:'unavailable'};
+    if(result.status==='authority_rejected'){this.rejectAuthority();return result;}
+    if(result.status==='ready'&&result.value&&this.state.status==='ready'&&(kind==='setup_tags'||kind==='setup_customers')) {
+      const page=result.value as SearchResponses['setup_tags'];
+      const current=this.state,field=kind==='setup_tags'?'nfcTags':'customers';
+      if(page.organization.id!==snapshot.session.organizationId)return {status:'unavailable'};
+      const items=[...(request.cursor===null?[]:current.projection[field]),...page[field]];
+      if(new Set(items.map(item=>item.id)).size!==items.length)return {status:'unavailable'};
+      this.setState({...current,projection:{...current.projection,[field]:items,...(kind==='setup_tags'?{nextCursor:page.nextCursor}:{})}});
+    }
+    return result;
+  }
 
   async start(): Promise<void> {
     if (this.active) return;
@@ -78,7 +107,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
         await this.finish(current.projection, { status: 'request_failed' });
       }
     } else if (result.status === 'authority_rejected') {
-      this.setState({ status: 'inactive' });
+      this.rejectAuthority();
     } else {
       await this.finish(current.projection, { status: 'request_failed' });
     }
@@ -98,27 +127,10 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       const result=await this.api.inspectTag?.({expectedMembershipId:snapshot.session.membershipId,canonicalPayload:capture.payload})??{status:'unavailable'};
       if(!this.isCurrent(generation,snapshot))return;
       if(result.status==='succeeded'){
-        let projection=current.projection;
-        if(result.nfcTagId!==null&&!projection.nfcTags.some(tag=>tag.id===result.nfcTagId)){
-          // Another device may have added the inspected tag after our cached list was complete.
-          const fresh=await this.api.readProjection(snapshot.session.membershipId,null);
-          if(!this.isCurrent(generation,snapshot))return;
-          if(fresh.status!=='succeeded'){
-            await this.finish(current.projection,{status:fresh.status==='authority_rejected'?'session_rejected':'request_failed'});return;
-          }
-          projection=fresh;
-        }
-        const seen=new Set<string>();
-        while(result.nfcTagId!==null&&!projection.nfcTags.some(tag=>tag.id===result.nfcTagId)&&projection.nextCursor!==null&&!seen.has(projection.nextCursor)){
-          const cursor=projection.nextCursor;seen.add(cursor);
-          const page=await this.api.readProjection(snapshot.session.membershipId,cursor);
-          if(!this.isCurrent(generation,snapshot))return;
-          if(page.status!=='succeeded')break;
-          const merged=mergeProjection(projection,page,cursor);if(!merged)break;projection=merged;
-        }
-        await this.finish(projection,{...result,status:'tag_checked'});
+        await this.finish(current.projection,{...result,status:'tag_checked'});
       }
-      else await this.finish(current.projection,{status:result.status==='forbidden'||result.status==='unauthorized'?'session_rejected':'request_failed'});
+      else if(result.status==='forbidden'||result.status==='unauthorized')this.rejectAuthority();
+      else await this.finish(current.projection,{status:'request_failed'});
     }catch{if(this.isCurrent(generation,snapshot))await this.finish(current.projection,{status:'request_failed'});}
   }
 
@@ -139,7 +151,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
         this.pendingRemoval=null;
         const refreshed=await this.api.readProjection(snapshot.session.membershipId,null).catch(()=>({status:'unavailable' as const}));
         if(!this.isManagementCurrent(authorityGeneration,snapshot))return {status:'forbidden'};
-        if(refreshed.status==='authority_rejected'){this.setState({status:'inactive'});return {status:'forbidden'};}
+        if(refreshed.status==='authority_rejected'){this.rejectAuthority();return {status:'forbidden'};}
         // Preserve the confirmed removal even if its list reload loses connectivity.
         const projection=refreshed.status==='succeeded'?refreshed:{...previous,nfcTags:previous.nfcTags.map(tag=>
           tag.id===nfcTagId&&tag.activeAssignmentId===expectedAssignmentId?{...tag,assignmentState:'unassigned' as const,assignmentType:null,targetCustomerId:null,activeAssignmentId:null}:tag)};
@@ -233,7 +245,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       let projection = current.projection;
       let refreshed = false;
       try {
-        let page = await this.api.readProjection(snapshot.session.membershipId, null);
+        let page = await this.readCreationProjection(snapshot.session.membershipId, null);
         if (!this.isCurrent(generation, snapshot)) return;
         if (page.status === 'succeeded') {
           let next = page;
@@ -242,7 +254,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
             const cursor = next.nextCursor;
             if (seen.has(cursor)) break;
             seen.add(cursor);
-            page = await this.api.readProjection(snapshot.session.membershipId, cursor);
+            page = await this.readCreationProjection(snapshot.session.membershipId, cursor);
             if (!this.isCurrent(generation, snapshot)) return;
             if (page.status !== 'succeeded') break;
             const merged = mergeProjection(next, page, cursor);
@@ -314,8 +326,8 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
         signal('tag_assigned', connected);
         return { status: 'succeeded' };
       }
-      const status = result.status === 'authority_rejected' ? 'session_rejected'
-        : result.status === 'tag_payload_already_registered' ? 'tag_already_registered'
+      if(result.status==='authority_rejected'){this.rejectAuthority();outcome=null;return {status:'failed',message:'Sitzung nicht mehr gültig. Bitte melde dich erneut an.'};}
+      const status = result.status === 'tag_payload_already_registered' ? 'tag_already_registered'
           : result.status === 'assignment_target_unavailable' ? 'customer_unavailable'
             : result.status === 'invalid_request' ? 'invalid_input' : 'request_failed';
       const receiptOutcome: AdminSetupOutcome = { status };
@@ -324,8 +336,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       signal('failed', connected);
       return { status: 'failed', message: status === 'tag_already_registered' ? 'Karte bereits registriert. Die bisherige Zuordnung bleibt erhalten.'
         : status === 'customer_unavailable' ? 'Kunde nicht verfügbar. Aktualisiere die Ansicht.'
-          : status === 'session_rejected' ? 'Sitzung nicht mehr gültig. Bitte melde dich erneut an.'
-            : 'Noch keine Bestätigung. Versuche die Zuordnung in der App erneut.' };
+          : 'Noch keine Bestätigung. Versuche die Zuordnung in der App erneut.' };
     };
     try {
       if (!await this.isOnline()) {
@@ -371,9 +382,12 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
         this.setState({ status: 'ready', projection: current.projection, outcome });
         if ((outcome as AdminSetupOutcome).status === 'tag_provisioned') {
           const result = await this.api.readProjection(snapshot.session.membershipId, null).catch(() => null);
-          if (this.isTagAuthorityCurrent(snapshot) && this.state.status === 'ready' && this.state.outcome === outcome && result?.status === 'succeeded') {
-            this.projectionInvalidated = false;
-            this.setState({ status: 'ready', projection: result, outcome });
+          if (this.isTagAuthorityCurrent(snapshot) && this.state.status === 'ready' && this.state.outcome === outcome) {
+            if (result?.status === 'authority_rejected') this.rejectAuthority();
+            else if (result?.status === 'succeeded') {
+              this.projectionInvalidated = false;
+              this.setState({ status: 'ready', projection: result, outcome });
+            }
           }
         }
       }
@@ -445,14 +459,14 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
     const previous = receiptProjection ?? ('projection' in this.state ? this.state.projection : null);
     this.projectionInvalidated = false;
     this.setState({ status: 'loading' });
-    let result = await this.api.readProjection(snapshot.session.membershipId, null).catch(() => ({ status: 'unavailable' as const }));
+    let result = await (outcome?.status==='customer_created'?this.readCreationProjection(snapshot.session.membershipId,null):this.api.readProjection(snapshot.session.membershipId, null)).catch(() => ({ status: 'unavailable' as const }));
     // Keep the newly created customer visible when a management refresh was deferred.
     const seen = new Set<string>();
     while (this.isCurrent(generation,snapshot) && result.status==='succeeded'
       && outcome?.status==='customer_created' && !result.customers.some(customer=>customer.id===outcome.customerId)
       && result.nextCursor!==null && !seen.has(result.nextCursor)) {
       const cursor=result.nextCursor;seen.add(cursor);
-      const page=await this.api.readProjection(snapshot.session.membershipId,cursor);
+      const page=await this.readCreationProjection(snapshot.session.membershipId,cursor);
       if(page.status!=='succeeded')break;
       const merged=mergeProjection(result,page,cursor);
       if(merged===null)break;
@@ -464,7 +478,7 @@ export class AdminSetupCoordinator implements AdminSetupCapability {
       if (outcome !== null) this.consumeTagReceipt(outcome);
       this.setState({ status: 'ready', projection: { organization: result.organization, customers: result.customers, nfcTags: result.nfcTags, nextCursor: result.nextCursor }, outcome });
     } else if (result.status === 'authority_rejected') {
-      this.setState({ status: 'inactive' });
+      this.rejectAuthority();
     } else if (previous !== null && (outcome?.status === 'tag_provisioned' || this.pendingTag !== null || receiptProjection !== undefined)) {
       if (outcome !== null) this.consumeTagReceipt(outcome);
       this.setState({ status: 'ready', projection: previous, outcome });

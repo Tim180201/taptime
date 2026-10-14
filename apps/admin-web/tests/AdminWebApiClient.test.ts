@@ -463,11 +463,11 @@ describe('AdminWebApiClient', () => {
     expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
       expectedMembershipId: ids.membership,
       cursor: null,
-      limit: 20,
+      limit: 50,search:null,
       locationId: null,
     });
     expect(fetchRequest.mock.calls[0]?.[0])
-      .toBe('/v2/administration/employee-memberships-projection');
+      .toBe('/v3/administration/employee-memberships-projection');
     fetchRequest.mockResolvedValueOnce(json({
       status: 'succeeded',
       organization: { id: ids.organization, name: 'TapTim.e' },
@@ -490,7 +490,7 @@ describe('AdminWebApiClient', () => {
     expect(JSON.parse(String(fetchRequest.mock.calls[0]?.[1]?.body))).toEqual({
       expectedMembershipId: ids.membership,
       cursor: null,
-      limit: 20,
+      limit: 50,search:null,
       locationId: ids.location,
     });
 
@@ -500,7 +500,7 @@ describe('AdminWebApiClient', () => {
     )).resolves.toEqual({ status: 'invalid_response' });
   });
 
-  it('rejects unsafe Employee names, duplicates, ordering, and cursor discontinuity', async () => {
+  it('rejects unsafe Employee names, duplicates, and malformed search cursors', async () => {
     const requestedCursor = 'v1:m:70000000-0000-4000-8000-000000000020';
     const validPage = employeeMemberships(21, 20);
     const responses = [
@@ -510,15 +510,15 @@ describe('AdminWebApiClient', () => {
       },
       {
         status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
-        employeeMemberships: [validPage[1], validPage[0]], nextCursor: null,
+        employeeMemberships: [{...validPage[0],extra:true}], nextCursor: null,
       },
       {
         status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
-        employeeMemberships: [{ ...validPage[0], id: requestedCursor.slice(5) }], nextCursor: null,
+        employeeMemberships: [{ ...validPage[0], id: 'invalid-id' }], nextCursor: null,
       },
       {
         status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
-        employeeMemberships: validPage, nextCursor: `v1:m:${validPage[18]!.id}`,
+        employeeMemberships: validPage, nextCursor: 'invalid cursor',
       },
       {
         status: 'succeeded', organization: { id: ids.organization, name: 'TapTim.e' },
@@ -534,7 +534,7 @@ describe('AdminWebApiClient', () => {
       },
     ];
     const client = new AdminWebApiClient(async () => json(responses.shift()!));
-    for (let index = 0; index < 7; index += 1) {
+    while (responses.length>0) {
       await expect(client.employeeProjection('token', ids.membership, requestedCursor, null))
         .resolves.toEqual({ status: 'invalid_response' });
     }

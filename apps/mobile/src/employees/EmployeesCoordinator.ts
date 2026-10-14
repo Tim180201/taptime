@@ -1,3 +1,4 @@
+import { normalizeSearch } from '../search/search';
 import type { InternalAuthenticatedSessionSnapshot } from '../auth/contracts';
 import type { AdminSessionContextReader } from '../administration/contracts';
 import { businessDay, dayStart, shiftMonth } from '../screens/ownTimeCalendar';
@@ -11,6 +12,7 @@ export class EmployeesCoordinator implements EmployeesCapability {
   private generation = 0;
   private entered = false;
   private running = true;
+  private searchTerm:string|null=null;
   private listMonth: string | null = null;
   private personMonth: string | null = null;
   private invitation: InvitationCommand | null = null;
@@ -24,7 +26,7 @@ export class EmployeesCoordinator implements EmployeesCapability {
     });
   }
   stop(): void { this.leave(); this.unsubscribe?.(); this.unsubscribe=null; }
-  leave(): void { this.entered=false; this.generation++; this.invitation=null; this.publish({status:'inactive'}); }
+  leave(): void { this.searchTerm=null;this.entered=false; this.generation++; this.invitation=null; this.publish({status:'inactive'}); }
   getState(): EmployeesState { return this.state; }
   subscribe(listener: ()=>void): ()=>void { this.listeners.add(listener); return ()=>{this.listeners.delete(listener);}; }
   async refresh(): Promise<void> {
@@ -32,6 +34,7 @@ export class EmployeesCoordinator implements EmployeesCapability {
     if (this.state.status === 'person') { await this.readPerson(this.state.person,this.personMonth ?? undefined); return; }
     await this.loadList();
   }
+  async search(term:string|null):Promise<void>{this.searchTerm=normalizeSearch(term??'');await this.loadList();}
   async filter(isRunning: boolean): Promise<void> { this.running=isRunning; await this.loadList(); }
   async loadMonth(month: string): Promise<void> {
     const current=businessDay(this.now()).slice(0,7);
@@ -49,14 +52,14 @@ export class EmployeesCoordinator implements EmployeesCapability {
     const old=more && current.status==='list' && current.month===month ? current.summary : null;
     const cursor=old?.nextCursor ?? null;
     const generation=++this.generation;
-    this.publish(old ? {status:'list',month,summary:old,filter:this.running,busy:true,failed:false} : {status:'loading'});
-    const result=await this.api.summary({expectedMembershipId:snapshot.session.membershipId,locationId:null,isRunning:this.running,cursor,limit:20,fromInclusive:new Date(dayStart(`${month}-01`)).toISOString(),toExclusive:new Date(dayStart(`${shiftMonth(month,1)}-01`)).toISOString()});
+    this.publish(old ? {status:'list',search:this.searchTerm,month,summary:old,filter:this.running,busy:true,failed:false} : current.status==='list'?{...current,search:this.searchTerm,summary:{...current.summary,people:[],nextCursor:null},busy:true,failed:false}:{status:'loading'});
+    const result=await this.api.summary({expectedMembershipId:snapshot.session.membershipId,locationId:null,isRunning:this.running,cursor,limit:50,search:this.searchTerm,fromInclusive:new Date(dayStart(`${month}-01`)).toISOString(),toExclusive:new Date(dayStart(`${shiftMonth(month,1)}-01`)).toISOString()});
     if (!this.current(generation,snapshot)) return;
     if (result.status==='authority_rejected') { this.publish({status:'not_authorized'}); return; }
     if (result.status!=='ready' || (old && (result.value.nextCursor===cursor || result.value.people.some(p=>old.people.some(o=>o.membershipId===p.membershipId))))) {
-      this.publish(old ? {status:'list',month,summary:old,filter:this.running,busy:false,failed:true} : {status:'unavailable'}); return;
+      this.publish(old ? {status:'list',search:this.searchTerm,month,summary:old,filter:this.running,busy:false,failed:true} : {status:'unavailable'}); return;
     }
-    this.publish({status:'list',month,summary:{...result.value,people:old ? [...old.people,...result.value.people] : result.value.people},filter:this.running,busy:false,failed:false});
+    this.publish({status:'list',search:this.searchTerm,month,summary:{...result.value,people:old ? [...old.people,...result.value.people] : result.value.people},filter:this.running,busy:false,failed:false});
   }
   async openPerson(person: ManagedPerson): Promise<void> { await this.readPerson(person,this.listMonth ?? undefined); }
   async loadPersonMonth(month: string): Promise<void> {

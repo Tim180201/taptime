@@ -1,9 +1,9 @@
+import {isSearchCursor} from '@taptime/mobile-work-contract';
 import type { SafeEmployeeProjection } from './contracts';
 import { isCanonicalSafeTapTimeName } from './safeTapTimeName';
 
 const canonicalUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const employeeCursor = /^v1:m:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/;
-const pageLimit = 20;
+const pageLimit = 50;
 
 export function isSafeEmployeeProjectionPage(
   projection: SafeEmployeeProjection,
@@ -15,10 +15,9 @@ export function isSafeEmployeeProjectionPage(
     || !isCanonicalSafeTapTimeName(projection.organization.name)
     || projection.employeeMemberships.length > pageLimit
   ) return false;
-  const cursorMatch = requestedCursor === null ? null : employeeCursor.exec(requestedCursor);
-  if (requestedCursor !== null && cursorMatch === null) return false;
+  if (!isSearchCursor(requestedCursor)||!isSearchCursor(projection.nextCursor)) return false;
+  if(new Set(projection.employeeMemberships.map(member=>member.id)).size!==projection.employeeMemberships.length)return false;
 
-  let previousId: string | null = cursorMatch?.[1] ?? null;
   for (const membership of projection.employeeMemberships) {
     if (
       !canonicalUuid.test(membership.id)
@@ -32,13 +31,8 @@ export function isSafeEmployeeProjectionPage(
         || !isCanonicalSafeTapTimeName(membership.location.name)
       ))
       || (requestedLocationId !== null && membership.location?.id !== requestedLocationId)
-      || (previousId !== null && membership.id <= previousId)
     ) return false;
-    previousId = membership.id;
   }
 
-  if (projection.nextCursor === null) return true;
-  return projection.employeeMemberships.length === pageLimit
-    && previousId !== null
-    && projection.nextCursor === `v1:m:${previousId}`;
+  return projection.nextCursor===null || projection.employeeMemberships.length>0;
 }

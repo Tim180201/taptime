@@ -1,3 +1,4 @@
+import {customerSearch} from './searchFixtures';
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -19,14 +20,14 @@ afterEach(()=>{cleanup();vi.useRealTimers();});
 it('administrator edits half hours, invalid input and removal; list and detail show progress',async()=>{
  vi.setSystemTime(new Date('2026-09-28T08:00Z'));
  const setCustomerQuota=vi.fn(async()=>({status:'succeeded' as const}));
- const administration={getState:()=>({status:'ready',role:'administrator'}),readCustomerHours:async()=>({status:'ready',value:quota}),setCustomerQuota} as unknown as AdminWebCapability;
+ const administration={getState:()=>({status:'ready',role:'administrator'}),readCustomerHours:async()=>({status:'ready',value:quota}),querySearch:customerSearch(async()=>({status:'ready',value:quota})),setCustomerQuota} as unknown as AdminWebCapability;
  render(<CustomersView administration={administration} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  expect(await screen.findByText('36:00 von 40 h')).toBeInTheDocument();expect(screen.getByText('Kontingent fast erreicht')).toBeInTheDocument();
- fireEvent.click(screen.getByRole('button',{name:/Werkstatt/}));fireEvent.click(screen.getByText('Ändern'));
+ fireEvent.click(screen.getByRole('button',{name:/Werkstatt/}));fireEvent.click(await screen.findByText('Ändern'));
  fireEvent.change(screen.getByLabelText('Stunden pro Monat (optional)'),{target:{value:'40,25'}});fireEvent.click(screen.getByText('Kontingent speichern'));
  expect(await screen.findByRole('alert')).toHaveTextContent('halben oder ganzen');expect(setCustomerQuota).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Stunden pro Monat (optional)'),{target:{value:'40,5'}});fireEvent.click(screen.getByText('Kontingent speichern'));
- await waitFor(()=>expect(setCustomerQuota).toHaveBeenCalledWith(cid,2430));await screen.findByText('Ändern');fireEvent.click(screen.getByText('Ändern'));
+ await waitFor(()=>expect(setCustomerQuota).toHaveBeenCalledWith(cid,2430));await screen.findByText('Ändern');fireEvent.click(await screen.findByText('Ändern'));
  fireEvent.change(screen.getByLabelText('Stunden pro Monat (optional)'),{target:{value:''}});fireEvent.click(screen.getByText('Kontingent speichern'));
  await waitFor(()=>expect(setCustomerQuota).toHaveBeenLastCalledWith(cid,null));
 });

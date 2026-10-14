@@ -23,6 +23,12 @@ function response(body: unknown, statusCode = 200): AuthenticatedHttpResult {
 }
 
 describe('TapTimeMobileWorkApiClient', () => {
+  it('T117 R3: refresh requests the first target page for the retained search',async()=>{
+    const post=vi.fn<AuthenticatedJsonPostPort['post']>().mockResolvedValue({status:'unavailable'});
+    const client=new TapTimeMobileWorkApiClient(new URL('https://api.invalid'),{post},()=>ids.event);
+    await client.read(ids.membership,'Müller');
+    expect(JSON.parse(post.mock.calls.find(([url])=>url.pathname==='/v2/mobile/work-targets/query')![1])).toEqual({expectedMembershipId:ids.membership,cursor:null,limit:50,search:'Müller'});
+  });
   it('reads self-only time and safe targets without a user or Organization selector', async () => {
     const post = vi.fn<AuthenticatedJsonPostPort['post']>()
       .mockResolvedValueOnce(response({
@@ -52,11 +58,11 @@ describe('TapTimeMobileWorkApiClient', () => {
     });
     expect(post.mock.calls.map(([endpoint]) => endpoint.pathname)).toEqual([
       '/v1/mobile/own-time/query',
-      '/v1/mobile/work-targets/query',
+      '/v2/mobile/work-targets/query',
     ]);
     expect(post.mock.calls.map(([, body]) => JSON.parse(body))).toEqual([
       { expectedMembershipId: ids.membership, cursor: null, limit: 20 },
-      { expectedMembershipId: ids.membership, cursor: null, limit: 50 },
+      { expectedMembershipId: ids.membership, cursor: null, limit: 50, search:null },
     ]);
     expect(post.mock.calls[0]![2]).toMatchObject({includeActiveCapture:true});
   });
@@ -91,7 +97,7 @@ describe('TapTimeMobileWorkApiClient', () => {
     expect(JSON.stringify(body)).not.toContain('start');
   });
 
-  it('loads every bounded target page and rejects a repeated cursor', async () => {
+  it('loads just the first target page and preserves its cursor for explicit continuation', async () => {
     const post = vi.fn<AuthenticatedJsonPostPort['post']>()
       .mockResolvedValueOnce(response({
         activeRecord: null, records: [], nextCursor: null,
@@ -115,11 +121,9 @@ describe('TapTimeMobileWorkApiClient', () => {
     );
     await expect(client.read(ids.membership)).resolves.toMatchObject({
       status: 'ready',
-      targets: { targets: [{ displayName: 'Kunde' }, { displayName: 'Allgemeine Arbeitszeit' }] },
+      targets: { targets: [{ displayName: 'Kunde' }], nextCursor:'v1:next' },
     });
-    expect(JSON.parse(post.mock.calls[2]![1])).toEqual({
-      expectedMembershipId: ids.membership, cursor: 'v1:next', limit: 50,
-    });
+    expect(post).toHaveBeenCalledTimes(2);
   });
 
   it('loads one explicit own-time continuation page with the opaque cursor', async () => {

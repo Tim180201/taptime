@@ -1,3 +1,4 @@
+import {customerSearch,setupSearch} from '../search/fixtures';
 // @vitest-environment jsdom
 import { act, createElement, useEffect, useImperativeHandle, type ReactNode, type Ref } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -38,7 +39,7 @@ const people:CustomerHoursResponse={...own,scope:'people',customers:[{...custome
 const click=async(text:string)=>{const b=[...container.querySelectorAll('button')].find(b=>b.textContent===text||b.getAttribute('aria-label')?.includes(text));if(!b)throw Error(text);await act(async()=>b.click());};
 it.each([own,people])('renders $scope detail, marks inactive/running and selects previous month',async value=>{
  const readCustomerHours=vi.fn(async()=>({status:'ready' as const,value}));
- await act(async()=>root.render(createElement(CustomersScreen,{work:{readCustomerHours} as unknown as MobileWorkCapability,authorityContext})));
+ await act(async()=>root.render(createElement(CustomersScreen,{work:{readCustomerHours,querySearch:customerSearch(readCustomerHours)} as unknown as MobileWorkCapability,authorityContext})));
  await click('Werkstatt');expect(container.textContent).toContain(value.scope==='self'?'28.09.2026':'Person B');
  expect(container.textContent).toContain('inaktiv');expect(container.textContent).toContain('läuft');
  expect(container.querySelector('[aria-label="Nächster Monat"]')?.hasAttribute('disabled')).toBe(true);
@@ -47,7 +48,7 @@ it.each([own,people])('renders $scope detail, marks inactive/running and selects
 });
 it('keeps error distinct from empty and retries',async()=>{
  const readCustomerHours=vi.fn<NonNullable<MobileWorkCapability['readCustomerHours']>>().mockResolvedValueOnce({status:'unavailable'}).mockResolvedValueOnce({status:'ready',value:{...own,customers:[]}});
- await act(async()=>root.render(createElement(CustomersScreen,{work:{readCustomerHours} as unknown as MobileWorkCapability,authorityContext})));
+ await act(async()=>root.render(createElement(CustomersScreen,{work:{readCustomerHours,querySearch:customerSearch(readCustomerHours)} as unknown as MobileWorkCapability,authorityContext})));
  expect(container.textContent).toContain('konnten nicht geladen');await click('Erneut versuchen');expect(container.textContent).toContain('Keine Kunden in diesem Monat');
 });
 it('uses exact mobile customer contract and rejects employee response containing foreign people',async()=>{
@@ -63,9 +64,10 @@ it('hides loaded people hours immediately when the session context changes and i
  let finishOld!: (value: import('@taptime/mobile-work-contract').CustomerHoursResult)=>void;
  const readCustomerHours=vi.fn<NonNullable<MobileWorkCapability['readCustomerHours']>>()
    .mockResolvedValueOnce({status:'ready',value:people})
+   .mockResolvedValueOnce({status:'ready',value:people})
    .mockImplementationOnce(()=>new Promise(resolve=>{finishOld=resolve;}))
    .mockResolvedValueOnce({status:'ready',value:own});
- const work={readCustomerHours} as unknown as MobileWorkCapability;
+ const work={readCustomerHours,querySearch:customerSearch(readCustomerHours)} as unknown as MobileWorkCapability;
  await act(async()=>root.render(createElement(CustomersScreen,{work,authorityContext:administratorContext})));
  await click('Werkstatt');expect(container.textContent).toContain('Person B');
  await click('Kundenstunden aktualisieren');

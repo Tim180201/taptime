@@ -1,3 +1,5 @@
+import {useSearchPages} from '../search/useSearchPages';
+import {SearchField,SearchStatus} from '../search/SearchControls';
 import {nfcTagRemovalMessage,NFC_TAG_REMOVAL_EXPLANATION} from '@taptime/mobile-work-contract';
 import { APP_NAME } from '../../../../shared/product';
 import {SubviewBack, useSubviewBack} from '../navigation/SubviewBack';
@@ -24,28 +26,30 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       const result=await administration.removeTag?.(removal.id,removal.assignmentId)??{status:'unavailable' as const};
       setRemovalMessage(nfcTagRemovalMessage(result));
       if(result.status!=='unavailable')setRemoval(null);
+      if(result.status==='succeeded')void tags.pager.refresh();
     }catch{setRemovalMessage(nfcTagRemovalMessage({status:'unavailable'}));}finally{removalPending.current=false;setRemoving(false);}
   };
   const form = useRequiredForm();
   const [loadedAt,setLoadedAt]=useState<number|null>(null);
-  const initialProjection=useRef('projection' in state?state.projection:null);
-  useEffect(()=>{
-    const current=administration.getState();
-    if(current.status==='ready'||current.status==='inactive')void administration.refresh().catch(()=>undefined);
-  },[administration]);
-  const projectionVersion='projection' in state?state.projection:null;
-  useEffect(()=>{
-    // A cached projection does not become fresh merely because this screen reopened.
-    if(state.status==='ready'&&projectionVersion!==initialProjection.current){
-      initialProjection.current=projectionVersion;setLoadedAt(Date.now());
-    }
-  },[projectionVersion,state.status]);
   const [assigning, setAssigning] = useState(state.pendingTag !== undefined);
   const [customerId, setCustomerId] = useState(state.pendingTag?.customerId ?? '');
   const [tagName, setTagName] = useState(state.pendingTag?.displayName ?? '');
   const [nameEdited, setNameEdited] = useState(false);
   const [pauseTag, setPauseTag] = useState(state.pendingTag?.customerId === null);
+  const readable='projection' in state;
+  const tags=useSearchPages((search,cursor)=>administration.querySearch?.('setup_tags',{kind:'nfc_tags',search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.nfcTags,tag=>tag.id,[administration,readable],readable&&!assigning);
+  const customers=useSearchPages((search,cursor)=>administration.querySearch?.('setup_customers',{kind:'customers',search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.customers,customer=>customer.id,[administration,readable],readable&&assigning);
+  useEffect(()=>{if(!state.pendingTag&&customers.state.status==='ready'&&!customers.state.busy&&!customers.state.failed&&customerId&&!customers.state.items.some(customer=>customer.id===customerId))setCustomerId('');},[customers.state,customerId,state.pendingTag]);
+  useEffect(()=>{if(tags.state.status==='ready'&&!tags.state.failed)setLoadedAt(Date.now());},[tags.state.value]);
   const pending = state.pendingTag !== undefined;
+  const receipt=state.status==='ready'?state.outcome:null;
+  const refreshedReceipt=useRef<typeof receipt>(null);
+  useEffect(()=>{
+    if(!assigning&&receipt?.status==='tag_provisioned'&&refreshedReceipt.current!==receipt){
+      refreshedReceipt.current=receipt;
+      void tags.pager.refresh();
+    }
+  },[assigning,receipt,tags.pager]);
   useEffect(() => {
     if (state.pendingTag) {
       setAssigning(true); setCustomerId(state.pendingTag.customerId ?? '');
@@ -61,7 +65,11 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
   const locked=state.status==='submitting'||state.status==='creating_customer';
   const goBack=()=>{if(locked)return;if(scanning){void administration.cancel();return;}setAssigning(false);};
   useSubviewBack(removal?()=>{if(!removing)setRemoval(null);}:scanning||locked?goBack:null,3);
-  if (state.status === 'inactive' || state.status === 'loading') return <Message title="Karten werden geladen …" />;
+  if (state.status === 'loading') return <Message title="Karten werden geladen …" />;
+  if (state.status === 'inactive') return <Screen title="Karten"><Card>
+    <Text accessibilityRole="alert">Karten konnten nicht geladen werden.</Text>
+    <ActionButton title="Erneut versuchen" onPress={()=>administration.refresh()}/>
+  </Card></Screen>;
   if (state.status === 'not_authorized') return <Message title="Du hast keine Berechtigung zum Zuordnen von Karten." />;
   const projection = state.projection;
   const busy = removing || state.status === 'creating_customer' || state.status === 'capturing' || state.status === 'writing' || state.status === 'submitting';
@@ -70,20 +78,22 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
     if (busy) return;
     if (!form.validate()) return;
 
+    if(!pauseTag&&!pending&&(customers.state.busy||customers.state.failed))return;
     if (pauseTag) void administration.provisionBreak(tagName);
     else void administration.provision(customerId, tagName);
   };
-  return <Screen title="Karten"><ScrollView refreshControl={<RefreshControl refreshing={false} enabled={!assigning&&!busy} onRefresh={()=>{if(!assigning&&!busy)void administration.refresh();}}/>} contentContainerStyle={styles.container}>
+  return <Screen title="Karten"><ScrollView refreshControl={<RefreshControl refreshing={tags.state.busy} enabled={!assigning&&!busy} onRefresh={()=>{if(!assigning&&!busy)void tags.pager.refresh();}}/>} contentContainerStyle={styles.container}>
     {assigning ? <>
       <SubviewBack label="Karten" disabled={locked} onBack={goBack}/>
       <Text accessibilityRole="header" style={styles.title}>NFC-Karte einrichten</Text>
       <Text style={styles.muted}>Wähle ein Arbeitsziel und gib der Karte einen Namen. Tippe dann auf den Kreis und halte dein Handy an die Karte, bis sie zugeordnet ist. Dabei wird die Karte beschrieben und ihr bisheriger Inhalt ersetzt.</Text>
       <RequiredField form={form} error={!pauseTag && !customerId ? "Bitte einen Kunden oder Pause wählen." : null}><Text style={styles.label}>Arbeitsziel</Text>
-      {projection.customers.filter((customer) => customer.active).map((customer) => <ActionButton
+      <SearchField value={customers.input} onChange={customers.setSearch} disabled={busy||pending}/><SearchStatus state={customers.state} onRetry={customers.pager.retry} onClear={()=>customers.setSearch('')}/><View accessibilityRole="list">{customers.state.items.filter((customer) => customer.active).map((customer) => <ActionButton
         key={customer.id} title={customer.displayName} tone={!pauseTag && customerId === customer.id ? 'primary' : 'secondary'}
         accessibilityState={{ selected: !pauseTag && customerId === customer.id }} disabled={busy || pending}
         onPress={() => { setCustomerId(customer.id); setPauseTag(false); if (!nameEdited) setTagName(Array.from(customer.displayName.trim()).slice(0,80).join('')); }} />)}
-      {projection.customers.filter((customer) => customer.active).length === 0
+      </View>{customers.state.nextCursor?<ActionButton title="Weitere laden" disabled={customers.state.busy||busy} onPress={()=>customers.pager.loadMore()}/>:null}
+      {customers.state.items.filter((customer) => customer.active).length === 0 && !customers.state.search
         ? <Text>Lege deinen ersten Kunden im Reiter „Kunden“ an. Danach kannst du seine Karte einrichten.</Text> : null}
       <ActionButton title="Pause" tone={pauseTag ? 'primary' : 'quiet'} disabled={busy || pending}
         accessibilityState={{ selected: pauseTag }} onPress={() => {setPauseTag(true); if (!nameEdited) setTagName('Pause');}} /></RequiredField>
@@ -104,11 +114,11 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <ActionButton title="Karte prüfen" disabled={busy} onPress={()=>void administration.inspectTag?.()}/>
       {busy?<ActionButton title="Scan abbrechen" tone="quiet" onPress={()=>void administration.cancel()}/>:null}
     </>}
-    {state.status==='ready'&&state.outcome?.status==='tag_checked'&&state.outcome.nfcTagId!==null&&state.outcome.activeAssignmentId!==null&&projection.nfcTags.some(tag=>tag.id===(state.outcome?.status==='tag_checked'?state.outcome.nfcTagId:null))?
+    {state.status==='ready'&&state.outcome?.status==='tag_checked'&&state.outcome.nfcTagId!==null&&state.outcome.activeAssignmentId!==null?
       <ActionButton title="Karte entfernen" tone="warning" disabled={removing} onPress={()=>{
         if(state.outcome?.status!=='tag_checked'||!state.outcome.nfcTagId||!state.outcome.activeAssignmentId)return;
-        const inspected=state.outcome;const tag=projection.nfcTags.find(tag=>tag.id===inspected.nfcTagId);
-        if(tag){setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:state.outcome.activeAssignmentId,name:tag.displayName});}
+        const inspected=state.outcome;const tag=tags.state.items.find(tag=>tag.id===inspected.nfcTagId);
+        setRemovalMessage(null);setRemoval({id:inspected.nfcTagId!,assignmentId:inspected.activeAssignmentId!,name:tag?.displayName??'diese Karte'});
       }}/>:null}
     {removal?<Card><Text accessibilityRole="header" style={styles.label}>{`Karte „${removal.name}“ entfernen?`}</Text><Text>{NFC_TAG_REMOVAL_EXPLANATION}</Text>
       <ActionButton title="Entfernen bestätigen" tone="warning" disabled={removing} onPress={()=>void confirmRemoval()}/>
@@ -119,18 +129,18 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       <Text>{presentation.message}</Text>
     </Card> : null}
     {!assigning ? <>
-      {projection.nfcTags.map((tag) => <Card key={tag.id}>
+      <SearchField value={tags.input} onChange={tags.setSearch} disabled={busy}/><SearchStatus state={tags.state} onRetry={tags.pager.retry} onClear={()=>tags.setSearch('')}/><View accessibilityRole="list">{tags.state.items.map((tag) => <Card key={tag.id}>
         <View style={styles.row}><LineIcon name="setup" size={24} />
           <View style={{ flex: 1 }}><Text style={styles.label}>{tag.displayName}</Text>
-            <Text style={styles.muted}>{projection.customers.find((customer) => customer.id === tag.targetCustomerId)?.displayName
+            <Text style={styles.muted}>{tag.customerDisplayName
               ?? presentAssignment(tag.assignmentState, tag.assignmentType)}</Text></View></View>
         {tag.assignmentState==='assigned'&&tag.activeAssignmentId!==null?<ActionButton title="Entfernen" accessibilityLabel={`Karte ${tag.displayName} entfernen`} tone="warning" disabled={busy||removing}
           onPress={()=>{setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}/>:null}
       </Card>)}
-      {projection.nfcTags.length === 0 ? <Card><Text>Noch keine Karten. Ordne deine erste Karte einem Arbeitsziel zu.</Text></Card> : null}
-      {projection.nextCursor !== null ? <ActionButton title="Weitere Karten laden" tone="secondary" disabled={busy}
-        onPress={() => administration.loadMore()} /> : null}
-      <ActionButton title="Aktualisieren" tone="quiet" disabled={busy} onPress={() => administration.refresh()} />
+      </View>{tags.state.status==='ready' && tags.state.items.length === 0 && !tags.state.search ? <Card><Text>Noch keine Karten. Ordne deine erste Karte einem Arbeitsziel zu.</Text></Card> : null}
+      {tags.state.nextCursor !== null ? <ActionButton title="Weitere laden" tone="secondary" disabled={busy}
+        onPress={() => tags.pager.loadMore()} /> : null}
+      <ActionButton title="Aktualisieren" tone="quiet" disabled={busy} onPress={() => tags.pager.refresh()} />
     </> : null}
   </ScrollView></Screen>;
 }

@@ -1,3 +1,5 @@
+import { parseSearchRequest, MANAGED_PEOPLE_ACCEPT_V6, type SearchKind, type SearchRequests, type SearchResponses } from '@taptime/mobile-work-contract';
+import { parseSearchResponse, searchPaths } from '../../mobile/src/search/search';
 import {isRemoveNfcTagRequest,isRemoveNfcTagResult,type RemoveNfcTagRequest,type RemoveNfcTagResult} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest,isManageCustomerResult,type ManageCustomerRequest,type ManageCustomerResult} from '@taptime/mobile-work-contract';
 import { parseReviewItemQueryResponseV4 } from '@taptime/time-review-contract';
@@ -95,6 +97,7 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  querySearch?<K extends SearchKind>(token:string,kind:K,request:SearchRequests[K]):Promise<ApiResult<SearchResponses[K]>>;
   removeTag?(token:string,request:RemoveNfcTagRequest):Promise<ApiResult<RemoveNfcTagResult>>;
   manageCustomer?(token:string,request:ManageCustomerRequest):Promise<ApiResult<ManageCustomerResult>>;
   setCustomerQuota?(token:string,request:import('@taptime/mobile-work-contract').SetCustomerQuotaRequest):Promise<ApiResult<true>>;
@@ -106,10 +109,10 @@ export interface AdminWebApiPort {
   supplementTime?(token: string, kind: 'backfill'|'comment', request: unknown): Promise<ApiResult<TimeSupplementResult>>;
   ownTime?(token: string, request: MobileOwnTimeQueryRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
   backfillTargets?(token:string,request:BackfillTargetQueryRequest):Promise<ApiResult<MobileWorkTargetQueryResponse>>;
-  workTargets?(token: string, request: MobileWorkTargetQueryRequest): Promise<ApiResult<MobileWorkTargetQueryResponse>>;
+  workTargets?(token: string, request: MobileWorkTargetQueryRequest & {search?:string|null}): Promise<ApiResult<MobileWorkTargetQueryResponse>>;
   manualLifecycle?(token: string, request: ManualLifecycleRequest | ManualBreakLifecycleRequest): Promise<ApiResult<ManualResult>>;
   managedPersonTime?(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
-  managedActiveSummary?(token: string, request: ManagedActiveSummaryRequest | ManagedActiveSummaryRequestV5): Promise<ApiResult<ManagedActiveSummary>>;
+  managedActiveSummary?(token: string, request: ManagedActiveSummaryRequest | ManagedActiveSummaryRequestV5 | SearchRequests['managed_people']): Promise<ApiResult<ManagedActiveSummary>>;
   createEmployeeAccountInvitation?(token: string, membershipId: string, commandId: string,
     displayName: string, email: string, locationId: string | null): Promise<AccountInvitationApiResult>;
   recordPasswordReset(token: string): Promise<ApiResult<true>>;
@@ -285,6 +288,12 @@ export class AdminWebApiClient implements AdminWebApiPort {
     return this.request('/v1/administration/customers/quota',token,'POST',request,value=>
       isRecord(value) && exact(value,['status']) && value.status==='succeeded'?true:null);
   }
+  async querySearch<K extends SearchKind>(token:string,kind:K,request:SearchRequests[K]):Promise<ApiResult<SearchResponses[K]>> {
+    const parsed=parseSearchRequest(kind,request);
+    if(!parsed)return {status:'invalid_response'};
+    return this.request(searchPaths[kind],token,'POST',parsed,value=>parseSearchResponse(kind,value,parsed),false,false,false,maximumJsonBodyBytes,false,false,kind==='memberships'||kind==='managed_people');
+  }
+
   async customerHours(token: string, request: CustomerHoursRequest): Promise<ApiResult<CustomerHoursResponse>> {
     if (!isCustomerHoursRequest(request)) return {status:'invalid_response'};
     return this.request('/v1/customers/hours/query',token,'POST',request,
@@ -297,18 +306,13 @@ export class AdminWebApiClient implements AdminWebApiPort {
       false,false,false,maximumTimeReviewBodyBytes);
   }
   async backfillTargets(token:string,request:BackfillTargetQueryRequest):Promise<ApiResult<MobileWorkTargetQueryResponse>> {
-    if(!isBackfillTargetQueryRequest(request)) return {status:'invalid_response'};
-    return this.request('/v1/administration/time-records/backfill-targets/query',token,'POST',request,
-      value=>isBackfillTargetQueryResponse(value) && value.targets.length<=request.limit
-        ? {targets:value.targets,nextCursor:value.nextCursor}:null,false,false,false,maximumTimeReviewBodyBytes);
+    return this.querySearch(token,'backfill_targets',{...request,search:null});
   }
-  async workTargets(token: string, request: MobileWorkTargetQueryRequest): Promise<ApiResult<MobileWorkTargetQueryResponse>> {
-    if (!validateMobileWorkTargetQueryRequest(request)) return {status:'invalid_response'};
-    return this.request('/v1/mobile/work-targets/query',token,'POST',request,
-      value => validateWorkTargetResponse(value) && value.targets.length <= request.limit
-        && new Set(value.targets.map(target=>`${target.targetType}:${target.targetId}`)).size === value.targets.length
-        ? value : null,false,false,false,maximumTimeReviewBodyBytes);
+
+  async workTargets(token: string, request: MobileWorkTargetQueryRequest & {search?:string|null}): Promise<ApiResult<MobileWorkTargetQueryResponse>> {
+    return this.querySearch(token,'work_targets',{...request,search:request.search??null});
   }
+
   async manualLifecycle(token: string, request: ManualLifecycleRequest | ManualBreakLifecycleRequest): Promise<ApiResult<ManualResult>> {
     const isBreak=validateManualBreakLifecycleRequest(request);
     if (!isBreak && !validateManualLifecycleRequest(request)) return {status:'invalid_response'};
@@ -322,7 +326,8 @@ export class AdminWebApiClient implements AdminWebApiPort {
         && value.windowEndedAt === request.toExclusive ? value : null,
       false, false, false, maximumTimeReviewBodyBytes);
   }
-  async managedActiveSummary(token: string, request: ManagedActiveSummaryRequest | ManagedActiveSummaryRequestV5): Promise<ApiResult<ManagedActiveSummary>> {
+  async managedActiveSummary(token: string, request: ManagedActiveSummaryRequest | ManagedActiveSummaryRequestV5 | SearchRequests['managed_people']): Promise<ApiResult<ManagedActiveSummary>> {
+    if('search' in request)return this.querySearch(token,'managed_people',request);
     const selectedMonth='fromInclusive' in request;
     if (!(selectedMonth ? isManagedActiveSummaryRequestV5(request) : isManagedActiveSummaryRequest(request))) return { status: 'invalid_response' };
     return this.request('/v1/administration/managed-active-summary', token, 'POST', request,
@@ -340,6 +345,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
       false, false, false, maximumSessionBodyBytes,
     );
   }
+  // K4: the overview setup guidance still uses the existing mixed projection.
   async projection(token: string, membershipId: string, nextCursor: string | null): Promise<ApiResult<SafeProjection>> {
     if (nextCursor !== null && !cursor.test(nextCursor)) return { status: 'invalid_response' };
     return this.request('/v2/administration/setup-projection', token, 'POST', { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 }, parseAdministrationSetupProjectionV2);
@@ -360,23 +366,11 @@ export class AdminWebApiClient implements AdminWebApiPort {
     nextCursor: string | null,
     locationId: string | null,
   ): Promise<ApiResult<SafeEmployeeProjection>> {
-    if (nextCursor !== null && !employeeCursor.test(nextCursor)) return { status: 'invalid_response' };
-    if (locationId !== null && !uuid.test(locationId)) return { status: 'invalid_response' };
-    return this.request(
-      '/v2/administration/employee-memberships-projection',
-      token,
-      'POST',
-      { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20, locationId },
-      (value) => parseEmployeeProjection(value, nextCursor, locationId),
-      false,
-      false,
-      false,
-      maximumEmployeeProjectionBytes,
-      false,
-      false,
-      true,
-    );
+    const result=await this.querySearch(token,'memberships',{expectedMembershipId:membershipId,cursor:nextCursor,limit:50,search:null,locationId});
+    if(result.status==='succeeded'&&locationId!==null&&result.value.employeeMemberships.some(member=>member.location?.id!==locationId))return {status:'invalid_response'};
+    return result.status==='succeeded'?{status:'succeeded',value:{organization:result.value.organization,employeeMemberships:result.value.employeeMemberships,nextCursor:result.value.nextCursor}}:result;
   }
+
   async resendEmployeeAccountInvitation(token:string,expectedMembershipId:string,targetMembershipId:string): Promise<string> {
     const controller=new AbortController(), timeout=setTimeout(()=>controller.abort(),12000);
     try {
@@ -633,21 +627,10 @@ export class AdminWebApiClient implements AdminWebApiPort {
     membershipId: string,
     nextCursor: string | null,
   ): Promise<ApiResult<CursorPage<SafeProject>>> {
-    if (nextCursor !== null && !projectCursor.test(nextCursor)) {
-      return { status: 'invalid_response' };
-    }
-    return this.request(
-      '/v1/administration/projects/query',
-      token,
-      'POST',
-      { expectedMembershipId: membershipId, cursor: nextCursor, limit: 20 },
-      parseProjects,
-      false,
-      false,
-      false,
-      maximumJsonBodyBytes,
-    );
+    const result=await this.querySearch(token,'projects',{expectedMembershipId:membershipId,cursor:nextCursor,limit:50,search:null});
+    return result.status==='succeeded'?{status:'succeeded',value:{items:result.value.projects,nextCursor:result.value.nextCursor}}:result;
   }
+
   async createProject(
     token: string,
     membershipId: string,
@@ -757,7 +740,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
   ): Promise<ApiResult<Value>> {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/administration/managed-active-summary' ? (body && 'fromInclusive' in body ? MANAGED_PEOPLE_ACCEPT_V5 : MANAGED_PEOPLE_ACCEPT_V4) : path === '/v1/mobile/own-time/query' ? TIME_CALENDAR_ACCEPT_V2 : path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
+      const response = await this.fetchRequest(path, { method, headers: { Accept: path === '/v1/administration/managed-active-summary' ? (body && 'search' in body ? MANAGED_PEOPLE_ACCEPT_V6 : body && 'fromInclusive' in body ? MANAGED_PEOPLE_ACCEPT_V5 : MANAGED_PEOPLE_ACCEPT_V4) : path === '/v1/mobile/own-time/query' ? TIME_CALENDAR_ACCEPT_V2 : path === '/v1/administration/managed-person-time' ? TIME_CALENDAR_ACCEPT : path === '/v2/administration/time-records/query' || path === '/v1/lifecycle-events/manual' || path === '/v1/lifecycle-events/manual-break' ? TIME_DETAILS_ACCEPT : 'application/json', Authorization: `Bearer ${token}`, 'Cache-Control': 'no-store', ...(body ? { 'Content-Type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal });
       if (exposeLocationScopeError && response.status === 403) {
         if (
           response.redirected

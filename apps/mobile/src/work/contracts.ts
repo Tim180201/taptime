@@ -1,3 +1,4 @@
+import type { ClientSearchCapability } from '../search/search';
 import type {
   MobileOwnTimeQueryResponse,
   MobileWorkTargetQueryResponse,
@@ -28,6 +29,9 @@ export type MobileWorkState =
       readonly status: 'ready';
       readonly ownTime: MobileOwnTimeQueryResponse;
       readonly targets: MobileWorkTargetQueryResponse;
+      readonly targetsSearch?:string|null;
+      readonly targetsBusy?:boolean;
+      readonly targetsFailed?:boolean;
       readonly submitting: boolean;
       readonly capturePending?: boolean;
       readonly loadingMore: boolean;
@@ -35,7 +39,9 @@ export type MobileWorkState =
       readonly feedback?: string | null;
     };
 
-export interface MobileWorkCapability {
+export interface MobileWorkCapability extends ClientSearchCapability {
+  searchTargets?(search:string|null,more?:boolean):Promise<void>;
+
   setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   readCustomerHours?(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult>;
   getState(): MobileWorkState;
@@ -70,10 +76,12 @@ export type ManualTriggerResult =
   | { readonly status: 'authority_rejected' | 'unavailable' };
 
 export interface MobileWorkApiPort {
+  querySearch?<K extends import('@taptime/mobile-work-contract').SearchKind>(kind:K,request:import('@taptime/mobile-work-contract').SearchRequests[K]):Promise<import('../search/search').PageResult<import('@taptime/mobile-work-contract').SearchResponses[K]>>;
   setCustomerQuota?(membershipId:string,customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
   readCustomerHours?(request: import('@taptime/mobile-work-contract').CustomerHoursRequest): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult>;
   read(
     expectedMembershipId: string,
+    targetsSearch?: string | null,
   ): Promise<MobileWorkReadResult>;
   readOwnTimePage(
     expectedMembershipId: string,

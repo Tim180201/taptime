@@ -1,3 +1,5 @@
+import type {ClientSearchCapability,PageResult} from '../search/search';
+import type {SearchKind,SearchRequests,SearchResponses} from '@taptime/mobile-work-contract';
 import type { InternalAuthenticatedSessionSnapshot } from '../auth/contracts';
 import type { TagWriteFailureReason } from './NfcTagWriter';
 
@@ -15,6 +17,7 @@ export interface AdminNfcTagSummary {
   readonly assignmentType: 'work' | 'break' | null;
   readonly targetCustomerId: string | null;
   readonly activeAssignmentId: string | null;
+  readonly customerDisplayName?: string|null;
 }
 
 export interface AdminSetupProjection {
@@ -53,7 +56,7 @@ export type AdminSetupState = { readonly pendingTag?: { readonly customerId: str
   | { readonly status: 'creating_customer'; readonly projection: AdminSetupProjection }
   | { readonly status: 'submitting'; readonly projection: AdminSetupProjection });
 
-export interface AdminSetupCapability {
+export interface AdminSetupCapability extends ClientSearchCapability {
   removeTag?(nfcTagId:string,expectedAssignmentId:string):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   inspectTag?():Promise<void>;
   manageCustomer?(customerId:string,change:import('@taptime/mobile-work-contract').CustomerManagementChange):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
@@ -89,6 +92,8 @@ export type ProvisionAdminTagResult =
   | AdminTransportFailure;
 
 export interface AdminSetupApiPort {
+  querySearch?<K extends SearchKind>(kind:K,request:SearchRequests[K]):Promise<PageResult<SearchResponses[K]>>;
+  readCustomerCreationProjection?(expectedMembershipId:string,cursor:string|null):Promise<AdminProjectionResult>;
   removeTag?(command:import('@taptime/mobile-work-contract').RemoveNfcTagRequest):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   inspectTag?(command:import('@taptime/mobile-work-contract').InspectTagRequest):Promise<import('@taptime/mobile-work-contract').InspectTagResultV2>;
   manageCustomer?(request:import('@taptime/mobile-work-contract').ManageCustomerRequest):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;

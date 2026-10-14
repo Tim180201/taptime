@@ -1,3 +1,4 @@
+import type { ClientSearchCapability } from '../../mobile/src/search/search';
 export interface Notice { readonly kind: 'success' | 'info' | 'error'; readonly text: string; }
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import type { MobileOwnTimeQueryResponse, SafeWorkTarget } from '@taptime/mobile-work-contract';
@@ -6,7 +7,7 @@ import type {
   ParsedAdministrationSetupProjectionV2,
 } from '@taptime/administration-contract/setup-projection';
 
-export type SafeProjection = ParsedAdministrationSetupProjectionV2;
+export type SafeProjection = Omit<ParsedAdministrationSetupProjectionV2,'nfcTags'> & {readonly nfcTags:readonly (ParsedAdministrationSetupProjectionV2['nfcTags'][number]&{readonly customerDisplayName?:string|null})[]};
 export interface SafeEmployeeProjection {
   readonly organization: { readonly id: string; readonly name: string };
   readonly employeeMemberships: readonly {
@@ -142,7 +143,7 @@ export type RemoteValue<T> =
   | { readonly status: 'loading'; readonly value: null }
   | { readonly status: 'ready'; readonly value: T }
   | { readonly status: 'unavailable'; readonly value: null; readonly message: string };
-export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null; readonly month?: string };
+export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null; readonly month?: string; readonly search?:string|null; readonly busy?:boolean; readonly failed?:boolean };
 export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string };
 export interface ReviewCorrectionRecords {
   readonly toExclusive: string;
@@ -172,7 +173,7 @@ export type AdminWebState =
       readonly reviewCorrectionRecords?: ReviewCorrectionRecords;
       readonly role: 'administrator' | 'standortleitung' | 'employee';
       readonly calendar?: CalendarState;
-      readonly workTargets?: RemoteValue<readonly SafeWorkTarget[]>;
+      readonly workTargets?: RemoteValue<readonly SafeWorkTarget[]> & {readonly search?:string|null;readonly nextCursor?:string|null;readonly busy?:boolean;readonly failed?:boolean};
       readonly manual?: { readonly busy: boolean; readonly pending: boolean; readonly message: string | null; };
       readonly managedPeople?: ManagedPeopleState;
       readonly locationsEnabled: boolean;
@@ -204,7 +205,7 @@ export type AdminWebState =
       readonly notice: Notice | null;
       readonly completedAction?: CompletedAdminAction | null;
     };
-export interface AdminWebCapability {
+export interface AdminWebCapability extends ClientSearchCapability {
   removeTag?(nfcTagId:string,expectedAssignmentId:string):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   manageCustomer?(customerId:string,change:import('@taptime/mobile-work-contract').CustomerManagementChange):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
   setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;
@@ -212,10 +213,9 @@ export interface AdminWebCapability {
   readonly loadVoidedTime?: (targetMembershipId:string,fromInclusive:string,toExclusive:string)=>Promise<import('@taptime/mobile-work-contract').VoidedTimeSelection>;
   readonly saveTimeEdit?: (input: TimeEditInput) => Promise<TimeEditResult>;
   readonly loadOwnTime?: (month: string) => Promise<void>;
-  readonly loadBackfillTargets?: (targetMembershipId:string) => Promise<import("@taptime/mobile-work-contract").BackfillTargetSelection>;
-  readonly loadWorkTargets?: () => Promise<void>;
+  readonly loadWorkTargets?: (search?:string|null,append?:boolean) => Promise<void>;
   readonly captureManual?: (target: SafeWorkTarget | 'break' | 'stop') => Promise<void>;
-  readonly refreshManagedPeople?: (isRunning?: boolean | null, append?: boolean, month?: string) => Promise<void>;
+  readonly refreshManagedPeople?: (isRunning?: boolean | null, append?: boolean, month?: string,search?:string|null) => Promise<void>;
   readonly loadPersonTime?: (targetMembershipId: string, month: string) => Promise<void>;
   getState(): AdminWebState;
   subscribe(listener: () => void): () => void;

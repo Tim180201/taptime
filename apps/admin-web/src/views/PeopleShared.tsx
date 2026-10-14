@@ -18,7 +18,7 @@ export function ActivityTile({state,administration}: {readonly state:ReadyState;
     {summary?.status === 'ready' ? <><strong>{summary.value.runningCount} / {summary.value.totalCount}</strong>
       <small>Stand <time dateTime={summary.value.serverTime}>{new Intl.DateTimeFormat('de-DE', {timeZone:BUSINESS_TIME_ZONE,hour:'2-digit',minute:'2-digit'}).format(new Date(summary.value.serverTime))}</time> · Serverzeit</small>
     </> : summary?.status === 'unavailable' ? <p role="alert">{summary.message}</p> : <p>Aktivübersicht wird geladen …</p>}
-    <button className="text-button" onClick={()=>void administration.refreshManagedPeople?.(summary?.isRunning ?? null,false,summary?.month)}>Aktivübersicht aktualisieren</button>
+    <button className="text-button" onClick={()=>void administration.refreshManagedPeople?.(summary?.isRunning ?? null,false,summary?.month,summary?.search)}>Aktivübersicht aktualisieren</button>
   </article>;
 }
 
@@ -31,7 +31,7 @@ export function PeopleTable({people,navigate,locationId,locationsEnabled=false,m
     group.title && group.rows.length===0 ? null : <Fragment key={group.title ?? 'current'}>{group.title ? <h3>{group.title}</h3> : null}{(groupedByLocation ? [...new Set(group.rows.map(person=>person.location?.id ?? ''))].map(id=>({
       title:group.rows.find(person=>(person.location?.id ?? '')===id)?.location?.name ?? 'Ohne Standort',
       rows:group.rows.filter(person=>(person.location?.id ?? '')===id),key:id,
-    })) : [{title:null,rows:group.rows,key:'all'}]).map(locationGroup=><Fragment key={locationGroup.key}>
+    })).sort((a,b)=>a.title.localeCompare(b.title,'de')) : [{title:null,rows:group.rows,key:'all'}]).map(locationGroup=><Fragment key={locationGroup.key}>
       {locationGroup.title ? group.title ? <h4>{locationGroup.title}</h4> : <h3>{locationGroup.title}</h3> : null}<div className="table-scroll" role="region" tabIndex={0} aria-label={locationGroup.title ?? group.title ?? "Mitarbeiter und laufende Zeiten"}><table>
     <thead><tr><th>Person</th>{groupedByLocation ? null : <th>Standort</th>}{monthHours ? <th>{label}</th> : null}<th>Status</th></tr></thead>
     <tbody>{locationGroup.rows.map(person=><tr key={person.membershipId}><td data-label="Person"><a className="person-link"

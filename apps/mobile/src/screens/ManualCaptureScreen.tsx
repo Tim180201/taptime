@@ -1,7 +1,9 @@
+import { useDebouncedSearch } from '../search/useSearchPages';
+import { SearchField } from '../search/SearchControls';
 import {manualCaptureOutcome} from '../work/manualCaptureFeedback';
 import { ActiveTimeCard } from './ActiveTimeCard';
 import { useRequiredForm, RequiredField } from '../design/RequiredField';
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   AccessibilityInfo,
   ScrollView,
@@ -10,7 +12,7 @@ import {
 } from 'react-native';
 import { type SafeWorkTarget, type WorkTargetType } from '@taptime/mobile-work-contract';
 import type { MobileWorkCapability } from '../work/contracts';
-import { ActionButton, AppText as Text, Card, Screen, TextField } from '../design/primitives';
+import { ActionButton, AppText as Text, Card, Screen } from '../design/primitives';
 import { RecentTime } from './RecentTimeCard';
 import { mobileTokens } from '../design/tokens';
 
@@ -24,15 +26,12 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<SafeWorkTarget | null>(null);
   useEffect(() => { void work.refresh(); }, [work]);
-  const visible = useMemo(() => state.status === 'ready'
-    ? state.targets.targets.filter((target) => (
-        target.displayName.toLocaleLowerCase('de-DE')
-          .includes(search.trim().toLocaleLowerCase('de-DE'))
-      ))
-    : [], [search, state]);
+  const query=useDebouncedSearch(search);
+  useEffect(()=>{if(query!==null||work.getState().status==='ready')void work.searchTargets?.(query);},[work,query]);
+  const visible=state.status==='ready'?state.targets.targets:[];
   const selectedTarget = visible.find(target => target.targetId === selected?.targetId
     && target.targetType === selected.targetType);
-  useEffect(() => { if (selected && !selectedTarget) setSelected(null); }, [selected, selectedTarget]);
+  useEffect(() => { if (state.status==='ready'&&!state.targetsBusy&&!state.targetsFailed&&selected&&!selectedTarget) setSelected(null); }, [selected, selectedTarget,state]);
 
   if (state.status === 'inactive' || state.status === 'loading') {
     return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
@@ -43,7 +42,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
     return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
       <Card>
         <Text accessibilityRole="alert">{state.message}</Text>
-        <ActionButton title="Erneut laden" onPress={() => work.refresh()} />
+        <ActionButton title="Erneut versuchen" onPress={() => work.refresh()} />
       </Card>
     </Screen>;
   }
@@ -55,7 +54,10 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
         disabled={state.submitting || !!state.capturePending} onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : <>
         <Text style={styles.explanation}>Kunde, Projekt oder allgemeine Arbeit. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
         <RequiredField form={form} error={selected===null ? "Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten." : null}><Text style={styles.selection}>Wofür arbeitest du?</Text>
-        <TextField value={search} onChangeText={setSearch} editable={!state.submitting} placeholder="Kunde oder Projekt suchen" accessibilityLabel="Arbeitsziel suchen" style={styles.search} />
+        <SearchField value={search} onChange={setSearch} disabled={state.submitting}/>
+        <Text accessibilityLiveRegion="polite">{state.targetsBusy?'Wird geladen …':`${state.targets.nextCursor!==null?'mehr als ':''}${visible.length} Treffer`}</Text>
+        {state.targetsFailed?<View><Text accessibilityRole="alert">Arbeitsziele konnten nicht geladen werden.</Text><ActionButton title="Erneut versuchen" onPress={()=>work.searchTargets?.(query,state.targets.nextCursor!==null)}/></View>:null}
+        {!state.targetsBusy&&!state.targetsFailed&&visible.length===0&&query?<View><Text>{`Keine Treffer für „${query}“`}</Text><ActionButton title="Suche löschen" onPress={()=>setSearch('')}/></View>:null}
         <View style={styles.list}>
           {(['customer', 'project', 'general_work'] as const).map(type => {
             const targets = visible.filter(target => target.targetType === type);
@@ -67,7 +69,9 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
                 onPress={() => {setSelected(target); AccessibilityInfo.announceForAccessibility(`Ausgewählt: ${target.displayName}`);}} />)}
             </View>;
           })}
-        </View></RequiredField>
+        </View>
+        {state.targets.nextCursor!==null?<ActionButton title="Weitere laden" disabled={state.targetsBusy||state.submitting} onPress={()=>work.searchTargets?.(query,true)}/>:null}
+        </RequiredField>
       </>}
       {state.submitting ? <Text accessibilityLiveRegion="polite">Bestätigung wird angefordert …</Text> : null}
       {state.feedback || state.outcome ? <Text accessibilityLiveRegion="polite" style={styles.outcome}>{state.feedback ?? manualCaptureOutcome(state.outcome!)}</Text> : null}
@@ -75,7 +79,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
     </ScrollView>
     {!state.ownTime.activeRecord && selectedTarget ? <Card style={{flexShrink: 0}}>
       <Text style={styles.selection}>{selectedTarget.displayName}</Text>
-      <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting || state.capturePending} loading={state.submitting}
+      <ActionButton title="Zeit starten" tone="cta" disabled={state.submitting || state.capturePending || state.targetsBusy || state.targetsFailed} loading={state.submitting}
         onPress={() => {if(form.validate())void work.triggerManual(selectedTarget);}} />
     </Card> : null}
   </Screen>;
@@ -89,16 +93,6 @@ function groupLabel(type: WorkTargetType): string {
 
 const styles = StyleSheet.create({
   explanation: { color: mobileTokens.color.inkMuted, fontSize: 13, lineHeight: 20 },
-  search: {
-    minHeight: mobileTokens.touchMinimum,
-    backgroundColor: mobileTokens.color.surface,
-    borderColor: mobileTokens.color.textMuted,
-    borderWidth: 1,
-    borderRadius: mobileTokens.radius.control,
-    paddingHorizontal: mobileTokens.spacing.md,
-    color: mobileTokens.color.text,
-    fontSize: 15,
-  },
   list: { gap: mobileTokens.spacing.md, paddingBottom: mobileTokens.spacing.sm },
   group: {
     color: mobileTokens.color.ink,

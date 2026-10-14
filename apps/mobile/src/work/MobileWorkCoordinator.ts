@@ -1,3 +1,6 @@
+import { normalizeSearch } from '../search/search';
+import type { SearchKind, SearchResponses, SearchRequests } from '@taptime/mobile-work-contract';
+import type { ClientSearchRequest, PageResult } from '../search/search';
 import { dayStart, shiftMonth } from '@taptime/core';
 import { captureFeedback, type MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { CustomerHoursResult } from '@taptime/mobile-work-contract';
@@ -21,6 +24,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   private unsubscribe: (() => void) | null = null;
   private unsubscribeManualAcknowledgements: (() => void) | null = null;
   private generation = 0;
+  private targetEpoch = 0;
   private ownTimeCursors = new Set<string>();
   private boundSessionGeneration: number | null = null;
   private pendingManualEventIds: string[] = [];
@@ -99,6 +103,15 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     } catch {return {status:'unavailable'};}
   }
 
+  async querySearch<K extends SearchKind>(kind:K,request:ClientSearchRequest<K>):Promise<PageResult<SearchResponses[K]>> {
+    const snapshot=this.session.capture();
+    if(!snapshot)return {status:'authority_rejected'};
+    try {
+      const result=await this.api.querySearch?.(kind,{...request,expectedMembershipId:snapshot.session.membershipId,limit:50} as SearchRequests[K])??{status:'unavailable'};
+      return this.session.isCurrent(snapshot)?result:{status:'authority_rejected'};
+    } catch {return {status:'unavailable'};}
+  }
+
   async readCustomerHours(month: string): Promise<CustomerHoursResult> {
     const snapshot = this.session.capture();
     if (!snapshot) return {status:'authority_rejected'};
@@ -141,6 +154,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         status: 'ready',
         ownTime: freezeOwnTime(result.ownTime),
         targets: result.targets,
+        targetsSearch:null,targetsBusy:false,targetsFailed:false,
         submitting: false,
         loadingMore: false,
         outcome: capturePending ? 'pending' : null,
@@ -205,9 +219,28 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     });
   }
 
+  async searchTargets(input:string|null,more=false):Promise<void> {
+    const current=this.state,snapshot=this.session.capture();
+    if(!snapshot||current.status!=='ready'||current.submitting)return;
+    const search=normalizeSearch(input??'');
+    const cursor=more&&current.targetsSearch===search?current.targets.nextCursor:null;
+    if(more&&(current.targetsBusy||cursor===null))return;
+    const epoch=++this.targetEpoch,generation=this.generation;
+    this.setState({...current,targetsSearch:search,targetsBusy:true,targetsFailed:false,
+      targets:more?current.targets:{targets:[],nextCursor:null}});
+    const result=await this.querySearch('work_targets',{search,cursor});
+    if(epoch!==this.targetEpoch||generation!==this.generation||!this.session.isCurrent(snapshot)||this.state.status!=='ready')return;
+    const page=result.status==='ready'?result.value:undefined;
+    const targets=page?[...(more?current.targets.targets:[]),...page.targets]:[];
+    if(!page||page.nextCursor!==null&&page.nextCursor===cursor||new Set(targets.map(t=>`${t.targetType}:${t.targetId}`)).size!==targets.length){
+      this.setState({...this.state,targetsBusy:false,targetsFailed:true,...(result.status==='authority_rejected'?{targets:{targets:[],nextCursor:null}}:{})});return;
+    }
+    this.setState({...this.state,targetsBusy:false,targetsFailed:false,targets:{targets,nextCursor:page.nextCursor}});
+  }
+
   async triggerManual(target: SafeWorkTarget): Promise<void> {
     const current = this.state;
-    if (current.status !== 'ready' || !current.targets.targets.some(candidate =>
+    if (current.status !== 'ready' || current.targetsBusy || current.targetsFailed || !current.targets.targets.some(candidate =>
       candidate.targetType === target.targetType && candidate.targetId === target.targetId)) return;
     await this.capture(target);
   }
@@ -269,13 +302,14 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
 
   private async reloadAfterCapture(outcome:import('./contracts').ManualTriggerOutcome, before:MobileOwnTimeQueryResponse, generation:number):Promise<void> {
     const snapshot=this.session.capture();if(!snapshot)return;
+    const targetsSearch=this.state.status==='ready'?this.state.targetsSearch??null:null;
     const capturePending=this.offlineCapture?.hasUnconfirmedCapture
       ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
-    const result=await this.api.read(snapshot.session.membershipId).catch(()=>({status:'unavailable' as const}));
+    const result=await this.api.read(snapshot.session.membershipId,targetsSearch).catch(()=>({status:'unavailable' as const}));
     if(generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready')return;
     this.ownTimeCursors.clear();
     if(result.status==='ready' && validOwnTimeProjection(result.ownTime)) {
-      this.setState({...this.state,ownTime:freezeOwnTime(result.ownTime),targets:result.targets,
+      this.setState({...this.state,ownTime:freezeOwnTime(result.ownTime),targets:result.targets,targetsSearch,targetsBusy:false,targetsFailed:false,
         submitting:false,capturePending,loadingMore:false,outcome:capturePending?'pending':outcome,feedback:capturePending?null:captureFeedback(outcome,before,result.ownTime)});
     } else this.setState({status:'unavailable',message:'Bestätigte Zeiten konnten nicht neu geladen werden. Bitte erneut laden.'});
   }

@@ -1,3 +1,4 @@
+import {setupSearch} from '../search/fixtures';
 // @vitest-environment jsdom
 import { act, createElement as h, type ReactNode, type Ref } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -36,7 +37,7 @@ async function fill(label:string,value:string){const input=box.querySelector<HTM
 function hint(text:string){const node=Array.from(box.querySelectorAll('[role="alert"]')).find(node=>node.textContent===text)!;expect(node,text).toBeTruthy();expect(node.getAttribute('aria-live')).toBe('polite');expect(node.closest('[data-style*="#FF8F8F"]')?.getAttribute('data-style')).toContain('#FF8F8F');}
 const customer={id:'customer',customerId:'customer',displayName:'Kunde A',active:true};
 const state={status:'ready',outcome:null,projection:{organization:{id:'org',name:'Betrieb'},customers:[customer],nfcTags:[],nextCursor:null}};
-function admin(){return {getState:()=>state,subscribe:()=>()=>{},cancel:vi.fn(async()=>{}),prepareCustomer:vi.fn(async()=>({status:'ready',locationsEnabled:true,locations:[{id:'l1',displayName:'Berlin'},{id:'l2',displayName:'Bonn'}]})),refresh:vi.fn(async()=>{}),createCustomer:vi.fn(async()=>{}),provision:vi.fn(async()=>{}),provisionBreak:vi.fn(async()=>{}),manageCustomer:vi.fn(async()=>({status:'succeeded'}))};}
+function admin(){return {querySearch:setupSearch(()=>state),getState:()=>state,subscribe:()=>()=>{},cancel:vi.fn(async()=>{}),prepareCustomer:vi.fn(async()=>({status:'ready',locationsEnabled:true,locations:[{id:'l1',displayName:'Berlin'},{id:'l2',displayName:'Bonn'}]})),refresh:vi.fn(async()=>{}),createCustomer:vi.fn(async()=>{}),provision:vi.fn(async()=>{}),provisionBreak:vi.fn(async()=>{}),manageCustomer:vi.fn(async()=>({status:'succeeded'}))};}
 it.each(['Anmelden','Mit Einladung beitreten','Passwort vergessen'])('T101 %s identifies required credentials without contacting auth',async title=>{
  const signIn=vi.fn(async()=>({status:'invalid_credentials' as const})),reset=vi.fn(async()=> 'requested' as const);
  await mount(h(LoginScreen,{signIn,signInForEmployeeEnrollment:signIn,requestPasswordReset:reset,disabled:false}));await press(title);

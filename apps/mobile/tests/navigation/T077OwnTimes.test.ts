@@ -1,3 +1,4 @@
+import {customerSearch} from '../search/fixtures';
 // @vitest-environment jsdom
 import { act, createElement, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -82,7 +83,7 @@ function harness(role: ProductMembershipRole | 'offline', tags = false) {
     back: async () => peopleStore.publish(list), leave: () => peopleStore.publish(list) };
   const save = vi.fn<TimeEditingCapability['save']>(async () => ({ status: 'committed', timeRecordId: value.records[0]!.timeRecordId, idempotentRetry: false }));
   const editingStore = store({ online: true, busy: false });
-  const timeEditing: TimeEditingCapability = { ...editingStore, save };
+  const timeEditing: TimeEditingCapability = { ...editingStore, querySearch:async()=>({status:'ready',value:{targets:[target],nextCursor:null}}) as any,save };
   const offlineManual: OfflineManualCaptureCapability = { readOfflineManualTargets: async () => ({ status: 'ready', targets: [target] }),
     captureManual: async () => ({ status: 'unavailable' }), captureBreak: async () => ({ status: 'unavailable' }) };
   return { props: { session, work, scan, administration, employees, timeEditing, offlineManual }, sessionStore, workStore, editingStore, save };
@@ -131,14 +132,14 @@ describe('T-077 own times through the product navigation', () => {
       .mockResolvedValueOnce({status:'ready',value:{version:'customer-hours.v1',scope:'people',asOf:'2026-09-28T08:00:00.000Z',customers:[{
         customerId:target.targetId,displayName:'Werkstatt',active:true,workDurationSeconds:3600,running:false,
         people:[{membershipId,displayName:'Fremde Person',workDurationSeconds:3600,running:false}],
-      }]}}).mockResolvedValueOnce({status:'ready',value:{version:'customer-hours.v1',scope:'self',asOf:'2026-09-28T08:00:00.000Z',customers:[]}});
-    await act(async()=>root.render(createElement(AppNavigator,{...h.props,work:{...h.props.work,readCustomerHours}})));
+      }]}}).mockResolvedValueOnce({status:'ready',value:{version:'customer-hours.v1',scope:'people',asOf:'2026-09-28T08:00:00.000Z',customers:[{customerId:target.targetId,displayName:'Werkstatt',active:true,workDurationSeconds:3600,running:false,people:[{membershipId,displayName:'Fremde Person',workDurationSeconds:3600,running:false}]}]}}).mockResolvedValueOnce({status:'ready',value:{version:'customer-hours.v1',scope:'self',asOf:'2026-09-28T08:00:00.000Z',customers:[]}});
+    await act(async()=>root.render(createElement(AppNavigator,{...h.props,work:{...h.props.work,readCustomerHours,querySearch:customerSearch(readCustomerHours)}})));
     await press('Kunden');
     await act(async()=>buttons().find(node=>node.getAttribute('aria-label')?.startsWith('Werkstatt'))!.click());
     expect(container.textContent).toContain('Fremde Person');
     await act(async()=>h.sessionStore.publish({status:'authenticated',session:sessionContext('employee')}));
     expect(container.textContent).not.toContain('Fremde Person');
-    expect(readCustomerHours).toHaveBeenCalledTimes(3);
+    expect(readCustomerHours).toHaveBeenCalledTimes(4);
   });
   it.each([
     ['employee', false, ['Erfassen', 'Meine Zeiten', 'Kunden']],

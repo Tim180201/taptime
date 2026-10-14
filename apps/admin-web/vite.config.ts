@@ -14,6 +14,7 @@ export default defineConfig(({ mode }) => {
       proxy: {
         '/v1': { target: proxyTarget, changeOrigin: false },
         '/v2': { target: proxyTarget, changeOrigin: false },
+        '/v3': { target: proxyTarget, changeOrigin: false },
       },
     },
   };

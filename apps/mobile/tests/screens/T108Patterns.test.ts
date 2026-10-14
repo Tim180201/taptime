@@ -1,3 +1,4 @@
+import {customerSearch,setupSearch} from '../search/fixtures';
 // @vitest-environment jsdom
 import {createElement as h} from 'react';
 import {act,cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
@@ -22,7 +23,7 @@ it('prevents list refresh while the customer form is open and refreshes after cl
  const readCustomerHours=vi.fn(async()=>({status:'ready',value:{scope:'people',asOf:'2026-10-06T08:42:00Z',customers:[]}}));
  let setupState:unknown=empty;
  const administration={getState:()=>setupState,subscribe:()=>()=>{},createCustomer:vi.fn(async()=>{setupState={...empty,outcome:{status:'customer_created',customerId:'new-customer'}};}),prepareCustomer:async()=>({status:'ready',locations:[],locationsEnabled:false})} as unknown as AdminSetupCapability;
- render(h(CustomersScreen,{work:{readCustomerHours} as unknown as MobileWorkCapability,authorityContext:{role:'administrator'},administration}));
+ render(h(CustomersScreen,{work:{readCustomerHours,querySearch:customerSearch(readCustomerHours)} as unknown as MobileWorkCapability,authorityContext:{role:'administrator'},administration}));
  await screen.findByText(/Stand 10:42/);
  expect(native.refresh).not.toBeNull();
  await act(async()=>native.refresh!.onRefresh());
@@ -40,7 +41,7 @@ it('prevents list refresh while the customer form is open and refreshes after cl
 it('Android back cancels a card scan before leaving the assignment form',async()=>{
  let state:unknown=empty;const listeners=new Set<()=>void>();
  const cancel=vi.fn(async()=>{state=empty;listeners.forEach(f=>f());});
- const administration={getState:()=>state,subscribe:(f:()=>void)=>{listeners.add(f);return()=>listeners.delete(f);},cancel,refresh:vi.fn(async()=>{})} as unknown as AdminSetupCapability;
+ const administration={querySearch:setupSearch(()=>state),getState:()=>state,subscribe:(f:()=>void)=>{listeners.add(f);return()=>listeners.delete(f);},cancel,refresh:vi.fn(async()=>{})} as unknown as AdminSetupCapability;
  render(h(AdminSetupScreen,{administration}));
  fireEvent.click(screen.getByRole('button',{name:'Karte einrichten'}));
  await act(async()=>{state={...empty,status:'capturing'};listeners.forEach(f=>f());});
@@ -68,17 +69,17 @@ it('explains why active controls are locked after an unconfirmed capture',()=>{
 
 it('does not label a cached card projection with the reopening time or a failed refresh time',async()=>{
  vi.setSystemTime(new Date('2026-10-06T08:00:00Z'));
- let state:unknown=empty;const listeners=new Set<()=>void>();let finish!:(s:unknown)=>void;
- const refresh=vi.fn(()=>new Promise<void>(resolve=>{state={status:'loading'};listeners.forEach(f=>f());finish=next=>{state=next;listeners.forEach(f=>f());resolve();};}));
- const administration={getState:()=>state,subscribe:(f:()=>void)=>{listeners.add(f);return()=>listeners.delete(f);},refresh,cancel:vi.fn()} as unknown as AdminSetupCapability;
+ const state=empty;let finish!:(result:any)=>void;
+ const querySearch=vi.fn(()=>new Promise<any>(resolve=>{finish=resolve;}));
+ const administration={querySearch,getState:()=>state,subscribe:()=>()=>{},refresh:vi.fn(),cancel:vi.fn()} as unknown as AdminSetupCapability;
  const first=render(h(AdminSetupScreen,{administration}));
- expect(refresh).toHaveBeenCalledOnce();expect(screen.queryByText(/Stand /)).toBeNull();
- await act(async()=>finish({...empty,projection:{...empty.projection}}));
+ expect(querySearch).toHaveBeenCalledOnce();expect(screen.queryByText(/Stand /)).toBeNull();
+ await act(async()=>finish({status:'ready',value:{status:'succeeded',...empty.projection}}));
  expect(screen.getByText('Stand 10:00')).toBeDefined();first.unmount();
  vi.setSystemTime(new Date('2026-10-06T08:30:00Z'));
  render(h(AdminSetupScreen,{administration}));
- expect(refresh).toHaveBeenCalledTimes(2);expect(screen.queryByText('Stand 10:30')).toBeNull();
- await act(async()=>finish({status:'inactive'}));
+ expect(querySearch).toHaveBeenCalledTimes(2);expect(screen.queryByText('Stand 10:30')).toBeNull();
+ await act(async()=>finish({status:'unavailable'}));
  expect(screen.queryByText('Stand 10:30')).toBeNull();
 });
 it.each(['capturing','writing','submitting','creating_customer'])('entering cards preserves a protected %s operation',status=>{

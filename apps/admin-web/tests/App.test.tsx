@@ -1,3 +1,4 @@
+import {stateSearch} from './searchFixtures';
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render as testingRender, screen, within, waitFor } from '@testing-library/react';
@@ -222,6 +223,7 @@ function locationReadyState(
 }
 
 class FakeCapability implements AdminWebCapability {
+  querySearch=stateSearch(()=>this.state);
   removeTag=vi.fn<NonNullable<AdminWebCapability['removeTag']>>(async()=>({status:'unavailable'}));
   state: AdminWebState;
   private readonly listeners = new Set<() => void>();
@@ -302,7 +304,7 @@ describe('professional Admin Web shell', () => {
     expect(document.body.textContent).not.toContain('Europe/Berlin');
     expect(screen.getAllByText(/Deutsche Ortszeit/).length).toBeGreaterThan(0);
   });
-  it('T108 resolves a card gap through later projection pages despite the loading boundary',async()=>{
+  it('T117 card gaps do not preload subsequent pages',async()=>{
     HTMLElement.prototype.scrollIntoView=vi.fn();window.history.replaceState(null,'','/einrichtung');
     const initial={...readyState,projection:{...readyState.projection,nfcTags:[],nextCursor:'more'},locationSetup:{locations:[],memberships:[],workTargets:[{targetType:'customer' as const,targetId:customer.id,displayName:customer.displayName,locationId:null}],activationGaps:[{kind:'nfc_assignment' as const,id:tag.activeAssignmentId,displayName:'Eingang → Werkstatt'}]}};
     const capability=new FakeCapability(initial);
@@ -313,8 +315,8 @@ describe('professional Admin Web shell', () => {
     });
     await render(<App administration={capability}/>);await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
     await userEvent.click(screen.getByRole('link',{name:'Eingang → Werkstatt'}));
-    await waitFor(()=>expect(capability.loadMore).toHaveBeenCalledOnce());
-    await waitFor(()=>expect(screen.getByLabelText('Standort für Werkstatt')).toHaveFocus());
+    expect(capability.loadMore).not.toHaveBeenCalled();
+    expect(screen.getByText('Die Karte ist noch nicht geladen. Nutzen Sie die Suche oder „Weitere laden“.')).toBeVisible();
   });
   it.each([true,false])('T108 card gap focuses the concrete customer location or card assignment: target available=%s',async available=>{
     HTMLElement.prototype.scrollIntoView=vi.fn();
@@ -657,7 +659,7 @@ describe('professional Admin Web shell', () => {
     expect(screen.getByText('Aktivübersicht wird geladen …')).toBeInTheDocument();
   });
 
-  it('marks damaged setup row counts incomplete and identifies a valid Break Tag truthfully', async () => {
+  it('shows independent search counts and identifies a valid Break Tag truthfully', async () => {
     const breakTag = {
       id: '50000000-0000-4000-8000-000000000002',
       displayName: 'Pause',
@@ -680,8 +682,8 @@ describe('professional Admin Web shell', () => {
 
     await render(<App administration={capability} />);
 
-    expect(screen.getByText('Kunden bisher geladen')).toBeInTheDocument();
-    expect(screen.getByText('Karten bisher geladen')).toBeInTheDocument();
+    expect(await screen.findAllByText('1 Treffer')).not.toHaveLength(0);
+    expect(await screen.findAllByText('2 Treffer')).not.toHaveLength(0);
     expect(screen.getByText('Pausenkarte')).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /Pause/ })).toBeNull();
   });

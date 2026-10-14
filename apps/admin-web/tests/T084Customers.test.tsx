@@ -1,3 +1,4 @@
+import {customerSearch} from './searchFixtures';
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -20,9 +21,9 @@ afterEach(()=>{cleanup();vi.useRealTimers();});
 it.each([own,people])('shows server-delivered $scope breakdown, running state and month controls',async value=>{
   vi.setSystemTime(new Date('2026-09-28T08:00Z'));
   const readCustomerHours=vi.fn(async()=>({status:'ready' as const,value})),navigate=vi.fn();
-  render(<CustomersView administration={{readCustomerHours} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={navigate}/>);
+  render(<CustomersView administration={{getState:()=>({status:'ready',role:'administrator'}),readCustomerHours,querySearch:customerSearch(readCustomerHours)} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={navigate}/>);
   fireEvent.click(await screen.findByRole('button',{name:/Werkstatt/}));
-  expect(screen.getByRole('heading',{name:value.scope==='self'?'Ihre Stunden je Tag':'Stunden je Person'})).toBeInTheDocument();
+  expect(await screen.findByRole('heading',{name:value.scope==='self'?'Ihre Stunden je Tag':'Stunden je Person'})).toBeInTheDocument();
   expect(screen.getByText(value.scope==='self'?'28.09.2026':'Person B')).toBeInTheDocument();
   expect(screen.getAllByText(/läuft/).length).toBeGreaterThan(0);
   expect(screen.getByText('inaktiv')).toBeInTheDocument();
@@ -33,7 +34,7 @@ it.each([own,people])('shows server-delivered $scope breakdown, running state an
 });
 it('distinguishes empty and unavailable, retries and does not show stale response after a month change',async()=>{
  const readCustomerHours=vi.fn<NonNullable<AdminWebCapability['readCustomerHours']>>().mockResolvedValueOnce({status:'unavailable'}).mockResolvedValueOnce({status:'ready',value:{...own,customers:[]}});
- render(<CustomersView administration={{readCustomerHours} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
+ render(<CustomersView administration={{getState:()=>({status:'ready',role:'administrator'}),readCustomerHours,querySearch:customerSearch(readCustomerHours)} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  expect(await screen.findByRole('alert')).toHaveTextContent('konnten nicht geladen');
  fireEvent.click(screen.getByText('Erneut versuchen'));
  expect(await screen.findByRole('heading',{name:'Keine Kunden in diesem Monat'})).toBeInTheDocument();
@@ -50,9 +51,9 @@ it('T100 allows rename and requires explicit deletion confirmation, preserving t
  const value:CustomerHoursResponse={...people,customers:people.customers.map(c=>({...c,active:true}))};
  const manageCustomer=vi.fn<NonNullable<AdminWebCapability['manageCustomer']>>().mockResolvedValue({status:'running_time'});
  const readCustomerHours=vi.fn(async()=>({status:'ready' as const,value}));
- render(<CustomersView administration={{readCustomerHours,manageCustomer} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
+ render(<CustomersView administration={{getState:()=>({status:'ready',role:'administrator'}),readCustomerHours,querySearch:customerSearch(readCustomerHours),manageCustomer} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:/Werkstatt/}));
- fireEvent.click(screen.getByText('Kunde löschen'));
+ fireEvent.click(await screen.findByText('Kunde löschen'));
  expect(screen.getByText('Kunde Werkstatt löschen? Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.')).toBeInTheDocument();
  expect(manageCustomer).not.toHaveBeenCalled();
  fireEvent.click(screen.getByText('Löschen bestätigen'));
@@ -65,5 +66,5 @@ it('T100 allows rename and requires explicit deletion confirmation, preserving t
  fireEvent.click(screen.getByText('Namen speichern'));
  await screen.findByText('Kunde umbenennen');
  expect(manageCustomer).toHaveBeenLastCalledWith(cid,{action:'rename',displayName:'Bestehender Name'});
- expect(readCustomerHours).toHaveBeenCalledTimes(2);
+ expect(readCustomerHours).toHaveBeenCalledTimes(3);
 });

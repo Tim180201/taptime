@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, act } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import ManualView from '../src/views/ManualView';
 import type { AdminWebState, AdminWebCapability } from '../src/contracts';
-afterEach(cleanup);
+afterEach(()=>{cleanup();vi.useRealTimers();});
 const target={targetType:'customer',targetId:'20000000-0000-4000-8000-000000000001',displayName:'Kunde X'};
 const active={timeRecordId:'entry',source:'canonical',targetType:'customer',targetId:target.targetId,targetDisplayName:'Kunde X',status:'started',startedAt:'2026-10-04T06:12:00.000Z',stoppedAt:null,startedVia:'manual',stoppedVia:null,breakStartedAt:null};
 const administration={loadOwnTime:vi.fn(async()=>{}),loadWorkTargets:vi.fn(async()=>{}),captureManual:vi.fn(async()=>{})} as unknown as AdminWebCapability;
@@ -27,15 +27,16 @@ it('T101 start marks the target choice and clears it before any capture',async()
 });
 
 it('T107 clears a selected target hidden by search and never submits it',async()=>{
- const {fireEvent}=await import('@testing-library/react');const captureManual=vi.fn();
- const state={status:'ready',workTargets:{status:'ready',value:[target]},manual:{busy:false,pending:false,message:null},calendar:{status:'ready',targetMembershipId:null,month:'2026-10',value:{activeRecord:null,records:[],nextCursor:null}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
- render(<ManualView state={state} administration={{...administration,captureManual} as AdminWebCapability}/>);
- fireEvent.click(screen.getByRole('button',{name:'Kunde X'}));
+ vi.useFakeTimers();const {fireEvent}=await import('@testing-library/react');const captureManual=vi.fn();
+ let state={status:'ready',workTargets:{status:'ready',value:[target]},manual:{busy:false,pending:false,message:null},calendar:{status:'ready',targetMembershipId:null,month:'2026-10',value:{activeRecord:null,records:[],nextCursor:null}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
+ const cap={...administration,captureManual,loadWorkTargets:vi.fn(async(search:string|null)=>{if(!opened)return;state={...state,workTargets:{status:'ready',value:search?[]:[target] as any,search,nextCursor:null}};view.rerender(<ManualView state={state} administration={cap}/>);})} as AdminWebCapability;
+ let opened=false;const view=render(<ManualView state={state} administration={cap}/>);
+ opened=true;fireEvent.click(screen.getByRole('button',{name:'Kunde X'}));
  expect(screen.getByRole('button',{name:'Zeit starten · Kunde X'})).toBeDefined();
  fireEvent.change(screen.getByRole('searchbox'),{target:{value:'anders'}});
- expect(screen.getByText('Keine Arbeitsziele für ‚anders‘ gefunden.')).toBeDefined();
+ await act(()=>vi.advanceTimersByTimeAsync(300));expect(screen.getByText('Keine Treffer für „anders“')).toBeDefined();
  fireEvent.click(screen.getByRole('button',{name:'Zeit starten'})); expect(captureManual).not.toHaveBeenCalled();
- fireEvent.click(screen.getByRole('button',{name:'Suche löschen'}));
+ fireEvent.click(screen.getByRole('button',{name:'Suche löschen'}));await act(()=>vi.advanceTimersByTimeAsync(300));
  expect(screen.getByRole('button',{name:'Kunde X'}).getAttribute('aria-pressed')).toBe('false');
  fireEvent.click(screen.getByRole('button',{name:'Zeit starten'})); expect(captureManual).not.toHaveBeenCalled();
 });

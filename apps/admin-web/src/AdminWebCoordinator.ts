@@ -1,10 +1,12 @@
+import {normalizeSearch} from '../../mobile/src/search/search';
+import type { SearchKind, SearchResponses, SearchRequests } from '@taptime/mobile-work-contract';
+import type { ClientSearchRequest, PageResult } from '../../mobile/src/search/search';
 import { businessDay, dayStart, shiftDay, timeIntervalError } from '@taptime/core';
 import type {CustomerManagementChange,ManageCustomerResult} from '@taptime/mobile-work-contract';
 import { captureFeedback } from '@taptime/mobile-work-contract';
 import { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';
 import {isVoidTimeRequest,loadVoidedTimePages,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import type { Notice } from './contracts';
-import type { BackfillTargetSelection } from "@taptime/mobile-work-contract";
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import { isAdministrationStopRequest, isAdministrationStopResult, isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import type { ManualBreakLifecycleRequest,ManualLifecycleRequest,MobileOwnTimeQueryResponse,SafeWorkTarget } from '@taptime/mobile-work-contract';
@@ -26,7 +28,7 @@ import type {
 	LocationSetupState,
 	ReviewAdjudicationIntent,
 	SafeEmployeeProjection,
-	SafeProjection,
+	SafeProjection,SafeProject,
 	SafeReviewItem,
 	SafeTimeRecord,
 	VolatileInvitationSecret,
@@ -313,6 +315,45 @@ export class AdminWebCoordinator implements AdminWebCapability {
     return {status:result.status==='rejected'?'forbidden':'unavailable'};
   }
 
+  private readonly searchEpochs=new Map<SearchKind,number>();
+  private searchedSetup:Partial<Pick<SafeProjection,'customers'|'nfcTags'>>={};
+  private searchedMembers:SafeEmployeeProjection['employeeMemberships']|null=null;
+  private searchedProjects:readonly SafeProject[]|null=null;
+  async querySearch<K extends SearchKind>(kind:K,request:ClientSearchRequest<K>):Promise<PageResult<SearchResponses[K]>> {
+    const session=this.session,generation=this.generation,calendarEpoch=this.calendarEpoch;
+    if(this.state.status!=='ready'||!session)return {status:'authority_rejected'};
+    const epoch=(this.searchEpochs.get(kind)??0)+1;this.searchEpochs.set(kind,epoch);
+    const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.querySearch?.(token,kind,
+      {...request,expectedMembershipId:session.membershipId,limit:50} as SearchRequests[K])??Promise.resolve({status:'unreachable'})));
+    if(generation!==this.generation||session!==this.session||this.state.status!=='ready')return {status:'authority_rejected'};
+    if(result.status==='rejected'){await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.');return {status:'authority_rejected'};}
+    if((kind==='backfill_targets'||kind==='work_targets')&&calendarEpoch!==this.calendarEpoch)return {status:'authority_rejected'};
+    if(epoch!==this.searchEpochs.get(kind))return {status:'unavailable'};
+    if(result.status!=='succeeded')return {status:'unavailable'};
+    const current=this.state;
+    if(kind==='setup_customers'||kind==='setup_tags') {
+      const page=result.value as SearchResponses['setup_tags'];
+      if(!sameOrganization(current.projection.organization,page.organization))return {status:'unavailable'};
+      const field=kind==='setup_tags'?'nfcTags':'customers';
+      const items=[...(request.cursor===null?[]:this.searchedSetup[field]??[]),...page[field]];
+      if(new Set(items.map(item=>item.id)).size!==items.length)return {status:'unavailable'};
+      this.searchedSetup={...this.searchedSetup,[field]:items};
+    } else if(kind==='memberships') {
+      const page=result.value as SearchResponses['memberships'];
+      const location=(request as ClientSearchRequest<'memberships'>).locationId;
+      if(!sameOrganization(current.projection.organization,page.organization)||page.employeeMemberships.some(member=>location!==null&&member.location?.id!==location))return {status:'unavailable'};
+      const employeeMemberships=[...(request.cursor===null?[]:this.searchedMembers??[]),...page.employeeMemberships];
+      if(new Set(employeeMemberships.map(member=>member.id)).size!==employeeMemberships.length)return {status:'unavailable'};
+      this.searchedMembers=employeeMemberships;
+    } else if(kind==='projects') {
+      const page=result.value as SearchResponses['projects'];
+      const projects=[...(request.cursor===null?[]:this.searchedProjects??[]),...page.projects];
+      if(new Set(projects.map(project=>project.projectId)).size!==projects.length)return {status:'unavailable'};
+      this.searchedProjects=projects;
+    }
+    return {status:'ready',value:result.value};
+  }
+
   async readCustomerHours(month: string): Promise<import('@taptime/mobile-work-contract').CustomerHoursResult> {
     const session=this.session,generation=this.generation,window=monthTimeWindow(month);
     if (this.state.status!=='ready' || !session || !window) return {status:'unavailable'};
@@ -350,52 +391,25 @@ export class AdminWebCoordinator implements AdminWebCapability {
       message:'Ihre Zeiten konnten nicht vollständig bestätigt werden. Versuchen Sie es erneut.'}});
   }
 
-  async loadBackfillTargets(targetMembershipId:string):Promise<BackfillTargetSelection> {
-    const session=this.session,generation=this.generation,calendarEpoch=this.calendarEpoch;
-    const current=()=>this.state.status==='ready' && generation===this.generation && calendarEpoch===this.calendarEpoch && session===this.session;
-    if(!session || !current()) return {status:'authority_rejected'};
-    if(typeof navigator!=='undefined' && navigator.onLine===false) return {status:'offline'};
-    const targets:SafeWorkTarget[]=[],seen=new Set<string>();let cursor:string|null=null;
-    do {
-      const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.backfillTargets?.(token,
-        {expectedMembershipId:session.membershipId,targetMembershipId,cursor,limit:50}) ?? Promise.resolve({status:'unreachable'})));
-      if(!current() || result.status==='rejected') return {status:'authority_rejected'};
-      if(result.status!=='succeeded') return {status:'unavailable'};
-      targets.push(...result.value.targets);
-      if(new Set(targets.map(t=>`${t.targetType}:${t.targetId}`)).size!==targets.length) return {status:'unavailable'};
-      cursor=result.value.nextCursor;
-      if(cursor!==null) {
-        if(seen.has(cursor) || result.value.targets.length===0) return {status:'unavailable'};
-        seen.add(cursor);
-      }
-    } while(cursor!==null);
-    return {status:'ready',targets};
-  }
 
-  async loadWorkTargets(): Promise<void> {
+  async loadWorkTargets(input:string|null=null,append=false): Promise<void> {
     const current=this.state,session=this.session;
-    if (current.status !== 'ready' || session === null || !session.availableSections.includes('manual_capture')) return;
+    if(current.status!=='ready'||!session||!session.availableSections.includes('manual_capture'))return;
+    const search=normalizeSearch(input??''),previous=current.workTargets;
+    const cursor=append&&previous?.status==='ready'&&previous.search===search?previous.nextCursor??null:null;
+    if(append&&cursor===null)return;
     const generation=this.generation,epoch=++this.targetsEpoch;
-    this.setState({...current,workTargets:{status:'loading',value:null}});
-    let targets: SafeWorkTarget[]=[];
-    let cursor:string|null=null;
-    const seen=new Set<string>();
-    do {
-      const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.workTargets?.(token,
-        {expectedMembershipId:session.membershipId,cursor,limit:50}) ?? Promise.resolve({status:'unreachable'})));
-      if (generation !== this.generation || epoch !== this.targetsEpoch || this.state.status !== 'ready') return;
-      if (result.status === 'rejected') {await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.');return;}
-      if (result.status !== 'succeeded') break;
-      const page=result.value;
-      targets=[...targets,...page.targets];
-      if (new Set(targets.map(target=>`${target.targetType}:${target.targetId}`)).size !== targets.length
-        || (page.nextCursor !== null && (seen.has(page.nextCursor) || page.targets.length === 0))) break;
-      cursor=page.nextCursor;
-      if (cursor !== null) seen.add(cursor);
-      else {this.setState({...this.state,workTargets:{status:'ready',value:targets}});return;}
-    } while (cursor !== null);
-    if (this.state.status === 'ready') this.setState({...this.state,workTargets:{status:'unavailable',value:null,
-      message:'Die Arbeitsziele konnten nicht vollständig geladen werden.'}});
+    this.setState({...current,workTargets:append&&previous?{...previous,busy:true,failed:false}:{status:'loading',value:null,search,busy:true}});
+    const result=await this.safeSectionRead(()=>this.auth.withAccessToken(token=>this.api.workTargets?.(token,{expectedMembershipId:session.membershipId,cursor,limit:50,search})??Promise.resolve({status:'unreachable'})));
+    if(generation!==this.generation||epoch!==this.targetsEpoch||this.state.status!=='ready')return;
+    if(result.status==='rejected'){await this.rejectOutsideAuthentication(generation,'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an.');return;}
+    if(result.status==='succeeded') {
+      const value=[...(append&&previous?.status==='ready'?previous.value:[]),...result.value.targets];
+      if(new Set(value.map(t=>`${t.targetType}:${t.targetId}`)).size===value.length&&(cursor===null||result.value.nextCursor!==cursor)) {
+        this.setState({...this.state,workTargets:{status:'ready',value,search,nextCursor:result.value.nextCursor,busy:false,failed:false}});return;
+      }
+    }
+    this.setState({...this.state,workTargets:append&&previous?{...previous,busy:false,failed:true}:{status:'unavailable',value:null,search,busy:false,failed:true,message:'Die Arbeitsziele konnten nicht geladen werden.'}});
   }
 
   async captureManual(target: SafeWorkTarget | 'break' | 'stop'): Promise<void> {
@@ -414,7 +428,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         if(active.breakStartedAt)followup=activeTarget;
       } else if (target !== 'break') {
         const selectedTarget=target;
-        if(current.workTargets?.status !== 'ready' || !current.workTargets.value.some(item=>item.targetId===selectedTarget.targetId && item.targetType===selectedTarget.targetType))return;
+        if(current.workTargets?.status !== 'ready' || current.workTargets.busy || current.workTargets.failed || !current.workTargets.value.some(item=>item.targetId===selectedTarget.targetId && item.targetType===selectedTarget.targetType))return;
       }
       pending={generation,request:this.manualRequest(session.membershipId,target),before,followup};this.pendingManual=pending;
     }
@@ -495,24 +509,25 @@ export class AdminWebCoordinator implements AdminWebCapability {
       message:'Die Zeiten konnten nicht vollständig bestätigt werden. Laden Sie den Monat erneut.'}});
   }
 
-  async refreshManagedPeople(isRunning: boolean | null = null, append = false, requestedMonth?: string): Promise<void> {
+  async refreshManagedPeople(isRunning: boolean | null = null, append = false, requestedMonth?: string, input:string|null=null): Promise<void> {
     const current = this.state;
     const session = this.session;
     if (current.status !== 'ready' || session === null || !session.availableSections.includes('employees')) return;
     const previous = current.managedPeople;
+    const search=normalizeSearch(input??'');
     const month=requestedMonth ?? (append ? previous?.month : undefined) ?? businessDay(this.now()).slice(0,7);
     const window=monthTimeWindow(month);
     if (!window) return;
-    const cursor = append && previous?.status === 'ready' && previous.isRunning === isRunning && previous.month === month
+    const cursor = append && previous?.status === 'ready' && previous.isRunning === isRunning && previous.month === month && previous.search===search
       ? previous.value.nextCursor : null;
     if (append && cursor === null) return;
     const generation = this.generation;
     const epoch = ++this.peopleEpoch;
     const locationId = current.selectedLocation?.id ?? null;
-    this.setState({ ...current, managedPeople: { status: 'loading', value: null, isRunning, month } });
+    this.setState({ ...current, managedPeople: append&&previous?{...previous,busy:true,failed:false}:{ status: 'loading', value: null, isRunning, month,search,busy:true } });
     const result = await this.safeSectionRead(() => this.auth.withAccessToken(token =>
       this.api.managedActiveSummary?.(token, {expectedMembershipId: session.membershipId,
-        locationId, isRunning, cursor, limit: 20,...window}) ?? Promise.resolve({status:'unreachable'})));
+        locationId, isRunning, cursor, limit: 50,search,...window}) ?? Promise.resolve({status:'unreachable'})));
     if (generation !== this.generation || epoch !== this.peopleEpoch || this.state.status !== 'ready'
       || locationId !== (this.state.selectedLocation?.id ?? null)) return;
     if (result.status === 'rejected') {
@@ -525,11 +540,11 @@ export class AdminWebCoordinator implements AdminWebCapability {
       if (new Set(people.map(person=>person.membershipId)).size === people.length
         && (cursor === null || result.value.nextCursor !== cursor)
         && (result.value.nextCursor === null || result.value.people.length > 0)) {
-        this.setState({...this.state,managedPeople:{status:'ready',isRunning,month,value:{...result.value,people}}});
+        this.setState({...this.state,managedPeople:{status:'ready',isRunning,month,search,busy:false,failed:false,value:{...result.value,people}}});
         return;
       }
     }
-    this.setState({...this.state,managedPeople:{status:'unavailable',value:null,isRunning,month,
+    this.setState({...this.state,managedPeople:append&&previous?{...previous,busy:false,failed:true}:{status:'unavailable',value:null,isRunning,month,search,busy:false,failed:true,
       message:'Die Aktivübersicht konnte nicht bestätigt werden. Laden Sie sie erneut.'}});
   }
 
@@ -651,10 +666,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const opened=this.state;
     if(opened.status !== 'ready') return;
     await Promise.all([
-      opened.managedPeople === undefined ? undefined : this.refreshManagedPeople(opened.managedPeople.isRunning,false,opened.managedPeople.month),
+      opened.managedPeople === undefined ? undefined : this.refreshManagedPeople(opened.managedPeople.isRunning,false,opened.managedPeople.month,opened.managedPeople.search),
       opened.calendar === undefined ? undefined : opened.calendar.targetMembershipId === null
         ? this.loadOwnTime(opened.calendar.month) : this.loadPersonTime(opened.calendar.targetMembershipId,opened.calendar.month),
-      opened.workTargets === undefined ? undefined : this.loadWorkTargets(),
+      opened.workTargets === undefined ? undefined : this.loadWorkTargets(opened.workTargets.search),
     ]);
   }
 
@@ -858,7 +873,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
       return;
     }
     this.setState(applySectionResult(latest, section, result.value));
-    if (section==='employees' && latest.managedPeople !== undefined) await this.refreshManagedPeople(latest.managedPeople.isRunning,false,latest.managedPeople.month);
+    if (section==='employees' && latest.managedPeople !== undefined) await this.refreshManagedPeople(latest.managedPeople.isRunning,false,latest.managedPeople.month,latest.managedPeople.search);
   }
 
   async loadMore(): Promise<void> {
@@ -1185,7 +1200,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const current = this.state;
     const membershipId = this.membershipId;
     const project = current.status === 'ready'
-      ? current.projects?.find((candidate) => candidate.projectId === projectId)
+      ? (this.searchedProjects??current.projects)?.find((candidate) => candidate.projectId === projectId)
       : undefined;
     if (
       current.status !== 'ready'
@@ -1577,7 +1592,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     const current = this.state;
     const membershipId = this.membershipId;
     const target = current.status === 'ready'
-      ? current.employeeProjection.employeeMemberships.find((entry) => entry.id === targetMembershipId)
+      ? (this.searchedMembers??current.employeeProjection.employeeMemberships).find((entry) => entry.id === targetMembershipId)
       : undefined;
     if (
       current.status !== 'ready'
@@ -1677,8 +1692,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
   prepareReassignment(nfcTagId: string, targetCustomerId: string): void {
     const current = this.state;
     if (current.status !== 'ready' || !this.session?.availableSections.includes('setup') || current.reassigning) return;
-    const tag = current.projection.nfcTags.find((candidate) => candidate.id === nfcTagId);
-    const target = current.projection.customers.find(
+    const tag = (this.searchedSetup.nfcTags??current.projection.nfcTags).find((candidate) => candidate.id === nfcTagId);
+    const target = (this.searchedSetup.customers??current.projection.customers).find(
       (candidate) => candidate.id === targetCustomerId && candidate.active,
     );
     if (
@@ -2521,6 +2536,9 @@ export class AdminWebCoordinator implements AdminWebCapability {
   }
 
   private setState(requestedState: AdminWebState): void {
+    if(requestedState.status!=='ready'||this.state.status!=='ready'||requestedState.membershipId!==this.state.membershipId||requestedState.role!==this.state.role||requestedState.selectedLocation?.id!==this.state.selectedLocation?.id) {
+      this.searchedSetup={};this.searchedMembers=null;this.searchedProjects=null;
+    }
     this.clearInvitationExpiryTimer();
     const previousInvitation = this.state.status === 'ready' ? this.state.invitation : null;
     let state = requestedState;

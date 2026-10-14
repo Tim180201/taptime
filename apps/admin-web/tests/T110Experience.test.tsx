@@ -1,3 +1,4 @@
+import {stateSearch} from './searchFixtures';
 // @vitest-environment jsdom
 import { afterEach,expect,it,vi } from 'vitest';
 import { cleanup,fireEvent,render,screen } from '@testing-library/react';
@@ -32,19 +33,19 @@ it('has no card for missing/loading/partial data or a location manager and makes
 });
 it('employee month chooser names the month, preserves filters and loads without the old cursor',()=>{
  const state=ready();const refreshManagedPeople=vi.fn();
- render(<EmployeesView state={state} administration={{refreshManagedPeople} as unknown as AdminWebCapability} navigate={vi.fn()} route={{...defaultRoute('beschaeftigte'),month:'2026-09'}}/>);
+ render(<EmployeesView state={state} administration={{querySearch:stateSearch(()=>state),refreshManagedPeople} as unknown as AdminWebCapability} navigate={vi.fn()} route={{...defaultRoute('beschaeftigte'),month:'2026-09'}}/>);
  expect(screen.getByRole('combobox',{name:'Monat'})).toBeVisible();
  expect(screen.getAllByRole('option')).toHaveLength(24);
- expect(refreshManagedPeople).toHaveBeenCalledWith(null,false,'2026-09');
+ expect(refreshManagedPeople).toHaveBeenCalledWith(null,false,'2026-09',null);
  fireEvent.click(screen.getByRole('button',{name:'Zeit läuft'}));
- expect(refreshManagedPeople).toHaveBeenLastCalledWith(true,false,'2026-09');
+ expect(refreshManagedPeople).toHaveBeenLastCalledWith(true,false,'2026-09',null);
 });
-it('role success links directly to that persons management assignments',()=>{
+it('role success links directly to that persons management assignments',async()=>{
  const state={...ready(),roleAssignmentMembershipId:id,notice:{kind:'success' as const,text:'Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.'}};
- render(<EmployeesView state={state} administration={{} as AdminWebCapability} navigate={vi.fn()}/>);
+ render(<EmployeesView state={state} administration={{querySearch:stateSearch(()=>state)} as AdminWebCapability} navigate={vi.fn()}/>);
  expect(screen.getByRole('link',{name:'Verwaltete Standorte zuweisen'})).toHaveAttribute('href',expect.stringContaining(`mitarbeiter=${id}`));
  screen.getByText('Zugänge verwalten').closest('details')!.open=true;
- fireEvent.click(screen.getByRole('button',{name:'Rolle bearbeiten'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Rolle bearbeiten'}));
  expect(screen.getByText('Änderungen werden sofort gespeichert.')).toBeVisible();
 });
 it('review context precedes the three unchanged choices and shows the event and day times',()=>{

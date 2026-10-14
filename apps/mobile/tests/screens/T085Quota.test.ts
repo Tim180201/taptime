@@ -1,3 +1,4 @@
+import {customerSearch,setupSearch} from '../search/fixtures';
 // @vitest-environment jsdom
 import { act, createElement, useEffect, useImperativeHandle, type ReactNode, type Ref } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -41,7 +42,7 @@ const click=async(text:string)=>{const b=[...container.querySelectorAll('button'
 const quota:CustomerHoursResponse={version:'customer-hours.v2',asOf:people.asOf,scope:'people',customers:[{...customer,active:true,workDurationSeconds:129600,quotaSeconds:144000,quotaStage:'warning',people:[{membershipId:mid,displayName:'Person B',workDurationSeconds:129600,running:true}]}]};
 it('manager edits half hours, removes quota and sees server progress and stage',async()=>{
  const setCustomerQuota=vi.fn(async()=>({status:'succeeded' as const})),readCustomerHours=vi.fn(async()=>({status:'ready' as const,value:quota}));
- const work={readCustomerHours,setCustomerQuota} as unknown as MobileWorkCapability;
+ const work={readCustomerHours,querySearch:customerSearch(readCustomerHours),setCustomerQuota} as unknown as MobileWorkCapability;
  await act(async()=>root.render(createElement(CustomersScreen,{work,authorityContext:{role:'standortleitung'}})));
  expect(container.textContent).toContain('36:00 von 40 h');expect(container.textContent).toContain('Kontingent fast erreicht');
  await click('Werkstatt');await click('Kontingent ändern');
@@ -63,13 +64,13 @@ it('quota notice acknowledges each stage, isolates membership and hides pending 
  await act(async()=>root.render(createElement(CustomerQuotaNotice,{...props,role:'employee'})));expect(container.textContent).toBe('');
 });
 it('employee customer detail contains no quota controls or values',async()=>{
- await act(async()=>root.render(createElement(CustomersScreen,{work:{readCustomerHours:async()=>({status:'ready',value:own})} as unknown as MobileWorkCapability,authorityContext})));
+ await act(async()=>root.render(createElement(CustomersScreen,{work:{querySearch:customerSearch(async()=>({status:'ready',value:own}))} as unknown as MobileWorkCapability,authorityContext})));
  await click('Werkstatt');expect(container.textContent).not.toContain('Kontingent');expect(container.textContent).not.toContain('Ändern');
 });
 
 it('Ansehen opens the hint month even after browsing the previous month or the same customer',async()=>{
  const readCustomerHours=vi.fn(async()=>({status:'ready' as const,value:quota}));
- const work={readCustomerHours} as unknown as MobileWorkCapability,authorityContext={role:'administrator'};
+ const work={readCustomerHours,querySearch:customerSearch(readCustomerHours)} as unknown as MobileWorkCapability,authorityContext={role:'administrator'};
  await act(async()=>root.render(createElement(CustomersScreen,{work,authorityContext})));
  await click('Voriger Monat');expect(readCustomerHours).toHaveBeenLastCalledWith('2026-08');
  await act(async()=>root.render(createElement(CustomersScreen,{work,authorityContext,openCustomer:{customerId:cid,month:'2026-09'}})));

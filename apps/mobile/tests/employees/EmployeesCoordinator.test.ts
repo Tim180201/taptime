@@ -111,3 +111,14 @@ it('T110 real transport negotiates v5 for month requests and never accepts an ol
  expect(accept).toBe('application/vnd.taptime.managed-people.v5+json');
  response=summary;expect(await client.summary(request)).toEqual({status:'unavailable'});
 });
+
+it('T117 sends normalized searches, resets the cursor and discards an older list result',async()=>{
+ const {coordinator,api}=fixture();await coordinator.refresh();
+ expect(typeof coordinator.search).toBe('function');
+ let finish!:(v:ReadResult<ManagedActiveSummary>)=>void;
+ vi.mocked(api.summary).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+ const old=coordinator.search('Alt');await coordinator.search('  Mu\u0308ller  ');
+ expect(api.summary).toHaveBeenLastCalledWith(expect.objectContaining({search:'Müller',cursor:null}));
+ finish({status:'ready',value:{...summary,people:[{...person,displayName:'Obsolete'}]}});await old;
+ expect(coordinator.getState()).toMatchObject({status:'list',search:'Müller',summary:{people:[{displayName:'Anna'}]}});
+});
