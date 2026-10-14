@@ -1864,3 +1864,13 @@ Anmeldung und Kopf der App. Umsetzung in T-120. Vor dem Eintrag in die Stores kl
 Ähnlichkeit zu bestehenden Zeichen, besonders zum Kontaktlos-Zeichen der Kartenzahlung.
 **Warum:** Ein Zeichen zeigt, was das Produkt tut: Antippen startet die Zeit. Bisher hatte jede Oberfläche ein anderes
 Platzhalterzeichen („T“ in der Verwaltung, Ringe auf Startseite und im Betreiber-Bereich, Expo-Vorgaben in der App).
+
+## D-137 · Karte entfernen, Offline-Zeiten davor bleiben gültig · 13.10.2026 · TL
+Eine Karte wird entfernt, indem ihre aktive Zuordnung endet (`valid_to`). Karte, Verlauf und Zeiten bleiben; eine
+laufende Zeit läuft weiter und wird in der App beendet. Berechtigt sind der Administrator (App und Web) und die
+Standortleitung in ihrem Bereich (App), ohne Grund, mit Rückfrage. Offline vor dem Ende einer Zuordnung erfasste Zeiten
+bleiben gültig, gleich ob die Zuordnung durch Entfernen, Umhängen oder Kundenlöschung endete; erst Erfassungen ab
+`valid_to` werden Prüffälle. Andere Geräte erfahren das Entfernen mit ihrer nächsten Freigabe (höchstens 12 h).
+Umgesetzt in T-116a (Migration 054).
+**Warum:** Eine verlorene oder falsch zugeordnete Karte muss sich sofort stilllegen lassen, ohne Zeiten zu verlieren oder
+gültige Offline-Zeiten in „Zeiten prüfen“ zu schicken.

@@ -1,129 +1,86 @@
 # Aktuelle Aufgabe
 
-> **Stand 13.10.2026:** Doku `117e150` (T-116a bis T-120 geplant, D-135, D-136). Der PO verschiebt die Geräteabnahme;
-> die Umsetzung läuft weiter. Jetzt T-116a. Danach folgen T-116b, T-117, T-118 und T-120, dann Deploy 5.
+> **Stand 13.10.2026:** T-116a abgeschlossen (`2596899`, `a9d5c54`; Migrationen 053, 054; D-134, D-137), noch nicht
+> ausgeliefert. Jetzt T-116b. Danach T-117, T-118 und T-120, dann Deploy 5 mit neuen App-Builds.
 
-## T-116a · Gründe nach D-134 und „Karte entfernen“
+## T-116b · Oberfläche und Kleinigkeiten vor dem Pilot
 
-**Für:** Development · **Risiko:** hoch (Migration 053, SECURITY-DEFINER-Funktionen, Offline-Abgleich) · **Zeitbox:**
-ein bis zwei Sitzungen. Server, Verträge, App und Web. Kein Deploy.
+**Für:** Development · **Risiko:** mittel bis hoch (Migration 055 mit Berechtigungsausnahme und Sortierung, Startablauf
+unberührt) · **Zeitbox:** ein bis zwei Sitzungen; reißt sie, entfällt zuerst Teil 3. App, Web, Server, Caddy. Kein Deploy.
 
-### Ausgangslage (`117e150`)
+### Teil 1 · Oberfläche
 
-- **Gründe:** Ändern und Nachtragen fremder Zeiten verlangen heute in jeder Rolle einen Grund (052, Bedingung nur
-  eigen/fremd). Beenden über den Verwaltungsweg verlangt ihn immer (049), auch für die eigene Zeit der Standortleitung.
-  Löschen verlangt immer einen Code (`duplicate`, `misscan`, `other` mit Text; 038/049). Einen freiwilligen Grund und
-  den Text „Kein Grund angegeben“ gibt es nicht.
-- **Karten:** Ein Entfernen gibt es nicht. Eine Zuordnung endet nur durch Umhängen (blockiert bei laufender Zeit mit
-  `assignment_in_use`) oder durch Löschen des Kunden. Das Datenmodell trägt es schon: Der Update-Trigger auf
-  `nfc_assignments` erlaubt nur das Schließen (`active=false`, `valid_to`, `row_version+1`); Ziel und Identität sind
-  unveränderlich. Zeiteinträge verweisen nie auf eine Zuordnung.
-- **Offline-Falle:** `OfflineLifecycleIngestionCoordinator.ts` (um Z. 948–983) nimmt eine vor dem Schließen erfasste
-  Offline-Zeit nur dann ohne Prüffall an, wenn die Zuordnung durch Kundenlöschung endete (`assignmentClosedByDeletion`).
-  Nach einem Entfernen oder Umhängen landet sie wegen `row_version` in „Zeiten prüfen“, obwohl sie gültig war.
-- **Karte prüfen:** `InspectTagResult` (v1) ist streng auf vier Felder festgelegt und enthält keine Kennungen.
+1. **Manuell, App** (`ManualCaptureScreen.tsx`): Die Karte mit „Zeit starten“ steht heute unter der ganzen Liste. Neu
+   eine feste Leiste unten, außerhalb der Liste, direkt über der Tab-Leiste: sichtbar nur ohne laufende Zeit und mit
+   gewähltem Ziel, mit Zielnamen und „Zeit starten“. Sie scrollt nicht mit; bei großer Schrift bricht der Name um, der
+   Knopf bleibt sichtbar. Die Auswahl wird angesagt („Ausgewählt: NAME“). Blendet die Suche das gewählte Ziel aus, wird
+   die Auswahl gelöscht (wie im Web). **Web „Manuell“** (`ManualView.tsx`): Startknopf `position: sticky` am unteren
+   Rand, auf kleinen Bildschirmen über der mobilen Navigation.
+2. **Karten, App** (`AdminSetupScreen.tsx`): „Karte einrichten“, „Karte prüfen“, „Scan abbrechen“ sowie Ergebnis,
+   „Karte entfernen“ und Rückfrage stehen über der Kartenliste. „Weitere Karten laden“ und „Aktualisieren“ bleiben
+   darunter.
+3. **Pausen als eigene Zeilen** in beiden Kalendern (`apps/mobile/src/screens/TimeCalendar.tsx`,
+   `apps/admin-web/src/TimeCalendar.tsx`), also „Meine Zeiten“ und Personenansicht in App und Web. Ein Eintrag mit
+   Pausen zeigt chronologisch Abschnitte, auf den gewählten Tag zugeschnitten (`calendar.breakIntervals`):
+   „08:00–10:00 · Kunde X · 2:00 h“, „10:00–10:30 · Pause · 0:30 h“, „10:30–12:00 · Kunde X · 1:30 h“. Der Eintrag bleibt
+   eine Gruppe: Herkunft, Verlauf und Knöpfe (Ändern, Löschen, Kommentar) stehen einmal darunter. Ohne Pause wie heute;
+   die Zeile „0:00 h Pause“ entfällt. Eine laufende Pause zeigt „seit HH:MM · Pause“, wo `breakStartedAt` vorliegt.
+   Summen bleiben. Nur Darstellung: keine Änderung an Verträgen, `break_intervals` oder Lohnexport. Die Tabelle
+   „Arbeitszeiten“ im Web bleibt ohne Pausen (keine Daten im Vertrag).
+4. **„Zeit beendet“** (`packages/mobile-work-contract/src/captureTime.ts`): mit Pause
+   „Zeit beendet · Kunde X · 08:12–11:47 · 3:05 h · Pause 0:30 h“, ohne Pause wie heute.
+5. **Einladen, App** (`InviteEmployeeScreen.tsx`): Nach Erfolg ist „Einladung senden“ deaktiviert; darunter
+   „Weitere Person einladen“, das Formular leert.
+6. **Erfolgskarte nach „Passwort setzen“, Web** (`WelcomePage.tsx`): Überschrift „Passwort gespeichert“ mit
+   `aria-labelledby`.
+7. **Anmeldung, App** (`LoginScreen.tsx`): „Anmeldung gerade nicht möglich“ steht höchstens einmal; „Code S5“ bleibt.
+8. **Beschäftigte, Web** (`PeopleShared.tsx`): Spalte „Standort“ nur, wenn nicht nach Standort-Überschriften gruppiert.
+9. **`tagReceipt`, App** (`AdminSetupCoordinator.ts`): Nach der Anzeige verbraucht; eine spätere Sitzungsmeldung zeigt
+   die alte Antwort nicht erneut. Ein Beleg ohne Kontext erscheint weiterhin genau einmal.
 
-### Teil A · Gründe (D-134)
+### Teil 2 · Server und Caddy
 
-**Regel:** Ein Grund ist genau dann Pflicht, wenn die **Standortleitung** die Zeit **einer anderen Person** ändert,
-nachträgt oder beendet. Sonst ist er freiwillig. „Zeiten prüfen“ bleibt unverändert (immer Pflicht).
+10. **Migration 055** mit vollständigen Funktionskörpern (`T106FunctionBodies`):
+    - **Sortierung nach Schreibweise statt Bytes:** `COLLATE "und-x-icu"` statt `"C"` für Namen in
+      `read_managed_active_summary_v3` und `_v4` (Beschäftigte), `read_customer_hours_v1` (Kunden und ihre Personen)
+      und `read_mobile_work_targets_v1` (Ziellisten). Sortierung und Blätter-Cursor nutzen dieselbe Collation. Vorher
+      in allen genutzten Abbildern prüfen, dass sie existiert (Produktion `postgres:17.10-bookworm`, CI
+      `postgres:17.10-alpine`); fehlt sie irgendwo, stoppen und melden.
+    - **Eigene Zeiten der Standortleitung unabhängig vom Heimatstandort (D-131):** In `backfill_time_record_v1`,
+      `correct_time_record_v1` und `prepare_administration_stop_v1` entfällt die Bereichsprüfung, wenn die Zeit der
+      handelnden Person gehört; die Rollenprüfung bleibt. `has_time_management_authority_v1` bleibt unverändert (Lesen,
+      Prüffälle).
+11. **Caddy:** `/app/` und `/tag/` leiten mit 308 auf `/app` bzw. `/tag`. `/app/unknown` bleibt hinter dem Passwort.
 
-| Aktion | Eigene Zeit, jede Rolle | Fremde Zeit, Administrator | Fremde Zeit, Standortleitung |
-|---|---|---|---|
-| Ändern | freiwillig, ohne Angabe „Selbst geändert“ (wie heute) | freiwillig, ohne Angabe „Kein Grund angegeben“ | Pflicht |
-| Nachtragen | freiwillig, ohne Angabe „Selbst nachgetragen“ (wie heute) | freiwillig, ohne Angabe „Kein Grund angegeben“ | Pflicht |
-| Beenden (Verwaltungsweg) | freiwillig, ohne Angabe „Selbst beendet“ | freiwillig, ohne Angabe „Kein Grund angegeben“ | Pflicht |
-| Löschen | freiwillig, mit Rückfrage | freiwillig, mit Rückfrage | freiwillig, mit Rückfrage |
+### Teil 3 · Tests durchsehen (Zeitbox eine Stunde)
 
-1. **Der Server entscheidet.** Rolle aus der aktuellen Mitgliedschaft des Handelnden beim Befehl, „eigen“ aus dem
-   geladenen Eintrag (`user_id` = Handelnder), wie heute nach Berechtigungs- und Belegprüfung. Berechtigungen bleiben
-   unverändert.
-2. **Freiwilliger Grund:** `null` oder nur unsichtbare Zeichen → Standardtext aus der Tabelle; sichtbarer Text mit 1 bis
-   500 Zeichen → so gespeichert; länger → bisheriger Fehler. Pflichtgrund wie heute.
-3. **Löschen:** `reasonCode` darf `null` sein (dann `reasonText` `null`). Gespeichert wird `reason_code = 'none'`
-   (CHECK erweitern, Kopplung an `reason_text` anpassen), angezeigt „Kein Grund angegeben“. Die drei bisherigen Codes
-   bleiben gültig (ältere Apps). `'none'` im Request ist ungültig; nur der Server setzt es.
-4. **Oberfläche, Web und App gleich:**
-   - Pflichtfeld „Grund der Änderung (Pflicht)“ nur für die Standortleitung bei fremden Zeiten.
-   - Administrator bei fremden Zeiten: Feld „Grund (freiwillig)“.
-   - Eigene Zeiten wie seit T-113 ohne Grundfeld (Nachtragen behält den Kommentar). Das gilt jetzt auch für das
-     Beenden der eigenen Zeit durch die Standortleitung.
-   - Löschen: Rückfrage „Zeiteintrag löschen?“ mit freiwilliger Auswahl „Grund (freiwillig)“ (Doppelt erfasst,
-     Fehlscan, Sonstiges mit Text) und „Löschen bestätigen“ / „Abbrechen“, für alle Rollen.
-   - Verlauf: „Kein Grund angegeben“ wird angezeigt; „Selbst beendet“ wird wie die anderen „Selbst …“-Texte durch
-     „selbst“ ersetzt.
-   - Betroffen sind beide Korrekturformulare im Web (`TimeEditingControls.tsx`, „Abgeschlossene Arbeitszeit
-     korrigieren“ in `TimeRecordsView.tsx`) und die Steuerung in der App.
-5. **Migration 053** mit vollständigen Funktionskörpern (`T106FunctionBodies`): `backfill_time_record_v1`,
-   `correct_time_record_v1` (Basis 052), `prepare_administration_stop_v1` und, falls dort geprüft, die Commit-Funktion
-   (Basis 049), `void_time_record_v1` (Basis 049). Keine Änderung bestehender Zeilen. Wiederholung mit gleicher
-   `commandId` liefert dasselbe Ergebnis. Das Ende per Zugangsentzug („Zugang entzogen“) bleibt unverändert.
-6. **Verträge:** Grund im Verwaltungs-Beenden `string | null`, `reasonCode` beim Löschen `VoidReason | null`;
-   Meldungstexte anpassen.
+12. Tests suchen, die feste Kalenderdaten neben relativen Fenstern verwenden (jetzt, Vormonat, 24 h) oder Ergebnisse
+    von Effekten ohne `waitFor` prüfen. Offensichtliche Fälle wie `80bbb3a` und `4598d25` beheben; den Rest mit
+    Einschätzung in den Bericht.
 
-### Teil B · „Karte entfernen“ (TL-Entscheidung)
-
-1. **Befehl** `POST /v1/administration/nfc-tags/remove` mit `{expectedMembershipId, commandId, nfcTagId,
-   expectedAssignmentId}`. Er schließt genau diese aktive Zuordnung (`active=false`, `valid_to` = Transaktionszeit,
-   `row_version+1`). Karte, Verlauf und Zeiten bleiben. Ergebnisse: `succeeded` (mit `removedAt`), `assignment_changed`
-   (aktive Zuordnung weicht ab oder fehlt), `forbidden`, `unauthorized`, `invalid_request`, `unavailable`.
-   Idempotent je `commandId`; dieselbe `commandId` mit anderem Inhalt wird abgewiesen wie bei den anderen Befehlen.
-2. **Wer:** Administrator; Standortleitung in ihrem Bereich mit denselben Prüfungen wie beim Umhängen
-   (`has_current_nfc_setup_authority_v1` für den Zielkunden bzw. `NULL` bei Pausenkarten,
-   `has_current_nfc_tag_setup_authority_v1` für die Karte). Mitarbeiter: `forbidden`. Kein Grund.
-3. **Laufende Zeit:** Entfernen ist erlaubt, kein `assignment_in_use`. Die Zeit läuft weiter und wird in der App mit
-   „Zeit beenden“ bzw. „Pause beenden“ beendet. Ein Scan der entfernten Karte zeigt wie heute „Karte nicht zugeordnet“.
-4. **Umsetzung:** SECURITY-DEFINER-Funktion in 053, Eigentümer `taptime_admin_setup_data_function_owner`, dieselbe
-   Advisory-Sperre und Sperrreihenfolge wie Umhängen und `manage_customer_v1`, Beleg über eine Audit-Zeile je
-   `commandId` wie bei `reuse_nfc_tag_v1` (046). Route in Routentabelle, Diagnose-Switch und `isAdministrationRoute`.
-5. **Wiederverwendung:** Eine entfernte Karte lässt sich mit „Karte einrichten“ neu zuordnen (vorhandener Weg über
-   `reuse`).
-6. **Karte prüfen v2:** `/v2/administration/nfc-tags/inspect` liefert zusätzlich `nfcTagId` und `activeAssignmentId`
-   (beide `null`, wenn nicht zugeordnet, unbekannt oder außerhalb des Bereichs; nichts darf durchsickern). v1 bleibt
-   für ältere Apps unverändert.
-7. **Offline:** `assignmentClosedByDeletion` wird zu jedem Schließen verallgemeinert: Ein vor `valid_to` erfasstes
-   Ereignis ist gültig, wenn `valid_to` gesetzt ist und `row_version` genau Lease + 1 beträgt. Das gilt für Entfernen,
-   Umhängen und Kundenlöschung; der Update-Trigger lässt an Zuordnungen nichts anderes zu. Ereignisse ab `valid_to`
-   bleiben Prüffälle wie heute. Nach dem Entfernen erneuert das handelnde Gerät seine Freigabe wie nach anderen
-   Verwaltungsaktionen; andere Geräte erfahren es bei der nächsten Freigabe (höchstens 12 h), das ist akzeptiert.
-8. **App, Reiter „Karten“:** In der Liste je zugeordneter Karte (Kunde oder Pause) „Entfernen“ (Bedienhilfe „Karte
-   NAME entfernen“). Nach „Karte prüfen“ mit zugeordneter Karte der Knopf „Karte entfernen“. Rückfrage wie in
-   `CustomerManagement.tsx`: „Karte „NAME“ entfernen?“, darunter „Bisherige Zeiten bleiben unverändert. Läuft gerade
-   eine Zeit über diese Karte, läuft sie weiter und wird in der App beendet.“, dann „Entfernen bestätigen“ /
-   „Abbrechen“. Danach „Karte entfernt. Sie kann neu eingerichtet werden.“ und eine aktualisierte Liste. Bei
-   `assignment_changed`: „Die Karte wurde inzwischen geändert. Bitte die Liste aktualisieren.“ Die Reihenfolge der
-   Knöpfe ändert erst T-116b.
-9. **Web, Einrichtung → Karten** (nur Administrator, wie heute): je zugeordneter Karte „Entfernen“ mit derselben
-   Rückfrage. Die Standortleitung hat im Web keine Kartenansicht (T-062); das bleibt so.
+**Nicht dabei:** Name im Kopf der App (braucht eine neue Sitzungsversion mit Namen; bleibt Kleinigkeit). Pausen in der
+Web-Tabelle „Arbeitszeiten“.
 
 ### Tests
 
-Je Punkt rot vor der Änderung:
-- **A, SQL:** Matrix Aktion × Rolle × eigen/fremd. Pflicht genau bei Standortleitung und fremder Zeit; Administrator
-  fremd ohne Grund speichert „Kein Grund angegeben“; eigenes Beenden ohne Grund „Selbst beendet“; Löschen ohne Code
-  speichert `none`; alte Codes gültig; `none` im Request ungültig; nur Leerzeichen ergibt den Standardtext; mehr als
-  500 Zeichen wird abgewiesen; „Zeiten prüfen“ verlangt weiter einen Grund; „Zugang entzogen“ unverändert.
-- **A, angepasste Tests:** Nur Erwartungen ändern, die D-134 ändert (u. a. T113, T062, T066, T069, T088,
-  TimeReviewApi, Web T066TimeEditing und App.test, App T066Controls, T066TimeEditing, T077OwnTimes). Jede geänderte
-  Erwartung im Bericht nennen.
-- **B, Server:** Entfernen durch Administrator, durch Standortleitung im Bereich, außerhalb `forbidden`, Mitarbeiter
-  `forbidden`, Pausenkarte. Veraltete `expectedAssignmentId` ergibt `assignment_changed`; Wiederholung idempotent;
-  `commandId` mit anderem Inhalt abgewiesen. Laufende Zeit läuft weiter und lässt sich online beenden, auch eine
-  laufende Pause. Entfernte Karte für einen anderen Kunden neu eingerichtet. Wettlauf Entfernen gegen Start wie in
-  `C3E2PostgresNfcTagReassignment`. Geringste Rechte in `B3SchemaSecurity`.
-- **B, Offline:** Vor dem Entfernen erfasst und danach hochgeladen ergibt keinen Prüffall; nach `valid_to` mit alter
-  Freigabe ergibt `historical_configuration_not_valid`; dasselbe für Umhängen; Kundenlöschung unverändert
-  (T100-Test).
-- **B, Verträge und Oberfläche:** Inspect v2 mit Kennungen, v1 unverändert, unbekannte Karte ohne Kennungen. App und
-  Web: Aktion, Rückfrage, Texte, Bedienhilfe, Aktualisierung der Liste und der Freigabe.
-- Alle Suiten, Postgres-Tests und Typecheck grün.
+Je Punkt rot vor der Änderung, auch für SQL (vollständiger fachlicher Rotlauf, nicht nur ein abgebrochener):
+- Leiste: erscheint nur mit Auswahl und ohne laufende Zeit, liegt außerhalb der Liste, Auswahl wird beim Ausfiltern
+  gelöscht; Web: Knopf sticky. Karten: Knöpfe und Ergebnis vor der Liste.
+- Pausenzeilen: Abschnitte, Zuschnitt über Mitternacht, laufende Pause, ohne Pause unverändert, Knöpfe einmal je
+  Eintrag. „Zeit beendet“ mit und ohne Pause (`T103Capture`, `T103CapturePostgres` anpassen).
+- Einladen nach Erfolg, Überschrift, einfache Anmeldemeldung, Spalte „Standort“, `tagReceipt` nicht erneut.
+- SQL: „Ärztehaus“, „Özdemir“, „Abel“, „Zander“ ergeben Abel, Ärztehaus, Özdemir, Zander, auch über eine Seitengrenze.
+  Standortleitung mit Heimat außerhalb ihres Bereichs trägt nach, ändert und beendet eigene Zeit; fremde Zeit außerhalb
+  bleibt abgewiesen; Mitarbeiter unverändert.
+- Caddy: `/app/`, `/tag/` → 308; `/app/unknown` → 401.
+- Alle Suiten, Postgres-Tests, Typecheck und Browserläufe grün.
 
 ### Grenzen
 
-- Kein Deploy, kein Zugriff auf Produktion. 053 nur additiv: Funktionen, erweiterter CHECK, keine Datenänderung.
-- Keine Umstellung der Kartenknöpfe (T-116b), keine Suche (T-117). ADO nicht ändern.
+Kein Deploy, kein Zugriff auf Produktion. 055 ändert keine Daten. Startablauf der App (T-115) und Verträge bleiben
+unverändert. ADO nicht ändern.
 
 ### Bericht
 
-`.t116a-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
+`.t116b-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
 P1/P2. Kein Commit vor `APPROVED` durch den TL.

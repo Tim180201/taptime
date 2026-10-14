@@ -1,15 +1,13 @@
 # TapTim.e — Status
 
-**Stand 09.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., `7cd4233` → `831cb29`, Migration 052, zwei
-Probe-Wiederherstellungen grün, WAL-Zyklus 75–79 s). Ausgeliefert: T-109, T-113, T-112, T-114, T-115. T-098c
-abgeschlossen (`f97bc4e`): Die Registry räumt wieder auf, erster Lauf 234 Versionen. Davor zwei wacklige Tests behoben
-(`80bbb3a` festes Datum in T-066, `4598d25` Ansage in T-107). Die Geräteabnahme ist verschoben (PO 13.10.);
-in Arbeit ist T-116a (D-134).
+**Stand 13.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., Migration 052). Ausgeliefert: T-109,
+T-113, T-112, T-114, T-115. Auf main, noch nicht ausgeliefert: T-116a (`2596899`, `a9d5c54`; Migrationen 053 und 054,
+D-134, D-137). Die Geräteabnahme ist verschoben (PO 13.10.); in Arbeit ist T-116b.
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Geräteabnahme abschließen → T-116a, T-116b, T-117 (Suche), T-118 (Zuordnung), T-120 (Icon) →
-Deploy 5 und neue App-Builds → T-119 und T-024 → Pilot. Pilot als
+**Weg zum Pilot:** T-116b, T-117 (Suche), T-118 (Zuordnung), T-120 (Icon) → Deploy 5, neue App-Builds und
+Geräteabnahme → T-119 und T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -89,7 +87,8 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) · Sitzungsvergleich ohne
   Verwaltungsumfang (T-059) · Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an
   `wa-sqlite.wasm` (P2) · eine alte Registrierungsantwort kann nach einer Sitzungsmeldung derselben Person erneut
-  erscheinen (`tagReceipt`, T-112) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112).
+  erscheinen (`tagReceipt`, T-112) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112). · alte App-Builds können nach Deploy 5 gelöschte
+  Einträge ohne Grund (`none`) nicht anzeigen, bis der neue Build installiert ist (T-116a).
 - **Beschäftigte (T-102):** Sortierung nach Bytes (`COLLATE "C"` wie bei den Kunden), Namen mit Umlaut am Anfang stehen
   am Ende · wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten Seite fehlen
   (Aktualisieren hilft) · Spalte „Standort“ steht neben der Standort-Überschrift doppelt.
@@ -108,7 +107,9 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   darstellbar (T-059) · Nachtragen ohne externen Archivnachweis bis T-016 (D-078) · frühere Offline-Prüfgründe vor
   `administration_stopped`, Dreiminutenmeldung kann sich verzögern (T-069) · Geräteuhr bei manueller Erfassung,
   unbegrenzter vergessener Stopp, Offline-Pausenkonflikte ohne aktive Zeit · Lease-Bindung nach Restore (P1, eigene
-  Aufgabe T-055).
+  Aufgabe T-055) · C3E2-Test „expired deadline“ einmal rot beim neuen Versuch (13.10., Ursache offen); seit T-116a wird
+  eine Verbindung mit gescheitertem ROLLBACK verworfen, beobachten · Rotnachweis der SQL-Tests zum Entfernen fehlt
+  (Prozess, T-116a).
 - **Betrieb:** Deploy-Kantenprüfung zeigt direkt nach dem Caddy-Neustart einmal `curl: (7)`, der nächste Versuch ist
   grün (06.10.) · WAL-Spool gehört UID 999 (Kollision mit `dnsmasq`, T-057) · Kantenprüfung nach dem Caddy-Wechsel
   schließt die Backend-Gesundheit ein (T-031) · `taptime-landing-password` ohne Eingabeaufforderung · systemd meldet
