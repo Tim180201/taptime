@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH, AUTH_RATE_LIMIT_MESSAGE } from '../../../shared/authPolicy';
 import {normalizeSearch} from '../../mobile/src/search/search';
 import type { SearchKind, SearchResponses, SearchRequests } from '@taptime/mobile-work-contract';
 import type { ClientSearchRequest, PageResult } from '../../mobile/src/search/search';
@@ -58,7 +59,7 @@ export const SIGN_IN_FAILURE_NOTICES: Readonly<Record<
   access_blocked:
     'Dieser Zugang ist gesperrt. Wenden Sie sich an die Betriebsverwaltung.',
   rate_limited:
-    'Zu viele Anmeldeversuche in kurzer Zeit. Warten Sie eine Minute und versuchen Sie es dann erneut.',
+    AUTH_RATE_LIMIT_MESSAGE,
   service_unavailable:
     'Der Anmeldedienst ist gerade nicht erreichbar. Ihre Eingaben wurden nicht geprüft. Versuchen '
     + 'Sie es in ein paar Minuten erneut. Bleibt die Meldung bestehen, wenden Sie sich an die '
@@ -69,8 +70,8 @@ export interface AdminWebAuthPort {
   signIn(email: string, password: string): Promise<AdminWebSignInOutcome>;
   withAccessToken<Value>(operation: (accessToken: string) => Promise<Value>): Promise<Value | null>;
   signOut(): Promise<void>;
-  requestPasswordReset?(email: string): Promise<boolean>;
-  updateRecoveredPassword?(password: string): Promise<boolean>;
+  requestPasswordReset?(email: string): Promise<boolean | 'rate_limited'>;
+  updateRecoveredPassword?(password: string): Promise<boolean | 'rate_limited'>;
   subscribePasswordRecovery?(listener: () => void): () => void;
 }
 
@@ -609,22 +610,29 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   async requestPasswordReset(email: string): Promise<void> {
     if (this.state.status !== 'signed_out' || email.trim().length < 3) return;
-    let accepted = false;
+    let accepted: boolean | 'rate_limited' = false;
     try {
       accepted = await this.auth.requestPasswordReset?.(email.trim()) ?? false;
     } catch { /* surfaced as a generic availability result */ }
-    this.setState(accepted
+    this.setState(accepted === 'rate_limited'
+      ? { status: 'signed_out', notice: { kind: 'error', text: AUTH_RATE_LIMIT_MESSAGE } }
+      : accepted
       ? { status: 'signed_out', notice: { kind: 'success', text: 'Falls das Konto existiert, wurde eine Wiederherstellungs-E-Mail versendet.' } }
       : { status: 'signed_out', notice: { kind: 'error', text: 'Die E-Mail zum Zurücksetzen konnte nicht angefordert werden. Ihr Passwort bleibt unverändert; versuchen Sie es später erneut.' } });
   }
 
   async completePasswordRecovery(password: string): Promise<void> {
-    if (this.state.status !== 'password_recovery' || password.length < 8) return;
+    if (this.state.status !== 'password_recovery' || password.length < MIN_PASSWORD_LENGTH) return;
     this.setState({ status: 'password_recovery', completing: true, notice: null });
-    let changed = false;
+    let changed: boolean | 'rate_limited' = false;
     try {
       changed = await this.auth.updateRecoveredPassword?.(password) ?? false;
     } catch { /* surfaced without provider details */ }
+    if (changed === 'rate_limited') {
+      this.setState({ status: 'password_recovery', completing: false,
+        notice: { kind: 'error', text: AUTH_RATE_LIMIT_MESSAGE } });
+      return;
+    }
     if (!changed) {
       this.setState({ status: 'password_recovery', completing: false,
         notice: { kind: 'error', text: 'Ob das Passwort geändert wurde, ist noch unklar. Prüfen Sie die Anmeldung mit dem neuen Passwort.' } });

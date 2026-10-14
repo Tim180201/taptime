@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH, isAuthRateLimited } from '../../../shared/authPolicy';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { AdminWebApiClient } from './AdminWebApiClient';
 
@@ -31,7 +32,7 @@ export class SupabaseRecoveryAuth implements RecoveryPasswordCapability {
     if (this.busy) return 'unavailable';
     const client = this.client;
     if (client === null) return 'invalid_link';
-    if (!this.passwordChanged && password.length < 8) return 'weak_password';
+    if (!this.passwordChanged && password.length < MIN_PASSWORD_LENGTH) return 'weak_password';
     this.busy = true;
     try {
       if (!this.verified) {
@@ -86,7 +87,7 @@ function parseRecoveryToken(value: string): string | null {
 }
 
 function mapRecoveryError(error: { readonly code?: string; readonly status?: number }): RecoveryPasswordResult {
-  if (error.status === 429) return 'rate_limited';
+  if (isAuthRateLimited(error)) return 'rate_limited';
   switch (error.code) {
     case 'weak_password':
     case 'same_password': return 'weak_password';

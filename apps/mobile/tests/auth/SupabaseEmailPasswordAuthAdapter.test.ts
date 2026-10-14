@@ -150,3 +150,15 @@ it('takes the display identity from the provider response, never from the sign-i
   await expect(new SupabaseEmailPasswordAuthAdapter(auth as never).signInWithPassword('input@example.invalid', 'password'))
     .resolves.toMatchObject({ tokens: { identity: { providerUserId: 'provider-user', email: 'confirmed@example.invalid' } } });
 });
+
+it.each([{ status: 429 }, { code: 'over_request_rate_limit' }, { status: 429, code: 'invalid_credentials' }])(
+  'T119 submits existing eight-character passwords and preserves throttling (%j)', async error => {
+    const auth = fakeAuth({ signInWithPassword: vi.fn().mockResolvedValueOnce({ data: { session: null }, error })
+      .mockResolvedValueOnce({ data: { session: providerSession() }, error: null }),
+      resetPasswordForEmail: vi.fn().mockResolvedValue({ error }) });
+    const adapter = new SupabaseEmailPasswordAuthAdapter(auth as never);
+    await expect(adapter.signInWithPassword('a@example.test', '12345678')).resolves.toEqual({ status: 'rate_limited' });
+    expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: 'a@example.test', password: '12345678' });
+    await expect(adapter.signInWithPassword('a@example.test', '12345678')).resolves.toMatchObject({ status: 'authenticated' });
+    await expect(adapter.requestPasswordReset('a@example.test')).resolves.toBe('rate_limited');
+  });

@@ -33,7 +33,7 @@ export interface ProductSessionRuntimeOwner extends MobileSessionCapability {
   stop(): void;
   onActive?(): Promise<void>;
   canAutoRefresh?(): boolean;
-  requestPasswordReset(email: string): Promise<'requested' | 'unavailable'>;
+  requestPasswordReset(email: string): Promise<'requested' | 'unavailable' | 'rate_limited'>;
 }
 
 /** @internal Runtime owner used to keep orchestrator lifecycle and React capability separate. */

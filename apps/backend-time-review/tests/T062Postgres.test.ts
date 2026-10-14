@@ -159,7 +159,9 @@ beforeAll(async () => {
   const before={definitions:await fixedDefinitions(),responses:await adminResponses()};
   // No future migration is guessed here; the source defines the installed set.
   if(migration.length) {
-    await applyMigrationSet(pool,migration);
+    // Preserve the original full-definition assertion up to T119. Migration 058
+    // deliberately changes search_path; bodies, rows and responses must still match.
+    await applyMigrationSet(pool,migration.filter(m => m.version < '058'));
     await assertMigrationDataUnchanged(pool,dataBefore);
     expect({definitions:await fixedDefinitions(),responses:await adminResponses()}).toEqual(before);
     if(nfcAuthorityMigration && nfcBefore) {
@@ -167,6 +169,15 @@ beforeAll(async () => {
       expect(expectedBody).toBeDefined();
       expect((await readNfcDefinition()).definition).toBe(nfcBefore.definition.replace(nfcBefore.body,expectedBody!));
     }
+    const hardenedDefinitions = JSON.stringify(JSON.parse(await fixedDefinitions()).map(
+      (row: { name: string; definition: string }) => ({ ...row,
+        definition: row.definition.replace(/^ SET search_path TO .+$/m, " SET search_path TO 'pg_catalog'"),
+      }),
+    ));
+    await applyMigrationSet(pool,migration.filter(m => m.version >= '058'));
+    await assertMigrationDataUnchanged(pool,dataBefore);
+    expect({definitions:await fixedDefinitions(),responses:await adminResponses()})
+      .toEqual({definitions:hardenedDefinitions,responses:before.responses});
     expect((await applyMigrationSet(pool,migration)).applied).toEqual([]);
   }
 

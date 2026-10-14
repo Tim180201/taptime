@@ -1,3 +1,4 @@
+import { isAuthRateLimited } from '../../../shared/authPolicy';
 import { APP_NAME } from '../../../shared/product';
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -59,10 +60,9 @@ export class SupabaseOperatorAuth implements OperatorAuth {
           invalid_credentials: "credentials_rejected",
           email_not_confirmed: "email_not_confirmed",
           user_banned: "forbidden",
-          over_request_rate_limit: "rate_limited",
         };
         throw new OperatorError(
-          error.status === 429
+          isAuthRateLimited(error)
             ? "rate_limited"
             : (mapping[error.code ?? ""] ?? "service_unavailable"),
         );
@@ -91,7 +91,7 @@ export class SupabaseOperatorAuth implements OperatorAuth {
   async prepareMfa(): Promise<MfaFactor> {
     return this.mutate(async () => {
       const { data, error } = await this.client.auth.mfa.listFactors();
-      if (error) throw new OperatorError("service_unavailable");
+      if (error) throw new OperatorError(isAuthRateLimited(error) ? "rate_limited" : "service_unavailable");
       const verified = data.all.find(
         (factor) =>
           factor.factor_type === "totp" && factor.status === "verified",
@@ -105,13 +105,13 @@ export class SupabaseOperatorAuth implements OperatorAuth {
         const removed = await this.client.auth.mfa.unenroll({
           factorId: factor.id,
         });
-        if (removed.error) throw new OperatorError("service_unavailable");
+        if (removed.error) throw new OperatorError(isAuthRateLimited(removed.error) ? "rate_limited" : "service_unavailable");
       }
       const enrollment = await this.client.auth.mfa.enroll({
         factorType: "totp",
         friendlyName: `${APP_NAME} Betreiber`,
       });
-      if (enrollment.error) throw new OperatorError("service_unavailable");
+      if (enrollment.error) throw new OperatorError(isAuthRateLimited(enrollment.error) ? "rate_limited" : "service_unavailable");
       return {
         factorId: enrollment.data.id,
         qrCode: enrollment.data.totp.qr_code,
@@ -125,7 +125,7 @@ export class SupabaseOperatorAuth implements OperatorAuth {
         factorId,
         code,
       });
-      if (result?.error) throw new OperatorError("mfa_invalid");
+      if (result?.error) throw new OperatorError(isAuthRateLimited(result.error) ? "rate_limited" : "mfa_invalid");
     });
   }
 }

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { definerFindings, tenantPolicyFindings } from './support/catalogSecurity.js';
 import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -943,13 +944,13 @@ describe('B3 least-privilege roles and request context', () => {
         name: 'read_administration_session_v2',
         owner: 'taptime_membership_management_function_owner',
         security_definer: true,
-        configuration: ['search_path=pg_catalog, taptime_server'],
+        configuration: ['search_path=pg_catalog'],
       },
       {
         name: 'read_managed_memberships_v2',
         owner: 'taptime_membership_management_function_owner',
         security_definer: true,
-        configuration: ['search_path=pg_catalog, taptime_server'],
+        configuration: ['search_path=pg_catalog'],
       },
     ]);
 
@@ -1492,7 +1493,7 @@ describe('B3 least-privilege roles and request context', () => {
     `);
     expect(result.rows[0]).toEqual({
       security_definer: true,
-      configuration: ['search_path=pg_catalog, taptime_server'],
+      configuration: ['search_path=pg_catalog'],
       administrator_can_execute: false,
     });
   });
@@ -4177,4 +4178,77 @@ it('T116 grants removal and inspect v2 only to setup; callers receive no direct 
   for(const grant of grants)expect(grant.allowed,`${signature}: ${grant.rolname}`).toBe(grant.rolname==='taptime_admin_setup');
  }
  expect((await installerPool.query("SELECT has_any_column_privilege('taptime_admin_setup','taptime_server.nfc_assignments','UPDATE') allowed")).rows[0].allowed).toBe(false);
+});
+
+
+describe('T119 catalog-wide security invariants', () => {
+  it('rejects unsafe definers and checks every installed definer without a fixed count', async () => {
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      // One defect at a time, otherwise one working check could conceal another missing check.
+      await client.query(`CREATE FUNCTION taptime_server.t119_probe() RETURNS integer
+        LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS 'SELECT 1';
+        ALTER FUNCTION taptime_server.t119_probe() OWNER TO taptime_admin_setup_function_owner;
+        REVOKE ALL ON FUNCTION taptime_server.t119_probe() FROM PUBLIC`);
+      const probe = (rows: Awaited<ReturnType<typeof definerFindings>>) => rows.filter(row => row.signature.includes('t119_probe('));
+      expect(probe(await definerFindings(client))).toEqual([]);
+      const mutations = [
+        ['path', 'ALTER FUNCTION taptime_server.t119_probe() RESET search_path'],
+        ['path', 'ALTER FUNCTION taptime_server.t119_probe() SET search_path = pg_catalog, public'],
+        ['owner', 'ALTER FUNCTION taptime_server.t119_probe() OWNER TO CURRENT_USER'],
+        ['execute', 'GRANT EXECUTE ON FUNCTION taptime_server.t119_probe() TO PUBLIC'],
+        ['execute', 'GRANT EXECUTE ON FUNCTION taptime_server.t119_probe() TO taptime_b3_employee_test_login'],
+      ] as const;
+      for (const [kind, mutation] of mutations) {
+        await client.query('SAVEPOINT unsafe_definer');
+        await client.query(mutation);
+        expect(probe(await definerFindings(client)), mutation).toEqual(expect.arrayContaining([
+          expect.objectContaining({ kind }),
+        ]));
+        await client.query('ROLLBACK TO SAVEPOINT unsafe_definer');
+      }
+      // A NULL ACL means PostgreSQL defaults, including PUBLIC EXECUTE.
+      await client.query(`CREATE FUNCTION taptime_server.t119_default_acl() RETURNS integer
+        LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS 'SELECT 1';
+        ALTER FUNCTION taptime_server.t119_default_acl() OWNER TO taptime_admin_setup_function_owner`);
+      expect(await definerFindings(client)).toEqual(expect.arrayContaining([
+        expect.objectContaining({ signature: 'taptime_server.t119_default_acl()', kind: 'execute' }),
+      ]));
+      await client.query('ROLLBACK');
+      expect(await definerFindings(client)).toEqual([]);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
+
+  it('rejects unbound policy branches and checks every tenant policy including exact exceptions', async () => {
+    const client = await installerPool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(`CREATE TABLE taptime_server.t119_policy_probe (organization_id uuid, active boolean);
+        ALTER TABLE taptime_server.t119_policy_probe ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE taptime_server.t119_policy_probe FORCE ROW LEVEL SECURITY`);
+      const guard = 'organization_id = taptime_server.current_organization_id()';
+      for (const [using, check] of [
+        ['true', guard], [guard, 'true'],
+        [`(${guard}) OR active`, guard], [guard, `(${guard}) OR active`],
+        [`NOT (${guard})`, guard],
+      ]) {
+        await client.query(`CREATE POLICY t119_unbound ON taptime_server.t119_policy_probe
+          USING (${using}) WITH CHECK (${check})`);
+        expect(await tenantPolicyFindings(client)).toContain('taptime_server.t119_policy_probe.t119_unbound');
+        await client.query('DROP POLICY t119_unbound ON taptime_server.t119_policy_probe');
+      }
+      // WITH CHECK omitted for ALL inherits USING and must not be treated as open.
+      await client.query(`CREATE POLICY t119_bound ON taptime_server.t119_policy_probe USING (${guard})`);
+      expect(await tenantPolicyFindings(client)).toEqual([]);
+      await client.query('ROLLBACK');
+      expect(await tenantPolicyFindings(client)).toEqual([]);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
 });

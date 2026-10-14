@@ -589,6 +589,19 @@ gleich markierten Abbilder.
 
 Vor der separat freigegebenen Auslieferung prüft der Product Owner: Selbstregistrierung aus, E-Mail-Bestätigung an, „Email OTP Expiration“ **3600 s**. Site URL `https://admin.tb-infra.de` ohne abschließenden Schrägstrich; Einladungs-Redirect `https://admin.tb-infra.de/willkommen`, ohne Wildcard. App und Web setzen Passwörter über dieselbe Site URL; keine Recovery-App-Schemata. Der PO legt diese Einstellungen und die Redirect-Liste an, pflegt sie bei Domain-/Projektwechsel und entfernt obsolete Einträge nach Ablösung. Deutsche Vorlage und vollständiger Ablauf: `docs/T-047-Inbetriebnahme.md`, `docs/T-047-Einladungsvorlage.md`.
 
+**T-119 / D-139, vor den ersten echten Konten, zusammen mit T-024:** Der Product Owner
+setzt im Supabase-Dashboard die Passwort-Mindestlänge auf **10 Zeichen**, gleich der gemeinsamen
+Quelle `shared/authPolicy.ts`. Sie gilt beim Setzen und Ändern eines Passworts; bestehende
+kürzere Passwörter werden bei der Anmeldung weiterhin geprüft. Der PO setzt die
+**Anmeldegrenze je IP-Adresse auf 100 in 5 Minuten**, damit sich Mitarbeiter eines Standorts
+über dieselbe Internetadresse anmelden können. Mit der Gewerbeanmeldung stellt der PO auf
+**Supabase Pro** um (D-130) und aktiviert unmittelbar danach den **Schutz vor bekannten
+geleakten Passwörtern**, ebenfalls vor den ersten echten Konten. Der PO prüft und pflegt diese
+Einstellungen bei späteren Richtlinien- oder Projektwechseln und entfernt die alten
+Einstellungen mit der Ablösung des Projekts. Die Anmeldung geht weiter direkt von den Clients
+an Supabase; im Pilot gibt es kein CAPTCHA. Vor der Ausweitung bewerten PO und TL den Schutz
+erneut. Diese Dashboard-Schritte sind keine automatischen Schritte des Deploys.
+
 **Erst nach dem erfolgreichen Deploy von T-094b:** Der Product Owner setzt Betreff und HTML aus
 `docs/T-094b-Ruecksetzvorlage.md` unter Authentication → Email Templates → Reset Password ein.
 Der Link führt direkt zu `/passwort-neu`, mit `token_hash` und `type=recovery` im Anker; die Seite

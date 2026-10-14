@@ -56,7 +56,7 @@ describe('T-094b real application entry', () => {
     expect(sdk.setSession).not.toHaveBeenCalled();
     render(page);
     expect(document.title).toBe(`${APP_NAME} · Neues Passwort setzen`);
-    expect(screen.getByLabelText('Neues Passwort')).toHaveAttribute('minlength', '8');
+    expect(screen.getByLabelText('Neues Passwort')).toHaveAttribute('minlength', '10');
     expect(sdk.createClient).toHaveBeenCalledExactlyOnceWith(configuration.supabaseUrl,
       configuration.supabasePublishableKey,
       { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });

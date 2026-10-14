@@ -138,3 +138,44 @@ it("fails closed on missing, secret or non-project build configuration", () => {
     }),
   ).toBeNull();
 });
+
+import { OperatorRuntime } from '../src/OperatorRuntime';
+import { App } from '../src/App';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach } from 'vitest';
+import { createElement } from 'react';
+import '@testing-library/jest-dom/vitest';
+afterEach(cleanup);
+it.each([{ status: 429 }, { code: 'over_request_rate_limit' }, { status: 429, code: 'invalid_credentials' }])(
+  'T119 shows throttling through the real login and submits an eight-character password (%j)', async error => {
+    sdk.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
+    sdk.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    sdk.signInWithPassword.mockResolvedValueOnce({ data: { session: null }, error })
+      .mockResolvedValueOnce({ data: { session: { access_token: 'synthetic' } }, error: null });
+    const auth = new SupabaseOperatorAuth('https://synthetic.supabase.co', 'synthetic', sessionStorage);
+    const runtime = new OperatorRuntime(auth, sessionStorage);
+    try {
+      render(createElement(App, { runtime }));
+      await screen.findByLabelText('E-Mail');
+      fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'existing@example.test' } });
+      fireEvent.change(screen.getByLabelText('Passwort'), { target: { value: '12345678' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }));
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Zu viele Versuche. Bitte warten Sie einige Minuten.'));
+      expect(sdk.signInWithPassword).toHaveBeenCalledWith({ email: 'existing@example.test', password: '12345678' });
+      expect(screen.getByLabelText('Passwort')).not.toHaveAttribute('minlength');
+      await expect(auth.signIn('existing@example.test', '12345678')).resolves.toBeUndefined();
+    } finally { runtime.dispose(); }
+  });
+
+it.each(['list', 'unenroll', 'enroll', 'verify'].flatMap(stage => [
+  { stage, error: { status: 429 } }, { stage, error: { code: 'over_request_rate_limit' } },
+]))('T119 preserves MFA throttling ($stage, $error)', async ({ stage, error }) => {
+  const auth = new SupabaseOperatorAuth('https://synthetic.supabase.co', 'synthetic', sessionStorage);
+  sdk.mfa.listFactors.mockResolvedValue({ error: stage === 'list' ? error : null,
+    data: { all: stage === 'unenroll' ? [{ id: 'abandoned', factor_type: 'totp', status: 'unverified' }] : [] } });
+  sdk.mfa.unenroll.mockResolvedValue({ error });
+  sdk.mfa.enroll.mockResolvedValue({ error });
+  sdk.mfa.challengeAndVerify.mockResolvedValue({ error });
+  await expect(stage === 'verify' ? auth.verifyMfa('factor', '123456') : auth.prepareMfa())
+    .rejects.toMatchObject({ code: 'rate_limited' });
+});

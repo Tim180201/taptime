@@ -47,6 +47,7 @@ type Kind = typeof kinds[number] | 'customer_detail';
 type Who = keyof typeof actors;
 const oldSnapshots = new Map<string, unknown>();
 let oldFunctions: Record<string, unknown>[];
+let searchMigrationFunctions: Record<string, unknown>[];
 const functionCatalog = async () => (await db.query(`SELECT proname,pg_get_function_identity_arguments(oid) AS arguments,
   prosrc,proowner,prosecdef,proconfig,proacl::text FROM pg_proc
   WHERE pronamespace='taptime_server'::regnamespace AND prokind='f' ORDER BY proname,arguments`)).rows;
@@ -221,7 +222,13 @@ beforeAll(async () => {
   await db.query('UPDATE taptime_server.organizations SET locations_enabled=true,row_version=row_version+1 WHERE id=$1', [org]);
   for (const kind of kinds) oldSnapshots.set(kind, stable(await oldResponse(kind)));
   oldFunctions = await functionCatalog();
-  if (!legacy) await applyMigrationSet(db, migrations);
+  if (!legacy) {
+    // This invariant concerns 056. Later migrations may deliberately harden the
+    // predecessors (058); business tests below still run against the latest schema.
+    await applyMigrationSet(db, migrations.filter(m => m.version <= '056'));
+    searchMigrationFunctions = await functionCatalog();
+    await applyMigrationSet(db, migrations);
+  }
 }, 60_000);
 afterAll(async () => {
   if (created) await closePoolAndDropTestDatabase({ targetPool: db, installerPool: installer, databaseName });
@@ -347,7 +354,7 @@ it('T117 binds location, month, person and detail-customer filters into cursors'
   }
 });
 it('T117 leaves every predecessor body and capability unchanged and copies the function owner/ACL', async () => {
-  const current = await functionCatalog();
+  const current = legacy ? await functionCatalog() : searchMigrationFunctions;
   for (const prior of oldFunctions) expect(current.find(row => row.proname === prior.proname && row.arguments === prior.arguments)).toEqual(prior);
   for (const [next, prior] of [
     ['read_customer_hours_v3', 'read_customer_hours_v2'], ['read_customer_hours_detail_v1', 'read_customer_hours_v2'],

@@ -84,3 +84,12 @@ it('T075 warns at the invitation boundary but keeps sending possible; null packa
   await mount(h(InviteEmployeeScreen,{...props,state:{...props.state,packageUsage:{packageSize:null,activeAccessCount:2}}}));expect(box.textContent).not.toContain('Paket');
   await mount(h(InviteEmployeeScreen,{...props,scope:{kind:'location',locationId:'l1',locationName:'Nord'}}));expect(box.textContent).not.toContain('Paket');
 });
+it.each(['Anmelden','Mit Einladung beitreten','Passwort vergessen'])('T119 %s shows throttling and still sends an eight-character login password',async title=>{
+ const signIn=vi.fn(async()=>({status:'rate_limited' as const})),reset=vi.fn(async()=> 'rate_limited' as const);
+ await mount(h(LoginScreen,{signIn,signInForEmployeeEnrollment:signIn,requestPasswordReset:reset,disabled:false}));
+ await fill('E-Mail-Adresse','existing@example.test');await fill('Passwort','12345678');await press(title);
+ expect(box.textContent).toContain('Zu viele Versuche. Bitte warte einige Minuten.');
+ if(title==='Passwort vergessen')expect(reset).toHaveBeenCalledWith('existing@example.test');
+ else expect(signIn).toHaveBeenCalledWith('existing@example.test','12345678');
+ expect(box.textContent).not.toContain('nicht verfügbar');
+});

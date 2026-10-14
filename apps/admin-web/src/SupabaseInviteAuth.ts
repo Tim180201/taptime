@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH, isAuthRateLimited } from '../../../shared/authPolicy';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 export type InvitePasswordResult = 'succeeded' | 'invalid_invitation' | 'weak_password'
@@ -28,6 +29,7 @@ export class SupabaseInviteAuth implements InvitePasswordCapability {
     if (this.busy) return 'unavailable';
     const client = this.client;
     if (client === null) return 'invalid_invitation';
+    if (password.length < MIN_PASSWORD_LENGTH) return 'weak_password';
     this.busy = true;
     try {
       if (!this.verified) {
@@ -72,7 +74,7 @@ function parseInviteToken(value: string): string | null {
 }
 
 function mapInviteError(error: { readonly code?: string; readonly status?: number }): InvitePasswordResult {
-  if (error.status === 429) return 'rate_limited';
+  if (isAuthRateLimited(error)) return 'rate_limited';
   switch (error.code) {
     case 'weak_password':
     case 'same_password': return 'weak_password';

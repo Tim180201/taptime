@@ -1,3 +1,4 @@
+import { isAuthRateLimited } from '../../../../shared/authPolicy';
 import 'react-native-url-polyfill/auto';
 import {
   createClient,
@@ -31,6 +32,7 @@ export class SupabaseEmailPasswordAuthAdapter implements ProviderAuthPort {
   async signInWithPassword(email: string, password: string): Promise<ProviderSignInResult> {
     const { data, error } = await this.auth.signInWithPassword({ email, password });
     if (error !== null) {
+      if (isAuthRateLimited(error)) return { status: 'rate_limited' };
       if (error.code === 'invalid_credentials') {
         return { status: 'invalid_credentials' };
       }
@@ -76,9 +78,9 @@ export class SupabaseEmailPasswordAuthAdapter implements ProviderAuthPort {
     await this.auth.stopAutoRefresh();
   }
 
-  async requestPasswordReset(email: string): Promise<boolean> {
+  async requestPasswordReset(email: string): Promise<boolean | 'rate_limited'> {
     const { error } = await this.auth.resetPasswordForEmail(email);
-    return error === null;
+    return isAuthRateLimited(error) ? 'rate_limited' : error === null;
   }
 
 

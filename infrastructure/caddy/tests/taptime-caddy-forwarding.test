@@ -104,9 +104,10 @@ for forbidden in "'unsafe-inline'" "'unsafe-eval'" ' \* ' ' \*;' 'http:' 'https:
     exit 1
   fi
 done
+supabase_origin="$(node -e "const c=require('./apps/mobile/eas.json');process.stdout.write(new URL(c.build['production-validation'].env.EXPO_PUBLIC_SUPABASE_URL).origin)")"
 for required in "default-src 'none'" "script-src 'self'" "frame-ancestors 'none'" \
-  "object-src 'none'" "base-uri 'self'" "connect-src 'self' https://\*.supabase.co"; do
-  if ! grep -Eq -- "$required" <<< "$production_csp"; then
+  "object-src 'none'" "base-uri 'self'" "connect-src 'self' $supabase_origin;"; do
+  if ! grep -Fq -- "$required" <<< "$production_csp"; then
     printf 'Admin Web CSP must contain %s\n' "$required" >&2
     exit 1
   fi

@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH } from '../../../shared/authPolicy';
 import { APP_NAME } from '../../../shared/product';
 import { BrandMark } from '../../../shared/BrandMark';
 import { AppDownloadSuccess } from './AppDownloadSuccess';
@@ -358,7 +359,7 @@ function PasswordRecovery({
       }}>
         <label htmlFor="recovery-password">Neues Passwort</label>
         <input id="recovery-password" type="password" autoComplete="new-password"
-          minLength={8} required value={password}
+          minLength={MIN_PASSWORD_LENGTH} required value={password}
           onChange={(event) => setPassword(event.target.value)} />
         <button disabled={completing} aria-busy={completing}>
           {completing ? 'Wird geändert …' : 'Passwort ändern'}

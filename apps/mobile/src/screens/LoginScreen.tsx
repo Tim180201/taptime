@@ -1,3 +1,4 @@
+import { MOBILE_AUTH_RATE_LIMIT_MESSAGE } from '../../../../shared/authPolicy';
 import { APP_NAME } from '../../../../shared/product';
 import { BrandMark } from '../design/BrandMark';
 import { OutcomeNotice } from '../design/OutcomeNotice';
@@ -14,7 +15,7 @@ interface LoginScreenProps {
   readonly signIn: (email: string, password: string) => Promise<SignInResult>;
   readonly signInForEmployeeEnrollment: (email: string, password: string) => Promise<SignInResult>;
   readonly disabled: boolean;
-  readonly requestPasswordReset: (email: string) => Promise<'requested' | 'unavailable'>;
+  readonly requestPasswordReset: (email: string) => Promise<'requested' | 'unavailable' | 'rate_limited'>;
 }
 
 export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswordReset, disabled, unavailable = false }: LoginScreenProps) {
@@ -38,7 +39,9 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
       const result = await (employeeEnrollmentIntent
         ? signInForEmployeeEnrollment(email, password)
         : signIn(email, password));
-      if (result.status === 'invalid_credentials') {
+      if (result.status === 'rate_limited') {
+        setMessage(MOBILE_AUTH_RATE_LIMIT_MESSAGE);
+      } else if (result.status === 'invalid_credentials') {
         setMessage('E-Mail-Adresse oder Passwort ist nicht gültig.');
       } else if (result.status === 'authority_rejected') {
         setMessage('Dein Konto hat derzeit keinen aktiven Zugang zu diesem Betrieb.');
@@ -65,7 +68,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
       setMessageIsError(result !== 'requested');
       setMessage(result === 'requested'
         ? 'Wir haben dir eine E-Mail geschickt. Öffne den Link und setze dein neues Passwort auf der Webseite. Melde dich dann hier an.'
-        : 'Wiederherstellung ist derzeit nicht erreichbar.');
+        : result === 'rate_limited' ? MOBILE_AUTH_RATE_LIMIT_MESSAGE : 'Wiederherstellung ist derzeit nicht erreichbar.');
     } catch {setMessageIsError(true);setMessage('Wiederherstellung ist derzeit nicht erreichbar.');}
     finally {submitInFlight.current=false;setSubmitting(false);}
   }

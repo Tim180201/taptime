@@ -291,14 +291,15 @@ export class MobileSessionCoordinator implements
     return this.startSignIn(email, password, true);
   }
 
-  async requestPasswordReset(email: string): Promise<'requested' | 'unavailable'> {
+  async requestPasswordReset(email: string): Promise<'requested' | 'unavailable' | 'rate_limited'> {
     if (this.provider.requestPasswordReset === undefined || email.trim().length < 3) {
       return 'unavailable';
     }
     try {
-      return await this.enqueueProviderOperation(() => this.provider.requestPasswordReset!(
+      const result = await this.enqueueProviderOperation(() => this.provider.requestPasswordReset!(
         email.trim(),
-      )) ? 'requested' : 'unavailable';
+      ));
+      return result === 'rate_limited' ? 'rate_limited' : result ? 'requested' : 'unavailable';
     } catch {
       return 'unavailable';
     }
@@ -534,9 +535,9 @@ export class MobileSessionCoordinator implements
     if (generation !== this.generation) {
       return { status: 'infrastructure_error' };
     }
-    if (result.status === 'invalid_credentials') {
-      this.setState({ status: 'unauthenticated', reason: 'invalid_credentials' });
-      return { status: 'invalid_credentials' };
+    if (result.status === 'invalid_credentials' || result.status === 'rate_limited') {
+      this.setState({ status: 'unauthenticated', reason: result.status });
+      return { status: result.status };
     }
 
     const tokenRevision = this.acceptProviderTokens(result.tokens);

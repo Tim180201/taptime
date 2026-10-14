@@ -27,7 +27,8 @@ export interface ProviderSessionTokens {
 
 export type ProviderSignInResult =
   | { readonly status: 'authenticated'; readonly tokens: ProviderSessionTokens }
-  | { readonly status: 'invalid_credentials' };
+  | { readonly status: 'invalid_credentials' }
+  | { readonly status: 'rate_limited' };
 
 export type ProviderRefreshResult =
   | { readonly status: 'refreshed'; readonly tokens: ProviderSessionTokens }
@@ -44,7 +45,7 @@ export interface ProviderAuthPort {
   subscribe(listener: (event: ProviderAuthEvent) => void): () => void;
   startAutoRefresh(): Promise<void>;
   stopAutoRefresh(): Promise<void>;
-  requestPasswordReset?(email: string): Promise<boolean>;
+  requestPasswordReset?(email: string): Promise<boolean | 'rate_limited'>;
 }
 
 export interface RefreshTokenStore {
@@ -93,7 +94,7 @@ export type MobileSessionState =
   | { readonly status: 'initializing' }
   | {
       readonly status: 'unauthenticated';
-      readonly reason: 'not_signed_in' | 'invalid_credentials' | 'authority_rejected' | 'sign_in_unavailable';
+      readonly reason: 'not_signed_in' | 'invalid_credentials' | 'authority_rejected' | 'sign_in_unavailable' | 'rate_limited';
     }
   | { readonly status: 'signing_in' }
   | { readonly status: 'authenticated'; readonly session: ProductSessionContext; readonly identityLabel?: string }
@@ -112,6 +113,7 @@ export type MobileSessionState =
 export type SignInResult =
   | { readonly status: 'authenticated' }
   | { readonly status: 'invalid_credentials' }
+  | { readonly status: 'rate_limited' }
   | { readonly status: 'authority_rejected' }
   | { readonly status: 'context_unavailable' }
   | { readonly status: 'infrastructure_error' }
@@ -135,7 +137,7 @@ export interface MobileSessionCapability {
   signOut(): Promise<void>;
   signOutImmediately?(): Promise<void>;
   cancelSignOut?(): Promise<void>;
-  readonly requestPasswordReset?: (email: string) => Promise<'requested' | 'unavailable'>;
+  readonly requestPasswordReset?: (email: string) => Promise<'requested' | 'unavailable' | 'rate_limited'>;
 }
 
 /**

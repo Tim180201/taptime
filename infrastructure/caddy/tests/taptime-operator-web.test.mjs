@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { request as httpRequest } from 'node:http';
 import { after, before, test } from 'node:test';
 import { parse } from 'yaml';
+const supabaseOrigin = new URL(JSON.parse(readFileSync('apps/mobile/eas.json', 'utf8')).build['production-validation'].env.EXPO_PUBLIC_SUPABASE_URL).origin;
 const id=`t068b-caddy-${process.pid}`;
 const root=mkdtempSync(join(tmpdir(),'t068b-caddy-'));
 const docker=(...args)=>execFileSync('docker',args,{encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
@@ -52,7 +53,7 @@ test('operator static paths serve version, SPA and assets with strict headers',a
   for(const path of ['/','/protokoll','/index.html','/releases/abcdef0/index.html']){
     const res=await request('betreiber.tb-infra.de',path);assert.equal(res.status,200,path);assert.equal(res.headers.get('cache-control'),'no-store',path);
     for(const [header,value] of [['x-frame-options','DENY'],['strict-transport-security','max-age=31536000; includeSubDomains']])assert.equal(res.headers.get(header),value);
-    const csp=res.headers.get('content-security-policy');assert.ok(csp);assert.match(csp,/script-src 'self'/);assert.match(csp,/connect-src 'self' https:\/\/\*\.supabase.co/);assert.doesNotMatch(csp,/unsafe-inline|unsafe-eval/);
+    const csp=res.headers.get('content-security-policy');assert.ok(csp);assert.match(csp,/script-src 'self'/);assert.equal(csp.split(';').map(value => value.trim()).find(value => value.startsWith('connect-src ')), `connect-src 'self' ${supabaseOrigin}`);assert.doesNotMatch(csp,/unsafe-inline|unsafe-eval/);
   }
   const version=await request('betreiber.tb-infra.de','/version.txt');assert.equal(await version.text(),'abcdef0');assert.equal(version.headers.get('cache-control'),'no-store');
   const asset=await request('betreiber.tb-infra.de','/releases/abcdef0/assets/app.js');assert.equal(await asset.text(),'synthetic-bundle');assert.match(asset.headers.get('cache-control'),/immutable/);

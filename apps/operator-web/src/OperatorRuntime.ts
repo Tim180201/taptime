@@ -1,3 +1,4 @@
+import { AUTH_RATE_LIMIT_MESSAGE } from '../../../shared/authPolicy';
 import { APP_NAME } from '../../../shared/product';
 import { OperatorError } from './OperatorError';
 export { OperatorError } from './OperatorError';
@@ -313,7 +314,7 @@ export function errorText(error: unknown): string {
     invalid_response:
       "Die Antwort konnte nicht gelesen werden. Bitte laden Sie die Ansicht erneut.",
     rate_limited:
-      "Zu viele Anfragen. Bitte warten Sie eine Minute und versuchen Sie es erneut.",
+      AUTH_RATE_LIMIT_MESSAGE,
     invitation_rate_limited:
       "Zu viele Einladungen. Bitte warten Sie und versuchen Sie es erneut.",
     not_found:

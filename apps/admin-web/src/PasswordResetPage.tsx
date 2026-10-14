@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH, AUTH_RATE_LIMIT_MESSAGE } from '../../../shared/authPolicy';
 import { AppDownloadSuccess } from './AppDownloadSuccess';
 import { APP_NAME } from '../../../shared/product';
 import { RequiredForm } from './RequiredForm';
@@ -10,7 +11,7 @@ export const expiredResetLinkMessage = 'Der Link ist abgelaufen oder wurde schon
 const messages: Record<Exclude<RecoveryPasswordResult, 'succeeded'>, string> = {
   invalid_link: expiredResetLinkMessage,
   weak_password: 'Dieses Passwort wurde nicht angenommen. Bitte wählen Sie ein längeres, neues Passwort.',
-  rate_limited: 'Zu viele Versuche. Bitte warten Sie kurz und versuchen Sie es erneut.',
+  rate_limited: AUTH_RATE_LIMIT_MESSAGE,
   unavailable: 'Das Passwort konnte nicht gespeichert werden. Bitte versuchen Sie es erneut, sobald die Verbindung wieder funktioniert.',
   completion_unconfirmed: 'Ihr Passwort wurde geändert; der Abschluss ist noch nicht bestätigt. Bestätigen Sie die Änderung erneut.',
 };
@@ -52,9 +53,9 @@ export function PasswordResetPage({ recovery }: { readonly recovery: RecoveryPas
           }}>
             <label htmlFor="reset-password">Neues Passwort</label>
             <input id="reset-password" type="password" autoComplete="new-password"
-              required minLength={8} value={password} disabled={busy || awaitingCompletion}
+              required minLength={MIN_PASSWORD_LENGTH} value={password} disabled={busy || awaitingCompletion}
               onChange={(event) => setPassword(event.target.value)} />
-            <small>Mindestens 8 Zeichen. Ein längerer Satz ist leichter zu merken.</small>
+            <small>Mindestens {MIN_PASSWORD_LENGTH} Zeichen. Ein längerer Satz ist leichter zu merken.</small>
             <button type="submit" aria-busy={busy} disabled={busy}>
               {busy ? 'Passwort wird gespeichert …' : awaitingCompletion ? 'Änderung abschließen' : 'Passwort ändern'}
             </button>

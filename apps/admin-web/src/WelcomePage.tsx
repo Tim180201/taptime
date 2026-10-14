@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH, AUTH_RATE_LIMIT_MESSAGE } from '../../../shared/authPolicy';
 import { AppDownloadSuccess } from './AppDownloadSuccess';
 import { APP_NAME } from '../../../shared/product';
 import { RequiredForm } from './RequiredForm';
@@ -12,7 +13,7 @@ import './styles.css';
 const messages: Record<Exclude<InvitePasswordResult, 'succeeded'>, string> = {
   invalid_invitation: 'Dieser Einladungslink ist ungültig oder abgelaufen. Bitten Sie die Person, die Sie eingeladen hat, um einen neuen Einladungslink.',
   weak_password: 'Dieses Passwort wurde nicht angenommen. Bitte wählen Sie ein längeres, neues Passwort.',
-  rate_limited: 'Zu viele Versuche. Bitte warten Sie kurz und versuchen Sie es erneut.',
+  rate_limited: AUTH_RATE_LIMIT_MESSAGE,
   unavailable: 'Das Passwort konnte nicht gespeichert werden. Bitte versuchen Sie es erneut, sobald die Verbindung wieder funktioniert.',
 };
 
@@ -57,9 +58,9 @@ export function WelcomePage({ invitation }: { readonly invitation: InvitePasswor
       }}>
         <label htmlFor="welcome-password">Neues Passwort</label>
         <input id="welcome-password" type="password" autoComplete="new-password"
-          required minLength={8} value={password}
+          required minLength={MIN_PASSWORD_LENGTH} value={password}
           onChange={(event) => setPassword(event.target.value)} />
-        <small>Mindestens 8 Zeichen. Ein längerer Satz ist leichter zu merken.</small>
+        <small>Mindestens {MIN_PASSWORD_LENGTH} Zeichen. Ein längerer Satz ist leichter zu merken.</small>
         <button type="submit" aria-busy={busy} disabled={busy}>
           {busy ? 'Passwort wird gespeichert …' : 'Passwort setzen'}
         </button>

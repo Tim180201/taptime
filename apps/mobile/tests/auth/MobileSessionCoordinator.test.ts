@@ -89,7 +89,7 @@ class FakeProvider implements ProviderAuthPort {
     this.stopAutoRefreshCalls += 1;
   }
 
-  async requestPasswordReset(email: string, redirectTo?: string): Promise<boolean> {
+  async requestPasswordReset(email: string, redirectTo?: string): Promise<boolean | 'rate_limited'> {
     this.passwordResetCalls.push(redirectTo === undefined ? [email] : [email, redirectTo]);
     return true;
   }
@@ -1510,4 +1510,14 @@ describe('T-115 recovery', () => {
     expect(h.coordinator.getState().status).toBe('signed_out');expect(h.store.value).toBeNull();
     expect(h.provider.refreshCalls).toHaveLength(refreshes);
   });
+});
+
+it('T119 keeps throttled sign-in retryable without persisting tokens or resolving a tenant', async () => {
+  const { coordinator, provider, store, backend } = setup();
+  provider.signInImplementation = async () => ({ status: 'rate_limited' });
+  await expect(coordinator.signIn('existing@example.test', '12345678')).resolves.toEqual({ status: 'rate_limited' });
+  expect(coordinator.getState()).toEqual({ status: 'unauthenticated', reason: 'rate_limited' });
+  expect(store.value).toBeNull();
+  provider.requestPasswordReset = async () => 'rate_limited';
+  await expect(coordinator.requestPasswordReset('existing@example.test')).resolves.toBe('rate_limited');
 });

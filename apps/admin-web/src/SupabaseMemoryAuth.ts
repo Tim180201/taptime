@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH, isAuthRateLimited } from '../../../shared/authPolicy';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { AdminWebSignInOutcome } from './AdminWebCoordinator';
 
@@ -47,13 +48,14 @@ export class SupabaseMemoryAuth {
     this.recoveryReady = false;
     await this.client.auth.signOut({ scope: 'local' });
   }
-  async requestPasswordReset(email: string): Promise<boolean> {
+  async requestPasswordReset(email: string): Promise<boolean | 'rate_limited'> {
     const result = await this.client.auth.resetPasswordForEmail(email);
-    return result.error === null;
+    return isAuthRateLimited(result.error) ? 'rate_limited' : result.error === null;
   }
-  async updateRecoveredPassword(password: string): Promise<boolean> {
-    if (!this.recoveryReady) return false;
+  async updateRecoveredPassword(password: string): Promise<boolean | 'rate_limited'> {
+    if (!this.recoveryReady || password.length < MIN_PASSWORD_LENGTH) return false;
     const result = await this.client.auth.updateUser({ password });
+    if (isAuthRateLimited(result.error)) return 'rate_limited';
     if (result.error !== null) return false;
     return true;
   }
@@ -102,6 +104,7 @@ function clearBrowserRecoveryUrl(): void {
 // that is the only honest statement then. Review round 2 caught 422 email_provider_disabled
 // reading as wrong credentials; the status alone is never evidence against the user.
 function classifySignInError(error: { readonly status?: number; readonly code?: string }): Exclude<AdminWebSignInOutcome, 'signed_in'> {
+  if (isAuthRateLimited(error)) return 'rate_limited';
   switch (error.code) {
     case 'invalid_credentials':
     case 'validation_failed':
@@ -109,10 +112,8 @@ function classifySignInError(error: { readonly status?: number; readonly code?: 
       return 'credentials_rejected';
     case 'email_not_confirmed': return 'email_not_confirmed';
     case 'user_banned': return 'access_blocked';
-    case 'over_request_rate_limit': return 'rate_limited';
     default: break;
   }
-  if (error.status === 429) return 'rate_limited';
   // A bare 400 without a code is the pre-error-code API shape for rejected credentials.
   if (error.status === 400 && error.code === undefined) return 'credentials_rejected';
   return 'service_unavailable';
