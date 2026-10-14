@@ -1,3 +1,5 @@
+import { boundedSearchPage, createSearchContext } from '@taptime/mobile-work-contract/server-search';
+import type { SearchRequests, SearchReadResult, SearchSetupResponse } from '@taptime/mobile-work-contract';
 import {isRemoveNfcTagRequest,type RemoveNfcTagRequest,type RemoveNfcTagResult,type InspectTagResultV2} from '@taptime/mobile-work-contract';
 import {isInspectTagRequest,type InspectTagRequest,type InspectTagResult} from '@taptime/mobile-work-contract';
 import { isManageCustomerRequest, type ManageCustomerRequest, type ManageCustomerResult } from '@taptime/mobile-work-contract';
@@ -705,6 +707,53 @@ export class AdminWriteSessionCoordinator {
         };
       },
     );
+  }
+
+  async querySearch<K extends 'setup_customers' | 'setup_tags'>(kind: K,
+    command: { readonly accessToken: string; readonly request: SearchRequests[K] },
+  ): Promise<SearchReadResult<K>> {
+    const context = createSearchContext(kind, command.request);
+    if (!context) return { status: 'invalid_request' };
+    const { request, after } = context;
+    return this.runWithAuthority<SearchReadResult<K>>(command.accessToken, request.expectedMembershipId as MembershipId, null, {}, async (client, actor) => {
+      const organization = (await client.query<OrganizationRow>(`SELECT id,name FROM taptime_server.organizations
+        WHERE id=$1 AND name=taptime_server.normalize_taptime_name_v1(name,'organization')`, [actor.organization_id])).rows[0];
+      if (!organization) throw new Error('Derived Organization is unavailable to the setup projection');
+      // Both branches deliberately remain invoker SQL as taptime_admin_setup. The
+      // predecessor's table predicates and RLS, including inactive assignments, apply.
+      const items = (await client.query<ProjectionRow & { customer_display_name: string | null }>(kind === 'setup_customers' ? `
+        SELECT 0 AS kind_order,customer.id,customer.display_name,customer.active,
+          NULL::text AS validation_fingerprint,NULL::uuid AS target_customer_id,NULL::uuid AS active_assignment_id,
+          NULL::text AS assignment_type,NULL::text AS customer_display_name
+        FROM taptime_server.customers AS customer
+        WHERE customer.organization_id=$1 AND customer.active
+          AND ($2::text IS NULL OR strpos(lower(customer.display_name COLLATE "und-x-icu"),lower($2::text COLLATE "und-x-icu"))>0)
+          AND ($3::text IS NULL OR (customer.display_name COLLATE "und-x-icu",customer.id)>($3::text COLLATE "und-x-icu",$4::uuid))
+        ORDER BY customer.display_name COLLATE "und-x-icu",customer.id LIMIT $5` : `
+        SELECT 1 AS kind_order,tag.id,tag.display_name,NULL::boolean AS active,tag.validation_fingerprint,
+          assignment.target_customer_id,assignment.id AS active_assignment_id,assignment.assignment_type,
+          customer.display_name AS customer_display_name
+        FROM taptime_server.nfc_tags AS tag
+        LEFT JOIN taptime_server.nfc_assignments AS assignment
+          ON assignment.organization_id=tag.organization_id AND assignment.nfc_tag_id=tag.id AND assignment.active
+        LEFT JOIN taptime_server.customers AS customer
+          ON customer.organization_id=assignment.organization_id AND customer.id=assignment.target_customer_id
+        WHERE tag.organization_id=$1
+          AND ($2::text IS NULL OR strpos(lower(tag.display_name COLLATE "und-x-icu"),lower($2::text COLLATE "und-x-icu"))>0
+            OR strpos(lower(customer.display_name COLLATE "und-x-icu"),lower($2::text COLLATE "und-x-icu"))>0)
+          AND ($3::text IS NULL OR (tag.display_name COLLATE "und-x-icu",tag.id)>($3::text COLLATE "und-x-icu",$4::uuid))
+        ORDER BY tag.display_name COLLATE "und-x-icu",tag.id LIMIT $5`,
+      [actor.organization_id, request.search, after?.name ?? null, after?.id ?? null, request.limit + 1])).rows;
+      const response = boundedSearchPage(items, request.limit, (page, nextCursor): SearchSetupResponse => ({
+        status: 'succeeded', organization: { id: organization.id, name: organization.name },
+        customers: kind === 'setup_customers' ? page.map(row => ({ id: row.id, displayName: row.display_name, active: row.active! })) : [],
+        nfcTags: kind === 'setup_tags' ? page.map(row => ({ id: row.id, displayName: row.display_name,
+          validationFingerprint: row.validation_fingerprint!, assignmentState: row.active_assignment_id === null ? 'unassigned' : 'assigned',
+          assignmentType: row.assignment_type, targetCustomerId: row.target_customer_id, activeAssignmentId: row.active_assignment_id,
+          customerDisplayName: row.customer_display_name })) as SearchSetupResponse['nfcTags'] : [], nextCursor,
+      }), row => context.cursor({ name: row.display_name, id: row.id }));
+      return { disposition: 'commit', value: { status: 'succeeded', response } };
+    }, null);
   }
 
   async readSetupProjection(

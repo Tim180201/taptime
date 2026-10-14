@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
+import { boundedSearchPage, createSearchContext } from '@taptime/mobile-work-contract/server-search';
+import type { SearchRequests, SearchReadResult } from '@taptime/mobile-work-contract';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   MOBILE_OWN_TIME_LIMIT_MAXIMUM,
@@ -51,6 +53,24 @@ export class ProjectAdministrationCoordinator implements ProjectAdministrationPo
     private readonly pool: Pool,
     private readonly accessTokenVerifier: AccessTokenVerifier,
   ) {}
+
+  async querySearch(kind: 'projects', command: MobileReadCommand<SearchRequests['projects']>): Promise<SearchReadResult<'projects'>> {
+    const context = createSearchContext(kind, command.request);
+    if (!context) return { status: 'invalid_request' };
+    const { request, after } = context;
+    return this.withAdministrator(command.accessToken, request.expectedMembershipId, async (client, actor) => {
+      // Same runtime role, organization predicate and RLS as queryProjects.
+      const rows = (await client.query<ProjectRow>(`SELECT id AS project_id,display_name,active,row_version
+        FROM taptime_server.projects WHERE organization_id=$1::uuid
+          AND ($2::text IS NULL OR strpos(lower(display_name COLLATE "und-x-icu"),lower($2::text COLLATE "und-x-icu"))>0)
+          AND ($3::text IS NULL OR (display_name COLLATE "und-x-icu",id)>($3::text COLLATE "und-x-icu",$4::uuid))
+        ORDER BY display_name COLLATE "und-x-icu",id LIMIT $5`,
+      [actor.organization_id, request.search, after?.name ?? null, after?.id ?? null, request.limit + 1])).rows;
+      return { status: 'succeeded' as const, response: boundedSearchPage(rows, request.limit,
+        (page, nextCursor) => ({ projects: page.map(mapProject), nextCursor }),
+        row => context.cursor({ name: row.display_name, id: row.project_id })) };
+    });
+  }
 
   async queryProjects(
     command: MobileReadCommand<Parameters<ProjectAdministrationPort['queryProjects']>[0]['request']>,

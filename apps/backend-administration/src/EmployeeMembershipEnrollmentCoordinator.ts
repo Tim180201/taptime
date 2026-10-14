@@ -1,3 +1,5 @@
+import { boundedSearchPage, createSearchContext } from '@taptime/mobile-work-contract/server-search';
+import { isManagedActiveSummaryV6, type SearchRequests, type SearchResponses, type SearchReadResult } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { readManagedPerson, readManagedSummary, validPersonCommand, validSummaryCommand, type ManagedPersonTimeCommand, type ManagedActiveSummaryCommand, type ManagedPersonTimeResult, type ManagedActiveSummaryResult } from './ManagedPeopleReader.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -133,6 +135,41 @@ export class EmployeeMembershipEnrollmentCoordinator {
     if (!validSummaryCommand(command)) return { status: 'invalid_request' };
     return this.withMembershipManagementAuthority(command.accessToken, MembershipId(command.expectedMembershipId), randomUUID(), controls,
       client => readManagedSummary(client, command));
+  }
+
+  async querySearch<K extends 'managed_people' | 'memberships'>(kind: K,
+    command: { readonly accessToken: string; readonly request: SearchRequests[K] },
+  ): Promise<SearchReadResult<K>> {
+    const context = createSearchContext(kind, command.request);
+    if (!context) return { status: 'invalid_request' };
+    const { request, after } = context;
+    return this.withMembershipManagementAuthority<SearchReadResult<K>>(command.accessToken, MembershipId(request.expectedMembershipId), randomUUID(), {}, async client => {
+      const summary = request as SearchRequests['managed_people'];
+      const result = await client.query(kind === 'managed_people'
+        ? 'SELECT *,taptime_server.read_organization_package_v1() AS package_usage FROM taptime_server.read_managed_active_summary_v5($1,$2,$3,$4,$5,$6,$7,$8)'
+        : 'SELECT * FROM taptime_server.read_managed_memberships_v3($1,$2,$3,$4,$5)',
+      kind === 'managed_people' ? [request.locationId, summary.isRunning, after?.name ?? null, after?.id ?? null, request.limit + 1, summary.fromInclusive, summary.toExclusive, request.search]
+        : [request.locationId, request.search, after?.name ?? null, after?.id ?? null, request.limit + 1]);
+      const first = result.rows[0];
+      if (!first) throw new Error('Search membership projection omitted status');
+      if (first.result_status === 'forbidden' || first.result_status === 'invalid_request' || first.result_status === 'location_scope_forbidden') return { status: first.result_status };
+      if (first.result_status !== 'succeeded') throw new Error('Invalid search membership status');
+      const rows = result.rows.filter(row => row.membership_id !== null);
+      const timestamp = (value: Date | string): string => new Date(value).toISOString();
+      const response = boundedSearchPage(rows, request.limit, (page, nextCursor): SearchResponses['managed_people' | 'memberships'] => kind === 'managed_people' ? ({
+        serverTime: timestamp(first.server_time), runningCount: Number(first.running_count), totalCount: Number(first.total_count), packageUsage: first.package_usage,
+        people: page.map(row => ({ membershipId: row.membership_id, displayName: row.membership_display_name, role: row.membership_role,
+          location: row.location_id === null ? null : { id: row.location_id, name: row.location_name },
+          isRunning: row.is_running, runningSince: row.running_since === null ? null : timestamp(row.running_since), runningTargetDisplayName: row.running_target_display_name,
+          departedAt: row.departed_at === null ? null : timestamp(row.departed_at), monthWorkDurationSeconds: Number(row.month_work_duration_seconds) })), nextCursor,
+      }) : ({ status: 'succeeded' as const, organization: { id: first.organization_id, name: first.organization_name },
+        employeeMemberships: page.map(row => ({ id: row.membership_id, displayName: row.membership_display_name, role: row.membership_role,
+          active: row.membership_active, rowVersion: Number(row.membership_row_version),
+          location: row.location_id === null ? null : { id: row.location_id, name: row.location_name } })), nextCursor,
+      }), row => context.cursor({ name: row.membership_display_name, id: row.membership_id }));
+      if (kind === 'managed_people' && !isManagedActiveSummaryV6(response)) throw new Error('Invalid managed search response');
+      return { status: 'succeeded', response: response as SearchResponses[K] };
+    });
   }
 
   async createAccountInvitation(

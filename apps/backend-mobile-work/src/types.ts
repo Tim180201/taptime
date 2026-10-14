@@ -24,6 +24,7 @@ export type MobileReadResult<Response> =
   | { readonly status: 'invalid_request' };
 
 export interface MobileWorkReader {
+  readonly querySearch?: import('@taptime/mobile-work-contract').SearchReader<'customer_hours' | 'customer_detail' | 'work_targets'>['querySearch'];
   queryCustomerHours?(command: MobileReadCommand<import('@taptime/mobile-work-contract').CustomerHoursRequest>): Promise<MobileReadResult<import('@taptime/mobile-work-contract').CustomerHoursResponse>>;
   queryOwnTime(
     command: MobileReadCommand<MobileOwnTimeQueryRequest>,
@@ -34,6 +35,7 @@ export interface MobileWorkReader {
 }
 
 export interface ProjectAdministrationPort {
+  readonly querySearch?: import('@taptime/mobile-work-contract').SearchReader<'projects'>['querySearch'];
   queryProjects(
     command: MobileReadCommand<ProjectQueryRequest>,
   ): Promise<MobileReadResult<{

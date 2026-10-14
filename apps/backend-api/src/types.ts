@@ -157,6 +157,7 @@ export interface ManualLifecycleIngestor {
 }
 
 export interface AdministrationCoordinator {
+  querySearch?: import('@taptime/mobile-work-contract').SearchReader<'setup_customers' | 'setup_tags'>['querySearch'];
   removeTag?(command:import('@taptime/mobile-work-contract').RemoveNfcTagRequest & {readonly accessToken:string}):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   inspectTagV2?(command:import('@taptime/mobile-work-contract').InspectTagRequest & {readonly accessToken:string}):Promise<import('@taptime/mobile-work-contract').InspectTagResultV2>;
   inspectTag?(command:import('@taptime/mobile-work-contract').InspectTagRequest & {readonly accessToken:string}):Promise<import('@taptime/mobile-work-contract').InspectTagResult>;
@@ -199,6 +200,7 @@ export interface AdministrationCoordinator {
 }
 
 export interface EmployeeMembershipEnrollmentCoordinator {
+  querySearch?: import('@taptime/mobile-work-contract').SearchReader<'managed_people' | 'memberships'>['querySearch'];
   readManagedPersonTime?(command: ManagedPersonTimeCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedPersonTimeResult>;
   readManagedActiveSummary?(command: ManagedActiveSummaryCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedActiveSummaryResult>;
   resendAccountInvitation?(command:{accessToken:string;expectedMembershipId:MembershipId;commandId:string;targetMembershipId:string}, controls?: EmployeeEnrollmentCoordinatorControls): Promise<{status:string}>;
@@ -285,6 +287,7 @@ export type BackendApiRoute =
   | 'admin_create_employee_account_invitation'
   | 'admin_employee_memberships_projection'
   | 'admin_employee_memberships_projection_v2'
+  | 'admin_employee_memberships_projection_v3'
   | 'admin_managed_person_time'
   | 'admin_managed_active_summary'
   | 'admin_revoke_membership'
@@ -295,6 +298,7 @@ export type BackendApiRoute =
   | 'admin_reassign_nfc_tag'
   | 'admin_setup_projection'
   | 'admin_setup_projection_v2'
+  | 'admin_setup_projection_v3'
   | 'admin_time_entry_export'
   | 'time_entry_export_v2'
   | 'time_entry_export_v4'
@@ -305,6 +309,7 @@ export type BackendApiRoute =
   | 'time_void'
   | 'time_voided_query'
   | 'admin_time_backfill_targets'
+  | 'admin_time_backfill_targets_v2'
   | 'admin_time_record_query'
   | 'admin_time_record_query_v2'
   | 'admin_time_record_correction'
@@ -314,6 +319,7 @@ export type BackendApiRoute =
   | 'admin_review_item_query_v4'
   | 'admin_review_adjudication'
   | 'admin_project_query'
+  | 'admin_project_query_v2'
   | 'admin_project_create'
   | 'admin_project_deactivate'
   | 'admin_assignable_locations'
@@ -325,10 +331,13 @@ export type BackendApiRoute =
   | 'manual_lifecycle'
   | 'manual_break_lifecycle'
   | 'customer_hours'
+  | 'customer_hours_detail'
+  | 'customer_hours_page'
   | 'admin_customer_manage' | 'admin_tag_inspect' | 'admin_tag_inspect_v2' | 'admin_tag_remove' | 'admin_tag_reuse'
   | 'admin_customer_quota'
   | 'mobile_own_time'
   | 'mobile_work_targets'
+  | 'mobile_work_targets_v2'
   | 'offline_capture_lease'
   | 'offline_capture_lease_page'
   | 'offline_capture_lease_v2'

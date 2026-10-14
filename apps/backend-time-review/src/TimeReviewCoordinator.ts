@@ -1,3 +1,5 @@
+import { boundedSearchPage, createSearchContext, searchTargetRank } from '@taptime/mobile-work-contract/server-search';
+import type { SearchRequests, SearchReadResult } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { isBackfillTargetQueryRequest, isWorkTargetType, isCanonicalUuid, type BackfillTargetQueryRequest, type MobileWorkTargetQueryResponse, type SafeWorkTarget, isTimeRecordDetails } from '@taptime/mobile-work-contract';
 import { createHash } from 'node:crypto';
@@ -144,6 +146,21 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     private readonly writePool: Pool,
     private readonly accessTokenVerifier: AccessTokenVerifier,
   ) {}
+
+  async querySearch(kind: 'backfill_targets', command: AuthenticatedTimeReviewCommand<SearchRequests['backfill_targets']>): Promise<SearchReadResult<'backfill_targets'>> {
+    const context = createSearchContext(kind, command.request);
+    if (!context) return { status: 'invalid_request' };
+    const { request, after } = context;
+    const result = await this.withTimeManager(this.readPool, command.accessToken, request.expectedMembershipId, TIME_REVIEW_READER_ROLE, {}, async (client, actor) => {
+      const rows = (await client.query<{ target_type: SafeWorkTarget['targetType']; target_id: string; display_name: string }>(
+        'SELECT * FROM taptime_server.read_time_backfill_targets_v2($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+        [actor.organization_id, actor.user_id, actor.membership_id, request.targetMembershipId, after?.rank ?? null, after?.name ?? null, after?.id ?? null, request.limit + 1, request.search])).rows;
+      return { status: 'succeeded' as const, response: boundedSearchPage(rows, request.limit,
+        (page, nextCursor) => ({ targets: page.map(row => ({ targetType: row.target_type, targetId: row.target_id, displayName: row.display_name })), nextCursor }),
+        row => context.cursor({ name: row.display_name, id: row.target_id, rank: searchTargetRank(row.target_type) })) };
+    });
+    return result;
+  }
 
   async queryBackfillTargets(
     command: AuthenticatedTimeReviewCommand<BackfillTargetQueryRequest>,

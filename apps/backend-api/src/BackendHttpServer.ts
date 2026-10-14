@@ -1,3 +1,4 @@
+import { MANAGED_PEOPLE_ACCEPT_V6, parseSearchRequest, type SearchKind, type SearchReader } from '@taptime/mobile-work-contract';
 import { isIsoTimestamp } from '@taptime/core';
 import {isInspectTagRequest,isRemoveNfcTagRequest} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest} from '@taptime/mobile-work-contract';
@@ -93,6 +94,14 @@ import {
 // Shared registration for dispatch and request protection. Health alone bypasses the API budget.
 export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
+  '/v2/customers/hours/query': 'customer_hours_page',
+  '/v2/customers/hours/detail': 'customer_hours_detail',
+  '/v2/mobile/work-targets/query': 'mobile_work_targets_v2',
+  '/v3/administration/setup-projection': 'admin_setup_projection_v3',
+  '/v3/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v3',
+  '/v2/administration/time-records/backfill-targets/query': 'admin_time_backfill_targets_v2',
+  '/v2/administration/projects/query': 'admin_project_query_v2',
+
   '/v1/lifecycle-events/offline/skip': 'offline_sequence_skip',
   '/v4/administration/review-items/query': 'admin_review_item_query_v4',
   '/v3/administration/review-items/query': 'admin_review_item_query_v3',
@@ -405,8 +414,11 @@ async function handleRequest(
       || route === 'time_comment'
       || route === 'time_void'
       || route === 'time_voided_query'
+      || route === 'customer_hours_detail'
+      || route === 'customer_hours_page'
       || route === 'customer_hours'
       || route === 'mobile_own_time'
+      || route === 'mobile_work_targets_v2'
       || route === 'mobile_work_targets'
     )
     && rawHeaderValues(request, EXPECTED_MEMBERSHIP_HEADER).length > 0
@@ -588,6 +600,34 @@ async function handleRequest(
       respondError(response,503,'service_unavailable');
     }
     return;
+  }
+  const searchRead = async <K extends SearchKind>(kind: K, reader: { querySearch?: SearchReader<K>['querySearch'] } | undefined) => {
+    const parsed = parseSearchRequest(kind, body);
+    if (!parsed) { respondError(response, 400, 'invalid_request'); return; }
+    if (!reader?.querySearch) { respondError(response, 503, 'service_unavailable'); return; }
+    // Rejections are fixed codes. The shared exception handler logs only route and
+    // correlation ID; request bodies, SQL messages and search terms never enter it.
+    const result = await withTimeout(reader.querySearch(kind, { accessToken, request: parsed }), timeoutMilliseconds);
+    if (result.status === 'succeeded') { respondJson(response, 200, result.response); return; }
+    if (result.status === 'invalid_request') respondError(response, 400, 'invalid_request');
+    else if (result.status === 'unauthorized') respondError(response, 401, 'unauthorized');
+    else if (result.status === 'not_found') respondError(response, 404, 'not_found');
+    else if (result.status === 'location_scope_forbidden') respondError(response, 403, 'location_scope_forbidden');
+    else if (result.status === 'unavailable') respondError(response, 503, 'service_unavailable');
+    else respondError(response, 403, 'forbidden');
+  };
+  if (route === 'customer_hours_page') { await searchRead('customer_hours', dependencies.mobileWorkReader); return; }
+  if (route === 'customer_hours_detail') { await searchRead('customer_detail', dependencies.mobileWorkReader); return; }
+  if (route === 'mobile_work_targets_v2') { await searchRead('work_targets', dependencies.mobileWorkReader); return; }
+  if (route === 'admin_project_query_v2') { await searchRead('projects', dependencies.projectAdministration); return; }
+  if (route === 'admin_time_backfill_targets_v2') { await searchRead('backfill_targets', dependencies.timeReview); return; }
+  if (route === 'admin_employee_memberships_projection_v3') { await searchRead('memberships', dependencies.employeeEnrollment); return; }
+  if (route === 'admin_setup_projection_v3') {
+    await searchRead(isRecord(body) && body.kind === 'nfc_tags' ? 'setup_tags' : 'setup_customers', dependencies.administration); return;
+  }
+  if (route === 'admin_managed_active_summary' && request.headers.accept === MANAGED_PEOPLE_ACCEPT_V6) {
+    response.setHeader('Vary', 'Accept');
+    await searchRead('managed_people', dependencies.employeeEnrollment); return;
   }
   if (route === 'customer_hours') {
     if (!isCustomerHoursRequest(body)) { respondError(response,400,'invalid_request'); return; }
@@ -2903,6 +2943,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_resend_employee_account_invitation': case 'admin_create_employee_account_invitation':
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':
+    case 'admin_employee_memberships_projection_v3':
     case 'admin_employee_memberships_projection_v2':
     case 'admin_managed_person_time':
     case 'admin_managed_active_summary':
@@ -2913,7 +2954,9 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_provision_break_nfc_tag':
     case 'admin_reassign_nfc_tag':
     case 'admin_setup_projection':
+    case 'admin_setup_projection_v3':
     case 'admin_setup_projection_v2':
+    case 'admin_project_query_v2':
     case 'admin_project_query':
     case 'admin_project_create':
     case 'admin_project_deactivate':
@@ -2926,6 +2969,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'time_entry_export_v4':
     case 'time_entry_export_v3':
       return 'time_entry_export_failed';
+    case 'admin_time_backfill_targets_v2':
     case 'admin_time_backfill_targets':
     case 'admin_time_record_query':
     case 'admin_time_record_query_v2':
@@ -2954,8 +2998,11 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'manual_lifecycle':
     case 'manual_break_lifecycle':
       return 'lifecycle_ingestion_failed';
+    case 'customer_hours_detail':
+    case 'customer_hours_page':
     case 'customer_hours':
     case 'mobile_own_time':
+    case 'mobile_work_targets_v2':
     case 'mobile_work_targets':
       return 'mobile_work_failed';
     case 'offline_capture_lease':
@@ -2986,6 +3033,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_create_employee_account_invitation'
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'
+    || route === 'admin_employee_memberships_projection_v3'
     || route === 'admin_employee_memberships_projection_v2'
     || route === 'admin_managed_person_time'
     || route === 'admin_managed_active_summary'
@@ -2996,11 +3044,13 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_provision_break_nfc_tag'
     || route === 'admin_reassign_nfc_tag'
     || route === 'admin_setup_projection'
+    || route === 'admin_setup_projection_v3'
     || route === 'admin_setup_projection_v2'
     || route === 'admin_time_entry_export'
     || route === 'time_entry_export_v2'
     || route === 'time_entry_export_v4'
     || route === 'time_entry_export_v3'
+    || route === 'admin_time_backfill_targets_v2'
     || route === 'admin_time_backfill_targets'
     || route === 'admin_time_record_query'
     || route === 'admin_time_record_query_v2'
@@ -3010,6 +3060,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_review_item_query_v4'
     || route === 'admin_review_item_query_v3'
     || route === 'admin_review_adjudication'
+    || route === 'admin_project_query_v2'
     || route === 'admin_project_query'
     || route === 'admin_project_create'
     || route === 'admin_project_deactivate'

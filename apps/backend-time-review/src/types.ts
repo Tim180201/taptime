@@ -28,6 +28,7 @@ export interface TimeReviewCoordinatorControls {
 }
 
 export interface TimeReviewPort {
+  readonly querySearch?: import('@taptime/mobile-work-contract').SearchReader<'backfill_targets'>['querySearch'];
   readonly queryBackfillTargets?: (
     command: AuthenticatedTimeReviewCommand<BackfillTargetQueryRequest>,
     controls?: TimeReviewCoordinatorControls,
