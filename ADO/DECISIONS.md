@@ -1884,3 +1884,13 @@ nur, was ohne Suche sichtbar ist (D-102); Suchbegriffe werden nicht geloggt. Alt
 Umgesetzt in T-117a (Migration 056), genutzt ab T-117b.
 **Warum:** Bei frogs-Größe (500 Kunden, 200 Personen) passen vollständige Listen weder in die App noch in eine Auswahl;
 die Kundenliste wäre an der 16-KiB-Grenze der App gescheitert.
+
+## D-139 · Anmeldung: Schutz bei Supabase, keine eigene Vorschaltstelle · 14.10.2026 · TL
+Die Anmeldung geht weiter direkt von App und Web an Supabase (D-010). Eine eigene Ratenbegrenzung davor hieße, Passwörter
+über unseren Server zu leiten; das vergrößert die Angriffsfläche mehr, als es schützt. Stattdessen: Passwörter mit
+mindestens 10 Zeichen, aus einer Quelle in allen Clients und gleich im Dashboard; Anmeldegrenze je IP 100 in 5 Minuten,
+damit ein Standort mit gemeinsamer Internetadresse alle Lehrer am selben Morgen anmelden kann; Schutz vor bekannten
+geleakten Passwörtern ab Supabase Pro (D-130); eine klare Meldung „Zu viele Versuche“. Kein CAPTCHA im Pilot, vor der
+Ausweitung neu bewerten. Umsetzung in T-119, Dashboard-Schritte durch den PO.
+**Warum:** Ausreichender Schutz gegen Durchprobieren für den Pilot, ohne zusätzliche Datenwege und ohne zusätzliche Hürde
+für Lehrer.

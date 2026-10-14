@@ -1,62 +1,64 @@
 # Aktuelle Aufgabe
 
-> **Stand 14.10.2026:** T-118b abgeschlossen (`41d68dc`), noch nicht ausgeliefert. Jetzt **T-120**, danach Deploy 5 mit
-> neuen App-Builds und die Geräteabnahme.
+> **Stand 14.10.2026:** T-120 abgeschlossen (`d193725`). Deploy 5 mit neuen App-Builds und Geräteabnahme liegen beim PO.
+> Parallel dazu **T-119** (Code-Teil). Ausgeliefert wird T-119 zusammen mit T-024, vor den ersten echten Konten.
 
-## T-120 · Systemicon „Funk-Zifferblatt“ überall (D-136)
+## T-119 · Sicherheit vor echten Daten
 
-**Für:** Development · **Risiko:** mittel (Startablauf der App nach T-115, neues natives Modul, Caddyfile) · **Zeitbox:**
-ein bis zwei Sitzungen; reißt sie, wird nach App und Web getrennt gemeldet. Kein Server, keine Migration, kein Deploy.
+**Für:** Development · **Risiko:** hoch (Inhaltsrichtlinie, Rechteprüfung, Anmeldung) · **Zeitbox:** ein bis zwei
+Sitzungen. Kein Zugriff auf Supabase oder Produktion, kein Deploy.
 
-### Ausgangslage (`41d68dc`)
+### Ausgangslage (`d193725`)
 
-- Alle Bilddateien liegen fertig in `shared/brand/` (README dort): `app/` (iOS hell, dunkel, getönt; Android Vordergrund
-  und Themensymbol; Startbild; Expo-Favicon), `web/` (SVG, ICO, Apple-Touch), `store/`. Quelle ist `mark.json`.
-- App: Expo-Platzhalter in `apps/mobile/assets/`, `adaptiveIcon` auf #E6F4FE mit Hintergrundbild; `expo-splash-screen`
-  fehlt; beim Start steht „Sitzung wird sicher wiederhergestellt …“ (`ProductMobileApp.tsx`, `AppNavigator.tsx`).
-- Web: „T“ als Zeichen in der Verwaltung, Ringe im Betreiber-Bereich, eigenes Zeichen auf der Startseite; keine Web-App
-  hat ein Favicon. Auf der Startseiten-Domain sind ohne Passwort nur `/tag`, `/app`, `/robots.txt`, `/version.txt` und
-  deren Assets erreichbar.
+- Die Inhaltsrichtlinie (CSP) von Verwaltung und Betreiber-Bereich erlaubt `connect-src https://*.supabase.co`.
+  Die genaue Supabase-Herkunft steht in `apps/mobile/eas.json`; der Image-Bau liest sie dort.
+- Viele SECURITY-DEFINER-Funktionen; `B3SchemaSecurity` prüft Eigentümer und Rechte nur für einzelne Gruppen.
+- Die Passwort-Mindestlänge 8 steht an mehreren Stellen fest im Code. Die App meldet eine Supabase-Drosselung (HTTP 429)
+  als „nicht verfügbar“.
+- Die Anmeldung geht direkt von App und Web an Supabase (D-010); D-139 regelt den Schutz.
 
-### Regeln
+### Teil 1 · Inhaltsrichtlinie
 
-1. **App-Symbol:** iOS `icon` als hell, dunkel und getönt; Android adaptiv mit Vordergrund und Themensymbol auf
-   #0E1512, ohne Hintergrundbild; `web.favicon`. Alle Pfade zeigen auf `shared/brand/app/`. Kann Expo das nicht, sind
-   Kopien erlaubt, und ein Test prüft sie gegen `shared/brand`. Die alten Platzhalter entfallen.
-2. **Startbild:** `expo-splash-screen` (passend zu Expo 57) mit `splash-icon.png` auf #0E1512; auf Android 12+ nichts
-   abgeschnitten. Das native Startbild bleibt, bis die Sitzung bereit ist oder ein Fehlerzustand aus T-115 erscheint.
-   Dauert es länger als etwa 3 s, übernimmt eine Ansicht mit identischer Lage (Zeichen an derselben Stelle, gleicher
-   Grund) und zeigt darunter „Wird geladen …“, ohne Sprung. Bedienhilfe „{Name} wird gestartet“, Name aus
-   `shared/product.json`. Der Text „Sitzung wird sicher wiederhergestellt …“ entfällt. Fehlerzustände und Codes aus T-115
-   bleiben unverändert. Das Startbild steht nie unbegrenzt.
-3. **Zeichen in der App:** im Kopf der Anmeldung und von „Erfassen“ neben dem Namen, mit `react-native-svg` aus
-   `mark.json`, unter 48 px die kompakte Form. Rein dekorativ für Bedienhilfen; der Name bleibt Text.
-4. **Web:** Zeichen statt „T“ (Verwaltung), statt Ringen (Betreiber-Bereich) und auf der Startseite, aus `mark.json`,
-   dekorativ (`aria-hidden`). `/app` und `/tag` zeigen das App-Symbol als Kachel über der Überschrift. Favicon (SVG und
-   ICO) und Apple-Touch-Symbol in Verwaltung, Betreiber-Bereich und Startseite samt `/app` und `/tag`.
-5. **Caddy:** Favicon, Apple-Touch-Symbol und die Bilder für `/app` und `/tag` sind ohne Passwort erreichbar, auch auf
-   dem Tag-Host. Alles andere bleibt geschützt. Die Inhaltsrichtlinie (CSP) wird nicht gelockert.
-6. **Eine Quelle:** Jedes eingebundene Bild und jeder SVG-Pfad stammt aus `shared/brand` bzw. `mark.json`. Geändert
-   wird das Zeichen nur dort (TL, `mark.json`), entfernt nur mit einer neuen Icon-Entscheidung (AGENTS 1.5).
+1. `connect-src` erlaubt statt `*.supabase.co` genau die Supabase-Herkunft, überall, wo die CSP sie heute nennt.
+2. Ein Test leitet die erlaubte Herkunft aus `apps/mobile/eas.json` ab und vergleicht sie mit dem Caddyfile (AGENTS
+   1.6). Keine Wildcard für Supabase mehr.
+
+### Teil 2 · SECURITY DEFINER und Policies
+
+Dauerhafte Prüfungen in `B3SchemaSecurity`, abgeleitet aus dem Katalog, ohne feste Zahlen:
+3. Jede SECURITY-DEFINER-Funktion im Schema hat einen festen `search_path` (`pg_catalog`). Ihr Eigentümer ist eine
+   NOLOGIN-Rolle ohne Superuser. `PUBLIC` und LOGIN-Rollen haben kein direktes EXECUTE.
+4. Jede RLS-Policy auf einer Tabelle mit `organization_id` bindet an den Mandanten aus dem Anfragekontext. Ausnahmen
+   stehen im Test auf einer Liste mit Begründung je Eintrag und werden im Bericht genannt.
+5. Befunde werden als P0–P3 gemeldet. P0 und P1 werden in T-119 behoben (Migration 058 mit vollständigen Körpern),
+   P2 und P3 nur notiert.
+
+### Teil 3 · Anmeldung (D-139)
+
+6. Die Mindestlänge für Passwörter steht in einer gemeinsamen Quelle (`shared/`), Wert 10. Alle Stellen in App, Web und
+   Betreiber-Bereich, die ein Passwort setzen oder prüfen, lesen sie von dort. Die Meldung lautet „mindestens 10
+   Zeichen“.
+7. Drosselt Supabase (429 oder `over_request_rate_limit`), zeigen App, Web und Betreiber-Bereich „Zu viele Versuche.
+   Bitte warten Sie einige Minuten.“ (App: „warte“). Nicht „nicht verfügbar“, nicht „falsches Passwort“.
+8. `infrastructure/DEPLOY.md`, Supabase-Abschnitt: die PO-Schritte nach D-139. Mindestlänge 10, Anmeldegrenze je IP
+   100 in 5 Minuten. Nach dem Wechsel auf Pro (D-130) den Schutz vor bekannten geleakten Passwörtern einschalten.
+   Jeweils mit Hinweis, wer ändert und wann.
 
 ### Tests
 
 Je Punkt rot vor der Änderung:
-- Expo-Konfiguration: alle Symbol- und Startbildpfade zeigen auf vorhandene Dateien aus `shared/brand`, Farben
-  #0E1512, keine alten Platzhalter mehr.
-- Start: Startbild bleibt bis „bereit“; nach 3 s Ansicht mit „Wird geladen …“ (Fake-Timer); jeder T-115-Fehlerzustand
-  blendet es aus; Bedienhilfe.
-- Zeichen in App und Web: Pfade aus `mark.json`, kompakt unter 48 px, kein „T“ und keine Ringe mehr.
-- Favicon-Links in allen Web-Apps; Browser bei 390 und 1440 px und 200 % Schrift ohne Überlauf, axe ohne Befund.
-- Caddy: die neuen Bildpfade ohne Passwort erreichbar, alles andere weiter geschützt (`infrastructure/caddy/tests/`).
-- Bundles für iOS und Android, alle Suiten, Typecheck, Builds und Browserläufe grün.
+- CSP mit genau einer Supabase-Herkunft, gleich `eas.json`; die Browserläufe mit CSP bleiben grün.
+- Katalogprüfungen 3 und 4 über alle Funktionen und Policies; ein absichtlich falsches Testobjekt wird erkannt.
+- Mindestlänge: 9 Zeichen abgewiesen, 10 angenommen, in jedem betroffenen Formular. Alle lesen dieselbe Quelle.
+- Drosselung: die Meldung in App, Web und Betreiber-Bereich.
+- Alle Suiten, Postgres-Tests, Typecheck, Builds, Bundles und Browserläufe grün.
 
 ### Grenzen
 
-Keine Änderung an `shared/brand` und kein Schriftzug im Zeichen. Nicht dabei: Einladungsmail, Funktionssymbole.
-Kein EAS-Build, kein Store-Upload, kein Deploy (macht der PO mit Deploy 5). ADO nicht ändern.
+Keine Vorschaltstelle für die Anmeldung, kein CAPTCHA, kein Zugriff auf das Supabase-Dashboard (D-139). Kein Deploy.
+ADO nicht ändern; DEPLOY.md gehört zur Umsetzung (AGENTS 7).
 
 ### Bericht
 
-`.t120-review/` (report.md, tracked.diff, untracked.txt, Bildschirmfotos von Start, Anmeldung, „Erfassen“ und den drei
-Web-Apps). Unabhängiges Review in einer Runde, eine zweite nur bei P1/P2. Kein Commit vor `APPROVED` durch den TL.
+`.t119-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
+P1/P2. Kein Commit vor `APPROVED` durch den TL.
