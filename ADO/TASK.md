@@ -1,80 +1,74 @@
 # Aktuelle Aufgabe
 
-> **Stand 14.10.2026:** T-117a abgeschlossen (`1372b81`, Migration 056, D-138), noch nicht ausgeliefert. Jetzt
-> **T-117b**. Danach T-118 und T-120, dann Deploy 5 mit neuen App-Builds.
+> **Stand 14.10.2026:** T-117b abgeschlossen (`e9bf389`), noch nicht ausgeliefert. T-118 ist geteilt: jetzt **T-118a**
+> (Zuordnung und Kontingent-Hinweise auf dem Server), danach T-118b (Oberfläche), T-120, dann Deploy 5.
 
-## T-117b · Suche in App und Web
+## T-118a · Zuordnung zu Mitarbeitern und Kontingent-Hinweise auf dem Server
 
-**Für:** Development · **Risiko:** mittel (viele Oberflächen, kein Server) · **Zeitbox:** zwei Sitzungen; reißt sie, wird
-nach App und Web getrennt gemeldet. Nur Clients (App, Web) und ihre Tests. Kein Server, keine Migration, kein Deploy.
+**Für:** Development · **Risiko:** hoch (neue Tabelle mit Personenbezug, Schreibrechte, Lesewege) · **Zeitbox:** ein bis
+zwei Sitzungen. Server, Verträge und deren Tests; keine Oberfläche. Kein Deploy.
 
-### Ausgangslage (`1372b81`)
+### Ausgangslage (`e9bf389`)
 
-Die neuen Wege aus T-117a (D-138) sind auf dem Server, aber noch ungenutzt. App und Web laden Ziellisten vollständig
-vor und filtern nur Geladenes; „Kunden“ lädt den ganzen Monat in einem Block und scheitert bei frogs-Größe an der
-16-KiB-Grenze der App; Einrichtung und Kartenliste zeigen Kunden und Karten nach UUID.
+- D-135: Administrator und Standortleitung können Kunden und Projekte einzelnen Mitarbeitern zuordnen, freiwillig.
+  Zugeordnete stehen für den Mitarbeiter oben, alles andere findet er über die Suche. Sichtbarkeit (D-102), Karten und
+  Berechtigungen bleiben unverändert.
+- `/v2/mobile/work-targets/query` und `/v2/administration/time-records/backfill-targets/query` (T-117a) sind noch nicht
+  ausgeliefert; ihr Vertrag darf deshalb wachsen. Alle anderen Wege bleiben unverändert.
+- Die Kontingent-Hinweise in App und Web lesen noch alle Kunden über den alten Weg (T-117b, K1).
 
-### Gemeinsame Regeln
+### Teil 1 · Zuordnung (D-135, TL-Entscheidung zur Umsetzung)
 
-1. **Suchfeld** oben in jeder genannten Liste, Beschriftung „Suchen“, Platzhalter z. B. „Name eingeben“. Anfrage etwa
-   300 ms nach dem letzten Tastendruck; ältere Antworten werden verworfen, wenn eine neuere Suche läuft. Leeres Feld =
-   ohne Suche. Ergebnis wird angesagt („12 Treffer“, bei weiteren Seiten „mehr als 12“). Ohne Treffer:
-   „Keine Treffer für „X““ und „Suche löschen“.
-2. **Seiten:** „Weitere laden“ am Listenende, solange `nextCursor` gesetzt ist. Kein vollständiges Vorladen mehr.
-3. **Auswahl** (Ziel, Kunde, Karte) bleibt erhalten, solange sie in den geladenen Ergebnissen steht; die Prüfung „Ziel
-   ist in der geladenen Liste“ gilt gegen die aktuellen Ergebnisse. Der Server bleibt die Instanz.
-4. **Alte Wege** werden in App und Web nicht mehr aufgerufen (Ausnahme: „Manuell“ ohne Netz, siehe unten).
-5. **Barrierefreiheit:** Suchfeld beschriftet, Ergebnisse als Liste, „Weitere laden“ erreichbar; große Schrift ohne
-   abgeschnittene Texte.
+1. **Datenmodell:** neue Tabelle für Zuordnungen von Mitgliedschaft zu Ziel (Kunde oder Projekt über den Schlüssel von
+   `work_targets`), mit Anlage (wann, durch wen) und Ende (wann, durch wen). Höchstens eine aktive Zuordnung je Person
+   und Ziel. Beenden statt Löschen, die Historie bleibt. RLS erzwungen; geschrieben wird nur über SECURITY-DEFINER-
+   Funktionen. **Lebenszyklus (AGENTS 1.5):** angelegt und beendet von Administrator oder Standortleitung; geändert wird
+   nichts (beenden und neu anlegen). Austritt oder gelöschtes Ziel beenden nichts automatisch; die Lesewege zeigen nur
+   aktive Personen und Ziele. Das Löschen personenbezogener Daten regelt später T-016.
+2. **Befehl** `POST /v1/administration/target-assignments/change` mit `{expectedMembershipId, commandId, membershipId,
+   targetType, targetId, assigned}` für genau ein Paar. `assigned: true` legt an, `false` beendet; ist der Zustand schon
+   so, ist das ein Erfolg ohne neue Zeile. Idempotent je `commandId`, abweichender Inhalt → `command_id_conflict`.
+3. **Wer darf:** Administrator für alle Personen und aktiven Ziele des Betriebs. Standortleitung nur für Personen, die sie
+   heute verwalten darf (`has_membership_management_authority_v1`), und nur für Ziele, die in ihrem Bereich an einen
+   Standort gebunden sind. Mitarbeiter: `forbidden`. Zuordnen geht nur, wenn die Person das Ziel heute wählen darf
+   (`membership_may_choose_time_target_v1`), sonst `target_not_selectable`. Beenden ist immer möglich, solange die
+   Verwaltungsrechte für die Person bestehen.
+4. **Lesewege:**
+   - `/v2/mobile/work-targets/query`: Eingabe `assignedOnly` (boolean), Ausgabe je Ziel `assignedToMe`.
+   - `/v2/administration/time-records/backfill-targets/query`: dasselbe für die Zielperson (`assignedToPerson`).
+   - Verwaltung: `POST /v1/administration/target-assignments/query` für eine Person (ihre Ziele) oder für ein Ziel (seine
+     Personen), mit Suche und Seiten nach D-138, nur im eigenen Verwaltungsbereich.
+   - `assignedOnly` filtert nur. Eine Zuordnung macht nie etwas sichtbar, das ohne sie unsichtbar wäre.
+5. Kartenscan, Offline-Freigabe, Erfassung und alle Berechtigungen bleiben unverändert.
 
-### App
+### Teil 2 · Kontingent-Hinweise (aus T-117b)
 
-1. **Kunden** (`CustomersScreen`): `/v2/customers/hours/query` mit Suche und Seiten. Detail über
-   `/v2/customers/hours/detail` mit „Weitere Personen laden“; auch für Umbenennen, Löschen, Kontingent und den
-   Kontingent-Link.
-2. **Mitarbeiter** (`EmployeesScreen`): Accept `managed-people.v6` mit Suche. Die Antwort ist nach Namen sortiert; die
-   Gruppen nach Standort (ausgetreten zuletzt) bildet die App aus den geladenen Seiten, Standorte nach Namen. Filter
-   „Zeit läuft“ / „Keine laufende Zeit“ und Monatswahl bleiben; die Zähler kommen weiter vom Server.
-3. **Karten** (`AdminSetupScreen`): Liste über `/v3/administration/setup-projection` mit `kind:'nfc_tags'` und Suche,
-   Kundenname aus `customerDisplayName`. Die Kundenauswahl in „Karte einrichten“ sucht über `kind:'customers'`; „Pause“
-   bleibt als feste Wahl. Nach „Karte prüfen“ funktioniert „Karte entfernen“ ohne Blättern (Kennungen aus Inspect v2;
-   Name aus den geladenen Ergebnissen, sonst „diese Karte“). Dazu der Rest-P2 aus T-116b: Nach `authority_rejected`
-   werden Kartenbeleg und Rückfall-Projektion verworfen.
-4. **Manuell, online** (`ManualCaptureScreen`): `/v2/mobile/work-targets/query` mit Suche und Seiten, Gruppen Kunden /
-   Projekte / Allgemeine Arbeitszeit. Die feste Startleiste aus T-116b bleibt. **Ohne Netz**
-   (`OfflineManualCaptureScreen`) bleibt alles lokal wie heute.
-5. **Zeit hinzufügen** (eigene Zeit und für andere): Zielauswahl mit Suche und Gruppen über
-   `/v2/mobile/work-targets/query` bzw. `/v2/administration/time-records/backfill-targets/query`.
+6. `POST /v2/customers/quota-alerts/query` mit `{expectedMembershipId, fromInclusive, toExclusive, cursor, limit}`: nur
+   Kunden mit `warning` oder `exceeded` im Monat, gleiche Sichtbarkeit und Kontingentregel wie `read_customer_hours_v3`,
+   Seiten nach D-138. Für Mitarbeiter (`scope: 'self'`) eine leere Liste.
 
-### Web
-
-6. **Kunden** (`CustomersView`): wie App 1, Detail mit „Weitere Personen laden“.
-7. **Mitarbeiter** (`EmployeesView`, Übersicht `PeopleTable`): wie App 2; die Übersicht bleibt bei „Zeit läuft“ ohne
-   Suchfeld. **Zugänge verwalten:** `/v3/administration/employee-memberships-projection` mit Suche.
-8. **Einrichtung** (`SetupView`): Karten (`kind:'nfc_tags'`) und Kunden (`kind:'customers'`) je mit eigener Suche und
-   eigenen Seiten statt der gemischten UUID-Liste; „Zuordnung ändern“ mit durchsuchbarer Karten- und Kundenauswahl;
-   Projekte über `/v2/administration/projects/query` mit Suche.
-9. **Manuell** (`ManualView`) und **Zeit hinzufügen** (`TimeEditingControls`): wie App 4 und 5.
+Alle neuen oder geänderten Funktionen mit vollständigen Körpern in **Migration 057** (`T106FunctionBodies`).
 
 ### Tests
 
-Je Punkt rot vor der Änderung:
-- Je Liste: Suche schickt den normalisierten Begriff nach der Wartezeit, eine ältere Antwort überschreibt keine neuere,
-  „Weitere laden“ hängt die nächste Seite an, keine Treffer, Fehler mit „Erneut versuchen“.
-- Kein vollständiges Vorladen mehr (höchstens eine Anfrage je Liste beim Öffnen).
-- Kundendetail mit mehreren Personenseiten; Kontingent-Link öffnet den Kunden ohne Liste.
-- Mitarbeitergruppen aus mehreren Seiten richtig zusammengeführt.
-- Karten: Entfernen nach „Karte prüfen“ ohne Liste; `tagReceipt` nach `authority_rejected` nicht mehr sichtbar.
-- „Manuell“ offline unverändert lokal.
-- Browser: Suchfelder und Listen in Web-Layouts bei 390 und 1440 px, 200 % Schrift.
-- Alle Suiten, Typecheck, Builds und Browserläufe grün.
+Je Punkt rot vor der Änderung, SQL mit vollständigem fachlichem Rotlauf:
+- Zuordnen und Beenden: Administrator, Standortleitung innerhalb und außerhalb (Person, Ziel), Mitarbeiter `forbidden`,
+  nicht wählbares Ziel `target_not_selectable`, Wiederholung idempotent, abweichender Inhalt abgewiesen, Historie
+  bleibt, fremder Mandant nie.
+- Lesen: `assignedOnly` liefert nur zugeordnete und weiterhin sichtbare Ziele; Markierungen stimmen; eine Zuordnung zu
+  einem Ziel außerhalb der Sichtbarkeit erscheint nicht; ausgetretene Personen und inaktive Ziele erscheinen nicht.
+- Verwaltungsabfrage für Person und für Ziel nur im eigenen Bereich, mit Suche und Seiten.
+- Kontingent-Hinweise: dieselben Stufen wie v2, auch für Kunden jenseits der ersten Seite, Seiten unter 14 KiB,
+  Mitarbeiter leer.
+- RLS erzwungen, geringste Rechte (`B3SchemaSecurity`), keine Suchbegriffe in Logs.
+- Alle Suiten, Postgres-Tests und Typecheck grün.
 
 ### Grenzen
 
-Kein Server, keine Migration, keine Änderung an Verträgen außer Client-Parsern für die T-117a-Antworten. „Meine Kunden“
-oben ist T-118. Kein Deploy. ADO nicht ändern.
+Keine Oberfläche (T-118b). Keine Änderung an Sichtbarkeit, Berechtigungen, Karten oder ausgelieferten Wegen. Kein
+Deploy, kein Zugriff auf Produktion. ADO nicht ändern.
 
 ### Bericht
 
-`.t117b-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
+`.t118a-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
 P1/P2. Kein Commit vor `APPROVED` durch den TL.

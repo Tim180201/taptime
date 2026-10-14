@@ -2,13 +2,13 @@
 
 **Stand 14.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., Migration 052). Ausgeliefert: T-109,
 T-113, T-112, T-114, T-115. Auf main, noch nicht ausgeliefert: T-116a (`2596899`, `a9d5c54`; Migrationen 053 und 054,
-D-134, D-137), T-116b (`514f919`, Migration 055) und T-117a (`1372b81`, Migration 056, D-138). Die Geräteabnahme ist
-verschoben (PO 13.10.); in Arbeit ist T-117b. Offen beim PO: Supabase meldet eine Tabelle ohne RLS im Auth-Projekt
+D-134, D-137), T-116b (`514f919`, Migration 055), T-117a (`1372b81`, Migration 056, D-138) und T-117b (`e9bf389`). Die
+Geräteabnahme ist verschoben (PO 13.10.); in Arbeit ist T-118a. Offen beim PO: Supabase meldet eine Tabelle ohne RLS im Auth-Projekt
 (vermutlich `public.taptime_server_schema_migrations` von vor D-010); prüfen, RLS einschalten, Altlasten mit T-119 entfernen.
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-117b (Suche in App und Web), T-118 (Zuordnung), T-120 (Icon) → Deploy 5, neue App-Builds und
+**Weg zum Pilot:** T-118a und T-118b (Zuordnung, Kontingent-Hinweise), T-120 (Icon) → Deploy 5, neue App-Builds und
 Geräteabnahme → T-119 und T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
@@ -86,8 +86,7 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   Vorbereitungsfenster des Kontowechsels → Schutzzustand, jede fremde `.db`-Datei im SQLite-Ordner ebenso (T-076) · iOS
   Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) · Sitzungsvergleich ohne
   Verwaltungsumfang (T-059) · Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an
-  `wa-sqlite.wasm` (P2) · nach entzogener Berechtigung und anschließendem Verbindungsfehler kann ein alter Kartenbeleg
-  desselben Kontos erneut erscheinen (`tagReceipt`, T-116b, Behebung in T-117b) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112) · alte App-Builds können nach Deploy 5 gelöschte
+  `wa-sqlite.wasm` (P2) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112) · alte App-Builds können nach Deploy 5 gelöschte
   Einträge ohne Grund (`none`) nicht anzeigen, bis der neue Build installiert ist (T-116a).
 - **Beschäftigte (T-102):** wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten
   Seite fehlen (Aktualisieren hilft).
