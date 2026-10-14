@@ -11,7 +11,7 @@ vi.mock('react-native',()=>({
   View:({children,ref,style,focusable}:{children?:ReactNode;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children),
   ScrollView:({children,ref,style,focusable}:{children?:ReactNode;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children),
   AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
-    StyleSheet:{create:(v:unknown)=>v},
+    Keyboard: { dismiss: vi.fn() }, StyleSheet:{create:(v:unknown)=>v},
 }));
 vi.mock('../../src/design/primitives',()=>({
   Card:({children}:{children?:ReactNode})=>createElement('div',null,children),

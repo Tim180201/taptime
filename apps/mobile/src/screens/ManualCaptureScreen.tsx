@@ -8,6 +8,7 @@ import { useRequiredForm, RequiredField } from '../design/RequiredField';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   AccessibilityInfo,
+  Keyboard,
   ScrollView,
   StyleSheet,
   View,
@@ -59,17 +60,18 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
         <Text style={styles.explanation}>Kunde, Projekt oder allgemeine Arbeit. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
         <RequiredField form={form} error={selected===null ? "Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten." : null}><Text style={styles.selection}>Wofür arbeitest du?</Text>
         <SearchField value={search} onChange={setSearch} disabled={state.submitting}/>
-        <Text accessibilityLiveRegion="polite">{state.targetsBusy?'Wird geladen …':`${state.targets.nextCursor!==null?'mehr als ':''}${visible.length} Treffer`}</Text>
+        {!favorites.length?<Text accessibilityLiveRegion="polite">{state.targetsBusy?'Wird geladen …':`${state.targets.nextCursor!==null?'mehr als ':''}${visible.length} Treffer`}</Text>:null}
         {state.targetsFailed?<View><Text accessibilityRole="alert">Arbeitsziele konnten nicht geladen werden.</Text><ActionButton title="Erneut versuchen" onPress={()=>work.searchTargets?.(query,state.targets.nextCursor!==null)}/></View>:null}
         {!state.targetsBusy&&!state.targetsFailed&&visible.length===0&&query?<View><Text>{`Keine Treffer für „${query}“`}</Text><ActionButton title="Suche löschen" onPress={()=>setSearch('')}/></View>:null}
         {query===null&&assigned.state.failed?<SearchStatus state={assigned.state} onRetry={assigned.pager.retry}/>:null}
         {favorites.length?<View style={styles.list}><Text accessibilityRole="header">Meine Kunden und Projekte</Text>
           {favorites.map(target=><ActionButton key={`${target.targetType}:${target.targetId}`} title={target.displayName} disabled={state.submitting||assigned.state.busy||assigned.state.failed}
             tone={selected?.targetId===target.targetId?'primary':'secondary'} accessibilityState={{selected:selected?.targetId===target.targetId}}
-            onPress={()=>{setSelected(target);AccessibilityInfo.announceForAccessibility(`Ausgewählt: ${target.displayName}`);}}/>)}
+            onPress={()=>{Keyboard.dismiss();setSelected(target);AccessibilityInfo.announceForAccessibility(`Ausgewählt: ${target.displayName}`);}}/>)}
           {assigned.state.nextCursor?<ActionButton title="Weitere zugeordnete laden" disabled={assigned.state.busy||state.submitting} onPress={()=>assigned.pager.loadMore()}/>:null}
+          <Text>Weitere Kunden und Projekte über die Suche</Text>
         </View>:null}
-        <Text accessibilityRole="header">{query?'Treffer':'Alle Kunden und Projekte'}</Text>
+        {!favorites.length?<><Text accessibilityRole="header">{query?'Treffer':'Alle Kunden und Projekte'}</Text>
         <View style={styles.list}>
           {(['customer', 'project', 'general_work'] as const).map(type => {
             const targets = visible.filter(target => target.targetType === type);
@@ -78,11 +80,12 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
               {targets.map(target => <ActionButton key={`${target.targetType}:${target.targetId}`} title={targetLabel(target,query)}
                 disabled={state.submitting} tone={selected?.targetId === target.targetId ? 'primary' : 'secondary'}
                 accessibilityState={{selected:selected?.targetId === target.targetId}}
-                onPress={() => {setSelected(target); AccessibilityInfo.announceForAccessibility(`Ausgewählt: ${target.displayName}`);}} />)}
+                onPress={() => {Keyboard.dismiss();setSelected(target); AccessibilityInfo.announceForAccessibility(`Ausgewählt: ${target.displayName}`);}} />)}
             </View>;
           })}
         </View>
         {state.targets.nextCursor!==null?<ActionButton title="Weitere laden" disabled={state.targetsBusy||state.submitting} onPress={()=>work.searchTargets?.(query,true)}/>:null}
+        </>:null}
         </RequiredField>
       </>}
       {state.submitting ? <Text accessibilityLiveRegion="polite">Bestätigung wird angefordert …</Text> : null}

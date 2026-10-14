@@ -9,7 +9,7 @@ import type { OfflineManualCaptureCapability } from '../../src/offline/OfflineCa
 const native=vi.hoisted(()=>({announce:vi.fn(),focus:vi.fn()}));
 vi.mock('react-native',()=>{
  const view=({children,ref,style,focusable,accessible,accessibilityLabel}:{children?:ReactNode;ref?:Ref<HTMLDivElement>;style?:unknown;focusable?:boolean;accessible?:boolean;accessibilityLabel?:string})=>h('div',{ref,tabIndex:focusable?0:undefined,'aria-label':accessibilityLabel,'data-accessible':accessible,'data-style':JSON.stringify(style)},children);
- return {RefreshControl:()=>null,View:view,ScrollView:view,StyleSheet:{create:(v:unknown)=>v},Platform:{OS:'android'},BackHandler:{addEventListener:()=>({remove(){}})},findNodeHandle:(node:unknown)=>node,AccessibilityInfo:{announceForAccessibility:native.announce,setAccessibilityFocus:native.focus}};
+ return {RefreshControl:()=>null,View:view,ScrollView:view,Keyboard: { dismiss: vi.fn() }, StyleSheet:{create:(v:unknown)=>v},Platform:{OS:'android'},BackHandler:{addEventListener:()=>({remove(){}})},findNodeHandle:(node:unknown)=>node,AccessibilityInfo:{announceForAccessibility:native.announce,setAccessibilityFocus:native.focus}};
 });
 vi.mock('../../src/design/LineIcon',()=>({LineIcon:()=>null}));
 vi.mock('../../src/design/AppBuildIdentity',()=>({AppBuildIdentity:()=>null}));

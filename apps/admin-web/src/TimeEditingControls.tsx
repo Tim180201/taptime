@@ -124,13 +124,14 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     <h3 className="full-field">{label}</h3>
     {kind==='stop' && record ? <p className="full-field">{context.personLabel} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</p> : null}
     {kind==='backfill'?<div className="full-field">
-      <SearchField value={page.input} onChange={page.setSearch}/><SearchStatus state={page.state} onRetry={page.pager.retry} onClear={()=>page.setSearch('')}/>
+      <SearchField value={page.input} onChange={page.setSearch}/>{!favorites.length||page.state.failed||page.state.busy?<SearchStatus state={page.state} onRetry={page.pager.retry} onClear={()=>page.setSearch('')}/>:null}
       {page.state.search===null&&assigned.state.failed?<SearchStatus state={assigned.state} onRetry={assigned.pager.retry}/>:null}
-      {favorites.length?<div><h4>{managedBackfill?'Zugeordnete Kunden und Projekte':'Meine Kunden und Projekte'}</h4>
+      {favorites.length?<fieldset data-required-choice tabIndex={-1} aria-label="Kunde oder Projekt" data-field-error={target?'':'Bitte einen Kunden oder ein Projekt wählen.'} style={{border:0,padding:0,margin:0}}><h4>{managedBackfill?'Zugeordnete Kunden und Projekte':'Meine Kunden und Projekte'}</h4>
         {favorites.map(t=><button type="button" className="target-choice secondary" key={targetKey(t)} aria-pressed={selected===targetKey(t)} disabled={saving||assigned.state.busy||assigned.state.failed} onClick={()=>setSelected(targetKey(t))}>{t.displayName}</button>)}
         {assigned.state.nextCursor?<button type="button" disabled={assigned.state.busy||saving} onClick={()=>void assigned.pager.loadMore()}>Weitere zugeordnete laden</button>:null}
-      </div>:null}
-      <h4>{page.state.search?'Treffer':'Alle Kunden und Projekte'}</h4>
+        <p>Weitere Kunden und Projekte über die Suche</p>
+      </fieldset>:null}
+      {!favorites.length?<><h4>{page.state.search?'Treffer':'Alle Kunden und Projekte'}</h4>
       <label>Kunde oder Projekt<select required value={selected} disabled={saving||archivePending||page.state.busy||page.state.failed} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>
       {target&&!page.state.items.some(t=>targetKey(t)===selected)?<option hidden value={selected}>{target.displayName}</option>:null}
       {(['customer','project','general_work'] as const).map(type=>{
@@ -138,6 +139,7 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
         return group.length?<optgroup key={type} label={type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}>{group.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{targetLabel(t,page.state.search)}</option>)}</optgroup>:null;
       })}</select></label>
       {page.state.nextCursor?<button type="button" disabled={page.state.busy} onClick={()=>void page.pager.loadMore()}>Weitere laden</button>:null}
+      </>:null}
     </div>:null}
     {kind!=='comment'?<><TimeFields {...values} onDate={setDate} onStart={setStart} onEnd={setEnd} disabled={saving||archivePending} checkInterval={kind==='correct'}/>
       <p className="full-field supporting">Deutsche Ortszeit{kind!=='stop'?` · ${overnightHint}`:''}{kind==='backfill'?' Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}

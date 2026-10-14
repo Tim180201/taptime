@@ -29,7 +29,7 @@ vi.mock('react-native', () => {
   };
   return { View: element, Text: element, Pressable: element, ScrollView: element, TextInput: element,
     AccessibilityInfo: { announceForAccessibility: vi.fn(), isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
-    StyleSheet: { create: (value: unknown) => value, flatten }, Platform: { OS: 'android' },
+    Keyboard: { dismiss: vi.fn() }, StyleSheet: { create: (value: unknown) => value, flatten }, Platform: { OS: 'android' },
     Linking: { getInitialURL: async () => null, addEventListener: () => ({ remove() {} }) },
     BackHandler: { addEventListener: (_: string, listener: () => boolean) => {
       native.back = listener; return { remove() { if (native.back === listener) native.back = null; } };

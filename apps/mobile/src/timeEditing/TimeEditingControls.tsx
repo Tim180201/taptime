@@ -7,7 +7,7 @@ import { useRequiredForm, RequiredField, RequiredTextField } from '../design/Req
 import {VoidTimeForm} from './TimeVoidControls';
 type Notice = { readonly kind: 'success' | 'info' | 'error'; readonly text: string };
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { View } from 'react-native';
+import { Keyboard, View } from 'react-native';
 import { BUSINESS_TIME_ZONE, formatZonedDateTime, parseZonedLocalTimestamp, toZonedMinuteInput, parseEditedZonedMinute, shiftDay } from '@taptime/core';
 import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type SafeOwnTimeRecord, type SafeWorkTarget } from '@taptime/mobile-work-contract';
 import type { MobileManagementScope } from '../auth/contracts';
@@ -167,18 +167,20 @@ function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,person
     {kind==='stop' && record ? <Text>{personName ? `${personName} · ` : ''}{record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</Text> : null}
     {kind==='backfill'?<><RequiredField form={form} error={!target || !targets.some(t=>t.targetType===target.targetType && t.targetId===target.targetId) ? "Bitte einen Kunden oder ein Projekt wählen." : null}><Text accessibilityRole="header">Kunde oder Projekt</Text>
       <SearchField value={page.input} onChange={page.setSearch}/>
-      <SearchStatus state={page.state} onRetry={page.pager.retry} onClear={()=>page.setSearch('')}/>
+      {!favorites.length||page.state.failed||page.state.busy?<SearchStatus state={page.state} onRetry={page.pager.retry} onClear={()=>page.setSearch('')}/>:null}
       {page.state.search===null&&assigned.state.failed?<SearchStatus state={assigned.state} onRetry={assigned.pager.retry}/>:null}
       {favorites.length?<View><Text accessibilityRole="header">{managedBackfill?'Zugeordnete Kunden und Projekte':'Meine Kunden und Projekte'}</Text>
-        {favorites.map(t=><ActionButton key={targetKey(t)} title={t.displayName} accessibilityState={{selected:target!==null&&targetKey(target)===targetKey(t)}} disabled={saving||assigned.state.busy||assigned.state.failed} onPress={()=>setTarget(t)}/>)}
+        {favorites.map(t=><ActionButton key={targetKey(t)} title={t.displayName} accessibilityState={{selected:target!==null&&targetKey(target)===targetKey(t)}} disabled={saving||assigned.state.busy||assigned.state.failed} onPress={()=>{Keyboard.dismiss();setTarget(t);}}/>)}
         {assigned.state.nextCursor?<ActionButton title="Weitere zugeordnete laden" disabled={assigned.state.busy||saving} onPress={()=>assigned.pager.loadMore()}/>:null}
+        <Text>Weitere Kunden und Projekte über die Suche</Text>
       </View>:null}
-      <Text accessibilityRole="header">{page.state.search?'Treffer':'Alle Kunden und Projekte'}</Text>
+      {!favorites.length?<><Text accessibilityRole="header">{page.state.search?'Treffer':'Alle Kunden und Projekte'}</Text>
       {(['customer','project','general_work'] as const).map(type=>{
         const group=page.state.items.filter(t=>t.targetType===type);
-        return group.length?<View key={type} accessibilityRole="list"><Text accessibilityRole="header">{type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}</Text>{group.map(t=><ActionButton key={`${t.targetType}/${t.targetId}`} title={`${target?.targetType===t.targetType&&target.targetId===t.targetId?'✓ ':''}${targetLabel(t,page.state.search)}`} tone="quiet" disabled={saving||page.state.busy||page.state.failed} onPress={()=>setTarget(t)}/>)}</View>:null;
+        return group.length?<View key={type} accessibilityRole="list"><Text accessibilityRole="header">{type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}</Text>{group.map(t=><ActionButton key={`${t.targetType}/${t.targetId}`} title={`${target?.targetType===t.targetType&&target.targetId===t.targetId?'✓ ':''}${targetLabel(t,page.state.search)}`} tone="quiet" disabled={saving||page.state.busy||page.state.failed} onPress={()=>{Keyboard.dismiss();setTarget(t);}}/>)}</View>:null;
       })}
       {page.state.nextCursor?<ActionButton title="Weitere laden" disabled={page.state.busy} onPress={()=>page.pager.loadMore()}/>:null}
+      </>:null}
       </RequiredField>{field('Datum (JJJJ-MM-TT)',date,setDate,false,!dateValue)}</>:null}
     {kind!=='comment'?<>{kind==='correct'?field('Beginn am (JJJJ-MM-TT)',date,setDate,false,!dateValue):null}
       {kind!=='stop'?field('Von (HH:MM)',start,setStart,false,!!dateValue&&!startValue):null}

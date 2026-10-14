@@ -153,6 +153,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private generation = 0;
   private operationFlight: Promise<void> | null = null;
   private sessionTransitionFlight: SessionTransitionFlight | null = null;
+  private grantRefreshFlight: Promise<void> | null = null;
   private unsubscribeSession: (() => void) | null = null;
   private unsubscribeScheduler: (() => void) | null = null;
   private database: OfflineCaptureDatabase | null = null;
@@ -317,6 +318,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   async captureNativeNfcIngressAuthority(
     evidence: NativeNfcIngressCaptureEvidence,
   ): Promise<object | null> {
+    // A delivered Intent waits for grant renewal, without moving the runtime's
+    // evidence boundary forward. Never bind a morning tap to yesterday's lease.
+    if (this.grantRefreshFlight !== null) await this.grantRefreshFlight.catch(() => undefined);
     const generation = this.generation;
     const transition = this.sessionTransitionFlight;
     if (transition !== null && transition.generation === generation) {
@@ -446,11 +450,42 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.restoreSessionAndSchedule('foreground');
   }
 
-  async refreshOfflineGrant(): Promise<void> {
+  refreshOfflineGrant(): Promise<void> {
+    if (this.grantRefreshFlight !== null) return this.grantRefreshFlight;
+    const flight = this.renewOfflineGrant().finally(() => {
+      if (this.grantRefreshFlight === flight) this.grantRefreshFlight = null;
+    });
+    this.grantRefreshFlight = flight;
+    return flight;
+  }
+
+  private async renewOfflineGrant(): Promise<void> {
     if(this.logoutOwner!==null)return;
     await Promise.all([this.operationFlight, ...this.manualFlights].map(flight=>flight?.catch(()=>undefined)));
-    if (!this.started || this.session.capture() === null || this.database === null) return;
-    await this.scheduleSessionTransition(++this.generation);
+    const session = this.session.capture();
+    if (!this.started || session === null || this.database === null) return;
+    const previous = this.nativeNfcIngressAuthority !== null
+      && this.canSynchronize()
+      && this.isNativeNfcIngressAuthorityCurrent(this.nativeNfcIngressAuthority)
+      ? this.nativeNfcIngressAuthority : null;
+    const runtimeStartBound = previous !== null
+      && this.nativeNfcIngressRuntimeStartGeneration === previous.generation;
+    const generation = ++this.generation;
+    await this.scheduleSessionTransition(generation);
+    const current = this.nativeNfcIngressAuthority;
+    if (previous !== null && current !== null && this.isCurrent(generation)
+      && this.session.isCurrent(session)
+      && previous.mode === 'authenticated' && current.mode === 'authenticated'
+      && previous.validFromBootMarker === current.validFromBootMarker
+      && previous.processStartElapsedRealtimeMilliseconds === current.processStartElapsedRealtimeMilliseconds) {
+      // Renewing a grant in the SAME live session is not a new runtime. Keep its
+      // original lower bound; session/owner transitions and stop still revoke it.
+      // The new snapshot retains the new generation, so old in-flight authority
+      // objects cannot become valid again (D-043).
+      this.nativeNfcIngressAuthority = Object.freeze({ ...current,
+        validFromElapsedRealtimeMilliseconds: previous.validFromElapsedRealtimeMilliseconds });
+      if (runtimeStartBound) this.nativeNfcIngressRuntimeStartGeneration = generation;
+    }
   }
 
   private async refreshTransferIssues(): Promise<void> {

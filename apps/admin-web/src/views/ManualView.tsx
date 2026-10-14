@@ -31,7 +31,7 @@ export default function ManualView({state,administration}: {
   return <section className="manual-capture" aria-label="Manuell erfassen">
     <p className="supporting">Die Zeit wird als manuell erfasst gekennzeichnet.</p>
     <SearchField value={search} onChange={setSearch}/>
-    <p role="status">{targets?.status==='ready'?`${targets.nextCursor?'mehr als ':''}${targets.value.length} Treffer`:'Wird geladen …'}</p>
+    {!favorites.length?<p role="status">{targets?.status==='ready'?`${targets.nextCursor?'mehr als ':''}${targets.value.length} Treffer`:'Wird geladen …'}</p>:null}
     {targets?.failed?<button type="button" onClick={()=>void administration.loadWorkTargets?.(query,targets.status==='ready')}>Erneut versuchen</button>:null}
     {!ownReady ? calendar?.status==='unavailable' ? <p role="status">{calendar.message}</p>
       : <DelayedSkeleton label="Ihre Zeiten werden geladen"/> : active ? <div className="feedback-band">
@@ -45,8 +45,9 @@ export default function ManualView({state,administration}: {
       {targets?.status === 'ready' ? <fieldset data-required-choice tabIndex={-1} data-field-error={target ? "" : "Bitte einen Kunden oder ein Projekt wählen."} disabled={locked}><legend>Wofür wird die Zeit erfasst?</legend><p>Kunde, Projekt oder allgemeine Arbeit</p>
         {query===null&&assigned.state.failed?<SearchStatus state={assigned.state} onRetry={assigned.pager.retry}/>:null}
         {favorites.length?<div><h3>Meine Kunden und Projekte</h3><ul>{favorites.map(item=><li key={`${item.targetType}:${item.targetId}`}><button type="button" className="target-choice secondary" disabled={assigned.state.busy||assigned.state.failed} aria-pressed={selected===`${item.targetType}:${item.targetId}`} onClick={()=>setSelected(`${item.targetType}:${item.targetId}`)}>{item.displayName}</button></li>)}</ul>
-          {assigned.state.nextCursor?<button type="button" disabled={assigned.state.busy} onClick={()=>void assigned.pager.loadMore()}>Weitere zugeordnete laden</button>:null}</div>:null}
-        <h3>{query?'Treffer':'Alle Kunden und Projekte'}</h3>
+          {assigned.state.nextCursor?<button type="button" disabled={assigned.state.busy} onClick={()=>void assigned.pager.loadMore()}>Weitere zugeordnete laden</button>:null}
+          <p>Weitere Kunden und Projekte über die Suche</p></div>:null}
+        {!favorites.length?<><h3>{query?'Treffer':'Alle Kunden und Projekte'}</h3>
         {(['customer','project','general_work'] as const).map(type=>{
           const visible=visibleTargets.filter(item=>item.targetType===type);
           return visible.length===0?null:<div key={type}><h3>{type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit – ohne Kunde oder Projekt'}</h3>
@@ -56,6 +57,7 @@ export default function ManualView({state,administration}: {
         {visibleTargets.length===0 && search.trim() ? <p>{`Keine Treffer für „${query}“`} <button type="button" onClick={()=>setSearch('')}>Suche löschen</button></p> : null}
         {targets.value.length===0 && !search.trim()?<p>Es sind keine Arbeitsziele verfügbar. Wenden Sie sich an Ihre Betriebsverwaltung.</p>:null}
         {targets.nextCursor?<button type="button" disabled={targets.busy} onClick={()=>void administration.loadWorkTargets?.(query,true)}>Weitere laden</button>:null}
+        </>:null}
       </fieldset> : targets?.status==='unavailable'?<p role="status">{targets.message}</p>:<DelayedSkeleton label="Arbeitsziele werden geladen"/>}
       <div className="manual-start-bar"><button className="capture-primary" disabled={locked||assignedStartLocked}>{target ? `Zeit starten · ${target.displayName}` : 'Zeit starten'}</button></div>
     </RequiredForm>}

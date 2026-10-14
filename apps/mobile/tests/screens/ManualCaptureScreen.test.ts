@@ -12,7 +12,7 @@ vi.mock('react-native', () => {
     findNodeHandle:()=>null, AccessibilityInfo:{announceForAccessibility:vi.fn()},
     View: element, Text: element, ScrollView: element, TextInput: () => null,
     ActivityIndicator: () => null,
-    StyleSheet: { create: (value: unknown) => value, flatten: () => ({}) },
+    Keyboard: { dismiss: vi.fn() }, StyleSheet: { create: (value: unknown) => value, flatten: () => ({}) },
     Pressable: ({ children, onPress, disabled, accessibilityState, accessibilityHint }: {
       children?: ReactNode; onPress?: () => void; disabled?: boolean;
       accessibilityState?: { selected?: boolean }; accessibilityHint?: string;
