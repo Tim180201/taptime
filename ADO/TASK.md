@@ -1,86 +1,73 @@
 # Aktuelle Aufgabe
 
-> **Stand 13.10.2026:** T-116a abgeschlossen (`2596899`, `a9d5c54`; Migrationen 053, 054; D-134, D-137), noch nicht
-> ausgeliefert. Jetzt T-116b. Danach T-117, T-118 und T-120, dann Deploy 5 mit neuen App-Builds.
+> **Stand 14.10.2026:** T-116b abgeschlossen (`514f919`, Migration 055), noch nicht ausgeliefert. T-117 ist geteilt:
+> jetzt **T-117a** (Suche und Seiten auf dem Server), danach T-117b (Oberfläche), T-118, T-120, dann Deploy 5.
 
-## T-116b · Oberfläche und Kleinigkeiten vor dem Pilot
+## T-117a · Suche und Seiten auf dem Server
 
-**Für:** Development · **Risiko:** mittel bis hoch (Migration 055 mit Berechtigungsausnahme und Sortierung, Startablauf
-unberührt) · **Zeitbox:** ein bis zwei Sitzungen; reißt sie, entfällt zuerst Teil 3. App, Web, Server, Caddy. Kein Deploy.
+**Für:** Development · **Risiko:** hoch (neue Lesefunktionen über Mandanten- und Standortgrenzen, Vertragsversionen) ·
+**Zeitbox:** ein bis zwei Sitzungen. Nur Server, Verträge und deren Tests; keine Oberfläche. Kein Deploy.
 
-### Teil 1 · Oberfläche
+### Ausgangslage (`514f919`)
 
-1. **Manuell, App** (`ManualCaptureScreen.tsx`): Die Karte mit „Zeit starten“ steht heute unter der ganzen Liste. Neu
-   eine feste Leiste unten, außerhalb der Liste, direkt über der Tab-Leiste: sichtbar nur ohne laufende Zeit und mit
-   gewähltem Ziel, mit Zielnamen und „Zeit starten“. Sie scrollt nicht mit; bei großer Schrift bricht der Name um, der
-   Knopf bleibt sichtbar. Die Auswahl wird angesagt („Ausgewählt: NAME“). Blendet die Suche das gewählte Ziel aus, wird
-   die Auswahl gelöscht (wie im Web). **Web „Manuell“** (`ManualView.tsx`): Startknopf `position: sticky` am unteren
-   Rand, auf kleinen Bildschirmen über der mobilen Navigation.
-2. **Karten, App** (`AdminSetupScreen.tsx`): „Karte einrichten“, „Karte prüfen“, „Scan abbrechen“ sowie Ergebnis,
-   „Karte entfernen“ und Rückfrage stehen über der Kartenliste. „Weitere Karten laden“ und „Aktualisieren“ bleiben
-   darunter.
-3. **Pausen als eigene Zeilen** in beiden Kalendern (`apps/mobile/src/screens/TimeCalendar.tsx`,
-   `apps/admin-web/src/TimeCalendar.tsx`), also „Meine Zeiten“ und Personenansicht in App und Web. Ein Eintrag mit
-   Pausen zeigt chronologisch Abschnitte, auf den gewählten Tag zugeschnitten (`calendar.breakIntervals`):
-   „08:00–10:00 · Kunde X · 2:00 h“, „10:00–10:30 · Pause · 0:30 h“, „10:30–12:00 · Kunde X · 1:30 h“. Der Eintrag bleibt
-   eine Gruppe: Herkunft, Verlauf und Knöpfe (Ändern, Löschen, Kommentar) stehen einmal darunter. Ohne Pause wie heute;
-   die Zeile „0:00 h Pause“ entfällt. Eine laufende Pause zeigt „seit HH:MM · Pause“, wo `breakStartedAt` vorliegt.
-   Summen bleiben. Nur Darstellung: keine Änderung an Verträgen, `break_intervals` oder Lohnexport. Die Tabelle
-   „Arbeitszeiten“ im Web bleibt ohne Pausen (keine Daten im Vertrag).
-4. **„Zeit beendet“** (`packages/mobile-work-contract/src/captureTime.ts`): mit Pause
-   „Zeit beendet · Kunde X · 08:12–11:47 · 3:05 h · Pause 0:30 h“, ohne Pause wie heute.
-5. **Einladen, App** (`InviteEmployeeScreen.tsx`): Nach Erfolg ist „Einladung senden“ deaktiviert; darunter
-   „Weitere Person einladen“, das Formular leert.
-6. **Erfolgskarte nach „Passwort setzen“, Web** (`WelcomePage.tsx`): Überschrift „Passwort gespeichert“ mit
-   `aria-labelledby`.
-7. **Anmeldung, App** (`LoginScreen.tsx`): „Anmeldung gerade nicht möglich“ steht höchstens einmal; „Code S5“ bleibt.
-8. **Beschäftigte, Web** (`PeopleShared.tsx`): Spalte „Standort“ nur, wenn nicht nach Standort-Überschriften gruppiert.
-9. **`tagReceipt`, App** (`AdminSetupCoordinator.ts`): Nach der Anzeige verbraucht; eine spätere Sitzungsmeldung zeigt
-   die alte Antwort nicht erneut. Ein Beleg ohne Kontext erscheint weiterhin genau einmal.
+- Auf dem Server gibt es keine Suche; App und Web filtern nur in bereits geladenen Seiten („Manuell“).
+- **Kundenstunden** (`/v1/customers/hours/query`) kommen ungeblättert als ein JSON samt Personen bzw. Tagen. Bei
+  frogs-Größe überschreitet das die 16-KiB-Grenze der App: Der Reiter „Kunden“ lädt dann nicht. Das ist der wichtigste
+  Grund für T-117a.
+- Die Einrichtungsliste (`setup-projection`) liefert erst alle Kunden, dann alle Karten, jeweils nach UUID; Auswahllisten
+  sehen nur geladene Seiten. Ziellisten werden vollständig vorgeladen, Nachtrage-Ziele sind nicht nach Namen sortiert.
 
-### Teil 2 · Server und Caddy
+### Gemeinsame Regeln (TL-Entscheidung)
 
-10. **Migration 055** mit vollständigen Funktionskörpern (`T106FunctionBodies`):
-    - **Sortierung nach Schreibweise statt Bytes:** `COLLATE "und-x-icu"` statt `"C"` für Namen in
-      `read_managed_active_summary_v3` und `_v4` (Beschäftigte), `read_customer_hours_v1` (Kunden und ihre Personen)
-      und `read_mobile_work_targets_v1` (Ziellisten). Sortierung und Blätter-Cursor nutzen dieselbe Collation. Vorher
-      in allen genutzten Abbildern prüfen, dass sie existiert (Produktion `postgres:17.10-bookworm`, CI
-      `postgres:17.10-alpine`); fehlt sie irgendwo, stoppen und melden.
-    - **Eigene Zeiten der Standortleitung unabhängig vom Heimatstandort (D-131):** In `backfill_time_record_v1`,
-      `correct_time_record_v1` und `prepare_administration_stop_v1` entfällt die Bereichsprüfung, wenn die Zeit der
-      handelnden Person gehört; die Rollenprüfung bleibt. `has_time_management_authority_v1` bleibt unverändert (Lesen,
-      Prüffälle).
-11. **Caddy:** `/app/` und `/tag/` leiten mit 308 auf `/app` bzw. `/tag`. `/app/unknown` bleibt hinter dem Passwort.
+1. **Suchbegriff:** Feld `search` im Body, `null` = keine Suche. NFC-normalisiert und getrimmt (wie
+   `normalizeTapTimeNameV1`), 1 bis 80 Zeichen, sonst `invalid_request`. Treffer: Teilzeichenfolge ohne Groß-/Klein-
+   unterschied, `strpos(lower(name COLLATE "und-x-icu"), lower(term COLLATE "und-x-icu")) > 0` (kein `LIKE`, also
+   kein Escaping). Umlaute müssen getippt werden; keine Akzent-Gleichsetzung.
+2. **Sortierung und Seiten:** Name `COLLATE "und-x-icu"`, dann `id`. Keyset-Cursor mit Name und `id`; der Cursor ist an
+   Suchbegriff und Filter gebunden (Hash im Cursor, abweichend → `invalid_request`). Seitengröße höchstens 50, außer wo
+   unten anders genannt; jede Antwort bleibt unter 16 KiB bei 50 Einträgen mit 120-Zeichen-Namen (Test).
+3. **Sichtbarkeit unverändert:** Jede neue Funktion übernimmt die Sichtbarkeitsregel ihres Vorgängers wörtlich (D-102);
+   die Suche filtert nur innerhalb. Rollen, RLS und Funktionseigentümer wie beim Vorgänger.
+4. **Alte Wege bleiben** unverändert und funktionsfähig (installierte App-Builds). Neue Wege sind neue Pfade bzw. eine
+   neue Accept-Version; Routentabelle, `isAdministrationRoute`, Diagnose und Header-Schutzliste ergänzen.
+5. **Datenschutz:** Suchbegriffe werden nicht geloggt, auch nicht in Diagnosen oder Fehlertexten.
 
-### Teil 3 · Tests durchsehen (Zeitbox eine Stunde)
+### Neue Wege
 
-12. Tests suchen, die feste Kalenderdaten neben relativen Fenstern verwenden (jetzt, Vormonat, 24 h) oder Ergebnisse
-    von Effekten ohne `waitFor` prüfen. Offensichtliche Fälle wie `80bbb3a` und `4598d25` beheben; den Rest mit
-    Einschätzung in den Bericht.
+| Liste | Neuer Weg | Inhalt |
+|---|---|---|
+| Kunden (App und Web) | `POST /v2/customers/hours/query` | Seite mit Kunden-Summen (Id, Name, aktiv, Sekunden, läuft, Kontingent wie v2), ohne Personen/Tage; `search`, `cursor`, `limit` ≤ 50. |
+| Kunde im Detail | `POST /v2/customers/hours/detail` | Ein Kunde (`customerId`) mit Personen bzw. Tagen wie heute; Personen nach Name. Nicht sichtbar → `not_found`. |
+| Beschäftigte | Accept `managed-people.v6` auf dem bestehenden Pfad | Wie v5 plus `search`; `read_managed_active_summary_v5`, Cursor-Präfix `s6`. `runningCount` und `totalCount` zählen weiter den ganzen Bereich ohne Suche. |
+| Zugänge verwalten | `POST /v3/administration/employee-memberships-projection` | Wie v2 plus `search`, nach Name statt UUID. |
+| Karten | `POST /v3/administration/setup-projection` mit `kind:'nfc_tags'` | Nur Karten, `search` auf Kartenname und Kundenname; jede Karte trägt `customerDisplayName`. |
+| Kundenauswahl beim Einrichten und Umhängen | dasselbe mit `kind:'customers'` | Nur aktive Kunden, `search`. Weiter als `taptime_admin_setup` mit RLS. |
+| Arbeitsziele („Manuell“, eigenes Nachtragen) | `POST /v2/mobile/work-targets/query` | `search`, optional `targetType`; `read_mobile_work_targets_v2`, Reihenfolge Kunden, Projekte, Allgemein, dann Name. |
+| Nachtrage-Ziele für andere | `POST /v2/administration/time-records/backfill-targets/query` | `search`, sortiert wie die Arbeitsziele; `read_time_backfill_targets_v2`. |
+| Projekte (Web) | `POST /v2/administration/projects/query` | `search`; sonst wie v1. |
 
-**Nicht dabei:** Name im Kopf der App (braucht eine neue Sitzungsversion mit Namen; bleibt Kleinigkeit). Pausen in der
-Web-Tabelle „Arbeitszeiten“.
+Für jede neue Lesefunktion: vollständige Körper in **Migration 056**, `T106FunctionBodies` ergänzen.
 
 ### Tests
 
-Je Punkt rot vor der Änderung, auch für SQL (vollständiger fachlicher Rotlauf, nicht nur ein abgebrochener):
-- Leiste: erscheint nur mit Auswahl und ohne laufende Zeit, liegt außerhalb der Liste, Auswahl wird beim Ausfiltern
-  gelöscht; Web: Knopf sticky. Karten: Knöpfe und Ergebnis vor der Liste.
-- Pausenzeilen: Abschnitte, Zuschnitt über Mitternacht, laufende Pause, ohne Pause unverändert, Knöpfe einmal je
-  Eintrag. „Zeit beendet“ mit und ohne Pause (`T103Capture`, `T103CapturePostgres` anpassen).
-- Einladen nach Erfolg, Überschrift, einfache Anmeldemeldung, Spalte „Standort“, `tagReceipt` nicht erneut.
-- SQL: „Ärztehaus“, „Özdemir“, „Abel“, „Zander“ ergeben Abel, Ärztehaus, Özdemir, Zander, auch über eine Seitengrenze.
-  Standortleitung mit Heimat außerhalb ihres Bereichs trägt nach, ändert und beendet eigene Zeit; fremde Zeit außerhalb
-  bleibt abgewiesen; Mitarbeiter unverändert.
-- Caddy: `/app/`, `/tag/` → 308; `/app/unknown` → 401.
-- Alle Suiten, Postgres-Tests, Typecheck und Browserläufe grün.
+Je Punkt rot vor der Änderung, SQL mit vollständigem fachlichem Rotlauf:
+- Je Weg: Treffer ohne Groß-/Kleinunterschied („özd“ findet „Özdemir“), keine Treffer, `search` zu lang oder leer nach
+  Trim → `invalid_request`, Blättern über mehrere Seiten mit Suche ohne Lücke und Dopplung, Cursor mit anderer Suche
+  abgewiesen, Sortierung mit Umlauten.
+- **Sichtbarkeit je Rolle:** Administrator, Standortleitung (eigener Bereich, außerhalb nichts), Mitarbeiter mit und
+  ohne Standorte; Suche findet nie, was ohne Suche unsichtbar ist; fremder Mandant nie.
+- Kundenstunden: Antwortgröße bei 50 Kunden unter 16 KiB; Detail eines unsichtbaren Kunden → `not_found`; Summen der
+  Seiten gleich der alten v2-Antwort für denselben Monat.
+- Alte Wege liefern unverändert dieselben Antworten wie vor 056 (Vergleichstest).
+- Kein Suchbegriff in Logs (Test über die Diagnoseausgabe).
+- Alle Suiten, Postgres-Tests und Typecheck grün.
 
 ### Grenzen
 
-Kein Deploy, kein Zugriff auf Produktion. 055 ändert keine Daten. Startablauf der App (T-115) und Verträge bleiben
-unverändert. ADO nicht ändern.
+- Keine Oberfläche (kommt in T-117b), keine Zuordnung zu Mitarbeitern (T-118). Keine Datenänderung in 056, kein Index
+  nötig bei Pilotgröße. Kein Deploy, kein Zugriff auf Produktion. ADO nicht ändern.
 
 ### Bericht
 
-`.t116b-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
+`.t117a-review/` (report.md, tracked.diff, untracked.txt). Unabhängiges Review in einer Runde, eine zweite nur bei
 P1/P2. Kein Commit vor `APPROVED` durch den TL.

@@ -1,12 +1,13 @@
 # TapTim.e — Status
 
-**Stand 13.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., Migration 052). Ausgeliefert: T-109,
+**Stand 14.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., Migration 052). Ausgeliefert: T-109,
 T-113, T-112, T-114, T-115. Auf main, noch nicht ausgeliefert: T-116a (`2596899`, `a9d5c54`; Migrationen 053 und 054,
-D-134, D-137). Die Geräteabnahme ist verschoben (PO 13.10.); in Arbeit ist T-116b.
+D-134, D-137) und T-116b (`514f919`, Migration 055). Die Geräteabnahme ist verschoben (PO 13.10.); in Arbeit ist
+T-117a.
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-116b, T-117 (Suche), T-118 (Zuordnung), T-120 (Icon) → Deploy 5, neue App-Builds und
+**Weg zum Pilot:** T-117a und T-117b (Suche), T-118 (Zuordnung), T-120 (Icon) → Deploy 5, neue App-Builds und
 Geräteabnahme → T-119 und T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
@@ -76,22 +77,19 @@ T-115 am iPhone: einmal über Nacht gesperrt am Ladekabel, dazu zehnmal nach meh
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
 
 - **App:** nach gescheitertem Neustart der Laufzeit kann die Sitzung außerhalb der Startreihenfolge starten (T-115,
-  P2) · „Anmeldung gerade nicht möglich“ kann nach einem weiteren Fehlversuch doppelt stehen (T-115) · ein dauerhaft
+  P2) · ein dauerhaft
   defekter Android-Schlüsselspeicher zeigt P01 mit „Erneut versuchen“ statt Support-Hinweis (T-115) · Kopf zeigt die E-Mail statt „Name · Rolle“, die Sitzung liefert keinen Namen (T-107) · nach einer
-  Offline-Aktion bleibt die Karte der laufenden Zeit auf „Erfassen“ bis zur Bestätigung gesperrt (T-107) · „Zeit
-  beendet“ nennt die Dauer ohne Pausen, die Uhrzeitspanne enthält sie (T-103) · Einladen-Knopf wirkt nach Erfolg aktiv,
-  tut aber nichts (T-101) · Anzeige „wird gesichert“ eines Verwaltungsstopps nur im Speicher · „Meine Zeiten“ nur
+  Offline-Aktion bleibt die Karte der laufenden Zeit auf „Erfassen“ bis zur Bestätigung gesperrt (T-107) · Anzeige „wird gesichert“ eines Verwaltungsstopps nur im Speicher · „Meine Zeiten“ nur
   laufender und Vormonat, Summe nur über den geladenen Zeitraum (T-077, T-058) · Kalenderwoche über zwei Monate „nicht
   vollständig geladen“ (T-079) · offline vor einem Rollenwechsel erfasst → Prüffall (T-080) · Abbruch im
   Vorbereitungsfenster des Kontowechsels → Schutzzustand, jede fremde `.db`-Datei im SQLite-Ordner ebenso (T-076) · iOS
   Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) · Sitzungsvergleich ohne
   Verwaltungsumfang (T-059) · Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an
-  `wa-sqlite.wasm` (P2) · eine alte Registrierungsantwort kann nach einer Sitzungsmeldung derselben Person erneut
-  erscheinen (`tagReceipt`, T-112) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112). · alte App-Builds können nach Deploy 5 gelöschte
+  `wa-sqlite.wasm` (P2) · nach entzogener Berechtigung und anschließendem Verbindungsfehler kann ein alter Kartenbeleg
+  desselben Kontos erneut erscheinen (`tagReceipt`, T-116b, Behebung in T-117b) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112) · alte App-Builds können nach Deploy 5 gelöschte
   Einträge ohne Grund (`none`) nicht anzeigen, bis der neue Build installiert ist (T-116a).
-- **Beschäftigte (T-102):** Sortierung nach Bytes (`COLLATE "C"` wie bei den Kunden), Namen mit Umlaut am Anfang stehen
-  am Ende · wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten Seite fehlen
-  (Aktualisieren hilft) · Spalte „Standort“ steht neben der Standort-Überschrift doppelt.
+- **Beschäftigte (T-102):** wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten
+  Seite fehlen (Aktualisieren hilft).
 - **Paket (T-075):** eine nie angenommene Einladung belegt den Platz, bis der Zugang entzogen wird (gewollt, D-087) ·
   `operator_create_organization_v3` ist eine Kopie von v2 mit Paketgröße, v4 (T-107) zusätzlich mit Namen; v2 und v3
   beim nächsten Rückbau entfernen.
@@ -99,11 +97,9 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
   (T-074) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Zeitfehler in
   Lohnexport-Korrektur und „Zeiten prüfen“ nicht mehr per `aria-describedby` an den Feldern (T-113) · Anlegen meldet
-  Fehler 23514 als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung ·
-  Erfolgskarte nach „Passwort setzen“ ohne Überschrift (T-109).
+  Fehler 23514 als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung.
 - **Server und SQL:** direkter SQL-Pfad `taptime_admin_setup` prüft keine Betriebspause (T-085) · `xmin` über
-  `::text::xid` (T-086, mit der nächsten Migration) · Standortleitung mit Heimatstandort außerhalb ihres
-  Verwaltungsbereichs kann eigene Zeiten nicht nachtragen (T-062) · mehrere Standort-Grants im Handy-Vertrag nicht
+  `::text::xid` (T-086, mit der nächsten Migration) · mehrere Standort-Grants im Handy-Vertrag nicht
   darstellbar (T-059) · Nachtragen ohne externen Archivnachweis bis T-016 (D-078) · frühere Offline-Prüfgründe vor
   `administration_stopped`, Dreiminutenmeldung kann sich verzögern (T-069) · Geräteuhr bei manueller Erfassung,
   unbegrenzter vergessener Stopp, Offline-Pausenkonflikte ohne aktive Zeit · Lease-Bindung nach Restore (P1, eigene
@@ -115,9 +111,9 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   schließt die Backend-Gesundheit ein (T-031) · `taptime-landing-password` ohne Eingabeaufforderung · systemd meldet
   „unit file changed“ beim Ordnerwechsel · `registered_chain_watermark` liest direkt statt über eine Lesefunktion ·
   Health ohne Cache, alte Caddy-Assets · Caddy-Negativprüfung: EXIT-Trap verliert `holder` · Monitoring-Test braucht
-  GNU-Werkzeuge · ShellCheck CI 0.9 gegen lokal 0.11 · DNS-Wildcard nach dem Pilot verengen · `/app/` mit
-  Schrägstrich landet bei der Passwortabfrage der Startseite (T-109).
+  GNU-Werkzeuge · ShellCheck CI 0.9 gegen lokal 0.11 · DNS-Wildcard nach dem Pilot verengen.
 - **Sicherheit:** CSP `*.supabase.co` auf den Aussteller verengen · SECURITY-DEFINER-Pfade und Policy-Prädikate prüfen ·
   Supabase-Anmeldung außerhalb der eigenen Ratenbegrenzung.
 - **Entwicklung:** Root-Build mit veralteten Workspace-Deklarationen (Reihenfolge Identity → Administration → API) ·
-  Swift-Tests der iOS-Uhr nur auf macOS · Landing-Workflow-Tests nur unter Linux · PostgreSQL-Suiten seriell.
+  Swift-Tests der iOS-Uhr nur auf macOS · Landing-Workflow-Tests nur unter Linux · PostgreSQL-Suiten seriell · PITR-Test braucht Linux-Werkzeuge und
+  Linux-Dateirechte (T-116b).
