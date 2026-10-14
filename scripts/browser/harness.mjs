@@ -7,13 +7,14 @@ import { build } from 'vite';
 import react from '@vitejs/plugin-react';
 import axe from 'axe-core';
 import { productHtml } from '../../shared/productHtml.ts';
+import { brandAssets } from '../../shared/brandAssets.ts';
 export async function launchBrowser() {
   const mac = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
   return chromium.launch({ executablePath: process.env.CHROME_BIN ?? (existsSync(mac) ? mac : '/usr/bin/google-chrome'), headless: true, args: ['--no-sandbox'] });
 }
 export async function buildWeb(app, fixture = false, storageProbe = false) {
   const root = realpathSync(resolve(process.env.TAPTIME_LAYOUT_SOURCE ?? '.', 'apps', app)), output = mkdtempSync(join(tmpdir(), 'taptime-layout-'));
-  const plugins = [react(), productHtml()];
+  const plugins = [react(), productHtml(), brandAssets()];
   if (!fixture) plugins.push({ name: 'no-production-test-fixtures', generateBundle() {
     if ([...this.getModuleIds()].some(id => id.includes('/tests/'))) throw new Error('Test module reached the production bundle');
   } });
@@ -35,7 +36,7 @@ export async function buildWeb(app, fixture = false, storageProbe = false) {
     let file = join(output, path);
     if (!existsSync(file) || !extname(path)) file = join(output, 'index.html');
     res.setHeader('Content-Security-Policy', csp);
-    res.setHeader('Content-Type', ({ '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.ttf':'font/ttf', '.woff2':'font/woff2' })[extname(file)] ?? 'text/plain');
+    res.setHeader('Content-Type', ({ '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.ttf':'font/ttf', '.woff2':'font/woff2', '.svg':'image/svg+xml', '.ico':'image/x-icon', '.png':'image/png' })[extname(file)] ?? 'text/plain');
     res.end(readFileSync(file));
   });
   await new Promise(done => server.listen(0, '127.0.0.1', done));

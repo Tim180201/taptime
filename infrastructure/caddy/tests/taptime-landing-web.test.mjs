@@ -34,7 +34,7 @@ before(async()=>{
   mkdirSync(join(root,'landing-web/releases/abcdef0/tag-assets/fonts'),{recursive:true});
   for(const [file,body] of Object.entries({'app.html':'<!doctype html><title>app</title>','app-assets/app-ABC123.js':'/* app */','app-assets/app-ABC123.css':'body {}','index.html':'<!doctype html><title>private</title>','tag.html':'<!doctype html><title>tag</title>','robots.txt':'User-agent: *\nDisallow: /','version.txt':'abcdef0','assets/private.js':'private','tag-assets/tag.css':'body {}','tag-assets/fonts.css':'/* local */','tag-assets/fonts/manrope-400.ttf':'synthetic-font'})) writeFileSync(join(root,'landing-web/releases/abcdef0',file),body);
   await build({ root: resolve('apps/landing-web'), envDir: false, logLevel: 'warn', base: '/releases/abcdef0/', build: { outDir: join(root, 'built'), emptyOutDir: true } });
-  for (const path of ['app.html', 'app-assets', 'tag-assets']) cpSync(join(root, 'built', path), join(root, 'landing-web/releases/abcdef0', path), {recursive:true});
+  for (const path of ['app.html', 'app-assets', 'tag-assets', 'favicon.svg', 'favicon.ico', 'apple-touch-icon.png', 'brand']) cpSync(join(root, 'built', path), join(root, 'landing-web/releases/abcdef0', path), {recursive:true});
   mkdirSync(join(root,'landing-web/releases/abcdef0/.well-known'),{recursive:true});
   const linksPath='apps/landing-web/public/.well-known/assetlinks.json';
   const links=readFileSync(linksPath,'utf8');
@@ -68,6 +68,18 @@ exec /usr/bin/curl "$@"
   throw new Error('Local landing Caddy did not start');
 });
 after(()=>{try{docker('rm','-f',id);}catch{}for(const resource of ['auth','trace'])try{docker('volume','rm',`${id}-${resource}`);}catch{}try{docker('network','rm',id);}catch{}rmSync(root,{recursive:true,force:true});});
+test('T120 named brand assets are public on the landing/tag host, with identical bytes and unchanged CSP; adjacent files stay private', async () => {
+  const expected = { 'favicon.svg': 'web/favicon.svg', 'favicon.ico': 'web/favicon.ico', 'apple-touch-icon.png': 'web/apple-touch-icon.png', 'brand/app-icon.png': 'app/icon.png' };
+  const csp = (await request('/tag')).headers.get('content-security-policy');
+  for (const prefix of ['/', '/releases/abcdef0/']) for (const [name, source] of Object.entries(expected)) {
+    const response = await request(prefix + name);
+    assert.equal(response.status, 200, prefix + name);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), readFileSync(resolve('shared/brand', source)));
+    assert.equal(response.headers.get('content-security-policy'), csp);
+    assert.match(response.headers.get('content-type'), name.endsWith('.svg') ? /image\/svg\+xml/ : name.endsWith('.png') ? /image\/png/ : /image\/(x-icon|vnd.microsoft.icon)/);
+  }
+  for (const path of ['/brand/private.png', '/favicon.svg/private', '/favicon.svg.bak', '/releases/abcdef0/brand/private.png', '/releases/abcdef0/favicon.svg.bak', '/releases/abcdef0/index.html', '/']) assert.equal((await request(path)).status, 401, path);
+});
 test('private homepage and release assets require auth; only named public pages and their assets bypass it',async()=>{
   for(const path of ['/','/app.html','/index.html','/tag.html','/releases/abcdef0/index.html','/releases/abcdef0/assets/private.js']){
     assert.equal((await request(path)).status,401,path);assert.equal((await request(path,oldPassword)).status,200,path);

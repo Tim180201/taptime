@@ -1,4 +1,5 @@
 import { APP_NAME } from '../../../shared/product';
+import { BrandMark } from '../../../shared/BrandMark';
 import { AppDownloadSuccess } from './AppDownloadSuccess';
 import { RequiredForm } from './RequiredForm';
 import { CustomerQuotaNotice } from './QuotaNotice';
@@ -239,7 +240,7 @@ export function App({
     </aside>
     <main className="workspace">
       <header className="workspace-header">
-        <span className="mobile-brand brand-mark" aria-hidden="true">T</span>
+        <BrandMark className="mobile-brand brand-mark" size={28} />
         <div className="workspace-title">
           <p className="eyebrow">{state.projection.organization.name}</p>
           <h1 ref={mainHeading} tabIndex={-1}>{activeView.label}</h1>
@@ -371,7 +372,7 @@ type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { readonly
 
 function Brand() {
   return <div className="brand">
-    <span className="brand-mark" aria-hidden="true">T</span>
+    <BrandMark className="brand-mark" size={40} />
     <span><strong>{APP_NAME}</strong><small>ZEIT. EINFACH. KLAR.</small></span>
   </div>;
 }

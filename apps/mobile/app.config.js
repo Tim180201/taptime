@@ -2,6 +2,8 @@ const { name: appName } = require('../../shared/product.json');
 const base = require('./app.json');
 const withNfcTagDispatch = require('./plugins/withNfcTagDispatch');
 const TAG_HOSTS = require('./src/nfc/tagHosts.json');
+const startupLayout = require('./src/design/startupLayout.json');
+const { colors } = require('../../shared/brand/mark.json');
 
 const appVariant = process.env.APP_VARIANT;
 const runtimeVariant = process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT;
@@ -28,9 +30,14 @@ const configuration = {
     : physicalValidation
       ? `${appName} Validation`
       : appName,
-  plugins: base.expo.plugins.map(plugin => Array.isArray(plugin) && plugin[0] === 'react-native-nfc-manager'
+  plugins: [...base.expo.plugins.map(plugin => Array.isArray(plugin) && plugin[0] === 'react-native-nfc-manager'
     ? [plugin[0], { ...plugin[1], nfcPermission: plugin[1].nfcPermission.replace('%APP_NAME%', appName) }]
-    : plugin),
+    : plugin), ['expo-splash-screen', {
+      image: '../../shared/brand/app/splash-icon.png',
+      backgroundColor: colors.ground,
+      imageWidth: startupLayout.imageWidth,
+      resizeMode: 'contain',
+    }]],
   slug: 'mobile',
   scheme: physicalValidation
     ? 'taptime-validation'

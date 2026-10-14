@@ -15,6 +15,28 @@ const screenshots = process.env.TAPTIME_SCREENSHOTS;
 const caddy = readFileSync(resolve(root, '../../infrastructure/caddy/Caddyfile'), 'utf8');
 const csp = caddy.split('(landing_headers)')[1].match(/Content-Security-Policy "([^"]+)"/)[1];
 let browser, server, origin;
+for (const width of [390, 1440]) for (const route of ['/', '/app', '/tag']) test(`T120 ${route}/${width}: icons, doubled text and axe`, async () => {
+  const page = await browser.newPage({ viewport: { width, height: 900 } });
+  try {
+    await page.goto(origin + route);
+    assert.equal(await page.locator('link[rel="icon"],link[rel="apple-touch-icon"]').count(), 3);
+    if (route !== '/') {
+      const image = page.locator('main img');
+      assert.equal(await image.getAttribute('alt'), '');
+      assert.equal(await image.evaluate(img => img.complete && img.naturalWidth > 0), true);
+    }
+    await page.evaluate(() => {
+      const elements = [...document.querySelectorAll('body *')].filter(el => el instanceof HTMLElement);
+      const sizes = elements.map(el => parseFloat(getComputedStyle(el).fontSize));
+      elements.forEach((el, index) => { el.style.fontSize = `${sizes[index] * 2}px`; });
+    });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth ? [] : [...document.querySelectorAll('body *')].filter(el => el.getBoundingClientRect().right > innerWidth + 1).map(el => [el.tagName, String(el.className), Math.round(el.getBoundingClientRect().right)]));
+    if (screenshots) { mkdirSync(screenshots, { recursive: true }); await page.screenshot({ path: join(screenshots, `t120-landing-${route.slice(1) || 'home'}-${width}-2x.png`), fullPage: true }); }
+    assert.deepEqual(overflow, []);
+    assert.deepEqual((await measure(page)).axe, []);
+    if (screenshots) { mkdirSync(screenshots, { recursive: true }); await page.screenshot({ path: join(screenshots, `t120-landing-${route.slice(1) || 'home'}-${width}-2x.png`), fullPage: true }); }
+  } finally { await page.close(); }
+});
 before(async () => {
   await build({ root, envDir: false, logLevel: 'warn', plugins: [{ name: 'test-empty-app-links', enforce: 'pre', transform(_code, id) {
     if (id === join(root, 'src/appLinks.json')) return JSON.stringify({ ios: '', android: '' });
@@ -39,7 +61,7 @@ before(async () => {
     }
     if (!existsSync(file)) { res.writeHead(404); res.end(); return; }
     res.setHeader('Content-Security-Policy', csp);
-    res.setHeader('Content-Type', ({ '.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.ttf':'font/ttf' })[extname(file)] ?? 'text/plain');
+    res.setHeader('Content-Type', ({ '.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.ttf':'font/ttf','.svg':'image/svg+xml','.ico':'image/x-icon','.png':'image/png' })[extname(file)] ?? 'text/plain');
     res.end(readFileSync(file));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

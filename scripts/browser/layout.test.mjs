@@ -5,11 +5,37 @@ import { before, after, test } from 'node:test';
 import { launchBrowser, buildWeb, measure } from './harness.mjs';
 import { adminScenarios, operatorScenarios } from './scenarios.mjs';
 import { build as buildJavaScript } from 'esbuild';
+import mark from '../../shared/brand/mark.json' with { type: 'json' };
 const apps = { 'admin-web': adminScenarios, 'operator-web': operatorScenarios };
 const artifacts = process.env.TAPTIME_LAYOUT_ARTIFACTS;
 const results = [];
 let browser;
 const webs = {};
+for (const app of Object.keys(apps)) for (const width of [390, 1440]) for (const variant of ['login', 'overview']) {
+  test(`T120 ${app}/${variant}/${width}: source mark, favicons and doubled text`, async () => {
+    const page = await browser.newPage({ viewport: { width, height: 900 } });
+    try {
+      await page.addInitScript(value => { window.layoutScenario = value; }, variant);
+      await page.goto(webs[app].origin + '/');
+      await page.locator('.brand, .mobile-brand').first().waitFor({ state: 'attached' });
+      const paths = await page.locator('.brand path, .mobile-brand path').evaluateAll(nodes => nodes.map(node => node.getAttribute('d')));
+      assert.ok(paths.includes(mark.compact.paths[0].d));
+      assert.equal(await page.locator('link[rel="icon"],link[rel="apple-touch-icon"]').count(), 3);
+      for (const scale of [1, 2]) {
+        await page.evaluate(scale => {
+          if (scale === 2) for (const el of document.querySelectorAll('body *')) {
+            if (el instanceof HTMLElement) el.dataset.originalFontSize = getComputedStyle(el).fontSize;
+          }
+          if (scale === 2) for (const el of document.querySelectorAll('[data-original-font-size]')) el.style.fontSize = `${parseFloat(el.dataset.originalFontSize) * 2}px`;
+        }, scale);
+        await page.evaluate(() => document.fonts.ready);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+        assert.deepEqual((await measure(page)).axe, []);
+        if (artifacts) { mkdirSync(artifacts, { recursive: true }); await page.screenshot({ path: join(artifacts, `t120-${app}-${variant}-${width}-${scale}x.png`), fullPage: true }); }
+      }
+    } finally { await page.close(); }
+  });
+}
 test('T090 shared creation-name normalizer runs in Chrome without Node globals', async () => {
   const bundle = await buildJavaScript({
     stdin: { contents: "export { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';", resolveDir: process.cwd() },

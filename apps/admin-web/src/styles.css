@@ -139,14 +139,7 @@ small { color: var(--color-text-muted); }
 .brand strong { font-size: 1.2rem; letter-spacing: -.02em; }
 .brand small { font-size: .62rem; font-weight: 800; letter-spacing: .12em; }
 .brand-mark {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
-  place-items: center;
-  border-radius: var(--radius-control);
-  color: var(--color-on-accent);
-  background: var(--color-accent);
-  font-weight: 800;
+  flex-shrink: 0;
 }
 .eyebrow {
   margin: 0 0 var(--space-2);

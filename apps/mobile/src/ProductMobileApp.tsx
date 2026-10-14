@@ -1,4 +1,5 @@
 import { ProductRuntimeStartup } from './runtime/ProductRuntimeStartup';
+import { StartupBoundary } from './design/StartupBoundary';
 import { APP_NAME } from '../../../shared/product';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { AppState, Platform, StyleSheet } from 'react-native';
@@ -24,10 +25,10 @@ export function ProductMobileApp() {
   }, [creation]);
 
   if (Platform.OS === 'web') {
-    return <UnsupportedNfcPlatform />;
+    return <StartupBoundary loading={false}><UnsupportedNfcPlatform /></StartupBoundary>;
   }
   if (creation.status === 'unavailable') {
-    return <UnavailableProductRuntime retry={retryCreation} code="R1" />;
+    return <StartupBoundary loading={false}><UnavailableProductRuntime retry={retryCreation} code="R1" /></StartupBoundary>;
   }
   return <ReadyProductMobileApp runtime={creation.runtime} />;
 }
@@ -56,22 +57,25 @@ function ReadyProductMobileApp({
     return () => subscription.remove();
   }), [runtime]);
   const state = useSyncExternalStore(startup.subscribe, startup.getState, startup.getState);
+  const sessionState = useSyncExternalStore(
+    listener => runtime.session.subscribe(listener),
+    () => runtime.session.getState(), () => runtime.session.getState(),
+  );
   useEffect(() => {
     void startup.start();
     return () => startup.stop();
   }, [startup]);
 
-  if (state === 'failed') return <UnavailableProductRuntime retry={() => startup.retry()} code="R2" />;
-  if (state === 'starting') return <SafeAreaView style={styles.container}>
-    <Text>Sitzung wird sicher wiederhergestellt …</Text>
-  </SafeAreaView>;
-  return <AppNavigator timeEditing={runtime.timeEditing} employees={runtime.employees}
+  return <StartupBoundary loading={state !== 'failed' && (state === 'starting' || sessionState.status === 'initializing')}>
+    {state === 'failed' ? <UnavailableProductRuntime retry={() => startup.retry()} code="R2" />
+    : <AppNavigator timeEditing={runtime.timeEditing} employees={runtime.employees}
     session={runtime.session}
     scan={runtime.scan}
     administration={runtime.administration}
     work={runtime.work}
     offlineManual={runtime.offlineManual}
-  />;
+  />}
+  </StartupBoundary>;
 }
 
 function UnavailableProductRuntime({ retry, code }: { readonly retry: () => void; readonly code: string }) {

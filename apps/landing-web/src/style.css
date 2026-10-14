@@ -35,7 +35,8 @@ body {
 a { color: inherit; }
 :focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; border-radius: 6px; }
 [id] { scroll-margin-top: 84px; }
-.wrap { max-width: var(--maxw); margin: 0 auto; padding-inline: var(--gutter); }
+.wrap { max-width: var(--maxw); margin: 0 auto; padding-inline: var(--gutter); overflow-wrap: anywhere; }
+.wrap > *, .split > *, .hero .wrap > * { min-width: 0; }
 .skip {
   position: absolute; left: 16px; top: -60px; z-index: 100;
   padding: 10px 16px; border-radius: 10px; background: var(--lime); color: #0a100e;
@@ -66,9 +67,9 @@ p { margin: 0; }
   background: rgba(10, 16, 14, 0.72);
   border-bottom: 1px solid var(--line-soft);
 }
-.nav .wrap { display: flex; align-items: center; gap: 28px; height: 64px; }
+.nav .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; min-height: 64px; padding-block: 10px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; text-decoration: none; }
-.brand-mark { width: 26px; height: 26px; }
+.brand-mark { width: 32px; height: 32px; flex-shrink: 0; }
 .nav-links { display: flex; gap: 24px; margin-left: auto; font-size: 14.5px; color: var(--muted); }
 .nav-links a { text-decoration: none; transition: color .2s; }
 .nav-links a:hover { color: var(--text); }

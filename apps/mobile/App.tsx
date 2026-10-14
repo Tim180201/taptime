@@ -1,8 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import { lazy, Suspense } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ProductMobileApp } from './src/ProductMobileApp';
+import { StartupBoundary } from './src/design/StartupBoundary';
 import { AppText as Text, FontReadyContext } from './src/design/primitives';
 import { mobileTokens } from './src/design/tokens';
 import { selectMobileCompositionMode } from './src/runtime/compositionMode';
@@ -31,19 +32,19 @@ export default function App() {
     <FontReadyContext.Provider value={fontsLoaded}>
       {mode === 'physical_validation'
         ? (
-            <Suspense fallback={<View />}>
-              <PhysicalValidationMobileApp />
+            <Suspense fallback={<StartupBoundary loading />}>
+              <StartupBoundary loading={false}><PhysicalValidationMobileApp /></StartupBoundary>
             </Suspense>
           )
         : mode === 'demo'
         ? (
-            <Suspense fallback={<View />}>
-              <DevelopmentDemoMobileApp />
+            <Suspense fallback={<StartupBoundary loading />}>
+              <StartupBoundary loading={false}><DevelopmentDemoMobileApp /></StartupBoundary>
             </Suspense>
           )
         : mode === 'product'
           ? <ProductMobileApp />
-          : <ForbiddenConfiguration />}
+          : <StartupBoundary loading={false}><ForbiddenConfiguration /></StartupBoundary>}
       <StatusBar style="light" hidden={false} animated={false} />
     </FontReadyContext.Provider>
     </SafeAreaProvider>

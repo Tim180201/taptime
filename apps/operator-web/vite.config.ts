@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { productHtml } from '../../shared/productHtml';
-export default defineConfig({ plugins: [react(), productHtml()] });
+import { brandAssets } from '../../shared/brandAssets';
+export default defineConfig({ plugins: [react(), productHtml(), brandAssets()] });

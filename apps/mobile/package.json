@@ -30,7 +30,8 @@
     "react-native-web": "^0.21.2",
     "@taptime/administration-contract": "*",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-svg": "15.15.4"
+    "react-native-svg": "15.15.4",
+    "expo-splash-screen": "~57.0.2"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

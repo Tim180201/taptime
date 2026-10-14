@@ -4,9 +4,14 @@
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "../../shared/brand/app/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
+      "icon": {
+        "light": "../../shared/brand/app/icon.png",
+        "dark": "../../shared/brand/app/icon-dark.png",
+        "tinted": "../../shared/brand/app/icon-tinted.png"
+      },
       "supportsTablet": true,
       "config": { "usesNonExemptEncryption": false },
       "bundleIdentifier": "com.tim180201.mobile",
@@ -21,10 +26,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#0E1512",
+        "foregroundImage": "../../shared/brand/app/android-icon-foreground.png",
+        "monochromeImage": "../../shared/brand/app/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
@@ -35,7 +39,7 @@
       "package": "com.tim180201.mobile"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "../../shared/brand/app/favicon.png"
     },
     "plugins": [
       [

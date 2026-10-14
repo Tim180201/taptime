@@ -1,4 +1,5 @@
 import { APP_NAME } from '../../../../shared/product';
+import { BrandMark } from '../design/BrandMark';
 import { OutcomeNotice } from '../design/OutcomeNotice';
 import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import { useRef, useState } from 'react';
@@ -70,7 +71,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   }
 
   return (
-    <Screen title={`${APP_NAME} — Anmeldung`}><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+    <Screen title={`${APP_NAME} — Anmeldung`} titleIcon={<BrandMark size={32} />}><ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       {unavailable ? <>{message === 'Anmeldung gerade nicht möglich. Prüfe die Verbindung und versuche es erneut.' ? null
         : <Text>Anmeldung gerade nicht möglich. Prüfe die Verbindung und versuche es erneut.</Text>}
         <Text style={{fontSize: 12}}>Code S5</Text></> : null}

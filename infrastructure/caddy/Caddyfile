@@ -200,7 +200,7 @@ tb-infra.de {
 		handle @landingApi {
 			respond 404
 		}
-		@landingPublic path /tag /app /robots.txt /version.txt
+		@landingPublic path /tag /app /robots.txt /version.txt /favicon.svg /favicon.ico /apple-touch-icon.png /brand/app-icon.png
 		handle @landingPublic {
 			root * /srv/landing-web/current
 			@tag path /tag
@@ -210,6 +210,11 @@ tb-infra.de {
 			file_server
 		}
 		# The download page has its own bundle; private homepage assets stay protected.
+		@brandAsset path_regexp ^/releases/[0-9a-f]{7}/(favicon\.(svg|ico)|apple-touch-icon\.png|brand/app-icon\.png)$
+		handle @brandAsset {
+			root * /srv/landing-web
+			file_server
+		}
 		@appAsset path_regexp ^/releases/[0-9a-f]{7}/app-assets/[A-Za-z0-9_-]+\.(js|css)$
 		handle @appAsset {
 			root * /srv/landing-web

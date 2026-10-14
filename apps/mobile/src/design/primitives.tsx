@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type Ref, type PropsWithChildren } from 'react';
+import { createContext, useContext, useState, type Ref, type PropsWithChildren, type ReactNode } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -34,8 +34,9 @@ export function AppText({ style, ...props }: TextProps) {
 export function Screen({
   title,
   eyebrow,
+  titleIcon,
   children,
-}: PropsWithChildren<{ readonly title: string; readonly eyebrow?: string }>) {
+}: PropsWithChildren<{ readonly title: string; readonly eyebrow?: string; readonly titleIcon?: ReactNode }>) {
   const embedded = useContext(EmbeddedScreenContext);
   const insets = useSafeAreaInsets();
   return <View style={[styles.screen, {
@@ -46,7 +47,10 @@ export function Screen({
   }]}>
     {embedded ? null : <View style={styles.heading}>
       {eyebrow ? <AppText style={styles.eyebrow}>{eyebrow}</AppText> : null}
-      <AppText accessibilityRole="header" style={styles.title}>{title}</AppText>
+      {titleIcon ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        {titleIcon}
+        <AppText accessibilityRole="header" style={[styles.title, { flexShrink: 1 }]}>{title}</AppText>
+      </View> : <AppText accessibilityRole="header" style={styles.title}>{title}</AppText>}
     </View>}
     {children}
   </View>;

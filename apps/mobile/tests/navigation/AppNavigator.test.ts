@@ -1,4 +1,5 @@
 import { APP_NAME } from '../../../../shared/product';
+import mark from '../../../../shared/brand/mark.json';
 import { createElement, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
@@ -39,6 +40,11 @@ function markup(role: ProductMembershipRole, nfcSetupAvailable = role === 'admin
   }));
 }
 describe('rendered navigation', () => {
+  it.each(['authenticated', 'unauthenticated'] as const)('T120 puts the shared decorative mark next to the product name on %s', status => {
+    const html = markup('employee', false, false, false, status === 'unauthenticated' ? { status, reason: 'not_signed_in' } : undefined);
+    expect(html).toContain(APP_NAME);
+    expect(html).toContain(mark.compact.paths[0].d);
+  });
   it('T-096 shows the update instruction even when an offline capture shell was ready', () => {
     const html = markup('employee', false, false, true);
     expect(html).toContain('Bitte App aktualisieren');

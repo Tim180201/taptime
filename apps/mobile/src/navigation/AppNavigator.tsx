@@ -1,5 +1,7 @@
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { APP_NAME } from '../../../../shared/product';
+import { BrandMark } from '../design/BrandMark';
+import { StartupScreen } from '../design/StartupBoundary';
 import {SubviewBack, SubviewBackContext, type BackAction, type RegisterBack} from './SubviewBack';
 import {OfflineActiveCapture} from '../work/OfflineActiveCapture';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
@@ -134,7 +136,7 @@ export function AppNavigator({
     </MessageScreen>;
   }
   if (state.status === 'initializing') {
-    return <MessageScreen title="Sitzung wird sicher wiederhergestellt …" />;
+    return <StartupScreen />;
   }
   return (
     <LoginScreen
@@ -212,7 +214,12 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   return <View style={[styles.productShell, { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]}>
     <View style={styles.header}>
       <View style={styles.heading}>
-        <Text accessibilityRole="header" style={styles.title}>{showSync ? 'Übertragung' : destinationLabels[destination]}</Text>
+        <View style={styles.brandHeading}>
+          <Text accessibilityRole="header" style={styles.title}>{showSync ? 'Übertragung' : destinationLabels[destination]}</Text>
+          {!showSync && destination === 'capture' ? <View style={styles.brandHeading}>
+            <BrandMark size={28} /><Text style={styles.brandName}>{APP_NAME}</Text>
+          </View> : null}
+        </View>
         <Text style={styles.subtitle} numberOfLines={1} accessibilityLabel={identityLabel ? `${identityLabel} · ${roleLabel}` : roleLabel}>{identityLabel ? `${identityLabel} · ${roleLabel}` : roleLabel}</Text>
       </View>
       <TouchTarget accessibilityRole="button" accessibilityLabel={status.label}
@@ -284,6 +291,8 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20,
     paddingTop: 16, paddingBottom: 8, gap: 8 },
   heading: { flex: 1, minWidth: 0 },
+  brandHeading: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  brandName: { color: mobileTokens.color.textMuted, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   title: { color: mobileTokens.color.text, fontSize: 22, lineHeight: 28, fontWeight: '800' },
   subtitle: { color: mobileTokens.color.textMuted, fontSize: 13, fontWeight: '600' },
   iconAction: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },

@@ -1,4 +1,5 @@
 import { APP_NAME } from '../../../shared/product';
+import { BrandMark } from '../../../shared/BrandMark';
 import { RequiredForm } from './RequiredForm';
 import { hasVisibleText } from '@taptime/core';
 import {
@@ -59,18 +60,7 @@ function currentPage(): Page {
 function Brand() {
   return (
     <div className="brand">
-      <svg
-        aria-hidden="true"
-        width="28"
-        height="28"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-      >
-        <circle cx="12" cy="12" r="9" />
-        <circle cx="12" cy="12" r="4" />
-      </svg>
+      <BrandMark size={32} />
       {APP_NAME} <span className="badge">Betreiber</span>
     </div>
   );

@@ -1,12 +1,13 @@
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 import { productHtml } from '../../shared/productHtml';
+import { brandAssets } from '../../shared/brandAssets';
 import links from './src/appLinks.json';
 import { validateAppLinks } from './src/appDownload';
 
 validateAppLinks(links);
 export default defineConfig({
-  plugins: [productHtml()],
+  plugins: [productHtml(), brandAssets()],
   test: { include: ['tests/**/*.test.ts'] },
   build: {
     modulePreload: { polyfill: false },
