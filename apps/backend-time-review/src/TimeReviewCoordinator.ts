@@ -152,11 +152,11 @@ export class TimeReviewCoordinator implements TimeReviewPort {
     if (!context) return { status: 'invalid_request' };
     const { request, after } = context;
     const result = await this.withTimeManager(this.readPool, command.accessToken, request.expectedMembershipId, TIME_REVIEW_READER_ROLE, {}, async (client, actor) => {
-      const rows = (await client.query<{ target_type: SafeWorkTarget['targetType']; target_id: string; display_name: string }>(
-        'SELECT * FROM taptime_server.read_time_backfill_targets_v2($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-        [actor.organization_id, actor.user_id, actor.membership_id, request.targetMembershipId, after?.rank ?? null, after?.name ?? null, after?.id ?? null, request.limit + 1, request.search])).rows;
+      const rows = (await client.query<{ target_type: SafeWorkTarget['targetType']; target_id: string; display_name: string; assigned: boolean }>(
+        'SELECT * FROM taptime_server.read_time_backfill_targets_v3($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+        [actor.organization_id, actor.user_id, actor.membership_id, request.targetMembershipId, after?.rank ?? null, after?.name ?? null, after?.id ?? null, request.limit + 1, request.search, request.assignedOnly ?? false])).rows;
       return { status: 'succeeded' as const, response: boundedSearchPage(rows, request.limit,
-        (page, nextCursor) => ({ targets: page.map(row => ({ targetType: row.target_type, targetId: row.target_id, displayName: row.display_name })), nextCursor }),
+        (page, nextCursor) => ({ targets: page.map(row => ({ targetType: row.target_type, targetId: row.target_id, displayName: row.display_name, assignedToPerson: row.assigned })), nextCursor }),
         row => context.cursor({ name: row.display_name, id: row.target_id, rank: searchTargetRank(row.target_type) })) };
     });
     return result;

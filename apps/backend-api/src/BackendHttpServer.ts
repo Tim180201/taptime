@@ -1,4 +1,5 @@
 import { MANAGED_PEOPLE_ACCEPT_V6, parseSearchRequest, type SearchKind, type SearchReader } from '@taptime/mobile-work-contract';
+import { isTargetAssignmentChangeRequest, parseTargetAssignmentQuery, parseQuotaAlertsQuery } from '@taptime/mobile-work-contract';
 import { isIsoTimestamp } from '@taptime/core';
 import {isInspectTagRequest,isRemoveNfcTagRequest} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest} from '@taptime/mobile-work-contract';
@@ -96,6 +97,9 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
   '/v2/customers/hours/query': 'customer_hours_page',
   '/v2/customers/hours/detail': 'customer_hours_detail',
+  '/v1/administration/target-assignments/change': 'admin_target_assignment_change',
+  '/v1/administration/target-assignments/query': 'admin_target_assignment_query',
+  '/v2/customers/quota-alerts/query': 'customer_quota_alerts',
   '/v2/mobile/work-targets/query': 'mobile_work_targets_v2',
   '/v3/administration/setup-projection': 'admin_setup_projection_v3',
   '/v3/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v3',
@@ -416,6 +420,7 @@ async function handleRequest(
       || route === 'time_voided_query'
       || route === 'customer_hours_detail'
       || route === 'customer_hours_page'
+      || route === 'customer_quota_alerts'
       || route === 'customer_hours'
       || route === 'mobile_own_time'
       || route === 'mobile_work_targets_v2'
@@ -599,6 +604,32 @@ async function handleRequest(
       if(isOrganizationPausedError(error)){respondError(response,403,'organization_paused');return;}
       respondError(response,503,'service_unavailable');
     }
+    return;
+  }
+  if (route === 'admin_target_assignment_change') {
+    if (!isTargetAssignmentChangeRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
+    if (!dependencies.administration.changeTargetAssignment) { respondError(response, 503, 'service_unavailable'); return; }
+    const result = await withTimeout(dependencies.administration.changeTargetAssignment({ ...body, accessToken }), timeoutMilliseconds);
+    respondJson(response, result.status === 'succeeded' ? 200 : result.status === 'forbidden' ? 403 : result.status === 'unauthorized' ? 401
+      : result.status === 'invalid_request' ? 400 : result.status === 'unavailable' ? 503 : 409, result);
+    return;
+  }
+  if (route === 'admin_target_assignment_query' || route === 'customer_quota_alerts') {
+    let result;
+    if (route === 'admin_target_assignment_query') {
+      const parsed = parseTargetAssignmentQuery(body);
+      if (!parsed) { respondError(response, 400, 'invalid_request'); return; }
+      if (!dependencies.administration.queryTargetAssignments) { respondError(response, 503, 'service_unavailable'); return; }
+      result = await withTimeout(dependencies.administration.queryTargetAssignments({ accessToken, request: parsed }), timeoutMilliseconds);
+    } else {
+      const parsed = parseQuotaAlertsQuery(body);
+      if (!parsed) { respondError(response, 400, 'invalid_request'); return; }
+      if (!dependencies.mobileWorkReader?.queryQuotaAlerts) { respondError(response, 503, 'service_unavailable'); return; }
+      result = await withTimeout(dependencies.mobileWorkReader.queryQuotaAlerts({ accessToken, request: parsed }), timeoutMilliseconds);
+    }
+    if (result.status === 'succeeded') respondJson(response, 200, result.response);
+    else respondError(response, result.status === 'invalid_request' ? 400 : result.status === 'unauthorized' ? 401
+      : result.status === 'forbidden' ? 403 : 503, result.status === 'unavailable' ? 'service_unavailable' : result.status);
     return;
   }
   const searchRead = async <K extends SearchKind>(kind: K, reader: { querySearch?: SearchReader<K>['querySearch'] } | undefined) => {
@@ -2931,6 +2962,8 @@ export function requestRoute(url: string | undefined): Route | null {
 
 function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code'] | null {
   switch (route) {
+    case 'admin_target_assignment_change': case 'admin_target_assignment_query': return 'administration_failed';
+    case 'customer_quota_alerts': return 'mobile_work_failed';
     case 'health':
       return null;
     case 'operator_session': case 'operator_overview': case 'operator_create':
@@ -3028,6 +3061,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
 }
 
 function isAdministrationRoute(route: Route): boolean {
+  if (route === 'admin_target_assignment_change' || route === 'admin_target_assignment_query') return true;
   return route === 'admin_tag_inspect_v2' || route === 'admin_tag_remove' || route === 'admin_tag_inspect' || route === 'admin_tag_reuse' || route === 'admin_customer_manage' || route === 'admin_customer_quota' || route === 'admin_create_customer'
     || route === 'admin_resend_employee_account_invitation'
     || route === 'admin_create_employee_account_invitation'

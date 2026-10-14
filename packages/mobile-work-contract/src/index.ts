@@ -333,3 +333,5 @@ export * from './appVersion.js';
 export * from './customerManagement.js';
 export * from './nfcTagRemoval.js';
 export * from './search.js';
+export * from './targetAssignments.js';
+export * from './quotaAlerts.js';

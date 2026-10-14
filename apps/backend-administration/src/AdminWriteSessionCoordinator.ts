@@ -1,4 +1,6 @@
-import { boundedSearchPage, createSearchContext } from '@taptime/mobile-work-contract/server-search';
+import { boundedSearchPage, createSearchContext, createTargetAssignmentContext } from '@taptime/mobile-work-contract/server-search';
+import { isTargetAssignmentChangeRequest, type TargetAssignmentChangeRequest, type TargetAssignmentChangeResult,
+  type TargetAssignmentQueryRequest, type TargetAssignmentQueryResult, type TargetAssignmentItem } from '@taptime/mobile-work-contract';
 import type { SearchRequests, SearchReadResult, SearchSetupResponse } from '@taptime/mobile-work-contract';
 import {isRemoveNfcTagRequest,type RemoveNfcTagRequest,type RemoveNfcTagResult,type InspectTagResultV2} from '@taptime/mobile-work-contract';
 import {isInspectTagRequest,type InspectTagRequest,type InspectTagResult} from '@taptime/mobile-work-contract';
@@ -955,6 +957,33 @@ export class AdminWriteSessionCoordinator {
         [request.customerId,request.action,request.action==='rename'?request.displayName:null,request.commandId]);
       return {disposition:'commit',value:{status:result.rows[0]!.result}};
     },null);
+  }
+
+  async changeTargetAssignment(command: TargetAssignmentChangeRequest & { readonly accessToken: string }): Promise<TargetAssignmentChangeResult> {
+    const { accessToken, ...request } = command;
+    if (!isTargetAssignmentChangeRequest(request)) return { status: 'invalid_request' };
+    return this.runWithAuthority<TargetAssignmentChangeResult>(accessToken, request.expectedMembershipId as MembershipId,
+      request.commandId, {}, async client => {
+        const row = await client.query<{ result: TargetAssignmentChangeResult }>(
+          'SELECT taptime_server.change_target_assignment_v1($1::jsonb) result', [request]);
+        return { disposition: 'commit', value: row.rows[0]!.result };
+      }, null);
+  }
+
+  async queryTargetAssignments(command: { readonly accessToken: string; readonly request: TargetAssignmentQueryRequest }): Promise<TargetAssignmentQueryResult> {
+    const context = createTargetAssignmentContext(command.request);
+    if (!context) return { status: 'invalid_request' };
+    const { request, after } = context;
+    return this.runWithAuthority<TargetAssignmentQueryResult>(command.accessToken, request.expectedMembershipId as MembershipId,
+      null, {}, async client => {
+        const result = (await client.query<{ result: { items: TargetAssignmentItem[] } | { status: 'forbidden' } }>(
+          'SELECT taptime_server.read_target_assignments_v1($1,$2,$3,$4,$5,$6,$7) result',
+          ['membershipId' in request ? request.membershipId : null, 'targetType' in request ? request.targetType : null,
+            'targetId' in request ? request.targetId : null, request.search, after?.name ?? null, after?.id ?? null, request.limit + 1])).rows[0]!.result;
+        if ('status' in result) return { disposition: 'commit', value: result };
+        return { disposition: 'commit', value: { status: 'succeeded', response: boundedSearchPage(result.items, request.limit,
+          (items, nextCursor) => ({ items, nextCursor }), row => context.cursor({ name: row.displayName, id: row.assignmentId })) } };
+      }, null);
   }
 
   async setCustomerQuota(command: SetCustomerQuotaRequest & {readonly accessToken:string}, controls:AdminCoordinatorControls={}):Promise<SetCustomerQuotaResult> {

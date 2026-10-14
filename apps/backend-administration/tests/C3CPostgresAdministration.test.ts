@@ -432,6 +432,7 @@ describe('migration 007, roles and database contracts', () => {
       {
         owner: 'taptime_admin_setup_data_function_owner',
         functions: [
+          'change_target_assignment_v1',
           'enforce_admin_break_tag_receipt_integrity',
           'enforce_admin_setup_receipt_integrity',
           'enforce_current_location_relation_v1',
@@ -442,6 +443,7 @@ describe('migration 007, roles and database contracts', () => {
           'has_current_customer_management_authority_v1',
           'has_current_nfc_setup_authority_v1',
           'has_current_nfc_tag_setup_authority_v1',
+          'has_current_target_assignment_target_authority_v1',
           'insert_admin_setup_nfc_tag_v1',
           'insert_admin_setup_nfc_tag_v1',
           'inspect_nfc_tag_v1',
@@ -456,6 +458,7 @@ describe('migration 007, roles and database contracts', () => {
           'membership_has_work_location_v1',
           'propagate_time_entry_location_v1',
           'propagate_time_record_revision_location_v1',
+          'read_target_assignments_v1',
           'remove_nfc_tag_v1',
           'resolve_work_event_location_v1',
           'reuse_nfc_tag_v1',

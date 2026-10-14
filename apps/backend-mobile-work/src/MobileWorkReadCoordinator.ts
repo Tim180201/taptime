@@ -1,6 +1,7 @@
 import { isCustomerHoursRequest, isCustomerHoursResponse, type CustomerHoursRequest, type CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { boundedSearchPage, createSearchContext, searchTargetRank } from '@taptime/mobile-work-contract/server-search';
+import { boundedSearchPage, createSearchContext, createQuotaAlertsContext, searchTargetRank } from '@taptime/mobile-work-contract/server-search';
+import type { QuotaAlertsQueryRequest, QuotaAlertsQueryResponse, QuotaAlertsQueryResult } from '@taptime/mobile-work-contract';
 import type { SearchKind, SearchRequests, SearchResponses, SearchReadResult, CustomerHoursPageResponse, CustomerHoursDetailResponse } from '@taptime/mobile-work-contract';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
@@ -89,11 +90,11 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
         async (client, actor) => {
           if (kind === 'work_targets') {
             const targetRequest = request as SearchRequests['work_targets'];
-            const rows = (await client.query<TargetRow>('SELECT * FROM taptime_server.read_mobile_work_targets_v2($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+            const rows = (await client.query<TargetRow & { assigned: boolean }>('SELECT * FROM taptime_server.read_mobile_work_targets_v3($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
               [actor.organization_id, actor.user_id, actor.membership_id, after?.rank ?? null, after?.name ?? null, after?.id ?? null,
-                request.limit + 1, targetRequest.search, targetRequest.targetType ?? null])).rows;
+                request.limit + 1, targetRequest.search, targetRequest.targetType ?? null, targetRequest.assignedOnly ?? false])).rows;
             return { status: 'succeeded', response: boundedSearchPage(rows, request.limit,
-              (page, nextCursor) => ({ targets: page.map(row => ({ targetType: row.target_type, targetId: row.target_id, displayName: row.display_name })), nextCursor }),
+              (page, nextCursor) => ({ targets: page.map(row => ({ targetType: row.target_type, targetId: row.target_id, displayName: row.display_name, assignedToMe: row.assigned })), nextCursor }),
               row => context.cursor({ name: row.display_name, id: row.target_id, rank: searchTargetRank(row.target_type) })) };
           }
           const hoursRequest = request as SearchRequests['customer_hours'] | SearchRequests['customer_detail'];
@@ -114,6 +115,26 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
       if (result.status !== 'succeeded') return result;
       if (typeof result.response === 'object' && result.response !== null && 'status' in result.response && result.response.status === 'not_found') return { status: 'not_found' };
       return { status: 'succeeded', response: result.response as SearchResponses[K] };
+    } catch (error) {
+      if ((error as { code?: string }).code === '22023') return { status: 'invalid_request' };
+      if ((error as { code?: string }).code === '42501') return { status: 'forbidden' };
+      throw error;
+    }
+  }
+
+  async queryQuotaAlerts(command: MobileReadCommand<QuotaAlertsQueryRequest>): Promise<QuotaAlertsQueryResult> {
+    const context = createQuotaAlertsContext(command.request);
+    if (!context) return { status: 'invalid_request' };
+    const { request, after } = context;
+    try {
+      return await this.withActor<QuotaAlertsQueryResponse>(this.ownTimePool, command.accessToken, request.expectedMembershipId,
+        OWN_TIME_ROLE, async client => {
+          const value = (await client.query<{ result: QuotaAlertsQueryResponse }>(
+            'SELECT taptime_server.read_customer_quota_alerts_v1($1,$2,$3,$4,$5) result',
+            [request.fromInclusive, request.toExclusive, after?.name ?? null, after?.id ?? null, request.limit + 1])).rows[0]!.result;
+          return { status: 'succeeded', response: boundedSearchPage(value.customers, request.limit,
+            (customers, nextCursor) => ({ ...value, customers, nextCursor }), row => context.cursor({ name: row.displayName, id: row.customerId })) };
+        });
     } catch (error) {
       if ((error as { code?: string }).code === '22023') return { status: 'invalid_request' };
       if ((error as { code?: string }).code === '42501') return { status: 'forbidden' };

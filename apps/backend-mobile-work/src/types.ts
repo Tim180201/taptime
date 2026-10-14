@@ -24,6 +24,7 @@ export type MobileReadResult<Response> =
   | { readonly status: 'invalid_request' };
 
 export interface MobileWorkReader {
+  queryQuotaAlerts?(command: MobileReadCommand<import('@taptime/mobile-work-contract').QuotaAlertsQueryRequest>): Promise<import('@taptime/mobile-work-contract').QuotaAlertsQueryResult>;
   readonly querySearch?: import('@taptime/mobile-work-contract').SearchReader<'customer_hours' | 'customer_detail' | 'work_targets'>['querySearch'];
   queryCustomerHours?(command: MobileReadCommand<import('@taptime/mobile-work-contract').CustomerHoursRequest>): Promise<MobileReadResult<import('@taptime/mobile-work-contract').CustomerHoursResponse>>;
   queryOwnTime(

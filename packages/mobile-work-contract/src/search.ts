@@ -1,8 +1,9 @@
 import { normalizeTapTimeNameV1 } from '@taptime/administration-contract/names';
 import { isManagedActiveSummaryRequestV5, isManagedActiveSummaryV5, type ManagedActiveSummaryV4 } from '@taptime/administration-contract/managed-people';
 import type { AdministrationSetupCustomer, AdministrationSetupNfcTag, AdministrationSetupOrganization } from '@taptime/administration-contract/setup-projection';
-import { isCanonicalUuid, isWorkTargetType, type MobileWorkTargetQueryResponse, type ProjectSummary } from './index.js';
+import { isCanonicalUuid, isWorkTargetType, type ProjectSummary } from './index.js';
 import { isCustomerHoursRequest, type CustomerDay, type CustomerPerson, type QuotaStage } from './customerHours.js';
+import type { AssignedTargetResponse } from './targetAssignments.js';
 
 export const SEARCH_PAGE_MAXIMUM_BYTES = 14_336;
 export const MANAGED_PEOPLE_ACCEPT_V6 = 'application/vnd.taptime.managed-people.v6+json';
@@ -18,8 +19,8 @@ export interface SearchRequests {
   memberships: SearchListRequest & { readonly locationId: string | null };
   setup_customers: SearchListRequest & { readonly kind: 'customers' };
   setup_tags: SearchListRequest & { readonly kind: 'nfc_tags' };
-  work_targets: SearchListRequest & { readonly targetType?: 'customer' | 'project' | 'general_work' };
-  backfill_targets: SearchListRequest & { readonly targetMembershipId: string };
+  work_targets: SearchListRequest & { readonly targetType?: 'customer' | 'project' | 'general_work'; readonly assignedOnly?: boolean };
+  backfill_targets: SearchListRequest & { readonly targetMembershipId: string; readonly assignedOnly?: boolean };
   projects: SearchListRequest;
 }
 export interface CustomerHoursSummary {
@@ -53,8 +54,8 @@ export interface SearchResponses {
   memberships: SearchMembershipResponse;
   setup_customers: SearchSetupResponse;
   setup_tags: SearchSetupResponse;
-  work_targets: MobileWorkTargetQueryResponse;
-  backfill_targets: MobileWorkTargetQueryResponse;
+  work_targets: AssignedTargetResponse;
+  backfill_targets: AssignedTargetResponse;
   projects: { readonly projects: readonly ProjectSummary[]; readonly nextCursor: string | null };
 }
 export type SearchReadResult<K extends SearchKind> = { readonly status: 'succeeded'; readonly response: SearchResponses[K] }
@@ -75,6 +76,7 @@ export function isSearchCursor(value: unknown): value is string | null {
 export function parseSearchRequest<K extends SearchKind>(kind: K, value: unknown): SearchRequests[K] | null {
   if (!object(value) || !Object.hasOwn(fields, kind)) return null;
   const expected = ['expectedMembershipId', 'cursor', 'limit', ...(kind === 'customer_detail' ? [] : ['search']), ...fields[kind],
+    ...((kind === 'work_targets' || kind === 'backfill_targets') && Object.hasOwn(value, 'assignedOnly') ? ['assignedOnly'] : []),
     ...(kind === 'work_targets' && Object.hasOwn(value, 'targetType') ? ['targetType'] : [])];
   if (Object.keys(value).length !== expected.length || !expected.every(key => Object.hasOwn(value, key))
     || !isCanonicalUuid(value.expectedMembershipId) || !isSearchCursor(value.cursor)
@@ -95,6 +97,7 @@ export function parseSearchRequest<K extends SearchKind>(kind: K, value: unknown
   if (kind === 'memberships' && value.locationId !== null && !isCanonicalUuid(value.locationId)) return null;
   if (kind === 'setup_customers' && value.kind !== 'customers' || kind === 'setup_tags' && value.kind !== 'nfc_tags') return null;
   if (kind === 'backfill_targets' && !isCanonicalUuid(value.targetMembershipId)) return null;
+  if ((kind === 'work_targets' || kind === 'backfill_targets') && Object.hasOwn(value, 'assignedOnly') && typeof value.assignedOnly !== 'boolean') return null;
   if (kind === 'work_targets' && Object.hasOwn(value, 'targetType') && !isWorkTargetType(value.targetType)) return null;
   return Object.freeze({ ...value, ...(kind === 'customer_detail' ? {} : { search }) }) as unknown as SearchRequests[K];
 }

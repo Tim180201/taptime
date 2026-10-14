@@ -896,6 +896,29 @@ describe('B3 deterministic migration system', () => {
 });
 
 describe('B3 least-privilege roles and request context', () => {
+  it('T118 exposes assignment storage only through the authorized definer functions', async () => {
+    const access = await installerPool.query<{ role: string; can_read: boolean; can_write: boolean }>(`
+      SELECT rolname AS role,
+        has_table_privilege(oid,'taptime_server.target_assignments','SELECT') AS can_read,
+        has_any_column_privilege(oid,'taptime_server.target_assignments','INSERT,UPDATE')
+          OR has_table_privilege(oid,'taptime_server.target_assignments','DELETE,TRUNCATE') AS can_write
+      FROM pg_roles WHERE rolname LIKE 'taptime_%' AND NOT rolsuper`);
+    const readers = new Set(['taptime_admin_setup_data_function_owner', 'taptime_mobile_read_function_owner', 'taptime_time_review_read_function_owner']);
+    for (const row of access.rows) {
+      expect(row.can_read, row.role).toBe(readers.has(row.role));
+      expect(row.can_write, row.role).toBe(row.role === 'taptime_admin_setup_data_function_owner');
+    }
+    expect((await installerPool.query(`SELECT relrowsecurity AND relforcerowsecurity AS protected
+      FROM pg_class WHERE oid='taptime_server.target_assignments'::regclass`)).rows[0]?.protected).toBe(true);
+    const publicExecute = await installerPool.query(`SELECT p.proname FROM pg_proc p
+      CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
+      WHERE p.pronamespace='taptime_server'::regnamespace AND p.proname IN
+        ('change_target_assignment_v1','read_target_assignments_v1','has_current_target_assignment_person_authority_v1',
+         'target_assignment_is_selectable_v1','has_current_target_assignment_target_authority_v1',
+         'read_mobile_work_targets_v3','read_time_backfill_targets_v3','read_customer_quota_alerts_v1')
+        AND a.grantee=0 AND a.privilege_type='EXECUTE'`);
+    expect(publicExecute.rows).toEqual([]);
+  });
   it('pins the T-015c SECURITY DEFINER owners and exposes each projection only to its caller', async () => {
     const routines = await installerPool.query<{
       name: string;

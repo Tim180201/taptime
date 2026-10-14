@@ -1,11 +1,22 @@
 // Server-only entry point. Keep crypto/Buffer out of the client contract bundle.
 import { createHash } from 'node:crypto';
 import { isCanonicalUuid } from './index.js';
-import { parseSearchRequest, SEARCH_PAGE_MAXIMUM_BYTES, type SearchKind, type SearchRequests } from './search.js';
+import { parseSearchRequest, SEARCH_PAGE_MAXIMUM_BYTES, type SearchKind } from './search.js';
+import { parseTargetAssignmentQuery } from './targetAssignments.js';
+import { parseQuotaAlertsQuery } from './quotaAlerts.js';
 
 export interface SearchKey { readonly name: string; readonly id: string; readonly rank?: number }
 export function createSearchContext<K extends SearchKind>(kind: K, input: unknown) {
   const request = parseSearchRequest(kind, input);
+  return pageContext(kind, request, ['work_targets', 'backfill_targets'].includes(kind));
+}
+export function createTargetAssignmentContext(input: unknown) {
+  return pageContext('target_assignments', parseTargetAssignmentQuery(input));
+}
+export function createQuotaAlertsContext(input: unknown) {
+  return pageContext('quota_alerts', parseQuotaAlertsQuery(input));
+}
+function pageContext<Request extends { readonly cursor: string | null; readonly limit: number }>(kind: string, request: Request | null, ranked = false) {
   if (request === null) return null;
   const { cursor, limit: _limit, ...filters } = request;
   const hash = createHash('sha256').update(JSON.stringify([kind, Object.entries(filters).sort(([a], [b]) => a.localeCompare(b))])).digest('hex');
@@ -23,10 +34,10 @@ export function createSearchContext<K extends SearchKind>(kind: K, input: unknow
       // PostgreSQL text cannot represent NUL. Keep representable stored keys verbatim
       // rather than normalizing a cursor and shifting its ICU page boundary.
       after = { name: key[1], id: key[2], ...(key[3] === null ? {} : { rank: key[3] }) };
-      if (['work_targets', 'backfill_targets'].includes(kind) !== (after.rank !== undefined)) return null;
+      if (ranked !== (after.rank !== undefined)) return null;
     } catch { return null; }
   }
-  return { request: request as SearchRequests[K], after,
+  return { request, after,
     cursor: (key: SearchKey): string => `${prefix}:${Buffer.from(JSON.stringify([hash, key.name, key.id, key.rank ?? null])).toString('base64url')}` };
 }
 /** G1: SQL supplies limit+1. Trim the tail using the actual wire envelope, including cursor. */

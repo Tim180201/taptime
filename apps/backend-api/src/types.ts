@@ -157,6 +157,8 @@ export interface ManualLifecycleIngestor {
 }
 
 export interface AdministrationCoordinator {
+  changeTargetAssignment?(command: import('@taptime/mobile-work-contract').TargetAssignmentChangeRequest & { readonly accessToken: string }): Promise<import('@taptime/mobile-work-contract').TargetAssignmentChangeResult>;
+  queryTargetAssignments?(command: { readonly accessToken: string; readonly request: import('@taptime/mobile-work-contract').TargetAssignmentQueryRequest }): Promise<import('@taptime/mobile-work-contract').TargetAssignmentQueryResult>;
   querySearch?: import('@taptime/mobile-work-contract').SearchReader<'setup_customers' | 'setup_tags'>['querySearch'];
   removeTag?(command:import('@taptime/mobile-work-contract').RemoveNfcTagRequest & {readonly accessToken:string}):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   inspectTagV2?(command:import('@taptime/mobile-work-contract').InspectTagRequest & {readonly accessToken:string}):Promise<import('@taptime/mobile-work-contract').InspectTagResultV2>;
@@ -279,6 +281,9 @@ export interface BackendApiDependencies {
 }
 
 export type BackendApiRoute =
+  | 'admin_target_assignment_change'
+  | 'admin_target_assignment_query'
+  | 'customer_quota_alerts'
   | `operator_${import('./OperatorCoordinator.js').OperatorAction}`
   | 'health'
   | 'admin_create_customer'
