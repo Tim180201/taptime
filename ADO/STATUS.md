@@ -3,13 +3,13 @@
 **Stand 14.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., Migration 052). Ausgeliefert: T-109,
 T-113, T-112, T-114, T-115. Auf main, noch nicht ausgeliefert: T-116a (`2596899`, `a9d5c54`; Migrationen 053 und 054,
 D-134, D-137), T-116b (`514f919`, Migration 055), T-117a (`1372b81`, Migration 056, D-138), T-117b (`e9bf389`) und
-T-118a (`8eff459`, Migration 057). Deploy 5 nur zusammen mit T-118b: Die Clients aus T-117b lehnen die neuen
-Markierungen der Zielantworten ab. Die Geräteabnahme ist verschoben (PO 13.10.); in Arbeit ist T-118b. Offen beim PO: Supabase meldet eine Tabelle ohne RLS im Auth-Projekt
+T-118a (`8eff459`, Migration 057) und T-118b (`41d68dc`). Die Geräteabnahme ist verschoben (PO 13.10.); in Arbeit
+ist T-120. Offen beim PO: Supabase meldet eine Tabelle ohne RLS im Auth-Projekt
 (vermutlich `public.taptime_server_schema_migrations` von vor D-010); prüfen, RLS einschalten, Altlasten mit T-119 entfernen.
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-118b (Zuordnung und Hinweise in App und Web), T-120 (Icon) → Deploy 5, neue App-Builds und
+**Weg zum Pilot:** T-120 (Icon) → Deploy 5, neue App-Builds und
 Geräteabnahme → T-119 und T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
@@ -88,7 +88,8 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   Uhrdatei bei gesperrtem iPhone nicht lesbar (T-072, wichtig für T-073/T-104) · Sitzungsvergleich ohne
   Verwaltungsumfang (T-059) · Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an
   `wa-sqlite.wasm` (P2) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112) · alte App-Builds können nach Deploy 5 gelöschte
-  Einträge ohne Grund (`none`) nicht anzeigen, bis der neue Build installiert ist (T-116a).
+  Einträge ohne Grund (`none`) nicht anzeigen, bis der neue Build installiert ist (T-116a) · Suchtest „Kunden“ einmal über
+  5 s bei paralleler Last, isoliert 0,7 s (T-118b, P2, beobachten).
 - **Beschäftigte (T-102):** wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten
   Seite fehlen (Aktualisieren hilft).
 - **Paket (T-075):** eine nie angenommene Einladung belegt den Platz, bis der Zugang entzogen wird (gewollt, D-087) ·
@@ -96,7 +97,8 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   beim nächsten Rückbau entfernen.
 - **Web:** globale Aktualisierung lädt Kundenstunden nicht neu (T-084) · Tags für die Standortleitung nur in der App
   (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
-  (T-074) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Zeitfehler in
+  (T-074) · Aufzählungspunkt vor „Meine Kunden und Projekte“ in „Manuell“ (T-118b, P3) · Übersicht überschreibt
+  beim Prüfen den Suchstand der Einrichtung (T-118b, P3) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Zeitfehler in
   Lohnexport-Korrektur und „Zeiten prüfen“ nicht mehr per `aria-describedby` an den Feldern (T-113) · Anlegen meldet
   Fehler 23514 als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung.
 - **Server und SQL:** direkter SQL-Pfad `taptime_admin_setup` prüft keine Betriebspause (T-085) · `xmin` über
