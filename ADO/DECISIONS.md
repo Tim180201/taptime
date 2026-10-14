@@ -1874,3 +1874,13 @@ bleiben gültig, gleich ob die Zuordnung durch Entfernen, Umhängen oder Kundenl
 Umgesetzt in T-116a (Migration 054).
 **Warum:** Eine verlorene oder falsch zugeordnete Karte muss sich sofort stilllegen lassen, ohne Zeiten zu verlieren oder
 gültige Offline-Zeiten in „Zeiten prüfen“ zu schicken.
+
+## D-138 · Suche und Seiten auf dem Server · 14.10.2026 · TL
+Listen und Auswahlen in App und Web suchen und blättern auf dem Server: Teilzeichenfolge ohne Groß-/Kleinunterschied im
+Namen (ICU; Umlaute werden getippt), sortiert nach Name und Kennung, Cursor an Suche und Filter gebunden. Eine Seite endet
+bei höchstens 50 Einträgen oder früher, damit die Antwort 14 KiB nicht überschreitet; die 16-KiB-Grenze der App bleibt.
+Kundenstunden kommen als Seiten mit Summen, Personen bzw. Tage je Kunde im Detail, ebenfalls geblättert. Die Suche findet
+nur, was ohne Suche sichtbar ist (D-102); Suchbegriffe werden nicht geloggt. Alte Wege bleiben für installierte Apps.
+Umgesetzt in T-117a (Migration 056), genutzt ab T-117b.
+**Warum:** Bei frogs-Größe (500 Kunden, 200 Personen) passen vollständige Listen weder in die App noch in eine Auswahl;
+die Kundenliste wäre an der 16-KiB-Grenze der App gescheitert.

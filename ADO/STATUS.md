@@ -2,12 +2,13 @@
 
 **Stand 14.10.2026.** Produktion läuft auf `831cb29` (Deploy 4 am 08.10., Migration 052). Ausgeliefert: T-109,
 T-113, T-112, T-114, T-115. Auf main, noch nicht ausgeliefert: T-116a (`2596899`, `a9d5c54`; Migrationen 053 und 054,
-D-134, D-137) und T-116b (`514f919`, Migration 055). Die Geräteabnahme ist verschoben (PO 13.10.); in Arbeit ist
-T-117a.
+D-134, D-137), T-116b (`514f919`, Migration 055) und T-117a (`1372b81`, Migration 056, D-138). Die Geräteabnahme ist
+verschoben (PO 13.10.); in Arbeit ist T-117b. Offen beim PO: Supabase meldet eine Tabelle ohne RLS im Auth-Projekt
+(vermutlich `public.taptime_server_schema_migrations` von vor D-010); prüfen, RLS einschalten, Altlasten mit T-119 entfernen.
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-117a und T-117b (Suche), T-118 (Zuordnung), T-120 (Icon) → Deploy 5, neue App-Builds und
+**Weg zum Pilot:** T-117b (Suche in App und Web), T-118 (Zuordnung), T-120 (Icon) → Deploy 5, neue App-Builds und
 Geräteabnahme → T-119 und T-024 → Pilot. Pilot als
 Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
