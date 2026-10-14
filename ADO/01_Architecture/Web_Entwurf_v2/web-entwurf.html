@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Taptura Web-Entwürfe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;800&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+/* Board: dark review surface; each direction is a token set applied to a 1440×900 frame, scaled to fit. */
+:root{--bg:#0B100E;--fg:#EEF3F0;--mute:#93A39C;--line:#223029;--mint:#7EE0C0;--lime:#C9F24D;color-scheme:dark;
+  --sans:"Manrope",ui-sans-serif,system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,Menlo,monospace}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1100px;margin:0 auto;padding-block:24px 80px;display:grid;gap:28px}
+header{display:grid;gap:8px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mint)}
+h1{font-weight:800;font-size:clamp(26px,5vw,38px);line-height:1.08;margin:0;text-wrap:balance}
+h2{font-weight:800;font-size:22px;margin:0}
+p{margin:0;max-width:70ch}
+.lead{color:var(--mute)}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:3;background:var(--bg);padding-block:10px;border-bottom:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap}
+.tabs button{font:600 14px var(--sans);color:var(--mute);background:transparent;border:1px solid var(--line);border-radius:999px;padding:8px 14px;min-height:40px;cursor:pointer}
+.tabs button[aria-pressed="true"]{color:#0E1512;background:var(--mint);border-color:var(--mint)}
+.dir{display:grid;gap:18px}
+.dir[hidden]{display:none}
+.intro{display:grid;grid-template-columns:1fr;gap:10px;background:#111816;border:1px solid var(--line);border-radius:14px;padding:18px}
+.intro .k{font-family:var(--mono);font-size:12px;color:var(--mint);letter-spacing:.06em}
+.intro ul{margin:0;padding-left:20px;display:grid;gap:4px;color:var(--mute);font-size:15px}
+.sw{display:flex;gap:8px;flex-wrap:wrap}
+.sw i{display:block;width:34px;height:34px;border-radius:8px;border:1px solid var(--line)}
+.page{display:grid;gap:8px}
+.page h3{margin:0;font-size:15px;font-weight:800;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.page h3 small{font-family:var(--mono);font-weight:500;font-size:12px;color:var(--mute)}
+.shot{position:relative;border:1px solid var(--line);border-radius:12px;overflow:auto;background:#000}
+.frame{width:1440px;height:900px;transform-origin:0 0;position:relative;overflow:hidden;font-family:var(--sans);font-size:14px;line-height:1.4;
+  background:var(--g);color:var(--t)}
+.zoom{font:600 12.5px var(--sans);color:var(--mint);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 10px;cursor:pointer;justify-self:start}
+.note{color:var(--mute);font-size:14px;max-width:70ch}
+:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+
+/* ---------- shared frame components ---------- */
+.frame *{box-sizing:border-box}
+.frame .main{position:absolute;overflow:hidden}
+.frame .ph{display:flex;justify-content:space-between;align-items:flex-end;gap:16px}
+.frame .ph .eb{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--acc)}
+.frame .ph h1{font-size:26px;font-weight:800;margin:2px 0 0;line-height:1.1}
+.frame .ph .sub{color:var(--m);font-size:13px;margin-top:4px}
+.frame .btn{display:inline-flex;align-items:center;gap:6px;font:600 13px var(--sans);padding:9px 14px;border-radius:9px;border:1px solid var(--l);color:var(--t);background:transparent;white-space:nowrap}
+.frame .btn.pri{background:var(--cta);border-color:var(--cta);color:var(--on)}
+.frame .btn.ghost{border-color:transparent;color:var(--acc);padding-inline:4px}
+.frame .btn.ico{width:38px;height:38px;padding:0;justify-content:center;border-radius:10px}
+.frame .field{display:flex;align-items:center;gap:8px;background:var(--p);border:1px solid var(--l);border-radius:9px;padding:9px 12px;color:var(--m);font-size:13.5px;min-width:0}
+.frame .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.frame .tile{background:var(--p);border:1px solid var(--l);border-radius:12px;padding:16px 18px;display:grid;gap:6px;min-height:118px}
+.frame .tile .lab{font-size:12.5px;color:var(--m)}
+.frame .tile .num{font-family:var(--mono);font-weight:600;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+.frame .tile .num small{font-size:16px;color:var(--m);font-weight:500}
+.frame .tile .act{font-size:12.5px;color:var(--acc);font-weight:600;align-self:end}
+.frame .card{background:var(--p);border:1px solid var(--l);border-radius:12px;padding:16px 18px;display:grid;gap:10px;min-width:0}
+.frame .card h2{font-size:15px;font-weight:800;margin:0;display:flex;justify-content:space-between;align-items:center}
+.frame .card h2 span{font-size:12px;color:var(--m);font-weight:500}
+.frame .tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.frame .tbl th{font-family:var(--mono);font-weight:500;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--m);text-align:left;padding:8px 10px;border-bottom:1px solid var(--l)}
+.frame .tbl td{padding:10px;border-bottom:1px solid var(--l);vertical-align:middle}
+.frame .tbl tr:last-child td{border-bottom:0}
+.frame .tbl td.n,.frame .tbl th.n{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:13px}
+.frame .tbl .who{display:flex;align-items:center;gap:10px}
+.frame .av{width:28px;height:28px;border-radius:50%;background:var(--p2);border:1px solid var(--l);display:grid;place-items:center;font-family:var(--mono);font-size:10.5px;color:var(--m)}
+.frame .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border-radius:999px;padding:3px 9px;border:1px solid var(--l);color:var(--m)}
+.frame .pill.run{color:var(--cta);border-color:color-mix(in srgb,var(--cta) 45%,var(--l))}
+.frame .pill.run::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--cta)}
+.frame .pill.warn{color:#E0A44C;border-color:color-mix(in srgb,#E0A44C 45%,var(--l))}
+.frame .bar{height:6px;border-radius:3px;background:var(--p2);overflow:hidden;width:120px}
+.frame .bar i{display:block;height:100%;background:var(--acc)}
+.frame .bar i.w{background:#E0A44C}.frame .bar i.x{background:#FF8F8F}
+.frame .muted{color:var(--m)}
+.frame .chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;border:1px solid var(--l);border-radius:999px;padding:2px 9px;color:var(--t);margin:2px 4px 2px 0}
+.frame .chip.on{border-color:var(--acc);color:var(--acc)}
+.frame .chip.add{color:var(--m);border-style:dashed}
+.frame .sel{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--l);border-radius:8px;padding:6px 10px;font-size:13px;background:var(--p2);min-width:150px}
+.frame .subtabs{display:flex;gap:4px;border-bottom:1px solid var(--l)}
+.frame .subtabs span{padding:10px 14px;font-size:13.5px;font-weight:600;color:var(--m);border-bottom:2px solid transparent;margin-bottom:-1px}
+.frame .subtabs span.on{color:var(--t);border-bottom-color:var(--acc)}
+.frame .steps{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+.frame .step{background:var(--p);border:1px solid var(--l);border-radius:12px;padding:16px 18px;display:grid;gap:10px;align-content:start;min-width:0}
+.frame .step .k{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--acc)}
+.frame .step .k b{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--acc);color:var(--on);font-size:11px;margin-right:6px}
+.frame .list{display:grid;gap:6px}
+.frame .list .it{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid var(--l);border-radius:9px;padding:10px 12px;background:var(--p2)}
+.frame .list .it.on{border-color:var(--acc)}
+.frame .list .it .sub{font-size:12px;color:var(--m)}
+.frame .big{font-size:20px;font-weight:800}
+.frame .clock{font-family:var(--mono);font-size:28px;font-weight:600;font-variant-numeric:tabular-nums}
+.frame .empty{color:var(--m);font-size:13.5px;border:1px dashed var(--l);border-radius:10px;padding:14px;text-align:center}
+.frame .foot{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-between;padding:8px 32px;font-size:11.5px;color:var(--m);border-top:1px solid var(--l)}
+.frame .grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;min-width:0}
+.frame .stack{display:grid;gap:14px;min-width:0}
+.frame .mark{display:inline-block;width:28px;height:28px;vertical-align:middle}
+
+/* ---------- A · Ruhe (dark, sidebar) ---------- */
+.A{--g:#0F1613;--p:#151E1A;--p2:#1B2622;--l:#25332D;--t:#EEF3F0;--m:#97A59F;--acc:#7EE0C0;--cta:#C9F24D;--on:#0E1512}
+.A .side{position:absolute;left:0;top:0;bottom:0;width:236px;border-right:1px solid var(--l);padding:22px 16px;display:flex;flex-direction:column;gap:22px}
+.A .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;padding-inline:6px}
+.A .brand small{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--m);font-weight:500}
+.A .nav{display:grid;gap:2px}
+.A .nav .grp{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--m);padding:14px 10px 6px}
+.A .nav a{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;color:var(--m);font-weight:600;font-size:13.5px;text-decoration:none}
+.A .nav a.on{background:var(--p);color:var(--acc)}
+.A .nav a i{width:16px;height:16px;border:1.5px solid currentColor;border-radius:4px;opacity:.8}
+.A .acct{margin-top:auto;background:var(--p);border:1px solid var(--l);border-radius:10px;padding:12px;font-size:12.5px;color:var(--m)}
+.A .acct b{display:block;color:var(--t)}
+.A .main{left:236px;top:0;right:0;bottom:0;padding:30px 36px 44px;display:grid;gap:22px;align-content:start}
+
+/* ---------- B · Tag (light, top band + rail) ---------- */
+.B{--g:#F3F7F5;--p:#FFFFFF;--p2:#EAF1ED;--l:#D6E1DB;--t:#101916;--m:#5B6B64;--acc:#1F8F6C;--cta:#1F8F6C;--on:#FFFFFF}
+.B .band{position:absolute;left:0;right:0;top:0;height:56px;background:#0E1512;color:#EEF3F0;display:flex;align-items:center;gap:18px;padding:0 24px}
+.B .band .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px}
+.B .band .org{font-size:12.5px;color:#97A59F;margin-left:6px;padding-left:14px;border-left:1px solid #25332D}
+.B .band .right{margin-left:auto;display:flex;gap:14px;align-items:center;font-size:12.5px;color:#97A59F}
+.B .band .right b{color:#EEF3F0}
+.B .rail{position:absolute;left:0;top:56px;bottom:0;width:208px;padding:18px 12px;display:grid;gap:2px;align-content:start;background:var(--p);border-right:1px solid var(--l)}
+.B .rail a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;color:var(--m);font-weight:600;font-size:13.5px;text-decoration:none}
+.B .rail a.on{background:var(--p2);color:var(--acc)}
+.B .rail a i{width:16px;height:16px;border:1.5px solid currentColor;border-radius:4px;opacity:.7}
+.B .rail .grp{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--m);padding:14px 12px 6px}
+.B .main{left:208px;top:56px;right:0;bottom:0;padding:28px 36px 44px;display:grid;gap:22px;align-content:start}
+.B .tile,.B .card,.B .step{box-shadow:0 1px 2px rgba(14,21,18,.06),0 8px 24px -16px rgba(14,21,18,.25)}
+.B .pill.run{color:#5C7A00;border-color:#C9DD8A}.B .pill.run::before{background:#9CC21A}
+.B .field{background:#fff}
+.B .bar i{background:var(--acc)}
+
+/* ---------- C · Signal (console, top nav, live strip) ---------- */
+.C{--g:#090E0C;--p:#0F1714;--p2:#141F1A;--l:#1E2C26;--t:#F2F7F4;--m:#8C9D95;--acc:#7EE0C0;--cta:#C9F24D;--on:#0A0F0D}
+.C .frame-bg{position:absolute;inset:0;background-image:radial-gradient(circle,#1A2823 1px,transparent 1.2px);background-size:22px 22px;opacity:.5}
+.C .top{position:absolute;left:0;right:0;top:0;height:64px;display:flex;align-items:center;gap:26px;padding:0 32px;border-bottom:1px solid var(--l);background:linear-gradient(180deg,#0D1411,#090E0C)}
+.C .top .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px}
+.C .top .tabsn{display:flex;gap:2px}
+.C .top .tabsn a{padding:8px 12px;border-radius:8px;color:var(--m);font-weight:600;font-size:13.5px;text-decoration:none}
+.C .top .tabsn a.on{color:var(--t);background:var(--p2);box-shadow:inset 0 -2px 0 var(--acc)}
+.C .top .right{margin-left:auto;display:flex;gap:12px;align-items:center;font-size:12.5px;color:var(--m)}
+.C .live{position:absolute;left:0;right:0;top:64px;height:40px;display:flex;align-items:center;gap:18px;padding:0 32px;font-size:12.5px;color:var(--m);border-bottom:1px solid var(--l);background:rgba(15,23,20,.7)}
+.C .live b{color:var(--cta);font-family:var(--mono);font-weight:600}
+.C .live .dot{width:8px;height:8px;border-radius:50%;background:var(--cta);box-shadow:0 0 10px var(--cta)}
+.C .live .sep{color:var(--l)}
+.C .main{left:0;top:104px;right:0;bottom:0;padding:28px 32px 44px;display:grid;gap:20px;align-content:start}
+.C .tile,.C .card,.C .step{background:linear-gradient(180deg,#111A16,#0E1613);border:1px solid var(--l);box-shadow:0 0 0 1px rgba(126,224,192,.04) inset}
+.C .tile .num{font-size:40px;text-shadow:0 0 18px rgba(126,224,192,.18)}
+.C .ph h1{font-size:30px;letter-spacing:-.01em}
+.C .btn.pri{box-shadow:0 0 18px rgba(201,242,77,.25)}
+.C .pill.run{box-shadow:0 0 12px rgba(201,242,77,.18)}
+</style>
+</head>
+<body style="margin:0">
+
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Taptura · Verwaltung im Browser · Entwürfe TL · 14.10.2026</div>
+  <h1>Drei Richtungen, je vier Seiten</h1>
+  <p class="lead">Jede Richtung zeigt Übersicht, Kunden, Manuell und Einrichtung als Desktop-Ansicht. Die Inhalte sind in allen drei gleich, damit du nur die Gestaltung vergleichst. Alles ist echtes HTML, kein Bild: Was dir gefällt, kann Codex direkt übernehmen. „Vergrößern“ zeigt eine Seite in Originalgröße.</p>
+</header>
+
+<div class="tabs" role="tablist" aria-label="Richtung">
+  <button type="button" data-d="A" aria-pressed="true">A · Ruhe</button>
+  <button type="button" data-d="B" aria-pressed="false">B · Tag</button>
+  <button type="button" data-d="C" aria-pressed="false">C · Signal</button>
+</div>
+
+<div class="dir" id="dir-A">
+  <div class="intro"><div class="k">A · RUHE · die Weiterentwicklung von heute</div>
+    <p>Dunkel wie die App, aber aufgeräumt: Lime nur noch für laufende Zeiten und die eine Hauptaktion, Mint für alles, was man anklicken kann. Die Seitenleiste bekommt zwei Gruppen, Arbeit und Verwaltung. Listen werden zu Tabellen mit festen Spalten, Zahlen stehen in Tabellenziffern untereinander. Der Seitenkopf hat überall denselben Aufbau. Wer heute die Verwaltung kennt, findet sich sofort zurecht.</p>
+    <ul><li>Vision: weniger auf einmal, ein Blick genügt. Die Übersicht zeigt zuerst, was gerade läuft, und nur dann einen nächsten Schritt, wenn es einen gibt.</li><li>Farbe als Bedeutung: Lime heißt „läuft“ oder „jetzt“, Mint heißt „anklickbar“, Orange heißt „braucht dich“.</li></ul>
+    <div class="sw"><i style="background:#0F1613"></i><i style="background:#151E1A"></i><i style="background:#7EE0C0"></i><i style="background:#C9F24D"></i><i style="background:#E0A44C"></i></div>
+  </div>
+  <div class="page"><h3>Übersicht <small>A · 1440 × 900</small></h3><div class="shot"><div class="frame A" data-page="overview"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Kunden <small>A</small></h3><div class="shot"><div class="frame A" data-page="customers"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Manuell <small>A</small></h3><div class="shot"><div class="frame A" data-page="manual"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Einrichtung · Mitarbeiter <small>A</small></h3><div class="shot"><div class="frame A" data-page="setup"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+</div>
+
+<div class="dir" id="dir-B" hidden>
+  <div class="intro"><div class="k">B · TAG · der helle Arbeitsplatz</div>
+    <p>Die Verwaltung wird tagsüber am Schreibtisch benutzt, oft neben anderen hellen Programmen. Darum ein heller, leicht grünlicher Grund mit weißen Flächen, ein dunkler Kopfbalken mit dem Zeichen, und ein tiefes Mint als einzige Aktionsfarbe. Lime bleibt der App und dem „läuft“-Punkt vorbehalten. Wirkt am ehesten wie eine gewohnte Büro-Software und ist auf Beamer und billigen Monitoren am besten lesbar.</p>
+    <ul><li>Vision: die Oberfläche tritt zurück, die Zahlen und Namen stehen im Vordergrund. Keine leuchtenden Flächen, die um Aufmerksamkeit kämpfen.</li><li>Die App bleibt dunkel; Web und App teilen Zeichen, Schrift und Wortwahl, nicht die Helligkeit.</li></ul>
+    <div class="sw"><i style="background:#F3F7F5"></i><i style="background:#FFFFFF"></i><i style="background:#0E1512"></i><i style="background:#1F8F6C"></i><i style="background:#9CC21A"></i></div>
+  </div>
+  <div class="page"><h3>Übersicht <small>B · 1440 × 900</small></h3><div class="shot"><div class="frame B" data-page="overview"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Kunden <small>B</small></h3><div class="shot"><div class="frame B" data-page="customers"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Manuell <small>B</small></h3><div class="shot"><div class="frame B" data-page="manual"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Einrichtung · Mitarbeiter <small>B</small></h3><div class="shot"><div class="frame B" data-page="setup"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+</div>
+
+<div class="dir" id="dir-C" hidden>
+  <div class="intro"><div class="k">C · SIGNAL · der Leitstand</div>
+    <p>Die futuristische Variante. Keine Seitenleiste, sondern eine Navigationszeile oben und darunter eine Live-Zeile, die auf jeder Seite zeigt, wer gerade erfasst. Fast schwarzer Grund mit feinem Punktraster, Flächen mit leichtem Schimmer, Zahlen in Monospace mit sanftem Leuchten. Lime pulsiert nur dort, wo gerade Zeit läuft. Mehr Bühne für den Kern des Produkts: die laufende Zeit.</p>
+    <ul><li>Vision: „One Tap“ sichtbar gemacht. Die Live-Zeile ist der Herzschlag des Betriebs, auf jeder Seite, ohne Klick.</li><li>Risiko: wirkt auf manche Kunden eher wie ein Werkzeug für Technikfans als für eine Nachhilfeschule. Dafür ist es unverwechselbar.</li></ul>
+    <div class="sw"><i style="background:#090E0C"></i><i style="background:#0F1714"></i><i style="background:#7EE0C0"></i><i style="background:#C9F24D"></i><i style="background:#1E2C26"></i></div>
+  </div>
+  <div class="page"><h3>Übersicht <small>C · 1440 × 900</small></h3><div class="shot"><div class="frame C" data-page="overview"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Kunden <small>C</small></h3><div class="shot"><div class="frame C" data-page="customers"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Manuell <small>C</small></h3><div class="shot"><div class="frame C" data-page="manual"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+  <div class="page"><h3>Einrichtung · Mitarbeiter <small>C</small></h3><div class="shot"><div class="frame C" data-page="setup"></div></div><button type="button" class="zoom">Vergrößern</button></div>
+</div>
+
+<section class="intro">
+  <div class="k">WAS IN ALLEN DREI GLEICH IST</div>
+  <ul>
+    <li>Ein Seitenkopf: Betrieb, Titel, genau eine Aktion rechts. „Alle Bereiche aktualisieren“ wird ein Symbol-Knopf.</li>
+    <li>„+ Kunde anlegen“ im Reiter Kunden; Kundenliste mit Standort, Zuordnungen und Kontingent-Balken.</li>
+    <li>Manuell in zwei Schritten, der Startknopf an fester Stelle, Rückmeldung ersetzt den Knopf.</li>
+    <li>Einrichtung mit Reitern je Abschnitt, Mitarbeiter als Tabelle, Standorte als Chips, Erklärung einmal oben.</li>
+    <li>Übersicht: zuerst, was läuft; „nächster Schritt“ nur, wenn es einen gibt; Entscheidungen in Orange.</li>
+  </ul>
+  <p class="note">Beispieldaten sind erfunden. Sag mir A, B oder C, gern auch „A mit der Live-Zeile aus C“. Daraus wird T-122.</p>
+</section>
+</div>
+
+<script>
+const MARK = `<svg class="mark" viewBox="0 0 100 100" fill="none" aria-hidden="true"><path d="M72.98 61.76A30 30 0 1 1 41.39 24.11" stroke="#7EE0C0" stroke-width="7" stroke-linecap="round"/><path d="M51.76 25.02A30 30 0 0 1 73.89 51.39" stroke="#C9F24D" stroke-width="7" stroke-linecap="round" opacity=".95"/><path d="M44 54L44 36M44 54L58 46" stroke="#7EE0C0" stroke-width="5" stroke-linecap="round"/><circle cx="44" cy="54" r="4" fill="#C9F24D"/><path d="M70 16c6 3 10 8 12 14M78 10c8 4 13 10 16 18" stroke="#C9F24D" stroke-width="4" stroke-linecap="round" opacity=".9"/></svg>`;
+const NAV = [["overview","Übersicht"],["customers","Kunden"],["employees","Mitarbeiter"],["review","Zeiten prüfen"],["own","Meine Zeiten"],["manual","Manuell"]];
+const NAV2 = [["setup","Einrichtung"],["export","Lohnexport"]];
+const act = (page,key)=> page===key || (page==="setup"&&key==="setup") ? "on" : "";
+const chromeA = (page, body) => `
+  <aside class="side"><div class="brand">${MARK}<span>Taptura<small>ZEIT. EINFACH. KLAR.</small></span></div>
+    <nav class="nav"><div class="grp">Arbeit</div>${NAV.map(([k,l])=>`<a class="${act(page,k)}"><i></i>${l}</a>`).join("")}<div class="grp">Verwaltung</div>${NAV2.map(([k,l])=>`<a class="${act(page,k)}"><i></i>${l}</a>`).join("")}</nav>
+    <div class="acct">Angemeldet für<b>Nachhilfe Nord</b>T. Beispiel · Administrator<div style="margin-top:6px;color:var(--acc);font-weight:600">Abmelden</div></div></aside>
+  <main class="main">${body}</main><div class="foot"><span>Deutsche Ortszeit · Stand 14:03</span><span>Version d193725</span></div>`;
+const chromeB = (page, body) => `
+  <div class="band"><div class="brand">${MARK}Taptura</div><span class="org">Nachhilfe Nord</span><div class="right"><span><b>T. Beispiel</b> · Administrator</span><span>Abmelden</span></div></div>
+  <nav class="rail"><div class="grp">Arbeit</div>${NAV.map(([k,l])=>`<a class="${act(page,k)}"><i></i>${l}</a>`).join("")}<div class="grp">Verwaltung</div>${NAV2.map(([k,l])=>`<a class="${act(page,k)}"><i></i>${l}</a>`).join("")}</nav>
+  <main class="main">${body}</main><div class="foot" style="left:208px"><span>Deutsche Ortszeit · Stand 14:03</span><span>Version d193725</span></div>`;
+const chromeC = (page, body) => `
+  <div class="frame-bg"></div>
+  <div class="top"><div class="brand">${MARK}Taptura</div><nav class="tabsn">${[...NAV,...NAV2].map(([k,l])=>`<a class="${act(page,k)}">${l}</a>`).join("")}</nav><div class="right"><span>Nachhilfe Nord</span><span>·</span><span>T. Beispiel</span></div></div>
+  <div class="live"><span class="dot"></span><span><b>7</b> von 12 erfassen gerade</span><span class="sep">|</span><span>A. Berger · Lerngruppe 7b · seit 13:10</span><span class="sep">|</span><span>M. Chen · Familie Arndt · seit 12:45</span><span class="sep">|</span><span>J. Keller · Pause</span><span style="margin-left:auto;color:var(--acc);font-weight:600">Alle anzeigen →</span></div>
+  <main class="main">${body}</main><div class="foot"><span>Deutsche Ortszeit · Stand 14:03</span><span>Version d193725</span></div>`;
+
+const ph = (title, sub, action) => `<div class="ph"><div><div class="eb">Nachhilfe Nord</div><h1>${title}</h1><div class="sub">${sub}</div></div><div style="display:flex;gap:8px">${action}</div></div>`;
+const refresh = `<span class="btn ico" title="Aktualisieren">↻</span>`;
+
+const PAGES = {
+  overview: `${ph("Übersicht","Mittwoch, 14. Oktober 2026", refresh)}
+    <div class="tiles">
+      <div class="tile"><div class="lab">Gerade aktiv · Betrieb</div><div class="num">7 <small>/ 12</small></div><div class="act">Aktivübersicht →</div></div>
+      <div class="tile"><div class="lab">Braucht Ihre Entscheidung</div><div class="num" style="color:#E0A44C">2</div><div class="act">Zeiten prüfen →</div></div>
+      <div class="tile"><div class="lab">Kontingent im Oktober</div><div class="num">1 <small>Warnung</small></div><div class="act">Kunden →</div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>Gerade aktiv <span>Stand 14:03</span></h2>
+        <table class="tbl"><tr><th>Person</th><th>Standort</th><th>Kunde</th><th class="n">seit</th><th></th></tr>
+          <tr><td><div class="who"><span class="av">AB</span>Alex Berger</div></td><td>Nord</td><td>Lerngruppe 7b</td><td class="n">13:10</td><td><span class="pill run">läuft</span></td></tr>
+          <tr><td><div class="who"><span class="av">MC</span>Mira Chen</div></td><td>Nord</td><td>Familie Arndt</td><td class="n">12:45</td><td><span class="pill run">läuft</span></td></tr>
+          <tr><td><div class="who"><span class="av">JK</span>Jonas Keller</div></td><td>Süd</td><td>Berufskolleg Mitte</td><td class="n">11:30</td><td><span class="pill">Pause</span></td></tr>
+          <tr><td><div class="who"><span class="av">SN</span>Sara Nowak</div></td><td>Süd</td><td>Lerngruppe 9a</td><td class="n">13:55</td><td><span class="pill run">läuft</span></td></tr>
+        </table><div class="muted" style="font-size:12.5px">3 weitere · Alle anzeigen</div></div>
+      <div class="stack">
+        <div class="card"><h2>Zu entscheiden</h2>
+          <div class="list"><div class="it"><span>Jonas Keller · Mo 12.10.<div class="sub">Stopp fehlt, 9:40 h offen</div></span><span class="pill warn">prüfen</span></div>
+          <div class="it"><span>Sara Nowak · Di 13.10.<div class="sub">Offline erfasst, Karte entfernt</div></span><span class="pill warn">prüfen</span></div></div></div>
+        <div class="card"><h2>Heute</h2><table class="tbl"><tr><td>Erfasste Stunden</td><td class="n">38:20 h</td></tr><tr><td>Manuell erfasst</td><td class="n">2</td></tr><tr><td>Offline, abgeglichen</td><td class="n">4</td></tr></table></div>
+      </div>
+    </div>`,
+  customers: `${ph("Kunden","Oktober 2026 · 48 Kunden · Stunden je Kunde und Person", `<span class="btn">‹ Monat ›</span><span class="btn pri">+ Kunde anlegen</span>${refresh}`)}
+    <div style="display:flex;gap:10px;align-items:center"><span class="field" style="flex:1 1 320px;max-width:420px">⌕ Name eingeben</span><span class="muted" style="font-size:12.5px">48 Kunden, 3 mit Kontingent-Hinweis</span></div>
+    <div class="card" style="padding:0 0 6px"><table class="tbl"><tr><th style="padding-left:18px">Kunde</th><th>Standort</th><th>Zugeordnet</th><th>Kontingent</th><th class="n">Stunden</th><th></th></tr>
+      <tr><td style="padding-left:18px"><b>Familie Arndt</b></td><td>Nord</td><td>2 Lehrer</td><td><div style="display:flex;align-items:center;gap:8px"><span class="bar"><i class="w" style="width:92%"></i></span><span class="muted" style="font-size:12px">11:00 / 12:00 h</span></div></td><td class="n">11:00 h</td><td><span class="pill run">läuft</span></td></tr>
+      <tr><td style="padding-left:18px"><b>Berufskolleg Mitte</b></td><td>Süd</td><td>4 Lehrer</td><td><div style="display:flex;align-items:center;gap:8px"><span class="bar"><i style="width:40%"></i></span><span class="muted" style="font-size:12px">16:30 / 40:00 h</span></div></td><td class="n">16:30 h</td><td></td></tr>
+      <tr><td style="padding-left:18px"><b>Lerngruppe 7b</b></td><td>Nord</td><td>1 Lehrer</td><td><span class="muted" style="font-size:12px">kein Kontingent</span></td><td class="n">8:15 h</td><td><span class="pill run">läuft</span></td></tr>
+      <tr><td style="padding-left:18px"><b>Lerngruppe 9a</b></td><td>Süd</td><td>3 Lehrer</td><td><div style="display:flex;align-items:center;gap:8px"><span class="bar"><i class="x" style="width:100%"></i></span><span class="muted" style="font-size:12px">20:30 / 20:00 h</span></div></td><td class="n">20:30 h</td><td><span class="pill warn">überschritten</span></td></tr>
+      <tr><td style="padding-left:18px"><b>Familie Özkan</b></td><td>Nord</td><td>–</td><td><span class="muted" style="font-size:12px">kein Kontingent</span></td><td class="n">0:00 h</td><td></td></tr>
+      <tr><td style="padding-left:18px"><b>Praxis Dr. Weber</b> <span class="muted" style="font-size:12px">· inaktiv</span></td><td>Süd</td><td>–</td><td></td><td class="n">1:00 h</td><td></td></tr>
+    </table><div class="muted" style="font-size:12.5px;padding:8px 18px">Weitere laden · 6 von 48</div></div>`,
+  manual: `${ph("Manuell","Zeit ohne Karte erfassen. Sie wird als „manuell“ gekennzeichnet.", `<span class="pill">Keine Zeit läuft</span>${refresh}`)}
+    <div class="steps">
+      <div class="step"><div class="k"><b>1</b>WOFÜR?</div><span class="field">⌕ Name eingeben</span>
+        <div class="muted" style="font-size:12px;margin-top:4px">Meine Kunden und Projekte</div>
+        <div class="list"><div class="it on"><span>Familie Arndt<div class="sub">Nord · 11:00 von 12:00 h</div></span><span style="color:var(--acc)">✓</span></div><div class="it"><span>Lerngruppe 7b<div class="sub">Nord</div></span><span></span></div><div class="it"><span>Projekt Sommerkurs<div class="sub">Projekt</div></span><span></span></div></div>
+        <div class="muted" style="font-size:12.5px">Weitere Kunden und Projekte über die Suche · <span style="color:var(--acc);font-weight:600">Allgemeine Arbeitszeit</span></div></div>
+      <div class="step"><div class="k"><b>2</b>STARTEN</div><div class="big">Familie Arndt</div><div class="clock">14:03</div><div class="muted" style="font-size:12.5px">Start jetzt · Deutsche Ortszeit · als manuell gekennzeichnet</div>
+        <span class="btn pri" style="justify-content:center;padding:12px">Zeit starten</span>
+        <div class="muted" style="font-size:12px">Danach steht hier „läuft seit 14:03“ mit <b>Zeit beenden</b> und <b>Pause</b>. Beim Speichern zeigt der Knopf „Wird gesichert …“; nur bei einem Fehler erscheint an derselben Stelle „Erneut versuchen“.</div></div>
+    </div>
+    <div class="card"><h2>Zuletzt manuell <span>diese Woche</span></h2><table class="tbl"><tr><td>Mo 12.10.</td><td>Lerngruppe 7b</td><td class="n">15:00–16:30</td><td class="n">1:30 h</td></tr><tr><td>Di 13.10.</td><td>Allgemeine Arbeitszeit</td><td class="n">08:00–09:00</td><td class="n">1:00 h</td></tr></table></div>`,
+  setup: `${ph("Einrichtung","Standorte, Mitarbeiter, Kunden und Projekte, Karten", refresh)}
+    <div class="subtabs"><span>Standorte</span><span class="on">Mitarbeiter</span><span>Kunden und Projekte</span><span>Karten</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px"><div class="muted" style="font-size:13px;max-width:70ch">Hauptstandort ist der reguläre Arbeitsort. Weitere Standorte erlauben zusätzliche Einsätze. Standortleitungen verwalten die Bereiche in der letzten Spalte. Änderungen werden sofort gespeichert.</div><span class="field" style="min-width:240px">⌕ Name eingeben</span></div>
+    <div class="card" style="padding:0 0 6px"><table class="tbl"><tr><th style="padding-left:18px">Person</th><th>Rolle</th><th>Hauptstandort</th><th>Weitere Standorte</th><th>Verwaltet</th></tr>
+      <tr><td style="padding-left:18px"><div class="who"><span class="av">TB</span><b>Sie selbst</b></div></td><td>Administrator</td><td><span class="sel">Nord <span class="muted">▾</span></span></td><td><span class="chip add">+ Standort</span></td><td class="muted">alle</td></tr>
+      <tr><td style="padding-left:18px"><div class="who"><span class="av">AB</span>Alex Berger</div></td><td>Mitarbeiter</td><td><span class="sel">Nord <span class="muted">▾</span></span></td><td><span class="chip on">Süd ×</span><span class="chip add">+ Standort</span></td><td class="muted">–</td></tr>
+      <tr><td style="padding-left:18px"><div class="who"><span class="av">MC</span>Mira Chen</div></td><td>Standortleitung</td><td><span class="sel">Nord <span class="muted">▾</span></span></td><td><span class="chip add">+ Standort</span></td><td><span class="chip on">Nord ×</span><span class="chip add">+ Bereich</span></td></tr>
+      <tr><td style="padding-left:18px"><div class="who"><span class="av">JK</span>Jonas Keller</div></td><td>Mitarbeiter</td><td><span class="sel">Süd <span class="muted">▾</span></span></td><td><span class="chip add">+ Standort</span></td><td class="muted">–</td></tr>
+      <tr><td style="padding-left:18px"><div class="who"><span class="av">SN</span>Sara Nowak</div></td><td>Mitarbeiter</td><td><span class="sel">Süd <span class="muted">▾</span></span></td><td><span class="chip on">Nord ×</span><span class="chip add">+ Standort</span></td><td class="muted">–</td></tr>
+    </table><div class="muted" style="font-size:12.5px;padding:8px 18px">Weitere laden · 5 von 12</div></div>
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;gap:16px"><div><b>Vor dem Einschalten</b><div class="muted" style="font-size:12.5px">2 von 3 Prüfungen bestanden · Familie Özkan hat noch keinen Standort</div></div><span class="btn">Standorte einschalten</span></div>`,
+};
+
+const CHROME = { A: chromeA, B: chromeB, C: chromeC };
+for (const frame of document.querySelectorAll(".frame")) {
+  const d = [...frame.classList].find(c => CHROME[c]);
+  frame.innerHTML = CHROME[d](frame.dataset.page, PAGES[frame.dataset.page]);
+}
+const fit = () => {
+  for (const shot of document.querySelectorAll(".shot")) {
+    const frame = shot.querySelector(".frame");
+    if (shot.dataset.zoom === "1") { frame.style.transform = "none"; shot.style.height = "900px"; continue; }
+    const s = Math.min(1, shot.clientWidth / 1440);
+    frame.style.transform = `scale(${s})`; shot.style.height = Math.round(900 * s) + "px";
+  }
+};
+new ResizeObserver(fit).observe(document.body);
+fit();
+for (const b of document.querySelectorAll(".zoom")) b.addEventListener("click", () => {
+  const shot = b.parentElement.querySelector(".shot");
+  shot.dataset.zoom = shot.dataset.zoom === "1" ? "0" : "1";
+  b.textContent = shot.dataset.zoom === "1" ? "Einpassen" : "Vergrößern"; fit();
+});
+for (const b of document.querySelectorAll(".tabs button")) b.addEventListener("click", () => {
+  for (const x of document.querySelectorAll(".tabs button")) x.setAttribute("aria-pressed", String(x === b));
+  for (const d of ["A","B","C"]) document.getElementById("dir-" + d).hidden = d !== b.dataset.d;
+  fit();
+});
+</script>
+
+</body>
+</html>

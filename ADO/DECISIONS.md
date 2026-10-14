@@ -1894,3 +1894,14 @@ geleakten Passwörtern ab Supabase Pro (D-130); eine klare Meldung „Zu viele V
 Ausweitung neu bewerten. Umsetzung in T-119, Dashboard-Schritte durch den PO.
 **Warum:** Ausreichender Schutz gegen Durchprobieren für den Pilot, ohne zusätzliche Datenwege und ohne zusätzliche Hürde
 für Lehrer.
+
+## D-140 · Verwaltung im Browser und App mit hellem und dunklem Thema · 14.10.2026 · Tim (PO)
+Web und App bekommen zwei Themen mit demselben Aufbau: dunkel wie heute und hell. Die Wahl folgt dem System, ein
+Umschalter „Hell · Dunkel · Automatisch“ liegt im Konto-Block (Web) und bei „Übertragung“ (App), je Gerät gespeichert.
+Dazu wird die Verwaltung aufgeräumt: ein Seitenkopf mit genau einer gefüllten Hauptaktion, Seitenleiste in zwei
+Gruppen, Tabellen statt Karten, „Kunde anlegen“ im Reiter Kunden, „Manuell“ in zwei Schritten, Einrichtung mit
+Reitern. Farbregel überall: Lime heißt „läuft“, Mint heißt „anklickbar“, Orange heißt „braucht Sie“. Das Startbild
+der App bleibt dunkel. Entwurf und Regeln: `ADO/01_Architecture/Web_Entwurf_v2/`. Umsetzung in T-122a und T-122b.
+**Warum:** Die Verwaltung wirkte grell und unaufgeräumt (PO-Abnahme 14.10.); Kunden sollen zwischen hell und dunkel
+wählen können, ohne dass zwei Oberflächen gepflegt werden.
+

@@ -2,14 +2,16 @@
 
 **Stand 14.10.2026.** Produktion läuft auf `d193725` (Deploy 5 am 14.10., Migrationen 053–057). Ausgeliefert: T-116a,
 T-116b, T-117a, T-117b, T-118a, T-118b, T-120 (D-134 bis D-138). Neue App-Builds (TestFlight, Prüf-APK) zu `d193725`
-sind auf den PO-Geräten. Auf main, noch nicht ausgeliefert: T-119 (`3284c99`, Migration 058, D-139); kommt mit T-024.
-In Arbeit: T-121 (Befunde der Geräteabnahme, zuerst Android-Karte ohne Antippen). Supabase-Projekt am 14.10. vom PO
+sind auf den PO-Geräten. Auf main, noch nicht ausgeliefert: T-119 (`3284c99`, Migration 058, D-139) und T-121
+(`4e64473`, Android-Karte ohne Antippen, nur zugeordnete Ziele, Tastatur); beide kommen mit Deploy 6.
+In Arbeit: T-122a (Web-Gestaltung mit zwei Themen, D-140). Supabase-Projekt am 14.10. vom PO
 aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
 der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-121 und Nachtest am Android → T-122 (Web-Politur) → T-024 mit Deploy 6 (T-119) → Pilot.
+**Weg zum Pilot:** T-122a und T-122b (Gestaltung, D-140) → App-Builds mit Android-Nachtest (T-121) → T-024 mit Deploy 6
+(T-119, T-121, T-122) → Pilot. Builds erst nach T-122b, damit ein Build beide Änderungen trägt (PO 14.10.).
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -23,14 +25,18 @@ nacheinander mit klarer Meldung; offline mit Abgleich von selbst; Vibration und 
 „Karte prüfen“ und „Karte entfernen“, entfernte Karte erfasst nicht; eigene Zeit ändern und löschen ohne Grund,
 Standortleitung mit Pflichtgrund; Kunden mit Suche und Detail; Kontingent-Hinweis; Pause als eigene Zeile; Web-Übersicht,
 „Zeiten prüfen“, Betreiber-Bereich; Aussperr-Test.
-**Befunde:** Android erfasst die Karte nur nach Antippen des Kreises, bei offener wie geschlossener App (P1, T-121) ·
-unter „Meine Kunden und Projekte“ stehen weiter alle (T-121) · Tastatur bleibt nach Antippen eines Ziels offen (T-121) ·
-Symbol „Zeit gespeichert“ im Kreis flackert gelegentlich (P2, T-121) · Web: Farben teils zu grell, „Kunde anlegen“ fehlt im
-Reiter Kunden, „Manuell“ und „Einrichtung“ unübersichtlich (T-122).
+**Befunde:** Android erfasst die Karte nur nach Antippen des Kreises, bei offener wie geschlossener App (P1; Ursache
+in T-121 behoben: die Grant-Erneuerung beim Vordergrund verschob die Zeitgrenze der Erfassung hinter die Karte; am Gerät
+noch nicht bestätigt) · unter „Meine Kunden und Projekte“ stehen weiter alle (T-121 ✓) · Tastatur bleibt nach Antippen
+eines Ziels offen (T-121 ✓) · Symbol „Zeit gespeichert“ im Kreis flackert gelegentlich (P2, Ursache ohne Gerät nicht
+erkennbar) · Web: Farben teils zu grell, „Kunde anlegen“ fehlt im Reiter Kunden, „Manuell“ und „Einrichtung“
+unübersichtlich (T-122a, D-140).
 **Noch offen:** je 20 Einrichtungen am iPhone und am Android; Einladung eines zweiten Kontos bis „App laden“; einmal
 VoiceOver und TalkBack; große Schrift; T-115 über Nacht am Ladekabel und zehnmal nach langer Sperre (0 von 10 mit
-„derzeit nicht verfügbar“, Code mit Foto melden). Nach T-121: Android-Karte ohne Antippen bei offener und geschlossener
-App erneut prüfen.
+„derzeit nicht verfügbar“, Code mit Foto melden). **Android-Nachtest zu T-121 mit dem Build nach T-122b,** jeweils ohne
+Antippen: offene App, aus dem Hintergrund, beendete App, zwei Karten nacheinander, nach der Verwaltung, offline mit
+Abgleich, und morgens als Erstes nach einer Nacht nur im Hintergrund; dabei das Symbol im Kreis beobachten (verschwindet
+der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich?). iPhone unverändert, kurz gegenprüfen.
 
 ## Beim PO (nach Deploy 5)
 
@@ -91,7 +97,9 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   Verwaltungsumfang (T-059) · Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an
   `wa-sqlite.wasm` (P2) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112) · alte App-Builds können nach Deploy 5 gelöschte
   Einträge ohne Grund (`none`) nicht anzeigen, bis der neue Build installiert ist (T-116a) · Suchtest „Kunden“ einmal über
-  5 s bei paralleler Last, isoliert 0,7 s (T-118b, P2, beobachten).
+  5 s bei paralleler Last, isoliert 0,7 s (T-118b, P2, beobachten) · fällt ein Token-Refresh genau mit einer Karte
+  zusammen (erster Vordergrund nach über einer Stunde im Hintergrund), kann die Sitzungsbenachrichtigung die Zeitgrenze
+  der Erfassung ein zweites Mal verschieben (T-121, P3, Fall „morgens als Erstes“ im Nachtest).
 - **Beschäftigte (T-102):** wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten
   Seite fehlen (Aktualisieren hilft).
 - **Paket (T-075):** eine nie angenommene Einladung belegt den Platz, bis der Zugang entzogen wird (gewollt, D-087) ·
