@@ -17,9 +17,13 @@ concurrency:
 
 jobs:
   web-layout:
-    name: Web layouts and accessibility
+    name: Web layouts and accessibility (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -41,8 +45,13 @@ jobs:
           npm run build --workspace=@taptime/offline-sync-contract
           npm run build --workspace=@taptime/time-review-contract
           npm run build --workspace=@taptime/time-entry-export-contract
-      - name: Verify Web layouts and landing accessibility in Chrome
-        run: npm run test:browser
+      - name: Verify Web layouts and accessibility in Chrome
+        env:
+          TAPTIME_LAYOUT_SHARD: ${{ matrix.shard }}/3
+        run: npm run test:layout
+      - name: Verify landing accessibility in Chrome
+        if: matrix.shard == 1
+        run: npm run test:browser --workspace=@taptime/landing-web
 
   quality:
     name: Typecheck, test, and build
@@ -66,7 +75,7 @@ jobs:
         run: npm ci
 
       - name: Verify CI workspace build dependencies
-        run: node --test infrastructure/tests/taptime-ci-workspace-dependencies.test.mjs
+        run: node --test infrastructure/tests/taptime-ci-workspace-dependencies.test.mjs scripts/browser/sharding.test.mjs
 
       - name: Verify image workspace build dependencies
         run: node --test infrastructure/tests/taptime-image-build-dependencies.test.mjs infrastructure/tests/taptime-operator-image.test.mjs infrastructure/tests/taptime-landing-image.test.mjs

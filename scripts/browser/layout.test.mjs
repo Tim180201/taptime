@@ -5,6 +5,7 @@ import { before, after, test } from 'node:test';
 import { launchBrowser, buildWeb, measure } from './harness.mjs';
 import { adminScenarios, operatorScenarios } from './scenarios.mjs';
 import { verifyT122c } from './t122c.mjs';
+import { createLayoutShard } from './sharding.mjs';
 import { build as buildJavaScript } from 'esbuild';
 import mark from '../../shared/brand/mark.json' with { type: 'json' };
 const apps = { 'admin-web': adminScenarios, 'operator-web': operatorScenarios };
@@ -12,11 +13,22 @@ const artifacts = process.env.TAPTIME_LAYOUT_ARTIFACTS;
 const results = [];
 let browser;
 const webs = {};
-test('T122c fixed shell, month controls and rendering recovery', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
+const shard = createLayoutShard(process.env.TAPTIME_LAYOUT_SHARD);
+const neededWebs = new Set();
+function layoutTest(web, name, ...args) {
+  if (!shard.register()) return;
+  if (web) {
+    neededWebs.add(web);
+    // Preserve the genuine-entry build check for every selected fixture app.
+    if (Object.hasOwn(apps, web)) neededWebs.add(web + '-configuration');
+  }
+  test(name, ...args);
+}
+layoutTest('admin-web', 'T122c fixed shell, month controls and rendering recovery', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
   await verifyT122c(browser, webs['admin-web'], artifacts ? join(artifacts, 't122c') : undefined);
 });
 for (const app of Object.keys(apps)) for (const width of [390, 1440]) for (const variant of ['login', 'overview']) {
-  test(`T120 ${app}/${variant}/${width}: source mark, favicons and doubled text`, async () => {
+  layoutTest(app, `T120 ${app}/${variant}/${width}: source mark, favicons and doubled text`, async () => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });
     try {
       await page.addInitScript(value => { window.layoutScenario = value; }, variant);
@@ -40,7 +52,7 @@ for (const app of Object.keys(apps)) for (const width of [390, 1440]) for (const
     } finally { await page.close(); }
   });
 }
-test('T090 shared creation-name normalizer runs in Chrome without Node globals', async () => {
+layoutTest(null, 'T090 shared creation-name normalizer runs in Chrome without Node globals', async () => {
   const bundle = await buildJavaScript({
     stdin: { contents: "export { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';", resolveDir: process.cwd() },
     bundle: true, platform: 'browser', format: 'iife', globalName: 'creationNames', write: false,
@@ -57,22 +69,24 @@ test('T090 shared creation-name normalizer runs in Chrome without Node globals',
   } finally { await page.close(); }
 });
 before(async () => {
-  for (const app of Object.keys(apps)) webs[app] = await buildWeb(app, true);
+  for (const app of Object.keys(apps)) if (neededWebs.has(app)) webs[app] = await buildWeb(app, true);
   // Build the genuine entries as well: configuration/storage fallbacks and fixture exclusion.
-  for (const app of Object.keys(apps)) webs[app+'-configuration'] = await buildWeb(app);
-  webs['operator-web-storage-error'] = await buildWeb('operator-web', false, true);
+  for (const app of Object.keys(apps)) if (neededWebs.has(app+'-configuration')) webs[app+'-configuration'] = await buildWeb(app);
+  if (neededWebs.has('operator-web-storage-error')) webs['operator-web-storage-error'] = await buildWeb('operator-web', false, true);
   browser = await launchBrowser();
 });
 after(async () => {
   if (artifacts) { mkdirSync(artifacts,{recursive:true}); writeFileSync(join(artifacts,'results.json'),JSON.stringify(results,null,2)); }
   await browser?.close();
   for (const web of Object.values(webs)) await web.close();
+  const { part, parts, selected, total } = shard.summary();
+  console.log(`Layout shard ${part}/${parts}: ${selected} tests selected of ${total} registered`);
 });
 for (const [app, scenarios] of Object.entries(apps)) for (const [width,height] of [[360,900],[390,900],[768,900],[1440,900],[768,390]]) for (const s of scenarios) {
   if (s.mobileOnly && width >= 1024) continue;
   if (process.env.TAPTIME_LAYOUT_SOURCE && s.mobileOnly) continue;
   if (process.env.TAPTIME_LAYOUT_FILTER && !`${app}/${s.id}/${width}`.includes(process.env.TAPTIME_LAYOUT_FILTER)) continue;
-  test(`${app}/${s.id}/${width}x${height}`, async () => {
+  layoutTest(s.production ? app+'-'+s.id : app, `${app}/${s.id}/${width}x${height}`, async () => {
     const page = await browser.newPage({ viewport: {width,height} });
     page.setDefaultTimeout(5000);
     const errors = [];
@@ -111,7 +125,7 @@ for (const [app, scenarios] of Object.entries(apps)) for (const [width,height] o
   });
 }
 // Interaction checks use the same built fixture: opening UI must not create new authority.
-test('mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
+layoutTest('admin-web', 'mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
   const page = await browser.newPage({viewport:{width:390,height:844}});
   page.setDefaultTimeout(5000);
   try {
@@ -154,7 +168,7 @@ test('mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!
   } finally {await page.close();}
 });
 
-for(const width of [360,390,1440]) test(`T113 time form visibility and keyboard ${width}`,async()=>{
+for(const width of [360,390,1440]) layoutTest('admin-web', `T113 time form visibility and keyboard ${width}`,async()=>{
  const page=await browser.newPage({viewport:{width,height:900}});
  page.setDefaultTimeout(5000);
  try{
@@ -183,7 +197,7 @@ for(const width of [360,390,1440]) test(`T113 time form visibility and keyboard 
  }finally{await page.close();}
 });
 
-for(const width of [390,1440])test(`T116b manual start stays visible after scrolling at ${width}px`,async()=>{
+for(const width of [390,1440])layoutTest('admin-web', `T116b manual start stays visible after scrolling at ${width}px`,async()=>{
  const page=await browser.newPage({viewport:{width,height:900}});
  try {
   await page.goto(webs['admin-web'].origin+'/manuell#manual');
@@ -198,3 +212,6 @@ for(const width of [390,1440])test(`T116b manual start stays visible after scrol
   assert.ok(bounds.y+bounds.height<=(navBounds?.y??900));
  }finally{await page.close();}
 });
+
+// Runs synchronously after all registrations, before builds or Chrome startup.
+shard.assertNotEmpty();

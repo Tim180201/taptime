@@ -18,6 +18,24 @@ const packages = new Map(globSync(rootPackage.workspaces.map(path => `${path}/pa
   }));
 const workflow = parseYaml(readFileSync(resolve(root, '.github/workflows/ci.yml'), 'utf8'));
 
+test('CI layout matrix runs every shard and the landing browser suite exactly once', () => {
+  const job = workflow.jobs['web-layout'];
+  assert.deepEqual(job.strategy.matrix, { shard: [1, 2, 3] });
+  assert.equal(job.strategy['fail-fast'], false);
+  assert.equal(job['timeout-minutes'], 15);
+  assert.equal(job.name, 'Web layouts and accessibility (${{ matrix.shard }}/3)');
+  const layout = job.steps.filter(step => step.run === 'npm run test:layout');
+  assert.equal(layout.length, 1);
+  assert.equal(Object.hasOwn(layout[0], 'if'), false);
+  assert.equal(layout[0].env.TAPTIME_LAYOUT_SHARD, '${{ matrix.shard }}/3');
+  const browser = Object.values(workflow.jobs).flatMap(job => job.steps ?? [])
+    .filter(step => /npm run test:browser/.test(step.run ?? ''));
+  assert.equal(browser.length, 1);
+  assert.ok(job.steps.includes(browser[0]));
+  assert.equal(browser[0].run, 'npm run test:browser --workspace=@taptime/landing-web');
+  assert.equal(browser[0].if, 'matrix.shard == 1');
+});
+
 function dependencies(name, manifests, includeDevelopment) {
   const required = new Set();
   // Test-only cycles are allowed: all members must be built before testing any
