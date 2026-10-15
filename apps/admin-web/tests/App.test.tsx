@@ -68,10 +68,10 @@ it.each(['offline_v2','server_legacy'] as const)('T097: %s break can only be clo
   const pause={...reviewItem,source,targetType:'break' as const,targetDisplayName:'Pause'};
   const capability=new FakeCapability({...readyState,reviewItems:[pause]});
   await render(<App administration={capability}/>);
-  expect(screen.queryByRole('button',{name:'Fehlende Arbeitszeit ergänzen'})).not.toBeInTheDocument();
-  expect(screen.queryByRole('button',{name:'Vorhandene Arbeitszeit ändern'})).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button',{name:'Ohne Zeitänderung schließen'}));
-  expect(screen.getAllByRole('option').map(option=>option.getAttribute('value'))).toEqual(['no_time_record_change']);
+  expect(screen.queryByRole('button',{name:'Ende nachtragen'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Zeit ändern'})).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button',{name:'So lassen'}));
+  expect(screen.queryByRole('combobox',{name:'Entscheidung'})).toBeNull();
   expect(screen.getByLabelText('Begründung')).toBeRequired();
   await userEvent.click(screen.getByRole('button',{name:'Änderung prüfen'}));
   expect(capability.prepareAdjudication).not.toHaveBeenCalled();
@@ -88,10 +88,10 @@ it.each(['administrator','standortleitung'] as const)('T095b %s sees the separat
   const capability=new FakeCapability({...readyState,role,reviewItems:[skipped]});
   await render(<App administration={capability}/>);
   expect(screen.getByText('Fehlende Zeit über „Zeit hinzufügen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.')).toBeVisible();
-  expect(screen.queryByRole('button',{name:'Fehlende Arbeitszeit ergänzen'})).not.toBeInTheDocument();
-  expect(screen.queryByRole('button',{name:'Vorhandene Arbeitszeit ändern'})).not.toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button',{name:'Ohne Zeitänderung schließen'}));
-  expect(screen.getAllByRole('option').map(option=>option.getAttribute('value'))).toEqual(['no_time_record_change']);
+  expect(screen.queryByRole('button',{name:'Ende nachtragen'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Zeit ändern'})).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button',{name:'So lassen'}));
+  expect(screen.queryByRole('combobox',{name:'Entscheidung'})).toBeNull();
   fireEvent.change(screen.getByLabelText('Begründung'),{target:{value:'Fehlende Zeit separat nachgetragen.'}});
   await userEvent.click(screen.getByRole('button',{name:'Änderung prüfen'}));
   expect(capability.prepareAdjudication).toHaveBeenCalledExactlyOnceWith(
@@ -103,7 +103,7 @@ it('T095b keeps existing review decisions without the separate backfill guidance
   window.history.replaceState(null,'','/pruefungen');
   await render(<App administration={new FakeCapability(readyState)}/>);
   expect(screen.queryByText('Fehlende Zeit über „Zeit hinzufügen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.')).not.toBeInTheDocument();
-  expect(screen.getByRole('button',{name:'Fehlende Arbeitszeit ergänzen'})).toBeVisible();
+  expect(screen.getByRole('button',{name:'Ende nachtragen'})).toBeVisible();
 });
 
 it.each([
@@ -120,7 +120,7 @@ it.each([
     capability.emit({ ...readyState, availableSections: ['employees'] });
   });
   await render(<App administration={capability} accountInvitations={{ invite: async () => ({ status }) }} />);
-  fireEvent.click(await screen.findByRole('button', { name: 'Mitarbeiter hinzufügen' }));
+  fireEvent.click(await screen.findByRole('button', { name: '+ Mitarbeiter einladen' }));
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Neue Person' } });
   fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'person@example.test' } });
   fireEvent.click(screen.getByRole('button', { name: 'Einladung senden' }));
@@ -246,7 +246,7 @@ class FakeCapability implements AdminWebCapability {
   signOut = vi.fn(async () => undefined);
   refresh = vi.fn(async () => undefined);
   selectLocation = vi.fn(async () => undefined);
-  setTimeWindow = vi.fn(async () => undefined);
+  setTimeWindow = vi.fn<AdminWebCapability['setTimeWindow']>(async (fromInclusive,toExclusive) => {if(this.state.status==='ready')this.emit({...this.state,timeWindow:{fromInclusive,toExclusive}});});
   retrySection = vi.fn(async () => undefined);
   loadMore = vi.fn(async () => undefined);
   createCustomer = vi.fn(async () => undefined);
@@ -297,7 +297,7 @@ describe('professional Admin Web shell', () => {
     const access=document.querySelector('.membership-tools')!;
     expect(access.textContent).toContain('Zugang aktiv');
     expect(access.textContent).not.toContain('Zeit läuft');
-    expect(screen.getAllByText('Keine laufende Zeit').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button',{name:'Keine Zeit'})).toBeInTheDocument();
   });
   it('T108 renders German local time in the shell rather than the technical zone constant',async()=>{
     await render(<App administration={new FakeCapability(readyState)}/>);
@@ -448,7 +448,7 @@ describe('professional Admin Web shell', () => {
     window.history.replaceState(null, '', '/beschaeftigte');
     const capability = new FakeCapability(readyState);
     const { rerender } = await render(<App administration={capability} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Mitarbeiter hinzufügen' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Mitarbeiter einladen' }));
     expect(screen.queryByLabelText('Hauptarbeitsstandort')).not.toBeInTheDocument();
 
     const enabled = {
@@ -548,6 +548,18 @@ describe('professional Admin Web shell', () => {
     expect(await screen.findByRole('heading', { name: 'Zeiten prüfen', level: 1 })).toHaveFocus();
   });
 
+  it('T122b reapplies the payroll month after a new session loads its default window',async()=>{
+    window.history.replaceState(null,'','/lohnexport?monat=2026-08');
+    const capability=new FakeCapability(readyState);
+    render(<App administration={capability}/>);
+    await waitFor(()=>expect(screen.getByRole('button',{name:'CSV herunterladen'})).toBeEnabled());
+    act(()=>capability.emit({status:'signed_out'} as AdminWebState));
+    capability.setTimeWindow.mockClear();
+    act(()=>capability.emit({...readyState,membershipId:'70000000-0000-4000-8000-000000000002'}));
+    await waitFor(()=>expect(capability.setTimeWindow).toHaveBeenCalledWith('2026-07-31T22:00:00.000Z','2026-08-31T22:00:00.000Z'));
+    expect(screen.getByRole('button',{name:'CSV herunterladen'})).toBeEnabled();
+  });
+
   it('restores a linked month and every active filter from the address', async () => {
     const capability = new FakeCapability(readyState);
     window.history.replaceState(
@@ -558,9 +570,9 @@ describe('professional Admin Web shell', () => {
     await render(<App administration={capability} />);
 
     expect(screen.getByLabelText('Monat')).toHaveValue('2026-08');
-    expect(screen.getByLabelText('Status')).toHaveValue('abgeschlossen');
-    expect(screen.getByLabelText('Erfasst mit')).toHaveValue('manuell-erfasst');
-    expect(screen.getByText(/Monat August 2026/)).toBeInTheDocument();
+    expect(within(screen.getByRole('group',{name:'Status'})).getByRole('button',{name:'Abgeschlossen'})).toHaveAttribute('aria-pressed','true');
+    expect(within(screen.getByRole('group',{name:'Erfasst mit'})).getByRole('button',{name:'Manuell erfasst'})).toHaveAttribute('aria-pressed','true');
+    expect(screen.getByText(/August 2026/)).toBeInTheDocument();
     await waitFor(() => expect(capability.setTimeWindow).toHaveBeenCalledWith(
       '2026-07-31T22:00:00.000Z',
       '2026-08-31T22:00:00.000Z',
@@ -739,7 +751,7 @@ describe('professional Admin Web shell', () => {
 
     window.history.pushState(null, '', '/beschaeftigte');
     fireEvent(window, new PopStateEvent('popstate'));
-    await userEvent.click(screen.getByRole('button', { name: 'Mitarbeiter hinzufügen' }));
+    await userEvent.click(screen.getByRole('button', { name: '+ Mitarbeiter einladen' }));
     const employeeInput = await screen.findByLabelText('Name');
     await userEvent.type(employeeInput, 'Neue Person');
     capability.emit({
@@ -779,14 +791,14 @@ describe('professional Admin Web shell', () => {
 
   it('distinguishes an empty filter result and resets it without an illustration', async () => {
     const emptyState = { ...readyState, timeRecords: [] };
-    window.history.replaceState(null, '', '/arbeitszeiten?monat=2026-08');
+    window.history.replaceState(null, '', '/arbeitszeiten?monat=2026-08&status=laufend');
     await render(<App administration={new FakeCapability(emptyState)} />);
 
     expect(screen.getByText('Keine Arbeitszeiten in dieser Auswahl')).toBeInTheDocument();
     expect(document.querySelector('.filter-empty .empty-illustration')).toBeNull();
     await userEvent.click(screen.getByRole('button', { name: 'Filter zurücksetzen' }));
     expect(window.location.pathname).toBe('/lohnexport');
-    expect(window.location.search).toBe('');
+    expect(window.location.search).toBe('?monat=2026-08');
   });
 
   it('resolves an invalid path to Übersicht without retaining unsafe content', async () => {
@@ -837,42 +849,17 @@ describe('professional Admin Web shell', () => {
     });
     window.history.replaceState(null, '', '/lohnexport');
     await render(<App administration={capability} />);
-    expect(screen.getByText('Arbeitszeiten bisher geladen')).toBeInTheDocument();
+    expect(screen.getByRole('region',{name:'Geladene Arbeitszeiten'})).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Weitere Arbeitszeiten laden' }));
     expect(capability.loadMoreTimeRecords).toHaveBeenCalledOnce();
     window.history.pushState(null, '', '/pruefungen');
     fireEvent(window, new PopStateEvent('popstate'));
-    expect(await screen.findByText('ungeklärte Erfassungen bisher geladen')).toBeInTheDocument();
+    expect(await screen.findByText(/Mindestens .* offene[r]? F[äa]ll/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Weitere Erfassungen laden' }));
     expect(capability.loadMoreReviewItems).toHaveBeenCalledOnce();
   });
 
-  it('renders every Engine escalation reason as an explicit administrator message', async () => {
-    const reasons = [
-      ['active_time_entry_organization_mismatch', 'Laufende Arbeitszeit gehört zu einem anderen Betrieb'],
-      ['active_time_entry_user_mismatch', 'Laufende Arbeitszeit gehört zu einer anderen Person'],
-      ['previous_work_event_organization_mismatch', 'Vorherige Erfassung gehört zu einem anderen Betrieb'],
-      ['previous_work_event_user_mismatch', 'Vorherige Erfassung gehört zu einer anderen Person'],
-      ['previous_work_event_target_mismatch', 'Vorherige Erfassung gehört zu einem anderen Ziel'],
-      ['work_event_precedes_active_time_entry', 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit'],
-      ['work_event_precedes_previous_accepted_work_event', 'Erfassung liegt vor der vorherigen bestätigten Erfassung'],
-    ] as const;
-    const state: Extract<AdminWebState, { readonly status: 'ready' }> = {
-      ...readyState,
-      reviewItems: reasons.map(([reason], index) => ({
-        ...reviewItem,
-        reviewItemId: `90000000-0000-4000-8000-${(10 + index).toString().padStart(12, '0')}`,
-        reviewReason: reason,
-      })),
-    };
-    window.history.replaceState(null, '', '/pruefungen');
-    await render(<App administration={new FakeCapability(state)} />);
-    for (const [, label] of reasons) {
-      expect(screen.getByText((_content, element) => (
-        element?.tagName === 'P' && element.textContent?.startsWith(label) === true
-      ))).toBeInTheDocument();
-    }
-  });
+  // T-122b: reason coverage now derives from TIME_REVIEW_REASONS in T122bReasons.
 
   it('contains a section failure and retries only that section', async () => {
     const capability = new FakeCapability({
@@ -898,90 +885,9 @@ describe('professional Admin Web shell', () => {
     expect(document.body.textContent).not.toMatch(/nfc:uid|canonicalPayload/i);
   });
 
-  it('renders append-only correction confirmation with before, after and verbatim reason', async () => {
-    const capability = new FakeCapability({
-      ...readyState,
-      correctionIntent: {
-        commandId: 'a0000000-0000-4000-8000-000000000001',
-        timeRecord: record,
-        startedAt: '2026-07-20T08:15:00.000Z',
-        stoppedAt: '2026-07-20T16:15:00.000Z',
-        reason: 'Beleg geprüft.',
-      },
-    });
-    window.history.replaceState(null, '', '/lohnexport');
-    await render(<App administration={capability} />);
-    const confirmation = screen.getByRole('alertdialog', { name: 'Korrektur ausdrücklich bestätigen' });
-    expect(confirmation).toHaveTextContent('Vorher');
-    expect(confirmation).toHaveTextContent('Nachher');
-    expect(confirmation).toHaveTextContent('Beleg geprüft.');
-  });
+  // T-122b: payroll correction form removed; the unchanged editor and its safety tests live in T066TimeEditing.
 
-  it('renders exact correction truth and restores focus after conflict intent removal', async () => {
-    const capability = new FakeCapability(readyState);
-    const reason = 'Erste  Zeile\nZweite   Zeile';
-    capability.prepareCorrection.mockImplementation((
-      timeRecordId,
-      startedAt,
-      stoppedAt,
-      submittedReason,
-    ) => {
-      capability.emit({
-        ...readyState,
-        correctionIntent: {
-          commandId: 'a0000000-0000-4000-8000-000000000001',
-          timeRecord: record,
-          startedAt,
-          stoppedAt,
-          reason: submittedReason,
-        },
-      });
-      expect(timeRecordId).toBe(record.timeRecordId);
-    });
-    capability.confirmCorrection.mockImplementation(async () => {
-      capability.emit({
-        ...readyState,
-        correctionIntent: null,
-        notice: { kind: 'error', text: 'Die Arbeitszeit wurde zwischenzeitlich geändert.' },
-      });
-    });
-    window.history.replaceState(null, '', '/lohnexport');
-    await render(<App administration={capability} />);
-    fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
-      target: { value: record.timeRecordId },
-    });
-    fireEvent.change(screen.getByLabelText('Von'), {
-      target: { value: '08:15' },
-    });
-    fireEvent.change(screen.getByLabelText('Bis'), {
-      target: { value: '16:45' },
-    });
-    fireEvent.change(screen.getByLabelText('Grund (freiwillig)'), {
-      target: { value: reason },
-    });
-
-    await userEvent.click(screen.getByRole('button', { name: 'Korrektur prüfen' }));
-
-    expect(capability.prepareCorrection).toHaveBeenCalledWith(
-      record.timeRecordId,
-      '2026-07-20T06:15:00.000Z',
-      '2026-07-20T14:45:00.000Z',
-      reason,
-    );
-    const confirmation = screen.getByRole('alertdialog', {
-      name: 'Korrektur ausdrücklich bestätigen',
-    });
-    expect(confirmation).toHaveTextContent('20.07.2026, 08:15');
-    expect(confirmation).toHaveTextContent('20.07.2026, 16:45');
-    expect(confirmation.querySelector('.verbatim-reason')?.textContent).toBe(reason);
-
-    await userEvent.click(screen.getByRole('button', {
-      name: 'Korrektur ausdrücklich bestätigen',
-    }));
-    const correctionTrigger = screen.getByRole('button', { name: 'Korrektur prüfen' });
-    await waitFor(() => expect(correctionTrigger).toHaveFocus());
-    expect(document.activeElement).toBe(correctionTrigger);
-  });
+  // T-122b: payroll correction form removed; the unchanged editor and its safety tests live in T066TimeEditing.
 
   it('renders exact adjudication truth and restores focus after error intent removal', async () => {
     const capability = new FakeCapability(readyState);
@@ -1020,10 +926,8 @@ describe('professional Admin Web shell', () => {
     });
     window.history.replaceState(null, '', '/pruefungen');
     await render(<App administration={capability} />);
-    await userEvent.click(screen.getByRole('button',{name:'Fehlende Arbeitszeit ergänzen'}));
-    fireEvent.change(screen.getByLabelText('Entscheidung'), {
-      target: { value: 'create_recovered_time_record' },
-    });
+    await userEvent.click(screen.getByRole('button',{name:'Ende nachtragen'}));
+    // The outcome button already selected this decision (T-122b).
     fireEvent.change(screen.getByLabelText('Datum'), {target: {value: '2026-07-20'}});
     fireEvent.change(screen.getByLabelText('Von'), {
       target: { value: '07:01' },
@@ -1165,42 +1069,7 @@ describe('professional Admin Web shell', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
-  it('focuses time-record retry after correction conflict and failed refresh', async () => {
-    const intentState = {
-      ...readyState,
-      correctionIntent: {
-        commandId: 'a0000000-0000-4000-8000-000000000006',
-        timeRecord: record,
-        startedAt: '2026-07-20T08:15:00.000Z',
-        stoppedAt: '2026-07-20T16:15:00.000Z',
-        reason: 'Beleg geprüft.',
-      },
-    };
-    const capability = new FakeCapability(intentState);
-    capability.confirmCorrection.mockImplementation(async () => {
-      capability.emit({
-        ...intentState,
-        correctionIntent: null,
-        timeReviewBusy: false,
-        sections: {
-          ...intentState.sections,
-          timeRecords: { status: 'unavailable', message: 'Arbeitszeiten nicht erreichbar.' },
-        },
-        notice: { kind: 'error', text: 'Die Arbeitszeit wurde zwischenzeitlich geändert.' },
-      });
-    });
-    window.history.replaceState(null, '', '/lohnexport');
-    await render(<App administration={capability} />);
-
-    await userEvent.click(screen.getByRole('button', {
-      name: 'Korrektur ausdrücklich bestätigen',
-    }));
-
-    const retry = screen.getByRole('button', { name: 'Bereich erneut laden' });
-    await waitFor(() => expect(retry).toHaveFocus());
-    expect(document.activeElement).toBe(retry);
-    expect(document.activeElement).not.toBe(document.body);
-  });
+  // T-122b: payroll correction form removed; the unchanged editor and its safety tests live in T066TimeEditing.
 
   it('focuses review retry after adjudication error and failed refresh', async () => {
     const intentState = {
@@ -1241,60 +1110,9 @@ describe('professional Admin Web shell', () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
-  it('keeps Berlin display, local inputs and open intent when the browser zone changes', async () => {
-    const nativeDateTimeFormat = Intl.DateTimeFormat;
-    let browserZone = 'America/New_York';
-    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locales, options) {
-      return new nativeDateTimeFormat(locales, { timeZone: browserZone, ...options });
-    });
-    const capability = new FakeCapability(readyState);
-    window.history.replaceState(null, '', '/lohnexport');
-    await render(<App administration={capability} />);
-    expect(screen.getByText('Deutsche Ortszeit')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Arbeitszeit'), {
-      target: { value: record.timeRecordId },
-    });
-    expect(screen.getByLabelText('Von')).toHaveValue('10:00');
-    act(() => capability.emit({
-      ...readyState,
-      correctionIntent: {
-        commandId: 'a0000000-0000-4000-8000-000000000003',
-        timeRecord: record,
-        startedAt: '2026-07-20T08:00:00.000Z',
-        stoppedAt: '2026-07-20T16:00:00.000Z',
-        reason: 'Offener Intent',
-      },
-    }));
-    browserZone = 'Asia/Tokyo';
-    fireEvent.focus(window);
-    fireEvent(document, new Event('visibilitychange'));
-    expect(screen.getByText('Deutsche Ortszeit')).toBeInTheDocument();
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('10:00');
-    expect(screen.getByLabelText('Von')).toHaveValue('10:00');
-  });
+  // T-122b: payroll correction form removed; the unchanged editor and its safety tests live in T066TimeEditing.
 
-  it('returns focus to the preparation button when a confirmation is cancelled', async () => {
-    const capability = new FakeCapability({
-      ...readyState,
-      correctionIntent: {
-        commandId: 'a0000000-0000-4000-8000-000000000001',
-        timeRecord: record,
-        startedAt: '2026-07-20T08:15:00.000Z',
-        stoppedAt: '2026-07-20T16:15:00.000Z',
-        reason: 'Beleg geprüft.',
-      },
-    });
-    capability.cancelCorrection.mockImplementation(() => {
-      capability.emit({ ...readyState, correctionIntent: null });
-    });
-    window.history.replaceState(null, '', '/lohnexport');
-    await render(<App administration={capability} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Abbrechen' }));
-    expect(capability.cancelCorrection).toHaveBeenCalledOnce();
-    const correctionTrigger = screen.getByRole('button', { name: 'Korrektur prüfen' });
-    await waitFor(() => expect(correctionTrigger).toHaveFocus());
-    expect(document.activeElement).toBe(correctionTrigger);
-  });
+  // T-122b: payroll correction form removed; the unchanged editor and its safety tests live in T066TimeEditing.
 
   it('has no automatically detectable WCAG A/AA violation in the overview shell', async () => {
     await render(<App administration={new FakeCapability(readyState)} />);
@@ -1325,12 +1143,12 @@ it('T049 f: payroll exposes exactly one CSV action', async () => {
   window.history.replaceState(null,'','/lohnexport');
   await render(<App administration={new FakeCapability(readyState)} />);
   expect(await screen.findByRole('heading',{name:'Lohnexport',level:1})).toBeVisible();
-  expect(screen.getAllByRole('button',{name:/CSV .+ herunterladen/})).toHaveLength(1);
+  expect(screen.getAllByRole('button',{name:'CSV herunterladen'})).toHaveLength(1);
 });
 it('T049 f: status filters apply as soon as selected', async () => {
   window.history.replaceState(null,'','/lohnexport');
   await render(<App administration={new FakeCapability(readyState)} />);
-  await userEvent.selectOptions(await screen.findByLabelText('Status'),'laufend');
+  await userEvent.click(within(screen.getByRole('group',{name:'Status'})).getByRole('button',{name:'Laufend'}));
   expect(window.location.search).toContain('status=laufend');
   expect(screen.queryByRole('button',{name:'Filter anwenden'})).not.toBeInTheDocument();
 });
@@ -1344,7 +1162,7 @@ it('T049 f: role changes are opened deliberately instead of selecting a role in 
 it('T049 f: each review row owns its keyboard-accessible decision', async () => {
   window.history.replaceState(null,'','/pruefungen');
   await render(<App administration={new FakeCapability(readyState)} />);
-  const reject=await screen.findByRole('button',{name:'Ohne Zeitänderung schließen'});
+  const reject=await screen.findByRole('button',{name:'So lassen'});
   reject.focus();
   await userEvent.keyboard('{Enter}');
   expect(reject.closest('li')).toContainElement(screen.getByLabelText('Begründung'));
@@ -1383,7 +1201,7 @@ it.each([
   await render(<App administration={new FakeCapability(state)}/>);
   if(path.includes('monat=')) expect(await screen.findByRole('region',{name:'Zeitkalender'})).toBeVisible();
   if(path === '/manuell') expect(await screen.findByRole('button',{name:'Zeit starten'})).toBeVisible();
-  if(path === '/pruefungen') await userEvent.click(await screen.findByRole('button',{name:'Ohne Zeitänderung schließen'}));
+  if(path === '/pruefungen') await userEvent.click(await screen.findByRole('button',{name:'So lassen'}));
   const result=await axe.run(document.body,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}});
   expect(result.violations).toEqual([]);
 });
@@ -1406,7 +1224,7 @@ it('T049 review: locks prepared decisions and retains keyboard focus after the r
  const capability=new FakeCapability({...readyState,adjudicationIntent:intent});
  capability.confirmAdjudication.mockImplementation(async()=>{capability.emit({...readyState,adjudicationIntent:null,reviewItems:[]});});
  await render(<App administration={capability}/>);
- for(const name of ['Fehlende Arbeitszeit ergänzen','Vorhandene Arbeitszeit ändern','Ohne Zeitänderung schließen']) expect(screen.getByRole('button',{name})).toBeDisabled();
+ for(const name of ['Ende nachtragen','Zeit ändern','So lassen']) expect(screen.getByRole('button',{name})).toBeDisabled();
  await userEvent.click(screen.getByRole('button',{name:'Abschluss bestätigen'}));
  expect(screen.getByRole('region',{name:'Ungeklärte Erfassungen'})).toHaveFocus();
 });
@@ -1414,9 +1232,9 @@ it('T049 review: locks prepared decisions and retains keyboard focus after the r
 it('T066 keeps both export formats reachable from the payroll view',async()=>{
  window.history.replaceState(null,'','/lohnexport');const capability=new FakeCapability(readyState);
  await render(<App administration={capability}/>);
- expect(await screen.findByLabelText('Datei für die Lohnbuchhaltung (CSV)')).toHaveValue('4');
- fireEvent.click(screen.getByRole('button',{name:/CSV .+ herunterladen/}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
- fireEvent.change(screen.getByLabelText('Datei für die Lohnbuchhaltung (CSV)'),{target:{value:'3'}});fireEvent.click(screen.getByRole('button',{name:/CSV .+ herunterladen/}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
+ expect(await screen.findByLabelText('Datei')).toHaveValue('4');
+ fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
+ fireEvent.change(screen.getByLabelText('Datei'),{target:{value:'3'}});fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
 });
 it('T066 exposes the own-comment form through the actual own-time route',async()=>{
  const membershipId='20000000-0000-4000-8000-000000000001';
@@ -1428,29 +1246,8 @@ it('T066 exposes the own-comment form through the actual own-time route',async()
  await waitFor(()=>expect(capability.saveTimeEdit).toHaveBeenCalledWith(expect.objectContaining({kind:'comment',targetMembershipId:membershipId,comment:'Eigene Verwaltungszeit'})));
 });
 
-it.each([
- {month:null,label:'CSV 26.08.–25.09.2026 herunterladen',hint:'Letzte 31 Tage, unabhängig von den Filtern. Für die Lohnabrechnung einen Monat wählen.',window:{fromInclusive:'2026-08-25T22:30:00.000Z',toExclusive:'2026-09-24T22:30:00.000Z'}},
- {month:'2026-09',label:'CSV September 2026 herunterladen',hint:'Alle Einträge des Monats, unabhängig von den Filtern.',window:{fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'}},
-])('T079 renders $label from timeWindow independently of list filters',async({month,label,hint,window:timeWindow})=>{
- window.history.replaceState(null,'',`/lohnexport?status=laufend&erfassungsart=gescannt${month?`&monat=${month}`:''}`);
- const capability=new FakeCapability({...readyState,timeWindow});await render(<App administration={capability}/>);
- expect(screen.getByText(hint)).toBeVisible();
- expect(screen.getByLabelText('Status')).toHaveValue('laufend');
- expect(screen.getByLabelText('Erfasst mit')).toHaveValue('gescannt');
- fireEvent.click(screen.getByRole('button',{name:label}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
- fireEvent.change(screen.getByLabelText('Datei für die Lohnbuchhaltung (CSV)'),{target:{value:'3'}});
- fireEvent.click(screen.getByRole('button',{name:label}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
-});
-it('T079 replaces the month label when the selection is cleared and a new real window arrives',async()=>{
- window.history.replaceState(null,'','/lohnexport?monat=2026-09');
- const capability=new FakeCapability({...readyState,timeWindow:{fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'}});
- await render(<App administration={capability}/>);expect(screen.getByRole('button',{name:'CSV September 2026 herunterladen'})).toBeVisible();
- fireEvent.change(screen.getByLabelText('Monat'),{target:{value:''}});
- await act(async()=>capability.emit({...readyState,timeWindow:{fromInclusive:'2026-08-24T22:30:00.000Z',toExclusive:'2026-09-24T22:30:00.000Z'}}));
- expect(screen.queryByRole('button',{name:'CSV September 2026 herunterladen'})).not.toBeInTheDocument();
- expect(screen.getByRole('button',{name:'CSV 25.08.–25.09.2026 herunterladen'})).toBeVisible();
- expect(screen.getByText('Letzte 31 Tage, unabhängig von den Filtern. Für die Lohnabrechnung einen Monat wählen.')).toBeVisible();
-});
+// T-122b: month/export behavior is covered in T122bViews; the rolling window UI is removed.
+// T-122b: month/export behavior is covered in T122bViews; the rolling window UI is removed.
 
 
 it('T097: correction picker shows only loaded person records and offers the next page',async()=>{
@@ -1463,7 +1260,7 @@ it('T097: correction picker shows only loaded person records and offers the next
       status:'ready',records:append?[record,second]:[record],nextCursor:append?null:'next',usedCursors:[],message:null}});
   });
   await render(<App administration={capability}/>);
-  await userEvent.click(screen.getByRole('button',{name:'Vorhandene Arbeitszeit ändern'}));
+  await userEvent.click(screen.getByRole('button',{name:'Zeit ändern'}));
   expect(capability.loadReviewCorrectionRecords).toHaveBeenCalledWith(reviewItem.reviewItemId,'2026-07',false);
   const select=screen.getByLabelText('Bestehende Arbeitszeit');
   expect(within(select).queryByRole('option',{name:/Employee Alpha/})).not.toBeInTheDocument();
@@ -1481,7 +1278,6 @@ it.each([
   ['/einrichtung','Standort anlegen','createLocation'],
   ['/einrichtung','Namen speichern','renameLocation'],
   ['/einrichtung','Zuordnung ändern','prepareReassignment'],
-  ['/arbeitszeiten','Korrektur prüfen','prepareCorrection'],
   ['/pruefungen','Änderung prüfen','prepareAdjudication'],
 ] as const)('T101 %s / %s shows each missing input and clears it on editing',async(path,title,method)=>{
   window.history.replaceState(null,'',path);
@@ -1491,7 +1287,7 @@ it.each([
   if(path==='/einrichtung')fireEvent.click(screen.getByRole('tab',{name:method==='createLocation'||method==='renameLocation'?'Standorte':method==='prepareReassignment'?'Karten':'Kunden und Projekte'}));
   const opener=method==='createLocation'?'+ Standort':method==='renameLocation'?'Berlin umbenennen':method==='prepareReassignment'?'Zuordnung für Eingang ändern':method==='createProject'?'+ Projekt':method==='createCustomer'?'+ Kunde anlegen':null;
   if(opener)fireEvent.click(screen.getByRole('button',{name:opener}));
-  if(path==='/pruefungen')fireEvent.click(screen.getByRole('button',{name:'Ohne Zeitänderung schließen'}));
+  if(path==='/pruefungen')fireEvent.click(screen.getByRole('button',{name:'So lassen'}));
   const button=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.closest('form')&&node.textContent?.trim()===title)!;
   expect(button,title).toBeTruthy();expect(button).not.toBeDisabled();
   const form=button.closest('form')!;
@@ -1544,7 +1340,7 @@ it('T075 administrator sees whole-organization usage and may invite above the pa
   const capability=new FakeCapability(state);const invite=vi.fn(async()=>({status:'succeeded' as const}));
   await render(<App administration={capability} accountInvitations={{invite}}/>);
   expect(screen.getByText(/12 Zugänge, Paket 10/)).toBeVisible();
-  fireEvent.click(screen.getByRole('button',{name:'Mitarbeiter hinzufügen'}));
+  fireEvent.click(screen.getByRole('button',{name:'+ Mitarbeiter einladen'}));
   expect(screen.getByText(/Mit dieser Einladung wird das Paket von 10 Zugängen überschritten/)).toBeVisible();
   fireEvent.change(screen.getByLabelText('Name',{exact:true}),{target:{value:'Alex'}});
   fireEvent.change(screen.getByLabelText('E-Mail',{exact:true}),{target:{value:'alex@example.test'}});
@@ -1554,14 +1350,14 @@ it('T075 administrator sees whole-organization usage and may invite above the pa
   expect(screen.queryByText(/12 Zugänge, Paket/)).toBeNull();
   await act(async()=>capability.emit({...locationReadyState(),managedPeople:state.managedPeople}));
   expect(screen.queryByText(/12 Zugänge, Paket/)).toBeNull();
-  fireEvent.click(screen.getByRole('button',{name:'Mitarbeiter hinzufügen'}));expect(screen.queryByText(/Mit dieser Einladung wird das Paket/)).toBeNull();
+  fireEvent.click(screen.getByText('Zugänge verwalten'));fireEvent.click(screen.getByRole('button',{name:'+ Mitarbeiter einladen'}));expect(screen.queryByText(/Mit dieser Einladung wird das Paket/)).toBeNull();
 });
 
 it.each([['2025-10-25T10:00','Höchstens 24 Stunden.'],['2099-07-20T10:00','Das Ende liegt in der Zukunft.']])
 ('T106: review end %s fails at the field',async(end,message)=>{
  window.history.replaceState(null,'','/pruefungen');
  const capability=new FakeCapability(readyState);await render(<App administration={capability}/>);
- await userEvent.click(screen.getByRole('button',{name:'Fehlende Arbeitszeit ergänzen'}));
+ await userEvent.click(screen.getByRole('button',{name:'Ende nachtragen'}));
  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:end.slice(0,10)}});
  fireEvent.change(screen.getByLabelText('Von'),{target:{value:'10:00'}});
  fireEvent.change(screen.getByLabelText('Bis'),{target:{value:end.slice(11)}});
@@ -1585,31 +1381,9 @@ it('T107 permits location activation with unbound general work and offers no bin
   expect(screen.getByText(/Allgemeine Arbeitszeit braucht keine Standortbindung/)).toBeInTheDocument();
 });
 
-it('T113 the payroll correction identifies own membership and submits a null reason',async()=>{
- const record={...readyState.timeRecords[0]!,employeeMembershipId:'10000000-0000-4000-8000-000000000001'};
- const state={...readyState,membershipId:record.employeeMembershipId,timeRecords:[record]};
- const capability=new FakeCapability(state);window.history.replaceState(null,'','/lohnexport');await render(<App administration={capability}/>);
- fireEvent.change(screen.getByLabelText('Arbeitszeit'),{target:{value:record.timeRecordId}});
- expect(screen.queryByLabelText(/Grund/)).toBeNull();expect(screen.getByLabelText('Datum')).toHaveAttribute('type','date');
- fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'19:00'}});fireEvent.click(screen.getByRole('button',{name:'Korrektur prüfen'}));
- expect(capability.prepareCorrection).toHaveBeenCalledWith(record.timeRecordId,record.startedAt,expect.any(String),null);
-});
+// T-122b: payroll correction form removed; the unchanged editor and its safety tests live in T066TimeEditing.
 
-it.each(['administrator','standortleitung'] as const)('T116 the second correction form applies the %s foreign reason rule',async role=>{
- const {default:TimeRecordsView}=await import('../src/views/TimeRecordsView');
- const {defaultRoute}=await import('../src/navigation');
- const record={...readyState.timeRecords[0]!,employeeMembershipId:'10000000-0000-4000-8000-000000000002'};
- const state={...readyState,role,membershipId:'10000000-0000-4000-8000-000000000001',timeRecords:[record]};
- const capability=new FakeCapability(state);
- await render(<TimeRecordsView state={state} administration={capability} route={defaultRoute('lohnexport')} navigate={()=>{}}/>);
- fireEvent.change(screen.getByLabelText('Arbeitszeit'),{target:{value:record.timeRecordId}});
- const reason=screen.getByLabelText(role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)');
- expect(reason.hasAttribute('required')).toBe(role==='standortleitung');
- fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'19:00'}});
- fireEvent.click(screen.getByRole('button',{name:'Korrektur prüfen'}));
- if(role==='administrator')expect(capability.prepareCorrection).toHaveBeenCalledWith(record.timeRecordId,record.startedAt,expect.any(String),'');
- else expect(capability.prepareCorrection).not.toHaveBeenCalled();
-});
+// T-122b: payroll correction form removed; the unchanged editor and its safety tests live in T066TimeEditing.
 
 it('T116 card removal confirms the named card and preserves its expected assignment',async()=>{
  window.history.replaceState(null,'','/einrichtung');const capability=new FakeCapability(readyState);capability.removeTag=vi.fn(async()=>({status:'succeeded',removedAt:new Date().toISOString()}));

@@ -1,258 +1,42 @@
-import {TimeFields,resolveTimeFields,advanceTimeField,overnightHint} from '../TimeFields';
-import { RequiredForm } from '../RequiredForm';
-import { TimeRecordControls } from '../TimeEditingControls';
-import { exportPresentation } from '../exportPresentation';
-import { BUSINESS_TIME_ZONE } from '@taptime/core';
-import {
-	useEffect,
-	useRef,
-	useState
-} from 'react';
-import type {
-	AdminWebCapability
-} from '../contracts';
-import {
-	canonicalRoutePath,
-	defaultRoute,
-	monthLabel,
-	type AdminRoute
-} from '../navigation';
-import {
-	formatZonedDateTime,
-	toZonedMinuteInput,
-} from '../timeZone';
-import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
-import { captureLabel,navigateFromLink,returnFocus,targetLabel,useIntentFocusReturn } from '../viewHelpers';
-type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { status: 'ready' }>;
-export default function TimeRecordsView({
-  state,
-  administration,
-  route,
-  navigate,
-}: {
-  readonly state: ReadyState;
-  readonly administration: AdminWebCapability;
-  readonly route: AdminRoute;
-  readonly navigate: (route: AdminRoute) => void;
-}) {
+import {businessDay} from '@taptime/core';
+import {useState} from 'react';
+import type {AdminWebCapability} from '../contracts';
+import {canonicalRoutePath,defaultRoute,monthLabel,monthTimeWindow,type AdminRoute} from '../navigation';
+import {formatZonedDateTime} from '../timeZone';
+import {DataTable,Pill,SectionBoundary} from '../ui';
+import {captureLabel,navigateFromLink} from '../viewHelpers';
+import {PageHeader} from '../PageHeader';
+type ReadyState=Extract<ReturnType<AdminWebCapability['getState']>,{status:'ready'}>;
+export default function TimeRecordsView({state,administration,route,navigate}:{readonly state:ReadyState;readonly administration:AdminWebCapability;readonly route:AdminRoute;readonly navigate:(route:AdminRoute)=>void}) {
   const [exportVersion,setExportVersion]=useState<3|4>(4);
-  const [recordId, setRecordId] = useState('');
-  const [date,setDate]=useState('');
-  const [startedAt, setStartedAt] = useState('');
-  const [stoppedAt, setStoppedAt] = useState('');
-  const [reason, setReason] = useState('');
-  const [originalStart,setOriginalStart]=useState<string|null>(null);
-  const [originalStop,setOriginalStop]=useState<string|null>(null);
-  const [timeError, setTimeError] = useState<string | null>(null);
-  const [month, setMonth] = useState(route.month ?? '');
-  const [statusFilter, setStatusFilter] = useState(route.status);
-  const [captureType, setCaptureType] = useState(route.captureType);
-  const prepareButton = useRef<HTMLButtonElement>(null);
-  const recordSelect = useRef<HTMLSelectElement>(null);
-  const sectionRetryButton = useRef<HTMLButtonElement>(null);
-  useIntentFocusReturn(
-    state.correctionIntent !== null,
-    prepareButton,
-    recordSelect,
-    sectionRetryButton,
-  );
-  useEffect(() => {
-    setMonth(route.month ?? '');
-    setStatusFilter(route.status);
-    setCaptureType(route.captureType);
-  }, [route.captureType, route.month, route.status]);
-  const format = formatZonedDateTime;
-  const formatExact = formatZonedDateTime;
-  const exportText = exportPresentation(state.timeWindow, route.month !== null);
-  const exportAction=state.availableSections.includes('time_export') ? <div className="export-options"><label>Datei für die Lohnbuchhaltung (CSV)<select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4)}><option value={4}>Standard (mit Entstehung und Kommentar)</option><option value={3}>Früheres CSV-Format – nur verwenden, wenn Ihre Lohnbuchhaltung es benötigt</option></select></label><button className="header-primary"
-    disabled={state.timeReviewBusy} aria-busy={state.timeReviewBusy}
-    onClick={()=>void administration.exportTimeRecords(exportVersion)}>{exportText.label}</button><small>{exportText.hint}</small></div> : null;
-  if (!state.availableSections.includes('time_records')) {
-    return <Panel title="Arbeitszeiten herunterladen"
-      description="Die vollständige CSV-Datei steht für die Lohnbuchhaltung bereit.">
-      {exportAction}
-    </Panel>;
-  }
-  const own=state.timeRecords.find(record=>record.timeRecordId===recordId)?.employeeMembershipId===state.membershipId && !!state.membershipId;
-  const visibleRecords = state.timeRecords.filter((record) => {
-    const statusMatches = route.status === 'alle'
-      || (route.status === 'laufend' && record.status === 'started')
-      || (route.status === 'abgeschlossen' && record.status === 'stopped');
-    const captureMatches = route.captureType === 'alle'
-      || (route.captureType === 'gescannt'
-        && (record.startedVia === 'nfc' || record.stoppedVia === 'nfc'))
-      || (route.captureType === 'manuell-erfasst'
-        && (record.startedVia === 'manual' || record.stoppedVia === 'manual'));
-    return statusMatches && captureMatches;
-  });
-  const hasFilters = route.month !== null
-    || route.status !== 'alle'
-    || route.captureType !== 'alle';
-  return <SectionBoundary state={state.sections.timeRecords} retryButtonRef={sectionRetryButton}
-    onRetry={() => void administration.retrySection('timeRecords')}>
-    <Panel title="Arbeitszeiten"
-      description={`Zeitraum: ${format(state.timeWindow.fromInclusive)} bis ${format(state.timeWindow.toExclusive)}.`}>
-      <RequiredForm className="filter-form" onSubmit={(event) => {
-        event.preventDefault();
-
-      }}>
-        <label>Monat
-          <input type="month" value={month} min="2000-01" max="2200-12"
-            onChange={(event) => navigate({...route,month:event.target.value || null})} />
-        </label>
-        <label>Status
-          <select value={statusFilter}
-            onChange={(event) => navigate({...route,status:event.target.value as typeof statusFilter})}>
-            <option value="alle">Alle</option>
-            <option value="laufend">Laufend</option>
-            <option value="abgeschlossen">Abgeschlossen</option>
-          </select>
-        </label>
-        <label>Erfasst mit
-          <select value={captureType}
-            onChange={(event) => navigate({...route,captureType:event.target.value as typeof captureType})}>
-            <option value="alle">Alle</option>
-            <option value="gescannt">Gescannt</option>
-            <option value="manuell-erfasst">Manuell erfasst</option>
-          </select>
-        </label>
-      </RequiredForm>
-      {hasFilters ? <div className="filter-summary" aria-label="Aktive Filter">
-        <div className="filter-chips">
-          {route.month === null ? null : <span className="filter-chip">
-            Monat {monthLabel(route.month)} <strong>{visibleRecords.length}</strong>
-          </span>}
-          {route.status === 'alle' ? null : <span className="filter-chip">
-            {route.status === 'laufend' ? 'Laufend' : 'Abgeschlossen'}
-            {' '}<strong>{visibleRecords.length}</strong>
-          </span>}
-          {route.captureType === 'alle' ? null : <span className="filter-chip">
-            {route.captureType === 'gescannt' ? 'Gescannt' : 'Manuell erfasst'}
-            {' '}<strong>{visibleRecords.length}</strong>
-          </span>}
-        </div>
-        <button className="text-button" onClick={() => navigate(
-          defaultRoute('lohnexport', route.locationId),
-        )}>
-          Alle zurücksetzen
-        </button>
-      </div> : null}
-      <div className="toolbar">
-        <CountTruth count={visibleRecords.length} noun="Arbeitszeiten"
-          complete={state.timeRecordsNextCursor === null} />
-        {exportAction}
+  const month=route.month??businessDay(Date.now()).slice(0,7);
+  const expectedWindow=monthTimeWindow(month)!;
+  const windowReady=state.timeWindow.fromInclusive===expectedWindow.fromInclusive&&state.timeWindow.toExclusive===expectedWindow.toExclusive;
+  const reviewRoute=defaultRoute('pruefungen',route.locationId);
+  const records=state.timeRecords.filter(record=>(route.status==='alle'||(route.status==='laufend'?record.status==='started':record.status==='stopped'))&&
+    (route.captureType==='alle'||(route.captureType==='gescannt'?(record.startedVia==='nfc'||record.stoppedVia==='nfc'):(record.startedVia==='manual'||record.stoppedVia==='manual'))));
+  const openCases=state.availableSections.includes('review_items')&&state.sections.reviewItems.status==='ready'&&state.reviewItems.length>0
+    ?<a href={canonicalRoutePath(reviewRoute)} onClick={e=>navigateFromLink(e,reviewRoute,navigate)}>{state.reviewItemsNextCursor?'Mindestens ':''}{state.reviewItems.length} {state.reviewItems.length===1?'offener Fall':'offene Fälle'} · Zeiten prüfen</a>:null;
+  const exportAction=state.availableSections.includes('time_export')?<><label><span className="sr-only">Datei</span><select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4)}><option value={4}>Einzelzeiten · Standard</option><option value={3}>Einzelzeiten · Früheres Format</option></select></label><button className="primary-action" disabled={!windowReady||state.timeReviewBusy||state.sections.timeRecords.status==='loading'} aria-busy={state.timeReviewBusy} onClick={()=>void administration.exportTimeRecords(exportVersion)}>CSV herunterladen</button></>:null;
+  return <><PageHeader organization={state.projection.organization.name} title="Lohnexport" subtitle={<>{monthLabel(month)}{openCases?<> · {openCases}</>:null}</>}
+    actions={<><label><span className="sr-only">Monat</span><input type="month" value={month} min="2000-01" max="2200-12" onChange={e=>{if(e.target.value)navigate({...route,month:e.target.value});}}/></label>{exportAction}</>}
+    onRefresh={()=>void administration.refresh()}/>
+    <p className="supporting">Einzelzeiten (CSV): alle Einträge des Monats, unabhängig von den Filtern.</p>
+    {!state.availableSections.includes('time_records')?null:<SectionBoundary state={windowReady?state.sections.timeRecords:{status:'loading'}} onRetry={()=>void administration.retrySection('timeRecords')}>
+      <div className="payroll-filters">
+        <div className="filter-chips" role="group" aria-label="Status"><span className="filter-group-label">Status</span>{([['alle','Alle'],['laufend','Laufend'],['abgeschlossen','Abgeschlossen']] as const).map(([value,label])=><button className="secondary" key={value} aria-pressed={route.status===value} onClick={()=>navigate({...route,month,status:value})}>{label}</button>)}</div>
+        <div className="filter-chips" role="group" aria-label="Erfasst mit"><span className="filter-group-label">Erfasst mit</span>{([['alle','Alle'],['gescannt','Gescannt'],['manuell-erfasst','Manuell erfasst']] as const).map(([value,label])=><button className="secondary" key={value} aria-pressed={route.captureType===value} onClick={()=>navigate({...route,month,captureType:value})}>{label}</button>)}</div>
       </div>
-      <div className="table-scroll" role="region" tabIndex={0} aria-label="Geladene Arbeitszeiten">
-        <table>
-          <thead><tr><th>Mitarbeiter</th><th>Arbeitsziel</th><th>Zeitraum</th><th>Erfasst mit</th><th>Entstehung</th><th>Änderungen</th><th>Status</th></tr></thead>
-          <tbody>{visibleRecords.map((record) => <tr key={record.timeRecordId}>
-            <td data-label="Mitarbeiter">{record.employeeDisplayName}</td><td data-label="Arbeitsziel">{targetLabel(record.targetType)} · {record.targetDisplayName}</td>
-            <td data-label="Zeitraum">{format(record.startedAt)} – {record.stoppedAt === null ? 'läuft' : format(record.stoppedAt)}</td>
-            <td data-label="Erfasst mit">{captureLabel(record.startedVia, record.stoppedVia)}</td>
-            <td data-label="Entstehung">{record.details ? {nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin] : record.source === 'canonical' ? 'Regulär' : 'Wiederhergestellt'}</td>
-            <td data-label="Änderungen">{record.effectiveRevisionNumber}<TimeRecordControls record={record}/></td>
-            <td data-label="Status">{record.status === 'started' ? 'Läuft' : 'Abgeschlossen'}
-              {record.overlapsAnotherRecord ? ' · Überschneidung' : ''}</td>
-          </tr>)}</tbody>
-        </table>
-      </div>
-      {visibleRecords.length === 0 && state.timeRecordsNextCursor === null && hasFilters
-        ? <div className="empty filter-empty">
-            <strong>Keine Arbeitszeiten in dieser Auswahl</strong>
-            <p>Für den gewählten Zeitraum und die aktiven Filter wurden keine Arbeitszeiten gefunden.</p>
-            <button className="secondary" onClick={() => navigate(
-              defaultRoute('lohnexport', route.locationId),
-            )}>
-              Filter zurücksetzen
-            </button>
-          </div>
-        : null}
-      {visibleRecords.length === 0 && state.timeRecordsNextCursor === null && !hasFilters
-        ? <div className="empty first-list-empty">
-            <strong>Noch keine Arbeitszeiten</strong>
-            <p>Sobald Mitarbeiter ein Arbeitsziel auslösen, erscheinen ihre Arbeitszeiten hier.</p>
-            <a className="button-link secondary-link"
-              href={canonicalRoutePath(defaultRoute('einrichtung', route.locationId))}
-              onClick={(event) => navigateFromLink(
-                event,
-                defaultRoute('einrichtung', route.locationId),
-                navigate,
-              )}>
-              Arbeitsziel einrichten
-            </a>
-          </div>
-        : null}
-      {state.timeRecordsNextCursor === null ? null
-        : <button className="secondary load-more"
-            onClick={() => void administration.loadMoreTimeRecords()}>
-            Weitere Arbeitszeiten laden
-          </button>}
-    </Panel>
-    <Panel title="Abgeschlossene Arbeitszeit korrigieren"
-      description={`Alle Uhrzeiten gelten für ${BUSINESS_TIME_ZONE}.`}>
-      <RequiredForm className="form-grid" onKeyDown={advanceTimeField} onSubmit={(event) => {
-        event.preventDefault();
-        const {startedAt:canonicalStart,stoppedAt:canonicalStop}=resolveTimeFields({date,start:startedAt,end:stoppedAt,originalStart,originalEnd:originalStop});
-        if (canonicalStart === null || canonicalStop === null) {
-          setTimeError('Die Uhrzeit ist wegen der Zeitumstellung ungültig oder nicht eindeutig. Ihre Eingaben bleiben erhalten; prüfen Sie Beginn und Ende.');
-          return;
-        }
-        setTimeError(null);
-        administration.prepareCorrection(recordId, canonicalStart, canonicalStop, own?null:reason);
-      }}>
-        <label>Arbeitszeit
-          <select ref={recordSelect} required value={recordId}
-            disabled={state.timeReviewBusy || state.correctionIntent !== null}
-            onChange={(event) => {
-              const id = event.target.value;
-              const selected = state.timeRecords.find((record) => record.timeRecordId === id);
-              setRecordId(id);
-              setOriginalStart(selected?.startedAt??null);
-              setOriginalStop(selected?.stoppedAt??null);
-              setDate(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt).slice(0,10));
-              setStartedAt(selected === undefined ? '' : toZonedMinuteInput(selected.startedAt).slice(11));
-              setStoppedAt(selected?.stoppedAt == null ? '' : toZonedMinuteInput(selected.stoppedAt).slice(11));
-            }}>
-            <option value="">Arbeitszeit auswählen</option>
-            {state.timeRecords.filter((record) => record.status === 'stopped').map((record) =>
-              <option key={record.timeRecordId} value={record.timeRecordId}>
-                {record.employeeDisplayName} · {targetLabel(record.targetType)} · {record.targetDisplayName} · {format(record.startedAt)}
-              </option>)}
-          </select>
-        </label>
-        {timeError === null ? null : <p id="correction-time-error"
-          className="field-error" role="alert">{timeError}</p>}
-        <TimeFields date={date} start={startedAt} end={stoppedAt} originalStart={originalStart} originalEnd={originalStop}
-            onDate={setDate} onStart={setStartedAt} onEnd={setStoppedAt} checkInterval
-            disabled={state.timeReviewBusy || state.correctionIntent !== null}/>
-          <p className="full-field supporting">{overnightHint}</p>
-        {!own?<label className="full-field">{state.role==='standortleitung'?'Grund der Änderung (Pflicht)':'Grund (freiwillig)'}
-          <textarea required={state.role==='standortleitung'} data-field-error={Array.from(reason).length>500?'Bitte höchstens 500 Zeichen eingeben.':undefined} value={reason}
-            disabled={state.timeReviewBusy || state.correctionIntent !== null}
-            onChange={(event) => setReason(event.target.value)} />
-        </label>:null}
-        <button ref={prepareButton} disabled={state.timeReviewBusy || state.correctionIntent !== null}>
-          Korrektur prüfen
-        </button>
-      </RequiredForm>
-      {state.correctionIntent === null ? null : <Confirmation
-        label="Korrektur ausdrücklich bestätigen"
-        title="Korrektur speichern?"
-        confirmLabel="Korrektur ausdrücklich bestätigen"
-        busyLabel="Wird protokolliert …"
-        busy={state.timeReviewBusy}
-        onConfirm={() => void administration.confirmCorrection()}
-        onCancel={() => {
-          administration.cancelCorrection();
-          returnFocus(prepareButton, recordSelect);
-        }}
-      >
-        <dl>
-          <dt>Vorher</dt><dd>{formatExact(state.correctionIntent.timeRecord.startedAt)} – {formatExact(state.correctionIntent.timeRecord.stoppedAt!)}</dd>
-          <dt>Nachher</dt><dd>{formatExact(state.correctionIntent.startedAt)} – {formatExact(state.correctionIntent.stoppedAt)}</dd>
-          <dt>Begründung</dt><dd className="verbatim-reason">{state.correctionIntent.reason || (own?'Selbst geändert':'Kein Grund angegeben')}</dd>
-        </dl>
-      </Confirmation>}
-    </Panel>
-  </SectionBoundary>;
+      <DataTable label="Geladene Arbeitszeiten" headers={['Mitarbeiter','Kunde oder Projekt','Von–Bis','Art','Status']}>
+        {records.map(record=><tr key={record.timeRecordId}>
+          <td>{record.employeeMembershipId?<a href={canonicalRoutePath({...defaultRoute('beschaeftigte',route.locationId),personId:record.employeeMembershipId,month})} onClick={e=>navigateFromLink(e,{...defaultRoute('beschaeftigte',route.locationId),personId:record.employeeMembershipId,month},navigate)}>{record.employeeDisplayName}</a>:record.employeeDisplayName}</td>
+          <td>{record.targetDisplayName}</td><td>{formatZonedDateTime(record.startedAt)} – {record.stoppedAt?formatZonedDateTime(record.stoppedAt):'läuft'}</td>
+          <td>{record.details?{nfc:'Karte',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin]:record.source==='recovered'?'Wiederhergestellt':captureLabel(record.startedVia,record.stoppedVia)}</td>
+          <td><Pill kind={record.status==='started'?'running':undefined}>{record.status==='started'?'läuft':'Abgeschlossen'}</Pill>{record.overlapsAnotherRecord?<Pill kind="notice">Überschneidung mit einer weiteren Zeit</Pill>:null}</td>
+        </tr>)}
+      </DataTable>
+      {!records.length&&state.timeRecordsNextCursor===null?<div className="empty"><p>Keine Arbeitszeiten in dieser Auswahl</p>{route.status!=='alle'||route.captureType!=='alle'?<button className="text-button" onClick={()=>navigate({...route,month,status:'alle',captureType:'alle'})}>Filter zurücksetzen</button>:null}</div>:null}
+      {state.timeRecordsNextCursor?<button className="text-button" onClick={()=>void administration.loadMoreTimeRecords()}>Weitere Arbeitszeiten laden</button>:null}
+    </SectionBoundary>}
+  </>;
 }

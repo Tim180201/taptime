@@ -12,7 +12,7 @@ it('T097: keeps known and unknown reasons on the same response page',async()=>{
   const result=await new AdminWebApiClient(fetcher).reviewItems('token',id,null);
   expect(result).toMatchObject({status:'succeeded',value:{items:[{reviewReason:'active_break_time_entry_mismatch',employeeMembershipId:id},{reviewReason:'future_reason'}]}});
   expect(reviewReasonLabel('active_break_time_entry_mismatch')).not.toBe('Wird von der Verwaltung geprüft');
-  expect(reviewReasonLabel('future_reason')).toBe('Sonstiger Prüfgrund');
+  expect(reviewReasonLabel('future_reason')).toBe('Es wurde erfasst; daraus konnte keine Zeit sicher gebildet werden. Prüfen Sie die Zeiten dieses Tages.');
 });
 it('T097: accepts a break without a fabricated target identifier',async()=>{
   const client=new AdminWebApiClient(async()=>Response.json({status:'ready',items:[{...item,targetType:'break',targetId:null,targetDisplayName:'Pause'}],nextCursor:null}));
@@ -24,5 +24,5 @@ it.each([{employeeMembershipId:null},{targetType:'customer',targetId:null},{revi
 });
 
 it('T097: every current reason has a specific display',()=>{
-  for(const reason of TIME_REVIEW_REASONS) expect(reviewReasonLabel(reason),reason).not.toBe('Sonstiger Prüfgrund');
+  for(const reason of TIME_REVIEW_REASONS) expect(reviewReasonLabel(reason),reason).not.toBe('Es wurde erfasst; daraus konnte keine Zeit sicher gebildet werden. Prüfen Sie die Zeiten dieses Tages.');
 });

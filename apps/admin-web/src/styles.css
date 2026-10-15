@@ -738,6 +738,7 @@ button.quiet:hover:not(:disabled), button.text-button:hover:not(:disabled) { col
 .eyebrow { font-size: .6875rem; font-weight: 400; letter-spacing: .1em; margin-bottom: .5rem; }
 .page-subtitle { margin-top: .5rem; color: var(--color-text-muted); font-size: .8125rem; }
 .header-actions { align-items: center; justify-content: flex-end; max-width: 100%; }
+.header-actions > label { min-width: 0; max-width: 100%; }
 .month-select { width: auto; max-width: 13rem; }
 .workspace-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; margin-top: auto; padding-top: 2rem; color: var(--color-text-muted); font-size: .71875rem; }
 .metric-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
@@ -915,3 +916,36 @@ input:not([type="radio"]):not([type="checkbox"]), select { min-height: 44px; }
  .login-card { min-width:0; padding:20px; }
 }
 @media screen and (max-width:1023px) and (prefers-color-scheme:light) { :root:not([data-theme]) .mobile-top { background:var(--color-band); color:var(--color-band-text); } }
+
+/* T-122b: the remaining pages use the existing shell and controls. */
+.review-support { color: var(--color-text-muted); font-size: 12px; }
+.review-case { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 12px; padding: 1rem 1.125rem; }
+.review-case h2 { font-size: .9375rem; }
+.review-case h3 { font-size: .8125rem; margin: 1rem 0 .5rem; }
+.review-case .entity-actions { align-items: start; }
+.review-case-heading { display: block; }
+.review-case .table-scroll { margin-block: .75rem; }
+.review-case .entity-actions { display: flex; flex-wrap: wrap; gap: .75rem; }
+.time-history { flex-basis: 100%; color: var(--color-text-muted); }
+.time-history summary { color: var(--color-accent); }
+.time-edit-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.time-edit-controls .mobile-sheet { display: block; }
+.target-picker { padding: 0; margin: 1rem 0; border: 0; }
+.target-picker legend { margin-bottom: .75rem; }
+.time-fields > p { margin-bottom: 0; }
+button.warning-action.primary-action { background: var(--color-notice); color: var(--color-on-action); border-color: var(--color-notice); }
+.payroll-filters { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 1rem 0; }
+.payroll-filters .filter-chips { align-items: center; }
+.filter-group-label { color: var(--color-text-muted); font-size: .75rem; font-weight: 400; }
+.header-actions .time-edit-controls > button { width: 100%; }
+.calendar-layout:has(table) { grid-template-columns: minmax(16rem,.8fr) minmax(0,1.2fr); }
+.calendar-layout:has(table) td { white-space: normal; }
+@media (max-width: 1200px) { .calendar-layout:has(table) { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 1023px) {
+ .header-actions > .time-edit-controls { flex-basis: 100%; width: 100%; }
+ .header-actions > .primary-action, .header-actions > .header-primary { flex-basis: 100%; width: 100%; }
+ .review-case .entity-actions { display: grid; grid-template-columns: minmax(0,1fr); }
+ .calendar-grid { min-width: 0; }
+}
+/* Long payroll notices must wrap even with doubled text. */
+.payroll-filters ~ .table-scroll .pill-notice { max-width: 100%; white-space: normal; }

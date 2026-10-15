@@ -3,7 +3,10 @@ import {createPortal} from 'react-dom';
 export const HeaderOutlet = createContext<HTMLElement|null>(null);
 export function PageHeader({organization,title,subtitle,actions,onRefresh,refreshDisabled=false}:{organization?:string;title:string;subtitle?:ReactNode;actions?:ReactNode;onRefresh:()=>void;refreshDisabled?:boolean}) {
   const host=useContext(HeaderOutlet),heading=useRef<HTMLHeadingElement>(null);
-  useLayoutEffect(()=>{heading.current?.focus({preventScroll:true});},[title,host]);
+  useLayoutEffect(()=>{
+    // A lazy page can finish while a sheet opens. Preserve its opener and modal focus.
+    if(!document.querySelector('dialog[aria-modal="true"]'))heading.current?.focus({preventScroll:true});
+  },[title,host]);
   useEffect(()=>{
     const keyboard=()=>document.documentElement.setAttribute('data-keyboard','true');
     const pointer=()=>document.documentElement.removeAttribute('data-keyboard');

@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import type { MobileWorkCapability } from '../work/contracts';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { AppText as Text, Card } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useMobileTokens } from '../design/useMobileTheme';
 import { businessDay, formatClock, formatDuration, timeRecords } from './ownTimeCalendar';
 
 export function RecentTimeCard({ work }: { readonly work: MobileWorkCapability }) {
@@ -11,6 +11,8 @@ export function RecentTimeCard({ work }: { readonly work: MobileWorkCapability }
   return <RecentTime ownTime={state.status === 'ready' ? state.ownTime : null} />;
 }
 export function RecentTime({ ownTime }: { readonly ownTime: MobileOwnTimeQueryResponse | null }) {
+  const mobileTokens = useMobileTokens();
+
   const latest = ownTime === null ? undefined : [...timeRecords(ownTime)]
     .sort((a, b) => (b.stoppedAt ?? b.startedAt).localeCompare(a.stoppedAt ?? a.startedAt))[0];
   const at = latest?.stoppedAt ?? latest?.startedAt;

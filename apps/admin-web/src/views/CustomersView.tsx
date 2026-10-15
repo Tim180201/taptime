@@ -62,7 +62,7 @@ export default function CustomersView({ administration, route, navigate, authori
     else if(!selected&&lastSelected.current){cards.current.get(lastSelected.current)?.focus();lastSelected.current=null;}
   },[customer?.customerId,selected,value]);
   const changeMonth = (next: string) => {navigate({...route,month:next});};
-  const monthControl=<select className="month-select" aria-label="Monat" value={month} onChange={event=>changeMonth(event.target.value)}>{months.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}</select>;
+  const monthControl=<label><span className="sr-only">Monat</span><select className="month-select" value={month} onChange={event=>changeMonth(event.target.value)}>{months.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}</select></label>;
   const onSaved=()=>{setCreated(null);setRefresh(n=>n+1);};
   return <div className="customers-view">
     <PageHeader organization={ready?.status==='ready'?ready.projection?.organization.name:undefined} title={customer?.displayName??'Kunden'} subtitle={selected?<div className="customer-navigation">{monthControl}<button className="secondary" onClick={()=>navigate({...route,customerId:undefined})}>Zur Kundenliste</button></div>:monthLabel(month)} onRefresh={()=>{onSaved();void administration.refresh();}} actions={selected?<>{customer?.active&&value?.scope==='people'?<CustomerManagement key={`${authorityContext}/${customer.customerId}`} customer={customer} administration={administration} onSaved={onSaved}/>:null}</>:<>

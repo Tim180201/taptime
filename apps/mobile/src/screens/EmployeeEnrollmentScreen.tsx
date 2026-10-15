@@ -5,7 +5,8 @@ import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { EmployeeEnrollmentResult, MobileSessionState } from '../auth/contracts';
 import { ActionButton, AppText as Text, Screen } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 
 export function EmployeeEnrollmentScreen({
   notice,
@@ -16,6 +17,8 @@ export function EmployeeEnrollmentScreen({
   readonly redeem: (invitationSecret: string) => Promise<EmployeeEnrollmentResult>;
   readonly signOut: () => Promise<void>;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   const form = useRequiredForm();
   const [invitationSecret, setInvitationSecret] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -70,7 +73,7 @@ export function EmployeeEnrollmentScreen({
   </ScrollView></Screen>;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   container: {
     flexGrow: 1,
     gap: 16,

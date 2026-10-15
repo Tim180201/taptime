@@ -33,5 +33,6 @@ export function TimeFields(props:Values & {onDate:(v:string)=>void;onStart:(v:st
     <label>Datum<input required type="date" value={date} disabled={disabled} onChange={e=>onDate(e.target.value)}/></label>
     {!stopOnly?<label>Von<input required type="time" step="60" value={start} disabled={disabled} onChange={e=>onStart(e.target.value)} data-field-error={date && start && !startedAt?'Bitte Beginn in deutscher Ortszeit prüfen (Zeitumstellung).':undefined}/></label>:null}
     <label>Bis<input required type="time" step="60" value={end} disabled={disabled} onChange={e=>onEnd(e.target.value)} data-field-error={error??(date && end && (stopOnly||start) && !stoppedAt?'Bitte Ende in deutscher Ortszeit prüfen (Zeitumstellung).':undefined)}/></label>
+    {!stopOnly && date && start && end && end<=start && stoppedAt ? <p className="supporting full-field">Endet am {toZonedMinuteInput(stoppedAt).slice(0,10).split('-').reverse().join('.')}.</p>:null}
   </div>;
 }

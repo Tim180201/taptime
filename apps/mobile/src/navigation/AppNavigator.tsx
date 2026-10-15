@@ -36,7 +36,8 @@ import {
 import { LineIcon } from '../design/LineIcon';
 import { TabLabel } from '../design/TabLabel';
 import { destinationLabels, productDestinations, syncIndicator, type ProductDestination } from './presentation';
-import { mobileTokens } from '../design/tokens';
+import { useMobileTokens, useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 import { ActionButton, AppText as Text, TouchTarget, EmbeddedScreenContext, Screen, TextField } from '../design/primitives';
 
 export function AppNavigator({
@@ -56,6 +57,8 @@ export function AppNavigator({
   readonly work?: MobileWorkCapability;
   readonly offlineManual: OfflineManualCaptureCapability;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   const state = useSyncExternalStore(
     (listener) => session.subscribe(listener),
     () => session.getState(),
@@ -168,6 +171,9 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   readonly confirmedOwnTime?: MobileOwnTimeQueryResponse | null;
   readonly offlineManual: OfflineManualCaptureCapability;
 }) {
+  const mobileTokens = useMobileTokens();
+  const styles = useThemedStyles(createStyles);
+
   const insets = useSafeAreaInsets();
   const workState = useSyncExternalStore(listener=>work?.subscribe(listener) ?? (()=>{}),()=>work?.getState() ?? null,()=>work?.getState() ?? null);
   const [destination, setDestination] = useState<ProductDestination>('capture');
@@ -276,6 +282,8 @@ function MessageScreen({
   readonly title: string;
   readonly children?: React.ReactNode;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <Screen title={APP_NAME}><ScrollView contentContainerStyle={styles.formContent}>
       <Text style={styles.title}>{title}</Text>
@@ -284,7 +292,7 @@ function MessageScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   diagnosticCode: { fontSize: 12, color: mobileTokens.color.textMuted },
   productShell: { flex: 1, backgroundColor: mobileTokens.color.canvas },
   productContent: { flex: 1 },

@@ -7,7 +7,7 @@ import { AppDownloadSuccess } from './AppDownloadSuccess';
 import { RequiredForm } from './RequiredForm';
 import { CustomerQuotaNotice } from './QuotaNotice';
 import type { Notice } from './contracts';
-import { BUSINESS_TIME_ZONE } from '@taptime/core';
+import { BUSINESS_TIME_ZONE,businessDay } from '@taptime/core';
 import {
 	FormEvent,
 	lazy,
@@ -38,7 +38,7 @@ import { DelayedSkeleton } from './ui';
 import { MobileSheet, useCompactLayout } from './MobileSheet';
 import { expiredResetLinkMessage } from './PasswordResetPage';
 
-import { FeedbackBand,navigateFromLink,recentTimeWindow } from './viewHelpers';
+import { FeedbackBand,navigateFromLink } from './viewHelpers';
 const Overview=lazy(()=>import('./views/Overview'));
 const SetupView=lazy(()=>import('./views/SetupView'));
 const EmployeesView=lazy(()=>import('./views/EmployeesView'));
@@ -68,7 +68,6 @@ export function App({
   const [recoveryLinkError, setRecoveryLinkError] = useState(initialRecoveryLinkError);
   const [route, setRoute] = useState<AdminRoute>(() => currentRoute());
   const previousView = useRef(route.view);
-  const appliedMonth = useRef<string | null>(null);
   const mainHeading = useRef<HTMLHeadingElement>(null);
   const compact = useCompactLayout();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -104,18 +103,12 @@ export function App({
 
   useEffect(() => {
     if (state.status !== 'ready' || route.view !== 'lohnexport') return;
-    if (route.month !== null && appliedMonth.current !== route.month) {
-      const window = monthTimeWindow(route.month);
-      if (window !== null) {
-        appliedMonth.current = route.month;
-        void administration.setTimeWindow(window.fromInclusive, window.toExclusive);
-      }
-    } else if (route.month === null && appliedMonth.current !== null) {
-      appliedMonth.current = null;
-      const window = recentTimeWindow();
-      void administration.setTimeWindow(window.fromInclusive, window.toExclusive, false);
-    }
-  }, [administration, route.view, route.month, state.status]);
+    const month=route.month??businessDay(Date.now()).slice(0,7);
+    const window=monthTimeWindow(month);
+    if(window&&(state.timeWindow.fromInclusive!==window.fromInclusive||state.timeWindow.toExclusive!==window.toExclusive))
+      void administration.setTimeWindow(window.fromInclusive,window.toExclusive);
+  }, [administration,route.view,route.month,state.status,
+    state.status==='ready'?state.timeWindow.fromInclusive:null,state.status==='ready'?state.timeWindow.toExclusive:null]);
 
   useEffect(() => {
     void administration.selectLocation(route.locationId);
@@ -225,7 +218,7 @@ export function App({
   const navigation=(items:typeof visibleViews)=><nav aria-label="Hauptnavigation">{groups.map(group=>({...group,items:group.items.filter(item=>items.includes(item))})).filter(g=>g.items.length).map(group=><section key={group.title} className="navigation-group"><h2>{group.title}</h2><ul>{group.items.map(item=><li key={item.slug}><a href={canonicalRoutePath(defaultRoute(item.slug,state.selectedLocation?.id??null))} aria-current={item.slug===activeRoute.view?'page':undefined} onClick={event=>{navigateFromLink(event,defaultRoute(item.slug,state.selectedLocation?.id??null),navigate);if(event.defaultPrevented)setMoreOpen(false);}}><SectionIcon view={item.slug}/><span>{item.label}</span>{item.slug==='pruefungen'&&state.sections.reviewItems.status==='ready'&&state.reviewItems.length>0?<span className="nav-count">{state.reviewItemsNextCursor?'≥ ':''}{state.reviewItems.length}</span>:null}</a></li>)}</ul></section>)}</nav>;
   const accountBlock=<div className="sidebar-footer"><div className="sidebar-account">{account}</div><ThemeSwitch/><button className="text-button sidebar-signout" onClick={()=>void administration.signOut()}>Abmelden</button><button className="text-button" onClick={()=>{setMoreOpen(false);setHelpOpen(true);}}>So funktioniert {APP_NAME}</button></div>;
   const subtitles:Record<AdminView,string>={uebersicht:overviewDateLabel(),kunden:'Stunden und Kontingente Ihrer Kunden.',beschaeftigte:'Mitarbeiter und ihre Zeiten im gewählten Monat.',pruefungen:'Diese Erfassungen konnten noch keiner Arbeitszeit sicher zugeordnet werden.','meine-zeiten':'Ihre Zeiten im gewählten Monat.',manuell:'Starten und beenden Sie Ihre Zeit ohne Karte.',einrichtung:'Verwalten Sie Standorte, Mitarbeiter, Kunden und Karten.',lohnexport:'Laden Sie die Zeiten für Ihre Lohnabrechnung herunter.'};
-  const ownHeader=['kunden','manuell','einrichtung'].includes(activeRoute.view);
+  const ownHeader=['kunden','manuell','einrichtung','beschaeftigte','pruefungen','lohnexport'].includes(activeRoute.view);
   return <HeaderOutlet.Provider value={headerHost}><div className="app-shell">
     <div className="top-band"><Brand/><strong className="band-organization">{state.projection.organization.name}</strong><span className="band-account">{personName?`${personName} · `:''}{roleLabel}</span><button className="text-button" onClick={()=>void administration.signOut()}>Abmelden</button></div>
     <div className="mobile-top"><Brand/><span>{state.projection.organization.name}</span></div>

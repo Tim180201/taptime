@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type PropsWithChildren } from 'react';
 import { AccessibilityInfo, findNodeHandle, View, type TextInput, type TextInputProps } from 'react-native';
-import { mobileTokens } from './tokens';
+import { useMobileTokens } from './useMobileTheme';
 import { AppText, TextField } from './primitives';
 
 type Entry = { error: string | null; focus: () => void; scope?: string };
@@ -24,6 +24,8 @@ export function useRequiredForm() {
 }
 type Form = ReturnType<typeof useRequiredForm>;
 export function RequiredField({ form, error, focus, scope, children }: PropsWithChildren<{ form: Form; error: string | null; focus?: () => void; scope?: string }>) {
+  const mobileTokens = useMobileTokens();
+
   const key = useRef({});
   const view = useRef<View>(null);
   useLayoutEffect(() => {

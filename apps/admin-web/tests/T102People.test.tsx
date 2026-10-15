@@ -8,22 +8,22 @@ import type { ManagedPerson } from '@taptime/administration-contract/managed-peo
 afterEach(cleanup);
 const id='12000000-0000-4000-8000-000000000001';
 const person:ManagedPerson={membershipId:id,displayName:'Anna',role:'employee',location:{id,name:'Nord'},isRunning:false,runningSince:null,runningTargetDisplayName:null};
-it('groups loaded pages once per location, keeps departed separate and shows customer-format hours',()=>{
+it('T122b shows a location column, keeps departed separate and shows customer-format hours',()=>{
  const a={...person,departedAt:null,monthWorkDurationSeconds:9000};
  const {rerender}=render(<PeopleTable people={[a]} navigate={vi.fn()} locationId={null} locationsEnabled/>);
  rerender(<PeopleTable people={[a,{...a,membershipId:'two',displayName:'Berta'},{...a,membershipId:'three',displayName:'Cem',location:{id:'south',name:'Süd'}},{...a,membershipId:'four',displayName:'Dora',departedAt:'2026-10-01T00:00:00.000Z'}]} navigate={vi.fn()} locationId={null} locationsEnabled/>);
- expect(screen.queryAllByRole('columnheader',{name:'Standort'})).toHaveLength(0);
- expect(document.querySelectorAll('td[data-label="Standort"]')).toHaveLength(0);
- expect(screen.getAllByRole('heading',{name:'Nord'})).toHaveLength(2); // once current, once departed
- expect(screen.getAllByRole('heading',{name:'Süd'})).toHaveLength(1);
+ expect(screen.queryAllByRole('columnheader',{name:'Standort'})).toHaveLength(2);
+ expect(document.querySelectorAll('td[data-label="Standort"]')).toHaveLength(4);
+ expect(screen.queryAllByRole('heading',{name:'Nord'})).toHaveLength(0); // D-140: values are in the Standort column.
+ expect(screen.getByText('Süd')).toBeDefined();
  expect(screen.getByRole('heading',{name:'Ausgeschiedene Mitarbeiter'})).toBeDefined();
  expect(screen.getAllByText('2:30 h')).toHaveLength(4);
- expect(screen.getAllByRole('columnheader',{name:'Diesen Monat'})).toHaveLength(3);
+ expect(screen.getAllByRole('columnheader',{name:'Diesen Monat'})).toHaveLength(2);
 });
 it('keeps two equal-named location identities separate without repeating their headings across loaded pages',()=>{
  const a={...person,departedAt:null,monthWorkDurationSeconds:0};
  render(<PeopleTable people={[a,{...a,membershipId:'other',location:{id:'other-location',name:'Nord'}},{...a,membershipId:'later'}]} navigate={vi.fn()} locationId={null} locationsEnabled/>);
- expect(screen.getAllByRole('heading',{name:'Nord'})).toHaveLength(2);
+ expect(screen.getAllByText('Nord')).toHaveLength(3);
 });
 it('falls back to the legacy list without v3, and skips location headings when disabled',()=>{
  const {rerender}=render(<PeopleTable people={[person]} navigate={vi.fn()} locationId={null} locationsEnabled/>);

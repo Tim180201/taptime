@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { act, createElement, useSyncExternalStore, type ReactNode } from 'react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 const dismissKeyboard = vi.hoisted(() => vi.fn());
@@ -19,6 +19,8 @@ import {TimeEditingContext,AddTimeControl as AppAdd} from '../../src/timeEditing
 const id=(n:number)=>`10000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const target=(n:number,name:string)=>({targetType:'customer' as const,targetId:id(n),displayName:name,assignedToMe:n!==1,assignedToPerson:n!==1});
 const ownTime={activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-09-30T22:00:00.000Z',windowEndedAt:'2026-10-14T08:00:00.000Z'};
+// T-122b: the shared web time editor is a modal sheet on desktop as well.
+beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
 afterEach(()=>{cleanup();vi.useRealTimers();dismissKeyboard.mockClear();});
 it.each(['app','web'])('T121 %s backfill keeps the target query error and retry visible beside assignments', async mode=>{
  let failed=true;

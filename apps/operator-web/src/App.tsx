@@ -1,3 +1,5 @@
+import {PageHeader} from '../../admin-web/src/PageHeader';
+import {MobileSheet} from '../../admin-web/src/MobileSheet';
 import {ThemeSwitch} from '../../admin-web/src/ThemeSwitch';
 import { APP_NAME } from '../../../shared/product';
 import { BrandMark } from '../../../shared/BrandMark';
@@ -61,8 +63,8 @@ function currentPage(): Page {
 function Brand() {
   return (
     <div className="brand">
-      <BrandMark size={32} />
-      {APP_NAME} <span className="badge">Betreiber</span>
+      <BrandMark size={28} />
+      <span className="brand-copy">{APP_NAME}<small>ZEIT. EINFACH. KLAR.</small></span>
     </div>
   );
 }
@@ -211,6 +213,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
     [error, setError] = useState<string>(),
     [notice, setNotice] = useState("");
   const [packageChange,setPackageChange]=useState(false);
+  const [moreOpen,setMoreOpen]=useState(false);
   const [panel, setPanel] = useState<"create" | Organization | null>(null),
     [refresh, setRefresh] = useState(0),
     [before, setBefore] = useState<string | null>(null),
@@ -268,58 +271,22 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
         .toLocaleLowerCase("de-DE")
         .includes(search.toLocaleLowerCase("de-DE")),
   );
+  const title=page==='overview'?'Übersicht':page==='audit'?'Protokoll':'Betriebszustand';
+  const navigation=<nav aria-label="Betreiber-Bereich">{([['overview','Übersicht'],['audit','Protokoll'],['health','Betriebszustand']] as const).map(([key,label])=><a key={key} href={paths[key]} aria-current={page===key?'page':undefined} onClick={event=>{if(event.button===0&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();navigate(key);setMoreOpen(false);}}}>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true"><path d={key==='overview'?'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z':key==='audit'?'M5 3h14v18H5z M8 7h8M8 11h8M8 15h5':'M3 12h4l3-8 4 16 3-8h4'}/></svg>{label}</a>)}</nav>;
+  const account=<div className="operator-account"><span className="operator-account-label">Betreiber</span><ThemeSwitch/><button className="text-button" onClick={()=>void runtime.signOut()}>Abmelden</button></div>;
   return (
     <>
-      <div className="app" inert={panel !== null}>
-        <header>
-          <Brand /><ThemeSwitch/>
-          <button onClick={() => void runtime.signOut()}>Abmelden</button>
-        </header>
-        <nav aria-label="Betreiber-Bereich">
-          {(
-            [
-              ["overview", "Übersicht"],
-              ["audit", "Protokoll"],
-              ["health", "Betriebszustand"],
-            ] as const
-          ).map(([key, label]) => (
-            <a
-              key={key}
-              href={paths[key]}
-              aria-current={page === key ? "page" : undefined}
-              onClick={(event) => {
-                if (
-                  !event.ctrlKey &&
-                  !event.metaKey &&
-                  !event.shiftKey &&
-                  !event.altKey
-                ) {
-                  event.preventDefault();
-                  navigate(key);
-                }
-              }}
-            >
-              {label}
-            </a>
-          ))}
-        </nav>
+      <div className="app operator-shell" inert={panel !== null}>
+        <div className="operator-band"><Brand/><span>Betreiber</span><button className="text-button" onClick={()=>void runtime.signOut()}>Abmelden</button></div>
+        <div className="operator-mobile-top"><Brand/><span>Betreiber</span></div>
+        <aside className="operator-sidebar"><Brand/><h2>Verwaltung</h2>{navigation}{account}</aside>
+        <div className="operator-mobile-navigation">{navigation}<button aria-label="Mehr" aria-expanded={moreOpen} onClick={()=>setMoreOpen(true)}>•••<span>Mehr</span></button></div>
         <main>
-          <div className="section-head">
-            <h1>
-              {page === "overview"
-                ? "Übersicht"
-                : page === "audit"
-                  ? "Protokoll"
-                  : "Betriebszustand"}
-            </h1>
-            <button onClick={() => setRefresh((value) => value + 1)}>
-              Neu laden
-            </button>
-          </div>
-          <p className="muted">
-            Über jeden Betrieb: Status, Zahlen und letzte Aktivität. Keine Namen
-            oder Arbeitszeiten der Mitarbeiter.
-          </p>
+          <div className="operator-page-head"><PageHeader organization="Betreiber" title={title}
+            subtitle={page==='overview'?'Über jeden Betrieb: Status, Zahlen und letzte Aktivität. Keine Namen oder Arbeitszeiten der Mitarbeiter.':page==='audit'?'Die protokollierten Aktionen im Betreiber-Bereich.':'Ausgelieferter Stand und Sicherung.'}
+            actions={page==='overview'?<button className="primary" onClick={()=>{setPackageChange(false);setPanel('create');}}>Betrieb anlegen</button>:null}
+            onRefresh={()=>setRefresh(value=>value+1)}/></div>
           <ErrorBand message={error} />
           {notice && (
             <p role="status" className="success">
@@ -346,17 +313,12 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
               <section className="card">
                 <div className="section-head">
                   <h2>Betriebe</h2>
-                  <button
-                    className="primary"
-                    onClick={() => {setPackageChange(false);setPanel("create");}}
-                  >
-                    Betrieb anlegen
-                  </button>
+
                 </div>
                 <div className="filters">
                   <label>
-                    Betrieb suchen
-                    <input
+                    <span className="sr-only">Betrieb suchen</span>
+                    <input aria-label="Suchen" placeholder="Name eingeben"
                       type="search"
                       value={search}
                       onChange={(event) => setSearch(event.target.value)}
@@ -533,8 +495,10 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
               </p>
             </section>
           ) : null}
+          <footer className="operator-footer"><span>Deutsche Ortszeit</span>{health?.version?<span>Version {health.version}</span>:null}</footer>
         </main>
       </div>
+      {moreOpen?<MobileSheet label="Mehr" onCancel={()=>setMoreOpen(false)}><h2>Mehr</h2>{account}<button onClick={()=>setMoreOpen(false)}>Schließen</button></MobileSheet>:null}
       {panel !== null && (
         <ActionPanel
           runtime={runtime}

@@ -16,6 +16,7 @@ import {
 	defaultRoute,
 	type AdminRoute
 } from '../navigation';
+import {PageHeader} from '../PageHeader';
 import { DelayedSkeleton } from '../ui';
 import { navigateFromLink } from '../viewHelpers';
 type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { status: 'ready' }>;
@@ -57,23 +58,27 @@ export default function PersonView({state,administration,route,navigate,accountI
   const resolved=identity?.personId===personId&&identity.authority===authority?identity:null;
   const person=resolved?.person;
   useEffect(()=>{if(person)void administration.loadPersonTime?.(personId,month);},[administration,person,personId,month,authority]);
-  const back=<a href={canonicalRoutePath(defaultRoute('beschaeftigte',route.locationId))} onClick={event=>navigateFromLink(event,defaultRoute('beschaeftigte',route.locationId),navigate)}>← Mitarbeiter</a>;
-  if(!person)return <>{back}<p role={resolved?.status==='unavailable'?'alert':'status'}>{!resolved?'Person wird geladen …':resolved.status==='missing'?'Person nicht gefunden':'Person konnte nicht geladen werden.'}</p>{resolved?.status==='unavailable'?<button onClick={()=>setRetry(n=>n+1)}>Person erneut laden</button>:null}</>;
+  const back=<a className="button-link secondary-link" href={canonicalRoutePath(defaultRoute('beschaeftigte',route.locationId))} onClick={event=>navigateFromLink(event,defaultRoute('beschaeftigte',route.locationId),navigate)}>← Mitarbeiter</a>;
+  if(!person)return <><PageHeader organization={state.projection.organization.name} title="Person" actions={back} onRefresh={()=>setRetry(n=>n+1)}/><p role={resolved?.status==='unavailable'?'alert':'status'}>{!resolved?'Person wird geladen …':resolved.status==='missing'?'Person nicht gefunden':'Person konnte nicht geladen werden.'}</p>{resolved?.status==='unavailable'?<button onClick={()=>setRetry(n=>n+1)}>Person erneut laden</button>:null}</>;
 
   const calendar=state.calendar;
-  return <TimeEditingProvider key={personId} state={state} administration={administration} targetMembershipId={personId} personLabel={person.displayName}>{back}
-    {accountInvitations?.resend ? <button disabled={resending} onClick={async()=>{
+  const actions=back;
+  const resendAction=accountInvitations?.resend ? <button className="text-button" disabled={resending} onClick={async()=>{
       setResending(true);
       try { const status=await accountInvitations.resend!(personId); setResendNotice(status==='succeeded'?'Einladung verschickt.':
         status==='invitation_already_accepted'?'Bereits angemeldet. Bitte „Passwort vergessen“ nutzen.':
         ACCOUNT_INVITATION_NOTICES[status as keyof typeof ACCOUNT_INVITATION_NOTICES] ?? 'Erneutes Senden ist derzeit nicht erreichbar.'); }
       catch {setResendNotice('Erneutes Senden ist derzeit nicht erreichbar.');} finally {setResending(false);}
-    }}>Einladung erneut senden</button> : null}
+    }}>Einladung erneut senden</button> : null;
+  const subtitle=[person.location?.name,person.role==='administrator'?'Administrator':person.role==='standortleitung'?'Standortleitung':'Mitarbeiter'].filter(Boolean).join(' · ');
+  const ready=calendar?.targetMembershipId===personId && calendar.month===month && calendar.status==='ready';
+  return <TimeEditingProvider key={personId} state={state} administration={administration} targetMembershipId={personId} personLabel={person.displayName}>
+    {!ready?<PageHeader organization={state.projection.organization.name} title={person.displayName} subtitle={subtitle} actions={actions} onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/>:null}
+    {resendAction}
     {resendNotice ? <p role="status">{resendNotice}</p> : null}
-    <h2>{person.displayName}</h2>
     <TargetAssignments administration={administration} selector={{membershipId:personId}} personName={person.displayName}/>
     {calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'ready'
-      ? <>{calendar.value.activeRecord ? <div className="feedback-band"><p>{captureStatus(calendar.value.activeRecord)}</p><TimeRecordControls directStop record={calendar.value.activeRecord}/></div> : null}<TimeCalendar value={calendar.value} month={month} onMonthChange={month=>navigate({...route,month})}
+      ? <>{calendar.value.activeRecord ? <div className="feedback-band"><p>{captureStatus(calendar.value.activeRecord)}</p><TimeRecordControls directStop record={calendar.value.activeRecord}/></div> : null}<TimeCalendar personHeader={{organization:state.projection.organization.name,name:person.displayName,subtitle,actions}} value={calendar.value} month={month} onMonthChange={month=>navigate({...route,month})}
         onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/></>
       : calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'unavailable'
         ? <div role="alert"><p>{calendar.message}</p><button onClick={()=>void administration.loadPersonTime?.(personId,month)}>Monat erneut laden</button></div>

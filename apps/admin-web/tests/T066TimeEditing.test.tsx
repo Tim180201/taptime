@@ -2,7 +2,7 @@
 import { act,cleanup,fireEvent,render,screen,waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import axe from 'axe-core';
-import { afterEach,expect,it,vi } from 'vitest';
+import { afterEach,beforeAll,expect,it,vi } from 'vitest';
 import { TimeCalendar } from '../src/TimeCalendar';
 import { TimeEditingProvider } from '../src/TimeEditingControls';
 import { AdminWebApiClient } from '../src/AdminWebApiClient';
@@ -11,6 +11,8 @@ import type { SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 const own='10000000-0000-4000-8000-000000000001',other='10000000-0000-4000-8000-000000000002';
 const record:SafeOwnTimeRecord={calendar:{asOf:"2026-09-21T12:00:00.000Z",workDurationSeconds:3600,breakDurationSeconds:0,breakIntervals:[]},timeRecordId:other,source:'recovered',targetType:'customer',targetDisplayName:'Werkstatt',status:'stopped',startedAt:'2026-09-21T08:00:00.000Z',stoppedAt:'2026-09-21T09:00:00.000Z',startedVia:null,stoppedVia:null,details:{origin:'backfilled',baseRowVersion:0,effectiveRevisionNumber:2,comment:'Vor Ort',changed:true,change:{at:'2026-09-21T10:00:00.000Z',reason:'Berichtigt',actor:'administration'},overlapsAnotherRecord:true}};
 const page={activeRecord:null,records:[record],nextCursor:null,windowStartedAt:'2026-09-01T00:00:00.000Z',windowEndedAt:'2026-09-21T12:00:00.000Z'};
+// T-122b uses the same native dialog on desktop and mobile; jsdom has no implementation.
+beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 function show(role:'employee'|'administrator'|'standortleitung',target=own,entry=record,scoped=true) {
  const save=vi.fn(async()=>({status:'committed' as const,timeRecordId:other,idempotentRetry:false}));
@@ -21,7 +23,7 @@ function show(role:'employee'|'administrator'|'standortleitung',target=own,entry
 }
 it('lets an employee save a backfill, keeps rejected inputs, and cancels',async()=>{
  const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
- await screen.findByRole('option',{name:'Werkstatt'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
+ fireEvent.click(await screen.findByRole('button',{name:'Werkstatt'}));
  fireEvent.change(screen.getByLabelText('Kommentar (optional)'),{target:{value:'Vergessen'}});
  save.mockResolvedValueOnce({status:'overlap'} as never);fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await screen.findByText(/überschneidet sich mit einem anderen Eintrag/);
@@ -37,12 +39,12 @@ it.each(['employee','administrator','standortleitung'] as const)('%s comments on
  cleanup();show(role,other);expect(screen.queryByRole('button',{name:'Kommentar schreiben'})).not.toBeInTheDocument();
 });
 it('administrator corrects completed time with the original versions and sees the running hint',async()=>{
- const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Prüfung'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Prüfung'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'correct',record,reason:'Prüfung'})));
  cleanup();show('administrator',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Ändern'})).not.toBeInTheDocument();expect(screen.getByText('Läuft noch — erst beenden, dann ändern')).toBeInTheDocument();
 });
 it.each(['administrator','standortleitung'] as const)('%s backfills another person with reason',async role=>{
- const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Zielperson C2'});await screen.findByRole('option',{name:'Zielperson C2'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('button',{name:'Zielperson C2'});fireEvent.click(await screen.findByRole('button',{name:'Zielperson C2'}));fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Tag vergessen'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',targetMembershipId:other,reason:'Tag vergessen',comment:null})));
  cleanup();show('standortleitung',other,record,false);for(const name of ['Zeit hinzufügen','Ändern','Kommentar schreiben']) expect(screen.queryByRole('button',{name})).not.toBeInTheDocument();
 });
@@ -68,7 +70,7 @@ it.each(['comment','correct'] as const)('has no axe violations in the open %s fo
  show(kind==='comment'?'employee':'administrator');fireEvent.click(screen.getByRole('button',{name:kind==='comment'?'Kommentar schreiben':'Ändern'}));expect((await axe.run(document.body,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa']},rules:{'color-contrast':{enabled:false}}})).violations).toEqual([]);
 });
 it('keeps Berlin DST gaps invalid and overnight dates explicit',async()=>{
- const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Werkstatt'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
+ const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.click(await screen.findByRole('button',{name:'Werkstatt'}));
  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-03-29'}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:'02:30'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(screen.getAllByRole('alert').every(node=>node.textContent?.includes('Zeitumstellung'))).toBe(true);expect(save).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-09-20'}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:'22:00'}});fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'06:00'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({startedAt:'2026-09-20T20:00:00.000Z',stoppedAt:'2026-09-21T04:00:00.000Z'})));
@@ -89,14 +91,14 @@ it.each(['administrator','standortleitung'] as const)('T-069 %s stops another pe
   expect(screen.queryByLabelText('Von')).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Datum'),{target:{value:'2026-09-21'}});
   fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'14:00'}});
-  fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Vergessen'}});
+  fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Vergessen'}});
   save.mockResolvedValueOnce({status:'end_before_break'} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
   expect(screen.getByRole('alert')).toHaveTextContent('Die Endzeit liegt vor einer erfassten Pause');
   const pending={status:'committed',timeRecordId:other,idempotentRetry:false,requiredWalFile:'000000010000000000000002',offsiteArchived:false};
   save.mockResolvedValueOnce(pending as never).mockResolvedValueOnce({...pending,idempotentRetry:true,offsiteArchived:true} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
-  expect(screen.getByRole('status')).toHaveTextContent('Wird gesichert …');expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/)).toBeDisabled();
+  expect(screen.getByRole('status')).toHaveTextContent('Wird gesichert …');expect(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/)).toBeDisabled();
   await act(async()=>{await vi.advanceTimersByTimeAsync(5000);});
   expect(save.mock.calls.at(-1)).toEqual(save.mock.calls.at(-2));
   expect(save).toHaveBeenLastCalledWith(expect.objectContaining({kind:'stop',targetMembershipId:other,stoppedAt:'2026-09-21T12:00:00.000Z',reason:'Vergessen'}));
@@ -107,7 +109,7 @@ it('D-078 limits archive polling to three minutes and cancels it when the form u
  vi.useFakeTimers();
  try {
   const {save,unmount}=show('administrator',other,{...record,status:'started',stoppedAt:null});
-  fireEvent.click(screen.getByRole('button',{name:'Beenden'}));fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Vergessen'}});
+  fireEvent.click(screen.getByRole('button',{name:'Beenden'}));fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Vergessen'}});
   save.mockResolvedValue({status:'committed',timeRecordId:other,idempotentRetry:true,requiredWalFile:'000000010000000000000002',offsiteArchived:false} as never);
   await act(async()=>{fireEvent.click(screen.getByRole('button',{name:'Zeit beenden'}));});
   await act(async()=>{await vi.advanceTimersByTimeAsync(180000);});
@@ -150,8 +152,8 @@ it('T-062 manager stops own running time and keeps boundary rejection visible',a
 
 it.each(['administrator','standortleitung'] as const)('D-092 %s uses the target person choices, not the actor choices',async role=>{
  const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
- await screen.findByRole('option',{name:'Zielperson C2'});expect(screen.queryByRole('option',{name:'Werkstatt'})).not.toBeInTheDocument();
- await screen.findByRole('option',{name:'Zielperson C2'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${other}`}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Zielperson'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ await screen.findByRole('button',{name:'Zielperson C2'});expect(screen.queryByRole('button',{name:'Werkstatt'})).not.toBeInTheDocument();
+ fireEvent.click(await screen.findByRole('button',{name:'Zielperson C2'}));fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Zielperson'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',targetMembershipId:other,target:expect.objectContaining({targetId:other})})));
 });
 
@@ -171,33 +173,33 @@ it('T079 displays minutes and preserves exact unchanged correction instants',asy
  expect(screen.getByLabelText('Von')).toHaveValue('10:00');
  expect(screen.getByLabelText('Bis')).toHaveValue('11:00');
  expect(screen.getByLabelText('Von')).toHaveAttribute('step','60');
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Nur Grund'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
+ fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Nur Grund'}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({startedAt:precise.startedAt,stoppedAt:precise.stoppedAt})));
 });
 it.each(['2026-10-25T02:30','2027-03-28T02:30'])('T079 rejects an edited DST minute %s and retains the input',async value=>{
  const {save}=show('administrator',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
- fireEvent.change(screen.getByLabelText('Datum'),{target:{value:value.slice(0,10)}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:value.slice(11)}});fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Prüfung'}});
+ fireEvent.change(screen.getByLabelText('Datum'),{target:{value:value.slice(0,10)}});fireEvent.change(screen.getByLabelText('Von'),{target:{value:value.slice(11)}});fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Prüfung'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(screen.getAllByRole('alert').every(node=>node.textContent?.includes('Zeitumstellung'))).toBe(true);expect(screen.getByLabelText('Von')).toHaveValue(value.slice(11));
 });
 
 it.each(['employee','administrator','standortleitung'] as const)('T-088 %s validates a selected other reason, preserves errors and closes after success',async role=>{
- const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'other'}});
- fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));expect(save).not.toHaveBeenCalled();
+ const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Zeit löschen'}));
+ fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'other'}});
+ fireEvent.click(screen.getByRole('button',{name:'Löschen'}));expect(save).not.toHaveBeenCalled();
  fireEvent.change(screen.getByLabelText('Kurze Begründung'),{target:{value:'Doppelt nachgetragen'}});
- save.mockResolvedValueOnce({status:'review_open'} as never);fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));
+ save.mockResolvedValueOnce({status:'review_open'} as never);fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
  await screen.findByText(/unter „Zeiten prüfen“ geklärt/);expect(screen.getByLabelText('Kurze Begründung')).toHaveValue('Doppelt nachgetragen');
- fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));
+ fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
  await waitFor(()=>expect(save).toHaveBeenLastCalledWith(expect.objectContaining({kind:'void',reasonCode:'other',reasonText:'Doppelt nachgetragen'})));
- await waitFor(()=>expect(screen.queryByRole('button',{name:'Löschen bestätigen'})).not.toBeInTheDocument());
+ await waitFor(()=>expect(screen.queryByRole('button',{name:'Löschen'})).not.toBeInTheDocument());
 });
 it('T-088 hides cancellation for running or unauthorized entries and reports offline without sending',async()=>{
- show('employee',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Zeiteintrag löschen'})).not.toBeInTheDocument();cleanup();
- show('employee',other);expect(screen.queryByRole('button',{name:'Zeiteintrag löschen'})).not.toBeInTheDocument();cleanup();
- vi.spyOn(navigator,'onLine','get').mockReturnValue(false);const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'misscan'}});fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));
+ show('employee',own,{...record,status:'started',stoppedAt:null});expect(screen.queryByRole('button',{name:'Zeit löschen'})).not.toBeInTheDocument();cleanup();
+ show('employee',other);expect(screen.queryByRole('button',{name:'Zeit löschen'})).not.toBeInTheDocument();cleanup();
+ vi.spyOn(navigator,'onLine','get').mockReturnValue(false);const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit löschen'}));
+ fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'misscan'}});fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
  expect(save).not.toHaveBeenCalled();expect(screen.getByRole('alert')).toHaveTextContent('Nur online');
- fireEvent.click(screen.getByRole('button',{name:'Abbrechen'}));expect(screen.queryByRole('button',{name:'Löschen bestätigen'})).not.toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Abbrechen'}));expect(screen.queryByRole('button',{name:'Löschen'})).not.toBeInTheDocument();
 });
 it.each([['misscan','Fehlscan'],['none','Kein Grund angegeben']] as const)('T-088 historical %s rows carry who/when/why, no duration, and cannot be edited',async(reasonCode,label)=>{
  const state={role:'employee',membershipId:own,availableSections:[],workTargets:{status:'ready',value:[]}} as unknown as Extract<AdminWebState,{status:'ready'}>;
@@ -218,17 +220,18 @@ it('T-088 validates closed requests and preserves meaningful conflict responses'
 it.each(['backfill','correct','stop','comment'] as const)('T101 %s shows missing fields before contacting the capability',async kind=>{
  const {save}=show('administrator',kind==='stop'?other:own,kind==='stop'?{...record,status:'started',stoppedAt:null}:record);
  fireEvent.click(screen.getByRole('button',{name:kind==='backfill'?'Zeit hinzufügen':kind==='correct'?'Ändern':kind==='stop'?'Beenden':'Kommentar schreiben'}));
- if(kind==='backfill')await screen.findByRole('option',{name:'Werkstatt'});
+ if(kind==='backfill')await screen.findByRole('button',{name:'Werkstatt'});
  const button=screen.getByRole('button',{name:kind==='stop'?'Zeit beenden':'Speichern'}),form=button.closest('form')!;
  const fields=Array.from(form.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('[required]'));
- for(const field of fields)fireEvent.change(field,{target:{value:''}});fireEvent.click(button);expect(save).not.toHaveBeenCalled();expect(fields[0]).toHaveFocus();
+ for(const field of fields)fireEvent.change(field,{target:{value:''}});fireEvent.click(button);expect(save).not.toHaveBeenCalled();expect(kind==='backfill'?form.querySelector('[data-required-choice]'):fields[0]).toHaveFocus();
+ if(kind==='backfill'){expect(form.querySelector('[data-required-choice]')).toHaveAttribute('aria-invalid','true');fireEvent.click(screen.getByRole('button',{name:'Werkstatt'}));expect(form.querySelector('[data-required-choice]')).not.toHaveAttribute('aria-invalid');}
  for(const field of fields){expect(field).toHaveAttribute('aria-invalid','true');expect(document.getElementById(field.getAttribute('aria-describedby')!.split(' ').at(-1)!)).toHaveAttribute('role','alert');}
  for(const field of fields){const value=field instanceof HTMLSelectElement?`customer:${own}`:field.type==='date'?'2026-09-20':field.type==='time'?'10:00':field.type==='datetime-local'?'2026-09-20T10:00':'Berichtigt';fireEvent.change(field,{target:{value}});}
  for(const field of fields)expect(field).not.toHaveAttribute('aria-invalid');
 });
 
 it('T101 review: valid date is preserved when Von is missing',async()=>{
- const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Werkstatt'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});const date=screen.getByLabelText('Datum'),clock=screen.getByLabelText('Von');fireEvent.change(clock,{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(date).not.toHaveAttribute('aria-invalid');expect(clock).toHaveAttribute('aria-invalid','true');expect(clock).toHaveFocus();
+ const {save}=show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));fireEvent.click(await screen.findByRole('button',{name:'Werkstatt'}));const date=screen.getByLabelText('Datum'),clock=screen.getByLabelText('Von');fireEvent.change(clock,{target:{value:''}});fireEvent.click(screen.getByRole('button',{name:'Speichern'}));expect(save).not.toHaveBeenCalled();expect(date).not.toHaveAttribute('aria-invalid');expect(clock).toHaveAttribute('aria-invalid','true');expect(clock).toHaveFocus();
 });
 it.each([
  ['2025-10-25T10:00','Höchstens 24 Stunden.'],
@@ -238,7 +241,7 @@ it.each([
  fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
  fireEvent.change(screen.getByLabelText('Datum'),{target:{value:end.slice(0,10)}});
  fireEvent.change(screen.getByLabelText('Bis'),{target:{value:end.slice(11)}});
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Beleg geprüft'}});
+ fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'Beleg geprüft'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  expect(save).not.toHaveBeenCalled();
  expect(screen.getByText(message)).toBeInTheDocument();
@@ -246,22 +249,22 @@ it.each([
 });
 it('T106: a control-only required reason is explained at the field',()=>{
  const {save}=show('standortleitung',other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
- fireEvent.change(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'\u00a0\t\u0001'}});
+ fireEvent.change(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/),{target:{value:'\u00a0\t\u0001'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
- expect(save).not.toHaveBeenCalled();expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/)).toHaveAttribute('aria-invalid','true');
+ expect(save).not.toHaveBeenCalled();expect(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/)).toHaveAttribute('aria-invalid','true');
 });
 it('T107 opens the existing administrative stop directly from the person status',async()=>{
  const {default:PersonView}=await import('../src/views/PersonView');
  const entry={...record,status:'started' as const,stoppedAt:null,stoppedVia:null};
- const state={status:'ready',role:'administrator',membershipId:own,availableSections:['time_records'],managedPeople:{status:'ready',value:{people:[{membershipId:other,displayName:'Erika Beispiel'}],nextCursor:null}},calendar:{status:'ready',targetMembershipId:other,month:'2026-09',value:{...page,activeRecord:entry}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
+ const state={status:'ready',projection:{organization:{name:'Betrieb'}},role:'administrator',membershipId:own,availableSections:['time_records'],managedPeople:{status:'ready',value:{people:[{membershipId:other,displayName:'Erika Beispiel'}],nextCursor:null}},calendar:{status:'ready',targetMembershipId:other,month:'2026-09',value:{...page,activeRecord:entry}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
  const administration={getState:()=>state,saveTimeEdit:vi.fn(),loadPersonTime:vi.fn(),loadWorkTargets:vi.fn()} as unknown as AdminWebCapability;
  render(<PersonView state={state} administration={administration} route={{area:'beschaeftigte',personId:other,month:'2026-09'} as never} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:'Zeit beenden'}));
- expect(screen.getByLabelText(/^Grund(?: der Änderung \(Pflicht\)| \(freiwillig\))?$/)).toBeDefined();
+ expect(screen.getByLabelText(/^Grund(?: \(Pflicht\)| \(freiwillig\))?$/)).toBeDefined();
  expect(screen.getByText(/Erika Beispiel · Werkstatt ·/)).toBeDefined();
 });
 it('T107 names the affected entry in the deletion sheet',async()=>{
- show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
+ show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit löschen'}));
  expect(screen.getByText(/Sie selbst · Werkstatt ·.*21\.09\.2026.*10:00.*11:00/)).toBeDefined();
 });
 
@@ -276,14 +279,14 @@ it.each(['administrator','standortleitung'] as const)('T113 %s sends null for ow
  fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));
  expect(screen.getByRole('heading',{name:'Zeit hinzufügen'})).toBeVisible();
  expect(screen.queryByLabelText(/Grund der Änderung/)).toBeNull();
- await screen.findByRole('option',{name:'Werkstatt'});fireEvent.change(screen.getByLabelText('Kunde oder Projekt'),{target:{value:`customer:${own}`}});
+ fireEvent.click(await screen.findByRole('button',{name:'Werkstatt'}));
  fireEvent.change(screen.getByLabelText('Kommentar (optional)'),{target:{value:'Notiz'}});
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'backfill',reason:null,comment:'Notiz'})));
 });
 it('T113 Enter follows time fields and leaves textareas alone',async()=>{
- show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('option',{name:'Werkstatt'});
- for(const [from,to] of [['Kunde oder Projekt','Datum'],['Datum','Von'],['Von','Bis'],['Bis','Kommentar (optional)']]){
+ show('employee');fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));await screen.findByRole('button',{name:'Werkstatt'});
+ for(const [from,to] of [["Suchen",'Datum'],['Datum','Von'],['Von','Bis'],['Bis','Kommentar (optional)']]){
   const field=screen.getByLabelText(from!);field.focus();fireEvent.keyDown(field,{key:'Enter'});expect(screen.getByLabelText(to!)).toHaveFocus();
  }
  const comment=screen.getByLabelText('Kommentar (optional)');fireEvent.keyDown(comment,{key:'Enter'});expect(comment).toHaveFocus();
@@ -305,16 +308,16 @@ it('T113 Enter in the final single-line field submits through RequiredForm valid
 
 it.each(['administrator','standortleitung'] as const)('T116 %s shows exactly its foreign reason requirement',async role=>{
  const {save}=show(role,other);fireEvent.click(screen.getByRole('button',{name:'Ändern'}));
- const field=screen.getByLabelText(role==='administrator'?'Grund (freiwillig)':'Grund der Änderung (Pflicht)');
+ const field=screen.getByLabelText(role==='administrator'?'Grund (freiwillig)':'Grund (Pflicht)');
  expect(field.hasAttribute('required')).toBe(role==='standortleitung');
  fireEvent.click(screen.getByRole('button',{name:'Speichern'}));
  if(role==='administrator')await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({reason:''})));else expect(save).not.toHaveBeenCalled();
 });
 it.each(['employee','administrator','standortleitung'] as const)('T116 %s confirms deletion without a reason',async role=>{
- const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Zeiteintrag löschen'}));
- expect(screen.getByRole('heading',{name:'Zeiteintrag löschen?'})).toBeInTheDocument();
+ const {save}=show(role);fireEvent.click(screen.getByRole('button',{name:'Zeit löschen'}));
+ expect(screen.getByRole('heading',{name:'Zeit löschen?'})).toBeInTheDocument();
  expect(screen.getByLabelText('Grund (freiwillig)')).not.toBeRequired();
- fireEvent.click(screen.getByRole('button',{name:'Löschen bestätigen'}));
+ fireEvent.click(screen.getByRole('button',{name:'Löschen'}));
  await waitFor(()=>expect(save).toHaveBeenCalledWith(expect.objectContaining({kind:'void',reasonCode:null,reasonText:null})));
 });
 it('T116 shows own administrative stop as selbst',()=>{

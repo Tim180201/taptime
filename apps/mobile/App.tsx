@@ -1,11 +1,12 @@
-import { StatusBar } from 'expo-status-bar';
 import { lazy, Suspense } from 'react';
+import { MobileThemeProvider } from './src/design/MobileThemeProvider';
 import { StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ProductMobileApp } from './src/ProductMobileApp';
 import { StartupBoundary } from './src/design/StartupBoundary';
 import { AppText as Text, FontReadyContext } from './src/design/primitives';
-import { mobileTokens } from './src/design/tokens';
+import { useThemedStyles } from './src/design/useMobileTheme';
+import type { MobileTokens } from './src/design/tokens';
 import { selectMobileCompositionMode } from './src/runtime/compositionMode';
 
 import { useFonts, Manrope_400Regular, Manrope_600SemiBold, Manrope_800ExtraBold } from '@expo-google-fonts/manrope';
@@ -21,6 +22,12 @@ const PhysicalValidationMobileApp = lazy(async () => {
 });
 
 export default function App() {
+  return <MobileThemeProvider><AppContent /></MobileThemeProvider>;
+}
+
+function AppContent() {
+  const styles = useThemedStyles(createStyles);
+
   const [fontsLoaded] = useFonts({ Manrope_400Regular, Manrope_600SemiBold, Manrope_800ExtraBold });
   const mode = selectMobileCompositionMode(
     process.env.EXPO_PUBLIC_TAPTIME_RUNTIME_VARIANT === 'physical-validation',
@@ -45,13 +52,14 @@ export default function App() {
         : mode === 'product'
           ? <ProductMobileApp />
           : <StartupBoundary loading={false}><ForbiddenConfiguration /></StartupBoundary>}
-      <StatusBar style="light" hidden={false} animated={false} />
     </FontReadyContext.Provider>
     </SafeAreaProvider>
   );
 }
 
 function ForbiddenConfiguration() {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <SafeAreaView style={styles.container}>
       <Text>Die gewählte App-Komposition ist in diesem Build nicht zulässig.</Text>
@@ -59,7 +67,7 @@ function ForbiddenConfiguration() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   root: { flex: 1, backgroundColor: mobileTokens.color.ground },
   container: {
     flex: 1,

@@ -1,3 +1,7 @@
+import { StatusBar } from 'expo-status-bar';
+import { NavigationBar } from 'expo-navigation-bar';
+import { mobileThemes } from './tokens';
+import { useMobileTheme } from './useMobileTheme';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
@@ -11,6 +15,8 @@ import { AppText } from './primitives';
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export function StartupBoundary({ loading, children }: { readonly loading: boolean; readonly children?: ReactNode }) {
+  const { theme, tokens } = useMobileTheme();
+  const systemBarStyle = loading || theme === 'dark' ? 'light' : 'dark';
   const [slow, setSlow] = useState(false);
   const [laidOut, setLaidOut] = useState(false);
   const onLayout = useCallback(() => setLaidOut(true), []);
@@ -23,7 +29,9 @@ export function StartupBoundary({ loading, children }: { readonly loading: boole
     // Never hide onto an empty native surface. A stalled startup still hands over after 3 s.
     if (laidOut && (!loading || slow)) SplashScreen.hide();
   }, [laidOut, loading, slow]);
-  return <View style={styles.root} onLayout={onLayout}>
+  return <View style={[styles.root, !loading && { backgroundColor: tokens.color.ground }]} onLayout={onLayout}>
+    <StatusBar style={systemBarStyle} hidden={false} animated={false} />
+    <NavigationBar style={systemBarStyle} />
     {loading ? <StartupScreen slow={slow} /> : children}
   </View>;
 }
@@ -44,5 +52,5 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: brandColors.ground, justifyContent: 'center', alignItems: 'center' },
   imageFrame: { width: layout.imageWidth, height: layout.imageWidth },
   image: { width: layout.imageWidth, height: layout.imageWidth },
-  message: { position: 'absolute', top: layout.imageWidth, left: 0, right: 0, textAlign: 'center' },
+  message: { position: 'absolute', top: layout.imageWidth, left: 0, right: 0, textAlign: 'center', color: mobileThemes.dark.color.text },
 });

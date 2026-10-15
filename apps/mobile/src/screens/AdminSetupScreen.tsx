@@ -9,9 +9,13 @@ import { RefreshControl, Platform, ScrollView, StyleSheet, View } from 'react-na
 import type { AdminSetupCapability, AdminSetupState } from '../administration/contracts';
 import { ActionButton, AppText as Text, TouchTarget, Card, Screen } from '../design/primitives';
 import { LineIcon } from '../design/LineIcon';
-import { mobileTokens } from '../design/tokens';
+import { useMobileTokens, useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 
 export function AdminSetupScreen({ administration }: { readonly administration: AdminSetupCapability }) {
+  const mobileTokens = useMobileTokens();
+  const styles = useThemedStyles(createStyles);
+
   const state = useSyncExternalStore((listener) => administration.subscribe(listener),
     () => administration.getState(), () => administration.getState());
   useEffect(()=>()=>{const current=administration.getState();if(current.status==='capturing'||current.status==='writing')void administration.cancel();},[administration]);
@@ -192,7 +196,7 @@ export function presentAdminSetupState(state: AdminSetupState, platform = 'andro
 }
 
 function Message({ title }: { readonly title: string }) { return <Screen title="Karten"><Card><Text>{title}</Text></Card></Screen>; }
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   container: { gap: 16, paddingBottom: 24 }, title: { fontSize: 22, lineHeight: 28, fontWeight: '800' },
   muted: { color: mobileTokens.color.textMuted, fontSize: 13, lineHeight: 20 },
   label: { fontSize: 15, fontWeight: '800' }, row: { flexDirection: 'row', alignItems: 'center', gap: 12 },

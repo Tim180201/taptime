@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { AppText } from './primitives';
-import { mobileTokens } from './tokens';
+import { useThemedStyles } from './useMobileTheme';
+import type { MobileTokens } from './tokens';
 
 const minimumScale = 0.8;
 const maximumFontMultiplier = 1.3;
 
 export function TabLabel({ label, active }: { readonly label: string; readonly active: boolean }) {
+  const styles = useThemedStyles(createStyles);
+
   const [availableWidth, setAvailableWidth] = useState(0);
   const [naturalWidth, setNaturalWidth] = useState(0);
   const fit = availableWidth > 0 && naturalWidth > 0
@@ -32,7 +35,7 @@ export function TabLabel({ label, active }: { readonly label: string; readonly a
   </View>;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   container: { alignSelf: 'stretch', minWidth: 0, overflow: 'hidden' },
   label: { color: mobileTokens.color.textMuted, fontSize: 11, lineHeight: 16,
     fontWeight: '600', alignSelf: 'stretch', textAlign: 'center' },

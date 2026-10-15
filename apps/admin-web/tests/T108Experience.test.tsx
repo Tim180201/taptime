@@ -30,7 +30,7 @@ it('navigates to customer details and restores keyboard focus on return',async()
  await waitFor(()=>expect(screen.getByRole('button',{name:/Beispielkunde/})).toHaveFocus());
 });
 it('does not expose an anonymous calendar or resend action while identity is unresolved',async()=>{
- const state={status:'ready',selectedLocation:null,managedPeople:undefined,calendar:{status:'ready',targetMembershipId:id,month:'2026-10',value:{activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-09-30T22:00Z',windowEndedAt:'2026-10-06T08:00Z'}}} as unknown as Parameters<typeof PersonView>[0]['state'];
+ const state={status:'ready',projection:{organization:{name:'Betrieb'}},selectedLocation:null,managedPeople:undefined,calendar:{status:'ready',targetMembershipId:id,month:'2026-10',value:{activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-09-30T22:00Z',windowEndedAt:'2026-10-06T08:00Z'}}} as unknown as Parameters<typeof PersonView>[0]['state'];
  const administration={getState:()=>state,loadPersonTime:vi.fn(),refreshManagedPeople:()=>new Promise<void>(()=>{})} as unknown as AdminWebCapability;
  render(<PersonView state={state} administration={administration} route={{...defaultRoute('beschaeftigte'),personId:id,month:'2026-10'}} navigate={()=>{}} accountInvitations={{resend:vi.fn()} as never}/>);
  expect(screen.getByText('Person wird geladen …')).toBeInTheDocument();
@@ -38,7 +38,7 @@ it('does not expose an anonymous calendar or resend action while identity is unr
  expect(screen.queryByText('Einladung erneut senden')).not.toBeInTheDocument();
 });
 it('resolves a direct link through authorized pages and shows not found when exhausted',async()=>{
- let state={status:'ready',selectedLocation:null,managedPeople:undefined} as unknown as Parameters<typeof PersonView>[0]['state'];
+ let state={status:'ready',projection:{organization:{name:'Betrieb'}},selectedLocation:null,managedPeople:undefined} as unknown as Parameters<typeof PersonView>[0]['state'];
  const refreshManagedPeople=vi.fn(async(_filter?:boolean|null,append?:boolean)=>{
   state={...state,managedPeople:{status:'ready',isRunning:null,value:{people:append?[]:[{membershipId:'other'}],nextCursor:append?null:'next'}}} as never;
  });
@@ -50,7 +50,7 @@ it('resolves a direct link through authorized pages and shows not found when exh
 });
 
 it('loads the named person from a later page before enabling their calendar',async()=>{
- let state={status:'ready',membershipId:'manager',role:'administrator',selectedLocation:null} as unknown as Parameters<typeof PersonView>[0]['state'];
+ let state={status:'ready',projection:{organization:{name:'Betrieb'}},membershipId:'manager',role:'administrator',selectedLocation:null} as unknown as Parameters<typeof PersonView>[0]['state'];
  const loadPersonTime=vi.fn();
  const refreshManagedPeople=vi.fn(async(_filter?:boolean|null,append?:boolean)=>{
   state={...state,managedPeople:{status:'ready',isRunning:null,value:{people:append?[{membershipId:id,displayName:'Erika Beispiel'}]:[],nextCursor:append?null:'next'}}} as never;
@@ -63,7 +63,7 @@ it('loads the named person from a later page before enabling their calendar',asy
 it('ignores a pending person lookup after the authority changes',async()=>{
  type Ready=Parameters<typeof PersonView>[0]['state'];
  let finish!:()=>void;
- let state={status:'ready',membershipId:'manager',role:'administrator',selectedLocation:null} as unknown as Ready;
+ let state={status:'ready',projection:{organization:{name:'Betrieb'}},membershipId:'manager',role:'administrator',selectedLocation:null} as unknown as Ready;
  const refreshManagedPeople=vi.fn().mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=resolve;})).mockImplementationOnce(async()=>{
    state={...state,managedPeople:{status:'ready',isRunning:null,value:{people:[],nextCursor:null}}} as never;
  });

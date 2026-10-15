@@ -3,11 +3,14 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text, TouchTarget as Pressable } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 import type { ValidationSlot } from './PhysicalValidationController';
 import { createPhysicalValidationRuntime } from './createPhysicalValidationRuntime';
 
 export function PhysicalValidationMobileApp() {
+  const styles = useThemedStyles(createStyles);
+
   const controller = useMemo(createPhysicalValidationRuntime, []);
   const state = useSyncExternalStore(controller.subscribe, controller.getState, controller.getState);
 
@@ -63,6 +66,8 @@ export function PhysicalValidationMobileApp() {
 }
 
 function SlotCard({ slot, active, count, fingerprint, mismatches, disabled, onPress }: { slot: ValidationSlot; active: boolean; count: number; fingerprint: string | null; mismatches: number; disabled: boolean; onPress: () => void }) {
+  const styles = useThemedStyles(createStyles);
+
   return <Pressable disabled={disabled} onPress={onPress} style={[styles.slot, active && styles.slotActive]}>
     <Text style={styles.slotLabel}>TAG {slot}</Text><Text style={styles.count}>{count}<Text style={styles.countTotal}> / 10</Text></Text>
     <Text style={styles.fingerprintLabel}>PRÜF-FINGERPRINT · SHA-256 GEKÜRZT</Text>
@@ -79,7 +84,7 @@ function outcomeText(outcome: string | null, scanning: boolean): string {
   return ({ captured: 'Stabile Kennung erkannt.', mismatch: 'Achtung: Dieser Scan weicht vom ersten Scan der gewählten Karte ab.', unreadable: 'Die Karte war nicht eindeutig lesbar.', timed_out: 'Zeitüberschreitung: Es wurde keine Karte erkannt.', cancelled: 'Der Scan wurde sauber abgebrochen.', unavailable: 'Der Scan konnte nicht sicher gestartet werden.' } as Record<string, string>)[outcome ?? ''] ?? 'Wähle Karte A oder B und starte einen einzelnen Scan.';
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: mobileTokens.color.ground },
   content: { padding: 20, gap: 16 },
   brandRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between', alignItems: 'center' },

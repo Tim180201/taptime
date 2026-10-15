@@ -53,11 +53,11 @@ it('role success links directly to that persons management assignments',async()=
 it('review context precedes the three unchanged choices and shows the event and day times',()=>{
  const state={...ready(),reviewItems:[item],reviewDay:{status:'ready' as const,reviewItemId:id,value:{records:[{timeRecordId:'time',targetDisplayName:'Lesekreis',startedAt:'2026-10-05T07:00:00.000Z',stoppedAt:'2026-10-05T09:00:00.000Z'}],activeRecord:null,nextCursor:null,windowStartedAt:'2026-10-04T22:00:00.000Z',windowEndedAt:'2026-10-05T22:00:00.000Z'}}} as unknown as Ready;
  render(<ReviewsView state={state} administration={{} as AdminWebCapability}/>);
- expect(screen.getByText('Arbeitszeiten an diesem Tag')).toBeVisible();
+ expect(screen.getByText('Was heute dort steht')).toBeVisible();
  expect(screen.getByText(/09:00.*11:00/)).toBeVisible();
- expect(screen.getByText(/Auslösende Erfassung/)).toBeVisible();
- for(const name of ['Fehlende Arbeitszeit ergänzen','Vorhandene Arbeitszeit ändern','Ohne Zeitänderung schließen'])expect(screen.getByRole('button',{name})).toBeVisible();
- expect(screen.getByText('Details')).toBeVisible();
+ expect(screen.getByText(/Der Zeitpunkt der Erfassung von Anna/)).toBeVisible();
+ for(const name of ['Ende nachtragen','Zeit ändern','So lassen'])expect(screen.getByRole('button',{name})).toBeVisible();
+ expect(screen.queryByText('Details')).toBeNull();
 });
 // Device A and B can both have sequence 2. The public projection contains no
 // installation identity; neither uniqueness nor sequence adjacency proves a link.
@@ -67,6 +67,6 @@ it.each(['missing','device-a','device-b','both-devices'] as const)('blocked pred
  const blocked={...item,reviewItemId:'device-a-3',deviceSequence:3,reviewReason:'predecessor_requires_review'};
  const previous=loaded==='missing'?[]:loaded==='device-a'?[deviceA]:loaded==='device-b'?[deviceB]:[deviceA,deviceB];
  render(<ReviewsView administration={{} as AdminWebCapability} state={{...ready(),reviewItems:[...previous,blocked]}}/>);
- expect(screen.getByText('Eine frühere Erfassung muss zuerst geprüft werden.')).toBeVisible();
+ expect(screen.getByText('Vor dieser Erfassung von Anna liegt ein offener Fall.')).toBeVisible();
  expect(screen.queryByRole('link',{name:'Zur früheren Erfassung'})).toBeNull();
 });

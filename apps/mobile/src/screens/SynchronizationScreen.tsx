@@ -1,16 +1,19 @@
+import { ThemeSwitch } from '../design/ThemeSwitch';
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { useSyncExternalStore } from 'react';
 import { ScrollView } from 'react-native';
 import type { ProductScanCapability } from '../scan/contracts';
 import { AppBuildIdentity } from '../design/AppBuildIdentity';
 import { ActionButton, AppText as Text, Card, Screen } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useMobileTokens } from '../design/useMobileTheme';
 import { syncIndicator, type SyncIndicator } from '../navigation/presentation';
 import { presentScanState } from './ScanScreen';
 
 export function SynchronizationScreen({ scan, indicator, signOut }: {
   readonly scan: ProductScanCapability; readonly indicator?: SyncIndicator; readonly signOut?: () => Promise<void>;
 }) {
+  const mobileTokens = useMobileTokens();
+
   const state = useSyncExternalStore((listener) => scan.subscribe(listener), () => scan.getState(), () => scan.getState());
   const status = indicator ?? syncIndicator(state);
   const unreported=state.untransferred?.filter(entry=>!entry.reported) ?? [];
@@ -43,6 +46,7 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
       Nichts löschen, nichts neu installieren. Wenn hier etwas hängt, hilft dir der Support.
     </Text>
     {signOut ? <Card><Text accessibilityRole="header" style={{fontWeight:'800'}}>Konto</Text><ActionButton title="Abmelden" tone="secondary" onPress={signOut} /></Card> : null}
+    <ThemeSwitch />
     <AppBuildIdentity />
   </ScrollView></Screen>;
 }

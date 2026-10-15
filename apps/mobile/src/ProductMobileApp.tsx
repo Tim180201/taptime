@@ -6,7 +6,8 @@ import { AppState, Platform, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppBuildIdentity } from './design/AppBuildIdentity';
 import { ActionButton, AppText as Text } from './design/primitives';
-import { mobileTokens } from './design/tokens';
+import { useThemedStyles } from './design/useMobileTheme';
+import type { MobileTokens } from './design/tokens';
 import { AppNavigator } from './navigation/AppNavigator';
 import { createProductMobileRuntime } from './runtime/ProductMobileRuntime';
 
@@ -34,6 +35,8 @@ export function ProductMobileApp() {
 }
 
 function UnsupportedNfcPlatform() {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>NFC wird hier nicht unterstützt.</Text>
@@ -79,6 +82,8 @@ function ReadyProductMobileApp({
 }
 
 function UnavailableProductRuntime({ retry, code }: { readonly retry: () => void; readonly code: string }) {
+  const styles = useThemedStyles(createStyles);
+
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>{APP_NAME} ist nicht verfügbar.</Text>
@@ -90,7 +95,7 @@ function UnavailableProductRuntime({ retry, code }: { readonly retry: () => void
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',

@@ -1,41 +1,51 @@
+import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import { isKnownTimeReviewReason, type TimeReviewReason } from '@taptime/time-review-contract';
 import type { Notice } from './contracts';
 import { useEffect,useRef,type MouseEvent as ReactMouseEvent,type RefObject } from 'react';
 import type { AdminRoute } from './navigation';
-export function reviewReasonLabel(value: string): string {
-  const labels: Record<TimeReviewReason, string> = {
-    event_content_conflict:'Diese Erfassung unterscheidet sich von einem bereits gespeicherten Beleg.',
-    sequence_content_conflict:'Das Gerät hat unterschiedliche Angaben für dieselbe Erfassung gesendet.',
-    lease_binding_conflict:'Die Berechtigung für diese offline erfasste Zeit konnte nicht bestätigt werden.',
-    receipt_metadata_conflict:'Diese Erfassung passt nicht zu dem bereits gespeicherten Beleg.',
-    invalid_response:'Die App konnte die Serverantwort nicht verarbeiten',
-    http_400:'Diese Erfassung enthielt ungültige Angaben.',
-    http_409:'Diese Erfassung widerspricht bereits gespeicherten Angaben.',
-    http_422:'Diese Erfassung konnte nicht verarbeitet werden.',
-
-    identity_or_membership_not_current: 'Der Zugang der Person war bei der Verarbeitung nicht mehr gültig.',
-    capture_time_out_of_bounds: 'Der Zeitpunkt dieser Erfassung konnte nicht sicher bestätigt werden.',
-    automatic_window_elapsed: 'Diese Erfassung wurde zu spät übertragen, um sie automatisch zuzuordnen.',
-    customer_deleted: 'Kunde wurde gelöscht',
-    historical_configuration_not_valid: 'Die damalige Zuordnung konnte nicht mehr bestätigt werden.',
-    predecessor_requires_review: 'Die Reihenfolge der Erfassungen muss geklärt werden.',
-    server_lifecycle_deferred: 'Diese Erfassung konnte noch keiner Arbeitszeit sicher zugeordnet werden.',
-    active_time_entry_organization_mismatch: 'Laufende Arbeitszeit gehört zu einem anderen Betrieb',
-    active_time_entry_user_mismatch: 'Laufende Arbeitszeit gehört zu einer anderen Person',
-    previous_work_event_organization_mismatch: 'Vorherige Erfassung gehört zu einem anderen Betrieb',
-    previous_work_event_user_mismatch: 'Vorherige Erfassung gehört zu einer anderen Person',
-    previous_work_event_target_mismatch: 'Vorherige Erfassung gehört zu einem anderen Ziel',
-    previous_work_event_subject_mismatch: 'Vorherige Erfassung wurde auf andere Weise ausgelöst',
-    active_break_organization_mismatch: 'Laufende Pause gehört zu einem anderen Betrieb',
-    active_break_user_mismatch: 'Laufende Pause gehört zu einer anderen Person',
-    active_break_time_entry_mismatch: 'Laufende Pause gehört zu einer anderen Arbeitszeit',
-    work_event_precedes_active_break: 'Erfassung liegt vor dem Beginn der laufenden Pause',
-    work_location_unavailable: 'Die Person durfte an dem zugeordneten Standort keine Zeit erfassen.',
-    administration_stopped: 'Zeit wurde von der Verwaltung beendet',
-    work_event_precedes_active_time_entry: 'Erfassung liegt vor dem Beginn der laufenden Arbeitszeit',
-    work_event_precedes_previous_accepted_work_event: 'Erfassung liegt vor der vorherigen bestätigten Erfassung',
+/** TL wording from 15.10.2026; optional clauses use only facts in the response. */
+export function reviewReasonLabel(value: string, facts: Partial<Pick<import('./contracts').SafeReviewItem,'employeeDisplayName'|'occurredAt'|'targetDisplayName'>> = {}): string {
+  const name=facts.employeeDisplayName?.trim(), target=facts.targetDisplayName?.trim();
+  const instant=facts.occurredAt ? new Date(facts.occurredAt) : null;
+  const valid=instant && Number.isFinite(instant.getTime());
+  const date=valid ? new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,day:'2-digit',month:'2-digit',year:'numeric'}).format(instant) : '';
+  const time=valid ? new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,hour:'2-digit',minute:'2-digit'}).format(instant) : '';
+  const who=name?` von ${name}`:'', when=date?` am ${date} um ${time}`:'', stamp=date?`${date}, ${time}`:'';
+  const captured=`${name?`${name} hat`:'Es wurde'}${when}`;
+  const asCaptured=`Als ${name?`${name}${when} erfasst hat`:`${when.trim()}${when?' ':''}erfasst wurde`}`;
+  const labels:Record<TimeReviewReason,string>={
+    event_content_conflict:`${stamp?`Für ${stamp} liegen`:'Es liegen'} zwei verschiedene Angaben zur selben Erfassung${who} vor.`,
+    sequence_content_conflict:`Das Handy${who} hat${stamp?` für ${stamp}`:''} dieselbe Erfassung zweimal mit unterschiedlichen Angaben geschickt.`,
+    receipt_metadata_conflict:`${stamp?`Für ${stamp} liegt`:'Es liegt'} bereits ein Beleg vor, zu dem diese Erfassung${who} nicht passt.`,
+    lease_binding_conflict:`${captured} offline erfasst; die Berechtigung des Handys dafür ließ sich nicht bestätigen.`,
+    invalid_response:`Die App${who} konnte die Antwort des Servers zur Erfassung${stamp?` vom ${stamp}`:''} nicht verarbeiten.`,
+    http_400:`Die Erfassung${who}${when} enthielt ungültige Angaben.`,
+    http_409:`Die Erfassung${who}${when} widerspricht bereits gespeicherten Zeiten.`,
+    http_422:`Die Erfassung${who}${when} konnte nicht verarbeitet werden.`,
+    identity_or_membership_not_current:`Als die Erfassung${who}${stamp?` (${stamp})`:''} ankam, war der Zugang der Person nicht mehr gültig.`,
+    capture_time_out_of_bounds:`Der Zeitpunkt der Erfassung${who}${date?` am ${date} (${time} laut Handy)`:''} ließ sich nicht bestätigen.`,
+    automatic_window_elapsed:`${captured} erfasst; das Handy hat es zu spät übertragen, um die Zeit automatisch zu bilden.`,
+    customer_deleted:`${captured}${target?` für ${target}`:''} erfasst; dieser Kunde ist inzwischen gelöscht.`,
+    historical_configuration_not_valid:`${name?`${name} hat${when} eine Karte benutzt`:`Es wurde${when} eine Karte benutzt`}, deren damalige Zuordnung sich nicht mehr bestätigen lässt.`,
+    // The response carries neither the predecessor date nor its ID; do not invent either.
+    predecessor_requires_review:`Vor dieser Erfassung${who} liegt ein offener Fall.`,
+    server_lifecycle_deferred:`${captured} erfasst; daraus konnte noch keine Zeit sicher gebildet werden.`,
+    active_time_entry_user_mismatch:`${asCaptured}, lief eine Zeit, die zu einer anderen Person gehört.`,
+    active_time_entry_organization_mismatch:`${asCaptured}, lief eine Zeit, die zu einem anderen Betrieb gehört.`,
+    active_break_user_mismatch:`${asCaptured}, lief eine Pause, die zu einer anderen Person gehört.`,
+    active_break_organization_mismatch:`${asCaptured}, lief eine Pause, die zu einem anderen Betrieb gehört.`,
+    active_break_time_entry_mismatch:`${asCaptured}, lief eine Pause, die zu einer anderen Zeit gehört.`,
+    previous_work_event_user_mismatch:`Die Erfassung${stamp?` vor ${stamp}`:' davor'} gehört zu einer anderen Person.`,
+    previous_work_event_organization_mismatch:`Die Erfassung${stamp?` vor ${stamp}`:' davor'} gehört zu einem anderen Betrieb.`,
+    previous_work_event_target_mismatch:`${captured}${target?` für ${target}`:''} erfasst; die Erfassung davor galt einem anderen Kunden oder Projekt.`,
+    previous_work_event_subject_mismatch:`${captured} erfasst; die Erfassung davor war eine Pause statt einer Arbeitszeit oder umgekehrt.`,
+    work_event_precedes_active_time_entry:`${captured} erfasst, aber die laufende Zeit hat erst später begonnen.`,
+    work_event_precedes_active_break:`${captured} erfasst, aber die laufende Pause hat erst später begonnen.`,
+    work_event_precedes_previous_accepted_work_event:`${captured} erfasst; das liegt vor der zuletzt bestätigten Erfassung.`,
+    work_location_unavailable:`${name?`${name} durfte`:'Es durfte'}${date?` am ${date}`:''}${target?` am Standort von ${target}`:''} keine Zeit ${name?'erfassen':'erfasst werden'}.`,
+    administration_stopped:`Die Zeit${who} wurde${when} von der Verwaltung beendet; diese Erfassung kam danach.`,
   };
-  return isKnownTimeReviewReason(value) ? labels[value] : 'Sonstiger Prüfgrund';
+  return isKnownTimeReviewReason(value) ? labels[value] : `${captured} erfasst; daraus konnte keine Zeit sicher gebildet werden. Prüfen Sie die Zeiten dieses Tages.`;
 }
 
 export function resolutionLabel(value: string): string {

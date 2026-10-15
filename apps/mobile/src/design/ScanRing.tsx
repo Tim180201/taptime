@@ -1,13 +1,17 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { LineIcon } from './LineIcon';
-import { mobileTokens } from './tokens';
+import { useMobileTokens, useThemedStyles } from './useMobileTheme';
+import type { MobileTokens } from './tokens';
 import { useReducedMotion } from './useReducedMotion';
 
 export function ScanRing({ animate, scanning, result, size = 300 }: {
   readonly animate: boolean; readonly scanning: boolean; readonly result: 'confirmed' | 'pending' | null;
   readonly size?: number;
 }) {
+  const mobileTokens = useMobileTokens();
+  const styles = useThemedStyles(createStyles);
+
   const reducedMotion = useReducedMotion();
   const breath = useRef(new Animated.Value(0)).current;
   const wave1 = useRef(new Animated.Value(0)).current;
@@ -40,7 +44,7 @@ export function ScanRing({ animate, scanning, result, size = 300 }: {
       for (const value of [breath, wave1, wave2, flash]) value.stopAnimation();
     };
   }, [breathing, scanning, result, reducedMotion, breath, wave1, wave2, flash]);
-  const color = result === 'pending' ? mobileTokens.color.notice : mobileTokens.color.accent;
+  const color = result === 'pending' ? mobileTokens.color.scanNotice : mobileTokens.color.scanAccent;
   const scale = breathing && !reducedMotion
     ? breath.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.10] }) : 1;
   const diameter = Math.floor(size * (236 / 300) / 4) * 4;
@@ -52,24 +56,24 @@ export function ScanRing({ animate, scanning, result, size = 300 }: {
         transform: [{ scale: wave.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.25] }) }],
       }]} />) : null}
     <Animated.View style={[styles.ring, ringSize, { borderColor: result === null ? mobileTokens.color.line : color,
-      backgroundColor: result === null ? mobileTokens.color.surface : color,
+      backgroundColor: result === null ? mobileTokens.color.scanDisc : color,
       transform: [{ scale }] }]}>
       {breathing && !reducedMotion ? <Animated.View pointerEvents="none" style={[styles.glow, ringSize, {
         opacity: breath.interpolate({ inputRange: [0, 1], outputRange: [0.05, 0.65] }),
       }]} /> : null}
       <LineIcon size={Math.floor(size * ((result === null ? 92 : 76) / 300) / 4) * 4} name={result === null ? 'capture' : result === 'confirmed' ? 'check' : 'pending'}
-        color={result === null ? color : mobileTokens.color.onAccent} />
+        color={result === null ? color : mobileTokens.color.scanOnResult} />
       <Animated.View pointerEvents="none" style={[styles.flash, { width: diameter - 4, height: diameter - 4, opacity: flash }]} />
     </Animated.View>
   </View>;
 }
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   wrap: { width: 300, maxWidth: '100%', height: 300, alignItems: 'center', justifyContent: 'center' },
   ring: { width: 236, height: 236, borderRadius: 999, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center' },
   wave: { position: 'absolute', width: 236, height: 236, borderRadius: 999, borderWidth: 2 },
   glow: { position: 'absolute', width: 236, height: 236, borderRadius: 999, borderWidth: 2,
-    borderColor: mobileTokens.color.accent,
-    boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 24, spreadDistance: 4, color: mobileTokens.color.accent }] },
-  flash: { position: 'absolute', width: 232, height: 232, borderRadius: 999, backgroundColor: mobileTokens.color.accent },
+    borderColor: mobileTokens.color.scanAccent,
+    boxShadow: [{ offsetX: 0, offsetY: 0, blurRadius: 24, spreadDistance: 4, color: mobileTokens.color.scanAccent }] },
+  flash: { position: 'absolute', width: 232, height: 232, borderRadius: 999, backgroundColor: mobileTokens.color.scanAccent },
 });

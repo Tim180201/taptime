@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import axe from "axe-core";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { App } from "../src/App";
 import {
   OperatorRuntime,
@@ -18,6 +18,9 @@ import {
   type MfaFactor,
 } from "../src/OperatorRuntime";
 
+// T-122b: jsdom does not load Vite CSS. Mirror only the desktop visibility rules;
+// real responsive/theme geometry and axe run in the unchanged browser harness.
+beforeAll(()=>{const style=document.createElement('style');style.textContent='.operator-mobile-navigation,.operator-mobile-top,.operator-band{display:none}';document.head.append(style);});
 // Wire names follow read_operator_*_v1 in migration 032, not the visual mockup.
 const organization = {
   organization_id: "30000000-0000-4000-8000-000000000001",
@@ -498,4 +501,14 @@ it('T107 requires the administrator name and prevents closing a pending creation
  await act(async()=>finish({status:'succeeded',organization_id:organization.organization_id}));
  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());
  expect(screen.getByText('Betrieb angelegt. Das Administratorkonto ist zugeordnet.')).toBeDefined();
+});
+
+it('T122b puts navigation and theme in the sidebar, with the page action in its header',async()=>{
+  await ready();
+  const container=document.body;
+  expect(container.querySelector('.operator-sidebar nav')).not.toBeNull();
+  expect(container.querySelector('.operator-sidebar .theme-switch')).not.toBeNull();
+  expect(within(container.querySelector('.workspace-header') as HTMLElement).getByRole('button',{name:'Betrieb anlegen'})).toBeVisible();
+  expect(screen.getByRole('button',{name:'Alle Bereiche aktualisieren'})).toHaveAttribute('title','Alle Bereiche aktualisieren');
+  expect(screen.getByRole('contentinfo')).toHaveTextContent('Deutsche Ortszeit');
 });

@@ -21,3 +21,6 @@ vi.mock('react-native-safe-area-context', () => {
     useSafeAreaInsets: () => useContext(Context),
   };
 });
+
+vi.mock('expo-status-bar', () => ({ StatusBar: () => null }));
+vi.mock('expo-navigation-bar', () => ({ NavigationBar: () => null }));

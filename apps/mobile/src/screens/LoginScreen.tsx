@@ -8,7 +8,8 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import type { SignInResult } from '../auth/contracts';
 import { AppBuildIdentity } from '../design/AppBuildIdentity';
 import { ActionButton, AppText as Text, Screen } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 
 interface LoginScreenProps {
   readonly unavailable?: boolean;
@@ -19,6 +20,8 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswordReset, disabled, unavailable = false }: LoginScreenProps) {
+  const styles = useThemedStyles(createStyles);
+
   const form = useRequiredForm();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -128,7 +131,7 @@ export function LoginScreen({ signIn, signInForEmployeeEnrollment, requestPasswo
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   container: {
     flexGrow: 1,
     gap: 16,

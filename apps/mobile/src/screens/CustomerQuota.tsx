@@ -5,10 +5,12 @@ import { View } from 'react-native';
 import { formatHours, formatQuotaHours } from '@taptime/core';
 import { parseQuotaHours, quotaStageLabel, type QuotaStage } from '@taptime/mobile-work-contract';
 import { ActionButton, AppText as Text } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useMobileTokens } from '../design/useMobileTheme';
 import type { MobileWorkCapability } from '../work/contracts';
 export interface QuotaCustomer {customerId:string;workDurationSeconds:number;quotaSeconds?:number|null;quotaStage?:QuotaStage}
 export function QuotaProgress({customer}:{customer:QuotaCustomer}) {
+  const mobileTokens = useMobileTokens();
+
   if(customer.quotaSeconds==null) return null;
   const label=quotaStageLabel(customer.quotaStage),color=label?mobileTokens.color.warning:mobileTokens.color.accent;
   return <View style={{gap:8,flex:1}}><Text style={{fontWeight:'800'}}>{formatHours(customer.workDurationSeconds*1000)} von {formatQuotaHours(customer.quotaSeconds)} h</Text>

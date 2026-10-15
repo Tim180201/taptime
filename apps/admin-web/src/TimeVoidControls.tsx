@@ -3,7 +3,7 @@ import {useContext,useEffect,useRef,useState} from 'react';
 import {dayStart,shiftDay,formatZonedDateTime} from '@taptime/core';
 import {VOID_REASONS,voidReasonLabel,isVoidReason,type VoidReasonCode,type SafeOwnTimeRecord,type MobileOwnTimeQueryResponse,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import {TimeEditingContext} from './TimeEditingControls';
-import {ResponsiveSheet} from './MobileSheet';
+import {MobileSheet} from './MobileSheet';
 import {timeEditMessages} from './timeEditing';
 
 export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:()=>void}) {
@@ -24,9 +24,9 @@ export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:
     }catch{if(mounted.current)setError(timeEditMessages.unavailable);}
     finally{if(mounted.current)setSaving(false);}
   };
-  return <ResponsiveSheet label="Zeiteintrag löschen" onCancel={onClose} busy={saving}>
-    <RequiredForm className="form-grid time-edit-form" aria-label="Zeiteintrag löschen" onSubmit={event=>{event.preventDefault();void save();}}>
-      <h3 className="full-field">Zeiteintrag löschen?</h3>
+  return <MobileSheet className="right-sheet" label="Zeit löschen" onCancel={onClose} busy={saving}>
+    <RequiredForm className="form-grid time-edit-form" aria-label="Zeit löschen" onSubmit={event=>{event.preventDefault();void save();}}>
+      <h3 className="full-field">Zeit löschen?</h3>
       <p className="full-field">{context.personLabel ?? 'Sie selbst'} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – {record.stoppedAt ? formatZonedDateTime(record.stoppedAt) : 'läuft'}</p>
       <p className="full-field">Der Eintrag zählt danach nicht mehr. Er bleibt in der Historie sichtbar. Das Löschen kann nicht rückgängig gemacht werden.</p>
       <label className="full-field">Grund (freiwillig)<select aria-label="Grund (freiwillig)" autoFocus value={code} disabled={saving} onChange={e=>setCode(e.target.value as VoidReasonCode|'')}>
@@ -35,10 +35,10 @@ export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:
       {code==='other'?<label className="full-field">Kurze Begründung<textarea required maxLength={500} aria-label="Kurze Begründung" value={text} disabled={saving} onChange={e=>setText(e.target.value)}/><small>1 bis 500 Zeichen</small></label>:null}
       {error?<p className="full-field field-error" role="alert">{error}</p>:null}
       {!context.online?<p role="status">Löschen geht nur online. Ihre Eingaben bleiben erhalten.</p>:null}
-      <button className="warning-action" disabled={saving} aria-busy={saving}>{saving?'Wird gelöscht …':'Löschen bestätigen'}</button>
+      <button className="warning-action primary-action" disabled={saving} aria-busy={saving}>{saving?'Wird gelöscht …':'Löschen'}</button>
       <button type="button" className="quiet" disabled={saving} onClick={onClose}>Abbrechen</button>
     </RequiredForm>
-  </ResponsiveSheet>;
+  </MobileSheet>;
 }
 
 export function VoidedTimeRows({day,value}:{day:string;value:MobileOwnTimeQueryResponse}) {

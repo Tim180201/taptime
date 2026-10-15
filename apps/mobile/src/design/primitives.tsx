@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineIcon } from './LineIcon';
-import { mobileTokens } from './tokens';
+import { useMobileTokens, useThemedStyles } from './useMobileTheme';
+import type { MobileTokens } from './tokens';
+import { mobileFont } from './tokens';
 import { resolveControlVisualState } from './controlState';
 
 export const FontReadyContext = createContext(false);
@@ -21,11 +23,13 @@ export const EmbeddedScreenContext = createContext(false);
 
 export function manropeStyle(weight: TextStyle['fontWeight']): TextStyle {
   const value = weight === 'bold' ? 800 : Number(weight ?? 400);
-  return { fontFamily: value >= 700 ? mobileTokens.font.bold
-    : value >= 500 ? mobileTokens.font.semibold : mobileTokens.font.regular, fontWeight: 'normal' };
+  return { fontFamily: value >= 700 ? mobileFont.bold
+    : value >= 500 ? mobileFont.semibold : mobileFont.regular, fontWeight: 'normal' };
 }
 
 export function AppText({ style, ...props }: TextProps) {
+  const styles = useThemedStyles(createStyles);
+
   const loaded = useContext(FontReadyContext);
   return <Text {...props} style={[styles.bodyText, style,
     loaded && manropeStyle(StyleSheet.flatten(style)?.fontWeight)]} />;
@@ -37,6 +41,8 @@ export function Screen({
   titleIcon,
   children,
 }: PropsWithChildren<{ readonly title: string; readonly eyebrow?: string; readonly titleIcon?: ReactNode }>) {
+  const styles = useThemedStyles(createStyles);
+
   const embedded = useContext(EmbeddedScreenContext);
   const insets = useSafeAreaInsets();
   return <View style={[styles.screen, {
@@ -64,12 +70,16 @@ export function Card({
   readonly style?: ViewStyle;
   readonly accessibilityLabel?: string;
 }>) {
+  const styles = useThemedStyles(createStyles);
+
   return <View style={[styles.card, style]} accessibilityLabel={accessibilityLabel}>
     {children}
   </View>;
 }
 
 export function TouchTarget({ style, ...props }: PressableProps) {
+  const styles = useThemedStyles(createStyles);
+
   const [focused, setFocused] = useState(false);
   return <Pressable {...props}
     onFocus={(event) => { setFocused(true); props.onFocus?.(event); }}
@@ -87,6 +97,9 @@ export function ActionButton({
   readonly tone?: 'primary' | 'secondary' | 'quiet' | 'cta' | 'warning';
   readonly loading?: boolean;
 }) {
+  const mobileTokens = useMobileTokens();
+  const styles = useThemedStyles(createStyles);
+
   const [focused, setFocused] = useState(false);
   const [hovered, setHovered] = useState(false);
   const disabled = Boolean(props.disabled || loading);
@@ -145,6 +158,9 @@ export function ActionButton({
 }
 
 export function TextField({ style, editable = true, ...props }: TextInputProps & { ref?: Ref<TextInput> }) {
+  const mobileTokens = useMobileTokens();
+  const styles = useThemedStyles(createStyles);
+
   const loaded = useContext(FontReadyContext);
   const [focused, setFocused] = useState(false);
   return <TextInput
@@ -170,7 +186,7 @@ export function TextField({ style, editable = true, ...props }: TextInputProps &
   />;
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: mobileTokens.color.canvas,
@@ -249,7 +265,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: mobileTokens.radius.control,
     color: mobileTokens.color.text,
-    fontSize: 15,
+    fontSize: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },

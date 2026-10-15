@@ -493,3 +493,77 @@ input, select, textarea { font-size: 16px; }
   .tablewrap td.package-cell { grid-column: 1 / -1; }
   .package-counts { min-width: 0; }
 }
+
+/* D-140: shared scaffold without changing operator routes or authority. */
+@font-face { font-family: 'JetBrains Mono'; font-weight: 400; font-display: swap; src: url('../../landing-web/public/tag-assets/fonts/jetbrains-mono-400.ttf') format('truetype'); }
+:root { --font-mono: 'JetBrains Mono', ui-monospace, monospace; font-size: 16px; }
+body { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+button, input, select, textarea { max-width: 100%; min-height: 44px; border-radius: 9px; border-color: var(--color-text-muted); }
+button { font-weight: 600; }
+input, select, textarea { font-size: max(16px,1rem); background: var(--color-surface); }
+button.primary { font-weight: 600; }
+a[href], summary { min-height: 44px; display: inline-flex; align-items: center; }
+.brand-copy { display: grid; }
+.brand small { font: 400 .625rem var(--font-mono); letter-spacing: .08em; color: var(--color-text-muted); }
+.app.operator-shell { padding: 0; max-width: none; display: grid; grid-template-columns: 236px minmax(0,1fr); min-height: 100dvh; }
+.operator-sidebar { padding: 24px 16px; border-right: 1px solid var(--color-line); background: var(--color-surface); display: flex; flex-direction: column; }
+.operator-sidebar h2 { font: 400 .6875rem var(--font-mono); text-transform: uppercase; color: var(--color-text-muted); letter-spacing: .1em; margin: 32px 12px 12px; }
+.operator-sidebar nav { display: grid; border: 0; margin: 0; gap: 4px; }
+.operator-sidebar nav a { gap: 12px; padding: 10px 12px; border-radius: 9px; border: 0; }
+.operator-sidebar nav a[aria-current], .operator-mobile-navigation a[aria-current] { background: var(--color-surface-raised); color: var(--color-accent); box-shadow: none; }
+.operator-account { display: grid; gap: 8px; margin-top: auto; padding-top: 32px; }
+.operator-account-label { font-weight: 800; }
+.text-button { padding-inline: 0; border: 0; background: transparent; color: var(--color-accent); justify-self: start; }
+.operator-shell > main { min-width: 0; padding: 28px 32px; display: flex; flex-direction: column; }
+.operator-band, .operator-mobile-top, .operator-mobile-navigation { display: none; }
+.operator-band { grid-column: 1 / -1; min-height: 56px; background: var(--color-band); color: var(--color-band-text); padding: 8px 24px; align-items: center; gap: 24px; }
+.operator-band .text-button { margin-left: auto; color: var(--color-band-text); }
+.operator-band .brand small { display: none; }
+:root[data-theme="light"] .operator-band { display: flex; }
+:root[data-theme="light"] .operator-sidebar > .brand, :root[data-theme="light"] .operator-sidebar .operator-account-label, :root[data-theme="light"] .operator-sidebar .text-button { display: none; }
+.workspace-header { display: flex; gap: 16px; align-items: start; margin-bottom: 24px; }
+.workspace-title { flex: 1 1 20rem; min-width: 0; }
+.eyebrow { font: 400 .6875rem var(--font-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--color-accent); margin: 0 0 8px; }
+.workspace-title h1 { font-size: 26px; line-height: 1.2; font-weight: 800; margin: 0; }
+h1:focus:not(:focus-visible) { outline: 0; }
+.page-subtitle { font-size: .8125rem; color: var(--color-text-muted); margin-top: 8px; max-width: 70ch; }
+.header-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.icon-button { width: 44px; padding: 0; display: inline-grid; place-items: center; }
+.card { border-radius: 12px; padding: 16px 18px; }
+.tile p { font-family: var(--font-mono); font-size: 34px; font-weight: 600; color: var(--color-text); }
+.tile h2 { font-size: .8125rem; color: var(--color-text-muted); }
+th { font: 400 .65625rem var(--font-mono); text-transform: uppercase; color: var(--color-text-muted); letter-spacing: .08em; }
+th, td { min-height: 44px; }
+.badge.active { background: transparent; border: 1px solid var(--color-line); color: var(--color-text); }
+.badge.paused { background: transparent; color: var(--color-notice); border: 1px solid var(--color-notice); }
+.operator-footer { margin-top: auto; padding-top: 24px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; color: var(--color-text-muted); font-size: .71875rem; }
+.mobile-sheet { color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 12px; padding: 24px; width: min(36rem,100%); max-width: 100%; max-height: 100dvh; overflow: auto; }
+.mobile-sheet::backdrop { background: var(--color-ground); opacity: .65; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+@media (prefers-color-scheme: light) {
+ :root:not([data-theme]) .operator-band { display: flex; }
+ :root:not([data-theme]) .operator-sidebar > .brand, :root:not([data-theme]) .operator-sidebar .operator-account-label, :root:not([data-theme]) .operator-sidebar .text-button { display: none; }
+}
+@media (max-width: 1023px) {
+ .app.operator-shell { display: block; }
+ .operator-sidebar, :root .operator-shell .operator-band { display: none; }
+ .operator-mobile-top { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; background: var(--color-surface); }
+ .operator-mobile-top small { display: none; }
+ .operator-shell > main { padding: 20px 16px 112px; }
+ .workspace-header { flex-direction: column; }
+ .workspace-title { flex-basis: auto; }
+ .header-actions { width: 100%; }
+ .header-actions .primary { flex: 1 1 100%; }
+ .operator-mobile-navigation { display: flex; position: fixed; inset: auto 0 0; z-index: 4; background: var(--color-ground); padding: 8px 4px max(8px,env(safe-area-inset-bottom)); border-top: 1px solid var(--color-line); }
+ .app .operator-mobile-navigation nav { flex: 3; display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border: 0; margin: 0; padding: 0; background: transparent; }
+ .operator-mobile-navigation > button { flex: 1; }
+ .app .operator-mobile-navigation a, .operator-mobile-navigation > button { display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 10px; border: 0; min-width: 0; min-height: 56px; padding: 4px 2px; }
+ .tiles { grid-template-columns: minmax(0,1fr); }
+ .tablewrap tbody tr { grid-template-columns: minmax(0,1fr); }
+ :root[data-theme="light"] .operator-mobile-top { background: var(--color-band); color: var(--color-band-text); }
+}
+@media (max-width:1023px) and (prefers-color-scheme:light) { :root:not([data-theme]) .operator-mobile-top { background: var(--color-band); color: var(--color-band-text); } }
+
+/* Pointer navigation keeps the heading quiet; keyboard focus stays visible. */
+:root:not([data-keyboard]) h1:focus{outline:none}
+.app .operator-mobile-navigation nav a[aria-current]{border:0}

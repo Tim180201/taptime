@@ -28,7 +28,8 @@ describe('T-061 device polish — red proofs', () => {
     const app = await source('App.tsx');
     const navigation = await source('src/navigation/AppNavigator.tsx');
     expect(app).toContain('<SafeAreaProvider');
-    expect(app).toContain('hidden={false}');
+    // T-122b keeps the bar light during startup and follows the theme afterwards.
+    expect(await source('src/design/StartupBoundary.tsx')).toContain('hidden={false}');
     expect(navigation).toContain('useSafeAreaInsets()');
     expect(navigation).toMatch(/paddingTop:\s*insets\.top/);
     expect(navigation).toMatch(/paddingBottom:\s*insets\.bottom/);

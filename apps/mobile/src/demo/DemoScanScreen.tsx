@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { ActionButton as Button, AppText as Text, TextField as TextInput } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 import { buildScanDemoPipeline, DEMO_KNOWN_PAYLOAD, type CallerContext } from '@taptime/core';
 import { RnNfcScanAdapter } from '../nfc/RnNfcScanAdapter';
 
 export function DemoScanScreen({ caller }: { readonly caller: CallerContext }) {
+  const styles = useThemedStyles(createStyles);
+
   const [payload, setPayload] = useState(DEMO_KNOWN_PAYLOAD);
   const [lines, setLines] = useState<string[]>([]);
   const [status, setStatus] = useState('Ready for explicit development demo scan.');
@@ -43,7 +46,7 @@ export function DemoScanScreen({ caller }: { readonly caller: CallerContext }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   container: { flexGrow: 1, gap: 16, padding: 20, backgroundColor: mobileTokens.color.ground },
   input: {},
 });

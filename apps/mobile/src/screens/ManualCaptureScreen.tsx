@@ -17,9 +17,12 @@ import { type SafeWorkTarget, type WorkTargetType } from '@taptime/mobile-work-c
 import type { MobileWorkCapability } from '../work/contracts';
 import { ActionButton, AppText as Text, Card, Screen } from '../design/primitives';
 import { RecentTime } from './RecentTimeCard';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 
 export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapability }) {
+  const styles = useThemedStyles(createStyles);
+
   const state = useSyncExternalStore(
     (listener) => work.subscribe(listener),
     () => work.getState(),
@@ -106,7 +109,7 @@ function groupLabel(type: WorkTargetType): string {
   return 'Allgemeine Arbeitszeit – ohne Kunde oder Projekt';
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   explanation: { color: mobileTokens.color.inkMuted, fontSize: 13, lineHeight: 20 },
   list: { gap: mobileTokens.spacing.md, paddingBottom: mobileTokens.spacing.sm },
   group: {

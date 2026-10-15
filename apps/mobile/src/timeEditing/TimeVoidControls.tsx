@@ -6,7 +6,7 @@ import {dayStart,shiftDay,formatZonedDateTime,hasVisibleText} from '@taptime/cor
 import {VOID_REASONS,voidReasonLabel,isVoidReason,type VoidReasonCode,type SafeOwnTimeRecord,type MobileOwnTimeQueryResponse,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
 import {TimeEditingContext,timeEditMessages} from './TimeEditingControls';
 import {ActionButton,AppText as Text,Card} from '../design/primitives';
-import {mobileTokens} from '../design/tokens';
+import { useMobileTokens } from '../design/useMobileTheme';
 
 export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;onSaved:()=>Promise<void>;onClose:()=>void}) {
   const form = useRequiredForm();
@@ -42,6 +42,8 @@ export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;
 }
 
 export function VoidedTimeRows({day,value,targetMembershipId}:{day:string;value:MobileOwnTimeQueryResponse;targetMembershipId?:string}) {
+  const mobileTokens = useMobileTokens();
+
   const context=useContext(TimeEditingContext),load=context?.capability.loadVoided,owner=context?.membershipId;
   const target=targetMembershipId??owner,key=`${owner}/${context?.role}/${target}/${day}`;
   const [state,setState]=useState<VoidedTimeSelection|{status:'loading'}>({status:'loading'}),[loadedKey,setLoadedKey]=useState(''),[reload,setReload]=useState(0);

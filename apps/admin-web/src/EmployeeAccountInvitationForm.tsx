@@ -39,7 +39,8 @@ export class EmployeeAccountInvitationClient implements EmployeeAccountInvitatio
 }
 
 type ReadyState = Extract<AdminWebState, { readonly status: 'ready' }>;
-export function EmployeeAccountInvitationForm({ capability, state, open, setOpen, onCreated, packageUsage }: {
+export function EmployeeAccountInvitationForm({ capability, state, open, setOpen, onCreated, packageUsage, triggerLabel="Mitarbeiter hinzufügen", triggerClassName="primary-action" }: {
+  readonly triggerLabel?:string; readonly triggerClassName?:string;
   readonly packageUsage?: import('@taptime/administration-contract/managed-people').OrganizationPackageUsage | null;
   readonly capability?: EmployeeAccountInvitationCapability;
   readonly state: Pick<ReadyState, 'locationsEnabled' | 'selectedLocation' | 'assignableLocations'>;
@@ -69,7 +70,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
   }, [open,nativeDialog]);
 
   return <>
-    {!open ? <button className="primary-action" ref={trigger} onClick={() => setOpen(true)}>Mitarbeiter hinzufügen</button>
+    {!open ? <button className={triggerClassName} ref={trigger} onClick={() => setOpen(true)}>{triggerLabel}</button>
       : <dialog ref={dialog} className="invitation-panel" aria-label="Mitarbeiter einladen"
         open={nativeDialog ? undefined : true} onCancel={event=>{event.preventDefault();if(!busy) setOpen(false);}}>
         <h2>Mitarbeiter einladen</h2>

@@ -7,11 +7,13 @@ import type { EmployeesCapability, EmployeesState } from '../employees/contracts
 import { invitationMessage } from '../employees/presentation';
 import { ActionButton, AppText as Text, Card, Screen, TextField, TouchTarget } from '../design/primitives';
 import { LineIcon } from '../design/LineIcon';
-import { mobileTokens } from '../design/tokens';
+import { useMobileTokens } from '../design/useMobileTheme';
 export function InviteEmployeeScreen({employees,state,scope,locationsEnabled}: {
   readonly employees: EmployeesCapability; readonly state: Extract<EmployeesState,{status:'invite'}>;
   readonly scope: MobileManagementScope; readonly locationsEnabled: boolean;
 }) {
+  const mobileTokens = useMobileTokens();
+
   const form = useRequiredForm();
   const [name,setName]=useState(''); const [email,setEmail]=useState('');
   const [locationId,setLocationId]=useState<string|null>(scope.kind==='location' ? scope.locationId : null);

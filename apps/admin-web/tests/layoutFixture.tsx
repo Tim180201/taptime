@@ -153,7 +153,7 @@ class FakeCapability implements AdminWebCapability {
   private readonly listeners = new Set<() => void>();
   constructor(state: AdminWebState) { this.state = state; }
   loadReviewDay = async (reviewItemId:string) => {
-    if(this.state.status==='ready')this.emit({...this.state,reviewDay:{reviewItemId,status:'ready',value:{activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}});
+    if(this.state.status==='ready')this.emit({...this.state,reviewDay:{reviewItemId,status:'ready',value:{activeRecord:null,records:variant==='reviews-human'?[{...entry,startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-20T10:00:00.000Z',calendar:{asOf:'2026-07-20T11:00:00.000Z',workDurationSeconds:7200,breakDurationSeconds:0,breakIntervals:[]}}]:[],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}});
   };
   getState = () => this.state;
   subscribe = (listener: () => void) => {
@@ -181,7 +181,10 @@ class FakeCapability implements AdminWebCapability {
   signOut = async () => undefined;
   refresh = async () => undefined;
   selectLocation = async () => undefined;
-  setTimeWindow = async () => undefined;
+  // T-122b: the default month now changes the query; mirror the capability's result window.
+  setTimeWindow = async (fromInclusive:string,toExclusive:string) => {
+    if(this.state.status==='ready')this.emit({...this.state,timeWindow:{fromInclusive,toExclusive}});
+  };
   loadPersonTime = async (targetMembershipId:string,month:string) => {
     if(this.state.status==='ready' && this.state.calendar?.status==='ready')
       this.emit({...this.state,calendar:{...this.state.calendar,targetMembershipId,month}});
@@ -229,7 +232,7 @@ const person = readyState.employeeProjection.employeeMemberships[0]!;
 const location = { id: '31000000-0000-4000-8000-000000000001', name: 'Standort am langen Beispielweg' };
 const details = { origin: 'backfilled' as const, baseRowVersion: 0, effectiveRevisionNumber: 2,
   comment: 'Beim Kunden vor Ort', changed: true, change: { at: '2026-09-23T10:00:00.000Z', reason: 'Vergessenen Beginn berichtigt', actor: 'administration' as const }, overlapsAnotherRecord: true };
-const entry = { ...record, calendar:{asOf:'2026-09-23T12:00:00.000Z',workDurationSeconds:5400,breakDurationSeconds:1800,breakIntervals:[{startedAt:'2026-09-23T09:00:00.000Z',stoppedAt:'2026-09-23T09:30:00.000Z'}]}, employeeDisplayName: 'Alexandra Beispiel', targetDisplayName: 'Werkstatt am Beispielweg',
+const entry = { ...record, employeeMembershipId:person.id, calendar:{asOf:'2026-09-23T12:00:00.000Z',workDurationSeconds:5400,breakDurationSeconds:1800,breakIntervals:[{startedAt:'2026-09-23T09:00:00.000Z',stoppedAt:'2026-09-23T09:30:00.000Z'}]}, employeeDisplayName: 'Alexandra Beispiel', targetDisplayName: 'Werkstatt am Beispielweg',
   startedAt: '2026-09-23T08:00:00.000Z', stoppedAt: '2026-09-23T10:00:00.000Z', details };
 let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
   membershipId: own,
@@ -276,6 +279,7 @@ if (variant.startsWith('manager')) ready = { ...ready, role: 'standortleitung', 
 if (variant.startsWith('invitation-')) ready = { ...ready, locationsEnabled: true, selectedLocation: null, assignableLocations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] };
 if (variant === 'setup-targets-locations') ready = { ...ready, locationsEnabled: true,
   assignableLocations: [location, { ...location, id: '31000000-0000-4000-8000-000000000002', name: 'Nord' }] };
+if (variant === 'reviews-human') ready={...ready,reviewItems:[{...reviewItem,employeeDisplayName:'Alex Berger',reviewReason:'future_reason',predecessorBlocked:false}]};
 if (variant === 'payroll') ready = { ...ready, timeWindow: {fromInclusive:'2026-08-25T12:00:00.000Z',toExclusive:'2026-09-25T12:00:00.000Z'} };
 if (variant === 'payroll-month') ready = { ...ready, timeWindow: {fromInclusive:'2026-08-31T22:00:00.000Z',toExclusive:'2026-09-30T22:00:00.000Z'} };
 if (variant === 'five-areas') ready = { ...ready, availableSections: readyState.availableSections };

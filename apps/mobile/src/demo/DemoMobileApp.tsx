@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText as Text } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 import {
   FakeAuthenticationGateway,
   SessionService,
@@ -14,6 +15,8 @@ import { DemoScanScreen } from './DemoScanScreen';
 
 /** Explicit development-only preservation of the pre-C1 fake/demo flow. */
 export function DemoMobileApp() {
+  const styles = useThemedStyles(createStyles);
+
   const [caller, setCaller] = useState<CallerContext | null>(null);
   const sessionService = useMemo(() => new SessionService(new FakeAuthenticationGateway()), []);
 
@@ -34,7 +37,7 @@ export function DemoMobileApp() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   container: { flex: 1, backgroundColor: mobileTokens.color.ground },
   banner: {
     paddingTop: 16,

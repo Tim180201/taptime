@@ -11,10 +11,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, View, StyleSheet } from 'react-native';
 import type { MobileWorkCapability } from '../work/contracts';
 import { ActionButton, AppText as Text, Card, Screen, TouchTarget } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 
 const label = (month: string) => new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,month:'long',year:'numeric'}).format(new Date(`${month}-15T12:00Z`));
 export function CustomersScreen({work, authorityContext, openCustomer, administration}: {readonly administration?: AdminSetupCapability; readonly work: MobileWorkCapability; readonly authorityContext: object; readonly openCustomer?:{readonly customerId:string;readonly month:string}}) {
+  const styles = useThemedStyles(createStyles);
+
   const current=businessDay(Date.now()).slice(0,7),months=Array.from({length:24},(_,i)=>shiftMonth(current,-i));
   const [month,setMonth]=useState(openCustomer?.month??current),[choose,setChoose]=useState(false),[selected,setSelected]=useState<string|null>(openCustomer?.customerId??null);
   const [refresh,setRefresh]=useState(0);
@@ -61,4 +64,4 @@ export function CustomersScreen({work, authorityContext, openCustomer, administr
     </>:null}
   </ScrollView></Screen>;
 }
-const styles=StyleSheet.create({content:{gap:16,paddingBottom:24},month:{flexDirection:'row',alignItems:'center',gap:4},monthTitle:{flex:1,minHeight:48,justifyContent:'center',alignItems:'center'},arrow:{width:44,minHeight:48,alignItems:'center',justifyContent:'center'},row:{flexDirection:'row',gap:12,paddingVertical:12},name:{flex:1,flexShrink:1},customer:{minHeight:76,flexDirection:'row',alignItems:'center',gap:12,padding:16,borderRadius:12,backgroundColor:mobileTokens.color.surface,borderWidth:1,borderColor:mobileTokens.color.border},bold:{fontWeight:'800',fontVariant:['tabular-nums']},muted:{color:mobileTokens.color.textMuted,fontSize:13},title:{fontSize:22,fontWeight:'800'},total:{fontSize:40,lineHeight:48,fontWeight:'800',fontVariant:['tabular-nums']}});
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({content:{gap:16,paddingBottom:24},month:{flexDirection:'row',alignItems:'center',gap:4},monthTitle:{flex:1,minHeight:48,justifyContent:'center',alignItems:'center'},arrow:{width:44,minHeight:48,alignItems:'center',justifyContent:'center'},row:{flexDirection:'row',gap:12,paddingVertical:12},name:{flex:1,flexShrink:1},customer:{minHeight:76,flexDirection:'row',alignItems:'center',gap:12,padding:16,borderRadius:12,backgroundColor:mobileTokens.color.surface,borderWidth:1,borderColor:mobileTokens.color.border},bold:{fontWeight:'800',fontVariant:['tabular-nums']},muted:{color:mobileTokens.color.textMuted,fontSize:13},title:{fontSize:22,fontWeight:'800'},total:{fontSize:40,lineHeight:48,fontWeight:'800',fontVariant:['tabular-nums']}});

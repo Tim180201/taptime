@@ -5,7 +5,7 @@ export function renderContact(box: HTMLElement, address: string): void {
   box.replaceChildren(slot);
   if (!address) return;
   const link = document.createElement('a');
-  link.className = 'btn btn-primary';
+  link.className = 'btn btn-ghost';
   link.href = `mailto:${address}`;
   link.textContent = 'Pilot per E-Mail anfragen';
   const purpose = document.createElement('p');

@@ -9,7 +9,8 @@ import type {
   OfflineManualCaptureCapability,
 } from '../offline/OfflineCaptureCoordinator';
 import { ActionButton, AppText as Text, Card, Screen, TextField } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 
 type ProjectionState =
   | { readonly status: 'loading' }
@@ -41,6 +42,8 @@ export function OfflineManualCaptureScreen({
   readonly transmissionRetryAvailable?: boolean;
   readonly restorationKey: string;
 }) {
+  const styles = useThemedStyles(createStyles);
+
   const [projection, setProjection] = useState<ProjectionState>({ status: 'loading' });
   const [selected, setSelected] = useState<SafeWorkTarget | null>(null);
   const [pause, setPause] = useState(false);
@@ -226,7 +229,7 @@ function groupLabel(type: SafeWorkTarget['targetType']): string {
   return 'Allgemeine Arbeitszeit – ohne Kunde oder Projekt';
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   explanation: { color: mobileTokens.color.inkMuted, fontSize: 13, lineHeight: 20 },
   search: {
     minHeight: mobileTokens.touchMinimum,
@@ -236,7 +239,7 @@ const styles = StyleSheet.create({
     borderRadius: mobileTokens.radius.control,
     paddingHorizontal: mobileTokens.spacing.md,
     color: mobileTokens.color.text,
-    fontSize: 15,
+    fontSize: 16,
   },
   list: { gap: mobileTokens.spacing.md, paddingBottom: mobileTokens.spacing.sm },
   group: {

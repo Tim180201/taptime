@@ -26,12 +26,12 @@ describe('mobile color and control raster', () => {
     }
   });
 
-  it('asks Android for vibration and selects the dark system surface', async () => {
+  it('asks Android for vibration and allows the system theme (D-140)', async () => {
     const configuration = JSON.parse(await readFile(
       new URL('../../app.json', import.meta.url),
       'utf8',
     ));
-    expect(configuration.expo.userInterfaceStyle).toBe('dark');
+    expect(configuration.expo.userInterfaceStyle).toBe('automatic');
     expect(configuration.expo.android.permissions).toEqual([
       'android.permission.NFC',
       'android.permission.VIBRATE',
@@ -65,7 +65,8 @@ describe('mobile color and control raster', () => {
   it('(d) inherits tested symbol colors through SVG currentColor on every used surface', async () => {
     const icon = await readFile(new URL('../../src/design/LineIcon.tsx', import.meta.url), 'utf8');
     expect(icon).toContain('stroke="currentColor"');
-    expect(icon).toContain('color={color}');
+    // The explicit color still wins; the default now comes from the current theme.
+    expect(icon).toContain('color={color ?? mobileTokens.color.textMuted}');
     const sources = await readSourceFiles(new URL('../../src/', import.meta.url));
     const foregrounds = new Set<string>([mobileTokens.color.textMuted, mobileTokens.color.accent,
       mobileTokens.color.notice, mobileTokens.color.onAccent]);

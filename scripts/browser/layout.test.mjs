@@ -134,10 +134,10 @@ test('mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!
       assert.equal(await sheet.evaluate(el=>el.contains(document.activeElement)),true);
       await page.keyboard.press('Escape');
       assert.equal(await sheet.count(),0);
-      assert.equal(await more.evaluate(el=>el===document.activeElement),true);
+      assert.equal(await more.evaluate(el=>el===document.activeElement),true,`${variant}: focus after Escape = ${await page.evaluate(()=>document.activeElement?.outerHTML)}`);
     }
     await page.goto(webs['admin-web'].origin+'/beschaeftigte#employees');
-    await page.getByRole('button',{name:'Mitarbeiter hinzufügen',exact:true}).click();
+    await page.getByRole('button',{name:'+ Mitarbeiter einladen',exact:true}).click();
     const invitation = page.getByRole('dialog');
     await page.getByLabel('Name',{exact:true}).fill('Unverändert Beispiel');
     await page.setViewportSize({width:1440,height:900});
@@ -146,7 +146,7 @@ test('mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!
     assert.deepEqual((await measure(page)).geometry,[]);
     await page.keyboard.press('Escape');
     assert.equal(await invitation.count(),0);
-    assert.equal(await page.getByRole('button',{name:'Mitarbeiter hinzufügen',exact:true}).evaluate(el=>el===document.activeElement),true);
+    assert.equal(await page.getByRole('button',{name:'+ Mitarbeiter einladen',exact:true}).evaluate(el=>el===document.activeElement),true);
   } finally {await page.close();}
 });
 
@@ -167,8 +167,8 @@ for(const width of [360,390,1440]) test(`T113 time form visibility and keyboard 
    assert.ok(boxes.every(box=>box && Math.abs(box.y-boxes[0].y)<1));
   }
   assert.equal(await form.locator('input[type="datetime-local"]').count(),0);
-  for(const [from,to] of [['Kunde oder Projekt','Datum'],['Datum','Von'],['Von','Bis'],['Bis','Grund (freiwillig)']]){
-   await form.getByLabel(from,{exact:from!=='Kunde oder Projekt'}).press('Enter');
+  for(const [from,to] of [['Suchen','Datum'],['Datum','Von'],['Von','Bis'],['Bis','Grund (freiwillig)']]){
+   await form.getByLabel(from,{exact:true}).press('Enter');
    assert.equal(await form.getByLabel(to,{exact:true}).evaluate(el=>el===document.activeElement),true,`${from} → ${to}`);
   }
   await form.getByLabel('Grund (freiwillig)',{exact:false}).fill('Erste Zeile');

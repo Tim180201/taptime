@@ -7,11 +7,14 @@ import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/primitives';
 import { LineIcon } from '../design/LineIcon';
-import { mobileTokens } from '../design/tokens';
+import { useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 import { businessDay, dayStart, formatClock, formatDuration, formatHours, intervalMilliseconds,
   monthDays, provenance, rangeSummary, monthTimeSummary, recordDaySummary, recordDaySectionLabels, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
 
 export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembershipId}: {readonly targetMembershipId?: string; readonly value: MobileOwnTimeQueryResponse; readonly onRefresh: ()=>Promise<void>; readonly onMonthChange?: (month: string)=>void}) {
+  const styles = useThemedStyles(createStyles);
+
   const scroll = useRef<ScrollView>(null);
   const dayHeadingY = useRef(0);
   const reducedMotion = useReducedMotion();
@@ -94,7 +97,7 @@ export function ownTimeLoadStatus(count: number, nextCursor: string | null): str
   return nextCursor === null ? `${count} Einträge geladen.`
     : 'Weitere Zeiten werden geladen. Summen sind noch unvollständig.';
 }
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   content: { gap: 16, paddingBottom: 24 }, summaries: { flexDirection: 'row', gap: 16 },
   summary: { flex: 1, padding: 12 }, number: { fontSize: 40, lineHeight: 48, fontWeight: '800', fontVariant: ['tabular-nums'] },
   muted: { fontSize: 13, lineHeight: 20, color: mobileTokens.color.textMuted },

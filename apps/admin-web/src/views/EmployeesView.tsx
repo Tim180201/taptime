@@ -14,9 +14,10 @@ import type {
 import {
 	monthLabel,canonicalRoutePath, defaultRoute, type AdminRoute
 } from '../navigation';
-import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
+import { Confirmation,DataTable,SectionBoundary } from '../ui';
 import { useIntentFocusReturn } from '../viewHelpers';
-import { ActivityTile,PeopleTable } from './PeopleShared';
+import { PeopleTable } from './PeopleShared';
+import {PageHeader} from '../PageHeader';
 type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { status: 'ready' }>;
 export default function EmployeesView({ state, administration, accountInvitations, navigate, route }: {
   readonly route?: AdminRoute;
@@ -52,24 +53,8 @@ export default function EmployeesView({ state, administration, accountInvitation
     month:running ? businessDay(Date.parse(running.startedAt)).slice(0,7) : null};
   const packageUsage=state.managementScope.kind==='organization' && state.managedPeople?.status==='ready'
     ? state.managedPeople.value.packageUsage : null;
-  return <>
-    {invitationSuccess === null ? null : <p role="status">{ACCOUNT_INVITATION_SUCCESS_NOTICES[invitationSuccess]}</p>}
-    <SectionBoundary state={state.sections.employees}
-    onRetry={() => void administration.retrySection('employees')}>
-    <Panel title="Mitarbeiter" description={state.selectedLocation === null
-      ? 'Mitarbeiter und ihre Zugänge.'
-      : `Mitarbeiter und ihre Zugänge am Standort ${state.selectedLocation.name}.`}>
-      {packageUsage?.packageSize != null ? <p className={packageUsage.activeAccessCount > packageUsage.packageSize ? 'package-warning' : undefined}>
-        {packageUsage.activeAccessCount} Zugänge, Paket {packageUsage.packageSize}
-        {packageUsage.activeAccessCount > packageUsage.packageSize ? ' · Paket überschritten. Alle Zugänge bleiben nutzbar.' : ''}
-      </p> : null}
-      <CountTruth count={state.employeeProjection.employeeMemberships.length}
-        noun={state.selectedLocation === null
-          ? state.locationsEnabled ? 'Mitarbeiter im Betrieb' : 'Mitarbeiter'
-          : `Mitarbeiter am Standort ${state.selectedLocation.name}`}
-        complete={state.employeeProjection.nextCursor === null} />
-      <EmployeeAccountInvitationForm key={state.selectedLocation?.id ?? 'organization'}
-        packageUsage={packageUsage}
+  const invitation=<>      <EmployeeAccountInvitationForm key={state.selectedLocation?.id ?? 'organization'}
+        triggerLabel="+ Mitarbeiter einladen" triggerClassName={state.role==='administrator'?'primary-action':'secondary'} packageUsage={packageUsage}
         capability={accountInvitations} state={state} open={adding} setOpen={(open) => {
           if (open) setInvitationSuccess(null);
           setAdding(open);
@@ -77,39 +62,46 @@ export default function EmployeesView({ state, administration, accountInvitation
           setInvitationSuccess(status);
           await administration.retrySection('employees');await members.pager.refresh();
         }} />
+</>;
+  return <><PageHeader organization={state.projection.organization.name} title="Mitarbeiter"
+    subtitle={state.managedPeople?.status==='ready'?`${state.managedPeople.value.totalCount} Mitarbeiter · ${state.managedPeople.value.runningCount} aktiv`:'Mitarbeiter und ihre Zeiten im gewählten Monat.'}
+    actions={<><label className="header-month"><span className="sr-only">Monat</span><select value={month} onChange={event=>changeMonth(event.target.value)}>{months.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}</select></label>{state.role==='administrator'?invitation:null}</>}
+    onRefresh={()=>void administration.refresh()}/>
+    {invitationSuccess === null ? null : <p role="status">{ACCOUNT_INVITATION_SUCCESS_NOTICES[invitationSuccess]}</p>}
+    <SectionBoundary state={state.sections.employees}
+    onRetry={() => void administration.retrySection('employees')}>
+    <div className="employees-view">
+      {packageUsage?.packageSize != null ? <p className={packageUsage.activeAccessCount > packageUsage.packageSize ? 'package-warning' : undefined}>
+        {packageUsage.activeAccessCount} Zugänge, Paket {packageUsage.packageSize}
+        {packageUsage.activeAccessCount > packageUsage.packageSize ? ' · Paket überschritten. Alle Zugänge bleiben nutzbar.' : ''}
+      </p> : null}
       {state.roleAssignmentMembershipId && state.notice?.kind==='success' && state.notice.text==='Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.' ? <a className="button-link"
         href={canonicalRoutePath({...defaultRoute('einrichtung'),setupTab:'standorte',setupMembershipId:state.roleAssignmentMembershipId})}
         onClick={event=>{event.preventDefault();navigate({...defaultRoute('einrichtung'),setupTab:'standorte',setupMembershipId:state.roleAssignmentMembershipId});}}>Verwaltete Standorte zuweisen</a> : null}
-      <div className="toolbar customer-month">
-        <button className="quiet" aria-label="Voriger Monat" disabled={month===months.at(-1)} onClick={()=>changeMonth(shiftMonth(month,-1))}>←</button>
-        <label>Monat<select value={month} onChange={event=>changeMonth(event.target.value)}>{months.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}</select></label>
-        <button className="quiet" aria-label="Nächster Monat" disabled={month===current} onClick={()=>changeMonth(shiftMonth(month,1))}>→</button>
-      </div>
       <SearchField value={input} onChange={setInput}/>
       <p role="status">{state.managedPeople?.status==='ready'?`${state.managedPeople.value.nextCursor?'mehr als ':''}${state.managedPeople.value.people.length} Treffer`:'Wird geladen …'}</p>
       {state.managedPeople?.status==='ready'&&!state.managedPeople.value.people.length&&search?<p>{`Keine Treffer für „${search}“`} <button type="button" onClick={()=>setInput('')}>Suche löschen</button></p>:null}
       {state.managedPeople?.failed?<button onClick={()=>void administration.refreshManagedPeople?.(runningFilter,state.managedPeople?.status==='ready',month,search)}>Erneut versuchen</button>:null}
-      <ActivityTile state={state} administration={administration}/>
-      <div className="filter-chips" role="group" aria-label="Aktivitätsfilter">{[['Alle',null],['Zeit läuft',true],['Keine laufende Zeit',false]].map(([label,value])=>
+      <div className="filter-chips" role="group" aria-label="Aktivitätsfilter">{[['Alle',null],['Zeit läuft',true],['Keine Zeit',false]].map(([label,value])=>
         <button key={String(label)} className="secondary" aria-pressed={runningFilter === value}
           onClick={()=>setRunningFilter(value as boolean|null)}>{label}</button>)}</div>
       {state.managedPeople?.status === 'ready' && state.managedPeople.month===month ? <><PeopleTable people={state.managedPeople.value.people}
         navigate={navigate} locationId={state.selectedLocation?.id ?? null} locationsEnabled={state.locationsEnabled} month={month}/>
         {state.managedPeople.value.nextCursor === null ? null : <button className="secondary"
           onClick={()=>void administration.refreshManagedPeople?.(runningFilter,true,month,search)} disabled={state.managedPeople.busy}>Weitere laden</button>}</> : null}
-      <details className="membership-tools"><summary>Zugänge verwalten</summary>
+      <details className="membership-tools"><summary>Zugänge verwalten</summary>{state.role!=='administrator'?invitation:null}
       <SearchField value={members.input} onChange={members.setSearch}/><SearchStatus state={members.state} onRetry={members.pager.retry} onClear={()=>members.setSearch('')}/>
-      <ul className="entity-list">{members.state.items.map((membership) =>
-        <li key={membership.id}><span>{membership.displayName}</span>
+      <DataTable label="Zugänge" headers={['Person','Zugang','Standort','Aktionen']}>{members.state.items.map((membership) =>
+        <tr key={membership.id}><td>{membership.displayName}</td><td>
           <small className={`pill ${membership.active ? 'success' : ''}`}>
             {membership.role === 'administrator'
               ? 'Administrator'
               : membership.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter'}
             {' · '}{membership.active ? 'Zugang aktiv' : 'Zugang entzogen'}
-          </small>
+          </small></td><td>
           {state.locationsEnabled && membership.location !== null
             ? <small>Standort {membership.location.name}</small> : null}
-          {membership.active
+          </td><td>{membership.active
             && (state.managementScope.kind === 'organization' || membership.role === 'employee')
             ? <div className="entity-actions">
             {state.managementScope.kind === 'organization'
@@ -137,7 +129,7 @@ export default function EmployeesView({ state, administration, accountInvitation
               });
             }}>Zugang entziehen</button>
           </div> : null}
-        </li>)}</ul>
+        </td></tr>)}</DataTable>
       {revocationIntent === null ? null : <Confirmation
         label="Zugangsentzug ausdrücklich bestätigen"
         title={`Zugang für ${revocationIntent.displayName} wirklich entziehen?`}
@@ -179,6 +171,6 @@ export default function EmployeesView({ state, administration, accountInvitation
             </div>
         : null}
 
-    </Panel>
+    </div>
   </SectionBoundary></>;
 }

@@ -5,10 +5,12 @@ import {
 	intervalMilliseconds,monthDays,provenance,rangeSummary,monthTimeSummary,recordDaySummary,recordDaySectionLabels,recordsForDay,shiftDay,shiftMonth,weekStart
 } from '@taptime/core';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
-import { useRef, useState } from 'react';
-import { Panel } from './ui';
+import { useRef, useState, type ReactNode } from 'react';
+import { Panel,DataTable,Pill } from './ui';
 
-export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
+import {PageHeader} from './PageHeader';
+export function TimeCalendar({value,month,onMonthChange,onRefresh,personHeader}: {
+  readonly personHeader?:{organization:string;name:string;subtitle:ReactNode;actions:ReactNode};
   readonly value:MobileOwnTimeQueryResponse; readonly month:string;
   readonly onMonthChange:(month:string)=>void; readonly onRefresh:()=>void;
 }) {
@@ -29,6 +31,7 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
   const records=recordsForDay(value,selected);
   const monthTitle=new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,month:'long',year:'numeric'}).format(new Date(`${month}-15T12:00:00Z`));
   return <section aria-label="Zeitkalender">
+    {personHeader?<PageHeader organization={personHeader.organization} title={personHeader.name} subtitle={personHeader.subtitle} actions={<>{personHeader.actions}<AddTimeControl day={selected}/></>} onRefresh={onRefresh}/>:null}
     <div className="metric-grid">{summaries.map(([label,summary])=><article className="metric-card" key={label}>
       <span>{label}</span><strong>{summary.complete ? `${formatHours(summary.milliseconds)} h` : '—'}</strong>
       <small>{summary.complete ? `${formatDuration(summary.breakMilliseconds)} Pause` : 'Zeitraum nicht vollständig geladen'}</small>
@@ -46,7 +49,18 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
             ? summary.milliseconds > 0 ? formatHours(summary.milliseconds) : '' : '—'}</small></button>;
       })}</div>
     </Panel><div ref={dayList}><Panel title={new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,weekday:'long',day:'numeric',month:'long'}).format(new Date(`${selected}T12:00:00Z`))}>
-      <AddTimeControl day={selected}/><ul className="time-day-list">{records.map(record=>{
+      {personHeader?<DataTable label="Zeiten dieses Tages" headers={['Von–Bis','Kunde oder Projekt',{label:'Dauer',numeric:true},'Art','Hinweise und Aktionen']}>
+        {records.map(record=>{
+          const sections=recordDaySectionLabels(record,selected);
+          const overlaps=record.details?.overlapsAnotherRecord?records.filter(other=>other.timeRecordId!==record.timeRecordId && Date.parse(other.startedAt)<Date.parse(record.stoppedAt??value.windowEndedAt) && Date.parse(record.startedAt)<Date.parse(other.stoppedAt??value.windowEndedAt)):[];
+          return <tr key={record.timeRecordId} id={`time-${record.timeRecordId}`}><td>
+            {formatClock(Math.max(dayStart(selected),Date.parse(record.startedAt)))}–{record.stoppedAt?formatClock(Math.min(dayStart(shiftDay(selected,1)),Date.parse(record.stoppedAt))):'läuft'}
+            {sections.map((label,index)=><p className="supporting" key={index}>{label}</p>)}
+          </td><td>{record.targetDisplayName}</td><td className="numeric">{formatDuration(recordDaySummary(record,selected).milliseconds)}</td>
+          <td>{record.details?({nfc:'Karte',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin]):provenance(record)}</td>
+          <td>{overlaps.map(other=><a key={other.timeRecordId} href={`#time-${other.timeRecordId}`}><Pill kind="notice">überschneidet sich mit {formatClock(Date.parse(other.startedAt))}–{other.stoppedAt?formatClock(Date.parse(other.stoppedAt)):'läuft'}</Pill></a>)}<TimeRecordControls record={record} inline/></td></tr>;
+        })}
+      </DataTable>:<><AddTimeControl day={selected}/><ul className="time-day-list">{records.map(record=>{
         const sections=recordDaySectionLabels(record,selected);
         const origin=record.details?({nfc:'gescannt',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin]):provenance(record);
         return <li key={record.timeRecordId}>
@@ -58,7 +72,7 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh}: {
         <strong>{formatDuration(recordDaySummary(record,selected).milliseconds)}</strong>
         </>}
         <TimeRecordControls record={record}/>
-      </li>; })}</ul>
+      </li>; })}</ul></>}
       <VoidedTimeRows day={selected} value={value}/>
       {records.length === 0 ? <p>{rangeSummary(value,selected,shiftDay(selected,1)).complete
         ? 'Für diesen Tag zählt keine Arbeitszeit.' : 'Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums.'}</p> : null}

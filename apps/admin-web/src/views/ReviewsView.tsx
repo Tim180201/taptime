@@ -1,6 +1,6 @@
-import {TimeFields,resolveTimeFields,advanceTimeField,overnightHint} from '../TimeFields';
+import {TimeFields,resolveTimeFields,advanceTimeField} from '../TimeFields';
 import { RequiredForm } from '../RequiredForm';
-import { isTimeReviewRole } from '@taptime/time-review-contract';
+import { isTimeReviewRole, isKnownTimeReviewReason } from '@taptime/time-review-contract';
 import {
 	useEffect,
 	useRef,
@@ -15,11 +15,39 @@ import {
 	formatZonedDateTime,
 	toZonedMinuteInput,
 } from '../timeZone';
-import { Confirmation,CountTruth,Panel,SectionBoundary } from '../ui';
-import { resolutionLabel,returnFocus,reviewReasonLabel,triggerLabel,useIntentFocusReturn } from '../viewHelpers';
+import { Confirmation,DataTable,SectionBoundary } from '../ui';
+import { resolutionLabel,returnFocus,reviewReasonLabel,useIntentFocusReturn } from '../viewHelpers';
+import {PageHeader} from '../PageHeader';
 type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { status: 'ready' }>;
 export default function ReviewsView({state,administration}: {readonly state:ReadyState;readonly administration:AdminWebCapability}) {
   const retry=useRef<HTMLButtonElement>(null);
+  const [selectedCase,setSelectedCase]=useState<string|null>(state.adjudicationIntent?.reviewItem.reviewItemId??null);
+  const authority=JSON.stringify([state.membershipId,state.role,state.managementScope,state.selectedLocation?.id]);
+  const [days,setDays]=useState<{authority:string;items:ReadyState['reviewItems'];values:Record<string,NonNullable<ReadyState['reviewDay']>>}>({authority,items:state.reviewItems,values:{}});
+  const [reload,setReload]=useState(0);
+  useEffect(()=>{
+    let current=true;
+    setDays({authority,items:state.reviewItems,values:{}});
+    if(state.sections.reviewItems.status!=='ready'||!administration.loadReviewDay)return;
+    // The existing capability has one result slot. Read serially and retain only this view's responses.
+    void (async()=>{
+      for(const item of state.reviewItems){
+        if(!current)return;
+        let failed=false;
+        try {await administration.loadReviewDay?.(item.reviewItemId);} catch {failed=true;}
+        if(!current)return;
+        const latest=administration.getState();
+        if(latest.status!=='ready'||JSON.stringify([latest.membershipId,latest.role,latest.managementScope,latest.selectedLocation?.id])!==authority)return;
+        const response=latest.reviewDay;
+        const day:NonNullable<ReadyState['reviewDay']>=!failed&&response?.reviewItemId===item.reviewItemId&&response.status!=='loading'
+          ?response:{reviewItemId:item.reviewItemId,status:'unavailable',value:null,message:'Die Tageszeiten konnten nicht vollständig geladen werden. Bitte versuchen Sie es erneut.'};
+        setDays(previous=>({...previous,values:{...previous.values,[item.reviewItemId]:day}}));
+      }
+    })();
+    return()=>{current=false;};
+  },[administration,authority,state.reviewItems,state.sections.reviewItems.status,reload]);
+  const visibleDays=days.authority===authority && days.items===state.reviewItems ? days.values : {};
+
   const focusFallback=useRef<HTMLElement>(null);
   const lastIntent=useRef(state.adjudicationIntent?.reviewItem.reviewItemId ?? null);
   useEffect(()=>{
@@ -31,20 +59,20 @@ export default function ReviewsView({state,administration}: {readonly state:Read
     lastIntent.current=null;
   },[state.adjudicationIntent,state.sections.reviewItems.status,state.reviewItems]);
   if (!isTimeReviewRole(state.role)) return null;
-  return <section ref={focusFallback} tabIndex={-1} aria-label="Ungeklärte Erfassungen"><SectionBoundary state={state.sections.reviewItems} retryButtonRef={retry} onRetry={()=>void administration.retrySection('reviewItems')}>
-    <Panel title="Zeiten prüfen" description="Diese Erfassungen konnten noch keiner Arbeitszeit sicher zugeordnet werden.">
-      <CountTruth count={state.reviewItems.length} noun="ungeklärte Erfassungen" complete={state.reviewItemsNextCursor === null}/>
+  return <><PageHeader organization={state.projection.organization.name} title="Zeiten prüfen"
+    subtitle={`${state.reviewItemsNextCursor?'Mindestens ':''}${state.reviewItems.length} ${state.reviewItems.length===1?'offener Fall':'offene Fälle'}`}
+    onRefresh={()=>void administration.refresh()}/><section ref={focusFallback} tabIndex={-1} aria-label="Ungeklärte Erfassungen"><SectionBoundary state={state.sections.reviewItems} retryButtonRef={retry} onRetry={()=>void administration.retrySection('reviewItems')}>
       <ul className="review-list">{state.reviewItems.map(item=><ReviewDecisionRow key={item.reviewItemId}
-        item={item} state={state} administration={administration}/>)}</ul>
+        item={item} state={state} administration={administration} open={selectedCase===item.reviewItemId}
+        setOpen={open=>setSelectedCase(open?item.reviewItemId:null)} day={visibleDays[item.reviewItemId] ?? (state.reviewDay?.reviewItemId===item.reviewItemId?state.reviewDay:undefined)}
+        retryDay={()=>setReload(n=>n+1)}/>)}</ul>
       {state.reviewItems.length === 0 && state.reviewItemsNextCursor === null ? <p className="empty">Keine ungeklärten Erfassungen.</p> : null}
       {state.reviewItemsNextCursor === null ? null : <button className="secondary" onClick={()=>void administration.loadMoreReviewItems()}>Weitere Erfassungen laden</button>}
-    </Panel>
-  </SectionBoundary></section>;
+  </SectionBoundary></section></>;
 }
-function ReviewDecisionRow({item,state,administration}: {readonly item:SafeReviewItem;readonly state:ReadyState;readonly administration:AdminWebCapability}) {
-  const day=state.reviewDay?.reviewItemId===item.reviewItemId ? state.reviewDay : undefined;
+function ReviewDecisionRow({item,state,administration,day,open,setOpen,retryDay}: {readonly item:SafeReviewItem;readonly state:ReadyState;readonly administration:AdminWebCapability;
+  readonly day:ReadyState['reviewDay'];readonly open:boolean;readonly setOpen:(open:boolean)=>void;readonly retryDay:()=>void}) {
   const noteOnly=item.source==='offline_skip' || item.targetType==='break';
-  const [open,setOpen]=useState(state.adjudicationIntent?.reviewItem.reviewItemId === item.reviewItemId);
   const [resolution,setResolution]=useState<'no_time_record_change'|'adjust_existing_time_record'|'create_recovered_time_record'>('no_time_record_change');
   const [month,setMonth]=useState(toZonedMinuteInput(item.occurredAt).slice(0,7));
   const selection=state.reviewCorrectionRecords?.reviewItemId===item.reviewItemId ? state.reviewCorrectionRecords : undefined;
@@ -71,34 +99,30 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
   const formatExact=formatZonedDateTime;
   const choose=(event:ReactMouseEvent<HTMLButtonElement>,next:typeof resolution)=>{
     rowTrigger.current=event.currentTarget;changeResolution(next);setOpen(true);
-    if(day?.status!=='ready')void administration.loadReviewDay?.(item.reviewItemId);
   };
   return <li className="review-case" id={`review-${item.reviewItemId}`} tabIndex={-1}><div className="review-case-heading"><div>
-    <strong>{item.employeeDisplayName} · {item.targetDisplayName}</strong>
-    <p className="supporting">Auslösende Erfassung: {format(item.occurredAt)} · {triggerLabel(item.triggerType)}</p>
-    <p className="review-reason">{reviewReasonLabel(item.reviewReason)}</p>
-    {item.reviewReason==='predecessor_requires_review' ? <p>Eine frühere Erfassung muss zuerst geprüft werden.</p> : null}
-    <details><summary>Details</summary><dl><dt>Prüfgrund</dt><dd>{item.reviewReason}</dd><dt>Entstehung</dt><dd>{item.source}</dd>
-      {item.deviceSequence!==null ? <><dt>Gerätesequenz</dt><dd>{item.deviceSequence}</dd></> : null}
-      {item.predecessorBlocked ? <><dt>Abhängige Erfassungen</dt><dd>Weitere Erfassungen warten auf die Klärung dieses Falls.</dd></> : null}</dl></details>
+    <h2>{item.employeeDisplayName} · {item.targetDisplayName}</h2>
+    <h3>Was ist passiert</h3>
+    <p className="review-reason">{reviewReasonLabel(item.reviewReason,item)}</p>
+    {!isKnownTimeReviewReason(item.reviewReason)?<p className="review-support">Für Rückfragen: {item.reviewReason}</p>:null}
     <section aria-label={`Tageszeiten von ${item.employeeDisplayName}`}>
-      <h3>Arbeitszeiten an diesem Tag</h3>
+      <h3>Was heute dort steht</h3>
       {day?.status==='ready' ? <>
-        {day.value.records.length===0 && !day.value.activeRecord ? <p>Keine Arbeitszeiten an diesem Tag.</p> : <ul>
-          {[...day.value.records,...(day.value.activeRecord ? [day.value.activeRecord] : [])].map(record=><li key={record.timeRecordId}>
-            {format(record.startedAt)} – {record.stoppedAt ? format(record.stoppedAt) : 'Zeit läuft'} · {record.targetDisplayName}
-          </li>)}
-        </ul>}
-      </> : day?.status==='loading' ? <p role="status">Tageszeiten werden geladen …</p> : <>
+        {day.value.records.length===0 && !day.value.activeRecord ? <p>Keine Arbeitszeiten an diesem Tag.</p> : <DataTable label={`Tageszeiten von ${item.employeeDisplayName}`} headers={['Von–Bis','Kunde oder Projekt']}>
+          {[...day.value.records,...(day.value.activeRecord ? [day.value.activeRecord] : [])].map(record=><tr key={record.timeRecordId}>
+            <td>{format(record.startedAt)} – {record.stoppedAt ? format(record.stoppedAt) : 'Zeit läuft'}</td><td>{record.targetDisplayName}</td>
+          </tr>)}
+        </DataTable>}
+      </> : !day || day.status==='loading' ? <p role="status">Tageszeiten werden geladen …</p> : <>
         {day?.status==='unavailable' ? <p role="alert">{day.message}</p> : null}
-        <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent!==null} onClick={()=>void administration.loadReviewDay?.(item.reviewItemId)}>Tageszeiten anzeigen</button>
+        <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent!==null} onClick={retryDay}>Tageszeiten erneut laden</button>
       </>}
     </section>
     {item.source==='offline_skip' ? <p className="supporting">Fehlende Zeit über „Zeit hinzufügen“ bei der Person ergänzen, danach diesen Fall mit Notiz schließen.</p> : null}
   </div><div className="entity-actions">
-    {noteOnly ? null : <button disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Fehlende Arbeitszeit ergänzen</button>}
-    {noteOnly ? null : <button className="secondary" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Vorhandene Arbeitszeit ändern</button>}
-    <button className="quiet" disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>Ohne Zeitänderung schließen</button>
+    {noteOnly ? null : <button className={open&&resolution==='create_recovered_time_record'?'primary-action':'secondary'} aria-pressed={open&&resolution==='create_recovered_time_record'} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'create_recovered_time_record')}>Ende nachtragen</button>}
+    {noteOnly ? null : <button className={open&&resolution==='adjust_existing_time_record'?'primary-action':'secondary'} aria-pressed={open&&resolution==='adjust_existing_time_record'} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'adjust_existing_time_record')}>Zeit ändern</button>}
+    <button className={open&&resolution==='no_time_record_change'?'primary-action':'secondary'} aria-pressed={open&&resolution==='no_time_record_change'} disabled={state.timeReviewBusy || state.adjudicationIntent !== null} onClick={event=>choose(event,'no_time_record_change')}>So lassen</button>
   </div></div>
   {open ? <div className="row-decision">
     <p className="supporting">{resolutionLabel(resolution)}. Bitte begründen Sie Ihre Entscheidung.</p>
@@ -123,15 +147,6 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
           reason,
         );
       }}>
-        <label>Entscheidung
-          <select value={resolution}
-            disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
-            onChange={(event) => changeResolution(event.target.value as typeof resolution)}>
-            <option value="no_time_record_change">Ohne Zeitänderung schließen</option>
-            {noteOnly ? null : <option value="create_recovered_time_record">Fehlende Arbeitszeit ergänzen</option>}
-            {noteOnly ? null : <option value="adjust_existing_time_record">Vorhandene Arbeitszeit ändern</option>}
-          </select>
-        </label>
         {resolution === 'adjust_existing_time_record' ? <>
           <label>Monat der Arbeitszeit<input type="month" value={month}
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
@@ -170,7 +185,6 @@ function ReviewDecisionRow({item,state,administration}: {readonly item:SafeRevie
           <TimeFields date={date} start={startedAt} end={stoppedAt} originalStart={resolution==='adjust_existing_time_record'?originalStart:null} originalEnd={resolution==='adjust_existing_time_record'?originalStop:null}
             onDate={setDate} onStart={setStartedAt} onEnd={setStoppedAt} checkInterval
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}/>
-          <p className="full-field supporting">{overnightHint}</p>
         </>}
         <label className="full-field">Begründung
           <textarea ref={reasonInput} required maxLength={500} value={reason}

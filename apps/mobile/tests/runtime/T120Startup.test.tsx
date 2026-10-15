@@ -10,6 +10,7 @@ vi.mock('expo-splash-screen', () => ({ hide: probe.hide, preventAutoHideAsync: p
 vi.mock('../../src/runtime/ProductMobileRuntime', () => ({ createProductMobileRuntime: () => probe.creation }));
 vi.mock('../../src/design/AppBuildIdentity', () => ({ AppBuildIdentity: () => null }));
 vi.mock('@expo-google-fonts/manrope', () => ({ useFonts: () => [false], Manrope_400Regular: 1, Manrope_600SemiBold: 2, Manrope_800ExtraBold: 3 }));
+vi.mock('expo-secure-store', () => ({ getItemAsync: async () => null }));
 vi.mock('expo-status-bar', () => ({ StatusBar: () => null }));
 vi.mock('../../src/demo/DemoMobileApp', () => ({ DemoMobileApp: () => h('div', {}, 'Demo bereit') }));
 vi.mock('../../src/validation/PhysicalValidationMobileApp', () => ({ PhysicalValidationMobileApp: () => h('div', {}, 'Validierung bereit') }));
@@ -20,7 +21,7 @@ vi.mock('react-native', () => {
     return h('div', { 'aria-label': accessibilityLabel, role: accessibilityRole === 'header' ? 'heading' : accessibilityRole,
       'data-testid': testID, 'data-style': JSON.stringify(flatten(style)) }, children);
   };
-  return { View: element, Text: element, ScrollView: element, Image: element, Pressable: element, TextInput: element,
+  return { useColorScheme: () => 'dark', View: element, Text: element, ScrollView: element, Image: element, Pressable: element, TextInput: element,
     Platform: { OS: 'android' }, StyleSheet: { create: (s: any) => s, flatten },
     AppState: { currentState: 'active', addEventListener: () => ({ remove() {} }) },
     BackHandler: { addEventListener: () => ({ remove() {} }) }, Linking: {},

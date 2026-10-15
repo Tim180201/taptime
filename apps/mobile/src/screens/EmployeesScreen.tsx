@@ -7,7 +7,7 @@ import type { MobileManagementScope } from '../auth/contracts';
 import type { EmployeesCapability } from '../employees/contracts';
 import { initials } from '../employees/presentation';
 import { ActionButton, AppText as Text, Card, Screen, TouchTarget } from '../design/primitives';
-import { mobileTokens } from '../design/tokens';
+import { useMobileTokens } from '../design/useMobileTheme';
 import { formatClock, formatHours } from './ownTimeCalendar';
 import { formatOwnTimeTimestamp } from './TimeCalendar';
 import { PersonTimeScreen } from './PersonTimeScreen';
@@ -15,6 +15,8 @@ import { InviteEmployeeScreen } from './InviteEmployeeScreen';
 export function EmployeesScreen({employees,scope,locationsEnabled}: {
   readonly employees: EmployeesCapability; readonly scope: MobileManagementScope; readonly locationsEnabled: boolean;
 }) {
+  const mobileTokens = useMobileTokens();
+
   const [chooseMonth,setChooseMonth]=useState(false);
   const [input,setInput]=useState('');const search=useDebouncedSearch(input);
   const initialSearch=useRef(true);
@@ -62,7 +64,7 @@ export function EmployeesScreen({employees,scope,locationsEnabled}: {
       <View style={{flex:1}}><Text style={{fontWeight:'800'}}>{person.displayName}</Text>
         <Text style={{fontSize:13,color:mobileTokens.color.textMuted}}>{person.isRunning ? `seit ${formatClock(Date.parse(person.runningSince!))} · ${person.runningTargetDisplayName}` : person.departedAt ? `Ausgeschieden am ${formatOwnTimeTimestamp(person.departedAt)}` : 'Keine laufende Zeit'}</Text>
         {monthHours ? <Text style={{fontSize:13}}>{label(month)} {formatHours(person.monthWorkDurationSeconds!*1000)} h</Text> : null}</View>
-      <View style={{width:10,height:10,borderRadius:5,backgroundColor:person.isRunning ? mobileTokens.color.accent : mobileTokens.color.border}} />
+      <View style={{width:10,height:10,borderRadius:5,backgroundColor:person.isRunning ? mobileTokens.color.running : mobileTokens.color.border}} />
     </TouchTarget></View>)}</View></Fragment>)}</Fragment>)}
     {!state.busy && state.summary.people.length===0 && state.search ? <Card><Text>{`Keine Treffer für „${state.search}“`}</Text><ActionButton title="Suche löschen" onPress={()=>setInput('')}/></Card> : null}
     {state.summary.people.length===0 && !state.search && !state.busy ? <Card><Text>{state.filter ? 'Gerade läuft bei niemandem eine Zeit.' : 'Alle haben eine laufende Zeit.'}</Text></Card> : null}

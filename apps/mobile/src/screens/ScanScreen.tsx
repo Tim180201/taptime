@@ -13,7 +13,8 @@ import { ActionButton, AppText as Text, TouchTarget, Card } from '../design/prim
 import { ScanRing } from '../design/ScanRing';
 import { connectTapMoment, TapMomentPresenter } from './tapMoment';
 import type { MobileWorkCapability } from '../work/contracts';
-import { mobileTokens } from '../design/tokens';
+import { useMobileTokens, useThemedStyles } from '../design/useMobileTheme';
+import type { MobileTokens } from '../design/tokens';
 import {
   type ProductScanCapability,
   type ProductScanState,
@@ -39,6 +40,9 @@ export interface ScanScreenPresentation {
 }
 
 export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = false, work, onManualCapture, offline=false,offlineActive,confirmedOwnTime }: ScanScreenProps) {
+  const mobileTokens = useMobileTokens();
+  const styles = useThemedStyles(createStyles);
+
   const workState = useSyncExternalStore(listener=>work?.subscribe(listener)??(()=>{}),()=>work?.getState()??null,()=>work?.getState()??null);
   const ios = Platform.OS === 'ios';
   const state = useSyncExternalStore((listener) => scan.subscribe(listener),
@@ -341,7 +345,7 @@ function isScanReadyState(state: ProductScanState): boolean {
     || state.status === 'server_decision';
 }
 
-const styles = StyleSheet.create({
+const createStyles = (mobileTokens: MobileTokens) => StyleSheet.create({
   container: { flex: 1, paddingTop: 16, paddingHorizontal: 20, backgroundColor: mobileTokens.color.ground },
   embeddedContainer: { paddingTop: 0 },
   scroller: { flex: 1 },

@@ -1,7 +1,7 @@
 import {useAssignedTargets,combineTargets,targetLabel,targetKey} from '../../mobile/src/search/useAssignedTargets';
 import {useSearchPages} from '../../mobile/src/search/useSearchPages';
 import {SearchField,SearchStatus} from './SearchControls';
-import {TimeFields,resolveTimeFields,advanceTimeField,overnightHint} from './TimeFields';
+import {TimeFields,resolveTimeFields,advanceTimeField} from './TimeFields';
 import { RequiredForm } from './RequiredForm';
 import {VoidTimeForm} from './TimeVoidControls';
 import type { Notice } from './contracts';
@@ -10,7 +10,7 @@ import { formatZonedDateTime,toZonedMinuteInput,hasVisibleText } from '@taptime/
 import { awaitAdministrationStopArchive, ADMINISTRATION_ARCHIVE_PENDING, ADMINISTRATION_ARCHIVE_TIMEOUT, administrationStopMessage, isAdministrationStopResult, type SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability,AdminWebState } from './contracts';
 import { timeEditMessages,type TimeEditInput } from './timeEditing';
-import { ResponsiveSheet } from './MobileSheet';
+import { MobileSheet } from './MobileSheet';
 
 type ReadyState=Pick<Extract<AdminWebState,{status:'ready'}>,'role'|'membershipId'|'timeEditBusy'|'workTargets'|'availableSections'>;
 type Context={personLabel?:string;state:ReadyState;administration:AdminWebCapability;targetMembershipId:string;online:boolean};
@@ -33,7 +33,7 @@ export function AddTimeControl({day}:{day:string}) {
     {open?<TimeEditForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}`} kind="backfill" day={day} onClose={close}/>:null}
   </div>;
 }
-export function TimeRecordControls({record,directStop=false}:{record:SafeOwnTimeRecord;directStop?:boolean}) {
+export function TimeRecordControls({record,directStop=false,inline=false}:{record:SafeOwnTimeRecord;directStop?:boolean;inline?:boolean}) {
   const context=useContext(TimeEditingContext),[form,setForm]=useState<'comment'|'correct'|'stop'|'void'|null>(null);
   const opener=useRef<HTMLButtonElement|null>(null);
   const own=context && context.targetMembershipId===context.state.membershipId;
@@ -46,14 +46,16 @@ export function TimeRecordControls({record,directStop=false}:{record:SafeOwnTime
     {form==='stop'?<TimeEditForm kind="stop" record={record} onClose={close}/>:null}
   </div> : null;
   return <div className="time-edit-controls">
-    {details?.overlapsAnotherRecord?<p className="time-overlap">überschneidet sich</p>:null}
+    {!inline && details?.overlapsAnotherRecord?<p className="time-overlap">überschneidet sich</p>:null}
+    {details?.change || details?.administrationStop || details?.comment ? <details className="time-history"><summary>Verlauf</summary>
     {details?.change?<p className="verbatim-reason">{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {formatZonedDateTime(details.change.at)} · {details.change.actor==='self'?'selbst':'durch Verwaltung'}{['Selbst nachgetragen','Selbst geändert','Selbst beendet'].includes(details.change.reason)?'':`: ${details.change.reason}`}</p>:null}
     {details?.administrationStop?<p className="verbatim-reason">Von der Verwaltung beendet · {formatZonedDateTime(details.administrationStop.at)} · {details.administrationStop.reason==='Selbst beendet'?'selbst':details.administrationStop.reason}</p>:null}
     {details?.comment?<p className="verbatim-reason">Kommentar: {details.comment}</p>:null}
+    </details>:null}
     {own && details && context.administration.saveTimeEdit?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('comment');}}>Kommentar schreiben</button>:null}
-    {canEdit && details && context.administration.saveTimeEdit && record.status==='stopped'?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('correct');}}>Ändern</button>:null}
+    {canEdit && details && context.administration.saveTimeEdit && record.status==='stopped'?<button className={inline?'icon-button':'quiet'} aria-label="Ändern" title="Zeit ändern" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('correct');}}>{inline?<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true"><path d="m16 3 5 5-12 12-6 1 1-6Z M13 6l5 5"/></svg>:'Ändern'}</button>:null}
     {canStop && details && context.administration.saveTimeEdit && record.status==='started'?<button className="quiet" disabled={!context.online||context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('stop');}}>Beenden</button>:null}
-    {context && (own||canEdit) && context.administration.saveTimeEdit && record.status==='stopped'?<button className="warning-action" disabled={context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('void');}}>Zeiteintrag löschen</button>:null}
+    {context && (own||canEdit) && context.administration.saveTimeEdit && record.status==='stopped'?<button className={inline?'icon-button':'secondary'} aria-label="Zeit löschen" title="Zeit löschen" disabled={context.state.timeEditBusy} onClick={e=>{opener.current=e.currentTarget;setForm('void');}}>{inline?<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>:'Zeit löschen'}</button>:null}
     {record.status==='started' && own && !canStop?<p>Läuft noch — erst beenden, dann ändern</p>:null}
     {record.status==='started' && canStop && !context.online?<p role="status">Nur online möglich. Verbinden Sie sich mit dem Internet, um die Zeit zu beenden.</p>:null}
     {form==='void' && context?<VoidTimeForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}/${record.timeRecordId}`} record={record} onClose={close}/>:form && form!=='void' && context?<TimeEditForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}/${record.timeRecordId}`} kind={form} record={record} onClose={close}/>:null}
@@ -120,7 +122,7 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
     finally {if(mounted.current)setSaving(false);}
   };
   const label=kind==='backfill'?'Zeit hinzufügen':kind==='comment'?'Kommentar schreiben':kind==='stop'?'Zeit beenden':'Zeit ändern';
-  return <ResponsiveSheet label={label} onCancel={onClose} busy={saving}><RequiredForm ref={form} className="form-grid time-edit-form" aria-label={label} onKeyDown={advanceTimeField} onSubmit={e=>{e.preventDefault();void save();}}>
+  return <MobileSheet className="right-sheet" label={label} onCancel={onClose} busy={saving}><RequiredForm ref={form} className="form-grid time-edit-form" aria-label={label} onKeyDown={advanceTimeField} onSubmit={e=>{e.preventDefault();void save();}}>
     <h3 className="full-field">{label}</h3>
     {kind==='stop' && record ? <p className="full-field">{context.personLabel} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – läuft</p> : null}
     {kind==='backfill'?<div className="full-field">
@@ -131,23 +133,20 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
         {assigned.state.nextCursor?<button type="button" disabled={assigned.state.busy||saving} onClick={()=>void assigned.pager.loadMore()}>Weitere zugeordnete laden</button>:null}
         <p>Weitere Kunden und Projekte über die Suche</p>
       </fieldset>:null}
-      {!favorites.length?<><h4>{page.state.search?'Treffer':'Alle Kunden und Projekte'}</h4>
-      <label>Kunde oder Projekt<select required value={selected} disabled={saving||archivePending||page.state.busy||page.state.failed} onChange={e=>setSelected(e.target.value)}><option value="">Bitte auswählen</option>
-      {target&&!page.state.items.some(t=>targetKey(t)===selected)?<option hidden value={selected}>{target.displayName}</option>:null}
-      {(['customer','project','general_work'] as const).map(type=>{
-        const group=page.state.items.filter(t=>t.targetType===type);
-        return group.length?<optgroup key={type} label={type==='customer'?'Kunden':type==='project'?'Projekte':'Allgemeine Arbeitszeit'}>{group.map(t=><option key={`${t.targetType}:${t.targetId}`} value={`${t.targetType}:${t.targetId}`}>{targetLabel(t,page.state.search)}</option>)}</optgroup>:null;
-      })}</select></label>
-      {page.state.nextCursor?<button type="button" disabled={page.state.busy} onClick={()=>void page.pager.loadMore()}>Weitere laden</button>:null}
-      </>:null}
+      {!favorites.length?<fieldset data-required-choice tabIndex={-1} aria-label="Kunde oder Projekt" data-field-error={target?'':'Bitte einen Kunden oder ein Projekt wählen.'} className="target-picker">
+        <legend>{page.state.search?'Treffer':'Alle Kunden und Projekte'}</legend>
+        <ul className="target-list">{page.state.items.map(t=><li key={targetKey(t)}><button type="button" className="target-choice secondary" aria-pressed={selected===targetKey(t)} disabled={saving||archivePending||page.state.busy||page.state.failed} onClick={()=>setSelected(targetKey(t))}>{targetLabel(t,page.state.search)}{selected===targetKey(t)?<span className="selected-tick" aria-hidden="true">✓</span>:null}</button></li>)}</ul>
+        {page.state.nextCursor?<button className="text-button" type="button" disabled={page.state.busy} onClick={()=>void page.pager.loadMore()}>Weitere laden</button>:null}
+      </fieldset>:null}
     </div>:null}
+    {kind==='correct' && record?<p className="full-field">{record.targetDisplayName}</p>:null}
     {kind!=='comment'?<><TimeFields {...values} onDate={setDate} onStart={setStart} onEnd={setEnd} disabled={saving||archivePending} checkInterval={kind==='correct'}/>
-      <p className="full-field supporting">{kind!=='stop'?overnightHint:''}{kind==='backfill'?' Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}
+</>:null}
     {kind==='comment'||(kind==='backfill'&&own)?<label className="full-field">{kind==='comment'?'Kommentar':'Kommentar (optional)'}<textarea required={kind==='comment'} value={comment} disabled={saving||archivePending} onChange={e=>setComment(e.target.value)}/></label>:null}
-    {kind!=='comment'&&!own?<label className="full-field">{reasonRequired?'Grund der Änderung (Pflicht)':'Grund (freiwillig)'}<textarea required={reasonRequired} data-field-error={Array.from(reason).length>500?'Bitte höchstens 500 Zeichen eingeben.':undefined} value={reason} disabled={saving||archivePending} onChange={e=>setReason(e.target.value)}/></label>:null}
+    {kind!=='comment'&&!own?<label className="full-field">{reasonRequired?'Grund (Pflicht)':'Grund (freiwillig)'}<textarea required={reasonRequired} data-field-error={Array.from(reason).length>500?'Bitte höchstens 500 Zeichen eingeben.':undefined} value={reason} disabled={saving||archivePending} onChange={e=>setReason(e.target.value)}/></label>:null}
     {notice?<p className={notice.kind==='error'?'full-field field-error':'full-field'} role={notice.kind==='error'?'alert':'status'}>{notice.text}</p>:null}
     {!context.online?<p role="status">Nur online möglich. Ihre Eingaben bleiben erhalten.</p>:null}
     <button className="primary-action" disabled={saving||!context.online} aria-busy={saving}>{saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'}</button>
     <button className="quiet" type="button" disabled={saving} onClick={onClose}>Abbrechen</button>
-  </RequiredForm></ResponsiveSheet>;
+  </RequiredForm></MobileSheet>;
 }
