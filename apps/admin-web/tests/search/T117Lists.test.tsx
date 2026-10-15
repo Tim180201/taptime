@@ -30,13 +30,13 @@ it('T117 R1: revoking access refreshes the searched membership status',async()=>
  const querySearch=vi.fn(async()=>({status:'ready',value:{...page('memberships'),employeeMemberships:[member]}}));
  const revokeMembership=vi.fn(async()=>{member={...member,active:false,rowVersion:2};});
  render(<EmployeesView state={state} administration={{querySearch,revokeMembership,getState:()=>state} as any} navigate={()=>{}}/>);await flush();
- const details=screen.getByText('Zugänge verwalten').closest('details')!;details.open=true;
- expect(screen.getByText(/Zugang aktiv/)).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('tab',{name:'Zugänge'}));
+ expect(screen.getByText(/^aktiv$/)).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'Zugang entziehen'}));
  const confirmation=screen.getByRole('alertdialog',{name:'Zugangsentzug ausdrücklich bestätigen'});
  fireEvent.click(within(confirmation).getByRole('button',{name:'Zugang entziehen'}));await flush();
  expect(revokeMembership).toHaveBeenCalledWith('member',1);
- expect(screen.queryByText(/Zugang aktiv/)).toBeNull();expect(screen.getByText(/Zugang entzogen/)).toBeInTheDocument();
+ expect(screen.queryByText(/^aktiv$/)).toBeNull();expect(screen.getByText(/^entzogen$/)).toBeInTheDocument();
  expect(querySearch).toHaveBeenCalledTimes(2);
 });
 it('setup resets the displayed filter and both remote searches together on tab changes',async()=>{
@@ -80,13 +80,15 @@ it.each(['retry','cancel'])('T117 R5: an uncertain page-two card reassignment re
 });
 
 it('web: employee and access searches are independent',async()=>{
- const refreshManagedPeople=vi.fn(),querySearch=vi.fn(async(kind:string)=>({status:'ready',value:page(kind)}));
- render(<EmployeesView state={state} administration={{refreshManagedPeople,querySearch,getState:()=>state} as any} navigate={()=>{}}/>);await flush();
- const searches=screen.getAllByLabelText('Suchen');expect(searches).toHaveLength(2);
- fireEvent.change(searches[0]!,{target:{value:'  Mu\u0308ller  '}});await act(()=>vi.advanceTimersByTimeAsync(300));
+ const querySearch=vi.fn(async()=>({status:'ready',value:page('memberships')})),refreshManagedPeople=vi.fn();
+ render(<EmployeesView state={state} administration={{querySearch,refreshManagedPeople} as any} navigate={()=>{}}/>);await flush();
+ fireEvent.change(screen.getByLabelText('Suchen'),{target:{value:'  Mu\u0308ller  '}});await act(()=>vi.advanceTimersByTimeAsync(300));
  expect(refreshManagedPeople).toHaveBeenLastCalledWith(null,false,expect.any(String),'Müller');
- fireEvent.change(searches[1]!,{target:{value:'  Ada  '}});await act(()=>vi.advanceTimersByTimeAsync(300));
+ fireEvent.click(screen.getByRole('tab',{name:'Zugänge'}));
+ expect(screen.getByLabelText('Suchen')).toHaveValue('');
+ fireEvent.change(screen.getByLabelText('Suchen'),{target:{value:'  Ada  '}});await act(()=>vi.advanceTimersByTimeAsync(300));
  expect(querySearch).toHaveBeenLastCalledWith('memberships',expect.objectContaining({search:'Ada'}));
+ fireEvent.click(screen.getByRole('tab',{name:'Zeiten'}));expect(screen.getByLabelText('Suchen')).toHaveValue('  Mu\u0308ller  ');
 });
 it('web: manual search goes to the server after the delay',async()=>{
  const loadWorkTargets=vi.fn();render(<ManualView state={state} administration={{loadWorkTargets} as any}/>);await flush();
@@ -123,7 +125,7 @@ it.each(['setup_customers','setup_tags','projects','memberships','work_targets',
   fireEvent.click(screen.getByRole('tab',{name:kind==='setup_tags'?'Karten':'Kunden und Projekte'}));panel=screen.getByRole('tabpanel');
  }else if(kind==='memberships'){
   render(<EmployeesView state={state} administration={administration} navigate={()=>{}}/>);
-  panel=screen.getByText('Zugänge verwalten').closest('details')!;
+  fireEvent.click(screen.getByRole('tab',{name:'Zugänge'}));panel=screen.getByRole('tabpanel');
  }else{
   render(<TimeEditingProvider state={state} administration={administration} targetMembershipId={kind==='backfill_targets'?'another-member':id}><AddTimeControl day="2026-10-13"/></TimeEditingProvider>);
   expect(read).not.toHaveBeenCalled();fireEvent.click(screen.getByRole('button',{name:'Zeit hinzufügen'}));panel=document.body;

@@ -281,7 +281,7 @@ small { color: var(--color-text-muted); }
 .overview-greeting span { color: var(--color-text); font-weight: 600; }
 .location-context {
   display: grid;
-  min-width: 12rem;
+  min-width: min(12rem, 100%);
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   border-left: 4px solid var(--color-accent);
@@ -949,3 +949,14 @@ button.warning-action.primary-action { background: var(--color-notice); color: v
 }
 /* Long payroll notices must wrap even with doubled text. */
 .payroll-filters ~ .table-scroll .pill-notice { max-width: 100%; white-space: normal; }
+
+/* T-105 access status and role sheet use the shared theme meanings. */
+.access-notice { color: var(--color-notice); }
+.page-subtitle > .access-notice { display: block; margin-top: .25rem; }
+.membership-role-options { min-width: 0; padding: 0; border: 0; margin: 0; }
+.membership-role-options legend { margin-bottom: .5rem; font-weight: 600; }
+.membership-role-choice { display: flex; gap: .75rem; align-items: center; min-height: 44px; padding: .75rem 0; border-bottom: 1px solid var(--color-line); }
+.membership-role-choice input { flex: 0 0 24px; width: 24px; height: 44px; margin: 0; accent-color: var(--color-accent); }
+.membership-role-choice > span { min-width: 0; }
+.membership-role-choice strong, .membership-role-choice span > span { display: block; }
+.membership-role-choice span > span { color: var(--color-text-muted); margin-top: .25rem; }

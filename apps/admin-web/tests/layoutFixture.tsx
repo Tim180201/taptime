@@ -252,6 +252,21 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
     memberships: [{ id: own, displayName: 'Martin Beispiel', role: 'administrator', homeLocationId: location.id, workLocationIds: [location.id], managementLocationIds: [] }],
     workTargets: [{ targetType: 'customer', targetId: customer.id, displayName: 'Werkstatt', locationId: location.id }], activationGaps: [] },
 };
+// Synthetic T-105 states: never signed in, signed in, lead and revoked access.
+if (variant.startsWith('t105-')) {
+  const accessMembers = [
+    { ...person, displayName: 'Alexandra Beispiel', location, firstSignedInAt: '2026-09-10T08:00:00.000Z', lastSignedInAt: '2026-09-22T08:00:00.000Z' },
+    { ...person, id: '70000000-0000-4000-8000-000000000002', displayName: 'Bettina Neu eingeladen', location, firstSignedInAt: null, lastSignedInAt: null },
+    { ...person, id: '70000000-0000-4000-8000-000000000003', displayName: 'Claudia Standortleitung', role: 'standortleitung' as const, location, firstSignedInAt: '2026-09-01T08:00:00.000Z', lastSignedInAt: '2026-09-21T08:00:00.000Z' },
+    { ...person, id: '70000000-0000-4000-8000-000000000004', displayName: 'Erika Ausgeschieden', location, active: false, firstSignedInAt: '2026-08-01T08:00:00.000Z', lastSignedInAt: '2026-08-31T08:00:00.000Z' },
+  ];
+  ready = { ...ready, locationsEnabled: true, employeeProjection: { ...ready.employeeProjection, employeeMemberships: accessMembers },
+    managedPeople: { ...ready.managedPeople!, status: 'ready', value: { ...ready.managedPeople!.value!,
+      people: ready.managedPeople!.value!.people.map(person => ({ ...person, monthWorkDurationSeconds: person.isRunning ? 129600 : 0 })) } } };
+  if (variant === 't105-manager') ready = { ...ready, role: 'standortleitung',
+    availableSections: ['employees', 'own_time', 'manual_capture', 'time_records', 'review_items'],
+    selectedLocation: location, managementScope: { kind: 'locations', locations: [location] } };
+}
 if (variant.startsWith('t110-next-')) {
   const step=Number(variant.slice('t110-next-'.length));
   ready={...ready,locationsEnabled:step>1,

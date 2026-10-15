@@ -263,6 +263,7 @@ export interface BackendApiDependencies {
   readonly timeSupplement?: Pick<import('@taptime/backend-time-review').TimeSupplementCoordinator, 'execute'>;
   readonly healthCheck?: () => Promise<void>;
   readonly sessionAuthority: SessionAuthorityResolver;
+  readonly recordMembershipSignIn?: (session: { readonly organizationId: string; readonly userId: string; readonly membershipId: string }) => Promise<void>;
   readonly administrationSessionAuthority?: AdministrationSessionAuthorityResolver;
   readonly scanContextResolver: ScanContextResolver;
   readonly lifecycleIngestor: LifecycleIngestor;
@@ -293,6 +294,7 @@ export type BackendApiRoute =
   | 'admin_employee_memberships_projection'
   | 'admin_employee_memberships_projection_v2'
   | 'admin_employee_memberships_projection_v3'
+  | 'admin_employee_memberships_projection_v4'
   | 'admin_managed_person_time'
   | 'admin_managed_active_summary'
   | 'admin_revoke_membership'
@@ -373,6 +375,7 @@ export interface BackendApiDiagnostic {
     | 'offline_synchronization_failed'
     | 'scan_context_resolution_failed'
     | 'session_resolution_failed'
+    | 'membership_sign_in_failed'
     | 'time_entry_export_failed'
     | 'invalid_export_filename'
     | 'mobile_work_failed'

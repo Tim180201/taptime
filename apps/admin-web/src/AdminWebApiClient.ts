@@ -1,6 +1,6 @@
 import {parseQuotaAlertsResponse,parseTargetAssignmentsResponse} from '../../mobile/src/search/search';
 import {parseQuotaAlertsQuery,parseTargetAssignmentQuery,isTargetAssignmentChangeRequest,type QuotaAlertsQueryRequest,type QuotaAlertsQueryResponse,type TargetAssignmentQueryRequest,type TargetAssignmentQueryResponse,type TargetAssignmentChangeRequest,type TargetAssignmentChangeResult} from '@taptime/mobile-work-contract';
-import { parseSearchRequest, MANAGED_PEOPLE_ACCEPT_V6, type SearchKind, type SearchRequests, type SearchResponses } from '@taptime/mobile-work-contract';
+import { parseMembershipSearchResponse, parseSearchRequest, MANAGED_PEOPLE_ACCEPT_V6, type SearchKind, type SearchRequests, type SearchResponses } from '@taptime/mobile-work-contract';
 import { parseSearchResponse, searchPaths } from '../../mobile/src/search/search';
 import {isRemoveNfcTagRequest,isRemoveNfcTagResult,type RemoveNfcTagRequest,type RemoveNfcTagResult} from '@taptime/mobile-work-contract';
 import {isManageCustomerRequest,isManageCustomerResult,type ManageCustomerRequest,type ManageCustomerResult} from '@taptime/mobile-work-contract';
@@ -296,7 +296,8 @@ export class AdminWebApiClient implements AdminWebApiPort {
   async querySearch<K extends SearchKind>(token:string,kind:K,request:SearchRequests[K]):Promise<ApiResult<SearchResponses[K]>> {
     const parsed=parseSearchRequest(kind,request);
     if(!parsed)return {status:'invalid_response'};
-    return this.request(searchPaths[kind],token,'POST',parsed,value=>parseSearchResponse(kind,value,parsed),false,false,false,maximumJsonBodyBytes,false,false,kind==='memberships'||kind==='managed_people');
+    return this.request(kind==='memberships'?'/v4/administration/employee-memberships-projection':searchPaths[kind],token,'POST',parsed,value=>
+      kind==='memberships'?parseMembershipSearchResponse(value) as SearchResponses[K]|null:parseSearchResponse(kind,value,parsed),false,false,false,maximumJsonBodyBytes,false,false,kind==='memberships'||kind==='managed_people');
   }
 
   async quotaAlerts(token:string,request:QuotaAlertsQueryRequest):Promise<ApiResult<QuotaAlertsQueryResponse>> {

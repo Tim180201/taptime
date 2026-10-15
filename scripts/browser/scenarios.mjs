@@ -1,11 +1,24 @@
 const click = name => async p => p.getByRole('button', { name, exact: true }).first().click();
 const tab = name => async p => p.getByRole('tab', { name, exact: true }).click();
-const summary = async p => p.locator('summary').click();
+const accessTab = tab('Zugänge');
 export const personPath = '/beschaeftigte/70000000-0000-4000-8000-000000000001?monat=2026-09';
 const scenario = (id, path, wait, steps = [], variant = id) => ({id,path,wait,steps,variant});
 export const adminScenarios = [
+  ...['t105-admin', 't105-manager'].flatMap(variant => [
+    scenario(variant + '-times', '/beschaeftigte', '.employees-view', [], variant),
+    scenario(variant + '-access', '/beschaeftigte', '.employees-view', [accessTab], variant),
+    scenario(variant + '-revoked', '/beschaeftigte', '.employees-view', [accessTab, click('Entzogen'), async p => {
+      const table = p.getByRole('table', { name: 'Zugänge', exact: true });
+      await table.getByText('Erika Ausgeschieden', { exact: true }).waitFor();
+      if (await table.getByRole('button').count()) throw new Error('Revoked access must have no actions');
+    }], variant),
+  ]),
+  scenario('t105-lead-role', '/beschaeftigte', '.employees-view', [accessTab, async p => {
+    await p.getByRole('row').filter({ hasText: 'Claudia Standortleitung' }).getByRole('button', { name: 'Rolle ändern' }).click();
+    await p.getByRole('dialog').getByRole('link', { name: 'Verwaltete Standorte zuweisen' }).waitFor();
+  }], 't105-admin'),
   ...[1,2,3,4,5,6].map(step=>scenario(`t110-next-${step}`,'/uebersicht','.next-step')),
-  scenario('t110-role','/beschaeftigte','.membership-tools'),
+  scenario('t110-role','/beschaeftigte','.employees-view',[accessTab]),
   scenario('t110-review-context','/pruefungen','.review-case'),
   ...['warning','exceeded','manager','employee'].map(kind=>scenario(`quota-${kind}`,'/kunden','.customers-view table',[],`quota-${kind}`)),
   scenario('quota-edit','/kunden','.customers-view table',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click(),click('Ändern')],'quota-warning'),
@@ -30,12 +43,12 @@ export const adminScenarios = [
   { ...scenario('more','/uebersicht','.metric-card',[click('Mehr')], 'overview'), mobileOnly: true },
   { ...scenario('employee-more','/meine-zeiten?monat=2026-09','.calendar-grid',[click('Mehr')], 'employee-calendar'), mobileOnly: true },
   scenario('five-areas','/uebersicht','.metric-card'),
-  scenario('employees','/beschaeftigte','.membership-tools'),
-  scenario('departed','/beschaeftigte','.membership-tools',[async p=>{
+  scenario('employees','/beschaeftigte','.employees-view'),
+  scenario('departed','/beschaeftigte','.employees-view',[async p=>{
     await p.getByRole('heading',{name:'Ausgeschiedene Mitarbeiter',exact:true}).waitFor();
     await p.getByRole('link',{name:'Erika Ausgeschieden'}).waitFor();
   }]),
-  ...['running','long'].map(kind=>scenario('employee-revoke-'+kind,'/beschaeftigte','.membership-tools',[summary,click('Zugang entziehen'),async p=>{
+  ...['running','long'].map(kind=>scenario('employee-revoke-'+kind,'/beschaeftigte','.employees-view',[accessTab,click('Zugang entziehen'),async p=>{
     const dialog=p.getByRole('alertdialog');
     await dialog.getByRole('link',{name:'Zur Personenansicht'}).waitFor();
     if(kind==='long') {
@@ -46,19 +59,19 @@ export const adminScenarios = [
       if(!await dialog.getByRole('button',{name:'Zugang entziehen',exact:true}).isEnabled()) throw new Error('Valid automatic stop must be enabled');
     }
   }])),
-  scenario('employee-tools','/beschaeftigte','.membership-tools',[summary]),
-  scenario('employee-role','/beschaeftigte','.membership-tools',[summary,click('Rolle bearbeiten')]),
-  scenario('employee-revoke','/beschaeftigte','.membership-tools',[summary,click('Zugang entziehen')]),
-  scenario('invitation','/beschaeftigte','.membership-tools',[click('+ Mitarbeiter einladen')]),
-  scenario('invitation-location','/beschaeftigte','.membership-tools',[click('+ Mitarbeiter einladen')]),
-  ...['error','busy'].map(state=>scenario('invitation-'+state,'/beschaeftigte','.membership-tools',[
+  scenario('employee-tools','/beschaeftigte','.employees-view',[accessTab]),
+  scenario('employee-role','/beschaeftigte','.employees-view',[accessTab,click('Rolle ändern')]),
+  scenario('employee-revoke','/beschaeftigte','.employees-view',[accessTab,click('Zugang entziehen')]),
+  scenario('invitation','/beschaeftigte','.employees-view',[click('+ Mitarbeiter einladen')]),
+  scenario('invitation-location','/beschaeftigte','.employees-view',[click('+ Mitarbeiter einladen')]),
+  ...['error','busy'].map(state=>scenario('invitation-'+state,'/beschaeftigte','.employees-view',[
     click('+ Mitarbeiter einladen'), async p=>p.getByLabel('Name',{exact:true}).fill('Alexandra Beispiel'),
     async p=>p.getByLabel('E-Mail',{exact:true}).fill('person@example.invalid'),
     async p=>p.getByLabel('Hauptarbeitsstandort').selectOption('31000000-0000-4000-8000-000000000001'),
     click('Einladung senden'), async p=>p.locator(state==='error' ? '[role="alert"]' : 'button:disabled').first().waitFor(),
   ])),
   ...['empty','section-error','section-loading'].map(id=>scenario(id,'/beschaeftigte','main')),
-  scenario('manager','/beschaeftigte','.membership-tools'),
+  scenario('manager','/beschaeftigte','.employees-view'),
   scenario('manager-reviews','/pruefungen','.review-case'),
   ...['Ende nachtragen','Zeit ändern','So lassen'].map((name,i)=>scenario('manager-review-form-'+i,'/pruefungen','.review-case',[click(name)])),
   scenario('manager-review-confirm','/pruefungen','[role="alertdialog"]'),

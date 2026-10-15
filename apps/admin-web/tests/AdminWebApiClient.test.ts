@@ -56,6 +56,7 @@ function employeeMemberships(start: number, count: number) {
     active: true as const,
     rowVersion: 1,
     location: null,
+    firstSignedInAt: null, lastSignedInAt: null,
   }));
 }
 
@@ -468,7 +469,7 @@ describe('AdminWebApiClient', () => {
       locationId: null,
     });
     expect(fetchRequest.mock.calls[0]?.[0])
-      .toBe('/v3/administration/employee-memberships-projection');
+      .toBe('/v4/administration/employee-memberships-projection');
     fetchRequest.mockResolvedValueOnce(json({
       status: 'succeeded',
       organization: { id: ids.organization, name: 'TapTim.e' },

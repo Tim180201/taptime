@@ -8,5 +8,6 @@ it('proxies every client search API version to the local development backend',()
   '/v1':{target:'http://localhost:3000'},
   '/v2':{target:'http://localhost:3000'},
   '/v3':{target:'http://localhost:3000'},
+  '/v4':{target:'http://localhost:3000'},
  }}});
 });

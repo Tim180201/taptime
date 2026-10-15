@@ -45,6 +45,24 @@ const canonicalUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0
 export class PostgresIdentityMembershipResolver implements IdentityMembershipResolver {
   constructor(private readonly pool: Pool) {}
 
+  /** Called only after a successful session response has been resolved, never by resolve(). */
+  async recordSignIn(membership: { readonly organizationId: string; readonly userId: string; readonly membershipId: string }): Promise<void> {
+    const client = await this.pool.connect();
+    let discard: Error | undefined;
+    try {
+      await client.query('BEGIN');
+      await client.query("SET LOCAL statement_timeout = '1s'");
+      await client.query("SET LOCAL lock_timeout = '500ms'");
+      await client.query(`SET LOCAL ROLE ${B4_IDENTITY_RESOLVER_ROLE}`);
+      await client.query(`SELECT ${B4_SCHEMA}.record_membership_sign_in_v1($1,$2,$3)`,
+        [membership.organizationId, membership.userId, membership.membershipId]);
+      await client.query('COMMIT');
+    } catch (error) {
+      try { await client.query('ROLLBACK'); } catch { discard = new Error('Sign-in rollback failed'); }
+      throw error;
+    } finally { client.release(discard); }
+  }
+
   async resolve(identity: VerifiedProviderIdentity): Promise<IdentityMembershipResolutionResult> {
     const client = await this.pool.connect();
     try {

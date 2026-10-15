@@ -211,6 +211,7 @@ export function createBackendApiRuntime(
       healthCheck: async () => {
         await healthPool.query('SELECT 1');
       },
+      recordMembershipSignIn: session => sessionMembershipResolver.recordSignIn(session),
       sessionAuthority: new B4SessionAuthorityResolver(
         verifier,
         sessionMembershipResolver,

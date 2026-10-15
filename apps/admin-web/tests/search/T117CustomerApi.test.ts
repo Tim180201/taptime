@@ -12,7 +12,7 @@ it('uses the paged customer endpoint and leaves subsequent pages to the user',as
 
 it.each([
   ['cards','/v3/administration/setup-projection',{status:'succeeded',organization:{id:membership,name:'Betrieb'},customers:[],nfcTags:[],nextCursor:null}],
-  ['memberships','/v3/administration/employee-memberships-projection',{status:'succeeded',organization:{id:membership,name:'Betrieb'},employeeMemberships:[],nextCursor:null}],
+  ['memberships','/v4/administration/employee-memberships-projection',{status:'succeeded',organization:{id:membership,name:'Betrieb'},employeeMemberships:[],nextCursor:null}],
   ['projects','/v2/administration/projects/query',{projects:[],nextCursor:null}],
   ['targets','/v2/mobile/work-targets/query',{targets:[],nextCursor:null}],
 ] as const)('uses the new default %s path',async(kind,path,value)=>{

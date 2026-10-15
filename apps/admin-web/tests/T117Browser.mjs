@@ -10,8 +10,8 @@ before(async()=>{web=await buildWeb('admin-web',true);browser=await launchBrowse
 after(async()=>{await browser?.close();await web?.close();});
 const scenarios=[
  ['customers','/kunden#customers-admin','.customers-view table'],
- ['people','/beschaeftigte#employees','.membership-tools'],
- ['access','/beschaeftigte#employees','.membership-tools',async p=>p.locator('.membership-tools summary').click(),1],
+ ['people','/beschaeftigte#employees','.employees-view'],
+ ['access','/beschaeftigte#employees','.employees-view',async p=>p.getByRole('tab',{name:'Zugänge'}).click(),1],
  ['setup','/einrichtung#setup-targets-locations','.setup-tabs',async p=>p.getByRole('tab',{name:'Kunden und Projekte',exact:true}).click()],
  ['projects','/einrichtung#setup-targets-locations','.setup-tabs',async p=>p.getByRole('tab',{name:'Kunden und Projekte',exact:true}).click()],
  ['cards','/einrichtung#setup-targets-locations','.setup-tabs',async p=>p.getByRole('tab',{name:'Karten',exact:true}).click()],

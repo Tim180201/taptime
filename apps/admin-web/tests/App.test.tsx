@@ -293,10 +293,11 @@ describe('professional Admin Web shell', () => {
     const membership=readyState.employeeProjection.employeeMemberships[0]!;
     const capability=new FakeCapability({...readyState,managedPeople:{status:'ready',isRunning:null,value:{serverTime:'2026-10-06T08:00:00Z',runningCount:0,totalCount:1,nextCursor:null,people:[{membershipId:membership.id,displayName:membership.displayName,role:'employee',location:null,isRunning:false,runningSince:null,runningTargetDisplayName:null}]}}});
     await render(<App administration={capability}/>);
-    await userEvent.click(screen.getByText('Zugänge verwalten'));
-    const access=document.querySelector('.membership-tools')!;
-    expect(access.textContent).toContain('Zugang aktiv');
+    await userEvent.click(screen.getByRole('tab',{name:'Zugänge'}));
+    const access=screen.getByRole('tabpanel')!;
+    expect(access.textContent).toContain('aktiv');
     expect(access.textContent).not.toContain('Zeit läuft');
+    await userEvent.click(screen.getByRole('tab',{name:'Zeiten'}));
     expect(screen.getByRole('button',{name:'Keine Zeit'})).toBeInTheDocument();
   });
   it('T108 renders German local time in the shell rather than the technical zone constant',async()=>{
@@ -768,6 +769,7 @@ describe('professional Admin Web shell', () => {
     window.history.replaceState(null, '', '/beschaeftigte');
     await render(<App administration={capability} />);
 
+    await userEvent.click(screen.getByRole('tab', { name: 'Zugänge' }));
     await userEvent.click(screen.getByRole('button', { name: 'Zugang entziehen' }));
     const confirmation = screen.getByRole('alertdialog', {
       name: 'Zugangsentzug ausdrücklich bestätigen',
@@ -1155,7 +1157,7 @@ it('T049 f: status filters apply as soon as selected', async () => {
 it('T049 f: role changes are opened deliberately instead of selecting a role in every row', async () => {
   window.history.replaceState(null,'','/beschaeftigte');
   await render(<App administration={new FakeCapability(readyState)} />);
-  await userEvent.click(await screen.findByText('Zugänge verwalten'));
+  await userEvent.click(await screen.findByRole('tab',{name:'Zugänge'}));
   expect(await screen.findByText('Employee Alpha')).toBeVisible();
   expect(screen.queryByLabelText('Rolle für Employee Alpha')).not.toBeInTheDocument();
 });
@@ -1339,7 +1341,7 @@ it('T075 administrator sees whole-organization usage and may invite above the pa
   const state={...readyState,managedPeople:{status:'ready' as const,isRunning:null,value:summary}};
   const capability=new FakeCapability(state);const invite=vi.fn(async()=>({status:'succeeded' as const}));
   await render(<App administration={capability} accountInvitations={{invite}}/>);
-  expect(screen.getByText(/12 Zugänge, Paket 10/)).toBeVisible();
+  expect(screen.getByText(/12 Zugänge · Paket 10/)).toBeVisible();
   fireEvent.click(screen.getByRole('button',{name:'+ Mitarbeiter einladen'}));
   expect(screen.getByText(/Mit dieser Einladung wird das Paket von 10 Zugängen überschritten/)).toBeVisible();
   fireEvent.change(screen.getByLabelText('Name',{exact:true}),{target:{value:'Alex'}});
@@ -1347,10 +1349,10 @@ it('T075 administrator sees whole-organization usage and may invite above the pa
   fireEvent.click(screen.getByRole('button',{name:'Einladung senden'}));
   await waitFor(()=>expect(invite).toHaveBeenCalledWith('Alex','alex@example.test',null));
   await act(async()=>capability.emit({...state,managedPeople:{...state.managedPeople,value:{...summary,packageUsage:{packageSize:null,activeAccessCount:12}}}}));
-  expect(screen.queryByText(/12 Zugänge, Paket/)).toBeNull();
+  expect(screen.queryByText(/12 Zugänge · Paket/)).toBeNull();
   await act(async()=>capability.emit({...locationReadyState(),managedPeople:state.managedPeople}));
-  expect(screen.queryByText(/12 Zugänge, Paket/)).toBeNull();
-  fireEvent.click(screen.getByText('Zugänge verwalten'));fireEvent.click(screen.getByRole('button',{name:'+ Mitarbeiter einladen'}));expect(screen.queryByText(/Mit dieser Einladung wird das Paket/)).toBeNull();
+  expect(screen.queryByText(/12 Zugänge · Paket/)).toBeNull();
+  fireEvent.click(screen.getByRole('tab',{name:'Zugänge'}));fireEvent.click(screen.getByRole('button',{name:'+ Mitarbeiter einladen'}));expect(screen.queryByText(/Mit dieser Einladung wird das Paket/)).toBeNull();
 });
 
 it.each([['2025-10-25T10:00','Höchstens 24 Stunden.'],['2099-07-20T10:00','Das Ende liegt in der Zukunft.']])

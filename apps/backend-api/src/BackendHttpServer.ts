@@ -103,6 +103,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v2/mobile/work-targets/query': 'mobile_work_targets_v2',
   '/v3/administration/setup-projection': 'admin_setup_projection_v3',
   '/v3/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v3',
+  '/v4/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v4',
   '/v2/administration/time-records/backfill-targets/query': 'admin_time_backfill_targets_v2',
   '/v2/administration/projects/query': 'admin_project_query_v2',
 
@@ -634,12 +635,18 @@ async function handleRequest(
   }
   const searchRead = async <K extends SearchKind>(kind: K, reader: { querySearch?: SearchReader<K>['querySearch'] } | undefined) => {
     const parsed = parseSearchRequest(kind, body);
-    if (!parsed) { respondError(response, 400, 'invalid_request'); return; }
+    if (!parsed || (route === 'admin_employee_memberships_projection_v3' && isRecord(body) && Object.hasOwn(body, 'active'))) { respondError(response, 400, 'invalid_request'); return; }
     if (!reader?.querySearch) { respondError(response, 503, 'service_unavailable'); return; }
     // Rejections are fixed codes. The shared exception handler logs only route and
     // correlation ID; request bodies, SQL messages and search terms never enter it.
     const result = await withTimeout(reader.querySearch(kind, { accessToken, request: parsed }), timeoutMilliseconds);
-    if (result.status === 'succeeded') { respondJson(response, 200, result.response); return; }
+    if (result.status === 'succeeded') {
+      // The installed App's v3 parser rejects additional fields. Only v4 exposes sign-ins.
+      const value = route === 'admin_employee_memberships_projection_v3' && 'employeeMemberships' in result.response
+        ? { ...result.response, employeeMemberships: result.response.employeeMemberships.map(({ firstSignedInAt: _first, lastSignedInAt: _last, ...membership }) => membership) }
+        : result.response;
+      respondJson(response, 200, value); return;
+    }
     if (result.status === 'invalid_request') respondError(response, 400, 'invalid_request');
     else if (result.status === 'unauthorized') respondError(response, 401, 'unauthorized');
     else if (result.status === 'not_found') respondError(response, 404, 'not_found');
@@ -652,7 +659,7 @@ async function handleRequest(
   if (route === 'mobile_work_targets_v2') { await searchRead('work_targets', dependencies.mobileWorkReader); return; }
   if (route === 'admin_project_query_v2') { await searchRead('projects', dependencies.projectAdministration); return; }
   if (route === 'admin_time_backfill_targets_v2') { await searchRead('backfill_targets', dependencies.timeReview); return; }
-  if (route === 'admin_employee_memberships_projection_v3') { await searchRead('memberships', dependencies.employeeEnrollment); return; }
+  if (route === 'admin_employee_memberships_projection_v3' || route === 'admin_employee_memberships_projection_v4') { await searchRead('memberships', dependencies.employeeEnrollment); return; }
   if (route === 'admin_setup_projection_v3') {
     await searchRead(isRecord(body) && body.kind === 'nfc_tags' ? 'setup_tags' : 'setup_customers', dependencies.administration); return;
   }
@@ -1212,6 +1219,22 @@ async function handleHealth(
   }
 }
 
+async function recordSessionSignIn(
+  session: { readonly organizationId: string; readonly userId: string; readonly membershipId: string },
+  dependencies: BackendApiDependencies, options: BackendHttpServerOptions,
+  correlationId: string, timeoutMilliseconds: number,
+): Promise<void> {
+  try {
+    if (dependencies.recordMembershipSignIn) {
+      await withTimeout(dependencies.recordMembershipSignIn(session), Math.min(timeoutMilliseconds, 1_500));
+    }
+  } catch {
+    // Display data must never prevent a valid session. No identity, SQL error or
+    // sign-in timestamps are included in the diagnostic.
+    emitDiagnostic(options.onDiagnostic, { code: 'membership_sign_in_failed', correlationId });
+  }
+}
+
 async function handleSession(
   response: ServerResponse,
   accessToken: string,
@@ -1230,6 +1253,7 @@ async function handleSession(
       respondError(response, 401, 'unauthorized');
       return;
     }
+    await recordSessionSignIn(resolution.session, dependencies, options, correlationId, timeoutMilliseconds);
     // Installed Mobile clients reject extra JSON fields. Representation opt-in
     // must never be used as authority; the capability always comes from SQL.
     response.setHeader('Vary', 'Accept');
@@ -1270,6 +1294,7 @@ async function handleAdministrationSession(
       respondError(response, 401, 'unauthorized');
       return;
     }
+    await recordSessionSignIn(resolution.session, dependencies, options, correlationId, timeoutMilliseconds);
     respondJson(response, 200, resolution.session);
   } catch (error) {
     if (isOrganizationPausedError(error)) { respondError(response, 403, 'organization_paused'); return; }
@@ -2977,6 +3002,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_create_employee_invitation':
     case 'admin_employee_memberships_projection':
     case 'admin_employee_memberships_projection_v3':
+    case 'admin_employee_memberships_projection_v4':
     case 'admin_employee_memberships_projection_v2':
     case 'admin_managed_person_time':
     case 'admin_managed_active_summary':
@@ -3068,6 +3094,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_create_employee_invitation'
     || route === 'admin_employee_memberships_projection'
     || route === 'admin_employee_memberships_projection_v3'
+    || route === 'admin_employee_memberships_projection_v4'
     || route === 'admin_employee_memberships_projection_v2'
     || route === 'admin_managed_person_time'
     || route === 'admin_managed_active_summary'

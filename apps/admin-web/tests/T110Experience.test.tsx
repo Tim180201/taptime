@@ -1,6 +1,6 @@
 import {stateSearch} from './searchFixtures';
 // @vitest-environment jsdom
-import { afterEach,expect,it,vi } from 'vitest';
+import { afterEach,beforeAll,expect,it,vi } from 'vitest';
 import { cleanup,fireEvent,render,screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import Overview, { nextSetupStep } from '../src/views/Overview';
@@ -13,6 +13,7 @@ const member={id,displayName:'Anna',role:'standortleitung' as const,active:true,
 const item:SafeReviewItem={employeeMembershipId:id,reviewItemId:id,employeeDisplayName:'Anna',source:'offline_v2',targetType:'customer',targetDisplayName:'Lesekreis',triggerType:'nfc',occurredAt:'2026-10-05T08:00:00.000Z',deviceSequence:2,predecessorBlocked:false,reviewReason:'capture_time_out_of_bounds'};
 type Ready=Extract<AdminWebState,{status:'ready'}>;
 function ready():{-readonly [K in keyof Ready]:Ready[K]} {return {status:'ready',role:'administrator',membershipId:'actor',managementScope:{kind:'organization'},locationsEnabled:false,selectedLocation:null,assignableLocations:[],availableSections:['setup','employees','time_records','manual_capture'],sections:{setup:{status:'ready'},employees:{status:'ready'},timeRecords:{status:'ready'},reviewItems:{status:'ready'}},projection:{organization:{id,name:'Betrieb'},customers:[{id,displayName:'Lesekreis',active:true}],nfcTags:[{id} as never],customersComplete:true,nfcTagsComplete:true,nextCursor:null},employeeProjection:{organization:{id,name:'Betrieb'},employeeMemberships:[member],nextCursor:null},locationSetup:{locations:[],memberships:[],workTargets:[],activationGaps:[]},locationSetupBusy:false,projects:[],projectsNextCursor:null,projectBusy:false,timeRecords:[{status:'stopped'} as never],timeRecordsNextCursor:null,reviewItems:[],reviewItemsNextCursor:null,timeWindow:{fromInclusive:'2026-09-30T22:00:00.000Z',toExclusive:'2026-10-06T12:00:00.000Z'},creating:false,creatingEmployee:false,invitation:null,reassignmentIntent:null,reassigning:false,timeReviewBusy:false,correctionIntent:null,adjudicationIntent:null,notice:null};}
+beforeAll(() => { HTMLDialogElement.prototype.showModal = function () { this.open = true; }; HTMLDialogElement.prototype.close = function () { this.open = false; }; });
 afterEach(cleanup);
 it('selects exactly the first missing prerequisite and disappears when complete',()=>{
  const state=ready();expect(nextSetupStep(state)).toBeNull();
@@ -45,10 +46,11 @@ it('employee month chooser names the month, preserves filters and loads without 
 it('role success links directly to that persons management assignments',async()=>{
  const state={...ready(),roleAssignmentMembershipId:id,notice:{kind:'success' as const,text:'Rolle geändert. Weisen Sie jetzt die Standorte zu, die diese Person verwalten darf.'}};
  render(<EmployeesView state={state} administration={{querySearch:stateSearch(()=>state)} as AdminWebCapability} navigate={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('tab',{name:'Zugänge'}));
  expect(screen.getByRole('link',{name:'Verwaltete Standorte zuweisen'})).toHaveAttribute('href',expect.stringContaining(`mitarbeiter=${id}`));
- screen.getByText('Zugänge verwalten').closest('details')!.open=true;
- fireEvent.click(await screen.findByRole('button',{name:'Rolle bearbeiten'}));
- expect(screen.getByText('Änderungen werden sofort gespeichert.')).toBeVisible();
+ fireEvent.click(await screen.findByRole('button',{name:'Rolle ändern'}));
+ expect(screen.getByRole('dialog',{name:'Rolle ändern'})).toBeVisible();
+ expect(screen.getAllByRole('radio')).toHaveLength(3);
 });
 it('review context precedes the three unchanged choices and shows the event and day times',()=>{
  const state={...ready(),reviewItems:[item],reviewDay:{status:'ready' as const,reviewItemId:id,value:{records:[{timeRecordId:'time',targetDisplayName:'Lesekreis',startedAt:'2026-10-05T07:00:00.000Z',stoppedAt:'2026-10-05T09:00:00.000Z'}],activeRecord:null,nextCursor:null,windowStartedAt:'2026-10-04T22:00:00.000Z',windowEndedAt:'2026-10-05T22:00:00.000Z'}}} as unknown as Ready;

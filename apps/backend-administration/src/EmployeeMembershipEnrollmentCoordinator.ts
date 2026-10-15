@@ -147,9 +147,9 @@ export class EmployeeMembershipEnrollmentCoordinator {
       const summary = request as SearchRequests['managed_people'];
       const result = await client.query(kind === 'managed_people'
         ? 'SELECT *,taptime_server.read_organization_package_v1() AS package_usage FROM taptime_server.read_managed_active_summary_v5($1,$2,$3,$4,$5,$6,$7,$8)'
-        : 'SELECT * FROM taptime_server.read_managed_memberships_v3($1,$2,$3,$4,$5)',
+        : 'SELECT * FROM taptime_server.read_managed_memberships_v4($1,$2,$3,$4,$5,$6)',
       kind === 'managed_people' ? [request.locationId, summary.isRunning, after?.name ?? null, after?.id ?? null, request.limit + 1, summary.fromInclusive, summary.toExclusive, request.search]
-        : [request.locationId, request.search, after?.name ?? null, after?.id ?? null, request.limit + 1]);
+        : [request.locationId, request.search, (request as SearchRequests['memberships']).active ?? null, after?.name ?? null, after?.id ?? null, request.limit + 1]);
       const first = result.rows[0];
       if (!first) throw new Error('Search membership projection omitted status');
       if (first.result_status === 'forbidden' || first.result_status === 'invalid_request' || first.result_status === 'location_scope_forbidden') return { status: first.result_status };
@@ -165,6 +165,8 @@ export class EmployeeMembershipEnrollmentCoordinator {
       }) : ({ status: 'succeeded' as const, organization: { id: first.organization_id, name: first.organization_name },
         employeeMemberships: page.map(row => ({ id: row.membership_id, displayName: row.membership_display_name, role: row.membership_role,
           active: row.membership_active, rowVersion: Number(row.membership_row_version),
+          firstSignedInAt: row.first_signed_in_at === null ? null : timestamp(row.first_signed_in_at),
+          lastSignedInAt: row.last_signed_in_at === null ? null : timestamp(row.last_signed_in_at),
           location: row.location_id === null ? null : { id: row.location_id, name: row.location_name } })), nextCursor,
       }), row => context.cursor({ name: row.membership_display_name, id: row.membership_id }));
       if (kind === 'managed_people' && !isManagedActiveSummaryV6(response)) throw new Error('Invalid managed search response');

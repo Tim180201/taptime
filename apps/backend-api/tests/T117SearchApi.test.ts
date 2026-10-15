@@ -13,6 +13,7 @@ const entries = [
   ['/v2/customers/hours/detail', 'customer_detail', { ...month, customerId: id }],
   ['/v1/administration/managed-active-summary', 'managed_people', { ...month, locationId: null, isRunning: null }],
   ['/v3/administration/employee-memberships-projection', 'memberships', { locationId: null }],
+  ['/v4/administration/employee-memberships-projection', 'memberships', { locationId: null, active: null }],
   ['/v3/administration/setup-projection', 'setup_customers', { kind: 'customers' }],
   ['/v3/administration/setup-projection', 'setup_tags', { kind: 'nfc_tags' }],
   ['/v2/mobile/work-targets/query', 'work_targets', {}],

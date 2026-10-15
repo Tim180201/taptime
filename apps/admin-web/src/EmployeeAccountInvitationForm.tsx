@@ -46,7 +46,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
   readonly state: Pick<ReadyState, 'locationsEnabled' | 'selectedLocation' | 'assignableLocations'>;
   readonly open: boolean;
   readonly setOpen: (open: boolean) => void;
-  readonly onCreated: (status: AccountInvitationSuccess) => Promise<void>;
+  readonly onCreated: (status: AccountInvitationSuccess, displayName: string) => Promise<void>;
 }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -87,7 +87,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
           submitting.current = false; setBusy(false);
           if (result.status === 'succeeded' || result.status === 'succeeded_existing_account') {
             setName(''); setEmail(''); setOpen(false);
-            await onCreated(result.status);
+            await onCreated(result.status, name);
           } else {
             setRetryNeeded(result.status==='failed' && result.code==='invitation_needs_attention' || result.status==='unreachable');
             setNotice({ kind: 'error', text: result.status === 'failed' ? ACCOUNT_INVITATION_NOTICES[result.code]

@@ -146,7 +146,12 @@ async function invoke(kind: Kind, who: Who = 'admin', extra: Record<string, unkn
   if (kind === 'work_targets') result = await mobile.queryWorkTargets({ accessToken, request: previous });
   else if (kind === 'projects') result = await projects.queryProjects({ accessToken, request: previous });
   else if (kind === 'backfill_targets') result = await review.queryBackfillTargets({ accessToken, request: previous });
-  else if (kind.startsWith('setup_')) result = await setup.readSetupProjection({ accessToken, ...previous });
+  // The predecessor scans the whole setup projection (including both customers and
+  // tags). CI 38738977285 hit PostgreSQL 25P04 in that comparison, not a scope
+  // mismatch. Give each baseline call its own test budget; production keeps its
+  // deadline and the new search path still runs with its production controls.
+  else if (kind.startsWith('setup_')) result = await setup.readSetupProjection({ accessToken, ...previous },
+    { deadlineEpochMilliseconds: Date.now() + 60_000 });
   else if (kind === 'memberships') result = await memberships.readEmployeeMembershipsProjectionV2({ accessToken, ...previous });
   else result = await memberships.readManagedActiveSummary({ accessToken, ...previous, includeSelectedMonth: true, includeMonthHours: true, includePackageUsage: true });
   if (result.status === 'ready') return { status: 'succeeded', response: result.value };
@@ -261,17 +266,15 @@ describe.each(kinds)('T117 PostgreSQL %s', kind => {
     expect(result.pages.length).toBeGreaterThan(1);
     for (const page of result.pages) expect(Buffer.byteLength(JSON.stringify(page), 'utf8')).toBeLessThanOrEqual(14_336);
   });
-  it('preserves each predecessor scope and never broadens it through search', async () => {
-    for (const who of Object.keys(actors) as Who[]) {
+  it.each(Object.keys(actors) as Who[])('preserves the %s predecessor scope and never broadens it through search', async who => {
       const oldResult = await invoke(kind, who, {}, true);
-      if (oldResult.status !== 'succeeded') { expect((await invoke(kind, who, { search: 'özd' })).status).toBe(oldResult.status); continue; }
+      if (oldResult.status !== 'succeeded') { expect((await invoke(kind, who, { search: 'özd' })).status).toBe(oldResult.status); return; }
       const before = await all(kind, who, {}, true);
       const after = await all(kind, who);
       expect(after.rows.map(rowId).sort()).toEqual(before.rows.map(rowId).sort());
       const found = await all(kind, who, { search: 'özd' });
       expect(found.rows.every(r => before.rows.some(p => rowId(p) === rowId(r)))).toBe(true);
-    }
-  });
+  }, 60_000);
   it('leaves the old route/coordinator response unchanged after 056', async () => {
     expect(stable(await oldResponse(kind))).toEqual(oldSnapshots.get(kind));
   });
