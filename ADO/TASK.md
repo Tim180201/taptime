@@ -1,49 +1,99 @@
 # Aktuelle Aufgabe
 
-> **Stand 15.10.2026:** Deploy 6 abgeschlossen (`d193725` → `fb28166`). T-024 Teil A (`7e36c58`) und T-122c
-> (`e614779`) abgeschlossen; die CI zu `e614779` brach nur am Zeitlimit der Browser-Prüfstrecke ab, deshalb gibt es dazu
-> kein Image. Reihenfolge: **T-122d** (jetzt), dann T-126 (Namen ändern), T-127a und T-127b (Archiv); je ein Auftrag,
-> je ein Review, je ein Commit. Danach Deploy 7 mit allem und T-024 Teil B an der Konsole (PO, TL begleitet; Runbook in
-> `infrastructure/DEPLOY.md`).
+> **Stand 15.10.2026:** Deploy 6 abgeschlossen (`d193725` → `fb28166`). Abgeschlossen: T-024 Teil A (`7e36c58`),
+> T-122c (`e614779`), T-122d (`df76957`, CI in drei Teilen grün). Der Image-Workflow zu `df76957` hat alle fünf Abbilder
+> veröffentlicht, scheiterte aber beim Aufräumen und in der Abrufprüfung an `GHCR manifests/fb28166 failed (404)`; das
+> klärt T-130 nur lesend. Reihenfolge: **T-129** (jetzt, Startseite) und parallel **T-130** (Befund), dann T-126
+> (Namen ändern), T-127a und T-127b (Archiv); je ein Auftrag, je ein Review, je ein Commit. Danach Deploy 7 mit allem und
+> T-024 Teil B an der Konsole (PO, TL begleitet; Runbook in `infrastructure/DEPLOY.md`).
 
-## T-122d · Browser-Prüfstrecke in drei Teilen (CI-Zeitbox)
+## Parallel: T-130 · GHCR-Befund: Produktionsabbild `fb28166` nicht abrufbar (nur lesen)
 
-**Für:** Development · **Risiko:** niedrig (nur Testaufteilung und CI, kein Produktcode) · **Zeitbox:** kurz. Review
-durch den TL.
+**Für:** Development · **Risiko:** Befund in der Lieferkette; die Aufgabe selbst ist rein lesend · **Zeitbox:** kurz.
+Läuft parallel zu T-129: kein Branch, keine Änderung am Arbeitsverzeichnis außer `.t130-review/`.
 
 ### Warum
 
-Die CI zu `e614779` (T-122c) wurde abgebrochen: Der Job „Web layouts and accessibility“ überschritt sein Zeitlimit von
-15 min. Der Browserschritt lief von 20:17 bis 20:31 und steckte noch in der Betreiber-Matrix; der neue T-122c-Test
-selbst war nach rund 151 s grün. Die Strecke lag schon vorher nahe am Limit (lokal 12½ min) und wächst mit T-126 und
-T-127b weiter. Ohne grüne CI baut der Image-Workflow nichts.
+Image-Workflow zu `df76957` (Lauf 38809812772): alle fünf Abbilder veröffentlicht, danach scheiterten Aufräumen und
+Abrufprüfung mit `GHCR manifests/fb28166 failed (404)`. `fb28166` ist seit Deploy 6 (15.10., etwa 18:14 bis 18:52 UTC)
+die Produktion. Der Lauf zu `7e36c58` meldete Aufräumen und Abrufprüfung noch grün. Das Aufräumen hat diesmal richtig
+nichts gelöscht, weil die strenge Prüfung vorher scheiterte. Die Produktion läuft mit den lokal vorhandenen Abbildern
+weiter; offen ist, ob ein Produktionsabbild in GHCR fehlt und warum.
+
+### Erlaubt und verboten
+
+Nur lesende Abfragen (`gh api` GET, anonymer Abruf wie der Server). Verboten: Löschen, Wiederherstellen, Tags setzen,
+Workflows neu oder manuell starten, Serverzugriff, Deploy (STATUS: kein manuelles GHCR-DELETE, kein manueller Neustart).
+
+### Fragen
+
+1. Lauf 38809812772: die genauen Fehlerzeilen beider Schritte; welcher Abruf zuerst scheiterte.
+2. Schutzsatz jetzt: `https://admin.tb-infra.de/status/ghcr-protected-versions.json` (nicht sensitiv, DEPLOY.md):
+   `current_version`, `previous_version`, `operations_version`, Zahl der `known_versions`.
+3. Anonymer Abruf je Tag mit HTTP-Status: `fb28166`, `admin-web-fb28166`, `operator-web-fb28166`,
+   `landing-web-fb28166`, dieselben für `d193725`, dazu `7e36c58`, `df76957`, der Operations-Tag aus dem Schutzsatz und
+   `ops`.
+4. Paketversionen von `taptime-backend-api` (aktiv und mit `state=deleted`): Gibt es eine Version mit Tag `fb28166`
+   (Kennung, `created_at`, `updated_at`, Tags)? Wie viele aktive Versionen gibt es?
+5. Die Image-Läufe zu `fb28166` und `7e36c58`: Start und Ende in UTC, der geladene Schutzsatz, soweit protokolliert,
+   und jede Zeile „Deleting obsolete unprotected GHCR package version …“. Wurde eine Version mit `fb28166` gelöscht,
+   und lag der Lauf vor oder nach dem Ende von Deploy 6?
+6. Ursache mit Belegen oder ehrlich „unklar“ mit den offenen Punkten. Vorschlag für den Rückweg (etwa Wiederherstellen
+   einer gelöschten Version innerhalb der 30-Tage-Frist) und für eine Absicherung, damit ein laufendes
+   Produktionsabbild nie gelöscht werden kann. Nur Vorschläge, nichts ausführen.
+
+### Bericht
+
+`.t130-review/report.md` mit den Befehlen (ohne Token) und Ergebnissen. Keine Änderung am Repository.
+
+---
+
+## Jetzt: T-129 · Startseite: Abschnitt „Stempelpunkte“ (D-144)
+
+**Für:** Development · **Risiko:** niedrig (nur `apps/landing-web`; die Startseite ist bis T-031b passwortgeschützt) ·
+**Zeitbox:** eine kurze Sitzung. Beginnt jetzt.
+
+### Warum
+
+PO 15.10.: Stationäre Stempelpunkte (die Taptura-Karte fest in einem Wandrahmen oder Tischkeil, ohne Strom und Netz)
+sollen so früh wie möglich auf die Startseite. Produkt, Karten für „Allgemeine Arbeitszeit“ (T-128) und
+fälschungssichere Chips (T-073) kommen erst nach dem Pilot (D-144). Die Seite kündigt darum ehrlich an und verspricht
+nichts, was es noch nicht gibt.
 
 ### Umfang
 
-1. **Aufteilung in `scripts/browser/layout.test.mjs`** über `TAPTIME_LAYOUT_SHARD=<n>/<m>` (z. B. `2/3`). Jeder
-   Test der Datei bekommt beim Registrieren eine feste laufende Nummer; Teil n führt genau die Tests mit
-   `Nummer mod m = n − 1` aus. Ohne Variable läuft alles wie heute, lokal ändert sich nichts. Ein ungültiger Wert
-   bricht sofort ab, ein Teil ohne Test ebenso. Das `before` baut nur, was der Teil braucht, wenn das ohne Umbau geht.
-2. **CI:** Job `web-layout` als Matrix `shard: [1, 2, 3]` mit `fail-fast: false`, Name „Web layouts and accessibility
-   (n/3)“, Zeitlimit bleibt 15 min je Teil. Der Landing-Browsertest
-   (`npm run test:browser --workspace=@taptime/landing-web`) läuft genau einmal. Prüfskripte, die `ci.yml` lesen,
-   werden passend nachgezogen. Der Image-Workflow bleibt unverändert (er prüft nur das Gesamtergebnis der CI).
-3. **Vollständigkeit belegen:** ein kleiner Node-Test der Aufteilung (für m = 1, 2, 3: jede Nummer genau einmal).
-   Jeder Teil nennt am Ende die Zahl seiner Tests; im Bericht stehen die drei Zahlen, ihre Summe und die Zahl ohne
-   Aufteilung (müssen gleich sein), dazu die Laufzeit je Teil lokal.
+1. **Neuer Abschnitt `#stempelpunkte`** direkt nach `#ohne-tag`, im Aufbau der übrigen Abschnitte, in beiden Themen und
+   in der Sie-Form der ganzen Seite:
+   - Eyebrow „Bald verfügbar“ (Kennzeichnung, kein Knopf).
+   - Überschrift „Ihr Stempelpunkt. Ohne Kabel.“
+   - Text: „Die Taptura-Karte gibt es bald fest montiert: im Wandrahmen am Eingang oder als Tischkeil auf dem
+     Schreibtisch. Kein Strom, kein Netzwerk, kein Terminal. Ihre Mitarbeiter halten ihr Handy kurz daran – die App
+     weiß, wer stempelt.“
+   - Drei Vorteile: „Einfach anbringen“ (kleben oder schrauben, ohne Kabel und Batterie) · „Mit dem Handy stempeln“
+     (das Handy weist die Person aus; eine Mitarbeiterkarte gibt es nicht) · „Flexibel erweitern“ (so viele Punkte wie
+     nötig – am Eingang, je Schreibtisch, beim Kunden; zugeordnet in der Verwaltung).
+   - Zwei Bilder „Wandrahmen“ und „Tischkeil“ aus `.t129-review/assets/` (Konzeptbilder des PO), je mit der
+     sichtbaren Unterschrift „Entwurf“ und einem beschreibenden Alternativtext; als optimierte lokale Dateien (WebP
+     oder JPEG, je höchstens 60 KB, `width`/`height` gesetzt, `loading="lazy"`), CSP unverändert.
+   - Kein Preis, kein Video, kein Bestellknopf; am Ende ein Textlink „Interesse? Sprechen Sie uns an.“ zu `#anfrage`.
+2. **Häufige Fragen:** neue Frage „Was ist ein Stempelpunkt?“ mit der Antwort „Eine Taptura-Karte in einem festen
+   Halter für Wand oder Schreibtisch. Er braucht weder Strom noch Netzwerk. Gestempelt wird mit dem Handy und der
+   Taptura-App, auf dem iPhone heute mit geöffneter App. Die Stempelpunkte sind in Vorbereitung.“
+3. **Tests und Fotos:** Der bestehende Landing-Browsertest (axe, beide Themen, 390 und 1440 px, kein seitliches
+   Scrollen, keine fremden Anfragen) deckt den Abschnitt ab; dazu eine Prüfung, dass der Abschnitt „Bald verfügbar“
+   und an beiden Bildern „Entwurf“ trägt. Fotos des Abschnitts bei 390 und 1440 px in beiden Themen.
 
 ### Grenzen
 
-Kein Produktcode, keine Testinhalte, kein Test entfernt oder gelockert, kein höheres Zeitlimit. ADO nicht ändern.
-Bericht in `.t122d-review/`; kein Commit vor `APPROVED`. Nach dem Commit müssen CI (alle drei Teile) und der
-Image-Workflow grün sein.
+Nur `apps/landing-web`; `/app`, `/tag` und Caddy unverändert. Sobald echte Prototypen fotografiert sind, ersetzt ein
+kleiner Folgeauftrag die Entwürfe. ADO nicht ändern. Bericht in `.t129-review/`; kein Commit vor `APPROVED`.
 
 ---
 
 ## Danach: T-126 · Namen von Zugängen ändern (D-142)
 
 **Für:** Development · **Risiko:** mittel (Datenbank, Berechtigung, Lohnexport) · **Zeitbox:** eine Sitzung. Unabhängiges
-Review (AGENTS § 4). Beginnt nach T-122d.
+Review (AGENTS § 4). Beginnt nach T-129.
 
 ### Warum
 

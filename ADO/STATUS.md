@@ -3,16 +3,18 @@
 **Stand 15.10.2026.** Produktion läuft auf `fb28166` (Deploy 6 am 15.10. abends, Migrationen 058 und 059). Ausgeliefert:
 T-119 (D-139), T-121, T-122a, T-122b (D-140) und T-105 (D-141). App-Builds zu `ad4cd29` (T-121, T-122) beim PO,
 Prüfliste im Artifact „Abnahme Build T-122“. Auf main, noch nicht ausgeliefert: T-024 Teil A (`7e36c58`, Werkzeug
-`taptime-runtime-rotate`, Runbook) und T-122c (`e614779`, Kopfbalken in beiden Themen fest oben, ein Monatsschalter,
-Fehlergrenzen; CI nur am Zeitlimit der Browser-Prüfstrecke abgebrochen, kein Image). In Arbeit: T-122d (Prüfstrecke in
-drei Teilen); danach T-126 (Namen ändern, D-142), T-127a und T-127b (Archiv, D-143), alle aus der Web-Abnahme nach
-Deploy 6. Supabase-Projekt am 14.10. vom PO
+`taptime-runtime-rotate`, Runbook), T-122c (`e614779`, Kopfbalken in beiden Themen fest oben, ein Monatsschalter,
+Fehlergrenzen) und T-122d (`df76957`, Browser-Prüfstrecke in drei Teilen; CI grün). **Befund:** Der Image-Lauf zu
+`df76957` veröffentlichte alle fünf Abbilder, scheiterte dann aber beim Aufräumen und in der Abrufprüfung an
+`GHCR manifests/fb28166 failed (404)`, also am Abbild der laufenden Produktion; gelöscht wurde dabei nichts. Die
+Produktion läuft mit lokalen Abbildern weiter. Klärung nur lesend in T-130, vor Deploy 7. In Arbeit: T-129 (Startseite
+„Stempelpunkte“, D-144); danach T-126 (Namen ändern, D-142), T-127a und T-127b (Archiv, D-143). Supabase-Projekt am 14.10. vom PO
 aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
 der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-122d, T-126, T-127a, T-127b → Deploy 7 (T-024a und diese, Migrationen 060 und 061) mit neuem
+**Weg zum Pilot:** T-130 geklärt, T-129, T-126, T-127a, T-127b → Deploy 7 (T-024a und diese, Migrationen 060 und 061) mit neuem
 Deploy-Schlüssel → T-024 Teil B an der Konsole → restliche Geräteabnahme → Pilot. Will der PO Teil B früher, geht
 Deploy 7 ohne das Archiv hinaus und T-127 mit Deploy 8. Lohnexport und Business Central: erst die Antworten von frogs (PLAN,
 CEO-Termin), dann T-123 und T-124.

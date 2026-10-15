@@ -1940,3 +1940,15 @@ Lesen ist dort ohne Frist erlaubt; Ändern, Nachtragen und Prüfen bleiben nach 
 Umsetzung in T-127a (Server) und T-127b (Web). Aufbewahrung und endgültiges Löschen regelt später das Löschkonzept (B15).
 **Warum:** Im laufenden Betrieb stören Ehemalige (etwa in „Gerade aktiv“), während Monatssummen sie brauchen; unter
 Mitarbeiter → Zeiten fehlten sie in älteren Monaten bisher ganz (PO 15.10., Erhebung TL).
+
+## D-144 · Stationäre Stempelpunkte als Produkt nach dem Pilot; Ankündigung schon jetzt · 15.10.2026 · Tim (PO)
+Taptura bietet nach dem Pilot feste Stempelpunkte an: die Taptura-Karte in einem Halter für Wand oder Schreibtisch,
+ohne Strom, Batterie und Netz; gestempelt wird mit dem Handy, das die Person ausweist. Zuerst die Prototypen Wandrahmen
+und Tischkeil, gedruckt im eigenen 3D-Drucker; später mehrere Formen zur Wahl. Dafür darf eine Karte künftig auf jedes
+Arbeitsziel zeigen, auch auf „Allgemeine Arbeitszeit“ und Projekte, beliebig viele je Ziel (T-128). Als Nachweis der
+Anwesenheit nur mit fälschungssicheren Chips (NTAG 424 DNA, T-073, D-088, D-111); im Home-Office ist ein Punkt
+Bequemlichkeit, kein Nachweis des Ortes. Die Startseite kündigt die Stempelpunkte schon jetzt als „Bald verfügbar“ mit
+Entwurfsbildern an, ohne Preis und ohne Bestellmöglichkeit (T-129); echte Fotos ersetzen die Entwürfe, sobald es
+Prototypen gibt.
+**Warum:** Ein fester Punkt ohne Kabel macht Taptura für Büro, Empfang und mehrere Standorte so einfach wie am
+Einsatzort; früh angekündigt hilft er im Gespräch mit Interessenten, ehrlich angekündigt schadet er nicht.
