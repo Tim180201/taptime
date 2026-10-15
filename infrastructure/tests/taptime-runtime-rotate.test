@@ -1,0 +1,217 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Real PostgreSQL 17 and SCRAM authentication. Docker discovery/recreation and
+# HTTP are simulated; exec preserves psql's real stdin/transaction semantics.
+if [[ "${1:-}" != --inside ]]; then
+  exec docker run --rm --volume "$PWD:/repo:ro" postgres:17.10-bookworm \
+    bash /repo/infrastructure/tests/taptime-runtime-rotate.test --inside
+fi
+cd /repo
+readonly TEST_ROOT=/tmp/runtime-test
+mkdir -p "$TEST_ROOT/bin" "$TEST_ROOT/pg"
+chown postgres:postgres "$TEST_ROOT/pg"
+gosu postgres initdb -D "$TEST_ROOT/pg" --auth-local=trust --auth-host=scram-sha-256 >/dev/null
+gosu postgres pg_ctl -D "$TEST_ROOT/pg" -l "$TEST_ROOT/pg/server.log" start >/dev/null
+trap 'gosu postgres pg_ctl -D "$TEST_ROOT/pg" -m immediate stop >/dev/null' EXIT
+createdb -U postgres taptime
+for migration in apps/backend-schema/migrations/*.sql; do
+  psql -Xq -U postgres -d taptime -v ON_ERROR_STOP=1 -1 -f "$migration" >/dev/null 2>"$TEST_ROOT/migration.log"
+done
+export TAPTIME_RUNTIME_ENV_FILE="$TEST_ROOT/.env"
+export TAPTIME_RUNTIME_LOGINS_FILE="$TEST_ROOT/logins.sql"
+export TAPTIME_RUNTIME_COMPOSE_FILE="$TEST_ROOT/compose.yml"
+export TAPTIME_OPERATOR_LOCK_FILE="$TEST_ROOT/operator.lock"
+export TAPTIME_DEPLOY_LOCK_FILE="$TEST_ROOT/deploy.lock"
+cp infrastructure/postgres/server-runtime-logins.sql "$TAPTIME_RUNTIME_LOGINS_FILE"
+mapfile -t roles < <(sed -nE 's/^CREATE ROLE ([a-z_][a-z_0-9]*) LOGIN .*/\1/p' "$TAPTIME_RUNTIME_LOGINS_FILE")
+for role in "${roles[@]}"; do
+  printf "\\set %s_password 'synthetic_%s'\n" "$role" "$role"
+done > "$TEST_ROOT/create.sql"
+cat "$TAPTIME_RUNTIME_LOGINS_FILE" >> "$TEST_ROOT/create.sql"
+psql -Xq -U postgres -d taptime -v ON_ERROR_STOP=1 -f "$TEST_ROOT/create.sql" >/dev/null
+psql -Xq -U postgres -d taptime -c "CREATE ROLE taptime_operator_runtime LOGIN PASSWORD 'synthetic_operator'" >/dev/null
+cat > "$TEST_ROOT/bin/docker" <<'DOCKER'
+#!/usr/bin/env bash
+set -euo pipefail
+root=/tmp/runtime-test
+printf '%s\n' "$*" >> "$root/argv.log"
+env >> "$root/children.env"
+case "$1" in
+  ps)
+    [[ ! -f "$root/discovery-error" ]] || exit 1
+    if [[ "$*" == *service=database* ]]; then printf 'db000001\n'; else printf 'be000001\n'; fi
+    [[ ! -f "$root/multiple-containers" ]] || printf 'abc00002\n' ;;
+  inspect)
+    if [[ "$*" == *Config.Image* ]]; then printf 'ghcr.io/tim180201/taptime-backend-api:abcdef0\n'
+    elif [[ -f "$root/unhealthy" ]]; then rm "$root/unhealthy"; printf 'unhealthy\n'
+    else printf 'healthy\n'; fi ;;
+  compose)
+    [[ "$*" == *'--no-deps --pull never --force-recreate backend-api' ]]
+    [[ "$TAPTIME_VERSION" == abcdef0 ]]
+    printf 'restart\n' >> "$root/restarts"
+    cp "$root/.env" "$root/candidate.env"
+    if [[ -f "$root/restart-fail" ]]; then rm "$root/restart-fail"; exit 1; fi
+    if [[ -f "$root/health-fail" ]]; then mv "$root/health-fail" "$root/unhealthy"; fi ;;
+  exec)
+    [[ "$*" == *'--user postgres db000001 psql -XqAt --dbname=taptime --set ON_ERROR_STOP=on' ]]
+    while [[ "$1" != psql ]]; do shift; done
+    exec "$@" -U postgres ;;
+  *) exit 1 ;;
+esac
+DOCKER
+cat > "$TEST_ROOT/bin/curl" <<'CURL'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> /tmp/runtime-test/argv.log
+env >> /tmp/runtime-test/children.env
+if [[ "$*" == *version.txt* ]]; then printf 'abcdef0\n'; fi
+CURL
+cat > "$TEST_ROOT/bin/mv" <<'MV'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ -f /tmp/runtime-test/env-write-fail && "$1" == -f && "$3" == */environment ]]; then exit 1; fi
+if [[ -f /tmp/runtime-test/signal-after-mv && "$3" == */environment ]]; then
+  /bin/mv "$@"
+  kill -TERM "$PPID"
+  exit 0
+fi
+exec /bin/mv "$@"
+MV
+chmod 755 "$TEST_ROOT/bin/"*
+export PATH="$TEST_ROOT/bin:$PATH"
+sql() { psql -XqAt -U postgres -d taptime -v ON_ERROR_STOP=1 -c "$1"; }
+fixture() {
+  cp infrastructure/postgres/server-runtime-logins.sql "$TAPTIME_RUNTIME_LOGINS_FILE"
+  # Fixture must remain literal data.
+  # shellcheck disable=SC2016
+  printf '%s\n' 'UNRELATED_LITERAL="$(touch /tmp/never-execute)"' > "$TEST_ROOT/rejected.env"
+  printf '%s\n' '# preserve this comment' 'SUPABASE_ISSUER=https://synthetic.invalid/auth/v1' > "$TAPTIME_RUNTIME_ENV_FILE"
+  for role in "${roles[@]}"; do
+    # Keys deliberately do not encode role names. The URI is the mapping authority.
+    printf 'TEST_%s_DATABASE_URL=postgresql://%s:synthetic_%s@database:5432/taptime\n' \
+      "${role^^}" "$role" "$role" >> "$TAPTIME_RUNTIME_ENV_FILE"
+  done
+  printf '%s\n' 'TAPTIME_OPERATOR_DATABASE_URL=postgresql://taptime_operator_runtime:synthetic_operator@database:5432/taptime' \
+    'TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY=synthetic_cursor_original' >> "$TAPTIME_RUNTIME_ENV_FILE"
+  chmod 600 "$TAPTIME_RUNTIME_ENV_FILE"
+  cp "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/before.env"
+  rm -f "$TEST_ROOT/restarts" "$TEST_ROOT/candidate.env"
+}
+rotate() { bash -x infrastructure/operations/taptime-runtime-rotate > "$TEST_ROOT/output" 2>&1; }
+reject() { if rotate; then printf 'Unexpected success\n' >&2; exit 1; fi; }
+no_stage() { [[ -z "$(find "$TEST_ROOT" -maxdepth 1 -name '.runtime-rotate.*' -print)" ]]; }
+unchanged() { cmp -s "$TEST_ROOT/before.env" "$TAPTIME_RUNTIME_ENV_FILE"; no_stage; }
+authenticate_env() {
+  local file="$1" line url role password
+  while IFS= read -r line; do
+    [[ "$line" == *_DATABASE_URL=* ]] || continue
+    url="${line#*=postgresql://}"; role="${url%%:*}"; password="${url#*:}"; password="${password%%@*}"
+    # pgpass, not argv or an inherited password; use the real SCRAM verifier.
+    printf '127.0.0.1:5432:taptime:%s:%s\n' "$role" "$password" > "$TEST_ROOT/pgpass"
+    chmod 600 "$TEST_ROOT/pgpass"
+    PGPASSFILE="$TEST_ROOT/pgpass" psql -XqAt -h 127.0.0.1 -U "$role" -d taptime -c 'SELECT 1' >/dev/null
+  done < "$file"
+}
+assert_no_leaks() {
+  local file line value password
+  for file in "$TEST_ROOT/before.env" "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/candidate.env"; do
+    [[ -f "$file" ]] || continue
+    while IFS= read -r line; do
+      if [[ "$line" == *_DATABASE_URL=* ]]; then
+        value="${line#*=postgresql://}"; password="${value#*:}"; password="${password%%@*}"
+      elif [[ "$line" == TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY=* ]]; then password="${line#*=}"
+      else continue; fi
+      if grep -Fq -- "$password" "$TEST_ROOT/output" "$TEST_ROOT/argv.log" "$TEST_ROOT/children.env" "$TEST_ROOT/pg/server.log"; then
+        printf 'Secret escaped into diagnostics/argv/environment/server log\n' >&2; exit 1
+      fi
+    done < "$file"
+  done
+}
+fixture
+sql "ALTER SYSTEM SET log_statement='all'"
+sql "ALTER SYSTEM SET log_min_duration_statement=0"
+sql 'SELECT pg_reload_conf()' >/dev/null
+printf 'Runtime: successful rotation of SQL-derived roles and cursor, SCRAM and no leakage\n'
+export password=ambient_synthetic_secret TAPTIME_SESSION_DATABASE_URL=ambient_synthetic_secret
+rotate
+unset password TAPTIME_SESSION_DATABASE_URL
+test "$(stat -c '%u:%g:%a' "$TAPTIME_RUNTIME_ENV_FILE")" = 0:0:600
+authenticate_env "$TAPTIME_RUNTIME_ENV_FILE"
+test "$(wc -l < "$TEST_ROOT/restarts")" = 1
+grep -Fxq 'TAPTIME_OPERATOR_DATABASE_URL=postgresql://taptime_operator_runtime:synthetic_operator@database:5432/taptime' "$TAPTIME_RUNTIME_ENV_FILE"
+while IFS= read -r line; do
+  [[ "$line" != *_DATABASE_URL=* || "$line" == TAPTIME_OPERATOR_DATABASE_URL=* ]] && continue
+  [[ "$line" =~ :[A-Za-z0-9_-]{43}@database:5432/taptime$ ]]
+done < "$TAPTIME_RUNTIME_ENV_FILE"
+grep -Eq '^TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY=[A-Za-z0-9_-]{43}$' "$TAPTIME_RUNTIME_ENV_FILE"
+if grep -q ambient_synthetic_secret "$TEST_ROOT/children.env"; then exit 1; fi
+assert_no_leaks
+no_stage
+# Keep the successful credentials as the baseline for subsequent rollback tests.
+cp "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/current.env"
+
+printf 'Runtime: mismatch, duplicate keys, unsafe rights, containers and literal-only parsing fail closed\n'
+for fault in missing extra duplicate role_duplicate rights owner symlink interpolation containers discovery; do
+  cp "$TEST_ROOT/current.env" "$TAPTIME_RUNTIME_ENV_FILE"
+  case "$fault" in
+    missing) sed -i '/^TEST_.*SESSION_DATABASE_URL=/d' "$TAPTIME_RUNTIME_ENV_FILE" ;;
+    extra) printf 'UNKNOWN_DATABASE_URL=postgresql://unknown:synthetic@database:5432/taptime\n' >> "$TAPTIME_RUNTIME_ENV_FILE" ;;
+    duplicate) printf 'SUPABASE_ISSUER=https://duplicate.invalid\n' >> "$TAPTIME_RUNTIME_ENV_FILE" ;;
+    role_duplicate) line="$(sed -n '/^TEST_.*SESSION_DATABASE_URL=/s/^TEST_/COPY_/p' "$TAPTIME_RUNTIME_ENV_FILE")"; printf '%s\n' "$line" >> "$TAPTIME_RUNTIME_ENV_FILE" ;;
+    rights) chmod 644 "$TAPTIME_RUNTIME_ENV_FILE" ;;
+    owner) chown postgres:postgres "$TAPTIME_RUNTIME_ENV_FILE" ;;
+    symlink) mv "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/link-target"; ln -s "$TEST_ROOT/link-target" "$TAPTIME_RUNTIME_ENV_FILE" ;;
+    interpolation) cat "$TEST_ROOT/rejected.env" >> "$TAPTIME_RUNTIME_ENV_FILE" ;;
+    containers) touch "$TEST_ROOT/multiple-containers" ;;
+    discovery) touch "$TEST_ROOT/discovery-error" ;;
+  esac
+  cp -L "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/before.env"
+  reject; unchanged
+  rm -f "$TEST_ROOT/multiple-containers" "$TEST_ROOT/discovery-error" "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/link-target"
+done
+[[ ! -e /tmp/never-execute ]]
+cp "$TEST_ROOT/current.env" "$TAPTIME_RUNTIME_ENV_FILE"
+
+printf 'Runtime: deployment/operator locks and atomic environment write failure\n'
+for lock in "$TAPTIME_OPERATOR_LOCK_FILE" "$TAPTIME_DEPLOY_LOCK_FILE"; do
+  exec {held}>"$lock"; flock -n "$held"
+  reject
+  exec {held}>&-
+done
+cp "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/before.env"
+sql "SELECT rolname,rolpassword FROM pg_authid WHERE rolname LIKE 'taptime_%' ORDER BY rolname" > "$TEST_ROOT/hashes-before"
+touch "$TEST_ROOT/env-write-fail"
+reject; unchanged
+rm "$TEST_ROOT/env-write-fail"
+sql "SELECT rolname,rolpassword FROM pg_authid WHERE rolname LIKE 'taptime_%' ORDER BY rolname" > "$TEST_ROOT/hashes-after"
+cmp -s "$TEST_ROOT/hashes-before" "$TEST_ROOT/hashes-after"
+
+printf 'Runtime: ALTER ROLE failure aborts the whole transaction before file replacement\n'
+# A nonexistent final role forces earlier successful ALTERs to roll back in real PG.
+printf 'CREATE ROLE missing_runtime LOGIN NOINHERIT;\n' >> "$TAPTIME_RUNTIME_LOGINS_FILE"
+printf 'MISSING_DATABASE_URL=postgresql://missing_runtime:synthetic@database:5432/taptime\n' >> "$TAPTIME_RUNTIME_ENV_FILE"
+cp "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/before.env"
+reject; unchanged
+sql "SELECT rolname,rolpassword FROM pg_authid WHERE rolname LIKE 'taptime_%' ORDER BY rolname" > "$TEST_ROOT/hashes-after"
+cmp -s "$TEST_ROOT/hashes-before" "$TEST_ROOT/hashes-after"
+cp infrastructure/postgres/server-runtime-logins.sql "$TAPTIME_RUNTIME_LOGINS_FILE"
+cp "$TEST_ROOT/current.env" "$TAPTIME_RUNTIME_ENV_FILE"
+
+printf 'Runtime: failed restart and failed health restore old passwords, env, cursor and backend\n'
+for fault in restart-fail health-fail; do
+  cp "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/before.env"
+  rm -f "$TEST_ROOT/restarts"
+  touch "$TEST_ROOT/$fault"
+  reject; unchanged
+  test "$(wc -l < "$TEST_ROOT/restarts")" = 2
+  authenticate_env "$TAPTIME_RUNTIME_ENV_FILE"
+  assert_no_leaks
+done
+printf 'Runtime: TERM immediately after atomic rename restores env before SQL commit\n'
+cp "$TAPTIME_RUNTIME_ENV_FILE" "$TEST_ROOT/before.env"
+touch "$TEST_ROOT/signal-after-mv"
+reject; unchanged
+rm "$TEST_ROOT/signal-after-mv"
+authenticate_env "$TAPTIME_RUNTIME_ENV_FILE"
+assert_no_leaks
+printf 'Runtime rotation tests passed.\n'

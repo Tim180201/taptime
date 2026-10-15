@@ -197,6 +197,40 @@ Android ist entsprechend in ntfy unter `Settings → Channel settings` für den 
 maximalen Priorität das Übersteuern von „Nicht stören“ zu erlauben. Priorität 5 bleibt für beide
 Sofort-Meldungen gesetzt, ersetzt aber nicht diese Betriebssystemfreigabe.
 
+### T-024: ntfy-Thema erneuern
+
+Nur der PO an der Root-Konsole nach separater Freigabe; der TL begleitet. Keine Ausgabe mit
+Themenname fotografieren oder an den Chat geben. Der PO erzeugt den neuen Namen aus 32
+Zufallsbytes direkt in einer geschützten curl-Datei. Jede Zeile einzeln tippen:
+
+```sh
+umask 077
+cd /etc/taptime-monitor
+cp -p ntfy.curl ntfy.old
+t=$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')
+printf 'url = "https://ntfy.sh/%s"\n' "$t" > ntfy.new
+unset t
+chown root:root ntfy.new
+chmod 600 ntfy.new
+cat ntfy.new
+```
+
+Nur der PO liest hier den Namen ab und abonniert ihn in der ntfy-App mit denselben
+Mitteilungs-/Fokusrechten wie bisher. Den Healthchecks.io-**Down-Webhook** ebenfalls auf die neue
+URL umstellen; Body und Header bleiben wie unten. Danach an der Konsole aktivieren und testen:
+
+```sh
+mv ntfy.new ntfy.curl
+curl -fsS -o /dev/null -K ntfy.curl -H 'Priority: 5' -d 'Taptime Test'
+```
+
+Erst nach Empfang am Telefon das alte Abonnement entfernen und `shred -u ntfy.old` ausführen.
+Bei einem Fehler `mv ntfy.old ntfy.curl`, App und Webhook wieder auf das alte Ziel stellen und
+den TL einschalten. Kein Antwortkörper wird ausgegeben: ntfy würde darin den geheimen Namen
+wiederholen. Der PO legt das Ziel an, ändert es bei Rotation/Telefonwechsel und entfernt die
+curl-Datei samt App-Abonnement und Healthchecks-Webhook bei Stilllegung. Die endgültige
+`ntfy.curl` gehört root:root mit 0600 und wird anschließend getrennt verwahrt.
+
 Healthchecks.io enthält genau einen groben Totmannschalter: Zeitraum fünf Minuten, Nachfrist
 15 Minuten. Dieses absichtlich träge Zeitfenster vermeidet Fehlalarme bei normalen
 Serverneustarts; den Ausfall nur der API meldet der Server selbst sofort. Der Server sendet jede

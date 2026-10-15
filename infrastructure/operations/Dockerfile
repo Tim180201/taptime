@@ -16,6 +16,7 @@ RUN apk add --no-cache bash sudo
 COPY --chmod=0700 infrastructure/operations/taptime-landing-password /operations/usr/local/sbin/taptime-landing-password
 COPY --chmod=0700 infrastructure/operations/taptime-operator-grant /operations/usr/local/sbin/taptime-operator-grant
 COPY --chmod=0700 infrastructure/operations/taptime-operator-db-login /operations/usr/local/sbin/taptime-operator-db-login
+COPY --chmod=0700 infrastructure/operations/taptime-runtime-rotate /operations/usr/local/sbin/taptime-runtime-rotate
 COPY --chmod=0700 infrastructure/backup/taptime-backup /operations/usr/local/sbin/taptime-backup
 COPY --chmod=0700 infrastructure/backup/taptime-restore-verify /operations/usr/local/sbin/taptime-restore-verify
 COPY --chmod=0700 infrastructure/backup/taptime-restore-activate /operations/usr/local/sbin/taptime-restore-activate
@@ -29,6 +30,7 @@ COPY infrastructure/monitoring/*.service infrastructure/monitoring/*.timer /oper
 COPY infrastructure/logging/taptime-journald.conf /operations/etc/systemd/journald.conf.d/60-taptime.conf
 
 COPY infrastructure/docker-compose.server.yml /operations/opt/taptime/source/infrastructure/docker-compose.server.yml
+COPY infrastructure/postgres/server-runtime-logins.sql /operations/opt/taptime/source/infrastructure/postgres/server-runtime-logins.sql
 COPY infrastructure/caddy/Caddyfile /operations/opt/taptime/source/infrastructure/caddy/Caddyfile
 COPY apps/backend-schema/migrations /operations/opt/taptime/source/apps/backend-schema/migrations
 COPY --from=metadata /version.txt /operations/version.txt

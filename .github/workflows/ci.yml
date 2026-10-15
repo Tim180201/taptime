@@ -80,6 +80,8 @@ jobs:
             infrastructure/operations/taptime-landing-password \
             infrastructure/operations/taptime-operator-grant \
             infrastructure/operations/taptime-operator-db-login \
+            infrastructure/operations/taptime-runtime-rotate \
+            infrastructure/tests/taptime-runtime-rotate.test \
             infrastructure/tests/taptime-operator-tools.test \
             infrastructure/tests/taptime-deploy.test \
             infrastructure/tests/taptime-deploy-hardening.test \
@@ -127,6 +129,7 @@ jobs:
           bash infrastructure/tests/taptime-restore-activate.test
           bash infrastructure/tests/taptime-wal-archiver.test
           bash infrastructure/tests/taptime-operator-tools.test
+          bash infrastructure/tests/taptime-runtime-rotate.test
           bash infrastructure/tests/taptime-operations-install.test
           bash infrastructure/tests/taptime-bootstrap.test
           bash infrastructure/tests/taptime-backup.test

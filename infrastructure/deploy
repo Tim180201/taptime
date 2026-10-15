@@ -333,6 +333,7 @@ operations_paths() {
     'usr/local/sbin/taptime-landing-password' \
     'usr/local/sbin/taptime-operator-grant' \
     'usr/local/sbin/taptime-operator-db-login' \
+    'usr/local/sbin/taptime-runtime-rotate' \
     'usr/local/sbin/taptime-backup' \
     'usr/local/sbin/taptime-restore-verify' \
     'usr/local/sbin/taptime-restore-activate' \
@@ -353,6 +354,7 @@ operations_paths() {
     'etc/systemd/journald.conf.d/60-taptime.conf' \
     'opt/taptime/source/infrastructure/docker-compose.server.yml' \
     'opt/taptime/source/infrastructure/caddy/Caddyfile' \
+    'opt/taptime/source/infrastructure/postgres/server-runtime-logins.sql' \
     'var/lib/taptime-deploy/operations-version' \
     'opt/taptime/source/apps/backend-schema/migrations'
 }
@@ -456,6 +458,7 @@ validate_operations_scripts() {
     taptime-landing-password \
     taptime-operator-grant \
     taptime-operator-db-login \
+    taptime-runtime-rotate \
     taptime-backup \
     taptime-restore-verify \
     taptime-restore-activate \
@@ -512,6 +515,8 @@ validate_operations_release() {
 700 usr/local/sbin/taptime-landing-password
 700 usr/local/sbin/taptime-operator-grant
 700 usr/local/sbin/taptime-operator-db-login
+700 usr/local/sbin/taptime-runtime-rotate
+644 opt/taptime/source/infrastructure/postgres/server-runtime-logins.sql
 700 usr/local/sbin/taptime-backup
 700 usr/local/sbin/taptime-restore-verify
 700 usr/local/sbin/taptime-restore-activate

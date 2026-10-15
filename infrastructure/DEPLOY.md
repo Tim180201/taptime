@@ -585,6 +585,126 @@ Diese Grenze ist ausdrücklich inventarisiert. Backend, Admin-Web, Betreiber-Web
 deren Einheiten, journald-Grenzen, Compose und Caddy kommen dagegen ausschließlich über die vier
 gleich markierten Abbilder.
 
+## T-024: Geheimnisse rotieren
+
+**Teil A ist das Werkzeug und dieses Runbook. Es kommt erst mit Deploy 7 nach dem
+Implementierungs-Commit, nicht mit Deploy 6.** Teil B führt ausschließlich der PO nach separater
+Produktionsfreigabe aus, begleitet vom TL. Codex liest keine Server-Geheimnisse und führt diese
+Schritte nicht aus. Vorher die alte vollständige `.env` getrennt im Passwortmanager verwahren;
+keine Geheimnisse in Chat, Fotos, Befehlsargumente oder Deploy-Protokolle übernehmen.
+
+1. **Neuer Deploy-Schlüssel am Mac.** Mit `ssh-keygen` interaktiv eine Passphrase setzen und
+   im Passwortmanager verwahren. Den öffentlichen Teil dem eigenen GitHub-Konto hinzufügen
+   (Settings → SSH and GPG keys); den privaten Teil niemals hochladen. Fingerabdruck am Mac:
+
+   ```sh
+   ssh-keygen -t ed25519 -f ~/.ssh/taptime-deploy-new
+   ssh-keygen -lf ~/.ssh/taptime-deploy-new.pub
+   ssh-add ~/.ssh/taptime-deploy-new
+   ```
+
+2. **Root an der Hetzner-Konsole.** Befehle einzeln tippen (US-Tastatur, kein Einfügen).
+   `Tim180201` ist das GitHub-Konto des PO; bei einem anderen Konto entsprechend ersetzen.
+   Alle geladenen Fingerabdrücke mit der Ausgabe am Mac vergleichen. Erst danach die Zeile
+   des neuen Schlüssels auswählen: `n` auf deren tatsächliche Zeilennummer setzen, nicht raten.
+
+   ```sh
+   umask 077
+   cd /root
+   curl -fsS https://github.com/Tim180201.keys -o t024.keys
+   ssh-keygen -lf t024.keys
+   cat -n t024.keys
+   cd /home/taptime-deploy/.ssh
+   cp -p authorized_keys /root/t024-authorized_keys
+   ```
+
+   Danach `n=<geprüfte Zeilennummer>` eingeben, dann:
+
+   ```sh
+   sed -n "${n}p" /root/t024.keys >> authorized_keys
+   chown taptime-deploy:taptime-deploy authorized_keys
+   chmod 600 authorized_keys
+   ssh-keygen -lf authorized_keys
+   ```
+
+3. **Neuen SSH-Zugang belegen.** Am Mac in einer zweiten Sitzung mit
+   `ssh -i ~/.ssh/taptime-deploy-new -o IdentitiesOnly=yes taptime-deploy@46.225.58.30`
+   anmelden und `sudo -n /usr/local/sbin/taptime-status` aufrufen. Die Konsole offen halten.
+   Für Deploy 7 in Schritt 4 ausschließlich diesen Schlüssel verwenden. War Deploy 6 schon
+   mit dem neuen Schlüssel erfolgreich, ist dessen Deploy-Nachweis bereits erbracht.
+
+4. **Werkzeug ausliefern.** Deploy 7 muss den freigegebenen Implementierungs-Commit enthalten.
+   Weil sich Dateiliste und Prüfung des Controllers erweitern, vorher den Controller aus
+   genau diesem Operations-Abbild über den Abschnitt „Deploy-Controller installieren oder
+   aktualisieren“ erneuern. Danach regulär Deploy 7 ausführen. Der Deploy installiert
+   `taptime-runtime-rotate` root-eigen mit Modus 0700 sowie seine Rollenquelle
+   `server-runtime-logins.sql`. Nach erfolgreichem Deploy und erneutem Statusaufruf den alten
+   Schlüssel entfernen: an der Konsole in `/home/taptime-deploy/.ssh` mit `nano authorized_keys`
+   ausschließlich die am Fingerabdruck erkannte alte Zeile löschen, Rechte beibehalten und die
+   neue Mac-Sitzung nochmals prüfen. Erst danach die temporären öffentlichen Dateien und die
+   Sicherung entfernen:
+
+   ```sh
+   rm /root/t024.keys
+   shred -u /root/t024-authorized_keys
+   ```
+
+   Anschließend startet der PO das Rotationswerkzeug an der Root-Konsole:
+
+
+   ```sh
+   taptime-runtime-rotate
+   ```
+
+   Nur bei Exit 0 fortfahren. Erfolg nennt jede Laufzeit-Rolle und den Cursor-Schlüssel mit
+   „rotiert“, keine Werte. Das Werkzeug liest `.env` als Daten (Literalwerte, optional einfach
+   oder doppelt eingefasst; keine Interpolation, Inline-Kommentare oder Escape-Sequenzen).
+   Jeder LOGIN aus der ausgelieferten SQL-Quelle muss genau einem `*_DATABASE_URL` entsprechen,
+   jeder URL auf `database:5432/taptime` zeigen. Abweichungen, doppelte Schlüssel, andere
+   Eigentümer/Rechte, mehrere Container oder belegte Deploy-/Betreiber-Sperren stoppen vor
+   einer Änderung. Der Betreiber-Zugang bleibt ausgenommen.
+
+   Neue Passwörter und Cursor-Schlüssel enthalten je 32 Zufallsbytes (base64url ohne Auffüllung).
+   Erst nach vollständiger Vorbereitung ersetzt das Werkzeug `.env` atomar und schreibt alle
+   Passwortänderungen in einer Datenbanktransaktion fest. Es erstellt nur das Backend mit dem
+   bereits laufenden Abbild neu und prüft dessen Gesundheit, öffentliche API und Admin-Version
+   wie das Deploy-Tor. Offene Kalender-Cursor verlieren ihre Gültigkeit; neu laden.
+   Bei einem anschließenden Fehler stellt es alte Passwörter, `.env` und Backend wieder her und
+   endet mit Fehler. Nach Erfolg oder gelungenem Rückweg überschreibt und entfernt es seine
+   geschützten Arbeitsdateien. Das Operations-Abbild liefert und aktualisiert das Werkzeug;
+   entfällt es in einem späteren Abbild, ist es nach dessen Aktivierung nicht mehr verfügbar.
+
+   **Bei Fehler:** nicht mit dem nächsten Rotationsschritt fortfahren. Der TL prüft die feste
+   Fehlermeldung. Bei „alte Zugänge und Konfiguration wiederhergestellt“ ist der Rückweg beendet.
+   Misslingt auch dieser, bleibt das ausgegebene root-eigene Arbeitsverzeichnis (0700, Dateien
+   0600) für die Wiederherstellung durch PO/TL erhalten. Ebenso kann es nach Stromausfall oder
+   SIGKILL zurückbleiben; Datenbank und Dateisystem haben keinen gemeinsamen atomaren Commit.
+   Ohne Abgleich durch den TL weder erneut starten noch diese Altkopie löschen. Nach belegter
+   Wiederherstellung entfernt der PO die darin enthaltenen Dateien mit `shred -u`, dann das leere
+   Verzeichnis mit `rmdir`. Keine Arbeitsdatei oder Konfiguration an den Chat übergeben.
+
+5. **Betreiber-Zugang separat rotieren und prüfen.**
+
+   ```sh
+   taptime-operator-db-login --rotate
+   taptime-status
+   ```
+
+   Bei einem Fehler stoppen und dem TL die geheimnisfreie Fehlermeldung geben. Danach im Web
+   anmelden, eigene Zeiten laden und den Betreiber-Bereich prüfen. Die neue vollständige `.env`
+   getrennt neu verwahren, einschließlich `SUPABASE_PUBLISHABLE_KEY`; die verwahrte Kopie anhand
+   der Schlüsselnamen auf Vollständigkeit prüfen. Erst danach die überholte Server-Kopie löschen:
+
+   ```sh
+   shred -u /root/env-0410.bak
+   ```
+
+6. **Alarmziel und Supabase.** ntfy-Thema nach „T-024: ntfy-Thema erneuern“ in
+   `MONITORING.md` erneuern, Telefon und Healthchecks-Down-Webhook umstellen und eine Testmeldung
+   empfangen. Im Supabase-Dashboard die Mindestlänge 10 und 100 Anmeldungen je fünf Minuten und
+   IP-Adresse nach D-139 setzen (Details unten). Mit Supabase Pro zusätzlich den Schutz vor
+   geleakten Passwörtern einschalten. Der PO bestätigt diese Schritte dem TL.
+
 ## Supabase-Einladungen und Wiederherstellung (T-094, T-094b)
 
 Vor der separat freigegebenen Auslieferung prüft der Product Owner: Selbstregistrierung aus, E-Mail-Bestätigung an, „Email OTP Expiration“ **3600 s**. Site URL `https://admin.tb-infra.de` ohne abschließenden Schrägstrich; Einladungs-Redirect `https://admin.tb-infra.de/willkommen`, ohne Wildcard. App und Web setzen Passwörter über dieselbe Site URL; keine Recovery-App-Schemata. Der PO legt diese Einstellungen und die Redirect-Liste an, pflegt sie bei Domain-/Projektwechsel und entfernt obsolete Einträge nach Ablösung. Deutsche Vorlage und vollständiger Ablauf: `docs/T-047-Inbetriebnahme.md`, `docs/T-047-Einladungsvorlage.md`.

@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+set +x
+set +a
+set -euo pipefail
+umask 077
+ulimit -c 0
+fail() { printf '%s\n' "$1" >&2; exit 1; }
+[[ "$EUID" == 0 ]] || fail 'Dieses Werkzeug benötigt root.'
+[[ "$#" == 0 ]] || fail 'Aufruf: taptime-runtime-rotate'
+# Do not pass inherited credentials (or exported scratch variables) to children.
+while IFS= read -r name; do
+  case "$name" in
+    PATH|HOME|LANG|LC_*|TAPTIME_RUNTIME_*|TAPTIME_OPERATOR_LOCK_FILE|TAPTIME_DEPLOY_LOCK_FILE) ;;
+    *) export -n "${name?}" ;;
+  esac
+done < <(compgen -e)
+readonly ENV_FILE="${TAPTIME_RUNTIME_ENV_FILE:-/opt/taptime/.env}"
+readonly PROJECT="${TAPTIME_RUNTIME_PROJECT:-taptime-prod}"
+readonly COMPOSE_FILE="${TAPTIME_RUNTIME_COMPOSE_FILE:-/opt/taptime/source/infrastructure/docker-compose.server.yml}"
+readonly LOGINS_FILE="${TAPTIME_RUNTIME_LOGINS_FILE:-/opt/taptime/source/infrastructure/postgres/server-runtime-logins.sql}"
+readonly HEALTH_URL="${TAPTIME_RUNTIME_HEALTH_URL:-https://api.tb-infra.de/health}"
+readonly ADMIN_VERSION_URL="${TAPTIME_RUNTIME_ADMIN_VERSION_URL:-https://admin.tb-infra.de/version.txt}"
+readonly CURSOR_KEY=TAPTIME_MOBILE_OWN_TIME_CURSOR_HMAC_KEY
+[[ "$PROJECT" =~ ^[a-z0-9][a-z0-9_-]*$ ]] || fail 'Ungültiges Compose-Projekt.'
+[[ -f "$ENV_FILE" && ! -L "$ENV_FILE" && "$(stat -c '%u:%g:%a' "$ENV_FILE")" == 0:0:600 ]] ||
+  fail 'Die Konfiguration muss eine reguläre Datei mit root:root und 0600 sein.'
+exec {deploy_lock}>"${TAPTIME_DEPLOY_LOCK_FILE:-/run/lock/taptime-deploy.lock}"
+flock -n "$deploy_lock" || fail 'Ein Deploy läuft bereits.'
+exec {operator_lock}>"${TAPTIME_OPERATOR_LOCK_FILE:-/run/lock/taptime-operator.lock}"
+flock -n "$operator_lock" || fail 'Ein Betreiber-Werkzeug läuft bereits.'
+
+declare -A config=() role_keys=() old_passwords=() replacements=()
+while IFS= read -r line || [[ -n "$line" ]]; do
+  [[ "$line" =~ ^[[:space:]]*(#|$) ]] && continue
+  [[ "$line" =~ ^([A-Z_][A-Z_0-9]*)=(.*)$ && "$line" != *$'\r'* ]] || fail 'Ungültige Konfigurationszeile.'
+  key="${BASH_REMATCH[1]}"; value="${BASH_REMATCH[2]}"
+  [[ ! -v "config[$key]" ]] || fail 'Doppelter Konfigurationsschlüssel.'
+  # Accept literal dotenv values only; never source/eval or emulate interpolation.
+  if [[ "$value" == \"*\" || "$value" == \'*\' ]]; then value="${value:1:${#value}-2}"; fi
+  [[ ! "$value" =~ [[:space:]\$\#\\\"\'] ]] || fail 'Die Konfiguration enthält keinen eindeutigen Literalwert.'
+  config["$key"]="$value"
+done < "$ENV_FILE"
+[[ -n "${config[$CURSOR_KEY]:-}" ]] || fail 'Der Cursor-Schlüssel fehlt.'
+
+# Derive the complete LOGIN inventory from the shipped SQL, not from env key names
+# (invitation/export deliberately have different role and key names).
+[[ -f "$LOGINS_FILE" ]] || fail 'Die Laufzeit-Rollenquelle fehlt.'
+mapfile -t roles < <(sed -nE 's/^CREATE ROLE ([a-z_][a-z_0-9]*) LOGIN .*/\1/p' "$LOGINS_FILE")
+(( ${#roles[@]} > 0 )) || fail 'Keine Laufzeit-Logins in der Rollenquelle.'
+for role in "${roles[@]}"; do
+  [[ "$role" != taptime_operator_runtime && ! -v "role_keys[$role]" ]] || fail 'Uneindeutige Rollenquelle.'
+  role_keys["$role"]=''
+done
+for key in "${!config[@]}"; do
+  [[ "$key" == *_DATABASE_URL ]] || continue
+  value="${config[$key]}"
+  [[ "$value" =~ ^postgresql://([a-z_][a-z_0-9]*):([A-Za-z0-9._~%+-]+)@database:5432/taptime$ ]] ||
+    fail 'Ein Datenbankzugang passt nicht zur installierten Compose-Datenbank.'
+  role="${BASH_REMATCH[1]}"; password="${BASH_REMATCH[2]}"
+  if [[ "$key" == TAPTIME_OPERATOR_DATABASE_URL && "$role" == taptime_operator_runtime ]]; then continue; fi
+  [[ -v "role_keys[$role]" && -z "${role_keys[$role]}" ]] || fail 'Rollenquelle und Datenbankzugänge weichen voneinander ab.'
+  # URI decoding is data processing by Bash builtins; '+' is literal in userinfo.
+  decoded=''
+  while [[ -n "$password" ]]; do
+    if [[ "$password" == %* ]]; then
+      [[ "$password" =~ ^%([0-9A-Fa-f]{2}) ]] || fail 'Ungültiges Passwortformat.'
+      byte="${BASH_REMATCH[1]}"
+      [[ "$byte" != 00 && "$byte" != 0[aAdD] ]] || fail 'Ungültiges Passwortformat.'
+      printf -v character '%b' "\x$byte"
+      decoded+="$character"; password="${password:3}"
+    else
+      decoded+="${password:0:1}"; password="${password:1}"
+    fi
+  done
+  role_keys["$role"]="$key"; old_passwords["$role"]="$decoded"
+done
+for role in "${roles[@]}"; do
+  [[ -n "${role_keys[$role]}" ]] || fail 'Für eine Laufzeit-Rolle fehlt der Datenbankzugang.'
+done
+unset config line key value password decoded character byte
+
+container_for() {
+  local container
+  container="$(docker ps -q --filter "label=com.docker.compose.project=$PROJECT" --filter "label=com.docker.compose.service=$1")" || return
+  [[ "$container" =~ ^[a-z0-9]+$ ]] || return 1
+  printf '%s\n' "$container"
+}
+DATABASE_CONTAINER="$(container_for database)" || fail 'Genau ein laufender Datenbank-Container wird benötigt.'
+readonly DATABASE_CONTAINER
+backend="$(container_for backend-api)" || fail 'Genau ein laufender Backend-Container wird benötigt.'
+image="$(docker inspect --format '{{.Config.Image}}' "$backend")"
+[[ "$image" =~ ^ghcr.io/tim180201/taptime-backend-api:([0-9a-f]{7})$ ]] || fail 'Die laufende Backend-Version ist nicht eindeutig.'
+readonly VERSION="${BASH_REMATCH[1]}"
+
+restart_backend() {
+  TAPTIME_VERSION="$VERSION" docker compose --project-name "$PROJECT" --env-file "$ENV_FILE" --file "$COMPOSE_FILE" \
+    up -d --no-deps --pull never --force-recreate backend-api >/dev/null 2>&1
+}
+healthy() {
+  local container health running_image version
+  container="$(container_for backend-api)" || return 1
+  running_image="$(docker inspect --format '{{.Config.Image}}' "$container")" || return 1
+  [[ "$running_image" == "$image" ]] || return 1
+  for ((attempt=0; attempt<30; attempt++)); do
+    health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container")" || return 1
+    if [[ "$health" == healthy ]] &&
+      curl --fail --silent --max-time 5 "$HEALTH_URL" >/dev/null 2>&1 &&
+      version="$(curl --fail --silent --max-time 5 --header 'Cache-Control: no-cache' "$ADMIN_VERSION_URL" 2>/dev/null)" &&
+      [[ "$version" == "$VERSION" ]]; then return 0; fi
+    [[ "$health" != unhealthy && "$health" != exited && "$health" != dead ]] || return 1
+    sleep 2
+  done
+  return 1
+}
+sql_settings() {
+  printf '%s\n' 'BEGIN;' "SET LOCAL log_statement='none';" "SET LOCAL log_min_error_statement='panic';" \
+    'SET LOCAL log_min_duration_statement=-1;' 'SET LOCAL log_min_duration_sample=-1;' \
+    'SET LOCAL log_duration=off;' 'SET LOCAL track_activities=off;' \
+    "SET LOCAL statement_timeout='15s';" "SET LOCAL lock_timeout='10s';" \
+    "SET LOCAL idle_in_transaction_session_timeout='30s';" \
+    "SET LOCAL standard_conforming_strings=on;" "SET LOCAL password_encryption='scram-sha-256';"
+}
+psql_session() {
+  docker exec -i --user postgres "$DATABASE_CONTAINER" psql -XqAt --dbname=taptime --set ON_ERROR_STOP=on
+}
+stage="$(mktemp -d "${ENV_FILE%/*}/.runtime-rotate.XXXXXX")"
+env_written=false
+commit_attempted=false
+success=false
+sql_pid=''; sql_read=''; sql_write=''
+close_sql() {
+  if [[ -n "$sql_write" ]]; then exec {sql_write}>&-; sql_write=''; fi
+  if [[ -n "$sql_read" ]]; then exec {sql_read}<&-; sql_read=''; fi
+  if [[ -n "$sql_pid" ]]; then wait "$sql_pid" 2>/dev/null || true; sql_pid=''; fi
+}
+# shellcheck disable=SC2317,SC2329
+cleanup() {
+  local status=$? recovery=true file
+  trap - EXIT HUP INT TERM
+  close_sql # EOF aborts an uncommitted PostgreSQL transaction.
+  if [[ "$success" == false && "$env_written" == true ]]; then
+    if [[ "$commit_attempted" == true ]]; then
+      psql_session < "$stage/rollback.sql" >/dev/null 2>&1 || recovery=false
+    fi
+    if [[ "$recovery" == true ]]; then
+      /bin/mv -f -- "$stage/original" "$ENV_FILE" || recovery=false
+      if [[ "$recovery" == true ]]; then restart_backend && healthy || recovery=false; fi
+    fi
+    if [[ "$recovery" == false ]]; then
+      printf 'Rückweg fehlgeschlagen; geschützte Altkopie unter %s behalten. TL einschalten.\n' "$stage" >&2
+      exit 1
+    fi
+    printf 'Rotation fehlgeschlagen; alte Zugänge und Konfiguration wiederhergestellt.\n' >&2
+  fi
+  for file in "$stage"/*; do
+    [[ ! -f "$file" ]] || shred -u -- "$file" || { printf 'Geschützte Arbeitsdatei konnte nicht entfernt werden.\n' >&2; exit 1; }
+  done
+  rmdir -- "$stage" || exit 1
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
+cp --preserve=mode,ownership -- "$ENV_FILE" "$stage/original"
+sql_settings > "$stage/forward.sql"
+sql_settings > "$stage/rollback.sql"
+for role in "${roles[@]}"; do
+  password="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+  [[ "$password" =~ ^[A-Za-z0-9_-]{43}$ ]] || fail 'Passworterzeugung fehlgeschlagen.'
+  replacements["${role_keys[$role]}"]="postgresql://$role:$password@database:5432/taptime"
+  printf 'ALTER ROLE %s PASSWORD '\''%s'\'';\n' "$role" "$password" >> "$stage/forward.sql"
+  old="${old_passwords[$role]//\'/\'\'}"
+  printf 'ALTER ROLE %s PASSWORD '\''%s'\'';\n' "$role" "$old" >> "$stage/rollback.sql"
+done
+printf 'COMMIT;\n' >> "$stage/rollback.sql"
+replacements["$CURSOR_KEY"]="$(head -c 32 /dev/urandom | base64 | tr '+/' '-_' | tr -d '=\n')"
+[[ "${replacements[$CURSOR_KEY]}" =~ ^[A-Za-z0-9_-]{43}$ ]] || fail 'Schlüsselerzeugung fehlgeschlagen.'
+while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ "$line" =~ ^([A-Z_][A-Z_0-9]*)= && -v "replacements[${BASH_REMATCH[1]}]" ]]; then
+    key="${BASH_REMATCH[1]}"; printf '%s=%s\n' "$key" "${replacements[$key]}"
+  else printf '%s\n' "$line"; fi
+done < "$ENV_FILE" > "$stage/environment"
+chmod 600 "$stage/environment"
+chown root:root "$stage/environment"
+unset replacements old_passwords password old line key
+
+# psql remains in one transaction until both ALTER ROLE and the new file are ready.
+coproc SQL { psql_session 2>/dev/null; }
+# shellcheck disable=SC2153
+sql_pid="$SQL_PID"
+exec {sql_read}<&"${SQL[0]}"
+exec {sql_write}>&"${SQL[1]}"
+original_read="${SQL[0]}"; exec {original_read}<&-
+original_write="${SQL[1]}"; exec {original_write}>&-
+cat "$stage/forward.sql" >&"$sql_write"
+printf '\\echo T024_READY\n' >&"$sql_write"
+if ! IFS= read -r -t 30 -u "$sql_read" marker || [[ "$marker" != T024_READY ]]; then
+  fail 'Datenbank-Vorbereitung fehlgeschlagen; nichts festgeschrieben.'
+fi
+cmp -s "$ENV_FILE" "$stage/original" || fail 'Die Konfiguration wurde zwischenzeitlich geändert.'
+# Bash defers signal traps while waiting for mv. Arm restoration before invoking
+# it: a signal may arrive after rename succeeded but before the next assignment.
+env_written=true
+mv -f -- "$stage/environment" "$ENV_FILE" || fail 'Konfiguration nicht geschrieben; Datenbankänderung wird zurückgenommen.'
+commit_attempted=true
+printf 'COMMIT;\n\\echo T024_COMMITTED\n' >&"$sql_write"
+if ! IFS= read -r -t 30 -u "$sql_read" marker || [[ "$marker" != T024_COMMITTED ]]; then
+  fail 'Datenbank-Abschluss fehlgeschlagen; Rückweg wird ausgeführt.'
+fi
+close_sql
+restart_backend || fail 'Backend-Neustart fehlgeschlagen; Rückweg wird ausgeführt.'
+healthy || fail 'Gesundheitsprüfung fehlgeschlagen; Rückweg wird ausgeführt.'
+success=true
+for role in "${roles[@]}"; do printf '%s rotiert\n' "$role"; done
+printf '%s rotiert\n' "$CURSOR_KEY"
