@@ -9,19 +9,20 @@ import {PeopleTable} from '../../src/views/PeopleShared';
 import {AddTimeControl,TimeEditingProvider} from '../../src/TimeEditingControls';
 const id='10000000-0000-4000-8000-000000000001';
 const organization={id,name:'Betrieb'};
-const state:any={status:'ready',membershipId:id,role:'administrator',managementScope:{kind:'organization'},selectedLocation:null,locationsEnabled:false,assignableLocations:[],reassignmentIntent:null,completedAction:null,availableSections:['time_records'],projection:{organization,customers:[],nfcTags:[],nextCursor:null,customersComplete:true,nfcTagsComplete:true},employeeProjection:{organization,employeeMemberships:[],nextCursor:null},sections:{setup:{status:'ready'},employees:{status:'ready'}},workTargets:{status:'ready',value:[]},calendar:{status:'ready',targetMembershipId:null,value:{activeRecord:null}},locationSetup:null};
+const state:any={status:'ready',membershipId:id,role:'administrator',managementScope:{kind:'organization'},selectedLocation:null,locationsEnabled:false,assignableLocations:[],reassignmentIntent:null,completedAction:null,availableSections:['time_records'],projection:{organization,customers:[],nfcTags:[],nextCursor:null,customersComplete:true,nfcTagsComplete:true},employeeProjection:{organization,employeeMemberships:[],nextCursor:null},sections:{setup:{status:'ready'},employees:{status:'ready'}},workTargets:{status:'ready',value:[]},calendar:{status:'ready',targetMembershipId:null,value:{activeRecord:null,records:[],nextCursor:null}},locationSetup:null};
 const page=(kind:string)=>kind==='projects'?{projects:[],nextCursor:null}:kind==='memberships'?{status:'succeeded',organization,employeeMemberships:[],nextCursor:null}:kind==='setup_tags'||kind==='setup_customers'?{status:'succeeded',organization,customers:[],nfcTags:[],nextCursor:null}:{targets:[],nextCursor:null};
 const flush=async()=>{await act(async()=>{});};
-beforeEach(()=>{vi.useFakeTimers();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});});
+beforeEach(()=>{HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};vi.useFakeTimers();Object.assign(globalThis,{IS_REACT_ACT_ENVIRONMENT:true});});
 afterEach(()=>{cleanup();vi.useRealTimers();});
 it('web: setup has independent card/customer/project searches with one initial request each',async()=>{
  const querySearch=vi.fn(async(kind:string)=>({status:'ready',value:page(kind)}));
  render(<SetupView state={state} administration={{querySearch,getState:()=>state} as any}/>);await flush();
  expect(querySearch.mock.calls.map(([kind])=>kind).sort()).toEqual(['projects','setup_customers','setup_tags']);
- const panel=screen.getByRole('heading',{name:'Kunden'}).closest('section')!;
+ fireEvent.click(screen.getByRole('tab',{name:'Kunden und Projekte'}));
+ const panel=screen.getByRole('tabpanel');
  fireEvent.change(within(panel).getByLabelText('Suchen'),{target:{value:'  Mu\u0308ller  '}});
  await act(()=>vi.advanceTimersByTimeAsync(299));expect(querySearch).toHaveBeenCalledTimes(3);
- await act(()=>vi.advanceTimersByTimeAsync(1));expect(querySearch).toHaveBeenLastCalledWith('setup_customers',expect.objectContaining({search:'Müller'}));
+ await act(()=>vi.advanceTimersByTimeAsync(1));expect(querySearch).toHaveBeenCalledWith('setup_customers',expect.objectContaining({search:'Müller'}));expect(querySearch).toHaveBeenCalledWith('projects',expect.objectContaining({search:'Müller'}));
  expect(within(panel).getByText('Keine Treffer für „Müller“')).toBeInTheDocument();
 });
 it('T117 R1: revoking access refreshes the searched membership status',async()=>{
@@ -38,6 +39,17 @@ it('T117 R1: revoking access refreshes the searched membership status',async()=>
  expect(screen.queryByText(/Zugang aktiv/)).toBeNull();expect(screen.getByText(/Zugang entzogen/)).toBeInTheDocument();
  expect(querySearch).toHaveBeenCalledTimes(2);
 });
+it('setup resets the displayed filter and both remote searches together on tab changes',async()=>{
+ const querySearch=vi.fn(async(kind:string,request:any)=>({status:'ready',value:{...page(kind),...(kind==='setup_customers'?{customers:[{id:'alpha',displayName:'Alpha',active:true},...request.search?[]:[{id:'beta',displayName:'Beta',active:true}]]}:{})}}));
+ render(<SetupView state={state} administration={{querySearch,getState:()=>state} as any}/>);await flush();
+ fireEvent.click(screen.getByRole('tab',{name:'Kunden und Projekte'}));
+ fireEvent.change(screen.getByLabelText('Suchen'),{target:{value:'Alpha'}});await act(()=>vi.advanceTimersByTimeAsync(300));
+ expect(screen.queryByText('Beta')).toBeNull();
+ fireEvent.click(screen.getByRole('tab',{name:'Karten'}));
+ fireEvent.click(screen.getByRole('tab',{name:'Kunden und Projekte'}));await act(()=>vi.advanceTimersByTimeAsync(300));
+ expect(screen.getByLabelText('Suchen')).toHaveValue('');expect(screen.getByText('Beta')).toBeVisible();
+ expect(querySearch).toHaveBeenCalledWith('projects',expect.objectContaining({search:null}));
+});
 
 it.each(['retry','cancel'])('T117 R5: an uncertain page-two card reassignment remains available for %s',async action=>{
  const customer={id:'customer',displayName:'Neuer Kunde',active:true};
@@ -50,11 +62,11 @@ it.each(['retry','cancel'])('T117 R5: an uncertain page-two card reassignment re
  const administration={querySearch,prepareReassignment,confirmReassignment,cancelReassignment,getState:()=>current} as any;
  const view=render(<SetupView state={current} administration={administration}/>);
  refreshView=()=>view.rerender(<SetupView state={current} administration={administration}/>);await flush();
- fireEvent.click(screen.getByRole('button',{name:'Karten'}));
- const panel=screen.getByRole('heading',{name:'Zuordnung ändern'}).closest('section')!;
- fireEvent.click(within(panel).getByRole('button',{name:'Weitere laden'}));await flush();
- fireEvent.change(within(panel).getByLabelText('Karte'),{target:{value:'Zweite Karte'}});
- fireEvent.change(within(panel).getByLabelText('Neuer aktiver Kunde'),{target:{value:'customer'}});
+ fireEvent.click(screen.getByRole('tab',{name:'Karten'}));
+ fireEvent.click(screen.getByRole('button',{name:'Weitere laden'}));await flush();
+ fireEvent.click(screen.getByRole('button',{name:'Zuordnung für Zweite Karte ändern'}));
+ const panel=screen.getByRole('dialog',{name:'Zuordnung ändern'});
+ fireEvent.click(within(panel).getByRole('button',{name:'Neuer Kunde'}));
  fireEvent.click(within(panel).getByRole('button',{name:'Zuordnung ändern'}));await flush();
  fireEvent.click(screen.getByRole('button',{name:'Änderung ausdrücklich bestätigen'}));await flush();
  expect(current.reassignmentIntent).toMatchObject({commandId:'same-command',nfcTagId:'Zweite Karte'});
@@ -108,7 +120,7 @@ it.each(['setup_customers','setup_tags','projects','memberships','work_targets',
  let panel:HTMLElement;
  if(kind.startsWith('setup_')||kind==='projects'){
   render(<SetupView state={state} administration={administration}/>);
-  panel=screen.getByRole('heading',{name:kind==='setup_tags'?'NFC-Karten':kind==='projects'?'Projekte':'Kunden',hidden:true}).closest('section')!;
+  fireEvent.click(screen.getByRole('tab',{name:kind==='setup_tags'?'Karten':'Kunden und Projekte'}));panel=screen.getByRole('tabpanel');
  }else if(kind==='memberships'){
   render(<EmployeesView state={state} administration={administration} navigate={()=>{}}/>);
   panel=screen.getByText('Zugänge verwalten').closest('details')!;
@@ -119,7 +131,7 @@ it.each(['setup_customers','setup_tags','projects','memberships','work_targets',
  await flush();expect(read).toHaveBeenCalledTimes(1);
  const view=within(panel);
  expect(view.getAllByText('Alpha').length).toBeGreaterThan(0);
- fireEvent.click(view.getByText('Weitere laden'));await flush();
+ fireEvent.click(view.getByText(kind==='projects'?'Weitere Projekte laden':'Weitere laden'));await flush();
  expect(view.getAllByText('Alpha').length).toBeGreaterThan(0);
  fireEvent.click(view.getByText('Erneut versuchen'));await flush();
  expect(read).toHaveBeenLastCalledWith(expect.objectContaining({search:null,cursor:'page-2'}));

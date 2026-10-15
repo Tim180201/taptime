@@ -18,5 +18,5 @@ export function CustomerQuotaNotice({administration,membership,role,authorityCon
     if(view&&month)onView(notice.customerId,month);
   };
   return <div className="quota-notice"><FeedbackBand message={{kind:'info',text:`${notice.displayName}: ${quotaStageLabel(notice.stage)}`}}/>
-    {error?<p role="alert">{error}</p>:null}<div className="toolbar"><button onClick={()=>void acknowledge(true)}>Ansehen</button><button className="quiet" onClick={()=>void acknowledge(false)}>Schließen</button></div></div>;
+    {error?<p role="alert">{error}</p>:null}<div className="toolbar"><button className="text-button" onClick={()=>void acknowledge(true)}>Ansehen</button><button className="quiet" onClick={()=>void acknowledge(false)}>Schließen</button></div></div>;
 }

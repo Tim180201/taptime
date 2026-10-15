@@ -1,3 +1,5 @@
+import {watchTheme} from '../../admin-web/src/theme';
+watchTheme(()=>{});
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { OperatorRuntime } from "./OperatorRuntime";

@@ -61,7 +61,7 @@ export function WelcomePage({ invitation }: { readonly invitation: InvitePasswor
           required minLength={MIN_PASSWORD_LENGTH} value={password}
           onChange={(event) => setPassword(event.target.value)} />
         <small>Mindestens {MIN_PASSWORD_LENGTH} Zeichen. Ein längerer Satz ist leichter zu merken.</small>
-        <button type="submit" aria-busy={busy} disabled={busy}>
+        <button className="primary-action" type="submit" aria-busy={busy} disabled={busy}>
           {busy ? 'Passwort wird gespeichert …' : 'Passwort setzen'}
         </button>
       </RequiredForm> : null}

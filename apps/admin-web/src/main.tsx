@@ -1,3 +1,5 @@
+import {watchTheme} from './theme';
+watchTheme(()=>{});
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createApplicationPage } from './ApplicationRoot';

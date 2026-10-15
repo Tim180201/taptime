@@ -1,3 +1,68 @@
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-ground: #0F1613;
+  --color-surface: #151E1A;
+  --color-surface-raised: #1B2622;
+  --color-line: #25332D;
+  --color-text: #EEF3F0;
+  --color-text-muted: #97A59F;
+  --color-accent: #7EE0C0;
+  --color-action: #C9F24D;
+  --color-on-action: #0E1512;
+  --color-running: #C9F24D;
+  --color-on-running: #0E1512;
+  --color-notice: #E0A44C;
+  --color-error: #FF8F8F;
+  --color-band: #0E1512;
+  --color-band-text: #EEF3F0;
+  --color-band-text-muted: #97A59F;
+  --color-print-ground: #FFFFFF;
+  --color-print-text: #000000;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-ground: #F3F7F5;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #EAF1ED;
+  --color-line: #D6E1DB;
+  --color-text: #101916;
+  --color-text-muted: #5B6B64;
+  --color-accent: #156F55;
+  --color-action: #156F55;
+  --color-on-action: #FFFFFF;
+  --color-running: #9CC21A;
+  --color-on-running: #0E1512;
+  --color-notice: #875506;
+  --color-error: #AE3626;
+  --color-band: #0E1512;
+  --color-band-text: #EEF3F0;
+  --color-band-text-muted: #97A59F;
+  --color-print-ground: #FFFFFF;
+  --color-print-text: #000000;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+  color-scheme: light;
+  --color-ground: #F3F7F5;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #EAF1ED;
+  --color-line: #D6E1DB;
+  --color-text: #101916;
+  --color-text-muted: #5B6B64;
+  --color-accent: #156F55;
+  --color-action: #156F55;
+  --color-on-action: #FFFFFF;
+  --color-running: #9CC21A;
+  --color-on-running: #0E1512;
+  --color-notice: #875506;
+  --color-error: #AE3626;
+  --color-band: #0E1512;
+  --color-band-text: #EEF3F0;
+  --color-band-text-muted: #97A59F;
+  --color-print-ground: #FFFFFF;
+  --color-print-text: #000000;
+}
+}
 @font-face {
   font-family: Manrope;
   src: url("@expo-google-fonts/manrope/400Regular/Manrope_400Regular.ttf")
@@ -20,19 +85,17 @@
   font-display: swap;
 }
 :root {
-  --color-error: #FF8F8F;
-  color-scheme: dark;
   font:
     15px/1.5 Manrope,
     system-ui,
     sans-serif;
-  color: #f2f5f4;
-  background: #0e1512;
-  --surface: #141c19;
-  --raised: #1a2320;
-  --line: #24302c;
-  --muted: #97a5a0;
-  --accent: #7ee0c0;
+  color: var(--color-text);
+  background: var(--color-ground);
+  --surface: var(--color-surface);
+  --raised: var(--color-surface-raised);
+  --line: var(--color-line);
+  --muted: var(--color-text-muted);
+  --accent: var(--color-accent);
 }
 * {
   box-sizing: border-box;
@@ -58,7 +121,7 @@ button {
 }
 button:hover,
 a:hover {
-  background: #24302c;
+  background: var(--color-line);
 }
 button:active {
   transform: translateY(1px);
@@ -81,13 +144,13 @@ a:focus-visible,
   outline-offset: 3px;
 }
 .primary {
-  background: #c9f24d;
-  color: #0e1512;
+  background: var(--color-action);
+  color: var(--color-on-action);
   font-weight: 800;
-  border-color: #c9f24d;
+  border-color: var(--color-action);
 }
 .primary:hover {
-  background: #d5fa70;
+  background: var(--color-action);
 }
 .app {
   max-width: 1440px;
@@ -128,7 +191,7 @@ header {
   color: var(--accent);
 }
 .paused {
-  color: #e0a44c;
+  color: var(--color-notice);
 }
 nav {
   display: flex;
@@ -236,8 +299,8 @@ form button {
   margin: 8px 8px 0 0;
 }
 .error {
-  color: #ffcfbf;
-  border: 1px solid #805647;
+  color: var(--color-error);
+  border: 1px solid var(--color-error);
   border-radius: 10px;
   padding: 12px;
 }
@@ -274,7 +337,7 @@ form button {
 .overlay {
   position: fixed;
   inset: 0;
-  background: #0009;
+  background: var(--color-surface-raised);
   z-index: 10;
   display: flex;
   justify-content: flex-end;
@@ -352,7 +415,6 @@ textarea {
 }
 @media print {
   :root {
-  --color-error: #FF8F8F;
     color: black;
     background: white;
   }
@@ -426,7 +488,7 @@ input, select, textarea { font-size: 16px; }
 .input-action > .required-field-error { flex-basis: 100%; order: 1; }
 
 .package-counts { display: grid; gap: 4px; min-width: 180px; }
-.package-warning { color: #E0A44C; }
+.package-warning { color: var(--color-notice); }
 @media screen and (max-width: 1023px) {
   .tablewrap td.package-cell { grid-column: 1 / -1; }
   .package-counts { min-width: 0; }

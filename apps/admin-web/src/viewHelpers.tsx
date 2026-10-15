@@ -92,7 +92,6 @@ export function FeedbackBand({ message }: { readonly message: Notice }) {
   const error = message.kind === 'error';
   return <section className={`notice notice-${message.kind}`}
     role={error ? 'alert' : 'status'} aria-live={error ? 'assertive' : 'polite'}>
-    <strong>{error ? 'Die Aktion wurde nicht abgeschlossen' : message.kind === 'success' ? 'Erledigt' : 'Hinweis'}</strong>
     <p>{message.text}</p>
   </section>;
 }

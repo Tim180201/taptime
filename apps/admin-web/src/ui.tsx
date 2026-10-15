@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode, type RefObject } from 'react';
+import { Children,cloneElement,isValidElement,useEffect, useState, type ReactNode, type RefObject } from 'react';
 import type { SectionStatus } from './contracts';
 import { MobileSheet, useCompactLayout } from './MobileSheet';
 
@@ -127,4 +127,24 @@ export function Confirmation({
 
 function slug(value: string): string {
   return value.normalize('NFD').replaceAll(/\p{Diacritic}/gu, '').toLowerCase().replaceAll(/[^a-z0-9]+/g, '-');
+}
+
+export function DataTable({label,headers,children}:{label:string;headers:readonly (string|{label:string;numeric:boolean})[];children:ReactNode}) {
+  return <div className="table-scroll" role="region" tabIndex={0} aria-label={label}><table aria-label={label}>
+    <thead><tr>{headers.map((h,i)=><th key={i} scope="col" className={typeof h!=='string'&&h.numeric?'numeric':undefined}>{typeof h==='string'?h:h.label}</th>)}</tr></thead>
+    <tbody>{Children.map(children,row=>isValidElement<{children?:ReactNode}>(row)?cloneElement(row,{},Children.map(row.props.children,(cell,index)=>{
+      const header=headers[index];return isValidElement<{'data-label'?:string}>(cell)&&header?cloneElement(cell,{'data-label':typeof header==='string'?header:header.label}):cell;
+    })):row)}</tbody></table></div>;
+}
+export function Person({name}:{name:string}) {
+  return <span className="person"><span className="avatar" aria-hidden="true">{name.trim().split(/\s+/).map(part=>part[0]).slice(0,2).join('')}</span><span>{name}</span></span>;
+}
+export function Pill({kind,children}:{kind?:'running'|'notice'|'error';children:ReactNode}) {
+  return <span className={`pill${kind?' pill-'+kind:''}`}>{kind?<span className="status-dot" aria-hidden="true"/>:null}{children}</span>;
+}
+export function EmptyState({children,action}:{children:ReactNode;action?:ReactNode}) {
+  return <div className="empty"><p>{children}</p>{action}</div>;
+}
+export function Metric({label,value,action,notice=false}:{label:string;value:ReactNode;action?:ReactNode;notice?:boolean}) {
+  return <article className="metric-card"><span>{label}</span><strong className={notice?'notice-number':undefined}>{value}</strong>{action}</article>;
 }

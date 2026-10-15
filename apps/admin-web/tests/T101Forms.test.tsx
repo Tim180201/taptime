@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup,fireEvent,render,screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
-import { afterEach,expect,it,vi } from 'vitest';
+import { beforeAll, afterEach,expect,it,vi } from 'vitest';
 import { useState } from 'react';
 import { CustomerManagement } from '../src/views/CustomerManagement';
 import { CustomerQuota } from '../src/views/CustomerQuota';
 import { RequiredForm } from '../src/RequiredForm';
 import type { AdminWebCapability } from '../src/contracts';
+beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
 afterEach(cleanup);
 it('T101 customer rename has a field hint and no management call',()=>{
  const manageCustomer=vi.fn();render(<CustomerManagement customer={{customerId:'one',displayName:'Alex'}} administration={{manageCustomer} as unknown as AdminWebCapability} onSaved={()=>{}}/>);

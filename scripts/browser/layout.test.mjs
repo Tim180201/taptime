@@ -129,7 +129,7 @@ test('mobile navigation, sheet focus, Escape, and responsive resize', { skip: !!
       const remainingLinks = await sheet.getByRole('link').evaluateAll(nodes=>nodes.map(node=>node.getAttribute('href')));
       assert.deepEqual([...directLinks,...remainingLinks].sort(),expectedLinks);
       assert.equal(await sheet.getByRole('button',{name:'Abmelden',exact:true}).isVisible(),true);
-      assert.match(await sheet.innerText(),/Deutsche Ortszeit/);
+      assert.match(await page.locator('.workspace-footer').innerText(),/Deutsche Ortszeit/);
       await page.keyboard.press('Shift+Tab');
       assert.equal(await sheet.evaluate(el=>el.contains(document.activeElement)),true);
       await page.keyboard.press('Escape');

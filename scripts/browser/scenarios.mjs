@@ -1,19 +1,20 @@
 const click = name => async p => p.getByRole('button', { name, exact: true }).first().click();
+const tab = name => async p => p.getByRole('tab', { name, exact: true }).click();
 const summary = async p => p.locator('summary').click();
 export const personPath = '/beschaeftigte/70000000-0000-4000-8000-000000000001?monat=2026-09';
 const scenario = (id, path, wait, steps = [], variant = id) => ({id,path,wait,steps,variant});
 export const adminScenarios = [
-  ...[1,2,3,4,5,6].map(step=>scenario(`t110-next-${step}`,'/uebersicht','.first-empty')),
+  ...[1,2,3,4,5,6].map(step=>scenario(`t110-next-${step}`,'/uebersicht','.next-step')),
   scenario('t110-role','/beschaeftigte','.membership-tools'),
   scenario('t110-review-context','/pruefungen','.review-case'),
-  ...['warning','exceeded','manager','employee'].map(kind=>scenario(`quota-${kind}`,'/kunden','.customer-card',[],`quota-${kind}`)),
-  scenario('quota-edit','/kunden','.customer-card',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click(),click('Ändern')],'quota-warning'),
+  ...['warning','exceeded','manager','employee'].map(kind=>scenario(`quota-${kind}`,'/kunden','.customers-view table',[],`quota-${kind}`)),
+  scenario('quota-edit','/kunden','.customers-view table',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click(),click('Ändern')],'quota-warning'),
   scenario('quota-notice-view','/uebersicht','.quota-notice',[click('Ansehen')],'quota-warning'),
   ...['admin','manager','employee'].flatMap(role=>[
-    scenario(`customers-${role}`,'/kunden','.customer-card',[],`customers-${role}`),
-    scenario(`customers-${role}-detail`,'/kunden','.customer-card',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click()],`customers-${role}`),
+    scenario(`customers-${role}`,'/kunden','.customers-view table',[],`customers-${role}`),
+    scenario(`customers-${role}-detail`,'/kunden','.customers-view table',[async p=>p.getByRole('button',{name:/Werkstatt am Park/}).click()],`customers-${role}`),
   ]),
-  scenario('customers-empty','/kunden','.customers-view h2'),
+  scenario('customers-empty','/kunden','.customers-view .empty'),
   scenario('customers-error','/kunden','.customers-view [role="alert"]'),
   ...['login','login-error','forgot-password','signing-in'].map(id=>scenario(id,'/','h1')),
   ...['recovery','recovery-employee','recovery-standortleitung','recovery-administrator','recovery-busy','paused','forbidden','unavailable','loading'].map(id=>scenario(id,'/','main')),
@@ -71,15 +72,15 @@ export const adminScenarios = [
   scenario('review-location','/pruefungen','.review-case',[async p=>p.getByText('Die Person durfte an dem zugeordneten Standort keine Zeit erfassen.',{exact:true}).waitFor()]),
   ...['Fehlende Arbeitszeit ergänzen','Vorhandene Arbeitszeit ändern','Ohne Zeitänderung schließen'].map((name,i)=>scenario('review-form-'+i,'/pruefungen','.review-case',[click(name)])),
   scenario('review-confirm','/pruefungen','[role="alertdialog"]'),
-  scenario('setup-locations','/einrichtung','.filter-chips',[click('Standorte')]),
-  scenario('setup-targets','/einrichtung','.filter-chips',[click('Arbeitsziele')]),
-  scenario('setup-targets-locations','/einrichtung','.filter-chips',[click('Arbeitsziele'),
+  scenario('setup-locations','/einrichtung','.setup-tabs',[tab('Standorte')]),
+  scenario('setup-targets','/einrichtung','.setup-tabs',[tab('Kunden und Projekte')]),
+  scenario('setup-targets-locations','/einrichtung','.setup-tabs',[tab('Kunden und Projekte'),click('+ Projekt'),
     async p=>p.locator('form').filter({has:p.getByRole('button',{name:'Projekt anlegen',exact:true})})
       .getByRole('combobox').selectOption('31000000-0000-4000-8000-000000000002'),
   ]),
-  scenario('setup-tags','/einrichtung','.filter-chips',[click('Karten')]),
-  scenario('tag-removal','/einrichtung','.filter-chips',[click('Karten'),async p=>p.getByRole('button',{name:/^Karte .+ entfernen$/}).first().click()]),
-  scenario('tag-removal-confirmed','/einrichtung','.filter-chips',[click('Karten'),async p=>p.getByRole('button',{name:/^Karte .+ entfernen$/}).first().click(),click('Entfernen bestätigen'),async p=>p.getByText('Karte entfernt. Sie kann neu eingerichtet werden.',{exact:true}).waitFor()]),
+  scenario('setup-tags','/einrichtung','.setup-tabs',[tab('Karten')]),
+  scenario('tag-removal','/einrichtung','.setup-tabs',[tab('Karten'),async p=>p.getByRole('button',{name:/^Karte .+ entfernen$/}).first().click()]),
+  scenario('tag-removal-confirmed','/einrichtung','.setup-tabs',[tab('Karten'),async p=>p.getByRole('button',{name:/^Karte .+ entfernen$/}).first().click(),click('Entfernen bestätigen'),async p=>p.getByText('Karte entfernt. Sie kann neu eingerichtet werden.',{exact:true}).waitFor()]),
   scenario('tag-confirm' ,'/einrichtung','[role="alertdialog"]'),
   scenario('payroll','/lohnexport','.table-scroll'),
   scenario('payroll-month','/lohnexport?monat=2026-09','.table-scroll'),

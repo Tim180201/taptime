@@ -1,50 +1,37 @@
-import {
-	lazy,
-	Suspense,
-	useEffect,
-	useMemo,
-	useState
-} from 'react';
-import type {
-	AdminWebCapability
-} from '../contracts';
-import {
-	canonicalRoutePath, defaultRoute,
-	type AdminRoute
-} from '../navigation';
-import { DelayedSkeleton,Panel } from '../ui';
-import { navigateFromLink } from '../viewHelpers';
-import { ActivityTile,PeopleTable } from './PeopleShared';
-type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { status: 'ready' }>;
-const ReviewsView=lazy(()=>import('./ReviewsView'));
-export default function Overview({state,administration,navigate}: {
-  readonly state: ReadyState; readonly administration: AdminWebCapability;
-  readonly navigate: (route: AdminRoute)=>void;
-}) {
-  useEffect(()=>{ void administration.refreshManagedPeople?.(true); },[administration,state.selectedLocation?.id]);
-  const evidence=useGuidanceEvidence(state,administration);
-  const next=nextSetupStep(state,evidence);
-  const summary=state.managedPeople;
-  const reviewsAvailable=state.availableSections.includes('review_items');
-  const reviewCountKnown=reviewsAvailable && state.sections.reviewItems.status === 'ready'
-    && state.reviewItemsNextCursor === null;
+import {useEffect,useMemo,useState} from 'react';
+import type {AdminWebCapability} from '../contracts';
+import {canonicalRoutePath,defaultRoute,type AdminRoute} from '../navigation';
+import {DataTable,EmptyState,Metric,Panel,Person,Pill,SectionBoundary} from '../ui';
+import {navigateFromLink,reviewReasonLabel} from '../viewHelpers';
+import {businessDay,BUSINESS_TIME_ZONE} from '@taptime/core';
+type ReadyState=Extract<ReturnType<AdminWebCapability['getState']>,{status:'ready'}>;
+export default function Overview({state,administration,navigate}:{state:ReadyState;administration:AdminWebCapability;navigate:(route:AdminRoute)=>void}) {
+  useEffect(()=>{void administration.refreshManagedPeople?.(true);},[administration,state.selectedLocation?.id]);
+  const evidence=useGuidanceEvidence(state,administration),next=nextSetupStep(state,evidence),summary=state.managedPeople;
+  const [quota,setQuota]=useState<{count:number;more:boolean}|null>(null);
+  const [quotaFailed,setQuotaFailed]=useState(false);
+  useEffect(()=>{
+    let current=true;setQuota(null);setQuotaFailed(false);
+    if(state.role!=='employee'&&administration.readQuotaAlerts)void administration.readQuotaAlerts(businessDay(Date.now()).slice(0,7),null).then(result=>{
+      if(!current)return;
+      if(result.status==='ready'&&result.value)setQuota({count:result.value.customers.length,more:result.value.nextCursor!==null});else setQuotaFailed(true);
+    }).catch(()=>{if(current)setQuotaFailed(true);});
+    return()=>{current=false;};
+  },[administration,state.membershipId,state.role,state.selectedLocation?.id,state.projection]);
+  const reviews=state.availableSections.includes('review_items');
+  const go=(view:'kunden'|'pruefungen'|'beschaeftigte',label:string)=><a className="text-button" href={canonicalRoutePath(defaultRoute(view,state.selectedLocation?.id??null))} onClick={event=>navigateFromLink(event,defaultRoute(view,state.selectedLocation?.id??null),navigate)}>{label} →</a>;
   return <>
-    {next ? <section className="first-empty" aria-labelledby="next-step-title">
-      <h2 id="next-step-title">Ihr nächster Schritt</h2><p>{next.text}</p>
-      <a className="button-link" href={canonicalRoutePath(next.route)} onClick={event=>navigateFromLink(event,next.route,navigate)}>{next.label}</a>
-    </section> : null}
+    {next?<section className="panel next-step" aria-labelledby="next-step-title"><h2 id="next-step-title">Ihr nächster Schritt</h2><p>{next.text}</p><a className="text-button" href={canonicalRoutePath(next.route)} onClick={event=>navigateFromLink(event,next.route,navigate)}>{next.label} →</a></section>:null}
     <div className="metric-grid">
-      <ActivityTile state={state} administration={administration}/>
-      {reviewCountKnown ? <article className="metric-card"><span>Braucht Ihre Entscheidung</span>
-        <strong>{state.reviewItems.length}</strong><small>Zeiten prüfen · vollständig geladen</small>
-        <a href="/pruefungen" onClick={event=>navigateFromLink(event,defaultRoute('pruefungen'),navigate)}>Zeiten prüfen</a>
-      </article> : null}
+      <Metric label="Gerade aktiv" value={summary?.status==='ready'?`${summary.value.runningCount} / ${summary.value.totalCount}`:summary?.status==='unavailable'?'Nicht verfügbar':'Wird geladen …'} action={<a className="text-button" href="#gerade-aktiv">Aktivübersicht →</a>}/>
+      {reviews?<Metric label="Braucht Ihre Entscheidung" value={state.sections.reviewItems.status==='ready'?`${state.reviewItemsNextCursor?'≥ ':''}${state.reviewItems.length}`:state.sections.reviewItems.status==='unavailable'?'Nicht verfügbar':'Wird geladen …'} notice action={go('pruefungen','Zeiten prüfen')}/>:null}
+      {state.role!=='employee'&&administration.readQuotaAlerts?<Metric label="Kontingent im Monat" value={quota?`${quota.more?'≥ ':''}${quota.count} ${quota.count===1?'Hinweis':'Hinweise'}`:quotaFailed?'Nicht verfügbar':'Wird geladen …'} action={go('kunden','Kunden')}/>:null}
     </div>
-    {summary?.status === 'ready' ? <Panel title="Gerade aktiv">
-      <PeopleTable people={summary.value.people} navigate={navigate} locationId={state.selectedLocation?.id ?? null}/>
-      {summary.value.nextCursor !== null ? <p className="supporting">Weitere Personen finden Sie unter Mitarbeiter.</p> : null}
-    </Panel> : null}
-    {reviewsAvailable ? <Suspense fallback={<DelayedSkeleton label="Ungeklärte Erfassungen werden geladen"/>}><ReviewsView state={state} administration={administration}/></Suspense> : null}
+    <div className="overview-columns"><div id="gerade-aktiv"><Panel title="Gerade aktiv">
+      {summary?.status==='ready'?<>{summary.value.people.length?<DataTable label="Laufende Zeiten" headers={['Person','Standort','Kunde oder Projekt','Seit','Status']}>
+        {summary.value.people.map(person=><tr key={person.membershipId}><td><a className="person-link" href={canonicalRoutePath({...defaultRoute('beschaeftigte',state.selectedLocation?.id??null),personId:person.membershipId})} onClick={event=>navigateFromLink(event,{...defaultRoute('beschaeftigte',state.selectedLocation?.id??null),personId:person.membershipId},navigate)}><Person name={person.displayName}/></a></td><td>{person.location?.name??'–'}</td><td>{person.runningTargetDisplayName??'–'}</td><td className="numeric">{person.runningSince?new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,hour:'2-digit',minute:'2-digit'}).format(new Date(person.runningSince)):'–'}</td><td><Pill kind={person.isRunning?'running':undefined}>{person.isRunning?'läuft':'Keine Zeit'}</Pill></td></tr>)}
+      </DataTable>:<EmptyState>Gerade läuft keine Zeit.</EmptyState>}{summary.value.nextCursor?<p className="supporting">{go('beschaeftigte','Alle anzeigen')}</p>:null}</>:summary?.status==='unavailable'?<EmptyState action={<button className="text-button" onClick={()=>void administration.refreshManagedPeople?.(true)}>Erneut versuchen</button>}>{summary.message}</EmptyState>:<p>Aktivübersicht wird geladen …</p>}
+    </Panel></div>{reviews?<Panel title="Zu entscheiden"><SectionBoundary state={state.sections.reviewItems} onRetry={()=>void administration.retrySection('reviewItems')}>{state.reviewItems.length?<ul className="decision-summary">{state.reviewItems.map(item=><li key={item.reviewItemId}><div><strong>{item.employeeDisplayName}</strong><span className="supporting"> · {new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,day:'2-digit',month:'2-digit'}).format(new Date(item.occurredAt))}</span><p>{reviewReasonLabel(item.reviewReason)}</p></div><Pill kind="notice">prüfen</Pill></li>)}</ul>:<EmptyState>Keine offenen Fälle.</EmptyState>}{go('pruefungen','Zeiten prüfen')}</SectionBoundary></Panel>:null}</div>
   </>;
 }
 

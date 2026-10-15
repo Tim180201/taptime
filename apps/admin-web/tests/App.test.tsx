@@ -1,4 +1,4 @@
-import {stateSearch} from './searchFixtures';
+import {customerSearch,stateSearch} from './searchFixtures';
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render as testingRender, screen, within, waitFor } from '@testing-library/react';
@@ -9,7 +9,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { App } from '../src/App';
 import { visibleAdminViews } from '../src/navigation';
 import type { ReactElement } from 'react';
-beforeAll(async()=>{await Promise.all([
+beforeAll(async()=>{HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};await Promise.all([
   import('../src/views/Overview'),import('../src/views/SetupView'),import('../src/views/EmployeesView'),
   import('../src/views/PersonView'),import('../src/views/TimeRecordsView'),import('../src/views/ReviewsView'),
   import('../src/views/OwnTimeView'),import('../src/views/ManualView'),
@@ -223,7 +223,7 @@ function locationReadyState(
 }
 
 class FakeCapability implements AdminWebCapability {
-  querySearch=stateSearch(()=>this.state);
+  querySearch:NonNullable<AdminWebCapability['querySearch']>=(kind,request)=>kind==='customer_hours'||kind==='customer_detail'?customerSearch(async()=>({status:'ready',value:{version:'customer-hours.v1',scope:'people',asOf:'2026-10-15T10:00:00Z',customers:[]}}))(kind,request):stateSearch(()=>this.state)(kind,request);
   removeTag=vi.fn<NonNullable<AdminWebCapability['removeTag']>>(async()=>({status:'unavailable'}));
   state: AdminWebState;
   private readonly listeners = new Set<() => void>();
@@ -313,7 +313,7 @@ describe('professional Admin Web shell', () => {
       await new Promise(resolve=>setTimeout(resolve,0));
       capability.emit({...initial,projection:{...initial.projection,nfcTags:[tag],nextCursor:null}});
     });
-    await render(<App administration={capability}/>);await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
+    await render(<App administration={capability}/>);await userEvent.click(screen.getByRole('tab',{name:'Standorte'}));
     await userEvent.click(screen.getByRole('link',{name:'Eingang → Werkstatt'}));
     expect(capability.loadMore).not.toHaveBeenCalled();
     expect(screen.getByText('Die Karte ist noch nicht geladen. Nutzen Sie die Suche oder „Weitere laden“.')).toBeVisible();
@@ -324,10 +324,10 @@ describe('professional Admin Web shell', () => {
     const capability=new FakeCapability(initial);
     capability.querySearch=vi.fn((async(kind:string,request:any)=>kind==='setup_tags'?{status:'ready',value:{status:'succeeded',organization,customers:[],nfcTags:request.search?[{...tag,customerDisplayName:'Werkstatt'}]:[],nextCursor:null}}:stateSearch(()=>initial)(kind as any,request))) as typeof capability.querySearch;
     await render(<App administration={capability}/>);
-    await userEvent.click(screen.getByRole('button',{name:'Karten'}));
-    fireEvent.change(within(document.getElementById('setup-card-assignments')!).getByRole('searchbox'),{target:{value:'Eingang'}});
+    await userEvent.click(screen.getByRole('tab',{name:'Karten'}));
+    fireEvent.change(screen.getByRole('searchbox'),{target:{value:'Eingang'}});
     await within(document.getElementById('setup-card-assignments')!).findByText('Eingang');
-    await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
+    await userEvent.click(screen.getByRole('tab',{name:'Standorte'}));
     const count=vi.mocked(capability.querySearch).mock.calls.length;
     const link=screen.getByRole('link',{name:'Eingang → Werkstatt'});
     expect(link).toHaveAttribute('href',`#setup-customer-${customer.id}`);
@@ -341,12 +341,12 @@ describe('professional Admin Web shell', () => {
     window.history.replaceState(null,'','/einrichtung');
     const capability=new FakeCapability({...readyState,locationSetup:{locations:[],memberships:[],workTargets:available?[{targetType:'customer',targetId:customer.id,displayName:customer.displayName,locationId:null}]:[],activationGaps:[{kind:'nfc_assignment',id:tag.activeAssignmentId,displayName:'Eingang → Werkstatt'}]}});
     await render(<App administration={capability}/>);
-    await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
+    await userEvent.click(screen.getByRole('tab',{name:'Standorte'}));
     const link=screen.getByRole('link',{name:'Eingang → Werkstatt'});
     expect(link).toHaveAttribute('href',available?`#setup-customer-${customer.id}`:'#setup-reassignment');
     await userEvent.click(link);
-    await waitFor(()=>expect(screen.getByLabelText(available?'Standort für Werkstatt':'Karte')).toHaveFocus());
-    if(!available)expect(screen.getByLabelText('Karte')).toHaveValue(tag.id);
+    await waitFor(()=>expect((available?screen.getByLabelText('Standort für Werkstatt'):screen.getByRole('group',{name:'Neuer aktiver Kunde'}))).toHaveFocus());
+    if(!available)expect(screen.getByRole('dialog',{name:'Zuordnung ändern'})).toHaveTextContent('Eingang');
   });
 
   it('names every missing Location binding and blocks activation until none remain', async () => {
@@ -385,14 +385,14 @@ describe('professional Admin Web shell', () => {
     });
     await render(<App administration={capability} />);
 
-    await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
+    await userEvent.click(screen.getByRole('tab',{name:'Standorte'}));
     expect(screen.getByText('Für diese Mitarbeiter fehlt der Hauptarbeitsstandort:')).toBeInTheDocument();
-    expect(screen.getAllByText('Employee Alpha')).toHaveLength(2);
+    expect(screen.getByRole('link',{name:'Employee Alpha'})).toBeVisible();
     expect(screen.getByText('Für diese Kunden fehlt der Standort:')).toBeInTheDocument();
     expect(screen.getByText('Projekt Polaris')).toBeInTheDocument();
     expect(screen.getByText('Allgemeine Arbeitszeit')).toBeInTheDocument();
     expect(screen.getByText('Eingang → Werkstatt')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Standorte verwenden' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Standorte einschalten' })).toBeDisabled();
   });
 
   it('changes the sidebar when only availableSections changes', async () => {
@@ -413,8 +413,8 @@ describe('professional Admin Web shell', () => {
     const capability = new FakeCapability(locationReadyState());
     await render(<App administration={capability} />);
 
-    expect((await screen.findAllByText('Berlin')).length).toBeGreaterThan(0);
-    expect(await screen.findByText('Gerade aktiv · Standort Berlin')).toBeInTheDocument();
+    expect(await screen.findByText('Ihr Bereich: Berlin')).toBeInTheDocument();
+    expect(screen.getByRole('heading',{name:'Gerade aktiv'})).toBeInTheDocument();
     expect(screen.queryByText('Arbeitszeiten geladen')).not.toBeInTheDocument();
     expect(screen.queryByText('Prüfungen geladen')).not.toBeInTheDocument();
     expect(screen.queryByText('Zeitfenster')).not.toBeInTheDocument();
@@ -469,7 +469,7 @@ describe('professional Admin Web shell', () => {
     expect(screen.getByLabelText('Passwort')).toHaveAttribute('autocomplete', 'current-password');
     await userEvent.type(screen.getByLabelText('E-Mail'), 'admin@example.test');
     await userEvent.type(screen.getByLabelText('Passwort'), 'secret');
-    await userEvent.click(screen.getByRole('button', { name: 'Sicher anmelden' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Anmelden' }));
     expect(capability.signIn).toHaveBeenCalledWith('admin@example.test', 'secret');
   });
 
@@ -484,7 +484,7 @@ describe('professional Admin Web shell', () => {
     await userEvent.type(screen.getByLabelText('E-Mail'), 'admin@example.test');
     await userEvent.type(screen.getByLabelText('Passwort'), 'memory-only-secret');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Sicher anmelden' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Anmelden' }));
 
     expect(capability.signIn).toHaveBeenCalledWith(
       'admin@example.test',
@@ -522,8 +522,8 @@ describe('professional Admin Web shell', () => {
     expect(navigation.querySelectorAll('a')).toHaveLength(visibleAdminViews(readyState.availableSections).length);
     expect(navigation.querySelectorAll('svg.section-icon')).toHaveLength(visibleAdminViews(readyState.availableSections).length);
     for (const icon of navigation.querySelectorAll('svg.section-icon')) {
-      expect(icon).toHaveAttribute('width', '20');
-      expect(icon).toHaveAttribute('height', '20');
+      expect(icon).toHaveAttribute('width', '16');
+      expect(icon).toHaveAttribute('height', '16');
       expect(icon).toHaveAttribute('aria-hidden', 'true');
       expect(icon.querySelector('use')).toBeNull();
     }
@@ -539,7 +539,7 @@ describe('professional Admin Web shell', () => {
     await render(<App administration={capability} />);
 
     expect(screen.getByRole('heading', { name: 'Übersicht', level: 1 })).toHaveFocus();
-    const setup = screen.getAllByRole('link', { name: 'Zeiten prüfen' })[0]!;
+    const setup = screen.getAllByRole('link', { name: /^Zeiten prüfen/ })[0]!;
     setup.focus();
     expect(setup).toHaveFocus();
     await user.keyboard('{Enter}');
@@ -595,9 +595,9 @@ describe('professional Admin Web shell', () => {
     await render(<App administration={new FakeCapability(emptyState)} />);
 
     expect(screen.getByRole('heading', { name: 'Ihr nächster Schritt' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Kunden anlegen' }))
+    expect(screen.getByRole('link', { name: 'Kunden anlegen →' }))
       .toHaveAttribute('href', '/kunden');
-    expect(document.querySelectorAll('.first-empty .button-link')).toHaveLength(1);
+    expect(document.querySelectorAll('.next-step .text-button')).toHaveLength(1);expect(document.querySelectorAll('.workspace .primary-action')).toHaveLength(0);
   });
 
   it('shows the Berlin calendar date at midnight even in a New York browser', async () => {
@@ -608,21 +608,20 @@ describe('professional Admin Web shell', () => {
       return new nativeDateTimeFormat(locales, { timeZone: 'America/New_York', ...options });
     });
     await render(<App administration={new FakeCapability(readyState)} />);
-    const date = document.querySelector('.overview-greeting time');
+    const date = document.querySelector('.page-subtitle');
     expect(date).toHaveTextContent('Dienstag, 1. September 2026');
-    expect(date).toHaveAttribute('datetime', '2026-09-01');
+
   });
 
   it('keeps the overview greeting truthful and unavailable activity separate from real counts', async () => {
     await render(<App administration={new FakeCapability(readyState)} />);
 
-    const greeting = document.querySelector('.overview-greeting');
-    expect(greeting).toHaveTextContent('Guten Tag.');
-    expect(greeting?.querySelector('time')).toHaveAttribute('datetime');
+    const greeting = document.querySelector('.page-subtitle');
+    expect(greeting?.textContent).toMatch(/202[0-9]/);
     expect(greeting).not.toHaveTextContent(/Aufmerksamkeit|braucht|erledigen/i);
     const firstMetric = document.querySelector('.metric-card');
-    expect(firstMetric).toHaveTextContent('Aktivübersicht wird geladen');
-    expect(firstMetric?.querySelector('strong')).toBeNull();
+    expect(firstMetric).toHaveTextContent('Wird geladen …');
+    expect(firstMetric).not.toHaveTextContent('0 / 0');
   });
 
   it('K5 still recommends a proven missing customer when time data failed', async () => {
@@ -682,8 +681,10 @@ describe('professional Admin Web shell', () => {
     window.history.replaceState(null,'','/einrichtung');
     const capability=new FakeCapability({...readyState,projection:{organization,customers:[],nfcTags:[],nextCursor:'more',customersComplete:false,nfcTagsComplete:false}});
     await render(<App administration={capability}/>);
-    expect(screen.getByText('Keine Kunden vorhanden.')).toBeInTheDocument();
-    expect(screen.getByText('Keine Karten registriert.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab',{name:'Kunden und Projekte'}));
+    expect(screen.getByText('Keine Kunden oder Projekte vorhanden.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab',{name:'Karten'}));
+    expect(screen.getByText(/Keine Karten registriert/)).toBeInTheDocument();
   });
   it('shows independent search counts and identifies a valid Break Tag truthfully', async () => {
     const breakTag = {
@@ -708,7 +709,9 @@ describe('professional Admin Web shell', () => {
 
     await render(<App administration={capability} />);
 
+    await userEvent.click(screen.getByRole('tab',{name:'Kunden und Projekte'}));
     expect(await screen.findAllByText('1 Treffer')).not.toHaveLength(0);
+    await userEvent.click(screen.getByRole('tab',{name:'Karten'}));
     expect(await screen.findAllByText('2 Treffer')).not.toHaveLength(0);
     expect(screen.getByText('Pausenkarte')).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /Pause/ })).toBeNull();
@@ -724,25 +727,15 @@ describe('professional Admin Web shell', () => {
     });
     window.history.replaceState(null, '', '/einrichtung');
     await render(<App administration={capability} />);
-    const customerInput = screen.getByLabelText('Neuen Kunden anlegen');
-    const projectInput = screen.getByLabelText('Neues Projekt anlegen');
-    await userEvent.type(customerInput, 'Kunde bleibt unabhängig vom Text');
-    await userEvent.type(projectInput, 'Projekt bleibt unabhängig vom Text');
-
-    capability.emit({
-      ...(capability.state as ReadyStateForTest),
-      notice: { kind: 'success', text: 'Diese Kundenmeldung darf jederzeit umformuliert werden.' },
-      completedAction: 'customer_created',
-    });
-    await waitFor(() => expect(customerInput).toHaveValue(''));
-    expect(projectInput).toHaveValue('Projekt bleibt unabhängig vom Text');
-
-    capability.emit({
-      ...(capability.state as ReadyStateForTest),
-      notice: { kind: 'success', text: 'Auch diese Projektmeldung ist kein Steuerungswert.' },
-      completedAction: 'project_created',
-    });
-    await waitFor(() => expect(projectInput).toHaveValue(''));
+    await userEvent.click(screen.getByRole('tab',{name:'Kunden und Projekte'}));
+    await userEvent.click(screen.getByRole('button',{name:'+ Projekt'}));
+    const projectInput=screen.getByLabelText('Name');
+    await userEvent.type(projectInput,'Projekt bleibt unabhängig vom Text');
+    act(()=>capability.emit({...capability.state as ReadyStateForTest,notice:{kind:'success',text:'Anderer Wortlaut'},completedAction:'project_created'}));
+    await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Projekt anlegen'})).toBeNull());
+    await userEvent.click(screen.getByRole('button',{name:'+ Projekt'}));
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+    await userEvent.click(screen.getByRole('button',{name:'Abbrechen'}));
 
     window.history.pushState(null, '', '/beschaeftigte');
     fireEvent(window, new PopStateEvent('popstate'));
@@ -900,6 +893,7 @@ describe('professional Admin Web shell', () => {
   it('renders safe fingerprints and never raw NFC payload labels', async () => {
     window.history.replaceState(null, '', '/einrichtung');
     await render(<App administration={new FakeCapability(readyState)} />);
+    await userEvent.click(screen.getByRole('tab',{name:'Karten'}));
     expect(screen.getAllByText(/Technische Kennung A1B2C3D4E5F6/).length).toBeGreaterThan(0);
     expect(document.body.textContent).not.toMatch(/nfc:uid|canonicalPayload/i);
   });
@@ -1110,21 +1104,16 @@ describe('professional Admin Web shell', () => {
     });
     window.history.replaceState(null, '', '/einrichtung');
     await render(<App administration={capability} />);
-    await userEvent.click(screen.getByRole('button',{name:'Karten'}));
-    fireEvent.change(screen.getByLabelText('Karte'), {
-      target: { value: tag.id },
-    });
-    fireEvent.change(screen.getByLabelText('Neuer aktiver Kunde'), {
-      target: { value: targetCustomer.id },
-    });
+    await userEvent.click(screen.getByRole('tab',{name:'Karten'}));
+    await userEvent.click(screen.getByRole('button',{name:'Zuordnung für Eingang ändern'}));
+    fireEvent.click(screen.getByRole('button',{name:targetCustomer.displayName}));
 
     await userEvent.click(screen.getByRole('button', { name: 'Zuordnung ändern' }));
     await userEvent.click(screen.getByRole('button', {
       name: 'Änderung ausdrücklich bestätigen',
     }));
 
-    const reassignmentTrigger = screen.getByRole('button', { name: 'Zuordnung ändern' });
-    const tagSelection = screen.getByLabelText('Karte');
+    const reassignmentTrigger = screen.getByRole('button', { name: 'Zuordnung für Eingang ändern' });
     await waitFor(() => expect(reassignmentTrigger).toHaveFocus());
     expect(reassignmentTrigger).not.toBeDisabled();
     expect(document.activeElement).toBe(reassignmentTrigger);
@@ -1323,14 +1312,14 @@ it('T049 b: employee shell has customer hours, own time and manual, even at an a
   await render(<App administration={new FakeCapability({...readyState,role:'employee',
     availableSections:['own_time','manual_capture'],managementScope:{kind:'locations',locations:[]}})} />);
   const navigation=screen.getByRole('navigation',{name:'Hauptnavigation'});
-  await waitFor(()=>expect(navigation.textContent).toBe('KundenMeine ZeitenManuell'));
+  await waitFor(()=>expect(navigation.textContent).toBe('ArbeitKundenMeine ZeitenManuell'));
   expect(screen.queryByRole('heading',{name:'Einrichtung'})).not.toBeInTheDocument();
 });
 it('T049 d: activity tile uses server counts and time, not the loaded employee page', async () => {
   await render(<App administration={new FakeCapability({...readyState,role:'administrator',
     managedPeople:{status:'ready',value:{serverTime:'2026-09-18T14:07:00.000Z',runningCount:7,totalCount:12,people:[],nextCursor:null},isRunning:null}})} />);
   expect(await screen.findByText('7 / 12')).toBeVisible();
-  expect(screen.getByText('16:07').closest('small')).toHaveTextContent('Stand 16:07 · Serverzeit');
+  expect(screen.getByRole('contentinfo')).toHaveTextContent('Deutsche Ortszeit · Stand 16:07');
 });
 it('T049 f: payroll exposes exactly one CSV action', async () => {
   window.history.replaceState(null,'','/lohnexport');
@@ -1487,7 +1476,7 @@ it('T097: correction picker shows only loaded person records and offers the next
 });
 
 it.each([
-  ['/einrichtung','Kunde anlegen','createCustomer'],
+  ['/kunden','Kunde anlegen','createCustomer'],
   ['/einrichtung','Projekt anlegen','createProject'],
   ['/einrichtung','Standort anlegen','createLocation'],
   ['/einrichtung','Namen speichern','renameLocation'],
@@ -1499,14 +1488,16 @@ it.each([
   const capability=new FakeCapability({...readyState,projection:{...readyState.projection,customers:[customer,{...customer,id:'other-customer',displayName:'Kunde B'}]},locationSetup:{locations:[{id:berlin.id,displayName:'Berlin',active:true,rowVersion:1}],memberships:[],workTargets:[],activationGaps:[]}});
   const createProject=vi.fn(async()=>undefined);Object.assign(capability,{createProject});
   await render(<App administration={capability}/>);
-  if(path==='/einrichtung')fireEvent.click(screen.getByRole('button',{name:method==='createLocation'||method==='renameLocation'?'Standorte':method==='prepareReassignment'?'Karten':'Arbeitsziele'}));
+  if(path==='/einrichtung')fireEvent.click(screen.getByRole('tab',{name:method==='createLocation'||method==='renameLocation'?'Standorte':method==='prepareReassignment'?'Karten':'Kunden und Projekte'}));
+  const opener=method==='createLocation'?'+ Standort':method==='renameLocation'?'Berlin umbenennen':method==='prepareReassignment'?'Zuordnung für Eingang ändern':method==='createProject'?'+ Projekt':method==='createCustomer'?'+ Kunde anlegen':null;
+  if(opener)fireEvent.click(screen.getByRole('button',{name:opener}));
   if(path==='/pruefungen')fireEvent.click(screen.getByRole('button',{name:'Ohne Zeitänderung schließen'}));
-  const button=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.textContent?.trim()===title)!;
+  const button=Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(node=>node.closest('form')&&node.textContent?.trim()===title)!;
   expect(button,title).toBeTruthy();expect(button).not.toBeDisabled();
   const form=button.closest('form')!;
-  const fields=Array.from(form.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement>('[required]'));
+  const fields=Array.from(form.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLTextAreaElement|HTMLFieldSetElement>('[required],[data-required-choice]'));
   expect(fields.length).toBeGreaterThan(0);
-  for(const field of fields)fireEvent.change(field,{target:{value:''}});
+  for(const field of fields)if(!(field instanceof HTMLFieldSetElement))fireEvent.change(field,{target:{value:''}});
   fireEvent.submit(form);
   const operation=method==='createProject'?createProject:capability[method as keyof FakeCapability];
   expect(operation).not.toHaveBeenCalled();
@@ -1518,6 +1509,7 @@ it.each([
     expect(document.getElementById(id)?.textContent).toMatch(/Bitte/);
   }
   for(const field of fields){
+    if(field instanceof HTMLFieldSetElement){fireEvent.click(within(field).getByRole('button',{name:'Kunde B'}));continue;}
     const value=field instanceof HTMLSelectElement?Array.from(field.options).find(option=>option.value && !option.disabled)?.value:field.type==='datetime-local'?'2026-09-20T10:00':'Ein gültiger Name';
     if(value)fireEvent.change(field,{target:{value}});
   }
@@ -1531,15 +1523,15 @@ it('T101 login and password reset keep their own required scope',async()=>{
   expect(screen.getByLabelText('Passwort')).not.toHaveAttribute('aria-invalid');expect(capability.requestPasswordReset).not.toHaveBeenCalled();
   fireEvent.change(email,{target:{value:'admin@example.test'}});expect(email).not.toHaveAttribute('aria-invalid');
   fireEvent.click(screen.getByRole('button',{name:'Passwort vergessen'}));expect(capability.requestPasswordReset).toHaveBeenCalledExactlyOnceWith('admin@example.test');
-  fireEvent.click(screen.getByRole('button',{name:'Sicher anmelden'}));expect(capability.signIn).not.toHaveBeenCalled();expect(screen.getByLabelText('Passwort')).toHaveAttribute('aria-invalid','true');
+  fireEvent.click(screen.getByRole('button',{name:'Anmelden'}));expect(capability.signIn).not.toHaveBeenCalled();expect(screen.getByLabelText('Passwort')).toHaveAttribute('aria-invalid','true');
 });
 
 it('T102 reports an already assigned customer at its field instead of preparing an unavailable reassignment',async()=>{
  const capability=new FakeCapability(readyState);
  window.history.replaceState(null,'','/einrichtung');await render(<App administration={capability}/>);
- await userEvent.click(screen.getByRole('button',{name:'Karten'}));
- fireEvent.change(screen.getByLabelText('Karte'),{target:{value:tag.id}});
- const field=screen.getByLabelText('Neuer aktiver Kunde');fireEvent.change(field,{target:{value:customer.id}});
+ await userEvent.click(screen.getByRole('tab',{name:'Karten'}));
+ await userEvent.click(screen.getByRole('button',{name:'Zuordnung für Eingang ändern'}));
+ const field=screen.getByRole('group',{name:'Neuer aktiver Kunde'});fireEvent.click(screen.getByRole('button',{name:customer.displayName}));
  await userEvent.click(screen.getByRole('button',{name:'Zuordnung ändern'}));
  expect(capability.prepareReassignment).not.toHaveBeenCalled();expect(field).toHaveAttribute('aria-invalid','true');
  expect(screen.getByText('Die Karte gehört bereits zu diesem Kunden.')).toBeVisible();
@@ -1587,8 +1579,8 @@ it('T107 permits location activation with unbound general work and offers no bin
     memberships:[],workTargets:[{targetType:'general_work',targetId:'general',displayName:'Allgemeine Arbeitszeit',locationId:null}],activationGaps:[],
   }});
   await render(<App administration={capability}/>);
-  await userEvent.click(screen.getByRole('button',{name:'Standorte'}));
-  expect(screen.getByRole('button',{name:'Standorte verwenden'})).toBeEnabled();
+  await userEvent.click(screen.getByRole('tab',{name:'Standorte'}));
+  expect(screen.getByRole('button',{name:'Standorte einschalten'})).toBeEnabled();
   expect(screen.queryByRole('combobox',{name:/Allgemeine Arbeitszeit/})).toBeNull();
   expect(screen.getByText(/Allgemeine Arbeitszeit braucht keine Standortbindung/)).toBeInTheDocument();
 });
@@ -1621,7 +1613,7 @@ it.each(['administrator','standortleitung'] as const)('T116 the second correctio
 
 it('T116 card removal confirms the named card and preserves its expected assignment',async()=>{
  window.history.replaceState(null,'','/einrichtung');const capability=new FakeCapability(readyState);capability.removeTag=vi.fn(async()=>({status:'succeeded',removedAt:new Date().toISOString()}));
- await render(<App administration={capability}/>);await userEvent.click(screen.getByRole('button',{name:'Karten'}));await userEvent.click(screen.getByRole('button',{name:'Karte Eingang entfernen'}));
+ await render(<App administration={capability}/>);await userEvent.click(screen.getByRole('tab',{name:'Karten'}));await userEvent.click(screen.getByRole('button',{name:'Karte Eingang entfernen'}));
  expect(screen.getByText('Karte „Eingang“ entfernen?')).toBeInTheDocument();expect(capability.removeTag).not.toHaveBeenCalled();await userEvent.click(screen.getByRole('button',{name:'Abbrechen'}));expect(capability.removeTag).not.toHaveBeenCalled();
  await userEvent.click(screen.getByRole('button',{name:'Karte Eingang entfernen'}));await userEvent.click(screen.getByRole('button',{name:'Entfernen bestätigen'}));expect(capability.removeTag).toHaveBeenCalledWith(tag.id,tag.activeAssignmentId);expect(await screen.findByText('Karte entfernt. Sie kann neu eingerichtet werden.')).toBeInTheDocument();
 });

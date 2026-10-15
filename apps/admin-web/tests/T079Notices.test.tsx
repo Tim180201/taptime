@@ -17,17 +17,17 @@ it.each([
   'Die Arbeitszeit wurde korrigiert. Die ursprüngliche Fassung bleibt erhalten.',
   'Die Entscheidung wurde gespeichert.', 'Die CSV-Datei wurde erstellt und heruntergeladen.',
   'Ein beliebig umformulierter Erfolg.',
-])('renders the successful result “%s” as Erledigt', text => {
+])('renders the successful result “%s” without a category title (D-140)', text => {
   render(<FeedbackBand message={{kind:'success',text}}/>);
-  expect(screen.getByRole('status')).toHaveTextContent('Erledigt');
+  expect(screen.getByRole('status')).toHaveTextContent(text);
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });
 it('uses the result kind even if an error happens to have familiar success wording', () => {
   render(<FeedbackBand message={{kind:'error',text:'Gespeichert.'}}/>);
-  expect(screen.getByRole('alert')).toHaveTextContent('Die Aktion wurde nicht abgeschlossen');
+  expect(screen.getByRole('alert')).toHaveTextContent('Gespeichert.');
 });
 it('presents informational results without announcing a failure or success', () => {
   render(<FeedbackBand message={{kind:'info',text:'Wird gesichert …'}}/>);
-  expect(screen.getByRole('status')).toHaveTextContent('Hinweis');
+  expect(screen.getByRole('status')).toHaveTextContent('Wird gesichert …');
   expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 });

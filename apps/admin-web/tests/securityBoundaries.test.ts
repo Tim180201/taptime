@@ -43,69 +43,21 @@ describe('C3D Admin Web security boundaries', () => {
   it('retains a narrow mobile layout for the production-rendered setup surface', async () => {
     const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
     expect(styles).toContain('@media (max-width: 48rem)');
-    expect(styles).toContain('@media (max-width: 28rem)');
-    expect(styles).toContain('min-width: 20rem');
-    expect(styles).toContain('.form-grid { grid-template-columns: 1fr; }');
+    expect(styles).toContain('@media (max-width: 1023px)');
+    expect(styles).toContain('min-width: 0');
+    expect(styles).toContain('grid-template-columns: minmax(0,1fr)');
     expect(styles).toContain(':focus-visible');
     expect(styles).toContain('@media (forced-colors: active)');
   });
 
-  it('keeps every text/background pair readable and control focus above 3:1', async () => {
-    const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
-    expect(styles).toContain('--color-text-muted: #97A5A0');
-    expect(styles).toContain('--color-focus: #7EE0C0');
-    expect(styles).toMatch(/:focus-visible \{[\s\S]*outline: 3px solid var\(--color-focus\);/);
-    expect(styles).toMatch(/input, select, textarea \{[\s\S]*border: 1px solid var\(--color-text-muted\);/);
-    expect(styles).toMatch(/button\.secondary, \.secondary-link \{[\s\S]*border-color: var\(--color-text-muted\);/);
-    expect(styles).toMatch(/\.verbatim-reason \{[\s\S]*white-space: pre-wrap;/);
-
-    const darkBackgrounds = ['#0E1512', '#141C19', '#1A2320'] as const;
-    const textOnDark = ['#F2F5F4', '#97A5A0', '#7EE0C0', '#C9F24D', '#E0A44C'] as const;
-    for (const foreground of textOnDark) {
-      for (const background of darkBackgrounds) {
-      expect(contrastRatio('#FF8F8F', background)).toBeGreaterThanOrEqual(4.5);
-        expect(contrastRatio(foreground, background), `${foreground} on ${background}`)
-          .toBeGreaterThanOrEqual(4.5);
-      }
-    }
-
-    for (const background of ['#7EE0C0', '#C9F24D', '#E0A44C'] as const) {
-      expect(contrastRatio('#0E1512', background), `#0E1512 on ${background}`)
-        .toBeGreaterThanOrEqual(4.5);
-    }
-    expect(contrastRatio('#000000', '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
-
-    expect(contrastRatio('#97A5A0', '#1A2320')).toBeGreaterThanOrEqual(3);
-    for (const background of darkBackgrounds) {
-      expect(contrastRatio('#FF8F8F', background)).toBeGreaterThanOrEqual(4.5);
-      expect(contrastRatio('#7EE0C0', background), `focus on ${background}`)
-        .toBeGreaterThanOrEqual(3);
-    }
-  });
-
-  it('keeps every color literal inside the named raster definition', async () => {
-    const styles = await readFile(new URL('../src/styles.css', import.meta.url), 'utf8');
-    const root = styles.match(/^:root \{[\s\S]*?\n\}/)?.[0];
-    expect(root).toBeDefined();
-    const namedColors = root?.match(/--color-[a-z-]+:\s*#[0-9A-F]{6};/g) ?? [];
-    expect(namedColors).toEqual([
-      '--color-ground: #0E1512;',
-      '--color-surface: #141C19;',
-      '--color-surface-raised: #1A2320;',
-      '--color-line: #24302C;',
-      '--color-text: #F2F5F4;',
-      '--color-text-muted: #97A5A0;',
-      '--color-accent: #7EE0C0;',
-      '--color-on-accent: #0E1512;',
-      '--color-call-to-action: #C9F24D;',
-      '--color-notice: #E0A44C;',
-      '--color-error: #FF8F8F;',
-      '--color-focus: #7EE0C0;',
-      '--color-print-ground: #FFFFFF;',
-      '--color-print-text: #000000;',
-    ]);
-    const implementation = styles.replace(root!, '');
-    expect(implementation).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
+  // D-140 contrast and literal-color coverage now reads both palettes and the
+  // exact README pairs in T122Themes; this retains the control/focus wiring check.
+  it('uses semantic focus and control border colors', async () => {
+    const styles=await readFile(new URL('../src/styles.css',import.meta.url),'utf8');
+    expect(styles).toContain('outline: 3px solid var(--color-accent)');
+    expect(styles).toContain('border: 1px solid var(--color-text-muted)');
+    expect(styles).toContain('white-space: pre-wrap');
+    expect(styles.replace(/--[a-z-]+:\s*#[0-9a-f]{3,8};/gi,'')).not.toMatch(/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i);
   });
 
   it('bundles Manrope locally, embeds navigation icons, and defines black-on-white print', async () => {
@@ -114,7 +66,7 @@ describe('C3D Admin Web security boundaries', () => {
       readFile(new URL('../src/styles.css', import.meta.url), 'utf8'),
       readFile(new URL('../package.json', import.meta.url), 'utf8'),
     ]);
-    expect(styles.match(/@font-face/g)).toHaveLength(3);
+    for(const font of ['400Regular','600SemiBold','800ExtraBold','jetbrains-mono-400.ttf','jetbrains-mono-500.ttf'])expect(styles).toContain(font);
     expect(styles).toContain('@expo-google-fonts/manrope/400Regular/Manrope_400Regular.ttf');
     expect(JSON.parse(packageJson).dependencies['@expo-google-fonts/manrope']).toBe('^0.4.2');
     expect(app).toContain("className: 'section-icon'");

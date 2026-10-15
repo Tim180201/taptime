@@ -56,7 +56,7 @@ export function PasswordResetPage({ recovery }: { readonly recovery: RecoveryPas
               required minLength={MIN_PASSWORD_LENGTH} value={password} disabled={busy || awaitingCompletion}
               onChange={(event) => setPassword(event.target.value)} />
             <small>Mindestens {MIN_PASSWORD_LENGTH} Zeichen. Ein längerer Satz ist leichter zu merken.</small>
-            <button type="submit" aria-busy={busy} disabled={busy}>
+            <button className="primary-action" type="submit" aria-busy={busy} disabled={busy}>
               {busy ? 'Passwort wird gespeichert …' : awaitingCompletion ? 'Änderung abschließen' : 'Passwort ändern'}
             </button>
           </RequiredForm> : null}

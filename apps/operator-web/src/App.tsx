@@ -1,3 +1,4 @@
+import {ThemeSwitch} from '../../admin-web/src/ThemeSwitch';
 import { APP_NAME } from '../../../shared/product';
 import { BrandMark } from '../../../shared/BrandMark';
 import { RequiredForm } from './RequiredForm';
@@ -103,7 +104,7 @@ export function App({ runtime }: { runtime: OperatorRuntime }) {
   return (
     <main className="login">
       <section className="card auth">
-        <Brand />
+        <Brand /><ThemeSwitch/>
         <h1>
           {state.status === "mfa" ? "Zweiter Faktor" : "Betreiber-Anmeldung"}
         </h1>
@@ -271,7 +272,7 @@ function Business({ runtime }: { runtime: OperatorRuntime }) {
     <>
       <div className="app" inert={panel !== null}>
         <header>
-          <Brand />
+          <Brand /><ThemeSwitch/>
           <button onClick={() => void runtime.signOut()}>Abmelden</button>
         </header>
         <nav aria-label="Betreiber-Bereich">

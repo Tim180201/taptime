@@ -1,7 +1,7 @@
 import {customerSearch} from './searchFixtures';
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { beforeAll, afterEach, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import type { CustomerHoursResponse } from '@taptime/mobile-work-contract';
 import type { AdminWebCapability } from '../src/contracts';
@@ -17,6 +17,7 @@ const cid='40000000-0000-4000-8000-000000000001',mid='70000000-0000-4000-8000-00
 const customer={customerId:cid,displayName:'Werkstatt',active:false,workDurationSeconds:7200,running:true};
 const own:CustomerHoursResponse={version:'customer-hours.v1',scope:'self',asOf:'2026-09-28T08:00:00.000Z',customers:[{...customer,days:[{date:'2026-09-28',workDurationSeconds:7200,running:true}]}]};
 const people:CustomerHoursResponse={...own,scope:'people',customers:[{...customer,people:[{membershipId:mid,displayName:'Person B',workDurationSeconds:7200,running:true}]}]};
+beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
 afterEach(()=>{cleanup();vi.useRealTimers();});
 it.each([own,people])('shows server-delivered $scope breakdown, running state and month controls',async value=>{
   vi.setSystemTime(new Date('2026-09-28T08:00Z'));
@@ -27,7 +28,7 @@ it.each([own,people])('shows server-delivered $scope breakdown, running state an
   expect(screen.getByText(value.scope==='self'?'28.09.2026':'Person B')).toBeInTheDocument();
   expect(screen.getAllByText(/läuft/).length).toBeGreaterThan(0);
   expect(screen.getByText('inaktiv')).toBeInTheDocument();
-  expect(screen.getByLabelText('Nächster Monat')).toBeDisabled();
+  expect(screen.getByRole('combobox',{name:'Monat'})).toHaveValue('2026-09');
   expect(screen.getAllByRole('option')).toHaveLength(24);
   fireEvent.change(screen.getByRole('combobox',{name:'Monat'}),{target:{value:'2026-08'}});
   expect(navigate).toHaveBeenCalledWith({...defaultRoute('kunden'),customerId:cid,month:'2026-08'});
@@ -37,7 +38,7 @@ it('distinguishes empty and unavailable, retries and does not show stale respons
  render(<CustomersView administration={{getState:()=>({status:'ready',role:'administrator'}),readCustomerHours,querySearch:customerSearch(readCustomerHours)} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  expect(await screen.findByRole('alert')).toHaveTextContent('konnten nicht geladen');
  fireEvent.click(screen.getByText('Erneut versuchen'));
- expect(await screen.findByRole('heading',{name:'Keine Kunden in diesem Monat'})).toBeInTheDocument();
+ expect(await screen.findByText('Für Ihren Bereich sind noch keine Kunden mit einer aktiven Zuordnung oder Stunden vorhanden.')).toBeInTheDocument();
 });
 it('web client accepts exact self schema and rejects a person breakdown in self scope',async()=>{
  const fetcher=vi.fn<typeof fetch>(async()=>new Response(JSON.stringify(own),{headers:{'content-type':'application/json'}}));
@@ -54,7 +55,7 @@ it('T100 allows rename and requires explicit deletion confirmation, preserving t
  render(<CustomersView administration={{getState:()=>({status:'ready',role:'administrator'}),readCustomerHours,querySearch:customerSearch(readCustomerHours),manageCustomer} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:/Werkstatt/}));
  fireEvent.click(await screen.findByText('Kunde löschen'));
- expect(screen.getByText('Kunde Werkstatt löschen? Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.')).toBeInTheDocument();
+ expect(screen.getByRole('alertdialog',{name:'Kunde löschen'})).toHaveTextContent('Kunde Werkstatt löschen?Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.');
  expect(manageCustomer).not.toHaveBeenCalled();
  fireEvent.click(screen.getByText('Löschen bestätigen'));
  expect(await screen.findByText('Erst die laufende Zeit beenden')).toBeInTheDocument();
@@ -64,7 +65,7 @@ it('T100 allows rename and requires explicit deletion confirmation, preserving t
  fireEvent.change(screen.getByLabelText('Neuer Kundenname'),{target:{value:'Bestehender Name'}});
  manageCustomer.mockResolvedValueOnce({status:'succeeded'});
  fireEvent.click(screen.getByText('Namen speichern'));
- await screen.findByText('Kunde umbenennen');
+ await screen.findByRole('button',{name:'Kunde umbenennen'});
  expect(manageCustomer).toHaveBeenLastCalledWith(cid,{action:'rename',displayName:'Bestehender Name'});
- expect(readCustomerHours).toHaveBeenCalledTimes(3);
+ await waitFor(()=>expect(readCustomerHours).toHaveBeenCalledTimes(3));
 });

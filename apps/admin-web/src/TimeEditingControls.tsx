@@ -28,7 +28,7 @@ export function AddTimeControl({day}:{day:string}) {
   if(!context || (context.state.role==='standortleitung' && !canManageTime(context.state)) || !context.administration.saveTimeEdit) return null;
   const close=()=>{setOpen(false);button.current?.focus();};
   return <div className="time-edit-controls">
-    <button ref={button} disabled={!context.online||context.state.timeEditBusy} onClick={()=>setOpen(true)}>Zeit hinzufügen</button>
+    <button className={open?"secondary":"primary-action"} ref={button} disabled={!context.online||context.state.timeEditBusy} onClick={()=>setOpen(true)}>Zeit hinzufügen</button>
     {!context.online?<p role="status">Nur online möglich. Verbinden Sie sich mit dem Internet, um Zeit nachzutragen.</p>:null}
     {open?<TimeEditForm key={`${context.state.membershipId}/${context.targetMembershipId}/${context.state.role}`} kind="backfill" day={day} onClose={close}/>:null}
   </div>;
@@ -142,12 +142,12 @@ function TimeEditForm({kind,day,record,onClose}:{kind:Exclude<TimeEditInput['kin
       </>:null}
     </div>:null}
     {kind!=='comment'?<><TimeFields {...values} onDate={setDate} onStart={setStart} onEnd={setEnd} disabled={saving||archivePending} checkInterval={kind==='correct'}/>
-      <p className="full-field supporting">Deutsche Ortszeit{kind!=='stop'?` · ${overnightHint}`:''}{kind==='backfill'?' Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}
+      <p className="full-field supporting">{kind!=='stop'?overnightHint:''}{kind==='backfill'?' Pausen bitte als Lücke zwischen zwei Einträgen lassen.':''}</p></>:null}
     {kind==='comment'||(kind==='backfill'&&own)?<label className="full-field">{kind==='comment'?'Kommentar':'Kommentar (optional)'}<textarea required={kind==='comment'} value={comment} disabled={saving||archivePending} onChange={e=>setComment(e.target.value)}/></label>:null}
     {kind!=='comment'&&!own?<label className="full-field">{reasonRequired?'Grund der Änderung (Pflicht)':'Grund (freiwillig)'}<textarea required={reasonRequired} data-field-error={Array.from(reason).length>500?'Bitte höchstens 500 Zeichen eingeben.':undefined} value={reason} disabled={saving||archivePending} onChange={e=>setReason(e.target.value)}/></label>:null}
     {notice?<p className={notice.kind==='error'?'full-field field-error':'full-field'} role={notice.kind==='error'?'alert':'status'}>{notice.text}</p>:null}
     {!context.online?<p role="status">Nur online möglich. Ihre Eingaben bleiben erhalten.</p>:null}
-    <button disabled={saving||!context.online} aria-busy={saving}>{saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'}</button>
+    <button className="primary-action" disabled={saving||!context.online} aria-busy={saving}>{saving?(archivePending?ADMINISTRATION_ARCHIVE_PENDING:'Wird gespeichert …'):archivePending?'Erneut prüfen':kind==='stop'?'Zeit beenden':'Speichern'}</button>
     <button className="quiet" type="button" disabled={saving} onClick={onClose}>Abbrechen</button>
   </RequiredForm></ResponsiveSheet>;
 }

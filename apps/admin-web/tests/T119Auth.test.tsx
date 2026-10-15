@@ -64,7 +64,7 @@ it.each([{ status: 429 }, { code: 'over_request_rate_limit' }, { status: 429, co
     render(createApplicationPage(config));
     fireEvent.change(screen.getByLabelText('E-Mail'), { target: { value: 'existing@example.test' } });
     fireEvent.change(screen.getByLabelText('Passwort'), { target: { value: '12345678' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Sicher anmelden' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Anmelden' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(limited));
     expect(sdk.signInWithPassword).toHaveBeenCalledWith({ email: 'existing@example.test', password: '12345678' });
     expect(screen.getByLabelText('Passwort')).not.toHaveAttribute('minlength');

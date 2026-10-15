@@ -24,7 +24,7 @@ export function CustomerQuota({customer,administration,onSaved,editable}:{custom
     if(result?.status==='succeeded'){setEditing(false);onSaved();}
     else setError(result?.status==='forbidden'?'Sie dürfen das Kontingent dieses Kunden nicht mehr ändern.':'Das Kontingent konnte nicht gespeichert werden. Bitte versuchen Sie es erneut. Ihre Eingabe bleibt erhalten.');
   };
-  return <section aria-label="Kontingent"><p>Monatliches Stundenkontingent: {customer.quotaSeconds==null?'Kein Kontingent':`${formatQuotaHours(customer.quotaSeconds)} h pro Monat`}</p>
+  return <section className="metric-card" aria-label="Kontingent"><span>Monatliches Stundenkontingent</span><strong> {customer.quotaSeconds==null?'Kein Kontingent':`${formatQuotaHours(customer.quotaSeconds)} h pro Monat`}</strong>
     <p className="supporting">Es dient als Hinweis. Weitere Zeit kann weiterhin erfasst werden.</p><QuotaProgress customer={customer}/>
     {editing?<RequiredForm onSubmit={event=>{event.preventDefault();if(!busy)void save();}}>
       {error?<p role="alert">{error}</p>:null}

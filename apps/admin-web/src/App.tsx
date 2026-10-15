@@ -1,3 +1,5 @@
+import {HeaderOutlet,PageHeader} from './PageHeader';
+import {ThemeSwitch} from './ThemeSwitch';
 import { MIN_PASSWORD_LENGTH } from '../../../shared/authPolicy';
 import { APP_NAME } from '../../../shared/product';
 import { BrandMark } from '../../../shared/BrandMark';
@@ -70,6 +72,10 @@ export function App({
   const mainHeading = useRef<HTMLHeadingElement>(null);
   const compact = useCompactLayout();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [helpOpen,setHelpOpen]=useState(false);
+  const [headerHost,setHeaderHost]=useState<HTMLElement|null>(null);
+  const [version,setVersion]=useState<string|null>(null);
+  useEffect(()=>{let current=true;void fetch('/version.txt').then(r=>r.ok?r.text():null).then(v=>{if(current&&v&&/^[a-zA-Z0-9._-]{1,80}$/.test(v.trim()))setVersion(v.trim());}).catch(()=>{});return()=>{current=false;};},[]);
   useEffect(() => { setMoreOpen(false); }, [route.view, compact, state.status]);
 
   useEffect(() => {
@@ -155,7 +161,7 @@ export function App({
     return <main className="login-shell">
       <section className="login-card" aria-labelledby="login-title">
         <Brand />
-        <h1 id="login-title">Einfach sauber eingerichtet.</h1>
+        <ThemeSwitch/><h1 id="login-title">{APP_NAME} Verwaltung</h1>
         <p>Melden Sie sich mit Ihrem Zugang an.</p>
         {state.status === 'signed_out' && state.notice
           ? <FeedbackBand message={state.notice} /> : recoveryLinkError
@@ -174,14 +180,14 @@ export function App({
           <label htmlFor="login-password">Passwort</label>
           <input id="login-password" type="password" autoComplete="current-password" required
             value={password} onChange={(event) => setPassword(event.target.value)} />
-          <button disabled={state.status === 'signing_in'} aria-busy={state.status === 'signing_in'}>
-            {state.status === 'signing_in' ? 'Wird geprüft …' : 'Sicher anmelden'}
+          <button className="primary-action" disabled={state.status === 'signing_in'} aria-busy={state.status === 'signing_in'}>
+            {state.status === 'signing_in' ? 'Wird geprüft …' : 'Anmelden'}
           </button>
         <button className="text-button" type="submit" data-validation-scope="login-email" disabled={state.status === 'signing_in'}
           aria-busy={state.status === 'signing_in'}
           >
           Passwort vergessen
-        </button></RequiredForm>
+        </button></RequiredForm><p className="supporting">Noch keinen Zugang? Ihre Verwaltung lädt Sie per E-Mail ein.</p>
       </section>
     </main>;
   }
@@ -210,130 +216,50 @@ export function App({
   const activeRoute = visibleViews.some((candidate) => candidate.slug === route.view)
     ? route : defaultRoute(visibleViews[0]!.slug, state.selectedLocation?.id ?? null);
   const activeView = visibleViews.find((candidate) => candidate.slug === activeRoute.view)!;
-  const directViews = visibleViews.length > 5 ? visibleViews.slice(0, 4) : visibleViews;
-  const remainingViews = visibleViews.slice(directViews.length);
-  const overviewDate = new Date();
-  return <div className="app-shell">
-    <aside className="sidebar">
-      <Brand />
-      <nav aria-label="Hauptnavigation">
-        <ul>{visibleViews.map((item) => <li key={item.slug}>
-          <a
-            href={canonicalRoutePath(defaultRoute(item.slug, state.selectedLocation?.id ?? null))}
-            aria-current={item.slug === activeRoute.view ? 'page' : undefined}
-            onClick={(event) => navigateFromLink(
-              event,
-              defaultRoute(item.slug, state.selectedLocation?.id ?? null),
-              navigate,
-            )}
-          >
-            <SectionIcon view={item.slug} />
-            <span>{item.label}</span>
-          </a>
-        </li>)}</ul>
-      </nav>
-      <div className="sidebar-footer">
-        <span>Angemeldet für</span>
-        <strong>{state.projection.organization.name}</strong>
-        <span>{state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter'}</span>
-        <button className="quiet" onClick={() => void administration.signOut()}>Abmelden</button>
-      </div>
-    </aside>
+  const directViews=visibleViews.slice(0,4);
+  const remainingViews=visibleViews.slice(directViews.length);
+  const roleLabel=state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter';
+  const personName=state.employeeProjection.employeeMemberships.find(person=>person.id===state.membershipId)?.displayName;
+  const account=<><span>Angemeldet für</span><strong>{state.projection.organization.name}</strong><span>{personName?`${personName} · `:''}{roleLabel}</span></>;
+  const groups=[{title:'Arbeit',items:visibleViews.filter(item=>!['einrichtung','lohnexport'].includes(item.slug))},{title:'Verwaltung',items:visibleViews.filter(item=>['einrichtung','lohnexport'].includes(item.slug))}];
+  const navigation=(items:typeof visibleViews)=><nav aria-label="Hauptnavigation">{groups.map(group=>({...group,items:group.items.filter(item=>items.includes(item))})).filter(g=>g.items.length).map(group=><section key={group.title} className="navigation-group"><h2>{group.title}</h2><ul>{group.items.map(item=><li key={item.slug}><a href={canonicalRoutePath(defaultRoute(item.slug,state.selectedLocation?.id??null))} aria-current={item.slug===activeRoute.view?'page':undefined} onClick={event=>{navigateFromLink(event,defaultRoute(item.slug,state.selectedLocation?.id??null),navigate);if(event.defaultPrevented)setMoreOpen(false);}}><SectionIcon view={item.slug}/><span>{item.label}</span>{item.slug==='pruefungen'&&state.sections.reviewItems.status==='ready'&&state.reviewItems.length>0?<span className="nav-count">{state.reviewItemsNextCursor?'≥ ':''}{state.reviewItems.length}</span>:null}</a></li>)}</ul></section>)}</nav>;
+  const accountBlock=<div className="sidebar-footer"><div className="sidebar-account">{account}</div><ThemeSwitch/><button className="text-button sidebar-signout" onClick={()=>void administration.signOut()}>Abmelden</button><button className="text-button" onClick={()=>{setMoreOpen(false);setHelpOpen(true);}}>So funktioniert {APP_NAME}</button></div>;
+  const subtitles:Record<AdminView,string>={uebersicht:overviewDateLabel(),kunden:'Stunden und Kontingente Ihrer Kunden.',beschaeftigte:'Mitarbeiter und ihre Zeiten im gewählten Monat.',pruefungen:'Diese Erfassungen konnten noch keiner Arbeitszeit sicher zugeordnet werden.','meine-zeiten':'Ihre Zeiten im gewählten Monat.',manuell:'Starten und beenden Sie Ihre Zeit ohne Karte.',einrichtung:'Verwalten Sie Standorte, Mitarbeiter, Kunden und Karten.',lohnexport:'Laden Sie die Zeiten für Ihre Lohnabrechnung herunter.'};
+  const ownHeader=['kunden','manuell','einrichtung'].includes(activeRoute.view);
+  return <HeaderOutlet.Provider value={headerHost}><div className="app-shell">
+    <div className="top-band"><Brand/><strong className="band-organization">{state.projection.organization.name}</strong><span className="band-account">{personName?`${personName} · `:''}{roleLabel}</span><button className="text-button" onClick={()=>void administration.signOut()}>Abmelden</button></div>
+    <div className="mobile-top"><Brand/><span>{state.projection.organization.name}</span></div>
+    <aside className="sidebar"><Brand/>{navigation(visibleViews)}{accountBlock}</aside>
     <main className="workspace">
-      <header className="workspace-header">
-        <BrandMark className="mobile-brand brand-mark" size={28} />
-        <div className="workspace-title">
-          <p className="eyebrow">{state.projection.organization.name}</p>
-          <h1 ref={mainHeading} tabIndex={-1}>{activeView.label}</h1>
-          {activeRoute.view === 'uebersicht'
-            ? <p className="overview-greeting">
-                <span>Guten Tag.</span>
-                <time dateTime={localDateValue(overviewDate)}>
-                  {overviewDateLabel(overviewDate)}
-                </time>
-              </p>
-            : null}
-        </div>
-        {state.locationsEnabled && state.managementScope.kind === 'locations'
-          && state.selectedLocation !== null
-          ? <div className="location-context">
-              <label htmlFor="management-location">Standort</label>
-              {state.managementScope.locations.length > 1
-                ? <select id="management-location" value={state.selectedLocation.id}
-                    onChange={(event) => navigate({
-                      ...activeRoute,
-                      locationId: event.target.value,
-                    })}>
-                    {state.managementScope.locations.map((location) =>
-                      <option key={location.id} value={location.id}>{location.name}</option>)}
-                  </select>
-                : <strong>{state.selectedLocation.name}</strong>}
-            </div>
-          : null}
-        <div className="header-actions">
-          <button className="header-primary" onClick={() => void administration.refresh()}>
-            <span className="refresh-label">Alle Bereiche aktualisieren</span>
-            <svg className="mobile-refresh" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-              <path d="M20 7v5h-5M4 17v-5h5M19 11a7 7 0 0 0-12-5M5 13a7 7 0 0 0 12 5" />
-            </svg>
-          </button>
-          {compact && remainingViews.length === 0 ? <button className="quiet" onClick={() => setMoreOpen(true)}
-            aria-haspopup="dialog" aria-expanded={moreOpen}>Mehr</button> : null}
-          </div>
-      </header>
-      <p className="timezone-declaration">
-        Deutsche Ortszeit
-      </p>
-      {state.membershipId?<CustomerQuotaNotice key={`${state.membershipId}/${state.role}`} administration={administration} membership={state.membershipId} role={state.role} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} onView={(id,month)=>{navigate({...defaultRoute('kunden'),month,customerId:id});}}/>:null}
-      {state.notice ? <FeedbackBand message={state.notice} /> : null}
+      <header className="workspace-header" ref={setHeaderHost}/>
+      {!ownHeader?<PageHeader organization={state.projection.organization.name} title={activeView.label} subtitle={<>{subtitles[activeRoute.view]}</>} onRefresh={()=>void administration.refresh()}/>:null}
+      {state.locationsEnabled&&state.managementScope.kind==='locations'&&state.selectedLocation?<div className="location-context">{state.managementScope.locations.length===1?<span>Ihr Bereich: {state.selectedLocation.name}</span>:<label>Bereich<select value={state.selectedLocation.id} onChange={event=>navigate({...activeRoute,locationId:event.target.value})}>{state.managementScope.locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}</select></label>}</div>:null}
+      {state.membershipId?<CustomerQuotaNotice key={`${state.membershipId}/${state.role}`} administration={administration} membership={state.membershipId} role={state.role} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} onView={(id,month)=>navigate({...defaultRoute('kunden'),month,customerId:id})}/>:null}
+      {state.notice?<FeedbackBand message={state.notice}/>:null}
       <Suspense fallback={<DelayedSkeleton label="Bereich wird geladen"/>}>
-      {activeRoute.view === 'uebersicht'
-        ? <Overview state={state} administration={administration} navigate={navigate} /> : null}
-      {activeRoute.view === 'einrichtung' ? <SetupView route={activeRoute} state={state} administration={administration} /> : null}
-      {activeRoute.view === 'beschaeftigte' ? activeRoute.personId
-        ? <PersonView accountInvitations={accountInvitations} state={state} administration={administration} route={activeRoute} navigate={navigate}/>
-        : <EmployeesView route={activeRoute} state={state} administration={administration} accountInvitations={accountInvitations} navigate={navigate}/> : null}
-      {activeRoute.view === 'lohnexport'
-        ? <TimeRecordsView state={state} administration={administration}
-            route={activeRoute} navigate={navigate} /> : null}
-      {activeRoute.view === 'pruefungen' ? <ReviewsView state={state} administration={administration} /> : null}
-      {activeRoute.view === 'kunden' ? <CustomersView key={`${state.membershipId}/${state.role}`} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} administration={administration} route={activeRoute} navigate={navigate}/> : null}
-      {activeRoute.view === 'meine-zeiten' ? <OwnTimeView state={state} administration={administration} route={activeRoute} navigate={navigate}/> : null}
-      {activeRoute.view === 'manuell' ? <ManualView state={state} administration={administration}/> : null}
+        {activeRoute.view==='uebersicht'?<Overview state={state} administration={administration} navigate={navigate}/>:null}
+        {activeRoute.view==='einrichtung'?<SetupView route={activeRoute} state={state} administration={administration}/>:null}
+        {activeRoute.view==='beschaeftigte'?activeRoute.personId?<PersonView accountInvitations={accountInvitations} state={state} administration={administration} route={activeRoute} navigate={navigate}/>:<EmployeesView route={activeRoute} state={state} administration={administration} accountInvitations={accountInvitations} navigate={navigate}/>:null}
+        {activeRoute.view==='lohnexport'?<TimeRecordsView state={state} administration={administration} route={activeRoute} navigate={navigate}/>:null}
+        {activeRoute.view==='pruefungen'?<ReviewsView state={state} administration={administration}/>:null}
+        {activeRoute.view==='kunden'?<CustomersView key={`${state.membershipId}/${state.role}`} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} administration={administration} route={activeRoute} navigate={navigate}/>:null}
+        {activeRoute.view==='meine-zeiten'?<OwnTimeView state={state} administration={administration} route={activeRoute} navigate={navigate}/>:null}
+        {activeRoute.view==='manuell'?<ManualView state={state} administration={administration}/>:null}
       </Suspense>
+      <footer className="workspace-footer"><span>Deutsche Ortszeit{state.managedPeople?.status==='ready'?` · Stand ${new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,hour:'2-digit',minute:'2-digit'}).format(new Date(state.managedPeople.value.serverTime))}`:''}</span>{version?<span>Version {version}</span>:null}</footer>
     </main>
-    {compact ? <nav className="mobile-navigation" aria-label="Hauptnavigation">
-      {directViews.map(item => <a key={item.slug}
-        href={canonicalRoutePath(defaultRoute(item.slug, state.selectedLocation?.id ?? null))}
-        aria-current={item.slug === activeRoute.view ? 'page' : undefined}
-        onClick={event => navigateFromLink(event, defaultRoute(item.slug, state.selectedLocation?.id ?? null), navigate)}>
-        <SectionIcon view={item.slug} /><span>{item.label}</span>
-      </a>)}
-      {remainingViews.length > 0 ? <button className="quiet" aria-haspopup="dialog" aria-expanded={moreOpen}
-        onClick={() => setMoreOpen(true)}>
-        <svg className="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
-          <circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />
-        </svg><span>Mehr</span>
-      </button> : null}
-    </nav> : null}
-    {compact && moreOpen ? <MobileSheet label="Mehr" onCancel={() => setMoreOpen(false)}>
-      <h2>Mehr</h2>
-      <nav className="more-navigation" aria-label="Hauptnavigation">{remainingViews.map(item => <a key={item.slug}
-        href={canonicalRoutePath(defaultRoute(item.slug, state.selectedLocation?.id ?? null))}
-        aria-current={item.slug === activeRoute.view ? 'page' : undefined}
-        onClick={event => {
-          navigateFromLink(event, defaultRoute(item.slug, state.selectedLocation?.id ?? null), navigate);
-          if (event.defaultPrevented) setMoreOpen(false);
-        }}><SectionIcon view={item.slug} /><span>{item.label}</span></a>)}</nav>
-      <div className="sidebar-footer">
-        <span>Angemeldet für</span><strong>{state.projection.organization.name}</strong>
-        <span>{state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter'}</span>
-        <span>Deutsche Ortszeit</span>
-        <button className="quiet" onClick={() => void administration.signOut()}>Abmelden</button>
-      </div>
-      <button className="secondary" onClick={() => setMoreOpen(false)}>Abbrechen</button>
-    </MobileSheet> : null}
-  </div>;
+    {compact?<nav className="mobile-navigation" aria-label="Hauptnavigation">{directViews.map(item=><a key={item.slug} href={canonicalRoutePath(defaultRoute(item.slug,state.selectedLocation?.id??null))} aria-current={item.slug===activeRoute.view?'page':undefined} onClick={event=>navigateFromLink(event,defaultRoute(item.slug,state.selectedLocation?.id??null),navigate)}><SectionIcon view={item.slug}/><span>{item.label}</span></a>)}
+      <button className="quiet" aria-haspopup="dialog" aria-expanded={moreOpen} onClick={()=>setMoreOpen(true)}><svg className="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg><span>Mehr</span></button>
+    </nav>:null}
+    {compact&&moreOpen?<MobileSheet label="Mehr" onCancel={()=>setMoreOpen(false)}><h2>Mehr</h2>{navigation(remainingViews)}{accountBlock}<button className="secondary" onClick={()=>setMoreOpen(false)}>Schließen</button></MobileSheet>:null}
+    {helpOpen?<MobileSheet label={`So funktioniert ${APP_NAME}`} className="right-sheet" onCancel={()=>setHelpOpen(false)}><h2>So funktioniert {APP_NAME}</h2><dl className="help-terms">
+      <dt>Erfassen mit Karte</dt><dd>Halten Sie Ihr Handy an die NFC-Karte. Die App zeigt Ihnen, ob Ihre Zeit gestartet oder beendet wurde.</dd>
+      <dt>Zeit</dt><dd>Eine Zeit verbindet Beginn, Ende und einen Kunden oder ein Projekt. Ihre Zeiten sehen Sie unter „Meine Zeiten“.</dd>
+      <dt>Pause</dt><dd>Eine Pause liegt innerhalb einer laufenden Zeit. Starten und beenden Sie sie über den Pausenknopf.</dd>
+      <dt>Zeiten prüfen</dt><dd>Hier stehen Erfassungen, die noch keiner Arbeitszeit sicher zugeordnet werden konnten. Die Verwaltung prüft den Fall und legt die passende Zeit fest.</dd>
+      <dt>Kontingent</dt><dd>Ein Kontingent ist die vereinbarte Stundenzahl eines Kunden im Monat. Ein Hinweis zeigt, wenn es fast erreicht oder überschritten ist.</dd>
+    </dl><button className="secondary" onClick={()=>setHelpOpen(false)}>Schließen</button></MobileSheet>:null}
+  </div></HeaderOutlet.Provider>;
 }
 
 function PasswordRecovery({
@@ -361,7 +287,7 @@ function PasswordRecovery({
         <input id="recovery-password" type="password" autoComplete="new-password"
           minLength={MIN_PASSWORD_LENGTH} required value={password}
           onChange={(event) => setPassword(event.target.value)} />
-        <button disabled={completing} aria-busy={completing}>
+        <button className="primary-action" disabled={completing} aria-busy={completing}>
           {completing ? 'Wird geändert …' : 'Passwort ändern'}
         </button>
       </RequiredForm>
@@ -373,7 +299,7 @@ type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { readonly
 
 function Brand() {
   return <div className="brand">
-    <BrandMark className="brand-mark" size={40} />
+    <BrandMark className="brand-mark" size={28} />
     <span><strong>{APP_NAME}</strong><small>ZEIT. EINFACH. KLAR.</small></span>
   </div>;
 }
@@ -382,8 +308,8 @@ function SectionIcon({ view }: { readonly view: AdminView }) {
   const common = {
     className: 'section-icon',
     viewBox: '0 0 24 24',
-    width: 20,
-    height: 20,
+    width: 16,
+    height: 16,
     fill: 'none',
     stroke: 'currentColor',
     strokeWidth: 1.75,

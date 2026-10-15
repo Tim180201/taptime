@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import '@testing-library/jest-dom/vitest';
 import { TimeCalendar } from '../src/TimeCalendar';
 import { AdminWebApiClient } from '../src/AdminWebApiClient';
+import CustomersView from '../src/views/CustomersView';
+import {defaultRoute} from '../src/navigation';
 import SetupView from '../src/views/SetupView';
 import type { AdminWebCapability, AdminWebState } from '../src/contracts';
 
@@ -40,20 +42,25 @@ it.each([[400, 'location_required'], [403, 'forbidden'], [400, 'invalid_request'
 it.each([false, true])('offers the required location, preselecting the single choice (enabled=%s)', enabled => {
   const createCustomer = vi.fn(async () => {});
   const createProject = vi.fn(async () => {});
-  const state = { status: 'ready', completedAction: null, creating: false, reassignmentIntent: null, managementScope: { kind: 'organization' },
+  const state = { status: 'ready', availableSections:['setup'], completedAction: null, creating: false, reassignmentIntent: null, managementScope: { kind: 'organization' },
     locationsEnabled: enabled, assignableLocations: [{ id: 'north', name: 'Nord' }],
     projection: { organization: { id: 'org', name: 'Test' }, customers: [], nfcTags: [], nextCursor: null, customersComplete: true, nfcTagsComplete: true },
     sections: { setup: { status: 'ready' } }, projects: [], projectsNextCursor: null, locationSetup: null,
   } as unknown as Extract<AdminWebState, { status: 'ready' }>;
-  const administration = { createCustomer, createProject, refreshProjects: async () => {}, refreshLocationSetup: async () => {} } as unknown as AdminWebCapability;
-  render(<SetupView state={state} administration={administration} />);
-  fireEvent.change(screen.getByLabelText('Neuen Kunden anlegen'), { target: { value: 'Testkunde' } });
-  if (enabled) expect(screen.getAllByRole('combobox', { name: 'Standort' })).toHaveLength(2);
-  else expect(screen.queryByRole('combobox', { name: 'Standort' })).not.toBeInTheDocument();
-  fireEvent.submit(screen.getByRole('button', { name: 'Kunde anlegen' }).closest('form')!);
-  expect(createCustomer).toHaveBeenCalledWith('Testkunde', enabled ? 'north' : undefined);
+  HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};
+  const administration = {getState:()=>state, createCustomer, createProject, refreshProjects: async () => {}, refreshLocationSetup: async () => {} } as unknown as AdminWebCapability;
+  const view=render(<CustomersView administration={administration} route={defaultRoute('kunden')} navigate={()=>{}}/>);
+  fireEvent.click(screen.getByRole('button',{name:'+ Kunde anlegen'}));
+  fireEvent.change(screen.getByLabelText('Name'),{target:{value:'Testkunde'}});
+  if(enabled)expect(screen.getByRole('combobox',{name:'Standort'})).toHaveValue('north');
+  else expect(screen.queryByRole('combobox',{name:'Standort'})).toBeNull();
+  fireEvent.submit(screen.getByRole('button',{name:'Kunde anlegen'}).closest('form')!);
+  expect(createCustomer).toHaveBeenCalledWith('Testkunde',enabled?'north':undefined);
+  view.unmount();render(<SetupView state={state} administration={administration}/>);
+  fireEvent.click(screen.getByRole('tab',{name:'Kunden und Projekte'}));fireEvent.click(screen.getByRole('button',{name:'+ Projekt'}));
+
   const form = screen.getByRole('button', { name: 'Projekt anlegen' }).closest('form')!;
-  fireEvent.change(within(form).getByLabelText('Neues Projekt anlegen'), { target: { value: 'Testprojekt' } });
+  fireEvent.change(within(form).getByLabelText('Name'), { target: { value: 'Testprojekt' } });
   if (enabled) expect(within(form).getByRole('combobox', { name: 'Standort' })).toHaveValue('north');
   fireEvent.submit(form);
   expect(createProject).toHaveBeenCalledWith('Testprojekt', enabled ? 'north' : undefined);

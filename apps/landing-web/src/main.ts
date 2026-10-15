@@ -1,3 +1,6 @@
+import {mountThemeSwitch} from '../../admin-web/src/theme';
+import '../../admin-web/src/theme-control.css';
+mountThemeSwitch(document.getElementById('theme-control')!);
 import { contactEmail } from './config';
 import { renderContact } from './contact';
 renderContact(document.getElementById('contact')!, contactEmail);
@@ -39,7 +42,8 @@ renderContact(document.getElementById('contact')!, contactEmail);
       const d = Math.hypot(x - ox, y - oy);
       let a = 0.08 * Math.max(0, 1 - d / 900);
       for (const r of waves) { if (r > 0) { const g = Math.exp(-((d - r) ** 2) / 900); a += g * 0.55 * Math.max(0, 1 - r / 1300); } }
-      ctx.fillStyle = `rgba(126,224,192,${Math.min(a, 0.7).toFixed(3)})`;
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--color-accent').trim();
+      ctx.globalAlpha = Math.min(a, 0.7);
       ctx.fillRect(x - 1, y - 1, 2, 2);
     }
   }

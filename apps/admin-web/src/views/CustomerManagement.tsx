@@ -1,3 +1,4 @@
+import {MobileSheet} from '../MobileSheet';
 import { RequiredForm } from '../RequiredForm';
 import {useEffect,useRef,useState} from 'react';
 import {customerManagementMessage,type CustomerManagementChange} from '@taptime/mobile-work-contract';
@@ -13,11 +14,15 @@ export function CustomerManagement({customer,administration,onSaved}:{readonly c
     if(result.status==='succeeded'){setMode(null);onSaved();}
   };
   return <div className="customer-management">
-    {mode===null?<><button className="quiet" onClick={()=>{setName(customer.displayName);setMode('rename');setMessage('');}}>Kunde umbenennen</button><button className="warning-action" onClick={()=>{setMode('delete');setMessage('');}}>Kunde löschen</button></>:mode==='rename'?<RequiredForm onSubmit={event=>{event.preventDefault();if(!busy)void save({action:'rename',displayName:name});}}>
-      <label>Neuer Kundenname<input required data-field-label="Neuen Kundenname" value={name} onChange={event=>setName(event.target.value)} disabled={busy}/></label>
-      <button disabled={busy}>Namen speichern</button>
-    </RequiredForm>:<><p>Kunde {customer.displayName} löschen? Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.</p><button className="warning-action" disabled={busy} onClick={()=>void save({action:'deactivate'})}>Löschen bestätigen</button></>}
-    {mode!==null?<button className="quiet" disabled={busy} onClick={()=>{setMode(null);setMessage('');}}>Abbrechen</button>:null}
-    {message?<p role="status">{message}</p>:null}
+    <button className="secondary" onClick={()=>{setName(customer.displayName);setMode('rename');setMessage('');}}>Kunde umbenennen</button><button className="secondary" onClick={()=>{setMode('delete');setMessage('');}}>Kunde löschen</button>
+    {mode!==null?<MobileSheet label={mode==='rename'?'Kunde umbenennen':'Kunde löschen'} role={mode==='delete'?'alertdialog':'dialog'} className={mode==='delete'?'right-sheet confirmation':'right-sheet'} busy={busy} onCancel={()=>{setMode(null);setMessage('');}}>
+      <h2>{mode==='rename'?'Kunde umbenennen':`Kunde ${customer.displayName} löschen?`}</h2>
+      {mode==='rename'?<RequiredForm className="form-grid" onSubmit={event=>{event.preventDefault();if(!busy)void save({action:'rename',displayName:name});}}>
+        <label>Neuer Kundenname<input required data-field-label="Neuen Kundenname" value={name} onChange={event=>setName(event.target.value)} disabled={busy}/></label>
+        <button className="primary-action" disabled={busy}>{busy?'Wird gesichert …':'Namen speichern'}</button>
+      </RequiredForm>:<><p>Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.</p><button className="warning-action" disabled={busy} onClick={()=>void save({action:'deactivate'})}>Löschen bestätigen</button></>}
+      <button className="secondary" disabled={busy} onClick={()=>{setMode(null);setMessage('');}}>Abbrechen</button>
+      {message?<p role="status">{message}</p>:null}
+    </MobileSheet>:message?<p role="status">{message}</p>:null}
   </div>;
 }

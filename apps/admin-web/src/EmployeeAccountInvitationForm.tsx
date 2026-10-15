@@ -69,7 +69,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
   }, [open,nativeDialog]);
 
   return <>
-    {!open ? <button ref={trigger} onClick={() => setOpen(true)}>Mitarbeiter hinzufügen</button>
+    {!open ? <button className="primary-action" ref={trigger} onClick={() => setOpen(true)}>Mitarbeiter hinzufügen</button>
       : <dialog ref={dialog} className="invitation-panel" aria-label="Mitarbeiter einladen"
         open={nativeDialog ? undefined : true} onCancel={event=>{event.preventDefault();if(!busy) setOpen(false);}}>
         <h2>Mitarbeiter einladen</h2>
@@ -113,7 +113,7 @@ export function EmployeeAccountInvitationForm({ capability, state, open, setOpen
               value={location.id}>{location.name}</option>)}
           </select>
         </> : null}
-        <button disabled={busy}>{busy ? 'Einladung wird versendet …' : retryNeeded ? 'Erneut versuchen' : 'Einladung senden'}</button>
+        <button className="primary-action" disabled={busy}>{busy ? 'Einladung wird versendet …' : retryNeeded ? 'Erneut versuchen' : 'Einladung senden'}</button>
       </RequiredForm></dialog>}
   </>;
 }
