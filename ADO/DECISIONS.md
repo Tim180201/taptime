@@ -1904,6 +1904,9 @@ Reitern. Farbregel überall: Lime heißt „läuft“, Mint heißt „anklickbar
 der App bleibt dunkel. Entwurf und Regeln: `ADO/01_Architecture/Web_Entwurf_v2/`. Umsetzung in T-122a und T-122b.
 **Warum:** Die Verwaltung wirkte grell und unaufgeräumt (PO-Abnahme 14.10.); Kunden sollen zwischen hell und dunkel
 wählen können, ohne dass zwei Oberflächen gepflegt werden.
+**Nachtrag 15.10. (PO, Web-Abnahme nach Deploy 6):** Die Ausnahme „Kopfbalken nur im hellen Thema“ aus dem Entwurf
+entfällt. Der Balken mit Betrieb, Name · Rolle und „Abmelden“ steht in beiden Themen und bleibt beim Scrollen oben; der
+Umschalter liegt unten in der Seitenleiste statt im Konto-Block. Umsetzung in T-122c.
 
 ## D-141 · Ein Entzug bleibt endgültig; Wiederaufnahme ist eine eigene Aufgabe · 15.10.2026 · Tim (PO), Claude (TL)
 Die Zugangsverwaltung im Web (T-105) wird vollständig gebaut, einschließlich Anmeldestand je Zugang und Filter, aber

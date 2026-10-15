@@ -6,6 +6,9 @@ Richtung C ist verworfen, nur die Live-Zeile daraus ist optional). Löst den Ent
 (`../Web_Entwurf/`, D-058 bis D-060) in Aufbau und Farbe ab; die dortigen Bildschirme je Rolle bleiben als Vorlage für
 Inhalte, die hier nicht gezeichnet sind.
 
+**Nachtrag 15.10. (T-122c):** Kopfbalken in beiden Themen und fest oben (§ 3.2). Die Vorlage zeigt für Richtung A
+noch Zeichen und Konto-Block in der Seitenleiste; dieser Text gilt vor der Vorlage.
+
 Diese Datei sagt, **wie** die Oberfläche aussieht und sich anfühlt. Was eine Seite fachlich tut, bleibt wie heute;
 T-122 ändert keine Regel, keinen Vertrag und keinen Serverweg. Weicht der Code von einer Annahme hier ab, wird das im
 Bericht benannt, nicht stillschweigend umgangen.
@@ -29,8 +32,9 @@ jeder Seite nachprüfbar sind:
 
 ## 2 · Zwei Themen, ein Aufbau
 
-Dunkel und hell sind **derselbe Aufbau mit zwei Farbsätzen**. Kein Element darf nur in einem Thema existieren;
-Ausnahme ist der dunkle Kopfbalken im hellen Thema (§ 3.2).
+Dunkel und hell sind **derselbe Aufbau mit zwei Farbsätzen**. Kein Element darf nur in einem Thema existieren, ohne
+Ausnahme. Die erste Fassung hatte den Kopfbalken nur im hellen Thema; das hat der PO nach Deploy 6 zu Recht beanstandet
+(15.10., T-122c).
 
 ### 2.1 Farbsätze
 
@@ -49,7 +53,8 @@ Ausnahme ist der dunkle Kopfbalken im hellen Thema (§ 3.2).
 | `on-running` | `#0E1512` | `#0E1512` | Text in der Pille „läuft“ |
 | `notice` | `#E0A44C` | `#875506` | „braucht Sie“ als Text, Zahl und Punkt; Kontingent-Balken ab 90 % |
 | `error` | `#FF8F8F` | `#AE3626` | Fehler als Text und Band; Kontingent-Balken ab 100 % |
-| `band` | – | `#0E1512` | Kopfbalken im hellen Thema (Text `#EEF3F0`, Nebentext `#97A59F`) |
+| `band` | `#151E1A` (wie `surface`) | `#0E1512` | Kopfbalken (Text `#EEF3F0`, Nebentext `#97A59F`) |
+| `band-line` | `#25332D` (wie `line`) | `#0E1512` (wie `band`) | Linie unter dem Kopfbalken; dunkel nötig, weil `band` sonst kaum vom Grund abweicht |
 
 Alle Werte stehen als CSS-Variablen in `apps/admin-web/src/styles.css` (heute `--color-*`), `apps/operator-web` und
 `apps/landing-web` nutzen dieselben Namen. Die hellen Werte für `accent`, `action`, `notice` und `error` wurden am
@@ -59,7 +64,7 @@ Alle Werte stehen als CSS-Variablen in `apps/admin-web/src/styles.css` (heute `-
 
 - Text auf Fläche, mindestens 4,5 : 1: `text`, `text-muted`, `accent`, `notice` und `error` auf `ground`, `surface`
   und `surface-raised`; `on-action` auf `action`, `notice` und `error`; `on-running` auf `running`; im Kopfbalken
-  `#EEF3F0` und `#97A59F` auf `band`.
+  `#EEF3F0` und `#97A59F` auf `band`, in beiden Themen.
 - Fläche ohne Text, mindestens 3 : 1 gegen die angrenzende Fläche: `accent` als Fokusrahmen und als Balkenfüllung,
   `notice` und `error` als Balkenfüllung, jeweils auf `surface` und `surface-raised`; Rahmen von Eingabefeldern und
   Umriss-Knöpfen in `text-muted`. `line` ist nur Trennlinie und hat keinen Kontrastanspruch.
@@ -72,7 +77,7 @@ Alle Werte stehen als CSS-Variablen in `apps/admin-web/src/styles.css` (heute `-
 ### 2.2 Auswahl des Themas
 
 - **Automatisch nach System** (`prefers-color-scheme`). Das ist die Vorgabe; niemand muss etwas einstellen.
-- **Umschalter** im Konto-Block der Seitenleiste: drei Knöpfe „Hell · Dunkel · Automatisch“; der aktive sieht aus
+- **Umschalter** unten in der Seitenleiste (schmal: im Blatt „Mehr“): drei Knöpfe „Hell · Dunkel · Automatisch“; der aktive sieht aus
   wie der aktive Navigationseintrag (Fläche `surface-raised`, Text `accent`), **nicht** gefüllt in `action`, sonst
   hätte jede Seite zwei gefüllte Knöpfe (§ 1).
   Die Wahl liegt im Browser dieses Geräts (`localStorage`), nicht beim Server; sie gilt je Browser, nicht je Konto.
@@ -98,22 +103,29 @@ Kleinbeschriftungen über Titeln („Eyebrow“) und Uhrzeiten in Kacheln die Mo
   sehen nur, was sie heute sehen; die Gruppen bleiben.
 - Jeder Eintrag: Symbol 16 px plus Wort. Symbole wie heute (Lucide); kein Eintrag ohne Symbol.
 - Aktiver Eintrag: Fläche `surface-raised`, Text `accent`. Kein Balken, keine Unterstreichung.
-- Oben das Zeichen (D-136, kompakt 28 px) mit „Taptura“ und darunter in Monospace „ZEIT. EINFACH. KLAR.“.
-- Unten der **Konto-Block**: „Angemeldet für“, Betrieb fett, Name · Rolle, dann der Themen-Umschalter, dann „Abmelden“
-  als Textknopf in `accent`.
+- Kein Zeichen und kein Konto-Block: beides steht im Kopfbalken (§ 3.2). Die Seitenleiste beginnt direkt mit der
+  ersten Gruppe.
+- Unten, durch eine Linie getrennt: der Themen-Umschalter und „So funktioniert Taptura“.
 - Schmal (unter 1024 px): keine Seitenleiste; siehe § 3.5.
 
-### 3.2 Kopfbalken (nur hell)
+### 3.2 Kopfbalken (beide Themen, fest oben)
 
-Im hellen Thema liegt über allem ein 56 px hoher Balken in `band`: links Zeichen und „Taptura“, dann der Betrieb hinter
-einer feinen Trennlinie, rechts Name · Rolle und „Abmelden“. Die Seitenleiste beginnt dann direkt mit der ersten
-Gruppe (kein zweites Zeichen, kein zweites „Taptura“), und ihr Konto-Block entfällt bis auf den Themen-Umschalter und
-„So funktioniert Taptura“. Im dunklen Thema gibt es den Balken nicht; dort steht das alles in der Seitenleiste.
+In beiden Themen liegt über allem ein 56 px hoher Balken in `band` mit einer Linie in `band-line` darunter: links
+Zeichen (D-136, kompakt 28 px) und „Taptura“, dann der Betrieb hinter einer feinen Trennlinie, rechts Name · Rolle und
+„Abmelden“. Genau eine Zeile; zu lange Namen enden mit Auslassungszeichen, der volle Text steht im Tooltip.
+
+- **Fest:** Der Balken bleibt beim Scrollen oben stehen; die Seitenleiste ist fest und beginnt genau an seiner
+  Unterkante, in jeder Scrollstellung (auch beim Nachfedern). Er liegt über allem, was im Inhalt klebt (Tabellenköpfe,
+  Startleiste in „Manuell“), und unter Blättern und Dialogen. Sprungziele und Fokus landen unter ihm, nicht dahinter.
+- **Name · Rolle:** Hat der Zugang keinen eigenen Namen, steht nur die Rolle da (nicht „Administrator ·
+  Administrator“).
+- Im Druck fehlt der Balken; der Betrieb steht dann als Eyebrow über dem Titel (§ 3.3).
 
 ### 3.3 Seitenkopf (jede Seite)
 
-Links: Betrieb als Eyebrow in `accent` (Monospace, Versalien, 11 px, Laufweite 0,1 em), darunter der Titel (26 px,
-800), darunter eine Zeile Nebentext (Datum, Monat, Zählung). Rechts: die Aktionen in einer Zeile, höchstens drei: die
+Links: der Titel (26 px, 800), darunter eine Zeile Nebentext (Datum, Monat, Zählung). Der Betrieb steht nicht noch
+einmal über dem Titel, weil Balken (§ 3.2) und obere Zeile (§ 3.5) ihn zeigen; nur im Druck steht er dort als Eyebrow in
+`accent` (Monospace, Versalien, 11 px, Laufweite 0,1 em). Rechts: die Aktionen in einer Zeile, höchstens drei: die
 Hauptaktion gefüllt, davor höchstens ein Umriss-Knopf (z. B. Monat), ganz rechts der Symbol-Knopf **Aktualisieren**
 (44 × 44 px, Umriss, Tooltip „Alle Bereiche aktualisieren“). Der heutige Lime-Knopf „Alle Bereiche aktualisieren“
 entfällt auf allen Seiten.
@@ -130,8 +142,8 @@ Eine Zeile am unteren Rand, Nebentext 11,5 px: links „Deutsche Ortszeit · Sta
 
 Der schmale Aufbau bleibt der heutige (T-074), nur in den neuen Farben; er wird in T-122a nicht neu erfunden:
 
-- Oben **eine** Zeile, 56 px: Zeichen, „Taptura“, Betrieb; im hellen Thema in `band`, im dunklen in `surface`. Kein
-  zweiter Kopf darunter, kein Menü-Knopf.
+- Oben **eine** Zeile, 56 px: Zeichen, „Taptura“, Betrieb; in `band` mit Linie in `band-line`, wie der Balken (§ 3.2).
+  Sie scrollt mit; fest ist hier nur die Navigationsleiste unten. Kein zweiter Kopf darunter, kein Menü-Knopf.
 - Unten die heutige Navigationsleiste mit „Mehr“; das Blatt „Mehr“ enthält die übrigen Einträge, darunter den
   Themen-Umschalter, Name · Rolle und „Abmelden“.
 - Tabellen werden wie heute zu gestapelten Zeilen mit Beschriftung je Wert (`data-label`); **kein** seitliches Scrollen.

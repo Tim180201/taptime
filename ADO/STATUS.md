@@ -1,19 +1,17 @@
 # TapTim.e — Status
 
-**Stand 15.10.2026.** Produktion läuft auf `d193725` (Deploy 5 am 14.10., Migrationen 053–057). Ausgeliefert: T-116a,
-T-116b, T-117a, T-117b, T-118a, T-118b, T-120 (D-134 bis D-138). Neue App-Builds (TestFlight, Prüf-APK) zu `d193725`
-sind auf den PO-Geräten. Auf main, noch nicht ausgeliefert: T-119 (`3284c99`, Migration 058, D-139), T-121
-(`4e64473`, Android-Karte ohne Antippen), T-122a (`e227f63`), T-122b (`26eed76`, App und Web mit hellem und
-dunklem Thema) und T-105 (`fb28166`, Zugänge verwalten, Migration 059, D-141); alle kommen mit Deploy 6. Neue
-App-Builds zu `ad4cd29` (T-121, T-122) beim PO, Prüfliste im Artifact „Abnahme Build T-122“. In Arbeit: T-024 Teil A
-(Rotationswerkzeug). Supabase-Projekt am 14.10. vom PO
+**Stand 15.10.2026.** Produktion läuft auf `fb28166` (Deploy 6 am 15.10. abends, Migrationen 058 und 059). Ausgeliefert:
+T-119 (D-139), T-121, T-122a, T-122b (D-140) und T-105 (D-141). App-Builds zu `ad4cd29` (T-121, T-122) beim PO,
+Prüfliste im Artifact „Abnahme Build T-122“. Auf main, noch nicht ausgeliefert: T-024 Teil A (`7e36c58`, Werkzeug
+`taptime-runtime-rotate`, Runbook). In Arbeit: T-122c (Kopfbalken in beiden Themen, fest oben; aus der Web-Abnahme
+nach Deploy 6). Supabase-Projekt am 14.10. vom PO
 aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
 der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Android-Nachtest (T-121) und T-024 Teil A → Deploy 6 (T-119, T-121, T-122, T-105, T-024a) mit
-neuem Deploy-Schlüssel → T-024 Teil B an der Konsole → Pilot. Lohnexport und Business Central: erst die Antworten von frogs (PLAN,
+**Weg zum Pilot:** T-122c → Deploy 7 (T-024a, T-122c) mit neuem Deploy-Schlüssel → T-024 Teil B an der Konsole →
+restliche Geräteabnahme → Pilot. Geht T-122c vorher allein hinaus, belegt der Deploy danach den neuen Schlüssel. Lohnexport und Business Central: erst die Antworten von frogs (PLAN,
 CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
@@ -21,6 +19,14 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 Ältere Einträge dieser Datei (Deploys, Befunde, erledigte Kleinigkeiten): `git show 1043011:ADO/STATUS.md`.
 
 ## Geräteabnahme (PO)
+
+**Deploy 6, 15.10. (Web, Android):** Deploy vollständig (`d193725` → `fb28166`): frische Sicherung, Migrationen 058 und
+059 in der Produktion, Probe-Wiederherstellung mit Migrations-Generalprobe, Kantenprüfung und Versionsnachweis grün.
+Web gefällt dem PO; zwei Befunde → T-122c: Kopfbalken nur im hellen Thema (Aufbau je Thema verschieden, Fehler im
+Entwurf), und der Balken scrollt weg, während die Seitenleiste 56 px tiefer stehen bleibt (Lücke oben links). Dazu
+„Administrator · Administrator“ bei Zugängen ohne eigenen Namen und der Betrieb doppelt über jedem Titel. Android mit
+dem Build zu `ad4cd29`: Die Karte wird ohne Antippen erfasst (PO 15.10.); die übrigen Fälle des Nachtests stehen in
+der Prüfliste.
 
 **Deploy 5, 14.10., iPhone und Android, Web (31 von 43 Punkten bestanden):** neues Symbol und Startbild, Zeichen in
 App und Web, Favicons; Karte startet und stoppt am iPhone, geschlossene App zeigt nur `/tag` (D-081); zwei Karten
@@ -30,7 +36,7 @@ Standortleitung mit Pflichtgrund; Kunden mit Suche und Detail; Kontingent-Hinwei
 „Zeiten prüfen“, Betreiber-Bereich; Aussperr-Test.
 **Befunde:** Android erfasst die Karte nur nach Antippen des Kreises, bei offener wie geschlossener App (P1; Ursache
 in T-121 behoben: die Grant-Erneuerung beim Vordergrund verschob die Zeitgrenze der Erfassung hinter die Karte; am Gerät
-noch nicht bestätigt) · unter „Meine Kunden und Projekte“ stehen weiter alle (T-121 ✓) · Tastatur bleibt nach Antippen
+bestätigt 15.10.) · unter „Meine Kunden und Projekte“ stehen weiter alle (T-121 ✓) · Tastatur bleibt nach Antippen
 eines Ziels offen (T-121 ✓) · Symbol „Zeit gespeichert“ im Kreis flackert gelegentlich (P2, Ursache ohne Gerät nicht
 erkennbar) · Web: Farben teils zu grell, „Kunde anlegen“ fehlt im Reiter Kunden, „Manuell“ und „Einrichtung“
 unübersichtlich (T-122a ✓, D-140).
@@ -74,8 +80,8 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 ## Beobachten
 
 - Image-Lauf zu `d193725` (14.10.): alle fünf Abbilder veröffentlicht, danach brach das Aufräumen alter GHCR-Versionen
-  beim Löschen einer Backend-Version mit `unexpected end of JSON input` ab. Ursache in Prüfung; der nächste Image-Lauf
-  zeigt, ob es vorübergehend war. Kein manuelles Löschen und kein manueller Neustart.
+  beim Löschen einer Backend-Version mit `unexpected end of JSON input` ab. Die Läufe zu `e227f63` und `fb28166`
+  meldete Codex grün; bleibt das so, entfällt der Punkt. Kein manuelles Löschen und kein manueller Neustart.
 - Sicherung beim Deploy 06.10.: WAL-Zyklus 64–66 s, `base_seconds` 40 (24.09. noch 200–215 s). Weiter beobachten;
   Export-Grenztest: absolute Laufzeitwarnung beobachten.
 - Fehlt zu einem laufenden Eintrag die Zusatzprojektion (043), scheitert das Lesen der eigenen Zeiten (T-103); bei
