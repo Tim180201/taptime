@@ -3,14 +3,14 @@
 **Stand 15.10.2026.** Produktion läuft auf `fb28166` (Deploy 6 am 15.10. abends, Migrationen 058 und 059). Ausgeliefert:
 T-119 (D-139), T-121, T-122a, T-122b (D-140) und T-105 (D-141). App-Builds zu `ad4cd29` (T-121, T-122) beim PO,
 Prüfliste im Artifact „Abnahme Build T-122“. Auf main, noch nicht ausgeliefert: T-024 Teil A (`7e36c58`, Werkzeug
-`taptime-runtime-rotate`, Runbook). In Arbeit: T-122c (Kopfbalken in beiden Themen, fest oben; aus der Web-Abnahme
-nach Deploy 6). Supabase-Projekt am 14.10. vom PO
+`taptime-runtime-rotate`, Runbook). In Arbeit: T-122c (Kopfbalken in beiden Themen, fest oben; ein Monatsschalter) und
+danach T-126 (Name ändern), beide aus der Web-Abnahme nach Deploy 6. Supabase-Projekt am 14.10. vom PO
 aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
 der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-122c → Deploy 7 (T-024a, T-122c) mit neuem Deploy-Schlüssel → T-024 Teil B an der Konsole →
+**Weg zum Pilot:** T-122c, T-126 → Deploy 7 (T-024a, T-122c, T-126) mit neuem Deploy-Schlüssel → T-024 Teil B an der Konsole →
 restliche Geräteabnahme → Pilot. Geht T-122c vorher allein hinaus, belegt der Deploy danach den neuen Schlüssel. Lohnexport und Business Central: erst die Antworten von frogs (PLAN,
 CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
@@ -24,7 +24,10 @@ wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
 059 in der Produktion, Probe-Wiederherstellung mit Migrations-Generalprobe, Kantenprüfung und Versionsnachweis grün.
 Web gefällt dem PO; zwei Befunde → T-122c: Kopfbalken nur im hellen Thema (Aufbau je Thema verschieden, Fehler im
 Entwurf), und der Balken scrollt weg, während die Seitenleiste 56 px tiefer stehen bleibt (Lücke oben links). Dazu
-„Administrator · Administrator“ bei Zugängen ohne eigenen Namen und der Betrieb doppelt über jedem Titel. Android mit
+„Administrator · Administrator“ bei Zugängen ohne eigenen Namen und der Betrieb doppelt über jedem Titel. Lohnexport:
+Ändern im Monatsfeld macht die Verwaltung leer (P1, TL nachgestellt: ungültiger Zwischenwert, Renderfehler ohne
+Fehlergrenze; T-122c); Zeiten des Administrators ohne Namen, weil sein Zugang von vor T-107 keinen Namen hat und
+niemand einen Namen ändern kann (T-126). Android mit
 dem Build zu `ad4cd29`: Die Karte wird ohne Antippen erfasst (PO 15.10.); die übrigen Fälle des Nachtests stehen in
 der Prüfliste.
 

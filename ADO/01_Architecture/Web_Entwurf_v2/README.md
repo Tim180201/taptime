@@ -6,8 +6,9 @@ Richtung C ist verworfen, nur die Live-Zeile daraus ist optional). Löst den Ent
 (`../Web_Entwurf/`, D-058 bis D-060) in Aufbau und Farbe ab; die dortigen Bildschirme je Rolle bleiben als Vorlage für
 Inhalte, die hier nicht gezeichnet sind.
 
-**Nachtrag 15.10. (T-122c):** Kopfbalken in beiden Themen und fest oben (§ 3.2). Die Vorlage zeigt für Richtung A
-noch Zeichen und Konto-Block in der Seitenleiste; dieser Text gilt vor der Vorlage.
+**Nachtrag 15.10. (T-122c):** Kopfbalken in beiden Themen und fest oben (§ 3.2); ein Monatsschalter für alle Seiten
+(§ 4), Lohnexport startet mit dem Vormonat (§ 8.6). Die Vorlage zeigt für Richtung A noch Zeichen und Konto-Block in der
+Seitenleiste; dieser Text gilt vor der Vorlage.
 
 Diese Datei sagt, **wie** die Oberfläche aussieht und sich anfühlt. Was eine Seite fachlich tut, bleibt wie heute;
 T-122 ändert keine Regel, keinen Vertrag und keinen Serverweg. Weicht der Code von einer Annahme hier ab, wird das im
@@ -162,6 +163,7 @@ Der schmale Aufbau bleibt der heutige (T-074), nur in den neuen Farben; er wird 
 | **Knopf, Nebenaktion** | Umriss `text-muted`, Text `text`, Höhe 44 px. Beliebig viele. |
 | **Textknopf** | ohne Rahmen, Text `accent`, 600, Trefferfläche 44 px hoch. Für „Weitere laden“, „Alle anzeigen“, „Abmelden“. |
 | **Symbol-Knopf** | 44 × 44 px, Umriss, Symbol 16 px, Tooltip. Für Aktualisieren und Monat vor/zurück. |
+| **Monatsschalter** | Ein Baustein für jeden Monat in der Verwaltung (Lohnexport, Mitarbeiter, Kunden, Person, Meine Zeiten, Zeiten prüfen): `‹` · „September 2026“ · `›`. Pfeile als Symbol-Knöpfe („Voriger Monat“, „Nächster Monat“), dazwischen der Monat als Umriss-Knopf. Ein Klick darauf öffnet die Monatsübersicht: oben `‹ 2026 ›`, darunter die zwölf Monate in vier Spalten zu je drei Zeilen (Kürzel „Jan“ bis „Dez“, je 44 px hoch); der gewählte wie der aktive Navigationseintrag (`surface-raised`, Text `accent`), der laufende mit Punkt und dem Wort „läuft noch“ für Screenreader, Monate außerhalb des Bereichs gesperrt. Esc und Klick daneben schließen, der Fokus kehrt zum Knopf zurück. Schmal als Blatt von unten. Es gibt kein Eingabefeld: ein ungültiger Monat ist nicht eingebbar. Bereich je Seite: 24 Monate zurück bis zum laufenden Monat, künftige Monate gesperrt; Meine Zeiten so weit der Server liest. Ein Monat aus der Adresse (`?monat=`) außerhalb des Bereichs wird angezeigt, aber nicht angeboten. |
 | **Eingabefeld** | Höhe 44 px, Schrift 16 px (darunter zoomt iOS beim Tippen), Fläche `surface` (hell: weiß), Rahmen `text-muted`, Radius 9 px, Platzhalter `text-muted`. Suchfelder mit Lupe links und Beschriftung „Suchen“ als `aria-label`; der sichtbare Text „Suchen“ über dem Feld entfällt, der Platzhalter sagt „Name eingeben“. |
 | **Tabelle** | Kopfzeile Monospace 10,5 px Versalien `text-muted`, Linie darunter. Zeilen 44 px, Linie `line` zwischen den Zeilen, kein Zebra. Zahlen rechtsbündig, Tabellenziffern, Monospace. Erste Spalte beginnt mit 18 px Abstand. Unter der Tabelle „Weitere laden · 6 von 48“ als Textknopf. Schmal: erste Spalte fest, Rest scrollt seitlich (D-021). |
 | **Kachel** | Fläche `surface`, Rahmen `line`, Radius 12 px, 16 × 18 px Innenabstand, Höhe 118 px. Beschriftung oben klein, Zahl 34 px Monospace 600, unten ein Textknopf mit Pfeil. Orange Zahl nur bei „braucht Sie“. |
@@ -333,9 +335,10 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
 
 ### 8.6 Lohnexport
 
-- Seitenkopf: „Lohnexport“, Nebentext „Oktober 2026 · 12 Mitarbeiter · 1 offener Fall“. Monat als Umriss-Knopf,
-  Hauptaktion **„CSV herunterladen“**. Der Monat ist vorbelegt (laufender Monat), nie leer; der rollende 31-Tage-
-  Zeitraum verschwindet aus der Oberfläche.
+- Seitenkopf: „Lohnexport“, Nebentext „September 2026 · abgeschlossen · 1 offener Fall“. Monat als Monatsschalter,
+  Hauptaktion **„CSV herunterladen“**. Der Monat ist vorbelegt, nie leer: **der Vormonat**, weil abgerechnet immer ein
+  fertiger Monat wird (PO 15.10.); im Nebentext steht nach dem Monat „abgeschlossen“ oder „läuft
+  noch“. Gewählt wird mit dem Monatsschalter (§ 4); der rollende 31-Tage-Zeitraum verschwindet aus der Oberfläche.
 - Filter „Status“ und „Erfasst mit“ als Pillen unter dem Kopf. Die Datei heißt ehrlich **„Einzelzeiten (CSV)“**, nicht
   „Datei für die Lohnbuchhaltung“: sie ist eine Zeile je Zeit zum Prüfen und Nachrechnen, kein Import für ein
   Lohnsystem (D-017; das Monatsformat mit Personalnummer ist T-123). Die beiden Fassungen bleiben wie heute als
