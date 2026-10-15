@@ -42,17 +42,32 @@ Ausnahme ist der dunkle Kopfbalken im hellen Thema (§ 3.2).
 | `line` | `#25332D` | `#D6E1DB` | Linien, Rahmen |
 | `text` | `#EEF3F0` | `#101916` | Text |
 | `text-muted` | `#97A59F` | `#5B6B64` | Nebentext, Beschriftungen |
-| `accent` (Mint) | `#7EE0C0` | `#1F8F6C` | Links, Fokus, aktive Reiter, Markierungen „zugeordnet“ |
-| `action` | `#C9F24D` (Lime) | `#1F8F6C` (Mint tief) | die eine Hauptaktion je Seite |
-| `on-action` | `#0E1512` | `#FFFFFF` | Text auf der Hauptaktion |
-| `running` (Lime) | `#C9F24D` | `#9CC21A` | Punkt und Pille „läuft“, Kontingent-Balken „ok“ nicht |
-| `notice` | `#E0A44C` | `#B9780F` | „braucht Sie“, Kontingent-Warnung |
-| `error` | `#FF8F8F` | `#C2412F` | Fehler, Kontingent überschritten |
+| `accent` (Mint) | `#7EE0C0` | `#156F55` | Links, Fokus, aktive Navigation und Reiter, Markierungen „zugeordnet“, Balken „ok“ |
+| `action` | `#C9F24D` (Lime) | `#156F55` (Mint tief) | die eine Hauptaktion je Seite |
+| `on-action` | `#0E1512` | `#FFFFFF` | Text auf `action`, auf `notice` und auf `error`, wenn diese Fläche sind |
+| `running` (Lime) | `#C9F24D` | `#9CC21A` | nur als Fläche: Punkt und Pille „läuft“; nie als Textfarbe, nie für den Kontingent-Balken |
+| `on-running` | `#0E1512` | `#0E1512` | Text in der Pille „läuft“ |
+| `notice` | `#E0A44C` | `#875506` | „braucht Sie“ als Text, Zahl und Punkt; Kontingent-Balken ab 90 % |
+| `error` | `#FF8F8F` | `#AE3626` | Fehler als Text und Band; Kontingent-Balken ab 100 % |
 | `band` | – | `#0E1512` | Kopfbalken im hellen Thema (Text `#EEF3F0`, Nebentext `#97A59F`) |
 
 Alle Werte stehen als CSS-Variablen in `apps/admin-web/src/styles.css` (heute `--color-*`), `apps/operator-web` und
-`apps/landing-web` nutzen dieselben Namen. Jeder Text auf jeder Fläche hat in beiden Themen mindestens Kontrast
-4,5 : 1, Nebentext mindestens 4,5 : 1 auf `surface`; ein Test rechnet das aus den Variablen nach (AGENTS 1.6).
+`apps/landing-web` nutzen dieselben Namen. Die hellen Werte für `accent`, `action`, `notice` und `error` wurden am
+15.10. abgedunkelt, nachdem die erste Fassung die eigene Kontrastregel verfehlte (T-122a, STOPP).
+
+**Kontrastregel, aus den Variablen nachgerechnet (AGENTS 1.6), je Thema:**
+
+- Text auf Fläche, mindestens 4,5 : 1: `text`, `text-muted`, `accent`, `notice` und `error` auf `ground`, `surface`
+  und `surface-raised`; `on-action` auf `action`, `notice` und `error`; `on-running` auf `running`; im Kopfbalken
+  `#EEF3F0` und `#97A59F` auf `band`.
+- Fläche ohne Text, mindestens 3 : 1 gegen die angrenzende Fläche: `accent` als Fokusrahmen und als Balkenfüllung,
+  `notice` und `error` als Balkenfüllung, jeweils auf `surface` und `surface-raised`; Rahmen von Eingabefeldern und
+  Umriss-Knöpfen in `text-muted`. `line` ist nur Trennlinie und hat keinen Kontrastanspruch.
+- `running` ist nie Textfarbe und nie allein Bedeutungsträger: der Punkt steht immer neben dem Wort „läuft“ oder in
+  der Pille, die das Wort trägt. Deshalb gilt für ihn keine eigene Grenze; Lime bleibt in beiden Themen Lime.
+  Allgemein: Farbe trägt Bedeutung, aber nie allein; neben jeder Statusfarbe steht das Wort.
+- Der Test liest die Werte aus den Variablen beider Themen und prüft genau diese Paare; eine feste Zahl in einem Test
+  ist falsch.
 
 ### 2.2 Auswahl des Themas
 
@@ -122,7 +137,7 @@ Eine Zeile am unteren Rand, Nebentext 11,5 px: links „Deutsche Ortszeit · Sta
 | **Tabelle** | Kopfzeile Monospace 10,5 px Versalien `text-muted`, Linie darunter. Zeilen 44 px, Linie `line` zwischen den Zeilen, kein Zebra. Zahlen rechtsbündig, Tabellenziffern, Monospace. Erste Spalte beginnt mit 18 px Abstand. Unter der Tabelle „Weitere laden · 6 von 48“ als Textknopf. Schmal: erste Spalte fest, Rest scrollt seitlich (D-021). |
 | **Kachel** | Fläche `surface`, Rahmen `line`, Radius 12 px, 16 × 18 px Innenabstand, Höhe 118 px. Beschriftung oben klein, Zahl 34 px Monospace 600, unten ein Textknopf mit Pfeil. Orange Zahl nur bei „braucht Sie“. |
 | **Karte** | wie Kachel, mit Titel 15 px 800 links und Nebentext rechts in derselben Zeile. |
-| **Pille** | 999 px Radius, 12 px, 600, Umriss `line`. `läuft`: Text und Punkt in `running`. `Pause`: neutral. `prüfen` / `überschritten`: `notice`. |
+| **Pille** | 999 px Radius, 12 px, 600, Umriss `line`. `läuft`: gefüllt in `running`, Text in `on-running`. `Pause`: neutral. `prüfen` in `notice`, `überschritten` in `error`: Umriss, Text und Punkt davor in der Farbe. |
 | **Chip** | wie Pille, aber mit „×“ zum Entfernen und ein gestrichelter Chip „+ Standort“ zum Hinzufügen. Aktive Chips in `accent`. |
 | **Balken** | 120 × 6 px, Grund `surface-raised`, Füllung `accent`; ab 90 % `notice`, ab 100 % `error`. Daneben „11:00 / 12:00 h“ in Nebentext. |
 | **Person** | 28-px-Kreis mit Initialen in Monospace, dann der Name. Überall gleich. |
