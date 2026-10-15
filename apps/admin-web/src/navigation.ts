@@ -1,4 +1,4 @@
-import { BUSINESS_TIME_ZONE } from '@taptime/core';
+import { BUSINESS_TIME_ZONE, businessDay, shiftMonth } from '@taptime/core';
 import { parseZonedLocalTimestamp } from './timeZone';
 import type { AdministrationSection } from './contracts';
 
@@ -126,6 +126,18 @@ export function monthLabel(month: string): string {
     : new Intl.DateTimeFormat('de-DE', {
         month: 'long', year: 'numeric', timeZone: BUSINESS_TIME_ZONE,
       }).format(new Date(window.fromInclusive));
+}
+
+/** Keep valid linked months even outside the offered range. Only malformed values fall back. */
+export function selectedMonth(value: string | null | undefined, view: AdminView, now = Date.now()): string {
+  if (value && monthTimeWindow(value)) return value;
+  const current = businessDay(now).slice(0, 7);
+  return view === 'lohnexport' ? shiftMonth(current, -1) : current;
+}
+
+export function monthRange(now = Date.now()): { min: string; max: string } {
+  const max = businessDay(now).slice(0, 7);
+  return { min: shiftMonth(max, -24), max };
 }
 
 function validMonth(value: string | null): string | null {

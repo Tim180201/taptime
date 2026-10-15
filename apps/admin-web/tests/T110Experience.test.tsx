@@ -37,8 +37,8 @@ it('K5 skips unknown prerequisites, keeps administrator scope and avoids another
 it('employee month chooser names the month, preserves filters and loads without the old cursor',()=>{
  const state=ready();const refreshManagedPeople=vi.fn();
  render(<EmployeesView state={state} administration={{querySearch:stateSearch(()=>state),refreshManagedPeople} as unknown as AdminWebCapability} navigate={vi.fn()} route={{...defaultRoute('beschaeftigte'),month:'2026-09'}}/>);
- expect(screen.getByRole('combobox',{name:'Monat'})).toBeVisible();
- expect(screen.getAllByRole('option')).toHaveLength(24);
+ expect(screen.getByRole('button',{name:'Monat: September 2026'})).toBeVisible();
+ expect(screen.getByRole('button',{name:'Voriger Monat'})).toBeEnabled();
  expect(refreshManagedPeople).toHaveBeenCalledWith(null,false,'2026-09',null);
  fireEvent.click(screen.getByRole('button',{name:'Zeit läuft'}));
  expect(refreshManagedPeople).toHaveBeenLastCalledWith(true,false,'2026-09',null);

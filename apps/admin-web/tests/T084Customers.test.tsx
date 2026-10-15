@@ -28,9 +28,8 @@ it.each([own,people])('shows server-delivered $scope breakdown, running state an
   expect(screen.getByText(value.scope==='self'?'28.09.2026':'Person B')).toBeInTheDocument();
   expect(screen.getAllByText(/läuft/).length).toBeGreaterThan(0);
   expect(screen.getByText('inaktiv')).toBeInTheDocument();
-  expect(screen.getByRole('combobox',{name:'Monat'})).toHaveValue('2026-09');
-  expect(screen.getAllByRole('option')).toHaveLength(24);
-  fireEvent.change(screen.getByRole('combobox',{name:'Monat'}),{target:{value:'2026-08'}});
+  expect(screen.getByRole('button',{name:'Monat: September 2026'})).toBeVisible();
+  fireEvent.click(screen.getByRole('button',{name:'Voriger Monat'}));
   expect(navigate).toHaveBeenCalledWith({...defaultRoute('kunden'),customerId:cid,month:'2026-08'});
 });
 it('distinguishes empty and unavailable, retries and does not show stale response after a month change',async()=>{

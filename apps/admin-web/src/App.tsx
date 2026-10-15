@@ -7,8 +7,11 @@ import { AppDownloadSuccess } from './AppDownloadSuccess';
 import { RequiredForm } from './RequiredForm';
 import { CustomerQuotaNotice } from './QuotaNotice';
 import type { Notice } from './contracts';
-import { BUSINESS_TIME_ZONE,businessDay } from '@taptime/core';
+import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import {
+	Component,
+	type ErrorInfo,
+	type ReactNode,
 	FormEvent,
 	lazy,
 	Suspense,
@@ -25,6 +28,7 @@ import {
 	canonicalRoutePath,
 	defaultRoute,
 	monthTimeWindow,
+	selectedMonth,
 	routeFromLocation,
 	visibleAdminViews,
 	type AdminRoute,
@@ -69,13 +73,8 @@ export function App({
   const [route, setRoute] = useState<AdminRoute>(() => currentRoute());
   const previousView = useRef(route.view);
   const mainHeading = useRef<HTMLHeadingElement>(null);
-  const compact = useCompactLayout();
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [helpOpen,setHelpOpen]=useState(false);
-  const [headerHost,setHeaderHost]=useState<HTMLElement|null>(null);
   const [version,setVersion]=useState<string|null>(null);
   useEffect(()=>{let current=true;void fetch('/version.txt').then(r=>r.ok?r.text():null).then(v=>{if(current&&v&&/^[a-zA-Z0-9._-]{1,80}$/.test(v.trim()))setVersion(v.trim());}).catch(()=>{});return()=>{current=false;};},[]);
-  useEffect(() => { setMoreOpen(false); }, [route.view, compact, state.status]);
 
   useEffect(() => {
     const synchronize = () => {
@@ -103,7 +102,7 @@ export function App({
 
   useEffect(() => {
     if (state.status !== 'ready' || route.view !== 'lohnexport') return;
-    const month=route.month??businessDay(Date.now()).slice(0,7);
+    const month=selectedMonth(route.month, 'lohnexport');
     const window=monthTimeWindow(month);
     if(window&&(state.timeWindow.fromInclusive!==window.fromInclusive||state.timeWindow.toExclusive!==window.toExclusive))
       void administration.setTimeWindow(window.fromInclusive,window.toExclusive);
@@ -205,6 +204,21 @@ export function App({
     </main>;
   }
 
+  return <AdministrationErrorBoundary resetKey={canonicalRoutePath(route)}>
+    <ReadyAdministration state={state} administration={administration} accountInvitations={accountInvitations}
+      route={route} navigate={navigate} version={version}/>
+  </AdministrationErrorBoundary>;
+}
+
+function ReadyAdministration({state,administration,accountInvitations,route,navigate,version}: {
+  state: ReadyState; administration: AdminWebCapability; accountInvitations?: EmployeeAccountInvitationCapability;
+  route: AdminRoute; navigate: (route: AdminRoute) => void; version: string | null;
+}) {
+  const compact = useCompactLayout();
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [headerHost, setHeaderHost] = useState<HTMLElement | null>(null);
+  useEffect(() => { setMoreOpen(false); }, [route.view, compact]);
   const visibleViews = visibleAdminViews(state.availableSections);
   const activeRoute = visibleViews.some((candidate) => candidate.slug === route.view)
     ? route : defaultRoute(visibleViews[0]!.slug, state.selectedLocation?.id ?? null);
@@ -213,17 +227,20 @@ export function App({
   const remainingViews=visibleViews.slice(directViews.length);
   const roleLabel=state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter';
   const personName=state.employeeProjection.employeeMemberships.find(person=>person.id===state.membershipId)?.displayName;
-  const account=<><span>Angemeldet für</span><strong>{state.projection.organization.name}</strong><span>{personName?`${personName} · `:''}{roleLabel}</span></>;
+  const accountLabel=formatAccountLabel(personName,roleLabel);
+  const account=<><span>Angemeldet für</span><strong>{state.projection.organization.name}</strong><span>{accountLabel}</span></>;
   const groups=[{title:'Arbeit',items:visibleViews.filter(item=>!['einrichtung','lohnexport'].includes(item.slug))},{title:'Verwaltung',items:visibleViews.filter(item=>['einrichtung','lohnexport'].includes(item.slug))}];
   const navigation=(items:typeof visibleViews)=><nav aria-label="Hauptnavigation">{groups.map(group=>({...group,items:group.items.filter(item=>items.includes(item))})).filter(g=>g.items.length).map(group=><section key={group.title} className="navigation-group"><h2>{group.title}</h2><ul>{group.items.map(item=><li key={item.slug}><a href={canonicalRoutePath(defaultRoute(item.slug,state.selectedLocation?.id??null))} aria-current={item.slug===activeRoute.view?'page':undefined} onClick={event=>{navigateFromLink(event,defaultRoute(item.slug,state.selectedLocation?.id??null),navigate);if(event.defaultPrevented)setMoreOpen(false);}}><SectionIcon view={item.slug}/><span>{item.label}</span>{item.slug==='pruefungen'&&state.sections.reviewItems.status==='ready'&&state.reviewItems.length>0?<span className="nav-count">{state.reviewItemsNextCursor?'≥ ':''}{state.reviewItems.length}</span>:null}</a></li>)}</ul></section>)}</nav>;
-  const accountBlock=<div className="sidebar-footer"><div className="sidebar-account">{account}</div><ThemeSwitch/><button className="text-button sidebar-signout" onClick={()=>void administration.signOut()}>Abmelden</button><button className="text-button" onClick={()=>{setMoreOpen(false);setHelpOpen(true);}}>So funktioniert {APP_NAME}</button></div>;
+  const helpButton=<button className="text-button" onClick={()=>{setMoreOpen(false);setHelpOpen(true);}}>So funktioniert {APP_NAME}</button>;
+  const accountBlock=<div className="sidebar-footer"><div className="sidebar-account">{account}</div><ThemeSwitch/><button className="text-button sidebar-signout" onClick={()=>void administration.signOut()}>Abmelden</button>{helpButton}</div>;
   const subtitles:Record<AdminView,string>={uebersicht:overviewDateLabel(),kunden:'Stunden und Kontingente Ihrer Kunden.',beschaeftigte:'Mitarbeiter und ihre Zeiten im gewählten Monat.',pruefungen:'Diese Erfassungen konnten noch keiner Arbeitszeit sicher zugeordnet werden.','meine-zeiten':'Ihre Zeiten im gewählten Monat.',manuell:'Starten und beenden Sie Ihre Zeit ohne Karte.',einrichtung:'Verwalten Sie Standorte, Mitarbeiter, Kunden und Karten.',lohnexport:'Laden Sie die Zeiten für Ihre Lohnabrechnung herunter.'};
   const ownHeader=['kunden','manuell','einrichtung','beschaeftigte','pruefungen','lohnexport'].includes(activeRoute.view);
   return <HeaderOutlet.Provider value={headerHost}><div className="app-shell">
-    <div className="top-band"><Brand/><strong className="band-organization">{state.projection.organization.name}</strong><span className="band-account">{personName?`${personName} · `:''}{roleLabel}</span><button className="text-button" onClick={()=>void administration.signOut()}>Abmelden</button></div>
+    <div className="top-band"><Brand/><strong className="band-organization" title={state.projection.organization.name}>{state.projection.organization.name}</strong><span className="band-account" title={accountLabel}>{accountLabel}</span><button className="text-button" onClick={()=>void administration.signOut()}>Abmelden</button></div>
     <div className="mobile-top"><Brand/><span>{state.projection.organization.name}</span></div>
-    <aside className="sidebar"><Brand/>{navigation(visibleViews)}{accountBlock}</aside>
+    <aside className="sidebar">{navigation(visibleViews)}<div className="sidebar-footer"><ThemeSwitch/>{helpButton}</div></aside>
     <main className="workspace">
+      <AdministrationErrorBoundary resetKey={canonicalRoutePath(activeRoute)}>
       <header className="workspace-header" ref={setHeaderHost}/>
       {!ownHeader?<PageHeader organization={state.projection.organization.name} title={activeView.label} subtitle={<>{subtitles[activeRoute.view]}</>} onRefresh={()=>void administration.refresh()}/>:null}
       {state.locationsEnabled&&state.managementScope.kind==='locations'&&state.selectedLocation?<div className="location-context">{state.managementScope.locations.length===1?<span>Ihr Bereich: {state.selectedLocation.name}</span>:<label>Bereich<select value={state.selectedLocation.id} onChange={event=>navigate({...activeRoute,locationId:event.target.value})}>{state.managementScope.locations.map(location=><option key={location.id} value={location.id}>{location.name}</option>)}</select></label>}</div>:null}
@@ -239,6 +256,7 @@ export function App({
         {activeRoute.view==='meine-zeiten'?<OwnTimeView state={state} administration={administration} route={activeRoute} navigate={navigate}/>:null}
         {activeRoute.view==='manuell'?<ManualView state={state} administration={administration}/>:null}
       </Suspense>
+      </AdministrationErrorBoundary>
       <footer className="workspace-footer"><span>Deutsche Ortszeit{state.managedPeople?.status==='ready'?` · Stand ${new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,hour:'2-digit',minute:'2-digit'}).format(new Date(state.managedPeople.value.serverTime))}`:''}</span>{version?<span>Version {version}</span>:null}</footer>
     </main>
     {compact?<nav className="mobile-navigation" aria-label="Hauptnavigation">{directViews.map(item=><a key={item.slug} href={canonicalRoutePath(defaultRoute(item.slug,state.selectedLocation?.id??null))} aria-current={item.slug===activeRoute.view?'page':undefined} onClick={event=>navigateFromLink(event,defaultRoute(item.slug,state.selectedLocation?.id??null),navigate)}><SectionIcon view={item.slug}/><span>{item.label}</span></a>)}
@@ -358,4 +376,26 @@ function currentRoute(): AdminRoute {
   return typeof window === 'undefined'
     ? defaultRoute('uebersicht')
     : routeFromLocation(window.location.pathname, window.location.search);
+}
+
+
+export function formatAccountLabel(name: string | null | undefined, role: string): string {
+  const trimmed = name?.trim();
+  return !trimmed || ['Administrator', 'Standortleitung', 'Mitarbeiter', 'Beschäftigter'].includes(trimmed)
+    ? role : `${trimmed} · ${role}`;
+}
+
+export class AdministrationErrorBoundary extends Component<{children: ReactNode; resetKey: string}, {failed: boolean}> {
+  state = {failed: false};
+  static getDerivedStateFromError() { return {failed: true}; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('Administration render failed', error, info.componentStack); }
+  componentDidUpdate(previous: Readonly<{children: ReactNode; resetKey: string}>) {
+    if (this.state.failed && previous.resetKey !== this.props.resetKey) this.setState({failed: false});
+  }
+  render() {
+    return this.state.failed ? <section className="page-error" role="alert">
+      <h1>Diese Seite konnte nicht angezeigt werden.</h1>
+      <button type="button" className="secondary" onClick={() => window.location.reload()}>Neu laden</button>
+    </section> : this.props.children;
+  }
 }

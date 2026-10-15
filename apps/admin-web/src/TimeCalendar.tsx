@@ -1,19 +1,24 @@
+import {MonthSwitch} from './MonthSwitch';
+import {monthRange} from './navigation';
 import {VoidedTimeRows} from './TimeVoidControls';
 import { AddTimeControl,TimeRecordControls } from './TimeEditingControls';
 import {
 	BUSINESS_TIME_ZONE,businessDay,dayStart,formatClock,formatDuration,formatHours,
-	intervalMilliseconds,monthDays,provenance,rangeSummary,monthTimeSummary,recordDaySummary,recordDaySectionLabels,recordsForDay,shiftDay,shiftMonth,weekStart
+	intervalMilliseconds,monthDays,provenance,rangeSummary,monthTimeSummary,recordDaySummary,recordDaySectionLabels,recordsForDay,shiftDay,weekStart
 } from '@taptime/core';
 import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { useRef, useState, type ReactNode } from 'react';
 import { Panel,DataTable,Pill } from './ui';
 
 import {PageHeader} from './PageHeader';
-export function TimeCalendar({value,month,onMonthChange,onRefresh,personHeader}: {
+export function TimeCalendar({value,month,onMonthChange,onRefresh,personHeader,ownTime=false,showMonthSwitch=true}: {
+  readonly ownTime?:boolean;
+  readonly showMonthSwitch?:boolean;
   readonly personHeader?:{organization:string;name:string;subtitle:ReactNode;actions:ReactNode};
   readonly value:MobileOwnTimeQueryResponse; readonly month:string;
   readonly onMonthChange:(month:string)=>void; readonly onRefresh:()=>void;
 }) {
+  const range=ownTime?{min:businessDay(Date.parse(value.windowStartedAt)).slice(0,7),max:businessDay(Date.parse(value.windowEndedAt)-1).slice(0,7)}:monthRange();
   const dayList = useRef<HTMLDivElement>(null);
   const selectDay = (day: string) => {
     setSelection(day);
@@ -37,8 +42,7 @@ export function TimeCalendar({value,month,onMonthChange,onRefresh,personHeader}:
       <small>{summary.complete ? `${formatDuration(summary.breakMilliseconds)} Pause` : 'Zeitraum nicht vollständig geladen'}</small>
     </article>)}</div>
     <div className="calendar-layout"><Panel title={monthTitle}>
-      <div className="toolbar"><button className="quiet" aria-label="Voriger Monat" onClick={()=>onMonthChange(shiftMonth(month,-1))}>←</button>
-        <span>{monthTitle}</span><button className="quiet" aria-label="Nächster Monat" onClick={()=>onMonthChange(shiftMonth(month,1))}>→</button></div>
+      {showMonthSwitch?<MonthSwitch value={month} {...range} onChange={onMonthChange}/>:null}
       <div className="calendar-grid" aria-hidden="true">{['Mo','Di','Mi','Do','Fr','Sa','So'].map(day=><span key={day}>{day}</span>)}</div>
       <div className="calendar-grid">{monthDays(month).map((day,index)=>{
         if(day === null) return <span key={`empty-${index}`}/>;

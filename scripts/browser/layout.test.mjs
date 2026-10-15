@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { before, after, test } from 'node:test';
 import { launchBrowser, buildWeb, measure } from './harness.mjs';
 import { adminScenarios, operatorScenarios } from './scenarios.mjs';
+import { verifyT122c } from './t122c.mjs';
 import { build as buildJavaScript } from 'esbuild';
 import mark from '../../shared/brand/mark.json' with { type: 'json' };
 const apps = { 'admin-web': adminScenarios, 'operator-web': operatorScenarios };
@@ -11,6 +12,9 @@ const artifacts = process.env.TAPTIME_LAYOUT_ARTIFACTS;
 const results = [];
 let browser;
 const webs = {};
+test('T122c fixed shell, month controls and rendering recovery', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
+  await verifyT122c(browser, webs['admin-web'], artifacts ? join(artifacts, 't122c') : undefined);
+});
 for (const app of Object.keys(apps)) for (const width of [390, 1440]) for (const variant of ['login', 'overview']) {
   test(`T120 ${app}/${variant}/${width}: source mark, favicons and doubled text`, async () => {
     const page = await browser.newPage({ viewport: { width, height: 900 } });

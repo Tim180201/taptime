@@ -13,7 +13,7 @@ export function PageHeader({organization,title,subtitle,actions,onRefresh,refres
     document.addEventListener('keydown',keyboard);document.addEventListener('pointerdown',pointer);
     return()=>{document.removeEventListener('keydown',keyboard);document.removeEventListener('pointerdown',pointer);};
   },[]);
-  const content=<><div className="workspace-title"><p className="eyebrow">{organization}</p><h1 ref={heading} tabIndex={-1}>{title}</h1>{subtitle?<div className="page-subtitle">{subtitle}</div>:null}</div>
+  const content=<><div className="workspace-title"><p className="eyebrow organization-eyebrow">{organization}</p><h1 ref={heading} tabIndex={-1}>{title}</h1>{subtitle?<div className="page-subtitle">{subtitle}</div>:null}</div>
     <div className="header-actions">{actions}<button type="button" className="icon-button" disabled={refreshDisabled} title="Alle Bereiche aktualisieren" aria-label="Alle Bereiche aktualisieren" onClick={onRefresh}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M19 11a7 7 0 0 0-12-5M5 13a7 7 0 0 0 12 5"/></svg></button></div></>;
   return host?createPortal(content,host):<header className="workspace-header">{content}</header>;
 }

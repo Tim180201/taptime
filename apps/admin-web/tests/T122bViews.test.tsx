@@ -40,7 +40,7 @@ it('employees have one header, a month and no duplicate activity tile',async()=>
 it('payroll has a selected month, honest file name, outcomes links and no correction form',()=>{
  const s=state({availableSections:['time_records','time_export','review_items'],reviewItems:[item]});
  render(<TimeRecordsView state={s} administration={capability(s)} route={defaultRoute('lohnexport')} navigate={vi.fn()}/>);
- expect(screen.getByLabelText('Monat')).not.toHaveValue('');
+ expect(screen.getByRole('button',{name:/^Monat: /})).toBeVisible();
  expect(screen.getByText('Einzelzeiten (CSV): alle Einträge des Monats, unabhängig von den Filtern.')).toBeVisible();
  expect(screen.getByRole('button',{name:'CSV herunterladen'})).toBeVisible();
  expect(screen.queryByText('Abgeschlossene Arbeitszeit korrigieren')).toBeNull();
@@ -107,6 +107,7 @@ it('PO: payroll filter groups have visible labels before their choices',()=>{
 it('PO: header fields keep hidden labels and the export format explains its value',()=>{
  const s=state({availableSections:['time_records','time_export']});
  render(<TimeRecordsView state={s} administration={capability(s)} route={defaultRoute('lohnexport')} navigate={vi.fn()}/>);
- for(const label of ['Monat','Datei'])expect(screen.getByLabelText(label).closest('label')?.querySelector('.sr-only')).toHaveTextContent(label);
+ expect(screen.getByRole('button',{name:/^Monat: /})).toHaveAttribute('aria-haspopup','dialog');
+ expect(screen.getByLabelText('Datei').closest('label')?.querySelector('.sr-only')).toHaveTextContent('Datei');
  expect(within(screen.getByLabelText('Datei')).getAllByRole('option').map(option=>option.textContent)).toEqual(['Einzelzeiten · Standard','Einzelzeiten · Früheres Format']);
 });

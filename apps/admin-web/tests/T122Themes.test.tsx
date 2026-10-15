@@ -56,8 +56,12 @@ for(const app of ['admin-web','operator-web','landing-web'])it(`${app}: specifie
  const css=readFileSync(resolve(root,`apps/${app}/src/${app==='landing-web'?'style':'styles'}.css`),'utf8');
  for(const theme of ['dark','light']){
   const colors=variables(css,theme);
-  for(const [name,value]of Object.entries(palettes[theme]))expect(colors[name],`${theme}/${name}`).toBe(value);
-  const themePairs=theme==='light'?[...pairs,['band-text','band',textMinimum],['band-text-muted','band',textMinimum]] as typeof pairs:pairs;
+  for(const [name,value]of Object.entries(palettes[theme])){
+   // T-122c changes the administration band only; the other web apps are outside its scope.
+   if(app!=='admin-web'&&(name==='band'||name==='band-line'))continue;
+   expect(colors[name],`${theme}/${name}`).toBe(value);
+  }
+  const themePairs=[...pairs,['band-text','band',textMinimum],['band-text-muted','band',textMinimum]] as typeof pairs;
   for(const [fg,bg,min]of themePairs){
    expect(colors[fg],fg).toBeDefined();expect(colors[bg],bg).toBeDefined();
    const a=luminance(colors[fg]),b=luminance(colors[bg]);expect((Math.max(a,b)+.05)/(Math.min(a,b)+.05),`${theme}: ${fg}/${bg}`).toBeGreaterThanOrEqual(min);

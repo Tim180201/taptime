@@ -1,12 +1,13 @@
+import {MonthSwitch} from '../MonthSwitch';
 import { useEffect, useRef, useState } from 'react';
-import { BUSINESS_TIME_ZONE, businessDay, shiftMonth, formatZonedDateTime } from '@taptime/core';
+import { BUSINESS_TIME_ZONE, businessDay, formatZonedDateTime } from '@taptime/core';
 import type { SearchMembershipResponse } from '@taptime/mobile-work-contract';
 import { useSearchPages, useDebouncedSearch } from '../../../mobile/src/search/useSearchPages';
 import { SearchField, SearchStatus } from '../SearchControls';
 import { EmployeeAccountInvitationForm, type EmployeeAccountInvitationCapability } from '../EmployeeAccountInvitationForm';
 import { ACCOUNT_INVITATION_SUCCESS_NOTICES, type AccountInvitationSuccess } from '../accountInvitation';
 import type { AdminWebCapability } from '../contracts';
-import { monthLabel, canonicalRoutePath, defaultRoute, type AdminRoute } from '../navigation';
+import { monthRange, selectedMonth, canonicalRoutePath, defaultRoute, type AdminRoute } from '../navigation';
 import { Confirmation, DataTable, EmptyState, Person, SectionBoundary } from '../ui';
 import { FeedbackBand, useIntentFocusReturn } from '../viewHelpers';
 import { PeopleTable } from './PeopleShared';
@@ -25,8 +26,7 @@ export default function EmployeesView({ state, administration, accountInvitation
   readonly state: ReadyState; readonly administration: AdminWebCapability;
   readonly accountInvitations?: EmployeeAccountInvitationCapability;
 }) {
-  const current = businessDay(Date.now()).slice(0, 7), months = Array.from({ length: 24 }, (_, i) => shiftMonth(current, -i));
-  const month = route?.month && months.includes(route.month) ? route.month : current;
+  const month = selectedMonth(route?.month,'beschaeftigte');
   const changeMonth = (month: string) => navigate({ ...route ?? defaultRoute('beschaeftigte', state.selectedLocation?.id ?? null), month });
   const [tab, setTab] = useState<'zeiten' | 'zugaenge'>('zeiten');
   const [adding, setAdding] = useState(false);
@@ -89,7 +89,7 @@ export default function EmployeesView({ state, administration, accountInvitation
     subtitle={packageUsage ? <><span>{packageUsage.activeAccessCount} Zugänge{packageUsage.packageSize === null ? '' : ` · Paket ${packageUsage.packageSize}`}</span>
       {packageUsage.packageSize !== null && packageUsage.activeAccessCount > packageUsage.packageSize
         ? <span className="access-notice">Paket überschritten, alle Zugänge bleiben nutzbar</span> : null}</> : 'Mitarbeiter und Zugänge in Ihrem Bereich.'}
-    actions={<>{tab === 'zeiten' ? <label className="header-month"><span className="sr-only">Monat</span><select value={month} onChange={event => changeMonth(event.target.value)}>{months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}</select></label> : null}{state.role === 'administrator' ? invitation : null}</>}
+    actions={<>{tab === 'zeiten' ? <MonthSwitch value={month} {...monthRange()} onChange={changeMonth}/> : null}{state.role === 'administrator' ? invitation : null}</>}
     onRefresh={() => { void administration.refresh(); void members.pager.refresh(); }} />
     {invitationSuccess === null ? null : <p role="status">{ACCOUNT_INVITATION_SUCCESS_NOTICES[invitationSuccess]}</p>}
     <SectionBoundary state={state.sections.employees} onRetry={() => void administration.retrySection('employees')}>

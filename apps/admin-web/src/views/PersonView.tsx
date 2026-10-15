@@ -1,9 +1,10 @@
+import {MonthSwitch} from '../MonthSwitch';
 import TargetAssignments from './TargetAssignments';
 import {captureStatus} from '@taptime/mobile-work-contract';
 import type { EmployeeAccountInvitationCapability } from '../EmployeeAccountInvitationForm';
 import { ACCOUNT_INVITATION_NOTICES } from '../accountInvitation';
 import { TimeEditingProvider, TimeRecordControls } from '../TimeEditingControls';
-import { businessDay } from '@taptime/core';
+
 import {
 	useEffect, useState
 } from 'react';
@@ -14,6 +15,8 @@ import type {
 import {
 	canonicalRoutePath,
 	defaultRoute,
+	selectedMonth,
+	monthRange,
 	type AdminRoute
 } from '../navigation';
 import {PageHeader} from '../PageHeader';
@@ -25,7 +28,7 @@ export default function PersonView({state,administration,route,navigate,accountI
   readonly route:AdminRoute;readonly navigate:(route:AdminRoute)=>void}) {
   const [resending,setResending]=useState(false);
   const [resendNotice,setResendNotice]=useState<string|null>(null);
-  const month=route.month ?? businessDay(Date.now()).slice(0,7);
+  const month=selectedMonth(route.month,'beschaeftigte');
   const personId=route.personId!;
   const authority=JSON.stringify([state.membershipId,state.role,state.managementScope,state.selectedLocation?.id]);
   const [identity,setIdentity]=useState<{personId:string;authority:string;person:NonNullable<Extract<ReadyState['managedPeople'],{status:'ready'}>>['value']['people'][number]|null;status:'ready'|'missing'|'unavailable'}|null>(null);
@@ -76,9 +79,10 @@ export default function PersonView({state,administration,route,navigate,accountI
     {!ready?<PageHeader organization={state.projection.organization.name} title={person.displayName} subtitle={subtitle} actions={actions} onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/>:null}
     {resendAction}
     {resendNotice ? <p role="status">{resendNotice}</p> : null}
+    <MonthSwitch value={month} {...monthRange()} onChange={month=>navigate({...route,month})}/>
     <TargetAssignments administration={administration} selector={{membershipId:personId}} personName={person.displayName}/>
     {calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'ready'
-      ? <>{calendar.value.activeRecord ? <div className="feedback-band"><p>{captureStatus(calendar.value.activeRecord)}</p><TimeRecordControls directStop record={calendar.value.activeRecord}/></div> : null}<TimeCalendar personHeader={{organization:state.projection.organization.name,name:person.displayName,subtitle,actions}} value={calendar.value} month={month} onMonthChange={month=>navigate({...route,month})}
+      ? <>{calendar.value.activeRecord ? <div className="feedback-band"><p>{captureStatus(calendar.value.activeRecord)}</p><TimeRecordControls directStop record={calendar.value.activeRecord}/></div> : null}<TimeCalendar showMonthSwitch={false} personHeader={{organization:state.projection.organization.name,name:person.displayName,subtitle,actions}} value={calendar.value} month={month} onMonthChange={month=>navigate({...route,month})}
         onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/></>
       : calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'unavailable'
         ? <div role="alert"><p>{calendar.message}</p><button onClick={()=>void administration.loadPersonTime?.(personId,month)}>Monat erneut laden</button></div>

@@ -1,3 +1,4 @@
+import {createMonthRaceCapability} from './T122cCapability';
 import {customerSearch,stateSearch} from './searchFixtures';
 import { PasswordResetPage } from '../src/PasswordResetPage';
 import { createRoot } from 'react-dom/client';
@@ -189,6 +190,10 @@ class FakeCapability implements AdminWebCapability {
     if(this.state.status==='ready' && this.state.calendar?.status==='ready')
       this.emit({...this.state,calendar:{...this.state.calendar,targetMembershipId,month}});
   };
+  loadOwnTime = async (month:string) => {
+    if(this.state.status==='ready' && this.state.calendar?.status==='ready')
+      this.emit({...this.state,calendar:{...this.state.calendar,targetMembershipId:null,month}});
+  };
   retrySection = async () => undefined;
   loadMore = async () => undefined;
   createCustomer = async () => undefined;
@@ -321,6 +326,17 @@ const authStates: Record<string, AdminWebState> = {
   forbidden: { status: 'forbidden', message: 'Für diesen Zugang ist die Verwaltung nicht verfügbar.' },
   unavailable: { status: 'unavailable', message: 'Die Verwaltung ist vorübergehend nicht erreichbar.' }, loading: { status: 'loading' },
 };
+// T-122c: long, entirely synthetic data for scroll geometry and ellipsis checks.
+if (variant === 't122c-long') ready = {...ready,
+  projection: {...ready.projection, organization: {...organization, name: 'Beispielbetrieb mit einem sehr langen vollständigen Namen für die Verwaltung'}},
+  employeeProjection: {...ready.employeeProjection, employeeMemberships: [...ready.employeeProjection.employeeMemberships,
+    {...person,id:own,role:'administrator',displayName:'Alexandra Beispiel mit einem sehr langen vollständigen Namen'}]},
+  managedPeople: {...ready.managedPeople!,status:'ready',value:{...ready.managedPeople!.value!,people:
+    Array.from({length:40},(_,i)=>({...ready.managedPeople!.value!.people[0]!,membershipId:`70000000-0000-4000-8000-${String(i+1).padStart(12,'0')}`,displayName:`Person ${i+1} Beispiel`}))}},
+};
+if (variant === 't122c-own') ready = {...ready, role:'employee',availableSections:['own_time','manual_capture'],calendar:{...ready.calendar!,status:'ready',value:{...ready.calendar!.value!,windowStartedAt:'2026-07-31T22:00:00.000Z'}}};
+if (variant === 't122c-old-review') ready = {...ready,reviewItems:ready.reviewItems.map(item=>({...item,occurredAt:'2020-07-20T09:00:00.000Z'}))};
+if (variant === 't122c-render-error') ready = {...ready,timeRecords:null as never};
 const stateful = new FakeCapability(authStates[variant] ?? ready);
 const capability: AdminWebCapability = Object.assign(stateful, { loadBackfillTargets: async () => ({ status: 'ready' as const, targets: [{targetType:'customer' as const,targetId:customer.id,displayName:'Werkstatt am Beispielweg'}] }), saveTimeEdit: async () => ({ status: 'unavailable' as const }) });
 if(variant.endsWith('-void')) {
@@ -339,7 +355,8 @@ capability.cancelCorrection = () => stateful.emit({ ...ready, correctionIntent: 
 capability.cancelAdjudication = () => stateful.emit({ ...ready, adjudicationIntent: null });
 capability.cancelReassignment = () => stateful.emit({ ...ready, reassignmentIntent: null });
 const root = createRoot(document.getElementById('root')!);
-root.render(variant === 'configuration' ? createApplicationPage(null) : variant.startsWith('welcome')
+if(variant==='t122c-month-race')void createMonthRaceCapability(entry).then(administration=>root.render(<App administration={administration}/>));
+else root.render(variant === 'configuration' ? createApplicationPage(null) : variant.startsWith('welcome')
   ? <WelcomePage invitation={variant === 'welcome-unavailable' ? null : { hasInvitation: variant !== 'welcome-invalid', setPassword: async () => variant === 'welcome-error' ? 'weak_password' : variant === 'welcome-busy' ? new Promise(() => {}) : 'succeeded' }} />
   : variant.startsWith('password-reset') ? <PasswordResetPage recovery={{hasRecovery: true, setPassword: async () => 'succeeded'}} />
   : <App administration={capability} accountInvitations={{ invite: async () => variant === 'invitation-busy' ? new Promise(() => {}) : ({ status: 'failed', code: 'invitation_needs_attention' }) }} />);

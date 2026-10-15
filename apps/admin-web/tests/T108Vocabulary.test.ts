@@ -14,7 +14,14 @@ it('D-124 to D-127: no retired terms in application strings or accessibility lab
   const check=(text:string)=>{const calendar=/^(Guten Tag\.|Arbeitszeiten an diesem Tag|Keine Arbeitszeiten an diesem Tag\.|Für diesen Tag zählt keine Arbeitszeit\.|Dieser Tag liegt außerhalb des vollständig geladenen Zeitraums\.|(?:Deine|Ihre) Stunden je Tag|Liegt „bis“ vor oder gleich „von“, endet die Zeit am nächsten Tag\.|Zuordnung nach dem Tag, an dem der Eintrag beginnt\.|Ausgewählter Tag|· Liegt „bis“ vor oder gleich „von“, endet die Zeit am nächsten Tag\. Pausen bitte als Lücke zwischen zwei Einträgen lassen\.)$/.test(text.trim());if(retired.test(text)||/\bTag\b/.test(text)&&!calendar)failures.push(`${path.slice(root.length+1)}: ${text.trim().slice(0,160)}`);};
   if(path.endsWith('.html')||path.endsWith('.md')||path.endsWith('.json')){check(source);continue;}
   const ast=ts.createSourceFile(path,source,ts.ScriptTarget.Latest,true);
-  const visit=(node:ts.Node)=>{if(ts.isStringLiteralLike(node)||ts.isJsxText(node)||ts.isTemplateHead(node)||ts.isTemplateMiddle(node)||ts.isTemplateTail(node))check(node.text);ts.forEachChild(node,visit);};visit(ast);
+  const visit=(node:ts.Node)=>{
+   // T-122c must recognize this legacy server value in order to suppress it, never display it.
+   if(ts.isStringLiteral(node)&&node.text==='Beschäftigter'){
+    let parent:ts.Node|undefined=node.parent;
+    while(parent&&!ts.isFunctionDeclaration(parent))parent=parent.parent;
+    if(path.endsWith('/admin-web/src/App.tsx')&&parent&&ts.isFunctionDeclaration(parent)&&parent.name?.text==='formatAccountLabel')return;
+   }
+   if(ts.isStringLiteralLike(node)||ts.isJsxText(node)||ts.isTemplateHead(node)||ts.isTemplateMiddle(node)||ts.isTemplateTail(node))check(node.text);ts.forEachChild(node,visit);};visit(ast);
  }
  expect(failures).toEqual([]);
 });

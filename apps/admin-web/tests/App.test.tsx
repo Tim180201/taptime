@@ -570,10 +570,10 @@ describe('professional Admin Web shell', () => {
     );
     await render(<App administration={capability} />);
 
-    expect(screen.getByLabelText('Monat')).toHaveValue('2026-08');
+    expect(screen.getByRole('button',{name:'Monat: August 2026'})).toBeVisible();
     expect(within(screen.getByRole('group',{name:'Status'})).getByRole('button',{name:'Abgeschlossen'})).toHaveAttribute('aria-pressed','true');
     expect(within(screen.getByRole('group',{name:'Erfasst mit'})).getByRole('button',{name:'Manuell erfasst'})).toHaveAttribute('aria-pressed','true');
-    expect(screen.getByText(/August 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/August 2026 · abgeschlossen/)).toBeInTheDocument();
     await waitFor(() => expect(capability.setTimeWindow).toHaveBeenCalledWith(
       '2026-07-31T22:00:00.000Z',
       '2026-08-31T22:00:00.000Z',

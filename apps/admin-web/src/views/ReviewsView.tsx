@@ -1,3 +1,5 @@
+import {MonthSwitch} from '../MonthSwitch';
+import {monthRange, selectedMonth} from '../navigation';
 import {TimeFields,resolveTimeFields,advanceTimeField} from '../TimeFields';
 import { RequiredForm } from '../RequiredForm';
 import { isTimeReviewRole, isKnownTimeReviewReason } from '@taptime/time-review-contract';
@@ -74,7 +76,7 @@ function ReviewDecisionRow({item,state,administration,day,open,setOpen,retryDay}
   readonly day:ReadyState['reviewDay'];readonly open:boolean;readonly setOpen:(open:boolean)=>void;readonly retryDay:()=>void}) {
   const noteOnly=item.source==='offline_skip' || item.targetType==='break';
   const [resolution,setResolution]=useState<'no_time_record_change'|'adjust_existing_time_record'|'create_recovered_time_record'>('no_time_record_change');
-  const [month,setMonth]=useState(toZonedMinuteInput(item.occurredAt).slice(0,7));
+  const [month,setMonth]=useState(selectedMonth(toZonedMinuteInput(item.occurredAt).slice(0,7),'pruefungen'));
   const selection=state.reviewCorrectionRecords?.reviewItemId===item.reviewItemId ? state.reviewCorrectionRecords : undefined;
   const records=selection?.records ?? [];
   const loadRecords=(nextMonth=month,append=false)=>void administration.loadReviewCorrectionRecords?.(item.reviewItemId,nextMonth,append);
@@ -148,9 +150,9 @@ function ReviewDecisionRow({item,state,administration,day,open,setOpen,retryDay}
         );
       }}>
         {resolution === 'adjust_existing_time_record' ? <>
-          <label>Monat der Arbeitszeit<input type="month" value={month}
+          <div><p>Monat der Arbeitszeit</p><MonthSwitch label="Monat der Arbeitszeit" value={month} {...monthRange()}
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
-            onChange={event=>{setMonth(event.target.value);setRecordId('');setDate('');setStartedAt('');setStoppedAt('');loadRecords(event.target.value);}}/></label>
+            onChange={month=>{setMonth(month);setRecordId('');setDate('');setStartedAt('');setStoppedAt('');loadRecords(month);}}/></div>
           <p className="supporting">Arbeitszeiten von {item.employeeDisplayName}</p>
           {selection?.status==='loading' ? <p role="status">Arbeitszeiten werden geladen …</p> : null}
           {selection?.status==='unavailable' ? <div role="alert"><p>{selection.message}</p><button type="button" className="secondary" onClick={()=>loadRecords(month,selection.records.length>0)}>Erneut laden</button></div> : null}

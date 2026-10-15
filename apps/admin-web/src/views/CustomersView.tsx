@@ -1,3 +1,4 @@
+import {MonthSwitch} from '../MonthSwitch';
 import {normalizeCustomerNameV1} from '@taptime/administration-contract/names';
 import {PageHeader} from '../PageHeader';
 import {MobileSheet} from '../MobileSheet';
@@ -12,7 +13,7 @@ import { businessDay, dayStart, shiftMonth, formatHours } from '@taptime/core';
 import type { CustomerHoursSummary,CustomerHoursQuotaSummary } from '@taptime/mobile-work-contract';
 import { useEffect, useRef, useState } from 'react';
 import type { AdminWebCapability } from '../contracts';
-import { monthLabel, type AdminRoute } from '../navigation';
+import { monthLabel, monthRange, selectedMonth, type AdminRoute } from '../navigation';
 import { DelayedSkeleton, Panel } from '../ui';
 
 export default function CustomersView({ administration, route, navigate, authorityContext }: {
@@ -20,8 +21,7 @@ export default function CustomersView({ administration, route, navigate, authori
   readonly administration: AdminWebCapability; readonly route: AdminRoute; readonly navigate: (route: AdminRoute) => void;
 }) {
   const current = businessDay(Date.now()).slice(0,7);
-  const months = Array.from({length:24}, (_,i) => shiftMonth(current,-i));
-  const month = route.month && months.includes(route.month) ? route.month : current;
+  const month = selectedMonth(route.month,'kunden');
   const selected=route.customerId??null;
   const lastSelected=useRef<string|null>(null);
   const cards=useRef(new Map<string,HTMLButtonElement>());
@@ -62,7 +62,7 @@ export default function CustomersView({ administration, route, navigate, authori
     else if(!selected&&lastSelected.current){cards.current.get(lastSelected.current)?.focus();lastSelected.current=null;}
   },[customer?.customerId,selected,value]);
   const changeMonth = (next: string) => {navigate({...route,month:next});};
-  const monthControl=<label><span className="sr-only">Monat</span><select className="month-select" value={month} onChange={event=>changeMonth(event.target.value)}>{months.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}</select></label>;
+  const monthControl=<MonthSwitch value={month} {...monthRange()} onChange={changeMonth}/>;
   const onSaved=()=>{setCreated(null);setRefresh(n=>n+1);};
   return <div className="customers-view">
     <PageHeader organization={ready?.status==='ready'?ready.projection?.organization.name:undefined} title={customer?.displayName??'Kunden'} subtitle={selected?<div className="customer-navigation">{monthControl}<button className="secondary" onClick={()=>navigate({...route,customerId:undefined})}>Zur Kundenliste</button></div>:monthLabel(month)} onRefresh={()=>{onSaved();void administration.refresh();}} actions={selected?<>{customer?.active&&value?.scope==='people'?<CustomerManagement key={`${authorityContext}/${customer.customerId}`} customer={customer} administration={administration} onSaved={onSaved}/>:null}</>:<>
