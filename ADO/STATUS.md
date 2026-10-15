@@ -1,18 +1,19 @@
 # TapTim.e — Status
 
-**Stand 14.10.2026.** Produktion läuft auf `d193725` (Deploy 5 am 14.10., Migrationen 053–057). Ausgeliefert: T-116a,
+**Stand 15.10.2026.** Produktion läuft auf `d193725` (Deploy 5 am 14.10., Migrationen 053–057). Ausgeliefert: T-116a,
 T-116b, T-117a, T-117b, T-118a, T-118b, T-120 (D-134 bis D-138). Neue App-Builds (TestFlight, Prüf-APK) zu `d193725`
 sind auf den PO-Geräten. Auf main, noch nicht ausgeliefert: T-119 (`3284c99`, Migration 058, D-139), T-121
-(`4e64473`, Android-Karte ohne Antippen), T-122a (`e227f63`) und T-122b (`26eed76`, App und Web mit hellem und
-dunklem Thema, PO-Abnahme der Fotos 15.10.); alle kommen mit Deploy 6. In Arbeit: T-105 (Zugänge verwalten, D-141);
-parallel App-Builds zu `26eed76` und Android-Nachtest durch den PO. Supabase-Projekt am 14.10. vom PO
+(`4e64473`, Android-Karte ohne Antippen), T-122a (`e227f63`), T-122b (`26eed76`, App und Web mit hellem und
+dunklem Thema) und T-105 (`fb28166`, Zugänge verwalten, Migration 059, D-141); alle kommen mit Deploy 6. Neue
+App-Builds zu `ad4cd29` (T-121, T-122) beim PO, Prüfliste im Artifact „Abnahme Build T-122“. In Arbeit: T-024 Teil A
+(Rotationswerkzeug). Supabase-Projekt am 14.10. vom PO
 aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
 der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-105 (Zugänge) und parallel App-Builds mit Android-Nachtest (T-121) → T-024 mit Deploy 6
-(T-119, T-121, T-122, T-105) → Pilot. Lohnexport und Business Central: erst die Antworten von frogs (PLAN,
+**Weg zum Pilot:** Android-Nachtest (T-121) und T-024 Teil A → Deploy 6 (T-119, T-121, T-122, T-105, T-024a) mit
+neuem Deploy-Schlüssel → T-024 Teil B an der Konsole → Pilot. Lohnexport und Business Central: erst die Antworten von frogs (PLAN,
 CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
@@ -75,9 +76,6 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 - Image-Lauf zu `d193725` (14.10.): alle fünf Abbilder veröffentlicht, danach brach das Aufräumen alter GHCR-Versionen
   beim Löschen einer Backend-Version mit `unexpected end of JSON input` ab. Ursache in Prüfung; der nächste Image-Lauf
   zeigt, ob es vorübergehend war. Kein manuelles Löschen und kein manueller Neustart.
-- CI zu `26eed76` (15.10.) rot in `T117SearchPostgres.test.ts:266` (Transaktionsfrist unter Last, kein Serverbezug
-  in T-122b); Image-Lauf dafür übersprungen. Zweiter Fall des P2 „Suchtest unter Last“; Härtung des Tests in T-105,
-  Punkt 0. Bis dahin liefert erst der nächste grüne Lauf Abbilder.
 - Sicherung beim Deploy 06.10.: WAL-Zyklus 64–66 s, `base_seconds` 40 (24.09. noch 200–215 s). Weiter beobachten;
   Export-Grenztest: absolute Laufzeitwarnung beobachten.
 - Fehlt zu einem laufenden Eintrag die Zusatzprojektion (043), scheitert das Lesen der eigenen Zeiten (T-103); bei
@@ -102,7 +100,7 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
   Verwaltungsumfang (T-059) · Android SecureStore prüft das Ergebnis von `commit` nicht · Web-Export der App scheitert an
   `wa-sqlite.wasm` (P2) · `NativeAndroidFeedback` bedient auch iOS (Name, T-112) · alte App-Builds können nach Deploy 5 gelöschte
   Einträge ohne Grund (`none`) nicht anzeigen, bis der neue Build installiert ist (T-116a) · Suchtest „Kunden“ einmal über
-  5 s bei paralleler Last, isoliert 0,7 s (T-118b, P2; zweiter Fall 15.10., Härtung in T-105) · fällt ein Token-Refresh genau mit einer Karte
+  5 s bei paralleler Last, isoliert 0,7 s (T-118b; zweiter Fall 15.10., Test in T-105 mit eigener Frist gehärtet) · fällt ein Token-Refresh genau mit einer Karte
   zusammen (erster Vordergrund nach über einer Stunde im Hintergrund), kann die Sitzungsbenachrichtigung die Zeitgrenze
   der Erfassung ein zweites Mal verschieben (T-121, P3, Fall „morgens als Erstes“ im Nachtest).
 - **Beschäftigte (T-102):** wird beim Blättern jemandem der Zugang entzogen, können Personen nach ihm auf der nächsten

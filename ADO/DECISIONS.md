@@ -1911,6 +1911,7 @@ ohne „entzogenen Zugang wieder aufnehmen“ (F-153). Heute gilt: ein entzogene
 eine Person hat je Betrieb genau eine Mitgliedschaft; Offline-Berechtigungen, Belege und Archive bauen darauf.
 Wiederaufnahme heißt, diese Regel bewusst zu lockern. Richtung für T-125 (Pilotmonat 1): derselbe Zugang wird wieder
 aktiv, mit eigenem Protokolleintrag „MembershipReinstated“, keine zweite Mitgliedschaft, damit Stunden, Personalnummer
-und Export bei einer Kennung bleiben; vorher jede Stelle prüfen, die „entzogen ist endgültig“ voraussetzt. Bis dahin:
-versehentlich Entzogene neu einladen; alte Stunden bleiben unter der alten Mitgliedschaft sichtbar.
+und Export bei einer Kennung bleiben; vorher jede Stelle prüfen, die „entzogen ist endgültig“ voraussetzt. Bis dahin
+ist ein Entzug endgültig: eine Neueinladung derselben Person scheitert (`former_membership`, 040; eine Mitgliedschaft
+je Betrieb, 001). Die Rückfrage sagt das („Das lässt sich nicht rückgängig machen.“, T-105).
 **Warum:** Vor dem Pilot hat niemand einen Zugang verloren; die Lockerung ohne Not vor Deploy 6 wäre Risiko ohne Nutzen.
