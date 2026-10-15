@@ -153,9 +153,10 @@ Eine Zeile am unteren Rand, Nebentext 11,5 px: links „Deutsche Ortszeit · Sta
 Drei Kacheln nebeneinander: **Gerade aktiv** („7 / 12“, Textknopf „Aktivübersicht“), **Braucht Ihre Entscheidung**
 (Zahl in `notice`, „Zeiten prüfen“), **Kontingent im Monat** („1 Warnung“, „Kunden“). Darunter zwei Spalten 1,5 : 1.
 Links die Tabelle **Gerade aktiv** (Person, Standort, Kunde, seit, Pille) mit „3 weitere · Alle anzeigen“. Rechts
-**Zu entscheiden** (Liste mit Person · Datum, Nebentext, Pille „prüfen“) und **Heute** (Erfasste Stunden, Manuell
-erfasst, Offline abgeglichen). **Ihr nächster Schritt** erscheint nur mit sicherem Treffer (K5) und dann als Karte über
-den Kacheln, nicht statt ihnen. Hauptaktion: keine; rechts nur Aktualisieren.
+**Zu entscheiden** (Liste mit Person · Datum, Nebentext, Pille „prüfen“). Eine Karte **Heute** (Erfasste Stunden,
+Manuell erfasst, Offline abgeglichen) gibt es **nicht**: dafür fehlt ein Leseweg, und T-122a erfindet keine Zahlen; wenn
+der PO sie will, ist das eine eigene kleine Aufgabe mit Server. **Ihr nächster Schritt** erscheint nur mit sicherem
+Treffer (K5) und dann als Karte über den Kacheln, nicht statt ihnen. Hauptaktion: keine; rechts nur Aktualisieren.
 
 ### 5.2 Kunden
 
@@ -314,7 +315,9 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
 
 - Standorte: Tabelle statt Textfeld je Standort; Umbenennen über ein Stift-Symbol in der Zeile, „Stilllegen“ als
   Textknopf in `text-muted` mit Rückfrage. „+ Standort“ als Hauptaktion.
-- Karten: Tabelle Karte (Name) · Kunde · seit · Aktionen. Die technische Kennung steht nur im aufgeklappten Detail.
+- Karten: Tabelle Karte (Name) · Kunde („Pause“ bei Pausenkarten, „nicht zugeordnet“ in `text-muted`) · Aktionen.
+  Keine Spalte „seit“: der Zuordnungsbeginn wird heute nicht geliefert, und T-122a ändert keine Verträge. Die
+  technische Kennung steht nur im aufgeklappten Detail.
   „Zuordnung ändern“ öffnet ein Blatt mit genau einem Kundenwähler (Suchfeld mit Liste); „Entfernen“ mit Rückfrage
   nach D-137. Der heutige Block mit zwei Suchfeldern und zwei Auswahlfeldern entfällt.
 - „Standorte verwenden“ heißt „Standorte einschalten“; die Rückfrage erklärt in einem Satz, was sich ändert.
