@@ -72,7 +72,9 @@ Alle Werte stehen als CSS-Variablen in `apps/admin-web/src/styles.css` (heute `-
 ### 2.2 Auswahl des Themas
 
 - **Automatisch nach System** (`prefers-color-scheme`). Das ist die Vorgabe; niemand muss etwas einstellen.
-- **Umschalter** im Konto-Block der Seitenleiste: drei Knöpfe „Hell · Dunkel · Automatisch“, der aktive ist gefüllt.
+- **Umschalter** im Konto-Block der Seitenleiste: drei Knöpfe „Hell · Dunkel · Automatisch“; der aktive sieht aus
+  wie der aktive Navigationseintrag (Fläche `surface-raised`, Text `accent`), **nicht** gefüllt in `action`, sonst
+  hätte jede Seite zwei gefüllte Knöpfe (§ 1).
   Die Wahl liegt im Browser dieses Geräts (`localStorage`), nicht beim Server; sie gilt je Browser, nicht je Konto.
   Fehlt oder scheitert der Speicher, gilt Automatisch.
 - Umschalten wechselt sofort, ohne Neuladen; das Dokument trägt `data-theme="light|dark"` oder nichts für
@@ -99,20 +101,21 @@ Kleinbeschriftungen über Titeln („Eyebrow“) und Uhrzeiten in Kacheln die Mo
 - Oben das Zeichen (D-136, kompakt 28 px) mit „Taptura“ und darunter in Monospace „ZEIT. EINFACH. KLAR.“.
 - Unten der **Konto-Block**: „Angemeldet für“, Betrieb fett, Name · Rolle, dann der Themen-Umschalter, dann „Abmelden“
   als Textknopf in `accent`.
-- Schmal (unter 900 px): Seitenleiste wird zur oberen Leiste mit Menü-Knopf; die Gruppen bleiben als Abschnitte.
+- Schmal (unter 1024 px): keine Seitenleiste; siehe § 3.5.
 
 ### 3.2 Kopfbalken (nur hell)
 
 Im hellen Thema liegt über allem ein 56 px hoher Balken in `band`: links Zeichen und „Taptura“, dann der Betrieb hinter
-einer feinen Trennlinie, rechts Name · Rolle und „Abmelden“. Der Konto-Block in der Seitenleiste entfällt dann bis auf
-den Themen-Umschalter. Im dunklen Thema gibt es den Balken nicht; dort steht das alles in der Seitenleiste.
+einer feinen Trennlinie, rechts Name · Rolle und „Abmelden“. Die Seitenleiste beginnt dann direkt mit der ersten
+Gruppe (kein zweites Zeichen, kein zweites „Taptura“), und ihr Konto-Block entfällt bis auf den Themen-Umschalter und
+„So funktioniert Taptura“. Im dunklen Thema gibt es den Balken nicht; dort steht das alles in der Seitenleiste.
 
 ### 3.3 Seitenkopf (jede Seite)
 
 Links: Betrieb als Eyebrow in `accent` (Monospace, Versalien, 11 px, Laufweite 0,1 em), darunter der Titel (26 px,
 800), darunter eine Zeile Nebentext (Datum, Monat, Zählung). Rechts: die Aktionen in einer Zeile, höchstens drei: die
 Hauptaktion gefüllt, davor höchstens ein Umriss-Knopf (z. B. Monat), ganz rechts der Symbol-Knopf **Aktualisieren**
-(38 × 38 px, Umriss, Tooltip „Alle Bereiche aktualisieren“). Der heutige Lime-Knopf „Alle Bereiche aktualisieren“
+(44 × 44 px, Umriss, Tooltip „Alle Bereiche aktualisieren“). Der heutige Lime-Knopf „Alle Bereiche aktualisieren“
 entfällt auf allen Seiten.
 
 Der Fokus nach einem Seitenwechsel liegt weiter auf dem Titel (Barrierefreiheit), aber **ohne sichtbaren Rahmen** bei
@@ -123,17 +126,31 @@ Maus und Touch (`:focus-visible` nur bei Tastatur). Der heutige Mint-Kasten um d
 Eine Zeile am unteren Rand, Nebentext 11,5 px: links „Deutsche Ortszeit · Stand 14:03“, rechts „Version d193725“.
 „Deutsche Ortszeit“ steht nirgends sonst mehr.
 
+### 3.5 Schmale Bildschirme (unter 1024 px)
+
+Der schmale Aufbau bleibt der heutige (T-074), nur in den neuen Farben; er wird in T-122a nicht neu erfunden:
+
+- Oben **eine** Zeile, 56 px: Zeichen, „Taptura“, Betrieb; im hellen Thema in `band`, im dunklen in `surface`. Kein
+  zweiter Kopf darunter, kein Menü-Knopf.
+- Unten die heutige Navigationsleiste mit „Mehr“; das Blatt „Mehr“ enthält die übrigen Einträge, darunter den
+  Themen-Umschalter, Name · Rolle und „Abmelden“.
+- Tabellen werden wie heute zu gestapelten Zeilen mit Beschriftung je Wert (`data-label`); **kein** seitliches Scrollen.
+- Seitenkopf: Titel und Nebentext oben, die Aktionen darunter in einer Zeile, die Hauptaktion über die volle Breite.
+- Die Prüfregeln des Root-Browserlaufs (`scripts/browser/harness.mjs`: nichts außerhalb des Fensters, kein seitliches
+  Scrollen unter 1024 px, Bedienelemente mindestens 44 px, Eingabefelder mindestens 16 px, axe) gelten unverändert
+  in beiden Themen.
+
 ---
 
 ## 4 · Bausteine
 
 | Baustein | Regel |
 |---|---|
-| **Knopf, Hauptaktion** | gefüllt `action`, Text `on-action`, 600, 13 px, Höhe 38 px, Radius 9 px. Genau einer je Seite. Beim Speichern wird derselbe Knopf gesperrt und zeigt „Wird gesichert …“; er springt nicht und bekommt keinen Nachbarn. |
-| **Knopf, Nebenaktion** | Umriss `line`, Text `text`. Beliebig viele. |
-| **Textknopf** | ohne Rahmen, Text `accent`, 600. Für „Weitere laden“, „Alle anzeigen“, „Abmelden“. |
-| **Symbol-Knopf** | 38 × 38 px, Umriss, Symbol 16 px, Tooltip. Für Aktualisieren und Monat vor/zurück. |
-| **Eingabefeld** | Höhe 38 px, Fläche `surface` (hell: weiß), Rahmen `line`, Radius 9 px, Platzhalter `text-muted`. Suchfelder mit Lupe links und Beschriftung „Suchen“ als `aria-label`; der sichtbare Text „Suchen“ über dem Feld entfällt, der Platzhalter sagt „Name eingeben“. |
+| **Knopf, Hauptaktion** | gefüllt `action`, Text `on-action`, 600, 14 px, Höhe 44 px, Radius 9 px. Genau einer je Seite. Beim Speichern wird derselbe Knopf gesperrt und zeigt „Wird gesichert …“; er springt nicht und bekommt keinen Nachbarn. |
+| **Knopf, Nebenaktion** | Umriss `text-muted`, Text `text`, Höhe 44 px. Beliebig viele. |
+| **Textknopf** | ohne Rahmen, Text `accent`, 600, Trefferfläche 44 px hoch. Für „Weitere laden“, „Alle anzeigen“, „Abmelden“. |
+| **Symbol-Knopf** | 44 × 44 px, Umriss, Symbol 16 px, Tooltip. Für Aktualisieren und Monat vor/zurück. |
+| **Eingabefeld** | Höhe 44 px, Schrift 16 px (darunter zoomt iOS beim Tippen), Fläche `surface` (hell: weiß), Rahmen `text-muted`, Radius 9 px, Platzhalter `text-muted`. Suchfelder mit Lupe links und Beschriftung „Suchen“ als `aria-label`; der sichtbare Text „Suchen“ über dem Feld entfällt, der Platzhalter sagt „Name eingeben“. |
 | **Tabelle** | Kopfzeile Monospace 10,5 px Versalien `text-muted`, Linie darunter. Zeilen 44 px, Linie `line` zwischen den Zeilen, kein Zebra. Zahlen rechtsbündig, Tabellenziffern, Monospace. Erste Spalte beginnt mit 18 px Abstand. Unter der Tabelle „Weitere laden · 6 von 48“ als Textknopf. Schmal: erste Spalte fest, Rest scrollt seitlich (D-021). |
 | **Kachel** | Fläche `surface`, Rahmen `line`, Radius 12 px, 16 × 18 px Innenabstand, Höhe 118 px. Beschriftung oben klein, Zahl 34 px Monospace 600, unten ein Textknopf mit Pfeil. Orange Zahl nur bei „braucht Sie“. |
 | **Karte** | wie Kachel, mit Titel 15 px 800 links und Nebentext rechts in derselben Zeile. |

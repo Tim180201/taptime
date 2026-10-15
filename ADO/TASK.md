@@ -37,7 +37,9 @@ der Text; bei Fragen STOPP und melden, nicht raten.
 - Eine gefüllte Hauptaktion je Seite; Farbe nur mit Bedeutung (README § 1).
 - Keine festen Farben in Komponenten, nur Variablen. Ein Test findet jede Hex-Farbe außerhalb der Variablen.
 - Bestehende Tests, die Texte und Reihenfolgen prüfen, bleiben gültig; Tests, die den alten Aufbau prüfen, werden
-  mit Begründung angepasst.
+  mit Begründung angepasst. Das gilt auch für `scripts/browser/scenarios.mjs` und `scripts/browser/layout.test.mjs`
+  (Selektoren, Namen, Reihenfolgen); die Prüfregeln in `scripts/browser/harness.mjs` bleiben unverändert (README § 3.5).
+  Bedienelemente 44 px, Eingabefelder 16 px, schmal wie heute (README § 3.5, TL-Korrektur 15.10.).
 
 ### Tests
 
