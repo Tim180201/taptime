@@ -2,16 +2,18 @@
 
 **Stand 14.10.2026.** Produktion läuft auf `d193725` (Deploy 5 am 14.10., Migrationen 053–057). Ausgeliefert: T-116a,
 T-116b, T-117a, T-117b, T-118a, T-118b, T-120 (D-134 bis D-138). Neue App-Builds (TestFlight, Prüf-APK) zu `d193725`
-sind auf den PO-Geräten. Auf main, noch nicht ausgeliefert: T-119 (`3284c99`, Migration 058, D-139) und T-121
-(`4e64473`, Android-Karte ohne Antippen, nur zugeordnete Ziele, Tastatur); beide kommen mit Deploy 6.
-In Arbeit: T-122a (Web-Gestaltung mit zwei Themen, D-140). Supabase-Projekt am 14.10. vom PO
+sind auf den PO-Geräten. Auf main, noch nicht ausgeliefert: T-119 (`3284c99`, Migration 058, D-139), T-121
+(`4e64473`, Android-Karte ohne Antippen, nur zugeordnete Ziele, Tastatur) und T-122a (`e227f63`, Web mit hellem und
+dunklem Thema, PO-Abnahme der Fotos 15.10.); alle kommen mit Deploy 6. In Arbeit: T-122b (App-Themen, übrige
+Web-Seiten). Supabase-Projekt am 14.10. vom PO
 aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
 der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-122a und T-122b (Gestaltung, D-140) → App-Builds mit Android-Nachtest (T-121) → T-024 mit Deploy 6
-(T-119, T-121, T-122) → Pilot. Builds erst nach T-122b, damit ein Build beide Änderungen trägt (PO 14.10.).
+**Weg zum Pilot:** T-122b (App-Themen, übrige Web-Seiten) → App-Builds mit Android-Nachtest (T-121) → T-024 mit
+Deploy 6 (T-119, T-121, T-122) → Pilot. Builds erst nach T-122b, damit ein Build beide Änderungen trägt (PO 14.10.).
+Lohnexport und Business Central: erst die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -30,7 +32,7 @@ in T-121 behoben: die Grant-Erneuerung beim Vordergrund verschob die Zeitgrenze 
 noch nicht bestätigt) · unter „Meine Kunden und Projekte“ stehen weiter alle (T-121 ✓) · Tastatur bleibt nach Antippen
 eines Ziels offen (T-121 ✓) · Symbol „Zeit gespeichert“ im Kreis flackert gelegentlich (P2, Ursache ohne Gerät nicht
 erkennbar) · Web: Farben teils zu grell, „Kunde anlegen“ fehlt im Reiter Kunden, „Manuell“ und „Einrichtung“
-unübersichtlich (T-122a, D-140).
+unübersichtlich (T-122a ✓, D-140).
 **Noch offen:** je 20 Einrichtungen am iPhone und am Android; Einladung eines zweiten Kontos bis „App laden“; einmal
 VoiceOver und TalkBack; große Schrift; T-115 über Nacht am Ladekabel und zehnmal nach langer Sperre (0 von 10 mit
 „derzeit nicht verfügbar“, Code mit Foto melden). **Android-Nachtest zu T-121 mit dem Build nach T-122b,** jeweils ohne
@@ -108,8 +110,9 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
 - **Web:** globale Aktualisierung lädt Kundenstunden nicht neu (T-084) · Tags für die Standortleitung nur in der App
   (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
   (T-074) · `/app` bricht bei 200 % Schrift und 390 px mitten im Wort um, ohne Trennstrich (T-120, P3) ·
-  Aufzählungspunkt vor „Meine Kunden und Projekte“ in „Manuell“ (T-118b, P3) · Übersicht überschreibt
-  beim Prüfen den Suchstand der Einrichtung (T-118b, P3) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Zeitfehler in
+  Übersicht überschreibt beim Prüfen den Suchstand der Einrichtung (T-118b, P3) · am Handy dehnt sich die Pille
+  „läuft“ in der gestapelten Tabellenzeile über die volle Breite (T-122a, P3) · Admin-Bündel über 500 kB, Vite warnt
+  (T-122a, P2, keine neue Bündelarchitektur in der Gestaltung) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Zeitfehler in
   Lohnexport-Korrektur und „Zeiten prüfen“ nicht mehr per `aria-describedby` an den Feldern (T-113) · Anlegen meldet
   Fehler 23514 als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung.
 - **Server und SQL:** direkter SQL-Pfad `taptime_admin_setup` prüft keine Betriebspause (T-085) · `xmin` über

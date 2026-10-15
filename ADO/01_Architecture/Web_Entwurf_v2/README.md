@@ -248,7 +248,7 @@ Prüfmaßstab aus UI_Leitlinien § 1: Weiß jemand, der zum ersten Mal hier ist,
 versteht er jede Meldung ohne Hilfe? Der Durchgang über die heutigen Seiten (Stand `d193725`, Fotos der Browserläufe)
 ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort umgebaut wird, sonst zu T-122b.
 
-### 9.1 Sprache, überall
+### 8.1 Sprache, überall
 
 - **Ein Wort für die Sache.** „Zeit“ für den Zeiteintrag („Zeit läuft“, „Zeit hinzufügen“, „Zeit ändern“, „Zeit
   löschen“), wie in der App. „Erfassung“ nur für die Berührung mit der Karte. „Arbeitszeit“ nur in Summen („38:20 h
@@ -266,7 +266,7 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
   orange; die Rückfrage danach ist orange. Orange Wörter wie „überschneidet sich“ stehen nie allein, sondern mit dem
   Bezug: „überschneidet sich mit 11:00–11:30“.
 
-### 9.2 Anmeldung
+### 8.2 Anmeldung
 
 - Überschrift „Taptura Verwaltung“, darunter „Melden Sie sich mit Ihrem Zugang an.“ Die Werbezeile „Einfach sauber
   eingerichtet.“ bleibt der Startseite vorbehalten.
@@ -274,7 +274,7 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
   Verwaltung lädt Sie per E-Mail ein.“
 - Fehler direkt über dem Formular nach § 8.1, ohne Kategorie-Titel.
 
-### 9.3 Übersicht der Standortleitung
+### 8.3 Übersicht der Standortleitung
 
 - Statt des Auswahlfelds „Standort“ im Kopf steht bei genau einem Bereich der Bereich als Nebentext („Ihr Bereich:
   Nord · 12 Mitarbeiter“). Bei mehreren Bereichen ein Umriss-Knopf „Bereich: Nord ▾“ an derselben Stelle wie der
@@ -284,7 +284,7 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
 - Der Eintrag **Zeiten prüfen** in der Seitenleiste trägt eine Zahl in `notice`, solange Fälle offen sind (Entwurf
   18.09.). So sieht sie ohne Klick, ob etwas auf sie wartet.
 
-### 9.4 Mitarbeiter und Person
+### 8.4 Mitarbeiter und Person
 
 - Mitarbeiterliste: Seitenkopf mit Monat (Umriss) und „+ Mitarbeiter einladen“ (Hauptaktion, Administrator) bzw.
   ohne Hauptaktion (Standortleitung). Darunter Suchfeld und die Filter-Pillen „Alle · Zeit läuft · Keine Zeit“.
@@ -304,7 +304,7 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
 - Rückfrage beim Löschen: „Zeit löschen? 23.09., 10:00–12:00, Werkstatt am Park.“ mit „Löschen“ in `notice` und
   „Abbrechen“.
 
-### 9.5 Zeiten prüfen
+### 8.5 Zeiten prüfen
 
 - Seitenkopf: „Zeiten prüfen“, Nebentext „2 offene Fälle“. Reiter „Offen · Entschieden“.
 - Jeder Fall ist eine Karte in Menschensprache: **Was ist passiert** („Alex Berger hat am 20.07. um 11:00 eine Zeit
@@ -316,19 +316,21 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
 - Formulierungen der Engine („Reihenfolge der Erfassungen“, „Auslösende Erfassung“) erscheinen nicht; wenn ein Fall
   keine klare Übersetzung hat, STOPP und TL fragen, nicht umschreiben.
 
-### 9.6 Lohnexport
+### 8.6 Lohnexport
 
 - Seitenkopf: „Lohnexport“, Nebentext „Oktober 2026 · 12 Mitarbeiter · 1 offener Fall“. Monat als Umriss-Knopf,
   Hauptaktion **„CSV herunterladen“**. Der Monat ist vorbelegt (laufender Monat), nie leer; der rollende 31-Tage-
   Zeitraum verschwindet aus der Oberfläche.
-- Filter „Status“ und „Erfasst mit“ als Pillen unter dem Kopf; die Dateiwahl („Standard“ / „Kurz“) als Auswahlfeld
-  neben der Hauptaktion, mit Beschriftung „Datei“.
+- Filter „Status“ und „Erfasst mit“ als Pillen unter dem Kopf. Die Datei heißt ehrlich **„Einzelzeiten (CSV)“**, nicht
+  „Datei für die Lohnbuchhaltung“: sie ist eine Zeile je Zeit zum Prüfen und Nachrechnen, kein Import für ein
+  Lohnsystem (D-017; das Monatsformat mit Personalnummer ist T-123). Die beiden Fassungen bleiben wie heute als
+  Auswahlfeld neben der Hauptaktion („Standard“ · „Früheres Format“), Beschriftung „Datei“.
 - Tabelle Mitarbeiter · Kunde · Von–Bis · Dauer · Art · Status; Hinweise als Pille wie in § 8.4. Keine Spalten
   „Entstehung“ und „Änderungen“; der Verlauf liegt bei der Person.
 - Das Formular „Abgeschlossene Arbeitszeit korrigieren“ verschwindet vom Lohnexport; Korrekturen laufen über die
   Person (§ 8.4). Offene Fälle sind in der Tabelle gekennzeichnet und verlinken zu Zeiten prüfen.
 
-### 9.7 Einrichtung, zusätzlich zu § 5.4
+### 8.7 Einrichtung, zusätzlich zu § 5.4
 
 - Standorte: Tabelle statt Textfeld je Standort; Umbenennen über ein Stift-Symbol in der Zeile, „Stilllegen“ als
   Textknopf in `text-muted` mit Rückfrage. „+ Standort“ als Hauptaktion.
@@ -339,14 +341,14 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
   nach D-137. Der heutige Block mit zwei Suchfeldern und zwei Auswahlfeldern entfällt.
 - „Standorte verwenden“ heißt „Standorte einschalten“; die Rückfrage erklärt in einem Satz, was sich ändert.
 
-### 9.8 Kunden, zusätzlich zu § 5.2
+### 8.8 Kunden, zusätzlich zu § 5.2
 
 - Detail: „Zur Kundenliste“ als Umriss-Knopf im Seitenkopf; Stunden als Kachel („32:00 h · läuft“), daneben die
   Kachel Kontingent („kein Kontingent · Ändern“). „Umbenennen“ und „Löschen“ als Umriss-Knöpfe im Seitenkopf rechts
   der Hauptaktion; „Löschen“ fragt nach.
 - Die Liste „Stunden je Person“ als Tabelle Person · Stunden · Status, mit „Weitere Personen laden“.
 
-### 9.9 Hilfe
+### 8.9 Hilfe
 
 - Jede Seite erklärt sich im Nebentext des Seitenkopfs in einem Satz. Eine eigene Hilfeseite gibt es nicht.
 - Unten in der Seitenleiste ein Textknopf „So funktioniert Taptura“ mit einem Blatt, das die fünf Begriffe erklärt:
