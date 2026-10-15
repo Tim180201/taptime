@@ -313,8 +313,11 @@ ergab die folgenden Änderungen. Sie gehören zu T-122a, soweit die Seite dort u
   nachtragen · Zeit ändern · So lassen**. Der gewählte Knopf wird zur Hauptaktion, darunter öffnet sich nur das nötige
   Feld (Datum/Von/Bis bzw. Grund). Kein zweites Auswahlfeld „Entscheidung“, das den Knopf wiederholt.
 - „Eine frühere Erfassung muss zuerst geprüft werden“ wird zu: „Zuerst den Fall vom 19.07. entscheiden“ mit Link.
-- Formulierungen der Engine („Reihenfolge der Erfassungen“, „Auslösende Erfassung“) erscheinen nicht; wenn ein Fall
-  keine klare Übersetzung hat, STOPP und TL fragen, nicht umschreiben.
+- Formulierungen der Engine („Reihenfolge der Erfassungen“, „Auslösende Erfassung“) erscheinen nicht. Der Satz je
+  Prüfgrund steht als Erwartung in `apps/admin-web/tests/T122bReasons.test.ts` (TL-Entscheidung 15.10., ein Satz je
+  Grund aus `TIME_REVIEW_REASONS`). Unbekannte Gründe: „{Name} hat am {Datum} um {Uhrzeit} erfasst; daraus konnte
+  keine Zeit sicher gebildet werden. Prüfen Sie die Zeiten dieses Tages.“, darunter in `text-muted` „Für Rückfragen:
+  {Kennung}“. Ein neuer Grund im Vertrag braucht einen neuen Satz; der Test fällt sonst.
 
 ### 8.6 Lohnexport
 

@@ -1905,3 +1905,12 @@ der App bleibt dunkel. Entwurf und Regeln: `ADO/01_Architecture/Web_Entwurf_v2/`
 **Warum:** Die Verwaltung wirkte grell und unaufgeräumt (PO-Abnahme 14.10.); Kunden sollen zwischen hell und dunkel
 wählen können, ohne dass zwei Oberflächen gepflegt werden.
 
+## D-141 · Ein Entzug bleibt endgültig; Wiederaufnahme ist eine eigene Aufgabe · 15.10.2026 · Tim (PO), Claude (TL)
+Die Zugangsverwaltung im Web (T-105) wird vollständig gebaut, einschließlich Anmeldestand je Zugang und Filter, aber
+ohne „entzogenen Zugang wieder aufnehmen“ (F-153). Heute gilt: ein entzogener Zugang wird nie wieder verändert, und
+eine Person hat je Betrieb genau eine Mitgliedschaft; Offline-Berechtigungen, Belege und Archive bauen darauf.
+Wiederaufnahme heißt, diese Regel bewusst zu lockern. Richtung für T-125 (Pilotmonat 1): derselbe Zugang wird wieder
+aktiv, mit eigenem Protokolleintrag „MembershipReinstated“, keine zweite Mitgliedschaft, damit Stunden, Personalnummer
+und Export bei einer Kennung bleiben; vorher jede Stelle prüfen, die „entzogen ist endgültig“ voraussetzt. Bis dahin:
+versehentlich Entzogene neu einladen; alte Stunden bleiben unter der alten Mitgliedschaft sichtbar.
+**Warum:** Vor dem Pilot hat niemand einen Zugang verloren; die Lockerung ohne Not vor Deploy 6 wäre Risiko ohne Nutzen.

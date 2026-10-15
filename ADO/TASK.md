@@ -1,59 +1,67 @@
 # Aktuelle Aufgabe
 
-> **Stand 15.10.2026:** T-122a abgeschlossen (`e227f63`). Jetzt **T-122b**, danach App-Builds mit Android-Nachtest
-> (T-121) und T-024 mit Deploy 6 (T-119, T-121, T-122).
+> **Stand 15.10.2026:** T-122b abgeschlossen (`26eed76`). Jetzt **T-105**; parallel baut der PO die Apps und macht den
+> Android-Nachtest zu T-121. Danach T-024 mit Deploy 6 (T-119, T-121, T-122, T-105).
 
-## T-122b · App-Themen und übrige Web-Seiten (D-140)
+## T-105 · Zugänge verwalten (Wunsch PO 04.10., Schnitt PO 15.10.)
 
-**Für:** Development · **Risiko:** mittel (App: alle Bildschirme; Web: Seiten mit Fachlogik) · **Zeitbox:** zwei
-Sitzungen, eine für die App, eine für das Web; reißt sie, werden die fertigen Teile gemeldet, der Rest wird T-122c.
-Kein Server, keine Verträge, keine Migration.
+**Für:** Development · **Risiko:** hoch (Zugänge, Rollen, Entzug; Migration 059) · **Zeitbox:** zwei Sitzungen, eine
+Server und Verträge, eine Web; reißt sie, wird der Serverteil allein gemeldet. Unabhängiges Review (AGENTS § 4, Auth).
 
-### Vorlage
+### Entscheidung vorab (D-141)
 
-`ADO/01_Architecture/Web_Entwurf_v2/README.md`: § 6 (App), § 5.5 mit § 8.4 bis 8.6 (Web), dazu § 2 bis § 4 und § 3.5
-als Gerüst und Bausteine wie in T-122a. Bei Widerspruch gilt der Text; bei Fragen STOPP und melden. Zeigt der Entwurf
-etwas, das keine Antwort heute liefert: weglassen und im Bericht nennen, nicht erfinden (wie in T-122a).
+Ein Entzug bleibt endgültig. „Wieder aufnehmen“ (F-153) ist **nicht** Teil dieser Aufgabe; Richtung und Prüfung
+stehen in D-141, Umsetzung in T-125. Wer versehentlich entzogen wurde, wird neu eingeladen und bekommt eine neue
+Mitgliedschaft; die alten Stunden bleiben unter der alten im Export.
 
 ### Umfang
 
-1. **App (§ 6):** zwei Farbsätze in `apps/mobile/src/design/tokens.ts` (dunkel wie heute, hell nach § 2.1 ohne
-   `band`), Bildschirme lesen das Thema über einen Hook, keine festen Farben in Screens. Auswahl nach System,
-   Umschalter „Hell · Dunkel · Automatisch“ in „Übertragung“ unter dem Konto, gespeichert in `expo-secure-store`;
-   Statusleiste folgt. Startbild bleibt dunkel; der Erfassen-Kreis ist im hellen Thema eine dunkle Scheibe.
-   Keine Änderung an Erfassung, Offline, Karten oder Texten.
-2. **Mitarbeiter und Person (§ 8.4):** Tabelle, Aktionen in der Zeile, Verlauf aufklappbar, ein Zielwähler in
-   „Zeit hinzufügen“ und „Zeit ändern“, Rückfrage beim Löschen.
-3. **Zeiten prüfen (§ 8.5):** Fälle in Menschensprache, Tageszeiten als kleine Tabelle, drei Ergebnis-Knöpfe, kein
-   zweites Auswahlfeld. Hat ein Fall keine klare Übersetzung: STOPP und TL fragen.
-4. **Lohnexport (§ 8.6):** Monat vorbelegt, „CSV herunterladen“ als Hauptaktion, Datei heißt „Einzelzeiten (CSV)“,
-   Korrekturformular entfällt (läuft über die Person), offene Fälle verlinken zu Zeiten prüfen.
-5. **Meine Zeiten, Zugänge:** Gerüst und Bausteine, kein neuer Aufbau.
-6. **Betreiber-Bereich und Startseite (§ 5.5):** vollständig im Gerüst; Umschalter der Startseite in der Fußzeile.
+0. **Vorab, im selben Branch:** `T117SearchPostgres.test.ts` scheiterte im CI zu `26eed76` an der Transaktionsfrist
+   (Zeile 266, Schleife über alle Rollen; STATUS P2 „Suchtest unter Last“, zweiter Fall). Ursache im CI-Protokoll
+   nennen. Härtung nur im Test: eigene, großzügige Frist je Aufruf statt der Produktionsfrist, oder die Schleife in
+   Einzelfälle teilen; die Produktionsfrist bleibt. Begründung im Bericht.
+1. **Server (Migration 059):** Tabelle `membership_sign_ins` (organization_id, membership_id, first_signed_in_at,
+   last_signed_in_at; RLS wie die übrigen Anwendungstabellen, eigener NOLOGIN-Besitzer nach dem Muster aus 058).
+   Entsteht beim ersten erfolgreichen `/v1/session` oder `/v2/session` je Zugang, ändert sich bei jeder weiteren
+   Anmeldung (nur `last_signed_in_at`), verschwindet mit der Organisation (AGENTS 1.5). Schreibweg: eine
+   SECURITY-DEFINER-Funktion `record_membership_sign_in_v1`, aufgerufen nach erfolgreicher Auflösung der Sitzung;
+   ein Fehler dort bricht die Anmeldung **nicht** ab, wird aber protokolliert. Kein Schreiben in
+   `resolve_request_actor` (jede Anfrage), nur bei der Sitzung.
+2. **Lesen:** `read_managed_memberships_v4` liefert zusätzlich `first_signed_in_at`, `last_signed_in_at` und nimmt
+   einen Filter `active` (true, false, null). v3 bleibt unverändert; der Vertrag `memberships` in
+   `mobile-work-contract` bekommt `active?: boolean | null` in der Anfrage und die beiden Zeitpunkte in der Antwort.
+   Prüfung nach AGENTS 1.6: RLS und Besitzer aus dem Katalog, nicht aus Zahlen.
+3. **Web, Mitarbeiter-Seite mit zwei Reitern** „Zeiten“ (die heutige Tabelle) und „Zugänge“ (README § 3.3, § 4):
+   - Seitenkopf: Hauptaktion „+ Mitarbeiter einladen“ (Administrator; Standortleitung ohne Hauptaktion), Nebentext
+     mit „12 Zugänge · Paket 10“ und, falls überschritten, „Paket überschritten, alle Zugänge bleiben nutzbar“ in
+     `notice`. Der orangefarbene Absatz entfällt.
+   - Suche, Pillen „Alle · Aktiv · Entzogen“ (Serverfilter), Tabelle Person · Rolle · Standort · Anmeldung
+     („noch nicht angemeldet“ in `notice` / „zuletzt 14.10.“) · Zugang (Pille aktiv/entzogen) · Aktionen.
+   - Aktionen in der Zeile: „Rolle ändern“ öffnet ein Blatt mit den drei Rollen als Auswahl, einem Satz je Rolle
+     und bei Standortleitung dem Weg „Verwaltete Standorte zuweisen“; „Zugang entziehen“ mit der heutigen Rückfrage
+     und der Prüfung auf laufende Zeit. Entzogene Zeilen ohne Aktionen.
+   - Das Einladungsblatt bleibt wie heute; nach Erfolg steht die Person in der Tabelle als „noch nicht angemeldet“.
+   - Das aufklappbare Feld „Zugänge verwalten“ entfällt.
+4. **Betreiber-Bereich:** keine Änderung.
 
 ### Regeln
 
-- Keine fachliche Änderung: dieselben Wege, dieselben Texte (UI_Leitlinien § 3, D-125), dieselben Fehlerfälle.
-- Eine gefüllte Hauptaktion je Seite; Farbe nur mit Bedeutung; Bedienelemente 44 px, Eingabefelder 16 px.
-- Keine festen Farben in Komponenten und Screens, nur Variablen bzw. Tokens; ein Test findet jede Hex-Farbe.
-- Tests, die den alten Aufbau prüfen, werden mit Begründung angepasst; `scripts/browser/harness.mjs` bleibt.
+- Dieselben Schreibwege wie heute für Einladen, Rolle, Entzug; keine neue Berechtigung, kein Umweg um RLS.
+- Keine Anmeldezeit in Exporten, Belegen oder Protokollen; sie dient nur der Anzeige.
+- Eine gefüllte Hauptaktion je Seite; Texte nach UI_Leitlinien § 3, keine Technik.
 
 ### Tests
 
-Je Punkt rot vor der Änderung:
-- App: Themenwahl (System, Umschalter, Speicherung, Ausfall des Speichers), Kontrastpaare aus README § 2.1 je Thema
-  aus den Tokens gelesen, jeder Bildschirm in beiden Themen im Komponententest; Expo-Export beider Plattformen grün.
-  Keine Geräteprüfung in dieser Aufgabe (kommt mit den Builds).
-- Web: jede Seite in beiden Themen bei 390 und 1440 px, normal und 200 % Schrift, kein Überlauf, axe ohne Befund;
-  Fotos nach README § 7 in `.t122b-review/screenshots/`; eine Hauptaktion je Seite; Root-Browsermatrix grün.
-- Alle Suiten, Typecheck, Builds und Bundles grün.
+Je Punkt rot vor der Änderung: Anmeldung erzeugt und aktualisiert den Eintrag, Fehler beim Schreiben bricht die
+Sitzung nicht ab; Mandantentrennung der neuen Tabelle (fremde Organisation sieht nichts); Filter aktiv/entzogen; v3
+unverändert; Web beide Reiter in beiden Themen bei 390/1440 px und 200 % Schrift, Fotos nach README § 7, eine
+Hauptaktion; Root-Browsermatrix; alle Suiten, Typecheck, Builds, Migration 059 gegen PostgreSQL 17 mit Drift-Probe.
 
 ### Grenzen
 
-Kein Server, keine Migration, keine Verträge, keine Fachregel. Kein Deploy, kein EAS-Build. ADO nicht ändern.
+Keine Wiederaufnahme nach Entzug, keine E-Mail-Anzeige, keine App-Änderung, kein Deploy. ADO nicht ändern.
 
 ### Bericht
 
-`.t122b-review/` (report.md, tracked.diff, untracked.txt, screenshots/). Unabhängiges Review in einer Runde, eine
-zweite nur bei P1/P2. **Der PO nimmt die Gestaltung anhand der Fotos ab, bevor der TL technisch abnimmt.** Kein Commit
-vor `APPROVED` durch den TL. Danach App-Builds, Android-Nachtest (STATUS) und T-024 mit Deploy 6.
+`.t105-review/` (report.md, tracked.diff, untracked.txt, screenshots/). Unabhängiges Review in einer Runde, eine
+zweite nur bei P1/P2. Der PO nimmt den Reiter anhand der Fotos ab, dann der TL technisch. Kein Commit vor `APPROVED`.
