@@ -1920,3 +1920,23 @@ und Export bei einer Kennung bleiben; vorher jede Stelle prüfen, die „entzoge
 ist ein Entzug endgültig: eine Neueinladung derselben Person scheitert (`former_membership`, 040; eine Mitgliedschaft
 je Betrieb, 001). Die Rückfrage sagt das („Das lässt sich nicht rückgängig machen.“, T-105).
 **Warum:** Vor dem Pilot hat niemand einen Zugang verloren; die Lockerung ohne Not vor Deploy 6 wäre Risiko ohne Nutzen.
+
+## D-142 · Namen von Zugängen sind änderbar · 15.10.2026 · Tim (PO), Claude (TL)
+Ändert die Unveränderlichkeit aus C3E1 (Migration 008, ADR-0013) für Zugänge, wie D-108 es für Kunden getan hat: Der
+Administrator ändert den Namen jedes aktiven Zugangs, die Standortleitung den aktiver Mitarbeiter ihres Bereichs; mit
+Befehls-ID, Version und Protokolleintrag ohne Namen. Entzogene Zugänge bleiben unverändert (D-141). Ein Name lässt sich
+nicht leeren. Exporte und Listen zeigen immer den aktuellen Namen; die feste Kennung je Person bleibt die
+Zugangs-Kennung (später zusätzlich die Personalnummer, T-123). Fehlt ein Name, sagt die Verwaltung das deutlich.
+Umsetzung in T-126.
+**Warum:** Zugänge von vor T-107 haben keinen Namen und erscheinen im Lohnexport leer; ein Tippfehler bei der Einladung
+bliebe sonst für immer in der Lohnabrechnung (PO 15.10.).
+
+## D-143 · Gelöschtes und Entzogenes: Arbeiten nur mit Aktiven, Zahlen vollständig, sonst Archiv · 15.10.2026 · Tim (PO)
+Gelöschte Kunden und Projekte und ehemalige Mitarbeiter erscheinen nicht mehr dort, wo gearbeitet wird (Übersicht,
+Auswahlen, Zuordnen, Einrichtung, Zugänge, App-Listen). Wo Zahlen eines Monats stehen (Lohnexport, Kundenzeiten,
+Mitarbeiter → Zeiten, Zeiten prüfen), erscheinen alle mit Zeit in diesem Monat, Ehemalige getrennt oder markiert. Alles
+andere steht im Archiv der Verwaltung: Administrator alles, Standortleitung ihr Bereich nach dem letzten Standort.
+Lesen ist dort ohne Frist erlaubt; Ändern, Nachtragen und Prüfen bleiben nach D-115. Ergänzt D-108, D-115 und D-141;
+Umsetzung in T-127a (Server) und T-127b (Web). Aufbewahrung und endgültiges Löschen regelt später das Löschkonzept (B15).
+**Warum:** Im laufenden Betrieb stören Ehemalige (etwa in „Gerade aktiv“), während Monatssummen sie brauchen; unter
+Mitarbeiter → Zeiten fehlten sie in älteren Monaten bisher ganz (PO 15.10., Erhebung TL).

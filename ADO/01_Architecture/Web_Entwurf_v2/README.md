@@ -100,7 +100,7 @@ Kleinbeschriftungen über Titeln („Eyebrow“) und Uhrzeiten in Kacheln die Mo
 ### 3.1 Seitenleiste (dunkel und hell)
 
 - Breite 236 px, zwei Gruppen mit Gruppentitel in Monospace-Kapitälchen: **Arbeit** (Übersicht, Kunden, Mitarbeiter,
-  Zeiten prüfen, Meine Zeiten, Manuell) und **Verwaltung** (Einrichtung, Lohnexport). Standortleitung und Mitarbeiter
+  Zeiten prüfen, Meine Zeiten, Manuell) und **Verwaltung** (Einrichtung, Lohnexport, Archiv). Standortleitung und Mitarbeiter
   sehen nur, was sie heute sehen; die Gruppen bleiben.
 - Jeder Eintrag: Symbol 16 px plus Wort. Symbole wie heute (Lucide); kein Eintrag ohne Symbol.
 - Aktiver Eintrag: Fläche `surface-raised`, Text `accent`. Kein Balken, keine Unterstreichung.
@@ -231,6 +231,22 @@ Jeder Reiter beginnt mit genau einem Erklärsatz links (max. 70 Zeichen je Zeile
 Mitarbeiter, Person, Zeiten prüfen, Meine Zeiten, Lohnexport, Zugänge, Betreiber-Bereich und Startseite übernehmen
 Gerüst und Bausteine. Zeiten prüfen: eine Tabelle je Tag, die Entscheidung als Umriss-Knöpfe in der Zeile, der
 gewählte als Hauptaktion. Lohnexport: Monat als Umriss, „CSV herunterladen“ als Hauptaktion.
+
+### 5.6 Archiv (T-127, D-143)
+
+Eine Regel für alles, was gelöscht oder entzogen ist:
+
+- **Zum Arbeiten nur Aktive.** Übersicht, Auswahllisten, Zuordnen, Einrichtung, Karten und Zugänge zeigen nur aktive
+  Kunden, Projekte und Mitarbeiter.
+- **Bei Zahlen eines Monats alle, die in diesem Monat Zeit haben.** Lohnexport, Kundenzeiten, Mitarbeiter → Zeiten und
+  Zeiten prüfen zeigen Ehemalige mit Zeit im Monat; in Listen unten in einem eigenen Abschnitt („Ehemalige · Zeiten in
+  diesem Monat“, „Gelöschte Kunden · Zeiten in diesem Monat“), sonst mit der neutralen Pille „ehemalig“ bzw.
+  „gelöscht“ neben dem Namen.
+- **Alles andere im Archiv:** Seite „Archiv“ unter „Verwaltung“ mit zwei Reitern, „Ehemalige Mitarbeiter“ (Person ·
+  Standort · Ausgeschieden · Letzte Zeit) und „Gelöschte Kunden und Projekte“ (Name · Art · Standort · Gelöscht ·
+  Letzte Zeit). Suchfeld wie überall, „Weitere laden“, je Zeile „Zeiten ansehen ›“ (nicht bei Projekten). Keine
+  Hauptaktion, keine Änderung; später steht hier „Wieder aufnehmen“ (T-125). Administrator sieht alles, die
+  Standortleitung ihren Bereich (letzter Standort).
 
 ---
 

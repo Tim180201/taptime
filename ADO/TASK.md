@@ -1,100 +1,182 @@
 # Aktuelle Aufgabe
 
-> **Stand 15.10.2026:** Deploy 6 abgeschlossen (`d193725` → `fb28166`, Migrationen 058 und 059). T-024 Teil A
-> abgeschlossen (`7e36c58`). Jetzt **T-122c** aus der Web-Abnahme des PO nach Deploy 6, danach T-126 (Name ändern,
-> Brief folgt); dann Deploy 7 (T-024a, T-122c, T-126) mit neuem Deploy-Schlüssel und T-024 Teil B an der Konsole (PO,
-> TL begleitet; Runbook in `infrastructure/DEPLOY.md`).
+> **Stand 15.10.2026:** Deploy 6 abgeschlossen (`d193725` → `fb28166`). T-024 Teil A (`7e36c58`) und T-122c
+> (`e614779`) abgeschlossen; die CI zu `e614779` brach nur am Zeitlimit der Browser-Prüfstrecke ab, deshalb gibt es dazu
+> kein Image. Reihenfolge: **T-122d** (jetzt), dann T-126 (Namen ändern), T-127a und T-127b (Archiv); je ein Auftrag,
+> je ein Review, je ein Commit. Danach Deploy 7 mit allem und T-024 Teil B an der Konsole (PO, TL begleitet; Runbook in
+> `infrastructure/DEPLOY.md`).
 
-## T-122c · Kopfbalken in beiden Themen, fest oben; ein Monatsschalter (D-140)
+## T-122d · Browser-Prüfstrecke in drei Teilen (CI-Zeitbox)
 
-**Für:** Development · **Risiko:** niedrig bis mittel (nur Verwaltung im Browser, keine Daten; berührt jede Seite mit Monat) · **Zeitbox:** eine Sitzung.
+**Für:** Development · **Risiko:** niedrig (nur Testaufteilung und CI, kein Produktcode) · **Zeitbox:** kurz. Review
+durch den TL.
 
 ### Warum
 
-Web-Abnahme des PO nach Deploy 6 (15.10.): Hell und Dunkel haben verschiedenen Aufbau. Der Kopfbalken mit Betrieb,
-Name · Rolle und „Abmelden“ steht nur im hellen Thema; im dunklen liegt dasselbe als Zeichen und Konto-Block in der
-Seitenleiste. Das widerspricht D-140 (ein Aufbau, zwei Farbsätze); die Ausnahme stand im Entwurf (TL), die Umsetzung
-folgte ihm. Zweitens scrollt der Balken mit, während die Seitenleiste fest 56 px tiefer bleibt: Beim Scrollen entsteht
-oben links eine Lücke, durch die der Inhalt läuft. Dazu zwei Kleinigkeiten aus denselben Fotos: „Administrator ·
-Administrator“ im Balken und der Betrieb doppelt (Balken und Eyebrow über jedem Titel). Der Entwurf ist angepasst:
-`ADO/01_Architecture/Web_Entwurf_v2/README.md` § 2, § 2.1, § 2.2, § 3.1 bis § 3.3 und § 3.5.
-
-Drittens (P1, vom TL nachgestellt): Im Lohnexport wird die Seite leer, sobald man im Monatsfeld etwas ändert.
-`<input type="month">` meldet beim Tippen Zwischenwerte wie `0002-10` (Chromium) oder ist in manchen Browsern ein Textfeld;
-`navigate` übernimmt jeden nicht leeren Wert, `monthTimeWindow(month)!` ist dann `null`, das Rendern wirft
-(„Cannot read properties of null (reading 'fromInclusive')“), und ohne Fehlergrenze verschwindet die ganze Verwaltung.
-Jeder Pfeil im Feld lädt außerdem sofort neu. Dazu gibt es heute drei verschiedene Monatswähler (Monatsfeld in
-Lohnexport und Zeiten prüfen, Auswahlliste in Mitarbeiter und Kunden, ←/→ im Kalender). PO-Entscheidung 15.10.: ein
-Monatsschalter überall, Lohnexport startet mit dem Vormonat (README § 4 „Monatsschalter“, § 8.6).
+Die CI zu `e614779` (T-122c) wurde abgebrochen: Der Job „Web layouts and accessibility“ überschritt sein Zeitlimit von
+15 min. Der Browserschritt lief von 20:17 bis 20:31 und steckte noch in der Betreiber-Matrix; der neue T-122c-Test
+selbst war nach rund 151 s grün. Die Strecke lag schon vorher nahe am Limit (lokal 12½ min) und wächst mit T-126 und
+T-127b weiter. Ohne grüne CI baut der Image-Workflow nichts.
 
 ### Umfang
 
-1. **Ein Aufbau in Hell, Dunkel und Automatisch (ab 1024 px).** Der Kopfbalken steht in jedem Thema, an derselben
-   Stelle, mit demselben Inhalt. Alle themenabhängigen Regeln für die Sichtbarkeit von Balken, Seitenleisten-Zeichen,
-   Konto-Block und `--band-height` entfallen (heute in `apps/admin-web/src/styles.css` etwa Zeile 692–716 und
-   878–879). Die Seitenleiste zeigt in jedem Thema nur die Navigation und unten den Themen-Umschalter und „So
-   funktioniert Taptura“; kein Zeichen, kein Konto-Block, kein „Abmelden“. Das Blatt „Mehr“ unter 1024 px behält
-   Konto-Block und „Abmelden“, weil es dort keinen Balken gibt.
-2. **Farbe des Balkens je Thema, nur über Variablen.** Hell wie heute: `band` `#0E1512`, ohne Linie. Dunkel: `band`
-   ist `surface` (`#151E1A`), darunter eine 1-px-Linie in `line` (`#25332D`); der heutige dunkle Wert `#0E1512` wäre
-   auf `ground` (`#0F1613`) unsichtbar. Dafür eine Variable `--color-band-line` (hell gleich `band`, dunkel gleich
-   `line`) in allen drei Themenblöcken. Die Kontrastpaare `band-text` und `band-text-muted` auf `band` prüft der
-   bestehende Kontrasttest in beiden Themen aus den Variablen (dunkel rechnerisch 15,2 und 6,7 : 1).
-3. **Fest oben.** Balken `position: sticky; top: 0` (oder `fixed` mit gleichwertigem Platzhalter), feste Höhe 56 px,
-   genau eine Zeile; Betrieb und Name · Rolle kürzen mit Auslassungszeichen, der volle Text steht im `title`. Die
-   Seitenleiste bleibt `fixed` und beginnt in jeder Scrollstellung genau an der Unterkante des Balkens, auch beim
-   Nachfedern in Safari unter macOS. Stapelordnung: der Balken liegt über allem, was im Inhalt klebt (Tabellenköpfe und
-   erste Spalte mit `z-index` 2 und 3, `.manual-start-bar`), und unter Blättern und Dialogen (`.invitation-panel` mit
-   5, `MobileSheet`, `dialog`). Auf dem Dokument `scroll-padding-top` in Balkenhöhe, damit Sprungziele, Fokus und
-   `scrollIntoView` (Kalender, Zeitformular, Einrichtung) nicht unter dem Balken landen.
-4. **Name · Rolle.** Hat die Mitgliedschaft keinen eigenen Namen, liefert der Server das Rollenwort als Namen
-   (`COALESCE(display_name, …)` in den Lesefunktionen; je nach Funktion „Administrator“, „Standortleitung“,
-   „Mitarbeiter“ oder „Beschäftigter“). Ist der gelieferte Name eines dieser Wörter, steht nur die Rolle da, nicht
-   „Administrator · Administrator“. Eine Funktion für Balken und Konto-Block im Blatt „Mehr“. Keine Server-Änderung.
-5. **Betrieb nicht doppelt.** Der Betrieb steht im Balken (breit) und in der oberen Zeile (schmal). Die Eyebrow mit dem
-   Betrieb über dem Seitentitel (`PageHeader`) entfällt auf dem Bildschirm und bleibt im Druck, wo der Balken fehlt.
-   Die Eyebrow „Taptura“ auf Willkommens- und Passwortseite bleibt.
-6. **Schmal (unter 1024 px)** bleibt wie heute: eine obere Zeile, die mitscrollt, unten die feste Navigationsleiste.
-   Im dunklen Thema bekommt die obere Zeile unten dieselbe Linie wie der Balken. `--band-height` ist dort 0.
-7. **Monatsschalter** nach README § 4 als **ein** Baustein (z. B. `MonthSwitch` mit Wert, Bereich und `onChange`),
-   eingesetzt in Lohnexport, Mitarbeiter (Reiter „Zeiten“), Kunden (Liste und Detail), Person und Meine Zeiten
-   (ersetzt die Pfeile im Kalender) und Zeiten prüfen („Monat der Arbeitszeit“). Danach gibt es in `apps/admin-web`
-   kein `type="month"` und keine Monats-Auswahlliste mehr. Der Baustein liefert nur gültige Monate im Bereich; schnelles
-   Klicken darf keinen älteren Monat über einen neueren schreiben. Den Bereich von Meine Zeiten aus dem heutigen Code
-   ableiten und im Bericht nennen.
-8. **Lohnexport startet mit dem Vormonat**, wenn die Adresse keinen Monat trägt; Nebentext „<Monat> · abgeschlossen“
-   oder „<Monat> · läuft noch“ (§ 8.6). Andere Seiten starten wie heute mit dem laufenden Monat.
-9. **Keine weiße Seite mehr:** Kein `!` auf `monthTimeWindow(...)` in den Ansichten; ein ungültiger Monat fällt auf
-   den Startmonat der Seite zurück. Dazu eine Fehlergrenze um die angemeldete Verwaltung: Statt einer leeren Seite
-   steht „Diese Seite konnte nicht angezeigt werden.“ mit „Neu laden“, ohne technische Einzelheiten; die Diagnose
-   geht nur in die Konsole. Seitenleiste und Balken bleiben bedienbar, wenn nur der Inhalt scheitert.
-10. **Tests:**
-    - Browser-Matrix (`scripts/browser/`) bei 1024 und 1440 px in Hell, Dunkel und Automatisch mit beiden
-      Systemvorgaben: Balken sichtbar; Höhe des Balkens und waagrechte Lage von Zeichen, Betrieb, Name · Rolle und
-      „Abmelden“ in allen Themen gleich (±1 px); Seitenleiste ohne Zeichen, ohne Konto-Block, ohne „Abmelden“.
-    - Auf einer langen Seite mit Tabelle (Mitarbeiter oder Zeiten prüfen) nach `scrollTo(0, 800)`: Balken `top` 0,
-      Seitenleiste `top` gleich Balken-Unterkante (±0,5 px); `elementFromPoint` an fünf Punkten im Balken trifft den
-      Balken, ein Punkt 4 px unter dem Balken bei x = 10 trifft die Seitenleiste. Ein offenes Blatt (Einladen) liegt
-      über dem Balken.
-    - Einheit: Namensregel (eigener Name → „Name · Rolle“; Rollenwort → nur Rolle).
-    - Druck: Balken nicht sichtbar, Eyebrow mit Betrieb sichtbar.
-    - Die bestehenden Prüfregeln (nichts außerhalb des Fensters, 44 px, 16 px, kein seitliches Scrollen unter 1024 px,
-      axe) bleiben in beiden Themen grün.
-    - Monatsschalter: ‹ und › wechseln den Monat und die Adresse; › ist im laufenden Monat gesperrt; die Übersicht
-      öffnet mit dem Fokus auf dem gewählten Monat, Esc schließt und gibt den Fokus zurück; künftige Monate gesperrt;
-      fünfmal ‹ schnell hintereinander → Tabelle und Nebentext zeigen den fünften Monat. Der Fall des PO als
-      Rotnachweis: alter Stand mit Tippen in die Jahreszahl → leere Seite; neuer Stand: kein Eingabefeld, und ein
-      erzwungener Renderfehler zeigt die Meldung der Fehlergrenze statt einer leeren Seite.
-    - Lohnexport ohne `?monat=` zeigt den Vormonat; mit `?monat=` den genannten.
-    - Fotos: 1440 px hell und dunkel, jeweils oben und gescrollt; 390 px hell und dunkel; Monatsübersicht offen in
-      beiden Breiten.
+1. **Aufteilung in `scripts/browser/layout.test.mjs`** über `TAPTIME_LAYOUT_SHARD=<n>/<m>` (z. B. `2/3`). Jeder
+   Test der Datei bekommt beim Registrieren eine feste laufende Nummer; Teil n führt genau die Tests mit
+   `Nummer mod m = n − 1` aus. Ohne Variable läuft alles wie heute, lokal ändert sich nichts. Ein ungültiger Wert
+   bricht sofort ab, ein Teil ohne Test ebenso. Das `before` baut nur, was der Teil braucht, wenn das ohne Umbau geht.
+2. **CI:** Job `web-layout` als Matrix `shard: [1, 2, 3]` mit `fail-fast: false`, Name „Web layouts and accessibility
+   (n/3)“, Zeitlimit bleibt 15 min je Teil. Der Landing-Browsertest
+   (`npm run test:browser --workspace=@taptime/landing-web`) läuft genau einmal. Prüfskripte, die `ci.yml` lesen,
+   werden passend nachgezogen. Der Image-Workflow bleibt unverändert (er prüft nur das Gesamtergebnis der CI).
+3. **Vollständigkeit belegen:** ein kleiner Node-Test der Aufteilung (für m = 1, 2, 3: jede Nummer genau einmal).
+   Jeder Teil nennt am Ende die Zahl seiner Tests; im Bericht stehen die drei Zahlen, ihre Summe und die Zahl ohne
+   Aufteilung (müssen gleich sein), dazu die Laufzeit je Teil lokal.
 
 ### Grenzen
 
-Nur `apps/admin-web` und `scripts/browser`. Keine Änderung an Server, Migrationen, App, Betreiber-Bereich und
-Startseite. Keine neue Farbe außer `band` (dunkel) und `band-line`; neuer Baustein nur der Monatsschalter. Leere
-Namen in Lohnexport-Liste und CSV löst T-126 (Name ändern), nicht diese Aufgabe. ADO nicht ändern.
+Kein Produktcode, keine Testinhalte, kein Test entfernt oder gelockert, kein höheres Zeitlimit. ADO nicht ändern.
+Bericht in `.t122d-review/`; kein Commit vor `APPROVED`. Nach dem Commit müssen CI (alle drei Teile) und der
+Image-Workflow grün sein.
 
-### Bericht
+---
 
-`.t122c-review/` (report.md, tracked.diff, untracked.txt, Fotos). Kein Commit vor `APPROVED` durch den TL.
+## Danach: T-126 · Namen von Zugängen ändern (D-142)
+
+**Für:** Development · **Risiko:** mittel (Datenbank, Berechtigung, Lohnexport) · **Zeitbox:** eine Sitzung. Unabhängiges
+Review (AGENTS § 4). Beginnt nach T-122d.
+
+### Warum
+
+Web-Abnahme des PO nach Deploy 6: Im Lohnexport stehen Zeiten des Administrators ohne Namen. Sein Zugang stammt von vor
+T-107 (Migration 050) und hat keinen Namen; die Lesewege setzen dann einen leeren Text ein (Lohnexport-Liste
+`read_effective_time_records_v2`, CSV `read_effective_time_entry_export_v3`, Zeiten prüfen) oder das Rollenwort
+(Mitarbeiter, Zugänge). Seit C3E1 verhindert der Trigger `memberships_display_name_immutable` (Migration 008) jede
+Änderung: Auch ein Tippfehler bei der Einladung bliebe für immer in der Lohnabrechnung. Kunden sind seit D-108
+umbenennbar (Migration 046), Zugänge nicht.
+
+### Umfang
+
+1. **Migration 060**, nach dem Muster von „Kunde umbenennen“ (046) und `manage_membership_v1` (058):
+   - `rename_membership_v1(command_id, target_membership_id, expected_row_version, display_name)` unter
+     `taptime_membership_manager`, SECURITY DEFINER nach den Regeln aus T-119 (Katalogtest). Idempotent über die
+     Befehls-ID wie `manage_membership_v1`; dieselbe Befehls-ID mit anderem Inhalt → `command_id_conflict`.
+   - Name über `normalize_membership_display_name_v1`; leer, ungültig oder unverändert → `invalid_request`.
+   - Berechtigung: Administrator für jeden aktiven Zugang des Betriebs, auch den eigenen und andere Administratoren;
+     Standortleitung nur für aktive Mitarbeiter (Rolle `employee`) mit Heimatstandort in ihren Grants, wie beim Entzug.
+     Sonst `forbidden`. Entzogene Zugänge bleiben unverändert (D-141): Antwort wie beim Entzug (`already_departed`
+     bzw. `forbidden`). Veraltete Version → `stale_row_version`.
+   - Der Trigger wird so ersetzt, dass `display_name` nur über diese Funktion änderbar ist, nie bei entzogenen Zugängen
+     und nie zurück auf leer.
+   - Protokoll: eigenes Ereignis `MembershipRenamed` mit `changedFields: ['name']` und `rowVersion`, ohne alten oder
+     neuen Namen (wie bei Kunden). Eine Umbenennung darf nicht mehr als `MembershipRoleChanged` gebucht werden.
+   - Lebenszyklus nach AGENTS 1.5 (was entsteht, wer es ändert, wie es entfernt wird) im Bericht.
+2. **API und Vertrag:** neuer Weg wie „Rolle ändern“ (gleiche Fehlerabbildung, gleiche Zeitgrenzen), Vertrag in
+   `apps/admin-web/src/contracts.ts`.
+3. **Web:** „Name ändern“ als Nebenaktion im Seitenkopf der Person und als Zeilenaktion unter Zugänge neben „Rolle
+   ändern“. Blatt mit einem Feld „Name“ (vorbelegt mit dem eigenen Namen, leer, wenn keiner da ist) und der Hauptaktion
+   „Namen speichern“. Meldungen in Menschensprache (README § 8.1). Nach dem Speichern zeigen Balken, Listen und
+   Lohnexport den neuen Namen ohne Neuladen der Seite.
+4. **Nebenbei aus der Abnahme von T-122c (P3):** Der Monatsknopf im Monatsschalter bekommt eine feste Mindestbreite
+   für den längsten Monatsnamen („September 2026“), damit ‹ beim Blättern nicht springt.
+5. **Fehlender Name sichtbar machen:** In Lohnexport-Liste und Zeiten prüfen steht bei leerem Namen „Name fehlt“ (Text
+   in `notice`) als Link zur Person. Ist unter den geladenen Zeiten mindestens eine ohne Namen, steht über der Tabelle
+   ein Hinweis-Band: „Bei mindestens einer Person fehlt der Name. In der CSV bleibt er dann leer. Namen bei der Person
+   ergänzen.“
+6. **Tests:** PostgreSQL 17: Erfolg als Administrator und als Standortleitung; fremder Standort; Standortleitung auf
+   Administrator oder Standortleitung; entzogener Zugang; veraltete Version; Idempotenz und Konflikt; direkte
+   Änderung am Trigger scheitert; Ereignis ohne Namen; Normalisierung; Katalogtest. API; Web-Einheit; Browser für das
+   Blatt (390 und 1440 px, beide Themen) und das Hinweis-Band im Lohnexport.
+
+### Grenzen
+
+Keine Änderung an App, CSV-Format und an entzogenen Zugängen. Kein neuer App-Build (die App liest Namen vom Server).
+ADO nicht ändern. Bericht in `.t126-review/`; kein Commit vor `APPROVED`.
+
+---
+
+## Danach: T-127a · Archiv auf dem Server (D-143)
+
+**Für:** Development · **Risiko:** mittel (Datenbank, Berechtigung) · **Zeitbox:** eine Sitzung. Unabhängiges Review.
+Beginnt nach T-126.
+
+### Warum
+
+PO 15.10.: Gelöschte Kunden und Projekte und ehemalige Mitarbeiter sollen im laufenden Betrieb nicht mehr erscheinen,
+nur noch dort, wo Zahlen eines Monats stehen, und sonst in einem Archiv für Administrator und Standortleitung (nur ihr
+Bereich). Heute ist das uneinheitlich (Erhebung 15.10.): „Gerade aktiv“ zeigt Ausgeschiedene mit „Keine Zeit“
+(`read_managed_active_summary_v5` nimmt entzogene Zugänge bei `requested_is_running = true` mit, 056:341); unter
+Mitarbeiter → Zeiten fehlen in älteren Monaten Personen, deren Austritt länger zurückliegt (Frist D-115 statt „hat Zeit
+im Monat“), die Summen sind dort also unvollständig; entzogene Zugänge sieht unter Zugänge nur der Administrator ohne
+Standortwahl (`read_managed_memberships_v4` verbindet nur aktuelle Heimatstandorte, 059:213–238); ein Archiv fehlt.
+
+### Umfang
+
+1. **Migration 061:**
+   - `read_archive_people_v1` (Suche, Blättern nach Name und Kennung, höchstens 51 je Seite, Seiten höchstens 14 KiB
+     wie T-117a; optional genau eine Kennung für die Personenansicht): entzogene Zugänge im Bereich. Administrator
+     alle; Standortleitung, wenn der letzte Heimatstandort (`membership_management_home_v1`) in ihren Grants liegt,
+     **ohne Frist**. Spalten: Kennung, Name (ohne Ersatzwort), Rolle, letzter Standort, `revoked_at`, Beginn der
+     letzten Zeit (oder leer).
+   - `read_archive_targets_v1` (gleiche Suche und Seiten): stillgelegte Kunden und Projekte im Bereich. Administrator
+     alle; Standortleitung über die letzte Standortbindung, wie inaktive Kunden in `read_customer_hours_v3`
+     (056:48–54). Spalten: Art, Kennung, Name, Standort, `deactivated_at`, Beginn der letzten Zeit.
+   - `read_managed_active_summary_v6`: wie v5, aber Ehemalige erscheinen genau dann, wenn sie im angefragten Monat Zeit
+     haben (statt Frist D-115), für Administrator und Standortleitung des letzten Heimatstandorts; bei
+     `requested_is_running = true` nie; Zählungen weiter nur Aktive.
+   - `read_managed_person_time_v2`: wie v1, aber die Standortleitung liest Ehemalige ihres letzten Heimatstandorts
+     ohne Frist. Dazu ein Merkmal, ob der Aufrufer Zeiten dieser Person ändern darf (dieselbe Prüfung wie
+     `has_time_management_authority_v1`; Ändern, Nachtragen und Prüfen bleiben nach D-115).
+   - `read_archive_status_v1`: für bis zu 200 Kennungen von Personen und Zielen, die der Aufrufer lesen darf, ob der
+     Zugang entzogen bzw. das Ziel stillgelegt ist; nicht lesbare Kennungen werden ausgelassen. Damit markiert das Web
+     Ehemalige in Lohnexport, Zeiten prüfen und Kundendetail, ohne neue Fassungen dieser großen Lesewege.
+2. **API und Verträge** für alle fünf; die alten Fassungen bleiben (die App nutzt v5 und v1).
+3. **Tests (PostgreSQL 17):** Bereich (Administrator, Standortleitung eigener und fremder Standort, Mitarbeiter
+   verboten); Austritt vor drei Monaten sichtbar; Suche und Blättern; Seitengröße; v6: Ehemalige mit und ohne Zeit im
+   Monat, nie bei „läuft“, Zählungen; v2: Lesen außerhalb der Frist ja, Ändern nein; Status lässt fremde Kennungen aus;
+   Katalogtest. Rotnachweis für „Gerade aktiv“ und für den älteren Monat unter Mitarbeiter → Zeiten.
+
+### Grenzen
+
+Keine Änderung an Schreibwegen, an D-115 fürs Ändern, an App und CSV. Kein Wiederaufnehmen (T-125). ADO nicht ändern.
+Bericht in `.t127a-review/`; kein Commit vor `APPROVED`.
+
+---
+
+## Danach: T-127b · Archiv im Browser (D-143)
+
+**Für:** Development · **Risiko:** niedrig bis mittel (nur Web) · **Zeitbox:** eine Sitzung. Beginnt nach T-127a.
+
+### Umfang
+
+1. **Seite „Archiv“** in der Seitenleiste unter „Verwaltung“ für Administrator und Standortleitung (`/archiv`, Reiter
+   „Ehemalige Mitarbeiter“ und „Gelöschte Kunden und Projekte“, `?bereich=`). Tabellen: Person · Standort ·
+   Ausgeschieden · Letzte Zeit · „Zeiten ansehen ›“ bzw. Name · Art · Standort · Gelöscht · Letzte Zeit · „Zeiten
+   ansehen ›“. Suchfeld, „Weitere laden“, leerer Zustand („Noch niemand im Archiv.“ bzw. „Noch nichts gelöscht.“).
+   Nur Anzeige, keine Aktion; keine Hauptaktion auf der Seite. README § 5.6.
+2. **„Zeiten ansehen“:** Person → Personenansicht im Monat der letzten Zeit; Kunde → Kundendetail im Monat der letzten
+   Zeit; Projekte haben keine Stundenansicht, dort steht kein Link. Die Personenansicht findet Ehemalige unabhängig vom
+   gewählten Monat (Einzelabfrage aus T-127a), trägt im Kopf die Pille „ehemalig“ und „Ausgeschieden am …“ und zeigt
+   Bearbeiten nur, wenn der Server Ändern erlaubt; sonst den Satz „Diese Zeiten können nur noch angesehen werden.“
+3. **Laufender Betrieb nur Aktive:**
+   - Übersicht „Gerade aktiv“ über v6: keine Ehemaligen.
+   - Mitarbeiter → Zeiten über v6: Ehemalige mit Zeit im Monat unten unter „Ehemalige · Zeiten in diesem Monat“
+     (ersetzt „Ausgeschiedene Mitarbeiter“).
+   - Mitarbeiter → Zugänge: nur aktive; der Filter Alle · Aktiv · Entzogen entfällt; unter der Tabelle der Textknopf
+     „Ehemalige im Archiv“.
+   - Kunden: gelöschte Kunden mit Stunden im Monat nicht mehr zwischen den aktiven, sondern unten unter „Gelöschte
+     Kunden · Zeiten in diesem Monat“, ohne Aktionen.
+   - Einrichtung → Projekte: stillgelegte Projekte nicht mehr in der Liste. Der Knopf „Deaktivieren“ heißt wie bei
+     Kunden „Projekt löschen“.
+4. **Markierung an den Stellen mit Monatszahlen:** Pille „ehemalig“ bzw. „gelöscht“ (neutral) neben dem Namen in
+   Lohnexport-Liste, Zeiten prüfen und Kundendetail (Personen), über `read_archive_status_v1` für die geladenen Kennungen.
+5. **Rückfragen sagen, was passiert:** Entzug: „Danach steht <Name> im Archiv. Die Zeiten bleiben im Lohnexport und bei
+   den Kundenzeiten. Das lässt sich nicht rückgängig machen.“ Kunde und Projekt löschen entsprechend. Hilfe („So
+   funktioniert Taptura“): ein Satz zum Archiv.
+6. **Tests und Fotos:** Browser-Szenarien Archiv (beide Reiter, Administrator und Standortleitung, leer, Suche),
+   Übersicht ohne Ehemalige, Zugänge ohne Filter, Kunden-Abschnitt, Markierungen, Personenansicht nur lesend; Fotos
+   1440 und 390 px in beiden Themen.
+
+### Grenzen
+
+App unverändert (ihre Rückfragetexte beim nächsten App-Build, in STATUS notiert). CSV unverändert. ADO nicht ändern.
+Bericht in `.t127b-review/`; kein Commit vor `APPROVED`.
