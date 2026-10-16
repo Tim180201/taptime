@@ -1924,7 +1924,8 @@ je Betrieb, 001). Die Rückfrage sagt das („Das lässt sich nicht rückgängig
 ## D-142 · Namen von Zugängen sind änderbar · 15.10.2026 · Tim (PO), Claude (TL)
 Ändert die Unveränderlichkeit aus C3E1 (Migration 008, ADR-0013) für Zugänge, wie D-108 es für Kunden getan hat: Der
 Administrator ändert den Namen jedes aktiven Zugangs, die Standortleitung den aktiver Mitarbeiter ihres Bereichs; mit
-Befehls-ID, Version und Protokolleintrag ohne Namen. Entzogene Zugänge bleiben unverändert (D-141). Ein Name lässt sich
+Befehls-ID, Version und Protokolleintrag mit altem und neuem Namen wie bei Kunden (berichtigt 16.10.: zuerst stand hier
+„ohne Namen“, das Kundenprotokoll aus Migration 046 enthält die Namen aber). Entzogene Zugänge bleiben unverändert (D-141). Ein Name lässt sich
 nicht leeren. Exporte und Listen zeigen immer den aktuellen Namen; die feste Kennung je Person bleibt die
 Zugangs-Kennung (später zusätzlich die Personalnummer, T-123). Fehlt ein Name, sagt die Verwaltung das deutlich.
 Umsetzung in T-126.

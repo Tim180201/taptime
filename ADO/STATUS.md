@@ -4,23 +4,26 @@
 T-119 (D-139), T-121, T-122a, T-122b (D-140) und T-105 (D-141). App-Builds zu `ad4cd29` (T-121, T-122) beim PO,
 Prüfliste im Artifact „Abnahme Build T-122“. Auf main, noch nicht ausgeliefert: T-024 Teil A (`7e36c58`, Werkzeug
 `taptime-runtime-rotate`, Runbook), T-122c (`e614779`, Kopfbalken in beiden Themen fest oben, ein Monatsschalter,
-Fehlergrenzen), T-122d (`df76957`, Browser-Prüfstrecke in drei Teilen) und T-129 (Startseite „Stempelpunkte“,
-D-144). **GHCR-Vorfall 15.10. (T-130, T-130b):** Der Image-Lauf zu `7e36c58` räumte um 18:47 UTC auf, während Deploy 6
+Fehlergrenzen), T-122d (`df76957`, Browser-Prüfstrecke in drei Teilen), T-129 (`579f372`, Startseite
+„Stempelpunkte“, D-144), T-131 (`3350aed`, `70745ad`, `d8456e8`, D-145: GHCR behält die neuesten zehn ganzen Releases,
+der Deploy reserviert sein Ziel vor dem ersten Abruf) und T-126 (`1918d5a`, Namen ändern, Migration 060, D-142).
+**GHCR-Vorfall 15.10. (T-130, T-130b):** Der Image-Lauf zu `7e36c58` räumte um 18:47 UTC auf, während Deploy 6
 noch lief; `fb28166` stand noch nicht im Schutzsatz, und der Zusatzschutz „neueste zwanzig“ zählte einzelne
 Paketversionen. Gelöscht wurden neun Versionen der Produktionsabbilder (Backend, Admin-Web, Operator-Web). Die Produktion
 lief mit lokalen Abbildern weiter. Am 16.10. um 04:47 UTC exakt nach Digest wiederhergestellt; die strenge Abrufprüfung
-von current und previous samt Konfigurationen und Schichten ist grün. Der PO entzieht `gh` danach wieder
-`write:packages` und `delete:packages`. **Bis T-131 committet ist: kein Push auf main, solange ein Deploy läuft.**
-In Arbeit: T-131 (Fix, D-145); danach T-126 (Namen ändern, D-142), T-127a und T-127b (Archiv, D-143). Supabase-Projekt am 14.10. vom PO
+von current und previous samt Konfigurationen und Schichten ist grün. `gh` hat seit 16.10. wieder keine Paketrechte
+(`write:packages`, `delete:packages` entzogen). Seit T-131 gilt die Regel „kein Push während eines Deploys“ nicht mehr.
+**Plan B (16.10., GPT-Kontingent knapp):** Codex hat nur noch T-126 umgesetzt; Commit und Doku-Nachtrag dazu hat der PO
+selbst im Terminal nach Befehlsblock des TL gemacht. T-127a und T-127b (Archiv, D-143) kommen mit Deploy 8. Supabase-Projekt am 14.10. vom PO
 aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
 der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-131, T-126, T-127a, T-127b → Deploy 7 (T-024a und diese, Migrationen 060 und 061) mit neuem
-Deploy-Schlüssel → T-024 Teil B an der Konsole → restliche Geräteabnahme → Pilot. Will der PO Teil B früher, geht
-Deploy 7 ohne das Archiv hinaus und T-127 mit Deploy 8. Lohnexport und Business Central: erst die Antworten von frogs (PLAN,
-CEO-Termin), dann T-123 und T-124.
+**Weg zum Pilot:** Deploy 7 (T-024 Teil A, T-122c, T-122d, T-129, T-131, T-126; Migration 060) zusammen mit T-024
+Teil B an der Konsole (neuer Deploy-Schlüssel vorher, Rotation danach; Runbook `infrastructure/DEPLOY.md`) → Web-Abnahme
+→ T-127a, T-127b → Deploy 8 (Migration 061) → restliche Geräteabnahme → Pilot. Lohnexport und Business Central: erst
+die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
 wiederherstellbare System einen vollständigen Monatsabschluss übersteht.
@@ -37,7 +40,10 @@ Entwurf), und der Balken scrollt weg, während die Seitenleiste 56 px tiefer ste
 Fehlergrenze; T-122c); Zeiten des Administrators ohne Namen, weil sein Zugang von vor T-107 keinen Namen hat und
 niemand einen Namen ändern kann (T-126). Wunsch PO: Gelöschte und Ehemalige nur bei Monatszahlen und im Archiv
 (T-127, D-143); dabei gefunden: „Gerade aktiv“ zeigt Ausgeschiedene, Mitarbeiter → Zeiten lässt sie in älteren
-Monaten weg. App-Rückfragen zum Archiv kommen mit dem nächsten App-Build. Nach Deploy 7 am Mac in Safari prüfen:
+Monaten weg. App-Rückfragen zum Archiv kommen mit dem nächsten App-Build. Nach Deploy 7 im Web prüfen: Balken in
+beiden Themen fest oben, ein Monatsschalter, Lohnexport startet mit dem Vormonat, „Name ändern“ (zuerst den eigenen
+Namen setzen; danach steht er im Balken und im Lohnexport, „Name fehlt“ verschwindet), Startseite „Stempelpunkte“.
+Am Mac in Safari:
 bis zum Seitenende scrollen und nachfedern lassen; Balken und Seitenleiste bleiben stehen (in T-122c nicht
 automatisierbar, Safari-Fernsteuerung aus). Android mit
 dem Build zu `ad4cd29`: Die Karte wird ohne Antippen erfasst (PO 15.10.); die übrigen Fälle des Nachtests stehen in
