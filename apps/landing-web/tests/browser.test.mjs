@@ -11,6 +11,7 @@ import axe from 'axe-core';
 const root = resolve(import.meta.dirname, '..');
 const output = mkdtempSync(join(tmpdir(), 't031-browser-'));
 const actualLinks = JSON.parse(readFileSync(join(root, 'src/appLinks.json'), 'utf8'));
+const product = JSON.parse(readFileSync(resolve(root, '../../shared/product.json'), 'utf8'));
 const screenshots = process.env.TAPTIME_SCREENSHOTS;
 const caddy = readFileSync(resolve(root, '../../infrastructure/caddy/Caddyfile'), 'utf8');
 const csp = caddy.split('(landing_headers)')[1].match(/Content-Security-Policy "([^"]+)"/)[1];
@@ -61,7 +62,7 @@ before(async () => {
     }
     if (!existsSync(file)) { res.writeHead(404); res.end(); return; }
     res.setHeader('Content-Security-Policy', csp);
-    res.setHeader('Content-Type', ({ '.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.ttf':'font/ttf','.svg':'image/svg+xml','.ico':'image/x-icon','.png':'image/png' })[extname(file)] ?? 'text/plain');
+    res.setHeader('Content-Type', ({ '.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.ttf':'font/ttf','.svg':'image/svg+xml','.ico':'image/x-icon','.png':'image/png','.jpg':'image/jpeg' })[extname(file)] ?? 'text/plain');
     res.end(readFileSync(file));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -103,6 +104,71 @@ for (const width of [320,360,390,1440]) for (const route of ['/', '/tag', '/app'
     await page.screenshot({ path: join(screenshots, `${route==='/'?'landing':route.slice(1).replaceAll('/','-')}-${width}.png`), fullPage:true });
   }
   await page.close();
+});
+for (const width of [390, 1440]) for (const [theme, label] of [['light', 'Hell'], ['dark', 'Dunkel']]) test(`T129 landing ${theme}/${width}: announcement, images, FAQ, axe and local resources`, async () => {
+  const page = await browser.newPage({ viewport: { width, height: 900 }, reducedMotion: 'reduce', colorScheme: theme === 'light' ? 'dark' : 'light' });
+  const foreign = [], errors = [], failed = [];
+  page.on('request', request => { if (!request.url().startsWith(origin + '/')) foreign.push(request.url()); });
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('response', response => { if (!response.ok()) failed.push([response.status(), response.url()]); });
+  try {
+    await page.goto(origin);
+    await page.evaluate(() => document.fonts.ready);
+    await page.getByRole('button', { name: label, exact: true }).click();
+    assert.equal(await page.locator('html').getAttribute('data-theme'), theme);
+    assert.equal(await page.locator('html').evaluate(el => getComputedStyle(el).colorScheme), theme);
+    const section = page.getByRole('region', { name: 'Ihr Stempelpunkt. Ohne Kabel.' });
+    assert.equal(await section.getAttribute('id'), 'stempelpunkte');
+    assert.equal(await section.evaluate(el => el.previousElementSibling.id), 'ohne-tag');
+    await section.scrollIntoViewIfNeeded();
+    assert.equal(await section.locator('.eyebrow').textContent(), 'Bald verfügbar');
+    assert.equal(await section.locator('.eyebrow').isVisible(), true);
+    assert.equal(await section.locator('button, video, iframe').count(), 0);
+    assert.deepEqual(await section.locator('h3').allTextContents(), ['Einfach anbringen', 'Mit dem Handy stempeln', 'Flexibel erweitern']);
+    assert.deepEqual(await section.locator('figcaption b').allTextContents(), ['Wandrahmen', 'Tischkeil']);
+    const figures = section.locator('figure');
+    for (const figure of await figures.all()) {
+      assert.equal(await figure.locator('figcaption span').innerText(), 'Entwurf');
+      assert.equal(await figure.locator('figcaption').isVisible(), true);
+      const img = figure.getByRole('img');
+      assert.match(await img.getAttribute('alt'), /Entwurf.+(Wandrahmen|Tischkeil)/);
+      assert.equal(await img.getAttribute('loading'), 'lazy');
+      await img.scrollIntoViewIfNeeded();
+      await img.evaluate(el => el.decode());
+      const dimensions = await img.evaluate(el => ({ width: el.naturalWidth, height: el.naturalHeight }));
+      assert.ok(dimensions.width > 0 && dimensions.height > 0);
+      assert.equal(Number(await img.getAttribute('width')), dimensions.width);
+      assert.equal(Number(await img.getAttribute('height')), dimensions.height);
+      const url = new URL(await img.getAttribute('src'), origin);
+      assert.equal(url.origin, origin);
+      assert.equal(extname(url.pathname), '.jpg');
+      assert.ok(readFileSync(join(output, 'empty', url.pathname)).length <= 60_000, 'concept image exceeds 60 KB');
+    }
+    const faq = page.locator('details').filter({ has: page.getByText('Was ist ein Stempelpunkt?', { exact: true }) });
+    await faq.locator('summary').click();
+    assert.equal(await faq.locator('p').innerText(), `Eine ${product.name}-Karte in einem festen Halter für Wand oder Schreibtisch. Er braucht weder Strom noch Netzwerk. Gestempelt wird mit dem Handy und der ${product.name}-App, wie bei jeder Karte. Die Stempelpunkte sind in Vorbereitung.`);
+    assert.equal(await faq.locator('p').isVisible(), true);
+    await section.scrollIntoViewIfNeeded();
+    assert.equal(await page.locator('[style], style, script:not([src])').count(), 0);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+    assert.deepEqual((await measure(page)).axe, []);
+    if (screenshots) {
+      mkdirSync(screenshots, { recursive: true });
+      // Fit the whole section below the sticky navigation for an unobscured section photo.
+      const sectionHeight = await section.evaluate(el => el.getBoundingClientRect().height);
+      await page.setViewportSize({ width, height: Math.ceil(sectionHeight) + 100 });
+      await section.evaluate(el => el.scrollIntoView({ block: 'start', behavior: 'instant' }));
+      await section.screenshot({ path: join(screenshots, `t129-stempelpunkte-${theme}-${width}.png`) });
+    }
+    const contact = section.getByRole('link', { name: 'Interesse? Sprechen Sie uns an.', exact: true });
+    assert.equal(await section.getByRole('link').count(), 1);
+    assert.equal(await contact.getAttribute('href'), '#anfrage');
+    await contact.click();
+    assert.equal(new URL(page.url()).hash, '#anfrage');
+    assert.deepEqual(foreign, []);
+    assert.deepEqual(errors, []);
+    assert.deepEqual(failed, []);
+  } finally { await page.close(); }
 });
 test('the built page redirects only to the file-configured destinations under strict CSP', async () => {
   for (const [userAgent, target] of [

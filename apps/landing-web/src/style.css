@@ -326,6 +326,21 @@ p { margin: 0; }
 .mode li::before { content: "✓"; color: var(--mint); font-weight: 700; }
 .mode code { white-space: nowrap; font-family: var(--mono); font-size: 13.5px; color: var(--text); background: var(--raised); padding: 2px 8px; border-radius: 8px; }
 
+/* ---------- Stempelpunkte ---------- */
+#stempelpunkte .eyebrow { color: var(--muted); }
+.stempelpunkte-images { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-top: 40px; }
+.stempelpunkte-images figure { margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.stempelpunkte-images img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
+.stempelpunkte-images figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 16px; padding: 16px 20px; }
+.stempelpunkte-images figcaption span { font: 12.5px var(--mono); color: var(--muted); }
+.stempelpunkte-benefits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; list-style: none; margin: 32px 0 0; padding: 0; }
+.stempelpunkte-benefits li { border-top: 1px solid var(--line); padding-top: 20px; }
+.stempelpunkte-benefits p { margin-top: 10px; color: var(--muted); font-size: 15.5px; }
+.stempelpunkte-contact { margin-top: 24px; }
+.stempelpunkte-contact a { color: var(--mint); text-underline-offset: 4px; }
+@media (max-width: 900px) { .stempelpunkte-benefits { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .stempelpunkte-images { grid-template-columns: 1fr; } }
+
 /* ---------- Admin window ---------- */
 .window { border-radius: 20px; border: 1px solid var(--line); background: var(--surface); overflow: hidden; box-shadow: 0 40px 100px color-mix(in srgb, var(--color-band) 45%, transparent); }
 .window-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--raised); }
