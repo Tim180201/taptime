@@ -708,9 +708,9 @@ run_reservation_deploy() (
   production_publish_protected_versions aaaaaaa ccccccc ddddddd eeeeeee
   TEST_LANDING_CAPABILITY="$capability"
   # Invoked by main through the production pull function.
-  # shellcheck disable=SC2329
+  # shellcheck disable=SC2317,SC2329
   pull_image() { production_pull_image "$@"; }
-  # shellcheck disable=SC2329
+  # shellcheck disable=SC2317,SC2329
   docker() {
     if [[ "$1" == pull ]]; then
       # Observe the published JSON at the actual docker-pull boundary. Both
