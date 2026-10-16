@@ -1,3 +1,4 @@
+import {createRenameCapability} from './T126Capability';
 import {createMonthRaceCapability} from './T122cCapability';
 import {customerSearch,stateSearch} from './searchFixtures';
 import { PasswordResetPage } from '../src/PasswordResetPage';
@@ -355,7 +356,8 @@ capability.cancelCorrection = () => stateful.emit({ ...ready, correctionIntent: 
 capability.cancelAdjudication = () => stateful.emit({ ...ready, adjudicationIntent: null });
 capability.cancelReassignment = () => stateful.emit({ ...ready, reassignmentIntent: null });
 const root = createRoot(document.getElementById('root')!);
-if(variant==='t122c-month-race')void createMonthRaceCapability(entry).then(administration=>root.render(<App administration={administration}/>));
+if(variant.startsWith('t126-'))void createRenameCapability(variant==='t126-manager'?'standortleitung':'administrator').then(({coordinator})=>root.render(<App administration={coordinator}/>));
+else if(variant==='t122c-month-race')void createMonthRaceCapability(entry).then(administration=>root.render(<App administration={administration}/>));
 else root.render(variant === 'configuration' ? createApplicationPage(null) : variant.startsWith('welcome')
   ? <WelcomePage invitation={variant === 'welcome-unavailable' ? null : { hasInvitation: variant !== 'welcome-invalid', setPassword: async () => variant === 'welcome-error' ? 'weak_password' : variant === 'welcome-busy' ? new Promise(() => {}) : 'succeeded' }} />
   : variant.startsWith('password-reset') ? <PasswordResetPage recovery={{hasRecovery: true, setPassword: async () => 'succeeded'}} />

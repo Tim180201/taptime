@@ -1,3 +1,4 @@
+import {MembershipNameChange} from './MembershipNameChange';
 import {MonthSwitch} from '../MonthSwitch';
 import { useEffect, useRef, useState } from 'react';
 import { BUSINESS_TIME_ZONE, businessDay, formatZonedDateTime } from '@taptime/core';
@@ -131,6 +132,7 @@ export default function EmployeesView({ state, administration, accountInvitation
                   : <span className="access-notice">noch nicht angemeldet</span>}</td>
                 <td><span className={`pill ${membership.active ? 'success' : ''}`}>{membership.active ? 'aktiv' : 'entzogen'}</span></td>
                 <td>{membership.active && (state.managementScope.kind === 'organization' || membership.role === 'employee') ? <div className="entity-actions">
+                  {administration.renameMembership && administration.readMembershipName ? <MembershipNameChange administration={administration} membershipId={membership.id} className="quiet" onSaved={() => members.pager.refresh()} /> : null}
                   {state.managementScope.kind === 'organization' ? <button type="button" className="quiet" onClick={event => {
                     roleTrigger.current = event.currentTarget; setRoleError(null); setSelectedRole(membership.role); setEditingMembership(membership);
                   }}>Rolle ändern</button> : null}

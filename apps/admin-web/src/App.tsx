@@ -226,7 +226,7 @@ function ReadyAdministration({state,administration,accountInvitations,route,navi
   const directViews=visibleViews.slice(0,4);
   const remainingViews=visibleViews.slice(directViews.length);
   const roleLabel=state.role === 'administrator' ? 'Administrator' : state.role === 'standortleitung' ? 'Standortleitung' : 'Mitarbeiter';
-  const personName=state.employeeProjection.employeeMemberships.find(person=>person.id===state.membershipId)?.displayName;
+  const personName=state.employeeProjection.employeeMemberships.find(person=>person.id===state.membershipId)?.displayName??state.ownDisplayName;
   const accountLabel=formatAccountLabel(personName,roleLabel);
   const account=<><span>Angemeldet für</span><strong>{state.projection.organization.name}</strong><span>{accountLabel}</span></>;
   const groups=[{title:'Arbeit',items:visibleViews.filter(item=>!['einrichtung','lohnexport'].includes(item.slug))},{title:'Verwaltung',items:visibleViews.filter(item=>['einrichtung','lohnexport'].includes(item.slug))}];
@@ -251,7 +251,7 @@ function ReadyAdministration({state,administration,accountInvitations,route,navi
         {activeRoute.view==='einrichtung'?<SetupView route={activeRoute} state={state} administration={administration}/>:null}
         {activeRoute.view==='beschaeftigte'?activeRoute.personId?<PersonView accountInvitations={accountInvitations} state={state} administration={administration} route={activeRoute} navigate={navigate}/>:<EmployeesView route={activeRoute} state={state} administration={administration} accountInvitations={accountInvitations} navigate={navigate}/>:null}
         {activeRoute.view==='lohnexport'?<TimeRecordsView state={state} administration={administration} route={activeRoute} navigate={navigate}/>:null}
-        {activeRoute.view==='pruefungen'?<ReviewsView state={state} administration={administration}/>:null}
+        {activeRoute.view==='pruefungen'?<ReviewsView state={state} administration={administration} navigate={navigate}/>:null}
         {activeRoute.view==='kunden'?<CustomersView key={`${state.membershipId}/${state.role}`} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} administration={administration} route={activeRoute} navigate={navigate}/>:null}
         {activeRoute.view==='meine-zeiten'?<OwnTimeView state={state} administration={administration} route={activeRoute} navigate={navigate}/>:null}
         {activeRoute.view==='manuell'?<ManualView state={state} administration={administration}/>:null}

@@ -1,3 +1,5 @@
+import {MissingNameNotice, MissingNameLink} from './MissingName';
+import type {AdminRoute} from '../navigation';
 import {MonthSwitch} from '../MonthSwitch';
 import {monthRange, selectedMonth} from '../navigation';
 import {TimeFields,resolveTimeFields,advanceTimeField} from '../TimeFields';
@@ -21,7 +23,7 @@ import { Confirmation,DataTable,SectionBoundary } from '../ui';
 import { resolutionLabel,returnFocus,reviewReasonLabel,useIntentFocusReturn } from '../viewHelpers';
 import {PageHeader} from '../PageHeader';
 type ReadyState = Extract<ReturnType<AdminWebCapability['getState']>, { status: 'ready' }>;
-export default function ReviewsView({state,administration}: {readonly state:ReadyState;readonly administration:AdminWebCapability}) {
+export default function ReviewsView({state,administration,navigate}: {readonly state:ReadyState;readonly administration:AdminWebCapability;readonly navigate?:(route:AdminRoute)=>void}) {
   const retry=useRef<HTMLButtonElement>(null);
   const [selectedCase,setSelectedCase]=useState<string|null>(state.adjudicationIntent?.reviewItem.reviewItemId??null);
   const authority=JSON.stringify([state.membershipId,state.role,state.managementScope,state.selectedLocation?.id]);
@@ -64,15 +66,16 @@ export default function ReviewsView({state,administration}: {readonly state:Read
   return <><PageHeader organization={state.projection.organization.name} title="Zeiten prüfen"
     subtitle={`${state.reviewItemsNextCursor?'Mindestens ':''}${state.reviewItems.length} ${state.reviewItems.length===1?'offener Fall':'offene Fälle'}`}
     onRefresh={()=>void administration.refresh()}/><section ref={focusFallback} tabIndex={-1} aria-label="Ungeklärte Erfassungen"><SectionBoundary state={state.sections.reviewItems} retryButtonRef={retry} onRetry={()=>void administration.retrySection('reviewItems')}>
+      {state.reviewItems.some(item => !item.employeeDisplayName.trim()) ? <MissingNameNotice /> : null}
       <ul className="review-list">{state.reviewItems.map(item=><ReviewDecisionRow key={item.reviewItemId}
-        item={item} state={state} administration={administration} open={selectedCase===item.reviewItemId}
+        navigate={navigate} item={item} state={state} administration={administration} open={selectedCase===item.reviewItemId}
         setOpen={open=>setSelectedCase(open?item.reviewItemId:null)} day={visibleDays[item.reviewItemId] ?? (state.reviewDay?.reviewItemId===item.reviewItemId?state.reviewDay:undefined)}
         retryDay={()=>setReload(n=>n+1)}/>)}</ul>
       {state.reviewItems.length === 0 && state.reviewItemsNextCursor === null ? <p className="empty">Keine ungeklärten Erfassungen.</p> : null}
       {state.reviewItemsNextCursor === null ? null : <button className="secondary" onClick={()=>void administration.loadMoreReviewItems()}>Weitere Erfassungen laden</button>}
   </SectionBoundary></section></>;
 }
-function ReviewDecisionRow({item,state,administration,day,open,setOpen,retryDay}: {readonly item:SafeReviewItem;readonly state:ReadyState;readonly administration:AdminWebCapability;
+function ReviewDecisionRow({item,state,administration,day,open,setOpen,retryDay,navigate}: {readonly navigate?:(route:AdminRoute)=>void;readonly item:SafeReviewItem;readonly state:ReadyState;readonly administration:AdminWebCapability;
   readonly day:ReadyState['reviewDay'];readonly open:boolean;readonly setOpen:(open:boolean)=>void;readonly retryDay:()=>void}) {
   const noteOnly=item.source==='offline_skip' || item.targetType==='break';
   const [resolution,setResolution]=useState<'no_time_record_change'|'adjust_existing_time_record'|'create_recovered_time_record'>('no_time_record_change');
@@ -103,7 +106,7 @@ function ReviewDecisionRow({item,state,administration,day,open,setOpen,retryDay}
     rowTrigger.current=event.currentTarget;changeResolution(next);setOpen(true);
   };
   return <li className="review-case" id={`review-${item.reviewItemId}`} tabIndex={-1}><div className="review-case-heading"><div>
-    <h2>{item.employeeDisplayName} · {item.targetDisplayName}</h2>
+    <h2>{item.employeeDisplayName.trim() || <MissingNameLink membershipId={item.employeeMembershipId} locationId={state.selectedLocation?.id ?? null} month={toZonedMinuteInput(item.occurredAt).slice(0,7)} navigate={navigate}/>} · {item.targetDisplayName}</h2>
     <h3>Was ist passiert</h3>
     <p className="review-reason">{reviewReasonLabel(item.reviewReason,item)}</p>
     {!isKnownTimeReviewReason(item.reviewReason)?<p className="review-support">Für Rückfragen: {item.reviewReason}</p>:null}

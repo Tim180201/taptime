@@ -160,6 +160,8 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v2/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v2',
   '/v1/administration/memberships/revoke': 'admin_revoke_membership',
   '/v1/administration/memberships/change-role': 'admin_change_membership_role',
+  '/v1/administration/memberships/rename': 'admin_rename_membership',
+  '/v1/administration/memberships/name': 'admin_read_membership_name',
   '/v1/auth/password-reset/audit': 'auth_password_reset_audit',
   '/v1/employee-enrollment/redeem': 'employee_enrollment_redeem',
   '/v1/administration/customers': 'admin_create_customer',
@@ -854,6 +856,23 @@ async function handleRequest(
       timeoutMilliseconds,
       'revoke',
     );
+    return;
+  }
+  if (route === 'admin_read_membership_name') {
+    if (!isRecord(body) || !hasExactKeys(body, ['expectedMembershipId', 'targetMembershipId'])
+      || !isCanonicalUuid(body.expectedMembershipId) || !isCanonicalUuid(body.targetMembershipId)) {
+      respondError(response, 400, 'invalid_request'); return;
+    }
+    const command = { accessToken, expectedMembershipId: MembershipId(body.expectedMembershipId), targetMembershipId: MembershipId(body.targetMembershipId) };
+    await handleAdministrationOperation(response, options, correlationId, timeoutMilliseconds,
+      deadlineEpochMilliseconds => dependencies.employeeEnrollment.readMembershipName
+        ? dependencies.employeeEnrollment.readMembershipName(command, { deadlineEpochMilliseconds })
+        : Promise.resolve({ status: 'invalid_request' as const }),
+      result => ({ status: 'succeeded', displayName: result.displayName, rowVersion: result.rowVersion }));
+    return;
+  }
+  if (route === 'admin_rename_membership') {
+    await handleMembershipRename(response, accessToken, body, dependencies, options, correlationId, timeoutMilliseconds);
     return;
   }
   if (route === 'admin_change_membership_role') {
@@ -2400,6 +2419,22 @@ async function handleEmployeeEnrollmentRedemption(
   }
 }
 
+async function handleMembershipRename(
+  response: ServerResponse, accessToken: string, body: unknown, dependencies: BackendApiDependencies,
+  options: BackendHttpServerOptions, correlationId: string, timeoutMilliseconds: number,
+): Promise<void> {
+  if (!isRecord(body) || !hasExactKeys(body, ['commandId', 'expectedMembershipId', 'expectedRowVersion', 'targetMembershipId', 'displayName'])
+    || typeof body.displayName !== 'string') { respondError(response, 400, 'invalid_request'); return; }
+  const { displayName, ...rest } = body;
+  const command = parseMembershipMutationBody(rest, false);
+  if (!command) { respondError(response, 400, 'invalid_request'); return; }
+  await handleAdministrationOperation(response, options, correlationId, timeoutMilliseconds,
+    deadlineEpochMilliseconds => dependencies.employeeEnrollment.renameMembership
+      ? dependencies.employeeEnrollment.renameMembership({ accessToken, ...command, displayName }, { deadlineEpochMilliseconds })
+      : Promise.resolve({ status: 'invalid_request' as const }),
+    result => ({ status: 'succeeded', membership: result.membership, idempotentRetry: result.idempotentRetry }));
+}
+
 async function handleMembershipMutation(
   response: ServerResponse,
   accessToken: string,
@@ -3008,6 +3043,8 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_managed_active_summary':
     case 'admin_revoke_membership':
     case 'admin_change_membership_role':
+    case 'admin_rename_membership':
+    case 'admin_read_membership_name':
     case 'auth_password_reset_audit':
     case 'admin_provision_nfc_tag':
     case 'admin_provision_break_nfc_tag':
@@ -3100,6 +3137,8 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_managed_active_summary'
     || route === 'admin_revoke_membership'
     || route === 'admin_change_membership_role'
+    || route === 'admin_rename_membership'
+    || route === 'admin_read_membership_name'
     || route === 'auth_password_reset_audit'
     || route === 'admin_provision_nfc_tag'
     || route === 'admin_provision_break_nfc_tag'

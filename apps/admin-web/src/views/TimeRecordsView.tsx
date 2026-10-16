@@ -1,3 +1,4 @@
+import {MissingNameNotice} from './MissingName';
 import {MonthSwitch} from '../MonthSwitch';
 import {useState} from 'react';
 import type {AdminWebCapability} from '../contracts';
@@ -28,9 +29,10 @@ export default function TimeRecordsView({state,administration,route,navigate}:{r
         <div className="filter-chips" role="group" aria-label="Status"><span className="filter-group-label">Status</span>{([['alle','Alle'],['laufend','Laufend'],['abgeschlossen','Abgeschlossen']] as const).map(([value,label])=><button className="secondary" key={value} aria-pressed={route.status===value} onClick={()=>navigate({...route,month,status:value})}>{label}</button>)}</div>
         <div className="filter-chips" role="group" aria-label="Erfasst mit"><span className="filter-group-label">Erfasst mit</span>{([['alle','Alle'],['gescannt','Gescannt'],['manuell-erfasst','Manuell erfasst']] as const).map(([value,label])=><button className="secondary" key={value} aria-pressed={route.captureType===value} onClick={()=>navigate({...route,month,captureType:value})}>{label}</button>)}</div>
       </div>
+      {state.timeRecords.some(record => !record.employeeDisplayName.trim()) ? <MissingNameNotice /> : null}
       <DataTable label="Geladene Arbeitszeiten" headers={['Mitarbeiter','Kunde oder Projekt','Von–Bis','Art','Status']}>
         {records.map(record=><tr key={record.timeRecordId}>
-          <td>{record.employeeMembershipId?<a href={canonicalRoutePath({...defaultRoute('beschaeftigte',route.locationId),personId:record.employeeMembershipId,month})} onClick={e=>navigateFromLink(e,{...defaultRoute('beschaeftigte',route.locationId),personId:record.employeeMembershipId,month},navigate)}>{record.employeeDisplayName}</a>:record.employeeDisplayName}</td>
+          <td>{record.employeeMembershipId?<a className={!record.employeeDisplayName.trim()?'access-notice':undefined} href={canonicalRoutePath({...defaultRoute('beschaeftigte',route.locationId),personId:record.employeeMembershipId,month})} onClick={e=>navigateFromLink(e,{...defaultRoute('beschaeftigte',route.locationId),personId:record.employeeMembershipId,month},navigate)}>{record.employeeDisplayName.trim() || 'Name fehlt'}</a>:<span className={!record.employeeDisplayName.trim()?'access-notice':undefined}>{record.employeeDisplayName.trim() || 'Name fehlt'}</span>}</td>
           <td>{record.targetDisplayName}</td><td>{formatZonedDateTime(record.startedAt)} – {record.stoppedAt?formatZonedDateTime(record.stoppedAt):'läuft'}</td>
           <td>{record.details?{nfc:'Karte',manual:'manuell',backfilled:'nachgetragen',recovered:'wiederhergestellt'}[record.details.origin]:record.source==='recovered'?'Wiederhergestellt':captureLabel(record.startedVia,record.stoppedVia)}</td>
           <td><Pill kind={record.status==='started'?'running':undefined}>{record.status==='started'?'läuft':'Abgeschlossen'}</Pill>{record.overlapsAnotherRecord?<Pill kind="notice">Überschneidung mit einer weiteren Zeit</Pill>:null}</td>

@@ -209,6 +209,10 @@ export type RecordPasswordResetResult =
   | { readonly status: 'forbidden' }
   | { readonly status: 'invalid_request' };
 
+export interface RenameMembershipCommand extends RevokeMembershipCommand {
+  readonly displayName: string;
+}
+
 export interface ChangeMembershipRoleCommand extends RevokeMembershipCommand {
   readonly role: MembershipRole;
 }

@@ -237,6 +237,16 @@ export interface EmployeeMembershipEnrollmentCoordinator {
     controls?: EmployeeEnrollmentCoordinatorControls,
   ): Promise<MembershipMutationResult>;
 
+  readMembershipName?(
+    command: { accessToken: string; expectedMembershipId: MembershipId; targetMembershipId: MembershipId },
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<{ status: 'succeeded'; displayName: string | null; rowVersion: number } | { status: 'invalid_request' | 'unauthorized' | 'forbidden' }>;
+
+  renameMembership?(
+    command: RevokeMembershipCommand & { readonly displayName: string },
+    controls?: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<MembershipMutationResult>;
+
   changeMembershipRole(
     command: ChangeMembershipRoleCommand,
     controls?: EmployeeEnrollmentCoordinatorControls,
@@ -299,6 +309,8 @@ export type BackendApiRoute =
   | 'admin_managed_active_summary'
   | 'admin_revoke_membership'
   | 'admin_change_membership_role'
+  | 'admin_rename_membership'
+  | 'admin_read_membership_name'
   | 'auth_password_reset_audit'
   | 'admin_provision_nfc_tag'
   | 'admin_provision_break_nfc_tag'

@@ -5,6 +5,7 @@ import { before, after, test } from 'node:test';
 import { launchBrowser, buildWeb, measure } from './harness.mjs';
 import { adminScenarios, operatorScenarios } from './scenarios.mjs';
 import { verifyT122c } from './t122c.mjs';
+import { verifyT126 } from './t126.mjs';
 import { createLayoutShard } from './sharding.mjs';
 import { build as buildJavaScript } from 'esbuild';
 import mark from '../../shared/brand/mark.json' with { type: 'json' };
@@ -24,6 +25,9 @@ function layoutTest(web, name, ...args) {
   }
   test(name, ...args);
 }
+layoutTest('admin-web', 'T126 membership rename, current names and payroll notices', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
+  await verifyT126(browser, webs['admin-web'], artifacts ? join(artifacts, 't126') : undefined);
+});
 layoutTest('admin-web', 'T122c fixed shell, month controls and rendering recovery', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
   await verifyT122c(browser, webs['admin-web'], artifacts ? join(artifacts, 't122c') : undefined);
 });

@@ -22,6 +22,7 @@ import type {
   CreateEmployeeMembershipInvitationCommand,
   CreateEmployeeMembershipInvitationResult,
   ChangeMembershipRoleCommand,
+  RenameMembershipCommand,
   EmployeeEnrollmentCoordinatorControls,
   EmployeeMembershipSummary,
   LocatedEmployeeMembershipSummary,
@@ -666,6 +667,44 @@ export class EmployeeMembershipEnrollmentCoordinator {
       );
       return { status: onlyRow(result.rows, 'Password reset audit').result_status } as const;
     });
+  }
+
+  async readMembershipName(command: { accessToken: string; expectedMembershipId: MembershipId; targetMembershipId: MembershipId },
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<{ status: 'succeeded'; displayName: string | null; rowVersion: number } | { status: 'invalid_request' | 'unauthorized' | 'forbidden' }> {
+    if (!validAccessToken(command.accessToken) || !isCanonicalUuid(command.expectedMembershipId)
+      || !isCanonicalUuid(command.targetMembershipId)) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority(command.accessToken, command.expectedMembershipId, randomUUID(), controls, async client => {
+      const row = (await client.query('SELECT * FROM taptime_server.read_membership_name_v1($1)', [command.targetMembershipId])).rows[0];
+      if (!row) return { status: 'forbidden' };
+      if (row.display_name !== null && !isCanonicalName(row.display_name, normalizeCustomerNameV1)
+        || !Number.isSafeInteger(Number(row.row_version)) || Number(row.row_version) < 1) throw new Error('Invalid membership name');
+      return { status: 'succeeded', displayName: row.display_name, rowVersion: Number(row.row_version) };
+    });
+  }
+
+  async renameMembership(
+    command: RenameMembershipCommand,
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<MembershipMutationResult> {
+    const name = typeof command.displayName === 'string' ? normalizeCustomerNameV1(command.displayName) : { status: 'invalid' as const };
+    if (name.status !== 'valid' || !validAccessToken(command.accessToken)
+      || !isCanonicalUuid(command.expectedMembershipId) || !isCanonicalUuid(command.commandId)
+      || !isCanonicalUuid(command.targetMembershipId) || !Number.isSafeInteger(command.expectedRowVersion)
+      || command.expectedRowVersion < 1) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority(command.accessToken, command.expectedMembershipId,
+      command.commandId, controls, async client => {
+        const row = onlyRow((await client.query<MembershipMutationRow>(
+          'SELECT * FROM taptime_server.rename_membership_v1($1,$2,$3,$4)',
+          [command.commandId, command.targetMembershipId, command.expectedRowVersion, name.canonicalName],
+        )).rows, 'Membership rename');
+        if (row.result_status !== 'succeeded') return { status: row.result_status };
+        if (!isMembershipRole(row.result_role) || row.result_active !== true
+          || !Number.isSafeInteger(Number(row.result_row_version)) || Number(row.result_row_version) < 1
+          || typeof row.result_idempotent_retry !== 'boolean') throw new Error('Invalid membership rename result');
+        return { status: 'succeeded', membership: { id: command.targetMembershipId, role: row.result_role,
+          active: row.result_active, rowVersion: Number(row.result_row_version) }, idempotentRetry: row.result_idempotent_retry };
+      });
   }
 
   async changeMembershipRole(

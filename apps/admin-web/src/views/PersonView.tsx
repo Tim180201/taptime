@@ -1,3 +1,4 @@
+import {MembershipNameChange} from './MembershipNameChange';
 import {MonthSwitch} from '../MonthSwitch';
 import TargetAssignments from './TargetAssignments';
 import {captureStatus} from '@taptime/mobile-work-contract';
@@ -65,7 +66,10 @@ export default function PersonView({state,administration,route,navigate,accountI
   if(!person)return <><PageHeader organization={state.projection.organization.name} title="Person" actions={back} onRefresh={()=>setRetry(n=>n+1)}/><p role={resolved?.status==='unavailable'?'alert':'status'}>{!resolved?'Person wird geladen …':resolved.status==='missing'?'Person nicht gefunden':'Person konnte nicht geladen werden.'}</p>{resolved?.status==='unavailable'?<button onClick={()=>setRetry(n=>n+1)}>Person erneut laden</button>:null}</>;
 
   const calendar=state.calendar;
-  const actions=back;
+  const canRename = !person.departedAt && (state.role === 'administrator' || person.role === 'employee' && state.managementScope.kind === 'locations'
+    && state.managementScope.locations.some(location => location.id === person.location?.id));
+  const actions=<>{back}{canRename && administration.renameMembership && administration.readMembershipName
+    ? <MembershipNameChange key={personId + authority} administration={administration} membershipId={personId} onSaved={() => setRetry(n => n + 1)} /> : null}</>;
   const resendAction=accountInvitations?.resend ? <button className="text-button" disabled={resending} onClick={async()=>{
       setResending(true);
       try { const status=await accountInvitations.resend!(personId); setResendNotice(status==='succeeded'?'Einladung verschickt.':

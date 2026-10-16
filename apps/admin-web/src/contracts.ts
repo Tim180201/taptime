@@ -1,6 +1,8 @@
 import type {AssignmentCapability} from './targetAssignments';
 import type {QuotaAlertsCapability} from '../../mobile/src/search/search';
 import type { ClientSearchCapability } from '../../mobile/src/search/search';
+export type MembershipNameResult = { readonly status: 'ready'; readonly displayName: string | null; readonly rowVersion: number } | { readonly status: 'error'; readonly message: string };
+export type RenameMembershipResult = { readonly status: 'saved' } | { readonly status: 'error'; readonly message: string };
 export interface Notice { readonly kind: 'success' | 'info' | 'error'; readonly text: string; }
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import type { MobileOwnTimeQueryResponse, SafeWorkTarget } from '@taptime/mobile-work-contract';
@@ -168,6 +170,7 @@ export type AdminWebState =
   | { readonly status: 'unavailable'; readonly message: string }
   | {
       readonly status: 'ready';
+      readonly ownDisplayName?: string;
       readonly roleAssignmentMembershipId?: string;
       readonly membershipId?: string;
       readonly timeEditBusy?: boolean;
@@ -237,6 +240,8 @@ export interface AdminWebCapability extends ClientSearchCapability, QuotaAlertsC
     locationId?: string | null,
   ): Promise<void>;
   revokeMembership(membershipId: string, expectedRowVersion: number): Promise<void>;
+  readMembershipName?(targetMembershipId: string): Promise<MembershipNameResult>;
+  renameMembership?(targetMembershipId: string, expectedRowVersion: number, displayName: string, commandId: string): Promise<RenameMembershipResult>;
   changeMembershipRole(
     membershipId: string,
     expectedRowVersion: number,

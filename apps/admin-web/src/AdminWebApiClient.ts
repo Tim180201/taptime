@@ -148,6 +148,9 @@ export interface AdminWebApiPort {
     token: string, membershipId: string, commandId: string,
     targetMembershipId: string, expectedRowVersion: number,
   ): Promise<ApiResult<true>>;
+  readMembershipName?(token: string, membershipId: string, targetMembershipId: string): Promise<ApiResult<{ displayName: string | null; rowVersion: number }>>;
+  renameMembership?(token: string, membershipId: string, commandId: string, targetMembershipId: string,
+    expectedRowVersion: number, displayName: string): Promise<ApiResult<true>>;
   changeMembershipRole(
     token: string, membershipId: string, commandId: string,
     targetMembershipId: string, expectedRowVersion: number,
@@ -478,6 +481,18 @@ export class AdminWebApiClient implements AdminWebApiPort {
     return this.membershipMutation('/v1/administration/memberships/revoke', token, {
       expectedMembershipId: membershipId, commandId, targetMembershipId, expectedRowVersion,
     });
+  }
+  async readMembershipName(token: string, membershipId: string, targetMembershipId: string): Promise<ApiResult<{ displayName: string | null; rowVersion: number }>> {
+    return this.request('/v1/administration/memberships/name', token, 'POST', { expectedMembershipId: membershipId, targetMembershipId }, value =>
+      isRecord(value) && exact(value, ['status', 'displayName', 'rowVersion']) && value.status === 'succeeded'
+        && (value.displayName === null || typeof value.displayName === 'string' && isCanonicalSafeTapTimeName(value.displayName))
+        && Number.isSafeInteger(value.rowVersion) && (value.rowVersion as number) > 0
+        ? { displayName: value.displayName as string | null, rowVersion: value.rowVersion as number } : null);
+  }
+  async renameMembership(token: string, membershipId: string, commandId: string, targetMembershipId: string,
+    expectedRowVersion: number, displayName: string): Promise<ApiResult<true>> {
+    return this.membershipMutation('/v1/administration/memberships/rename', token,
+      { expectedMembershipId: membershipId, commandId, targetMembershipId, expectedRowVersion, displayName });
   }
   async changeMembershipRole(
     token: string, membershipId: string, commandId: string,

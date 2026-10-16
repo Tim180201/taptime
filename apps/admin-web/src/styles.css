@@ -955,7 +955,7 @@ button.warning-action.primary-action { background: var(--color-notice); color: v
 
 /* T-122c: a single month control, native modal focus and a bottom sheet on small screens. */
 .month-switch { display: inline-flex; align-items: center; gap: .375rem; max-width: 100%; min-width: 0; }
-.month-trigger { min-width: 0; white-space: normal; }
+.month-trigger { min-width: min(11rem, calc(100vw - 9rem)); white-space: normal; }
 .month-picker { width: min(22rem, calc(100% - 2rem)); padding: 24px; }
 .month-year { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
 .month-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }

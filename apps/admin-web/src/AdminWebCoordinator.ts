@@ -7,7 +7,7 @@ import type {CustomerManagementChange,ManageCustomerResult} from '@taptime/mobil
 import { captureFeedback } from '@taptime/mobile-work-contract';
 import { normalizeCustomerNameV1 } from '@taptime/administration-contract/names';
 import {isVoidTimeRequest,loadVoidedTimePages,type VoidedTimeSelection} from '@taptime/mobile-work-contract';
-import type { Notice } from './contracts';
+import type { Notice, MembershipNameResult, RenameMembershipResult } from './contracts';
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
 import { isAdministrationStopRequest, isAdministrationStopResult, isBackfillTimeRequest,isCommentTimeRequest } from '@taptime/mobile-work-contract';
 import type { ManualBreakLifecycleRequest,ManualLifecycleRequest,MobileOwnTimeQueryResponse,SafeWorkTarget } from '@taptime/mobile-work-contract';
@@ -1554,6 +1554,51 @@ export class AdminWebCoordinator implements AdminWebCapability {
 
   async revokeMembership(targetMembershipId: string, expectedRowVersion: number): Promise<void> {
     await this.mutateMembership(targetMembershipId, expectedRowVersion, null);
+  }
+
+  async readMembershipName(targetMembershipId: string): Promise<MembershipNameResult> {
+    const generation = this.generation, epoch = this.refreshEpoch, membershipId = this.membershipId;
+    const failure = { status: 'error' as const, message: 'Der Name konnte nicht geladen werden. Bitte schließen Sie das Blatt und öffnen Sie es erneut.' };
+    if (this.state.status !== 'ready' || !membershipId || !this.api.readMembershipName) return failure;
+    try {
+      const result = await this.auth.withAccessToken(token => this.api.readMembershipName!(token, membershipId, targetMembershipId));
+      if (generation !== this.generation || epoch !== this.refreshEpoch || this.state.status !== 'ready') return failure;
+      if (result?.status === 'succeeded') return { status: 'ready', ...result.value };
+      if (result === null || result.status === 'rejected') await this.rejectOutsideAuthentication(generation, 'Ihre Berechtigung wurde nicht bestätigt. Melden Sie sich erneut an.');
+    } catch { /* Keep the sheet recoverable, without guessing a name. */ }
+    return failure;
+  }
+
+  async renameMembership(targetMembershipId: string, expectedRowVersion: number, displayName: string, commandId: string): Promise<RenameMembershipResult> {
+    const name = normalizeCustomerNameV1(displayName);
+    if (name.status !== 'valid') return { status: 'error', message: 'Bitte geben Sie einen gültigen Namen ein.' };
+    const generation = this.generation, epoch = this.refreshEpoch, membershipId = this.membershipId;
+    const failure = { status: 'error' as const, message: 'Ob der Name gespeichert wurde, ist noch unklar. Bitte versuchen Sie es erneut.' };
+    if (this.state.status !== 'ready' || !membershipId || !this.api.renameMembership) return failure;
+    let result;
+    try { result = await this.auth.withAccessToken(token => this.api.renameMembership!(token, membershipId, commandId, targetMembershipId, expectedRowVersion, name.canonicalName)); }
+    catch { return failure; }
+    if (generation !== this.generation || epoch !== this.refreshEpoch || this.state.status !== 'ready') return failure;
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Ihre Berechtigung wurde nicht bestätigt. Melden Sie sich erneut an.');
+      return { status: 'error', message: 'Sie dürfen diesen Namen nicht ändern. Bitte prüfen Sie Ihre Anmeldung.' };
+    }
+    if (result.status === 'succeeded') {
+      this.searchEpochs.set('memberships', (this.searchEpochs.get('memberships') ?? 0) + 1);
+      this.searchedMembers = null;
+      await this.refresh();
+      if (generation !== this.generation || this.state.status !== 'ready') return failure;
+      this.setState({ ...this.state,
+        ...(targetMembershipId === membershipId ? { ownDisplayName: name.canonicalName } : {}),
+        notice: { kind: 'success', text: 'Name wurde geändert.' } });
+      return { status: 'saved' };
+    }
+    if (result.status === 'conflict') return { status: 'error', message:
+      result.code === 'stale_row_version' ? 'Die Person wurde inzwischen geändert. Bitte schließen Sie das Blatt und öffnen Sie es erneut.'
+        : result.code === 'already_departed' ? 'Der Zugang ist bereits entzogen. Sein Name bleibt unverändert.'
+        : result.code === 'target_unavailable' ? 'Diese Person ist nicht mehr verfügbar. Bitte laden Sie die Mitarbeiter neu.'
+        : 'Der Name konnte nicht gespeichert werden. Bitte schließen Sie das Blatt und prüfen Sie den aktuellen Stand.' };
+    return failure;
   }
 
   async changeMembershipRole(
