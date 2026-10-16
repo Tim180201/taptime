@@ -1,99 +1,73 @@
 # Aktuelle Aufgabe
 
-> **Stand 15.10.2026:** Deploy 6 abgeschlossen (`d193725` → `fb28166`). Abgeschlossen: T-024 Teil A (`7e36c58`),
-> T-122c (`e614779`), T-122d (`df76957`, CI in drei Teilen grün). Der Image-Workflow zu `df76957` hat alle fünf Abbilder
-> veröffentlicht, scheiterte aber beim Aufräumen und in der Abrufprüfung an `GHCR manifests/fb28166 failed (404)`; das
-> klärt T-130 nur lesend. Reihenfolge: **T-129** (jetzt, Startseite) und parallel **T-130** (Befund), dann T-126
-> (Namen ändern), T-127a und T-127b (Archiv); je ein Auftrag, je ein Review, je ein Commit. Danach Deploy 7 mit allem und
-> T-024 Teil B an der Konsole (PO, TL begleitet; Runbook in `infrastructure/DEPLOY.md`).
+> **Stand 16.10.2026:** Deploy 6 abgeschlossen (`d193725` → `fb28166`). Abgeschlossen: T-024 Teil A (`7e36c58`),
+> T-122c (`e614779`), T-122d (`df76957`), T-129 (Startseite „Stempelpunkte“, nach APPROVED 16.10. committet). T-130 hat
+> geklärt, warum Abbilder der laufenden Produktion in GHCR fehlten; T-130b hat sie am 16.10. wiederhergestellt.
+> Reihenfolge: **T-131** (jetzt, vor jedem weiteren Deploy), dann T-126 (Namen ändern), T-127a und T-127b (Archiv); je
+> ein Auftrag, je ein Review, je ein Commit. Danach Deploy 7 mit allem und T-024 Teil B an der Konsole (PO, TL begleitet;
+> Runbook in `infrastructure/DEPLOY.md`). **Bis T-131 committet ist: kein Push auf main, solange ein Deploy läuft.**
 
-## Parallel: T-130 · GHCR-Befund: Produktionsabbild `fb28166` nicht abrufbar (nur lesen)
+## T-131 · GHCR-Aufräumen darf kein Deploy-Ziel löschen (D-145)
 
-**Für:** Development · **Risiko:** Befund in der Lieferkette; die Aufgabe selbst ist rein lesend · **Zeitbox:** kurz.
-Läuft parallel zu T-129: kein Branch, keine Änderung am Arbeitsverzeichnis außer `.t130-review/`.
-
-### Warum
-
-Image-Workflow zu `df76957` (Lauf 38809812772): alle fünf Abbilder veröffentlicht, danach scheiterten Aufräumen und
-Abrufprüfung mit `GHCR manifests/fb28166 failed (404)`. `fb28166` ist seit Deploy 6 (15.10., etwa 18:14 bis 18:52 UTC)
-die Produktion. Der Lauf zu `7e36c58` meldete Aufräumen und Abrufprüfung noch grün. Das Aufräumen hat diesmal richtig
-nichts gelöscht, weil die strenge Prüfung vorher scheiterte. Die Produktion läuft mit den lokal vorhandenen Abbildern
-weiter; offen ist, ob ein Produktionsabbild in GHCR fehlt und warum.
-
-### Erlaubt und verboten
-
-Nur lesende Abfragen (`gh api` GET, anonymer Abruf wie der Server). Verboten: Löschen, Wiederherstellen, Tags setzen,
-Workflows neu oder manuell starten, Serverzugriff, Deploy (STATUS: kein manuelles GHCR-DELETE, kein manueller Neustart).
-
-### Fragen
-
-1. Lauf 38809812772: die genauen Fehlerzeilen beider Schritte; welcher Abruf zuerst scheiterte.
-2. Schutzsatz jetzt: `https://admin.tb-infra.de/status/ghcr-protected-versions.json` (nicht sensitiv, DEPLOY.md):
-   `current_version`, `previous_version`, `operations_version`, Zahl der `known_versions`.
-3. Anonymer Abruf je Tag mit HTTP-Status: `fb28166`, `admin-web-fb28166`, `operator-web-fb28166`,
-   `landing-web-fb28166`, dieselben für `d193725`, dazu `7e36c58`, `df76957`, der Operations-Tag aus dem Schutzsatz und
-   `ops`.
-4. Paketversionen von `taptime-backend-api` (aktiv und mit `state=deleted`): Gibt es eine Version mit Tag `fb28166`
-   (Kennung, `created_at`, `updated_at`, Tags)? Wie viele aktive Versionen gibt es?
-5. Die Image-Läufe zu `fb28166` und `7e36c58`: Start und Ende in UTC, der geladene Schutzsatz, soweit protokolliert,
-   und jede Zeile „Deleting obsolete unprotected GHCR package version …“. Wurde eine Version mit `fb28166` gelöscht,
-   und lag der Lauf vor oder nach dem Ende von Deploy 6?
-6. Ursache mit Belegen oder ehrlich „unklar“ mit den offenen Punkten. Vorschlag für den Rückweg (etwa Wiederherstellen
-   einer gelöschten Version innerhalb der 30-Tage-Frist) und für eine Absicherung, damit ein laufendes
-   Produktionsabbild nie gelöscht werden kann. Nur Vorschläge, nichts ausführen.
-
-### Bericht
-
-`.t130-review/report.md` mit den Befehlen (ohne Token) und Ergebnissen. Keine Änderung am Repository.
-
----
-
-## Jetzt: T-129 · Startseite: Abschnitt „Stempelpunkte“ (D-144)
-
-**Für:** Development · **Risiko:** niedrig (nur `apps/landing-web`; die Startseite ist bis T-031b passwortgeschützt) ·
-**Zeitbox:** eine kurze Sitzung. Beginnt jetzt.
+**Für:** Development · **Risiko:** hoch (Lieferkette und Wiederherstellbarkeit) · **Zeitbox:** eine Sitzung.
+Unabhängiges Review (AGENTS § 4). Nur Repository: kein Workflow-Start, kein Löschen, kein Wiederherstellen, kein
+Serverzugriff, kein Deploy.
 
 ### Warum
 
-PO 15.10.: Stationäre Stempelpunkte (die Taptura-Karte fest in einem Wandrahmen oder Tischkeil, ohne Strom und Netz)
-sollen so früh wie möglich auf die Startseite. Produkt, Karten für „Allgemeine Arbeitszeit“ (T-128) und
-fälschungssichere Chips (T-073) kommen erst nach dem Pilot (D-144). Die Seite kündigt darum ehrlich an und verspricht
-nichts, was es noch nicht gibt.
+T-130 und T-130b (Belege in `.t130-review/`): Während Deploy 6 (15.10., 18:14 bis 18:52 UTC) lud der Image-Lauf zu
+`7e36c58` um 18:47 den Schutzsatz. Darin stand `fb28166` noch nicht, weil der Deploy ihn erst nach Aktivierung und
+Gesundheitsprüfung veröffentlicht (`infrastructure/deploy`, `publish_protected_versions` nach `wait_for_health`). Als
+Zusatzschutz gelten „die neuesten zwanzig“, gezählt als einzelne Paketversionen (`select-ghcr-deletions.mjs`,
+`sortedVersions`, `keepNewest` höchstens 20). Ein Release besteht aus fünf Abbildern mit je Index, Plattform und
+Attestation, also 15 Paketversionen. So löschte der Lauf neun Versionen der Produktion (Backend, Admin-Web, Operator-Web
+zu `fb28166`). Am 16.10. wurden sie wiederhergestellt; die strenge Abrufprüfung ist wieder grün.
 
 ### Umfang
 
-1. **Neuer Abschnitt `#stempelpunkte`** direkt nach `#ohne-tag`, im Aufbau der übrigen Abschnitte, in beiden Themen und
-   in der Sie-Form der ganzen Seite:
-   - Eyebrow „Bald verfügbar“ (Kennzeichnung, kein Knopf).
-   - Überschrift „Ihr Stempelpunkt. Ohne Kabel.“
-   - Text: „Die Taptura-Karte gibt es bald fest montiert: im Wandrahmen am Eingang oder als Tischkeil auf dem
-     Schreibtisch. Kein Strom, kein Netzwerk, kein Terminal. Ihre Mitarbeiter halten ihr Handy kurz daran – die App
-     weiß, wer stempelt.“
-   - Drei Vorteile: „Einfach anbringen“ (kleben oder schrauben, ohne Kabel und Batterie) · „Mit dem Handy stempeln“
-     (das Handy weist die Person aus; eine Mitarbeiterkarte gibt es nicht) · „Flexibel erweitern“ (so viele Punkte wie
-     nötig – am Eingang, je Schreibtisch, beim Kunden; zugeordnet in der Verwaltung).
-   - Zwei Bilder „Wandrahmen“ und „Tischkeil“ aus `.t129-review/assets/` (Konzeptbilder des PO), je mit der
-     sichtbaren Unterschrift „Entwurf“ und einem beschreibenden Alternativtext; als optimierte lokale Dateien (WebP
-     oder JPEG, je höchstens 60 KB, `width`/`height` gesetzt, `loading="lazy"`), CSP unverändert.
-   - Kein Preis, kein Video, kein Bestellknopf; am Ende ein Textlink „Interesse? Sprechen Sie uns an.“ zu `#anfrage`.
-2. **Häufige Fragen:** neue Frage „Was ist ein Stempelpunkt?“ mit der Antwort „Eine Taptura-Karte in einem festen
-   Halter für Wand oder Schreibtisch. Er braucht weder Strom noch Netzwerk. Gestempelt wird mit dem Handy und der
-   Taptura-App, auf dem iPhone heute mit geöffneter App. Die Stempelpunkte sind in Vorbereitung.“
-3. **Tests und Fotos:** Der bestehende Landing-Browsertest (axe, beide Themen, 390 und 1440 px, kein seitliches
-   Scrollen, keine fremden Anfragen) deckt den Abschnitt ab; dazu eine Prüfung, dass der Abschnitt „Bald verfügbar“
-   und an beiden Bildern „Entwurf“ trägt. Fotos des Abschnitts bei 390 und 1440 px in beiden Themen.
+1. **Aufbewahrung nach ganzen Releases.** `keepNewest` (Paketversionen) entfällt. Stattdessen bleiben die neuesten
+   **zehn Releases** vollständig erhalten. Ein Release ist eine Anwendungsversion mit allen ihren Tags (`<v>`,
+   `admin-web-<v>`, `operator-web-<v>`, `landing-web-<v>`, `operations-<v>`) und den vollständigen Manifestgraphen.
+   Die Reihenfolge ist deterministisch und im Code begründet (etwa nach dem frühesten `created_at` der getaggten
+   Versionen eines Releases, Kennung als Gleichstandsregel). Unbekannte und ungetaggte Wurzeln wie heute.
+2. **Reservierung des Deploy-Ziels.** Der Deploy-Controller veröffentlicht den Schutzsatz zusätzlich **vor dem ersten
+   Abruf eines Abbilds** (`pull_image`), mit einem neuen Feld `pending_versions` (Zielversion und gewählte
+   Operations-Version), atomar wie heute. Die Endveröffentlichung nach Aktivierung entfernt den erledigten Eintrag.
+   Bei Abbruch oder Rücknahme bleibt er stehen, bis der nächste erfolgreiche Deploy ihn ersetzt; ein Absturz ist damit
+   sicher. Der Workflow schützt `pending_versions` wie bekannte Versionen. Fehlt das Feld, gilt es als leer; ist es
+   ungültig, wird das Aufräumen übersprungen.
+3. **Zweites Lesen vor dem Löschen.** Unmittelbar vor der ersten Löschung liest der Workflow den Schutzsatz erneut.
+   Weicht der Inhalt vom ersten Stand ab, wird nichts gelöscht (Warnung), die Abrufprüfung läuft trotzdem.
+4. **Operations-Abbild des vorherigen Stands.** Erhalten bleiben auch `operations-<current>` und
+   `operations-<previous>`, zusätzlich zur gewählten Operations-Version und `ops`. (Der Löschplan aus T-130b hätte
+   `operations-d193725` entfernt.)
+5. **Nachvollziehbarkeit.** Der geladene Schutzsatz (nicht sensitiv), beide Abfragezeiten und der Löschplan mit
+   Kennung, Digest und Tags stehen in der Laufübersicht; jede Löschzeile nennt Kennung, Digest und Tags.
+6. **Tests:**
+   - Der Vorfall vom 15.10. als Test: Schutzsatz ohne `fb28166`, zwei neuere Releases zu je 15 Versionen → alle
+     `fb28166`-Versionen bleiben. Rotnachweis gegen den alten Stand.
+   - Zehn Releases bleiben vollständig samt Kindern und Attestationen; das elfte unbekannte Release wird gelöscht.
+   - `pending_versions` schützt; fehlendes Feld gilt als leer; ungültiges Feld → kein Löschen.
+   - Geänderter Schutzsatz beim zweiten Lesen → kein DELETE.
+   - Deploy-Test (`infrastructure/tests/taptime-deploy.test`): Reservierung wird vor dem ersten `docker pull`
+     veröffentlicht; die Endveröffentlichung enthält den erledigten Eintrag nicht mehr; ein Abbruch lässt ihn stehen.
+   - Alle bestehenden GHCR- und Deploy-Tests grün.
+7. **`infrastructure/DEPLOY.md`**, Abschnitt Schutzsatz, entsprechend nachziehen.
 
 ### Grenzen
 
-Nur `apps/landing-web`; `/app`, `/tag` und Caddy unverändert. Sobald echte Prototypen fotografiert sind, ersetzt ein
-kleiner Folgeauftrag die Entwürfe. ADO nicht ändern. Bericht in `.t129-review/`; kein Commit vor `APPROVED`.
+Keine Änderung an den Abbildern, keine Workflow-Starts, kein Löschen oder Wiederherstellen. Die 74 bekannten
+Fehlstellen in 16 älteren September-Ständen bleiben unverändert. Restrisiko im Bericht nennen (etwa eine Reservierung
+genau zwischen zweitem Lesen und Löschen eines Ziels, das weder bekannt noch unter den zehn neuesten Releases ist).
+ADO nicht ändern. Bericht in `.t131-review/`; kein Commit vor `APPROVED`. Nach dem Commit müssen CI und Image-Workflow
+grün sein, einschließlich Aufräumen und Abrufprüfung.
 
 ---
 
 ## Danach: T-126 · Namen von Zugängen ändern (D-142)
 
 **Für:** Development · **Risiko:** mittel (Datenbank, Berechtigung, Lohnexport) · **Zeitbox:** eine Sitzung. Unabhängiges
-Review (AGENTS § 4). Beginnt nach T-129.
+Review (AGENTS § 4). Beginnt nach T-131.
 
 ### Warum
 

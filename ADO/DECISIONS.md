@@ -1952,3 +1952,15 @@ Entwurfsbildern an, ohne Preis und ohne Bestellmöglichkeit (T-129); echte Fotos
 Prototypen gibt.
 **Warum:** Ein fester Punkt ohne Kabel macht Taptura für Büro, Empfang und mehrere Standorte so einfach wie am
 Einsatzort; früh angekündigt hilft er im Gespräch mit Interessenten, ehrlich angekündigt schadet er nicht.
+
+## D-145 · GHCR bewahrt ganze Releases auf; ein Deploy reserviert sein Ziel zuerst · 16.10.2026 · Claude (TL)
+Ergänzt T-098c und den Schutzsatz in `infrastructure/DEPLOY.md`. Das Aufräumen in GHCR bewahrt die neuesten zehn
+Releases vollständig auf (alle Abbilder einer Version samt Manifestgraphen) statt der neuesten zwanzig einzelnen
+Paketversionen. Der Deploy trägt seine Zielversion vor dem ersten Abruf eines Abbilds als `pending_versions` in den
+Schutzsatz ein; der Eintrag verschwindet erst mit der nächsten erfolgreichen Veröffentlichung. Das Aufräumen liest den
+Schutzsatz unmittelbar vor dem Löschen erneut und löscht bei jeder Abweichung nichts. Erhalten bleiben auch die
+Operations-Abbilder von current und previous. Jeder Lauf protokolliert Schutzsatz und Löschplan. Bis zur Umsetzung
+(T-131) wird während eines Deploys nicht auf main gepusht.
+**Warum:** Am 15.10. löschte ein Aufräumlauf während Deploy 6 die Abbilder der gerade ausgerollten Produktion, weil der
+Schutzsatz erst am Ende des Deploys geschrieben wird und „zwanzig Paketversionen“ nur gut ein Release sind (T-130). Die
+Abnahme von T-098c (TL) hatte diesen zeitlichen Fall übersehen.
