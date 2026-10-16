@@ -5,9 +5,9 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
-import { cleanupGhcr } from './clean-ghcr.mjs';
-import { createGhcrRegistry, GhcrHttpError, verifyProtectedImages } from './ghcr-manifests.mjs';
-import { selectGhcrDeletions, selectGhcrVerificationRoots } from './select-ghcr-deletions.mjs';
+import { cleanupGhcr, planGhcrCleanup } from './clean-ghcr.mjs';
+import { collectManifests, createGhcrRegistry, GhcrHttpError, verifyProtectedImages } from './ghcr-manifests.mjs';
+import { ProtectedManifestMissingError, selectGhcrDeletions, selectGhcrVerificationRoots } from './select-ghcr-deletions.mjs';
 
 const snapshot = { schema_version: 1, current_version: 'aaaaaaa', previous_version: 'aaaaaaa', known_versions: ['aaaaaaa'] };
 const imageType = 'application/vnd.oci.image.manifest.v1+json';
@@ -335,7 +335,10 @@ test('T-098c: missing strict content fails before any deletion for current, prev
       if (category === 'ops') addIndex(f, 'ops', [missing], 5);
       if (category === 'newest' || category === 'shared-known') {
         const tag = category === 'shared-known' ? 'bbbbbbb' : 'ccccccc';
-        if (category === 'shared-known') protection = { ...snapshot, known_versions: ['aaaaaaa', 'bbbbbbb'] };
+        if (category === 'shared-known') {
+          protection = { ...snapshot, known_versions: ['aaaaaaa', 'bbbbbbb'] };
+          addIndex(f, 'aaaaaaa', [missing], 6);
+        }
         addIndex(f, tag, [missing], 5, '2027-01-01T00:00:00.000Z');
         keepReleases = 1;
       }
@@ -390,6 +393,64 @@ test('T-098c: verification fallback tolerates older known child gaps while retai
   const broken = verifyCli(f, protection);
   assert.equal(broken.status, 1, 'ops must be fetched even when absent from the inventory');
   assert.match(broken.stderr, /manifests\/ops.*404/);
+});
+
+test('T-131c: known and pending releases among the newest retain all tags and tolerate historical child gaps', async t => {
+  for (const category of ['known', 'pending']) {
+    await t.test(category, async () => {
+      const f = fixture();
+      const protection = category === 'known'
+        ? { ...snapshot, known_versions: ['aaaaaaa', 'bbbbbbb'] }
+        : { ...snapshot, pending_versions: ['bbbbbbb'] };
+      const prefixes = ['', 'admin-web-', 'operator-web-', 'landing-web-', 'operations-'];
+      for (const [index, prefix] of prefixes.entries()) {
+        const missing = missingChild(f, `${category}:${prefix}`);
+        addIndex(f, `${prefix}bbbbbbb`, [missing, f.orphan], index + 5, '2027-01-01T00:00:00.000Z');
+      }
+      const warnings = [];
+      const result = await planGhcrCleanup({ snapshot: protection, listVersions: async () => f.versions,
+        registry: f.registry(), warn: message => warnings.push(message),
+      });
+      assert.equal(result.skipped, false);
+      assert.deepEqual(result.deletions, [], 'every tag and existing child must survive');
+      assert.deepEqual(result.protectedVersions.map(version => version.id), [1], 'only the production root is strict');
+      assert.deepEqual(warnings, [`GHCR older known/reserved versions: ${prefixes.length} missing child manifests (404); retained releases: bbbbbbb.`]);
+      const verification = verifyCli(f, protection);
+      assert.equal(verification.status, 0, verification.stderr);
+      assert.match(verification.summary, /Protected images verified/);
+    });
+  }
+});
+
+test('T-131c: graph checks remain strict for current, previous and unknown newest releases', async t => {
+  for (const category of ['current', 'previous', 'unknown']) {
+    await t.test(category, async () => {
+      const f = fixture();
+      const missing = missingChild(f, category);
+      let protection = { ...snapshot, pending_versions: category === 'unknown' ? [] : ['bbbbbbb'] };
+      if (category === 'current') protection = { ...protection, current_version: 'bbbbbbb', known_versions: ['aaaaaaa', 'bbbbbbb'] };
+      if (category === 'previous') protection = { ...protection, previous_version: 'bbbbbbb', known_versions: ['aaaaaaa', 'bbbbbbb'] };
+      addIndex(f, 'bbbbbbb', [missing, f.orphan], 5, '2027-01-01T00:00:00.000Z');
+      const manifests = await collectManifests(f.versions, f.registry().readManifest);
+      assert.throws(() => selectGhcrDeletions(protection, f.versions, undefined, manifests), ProtectedManifestMissingError);
+      await assert.rejects(planGhcrCleanup({ snapshot: protection, listVersions: async () => f.versions,
+        registry: f.registry(), warn: message => assert.fail(message),
+      }), error => error instanceof GhcrHttpError && error.status === 404);
+    });
+  }
+});
+
+test('T-131c: obsolete known operations gaps do not enter the retained-release warning', async () => {
+  const f = fixture();
+  const protection = { ...snapshot, known_versions: ['aaaaaaa', 'bbbbbbb'] };
+  addIndex(f, 'operations-bbbbbbb', [missingChild(f, 'obsolete-operations'), f.orphan], 5);
+  const warnings = [];
+  const result = await planGhcrCleanup({ snapshot: protection, listVersions: async () => f.versions,
+    registry: f.registry(), keepReleases: 0, warn: message => warnings.push(message),
+  });
+  assert.equal(result.skipped, false);
+  assert.deepEqual(result.deletions.map(version => version.id), [5, 4]);
+  assert.deepEqual(warnings, []);
 });
 
 test('T-098c: only a real manifest HTTP 404 is tolerable; subsequent non-404 or timeout skips cleanup', async () => {

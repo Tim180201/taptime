@@ -117,12 +117,14 @@ function belongsToRelease(version, releases) {
 }
 
 // These roots need verification even when an incomplete graph prevents cleanup.
-// Pending releases have the same historical-gap tolerance as known releases.
+// Older known and pending releases keep historical-gap tolerance even among the
+// newest releases. Production/selected operations roots remain strict regardless.
 export function selectGhcrVerificationRoots(snapshot, response, keepReleases = KEEP_NEWEST_RELEASES) {
   const strictSnapshot = { ...snapshot, pending_versions: [], known_versions: [snapshot.current_version, snapshot.previous_version] };
   const versions = sortedVersions(snapshot, response);
-  const newest = newestReleases(versions, keepReleases);
-  return versions.filter(version => belongsToRelease(version, newest) || isProtectedVersion(strictSnapshot, version));
+  const newestUnknown = newestReleases(versions, keepReleases);
+  for (const release of [...snapshot.known_versions, ...(snapshot.pending_versions ?? [])]) newestUnknown.delete(release);
+  return versions.filter(version => belongsToRelease(version, newestUnknown) || isProtectedVersion(strictSnapshot, version));
 }
 
 export async function validateProtectedInventory(snapshot, versions, registry, keepReleases = KEEP_NEWEST_RELEASES) {
@@ -211,14 +213,15 @@ export function selectGhcrDeletions(snapshot, response, keepReleases = KEEP_NEWE
   });
 }
 
-export function knownMissingChildren(snapshot, versions, manifests) {
+export function knownMissingChildren(snapshot, versions, manifests, keepReleases = KEEP_NEWEST_RELEASES) {
   const missing = new Set();
   const affected = new Set();
   const pending = new Set(snapshot.pending_versions ?? []);
+  const newest = newestReleases(versions, keepReleases);
   for (const release of new Set([...snapshot.known_versions, ...pending])) {
     if (release === snapshot.current_version || release === snapshot.previous_version) continue;
     const tags = new Set([release, ...WEB_TAG_PREFIXES.map(prefix => `${prefix}${release}`)]);
-    if (pending.has(release)) tags.add(`${OPERATIONS_TAG_PREFIX}${release}`);
+    if (pending.has(release) || newest.has(release)) tags.add(`${OPERATIONS_TAG_PREFIX}${release}`);
     const visited = new Set();
     function visit(digest) {
       if (visited.has(digest)) return;

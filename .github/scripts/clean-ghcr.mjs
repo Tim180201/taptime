@@ -25,7 +25,7 @@ export async function planGhcrCleanup({ snapshot, listVersions, registry, warn, 
     await validateProtectedInventory(snapshot, versions, registry, keepReleases);
     const manifests = await collectManifests(versions, registry.readManifest);
     deletions = selectGhcrDeletions(snapshot, versions, keepReleases, manifests);
-    missingKnown = knownMissingChildren(snapshot, versions, manifests);
+    missingKnown = knownMissingChildren(snapshot, versions, manifests, keepReleases);
   } catch (error) {
     if (error instanceof ProtectedManifestMissingError) throw error;
     // A 404 encountered during strict verification must not become a green skip.
