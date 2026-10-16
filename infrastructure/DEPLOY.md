@@ -183,21 +183,44 @@ Anschließend muss eine neue Root-SSH-Verbindung mit `Permission denied` scheite
 Aufruf als `taptime-deploy` weiter funktioniert. Bei einem Fehler nichts weiter härten und die
 offene Hetzner Console verwenden.
 
-Jede erfolgreiche Auslieferung veröffentlicht `current`, `previous` und die vollständige Datei
-`known-versions` sowie die ausgewählte Operations-Version atomar als nicht sensitiven
-Schutzsatz unter
-`/opt/taptime/admin-web/status/ghcr-protected-versions.json`. Der Veröffentlichungsworkflow lädt
-diesen Satz erst nach dem Bauen und Veröffentlichen. Ist er nicht abrufbar oder ungültig, bleiben die
+Der Deploy-Controller veröffentlicht nach dem Lesen der Zustandsdateien und unter dem Deploy-Lock
+**vor dem ersten Image-Pull** seine Zielversion als `pending_versions` im nicht sensitiven Schutzsatz
+`/opt/taptime/admin-web/status/ghcr-protected-versions.json`. Die Reservierung schützt alle Tags des
+Ziels, auch `operations-<Ziel>`; `operations_version` schützt weiterhin die installierte Fassung aus
+der Zustandsdatei. So sind beide möglichen Operations-Auswahlen geschützt, bevor die Fähigkeit des
+Zielabbilds bekannt ist. `current`, `previous` und bekannte Versionen bleiben dabei geschützt.
+Der Controller ergänzt bestehende Reservierungen atomar; Abbruch, Rücknahme und Absturz entfernen
+sie nicht. Erst die erfolgreiche Endveröffentlichung nach Aktivierung und Gesundheitsprüfung ersetzt
+sie durch eine leere Liste, schreibt den neuen aktuellen und vorherigen Stand, die vollständige Datei
+`known-versions` und die tatsächlich gewählte Operations-Version. Es gibt keinen zeitgesteuerten
+Ablauf und keinen manuellen Bereinigungsschritt für Reservierungen. Die Datei bleibt im vom Controller
+erzeugten flachen Format; fremdes oder beschädigtes Format stoppt den Deploy vor dem ersten Pull.
+
+Der Veröffentlichungsworkflow lädt diesen Satz erst nach dem Bauen und Veröffentlichen. Ist er nicht abrufbar oder ungültig, bleiben die
 veröffentlichten Abbilder verfügbar; das Aufräumen wird mit Warnung und Eintrag in der Laufübersicht
 übersprungen. Dasselbe gilt bei einer unvollständigen Registry-Auskunft oder unbekannten Manifesten.
 Geschützt sind Backend, Admin-Web und vorhandene Betreiber- und Startseiten-Abbilder aller bekannten
-Anwendungsversionen, die ausgewählte Operations-Version, `ops` und die neuesten zwanzig Paketversionen.
+Anwendungsversionen, alle Abbilder reservierter Versionen, die Operations-Abbilder von `current` und
+`previous`, die ausgewählte Operations-Version, `ops` und die **neuesten zehn vollständigen Releases**.
+Ein Release umfasst die fünf Versions-Tags und ihre Manifestgraphen. Seine Reihenfolge folgt dem frühesten
+`created_at` seiner getaggten Paketversionen (neueste zuerst), bei Gleichstand der Versionskennung
+aufsteigend. Ein später ergänztes Abbild oder ein ungetaggtes Kind verjüngt ein Release nicht.
 Zusätzlich bleiben sämtliche von erhaltenen Indizes referenzierten Kind-Manifeste bestehen, auch
-ohne eigenen Tag und über verschachtelte Indizes. Die Schutzmenge darf deshalb größer als zwanzig sein.
+ohne eigenen Tag und über verschachtelte Indizes. Ein fehlendes `pending_versions` in einem alten
+Schutzsatz bedeutet leer; ein ungültiges Feld verhindert jede Löschung.
+Unmittelbar vor der ersten Löschung wird der Schutzsatz erneut geladen. Jede inhaltliche Abweichung
+oder ein Lesefehler setzt das gesamte Aufräumen mit Warnung aus; die separate Abrufprüfung läuft trotzdem.
+Beide Abfragezeiten, die geladenen Schutzsätze und der Löschplan mit Kennung, Digest und Tags stehen
+in der Laufübersicht; jede Löschzeile nennt ebenfalls diese drei Angaben.
 Gelöscht werden zuerst entbehrliche Eltern, dann deren nicht anderweitig benötigte Kinder.
-Danach prüft ein eigener Schritt alle erhaltenen Abbilder durch frischen anonymen Abruf der Indizes,
+Danach prüft ein eigener Schritt current, previous, die ausgewählte Operations-Version, `ops` und
+die zehn neuesten Releases durch frischen anonymen Abruf der Indizes,
 Kind-Manifeste, Konfigurationen und Schichten samt Digest und Größe. Ein Lösch- oder Abruffehler macht
 den Lauf rot; die Prüfung erfolgt auch nach einer teilweise fehlgeschlagenen Löschung.
+Ältere bekannte und reservierte Stände bleiben geschützt; bereits fehlende Kinder außerhalb der
+streng geprüften Menge verhindern das Aufräumen nicht. Bekannte historische Fehlstellen bleiben unverändert.
+Ein Restrisiko bleibt ohne gemeinsamen Lock zwischen Workflow und Deploy: Eine Reservierung genau zwischen
+zweitem Lesen und Löschen kann ein unbekanntes Ziel außerhalb der zehn neuesten Releases zu spät schützen.
 
 Vor dem ersten T-028-Deploy müssen Backend und Admin-Web für Ziel und Rücknahme sowie die
 Operations-Abbilder des freigegebenen T-028-Controllers und der Zielanwendung vorhanden sein.

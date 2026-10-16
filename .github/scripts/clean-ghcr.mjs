@@ -1,14 +1,14 @@
 import { execFile } from 'node:child_process';
 import { appendFile, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { promisify } from 'node:util';
+import { isDeepStrictEqual, promisify } from 'node:util';
 import { collectManifests, createGhcrRegistry, GhcrHttpError, verifyProtectedImages } from './ghcr-manifests.mjs';
-import { flattenVersions, knownMissingChildren, ProtectedManifestMissingError, selectGhcrDeletions, selectGhcrVerificationRoots, validateProtectedInventory, validateProtectedVersions } from './select-ghcr-deletions.mjs';
+import { flattenVersions, KEEP_NEWEST_RELEASES, knownMissingChildren, ProtectedManifestMissingError, selectGhcrDeletions, selectGhcrVerificationRoots, validateProtectedInventory, validateProtectedVersions } from './select-ghcr-deletions.mjs';
 
 const execute = promisify(execFile);
 
 // Shared by the workflow and read-only previews; this function has no mutation port.
-export async function planGhcrCleanup({ snapshot, listVersions, registry, warn, keepNewest = 20 }) {
+export async function planGhcrCleanup({ snapshot, listVersions, registry, warn, keepReleases = KEEP_NEWEST_RELEASES }) {
   let versions;
   let protectedVersions;
   let deletions;
@@ -17,14 +17,14 @@ export async function planGhcrCleanup({ snapshot, listVersions, registry, warn, 
   try {
     validateProtectedVersions(snapshot);
     versions = flattenVersions(await listVersions());
-    protectedVersions = selectGhcrVerificationRoots(snapshot, versions, keepNewest);
+    protectedVersions = selectGhcrVerificationRoots(snapshot, versions, keepReleases);
     // Missing strict content (including configs/layers and required tags absent
     // from the inventory) is fatal before the first deletion, not only afterwards.
     await verifyProtectedImages(snapshot, protectedVersions, registry);
     strictVerified = true;
-    await validateProtectedInventory(snapshot, versions, registry);
+    await validateProtectedInventory(snapshot, versions, registry, keepReleases);
     const manifests = await collectManifests(versions, registry.readManifest);
-    deletions = selectGhcrDeletions(snapshot, versions, keepNewest, manifests);
+    deletions = selectGhcrDeletions(snapshot, versions, keepReleases, manifests);
     missingKnown = knownMissingChildren(snapshot, versions, manifests);
   } catch (error) {
     if (error instanceof ProtectedManifestMissingError) throw error;
@@ -34,19 +34,29 @@ export async function planGhcrCleanup({ snapshot, listVersions, registry, warn, 
     return { skipped: true };
   }
   if (missingKnown.count) {
-    await warn(`GHCR older known versions: ${missingKnown.count} missing child manifests (404); retained releases: ${missingKnown.versions.join(', ')}.`);
+    await warn(`GHCR older known/reserved versions: ${missingKnown.count} missing child manifests (404); retained releases: ${missingKnown.versions.join(', ')}.`);
   }
   const deletedIds = new Set(deletions.map(version => version.id));
   return { skipped: false, snapshot, protectedVersions, deletions,
     retainedVersions: versions.filter(version => !deletedIds.has(version.id)), deleted: deletions.length };
 }
 
-export async function cleanupGhcr({ snapshot, listVersions, registry, deleteVersion, warn, keepNewest = 20, beforeDelete = async (_plan) => {} }) {
-  const plan = await planGhcrCleanup({ snapshot, listVersions, registry, warn, keepNewest });
+export async function cleanupGhcr({ snapshot, listVersions, registry, deleteVersion, warn, readSnapshot, keepReleases = KEEP_NEWEST_RELEASES, beforeDelete = async (_plan) => {} }) {
+  const plan = await planGhcrCleanup({ snapshot, listVersions, registry, warn, keepReleases });
   if (plan.skipped) return plan;
   await beforeDelete(plan);
+  // Check after verification, planning and durable diagnostics, immediately before
+  // mutation. Any uncertainty or content change cancels the entire deletion plan.
+  try {
+    const latest = await readSnapshot();
+    validateProtectedVersions(latest);
+    if (!isDeepStrictEqual(snapshot, latest)) throw new Error('production protection changed before deletion');
+  } catch (error) {
+    await warn(`GHCR cleanup skipped: ${error.message}`);
+    return { ...plan, skipped: true, deleted: 0 };
+  }
   // Mutation failures are not converted into a successful skip.
-  for (const version of plan.deletions) await deleteVersion(version.id);
+  for (const version of plan.deletions) await deleteVersion(version.id, version);
   return plan;
 }
 
@@ -93,17 +103,28 @@ async function main() {
     return;
   }
   const result = await cleanupGhcr({ snapshot, registry, warn,
+    readSnapshot: async () => {
+      await summary(`Second protection query: ${new Date().toISOString()}`);
+      const response = await fetch('https://admin.tb-infra.de/status/ghcr-protected-versions.json', {
+        headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(15_000),
+      });
+      if (!response.ok) throw new Error(`second protection query failed (${response.status})`);
+      const latest = await response.json();
+      await summary(`Second protection snapshot:\n\n\`\`\`json\n${JSON.stringify(latest, null, 2)}\n\`\`\``);
+      return latest;
+    },
     beforeDelete: async plan => {
       await writeFile(planPath, JSON.stringify(plan));
-      await appendFile(process.env.GITHUB_OUTPUT, 'performed=true\n');
+      await summary(`Deletion plan (id, digest, tags):\n\n\`\`\`json\n${JSON.stringify(plan.deletions.map(({ id, name, metadata }) => ({ id, digest: name, tags: metadata.container.tags })), null, 2)}\n\`\`\``);
     },
     listVersions,
-    deleteVersion: async id => {
-      process.stdout.write(`Deleting obsolete unprotected GHCR package version ${id}.\n`);
+    deleteVersion: async (id, version) => {
+      process.stdout.write(`Deleting obsolete unprotected GHCR package version ${id}: digest=${version.name} tags=${JSON.stringify(version.metadata.container.tags)}.\n`);
       await execute('gh', ['api', '--method', 'DELETE', `${api}/${id}`]);
     },
   });
   if (!result.skipped) {
+    await appendFile(process.env.GITHUB_OUTPUT, 'performed=true\n');
     await summary(`GHCR cleanup removed ${result.deleted} obsolete package versions.`);
   } else {
     await appendFile(process.env.GITHUB_OUTPUT, 'performed=false\n');

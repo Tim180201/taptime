@@ -44,6 +44,10 @@ printf 'ddddddd\n' > "$TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE"
 
 # shellcheck source=../deploy
 source "$(dirname "$0")/../deploy"
+# Keep the production functions for reservation integration tests below. Only
+# function definitions from the sourced repository script are evaluated here.
+eval "$(declare -f publish_protected_versions | sed '1s/publish_protected_versions/production_publish_protected_versions/')"
+eval "$(declare -f pull_image | sed '1s/pull_image/production_pull_image/')"
 
 hostname() {
   if [[ "${1:-}" == '-I' ]]; then
@@ -212,7 +216,7 @@ wait_for_health() {
 }
 write_current_version() { record "write-version $1"; }
 mark_known_version() { :; }
-publish_protected_versions() { record "publish-protected $1 $2 $3"; }
+publish_protected_versions() { production_publish_protected_versions "$@" || return; record "publish-protected $1 $2 $3"; }
 
 expect_status() {
   local expected="$1"
@@ -424,7 +428,8 @@ printf 'Caddy snapshot failure stops before operations, migrations and traffic s
 : > "$LOG_FILE"
 TEST_IMAGE_ARCHIVE_CAPABLE=0 expect_status 1 main bbbbbbb
 grep --quiet 'cannot honor delayed archive acknowledgement' "$OUTPUT_FILE"
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -453,7 +458,8 @@ rm -f "$TAPTIME_DEPLOY_COMPOSE_FILE"
 INSTALL_MISSING_COMPOSE=1 FAIL_OPERATIONS=1 expect_status 2 main bbbbbbb
 grep --quiet 'unexpected end of file' "$OUTPUT_FILE"
 test -f "$TAPTIME_DEPLOY_COMPOSE_FILE"
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -468,7 +474,8 @@ printf 'Fresh-server evidence: operations installation supplied the initially mi
 : > "$LOG_FILE"
 TAPTIME_DEPLOY_TEST_REHEARSAL_IMAGE=local-bad expect_status 1 main bbbbbbb
 grep --quiet 'rehearsal image override requires TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1' "$OUTPUT_FILE"
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -482,7 +489,8 @@ install-operations ghcr.io/tim180201/taptime-backend-api:operations-bbbbbbb bbbb
 TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
   TAPTIME_DEPLOY_TEST_REHEARSAL_IMAGE=local-bad \
   FAIL_REHEARSAL=1 expect_status 1 main bbbbbbb
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -500,7 +508,8 @@ restore-and-rehearsal local-bad 1"
 
 : > "$LOG_FILE"
 FAIL_REHEARSAL=1 expect_status 1 main bbbbbbb
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -517,7 +526,8 @@ restore-and-rehearsal ghcr.io/tim180201/taptime-backend-api:bbbbbbb 1"
 
 : > "$LOG_FILE"
 FAIL_REHEARSAL=1 expect_status 1 main ccccccc
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:ccccccc
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:ccccccc
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-ccccccc
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -535,7 +545,8 @@ printf 'Known rollback evidence: application ccccccc kept operations ddddddd.\n'
 
 : > "$LOG_FILE"
 FAIL_HEALTH_VERSION=bbbbbbb expect_status 1 main bbbbbbb
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -563,7 +574,8 @@ grep --quiet 'Archivvertrag ist aktiv; keine automatische Rücknahme' "$OUTPUT_F
 
 : > "$LOG_FILE"
 expect_status 0 main bbbbbbb
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -595,7 +607,8 @@ ACTIVE_ADMIN_WEB_VERSION='aaaaaaa'
 ACTIVE_OPERATOR_WEB_VERSION='aaaaaaa'
 TAPTIME_DEPLOY_ALLOW_TEST_HOOKS=1 \
   TAPTIME_DEPLOY_TEST_WRONG_ADMIN_WEB_VERSION=1 expect_status 1 main bbbbbbb
-assert_log "pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
+assert_log "publish-protected aaaaaaa aaaaaaa ddddddd
+pull ghcr.io/tim180201/taptime-backend-api:bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:aaaaaaa
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-bbbbbbb
 pull ghcr.io/tim180201/taptime-backend-api:admin-web-aaaaaaa
@@ -670,7 +683,6 @@ save_running_caddy() { [[ "${FAIL_CADDY_SNAPSHOT:-0}" != 1 ]] || return 61; CADD
     wait_for_health() { record "health $1"; }
     write_current_version() { record "write-version $1"; }
     mark_known_version() { :; }
-    publish_protected_versions() { record "publish-protected $1 $2 $3"; }
     main bbbbbbb
   ' bash "$(dirname "$0")/../deploy" "$LOG_FILE"
 grep --quiet '^migrate-production$' "$LOG_FILE"
@@ -682,5 +694,86 @@ test "$(tr -d '[:space:]' < "$TAPTIME_DEPLOY_VERSION_STATE_FILE")" = 'aaaaaaa'
 printf 'Forced interruption evidence (exit 137):\n'
 cat "$LOG_FILE"
 printf 'No start or version write occurred; current-version is still aaaaaaa.\n'
+
+# A SIGKILL cannot run cleanup: the production reservation must still be visible.
+node -e '
+  const assert = require("node:assert/strict");
+  const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+  assert.ok(value.pending_versions.includes("bbbbbbb"));
+' "$TAPTIME_DEPLOY_PROTECTED_VERSIONS_FILE"
+
+run_reservation_deploy() (
+  local capability="$1" abort_pull="$2" expected_ops=bbbbbbb status=0
+  [[ "$capability" == 1 ]] || expected_ops=ddddddd
+  production_publish_protected_versions aaaaaaa ccccccc ddddddd eeeeeee
+  TEST_LANDING_CAPABILITY="$capability"
+  # Invoked by main through the production pull function.
+  # shellcheck disable=SC2329
+  pull_image() { production_pull_image "$@"; }
+  # shellcheck disable=SC2329
+  docker() {
+    if [[ "$1" == pull ]]; then
+      # Observe the published JSON at the actual docker-pull boundary. Both
+      # possible operations choices must be protected before any image is read.
+      node -e '
+        const assert = require("node:assert/strict");
+        const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+        assert.equal(value.current_version, "aaaaaaa");
+        assert.equal(value.previous_version, "ccccccc");
+        assert.equal(value.operations_version, "ddddddd");
+        assert.deepEqual(value.pending_versions, ["bbbbbbb", "eeeeeee"]);
+      ' "$PROTECTED_VERSIONS_FILE" || return
+      [[ "$abort_pull" == 0 ]] || return 72
+      if [[ "$2" == *:operations-* ]]; then [[ "$2" == *:operations-"$expected_ops" ]] || return 73; fi
+    elif [[ "$1 $2" == 'image inspect' ]]; then
+      local image="${!#}" version
+      version="${image##*:}"
+      printf '%s\n' "${version##*-}"
+    else
+      return 74
+    fi
+  }
+  main bbbbbbb || status=$?
+  if [[ "$abort_pull" == 1 ]]; then
+    [[ "$status" == 72 ]] || return 1
+    node -e '
+      const assert = require("node:assert/strict");
+      const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+      assert.deepEqual(value.pending_versions, ["bbbbbbb", "eeeeeee"]);
+      assert.equal(value.current_version, "aaaaaaa");
+    ' "$PROTECTED_VERSIONS_FILE"
+  else
+    [[ "$status" == 0 ]] || return "$status"
+    node -e '
+      const assert = require("node:assert/strict");
+      const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+      assert.deepEqual(value.pending_versions, []);
+      assert.equal(value.operations_version, process.argv[2]);
+      assert.equal(value.current_version, "bbbbbbb");
+      assert.equal(value.previous_version, "aaaaaaa");
+    ' "$PROTECTED_VERSIONS_FILE" "$expected_ops"
+  fi
+)
+expect_status 0 run_reservation_deploy 0 0
+expect_status 0 run_reservation_deploy 1 0
+expect_status 0 run_reservation_deploy 1 1
+printf 'T-131 reservation precedes docker pull; both operations selections, success and abort verified.\n'
+
+# The pre-T-131 writer had no pending field; its previous release must survive.
+printf '%s\n' '{"schema_version":1,"current_version":"aaaaaaa","previous_version":"ccccccc","operations_version":"ddddddd","known_versions":["aaaaaaa","ccccccc"]}' > "$PROTECTED_VERSIONS_FILE"
+reserve_protected_version bbbbbbb aaaaaaa ddddddd
+reserve_protected_version fffffff aaaaaaa ddddddd
+node -e '
+  const assert = require("node:assert/strict");
+  const value = JSON.parse(require("node:fs").readFileSync(process.argv[1], "utf8"));
+  assert.deepEqual(value.pending_versions, ["bbbbbbb", "fffffff"]);
+  assert.equal(value.previous_version, "ccccccc");
+' "$PROTECTED_VERSIONS_FILE"
+# Malformed state must fail without replacing the previous bytes.
+printf '%s\n' '{"pending_versions":null}' > "$PROTECTED_VERSIONS_FILE"
+cp "$PROTECTED_VERSIONS_FILE" "$TEST_ROOT/invalid-protection"
+expect_status 1 reserve_protected_version bbbbbbb aaaaaaa ddddddd
+cmp "$PROTECTED_VERSIONS_FILE" "$TEST_ROOT/invalid-protection"
+printf 'T-131 legacy snapshot, accumulated pending releases and invalid-state refusal verified.\n'
 
 printf 'Deployment orchestration tests passed.\n'

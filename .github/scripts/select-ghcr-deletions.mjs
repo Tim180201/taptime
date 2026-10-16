@@ -7,6 +7,9 @@ const VERSION_PATTERN = /^[0-9a-f]{7}$/;
 const WEB_TAG_PREFIXES = ['admin-web-', 'operator-web-', 'landing-web-'];
 const OPERATIONS_TAG_PREFIX = 'operations-';
 const OPERATIONS_SHORTCUT_TAG = 'ops';
+export const KEEP_NEWEST_RELEASES = 10;
+const RELEASE_TAG = /^(?:admin-web-|operator-web-|landing-web-|operations-)?([0-9a-f]{7})$/;
+const validVersion = value => typeof value === 'string' && VERSION_PATTERN.test(value);
 
 function fail(message) {
   throw new Error(message);
@@ -23,23 +26,27 @@ export function validateProtectedVersions(value) {
   if (value?.schema_version !== 1) {
     fail('Protected-version snapshot has an unsupported schema.');
   }
-  if (!VERSION_PATTERN.test(value.current_version ?? '')) {
+  if (!validVersion(value.current_version)) {
     fail('Protected-version snapshot has no valid current version.');
   }
-  if (!VERSION_PATTERN.test(value.previous_version ?? '')) {
+  if (!validVersion(value.previous_version)) {
     fail('Protected-version snapshot has no valid previous version.');
   }
   if (value.operations_version !== undefined &&
-      !VERSION_PATTERN.test(value.operations_version ?? '')) {
+      !validVersion(value.operations_version)) {
     fail('Protected-version snapshot has an invalid operations version.');
   }
   if (!Array.isArray(value.known_versions) || value.known_versions.length === 0) {
     fail('Protected-version snapshot has no known versions.');
   }
   for (const version of value.known_versions) {
-    if (!VERSION_PATTERN.test(version)) {
+    if (!validVersion(version)) {
       fail(`Protected-version snapshot contains invalid version ${String(version)}.`);
     }
+  }
+  const pending = value.pending_versions === undefined ? [] : value.pending_versions;
+  if (!Array.isArray(pending) || pending.some(version => !validVersion(version))) {
+    fail('Protected-version snapshot has invalid pending_versions.');
   }
   const protectedVersions = new Set(value.known_versions);
   if (!protectedVersions.has(value.current_version) || !protectedVersions.has(value.previous_version)) {
@@ -47,21 +54,20 @@ export function validateProtectedVersions(value) {
   }
   return {
     applicationVersions: protectedVersions,
-    operationsVersion: value.operations_version,
+    pendingVersions: new Set(pending),
+    operationsVersions: new Set([value.current_version, value.previous_version, value.operations_version, ...pending].filter(Boolean)),
   };
 }
 
 export function isProtectedVersion(snapshot, version) {
-  const { applicationVersions, operationsVersion } = validateProtectedVersions(snapshot);
+  const { applicationVersions, pendingVersions, operationsVersions } = validateProtectedVersions(snapshot);
+  for (const pending of pendingVersions) applicationVersions.add(pending);
   return version.metadata.container.tags.some(tag => tag === OPERATIONS_SHORTCUT_TAG || applicationVersions.has(tag) ||
     WEB_TAG_PREFIXES.some(prefix => tag.startsWith(prefix) && applicationVersions.has(tag.slice(prefix.length))) ||
-    (operationsVersion !== undefined && tag === `${OPERATIONS_TAG_PREFIX}${operationsVersion}`));
+    (tag.startsWith(OPERATIONS_TAG_PREFIX) && operationsVersions.has(tag.slice(OPERATIONS_TAG_PREFIX.length))));
 }
 
-function sortedVersions(snapshot, response, keepNewest) {
-  if (!Number.isSafeInteger(keepNewest) || keepNewest < 0 || keepNewest > 20) {
-    fail('keepNewest must be an integer from zero through twenty.');
-  }
+function sortedVersions(snapshot, response) {
   validateProtectedVersions(snapshot);
   const versions = flattenVersions(response);
   const seenIds = new Set();
@@ -88,20 +94,45 @@ function sortedVersions(snapshot, response, keepNewest) {
   return versions;
 }
 
-// These roots need verification even when an incomplete graph prevents cleanup.
-// Reading their children recursively does not require inspecting obsolete orphans.
-export function selectGhcrVerificationRoots(snapshot, response, keepNewest = 20) {
-  const strictSnapshot = { ...snapshot, known_versions: [snapshot.current_version, snapshot.previous_version] };
-  return sortedVersions(snapshot, response, keepNewest)
-    .filter((version, index) => index < keepNewest || isProtectedVersion(strictSnapshot, version));
+// Use the first tagged image's creation time, not a later repair/rebuild or child
+// timestamp: adding an image must not make an old release look new. Hex identifier
+// ascending breaks ties independently of API pagination/order and locale.
+export function newestReleases(versions, keepReleases = KEEP_NEWEST_RELEASES) {
+  if (!Number.isSafeInteger(keepReleases) || keepReleases < 0 || keepReleases > KEEP_NEWEST_RELEASES) {
+    fail('keepReleases must be an integer from zero through ten.');
+  }
+  const dates = new Map();
+  for (const version of versions) {
+    for (const tag of version.metadata.container.tags) {
+      const release = tag.match(RELEASE_TAG)?.[1];
+      if (release) dates.set(release, Math.min(dates.get(release) ?? Infinity, Date.parse(version.created_at)));
+    }
+  }
+  return new Set([...dates].sort(([a, ad], [b, bd]) => bd - ad || (a < b ? -1 : a > b ? 1 : 0))
+    .slice(0, keepReleases).map(([release]) => release));
 }
 
-export async function validateProtectedInventory(snapshot, versions, registry) {
+function belongsToRelease(version, releases) {
+  return version.metadata.container.tags.some(tag => releases.has(tag.match(RELEASE_TAG)?.[1]));
+}
+
+// These roots need verification even when an incomplete graph prevents cleanup.
+// Pending releases have the same historical-gap tolerance as known releases.
+export function selectGhcrVerificationRoots(snapshot, response, keepReleases = KEEP_NEWEST_RELEASES) {
+  const strictSnapshot = { ...snapshot, pending_versions: [], known_versions: [snapshot.current_version, snapshot.previous_version] };
+  const versions = sortedVersions(snapshot, response);
+  const newest = newestReleases(versions, keepReleases);
+  return versions.filter(version => belongsToRelease(version, newest) || isProtectedVersion(strictSnapshot, version));
+}
+
+export async function validateProtectedInventory(snapshot, versions, registry, keepReleases = KEEP_NEWEST_RELEASES) {
+  const { pendingVersions, operationsVersions } = validateProtectedVersions(snapshot);
+  const newest = newestReleases(versions, keepReleases);
   const listedTags = new Set(versions.flatMap(version => version.metadata.container.tags));
-  const tags = new Set(snapshot.known_versions.flatMap(version =>
+  const tags = new Set([...new Set([...snapshot.known_versions, ...pendingVersions, ...newest])].flatMap(version =>
     [version, ...WEB_TAG_PREFIXES.map(prefix => `${prefix}${version}`)]));
   tags.add(OPERATIONS_SHORTCUT_TAG);
-  if (snapshot.operations_version) tags.add(`${OPERATIONS_TAG_PREFIX}${snapshot.operations_version}`);
+  for (const version of new Set([...operationsVersions, ...newest])) tags.add(`${OPERATIONS_TAG_PREFIX}${version}`);
   for (const tag of tags) {
     if (listedTags.has(tag)) continue;
     try {
@@ -118,8 +149,9 @@ export async function validateProtectedInventory(snapshot, versions, registry) {
 
 export class ProtectedManifestMissingError extends Error {}
 
-export function selectGhcrDeletions(snapshot, response, keepNewest, manifests = {}) {
-  const versions = sortedVersions(snapshot, response, keepNewest);
+export function selectGhcrDeletions(snapshot, response, keepReleases = KEEP_NEWEST_RELEASES, manifests = {}) {
+  const versions = sortedVersions(snapshot, response);
+  const newest = newestReleases(versions, keepReleases);
 
   // Validate the complete graph before planning any mutation. Unknown/missing manifests
   // cannot be assumed to be leaf images, even when they currently have no tags.
@@ -150,7 +182,7 @@ export function selectGhcrDeletions(snapshot, response, keepNewest, manifests = 
     if (manifests[digest] === null) throw new ProtectedManifestMissingError(`Protected manifest ${digest} is missing (404).`);
     for (const child of children.get(digest)) checkStrict(child);
   }
-  for (const version of selectGhcrVerificationRoots(snapshot, versions, keepNewest)) checkStrict(version.name);
+  for (const version of selectGhcrVerificationRoots(snapshot, versions, keepReleases)) checkStrict(version.name);
 
   const retained = new Set();
   function retain(digest) {
@@ -158,8 +190,8 @@ export function selectGhcrDeletions(snapshot, response, keepNewest, manifests = 
     retained.add(digest);
     for (const child of children.get(digest)) retain(child);
   }
-  for (const [index, version] of versions.entries()) {
-    if (index < keepNewest || isProtectedVersion(snapshot, version)) retain(version.name);
+  for (const version of versions) {
+    if (belongsToRelease(version, newest) || isProtectedVersion(snapshot, version)) retain(version.name);
   }
   // Parents precede children: an interrupted deletion never leaves a surviving index
   // pointing at a child removed earlier in this run.
@@ -182,9 +214,11 @@ export function selectGhcrDeletions(snapshot, response, keepNewest, manifests = 
 export function knownMissingChildren(snapshot, versions, manifests) {
   const missing = new Set();
   const affected = new Set();
-  for (const release of snapshot.known_versions) {
+  const pending = new Set(snapshot.pending_versions ?? []);
+  for (const release of new Set([...snapshot.known_versions, ...pending])) {
     if (release === snapshot.current_version || release === snapshot.previous_version) continue;
     const tags = new Set([release, ...WEB_TAG_PREFIXES.map(prefix => `${prefix}${release}`)]);
+    if (pending.has(release)) tags.add(`${OPERATIONS_TAG_PREFIX}${release}`);
     const visited = new Set();
     function visit(digest) {
       if (visited.has(digest)) return;
@@ -205,7 +239,7 @@ export function knownMissingChildren(snapshot, versions, manifests) {
 
 async function main() {
   if (process.argv.length !== 6) {
-    fail('Usage: select-ghcr-deletions.mjs <protected.json> <versions.json> <keep-newest> <manifests.json>');
+    fail('Usage: select-ghcr-deletions.mjs <protected.json> <versions.json> <keep-releases> <manifests.json>');
   }
   const snapshot = JSON.parse(await readFile(process.argv[2], 'utf8'));
   const response = JSON.parse(await readFile(process.argv[3], 'utf8'));

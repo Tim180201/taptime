@@ -441,10 +441,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          printf 'First protection query: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_STEP_SUMMARY"
           if curl --fail --silent --show-error --max-time 15 \
             --header 'Cache-Control: no-cache' \
             https://admin.tb-infra.de/status/ghcr-protected-versions.json \
             > "$RUNNER_TEMP/ghcr-protected-versions.json"; then
+            {
+              printf 'First protection snapshot:\n\n```json\n'
+              cat "$RUNNER_TEMP/ghcr-protected-versions.json"
+              printf '\n```\n'
+            } >> "$GITHUB_STEP_SUMMARY"
             printf 'available=true\n' >> "$GITHUB_OUTPUT"
           else
             printf 'available=false\n' >> "$GITHUB_OUTPUT"
