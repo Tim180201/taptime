@@ -1,3 +1,5 @@
+import { BUSINESS_TIME_ZONE } from '@taptime/core';
+import { Pill } from '../ui';
 import {MembershipNameChange} from './MembershipNameChange';
 import {MonthSwitch} from '../MonthSwitch';
 import TargetAssignments from './TargetAssignments';
@@ -39,6 +41,19 @@ export default function PersonView({state,administration,route,navigate,accountI
     setIdentity(null);
     void (async()=>{
       try {
+        if (administration.queryArchive) {
+          const archived = await administration.queryArchive('people', { search: null, cursor: null,
+            locationId: state.selectedLocation?.id ?? null, membershipId: personId });
+          if (cancelled) return;
+          if (archived.status !== 'ready' || !archived.value) { setIdentity({personId,authority,person:null,status:'unavailable'}); return; }
+          const former = archived.value.people.find(row => row.membershipId === personId);
+          if (former) {
+            setIdentity({personId,authority,status:'ready',person:{membershipId:former.membershipId,
+              displayName:former.displayName ?? 'Name fehlt',role:former.role,location:former.location,departedAt:former.revokedAt,
+              isRunning:false,runningSince:null,runningTargetDisplayName:null}});
+            return;
+          }
+        }
         // The existing scoped summary is paginated. Never use a URL ID as a person label.
         await administration.refreshManagedPeople?.(null);
         const seen=new Set<string>();
@@ -70,21 +85,23 @@ export default function PersonView({state,administration,route,navigate,accountI
     && state.managementScope.locations.some(location => location.id === person.location?.id));
   const actions=<>{back}{canRename && administration.renameMembership && administration.readMembershipName
     ? <MembershipNameChange key={personId + authority} administration={administration} membershipId={personId} onSaved={() => setRetry(n => n + 1)} /> : null}</>;
-  const resendAction=accountInvitations?.resend ? <button className="text-button" disabled={resending} onClick={async()=>{
+  const resendAction=!person.departedAt && accountInvitations?.resend ? <button className="text-button" disabled={resending} onClick={async()=>{
       setResending(true);
       try { const status=await accountInvitations.resend!(personId); setResendNotice(status==='succeeded'?'Einladung verschickt.':
         status==='invitation_already_accepted'?'Bereits angemeldet. Bitte „Passwort vergessen“ nutzen.':
         ACCOUNT_INVITATION_NOTICES[status as keyof typeof ACCOUNT_INVITATION_NOTICES] ?? 'Erneutes Senden ist derzeit nicht erreichbar.'); }
       catch {setResendNotice('Erneutes Senden ist derzeit nicht erreichbar.');} finally {setResending(false);}
     }}>Einladung erneut senden</button> : null;
-  const subtitle=[person.location?.name,person.role==='administrator'?'Administrator':person.role==='standortleitung'?'Standortleitung':'Mitarbeiter'].filter(Boolean).join(' · ');
+  const subtitle=<>{[person.location?.name,person.role==='administrator'?'Administrator':person.role==='standortleitung'?'Standortleitung':'Mitarbeiter'].filter(Boolean).join(' · ')}{person.departedAt ? <> · <Pill>ehemalig</Pill> · Ausgeschieden am {new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE}).format(new Date(person.departedAt))}</> : null}</>;
   const ready=calendar?.targetMembershipId===personId && calendar.month===month && calendar.status==='ready';
-  return <TimeEditingProvider key={personId} state={state} administration={administration} targetMembershipId={personId} personLabel={person.displayName}>
+  const canManage = ready && calendar.canManageTime === true;
+  return <TimeEditingProvider key={`${personId}/${authority}/${canManage}`} readOnly={!canManage} state={state} administration={administration} targetMembershipId={personId} personLabel={person.displayName}>
     {!ready?<PageHeader organization={state.projection.organization.name} title={person.displayName} subtitle={subtitle} actions={actions} onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/>:null}
     {resendAction}
     {resendNotice ? <p role="status">{resendNotice}</p> : null}
     <MonthSwitch value={month} {...monthRange()} onChange={month=>navigate({...route,month})}/>
-    <TargetAssignments administration={administration} selector={{membershipId:personId}} personName={person.displayName}/>
+    {ready && !canManage ? <p>Diese Zeiten können nur noch angesehen werden.</p> : null}
+    {!person.departedAt ? <TargetAssignments administration={administration} selector={{membershipId:personId}} personName={person.displayName}/> : null}
     {calendar?.targetMembershipId === personId && calendar.month === month && calendar.status === 'ready'
       ? <>{calendar.value.activeRecord ? <div className="feedback-band"><p>{captureStatus(calendar.value.activeRecord)}</p><TimeRecordControls directStop record={calendar.value.activeRecord}/></div> : null}<TimeCalendar showMonthSwitch={false} personHeader={{organization:state.projection.organization.name,name:person.displayName,subtitle,actions}} value={calendar.value} month={month} onMonthChange={month=>navigate({...route,month})}
         onRefresh={()=>void administration.loadPersonTime?.(personId,month)}/></>

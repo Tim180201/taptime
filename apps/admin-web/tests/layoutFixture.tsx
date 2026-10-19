@@ -1,3 +1,4 @@
+import {createArchiveCapability} from './T127Capability';
 import {createRenameCapability} from './T126Capability';
 import {createMonthRaceCapability} from './T122cCapability';
 import {customerSearch,stateSearch} from './searchFixtures';
@@ -251,7 +252,7 @@ let ready: Extract<AdminWebState, { status: 'ready' }> = { ...readyState,
   managedPeople: { month:'2026-09',status: 'ready', isRunning: null, value: { packageUsage:{packageSize:10,activeAccessCount:12}, serverTime: '2026-09-23T11:00:00.000Z', runningCount: 1, totalCount: 2, nextCursor: null,
     people: [{ membershipId: person.id, displayName: 'Alexandra Beispiel', role: 'employee', location, isRunning: true, runningSince: entry.startedAt, runningTargetDisplayName: entry.targetDisplayName },
       { membershipId: own, displayName: 'Martin Beispiel', role: 'administrator', location: null, isRunning: false, runningSince: null, runningTargetDisplayName: null }] } },
-  calendar: { status: 'ready', targetMembershipId: window.location.pathname.includes('/beschaeftigte/') ? person.id : null, month: '2026-09',
+  calendar: { status: 'ready', canManageTime: true, targetMembershipId: window.location.pathname.includes('/beschaeftigte/') ? person.id : null, month: '2026-09',
     value: { records: [entry], activeRecord: null, nextCursor: null, windowStartedAt: '2026-08-31T22:00:00.000Z', windowEndedAt: '2026-09-23T12:00:00.000Z' } },
   assignableLocations: [location],
   locationSetup: { locations: [{ id: location.id, displayName: location.name, active: true, rowVersion: 1 }],
@@ -356,7 +357,8 @@ capability.cancelCorrection = () => stateful.emit({ ...ready, correctionIntent: 
 capability.cancelAdjudication = () => stateful.emit({ ...ready, adjudicationIntent: null });
 capability.cancelReassignment = () => stateful.emit({ ...ready, reassignmentIntent: null });
 const root = createRoot(document.getElementById('root')!);
-if(variant.startsWith('t126-'))void createRenameCapability(variant==='t126-manager'?'standortleitung':'administrator').then(({coordinator})=>root.render(<App administration={coordinator}/>));
+if(variant.startsWith('t127-'))void createArchiveCapability(variant.includes('manager')?'standortleitung':'administrator',variant.includes('empty')).then(({coordinator,requests})=>{Object.assign(window,{t127Requests:requests});root.render(<App administration={coordinator}/>);});
+else if(variant.startsWith('t126-'))void createRenameCapability(variant==='t126-manager'?'standortleitung':'administrator').then(({coordinator})=>root.render(<App administration={coordinator}/>));
 else if(variant==='t122c-month-race')void createMonthRaceCapability(entry).then(administration=>root.render(<App administration={administration}/>));
 else root.render(variant === 'configuration' ? createApplicationPage(null) : variant.startsWith('welcome')
   ? <WelcomePage invitation={variant === 'welcome-unavailable' ? null : { hasInvitation: variant !== 'welcome-invalid', setPassword: async () => variant === 'welcome-error' ? 'weak_password' : variant === 'welcome-busy' ? new Promise(() => {}) : 'succeeded' }} />

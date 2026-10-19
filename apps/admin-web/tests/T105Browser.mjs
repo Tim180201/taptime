@@ -11,8 +11,6 @@ const click = name => p => p.getByRole('button', { name, exact: true }).first().
 const cases = [
   ['zeiten', 't105-admin', 1],
   ['zugaenge', 't105-admin', 1, access],
-  ['zugaenge-aktiv', 't105-admin', 1, async p => { await access(p); await click('Aktiv')(p); }],
-  ['zugaenge-entzogen', 't105-admin', 1, async p => { await access(p); await click('Entzogen')(p); }],
   ['rolle', 't105-admin', 1, async p => {
     await access(p);
     await p.getByRole('row').filter({ hasText: 'Claudia Standortleitung' }).getByRole('button', { name: 'Rolle ändern' }).click();
@@ -44,11 +42,6 @@ try {
         await page.goto(web.origin + '/beschaeftigte');
         await page.locator('.employees-view').waitFor();
         if (steps) await steps(page);
-        if (name === 'zugaenge-entzogen') {
-          const table = page.getByRole('table', { name: 'Zugänge', exact: true });
-          await table.getByText('Erika Ausgeschieden').waitFor();
-          assert.equal(await table.getByRole('button').count(), 0);
-        }
         if (name === 'zugaenge') await page.getByText('noch nicht angemeldet', { exact: true }).waitFor();
         // Text-only zoom: snapshot sizes first, avoiding cascaded multiplication.
         if (font === 200) await page.evaluate(() => {

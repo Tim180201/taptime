@@ -30,6 +30,7 @@ export default function SetupView({
 }) {
   const customers=useSearchPages((search,cursor)=>administration.querySearch?.('setup_customers',{kind:'customers',search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.customers,item=>item.id,[administration,state.membershipId,state.selectedLocation?.id]);
   const tags=useSearchPages((search,cursor)=>administration.querySearch?.('setup_tags',{kind:'nfc_tags',search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.nfcTags,item=>item.id,[administration,state.membershipId,state.selectedLocation?.id]);
+  const [deletingProject,setDeletingProject]=useState<{id:string;name:string}|null>(null);
   const projects=useSearchPages((search,cursor)=>administration.querySearch?.('projects',{search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.projects,item=>item.projectId,[administration,state.membershipId,state.selectedLocation?.id]);
   const customerControls=<><SearchField value={customers.input} onChange={customers.setSearch} disabled={state.reassigning||state.reassignmentIntent!==null}/><SearchStatus state={customers.state} onRetry={customers.pager.retry} onClear={()=>customers.setSearch('')}/></>;
   const tagControls=<><SearchField value={tags.input} onChange={tags.setSearch} disabled={state.reassigning||state.reassignmentIntent!==null}/><SearchStatus state={tags.state} onRetry={tags.pager.retry} onClear={()=>tags.setSearch('')}/></>;
@@ -128,10 +129,14 @@ export default function SetupView({
               ...customers.state.items.map(c=>({id:c.id,name:c.displayName,type:'customer' as const,active:c.active})),
               ...projects.state.items.map(c=>({id:c.projectId,name:c.displayName,type:'project' as const,active:c.active})),
               ...(state.locationSetup?.workTargets??[]).filter(t=>t.targetType!=='general_work'&&(t.targetType==='customer'?!customers.state.items.some(c=>c.id===t.targetId):!projects.state.items.some(p=>p.projectId===t.targetId))&&t.displayName.toLocaleLowerCase('de').includes(filter.trim().normalize('NFC').toLocaleLowerCase('de'))).map(t=>({id:t.targetId,name:t.displayName,type:t.targetType,active:undefined}))
-            ];
+            ].filter(item=>item.active!==false);
   const explanation=tab==='standorte'?'Standorte bilden die Arbeitsorte Ihres Betriebs ab.':tab==='mitarbeiter'?'Ordnen Sie Personen ihre Arbeits- und Verwaltungsstandorte zu.':tab==='arbeitsziele'?'Kunden und Projekte erhalten hier ihren Standort.':'Karten werden mit dem Handy zugeordnet; hier ändern Sie Zuordnungen.';
   return <>
     <PageHeader organization={state.projection.organization.name} title="Einrichtung" subtitle="Standorte, Kunden und Projekte Ihres Betriebs." onRefresh={()=>{void administration.refresh();void administration.refreshLocationSetup?.();void customers.pager.refresh();void projects.pager.refresh();void tags.pager.refresh();}} actions={tab==='standorte'||tab==='arbeitsziele'?<button className={createOpen?'secondary':'primary-action'} onClick={()=>setCreateOpen(true)}>{tab==='standorte'?'+ Standort':'+ Projekt'}</button>:undefined}/>
+    {deletingProject ? <Confirmation label="Projekt löschen" busyLabel="Wird gelöscht …" title={`Projekt ${deletingProject.name} löschen?`} confirmLabel="Projekt löschen" busy={state.projectBusy ?? false}
+      onCancel={()=>setDeletingProject(null)} onConfirm={()=>{void administration.deactivateProject?.(deletingProject.id).then(()=>{setDeletingProject(null);void projects.pager.refresh();void administration.refreshLocationSetup?.();});}}>
+      <p>Danach steht {deletingProject.name} im Archiv. Die Zeiten bleiben im Lohnexport erhalten. Das lässt sich nicht rückgängig machen.</p>
+    </Confirmation> : null}
     <SectionBoundary state={state.sections.setup} retryButtonRef={sectionRetryButton} onRetry={()=>void administration.retrySection('setup')}>
       <div className="setup-tabs" role="tablist" aria-label="Einrichtungsbereiche">{[
         ...(state.managementScope.kind==='organization'?[['standorte','Standorte'],['mitarbeiter','Mitarbeiter']]:[]),['arbeitsziele','Kunden und Projekte'],['tags','Karten']
@@ -150,7 +155,7 @@ export default function SetupView({
             {setupRows.map(item=>{const binding=state.locationSetup?.workTargets.find(t=>t.targetId===item.id&&t.targetType===item.type);return <tr key={`${item.type}:${item.id}`} id={`setup-${item.type}-${item.id}`} tabIndex={-1}>
               <td><strong>{item.name}</strong>{item.active===false?<small> · inaktiv</small>:null}</td><td>{item.type==='customer'?'Kunde':'Projekt'}</td>
               <td>{binding?<select aria-label={`Standort für ${item.name}`} value={binding.locationId??''} disabled={state.locationSetupBusy} onChange={event=>{if(event.target.value)void administration.setWorkTargetLocation?.(item.type,item.id,event.target.value);}}><option value="">Noch nicht zugewiesen</option>{state.locationSetup?.locations.filter(l=>l.active).map(l=><option key={l.id} value={l.id}>{l.displayName}</option>)}</select>:<span className="muted">–</span>}</td>
-              <td>{item.type==='project'&&item.active?<button className="text-button" aria-label={`${item.name} deaktivieren`} disabled={state.projectBusy} onClick={()=>void administration.deactivateProject?.(item.id).then(()=>projects.pager.refresh())}>Deaktivieren</button>:null}</td>
+              <td>{item.type==='project'&&item.active?<button className="text-button" disabled={state.projectBusy} onClick={()=>setDeletingProject({id:item.id,name:item.name})}>Projekt löschen</button>:null}</td>
             </tr>;})}
           </DataTable>
           {moreCustomers}{projects.state.nextCursor?<button className="text-button" disabled={projects.state.busy} onClick={()=>void projects.pager.loadMore()}>Weitere Projekte laden</button>:null}

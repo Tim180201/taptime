@@ -20,6 +20,9 @@ export async function createRenameCapability(role: 'administrator' | 'standortle
     baseRowVersion: 1, effectiveRevisionNumber: 0, overlapsAnotherRecord: false });
   const auth: AdminWebAuthPort = { signIn: async () => 'signed_in', signOut: async () => {}, withAccessToken: async operation => operation('synthetic') };
   const api = {
+    queryArchive: async (_token: string, kind: string, request: { membershipIds?: string[] }) => ({ status: 'succeeded', value: kind === 'status'
+      ? { people: (request.membershipIds ?? []).map(membershipId => ({ membershipId, archived: false })), targets: [] }
+      : { people: [], nextCursor: null } }),
     session: async () => ({ status: 'succeeded', value: { membershipId: renameSelf, organizationId: organization.id, role, locationsEnabled: true,
       managementScope: role === 'administrator' ? { kind: 'organization' } : { kind: 'locations', locations: [location] },
       availableSections: ['employees', 'time_records', 'time_export', 'review_items'] } }),
@@ -31,7 +34,7 @@ export async function createRenameCapability(role: 'administrator' | 'standortle
     managedActiveSummary: async () => ({ status: 'succeeded', value: { serverTime: '2026-10-16T12:00:00.000Z', totalCount: people.length, runningCount: 0, nextCursor: null,
       people: names().map(p => ({ membershipId: p.id, displayName: p.displayName, role: p.role, location, isRunning: false, runningSince: null, runningTargetDisplayName: null, departedAt: null, monthWorkDurationSeconds: 3600 })) } }),
     managedPersonTime: async (_token: string, request: { fromInclusive: string; toExclusive: string }) => ({ status: 'succeeded', value: {
-      records: [], activeRecord: null, nextCursor: null, windowStartedAt: request.fromInclusive, windowEndedAt: request.toExclusive } }),
+      records: [], activeRecord: null, canManageTime: true, nextCursor: null, windowStartedAt: request.fromInclusive, windowEndedAt: request.toExclusive } }),
     targetAssignments: async () => ({ status: 'succeeded', value: { items: [], nextCursor: null } }),
     voidedTime: async () => ({ status: 'succeeded', value: { status: 'ready', records: [], nextAfterId: null } }),
     querySearch: async (_token: string, _kind: string, request: { search: string | null; active: boolean | null; locationId: string | null }) => ({ status: 'succeeded', value: {

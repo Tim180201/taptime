@@ -46,6 +46,7 @@ import { FeedbackBand,navigateFromLink } from './viewHelpers';
 const Overview=lazy(()=>import('./views/Overview'));
 const SetupView=lazy(()=>import('./views/SetupView'));
 const EmployeesView=lazy(()=>import('./views/EmployeesView'));
+const ArchiveView = lazy(() => import('./views/ArchiveView'));
 const PersonView=lazy(()=>import('./views/PersonView'));
 const TimeRecordsView=lazy(()=>import('./views/TimeRecordsView'));
 const ReviewsView=lazy(()=>import('./views/ReviewsView'));
@@ -229,12 +230,12 @@ function ReadyAdministration({state,administration,accountInvitations,route,navi
   const personName=state.employeeProjection.employeeMemberships.find(person=>person.id===state.membershipId)?.displayName??state.ownDisplayName;
   const accountLabel=formatAccountLabel(personName,roleLabel);
   const account=<><span>Angemeldet für</span><strong>{state.projection.organization.name}</strong><span>{accountLabel}</span></>;
-  const groups=[{title:'Arbeit',items:visibleViews.filter(item=>!['einrichtung','lohnexport'].includes(item.slug))},{title:'Verwaltung',items:visibleViews.filter(item=>['einrichtung','lohnexport'].includes(item.slug))}];
+  const groups=[{title:'Arbeit',items:visibleViews.filter(item=>!['einrichtung','lohnexport','archiv'].includes(item.slug))},{title:'Verwaltung',items:visibleViews.filter(item=>['einrichtung','lohnexport','archiv'].includes(item.slug))}];
   const navigation=(items:typeof visibleViews)=><nav aria-label="Hauptnavigation">{groups.map(group=>({...group,items:group.items.filter(item=>items.includes(item))})).filter(g=>g.items.length).map(group=><section key={group.title} className="navigation-group"><h2>{group.title}</h2><ul>{group.items.map(item=><li key={item.slug}><a href={canonicalRoutePath(defaultRoute(item.slug,state.selectedLocation?.id??null))} aria-current={item.slug===activeRoute.view?'page':undefined} onClick={event=>{navigateFromLink(event,defaultRoute(item.slug,state.selectedLocation?.id??null),navigate);if(event.defaultPrevented)setMoreOpen(false);}}><SectionIcon view={item.slug}/><span>{item.label}</span>{item.slug==='pruefungen'&&state.sections.reviewItems.status==='ready'&&state.reviewItems.length>0?<span className="nav-count">{state.reviewItemsNextCursor?'≥ ':''}{state.reviewItems.length}</span>:null}</a></li>)}</ul></section>)}</nav>;
   const helpButton=<button className="text-button" onClick={()=>{setMoreOpen(false);setHelpOpen(true);}}>So funktioniert {APP_NAME}</button>;
   const accountBlock=<div className="sidebar-footer"><div className="sidebar-account">{account}</div><ThemeSwitch/><button className="text-button sidebar-signout" onClick={()=>void administration.signOut()}>Abmelden</button>{helpButton}</div>;
-  const subtitles:Record<AdminView,string>={uebersicht:overviewDateLabel(),kunden:'Stunden und Kontingente Ihrer Kunden.',beschaeftigte:'Mitarbeiter und ihre Zeiten im gewählten Monat.',pruefungen:'Diese Erfassungen konnten noch keiner Arbeitszeit sicher zugeordnet werden.','meine-zeiten':'Ihre Zeiten im gewählten Monat.',manuell:'Starten und beenden Sie Ihre Zeit ohne Karte.',einrichtung:'Verwalten Sie Standorte, Mitarbeiter, Kunden und Karten.',lohnexport:'Laden Sie die Zeiten für Ihre Lohnabrechnung herunter.'};
-  const ownHeader=['kunden','manuell','einrichtung','beschaeftigte','pruefungen','lohnexport'].includes(activeRoute.view);
+  const subtitles:Record<AdminView,string>={uebersicht:overviewDateLabel(),kunden:'Stunden und Kontingente Ihrer Kunden.',beschaeftigte:'Mitarbeiter und ihre Zeiten im gewählten Monat.',pruefungen:'Diese Erfassungen konnten noch keiner Arbeitszeit sicher zugeordnet werden.','meine-zeiten':'Ihre Zeiten im gewählten Monat.',manuell:'Starten und beenden Sie Ihre Zeit ohne Karte.',einrichtung:'Verwalten Sie Standorte, Mitarbeiter, Kunden und Karten.',archiv:'Ehemalige Mitarbeiter und gelöschte Kunden und Projekte.',lohnexport:'Laden Sie die Zeiten für Ihre Lohnabrechnung herunter.'};
+  const ownHeader=['kunden','manuell','einrichtung','beschaeftigte','pruefungen','lohnexport','archiv'].includes(activeRoute.view);
   return <HeaderOutlet.Provider value={headerHost}><div className="app-shell">
     <div className="top-band"><Brand/><strong className="band-organization" title={state.projection.organization.name}>{state.projection.organization.name}</strong><span className="band-account" title={accountLabel}>{accountLabel}</span><button className="text-button" onClick={()=>void administration.signOut()}>Abmelden</button></div>
     <div className="mobile-top"><Brand/><span>{state.projection.organization.name}</span></div>
@@ -247,6 +248,7 @@ function ReadyAdministration({state,administration,accountInvitations,route,navi
       {state.membershipId?<CustomerQuotaNotice key={`${state.membershipId}/${state.role}`} administration={administration} membership={state.membershipId} role={state.role} authorityContext={JSON.stringify([state.membershipId,state.role,state.managementScope,state.locationsEnabled])} onView={(id,month)=>navigate({...defaultRoute('kunden'),month,customerId:id})}/>:null}
       {state.notice?<FeedbackBand message={state.notice}/>:null}
       <Suspense fallback={<DelayedSkeleton label="Bereich wird geladen"/>}>
+        {activeRoute.view==='archiv'?<ArchiveView key={JSON.stringify([state.membershipId,state.role,state.managementScope,state.selectedLocation?.id])} state={state} administration={administration} route={activeRoute} navigate={navigate}/>:null}
         {activeRoute.view==='uebersicht'?<Overview state={state} administration={administration} navigate={navigate}/>:null}
         {activeRoute.view==='einrichtung'?<SetupView route={activeRoute} state={state} administration={administration}/>:null}
         {activeRoute.view==='beschaeftigte'?activeRoute.personId?<PersonView accountInvitations={accountInvitations} state={state} administration={administration} route={activeRoute} navigate={navigate}/>:<EmployeesView route={activeRoute} state={state} administration={administration} accountInvitations={accountInvitations} navigate={navigate}/>:null}
@@ -268,6 +270,7 @@ function ReadyAdministration({state,administration,accountInvitations,route,navi
       <dt>Zeit</dt><dd>Eine Zeit verbindet Beginn, Ende und einen Kunden oder ein Projekt. Ihre Zeiten sehen Sie unter „Meine Zeiten“.</dd>
       <dt>Pause</dt><dd>Eine Pause liegt innerhalb einer laufenden Zeit. Starten und beenden Sie sie über den Pausenknopf.</dd>
       <dt>Zeiten prüfen</dt><dd>Hier stehen Erfassungen, die noch keiner Arbeitszeit sicher zugeordnet werden konnten. Die Verwaltung prüft den Fall und legt die passende Zeit fest.</dd>
+      <dt>Archiv</dt><dd>Ehemalige Mitarbeiter und gelöschte Kunden und Projekte finden Sie im Archiv; ihre Zeiten bleiben in den Monatszahlen erhalten.</dd>
       <dt>Kontingent</dt><dd>Ein Kontingent ist die vereinbarte Stundenzahl eines Kunden im Monat. Ein Hinweis zeigt, wenn es fast erreicht oder überschritten ist.</dd>
     </dl><button className="secondary" onClick={()=>setHelpOpen(false)}>Schließen</button></MobileSheet>:null}
   </div></HeaderOutlet.Provider>;
@@ -329,6 +332,7 @@ function SectionIcon({ view }: { readonly view: AdminView }) {
     'aria-hidden': true,
     focusable: 'false' as const,
   };
+  if (view === 'archiv') return <svg {...common}><path d="M4 8v12h16V8M3 3h18v5H3zM9 12h6"/></svg>;
   if (view === 'kunden') return <svg {...common}><path d="M16 20V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-2M8 6h4M8 10h4M8 14h4M8 18h4"/></svg>;
   if (view === 'uebersicht') {
     return <svg {...common}>

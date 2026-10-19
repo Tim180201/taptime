@@ -1,3 +1,5 @@
+import type { ArchiveRequests, ArchiveResponses } from '@taptime/mobile-work-contract';
+import type { PageResult } from '../../mobile/src/search/search';
 import type {AssignmentCapability} from './targetAssignments';
 import type {QuotaAlertsCapability} from '../../mobile/src/search/search';
 import type { ClientSearchCapability } from '../../mobile/src/search/search';
@@ -91,6 +93,7 @@ export interface SafeTimeRecord {
   readonly timeRecordId: string;
   readonly employeeDisplayName: string;
   readonly targetType: 'customer' | 'project' | 'general_work';
+  readonly targetId?: string;
   readonly targetDisplayName: string;
   readonly startedVia: 'nfc' | 'manual' | null;
   readonly stoppedVia: 'nfc' | 'manual' | 'administration' | null;
@@ -108,6 +111,7 @@ export interface SafeReviewItem {
   readonly source: 'offline_v2' | 'server_legacy' | 'offline_skip';
   readonly employeeDisplayName: string;
   readonly targetType: 'customer' | 'project' | 'general_work' | 'break';
+  readonly targetId?: string | null;
   readonly targetDisplayName: string;
   readonly triggerType: 'nfc' | 'manual';
   readonly occurredAt: string;
@@ -148,7 +152,7 @@ export type RemoteValue<T> =
   | { readonly status: 'ready'; readonly value: T }
   | { readonly status: 'unavailable'; readonly value: null; readonly message: string };
 export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null; readonly month?: string; readonly search?:string|null; readonly busy?:boolean; readonly failed?:boolean };
-export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string };
+export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string; readonly canManageTime?: boolean };
 export interface ReviewCorrectionRecords {
   readonly toExclusive: string;
   readonly reviewItemId: string;
@@ -211,7 +215,10 @@ export type AdminWebState =
       readonly notice: Notice | null;
       readonly completedAction?: CompletedAdminAction | null;
     };
+export type WebArchiveKind = 'people' | 'targets' | 'status';
+export type WebArchiveRequest<K extends WebArchiveKind> = Omit<ArchiveRequests[K], 'expectedMembershipId' | 'limit'>;
 export interface AdminWebCapability extends ClientSearchCapability, QuotaAlertsCapability, AssignmentCapability {
+  queryArchive?<K extends WebArchiveKind>(kind: K, request: WebArchiveRequest<K>): Promise<PageResult<ArchiveResponses[K]>>;
   removeTag?(nfcTagId:string,expectedAssignmentId:string):Promise<import('@taptime/mobile-work-contract').RemoveNfcTagResult>;
   manageCustomer?(customerId:string,change:import('@taptime/mobile-work-contract').CustomerManagementChange):Promise<import('@taptime/mobile-work-contract').ManageCustomerResult>;
   setCustomerQuota?(customerId:string,minutes:number|null):Promise<import('@taptime/mobile-work-contract').SetCustomerQuotaResult>;

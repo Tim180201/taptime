@@ -16,7 +16,7 @@ it('T122b shows a location column, keeps departed separate and shows customer-fo
  expect(document.querySelectorAll('td[data-label="Standort"]')).toHaveLength(4);
  expect(screen.queryAllByRole('heading',{name:'Nord'})).toHaveLength(0); // D-140: values are in the Standort column.
  expect(screen.getByText('Süd')).toBeDefined();
- expect(screen.getByRole('heading',{name:'Ausgeschiedene Mitarbeiter'})).toBeDefined();
+ expect(screen.getByRole('heading',{name:'Ehemalige · Zeiten in diesem Monat'})).toBeDefined();
  expect(screen.getAllByText('2:30 h')).toHaveLength(4);
  expect(screen.getAllByRole('columnheader',{name:'Diesen Monat'})).toHaveLength(2);
 });

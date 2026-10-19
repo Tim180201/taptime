@@ -7,10 +7,12 @@ export const adminScenarios = [
   ...['t105-admin', 't105-manager'].flatMap(variant => [
     scenario(variant + '-times', '/beschaeftigte', '.employees-view', [], variant),
     scenario(variant + '-access', '/beschaeftigte', '.employees-view', [accessTab], variant),
-    scenario(variant + '-revoked', '/beschaeftigte', '.employees-view', [accessTab, click('Entzogen'), async p => {
+    scenario(variant + '-active-only', '/beschaeftigte', '.employees-view', [accessTab, async p => {
       const table = p.getByRole('table', { name: 'Zugänge', exact: true });
-      await table.getByText('Erika Ausgeschieden', { exact: true }).waitFor();
-      if (await table.getByRole('button').count()) throw new Error('Revoked access must have no actions');
+      await table.getByText('Alexandra Beispiel', { exact: true }).waitFor();
+      if (await table.getByText('Erika Ausgeschieden', { exact: true }).count()) throw new Error('Revoked access belongs in the archive');
+      if (await p.getByRole('group', {name:'Zugangsfilter'}).count()) throw new Error('Access filters must be absent');
+      await p.getByRole('link', {name:'Ehemalige im Archiv'}).waitFor();
     }], variant),
   ]),
   scenario('t105-lead-role', '/beschaeftigte', '.employees-view', [accessTab, async p => {
@@ -45,7 +47,7 @@ export const adminScenarios = [
   scenario('five-areas','/uebersicht','.metric-card'),
   scenario('employees','/beschaeftigte','.employees-view'),
   scenario('departed','/beschaeftigte','.employees-view',[async p=>{
-    await p.getByRole('heading',{name:'Ausgeschiedene Mitarbeiter',exact:true}).waitFor();
+    await p.getByRole('heading',{name:'Ehemalige · Zeiten in diesem Monat',exact:true}).waitFor();
     await p.getByRole('link',{name:'Erika Ausgeschieden'}).waitFor();
   }]),
   ...['running','long'].map(kind=>scenario('employee-revoke-'+kind,'/beschaeftigte','.employees-view',[accessTab,click('Zugang entziehen'),async p=>{

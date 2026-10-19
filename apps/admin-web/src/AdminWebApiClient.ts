@@ -1,3 +1,4 @@
+import { parseArchiveRequest, isArchiveResponse, type ArchiveKind, type ArchiveRequests, type ArchiveResponses } from '@taptime/mobile-work-contract';
 import {parseQuotaAlertsResponse,parseTargetAssignmentsResponse} from '../../mobile/src/search/search';
 import {parseQuotaAlertsQuery,parseTargetAssignmentQuery,isTargetAssignmentChangeRequest,type QuotaAlertsQueryRequest,type QuotaAlertsQueryResponse,type TargetAssignmentQueryRequest,type TargetAssignmentQueryResponse,type TargetAssignmentChangeRequest,type TargetAssignmentChangeResult} from '@taptime/mobile-work-contract';
 import { parseMembershipSearchResponse, parseSearchRequest, MANAGED_PEOPLE_ACCEPT_V6, type SearchKind, type SearchRequests, type SearchResponses } from '@taptime/mobile-work-contract';
@@ -99,6 +100,7 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  queryArchive?<K extends ArchiveKind>(token: string, kind: K, request: ArchiveRequests[K]): Promise<ApiResult<ArchiveResponses[K]>>;
   quotaAlerts?(token:string,request:QuotaAlertsQueryRequest):Promise<ApiResult<QuotaAlertsQueryResponse>>;
   targetAssignments?(token:string,request:TargetAssignmentQueryRequest):Promise<ApiResult<TargetAssignmentQueryResponse>>;
   changeTargetAssignment?(token:string,request:TargetAssignmentChangeRequest):Promise<ApiResult<TargetAssignmentChangeResult>>;
@@ -116,7 +118,7 @@ export interface AdminWebApiPort {
   backfillTargets?(token:string,request:BackfillTargetQueryRequest):Promise<ApiResult<MobileWorkTargetQueryResponse>>;
   workTargets?(token: string, request: MobileWorkTargetQueryRequest & {search?:string|null}): Promise<ApiResult<MobileWorkTargetQueryResponse>>;
   manualLifecycle?(token: string, request: ManualLifecycleRequest | ManualBreakLifecycleRequest): Promise<ApiResult<ManualResult>>;
-  managedPersonTime?(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>>;
+  managedPersonTime?(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<MobileOwnTimeQueryResponse & { readonly canManageTime?: boolean }>>;
   managedActiveSummary?(token: string, request: ManagedActiveSummaryRequest | ManagedActiveSummaryRequestV5 | SearchRequests['managed_people']): Promise<ApiResult<ManagedActiveSummary>>;
   createEmployeeAccountInvitation?(token: string, membershipId: string, commandId: string,
     displayName: string, email: string, locationId: string | null): Promise<AccountInvitationApiResult>;
@@ -343,15 +345,39 @@ export class AdminWebApiClient implements AdminWebApiPort {
     return this.request(isBreak ? '/v1/lifecycle-events/manual-break' : '/v1/lifecycle-events/manual',token,'POST',request,
       value => parseManualResult(value,request),false,false,false,maximumJsonBodyBytes,false,false,false,false,[200,202]);
   }
-  async managedPersonTime(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<MobileOwnTimeQueryResponse>> {
-    if (!isManagedPersonTimeRequest(request)) return { status: 'invalid_response' };
-    return this.request('/v1/administration/managed-person-time', token, 'POST', request,
-      value => validCalendarPage(value,request.limit) && value.windowStartedAt === request.fromInclusive
-        && value.windowEndedAt === request.toExclusive ? value : null,
-      false, false, false, maximumTimeReviewBodyBytes);
+  async queryArchive<K extends ArchiveKind>(token: string, kind: K, request: ArchiveRequests[K]): Promise<ApiResult<ArchiveResponses[K]>> {
+    const parsed = parseArchiveRequest(kind, request);
+    if (!parsed) return { status: 'invalid_response' };
+    const paths = { people: '/v1/administration/archive/people', targets: '/v1/administration/archive/targets',
+      status: '/v1/administration/archive/status', managed_people: '/v2/administration/managed-active-summary',
+      person_time: '/v2/administration/managed-person-time' };
+    return this.request(paths[kind], token, 'POST', parsed, value => {
+      if (!isArchiveResponse(kind, value)) return null;
+      if (kind === 'people' || kind === 'targets') {
+        const input = parsed as ArchiveRequests['people'];
+        const rows = kind === 'people' ? (value as ArchiveResponses['people']).people : (value as ArchiveResponses['targets']).targets;
+        if (rows.length > input.limit || rows.some(row => input.locationId !== null && row.location?.id !== input.locationId)
+          || kind === 'people' && input.membershipId !== null && (value as ArchiveResponses['people']).people.some(row => row.membershipId !== input.membershipId)) return null;
+      }
+      if (kind === 'status') {
+        const input = parsed as ArchiveRequests['status'], status = value as ArchiveResponses['status'];
+        if (status.people.some(row => !input.membershipIds.includes(row.membershipId))
+          || status.targets.some(row => !input.targets.some(target => target.targetId === row.targetId && target.targetType === row.targetType))) return null;
+      }
+      if (kind === 'managed_people' && !parseSearchResponse('managed_people', value, parsed as ArchiveRequests['managed_people'])) return null;
+      if (kind === 'person_time') {
+        const input = parsed as ArchiveRequests['person_time'], page = value as ArchiveResponses['person_time'];
+        const { canManageTime, ...time } = page;
+        if (!validCalendarPage(time, input.limit) || page.windowStartedAt !== input.fromInclusive || page.windowEndedAt !== input.toExclusive) return null;
+      }
+      return value;
+    }, false, false, false, kind === 'person_time' ? maximumTimeReviewBodyBytes : kind === 'status' ? 32 * 1024 : maximumJsonBodyBytes);
+  }
+  async managedPersonTime(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<ArchiveResponses['person_time']>> {
+    return this.queryArchive(token, 'person_time', request);
   }
   async managedActiveSummary(token: string, request: ManagedActiveSummaryRequest | ManagedActiveSummaryRequestV5 | SearchRequests['managed_people']): Promise<ApiResult<ManagedActiveSummary>> {
-    if('search' in request)return this.querySearch(token,'managed_people',request);
+    if('search' in request)return this.queryArchive(token,'managed_people',request);
     const selectedMonth='fromInclusive' in request;
     if (!(selectedMonth ? isManagedActiveSummaryRequestV5(request) : isManagedActiveSummaryRequest(request))) return { status: 'invalid_response' };
     return this.request('/v1/administration/managed-active-summary', token, 'POST', request,
@@ -1218,6 +1244,7 @@ function parseTimeRecords(value: unknown): CursorPage<SafeTimeRecord> | null {
       employeeMembershipId: String(entry.employeeMembershipId),
       employeeDisplayName: entry.employeeDisplayName,
       targetType: entry.targetType as SafeTimeRecord['targetType'],
+      targetId: String(entry.targetId),
       targetDisplayName: entry.targetDisplayName,
       startedVia: entry.startedVia as SafeTimeRecord['startedVia'],
       stoppedVia: entry.stoppedVia as SafeTimeRecord['stoppedVia'],

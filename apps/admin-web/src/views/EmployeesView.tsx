@@ -31,7 +31,6 @@ export default function EmployeesView({ state, administration, accountInvitation
   const changeMonth = (month: string) => navigate({ ...route ?? defaultRoute('beschaeftigte', state.selectedLocation?.id ?? null), month });
   const [tab, setTab] = useState<'zeiten' | 'zugaenge'>('zeiten');
   const [adding, setAdding] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<boolean | null>(null);
   const [editingMembership, setEditingMembership] = useState<Member | null>(null);
   const [selectedRole, setSelectedRole] = useState<Member['role']>('employee');
   const [savingRole, setSavingRole] = useState(false);
@@ -40,13 +39,9 @@ export default function EmployeesView({ state, administration, accountInvitation
   useIntentFocusReturn(editingMembership !== null, roleTrigger);
   const [input, setInput] = useState(''); const search = useDebouncedSearch(input);
   const members = useSearchPages((term, cursor) => administration.querySearch?.('memberships', {
-    search: term, cursor, locationId: state.selectedLocation?.id ?? null, active: activeFilter,
+    search: term, cursor, locationId: state.selectedLocation?.id ?? null, active: true,
   }) ?? Promise.resolve({ status: 'unavailable' } as const), value => value.employeeMemberships, member => member.id,
   [administration, state.membershipId, state.role, state.selectedLocation?.id]);
-  const previousFilter = useRef(activeFilter);
-  useEffect(() => {
-    if (previousFilter.current !== activeFilter) { previousFilter.current = activeFilter; void members.pager.refresh(); }
-  }, [activeFilter, members.pager]);
   const [runningFilter, setRunningFilter] = useState<boolean | null>(null);
   useEffect(() => { void administration.refreshManagedPeople?.(runningFilter, false, month, search); },
     [administration, state.selectedLocation?.id, runningFilter, month, search]);
@@ -54,7 +49,7 @@ export default function EmployeesView({ state, administration, accountInvitation
   const [invitedName, setInvitedName] = useState<string | null>(null);
   useEffect(() => {
     if (invitedName !== null) {
-      // Show the new row even beyond the first alphabetical page or a revoked-only filter.
+      // Show the new row even beyond the first alphabetical page in the active list.
       members.setSearch(Array.from(invitedName.normalize('NFC').trim()).slice(0, 80).join(''));
       // An unchanged search is otherwise a no-op; a successful invitation always needs fresh rows.
       void members.pager.refresh();
@@ -84,7 +79,7 @@ export default function EmployeesView({ state, administration, accountInvitation
     onCreated={async (status, displayName) => {
       setInvitationSuccess(status);
       await administration.retrySection('employees');
-      setTab('zugaenge'); setActiveFilter(null); setInvitedName(displayName);
+      setTab('zugaenge'); setInvitedName(displayName);
     }} />;
   return <><PageHeader organization={state.projection.organization.name} title="Mitarbeiter"
     subtitle={packageUsage ? <><span>{packageUsage.activeAccessCount} Zugänge{packageUsage.packageSize === null ? '' : ` · Paket ${packageUsage.packageSize}`}</span>
@@ -122,8 +117,6 @@ export default function EmployeesView({ state, administration, accountInvitation
             {state.role !== 'administrator' ? invitation : null}
             {state.roleAssignmentMembershipId && state.notice?.kind === 'success' ? assignLocations(state.roleAssignmentMembershipId) : null}
             <SearchField value={members.input} onChange={members.setSearch} />
-            <div className="filter-chips" role="group" aria-label="Zugangsfilter">{[['Alle', null], ['Aktiv', true], ['Entzogen', false]].map(([label, value]) =>
-              <button type="button" key={String(label)} className="secondary" aria-pressed={activeFilter === value} onClick={() => setActiveFilter(value as boolean | null)}>{label}</button>)}</div>
             <SearchStatus state={members.state} onRetry={members.pager.retry} onClear={() => members.setSearch('')} />
             <DataTable label="Zugänge" headers={['Person', 'Rolle', 'Standort', 'Anmeldung', 'Zugang', 'Aktionen']}>{members.state.items.map(membership =>
               <tr key={membership.id}><td><Person name={membership.displayName} /></td><td>{roles.find(role => role.value === membership.role)?.label}</td>
@@ -143,7 +136,8 @@ export default function EmployeesView({ state, administration, accountInvitation
                   }}>Zugang entziehen</button>
                 </div> : null}</td></tr>)}</DataTable>
             {members.state.nextCursor ? <button type="button" className="text-button" disabled={members.state.busy} onClick={() => void members.pager.loadMore()}>Weitere laden</button> : null}
-            {members.state.status === 'ready' && !members.state.items.length && !members.state.search ? <EmptyState>Keine {activeFilter === false ? 'entzogenen' : activeFilter === true ? 'aktiven' : ''} Zugänge vorhanden.</EmptyState> : null}
+            {members.state.status === 'ready' && !members.state.items.length && !members.state.search ? <EmptyState>Keine aktiven Zugänge vorhanden.</EmptyState> : null}
+            <a className="text-button" href={canonicalRoutePath(defaultRoute('archiv', state.selectedLocation?.id ?? null))} onClick={event => { event.preventDefault(); navigate(defaultRoute('archiv', state.selectedLocation?.id ?? null)); }}>Ehemalige im Archiv</a>
           </>}
         </section>
         {editingMembership ? <MobileSheet label="Rolle ändern" className="right-sheet" busy={savingRole} onCancel={() => setEditingMembership(null)}>
@@ -189,7 +183,7 @@ export default function EmployeesView({ state, administration, accountInvitation
         }}
         onCancel={() => setRevocationIntent(null)}
       >
-        <p>Der Mitarbeiter kann sich danach nicht mehr anmelden. Das lässt sich nicht rückgängig machen.</p>
+        <p>Danach steht {revocationIntent.displayName} im Archiv. Die Zeiten bleiben im Lohnexport und bei den Kundenzeiten. Das lässt sich nicht rückgängig machen.</p>
         {checking ? <p role="status">{revocationCalendar?.status === 'unavailable' ? 'Die laufende Zeit konnte nicht geladen werden. Bitte öffnen Sie die Personenansicht.' : 'Laufende Zeit wird geprüft …'}</p>
           : tooLong && running ? <p>Diese Zeit läuft seit {formatZonedDateTime(running.startedAt)}. Bitte zuerst in der Personenansicht mit passender Endzeit beenden, dann den Zugang entziehen.</p>
           : <p>Läuft gerade eine Zeit, wird sie jetzt beendet{running ? `: ${running.targetDisplayName} · seit ${formatZonedDateTime(running.startedAt)}` : ''}.</p>}

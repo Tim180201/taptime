@@ -27,7 +27,7 @@ it.each([own,people])('shows server-delivered $scope breakdown, running state an
   expect(await screen.findByRole('heading',{name:value.scope==='self'?'Ihre Stunden je Tag':'Stunden je Person'})).toBeInTheDocument();
   expect(screen.getByText(value.scope==='self'?'28.09.2026':'Person B')).toBeInTheDocument();
   expect(screen.getAllByText(/läuft/).length).toBeGreaterThan(0);
-  expect(screen.getByText('inaktiv')).toBeInTheDocument();
+  expect(screen.getByText('gelöscht')).toBeInTheDocument();
   expect(screen.getByRole('button',{name:'Monat: September 2026'})).toBeVisible();
   fireEvent.click(screen.getByRole('button',{name:'Voriger Monat'}));
   expect(navigate).toHaveBeenCalledWith({...defaultRoute('kunden'),customerId:cid,month:'2026-08'});
@@ -54,7 +54,7 @@ it('T100 allows rename and requires explicit deletion confirmation, preserving t
  render(<CustomersView administration={{getState:()=>({status:'ready',role:'administrator'}),readCustomerHours,querySearch:customerSearch(readCustomerHours),manageCustomer} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:/Werkstatt/}));
  fireEvent.click(await screen.findByText('Kunde löschen'));
- expect(screen.getByRole('alertdialog',{name:'Kunde löschen'})).toHaveTextContent('Kunde Werkstatt löschen?Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.');
+ expect(screen.getByRole('alertdialog',{name:'Kunde löschen'})).toHaveTextContent('Kunde Werkstatt löschen?Danach steht Werkstatt im Archiv. Die Zeiten bleiben im Lohnexport und bei den Kundenzeiten. Zugeordnete Karten werden frei. Das lässt sich nicht rückgängig machen.');
  expect(manageCustomer).not.toHaveBeenCalled();
  fireEvent.click(screen.getByText('Löschen bestätigen'));
  expect(await screen.findByText('Erst die laufende Zeit beenden')).toBeInTheDocument();

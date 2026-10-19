@@ -5,6 +5,7 @@ import { before, after, test } from 'node:test';
 import { launchBrowser, buildWeb, measure } from './harness.mjs';
 import { adminScenarios, operatorScenarios } from './scenarios.mjs';
 import { verifyT122c } from './t122c.mjs';
+import { verifyT127b } from './t127b.mjs';
 import { verifyT126 } from './t126.mjs';
 import { createLayoutShard } from './sharding.mjs';
 import { build as buildJavaScript } from 'esbuild';
@@ -25,6 +26,9 @@ function layoutTest(web, name, ...args) {
   }
   test(name, ...args);
 }
+layoutTest('admin-web', 'T127b archive, month markers and read-only former people', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
+  await verifyT127b(browser, webs['admin-web'], artifacts ? join(artifacts, 't127b') : undefined);
+});
 layoutTest('admin-web', 'T126 membership rename, current names and payroll notices', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
   await verifyT126(browser, webs['admin-web'], artifacts ? join(artifacts, 't126') : undefined);
 });

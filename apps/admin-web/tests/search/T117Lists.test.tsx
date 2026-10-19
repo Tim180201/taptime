@@ -153,7 +153,7 @@ it('web: employee pages merge into an alphabetic table with a location column, w
  const pageOne=[person(1,'Anna','Zürich')],pageTwo=[person(2,'Berta','Aachen'),person(3,'Carla','Zürich'),person(4,'Dora','Aachen','2026-10-13T12:00:00.000Z')];
  const view=render(<PeopleTable people={pageOne} navigate={()=>{}} locationId={null} locationsEnabled month="2026-10"/>);
  view.rerender(<PeopleTable people={[...pageOne,...pageTwo]} navigate={()=>{}} locationId={null} locationsEnabled month="2026-10"/>);
- expect(screen.getAllByRole('heading').map(node=>node.textContent)).toEqual(['Ausgeschiedene Mitarbeiter']);
+ expect(screen.getAllByRole('heading').map(node=>node.textContent)).toEqual(['Ehemalige · Zeiten in diesem Monat']);
  expect(screen.getAllByRole('table')).toHaveLength(2);
  expect(screen.getAllByRole('link').map(node=>node.textContent?.slice(1))).toEqual(['Anna','Berta','Carla','Dora']);
 });

@@ -256,7 +256,7 @@ it('T106: a control-only required reason is explained at the field',()=>{
 it('T107 opens the existing administrative stop directly from the person status',async()=>{
  const {default:PersonView}=await import('../src/views/PersonView');
  const entry={...record,status:'started' as const,stoppedAt:null,stoppedVia:null};
- const state={status:'ready',projection:{organization:{name:'Betrieb'}},role:'administrator',membershipId:own,availableSections:['time_records'],managedPeople:{status:'ready',value:{people:[{membershipId:other,displayName:'Erika Beispiel'}],nextCursor:null}},calendar:{status:'ready',targetMembershipId:other,month:'2026-09',value:{...page,activeRecord:entry}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
+ const state={status:'ready',projection:{organization:{name:'Betrieb'}},role:'administrator',membershipId:own,availableSections:['time_records'],managedPeople:{status:'ready',value:{people:[{membershipId:other,displayName:'Erika Beispiel'}],nextCursor:null}},calendar:{status:'ready',canManageTime:true,targetMembershipId:other,month:'2026-09',value:{...page,activeRecord:entry}}} as unknown as Extract<AdminWebState,{status:'ready'}>;
  const administration={getState:()=>state,saveTimeEdit:vi.fn(),loadPersonTime:vi.fn(),loadWorkTargets:vi.fn()} as unknown as AdminWebCapability;
  render(<PersonView state={state} administration={administration} route={{area:'beschaeftigte',personId:other,month:'2026-09'} as never} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:'Zeit beenden'}));

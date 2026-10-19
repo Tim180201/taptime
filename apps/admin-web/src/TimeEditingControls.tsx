@@ -15,10 +15,10 @@ import { MobileSheet } from './MobileSheet';
 type ReadyState=Pick<Extract<AdminWebState,{status:'ready'}>,'role'|'membershipId'|'timeEditBusy'|'workTargets'|'availableSections'>;
 type Context={personLabel?:string;state:ReadyState;administration:AdminWebCapability;targetMembershipId:string;online:boolean};
 export const TimeEditingContext=createContext<Context|null>(null);
-export function TimeEditingProvider({state,administration,targetMembershipId,personLabel,children}:{personLabel?:string;state:ReadyState;administration:AdminWebCapability;targetMembershipId?:string;children:ReactNode}) {
+export function TimeEditingProvider({state,administration,targetMembershipId,personLabel,children,readOnly=false}:{readOnly?:boolean;personLabel?:string;state:ReadyState;administration:AdminWebCapability;targetMembershipId?:string;children:ReactNode}) {
   const [online,setOnline]=useState(()=>navigator.onLine);
   useEffect(()=>{const update=()=>setOnline(navigator.onLine);window.addEventListener('online',update);window.addEventListener('offline',update);return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};},[]);
-  return <TimeEditingContext.Provider value={state.membershipId?{state,administration,targetMembershipId:targetMembershipId??state.membershipId,personLabel:personLabel??'Sie selbst',online}:null}>{children}</TimeEditingContext.Provider>;
+  return <TimeEditingContext.Provider value={state.membershipId && !readOnly?{state,administration,targetMembershipId:targetMembershipId??state.membershipId,personLabel:personLabel??'Sie selbst',online}:null}>{children}</TimeEditingContext.Provider>;
 }
 function canManageTime(state:ReadyState) {
   return state.role==='administrator' || (state.role==='standortleitung' && state.availableSections.includes('time_records'));

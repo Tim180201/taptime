@@ -19,6 +19,7 @@ describe('Admin Web address navigation', () => {
       'manuell',
       'einrichtung',
       'lohnexport',
+      'archiv',
     ]);
     for (const view of adminViews) {
       expect(routeFromLocation(canonicalRoutePath(defaultRoute(view.slug)), '').view)

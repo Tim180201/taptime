@@ -544,6 +544,7 @@ summary { cursor: pointer; padding-block: var(--space-3); }
 button.calendar-day { display: grid; gap: var(--space-1); min-width: 0; min-height: 3.5rem; padding: var(--space-1); color: var(--color-text); border-color: var(--color-line); background: var(--color-surface-raised); }
 button.calendar-day[aria-pressed="true"] { border-color: var(--color-accent); }
 button.calendar-day:hover { background: var(--color-line); }
+button.calendar-day:hover small { color: var(--color-text); }
 .time-day-list { list-style: none; padding: 0; margin: 0; }
 .time-day-list li { border-bottom: 1px solid var(--color-line); padding-block: var(--space-4); }
 .time-day-list p { color: var(--color-text-muted); font-size: .8125rem; }

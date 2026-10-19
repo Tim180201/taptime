@@ -36,12 +36,10 @@ it('T105 shows times and access tabs, one header action, package notice and serv
   expect(within(table).getAllByRole('columnheader').map(n => n.textContent)).toEqual(['Person', 'Rolle', 'Standort', 'Anmeldung', 'Zugang', 'Aktionen']);
   expect(screen.getAllByText('noch nicht angemeldet').length).toBeGreaterThan(0);
   expect(screen.getByText('zuletzt 14.10.')).toBeVisible();
-  const revoked = within(table).getByText('Entzogen').closest('tr')!;
-  expect(within(revoked).queryByRole('button')).toBeNull();
-  expect(screen.queryByText('Zugänge verwalten')).toBeNull();
-  fireEvent.click(screen.getByRole('button', { name: 'Entzogen' }));
-  await waitFor(() => expect(querySearch).toHaveBeenLastCalledWith('memberships', expect.objectContaining({ active: false, cursor: null })));
-  expect(screen.queryByRole('button', { name: 'Rolle ändern' })).toBeNull();
+  expect(within(table).queryByText('Entzogen')).toBeNull();
+  expect(screen.queryByRole('group', { name: 'Zugangsfilter' })).toBeNull();
+  expect(screen.getByRole('link', { name: 'Ehemalige im Archiv' })).toHaveAttribute('href', '/archiv');
+  expect(querySearch).toHaveBeenLastCalledWith('memberships', expect.objectContaining({ active: true, cursor: null }));
 });
 it('T105 edits roles in a sheet through the existing command and links assigned locations', async () => {
   const { cap } = setup(); fireEvent.click(screen.getByRole('tab', { name: 'Zugänge' }));
@@ -67,19 +65,16 @@ it('T105 keeps one primary action during revocation and refreshes the final acce
   fireEvent.click((await screen.findAllByRole('button', { name: 'Zugang entziehen' }))[0]!);
   expect(screen.getByRole('button', { name: '+ Mitarbeiter einladen' })).toHaveClass('secondary');
   const confirmation = screen.getByRole('alertdialog');
-  expect(within(confirmation).getByText('Der Mitarbeiter kann sich danach nicht mehr anmelden. Das lässt sich nicht rückgängig machen.')).toBeVisible();
+  expect(within(confirmation).getByText('Danach steht Ada im Archiv. Die Zeiten bleiben im Lohnexport und bei den Kundenzeiten. Das lässt sich nicht rückgängig machen.')).toBeVisible();
   expect(within(confirmation).getByText(/Läuft gerade eine Zeit/)).toBeVisible();
   fireEvent.click(within(confirmation).getByRole('button', { name: 'Zugang entziehen' }));
   await waitFor(() => expect(cap.revokeMembership).toHaveBeenCalledWith('Ada', 1));
   await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
-  const row = screen.getByText('Ada').closest('tr')!;
-  expect(within(row).getByText('entzogen')).toBeVisible();
-  expect(within(row).queryByRole('button')).toBeNull();
+  expect(screen.queryByText('Ada')).toBeNull();
   expect(screen.getByRole('button', { name: '+ Mitarbeiter einladen' })).toHaveClass('primary-action');
 });
-it('T105 reveals the invited person even when revoked access was filtered', async () => {
+it('T105 reveals the invited person in the active access list', async () => {
   const { invite } = setup(); fireEvent.click(screen.getByRole('tab', { name: 'Zugänge' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Entzogen' }));
   fireEvent.click(screen.getByRole('button', { name: '+ Mitarbeiter einladen' }));
   const sheet = screen.getByRole('dialog', { name: 'Mitarbeiter einladen' });
   fireEvent.change(within(sheet).getByLabelText('Name'), { target: { value: 'Zoe Neu' } });
@@ -88,7 +83,7 @@ it('T105 reveals the invited person even when revoked access was filtered', asyn
   await waitFor(() => expect(invite).toHaveBeenCalled());
   const person = await screen.findByText('Zoe Neu');
   expect(within(person.closest('tr')!).getByText('noch nicht angemeldet')).toBeVisible();
-  expect(screen.getByRole('button', { name: 'Alle' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.queryByRole('group', { name: 'Zugangsfilter' })).toBeNull();
 });
 it('T105 refreshes access after invitation when that name is already the active search', async () => {
   const { querySearch } = setup(); fireEvent.click(screen.getByRole('tab', { name: 'Zugänge' }));

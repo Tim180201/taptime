@@ -1,3 +1,5 @@
+import type { ArchiveRequests, ArchiveResponses } from '@taptime/mobile-work-contract';
+import type { WebArchiveKind, WebArchiveRequest } from './contracts';
 import { MIN_PASSWORD_LENGTH, AUTH_RATE_LIMIT_MESSAGE } from '../../../shared/authPolicy';
 import {normalizeSearch} from '../../mobile/src/search/search';
 import type { SearchKind, SearchResponses, SearchRequests } from '@taptime/mobile-work-contract';
@@ -321,6 +323,22 @@ export class AdminWebCoordinator implements AdminWebCapability {
   private searchedSetup:Partial<Pick<SafeProjection,'customers'|'nfcTags'>>={};
   private searchedMembers:SafeEmployeeProjection['employeeMemberships']|null=null;
   private searchedProjects:readonly SafeProject[]|null=null;
+  async queryArchive<K extends WebArchiveKind>(kind: K, request: WebArchiveRequest<K>): Promise<PageResult<ArchiveResponses[K]>> {
+    const session = this.session, generation = this.generation, epoch = this.refreshEpoch;
+    if (this.state.status !== 'ready' || !session || session.role === 'employee') return { status: 'authority_rejected' };
+    const locationId = this.state.selectedLocation?.id ?? null;
+    const result = await this.safeSectionRead(() => this.auth.withAccessToken(token => this.api.queryArchive?.(token, kind,
+      { ...request, expectedMembershipId: session.membershipId, ...(kind === 'status' ? {} : { limit: 50 }) } as ArchiveRequests[K])
+      ?? Promise.resolve({ status: 'unreachable' })));
+    if (generation !== this.generation || epoch !== this.refreshEpoch || session !== this.session || this.state.status !== 'ready'
+      || locationId !== (this.state.selectedLocation?.id ?? null)) return { status: 'authority_rejected' };
+    if (result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation, 'Ihre Berechtigung wurde nicht bestätigt. Melden Sie sich erneut an.');
+      return { status: 'authority_rejected' };
+    }
+    return result.status === 'succeeded' ? { status: 'ready', value: result.value } : { status: 'unavailable' };
+  }
+
   async querySearch<K extends SearchKind>(kind:K,request:ClientSearchRequest<K>):Promise<PageResult<SearchResponses[K]>> {
     const session=this.session,generation=this.generation,calendarEpoch=this.calendarEpoch;
     if(this.state.status!=='ready'||!session)return {status:'authority_rejected'};
@@ -529,7 +547,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
         message:'Für einen zukünftigen Monat liegen noch keine bestätigten Zeiten vor.'}});
       return;
     }
-    let value: MobileOwnTimeQueryResponse | null = null;
+    let value: (MobileOwnTimeQueryResponse & { readonly canManageTime?: boolean }) | null = null;
     let cursor: string | null = null;
     const seen = new Set<string>();
     do {
@@ -549,10 +567,10 @@ export class AdminWebCoordinator implements AdminWebCapability {
         || (page.nextCursor !== null && (seen.has(page.nextCursor) || page.records.length === 0))) break;
       const records: MobileOwnTimeQueryResponse["records"] = [...(value?.records ?? []), ...page.records];
       if (new Set(records.map(record=>record.timeRecordId)).size !== records.length) break;
-      value={...page,records};
+      value={...page,canManageTime:page.canManageTime === true && (value === null || value.canManageTime === true),records};
       cursor=page.nextCursor;
       if (cursor !== null) seen.add(cursor);
-      else { this.setState({...this.state,calendar:{status:'ready',value,targetMembershipId,month}}); return; }
+      else { this.setState({...this.state,calendar:{status:'ready',value,targetMembershipId,month,canManageTime:value.canManageTime === true}}); return; }
     } while (cursor !== null);
     if (this.state.status === 'ready') this.setState({...this.state,calendar:{status:'unavailable',value:null,targetMembershipId,month,
       message:'Die Zeiten konnten nicht vollständig bestätigt werden. Laden Sie den Monat erneut.'}});

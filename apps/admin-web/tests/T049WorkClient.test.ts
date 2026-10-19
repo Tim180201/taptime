@@ -22,7 +22,7 @@ describe('T049 real Web transport contracts',()=>{
   expect(await client.manualLifecycle('token',request)).toEqual({status:'succeeded',value:{status:'deferred',evidenceStored}});
  });
  it('accepts the live active record outside a historical person month without adding it to that month',async()=>{
-  const value={activeRecord:active,records:[],nextCursor:null,windowStartedAt:'2026-09-30T22:00:00.000Z',windowEndedAt:'2026-10-31T23:00:00.000Z'};
+  const value={canManageTime:true,activeRecord:active,records:[],nextCursor:null,windowStartedAt:'2026-09-30T22:00:00.000Z',windowEndedAt:'2026-10-31T23:00:00.000Z'};
   const fetcher=vi.fn<typeof fetch>(async()=>Response.json(value));
   const client=new AdminWebApiClient(fetcher);
   expect(await client.managedPersonTime('token',{expectedMembershipId:member,targetMembershipId:receipt,

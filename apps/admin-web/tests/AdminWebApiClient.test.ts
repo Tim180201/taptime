@@ -676,7 +676,7 @@ describe('AdminWebApiClient', () => {
       value: {
         items: [{
           timeRecordId: recordId, employeeMembershipId: '70000000-0000-4000-8000-000000000001', employeeDisplayName: 'Employee Alpha',
-          targetType: 'project', targetDisplayName: 'Werkstatt',
+          targetType: 'project', targetId: ids.customer, targetDisplayName: 'Werkstatt',
           source: 'canonical', status: 'stopped',
           startedVia: 'manual', stoppedVia: 'nfc',
           startedAt: '2026-07-20T08:00:00.000Z', stoppedAt: '2026-07-20T10:00:00.000Z',

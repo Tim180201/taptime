@@ -20,7 +20,7 @@ export function CustomerManagement({customer,administration,onSaved}:{readonly c
       {mode==='rename'?<RequiredForm className="form-grid" onSubmit={event=>{event.preventDefault();if(!busy)void save({action:'rename',displayName:name});}}>
         <label>Neuer Kundenname<input required data-field-label="Neuen Kundenname" value={name} onChange={event=>setName(event.target.value)} disabled={busy}/></label>
         <button className="primary-action" disabled={busy}>{busy?'Wird gesichert …':'Namen speichern'}</button>
-      </RequiredForm>:<><p>Der Kunde verschwindet aus der Auswahl; zugeordnete Karten werden frei. Bisherige Stunden bleiben erhalten.</p><button className="warning-action" disabled={busy} onClick={()=>void save({action:'deactivate'})}>Löschen bestätigen</button></>}
+      </RequiredForm>:<><p>Danach steht {customer.displayName} im Archiv. Die Zeiten bleiben im Lohnexport und bei den Kundenzeiten. Zugeordnete Karten werden frei. Das lässt sich nicht rückgängig machen.</p><button className="warning-action" disabled={busy} onClick={()=>void save({action:'deactivate'})}>Löschen bestätigen</button></>}
       <button className="secondary" disabled={busy} onClick={()=>{setMode(null);setMessage('');}}>Abbrechen</button>
       {message?<p role="status">{message}</p>:null}
     </MobileSheet>:message?<p role="status">{message}</p>:null}

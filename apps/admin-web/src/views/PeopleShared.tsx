@@ -27,7 +27,7 @@ export function PeopleTable({people,navigate,locationId,locationsEnabled=false,m
   const label=month ? monthLabel(month) : 'Diesen Monat';
   const monthHours = people.length > 0 && people.every(person=>person.monthWorkDurationSeconds !== undefined);
   // D-140: location is a column; only departed people retain their separate section.
-  return <>{[{title:null,rows:people.filter(p=>!p.departedAt)},{title:'Ausgeschiedene Mitarbeiter',rows:people.filter(p=>p.departedAt)}].map(group =>
+  return <>{[{title:null,rows:people.filter(p=>!p.departedAt)},{title:'Ehemalige · Zeiten in diesem Monat',rows:people.filter(p=>p.departedAt)}].map(group =>
     group.title && group.rows.length===0 ? null : <Fragment key={group.title ?? 'current'}>{group.title ? <h3>{group.title}</h3> : null}<div className="table-scroll" role="region" tabIndex={0} aria-label={group.title ?? "Mitarbeiter und laufende Zeiten"}><table>
     <thead><tr><th>Person</th><th>Standort</th>{monthHours ? <th>{label}</th> : null}<th>Status</th></tr></thead>
     <tbody>{group.rows.map(person=><tr key={person.membershipId}><td data-label="Person"><a className="person-link"
