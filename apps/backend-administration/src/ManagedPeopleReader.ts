@@ -1,3 +1,4 @@
+import type { ManagedPersonTimeV2 } from '@taptime/mobile-work-contract';
 import type { PoolClient, QueryResultRow } from 'pg';
 import { isManagedActiveSummary, isManagedActiveSummaryV2, isManagedActiveSummaryV3, isManagedActiveSummaryV4, isManagedPersonTimeRequest, isManagedActiveSummaryRequest, isManagedActiveSummaryRequestV5,
   isManagedTimestamp, isManagedUuid, type ManagedActiveSummary, type ManagedActiveSummaryRequest,
@@ -52,11 +53,14 @@ function record(row: QueryResultRow, includeTimeDetails = false) {
     status:row.status,startedAt:timestamp(row.started_at),stoppedAt:row.stopped_at===null?null:timestamp(row.stopped_at),
     startedVia:row.started_via,stoppedVia:!includeTimeDetails && row.stopped_via==='administration'?'manual':row.stopped_via };
 }
-export async function readManagedPerson(client: PoolClient, command: ManagedPersonTimeCommand): Promise<ManagedPersonTimeResult> {
+export function readManagedPerson(client: PoolClient, command: ManagedPersonTimeCommand): Promise<ManagedPersonTimeResult>;
+export function readManagedPerson(client: PoolClient, command: ManagedPersonTimeCommand, archive: true): Promise<ManagedReadResult<ManagedPersonTimeV2>>;
+export async function readManagedPerson(client: PoolClient, command: ManagedPersonTimeCommand, archive = false): Promise<ManagedReadResult<MobileOwnTimeQueryResponse | ManagedPersonTimeV2>> {
   const cursor=personCursor(command);
+  const withDetails=archive || command.includeTimeDetails, withCalendar=archive || command.includeCalendarBreaks;
   // Both STABLE readers share this statement's snapshot even under READ COMMITTED.
   // Never attach a newer correction version to older times.
-  const result=await client.query(command.includeTimeDetails ? `
+  const result=await client.query(archive ? 'SELECT * FROM taptime_server.read_managed_person_time_v2($1,$2,$3,$4,$5,$6)' : command.includeTimeDetails ? `
     WITH page AS MATERIALIZED (
       SELECT * FROM taptime_server.read_managed_person_time_v1($1,$2,$3,$4,$5,$6) WITH ORDINALITY
     ), details AS MATERIALIZED (
@@ -74,17 +78,18 @@ export async function readManagedPerson(client: PoolClient, command: ManagedPers
   if (active.length>1 || result.rows.length !== history.length+active.length+1) throw new Error('Invalid managed time rows');
   const page=history.slice(0,command.limit),last=page.at(-1);
   const detailed=(row:QueryResultRow)=> {
-    const base=record(row,command.includeTimeDetails);
-    if (!command.includeTimeDetails) return base;
+    const base=record(row,withDetails);
+    if (!withDetails) return base;
     const details=row.details;
     if (!details) throw new Error('Missing managed time details');
-    return {...base,details,...(command.includeCalendarBreaks ? {calendar:row.calendar} : {})};
+    return {...base,details,...(withCalendar ? {calendar:row.calendar} : {})};
   };
   const value={activeRecord:active[0]?detailed(active[0]):null,records:page.map(detailed),
     windowStartedAt:timestamp(first.window_started_at),windowEndedAt:timestamp(first.window_ended_at),
     nextCursor:history.length>command.limit && last ? `${timePrefix(command)}/${timestamp(last.started_at)}/${last.time_record_id}`:null};
-  if (!(command.includeCalendarBreaks ? isCalendarTimeResponse(value) : command.includeTimeDetails ? isDetailedTimeResponse(value) : validateOwnTimeResponse(value))) throw new Error('Invalid managed time response');
-  return {status:'succeeded',value};
+  if (!(withCalendar ? isCalendarTimeResponse(value) : withDetails ? isDetailedTimeResponse(value) : validateOwnTimeResponse(value))) throw new Error('Invalid managed time response');
+  if (archive && typeof first.can_manage_time !== 'boolean') throw new Error('Missing managed time authority');
+  return {status:'succeeded',value: archive ? {...value,canManageTime:first.can_manage_time} : value};
 }
 export async function readManagedSummary(client: PoolClient, command: ManagedActiveSummaryCommand): Promise<ManagedActiveSummaryResult> {
   const result=await client.query(`SELECT *${command.includePackageUsage ? ',taptime_server.read_organization_package_v1() AS package_usage' : ''} FROM taptime_server.${command.includeSelectedMonth ? 'read_managed_active_summary_v4' : command.includeMonthHours ? 'read_managed_active_summary_v3' : command.includeDeparted ? 'read_managed_active_summary_v2' : 'read_managed_active_summary_v1'}($1,$2,$3,$4${command.includeSelectedMonth ? ',$5,$6' : ''})`,

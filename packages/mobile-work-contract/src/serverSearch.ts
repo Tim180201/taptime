@@ -1,3 +1,4 @@
+import { parseArchiveRequest, type ArchiveKind } from './archive.js';
 // Server-only entry point. Keep crypto/Buffer out of the client contract bundle.
 import { createHash } from 'node:crypto';
 import { isCanonicalUuid } from './index.js';
@@ -9,6 +10,10 @@ export interface SearchKey { readonly name: string; readonly id: string; readonl
 export function createSearchContext<K extends SearchKind>(kind: K, input: unknown) {
   const request = parseSearchRequest(kind, input);
   return pageContext(kind, request, ['work_targets', 'backfill_targets'].includes(kind));
+}
+export function createArchiveContext<K extends Exclude<ArchiveKind, 'status' | 'person_time'>>(kind: K, input: unknown) {
+  const context = pageContext(`archive_${kind}`, parseArchiveRequest(kind, input), kind === 'targets');
+  return context?.after?.rank === 3 ? null : context;
 }
 export function createTargetAssignmentContext(input: unknown) {
   return pageContext('target_assignments', parseTargetAssignmentQuery(input));

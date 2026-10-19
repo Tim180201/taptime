@@ -1,3 +1,4 @@
+import { parseArchiveRequest, type ArchiveKind } from '@taptime/mobile-work-contract';
 import { MANAGED_PEOPLE_ACCEPT_V6, parseSearchRequest, type SearchKind, type SearchReader } from '@taptime/mobile-work-contract';
 import { isTargetAssignmentChangeRequest, parseTargetAssignmentQuery, parseQuotaAlertsQuery } from '@taptime/mobile-work-contract';
 import { isIsoTimestamp } from '@taptime/core';
@@ -155,6 +156,11 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/administration/employee-account-invitations': 'admin_create_employee_account_invitation',
   '/v1/administration/employee-invitations': 'admin_create_employee_invitation',
   '/v1/administration/employee-memberships-projection': 'admin_employee_memberships_projection',
+  '/v1/administration/archive/people': 'admin_archive_people',
+  '/v1/administration/archive/targets': 'admin_archive_targets',
+  '/v1/administration/archive/status': 'admin_archive_status',
+  '/v2/administration/managed-active-summary': 'admin_managed_active_summary_v2',
+  '/v2/administration/managed-person-time': 'admin_managed_person_time_v2',
   '/v1/administration/managed-person-time': 'admin_managed_person_time',
   '/v1/administration/managed-active-summary': 'admin_managed_active_summary',
   '/v2/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v2',
@@ -633,6 +639,19 @@ async function handleRequest(
     if (result.status === 'succeeded') respondJson(response, 200, result.response);
     else respondError(response, result.status === 'invalid_request' ? 400 : result.status === 'unauthorized' ? 401
       : result.status === 'forbidden' ? 403 : 503, result.status === 'unavailable' ? 'service_unavailable' : result.status);
+    return;
+  }
+  const archiveKind: ArchiveKind | undefined = route === 'admin_archive_people' ? 'people'
+    : route === 'admin_archive_targets' ? 'targets' : route === 'admin_archive_status' ? 'status'
+    : route === 'admin_managed_active_summary_v2' ? 'managed_people' : route === 'admin_managed_person_time_v2' ? 'person_time' : undefined;
+  if (archiveKind) {
+    const parsed = parseArchiveRequest(archiveKind, body);
+    if (!parsed) { respondError(response, 400, 'invalid_request'); return; }
+    const reader = dependencies.employeeEnrollment;
+    if (!reader.queryArchive) { respondError(response, 503, 'service_unavailable'); return; }
+    const result = await withTimeout(reader.queryArchive(archiveKind, { accessToken, request: parsed }), timeoutMilliseconds);
+    if (result.status === 'succeeded') respondJson(response, 200, result.response, archiveKind === 'status' ? 32 * 1024 : archiveKind === 'person_time' ? TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES : undefined);
+    else respondError(response, result.status === 'invalid_request' ? 400 : result.status === 'unauthorized' ? 401 : 403, result.status);
     return;
   }
   const searchRead = async <K extends SearchKind>(kind: K, reader: { querySearch?: SearchReader<K>['querySearch'] } | undefined) => {
@@ -3039,6 +3058,8 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_employee_memberships_projection_v3':
     case 'admin_employee_memberships_projection_v4':
     case 'admin_employee_memberships_projection_v2':
+    case 'admin_archive_people': case 'admin_archive_targets': case 'admin_archive_status':
+    case 'admin_managed_active_summary_v2': case 'admin_managed_person_time_v2':
     case 'admin_managed_person_time':
     case 'admin_managed_active_summary':
     case 'admin_revoke_membership':
@@ -3133,6 +3154,8 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_employee_memberships_projection_v3'
     || route === 'admin_employee_memberships_projection_v4'
     || route === 'admin_employee_memberships_projection_v2'
+    || route === 'admin_archive_people' || route === 'admin_archive_targets' || route === 'admin_archive_status'
+    || route === 'admin_managed_active_summary_v2' || route === 'admin_managed_person_time_v2'
     || route === 'admin_managed_person_time'
     || route === 'admin_managed_active_summary'
     || route === 'admin_revoke_membership'

@@ -335,3 +335,5 @@ export * from './nfcTagRemoval.js';
 export * from './search.js';
 export * from './targetAssignments.js';
 export * from './quotaAlerts.js';
+
+export * from './archive.js';

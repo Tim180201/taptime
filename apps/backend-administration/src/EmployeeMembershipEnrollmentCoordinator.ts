@@ -1,3 +1,5 @@
+import { parseArchiveRequest, type ArchiveKind, type ArchiveRequests, type ArchiveReadResult } from '@taptime/mobile-work-contract';
+import { readArchive } from './ArchiveReader.js';
 import { boundedSearchPage, createSearchContext } from '@taptime/mobile-work-contract/server-search';
 import { isManagedActiveSummaryV6, type SearchRequests, type SearchResponses, type SearchReadResult } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
@@ -125,6 +127,15 @@ export class EmployeeMembershipEnrollmentCoordinator {
     private readonly accessTokenVerifier: AccessTokenVerifier,
     private readonly accountInviter?: SupabaseAccountInviter,
   ) {}
+
+  async queryArchive<K extends ArchiveKind>(kind: K,
+    command: { readonly accessToken: string; readonly request: ArchiveRequests[K] },
+  ): Promise<ArchiveReadResult<K>> {
+    const request = parseArchiveRequest(kind, command.request);
+    if (!request) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority<ArchiveReadResult<K>>(command.accessToken,
+      MembershipId(request.expectedMembershipId), randomUUID(), {}, client => readArchive(client, kind, request));
+  }
 
   async readManagedPersonTime(command: ManagedPersonTimeCommand, controls: EmployeeEnrollmentCoordinatorControls = {}): Promise<ManagedPersonTimeResult> {
     if (!validPersonCommand(command)) return { status: 'invalid_request' };

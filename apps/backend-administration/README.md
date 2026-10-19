@@ -40,3 +40,30 @@ npm run build --workspace=@taptime/backend-administration
 ```
 
 This is repository implementation evidence, not a public or production deployment approval.
+
+## Archiv und vollständige Monatslisten (T-127a, Migration 061)
+
+Alle fünf Lesewege sind POST-Routen mit `expectedMembershipId`; die Identität kommt aus
+Bearer-Token und aktueller Mitgliedschaft. Mitarbeiter sind ausgeschlossen. Bestehende
+SQL-Fassungen, `/v1/administration/managed-person-time` und die bisherigen Accept-Verträge
+für die Übersicht bleiben unverändert.
+
+| Route | Anfrage zusätzlich zu `expectedMembershipId` | Antwort |
+|---|---|---|
+| `/v1/administration/archive/people` | `locationId`, `membershipId` (je UUID oder null), `search`, `cursor`, `limit` | `people`, `nextCursor`; Name bleibt nullable, `revokedAt`, `lastStartedAt` |
+| `/v1/administration/archive/targets` | `locationId`, `search`, `cursor`, `limit` | `targets`, `nextCursor`; `targetType`, `targetId`, `deactivatedAt`, `lastStartedAt` |
+| `/v1/administration/archive/status` | `membershipIds`, `targets: [{targetType, targetId}]`, zusammen höchstens 200 eindeutige Kennungen | `people`, `targets` mit `archived`; nicht lesbare Kennungen fehlen |
+| `/v2/administration/managed-active-summary` | Suchvertrag der bisherigen Übersicht: `locationId`, `isRunning`, `fromInclusive`, `toExclusive`, `search`, `cursor`, `limit` | bisherige Suchantwort; Ehemalige nur mit Zeit im Startmonat, nie bei `isRunning: true`; Zählungen nur Aktive |
+| `/v2/administration/managed-person-time` | `targetMembershipId`, `fromInclusive`, `toExclusive`, `cursor`, `limit` | Kalenderantwort mit Details/Pausen und `canManageTime`; kein Accept-Schalter nötig |
+
+Archivseiten und Übersicht liefern höchstens 50 Einträge und 14 KiB; SQL liest höchstens
+51 Zeilen für den Fortsetzungshinweis. Cursor binden Suche, Aufrufer und Filter. Die
+Personenansicht behält die Grenze von 20 historischen Einträgen und die 256-KiB-Grenze der
+bestehenden Kalenderantwort. Die gebündelte Statusantwort ist auf 32 KiB begrenzt.
+
+Administrator: ganzer Betrieb. Standortleitung: letzter Heimatstandort der Person bzw.
+letzte Bindung des deaktivierten Ziels, ohne Austrittsfrist. Nur die Statusabfrage umfasst
+zusätzlich bereits lesbare Kundenbeiträge und Ziele aus nach D-115 lesbaren Prüfzeiten;
+dadurch öffnet sie keine fremde Archiv- oder Personenansicht. `canManageTime` stammt aus
+`has_time_management_authority_v1`; einzelne Schreibbefehle prüfen weiterhin selbst,
+insbesondere Zeitgrenzen und Austrittszeitpunkt. Keine neue Tabelle, kein neuer Schreibweg.

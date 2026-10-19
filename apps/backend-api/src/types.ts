@@ -202,6 +202,7 @@ export interface AdministrationCoordinator {
 }
 
 export interface EmployeeMembershipEnrollmentCoordinator {
+  queryArchive?: import('@taptime/mobile-work-contract').ArchiveReader['queryArchive'];
   querySearch?: import('@taptime/mobile-work-contract').SearchReader<'managed_people' | 'memberships'>['querySearch'];
   readManagedPersonTime?(command: ManagedPersonTimeCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedPersonTimeResult>;
   readManagedActiveSummary?(command: ManagedActiveSummaryCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedActiveSummaryResult>;
@@ -305,6 +306,8 @@ export type BackendApiRoute =
   | 'admin_employee_memberships_projection_v2'
   | 'admin_employee_memberships_projection_v3'
   | 'admin_employee_memberships_projection_v4'
+  | 'admin_archive_people' | 'admin_archive_targets' | 'admin_archive_status'
+  | 'admin_managed_active_summary_v2' | 'admin_managed_person_time_v2'
   | 'admin_managed_person_time'
   | 'admin_managed_active_summary'
   | 'admin_revoke_membership'
