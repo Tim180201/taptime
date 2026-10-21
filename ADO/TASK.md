@@ -1,109 +1,109 @@
 # Aktuelle Aufgabe
 
-> **Stand 19.10.2026:** Deploy 7 ausgeliefert (`1918d5a`, 17.10.). Abgeschlossen und auf main: T-127a (`6b0c867`) und
-> T-127b (`c41fc2c`, Archiv, D-143). Reihenfolge für Codex, je ein Auftrag, je ein Review, je ein Commit: **T-104a**,
-> **T-104b**, **T-104c**; T-132 (Sicherung, Brief folgt nach Messung) wird vorgezogen, sobald sein Brief steht; T-133
-> (Runbook) klein dazwischen. Ausgeliefert wird mit Deploy 8 und neuen App-Builds. Ohne Verbindung des TL zum Mac legt
-> Codex den geprüften Stand nach PO-Freigabe als Zweig `review/<aufgabe>` ab (STATUS).
+> **Stand 21.10.2026:** T-104a abgeschlossen (`90fadc3`, CI-Nachtrag `873cbfd`). Reihenfolge für Codex, je ein Auftrag,
+> je ein Review, je ein Commit: **T-104b**, dann **T-104c**; T-132 (Sicherung, Brief folgt nach Messung) wird
+> vorgezogen, sobald sein Brief steht; T-133 (Runbook) klein dazwischen. Ausgeliefert wird mit Deploy 8 und neuen
+> App-Builds. Ohne Verbindung des TL zum Mac legt Codex den geprüften Stand nach PO-Freigabe als Zweig
+> `review/<aufgabe>` ab (STATUS).
 
-## T-104a · Sperrbildschirm: Schlüssel und Aktionen auf dem Server (D-114, D-146)
+## T-104b · Sperrbildschirm Android (D-114, D-146, D-147)
 
-**Für:** Development · **Risiko:** hoch (Berechtigung ohne Anmeldung, Zeiterfassung) · **Zeitbox:** eine Sitzung.
-Unabhängiges Review. Beginnt jetzt.
+**Für:** Development · **Risiko:** hoch (Aktion ohne Anmeldung, Hintergrund, Zeiterfassung) · **Zeitbox:** eine
+Sitzung. Unabhängiges Review. Beginnt jetzt. Server und Vertrag stehen (T-104a): `POST /v1/lock-screen/capability`
+(angemeldet), `POST /v1/lock-screen/action` (Schlüssel als `Authorization: Bearer`), Typen und Prüffunktionen in
+`packages/mobile-work-contract/src/lockScreen.ts`.
 
-### Warum
+### Was man sieht
 
-PO 19.10.: Läuft eine Zeit, sollen „Pause“, „Weiter“ und „Beenden“ direkt auf dem Sperrbildschirm wirken, ohne Entsperren
-und ohne die App zu öffnen. Die Anmeldung liegt nach D-133 im Schlüsselbund „nur entsperrt“ und ist bei gesperrtem
-Handy nicht lesbar. Deshalb ein eigener, eng begrenzter Sperrbildschirm-Schlüssel (D-146).
+Läuft eine eigene Zeit, zeigt Android eine Benachrichtigung, auch auf dem Sperrbildschirm, mit Ziel (D-147) und
+mitlaufender Arbeitsdauer ohne Pausen. Läuft: „Ziel · 1:23 h“ (Dauer läuft mit), [Pause] [Beenden]. Pause: „Pause seit
+12:30 · Ziel“, Dauer steht, [Weiter] [Beenden]. Beendet: „Zeit beendet · 3:42 h“, nach 10 s weg. Während des Sendens
+„Wird gesendet …“ ohne Knöpfe. Nicht gesendet: „Nicht gesendet · kein Netz“ bzw. „Noch nicht bestätigt“ mit
+[Erneut senden]. Antippen öffnet immer „Erfassen“; dort tippt man die Aktion bei Bedarf selbst (keine automatische
+Ausführung). Eine neue Zeit startet nie von außen.
 
 ### Umfang
 
-1. **Migration (nächste freie Nummer):**
-   - Tabelle für Sperrbildschirm-Schlüssel: Betrieb, Zugang, Benutzer, laufende Zeit, Installation (falls vorhanden),
-     SHA-256 des Schlüssels (nie der Schlüssel selbst), `issued_at`, `expires_at`, `last_used_at`, `revoked_at`. RLS
-     erzwungen, kein direkter Zugriff der Laufzeitrollen; Funktionen nach den Regeln aus T-119 (Katalogtest).
-   - `issue_lock_screen_capability_v1` (angemeldet, wie die übrigen mobilen Wege): nur für die eigene, gerade laufende
-     Zeit; erzeugt 32 Zufallsbytes, gibt den Schlüssel genau einmal zurück, ersetzt einen älteren Schlüssel derselben
-     Zeit und Installation. Gültig bis zum Ende der Zeit, höchstens 24 Stunden; erneutes Ausstellen beim Öffnen der App
-     verlängert.
-   - `perform_lock_screen_action_v1(schlüssel, aktion, befehls_id)` mit `pause`, `resume`, `stop`: prüft Schlüssel,
-     Ablauf, aktiven Zugang, aktiven Betrieb und dass genau diese Zeit noch läuft. **Zustandsprüfung statt Wechsel:**
-     `pause` nur ohne laufende Pause, `resume` nur mit laufender Pause, `stop` nur bei laufender Zeit; sonst
-     `state_changed` mit dem aktuellen Zustand, ohne Ereignis. Gebucht werden dieselben manuellen Ereignisse wie in der
-     App (Pause als Pausen-Ereignis, Beenden als Ereignis des laufenden Ziels; aus der Pause erst Pausenende, dann
-     Beenden, D-117), Zeitpunkt = Serverzeit, Herkunft bleibt `manual`. Idempotent über die Befehls-ID.
-   - Kennzeichen „vom Sperrbildschirm“ am gebuchten Ereignis und Protokolleintrag; der Verlauf der Zeit im Web
-     (Person → Zeit) zeigt es. CSV-Format und `startedVia`/`stoppedVia` bleiben unverändert.
-   - Lebenszyklus nach AGENTS 1.5: Wer legt an (Ausstellen), wer ändert (`last_used_at`, Entzug), wer entfernt
-     (Ungültig mit Ende der Zeit, Entzug des Zugangs; abgelaufene Zeilen werden nach 7 Tagen gelöscht, vom Ausstellen
-     selbst oder einer vorhandenen Wartung).
-2. **API:** `POST /v1/lock-screen/capability` (angemeldet) und `POST /v1/lock-screen/action` (ohne Anmeldung, Schlüssel
-   im Kopf `Authorization`, nie in URL oder Protokoll). Antwort der Aktion: aktueller Zustand (läuft, Pause seit,
-   beendet mit Dauer, Ziel). Begrenzung je Schlüssel (z. B. 10 je Minute). Fehler ohne Auskunft, ob ein Schlüssel je
-   existierte.
-3. **Verträge** in `packages/mobile-work-contract` (neue Typen, Prüffunktionen), additiv.
-4. **Tests (PostgreSQL 17 und HTTP):** Ausstellen nur für die eigene laufende Zeit; fremder Betrieb, fremde Person,
-   beendete Zeit, entzogener Zugang, abgelaufener oder ersetzter Schlüssel → abgewiesen; jede Aktion in jedem Zustand
-   (auch Verwaltungsstopp dazwischen: kein neuer Start durch „Beenden“); Pause aus und wieder an mehrfach; Beenden aus
-   der Pause; Wiederholung derselben Befehls-ID; nur der Hash steht in der Datenbank; Katalogtest; Rotnachweis, dass
-   ein blinder Wechsel eine neue Zeit starten würde.
+1. **Lokales Expo-Modul `taptime-lock-screen`**, nur Android, nach dem Muster der vorhandenen Module; die JS-Hülle ist
+   unter iOS ohne Wirkung. Nur Plattform-APIs, keine neue Bibliothek, kein Vordergrunddienst. Kanal „Laufende Zeit“
+   mit Wichtigkeit DEFAULT, Ton und Vibration vor dem Anlegen abgeschaltet, `setOnlyAlertOnce` (stumme LOW-Kanäle
+   blendet Android auf dem Sperrbildschirm standardmäßig aus). `VISIBILITY_PUBLIC`: eine öffentliche Ersatzfassung
+   zeigt dort keine Knöpfe. Läuft: Chronometer mit `setShowWhen(true)` und Basis `workDurationSeconds + (jetzt − asOf)`;
+   Pause: kein Chronometer, keine Uhrzeit oben. Uhrzeiten in Europe/Berlin wie in „Erfassen“. Wegwischen (ab Android 14
+   möglich, nicht im gesperrten Zustand) heißt nur ausblenden; wie nach Neustart oder Stopp erzwingen zeigt die App sie
+   beim nächsten Öffnen wieder.
+2. **Aktion nativ ohne App:** nicht exportierter `BroadcastReceiver`, explizite PendingIntents mit `FLAG_IMMUTABLE`,
+   je Knopf eigener Request-Code, Aktionen mit `setAuthenticationRequired(false)`; seit Android 12 darf der Empfänger
+   keine Activity starten.
+   - Je Tipp eine neue Befehls-ID (UUID v4), sofort „Wird gesendet …“; Aufruf mit `goAsync()` auf eigenem Thread,
+     `finish()` erst nach dem Aufruf, alles einschließlich Kaltstart in höchstens 8 s (Verbindung und Antwort je
+     höchstens 3 s). Kopfzeilen: Bearer-Schlüssel, `Content-Type: application/json`, `X-TapTime-App` (Wert von der
+     App), nie `X-TapTime-Expected-Membership-Id`. Abgelaufener Schlüssel → kein Aufruf, „Bitte App öffnen“.
+   - 200 → Anzeige aus `state`; `stopped` → „Zeit beendet“ mit `setTimeoutAfter` (ab Android 8; darunter bis zum
+     nächsten Öffnen), Schlüssel löschen. Kein Netz (ConnectivityManager oder Verbindungsaufbau scheitert) → „Nicht
+     gesendet“. Antwort ausgeblieben oder 5xx → „Noch nicht bestätigt“. „Erneut senden“ nutzt dieselbe ID. 401 →
+     Schlüssel löschen, „Bitte App öffnen“ ohne Knöpfe; 426 → „Bitte App aktualisieren“; 400, 409, 429 → „Bitte App
+     öffnen“.
+   - Jeder Ausgang wird nativ als **Sperrbildschirm-Stand** gespeichert (Zustand mit `asOf`, oder offener Befehl mit
+     ID); läuft die App, meldet das Modul ihn als Ereignis. Der Schlüssel steht nie in Intent, Protokoll, JS-Rückgabe
+     oder Fehlermeldung.
+3. **Speicher:** eigene SharedPreferences-Datei, Inhalt mit eigenem AES-GCM-Schlüssel im Android Keystore verschlüsselt,
+   ohne Benutzer-Authentifizierung und ohne `setUnlockedDeviceRequired` (lesbar bei gesperrtem Handy). Getrennt von
+   Anmeldung und SecureStore; von Sicherung und Geräteübertragung ausgeschlossen (Plugin
+   `withOfflineStorageBackupBoundary`, `verifyOfflineStorageAndroidBoundary.mjs` und Konfigurationstest erweitert).
+   Lässt sich der Inhalt nicht entschlüsseln, wird er gelöscht und beim nächsten Öffnen neu ausgestellt.
+4. **App-Seite** (Lebenszyklus nach AGENTS 1.5):
+   - **Anlegen:** Zeigt der gelesene Stand eine eigene laufende Zeit (`activeRecord.timeRecordId`), holt die App einen
+     Schlüssel (`expectedMembershipId` aus der Sitzung, `installationId` aus dem Offline-Kontext, sonst null) und
+     startet die Anzeige. Offline gestartete Zeiten bekommen den Schlüssel, sobald die App sie gelesen hat; bis dahin
+     öffnen die Knöpfe „Erfassen“.
+   - **Ändern:** Bei jedem Öffnen und jeder Rückkehr in den Vordergrund liest die App online ihre eigene Zeit neu, ohne
+     dass die Karte in „Erfassen“ verschwindet, und stellt den Schlüssel neu aus (verlängert). Nach jeder eigenen
+     Aktion: Anzeige aus dem eigenen Stand, ein offener Sperrbildschirm-Befehl wird verworfen. Solange eigene
+     Erfassungen auf Bestätigung warten, öffnen die Knöpfe „Erfassen“, statt zu senden.
+   - **Vor jeder Aktion in „Erfassen“:** Ist der Sperrbildschirm-Stand neuer als der Stand der App, wird zuerst ein
+     offener Befehl mit derselben ID nachgesendet und neu gelesen. Offline bleiben Pause und Beenden dieser Zeit dann
+     mit einem Satz gesperrt, bis abgeglichen ist: Die Aktionen der App sind Umschalter, ein veralteter Stand würde die
+     Gegenrichtung buchen.
+   - **Entfernen:** Zeit beendet (App, Sperrbildschirm, Verwaltung), 401 oder Ablauf, Abmelden, Kontowechsel,
+     abgewiesene Sitzung.
+   - Ein 401 beim Ausstellen ist kein Sitzungsfehler: einmal Token erneuern, dann wie „keine laufende Zeit“; nie
+     abmelden (der übliche Weg über `AuthenticatedHttpRequestExecutor` würde es tun).
+5. **Erlaubnis** (Android 13+): einmal beim ersten Start einer Zeit, mit kurzem Satz vor der Systemabfrage; abgelehnt →
+   keine Anzeige, kein erneutes Fragen, Hinweis in „Übertragung“ mit Weg in die Einstellungen. `POST_NOTIFICATIONS`
+   ausdrücklich in `app.json`, Test der Berechtigungsliste angepasst.
+6. **Tests:** Zustandslogik und Abgleich in TypeScript; reine Kotlin-Logik (Antwort → Anzeige, alle Fehlerfälle) ohne
+   Android-Importe, kompiliert und ausgeführt nach dem Muster `T096NativeAudio.test.ts`. Rotnachweis: Ohne Neulesen
+   würde „Pause“ in der App nach einer Pause vom Sperrbildschirm die Pause beenden. Mit vorhandenem Android SDK:
+   `expo prebuild --platform android`, Release-Build, `android:offline-storage-boundary:verify`, gemergtes Manifest
+   (Empfänger nicht exportiert, `POST_NOTIFICATIONS`, kein Vordergrunddienst); `android/` danach entfernen. Fehlt das
+   SDK: melden, nichts installieren.
+7. **Prüfliste für den PO** in `.t104b-review/`: gesperrt Pause, Weiter, Beenden (auch aus der Pause), dabei notieren,
+   ob die Knöpfe gleich sichtbar sind oder erst nach Aufziehen; Flugmodus mit „Erneut senden“; Verwaltungsstopp, dann
+   Knopf, dann App; Pause am Sperrbildschirm, dann in der App; Abmelden; Erlaubnis ablehnen; Neustart des Handys.
 
 ### Grenzen
 
-Keine App- und Web-Oberfläche außer der Verlaufsangabe. Keine Push-Nachrichten. Keine Änderung an D-133, an der
-Anmeldung und an bestehenden Wegen. ADO nicht ändern. Bericht in `.t104a-review/`; kein Commit vor `APPROVED`.
+Keine iPhone-Änderung, keine Push-Nachrichten, kein Start einer neuen Zeit von außen, keine Server- oder
+Migrationsänderung, D-133 unberührt. ADO nicht ändern. Neuer App-Build durch den PO. Bericht in `.t104b-review/`; kein
+Commit vor `APPROVED`.
 
 ---
 
-## Danach: T-104b · Sperrbildschirm Android (D-114, D-146)
+## Danach: T-104c · Sperrbildschirm iPhone (D-114, D-146, D-147)
 
-**Für:** Development · **Risiko:** mittel (nativ, Hintergrund) · **Zeitbox:** eine Sitzung. Beginnt nach T-104a.
+**Für:** Development · **Risiko:** hoch (Erweiterung, Hintergrundstart, D-133) · **Zeitbox:** eine Sitzung. Beginnt
+nach T-104b; der Brief wird mit dessen Ergebnis nachgeschärft.
 
-### Umfang
+1. **Live-Aktivität** (Sperrbildschirm und Dynamic Island) über eine Widget-Erweiterung per Config-Plugin, verträglich
+   mit Expo SDK 57 und EAS; Bibliothek nur gepflegt und exakt festgelegt, sonst eigenes Plugin. Inhalte und Zustände
+   wie T-104b, Farben aus `shared/brand`.
+2. **Knöpfe ab iOS 17** als `LiveActivityIntent` mit nativem Aufruf von `/v1/lock-screen/action`. Schlüssel in einem
+   eigenen Schlüsselbund-Eintrag „nach erster Entsperrung“; die Anmeldung bleibt „nur entsperrt“ (D-133). Ohne Netz
+   wie T-104b („Nicht gesendet“, Antippen öffnet „Erfassen“). iOS 16: ohne Knöpfe, Antippen öffnet „Erfassen“.
+3. **D-133 bleibt intakt:** Der Start durch die Aktion berührt weder JavaScript-Sitzung noch Anmeldung; Test dafür.
+4. **App-Seite** aus T-104b wiederverwenden; `NSSupportsLiveActivities`.
+5. **Tests und Prüfliste** am iPhone wie T-104b, dazu T-115-Nachtest (zehnmal nach langer Sperre öffnen).
 
-1. **Laufende Benachrichtigung** (eigenes lokales Expo-Modul, Kanal „Laufende Zeit“, leise, dauerhaft): Ziel und
-   mitlaufende Arbeitsdauer ohne Pausen wie in „Erfassen“. Zustände: läuft → [Pause] [Beenden]; Pause → „Pause seit
-   12:30“, [Weiter] [Beenden]; beendet → kurz „Zeit beendet · 3:42 h“, dann weg. Antippen öffnet „Erfassen“.
-2. **Aktionen nativ ohne App:** Empfänger ruft `/v1/lock-screen/action` mit dem Schlüssel auf und aktualisiert die
-   Anzeige aus der Antwort. `state_changed` → Anzeige auf den gemeldeten Zustand setzen. Ohne Netz oder bei Fehler →
-   App öffnen und dort dieselbe Aktion über den gewohnten Weg mit Zustandsprüfung ausführen (offline sicher).
-3. **App-Seite:** Bei laufender Zeit Schlüssel holen und Anzeige starten; nach jeder eigenen Aktion und beim Öffnen
-   abgleichen (D-114: Änderungen von außen beim nächsten Öffnen). Schlüssel im verschlüsselten App-Speicher, getrennt
-   von der Anmeldung; beim Abmelden und Kontowechsel löschen und Anzeige entfernen.
-4. **Erlaubnis** (Android 13+): einmal beim ersten Start einer Zeit mit kurzem Satz; abgelehnt → keine Anzeige, kein
-   erneutes Fragen, Hinweis in „Übertragung“.
-5. **Tests:** Einheitstests der Zustandslogik und des Abgleichs; Prüfliste für den PO am Gerät (gesperrt: Pause, Weiter,
-   Beenden; Flugmodus; Verwaltungsstopp, dann App öffnen; Abmelden).
-
-### Grenzen
-
-Keine iPhone-Änderung, keine Push-Nachrichten, kein Start einer neuen Zeit von außen. Neuer App-Build durch den PO.
-Bericht in `.t104b-review/`; kein Commit vor `APPROVED`.
-
----
-
-## Danach: T-104c · Sperrbildschirm iPhone (D-114, D-146)
-
-**Für:** Development · **Risiko:** mittel bis hoch (Erweiterung, Hintergrundstart, D-133) · **Zeitbox:** eine Sitzung.
-Beginnt nach T-104b.
-
-### Umfang
-
-1. **Live-Aktivität** (Sperrbildschirm und Dynamic Island, kompakt und erweitert) über eine Widget-Erweiterung per
-   Config-Plugin, verträglich mit Expo SDK 57 und EAS; Bibliothek nur gepflegt und auf exakte Version festgelegt, sonst
-   eigenes Plugin. Inhalte und Zustände wie T-104b, Farben aus `shared/brand`.
-2. **Knöpfe ab iOS 17** als `LiveActivityIntent`: nativer Aufruf von `/v1/lock-screen/action`, Anzeige aus der Antwort.
-   Der Schlüssel liegt in einem eigenen Schlüsselbund-Eintrag „nach erster Entsperrung“; die Anmeldung bleibt
-   unverändert „nur entsperrt“ (D-133). Ohne Netz → Anzeige „Kein Netz · App öffnen“, Antippen öffnet die App, die die
-   Aktion mit Zustandsprüfung ausführt. iOS 16: Live-Aktivität ohne Knöpfe, Antippen öffnet „Erfassen“.
-3. **D-133 bleibt intakt:** Der Start der App durch die Aktion berührt weder JavaScript-Sitzung noch Anmeldung; der
-   spätere Start im Vordergrund verhält sich wie heute. Rotnachweis oder Test dafür.
-4. **App-Seite** wie T-104b Punkt 3; `NSSupportsLiveActivities`.
-5. **Tests:** Einheitstests der Zustandslogik; Prüfliste für den PO am iPhone (gesperrt: Pause, Weiter, Beenden;
-   Flugmodus; Verwaltungsstopp; danach normal öffnen; T-115-Nachtest: zehnmal nach langer Sperre öffnen).
-
-### Grenzen
-
-Keine Push-Nachrichten (APNs später), kein Start einer neuen Zeit von außen, keine Änderung an Android. Neuer
-TestFlight-Build durch den PO. Bericht in `.t104c-review/`; kein Commit vor `APPROVED`.
+Keine Push-Nachrichten (APNs später), keine Änderung an Android. Neuer TestFlight-Build durch den PO. Bericht in
+`.t104c-review/`; kein Commit vor `APPROVED`.

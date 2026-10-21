@@ -1975,3 +1975,11 @@ mit ihrem Ende verfällt; die Anmeldung bleibt nach D-133 „nur entsperrt“. D
 Sperrbildschirm“. Ohne Netz oder unter iOS 16 öffnet der Knopf die App; eine neue Zeit startet nicht von außen. T-104a–c.
 **Warum:** Ein Tipp ohne Entsperren ist der Gewinn (PO 19.10.). Dass jemand am gesperrten Handy eine laufende Zeit beendet,
 bleibt sichtbar und korrigierbar; die Anmeldung zu lockern hätte den Fehler aus T-115 zurückgebracht.
+
+## D-147 · Name des Ziels bleibt außerhalb der App sichtbar · 21.10.2026 · Tim (PO)
+Bestätigt D-114 nach Rückfrage des TL zum Datenschutz: Die Anzeige außerhalb der App (Android-Benachrichtigung,
+Live-Aktivität) nennt das Ziel auch auf dem gesperrten Bildschirm, obwohl Ziele bei frogs Schüler sind, oft minderjährig.
+Die Android-Benachrichtigung ist deshalb öffentlich sichtbar; eine Ersatzfassung ohne Namen hätte dort keine Knöpfe.
+T-104b, T-104c.
+**Warum:** Entscheidung des PO am 21.10. Wer auf das gesperrte Handy schaut, kann den Namen lesen; B15 nimmt die Anzeige
+in Datenschutzhinweise und Verzeichnis auf.

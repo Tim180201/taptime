@@ -1,11 +1,15 @@
 # TapTim.e — Status
 
-**Stand 19.10.2026.** Produktion läuft auf `1918d5a` (Deploy 7 am 17.10., Migration 060, laut `version.txt`; der PO
+**Stand 21.10.2026.** Produktion läuft auf `1918d5a` (Deploy 7 am 17.10., Migration 060, laut `version.txt`; der PO
 reicht die Belege aus dem Deploy-Log nach). Damit ausgeliefert: T-024 Teil A (Werkzeug `taptime-runtime-rotate`),
 T-122c (Kopfbalken in beiden Themen fest oben, ein Monatsschalter, Lohnexport startet mit dem Vormonat), T-122d,
 T-129 (Startseite „Stempelpunkte“, D-144), T-131 (GHCR behält ganze Releases, Deploy reserviert sein Ziel, D-145) und
 T-126 (Namen ändern, D-142). Davor Deploy 6 (`fb28166`, 15.10.). App-Builds zu `ad4cd29` beim PO. Auf main, noch nicht
-ausgeliefert: T-127a (`6b0c867`, Archiv auf dem Server, Migration 061) und T-127b (`c41fc2c`, Archiv im Browser, D-143).
+ausgeliefert: T-127a (`6b0c867`, Archiv auf dem Server, Migration 061), T-127b (`c41fc2c`, Archiv im Browser, D-143) und
+T-104a (`90fadc3`, `873cbfd`, Sperrbildschirm-Schlüssel und -Aktionen auf dem Server, Migration 062, D-146).
+**CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
+Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
+Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
 **T-024 Teil B, Stand 17.10.:** `.env` verschlüsselt geholt und im Passwortmanager verwahrt (neuer Weg, kommt mit T-133
 in DEPLOY.md); neuer Deploy-Schlüssel eingetragen und mit `taptime-status` belegt; Controller `1918d5a` installiert;
 Deploy 7 mit dem neuen Schlüssel. **Offen ab Schritt 7:** alten Schlüssel entfernen, `taptime-runtime-rotate`,
@@ -21,15 +25,13 @@ Paketversionen. Gelöscht wurden neun Versionen der Produktionsabbilder (Backend
 lief mit lokalen Abbildern weiter. Am 16.10. um 04:47 UTC exakt nach Digest wiederhergestellt; die strenge Abrufprüfung
 von current und previous samt Konfigurationen und Schichten ist grün. `gh` hat seit 16.10. wieder keine Paketrechte
 (`write:packages`, `delete:packages` entzogen). Seit T-131 gilt die Regel „kein Push während eines Deploys“ nicht mehr.
-**Plan B (16.10., GPT-Kontingent knapp):** Codex hat nur noch T-126 umgesetzt; Commit und Doku-Nachtrag dazu hat der PO
-selbst im Terminal nach Befehlsblock des TL gemacht. T-127a und T-127b (Archiv, D-143) kommen mit Deploy 8. Supabase-Projekt am 14.10. vom PO
-aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den Schutz vor geleakten Passwörtern,
-der mit Pro kommt (D-130, D-139).
+Supabase-Projekt am 14.10. vom PO aufgeräumt (Kopie von vor D-010 entfernt); der Security Advisor meldet nur noch den
+Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-104a–c (Sperrbildschirm,
-D-146), T-132, T-133 → Deploy 8 (mit T-127a/b) und neue App-Builds → restliche Geräteabnahme → Pilot. Review ohne
+**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-104b und T-104c (Sperrbildschirm,
+D-146, D-147), T-132, T-133 → Deploy 8 (mit T-127a/b) und neue App-Builds → restliche Geräteabnahme → Pilot. Review ohne
 Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig `review/<aufgabe>` ab, Fotos auf einem verwaisten
 Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
@@ -118,6 +120,8 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
   wiederhergestellten Einträgen prüfen.
 - Android: Bleibt eine Karte nach Ende des Lesemodus (T-112) am Handy, könnte Android sie neu erkennen und an die App
   geben; das Plugin speichert außerdem auch bei Vordergrund-Erkennung eine Erfassung. In der Android-Abnahme prüfen.
+- Android 16 kann eine laufende Benachrichtigung als „Live Update“ hervorheben; dann stehen ihre Knöpfe auf dem
+  Sperrbildschirm ausgeklappt. Nach der Geräteabnahme von T-104b entscheiden, ob es nötig ist.
 - Android 17 zeigt für Tags mit Web-Adresse eine Mitteilung (D-037); am ersten Android-17-Gerät prüfen, ob der App
   Link (T-096) das umgeht.
 
