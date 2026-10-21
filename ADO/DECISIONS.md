@@ -1965,3 +1965,13 @@ Operations-Abbilder von current und previous. Jeder Lauf protokolliert Schutzsat
 **Warum:** Am 15.10. löschte ein Aufräumlauf während Deploy 6 die Abbilder der gerade ausgerollten Produktion, weil der
 Schutzsatz erst am Ende des Deploys geschrieben wird und „zwanzig Paketversionen“ nur gut ein Release sind (T-130). Die
 Abnahme von T-098c (TL) hatte diesen zeitlichen Fall übersehen.
+
+## D-146 · Pause und Beenden direkt vom Sperrbildschirm · 19.10.2026 · Tim (PO), Claude (TL)
+Ergänzt D-114 für beide Systeme: Die Anzeige außerhalb der App hat je nach Zustand „Pause“ und „Beenden“ oder „Weiter“
+und „Beenden“ und wirkt sofort, ohne Entsperren und ohne die App zu öffnen. Dafür stellt der Server einen
+Sperrbildschirm-Schlüssel aus, der nur für genau diese laufende Zeit gilt, nur pausieren, fortsetzen und beenden darf und
+mit ihrem Ende verfällt; die Anmeldung bleibt nach D-133 „nur entsperrt“. Der Server prüft vor jeder Aktion den Zustand
+(nie ein blinder Wechsel), bucht dieselben manuellen Ereignisse (aus der Pause nach D-117), und der Verlauf nennt „vom
+Sperrbildschirm“. Ohne Netz oder unter iOS 16 öffnet der Knopf die App; eine neue Zeit startet nicht von außen. T-104a–c.
+**Warum:** Ein Tipp ohne Entsperren ist der Gewinn (PO 19.10.). Dass jemand am gesperrten Handy eine laufende Zeit beendet,
+bleibt sichtbar und korrigierbar; die Anmeldung zu lockern hätte den Fehler aus T-115 zurückgebracht.

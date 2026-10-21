@@ -1,12 +1,20 @@
 # TapTim.e — Status
 
-**Stand 16.10.2026.** Produktion läuft auf `fb28166` (Deploy 6 am 15.10. abends, Migrationen 058 und 059). Ausgeliefert:
-T-119 (D-139), T-121, T-122a, T-122b (D-140) und T-105 (D-141). App-Builds zu `ad4cd29` (T-121, T-122) beim PO,
-Prüfliste im Artifact „Abnahme Build T-122“. Auf main, noch nicht ausgeliefert: T-024 Teil A (`7e36c58`, Werkzeug
-`taptime-runtime-rotate`, Runbook), T-122c (`e614779`, Kopfbalken in beiden Themen fest oben, ein Monatsschalter,
-Fehlergrenzen), T-122d (`df76957`, Browser-Prüfstrecke in drei Teilen), T-129 (`579f372`, Startseite
-„Stempelpunkte“, D-144), T-131 (`3350aed`, `70745ad`, `d8456e8`, D-145: GHCR behält die neuesten zehn ganzen Releases,
-der Deploy reserviert sein Ziel vor dem ersten Abruf) und T-126 (`1918d5a`, Namen ändern, Migration 060, D-142).
+**Stand 19.10.2026.** Produktion läuft auf `1918d5a` (Deploy 7 am 17.10., Migration 060, laut `version.txt`; der PO
+reicht die Belege aus dem Deploy-Log nach). Damit ausgeliefert: T-024 Teil A (Werkzeug `taptime-runtime-rotate`),
+T-122c (Kopfbalken in beiden Themen fest oben, ein Monatsschalter, Lohnexport startet mit dem Vormonat), T-122d,
+T-129 (Startseite „Stempelpunkte“, D-144), T-131 (GHCR behält ganze Releases, Deploy reserviert sein Ziel, D-145) und
+T-126 (Namen ändern, D-142). Davor Deploy 6 (`fb28166`, 15.10.). App-Builds zu `ad4cd29` beim PO. Auf main, noch nicht
+ausgeliefert: T-127a (`6b0c867`, Archiv auf dem Server, Migration 061) und T-127b (`c41fc2c`, Archiv im Browser, D-143).
+**T-024 Teil B, Stand 17.10.:** `.env` verschlüsselt geholt und im Passwortmanager verwahrt (neuer Weg, kommt mit T-133
+in DEPLOY.md); neuer Deploy-Schlüssel eingetragen und mit `taptime-status` belegt; Controller `1918d5a` installiert;
+Deploy 7 mit dem neuen Schlüssel. **Offen ab Schritt 7:** alten Schlüssel entfernen, `taptime-runtime-rotate`,
+Betreiber-Zugang rotieren, neue `.env` verwahren, `/root/env-0410.bak` entfernen, neues ntfy-Thema, Supabase nach D-139.
+**Befund 17.10. (T-132):** Die wöchentliche Wiederherstellungsprobe scheiterte am 11.10. um 03:43 UTC mit „No space left
+on device“: Basis und WAL-Kette werden im tmpfs `/run/taptime-backup` entpackt, der zu klein ist. Die Probe beim Deploy
+(frische Basis) war am 15.10. grün; die stündliche Sicherung baut ihre Basis im selben tmpfs. Sicherungen laufen; mit
+wachsender Datenbank droht aber auch die Sicherung zu scheitern. Messwerte (`/run`, RAM, Datenbankgröße) folgen an der
+Konsole, dann Auftrag T-132.
 **GHCR-Vorfall 15.10. (T-130, T-130b):** Der Image-Lauf zu `7e36c58` räumte um 18:47 UTC auf, während Deploy 6
 noch lief; `fb28166` stand noch nicht im Schutzsatz, und der Zusatzschutz „neueste zwanzig“ zählte einzelne
 Paketversionen. Gelöscht wurden neun Versionen der Produktionsabbilder (Backend, Admin-Web, Operator-Web). Die Produktion
@@ -20,9 +28,10 @@ der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Deploy 7 (T-024 Teil A, T-122c, T-122d, T-129, T-131, T-126; Migration 060) zusammen mit T-024
-Teil B an der Konsole (neuer Deploy-Schlüssel vorher, Rotation danach; Runbook `infrastructure/DEPLOY.md`) → Web-Abnahme
-→ T-127a, T-127b → Deploy 8 (Migration 061) → restliche Geräteabnahme → Pilot. Lohnexport und Business Central: erst
+**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-104a–c (Sperrbildschirm,
+D-146), T-132, T-133 → Deploy 8 (mit T-127a/b) und neue App-Builds → restliche Geräteabnahme → Pilot. Review ohne
+Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig `review/<aufgabe>` ab, Fotos auf einem verwaisten
+Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
 Daten; beide Apps zum Pilotstart in den Stores (D-129). Fertig ist das Produkt, wenn das ausgelieferte,
@@ -138,12 +147,17 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
 - **Web:** globale Aktualisierung lädt Kundenstunden nicht neu (T-084) · Tags für die Standortleitung nur in der App
   (T-062) · ungeteiltes Bündel über 500 kB · Inhaltslinks 44 px, Blatt ohne Überschrift, zweimal „Hauptnavigation“
   (T-074) · `/app` bricht bei 200 % Schrift und 390 px mitten im Wort um, ohne Trennstrich (T-120, P3) ·
-  Übersicht überschreibt beim Prüfen den Suchstand der Einrichtung (T-118b, P3) · am Handy dehnt sich die Pille
+  Übersicht überschreibt beim Prüfen den Suchstand der Einrichtung (T-118b, P3) · Archiv-Markierungen bleiben nach
+parallelem Entzug oder Löschen trotz „Aktualisieren“ bis zum Seiten- oder Monatswechsel alt (T-127b, P2) · am Handy
+leere Feldbeschriftungen („Zeiten“ bei Projekten im Archiv, „Hinweise und Aktionen“ in nur lesenden Zeiten, „Aktionen“
+bei der eigenen Zeile unter Zugänge) und „gelöscht“ doppelt bei gelöschten Kunden; Archiv-Reiter brechen bei 390 px um
+(T-127b, P3) · am Handy dehnt sich die Pille
   „läuft“ in der gestapelten Tabellenzeile über die volle Breite (T-122a, P3) · Admin-Bündel über 500 kB, Vite warnt
   (T-122a, P2, keine neue Bündelarchitektur in der Gestaltung) · „Passwort vergessen“ braucht `SubmitEvent.submitter` (Safari ab 15.4, T-101) · Zeitfehler in
   Lohnexport-Korrektur und „Zeiten prüfen“ nicht mehr per `aria-describedby` an den Feldern (T-113) · Anlegen meldet
   Fehler 23514 als ungültige Eingabe, unbekannter Standort als `forbidden` (T-090) · abgewiesene Prüfposten ohne Erklärung.
-- **Server und SQL:** direkter SQL-Pfad `taptime_admin_setup` prüft keine Betriebspause (T-085) · `xmin` über
+- **Server und SQL:** `read_managed_person_time_v2` übernimmt Details und Kalender als Kopie aus v1 (sonst griffe die Frist
+  aus D-115); beim nächsten Rückbau auf eine gemeinsame Funktion zurückführen (T-127a, P3) · direkter SQL-Pfad `taptime_admin_setup` prüft keine Betriebspause (T-085) · `xmin` über
   `::text::xid` (T-086, mit der nächsten Migration) · mehrere Standort-Grants im Handy-Vertrag nicht
   darstellbar (T-059) · Nachtragen ohne externen Archivnachweis bis T-016 (D-078) · frühere Offline-Prüfgründe vor
   `administration_stopped`, Dreiminutenmeldung kann sich verzögern (T-069) · Geräteuhr bei manueller Erfassung,

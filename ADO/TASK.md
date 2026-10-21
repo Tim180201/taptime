@@ -1,94 +1,109 @@
 # Aktuelle Aufgabe
 
-> **Stand 16.10.2026:** Deploy 6 abgeschlossen (`d193725` → `fb28166`). Abgeschlossen und auf main: T-024 Teil A
-> (`7e36c58`), T-122c (`e614779`), T-122d (`df76957`), T-129 (`579f372`), T-131 (`3350aed`, `70745ad`, `d8456e8`) und
-> T-126 (`1918d5a`). **Plan B (GPT-Kontingent knapp):** Als Nächstes Deploy 7 mit T-024 Teil B an der Konsole (PO, TL
-> begleitet; Runbook in `infrastructure/DEPLOY.md`). Danach T-127a und T-127b (Archiv) mit Deploy 8; je ein Auftrag, je
-> ein Review, je ein Commit.
+> **Stand 19.10.2026:** Deploy 7 ausgeliefert (`1918d5a`, 17.10.). Abgeschlossen und auf main: T-127a (`6b0c867`) und
+> T-127b (`c41fc2c`, Archiv, D-143). Reihenfolge für Codex, je ein Auftrag, je ein Review, je ein Commit: **T-104a**,
+> **T-104b**, **T-104c**; T-132 (Sicherung, Brief folgt nach Messung) wird vorgezogen, sobald sein Brief steht; T-133
+> (Runbook) klein dazwischen. Ausgeliefert wird mit Deploy 8 und neuen App-Builds. Ohne Verbindung des TL zum Mac legt
+> Codex den geprüften Stand nach PO-Freigabe als Zweig `review/<aufgabe>` ab (STATUS).
 
-## T-127a · Archiv auf dem Server (D-143), mit Deploy 8
+## T-104a · Sperrbildschirm: Schlüssel und Aktionen auf dem Server (D-114, D-146)
 
-**Für:** Development · **Risiko:** mittel (Datenbank, Berechtigung) · **Zeitbox:** eine Sitzung. Unabhängiges Review.
-Beginnt nach Deploy 7.
+**Für:** Development · **Risiko:** hoch (Berechtigung ohne Anmeldung, Zeiterfassung) · **Zeitbox:** eine Sitzung.
+Unabhängiges Review. Beginnt jetzt.
 
 ### Warum
 
-PO 15.10.: Gelöschte Kunden und Projekte und ehemalige Mitarbeiter sollen im laufenden Betrieb nicht mehr erscheinen,
-nur noch dort, wo Zahlen eines Monats stehen, und sonst in einem Archiv für Administrator und Standortleitung (nur ihr
-Bereich). Heute ist das uneinheitlich (Erhebung 15.10.): „Gerade aktiv“ zeigt Ausgeschiedene mit „Keine Zeit“
-(`read_managed_active_summary_v5` nimmt entzogene Zugänge bei `requested_is_running = true` mit, 056:341); unter
-Mitarbeiter → Zeiten fehlen in älteren Monaten Personen, deren Austritt länger zurückliegt (Frist D-115 statt „hat Zeit
-im Monat“), die Summen sind dort also unvollständig; entzogene Zugänge sieht unter Zugänge nur der Administrator ohne
-Standortwahl (`read_managed_memberships_v4` verbindet nur aktuelle Heimatstandorte, 059:213–238); ein Archiv fehlt.
+PO 19.10.: Läuft eine Zeit, sollen „Pause“, „Weiter“ und „Beenden“ direkt auf dem Sperrbildschirm wirken, ohne Entsperren
+und ohne die App zu öffnen. Die Anmeldung liegt nach D-133 im Schlüsselbund „nur entsperrt“ und ist bei gesperrtem
+Handy nicht lesbar. Deshalb ein eigener, eng begrenzter Sperrbildschirm-Schlüssel (D-146).
 
 ### Umfang
 
-1. **Migration 061:**
-   - `read_archive_people_v1` (Suche, Blättern nach Name und Kennung, höchstens 51 je Seite, Seiten höchstens 14 KiB
-     wie T-117a; optional genau eine Kennung für die Personenansicht): entzogene Zugänge im Bereich. Administrator
-     alle; Standortleitung, wenn der letzte Heimatstandort (`membership_management_home_v1`) in ihren Grants liegt,
-     **ohne Frist**. Spalten: Kennung, Name (ohne Ersatzwort), Rolle, letzter Standort, `revoked_at`, Beginn der
-     letzten Zeit (oder leer).
-   - `read_archive_targets_v1` (gleiche Suche und Seiten): stillgelegte Kunden und Projekte im Bereich. Administrator
-     alle; Standortleitung über die letzte Standortbindung, wie inaktive Kunden in `read_customer_hours_v3`
-     (056:48–54). Spalten: Art, Kennung, Name, Standort, `deactivated_at`, Beginn der letzten Zeit.
-   - `read_managed_active_summary_v6`: wie v5, aber Ehemalige erscheinen genau dann, wenn sie im angefragten Monat Zeit
-     haben (statt Frist D-115), für Administrator und Standortleitung des letzten Heimatstandorts; bei
-     `requested_is_running = true` nie; Zählungen weiter nur Aktive.
-   - `read_managed_person_time_v2`: wie v1, aber die Standortleitung liest Ehemalige ihres letzten Heimatstandorts
-     ohne Frist. Dazu ein Merkmal, ob der Aufrufer Zeiten dieser Person ändern darf (dieselbe Prüfung wie
-     `has_time_management_authority_v1`; Ändern, Nachtragen und Prüfen bleiben nach D-115).
-   - `read_archive_status_v1`: für bis zu 200 Kennungen von Personen und Zielen, die der Aufrufer lesen darf, ob der
-     Zugang entzogen bzw. das Ziel stillgelegt ist; nicht lesbare Kennungen werden ausgelassen. Damit markiert das Web
-     Ehemalige in Lohnexport, Zeiten prüfen und Kundendetail, ohne neue Fassungen dieser großen Lesewege.
-2. **API und Verträge** für alle fünf; die alten Fassungen bleiben (die App nutzt v5 und v1).
-3. **Tests (PostgreSQL 17):** Bereich (Administrator, Standortleitung eigener und fremder Standort, Mitarbeiter
-   verboten); Austritt vor drei Monaten sichtbar; Suche und Blättern; Seitengröße; v6: Ehemalige mit und ohne Zeit im
-   Monat, nie bei „läuft“, Zählungen; v2: Lesen außerhalb der Frist ja, Ändern nein; Status lässt fremde Kennungen aus;
-   Katalogtest. Rotnachweis für „Gerade aktiv“ und für den älteren Monat unter Mitarbeiter → Zeiten.
+1. **Migration (nächste freie Nummer):**
+   - Tabelle für Sperrbildschirm-Schlüssel: Betrieb, Zugang, Benutzer, laufende Zeit, Installation (falls vorhanden),
+     SHA-256 des Schlüssels (nie der Schlüssel selbst), `issued_at`, `expires_at`, `last_used_at`, `revoked_at`. RLS
+     erzwungen, kein direkter Zugriff der Laufzeitrollen; Funktionen nach den Regeln aus T-119 (Katalogtest).
+   - `issue_lock_screen_capability_v1` (angemeldet, wie die übrigen mobilen Wege): nur für die eigene, gerade laufende
+     Zeit; erzeugt 32 Zufallsbytes, gibt den Schlüssel genau einmal zurück, ersetzt einen älteren Schlüssel derselben
+     Zeit und Installation. Gültig bis zum Ende der Zeit, höchstens 24 Stunden; erneutes Ausstellen beim Öffnen der App
+     verlängert.
+   - `perform_lock_screen_action_v1(schlüssel, aktion, befehls_id)` mit `pause`, `resume`, `stop`: prüft Schlüssel,
+     Ablauf, aktiven Zugang, aktiven Betrieb und dass genau diese Zeit noch läuft. **Zustandsprüfung statt Wechsel:**
+     `pause` nur ohne laufende Pause, `resume` nur mit laufender Pause, `stop` nur bei laufender Zeit; sonst
+     `state_changed` mit dem aktuellen Zustand, ohne Ereignis. Gebucht werden dieselben manuellen Ereignisse wie in der
+     App (Pause als Pausen-Ereignis, Beenden als Ereignis des laufenden Ziels; aus der Pause erst Pausenende, dann
+     Beenden, D-117), Zeitpunkt = Serverzeit, Herkunft bleibt `manual`. Idempotent über die Befehls-ID.
+   - Kennzeichen „vom Sperrbildschirm“ am gebuchten Ereignis und Protokolleintrag; der Verlauf der Zeit im Web
+     (Person → Zeit) zeigt es. CSV-Format und `startedVia`/`stoppedVia` bleiben unverändert.
+   - Lebenszyklus nach AGENTS 1.5: Wer legt an (Ausstellen), wer ändert (`last_used_at`, Entzug), wer entfernt
+     (Ungültig mit Ende der Zeit, Entzug des Zugangs; abgelaufene Zeilen werden nach 7 Tagen gelöscht, vom Ausstellen
+     selbst oder einer vorhandenen Wartung).
+2. **API:** `POST /v1/lock-screen/capability` (angemeldet) und `POST /v1/lock-screen/action` (ohne Anmeldung, Schlüssel
+   im Kopf `Authorization`, nie in URL oder Protokoll). Antwort der Aktion: aktueller Zustand (läuft, Pause seit,
+   beendet mit Dauer, Ziel). Begrenzung je Schlüssel (z. B. 10 je Minute). Fehler ohne Auskunft, ob ein Schlüssel je
+   existierte.
+3. **Verträge** in `packages/mobile-work-contract` (neue Typen, Prüffunktionen), additiv.
+4. **Tests (PostgreSQL 17 und HTTP):** Ausstellen nur für die eigene laufende Zeit; fremder Betrieb, fremde Person,
+   beendete Zeit, entzogener Zugang, abgelaufener oder ersetzter Schlüssel → abgewiesen; jede Aktion in jedem Zustand
+   (auch Verwaltungsstopp dazwischen: kein neuer Start durch „Beenden“); Pause aus und wieder an mehrfach; Beenden aus
+   der Pause; Wiederholung derselben Befehls-ID; nur der Hash steht in der Datenbank; Katalogtest; Rotnachweis, dass
+   ein blinder Wechsel eine neue Zeit starten würde.
 
 ### Grenzen
 
-Keine Änderung an Schreibwegen, an D-115 fürs Ändern, an App und CSV. Kein Wiederaufnehmen (T-125). ADO nicht ändern.
-Bericht in `.t127a-review/`; kein Commit vor `APPROVED`.
+Keine App- und Web-Oberfläche außer der Verlaufsangabe. Keine Push-Nachrichten. Keine Änderung an D-133, an der
+Anmeldung und an bestehenden Wegen. ADO nicht ändern. Bericht in `.t104a-review/`; kein Commit vor `APPROVED`.
 
 ---
 
-## Danach: T-127b · Archiv im Browser (D-143), mit Deploy 8
+## Danach: T-104b · Sperrbildschirm Android (D-114, D-146)
 
-**Für:** Development · **Risiko:** niedrig bis mittel (nur Web) · **Zeitbox:** eine Sitzung. Beginnt nach T-127a.
+**Für:** Development · **Risiko:** mittel (nativ, Hintergrund) · **Zeitbox:** eine Sitzung. Beginnt nach T-104a.
 
 ### Umfang
 
-1. **Seite „Archiv“** in der Seitenleiste unter „Verwaltung“ für Administrator und Standortleitung (`/archiv`, Reiter
-   „Ehemalige Mitarbeiter“ und „Gelöschte Kunden und Projekte“, `?bereich=`). Tabellen: Person · Standort ·
-   Ausgeschieden · Letzte Zeit · „Zeiten ansehen ›“ bzw. Name · Art · Standort · Gelöscht · Letzte Zeit · „Zeiten
-   ansehen ›“. Suchfeld, „Weitere laden“, leerer Zustand („Noch niemand im Archiv.“ bzw. „Noch nichts gelöscht.“).
-   Nur Anzeige, keine Aktion; keine Hauptaktion auf der Seite. README § 5.6.
-2. **„Zeiten ansehen“:** Person → Personenansicht im Monat der letzten Zeit; Kunde → Kundendetail im Monat der letzten
-   Zeit; Projekte haben keine Stundenansicht, dort steht kein Link. Die Personenansicht findet Ehemalige unabhängig vom
-   gewählten Monat (Einzelabfrage aus T-127a), trägt im Kopf die Pille „ehemalig“ und „Ausgeschieden am …“ und zeigt
-   Bearbeiten nur, wenn der Server Ändern erlaubt; sonst den Satz „Diese Zeiten können nur noch angesehen werden.“
-3. **Laufender Betrieb nur Aktive:**
-   - Übersicht „Gerade aktiv“ über v6: keine Ehemaligen.
-   - Mitarbeiter → Zeiten über v6: Ehemalige mit Zeit im Monat unten unter „Ehemalige · Zeiten in diesem Monat“
-     (ersetzt „Ausgeschiedene Mitarbeiter“).
-   - Mitarbeiter → Zugänge: nur aktive; der Filter Alle · Aktiv · Entzogen entfällt; unter der Tabelle der Textknopf
-     „Ehemalige im Archiv“.
-   - Kunden: gelöschte Kunden mit Stunden im Monat nicht mehr zwischen den aktiven, sondern unten unter „Gelöschte
-     Kunden · Zeiten in diesem Monat“, ohne Aktionen.
-   - Einrichtung → Projekte: stillgelegte Projekte nicht mehr in der Liste. Der Knopf „Deaktivieren“ heißt wie bei
-     Kunden „Projekt löschen“.
-4. **Markierung an den Stellen mit Monatszahlen:** Pille „ehemalig“ bzw. „gelöscht“ (neutral) neben dem Namen in
-   Lohnexport-Liste, Zeiten prüfen und Kundendetail (Personen), über `read_archive_status_v1` für die geladenen Kennungen.
-5. **Rückfragen sagen, was passiert:** Entzug: „Danach steht <Name> im Archiv. Die Zeiten bleiben im Lohnexport und bei
-   den Kundenzeiten. Das lässt sich nicht rückgängig machen.“ Kunde und Projekt löschen entsprechend. Hilfe („So
-   funktioniert Taptura“): ein Satz zum Archiv.
-6. **Tests und Fotos:** Browser-Szenarien Archiv (beide Reiter, Administrator und Standortleitung, leer, Suche),
-   Übersicht ohne Ehemalige, Zugänge ohne Filter, Kunden-Abschnitt, Markierungen, Personenansicht nur lesend; Fotos
-   1440 und 390 px in beiden Themen.
+1. **Laufende Benachrichtigung** (eigenes lokales Expo-Modul, Kanal „Laufende Zeit“, leise, dauerhaft): Ziel und
+   mitlaufende Arbeitsdauer ohne Pausen wie in „Erfassen“. Zustände: läuft → [Pause] [Beenden]; Pause → „Pause seit
+   12:30“, [Weiter] [Beenden]; beendet → kurz „Zeit beendet · 3:42 h“, dann weg. Antippen öffnet „Erfassen“.
+2. **Aktionen nativ ohne App:** Empfänger ruft `/v1/lock-screen/action` mit dem Schlüssel auf und aktualisiert die
+   Anzeige aus der Antwort. `state_changed` → Anzeige auf den gemeldeten Zustand setzen. Ohne Netz oder bei Fehler →
+   App öffnen und dort dieselbe Aktion über den gewohnten Weg mit Zustandsprüfung ausführen (offline sicher).
+3. **App-Seite:** Bei laufender Zeit Schlüssel holen und Anzeige starten; nach jeder eigenen Aktion und beim Öffnen
+   abgleichen (D-114: Änderungen von außen beim nächsten Öffnen). Schlüssel im verschlüsselten App-Speicher, getrennt
+   von der Anmeldung; beim Abmelden und Kontowechsel löschen und Anzeige entfernen.
+4. **Erlaubnis** (Android 13+): einmal beim ersten Start einer Zeit mit kurzem Satz; abgelehnt → keine Anzeige, kein
+   erneutes Fragen, Hinweis in „Übertragung“.
+5. **Tests:** Einheitstests der Zustandslogik und des Abgleichs; Prüfliste für den PO am Gerät (gesperrt: Pause, Weiter,
+   Beenden; Flugmodus; Verwaltungsstopp, dann App öffnen; Abmelden).
 
 ### Grenzen
 
-App unverändert (ihre Rückfragetexte beim nächsten App-Build, in STATUS notiert). CSV unverändert. ADO nicht ändern.
-Bericht in `.t127b-review/`; kein Commit vor `APPROVED`.
+Keine iPhone-Änderung, keine Push-Nachrichten, kein Start einer neuen Zeit von außen. Neuer App-Build durch den PO.
+Bericht in `.t104b-review/`; kein Commit vor `APPROVED`.
+
+---
+
+## Danach: T-104c · Sperrbildschirm iPhone (D-114, D-146)
+
+**Für:** Development · **Risiko:** mittel bis hoch (Erweiterung, Hintergrundstart, D-133) · **Zeitbox:** eine Sitzung.
+Beginnt nach T-104b.
+
+### Umfang
+
+1. **Live-Aktivität** (Sperrbildschirm und Dynamic Island, kompakt und erweitert) über eine Widget-Erweiterung per
+   Config-Plugin, verträglich mit Expo SDK 57 und EAS; Bibliothek nur gepflegt und auf exakte Version festgelegt, sonst
+   eigenes Plugin. Inhalte und Zustände wie T-104b, Farben aus `shared/brand`.
+2. **Knöpfe ab iOS 17** als `LiveActivityIntent`: nativer Aufruf von `/v1/lock-screen/action`, Anzeige aus der Antwort.
+   Der Schlüssel liegt in einem eigenen Schlüsselbund-Eintrag „nach erster Entsperrung“; die Anmeldung bleibt
+   unverändert „nur entsperrt“ (D-133). Ohne Netz → Anzeige „Kein Netz · App öffnen“, Antippen öffnet die App, die die
+   Aktion mit Zustandsprüfung ausführt. iOS 16: Live-Aktivität ohne Knöpfe, Antippen öffnet „Erfassen“.
+3. **D-133 bleibt intakt:** Der Start der App durch die Aktion berührt weder JavaScript-Sitzung noch Anmeldung; der
+   spätere Start im Vordergrund verhält sich wie heute. Rotnachweis oder Test dafür.
+4. **App-Seite** wie T-104b Punkt 3; `NSSupportsLiveActivities`.
+5. **Tests:** Einheitstests der Zustandslogik; Prüfliste für den PO am iPhone (gesperrt: Pause, Weiter, Beenden;
+   Flugmodus; Verwaltungsstopp; danach normal öffnen; T-115-Nachtest: zehnmal nach langer Sperre öffnen).
+
+### Grenzen
+
+Keine Push-Nachrichten (APNs später), kein Start einer neuen Zeit von außen, keine Änderung an Android. Neuer
+TestFlight-Build durch den PO. Bericht in `.t104c-review/`; kein Commit vor `APPROVED`.
