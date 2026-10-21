@@ -15,10 +15,12 @@ it.skipIf(!compiler||!stdlib)('T-104b compiles and executes the production Kotli
     const out=join(root,'logic.jar');
     const compile=spawnSync('java',['-cp',[compiler!,stdlib!,...dependencies].join(':'),'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler',
       '-no-stdlib','-no-reflect','-classpath',stdlib!,'-d',out,join(native,'LockScreenLogic.kt'),join(native,'LockScreenIo.kt'),
-      fileURLToPath(new URL('./T104bLogicAssertions.kt',import.meta.url))],{encoding:'utf8',timeout:60000});
+      fileURLToPath(new URL('./T104bLogicAssertions.kt',import.meta.url)),
+      fileURLToPath(new URL('./T104dNotificationAssertions.kt',import.meta.url))],{encoding:'utf8',timeout:60000});
     expect(compile.status,compile.stderr).toBe(0);
     const run=spawnSync('java',['-cp',out+':'+stdlib,'com.taptime.lockscreen.T104bLogicAssertionsKt'],{encoding:'utf8',timeout:10000});
     expect(run.status,run.stderr).toBe(0);expect(run.stdout).toContain('lock-screen outcomes and clock verified');
+    expect(run.stdout).toContain('T-104d notification texts, Berlin time and action labels verified');
   } finally {rmSync(root,{recursive:true,force:true});}
 },75000);
 it('T-104b native boundary has no trampoline, login storage, service or credential-bearing Intent',()=>{

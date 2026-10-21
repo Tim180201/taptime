@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 
 internal object LockScreenNotification {
@@ -43,20 +44,22 @@ internal object LockScreenNotification {
     val seconds = state?.optLong("workDurationSeconds") ?: 0
     val elapsed = LockScreenLogic.elapsed(seconds, timestamp(state?.optString("asOf").orEmpty()) ?: now, now, running)
     val target = state?.optJSONObject("target")?.optString("displayName") ?: "Laufende Zeit"
-    val title = when {
-      display != Display.STATE -> LockScreenLogic.message(display)
-      stopped -> "Zeit beendet · ${LockScreenLogic.duration(seconds)}"
-      status == "paused" -> "Pause seit ${LockScreenLogic.berlin(timestamp(state!!.getString("breakStartedAt"))!!)} · $target"
-      else -> target
-    }
-    val builder = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, CHANNEL) else Notification.Builder(context))
-      .setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(title)
-      .setContentText(if (display != Display.STATE) target else if (running) "Arbeitszeit" else if (!stopped) LockScreenLogic.duration(seconds) else null)
+    val content = LockScreenLogic.notificationText(target, status, display, seconds,
+      timestamp(state?.optString("startedAt").orEmpty()), timestamp(state?.optString("breakStartedAt").orEmpty()))
+    val builder = NotificationCompat.Builder(context, CHANNEL)
+      .setSmallIcon(R.drawable.taptime_notification).setColor(context.getColor(R.color.taptime_notification_accent))
+      .setContentTitle(content.title).setContentText(content.text)
       .setVisibility(Notification.VISIBILITY_PUBLIC).setOnlyAlertOnce(true)
       .setSound(null).setVibrate(longArrayOf()).setDefaults(0)
       .setOngoing(!stopped).setAutoCancel(false).setContentIntent(open(context, 1040))
       .setShowWhen(running).setUsesChronometer(running)
     if (running) builder.setWhen(now - elapsed * 1000)
+    // Expo already supplies AndroidX Core 1.17; its official API works with compileSdk 36.
+    // The platform Builder method itself requires 36.1. Never prompt or change system settings here.
+    if (Build.VERSION.SDK_INT >= 36 && !stopped && manager.canPostPromotedNotifications()) {
+      builder.setRequestPromotedOngoing(true)
+      if (status == "paused" && display == Display.STATE) builder.setShortCriticalText(LockScreenLogic.duration(seconds))
+    }
     if (stopped && Build.VERSION.SDK_INT >= 26) builder.setTimeoutAfter((session.optLong("stoppedNoticeUntil") - now).coerceAtLeast(1))
     else if (Build.VERSION.SDK_INT >= 26 && session.has("expiresAt")) {
       builder.setTimeoutAfter(((timestamp(session.getString("expiresAt")) ?: now) - now).coerceAtLeast(1))
@@ -73,8 +76,7 @@ internal object LockScreenNotification {
         Intent(context, LockScreenActionReceiver::class.java).setAction(action)
           .setData(Uri.parse("taptime-lock-screen:${session.getString("nonce")}:$action")),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-      val label = when (action) { "pause" -> "Pause"; "resume" -> "Weiter"; "stop" -> "Beenden"; else -> "Erneut senden" }
-      val button = Notification.Action.Builder(null, label, intent)
+      val button = NotificationCompat.Action.Builder(null, LockScreenLogic.actionLabel(action), intent)
       if (Build.VERSION.SDK_INT >= 31) button.setAuthenticationRequired(false)
       builder.addAction(button.build())
     }

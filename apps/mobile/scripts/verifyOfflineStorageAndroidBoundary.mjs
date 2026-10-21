@@ -49,6 +49,7 @@ for (const section of ['cloud-backup', 'device-transfer']) {
   requireText(rules, '<exclude domain="sharedpref" path="taptime_lock_screen.xml" />', section);
 }
 requireText(mergedManifest, 'android.permission.POST_NOTIFICATIONS', 'merged release manifest');
+requireText(mergedManifest, 'android.permission.POST_PROMOTED_NOTIFICATIONS', 'merged release manifest');
 if (!/<receiver\b[^>]*android:exported="false"[^>]*android:name="com\.taptime\.lockscreen\.LockScreenActionReceiver"|<receiver\b[^>]*android:name="com\.taptime\.lockscreen\.LockScreenActionReceiver"[^>]*android:exported="false"/.test(mergedManifest)) {
   throw new Error('Lock-screen receiver must not be exported');
 }

@@ -1,6 +1,7 @@
 package com.taptime.lockscreen
 
 fun main() {
+  verifyNotificationPresentation()
   // A slow capability/retry runs away from the caller; the caller is free to play scan feedback.
   val entered = java.util.concurrent.CountDownLatch(1)
   val release = java.util.concurrent.CountDownLatch(1)

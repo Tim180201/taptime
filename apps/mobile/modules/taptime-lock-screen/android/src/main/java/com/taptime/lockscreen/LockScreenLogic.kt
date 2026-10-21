@@ -11,6 +11,7 @@ internal enum class StoppedProjection { REPLACE, KEEP, CLEAR }
 internal enum class Failure { CONNECT, RESPONSE }
 internal data class Outcome(val display: Display, val deleteKey: Boolean = false, val keepCommand: Boolean = false)
 internal data class Command(val commandId: String, val action: String)
+internal data class NotificationText(val title: String, val text: String)
 internal object LockScreenLogic {
   const val FINISHED_NOTICE_MILLIS = 10_000L
   fun stoppedProjection(previousId: String?, previousStatus: String?, nextId: String?, nextStatus: String?, until: Long, now: Long): StoppedProjection {
@@ -48,6 +49,22 @@ internal object LockScreenLogic {
   fun berlin(at: Long): String = SimpleDateFormat("HH:mm", Locale.GERMANY).apply {
     timeZone = TimeZone.getTimeZone("Europe/Berlin")
   }.format(Date(at))
+  fun notificationText(target: String, status: String?, display: Display, seconds: Long, startedAt: Long?, breakStartedAt: Long?): NotificationText {
+    if (display != Display.STATE) return NotificationText(target, message(display))
+    return when (status) {
+      "stopped" -> NotificationText("Zeit beendet · ${duration(seconds)}", target)
+      "paused" -> NotificationText(target, "Pause seit ${berlin(requireNotNull(breakStartedAt))} · ${duration(seconds)} gearbeitet")
+      "running" -> NotificationText(target, "Läuft seit ${berlin(requireNotNull(startedAt))}")
+      else -> NotificationText(target, duration(seconds))
+    }
+  }
+  fun actionLabel(action: String): String = when (action) {
+    "pause" -> "Pause starten"
+    "resume" -> "Pause beenden"
+    "stop" -> "Zeit beenden"
+    "retry" -> "Erneut senden"
+    else -> error("Unknown lock-screen action")
+  }
   fun message(display: Display): String = when (display) {
     Display.STATE -> ""
     Display.TRANSFERRING -> "Wird übertragen …"

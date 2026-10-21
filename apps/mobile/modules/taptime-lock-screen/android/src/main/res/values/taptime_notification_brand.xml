@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from shared/brand/mark.json; run apps/mobile/scripts/generateLockScreenBrand.mjs. -->
+<resources>
+  <color name="taptime_notification_accent">#7EE0C0</color>
+</resources>
