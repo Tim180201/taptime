@@ -6,7 +6,10 @@ T-122c (Kopfbalken in beiden Themen fest oben, ein Monatsschalter, Lohnexport st
 T-129 (Startseite „Stempelpunkte“, D-144), T-131 (GHCR behält ganze Releases, Deploy reserviert sein Ziel, D-145) und
 T-126 (Namen ändern, D-142). Davor Deploy 6 (`fb28166`, 15.10.). App-Builds zu `ad4cd29` beim PO. Auf main, noch nicht
 ausgeliefert: T-127a (`6b0c867`, Archiv auf dem Server, Migration 061), T-127b (`c41fc2c`, Archiv im Browser, D-143) und
-T-104a (`90fadc3`, `873cbfd`, Sperrbildschirm-Schlüssel und -Aktionen auf dem Server, Migration 062, D-146).
+T-104a (`90fadc3`, `873cbfd`, Sperrbildschirm-Schlüssel und -Aktionen auf dem Server, Migration 062, D-146) und T-104b
+(`c332b91`, Android: laufende Benachrichtigung mit Pause, Weiter und Beenden ohne Entsperren, neuer App-Build). Die
+Knöpfe senden erst nach Deploy 8; vorher öffnen sie die App. Prüfliste für das Gerät: `.t104b-review/pruefliste.md`
+(lokal).
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -30,8 +33,9 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-104b und T-104c (Sperrbildschirm,
-D-146, D-147), T-132, T-133 → Deploy 8 (mit T-127a/b) und neue App-Builds → restliche Geräteabnahme → Pilot. Review ohne
+**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-104d und T-104c
+(Sperrbildschirm im Taptura-Look, D-146 bis D-148), T-132, T-133 → Deploy 8 (mit T-127a/b) und neue App-Builds →
+restliche Geräteabnahme → Pilot. Review ohne
 Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig `review/<aufgabe>` ab, Fotos auf einem verwaisten
 Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
@@ -129,6 +133,15 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
 
+- **Sperrbildschirm Android (T-104b):** ein 401 beim Ausstellen entfernt Stand und Meldung vor dem zweiten Versuch;
+  scheitert dieser, fehlt die Meldung bis zum nächsten Öffnen (P2) · „Wird gesendet …“ bleibt nach Prozesstod bis zum
+  Öffnen · „Wird übertragen …“ auch ohne tatsächliche Übertragung (abgelehntes Speichern, angehaltene Übertragung) ·
+  nach bestätigter eigener Erfassung einmal „Der Stand hat sich geändert“ · Ablauf von „Zeit beendet“ auf dem
+  Hauptthread, Entschlüsseln auf dem JS-Thread · Rennen „gesendet/nicht gesendet“ nur in der Beschriftung ·
+  verworfenes Empfänger-Ergebnis bei einem Scan während „Erneut senden“ · `permissionAsked` geht bei
+  Entschlüsselungsfehler verloren · der Abgleich verliert eine Änderung während eines laufenden Abgleichs · unter
+  Android 7 bleibt „Zeit beendet“ nach Prozesstod bis zum Öffnen (alle P3) · `FOREGROUND_SERVICE` ist gesperrt, der
+  WorkManager-Dienst bleibt deklariert und unbenutzt (gewollt).
 - **App:** nach gescheitertem Neustart der Laufzeit kann die Sitzung außerhalb der Startreihenfolge starten (T-115,
   P2) · ein dauerhaft
   defekter Android-Schlüsselspeicher zeigt P01 mit „Erneut versuchen“ statt Support-Hinweis (T-115) · Kopf zeigt die E-Mail statt „Name · Rolle“, die Sitzung liefert keinen Namen (T-107) · nach einer

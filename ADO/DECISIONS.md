@@ -1983,3 +1983,12 @@ Die Android-Benachrichtigung ist deshalb öffentlich sichtbar; eine Ersatzfassun
 T-104b, T-104c.
 **Warum:** Entscheidung des PO am 21.10. Wer auf das gesperrte Handy schaut, kann den Namen lesen; B15 nimmt die Anzeige
 in Datenschutzhinweise und Verzeichnis auf.
+
+## D-148 · Sperrbildschirm im Taptura-Look, nur eine stille Anzeige · 21.10.2026 · Tim (PO), Claude (TL)
+Android: die Standard-Meldung des Systems mit eigenem Symbol aus dem Funk-Zifferblatt, Akzent Mint, dem Ziel als Titel
+und dem Zustand darunter; die Knöpfe heißen wie in der App („Pause starten“, „Pause beenden“, „Zeit beenden“). Ab
+Android 16 zusätzlich als Live Update (Chip mit Uhr in der Statusleiste, auf dem Sperrbildschirm aufgeklappt). Kein
+eigenes Layout. iPhone: Live-Aktivität und Dynamic Island ganz im Taptura-Design. Außerhalb der App gibt es nur diese
+eine stille Anzeige: keine weiteren Mitteilungen, kein Ton, keine Vibration (PO 21.10.). T-104d, T-104c.
+**Warum:** Eigene Layouts beschneidet Android und zeigt sie je Hersteller anders, ein Live Update ginge damit nicht; die
+Standard-Meldung bleibt verlässlich und trägt trotzdem Zeichen, Farbe und Wortlaut der App.
