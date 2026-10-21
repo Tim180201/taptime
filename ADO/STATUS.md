@@ -8,8 +8,9 @@ T-126 (Namen ändern, D-142). Davor Deploy 6 (`fb28166`, 15.10.). App-Builds zu 
 ausgeliefert: T-127a (`6b0c867`, Archiv auf dem Server, Migration 061), T-127b (`c41fc2c`, Archiv im Browser, D-143) und
 T-104a (`90fadc3`, `873cbfd`, Sperrbildschirm-Schlüssel und -Aktionen auf dem Server, Migration 062, D-146) und T-104b
 (`c332b91`, Android: laufende Benachrichtigung mit Pause, Weiter und Beenden ohne Entsperren, neuer App-Build). Die
-Knöpfe senden erst nach Deploy 8; vorher öffnen sie die App. Prüfliste für das Gerät: `.t104b-review/pruefliste.md`
-(lokal).
+Knöpfe senden erst nach Deploy 8; vorher öffnen sie die App. Dazu T-104d (`a76630c`, Android-Meldung im Taptura-Look
+mit eigenem Symbol, Mint, Texten und Knöpfen wie in der App, Live Update ab Android 16, D-148). Prüflisten für das
+Gerät: `.t104b-review/pruefliste.md` und `.t104d-review/pruefliste.md` (lokal).
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -33,8 +34,8 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-104d und T-104c
-(Sperrbildschirm im Taptura-Look, D-146 bis D-148), T-132, T-133 → Deploy 8 (mit T-127a/b) und neue App-Builds →
+**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-104c
+(Sperrbildschirm iPhone im Taptura-Look, D-146 bis D-148), T-132, T-133 → Deploy 8 (mit T-127a/b) und neue App-Builds →
 restliche Geräteabnahme → Pilot. Review ohne
 Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig `review/<aufgabe>` ab, Fotos auf einem verwaisten
 Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
