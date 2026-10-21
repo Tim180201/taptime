@@ -12,7 +12,8 @@ const startedAt=start.toISOString(),stoppedAt=new Date(+start+3600000).toISOStri
 beforeAll(async()=>{
  await resetMigratePrepareAndSeed(pool,'t116-reasons','052');
  const tables=(await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='taptime_server' ORDER BY tablename")).rows;
- const snapshot=()=>Promise.all(tables.map(({tablename})=>pool.query(`SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]') AS data FROM taptime_server.${tablename} t`).then(r=>r.rows)));
+ // Existing rows must stay unchanged; a later migration may add nullable columns (top-level NULLs are ignored).
+ const snapshot=()=>Promise.all(tables.map(({tablename})=>pool.query(`SELECT coalesce(jsonb_agg(r.row ORDER BY r.row::text),'[]') AS data FROM taptime_server.${tablename} t CROSS JOIN LATERAL (SELECT coalesce(jsonb_object_agg(c.key,c.value),'{}'::jsonb) AS row FROM jsonb_each(to_jsonb(t)) c WHERE c.value<>'null'::jsonb) r`).then(r=>r.rows)));
  const before=await snapshot();
  await applyMigrationSet(pool,(await loadMigrations()).filter(m=>m.version>'052'));
  expect(await snapshot()).toEqual(before);

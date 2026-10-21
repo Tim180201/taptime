@@ -24,7 +24,8 @@ beforeAll(async()=>{
  await pool.query('INSERT INTO taptime_server.membership_management_location_grants(id,organization_id,membership_id,location_id) VALUES(gen_random_uuid(),$1,$2,$3)',[ids.organizationA,people[1]!.member,managedLocation]);
  await pool.query('UPDATE taptime_server.organizations SET locations_enabled=true,row_version=row_version+1 WHERE id=$1',[ids.organizationA]);
  const tables=(await pool.query("SELECT tablename FROM pg_tables WHERE schemaname='taptime_server' ORDER BY tablename")).rows;
- const snapshot=()=>Promise.all(tables.map(({tablename})=>pool.query(`SELECT coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]') AS data FROM taptime_server.${tablename} t`).then(r=>r.rows)));
+ // Existing rows must stay unchanged; a later migration may add nullable columns (top-level NULLs are ignored).
+ const snapshot=()=>Promise.all(tables.map(({tablename})=>pool.query(`SELECT coalesce(jsonb_agg(r.row ORDER BY r.row::text),'[]') AS data FROM taptime_server.${tablename} t CROSS JOIN LATERAL (SELECT coalesce(jsonb_object_agg(c.key,c.value),'{}'::jsonb) AS row FROM jsonb_each(to_jsonb(t)) c WHERE c.value<>'null'::jsonb) r`).then(r=>r.rows)));
  const authority=()=>pool.query("SELECT pg_get_functiondef('taptime_server.has_time_management_authority_v1(uuid,uuid,uuid,uuid)'::regprocedure) AS body");
  const before=await snapshot(),beforeAuthority=await authority();
  await applyMigrationSet(pool,(await loadMigrations()).filter(m=>m.version>'054'));
