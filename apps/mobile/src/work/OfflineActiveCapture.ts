@@ -31,7 +31,13 @@ export class OfflineActiveCapture {
   private async trigger(record:SafeOwnTimeRecord,stop:boolean){
     if(this.disposed || this.state.busy || this.state.pending || !record.targetId)return;
     this.publish({busy:true,pending:false,feedback:null});
+    let allowed = false;
     try {
+      if(this.manual.prepareActiveCapture && !await this.manual.prepareActiveCapture()) {
+        const rejection=this.manual.activeCaptureRejection?.();
+        this.publish({busy:false,pending:rejection?.blocked??false,feedback:rejection?.message??'Die Erfassung ist gerade nicht möglich. Bitte erneut versuchen.'});return;
+      }
+      allowed = true;
       if(!this.manual.hasUnconfirmedCapture || await this.manual.hasUnconfirmedCapture()){
         this.publish({busy:false,pending:true,feedback:'Deine letzte Erfassung wartet noch auf Bestätigung.'});return;
       }
@@ -40,6 +46,7 @@ export class OfflineActiveCapture {
       this.nextTarget=stop && record.breakStartedAt ? target : null;
       await this.save(stop && !record.breakStartedAt ? ()=>this.manual.captureManual(target) : ()=>this.manual.captureBreak?.()??Promise.resolve({status:'unavailable'}));
     } catch {this.nextTarget=null;this.publish({busy:false,pending:true,feedback:'Die Erfassung konnte nicht bestätigt werden. Prüfe „Übertragung“.'});}
+    finally {if(allowed)await this.manual.finishActiveCapture?.();}
   }
   private async save(capture:()=>Promise<ManualOfflineCaptureResult>){
     if(this.disposed)return;

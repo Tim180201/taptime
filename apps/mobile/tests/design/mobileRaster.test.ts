@@ -35,6 +35,7 @@ describe('mobile color and control raster', () => {
     expect(configuration.expo.android.permissions).toEqual([
       'android.permission.NFC',
       'android.permission.VIBRATE',
+      'android.permission.POST_NOTIFICATIONS',
     ]);
   });
 

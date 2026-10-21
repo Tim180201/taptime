@@ -1,0 +1,83 @@
+package com.taptime.lockscreen
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import org.json.JSONObject
+
+internal object LockScreenNotification {
+  private const val CHANNEL = "taptime_running_time_v1"
+  private const val ID = 104
+  fun cancel(context: Context) { context.getSystemService(NotificationManager::class.java).cancel(ID) }
+  fun allowed(context: Context): Boolean {
+    val manager = context.getSystemService(NotificationManager::class.java)
+    return manager.areNotificationsEnabled() && (Build.VERSION.SDK_INT < 26 || manager.getNotificationChannel(CHANNEL)?.importance != NotificationManager.IMPORTANCE_NONE)
+  }
+  private fun open(context: Context, request: Int): PendingIntent {
+    // Activity PendingIntent directly; the receiver never starts an Activity (Android 12+).
+    val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!
+      .setAction(Intent.ACTION_VIEW).setData(Uri.parse("taptime://lock-screen/capture"))
+      .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    return PendingIntent.getActivity(context, request, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+  }
+  fun show(context: Context, session: JSONObject) {
+    val state = session.optJSONObject("state")
+    val display = runCatching { Display.valueOf(session.getString("display")) }.getOrDefault(Display.OPEN_APP)
+    val manager = context.getSystemService(NotificationManager::class.java)
+    if (Build.VERSION.SDK_INT >= 26) {
+      val channel = NotificationChannel(CHANNEL, "Laufende Zeit", NotificationManager.IMPORTANCE_DEFAULT).apply {
+        setSound(null, null); enableVibration(false); lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+      }
+      manager.createNotificationChannel(channel)
+    }
+    if (!allowed(context)) return
+    val now = System.currentTimeMillis()
+    val status = state?.optString("status")
+    val running = LockScreenLogic.clockRuns(status, display)
+    val stopped = status == "stopped" && display == Display.STATE
+    val seconds = state?.optLong("workDurationSeconds") ?: 0
+    val elapsed = LockScreenLogic.elapsed(seconds, timestamp(state?.optString("asOf").orEmpty()) ?: now, now, running)
+    val target = state?.optJSONObject("target")?.optString("displayName") ?: "Laufende Zeit"
+    val title = when {
+      display != Display.STATE -> LockScreenLogic.message(display)
+      stopped -> "Zeit beendet · ${LockScreenLogic.duration(seconds)}"
+      status == "paused" -> "Pause seit ${LockScreenLogic.berlin(timestamp(state!!.getString("breakStartedAt"))!!)} · $target"
+      else -> target
+    }
+    val builder = (if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, CHANNEL) else Notification.Builder(context))
+      .setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(title)
+      .setContentText(if (display != Display.STATE) target else if (running) "Arbeitszeit" else if (!stopped) LockScreenLogic.duration(seconds) else null)
+      .setVisibility(Notification.VISIBILITY_PUBLIC).setOnlyAlertOnce(true)
+      .setSound(null).setVibrate(longArrayOf()).setDefaults(0)
+      .setOngoing(!stopped).setAutoCancel(false).setContentIntent(open(context, 1040))
+      .setShowWhen(running).setUsesChronometer(running)
+    if (running) builder.setWhen(now - elapsed * 1000)
+    if (stopped && Build.VERSION.SDK_INT >= 26) builder.setTimeoutAfter((session.optLong("stoppedNoticeUntil") - now).coerceAtLeast(1))
+    else if (Build.VERSION.SDK_INT >= 26 && session.has("expiresAt")) {
+      builder.setTimeoutAfter(((timestamp(session.getString("expiresAt")) ?: now) - now).coerceAtLeast(1))
+    }
+    val actions = when (display) {
+      Display.STATE -> if (stopped) emptyList() else listOf(if (status == "paused") "resume" else "pause", "stop")
+      Display.NOT_SENT, Display.UNCONFIRMED -> listOf("retry")
+      else -> emptyList()
+    }
+    for (action in actions) {
+      val request = when (action) { "pause" -> 1041; "resume" -> 1042; "stop" -> 1043; else -> 1044 }
+      val canSend = LockScreenLogic.canSend(action, session.optBoolean("appBlocked", true), session.optBoolean("ownCapturePending"), session.has("capability"))
+      val intent = if (!canSend) open(context, request) else PendingIntent.getBroadcast(context, request,
+        Intent(context, LockScreenActionReceiver::class.java).setAction(action)
+          .setData(Uri.parse("taptime-lock-screen:${session.getString("nonce")}:$action")),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+      val label = when (action) { "pause" -> "Pause"; "resume" -> "Weiter"; "stop" -> "Beenden"; else -> "Erneut senden" }
+      val button = Notification.Action.Builder(null, label, intent)
+      if (Build.VERSION.SDK_INT >= 31) button.setAuthenticationRequired(false)
+      builder.addAction(button.build())
+    }
+    try { manager.notify(ID, builder.build()) } catch (_: SecurityException) { /* Permission may be revoked concurrently. */ }
+  }
+}

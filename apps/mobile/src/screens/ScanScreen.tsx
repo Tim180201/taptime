@@ -82,8 +82,8 @@ export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = fal
       {hasBefore ? <View style={styles.group} testID="scan-before" onLayout={({ nativeEvent: { layout } }) => setBeforeHeight(layout.height)}>
       {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard compact capture={offlineActive} value={confirmedOwnTime} disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':'Deine letzte Erfassung wartet noch auf Bestätigung.'} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
       {!offline && work && workState?.status==='ready' && workState.ownTime.activeRecord ? <ActiveTimeCard compact record={workState.ownTime.activeRecord}
-        disabled={scanBusy || workState.submitting || !!workState.capturePending || !!state.transmissionPaused || !!state.updateRequired}
-        disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':workState.capturePending?'Deine letzte Erfassung wartet noch auf Bestätigung.':undefined}
+        disabled={!!workState.captureBlockedReason || scanBusy || workState.submitting || !!workState.capturePending || !!state.transmissionPaused || !!state.updateRequired}
+        disabledReason={workState.captureBlockedReason??(scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':workState.capturePending?'Deine letzte Erfassung wartet noch auf Bestätigung.':undefined)}
         onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : null}
       {workState?.status==='ready' && workState.feedback ? <Text accessibilityLiveRegion="polite">{workState.feedback}</Text> : null}
       </View> : null}

@@ -1,3 +1,4 @@
+import type { LockScreenCapability, CaptureBoundary } from '../lockScreen/contracts';
 import type { MobileAppActivity } from './MobileAppActivity';
 import { isRecoverableIdentityProtection } from '../navigation/offlineCaptureShell';
 import type { TimeEditingCapability, TimeEditingCoordinator } from '../timeEditing/TimeEditingCoordinator';
@@ -16,6 +17,7 @@ import type {
 import type { ScanFeedbackLifecycle } from '../feedback/ScanFeedbackCoordinator';
 
 export interface ProductMobileRuntime {
+  readonly lockScreen?: LockScreenCapability;
   readonly timeEditing?: TimeEditingCapability;
   readonly employees?: EmployeesCapability;
   readonly session: MobileSessionCapability;
@@ -125,7 +127,14 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     private readonly employeesCoordinator?: EmployeesCoordinator,
     private readonly timeEditingCoordinator?: TimeEditingCoordinator,
     private readonly activity?: MobileAppActivity,
+    private readonly lockScreenOwner?: LockScreenCapability & CaptureBoundary & {start():void;stop():void},
   ) {
+    const lockScreen = this.lockScreenOwner;
+    this.lockScreenCapability = lockScreen ? Object.freeze({
+      getState: () => lockScreen.getState(),
+      subscribe: (listener:()=>void) => lockScreen.subscribe(listener),
+      openSettings: () => lockScreen.openSettings(),
+    }) : undefined;
     const employees = this.employeesCoordinator;
     this.employeesCapability = employees ? Object.freeze({
       getState: () => employees.getState(), subscribe: (listener: ()=>void) => employees.subscribe(listener),
@@ -224,6 +233,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       stopActiveTime: () => this.mobileWorkCoordinator.stopActiveTime(),
     });
     this.offlineManualCapability = Object.freeze({
+      ...(this.lockScreenOwner ? {prepareActiveCapture:()=>this.lockScreenOwner!.beforeCapture(),activeCaptureRejection:()=>this.lockScreenOwner!.getCaptureRejection?.()??null,finishActiveCapture:()=>this.lockScreenOwner!.afterCapture()} : {}),
       readOfflineManualTargets: () => offlineManualCapture.readOfflineManualTargets(),
       hasUnconfirmedCapture: () => offlineManualCapture.hasUnconfirmedCapture?.() ?? Promise.resolve(true),
       captureManual: (target: SafeWorkTarget) => offlineManualCapture.captureManual(target),
@@ -237,6 +247,9 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       ),
     });
   }
+
+  private readonly lockScreenCapability: LockScreenCapability | undefined;
+  get lockScreen(): LockScreenCapability | undefined { return this.lockScreenCapability; }
 
   get timeEditing(): TimeEditingCapability | undefined {
     const c=this.timeEditingCoordinator;
@@ -325,10 +338,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
     this.mobileWorkCoordinator.start();
     this.employeesCoordinator?.start();
     this.nativeIngressLifecycle.start();
+    this.lockScreenOwner?.start();
   }
 
   stop(): void {
     this.cancelSignOutWait();
+    this.lockScreenOwner?.stop();
     this.timeEditingCoordinator?.stop();
     if (!this.started) {
       return;

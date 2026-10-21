@@ -33,8 +33,10 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.NFC",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
       ],
+      "blockedPermissions": ["android.permission.FOREGROUND_SERVICE"],
       "allowBackup": false,
       "package": "com.tim180201.mobile"
     },

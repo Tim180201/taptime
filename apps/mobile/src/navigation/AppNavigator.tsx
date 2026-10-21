@@ -1,3 +1,4 @@
+import type { LockScreenCapability } from '../lockScreen/contracts';
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { APP_NAME } from '../../../../shared/product';
 import { BrandMark } from '../design/BrandMark';
@@ -12,7 +13,7 @@ import type { TimeEditingCapability } from '../timeEditing/TimeEditingCoordinato
 import type { EmployeesCapability } from '../employees/contracts';
 import { EmployeesScreen } from '../screens/EmployeesScreen';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { BackHandler, ScrollView, StyleSheet, View } from 'react-native';
+import { Linking, BackHandler, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { MobileSessionCapability, ProductMembershipRole, MobileManagementScope } from '../auth/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
@@ -48,7 +49,9 @@ export function AppNavigator({
   offlineManual,
   employees,
   timeEditing,
+  lockScreen,
 }: {
+  readonly lockScreen?: LockScreenCapability;
   readonly timeEditing?: TimeEditingCapability;
   readonly session: MobileSessionCapability;
   readonly scan: ProductScanCapability;
@@ -103,7 +106,7 @@ export function AppNavigator({
   if (state.status === 'authenticated') {
     const accountKey = `${state.session.organizationId}/${state.session.membershipId}/${state.session.userId}`;
     return <TimeEditingProvider key={accountKey} capability={timeEditing} work={work} membershipId={state.session.membershipId} role={state.session.role} managementScope={state.session.managementScope}><ProductShell key={accountKey} identityLabel={state.identityLabel} role={state.session.role} nfcSetupAvailable={state.session.nfcSetupAvailable} managementScope={state.session.managementScope} locationsEnabled={state.session.locationsEnabled} employees={employees} session={session}
-      scan={scan} administration={administration} work={work} customerAuthority={state.session} offlineManual={offlineManual} offlineActive={offlineActive} /></TimeEditingProvider>;
+      scan={scan} administration={administration} work={work} customerAuthority={state.session} offlineManual={offlineManual} lockScreen={lockScreen} offlineActive={offlineActive} /></TimeEditingProvider>;
   }
   if (state.status === 'enrollment_only') {
     return <EmployeeEnrollmentScreen
@@ -116,7 +119,7 @@ export function AppNavigator({
     if (canPresentOfflineCaptureShell(state, scanState)) {
       return (
         <ProductShell key="offline" identityLabel={state.identityLabel} role="offline" session={session} scan={scan}
-          administration={administration} offlineManual={offlineManual} offlineActive={offlineActive} confirmedOwnTime={confirmedOwnTime.current} />
+          administration={administration} offlineManual={offlineManual} lockScreen={lockScreen} offlineActive={offlineActive} confirmedOwnTime={confirmedOwnTime.current} />
       );
     }
     return (
@@ -155,7 +158,8 @@ export function AppNavigator({
   );
 }
 
-function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual, confirmedOwnTime, offlineActive }: {
+function ProductShell({ identityLabel, role, nfcSetupAvailable = false, managementScope, locationsEnabled=false, employees, session, scan, administration, work, customerAuthority, offlineManual, confirmedOwnTime, offlineActive, lockScreen }: {
+  readonly lockScreen?: LockScreenCapability;
   readonly customerAuthority?: {readonly membershipId:string;readonly role:string};
   readonly role: ProductMembershipRole | 'offline';
   readonly identityLabel?: string;
@@ -178,6 +182,13 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   const workState = useSyncExternalStore(listener=>work?.subscribe(listener) ?? (()=>{}),()=>work?.getState() ?? null,()=>work?.getState() ?? null);
   const [destination, setDestination] = useState<ProductDestination>('capture');
   const [showSync, setShowSync] = useState(false);
+  useEffect(()=>{
+    if(!lockScreen)return;
+    const open=(url:string|null)=>{if(url==='taptime://lock-screen/capture'){setShowSync(false);setDestination('capture');}};
+    void Linking.getInitialURL().then(open);
+    const subscription=Linking.addEventListener('url',event=>open(event.url));
+    return()=>subscription.remove();
+  },[lockScreen]);
   const backActions=useRef(new Map<BackAction,number>());
   const registerBack=useMemo<RegisterBack>(()=>(action,priority)=>{backActions.current.set(action,priority);return()=>{backActions.current.delete(action);};},[]);
   const syncReturn=useRef<ProductDestination>('capture');
@@ -249,7 +260,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
             offline={role==='offline' || !!scanState.transmissionPaused || !!(workState?.status==='ready' && workState.capturePending && !workState.submitting)} />
         </View>
         {showSync || destination==='manual' ? <View style={{paddingHorizontal:20,paddingBottom:8}}><SubviewBack label={destinationLabels[showSync?syncReturn.current:'capture']} onBack={()=>navigate(showSync?syncReturn.current:'capture')}/></View>:null}
-        {showSync ? <SynchronizationScreen scan={scan} indicator={status} signOut={() => session.signOut()} />
+        {showSync ? <SynchronizationScreen lockScreen={lockScreen} scan={scan} indicator={status} signOut={() => session.signOut()} />
           : destination === 'capture' ? null
           : destination === 'manual' ? role === 'offline' || scanState.transmissionPaused || workState?.status === 'ready' && workState.capturePending && !workState.submitting
               ? <OfflineManualCaptureScreen manual={offlineManual} offlineActive={offlineActive} restorationKey={role === 'offline' ? 'offline' : 'pending'} transmissionPaused={scanState.transmissionPaused} transmissionRetryAvailable={scanState.transmissionRetryAvailable} capturePending={workState?.status==='ready' && workState.capturePending} confirmedOwnTime={workState?.status === 'ready' ? workState.ownTime : confirmedOwnTime} />

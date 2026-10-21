@@ -1,0 +1,13 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'com.taptime.lockscreen'
+version = '1.0.0'
+android {
+  namespace "com.taptime.lockscreen"
+  defaultConfig {
+    minSdkVersion 24
+    versionName "1.0.0"
+  }
+}

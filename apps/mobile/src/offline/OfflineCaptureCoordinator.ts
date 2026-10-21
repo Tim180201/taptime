@@ -129,6 +129,9 @@ export type ManualOfflineAcknowledgement =
     };
 
 export interface ManualOfflineCapturePort {
+  prepareActiveCapture?(): Promise<boolean>;
+  activeCaptureRejection?(): import('../lockScreen/contracts').CaptureRejection|null;
+  finishActiveCapture?(): Promise<void>;
   captureManual(target: {
     readonly targetType: 'customer' | 'project' | 'general_work';
     readonly targetId: string;
@@ -211,6 +214,21 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
 
   readManualAcknowledgement(workEventId: string): ManualOfflineAcknowledgement | null {
     return this.manualAcknowledgements.get(workEventId) ?? null;
+  }
+
+  /** Private runtime context; no credentials are exposed to screens. */
+  async lockScreenInstallationId(): Promise<string | null> {
+    const database=this.database, generation=this.generation, snapshot=this.session.capture();
+    if(!database || !snapshot)return null;
+    const current=()=>database===this.database && generation===this.generation
+      && this.canSynchronize() && this.session.isCurrent(snapshot);
+    if(!current())return null;
+    try {
+      const context=await database.readActiveCaptureContext();
+      if(!context || !current() || context.organizationId!==snapshot.session.organizationId
+        || context.userId!==snapshot.session.userId || context.membershipId!==snapshot.session.membershipId)return null;
+      return context.installationId;
+    } catch {return null;}
   }
 
   async hasUnconfirmedCapture(): Promise<boolean> {

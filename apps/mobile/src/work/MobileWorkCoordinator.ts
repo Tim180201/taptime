@@ -1,3 +1,4 @@
+import type { CaptureBoundary } from '../lockScreen/contracts';
 import { normalizeSearch } from '../search/search';
 import type { SearchKind, SearchResponses, SearchRequests } from '@taptime/mobile-work-contract';
 import type { ClientSearchRequest, PageResult } from '../search/search';
@@ -19,6 +20,9 @@ export interface CaptureConnectivityPort {
 }
 
 export class MobileWorkCoordinator implements MobileWorkCapability {
+  lockScreenBoundary?: CaptureBoundary;
+  private checkingLockScreen = false;
+  private preservingEpoch = 0;
   private state: MobileWorkState = Object.freeze({ status: 'inactive' });
   private readonly listeners = new Set<() => void>();
   private unsubscribe: (() => void) | null = null;
@@ -193,6 +197,46 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     });
   }
 
+  setCaptureBlockedReason(reason: string | null): void {
+    if (this.state.status === 'ready' && this.state.captureBlockedReason !== reason)
+      this.setState({...this.state, captureBlockedReason: reason});
+  }
+
+  setCaptureFeedback(message:string|null):void {
+    if(this.state.status==='ready' && this.state.feedback!==message)this.setState({...this.state,feedback:message});
+  }
+
+  /** Android foreground refresh retains the active card even when the network is unavailable. */
+  async refreshPreservingActive(): Promise<boolean> {
+    const snapshot = this.session.capture(), previous = this.state;
+    if (!snapshot || previous.status === 'ready' && previous.submitting) return false;
+    const generation = this.generation, preservingEpoch = ++this.preservingEpoch;
+    this.boundSessionGeneration = snapshot.generation;
+    const capturePending = await this.hasUnconfirmedCapture();
+    const result = await this.api.read(snapshot.session.membershipId,
+      previous.status === 'ready' ? previous.targetsSearch : null).catch(() => ({status:'unavailable' as const}));
+    if (generation !== this.generation || preservingEpoch !== this.preservingEpoch || !this.session.isCurrent(snapshot)
+      || result.status !== 'ready' || !validOwnTimeProjection(result.ownTime)) return false;
+    this.generation++; // Failed reads never supersede an ordinary refresh.
+    this.ownTimeCursors.clear();
+    this.setState({...(previous.status === 'ready' ? previous : {}),status:'ready',
+      ownTime:freezeOwnTime(result.ownTime),targets:result.targets,targetsBusy:false,targetsFailed:false,
+      submitting:false,loadingMore:false,capturePending,outcome:capturePending?'pending':null});
+    return true;
+  }
+
+  private guardCapture(action: () => Promise<void>): Promise<void> {
+    const boundary = this.lockScreenBoundary;
+    if (!boundary) return action(); // iOS retains its existing execution path.
+    if (this.checkingLockScreen || this.state.status !== 'ready' || this.state.submitting) return Promise.resolve();
+    this.checkingLockScreen = true;
+    return (async () => {
+      let allowed = false;
+      try { allowed = await boundary.beforeCapture(); if (allowed) await action(); }
+      finally { try { if (allowed) await boundary.afterCapture(); } finally { this.checkingLockScreen = false; } }
+    })();
+  }
+
   async loadMoreOwnTime(): Promise<void> {
     const snapshot = this.session.capture();
     const current = this.state;
@@ -265,12 +309,16 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     const current = this.state;
     if (current.status !== 'ready' || current.targetsBusy || current.targetsFailed || ![...current.targets.targets,...(current.targetsSearch==null&&this.assignedTargets?.sessionGeneration===this.session.capture()?.generation?this.assignedTargets?.targets??[]:[])].some(candidate =>
       candidate.targetType === target.targetType && candidate.targetId === target.targetId)) return;
-    await this.capture(target);
+    await this.guardCapture(() => this.capture(target));
   }
 
-  async triggerBreak(): Promise<void> { await this.capture('break'); }
+  async triggerBreak(): Promise<void> { await this.guardCapture(() => this.capture('break')); }
 
   async stopActiveTime(): Promise<void> {
+    return this.guardCapture(() => this.captureActiveStop());
+  }
+
+  private async captureActiveStop(): Promise<void> {
     const current = this.state;
     if (current.status !== 'ready' || !current.ownTime.activeRecord?.targetId) return;
     const active = current.ownTime.activeRecord;

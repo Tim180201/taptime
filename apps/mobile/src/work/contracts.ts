@@ -35,6 +35,7 @@ export type MobileWorkState =
       readonly targetsFailed?:boolean;
       readonly submitting: boolean;
       readonly capturePending?: boolean;
+      readonly captureBlockedReason?: string | null;
       readonly loadingMore: boolean;
       readonly outcome: ManualTriggerOutcome | null;
       readonly feedback?: string | null;

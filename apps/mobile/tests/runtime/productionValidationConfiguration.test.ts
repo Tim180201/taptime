@@ -14,6 +14,7 @@ describe('production validation build configuration', () => {
     const require = createRequire(import.meta.url);
     const appConfig = require('../../app.json').expo;
     expect(appConfig.android.allowBackup).toBe(false);
+    expect(appConfig.android.blockedPermissions).toContain('android.permission.FOREGROUND_SERVICE');
     expect(appConfig.plugins).toContain('./plugins/withOfflineStorageBackupBoundary');
     expect(appConfig.plugins).toContainEqual(['expo-secure-store', { configureAndroidBackup: false }]);
     expect(appConfig.plugins).toContainEqual(['expo-sqlite', { useSQLCipher: true }]);
@@ -43,6 +44,7 @@ describe('production validation build configuration', () => {
       const deviceTransfer = extraction.match(/<device-transfer>([\s\S]*?)<\/device-transfer>/)?.[1];
       for (const rules of [backup, cloudBackup, deviceTransfer]) {
         expect(rules).toContain('<exclude domain="sharedpref" path="SecureStore" />');
+        expect(rules).toContain('<exclude domain="sharedpref" path="taptime_lock_screen.xml" />');
         expect(rules).toContain('<exclude domain="file" path="SQLite" />');
         expect(rules).toContain('<exclude domain="database" path="." />');
       }

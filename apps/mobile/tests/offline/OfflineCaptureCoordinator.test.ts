@@ -70,6 +70,21 @@ const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));
 
 describe('OfflineCaptureCoordinator', () => {
+  it('T104b reads the installation ID from the active database context while online',async()=>{
+    const h=await accountHarness();
+    try {expect(await h.coordinator.lockScreenInstallationId()).toBe(ids.installation);}
+    finally {await h.close();}
+  });
+  it('T104b discards an installation ID read across an account change',async()=>{
+    const h=await accountHarness();
+    try {
+      const read=h.database().readActiveCaptureContext.bind(h.database());
+      vi.spyOn(h.database(),'readActiveCaptureContext').mockImplementationOnce(async()=>{
+        const context=await read();h.change({...session,userId:ids.event,membershipId:ids.receipt});return context;
+      });
+      expect(await h.coordinator.lockScreenInstallationId()).toBeNull();
+    }finally {await h.close();}
+  });
   it.each(['stop','pause'] as const)('T107 allows %s from the confirmed active time under real offline authority',async action=>{
     const h=await accountHarness(false,true);
     const capture=activeControls(h.coordinator);

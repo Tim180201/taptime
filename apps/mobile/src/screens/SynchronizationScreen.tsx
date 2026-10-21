@@ -1,3 +1,4 @@
+import type { LockScreenCapability } from '../lockScreen/contracts';
 import { ThemeSwitch } from '../design/ThemeSwitch';
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { useSyncExternalStore } from 'react';
@@ -9,10 +10,12 @@ import { useMobileTokens } from '../design/useMobileTheme';
 import { syncIndicator, type SyncIndicator } from '../navigation/presentation';
 import { presentScanState } from './ScanScreen';
 
-export function SynchronizationScreen({ scan, indicator, signOut }: {
+export function SynchronizationScreen({ scan, indicator, signOut, lockScreen }: {
+  readonly lockScreen?: LockScreenCapability;
   readonly scan: ProductScanCapability; readonly indicator?: SyncIndicator; readonly signOut?: () => Promise<void>;
 }) {
   const mobileTokens = useMobileTokens();
+  const lockScreenState=useSyncExternalStore(listener=>lockScreen?.subscribe(listener)??(()=>{}),()=>lockScreen?.getState()??null,()=>null);
 
   const state = useSyncExternalStore((listener) => scan.subscribe(listener), () => scan.getState(), () => scan.getState());
   const status = indicator ?? syncIndicator(state);
@@ -46,6 +49,7 @@ export function SynchronizationScreen({ scan, indicator, signOut }: {
       Nichts löschen, nichts neu installieren. Wenn hier etwas hängt, hilft dir der Support.
     </Text>
     {signOut ? <Card><Text accessibilityRole="header" style={{fontWeight:'800'}}>Konto</Text><ActionButton title="Abmelden" tone="secondary" onPress={signOut} /></Card> : null}
+    {lockScreenState?.notificationsDenied ? <Card><Text>Die laufende Zeit kann auf deinem Sperrbildschirm erscheinen. Erlaube dafür Benachrichtigungen in den Einstellungen.</Text><ActionButton title="Einstellungen öffnen" onPress={()=>lockScreen?.openSettings()}/></Card> : null}
     <ThemeSwitch />
     <AppBuildIdentity />
   </ScrollView></Screen>;

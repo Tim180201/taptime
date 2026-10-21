@@ -59,7 +59,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
     <ScrollView style={{flex: 1}} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
       {state.capturePending ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
       {state.ownTime.activeRecord ? <ActiveTimeCard record={state.ownTime.activeRecord}
-        disabled={state.submitting || !!state.capturePending} onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : <>
+        disabled={!!state.captureBlockedReason || state.submitting || !!state.capturePending} disabledReason={state.captureBlockedReason??undefined} onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : <>
         <Text style={styles.explanation}>Kunde, Projekt oder allgemeine Arbeit. Die Zeit bleibt als manuell erfasst gekennzeichnet.</Text>
         <RequiredField form={form} error={selected===null ? "Wähle ein Arbeitsziel. Deine Eingaben bleiben erhalten." : null}><Text style={styles.selection}>Wofür arbeitest du?</Text>
         <SearchField value={search} onChange={setSearch} disabled={state.submitting}/>

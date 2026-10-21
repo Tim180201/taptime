@@ -33,6 +33,7 @@ for (const [name, rules] of [
   ['Android 12+ extraction rules', extractionRules],
 ]) {
   requireText(rules, '<exclude domain="sharedpref" path="SecureStore" />', name);
+  requireText(rules, '<exclude domain="sharedpref" path="taptime_lock_screen.xml" />', name);
   requireText(rules, '<exclude domain="file" path="SQLite" />', name);
   requireText(rules, '<exclude domain="database" path="." />', name);
 }
@@ -42,6 +43,16 @@ requireText(
   'Android 12+ extraction rules',
 );
 requireText(extractionRules, '<device-transfer>', 'Android 12+ extraction rules');
+
+for (const section of ['cloud-backup', 'device-transfer']) {
+  const rules = extractionRules.match(new RegExp(`<${section}[^>]*>([\\s\\S]*?)</${section}>`))?.[1] ?? '';
+  requireText(rules, '<exclude domain="sharedpref" path="taptime_lock_screen.xml" />', section);
+}
+requireText(mergedManifest, 'android.permission.POST_NOTIFICATIONS', 'merged release manifest');
+if (!/<receiver\b[^>]*android:exported="false"[^>]*android:name="com\.taptime\.lockscreen\.LockScreenActionReceiver"|<receiver\b[^>]*android:name="com\.taptime\.lockscreen\.LockScreenActionReceiver"[^>]*android:exported="false"/.test(mergedManifest)) {
+  throw new Error('Lock-screen receiver must not be exported');
+}
+if (/android\.permission\.FOREGROUND_SERVICE/.test(mergedManifest)) throw new Error('Unexpected foreground-service permission');
 
 process.stdout.write('offline_storage_android_backup_boundary_verified\n');
 

@@ -71,7 +71,7 @@ function ReadyProductMobileApp({
 
   return <StartupBoundary loading={state !== 'failed' && (state === 'starting' || sessionState.status === 'initializing')}>
     {state === 'failed' ? <UnavailableProductRuntime retry={() => startup.retry()} code="R2" />
-    : <AppNavigator timeEditing={runtime.timeEditing} employees={runtime.employees}
+    : <AppNavigator lockScreen={runtime.lockScreen} timeEditing={runtime.timeEditing} employees={runtime.employees}
     session={runtime.session}
     scan={runtime.scan}
     administration={runtime.administration}
