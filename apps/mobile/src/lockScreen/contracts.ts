@@ -12,6 +12,8 @@ export interface LockScreenStand {
 }
 export type IssueStatus = 'issued'|'unauthorized'|'unavailable'|'superseded'|'update_required';
 export interface LockScreenNativePort {
+  readonly foregroundOnly?: boolean;
+  isCaptureUrl?(url:string|null):boolean;
   read(): LockScreenStand | null;
   bind(owner: string): boolean;
   clear(): boolean;
@@ -32,6 +34,7 @@ export interface CaptureBoundary {
 }
 export interface LockScreenUiState {readonly notificationsDenied:boolean;readonly blockedReason:string|null}
 export interface LockScreenCapability {
+  isCaptureUrl?(url:string|null):boolean;
   getState():LockScreenUiState;
   subscribe(listener:()=>void):()=>void;
   openSettings():void;

@@ -134,6 +134,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       getState: () => lockScreen.getState(),
       subscribe: (listener:()=>void) => lockScreen.subscribe(listener),
       openSettings: () => lockScreen.openSettings(),
+      isCaptureUrl: (url:string|null) => lockScreen.isCaptureUrl?.(url)??url==='taptime://lock-screen/capture',
     }) : undefined;
     const employees = this.employeesCoordinator;
     this.employeesCapability = employees ? Object.freeze({

@@ -1,6 +1,7 @@
 const { name: appName } = require('../../shared/product.json');
 const base = require('./app.json');
 const withNfcTagDispatch = require('./plugins/withNfcTagDispatch');
+const withTaptimeLiveActivity = require('./plugins/withTaptimeLiveActivity');
 const TAG_HOSTS = require('./src/nfc/tagHosts.json');
 const startupLayout = require('./src/design/startupLayout.json');
 const { colors } = require('../../shared/brand/mark.json');
@@ -67,4 +68,4 @@ const configuration = {
   },
 };
 
-module.exports = withNfcTagDispatch(configuration);
+module.exports = withTaptimeLiveActivity(withNfcTagDispatch(configuration));

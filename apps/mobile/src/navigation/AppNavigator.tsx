@@ -184,7 +184,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   const [showSync, setShowSync] = useState(false);
   useEffect(()=>{
     if(!lockScreen)return;
-    const open=(url:string|null)=>{if(url==='taptime://lock-screen/capture'){setShowSync(false);setDestination('capture');}};
+    const open=(url:string|null)=>{if(lockScreen.isCaptureUrl?.(url)??url==='taptime://lock-screen/capture'){setShowSync(false);setDestination('capture');}};
     void Linking.getInitialURL().then(open);
     const subscription=Linking.addEventListener('url',event=>open(event.url));
     return()=>subscription.remove();

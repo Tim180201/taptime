@@ -98,9 +98,83 @@ erhalten und werden nicht umgeschrieben oder gelöscht. Ein iPhone-Neustart ist 
 kein Ersatz für den Abgleich. Die Datenbank bleibt bis zum externen Archivnachweis die
 Gerätekopie eines Ereignisses.
 
-iOS entscheidet, wann Hintergrundaufgaben laufen, und kann sie bei gesperrtem Gerät
-oder beendeter App aussetzen. Es gibt keine zugesicherte Frist. App öffnen und Netz
-herstellen löst den bestehenden Vordergrundabgleich aus.
+Seit T-115/D-133 gleicht iOS ausschließlich im Vordergrund ab. Ein Hintergrundstart
+wartet auf die sichtbare App, erneuert keine Anmeldung und schreibt nichts in den
+Schlüsselbund. Die gesonderten nativen Sperrbildschirm-Aktionen aus T-104c verwenden
+nur ihren eingeschränkten Schlüssel und starten keinen Offline-Abgleich.
+
+## Live-Aktivität auf dem iPhone (T-104c)
+
+Die App legt bei eigener laufender Zeit im Vordergrund eine Live-Aktivität an. Ziel,
+Dauer und Pause erscheinen auf dem Sperrbildschirm und in der Dynamic Island. Ab
+iOS 17 senden „Pause starten“, „Pause beenden“ und „Zeit beenden“ direkt an den
+bestehenden Serverweg. Der Server prüft den Zustand und erzeugt dieselben manuellen
+Ereignisse wie in der App. iOS 16.4–16.x zeigt keine Knöpfe. Antippen öffnet „Erfassen“;
+das URL-Schema folgt der Variante. Es gibt weder Ton noch Vibration noch eine zusätzliche
+Mitteilung oder Mitteilungs-Erlaubnisabfrage. Sind Live-Aktivitäten ausgeschaltet,
+zeigt „Übertragung“ den Weg zu den Einstellungen.
+
+Die laufende Dauer verwendet den Systemtimer von SwiftUI (mit Sekunden), damit sie
+auch bei ruhenden Prozessen weiterläuft. Die angehaltene Arbeitsdauer und die
+Abschlussmeldung verwenden Stunden:Minuten. Manrope und das farbige kompakte Zeichen
+aus `shared/brand/` werden in der Erweiterung mitgeliefert.
+
+Der `LiveActivityIntent` läuft im App-Prozess. Bei einem Hintergrundstart hält
+`TapTimeForegroundLaunch` den Start von React bis zum Vordergrund zurück; zusätzlich
+bleibt die Startreihenfolge aus T-115 bestehen. Nur `.background` wird zurückgehalten;
+der normale `.inactive`-Start legt wie Expo sofort Fenster und React-Ansicht an, bevor
+die übrigen Start-Callbacks laufen. Es gibt keinen Zugriff der Erweiterung
+auf Anmeldung oder Schlüsselbund. Der eigene Eintrag `capability-v1` verwendet
+`AfterFirstUnlockThisDeviceOnly` und wird nur im Vordergrund geschrieben oder gelöscht.
+Offener Befehl, Anzeige und Ablauf liegen unter `Application Support/TapTimeLockScreen`
+mit `completeUntilFirstUserAuthentication`, atomar geschrieben und vom Backup ausgeschlossen.
+Bei Ablauf oder 401 im Hintergrund wird der Schlüsselverweis sofort ungültig; der
+unbenutzbare Schlüsselbund-Eintrag wird erst im Vordergrund entfernt bzw. ersetzt.
+
+Änderungen kommen aus dem Vordergrundabgleich oder der Antwort auf einen Knopf.
+Ohne Netz bleibt der Befehl mit seiner ID erhalten („Erneut senden“); der Intent bittet
+iOS, die App zu öffnen. Die Rückkehr führt keine Aktion automatisch aus. Nach eigener
+Erfassung bleibt „Wird übertragen …“, bis die App wieder im Vordergrund abgleicht.
+Ein Verwaltungsstopp wird beim nächsten Öffnen bzw. bei der nächsten Serveraktion sichtbar.
+
+Beenden zeigt „Zeit beendet“ zehn Sekunden; die zeitgesteuerte Entfernung übernimmt
+ActivityKit auch bei ruhender App. Abmelden, Kontowechsel, abgewiesene Sitzung und kein
+laufender Eintrag beim Öffnen entfernen die Anzeige. Ablauf wird bei jedem nativen
+Lesen und jeder Aktion geprüft; ActivityKit erhält außerdem das Ablaufdatum. Ohne
+laufenden Prozess oder APNs kann die App keine punktgenaue Entfernung bei Ablauf
+erzwingen. iOS begrenzt aktive Live-Aktivitäten auf acht Stunden; beim nächsten Öffnen
+wird eine noch laufende eigene Zeit neu angezeigt.
+
+### Erster EAS-Build mit der neuen Erweiterung — PO-Schritt
+
+Erst nach technischer Freigabe und Commit den oben beschriebenen EAS-Build ausführen.
+Das eigene Config-Plugin `plugins/withTaptimeLiveActivity.js` erzeugt das Target
+`TapTimeLiveActivity` mit der Bundle-ID `com.tim180201.mobile.TapTimeLiveActivity`.
+Unter `extra.eas.build.experimental.ios.appExtensions` deklariert es **vor** dem
+Prebuild Targetname, Bundle-ID und leere Entitlements. Dadurch kann EAS die benötigten
+Anmeldedaten für App **und** Erweiterung vor dem Build ermitteln. App Groups, geteilte
+Keychain-Gruppen und Push-Berechtigungen werden nicht benötigt. Alle Varianten
+verwenden dieselben iOS-Bundle-IDs.
+
+App und Erweiterung erben `MARKETING_VERSION` und `CURRENT_PROJECT_VERSION` aus
+denselben Projekt-Build-Settings; beide Info.plists verwenden diese Werte. Es gibt
+keine eigene festgeschriebene Build-Nummer der Erweiterung. Mit `appVersionSource:
+remote` synchronisiert EAS die Versionen im nativen Projekt für die erkannten Targets.
+Im fertigen Build müssen `CFBundleShortVersionString` und `CFBundleVersion` der App
+und der eingebetteten Erweiterung übereinstimmen.
+
+Beim ersten `eas build -p ios --profile production-validation` kontrolliert der PO im
+Anmeldedaten-Dialog beide Bundle-IDs und das vorhandene Apple-Team. EAS benötigt neben
+der App ein Provisioning-Profil für die Erweiterung; der PO bestätigt dessen Einrichtung
+selbst und gibt Apple-Anmeldung und Zwei-Faktor-Code selbst ein. Bei unbekanntem Team,
+abweichender ID oder fehlenden Rechten abbrechen und den TL einbeziehen. Codex hat weder
+einen EAS-Build gestartet noch im Developer-Portal Zertifikate oder Profile angelegt.
+Nach dem Build muss `TapTimeLiveActivity.appex` eingebettet sein; die Geräteabnahme
+erfolgt anhand der T-104c-Prüfliste, einschließlich zehnmal Öffnen nach langer Sperre.
+
+Technische Quellen: [Expo: iOS App Extensions](https://docs.expo.dev/build-reference/app-extensions/),
+[Expo: App-Versionen](https://docs.expo.dev/build-reference/app-versions/),
+[Apple: interaktive Live-Aktivitäten](https://developer.apple.com/documentation/widgetkit/adding-interactivity-to-widgets-and-live-activities).
 
 ## Anlegen, Ändern und Entfernen
 

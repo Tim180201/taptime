@@ -2,7 +2,7 @@ import type { LockScreenCapability } from '../lockScreen/contracts';
 import { ThemeSwitch } from '../design/ThemeSwitch';
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { useSyncExternalStore } from 'react';
-import { ScrollView } from 'react-native';
+import { Platform, ScrollView } from 'react-native';
 import type { ProductScanCapability } from '../scan/contracts';
 import { AppBuildIdentity } from '../design/AppBuildIdentity';
 import { ActionButton, AppText as Text, Card, Screen } from '../design/primitives';
@@ -49,7 +49,9 @@ export function SynchronizationScreen({ scan, indicator, signOut, lockScreen }: 
       Nichts löschen, nichts neu installieren. Wenn hier etwas hängt, hilft dir der Support.
     </Text>
     {signOut ? <Card><Text accessibilityRole="header" style={{fontWeight:'800'}}>Konto</Text><ActionButton title="Abmelden" tone="secondary" onPress={signOut} /></Card> : null}
-    {lockScreenState?.notificationsDenied ? <Card><Text>Die laufende Zeit kann auf deinem Sperrbildschirm erscheinen. Erlaube dafür Benachrichtigungen in den Einstellungen.</Text><ActionButton title="Einstellungen öffnen" onPress={()=>lockScreen?.openSettings()}/></Card> : null}
+    {lockScreenState?.notificationsDenied ? <Card><Text>{Platform.OS==='ios'
+      ? 'Die laufende Zeit kann auf deinem Sperrbildschirm erscheinen. Erlaube dafür Live-Aktivitäten in den Einstellungen.'
+      : 'Die laufende Zeit kann auf deinem Sperrbildschirm erscheinen. Erlaube dafür Benachrichtigungen in den Einstellungen.'}</Text><ActionButton title="Einstellungen öffnen" onPress={()=>lockScreen?.openSettings()}/></Card> : null}
     <ThemeSwitch />
     <AppBuildIdentity />
   </ScrollView></Screen>;

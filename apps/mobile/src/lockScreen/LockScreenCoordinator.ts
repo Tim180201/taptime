@@ -20,7 +20,7 @@ interface Offline {
   hasUnconfirmedCapture():Promise<boolean>;
   lockScreenInstallationId():Promise<string|null>;
 }
-/** Android-only owner. The existing work/event chain remains the sole app capture path. */
+/** Shared owner. The existing work/event chain remains the sole app capture path. */
 export class LockScreenCoordinator implements LockScreenCapability, CaptureBoundary {
   private state:LockScreenUiState={notificationsDenied:false,blockedReason:null};
   private listeners=new Set<()=>void>();
@@ -42,6 +42,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     private readonly work:Work,private readonly offline:Offline,private readonly scan:ProductScanCapability,
     private readonly connectivity:CaptureConnectivityPort,private readonly appState:AppStatePort){}
   getState=()=>this.state;
+  isCaptureUrl=(url:string|null)=>this.native.isCaptureUrl?.(url)??url==='taptime://lock-screen/capture';
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
   openSettings=()=>this.native.openSettings();
   getCaptureRejection=()=>this.rejection;
@@ -64,6 +65,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     let previous=this.appState.currentState;
     const subscription=this.appState.addEventListener('change',state=>{
       const returning=state==='active'&&previous!=='active';previous=state;
+      if(this.native.foregroundOnly&&state!=='active')this.epoch++;
       if(returning)void this.refresh();
     });this.unsubscribers.push(()=>subscription.remove());
     this.onSession();
@@ -109,6 +111,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
   /** In the background only an own capture awaiting its result is reconciled; otherwise suspend() would turn live lock-screen buttons into "open app". */
   private mayRefresh(){
     return this.started&&!this.appCapture&&!this.scanBusy
+      &&(!this.native.foregroundOnly||this.appState.currentState==='active')
       &&(this.appState.currentState!=='background'||this.native.read()?.ownCapturePending===true);
   }
   refresh(discardPending=false):Promise<void>{
@@ -129,10 +132,18 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
   private async refreshOnce(discardPending:boolean){
     const snapshot=this.session.capture(),owner=this.owner,epoch=this.epoch;
     if(!snapshot||!owner)return;
-    const current=()=>this.started&&!this.appCapture&&!this.scanBusy&&epoch===this.epoch&&this.owner===owner&&this.session.isCurrent(snapshot);
-    const stand=this.native.read();
+    const current=()=>this.started&&!this.appCapture&&!this.scanBusy
+      &&(!this.native.foregroundOnly||this.appState.currentState==='active')
+      &&epoch===this.epoch&&this.owner===owner&&this.session.isCurrent(snapshot);
+    let stand=this.native.read();
+    // iOS may start JS while inactive, when its keychain-owning bind must still wait.
+    if(this.native.foregroundOnly&&this.appState.currentState==='active'&&stand?.owner!==owner){
+      if(!this.native.bind(owner))return;
+      stand=this.native.read();
+    }
     if(!stand || stand.owner!==owner || !this.native.suspend())return;
     if(!await this.connectivity.get()){this.updateUi(true);return;}
+    if(this.native.foregroundOnly&&!current())return;
     if(!await this.work.refreshPreservingActive() || !current())return;
     const after=this.native.read();
     if(!after || after.revision!==stand.revision)return; // A receiver result raced the read.
@@ -170,6 +181,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
   }
   beforeCapture=async():Promise<boolean>=>{
     this.rejection=null;
+    if(this.native.foregroundOnly&&this.appState.currentState!=='active')return this.reject(WAIT,true);
     if(this.appCapture)return this.reject('Eine Erfassung läuft bereits. Bitte kurz warten.');
     if(this.scanBusy)return this.reject('Der Scan läuft. Beende ihn oder brich ihn ab.');
     this.appCapture=true;
@@ -185,7 +197,9 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
       if(stand.ownCapturePending && await this.offline.hasUnconfirmedCapture())
         return this.reject('Deine letzte Erfassung wartet noch auf Bestätigung.',true);
       if(!await this.connectivity.get()){this.updateUi(true);return this.reject(WAIT,true);}
+      if(this.native.foregroundOnly&&(this.appState.currentState!=='active'||epoch!==this.epoch))return this.reject(WAIT,true);
       if(stand.pending && !stand.ownCapturePending)await this.native.retry();
+      if(this.native.foregroundOnly&&(this.appState.currentState!=='active'||epoch!==this.epoch))return this.reject(WAIT,true);
       const after=this.native.read();
       if(after?.pending || !await this.work.refreshPreservingActive() || epoch!==this.epoch)return this.reject(WAIT,true);
       const final=this.native.read();

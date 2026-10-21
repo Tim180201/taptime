@@ -1,5 +1,6 @@
 import { encodeAppVersion } from '@taptime/mobile-work-contract';
 import { createNativeLockScreen } from '../lockScreen/NativeLockScreen';
+import { createIosLockScreen } from '../lockScreen/IosLockScreen';
 import { LockScreenCoordinator } from '../lockScreen/LockScreenCoordinator';
 import { MobileAppActivity } from './MobileAppActivity';
 import { nativeBuildVersion } from 'expo-application';
@@ -190,9 +191,12 @@ export function createProductMobileRuntime(): ProductMobileRuntimeCreation {
       subscribe: listener => {const subscription=Network.addNetworkStateListener(state=>listener(state.isConnected===true && state.isInternetReachable!==false));return ()=>subscription.remove();},
     },
   );
-  const lockScreenNative = createNativeLockScreen(configuration.configuration.tapTimeApiBaseUrl, encodeAppVersion({
-    platform:'android',build:Number(nativeBuildVersion)||0,commit:Constants.expoConfig?.extra?.taptimeBuild?.sourceCommit??'development',
-  }));
+  const lockScreenVersion = encodeAppVersion({
+    platform:Platform.OS==='ios'?'ios':'android',build:Number(nativeBuildVersion)||0,commit:Constants.expoConfig?.extra?.taptimeBuild?.sourceCommit??'development',
+  });
+  const lockScreenNative = Platform.OS==='ios'
+    ? createIosLockScreen(configuration.configuration.tapTimeApiBaseUrl,lockScreenVersion,Constants.expoConfig?.scheme)
+    : createNativeLockScreen(configuration.configuration.tapTimeApiBaseUrl,lockScreenVersion);
   const lockScreen = lockScreenNative ? new LockScreenCoordinator(lockScreenNative,
     {...scanSessionContext,getState:()=>coordinator.getState()},coordinator,mobileWorkCoordinator,scanOrchestrator,scanOrchestrator,{
       get:async()=>{const state=await Network.getNetworkStateAsync();return state.isConnected===true&&state.isInternetReachable!==false;},
