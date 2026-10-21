@@ -65,6 +65,8 @@ Annahmen ersetzt.
 - Der ausgeführte Code hat Vorrang vor der Dokumentation. Abweichungen werden benannt.
 - Änderungen bleiben klein und am Diff nachvollziehbar.
 - Unverwandte Dateien und bestehende Nutzeränderungen werden nicht verändert.
+- Auf dem Rechner des Product Owners wird nichts installiert oder heruntergeladen (Werkzeuge, SDKs, Simulatoren,
+  Pakete außerhalb des Repositorys) ohne seine ausdrückliche Freigabe im Auftrag. Fehlt ein Werkzeug, wird es gemeldet.
 - **Jede Aufgabe hat eine Zeitbox.** Reißt sie, wird der Scope geschnitten — nicht die Zeit
   verlängert. Das wird gemeldet, nicht still gelöst.
 

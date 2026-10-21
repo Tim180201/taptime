@@ -9,8 +9,10 @@ ausgeliefert: T-127a (`6b0c867`, Archiv auf dem Server, Migration 061), T-127b (
 T-104a (`90fadc3`, `873cbfd`, Sperrbildschirm-Schlüssel und -Aktionen auf dem Server, Migration 062, D-146) und T-104b
 (`c332b91`, Android: laufende Benachrichtigung mit Pause, Weiter und Beenden ohne Entsperren, neuer App-Build). Die
 Knöpfe senden erst nach Deploy 8; vorher öffnen sie die App. Dazu T-104d (`a76630c`, Android-Meldung im Taptura-Look
-mit eigenem Symbol, Mint, Texten und Knöpfen wie in der App, Live Update ab Android 16, D-148). Prüflisten für das
-Gerät: `.t104b-review/pruefliste.md` und `.t104d-review/pruefliste.md` (lokal).
+mit eigenem Symbol, Mint, Texten und Knöpfen wie in der App, Live Update ab Android 16, D-148) und T-104c (`5c15d81`,
+iPhone: Live-Aktivität und Dynamic Island im Taptura-Look, Knöpfe ab iOS 17, D-133 unverändert; der erste iPhone-Build
+braucht die Anmeldedaten der neuen Erweiterung, Ablauf im README der App). Prüflisten für das Gerät:
+`.t104b-review/`, `.t104c-review/` und `.t104d-review/`, je `pruefliste.md` (lokal).
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -34,9 +36,8 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-104c
-(Sperrbildschirm iPhone im Taptura-Look, D-146 bis D-148), T-132, T-133 → Deploy 8 (mit T-127a/b) und neue App-Builds →
-restliche Geräteabnahme → Pilot. Review ohne
+**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-133, T-132 → Deploy 8 (mit
+T-127a/b und T-104a) und neue App-Builds (T-104b bis T-104d) → restliche Geräteabnahme → Pilot. Review ohne
 Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig `review/<aufgabe>` ab, Fotos auf einem verwaisten
 Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
@@ -96,6 +97,10 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 
 ## Fakten für den Betrieb
 
+- Mac des PO (21.10.): Xcode 26.5 (die aktive Auswahl zeigt auf die Command Line Tools, deshalb je Befehl
+  `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`), CocoaPods 1.17.0 über Homebrew, iOS-26.5-Simulator
+  (8,5 GB, von Codex ohne Rückfrage geladen; in Xcode unter Einstellungen → Components entfernbar). Damit baut Codex die
+  iPhone-App samt Erweiterung lokal unsigniert.
 - Jeder Image-Lauf warnt einmal: 74 fehlende Kind-Manifeste von 16 alten Ständen aus dem September. Gewollt (T-098c);
   die Stände bleiben in `known_versions`, ihre Indizes bleiben erhalten.
 - Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113), Site URL `https://admin.tb-infra.de`.
@@ -134,6 +139,11 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
 
+- **Sperrbildschirm iPhone (T-104c):** ein Link, der nach einem Hintergrundstart ankommt, geht verloren (der Start
+  landet ohnehin auf „Erfassen“) · das Plugin übernimmt `ios.version` nicht (heute ungenutzt) · Zeitüberschreitung und
+  TLS-Fehler gelten als „Noch nicht bestätigt“ statt „Nicht gesendet“ · `requestToContinueInForeground` ist in iOS 26
+  abgekündigt, am Gerät prüfen · nach der 8-Stunden-Grenze von iOS erst beim nächsten Öffnen wieder sichtbar ·
+  `@expo/plist` ist nur indirekt vorhanden (alle P3).
 - **Sperrbildschirm Android (T-104b):** ein 401 beim Ausstellen entfernt Stand und Meldung vor dem zweiten Versuch;
   scheitert dieser, fehlt die Meldung bis zum nächsten Öffnen (P2) · „Wird gesendet …“ bleibt nach Prozesstod bis zum
   Öffnen · „Wird übertragen …“ auch ohne tatsächliche Übertragung (abgelehntes Speichern, angehaltene Übertragung) ·
