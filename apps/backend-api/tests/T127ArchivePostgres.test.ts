@@ -30,7 +30,7 @@ let from: string, to: string, began: string, departed: string;
 const bulkPeople: string[] = [], bulkTargets: string[] = [];
 const duplicateTarget = randomUUID(), unboundTarget = randomUUID(), movedTarget = randomUUID(), reviewTarget = randomUUID();
 let oldRecord: string;
-let beforeFunctions: { proname: string }[];
+let beforeFunctions: { proname: string; args: string }[];
 const catalog = async () => (await db.query(`SELECT proname,pg_get_function_identity_arguments(oid) AS args,prosrc,proowner,prosecdef,proconfig,proacl::text
   FROM pg_proc WHERE pronamespace='taptime_server'::regnamespace ORDER BY proname,args`)).rows;
 async function asActor<T>(who: typeof admin, run: (c: PoolClient) => Promise<T>, role = 'taptime_membership_manager') {
@@ -245,7 +245,10 @@ current('T127 rechecks live grants and rejects stale cursors instead of authoriz
 current('T127 catalog is hardened and every predecessor function remains unchanged', async () => {
   const added = new Set(['read_archive_people_v1', 'read_archive_targets_v1', 'read_archive_status_v1', 'read_managed_active_summary_v6', 'read_managed_person_time_v2']);
   const after = await catalog();
-  expect(after.filter(r => !added.has(r.proname))).toEqual(beforeFunctions);
+  // Later migrations may add functions; every predecessor must still exist unchanged.
+  const identity = (row: { proname: string; args: string }) => JSON.stringify([row.proname, row.args]);
+  const predecessors = new Set(beforeFunctions.map(identity));
+  expect(after.filter(r => predecessors.has(identity(r)))).toEqual(beforeFunctions);
   expect(after.filter(r => added.has(r.proname)).map(r => r.proname).sort()).toEqual([...added].sort());
   const c = await db.connect();
   try {

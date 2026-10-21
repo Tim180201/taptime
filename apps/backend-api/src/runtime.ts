@@ -1,3 +1,4 @@
+import { LockScreenCoordinator } from './LockScreenCoordinator.js';
 import { OperatorCoordinator } from './OperatorCoordinator.js';
 import { AdministrationStopCoordinator, TimeSupplementCoordinator, TimeVoidCoordinator } from '@taptime/backend-time-review';
 import {
@@ -253,6 +254,7 @@ export function createBackendApiRuntime(
       timeVoid: new TimeVoidCoordinator(timeReviewWritePool, verifier),
       timeReview: new TimeReviewCoordinator(timeReviewReadPool, timeReviewWritePool, verifier),
       ...(manualLifecyclePool === undefined ? {} : {
+        lockScreen: new LockScreenCoordinator(manualLifecyclePool, verifier, lifecycleArchiveDurability),
         manualLifecycleIngestor: new ManualLifecycleIngestionCoordinator(
           manualLifecyclePool,
           verifier,

@@ -8,12 +8,13 @@ const checkTenantAccess = vi.fn(async () => { throw Object.assign(new Error('org
 const server = createBackendHttpServer({ checkTenantAccess } as unknown as BackendApiDependencies,
   { rateLimitClock: () => clock += 60_001 });
 afterAll(() => closeServer(server));
-it('returns the same transient pause response on every registered tenant route before dispatch', async () => {
+it('returns the same transient pause response on every registered JWT tenant route before dispatch', async () => {
   await listen(server); const address = server.address();
   if (!address || typeof address === 'string') throw new Error('No address');
   const outcomes: Record<string, unknown> = {};
   for (const [path, route] of Object.entries(BACKEND_HTTP_ROUTES)) {
-    if (route === 'health' || route.startsWith('operator_')) continue;
+    // Capability actions have no JWT: their transaction checks the key-bound organization.
+    if (route === 'health' || route === 'lock_screen_action' || route.startsWith('operator_')) continue;
     const method = route === 'session' || route === 'session_v2' ? 'GET' : 'POST';
     const response = await fetch(`http://127.0.0.1:${address.port}${path}`, { method,
       headers: { authorization: 'Bearer a.b.c', 'content-type': 'application/json' },

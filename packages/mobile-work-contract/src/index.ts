@@ -337,3 +337,5 @@ export * from './targetAssignments.js';
 export * from './quotaAlerts.js';
 
 export * from './archive.js';
+
+export * from './lockScreen.js';

@@ -47,7 +47,8 @@ export function TimeRecordControls({record,directStop=false,inline=false}:{recor
   </div> : null;
   return <div className="time-edit-controls">
     {!inline && details?.overlapsAnotherRecord?<p className="time-overlap">überschneidet sich</p>:null}
-    {details?.change || details?.administrationStop || details?.comment ? <details className="time-history"><summary>Verlauf</summary>
+    {details?.change || details?.administrationStop || details?.comment || details?.lockScreenActions?.length ? <details className="time-history"><summary>Verlauf</summary>
+    {details?.lockScreenActions?.map(event=><p key={event.workEventId}>{event.action==='pause'?'Pause begonnen':event.action==='resume'?'Pause beendet':'Zeit beendet'} · {formatZonedDateTime(event.at)} · vom Sperrbildschirm</p>)}
     {details?.change?<p className="verbatim-reason">{details.changed?'Geändert':details.origin==='backfilled'?'Nachgetragen':'Wiederhergestellt'} · {formatZonedDateTime(details.change.at)} · {details.change.actor==='self'?'selbst':'durch Verwaltung'}{['Selbst nachgetragen','Selbst geändert','Selbst beendet'].includes(details.change.reason)?'':`: ${details.change.reason}`}</p>:null}
     {details?.administrationStop?<p className="verbatim-reason">Von der Verwaltung beendet · {formatZonedDateTime(details.administrationStop.at)} · {details.administrationStop.reason==='Selbst beendet'?'selbst':details.administrationStop.reason}</p>:null}
     {details?.comment?<p className="verbatim-reason">Kommentar: {details.comment}</p>:null}

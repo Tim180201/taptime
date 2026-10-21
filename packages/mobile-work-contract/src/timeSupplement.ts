@@ -1,3 +1,4 @@
+import { isLockScreenHistory, type LockScreenHistoryEvent } from './lockScreen.js';
 import { hasVisibleText } from '@taptime/core';
 import { validateClosedPageRequest, validateWorkTargetResponse, type MobileWorkTargetQueryResponse, type SafeWorkTarget, validateOwnTimeResponse, type SafeOwnTimeRecord, type MobileOwnTimeQueryResponse } from './index.js';
 
@@ -5,6 +6,7 @@ import { validateClosedPageRequest, validateWorkTargetResponse, type MobileWorkT
 export const TIME_DETAILS_ACCEPT_V3 = 'application/vnd.taptime.time-details.v3+json';
 export const TIME_DETAILS_ACCEPT = 'application/vnd.taptime.time-details.v2+json';
 export interface TimeRecordDetails {
+  readonly lockScreenActions?: readonly LockScreenHistoryEvent[];
   readonly administrationStop?: { readonly at: string; readonly reason: string };
   readonly origin: 'nfc' | 'manual' | 'backfilled' | 'recovered';
   readonly baseRowVersion: number;
@@ -54,7 +56,9 @@ export function isCommentTimeRequest(v:unknown):v is CommentTimeRequest {
 }
 export function isTimeRecordDetails(v:unknown):v is TimeRecordDetails {
   return object(v) && keys(v,['origin','baseRowVersion','effectiveRevisionNumber','comment','changed','change','overlapsAnotherRecord',
-      ...(Object.hasOwn(v,'administrationStop')?['administrationStop']:[])])
+      ...(Object.hasOwn(v,'administrationStop')?['administrationStop']:[]),
+      ...(Object.hasOwn(v,'lockScreenActions')?['lockScreenActions']:[])])
+    && (!Object.hasOwn(v,'lockScreenActions') || isLockScreenHistory(v.lockScreenActions))
     && (!Object.hasOwn(v,'administrationStop') || (object(v.administrationStop) && keys(v.administrationStop,['at','reason'])
       && timestamp(v.administrationStop.at) && historicalReason(v.administrationStop.reason)))
     && ['nfc','manual','backfilled','recovered'].includes(String(v.origin))

@@ -60,7 +60,11 @@ export async function readManagedPerson(client: PoolClient, command: ManagedPers
   const withDetails=archive || command.includeTimeDetails, withCalendar=archive || command.includeCalendarBreaks;
   // Both STABLE readers share this statement's snapshot even under READ COMMITTED.
   // Never attach a newer correction version to older times.
-  const result=await client.query(archive ? 'SELECT * FROM taptime_server.read_managed_person_time_v2($1,$2,$3,$4,$5,$6)' : command.includeTimeDetails ? `
+  const result=await client.query(archive ? `WITH page AS MATERIALIZED (
+      SELECT * FROM taptime_server.read_managed_person_time_v2($1,$2,$3,$4,$5,$6) WITH ORDINALITY
+    ), history AS MATERIALIZED (
+      SELECT * FROM taptime_server.read_lock_screen_history_v1(ARRAY(SELECT time_record_id FROM page WHERE time_record_id IS NOT NULL))
+    ) SELECT page.*,history.events AS lock_screen_actions FROM page LEFT JOIN history USING(time_record_id) ORDER BY page.ordinality` : command.includeTimeDetails ? `
     WITH page AS MATERIALIZED (
       SELECT * FROM taptime_server.read_managed_person_time_v1($1,$2,$3,$4,$5,$6) WITH ORDINALITY
     ), details AS MATERIALIZED (
@@ -80,7 +84,7 @@ export async function readManagedPerson(client: PoolClient, command: ManagedPers
   const detailed=(row:QueryResultRow)=> {
     const base=record(row,withDetails);
     if (!withDetails) return base;
-    const details=row.details;
+    const details=archive && row.lock_screen_actions ? {...row.details,lockScreenActions:row.lock_screen_actions} : row.details;
     if (!details) throw new Error('Missing managed time details');
     return {...base,details,...(withCalendar ? {calendar:row.calendar} : {})};
   };

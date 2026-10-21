@@ -267,6 +267,7 @@ export interface NfcTagReassignmentPort {
 }
 
 export interface BackendApiDependencies {
+  readonly lockScreen?: Pick<import('./LockScreenCoordinator.js').LockScreenCoordinator, 'issue' | 'perform'>;
   readonly checkTenantAccess?: (accessToken: string) => Promise<void>;
   readonly operator?: Pick<import('./OperatorCoordinator.js').OperatorCoordinator,'execute'>;
   readonly administrationStop?: Pick<import('@taptime/backend-time-review').AdministrationStopCoordinator, 'execute'>;
@@ -293,6 +294,7 @@ export interface BackendApiDependencies {
 }
 
 export type BackendApiRoute =
+  | 'lock_screen_capability' | 'lock_screen_action'
   | 'admin_target_assignment_change'
   | 'admin_target_assignment_query'
   | 'customer_quota_alerts'
@@ -381,6 +383,7 @@ export type BackendApiRoute =
 
 export interface BackendApiDiagnostic {
   readonly code:
+    | 'lock_screen_failed'
     | 'operator_failed'
     | 'administration_failed'
     | 'account_invitation_provider_request'

@@ -246,61 +246,12 @@ export class ManualLifecycleIngestionCoordinator {
         'SELECT transaction_timestamp() AS occurred_at',
       );
       const occurredAt = occurredAtResult.rows[0]!.occurred_at.toISOString();
-      const base = {
-        id: WorkEventId(command.workEvent.id),
-        organizationId: OrganizationId(actor.organization_id),
-        triggeredBy: UserId(actor.user_id),
-        occurredAt: createTimestamp(occurredAt),
-        trigger: { type: 'manual' as const },
+      const canonicalCommand = isBreakCommand(command) ? command : {
+        ...command, workEvent: { id: command.workEvent.id, target: targetFromRow(target!) },
       };
-      const event: ManualEvent = isBreakCommand(command)
-        ? { ...base, subject: { type: 'break' } }
-        : {
-            ...base,
-            subject: { type: 'work' },
-            target: targetFromRow(target!),
-          };
-      const contentHash = isBreakWorkEvent(event)
-        ? breakWorkEventContentHashV3({
-            id: event.id,
-            organizationId: event.organizationId,
-            triggeredBy: event.triggeredBy,
-            occurredAt: event.occurredAt,
-            triggerType: 'manual',
-            assignmentId: null,
-            nfcTagId: null,
-          })
-        : workEventContentHashV2({
-            id: event.id,
-            organizationId: event.organizationId,
-            targetType: event.target.targetType,
-            targetId: event.target.targetId,
-            triggeredBy: event.triggeredBy,
-            occurredAt: event.occurredAt,
-            triggerType: 'manual',
-            assignmentId: null,
-            nfcTagId: null,
-          });
-
-      const active = await findActiveEntry(client, actor);
-      const activeBreak = await findActiveBreak(client, actor, active);
-      const previous = await findPreviousEvent(client, event);
-      await insertEvent(client, event, contentHash);
-      const decision = this.engine.evaluate(event, {
-        workLocationUnavailable: await workEventLocationUnavailable(client, event.organizationId, event.id),
-        administrationStoppedBeforeTrigger: (await client.query(
-          'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
-          [event.occurredAt],
-        )).rows[0]?.stopped === true,
-        activeTimeEntryForUser: active,
-        activeBreakIntervalForUser: activeBreak,
-        previousAcceptedWorkEventForUserAndTarget: previous,
-      });
-
-      await persistTimeEntry(client, decision);
-      await insertDecision(client, event, decision);
-      await insertReceipt(client, actor, command, event, decision);
-      await insertAudit(client, actor, command, event, decision);
+      const { event, decision } = await applyManualLifecycleEvent(
+        client, actor, canonicalCommand, this.engine, occurredAt,
+      );
       await client.query('COMMIT');
       transactionOpen = false;
 
@@ -345,6 +296,75 @@ export class ManualLifecycleIngestionCoordinator {
     if (!archive.offsiteArchived) throw new LifecycleArchivePendingError();
     return result;
   }
+}
+
+/** Execute inside the caller's actor lock and transaction; never opens/commits a transaction. */
+export async function applyManualLifecycleEvent(
+  client: PoolClient,
+  actor: ActorRow,
+  command: ManualCommand,
+  engine: BusinessEngine,
+  occurredAt: string,
+  lockScreenAction?: 'pause' | 'resume' | 'stop',
+): Promise<{ event: ManualEvent; decision: BusinessEngineDecision }> {
+  const base = {
+    id: WorkEventId(command.workEvent.id),
+    organizationId: OrganizationId(actor.organization_id),
+    triggeredBy: UserId(actor.user_id),
+    occurredAt: createTimestamp(occurredAt),
+    trigger: { type: 'manual' as const },
+  };
+  const event: ManualEvent = isBreakCommand(command)
+    ? { ...base, subject: { type: 'break' } }
+    : {
+        ...base,
+        subject: { type: 'work' },
+        target: command.workEvent.target,
+      };
+  const contentHash = isBreakWorkEvent(event)
+    ? breakWorkEventContentHashV3({
+        id: event.id,
+        organizationId: event.organizationId,
+        triggeredBy: event.triggeredBy,
+        occurredAt: event.occurredAt,
+        triggerType: 'manual',
+        assignmentId: null,
+        nfcTagId: null,
+      })
+    : workEventContentHashV2({
+        id: event.id,
+        organizationId: event.organizationId,
+        targetType: event.target.targetType,
+        targetId: event.target.targetId,
+        triggeredBy: event.triggeredBy,
+        occurredAt: event.occurredAt,
+        triggerType: 'manual',
+        assignmentId: null,
+        nfcTagId: null,
+      });
+
+  const active = await findActiveEntry(client, actor);
+  const activeBreak = await findActiveBreak(client, actor, active);
+  // State-checked commands have explicit intent and command-ID deduplication. The
+  // scan bounce window must not swallow a deliberate resume immediately after pause.
+  const previous = lockScreenAction === undefined ? await findPreviousEvent(client, event) : null;
+  await insertEvent(client, event, contentHash, lockScreenAction);
+  const decision = engine.evaluate(event, {
+    workLocationUnavailable: await workEventLocationUnavailable(client, event.organizationId, event.id),
+    administrationStoppedBeforeTrigger: (await client.query(
+      'SELECT taptime_server.was_stopped_by_administration_v1($1::timestamptz) AS stopped',
+      [event.occurredAt],
+    )).rows[0]?.stopped === true,
+    activeTimeEntryForUser: active,
+    activeBreakIntervalForUser: activeBreak,
+    previousAcceptedWorkEventForUserAndTarget: previous,
+  });
+
+  await persistTimeEntry(client, decision);
+  await insertDecision(client, event, decision);
+  await insertReceipt(client, actor, command, event, decision);
+  await insertAudit(client, actor, command, event, decision, lockScreenAction);
+  return { event, decision };
 }
 
 function validateCommand(command: ManualCommand): void {
@@ -647,14 +667,15 @@ async function insertEvent(
   client: PoolClient,
   event: ManualEvent,
   contentHash: string,
+  lockScreenAction?: 'pause' | 'resume' | 'stop',
 ): Promise<void> {
   const result = await client.query(
     `INSERT INTO taptime_server.work_events (
        id, organization_id, assignment_id, nfc_tag_id, target_type, target_customer_id,
        triggered_by_user_id, occurred_at, content_hash, content_hash_algorithm,
-       content_hash_version, trigger_type, subject_type
+       content_hash_version, trigger_type, subject_type${lockScreenAction === undefined ? '' : ', lock_screen_action'}
      ) VALUES ($1::uuid, $2::uuid, NULL, NULL, $3, $4::uuid, $5::uuid,
-       $6::timestamptz, $7, $8, $9, 'manual', $10)
+       $6::timestamptz, $7, $8, $9, 'manual', $10${lockScreenAction === undefined ? '' : ', $11'})
      ON CONFLICT DO NOTHING`,
     [
       event.id,
@@ -667,6 +688,7 @@ async function insertEvent(
       B3_CONTENT_HASH_ALGORITHM,
       isBreakWorkEvent(event) ? T012_CONTENT_HASH_VERSION : DA5_CONTENT_HASH_VERSION,
       isBreakWorkEvent(event) ? 'break' : 'work',
+      ...(lockScreenAction === undefined ? [] : [lockScreenAction]),
     ],
   );
   if (result.rowCount !== 1) throw new Error('Manual WorkEvent conflict');
@@ -818,6 +840,7 @@ async function insertAudit(
   command: ManualCommand,
   event: ManualEvent,
   decision: BusinessEngineDecision,
+  lockScreenAction?: 'pause' | 'resume' | 'stop',
 ): Promise<void> {
   await client.query(
     `INSERT INTO taptime_server.audit_events (
@@ -838,6 +861,7 @@ async function insertAudit(
         status: decision.status,
         triggerType: 'manual',
         subjectType: isBreakWorkEvent(event) ? 'break' : 'work',
+        ...(lockScreenAction === undefined ? {} : { lockScreenAction }),
       }),
     ],
   );

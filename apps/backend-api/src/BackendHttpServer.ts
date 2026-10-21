@@ -1,3 +1,4 @@
+import { isLockScreenCapability, isLockScreenCapabilityRequest, isLockScreenActionRequest, isLockScreenCapabilityResult, isLockScreenActionResult } from '@taptime/mobile-work-contract';
 import { parseArchiveRequest, type ArchiveKind } from '@taptime/mobile-work-contract';
 import { MANAGED_PEOPLE_ACCEPT_V6, parseSearchRequest, type SearchKind, type SearchReader } from '@taptime/mobile-work-contract';
 import { isTargetAssignmentChangeRequest, parseTargetAssignmentQuery, parseQuotaAlertsQuery } from '@taptime/mobile-work-contract';
@@ -96,6 +97,8 @@ import {
 // Shared registration for dispatch and request protection. Health alone bypasses the API budget.
 export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/health': 'health',
+  '/v1/lock-screen/capability': 'lock_screen_capability',
+  '/v1/lock-screen/action': 'lock_screen_action',
   '/v2/customers/hours/query': 'customer_hours_page',
   '/v2/customers/hours/detail': 'customer_hours_detail',
   '/v1/administration/target-assignments/change': 'admin_target_assignment_change',
@@ -422,6 +425,8 @@ async function handleRequest(
       || isOfflineRoute(route)
       || route === 'manual_lifecycle'
       || route === 'manual_break_lifecycle'
+      || route === 'lock_screen_capability'
+      || route === 'lock_screen_action'
       || route === 'administration_stop'
       || route === 'time_backfill'
       || route === 'time_comment'
@@ -461,7 +466,7 @@ async function handleRequest(
     return;
   }
 
-  const accessToken = bearerToken(request);
+  const accessToken = bearerToken(request, route === 'lock_screen_action');
   if (accessToken === null) {
     request.resume();
     respondError(response, 401, 'unauthorized');
@@ -474,7 +479,7 @@ async function handleRequest(
   }
   // Uniform gate also covers legacy routes that reject their payload before resolving authority.
   // Each operation still resolves/locks its own authority inside its database transaction.
-  if (!route.startsWith('operator_')) await dependencies.checkTenantAccess?.(accessToken);
+  if (!route.startsWith('operator_') && route !== 'lock_screen_action') await dependencies.checkTenantAccess?.(accessToken);
   if (route === 'session') {
     await handleSession(
       response,
@@ -515,6 +520,30 @@ async function handleRequest(
     if (!response.destroyed) {
       response.setHeader('Connection', 'close');
       respondError(response, 400, 'invalid_request');
+    }
+    return;
+  }
+
+  if (route === 'lock_screen_capability' || route === 'lock_screen_action') {
+    if (route === 'lock_screen_action' && !isLockScreenCapability(accessToken)) {
+      respondError(response, 401, 'unauthorized'); return;
+    }
+    if (!dependencies.lockScreen) { respondError(response, 503, 'service_unavailable'); return; }
+    if (route === 'lock_screen_capability') {
+      if (!isLockScreenCapabilityRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
+      const result = await withTimeout(dependencies.lockScreen.issue(accessToken, body), timeoutMilliseconds);
+      if (!isLockScreenCapabilityResult(result)) throw new Error('Invalid lock screen response');
+      if (result.status === 'unauthorized') respondError(response, 401, 'unauthorized');
+      else respondJson(response, 200, result);
+    } else {
+      if (!isLockScreenActionRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
+      const result = await withTimeout(dependencies.lockScreen.perform(accessToken, body), timeoutMilliseconds);
+      if (!isLockScreenActionResult(result)) throw new Error('Invalid lock screen response');
+      if (result.status === 'unauthorized') respondError(response, 401, 'unauthorized');
+      else if (result.status === 'command_id_conflict') respondError(response, 409, 'command_id_conflict');
+      else if (result.status === 'rate_limited') {
+        response.setHeader('Retry-After', String(result.retryAfterSeconds)); respondError(response, 429, 'rate_limited');
+      } else respondJson(response, 200, result);
     }
     return;
   }
@@ -3110,6 +3139,9 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'scan_context':
     case 'scan_context_v2':
       return 'scan_context_resolution_failed';
+    case 'lock_screen_capability':
+    case 'lock_screen_action':
+      return 'lock_screen_failed';
     case 'lifecycle':
     case 'deferred_lifecycle':
     case 'manual_lifecycle':
@@ -3249,7 +3281,7 @@ function requestHasBody(request: IncomingMessage): boolean {
     || (contentLengths.length === 1 && contentLengths[0] !== '0');
 }
 
-function bearerToken(request: IncomingMessage): string | null {
+function bearerToken(request: IncomingMessage, lockScreen = false): string | null {
   const values = rawHeaderValues(request, 'authorization');
   if (values.length !== 1) {
     return null;
@@ -3259,7 +3291,7 @@ function bearerToken(request: IncomingMessage): string | null {
     return null;
   }
   const match = /^Bearer ([^\s]+)$/i.exec(value);
-  if (match === null || !compactJwtPattern.test(match[1]!)) {
+  if (match === null || !(lockScreen ? isLockScreenCapability(match[1]) : compactJwtPattern.test(match[1]!))) {
     return null;
   }
   return match[1]!;
