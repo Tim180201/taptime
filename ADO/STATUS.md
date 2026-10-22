@@ -153,6 +153,9 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
 
+- **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliches Prune löscht künftig tausende WAL-Archive einzeln (B13).
+
+- **Lokale CI (T-132, P2):** der T-092-Offlinetest mischt Host- und Datenbankuhr; mit PostgreSQL in Colima trat ein ungültiges Zeitdelta auf. Uhrabweichung belegt; kompletter C2-Lauf mit PostgreSQL auf demselben Host grün, Details in `.t132-review/`.
 - **Sperrbildschirm iPhone (T-104c):** ein Link, der nach einem Hintergrundstart ankommt, geht verloren (der Start
   landet ohnehin auf „Erfassen“) · das Plugin übernimmt `ios.version` nicht (heute ungenutzt) · Zeitüberschreitung und
   TLS-Fehler gelten als „Noch nicht bestätigt“ statt „Nicht gesendet“ · `requestToContinueInForeground` ist in iOS 26

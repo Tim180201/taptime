@@ -8,6 +8,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/taptime-restore-verify"
 # The staging directory must stay visible to the EXIT trap after main() returns; a
 # function-local variable is already gone when that trap runs under `set -u`.
 stage=''
+backup_completed=0
 
 require_file() {
   if [[ ! -f "$1" ]]; then
@@ -119,6 +120,7 @@ write_status() {
     "$state" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$temporary"
   chmod 0644 "$temporary"
   mv "$temporary" "$STATUS_FILE"
+  [[ "$state" != ok ]] || backup_completed=1
   trap - RETURN
 }
 
@@ -126,7 +128,7 @@ write_status() {
 main() {
   readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
   readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
-  readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
+  readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/var/lib/taptime-backup}"
   local archive backup_label start_time start_wal_lsn start_wal_file switch_evidence
   local cluster_evidence cluster_system_identifier cluster_archive_identifier
   local migration_ledger version recorded_checksum source_file source_checksum
@@ -143,26 +145,40 @@ main() {
   : "${STATUS_FILE:?STATUS_FILE must be configured}"
   install -d -m 0755 "$(dirname "$STATUS_FILE")"
 
-  install -d -m 0700 "$STAGING_ROOT"
-  if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
-    printf '%s must be a tmpfs; refusing to create an unencrypted base backup on disk\n' \
-      "$STAGING_ROOT" >&2
-    exit 1
-  fi
-
+  cleanup() {
+    local result=$?
+    trap - EXIT
+    [[ -z "$stage" ]] || rm -rf -- "$stage"
+    if (( result != 0 && backup_completed == 0 )); then write_status failed || true; fi
+    exit "$result"
+  }
+  trap cleanup EXIT
+  trap 'exit 143' TERM
+  trap 'exit 130' INT
+  trap 'exit 129' HUP
+  prepare_backup_workspace
   exec 9>"$LOCK_FILE"
-  flock 9
+  bounded_borg_lock 9
+  clean_backup_workspace backup
 
-  export BORG_RSH
+  # pg_basebackup copies the whole cluster, including other databases and WAL.
+  local cluster_kib cluster_size
+  cluster_size="$(docker exec --user postgres "$DATABASE_CONTAINER" \
+    sh -ec 'du -sk "$PGDATA"')" || {
+    printf 'Could not measure PostgreSQL cluster size with du; backup aborted before payload writes.\n' >&2
+    return 1
+  }
+  read -r cluster_kib _ <<< "$cluster_size"
+  [[ "$cluster_kib" =~ ^[1-9][0-9]{0,11}$ ]] || {
+    printf 'PostgreSQL du measurement returned no valid size; backup aborted before payload writes.\n' >&2
+    return 1
+  }
+  check_backup_space "$((cluster_kib * 1024))" 0
+  bound_borg_ssh
   export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
   export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
   prepare_borg_cache "$STAGING_ROOT/borg-cache" "$STAGING_ROOT/borg-config"
-
   stage="$(mktemp -d "$STAGING_ROOT/backup.XXXXXX")"
-  cleanup() {
-    [[ -z "$stage" ]] || rm -rf -- "$stage"
-  }
-  trap cleanup EXIT
 
   cluster_evidence="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
     --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
@@ -179,7 +195,7 @@ main() {
   archive="base-$cluster_archive_identifier-$(date -u +%Y%m%dT%H%M%SZ)"
   mkdir -p "$stage/manifest"
 
-  printf 'Creating PostgreSQL physical base backup in tmpfs.\n'
+  printf 'Creating PostgreSQL physical base backup in protected disk workspace.\n'
   docker exec --user postgres "$DATABASE_CONTAINER" \
     pg_basebackup --dbname="dbname=$DATABASE_NAME" --format=tar --pgdata=- \
       --wal-method=fetch --checkpoint=fast --manifest-checksums=SHA256 \

@@ -3,6 +3,18 @@
 # shellcheck disable=SC2034
 set -euo pipefail
 
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+readonly REPO
+# Ownership fixtures run as root inside an isolated container, also on non-root CI.
+if [[ "$(id -u)" != 0 ]]; then
+  tar -C "$REPO" -cf - infrastructure/deploy infrastructure/backup \
+    infrastructure/monitoring/taptime-daily-monitor infrastructure/tests/taptime-deploy-hardening.test | \
+    docker run --rm --pull=never --interactive --network none --workdir /proof \
+      node:24.17.0-bookworm-slim \
+      bash -c 'tar -xf -; exec bash infrastructure/tests/taptime-deploy-hardening.test'
+  exit 0
+fi
+
 # Only synthetic files and commands. Never source the machine's backup configuration.
 TEST_ROOT="$(mktemp -d)"
 readonly TEST_ROOT
@@ -12,11 +24,12 @@ export TAPTIME_DEPLOY_VERSION_STATE_FILE="$TEST_ROOT/current"
 export TAPTIME_DEPLOY_OPERATIONS_VERSION_STATE_FILE="$TEST_ROOT/operations"
 export TAPTIME_DEPLOY_KNOWN_VERSIONS_FILE="$TEST_ROOT/known"
 export TAPTIME_DEPLOY_BACKUP_WAIT_SECONDS=2
-printf 'STATUS_FILE=%s/status\n' "$TEST_ROOT" > "$TEST_ROOT/config"
+printf 'STATUS_FILE=%s/status\nBORG_RSH="ssh -p 23"\n' "$TEST_ROOT" > "$TEST_ROOT/config"
+export TAPTIME_DEPLOY_DAILY_HEALTHCHECKS_CURL_CONFIG="$TEST_ROOT/daily-healthchecks.curl"
+printf 'synthetic, must not be read\n' > "$TAPTIME_DEPLOY_DAILY_HEALTHCHECKS_CURL_CONFIG"
+chmod 0600 "$TAPTIME_DEPLOY_DAILY_HEALTHCHECKS_CURL_CONFIG"
 printf 'aaaaaaa\n' > "$TEST_ROOT/current"
 printf 'bbbbbbb\n' > "$TEST_ROOT/operations"
-REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-readonly REPO
 export TAPTIME_DEPLOY_DAILY_MONITOR_COMMAND="$REPO/infrastructure/monitoring/taptime-daily-monitor"
 # shellcheck source=../deploy
 source "$REPO/infrastructure/deploy"
@@ -152,6 +165,7 @@ preflight_case() {
   # shellcheck disable=SC2317,SC2329
   systemctl() {
     case "$*" in
+      *restore-verify.service*ActiveState*) printf 'inactive\n';;
       *backup.service*ActiveState*) printf 'inactive\n';;
       *InactiveEnterTimestamp*) printf 'Tue 2026-09-22 10:00:00 UTC\n';;
       *Result*) if [[ "$scenario" == failed ]]; then printf 'exit-code\n'; else printf 'success\n'; fi;;
@@ -163,15 +177,28 @@ preflight_case() {
   # Invoked by preflight_deploy.
   # shellcheck disable=SC2317,SC2329
   df() {
-    printf 'Filesystem 1024-blocks Used Available Capacity Mounted\n'
+    printf '1B-blocks Used Available\n'
     if [[ "$scenario" == disk ]]; then
-      printf 'synthetic 100000 90000 10000 %s%% /\n' "$limit"
-    else printf 'synthetic 100000 20000 80000 20%% /\n'; fi
+      printf '100000 %s %s\n' "$((limit * 1000))" "$(((100 - limit) * 1000))"
+    else printf '100000 20000 80000\n'; fi
   }
-  if [[ "$scenario" == healthy ]]; then preflight_deploy
+  case "$scenario" in
+    missing) rm "$DAILY_HEALTHCHECKS_CURL_CONFIG";;
+    symlink) mv "$DAILY_HEALTHCHECKS_CURL_CONFIG" "$TEST_ROOT/real"; ln -s "$TEST_ROOT/real" "$DAILY_HEALTHCHECKS_CURL_CONFIG";;
+    mode) chmod 0644 "$DAILY_HEALTHCHECKS_CURL_CONFIG";;
+    owner) chown 123:0 "$DAILY_HEALTHCHECKS_CURL_CONFIG";;
+    group) chown 0:123 "$DAILY_HEALTHCHECKS_CURL_CONFIG";;
+    rsh) printf 'BORG_RSH="rsh -p 23"\n' >> "$BACKUP_CONFIG";;
+    absolute) printf 'BORG_RSH="/usr/bin/ssh -p 23"\n' >> "$BACKUP_CONFIG";;
+  esac
+  if [[ "$scenario" == healthy || "$scenario" == absolute ]]; then preflight_deploy
   elif preflight_deploy; then return 1; fi
 }
-for scenario in healthy failed stopped disk; do
+for scenario in healthy failed stopped disk missing symlink mode owner group rsh absolute; do
+  rm -f "$DAILY_HEALTHCHECKS_CURL_CONFIG" "$TEST_ROOT/real"
+  printf 'unread synthetic config\n' > "$DAILY_HEALTHCHECKS_CURL_CONFIG"
+  chmod 0600 "$DAILY_HEALTHCHECKS_CURL_CONFIG"
+  printf 'STATUS_FILE=%s/status\nBORG_RSH="ssh -p 23"\n' "$TEST_ROOT" > "$BACKUP_CONFIG"
   check "preflight $scenario (disk boundary comes from the monitor)" preflight_case "$scenario"
 done
 
@@ -216,6 +243,9 @@ controller_case() {
       case "$*" in
         'show taptime-backup.service --property=ActiveState --value')
           if [[ "$scenario" == wait_timeout ]]; then printf 'activating\n'; else printf 'inactive\n'; fi;;
+        'show taptime-restore-verify.service --property=ActiveState --value')
+          if [[ "$scenario" == restore_wait_timeout ]]; then printf 'activating\n'; else printf 'inactive\n'; fi;;
+        'show taptime-restore-verify.timer --property=ActiveState --value') printf 'active\n';;
         'show taptime-backup.timer --property=ActiveState --value') printf 'active\n';;
         'is-active --quiet taptime-backup.timer') return 0;;
         start*) [[ "$scenario" != timer_failure ]];;
@@ -320,15 +350,20 @@ controller_case() {
   if [[ "$scenario" == timer_failure ]] && grep -q 'Auslieferung abgeschlossen' "$TEST_ROOT/controller"; then
     cat "$TEST_ROOT/controller"; return 1
   fi
-  if [[ "$scenario" == preflight_failure || "$scenario" == wait_timeout ]] && grep -q '^pull$' "$TEST_ROOT/calls"; then
+  if [[ "$scenario" == preflight_failure || "$scenario" == wait_timeout || "$scenario" == restore_wait_timeout ]] && grep -q '^pull$' "$TEST_ROOT/calls"; then
     printf 'Preparation started despite a failed preflight or running backup.\n'; return 1
   fi
   [[ "$(head -n 2 "$TEST_ROOT/calls" | tail -n 1)" == 'stop taptime-backup.timer' ]] || {
     cat "$TEST_ROOT/controller" "$TEST_ROOT/calls"; return 1;
   }
   [[ "$(tail -n 1 "$TEST_ROOT/calls")" == 'start taptime-backup.timer' ]]
+  grep -Fxq 'stop taptime-restore-verify.timer' "$TEST_ROOT/calls"
+  grep -Fxq 'start taptime-restore-verify.timer' "$TEST_ROOT/calls"
+  if [[ "$scenario" == restore_wait_timeout ]]; then
+    grep -Fq 'taptime-restore-verify.service' "$TEST_ROOT/controller"
+  fi
 }
-for scenario in failure TERM INT HUP success timer_failure preflight_failure wait_timeout; do
+for scenario in failure TERM INT HUP success timer_failure preflight_failure wait_timeout restore_wait_timeout; do
   check "timer restored after $scenario; own base passed to restore" controller_case "$scenario"
 done
 

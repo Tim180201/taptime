@@ -1,0 +1,300 @@
+#!/usr/bin/env bash
+# Real root ownership, GNU stat/df, tar and flock in an isolated existing image.
+# Synthetic Borg implements documented 1.x list {size} / extract semantics.
+# Functions below are invoked indirectly by the sourced production entry points.
+# shellcheck disable=SC2317,SC2329,SC2016
+set -euo pipefail
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+if [[ "${T132_ROOT_PROOF:-}" != 1 ]]; then
+  tar -C "$REPO" -cf - infrastructure/backup infrastructure/deploy \
+    infrastructure/monitoring/taptime-daily-monitor infrastructure/tests/taptime-backup-workspace.test | \
+    docker run --rm --pull=never --interactive --network none --workdir /proof \
+      --env T132_ROOT_PROOF=1 node:24.17.0-bookworm-slim \
+      bash -c 'tar -xf -; exec bash infrastructure/tests/taptime-backup-workspace.test'
+  exit 0
+fi
+root="$(mktemp -d /proof/t132.XXXXXX)"
+trap 'rm -rf -- "$root"' EXIT
+export TAPTIME_BACKUP_STAGING_ROOT="$root/staging"
+export TAPTIME_BACKUP_DAILY_MONITOR_COMMAND="$REPO/infrastructure/monitoring/taptime-daily-monitor"
+export TAPTIME_BORG_LOCK_FILE="$root/borg.lock"
+export TAPTIME_BORG_LOCK_WAIT_SECONDS=1
+export TAPTIME_BACKUP_CONFIG="$root/config"
+# shellcheck source=../backup/taptime-backup-workspace
+source "$REPO/infrastructure/backup/taptime-backup-workspace"
+fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+reject() { if "$@" >"$root/rejected" 2>&1; then fail "accepted $*"; fi; }
+prepare_backup_workspace
+[[ "$(stat -c '%u:%g:%a' "$TAPTIME_BACKUP_STAGING_ROOT")" == 0:0:700 ]]
+chmod 0755 "$TAPTIME_BACKUP_STAGING_ROOT"
+reject prepare_backup_workspace
+[[ "$(stat -c %a "$TAPTIME_BACKUP_STAGING_ROOT")" == 755 ]]
+chmod 0700 "$TAPTIME_BACKUP_STAGING_ROOT"
+chown 123:0 "$TAPTIME_BACKUP_STAGING_ROOT"
+reject prepare_backup_workspace
+chown 0:0 "$TAPTIME_BACKUP_STAGING_ROOT"
+mv "$TAPTIME_BACKUP_STAGING_ROOT" "$root/real"
+ln -s "$root/real" "$TAPTIME_BACKUP_STAGING_ROOT"
+reject prepare_backup_workspace
+rm "$TAPTIME_BACKUP_STAGING_ROOT"
+mv "$root/real" "$TAPTIME_BACKUP_STAGING_ROOT"
+mkdir -m 0777 "$root/writable"
+reject env TAPTIME_BACKUP_STAGING_ROOT="$root/writable/staging" bash -c 'source "$1"; prepare_backup_workspace' sh "$REPO/infrastructure/backup/taptime-backup-workspace"
+[[ ! -e "$root/writable/staging" ]]
+ln -s "$root" "$root/linked"
+reject env TAPTIME_BACKUP_STAGING_ROOT="$root/linked/staging" bash -c 'source "$1"; prepare_backup_workspace' sh "$REPO/infrastructure/backup/taptime-backup-workspace"
+printf 'PASS workspace: root, mode, symlink and writable-parent rejection before writes.\n'
+
+mkdir "$root/migrations" "$root/input" "$root/manifest"
+printf 'SELECT 1;\n' > "$root/migrations/001_foundation.sql"
+(cd "$root/migrations"; sha256sum ./001_foundation.sql) > "$root/manifest/source-migration-checksums.tsv"
+printf 'START WAL LOCATION: 0/5000000 (file 000000010000000000000005)\nSTART TIME: 2026-10-22 10:00:00 UTC\n' > "$root/input/backup_label"
+: > "$root/input/backup_manifest"
+: > "$root/input/postgresql.auto.conf"
+tar -cf "$root/base.tar" -C "$root/input" .
+# Backup validates members with their exact pg_basebackup names (no ./ prefix).
+tar -cf "$root/base.tar" -C "$root/input" backup_label backup_manifest postgresql.auto.conf
+printf '0/5000000\n' > "$root/manifest/base-start-wal-lsn"
+printf '000000010000000000000005\n' > "$root/manifest/base-start-wal-file"
+printf '123\n' > "$root/manifest/cluster-system-identifier"
+printf '0123456789abcdef\n' > "$root/manifest/cluster-archive-identifier"
+printf 'synthetic\n' > "$root/passphrase"
+cat > "$root/config" <<CONFIG
+BORG_REPOSITORY='ssh://synthetic@offsite.invalid/repo'
+BORG_RSH='ssh -p 23'
+BORG_PASSPHRASE_FILE='$root/passphrase'
+DATABASE_CONTAINER=synthetic
+DATABASE_NAME=synthetic
+MIGRATIONS_DIRECTORY='$root/migrations'
+STATUS_FILE='$root/backup-status'
+RESTORE_STATUS_FILE='$root/restore-status'
+RESTORE_IMAGE=synthetic
+BASE_BACKUP_KEEP_HOURLY=1
+BASE_BACKUP_KEEP_DAILY=1
+BASE_BACKUP_KEEP_WEEKLY=1
+BASE_BACKUP_KEEP_MONTHLY=1
+RESTORE_RECOVERY_TIMEOUT_SECONDS=5
+RESTORE_RECOVERY_POLL_SECONDS=1
+CONFIG
+fixture_archive='base-0123456789abcdef-20261022T100000Z'
+fixture_wal='wal-0123456789abcdef-000000010000000000000005'
+export TAPTIME_RESTORE_BASE_ARCHIVE="$fixture_archive"
+export TAPTIME_RESTORE_REHEARSAL_ONLY=1
+
+# No network, no real database, no credentials. All payload writes are logged.
+docker() {
+  printf '%s\n' "$*" >> "$root/docker.calls"
+  case "$*" in
+    *'du -sk'*) [[ "${FAIL_DU:-0}" == 0 ]] || return 73; printf '128 synthetic\n';;
+    *pg_basebackup*)
+      touch "$root/backup-writing"
+      [[ "${SLOW_BACKUP:-0}" == 0 ]] || sleep 2
+      [[ "${FAIL_BACKUP:-0}" == 0 ]] || return 1
+      cat "$root/base.tar";;
+    *pg_control_system*) printf '123|0123456789abcdef\n';;
+    *schema_migrations*) printf '001|%s\n' "$(sha256sum "$root/migrations/001_foundation.sql" | cut -d ' ' -f 1)";;
+    *pg_switch_wal*) printf '0/5FFFFFF|000000010000000000000005\n';;
+    *pg_controldata*) printf 'Database system identifier: 123\n';;
+    inspect*) printf 'true\n';;
+    *psql*) printf 't\n';;
+    *) return 0;;
+  esac
+}
+borg() {
+  printf '%s\n' "$*" >> "$root/borg.calls"
+  case "$1" in
+    list)
+      if [[ "$*" == *'{size}'* ]]; then
+        if [[ "$*" == *'base.tar' ]]; then stat -c %s "$root/base.tar"; else printf '16\n'; fi
+      elif [[ "$*" == *'wal-'* ]]; then printf '%s\n' "$fixture_wal"
+      else printf '%s\n' "$fixture_archive"; fi;;
+    extract)
+      if [[ "${2:-}" == --stdout ]]; then cat "$root/manifest/${*: -1}" 2>/dev/null || cat "$root/${*: -1}"
+      elif [[ "$*" == *'base.tar manifest' ]]; then
+        touch "$root/restore-writing"
+        cp "$root/base.tar" .; cp -a "$root/manifest" .
+        [[ "${FAIL_RESTORE:-0}" == 0 ]]
+      else printf 'synthetic-wal!!!\n' > "${fixture_wal#wal-0123456789abcdef-}"; fi;;
+    create|check) return 0;;
+    *) fail "unexpected Borg operation: $*";;
+  esac
+}
+run_job() (
+  set -e
+  # shellcheck disable=SC1090
+  source "$REPO/infrastructure/backup/taptime-$1"
+  validate_offsite_borg_repository() { :; }
+  prepare_borg_cache() { :; }
+  run_backup_retention() { [[ "${INTERRUPT_RETENTION:-0}" == 0 ]] || kill -TERM "$BASHPID"; }
+  refresh_archive_counts() { :; }
+  check_restored_migrations() { :; }
+  check_restored_rls() { :; }
+  validate_wal_chain() { printf '000000010000000000000005\n'; }
+  latest_wal_record_lsn() { printf '0/5000000\n'; }
+  main
+)
+# Capacity is based on actual source sizes, before any base/WAL payload is written.
+df() { printf '1B-blocks Used Available\n1000 790 210\n'; }
+set +e
+run_job backup > "$root/full-backup.log" 2>&1; backup_status=$?
+run_job restore-verify > "$root/full-restore.log" 2>&1; restore_status=$?
+set -e
+(( backup_status != 0 && restore_status != 0 )) || fail 'disk-full accepted'
+[[ ! -e "$root/backup-writing" && ! -e "$root/restore-writing" ]]
+grep -q '"state":"failed"' "$root/backup-status"
+grep -q '"state":"failed"' "$root/restore-status"
+[[ -z "$(find "$TAPTIME_BACKUP_STAGING_ROOT" -mindepth 1 -print -quit)" ]]
+unset -f df
+printf 'PASS capacity: both entry points fail before payload writes and persist failure.\n'
+set +e
+FAIL_DU=1 run_job backup > "$root/du-failed.log" 2>&1; result=$?
+set -e
+(( result != 0 ))
+grep -q 'Could not measure PostgreSQL cluster size' "$root/du-failed.log"
+grep -q '"state":"failed"' "$root/backup-status"
+[[ ! -e "$root/backup-writing" ]]
+set +e
+INTERRUPT_RETENTION=1 run_job backup > "$root/retention-interrupted.log" 2>&1; result=$?
+set -e
+(( result == 143 ))
+grep -q '"state":"ok"' "$root/backup-status"
+[[ -z "$(find "$TAPTIME_BACKUP_STAGING_ROOT" -name 'backup.*' -print -quit)" ]]
+printf 'PASS backup: du failure is clear; TERM during retention preserves completed backup status.\n'
+
+
+mkdir "$TAPTIME_BACKUP_STAGING_ROOT/backup.crashed" "$TAPTIME_BACKUP_STAGING_ROOT/restore.other" "$TAPTIME_BACKUP_STAGING_ROOT/deploy-hook.other"
+touch "$root/untouched"
+ln -s "$root/untouched" "$TAPTIME_BACKUP_STAGING_ROOT/backup.link"
+set +e
+FAIL_BACKUP=1 run_job backup > "$root/failure-backup.log" 2>&1; result=$?
+set -e
+(( result != 0 ))
+[[ ! -e "$TAPTIME_BACKUP_STAGING_ROOT/backup.crashed" && ! -L "$TAPTIME_BACKUP_STAGING_ROOT/backup.link" && -f "$root/untouched" ]]
+[[ -d "$TAPTIME_BACKUP_STAGING_ROOT/restore.other" && -d "$TAPTIME_BACKUP_STAGING_ROOT/deploy-hook.other" ]]
+[[ -z "$(find "$TAPTIME_BACKUP_STAGING_ROOT" -name 'backup.*' -print -quit)" ]]
+set +e
+FAIL_RESTORE=1 run_job restore-verify > "$root/failure-restore.log" 2>&1; result=$?
+set -e
+(( result != 0 ))
+grep -q '"state":"failed"' "$root/restore-status"
+[[ -z "$(find "$TAPTIME_BACKUP_STAGING_ROOT" -name 'restore.*' -print -quit)" ]]
+[[ -d "$TAPTIME_BACKUP_STAGING_ROOT/deploy-hook.other" ]]
+printf 'PASS cleanup: failure and crashed remnants, own prefix only, no symlink following.\n'
+
+rm -f "$root/backup-writing"
+SLOW_BACKUP=1 run_job backup > "$root/concurrent-backup.log" 2>&1 & backup_pid=$!
+for _ in $(seq 1 100); do [[ ! -e "$root/backup-writing" ]] || break; sleep 0.02; done
+[[ -e "$root/backup-writing" ]]
+TAPTIME_BORG_LOCK_WAIT_SECONDS=5 run_job restore-verify > "$root/concurrent-restore.log" 2>&1 & restore_pid=$!
+sleep 0.1
+[[ -n "$(find "$TAPTIME_BACKUP_STAGING_ROOT" -name 'backup.*' -print -quit)" ]]
+wait "$backup_pid" || { cat "$root/concurrent-backup.log"; fail backup; }
+wait "$restore_pid" || { cat "$root/concurrent-restore.log"; fail restore; }
+grep -q '"state":"ok"' "$root/backup-status"
+grep -q '"state":"ok"' "$root/restore-status"
+printf 'PASS concurrency: real flock serializes payloads and the waiting probe survives backup exit.\n'
+
+# Durable Borg security state survives a cache migration and conflicting state is refused.
+source "$REPO/infrastructure/backup/taptime-restore-verify"
+export TAPTIME_BORG_DIRECTORY="$root/cache" TAPTIME_BORG_STATE_DIRECTORY="$root/state"
+mkdir -p "$root/cache/config/security/repository" "$root/legacy/config"
+printf 'nonce-state\n' > "$root/cache/config/security/repository/nonce"
+prepare_borg_cache "$root/legacy/cache" "$root/legacy/config"
+[[ "$(cat "$root/state/config/security/repository/nonce")" == nonce-state ]]
+[[ "$BORG_CONFIG_DIR" == "$root/state/config" && "$BORG_SECURITY_DIR" == "$root/state/config/security" ]]
+mkdir -p "$root/cache/config/security/repository"
+printf 'different\n' > "$root/cache/config/security/repository/nonce"
+reject prepare_borg_cache "$root/legacy/cache" "$root/legacy/config"
+[[ "$(cat "$root/cache/config/security/repository/nonce")" == different ]]
+printf 'PASS Borg state: nonce preserved outside cache, conflicting copies retained.\n'
+
+# Deploy prepares its hook in the same disk root and removes only its own remnants.
+# The old controller test also drives the actual migration-hook/rehearsal chain.
+export TAPTIME_DEPLOY_BACKUP_CONFIG="$root/config"
+export TAPTIME_DEPLOY_DAILY_MONITOR_COMMAND="$TAPTIME_BACKUP_DAILY_MONITOR_COMMAND"
+export TAPTIME_BACKUP_WORKSPACE_LIBRARY="$REPO/infrastructure/backup/taptime-backup-workspace"
+export TAPTIME_DEPLOY_RESTORE_VERIFY_COMMAND="$root/restore-command"
+cat > "$root/restore-command" <<'RUNNER'
+#!/usr/bin/env bash
+[[ "$PATH" == "$TAPTIME_BACKUP_STAGING_ROOT"/deploy-hook.* ]] || exit 1
+touch "${TAPTIME_BACKUP_STAGING_ROOT%/*}/deploy-verifier-started"
+printf 'failed\n' > "$TAPTIME_HOOK_STATUS"
+exit 1
+RUNNER
+chmod 0700 "$root/restore-command"
+df() { printf '1B-blocks Used Available\n1000 800 200\n'; }
+(
+  source "$REPO/infrastructure/deploy"
+  set +e
+  run_restore_verification synthetic 1 "$fixture_archive" > "$root/deploy-full.log" 2>&1
+  result=$?
+  (( result != 0 )) || exit 1
+)
+[[ ! -e "$root/deploy-verifier-started" ]]
+grep -q '"state":"failed"' "$root/restore-status"
+unset -f df
+printf 'PASS deploy capacity: early disk abort persists failure before invoking verifier.\n'
+(
+  source "$REPO/infrastructure/deploy"
+  set +e
+  run_restore_verification synthetic 1 "$fixture_archive" > "$root/deploy.log" 2>&1
+  result=$?
+  (( result != 0 )) || exit 1
+)
+[[ -z "$(find "$TAPTIME_BACKUP_STAGING_ROOT" -name 'deploy-hook.*' -print -quit)" ]]
+printf 'PASS deploy: hook uses guarded disk root and cleans up on verifier failure.\n'
+
+# A fresh verifier result is authoritative even when its migration hook fails.
+for verifier_state in ok failed unchanged; do
+  cat > "$root/restore-command" <<'RUNNER'
+#!/usr/bin/env bash
+if [[ "$VERIFIER_STATE" != unchanged ]]; then
+  printf '{"state":"%s","last_attempt_at_utc":"2026-10-22T18:00:00Z","proof":"verifier"}\n' "$VERIFIER_STATE" > "$VERIFIER_STATUS"
+fi
+printf 'failed 5\n' > "$TAPTIME_HOOK_STATUS"
+exit 0
+RUNNER
+  printf '{"state":"ok","proof":"stale"}\n' > "$root/restore-status"
+  (
+    source "$REPO/infrastructure/deploy"
+    set +e
+    VERIFIER_STATE="$verifier_state" VERIFIER_STATUS="$root/restore-status" run_restore_verification synthetic 1 "$fixture_archive" > "$root/deploy-status-$verifier_state.log" 2>&1
+    result=$?
+    (( result != 0 )) || exit 1
+  )
+  if [[ "$verifier_state" == unchanged ]]; then
+    grep -q '"state":"failed"' "$root/restore-status"
+    if grep -q stale "$root/restore-status"; then fail 'stale verifier status preserved'; fi
+  else
+    grep -q '"proof":"verifier"' "$root/restore-status"
+    grep -q "\"state\":\"$verifier_state\"" "$root/restore-status"
+  fi
+done
+printf 'PASS deploy: preserves fresh verifier status on migration failure; stale status becomes failed.\n'
+
+# Both preflight and workspace must reject the same disk boundary, including
+# the one-byte reserve and df's ceil-percent behavior (no 80/79 gap).
+(
+  export TAPTIME_DEPLOY_DAILY_HEALTHCHECKS_CURL_CONFIG="$root/daily-healthchecks.curl"
+  : > "$TAPTIME_DEPLOY_DAILY_HEALTHCHECKS_CURL_CONFIG"
+  chmod 0600 "$TAPTIME_DEPLOY_DAILY_HEALTHCHECKS_CURL_CONFIG"
+  source "$REPO/infrastructure/deploy"
+  systemctl() {
+    case "$*" in
+      *backup.service*ActiveState*|*restore-verify.service*ActiveState*) printf 'inactive\n';;
+      *InactiveEnterTimestamp*) printf 'synthetic previous end\n';;
+      *Result*) printf 'success\n';;
+      *ExecMainStatus*) printf '0\n';;
+      *ActiveState*) printf 'active\n';;
+      *) return 1;;
+    esac
+  }
+  limit="$(sed -n 's/^readonly DISK_USAGE_THRESHOLD_PERCENT=//p' "$TAPTIME_BACKUP_DAILY_MONITOR_COMMAND")"
+  for used in "$(((limit - 1) * 1000 - 2))" "$(((limit - 1) * 1000 - 1))" "$(((limit - 1) * 1000))" "$((limit * 1000))"; do
+    df() { printf '1B-blocks Used Available\n100000 %s %s\n' "$used" "$((100000 - used))"; }
+    workspace_result=0; check_backup_space 0 0 > "$root/disk-workspace" 2>&1 || workspace_result=$?
+    deploy_result=0; preflight_deploy > "$root/disk-deploy" 2>&1 || deploy_result=$?
+    [[ "$workspace_result" == "$deploy_result" ]] || fail "disk predicate mismatch at $used"
+  done
+)
+printf 'PASS deploy: preflight and workspace share the exact derived disk boundary.\n'

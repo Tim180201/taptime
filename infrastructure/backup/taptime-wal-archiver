@@ -7,6 +7,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/taptime-restore-verify"
 
 readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
+# Exceeds the longest oneshot's start + stop timeout, including cleanup reserve.
+# A condition test keeps this in step with both units rather than the 600s callers.
+readonly ARCHIVER_BORG_LOCK_WAIT_SECONDS=7200
 CLUSTER_SYSTEM_IDENTIFIER=''
 CLUSTER_ARCHIVE_IDENTIFIER=''
 uploaded_segments=0
@@ -559,7 +562,7 @@ archive_once() {
 
   set_cycle_phase lock
   exec 9>"$LOCK_FILE"
-  flock 9
+  bounded_borg_lock 9 "$ARCHIVER_BORG_LOCK_WAIT_SECONDS"
   prepare_borg_cache "$WAL_ARCHIVE_CACHE_DIRECTORY/cache" "$WAL_ARCHIVE_CACHE_DIRECTORY/config"
   set_cycle_phase database
   [[ "$(receiver_is_active)" == 't' ]] || {
@@ -736,7 +739,7 @@ main() {
     return 1
   fi
 
-  export BORG_RSH
+  bound_borg_ssh
   export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
   export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
   install -d -m 0700 "$WAL_ARCHIVE_CACHE_DIRECTORY"

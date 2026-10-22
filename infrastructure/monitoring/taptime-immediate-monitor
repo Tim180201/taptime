@@ -11,6 +11,7 @@ readonly API_DOWN_STATE="$STATE_DIRECTORY/api-down"
 readonly WAL_ARCHIVE_DOWN_STATE="$STATE_DIRECTORY/wal-archive-down"
 # Includes the oneshot's wait for Borg; learned only from an inactive service.
 BACKUP_PAUSE_MAX_SECONDS=600
+readonly BACKUP_PAUSE_CEILING_SECONDS=3300
 # Fixed ceiling after cycle start or the latest backup/verification end.
 # Never renewed by a phase change or monitor run.
 readonly WAL_ARCHIVE_CYCLE_MAX_SECONDS=600
@@ -39,7 +40,7 @@ load_backup_pause_limit() {
   BACKUP_PAUSE_MAX_SECONDS=600
   if [[ "$duration" =~ ^[1-9][0-9]{0,11}$ ]]; then
     # Clamp before multiplying, including unusually long completed runs.
-    if (( duration >= 1650 )); then BACKUP_PAUSE_MAX_SECONDS=3300
+    if (( duration >= BACKUP_PAUSE_CEILING_SECONDS / 2 )); then BACKUP_PAUSE_MAX_SECONDS=$BACKUP_PAUSE_CEILING_SECONDS
     elif (( duration > 300 )); then BACKUP_PAUSE_MAX_SECONDS=$((duration * 2)); fi
   fi
   write_monitor_state backup-pause-max-seconds "$BACKUP_PAUSE_MAX_SECONDS"

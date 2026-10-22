@@ -358,7 +358,7 @@ for interval in 60 61 1; do
       : > "$root/spool/000000010000000000000001"
       cat > "$CONFIG_FILE" <<CONFIG
 BORG_REPOSITORY='ssh://synthetic@offsite.invalid/./repository'
-BORG_RSH='synthetic'
+BORG_RSH='ssh synthetic'
 BORG_PASSPHRASE_FILE='$root/passphrase'
 DATABASE_CONTAINER='synthetic'
 DATABASE_NAME='synthetic'

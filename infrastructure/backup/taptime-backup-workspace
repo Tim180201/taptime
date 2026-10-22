@@ -1,0 +1,104 @@
+#!/usr/bin/env bash
+# Shared by backup, restore and the deploy controller. No work on source.
+
+backup_workspace_root() {
+  printf '%s\n' "${TAPTIME_BACKUP_STAGING_ROOT:-/var/lib/taptime-backup}"
+}
+
+# Check every component before creating anything. Never repair an unsafe existing
+# directory silently, and never follow a symlink (including in a parent).
+check_backup_workspace_path() {
+  local path="$1" component='/' part owner mode
+  [[ "$path" == /* && "$path" != / && "$path" != */ && "$path" != *'//'* ]] || return 1
+  local -a parts
+  IFS=/ read -r -a parts <<< "${path#/}"
+  for part in "${parts[@]}"; do
+    [[ "$part" != . && "$part" != .. && -n "$part" ]] || return 1
+    [[ ! -L "$component" && -d "$component" ]] || return 1
+    read -r owner mode < <(stat -c '%u %a' "$component")
+    [[ "$owner" == 0 && "$mode" =~ ^[0-7]{3,4}$ ]] || return 1
+    (( (8#$mode & 0022) == 0 )) || return 1
+    component="${component%/}/$part"
+  done
+  [[ ! -L "$path" ]] || return 1
+  if [[ -e "$path" ]]; then
+    [[ -d "$path" && "$(stat -c '%u:%g:%a' "$path")" == 0:0:700 ]] || return 1
+  fi
+}
+
+prepare_backup_workspace() {
+  local root
+  root="$(backup_workspace_root)"
+  check_backup_workspace_path "$root" || {
+    printf 'Unsafe backup workspace: require root:root 0700, no symlink or writable parent.\n' >&2
+    return 1
+  }
+  # The path is on the root filesystem, not the old RAM-backed /run.
+  [[ "$(stat -c %d "$(dirname "$root")")" == "$(stat -c %d /)" ]] || {
+    printf 'Backup workspace must be on the root filesystem.\n' >&2; return 1;
+  }
+  if [[ ! -d "$root" ]]; then install -d -o 0 -g 0 -m 0700 "$root" || return 1; fi
+  [[ "$(stat -c %d "$root")" == "$(stat -c %d /)" ]] || return 1
+}
+
+# Caller holds its lock for the entire lifetime: shared Borg lock for backup and
+# restore; deploy lock for deploy-hook. Never touches another kind of job.
+clean_backup_workspace() {
+  local prefix="$1" root entry
+  case "$prefix" in backup|restore|deploy-hook) ;; *) return 1;; esac
+  root="$(backup_workspace_root)"
+  check_backup_workspace_path "$root" || return 1
+  for entry in "$root/$prefix."*; do
+    [[ -e "$entry" || -L "$entry" ]] || continue
+    rm -rf --one-file-system -- "$entry" || return 1
+  done
+}
+
+check_backup_space() {
+  local base_bytes="$1" wal_bytes="$2" extra_bytes="${3:-0}" root monitor threshold
+  local total used available required usable
+  for required in "$base_bytes" "$wal_bytes" "$extra_bytes"; do
+    [[ "$required" =~ ^[0-9]{1,15}$ ]] || return 1
+  done
+  root="$(backup_workspace_root)"
+  monitor="${TAPTIME_BACKUP_DAILY_MONITOR_COMMAND:-/usr/local/sbin/taptime-daily-monitor}"
+  threshold="$(sed -n 's/^readonly DISK_USAGE_THRESHOLD_PERCENT=\([0-9][0-9]*\)$/\1/p' "$monitor")" || return 1
+  [[ "$threshold" =~ ^[1-9][0-9]?$ ]] || return 1
+  read -r total used available < <(df -B1 --output=size,used,avail "$root" | tail -n 1)
+  [[ "$total" =~ ^[1-9][0-9]{0,15}$ && "$used" =~ ^[0-9]{1,15}$ && "$available" =~ ^[0-9]{1,15}$ ]] || return 1
+  # Archive + unpacked base + selected WAL; another WAL copy during recovery,
+  # and a third base for materialization, are supplied by the caller. Reserve 20%.
+  required=$(( (2 * base_bytes + wal_bytes + extra_bytes) * 6 / 5 + 1 ))
+  usable=$((used + available))
+  printf 'Backup space: need %s bytes including reserve; available %s; alarm at %s%%.\n' \
+    "$required" "$available" "$threshold"
+  # df rounds usage up and excludes reserved blocks. Stay below that same alarm.
+  (( required <= available && (used + required) * 100 <= (threshold - 1) * usable )) || {
+    printf 'Insufficient backup workspace: projected disk usage reaches the daily monitor alarm.\n' >&2
+    return 1
+  }
+}
+
+borg_lock_wait_seconds() {
+  printf '%s\n' "${TAPTIME_BORG_LOCK_WAIT_SECONDS:-600}"
+}
+
+bounded_borg_lock() {
+  local fd="$1" seconds="${2:-$(borg_lock_wait_seconds)}"
+  [[ "$seconds" =~ ^[1-9][0-9]{0,4}$ ]] || return 1
+  flock -w "$seconds" "$fd" || {
+    printf 'Borg lock wait exceeded %s seconds.\n' "$seconds" >&2; return 1;
+  }
+}
+
+bound_borg_ssh() {
+  # OpenSSH takes the first value: place bounds before the existing -o options.
+  local command="${BORG_RSH:-}" executable options=''
+  executable="${command%% *}"
+  [[ "$command" == 'ssh '* || ( "$executable" == /* && "$executable" == */ssh ) ]] || {
+    printf 'BORG_RSH must begin with ssh or an absolute path ending in /ssh, followed by options.\n' >&2
+    return 1
+  }
+  [[ "$command" != *' '* ]] || options=" ${command#* }"
+  export BORG_RSH="$executable -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=4$options"
+}

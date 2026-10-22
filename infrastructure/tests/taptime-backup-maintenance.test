@@ -20,6 +20,8 @@ export TAPTIME_BACKUP_CONFIG="$root/config"
 export TAPTIME_BORG_LOCK_FILE="$root/lock"
 export TAPTIME_BACKUP_STAGING_ROOT="$root/staging"
 export TAPTIME_BORG_DIRECTORY="$root/shared"
+export TAPTIME_BORG_STATE_DIRECTORY="$root/borg-state"
+export TAPTIME_BACKUP_DAILY_MONITOR_COMMAND="$REPO/infrastructure/monitoring/taptime-daily-monitor"
 export TAPTIME_BACKUP_STATE_DIRECTORY="$root/state"
 mkdir -p "$root/migrations" "$root/input/manifest" "$root/archives" "$root/state" \
   "$root/staging/borg-cache" "$root/staging/borg-config"
@@ -34,7 +36,7 @@ tar -cf "$root/base.tar" -C "$root/input" backup_label backup_manifest
 cat > "$root/config" <<CONFIG
 BORG_REPOSITORY='ssh://synthetic@offsite.invalid/repo'
 BORG_PASSPHRASE_FILE='$root/passphrase'
-BORG_RSH='fixture'
+BORG_RSH='ssh fixture'
 DATABASE_CONTAINER='fixture'
 DATABASE_NAME='fixture'
 MIGRATIONS_DIRECTORY='$root/migrations'
@@ -59,15 +61,18 @@ source "$REPO/infrastructure/backup/taptime-backup"
 # exercises the unchanged real helper, including actual UID 0 and filesystem modes.
 if [[ "${T083_CASE:-}" != cache ]]; then
   prepare_borg_cache() {
-    export BORG_CACHE_DIR="$root/shared/cache" BORG_CONFIG_DIR="$root/shared/config"
+    export BORG_CACHE_DIR="$root/shared/cache" BORG_CONFIG_DIR="$root/borg-state/config"
     install -d -m 0700 "$BORG_CACHE_DIR" "$BORG_CONFIG_DIR"
   }
 fi
 validate_offsite_borg_repository() { :; }
-findmnt() { printf 'tmpfs\n'; }
+# This suite isolates retention; T-132 separately exercises the real root guard.
+prepare_backup_workspace() { chmod 0700 "$TAPTIME_BACKUP_STAGING_ROOT"; }
+check_backup_workspace_path() { :; }
+check_backup_space() { :; }
 fixture_registered=1
 fake_failure=''
-fixture_now="$(date -d '2026-09-25T12:00:00Z' +%s)"
+fixture_now="$(command date -d '2026-09-25T12:00:00Z' +%s)"
 sequence=0
 date() {
   case "$*" in
@@ -78,6 +83,7 @@ date() {
 }
 docker() {
   case "$*" in
+    *'du -sk'*) printf '128 fixture\n';;
     *pg_basebackup*) cat "$root/base.tar";;
     *pg_control_system*) printf '81985529216486895|%s\n' "$cluster";;
     *schema_migrations*) printf '001|%s\n' "$(sha256sum "$root/migrations/001_foundation.sql" | cut -d ' ' -f 1)";;
@@ -98,7 +104,7 @@ borg() {
   if [[ "${1:-}" == '--glob-archives' ]]; then pattern="$2"; fi
   for arg in "$@"; do [[ "$arg" != *'::'* ]] || target="${arg##*::}"; done
   if [[ "${T083_CASE:-}" == cache ]]; then
-    [[ "$BORG_CACHE_DIR" == "$root/shared/cache" && "$BORG_CONFIG_DIR" == "$root/shared/config" ]] || {
+    [[ "$BORG_CACHE_DIR" == "$root/shared/cache" && "$BORG_CONFIG_DIR" == "$root/borg-state/config" ]] || {
       printf 'Borg is not using the shared cache/config\n' >&2; return 1;
     }
   fi
@@ -138,7 +144,7 @@ run_backup() {
 run_backup
 if [[ "${T083_CASE:-}" == cache ]]; then
   [[ ! -e "$root/staging/borg-cache" && ! -e "$root/staging/borg-config" ]]
-  for directory in "$root/shared" "$root/shared/cache" "$root/shared/config"; do
+  for directory in "$root/shared" "$root/shared/cache" "$root/borg-state" "$root/borg-state/config"; do
     [[ "$(stat -c '%a:%u' "$directory")" == 700:0 ]]
   done
   # The systemd sandbox must expose the shared cache on each installed service.

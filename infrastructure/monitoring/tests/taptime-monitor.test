@@ -5,6 +5,18 @@ REPOSITORY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 readonly REPOSITORY_ROOT
 readonly IMMEDIATE_MONITOR="${TAPTIME_TEST_MONITOR:-$REPOSITORY_ROOT/infrastructure/monitoring/taptime-immediate-monitor}"
 readonly DAILY_MONITOR="$REPOSITORY_ROOT/infrastructure/monitoring/taptime-daily-monitor"
+# Use the same isolated root fixture from an ordinary CI runner or developer shell.
+if [[ "$(id -u)" != 0 ]]; then
+  tar -C "$REPOSITORY_ROOT" -cf - infrastructure/backup \
+    infrastructure/docker-compose.server.yml infrastructure/docker-compose.local.yml \
+    infrastructure/monitoring/taptime-immediate-monitor.service \
+    infrastructure/monitoring/taptime-daily-monitor infrastructure/monitoring/tests/taptime-monitor.test | \
+    docker run --rm --pull=never --interactive --network none --workdir /proof \
+      --volume "$IMMEDIATE_MONITOR:/proof/monitor-under-test:ro" \
+      --env TAPTIME_TEST_MONITOR=/proof/monitor-under-test node:24.17.0-bookworm-slim \
+      bash -c 'tar -xf -; exec bash infrastructure/monitoring/tests/taptime-monitor.test'
+  exit 0
+fi
 test_root="$(mktemp -d)"
 trap 'rm -rf "$test_root"' EXIT
 
@@ -63,6 +75,10 @@ if [[ "$arguments" == *'/ntfy.curl '* ]]; then
   fi
   exit "${FAKE_NTFY_EXIT_STATUS:-0}"
 fi
+if [[ "$arguments" == *'/daily-healthchecks.curl '* ]]; then
+  printf 'daily heartbeat\n' >> "$FAKE_DAILY_HEARTBEAT_LOG"
+  exit "${FAKE_DAILY_HEARTBEAT_EXIT_STATUS:-0}"
+fi
 if [[ "$arguments" == *'/healthchecks.curl '* ]]; then
   printf 'heartbeat\n' >> "$FAKE_HEARTBEAT_LOG"
 fi
@@ -112,6 +128,8 @@ EOF_NTFY
 cat > "$test_root/config/healthchecks.curl" <<'EOF_HEALTHCHECKS'
 url = "https://hc-ping.com/00000000-0000-4000-8000-test-only-secret"
 EOF_HEALTHCHECKS
+cp "$test_root/config/healthchecks.curl" "$test_root/config/daily-healthchecks.curl"
+chmod 0600 "$test_root/config/daily-healthchecks.curl"
 chmod 0600 "$test_root/config/ntfy.curl" "$test_root/config/healthchecks.curl"
 
 readonly BACKUP_STATUS="$test_root/backup-status.json"
@@ -135,6 +153,8 @@ export TAPTIME_API_HEALTH_URL='https://api.test/health'
 export TAPTIME_BACKUP_CONFIG="$BACKUP_CONFIG"
 export FAKE_CURL_ARGUMENT_LOG="$test_root/curl-arguments"
 export FAKE_MESSAGE_DIRECTORY="$test_root/messages"
+export FAKE_DAILY_HEARTBEAT_LOG="$test_root/daily-heartbeats"
+: > "$FAKE_DAILY_HEARTBEAT_LOG"
 export FAKE_HEARTBEAT_LOG="$test_root/heartbeats"
 : > "$FAKE_CURL_ARGUMENT_LOG"
 : > "$FAKE_HEARTBEAT_LOG"
@@ -445,6 +465,43 @@ for expected_alert in \
     || fail "missing operational alert: $expected_alert"
 done
 
+daily_heartbeats="$(wc -l < "$FAKE_DAILY_HEARTBEAT_LOG")"
+if FAKE_NTFY_EXIT_STATUS=1 FAKE_DISK_PERCENT=80 "$DAILY_MONITOR"; then
+  fail 'daily notification failure was accepted'
+fi
+assert_equals "$daily_heartbeats" "$(wc -l < "$FAKE_DAILY_HEARTBEAT_LOG")" \
+  'failed daily alert must not send a success heartbeat'
+if FAKE_DAILY_HEARTBEAT_EXIT_STATUS=1 "$DAILY_MONITOR"; then
+  fail 'daily dead-man failure was accepted'
+fi
+# Dead-man metadata failure must join the other alerts, never suppress them.
+for invalid_config in missing mode symlink owner group; do
+  rm -f "$test_root/config/daily-healthchecks.curl" "$test_root/config/daily-real"
+  printf 'synthetic: never read by metadata check\n' > "$test_root/config/daily-healthchecks.curl"
+  chmod 0600 "$test_root/config/daily-healthchecks.curl"
+  case "$invalid_config" in
+    missing) rm "$test_root/config/daily-healthchecks.curl";;
+    mode) chmod 0644 "$test_root/config/daily-healthchecks.curl";;
+    symlink) mv "$test_root/config/daily-healthchecks.curl" "$test_root/config/daily-real"; ln -s "$test_root/config/daily-real" "$test_root/config/daily-healthchecks.curl";;
+    owner) chown 123:0 "$test_root/config/daily-healthchecks.curl";;
+    group) chown 0:123 "$test_root/config/daily-healthchecks.curl";;
+  esac
+  rm -f "$test_root/messages"/*
+  before_ping="$(wc -l < "$FAKE_DAILY_HEARTBEAT_LOG")"
+  if FAKE_DISK_PERCENT=80 "$DAILY_MONITOR"; then fail "accepted daily config $invalid_config"; fi
+  assert_equals "$expected_daily"$'\nTotmann der Tagesprüfung nicht eingerichtet' "$(< "$test_root/messages/0")" "bundled alert despite $invalid_config"
+  assert_equals 1 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" 'single bundled push'
+  assert_equals "$before_ping" "$(wc -l < "$FAKE_DAILY_HEARTBEAT_LOG")" 'invalid daily config never pings'
+done
+# Missing dead-man alone is also an alert and a failing service.
+printf '{"state":"ok","last_success_at_utc":"2026-08-24T12:00:00Z"}\n' > "$BACKUP_STATUS"
+printf '{"state":"ok","last_attempt_at_utc":"2026-08-24T12:00:00Z"}\n' > "$RESTORE_STATUS"
+rm -f "$test_root/config/daily-healthchecks.curl" "$test_root/messages"/*
+if "$DAILY_MONITOR"; then fail 'missing daily dead-man alone accepted'; fi
+assert_equals 'Totmann der Tagesprüfung nicht eingerichtet' "$(< "$test_root/messages/0")" 'missing dead-man alone alerts'
+cp "$test_root/config/healthchecks.curl" "$test_root/config/daily-healthchecks.curl"
+chmod 0600 "$test_root/config/daily-healthchecks.curl"
+
 # systemd Type=oneshot remains activating while ExecStart waits on flock. The start
 # belongs to that activation, never the monitor's observation or a stale success file.
 # shellcheck disable=SC2031 # Fresh values below are independent of isolated progress scenarios.
@@ -553,5 +610,80 @@ for invalid in 0 601 999999999999999999999 -1 invalid; do
   if FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR" > "$test_root/invalid-grace.log" 2>&1; then fail 'invalid grace accepted'; fi
   grep -q 'between 1 and 600' "$test_root/invalid-grace.log" || fail 'invalid grace diagnostic missing'
 done
+
+# TL T-132: the real archiver waits through an 18-minute weekly probe, then the
+# monitor stays silent 30 seconds later. Scale only elapsed lock time 600:1;
+# real flock still decides timeout versus acquisition, no immediate-success mock.
+(
+  export TAPTIME_BORG_LOCK_FILE="$test_root/weekly-borg.lock"
+  # shellcheck source=../../backup/taptime-wal-archiver
+  source "$REPOSITORY_ROOT/infrastructure/backup/taptime-wal-archiver"
+  # shellcheck disable=SC2034 # Read by sourced archiver functions.
+  WAL_ARCHIVE_STATUS_FILE="$WAL_ARCHIVE_STATUS"
+  WAL_SPOOL_DIRECTORY="$test_root/weekly-spool"
+  WAL_ARCHIVE_CACHE_DIRECTORY="$test_root/weekly-cache"
+  # shellcheck disable=SC2034 # Read by sourced archiver functions.
+  CLUSTER_ARCHIVE_IDENTIFIER=0123456789abcdef
+  mkdir -p "$WAL_SPOOL_DIRECTORY" "$WAL_ARCHIVE_CACHE_DIRECTORY"
+  probe_start="$(epoch_for '2026-08-24T12:00:00Z')"
+  probe_seconds=$((18 * 60))
+  # These external database/archive operations are unrelated to the lock test.
+  # shellcheck disable=SC2317,SC2329
+  prepare_borg_cache() { :; }
+  # shellcheck disable=SC2317,SC2329
+  receiver_is_active() { printf 't\n'; }
+  # shellcheck disable=SC2317,SC2329
+  close_required_segment() { :; }
+  # shellcheck disable=SC2317,SC2329
+  backlog_status() { printf '||||0\n'; }
+  # shellcheck disable=SC2317,SC2329
+  load_archive_inventory() { :; }
+  # shellcheck disable=SC2317,SC2329
+  latest_base_has_offsite_start_wal() { :; }
+  # shellcheck disable=SC2317,SC2329
+  latest_verified_base_marker() { printf 'verified-base-0123456789abcdef-20260824T110000Z\n'; }
+  # shellcheck disable=SC2317,SC2329
+  reconcile_contiguous_watermark() { :; }
+  # shellcheck disable=SC2317,SC2329
+  date() {
+    local at="$probe_start"
+    [[ ! -e "$test_root/lock-acquired" ]] || at=$((at + probe_seconds))
+    if [[ "$*" == '+%s' ]]; then printf '%s\n' "$at"
+    elif [[ "$*" == '-u +%Y-%m-%dT%H:%M:%SZ' ]]; then command date -u --date="@$at" +%Y-%m-%dT%H:%M:%SZ
+    else command date "$@"; fi
+  }
+  # shellcheck disable=SC2317,SC2329
+  flock() {
+    [[ "$1" == -w ]]
+    printf '%s\n' "$2" > "$test_root/lock-requested"
+    command flock -w "$(awk -v wait="$2" 'BEGIN {print wait / 600}')" "$3" || return
+    touch "$test_root/lock-acquired"
+  }
+  (
+    exec 8> "$LOCK_FILE"
+    command flock 8
+    touch "$test_root/lock-held"
+    while [[ ! -f "$test_root/lock-requested" ]]; do sleep 0.01; done
+    sleep "$(awk -v held="$probe_seconds" 'BEGIN {print held / 600}')"
+  ) & holder=$!
+  while [[ ! -f "$test_root/lock-held" ]]; do sleep 0.01; done
+  set +e
+  run_archive_cycle > "$test_root/weekly-archiver.log" 2>&1
+  cycle_result=$?
+  set -e
+  wait "$holder"
+  (( cycle_result == 0 )) || { cat "$test_root/weekly-archiver.log"; fail 'archiver gave up while weekly probe held lock'; }
+  [[ "$(cat "$test_root/lock-requested")" == "$ARCHIVER_BORG_LOCK_WAIT_SECONDS" ]]
+  grep -q '"state":"ok"' "$WAL_ARCHIVE_STATUS"
+  printf "\nWAL_ARCHIVE_CATCHUP_SECONDS='300'\n" >> "$BACKUP_CONFIG"
+  rm -f "$test_root/messages"/* "$test_root/state/wal-archive-down"
+  FAKE_RESTORE_STATE=inactive FAKE_RESTORE_STARTED="$(iso_for "$probe_start")" \
+    FAKE_RESTORE_ENDED="$(iso_for "$((probe_start + probe_seconds))")" \
+    FAKE_BACKUP_STATE=inactive FAKE_BACKUP_STARTED='' FAKE_BACKUP_ENDED='' \
+    TAPTIME_MONITOR_NOW_EPOCH="$((probe_start + probe_seconds + 30))" \
+    FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+  assert_equals 0 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" 'monitor 30s after 18-minute probe stays silent'
+)
+printf 'Weekly lock: archiver waits through 18 virtual minutes with real flock; monitor at +30s stays silent.\n'
 
 printf 'Monitoring tests passed: heartbeat, derived WAL backlog, bounded backup pause including lock waits, bounded cycle progress, causes with UTC, two priorities, no secret argv.\n'

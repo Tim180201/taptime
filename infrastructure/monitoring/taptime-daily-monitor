@@ -4,6 +4,7 @@ set -euo pipefail
 readonly CONFIG_DIRECTORY="${TAPTIME_MONITOR_CONFIG_DIRECTORY:-/etc/taptime-monitor}"
 readonly BACKUP_CONFIG="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly RESTORE_STATUS_FILE="${TAPTIME_RESTORE_STATUS_FILE:-/var/lib/taptime-monitor/restore-status.json}"
+readonly DAILY_HEALTHCHECKS_CURL_CONFIG="$CONFIG_DIRECTORY/daily-healthchecks.curl"
 readonly NTFY_CURL_CONFIG="$CONFIG_DIRECTORY/ntfy.curl"
 readonly BACKUP_MAXIMUM_AGE_SECONDS=7200
 readonly RESTORE_MAXIMUM_AGE_SECONDS=691200
@@ -100,6 +101,7 @@ send_daily_notification() {
     --show-error \
     --fail \
     --output /dev/null \
+    --max-time 10 --retry 2 --retry-all-errors \
     --request POST \
     --header 'Title: TapTim.e Betrieb' \
     --header 'Priority: 3' \
@@ -114,7 +116,21 @@ backup_is_current || messages+=('Sicherung überfällig')
 restore_is_healthy || messages+=('Wiederherstellungsprüfung fehlgeschlagen')
 disk_is_below_threshold || messages+=('Platte über 80 Prozent')
 
+# Metadata only, after all checks; a missing dead-man must not suppress their alert.
+daily_healthcheck_ready=1
+if [[ ! -f "$DAILY_HEALTHCHECKS_CURL_CONFIG" || -L "$DAILY_HEALTHCHECKS_CURL_CONFIG" \
+  || "$(stat -c '%u:%g:%a' "$DAILY_HEALTHCHECKS_CURL_CONFIG")" != 0:0:600 ]]; then
+  daily_healthcheck_ready=0
+  messages+=('Totmann der Tagesprüfung nicht eingerichtet')
+fi
+
 if (( ${#messages[@]} > 0 )); then
   printf -v body '%s\n' "${messages[@]}"
   send_daily_notification "${body%$'\n'}"
 fi
+(( daily_healthcheck_ready == 1 )) || exit 1
+
+# Success means the complete daily check ran and any required alert was delivered.
+# A failed/missing notification must not silence the separate dead-man check.
+curl --config "$DAILY_HEALTHCHECKS_CURL_CONFIG" --silent --show-error --fail \
+  --max-time 10 --retry 2 --retry-all-errors --output /dev/null

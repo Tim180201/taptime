@@ -23,7 +23,7 @@ BORG_REPOSITORY=synthetic
 RESTORE_ARCHIVE_IDENTIFIER=0123456789abcdef
 cluster="$RESTORE_ARCHIVE_IDENTIFIER"
 fault=''
-fixture_now="$(date -d '2026-09-27 03:35Z' +%s)"
+fixture_now="$(command date -d '2026-09-27 03:35Z' +%s)"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 date() {
   case "$*" in
@@ -95,7 +95,7 @@ case "${T093_CASE:-week}" in
     mkdir "$root/archives/verified-$selected"
     run_backup_retention weekly "$cluster"
     add_hours '2026-09-27T04:05:00Z' '2026-09-28T04:05:00Z'
-    fixture_now="$(date -d '2026-09-28 04:05Z' +%s)"
+    fixture_now="$(command date -d '2026-09-28 04:05Z' +%s)"
     before="$(find "$root/archives" -mindepth 1 -maxdepth 1 -type d | wc -l)"
     run_backup_retention daily "$cluster"
     grep -q '^ok|' "$root/state/retention-status" || fail "Monday cleanup: $(cat "$root/state/retention-status")"
@@ -107,7 +107,7 @@ case "${T093_CASE:-week}" in
       start="$(date -u -d "2026-09-26 +$day days" +%Y-%m-%d)"
       end="$(date -u -d "2026-09-26 +$((day+1)) days" +%Y-%m-%d)"
       add_hours "${start}T05:05:00Z" "${end}T04:05:00Z"
-      fixture_now="$(date -d "${end}T04:05:00Z" +%s)"
+      fixture_now="$(command date -d "${end}T04:05:00Z" +%s)"
       run_backup_retention daily "$cluster"
       [[ -d "$root/archives/$saturday" ]] || fail "verified base lost on day $day"
       grep -q '^ok|' "$root/state/retention-status" || fail "cleanup blocked on day $day"
@@ -117,7 +117,7 @@ case "${T093_CASE:-week}" in
     add_hours '2026-09-27T04:05:00Z' '2026-09-28T04:05:00Z'
     mkdir "$root/archives/verified-$sunday"
     if [[ "$T093_CASE" == alternative ]]; then mkdir "$root/archives/verified-$saturday"; fi
-    fixture_now="$(date -d '2026-09-28 04:05Z' +%s)"
+    fixture_now="$(command date -d '2026-09-28 04:05Z' +%s)"
     run_backup_retention daily "$cluster"
     if [[ "$T093_CASE" == alternative ]]; then
       grep -q '^ok|' "$root/state/retention-status" || fail 'older retained verified base did not permit cleanup'
@@ -132,7 +132,7 @@ case "${T093_CASE:-week}" in
     # Exercise main, including its EXIT status writer. Substitute only external
     # restore I/O; selection, retention and result propagation remain real.
     add_hours '2026-09-27T04:05:00Z' '2026-09-28T04:05:00Z'
-    fixture_now="$(date -d '2026-09-28 04:05Z' +%s)"
+    fixture_now="$(command date -d '2026-09-28 04:05Z' +%s)"
     unset TAPTIME_RESTORE_BASE_ARCHIVE
     age=7; expected=0
     case "$T093_CASE" in
@@ -161,7 +161,7 @@ case "${T093_CASE:-week}" in
     printf 'test\n' > "$root/passphrase"
     cat > "$root/config" <<CONFIG
 BORG_REPOSITORY=synthetic
-BORG_RSH=synthetic
+BORG_RSH='ssh synthetic'
 BORG_PASSPHRASE_FILE='$root/passphrase'
 RESTORE_STATUS_FILE='$root/restore-status'
 DATABASE_CONTAINER=synthetic
@@ -177,7 +177,11 @@ RESTORE_RECOVERY_POLL_SECONDS=1
 CONFIG
     validate_offsite_borg_repository() { :; }
     prepare_borg_cache() { :; }
-    findmnt() { printf 'tmpfs\n'; }
+    # Filesystem safety/capacity is exercised with real root ownership in T-132.
+    prepare_backup_workspace() { chmod 0700 "$TAPTIME_BACKUP_STAGING_ROOT"; }
+    check_backup_workspace_path() { :; }
+    check_backup_space() { :; }
+    plan_restore_space() { :; }
     select_restore_cluster_identity() { RESTORE_SYSTEM_IDENTIFIER=123; RESTORE_ARCHIVE_IDENTIFIER="$cluster"; }
     extract_relevant_wal() { mkdir -p "$2"; }
     validate_wal_chain() { printf '000000010000000000000005\n'; }
@@ -210,7 +214,7 @@ CONFIG
       {
         printf '#!/usr/bin/env bash\nset -euo pipefail\nsource %q\n' "$REPO/infrastructure/backup/taptime-restore-verify"
         declare -p root cluster fault fixture_now REPO
-        declare -f date production_base_is_registered borg validate_offsite_borg_repository prepare_borg_cache findmnt select_restore_cluster_identity extract_relevant_wal validate_wal_chain latest_wal_record_lsn configure_point_in_time_recovery check_restored_migrations check_restored_rls register_verified_base record_verified_base_marker tar chown
+        declare -f date production_base_is_registered borg validate_offsite_borg_repository prepare_borg_cache prepare_backup_workspace check_backup_workspace_path check_backup_space plan_restore_space select_restore_cluster_identity extract_relevant_wal validate_wal_chain latest_wal_record_lsn configure_point_in_time_recovery check_restored_migrations check_restored_rls register_verified_base record_verified_base_marker tar chown
         printf 'main "$@"\n'
       } > "$root/restore-runner"
       chmod 0755 "$root/bin/docker" "$root/restore-runner"
@@ -226,23 +230,15 @@ CONFIG
         export TAPTIME_DEPLOY_BACKUP_CONFIG="$root/config"
         export TAPTIME_DEPLOY_RESTORE_VERIFY_COMMAND="$root/restore-runner"
         # shellcheck source=../deploy
-        source "$REPO/infrastructure/deploy"
-        # The controller uses a root-only tmpfs in production. Substitute that
-        # external filesystem boundary so an unprivileged CI runner uses only
-        # its private fixture tree; the outer EXIT trap removes the hook too.
-        # Called indirectly by run_restore_verification in the sourced controller.
+        builtin source "$REPO/infrastructure/deploy"
+        export TAPTIME_BACKUP_WORKSPACE_LIBRARY="$REPO/infrastructure/backup/taptime-backup-workspace"
+        # The controller sources the real helper; ownership is the separate root proof.
         # shellcheck disable=SC2317
-        install() {
-          [[ "$*" != '-d -m 0700 /run/taptime-backup' ]] || return 0
-          command install "$@"
-        }
-        # shellcheck disable=SC2317
-        mktemp() {
-          if [[ "$*" == '-d /run/taptime-backup/deploy-hook.XXXXXX' ]]; then
-            command mktemp -d "$root/deploy-hook.XXXXXX"
-          else
-            command mktemp "$@"
-          fi
+        source() {
+          builtin source "$@"
+          prepare_backup_workspace() { chmod 0700 "$TAPTIME_BACKUP_STAGING_ROOT"; }
+          check_backup_workspace_path() { :; }
+          check_backup_space() { :; }
         }
         run_restore_verification synthetic 0 "$TAPTIME_RESTORE_BASE_ARCHIVE"
       else

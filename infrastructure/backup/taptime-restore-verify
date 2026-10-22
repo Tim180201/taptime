@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# shellcheck source=taptime-backup-workspace
+source "$(dirname "${BASH_SOURCE[0]}")/taptime-backup-workspace"
+
 RESTORE_SYSTEM_IDENTIFIER=''
 RESTORE_ARCHIVE_IDENTIFIER=''
 MATERIALIZED_VOLUME_IN_PROGRESS=''
@@ -316,6 +319,36 @@ select_base_archive() {
   printf '%s\n' "$selected"
 }
 
+plan_restore_space() {
+  local archive="$1" materialize="$2" start_wal_file wal_file wal_archive inventory sizes size
+  local base_bytes wal_bytes=0 extra_bytes
+  base_bytes="$(borg list --format '{size}{NL}' "$BORG_REPOSITORY::$archive" base.tar)" || return 1
+  [[ "$base_bytes" =~ ^[1-9][0-9]{0,14}$ ]] || return 1
+  start_wal_file="$(borg extract --stdout "$BORG_REPOSITORY::$archive" manifest/base-start-wal-file)" || return 1
+  [[ "$start_wal_file" =~ ^[0-9A-F]{24}$ ]] || return 1
+  inventory="$(borg list --glob-archives "wal-$RESTORE_ARCHIVE_IDENTIFIER-*" --format '{archive}{NL}' "$BORG_REPOSITORY")" || return 1
+  RESTORE_WAL_ARCHIVES=''
+  while IFS= read -r wal_archive; do
+    wal_file="${wal_archive#wal-"$RESTORE_ARCHIVE_IDENTIFIER"-}"
+    if [[ "$wal_file" =~ ^[0-9A-F]{24}$ && "${wal_file:0:8}" == "${start_wal_file:0:8}" && ! "$wal_file" < "$start_wal_file" ]] \
+      || [[ "$wal_file" =~ ^[0-9A-F]{8}\.history$ ]]; then
+      sizes="$(borg list --format '{size}{NL}' "$BORG_REPOSITORY::$wal_archive")" || return 1
+      [[ -n "$sizes" ]] || return 1
+      while IFS= read -r size; do
+        [[ "$size" =~ ^[0-9]{1,15}$ ]] || return 1
+        wal_bytes=$((wal_bytes + size))
+      done <<< "$sizes"
+      RESTORE_WAL_ARCHIVES+="$wal_archive"$'\n'
+    fi
+  done <<< "$inventory"
+  grep -Fxq "wal-$RESTORE_ARCHIVE_IDENTIFIER-$start_wal_file" <<< "$RESTORE_WAL_ARCHIVES" || {
+    printf 'No complete offsite start WAL segment exists for the physical base.\n' >&2; return 1;
+  }
+  extra_bytes="$wal_bytes"
+  [[ -z "$materialize" ]] || extra_bytes=$((extra_bytes + base_bytes + wal_bytes))
+  check_backup_space "$base_bytes" "$wal_bytes" "$extra_bytes"
+}
+
 extract_relevant_wal() {
   local start_wal_file="$1"
   local wal_directory="$2"
@@ -323,12 +356,7 @@ extract_relevant_wal() {
   local wal_archive wal_file wal_archives
 
   mkdir -p "$wal_directory"
-  wal_archives="$(borg list \
-    --glob-archives "wal-$RESTORE_ARCHIVE_IDENTIFIER-*" \
-    --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
-      printf 'Could not inventory WAL archives for the selected cluster.\n' >&2
-      return 1
-    }
+  wal_archives="$RESTORE_WAL_ARCHIVES"
   while IFS= read -r wal_archive; do
     [[ -n "$wal_archive" ]] || continue
     wal_file="${wal_archive#wal-"$RESTORE_ARCHIVE_IDENTIFIER"-}"
@@ -479,23 +507,38 @@ configure_point_in_time_recovery() {
   } >> "$data_directory/postgresql.auto.conf"
 }
 
-# Shared by the three installed entry points. Call only while holding LOCK_FILE.
-# Old Borg caches/configs contain no backup payload. Preserve other archiver state.
+# Shared by all Borg entry points, only under LOCK_FILE. Security state (nonce,
+# manifest timestamp, repository identity, keys) is durable state, never cache.
 prepare_borg_cache() {
   local old_cache="$1" old_config="$2"
-  local shared="${TAPTIME_BORG_DIRECTORY:-/var/cache/taptime-borg}" directory
-  for directory in "$shared" "$shared/cache" "$shared/config"; do
+  local shared="${TAPTIME_BORG_DIRECTORY:-/var/cache/taptime-borg}" directory legacy
+  local state="${TAPTIME_BORG_STATE_DIRECTORY:-/var/lib/taptime-borg}"
+  for directory in "$shared" "$shared/cache" "$state"; do
     [[ ! -L "$directory" ]] || return 1
     install -d -o 0 -g 0 -m 0700 "$directory" || return 1
   done
-  export BORG_CACHE_DIR="$shared/cache" BORG_CONFIG_DIR="$shared/config"
-  [[ "$old_cache" != "$BORG_CACHE_DIR" && "$old_config" != "$BORG_CONFIG_DIR" ]] || return 1
-  # A keyfile is not disposable cache. Refuse removal if one was placed here.
-  if [[ -d "$old_config/keys" ]] && [[ -n "$(find "$old_config/keys" -type f -print -quit)" ]]; then
-    printf 'Legacy Borg config contains a key; refusing cache migration.\n' >&2
-    return 1
-  fi
-  rm -rf -- "$old_cache" "$old_config"
+  for legacy in "$shared/config" "$old_config"; do
+    [[ ! -L "$legacy" && ! -L "$state/config" ]] || return 1
+    if [[ -d "$legacy" ]]; then
+      if [[ ! -e "$state/config" ]]; then
+        # Copy first, then rename on the destination filesystem. A crash leaves
+        # the old state intact and the next invocation safely repeats the copy.
+        rm -rf -- "$state/config.migrating"
+        cp -a -- "$legacy" "$state/config.migrating" || return 1
+        mv -- "$state/config.migrating" "$state/config" || return 1
+      elif [[ -n "$(find "$legacy" -mindepth 1 -print -quit)" ]]; then
+        diff -qr -- "$legacy" "$state/config" >/dev/null || {
+          printf 'Conflicting Borg security state; refusing to discard either copy.\n' >&2; return 1;
+        }
+      fi
+      rm -rf -- "$legacy" || return 1
+    fi
+  done
+  install -d -o 0 -g 0 -m 0700 "$state/config" || return 1
+  export BORG_CACHE_DIR="$shared/cache" BORG_CONFIG_DIR="$state/config"
+  export BORG_SECURITY_DIR="$state/config/security"
+  [[ "$old_cache" != "$BORG_CACHE_DIR" ]] || return 1
+  rm -rf -- "$old_cache"
 }
 
 write_backup_state() {
@@ -885,7 +928,7 @@ materialize_verified_restore() {
 main() {
   readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
   readonly LOCK_FILE="${TAPTIME_BORG_LOCK_FILE:-/run/lock/taptime-borg.lock}"
-  readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/run/taptime-backup}"
+  readonly STAGING_ROOT="${TAPTIME_BACKUP_STAGING_ROOT:-/var/lib/taptime-backup}"
   local archive start_wal_lsn start_wal_file
   local latest_wal_file latest_record_lsn
   local manifest_system_identifier manifest_archive_identifier restored_system_identifier
@@ -940,15 +983,6 @@ main() {
     write_canonical_status=0
   fi
 
-  install -d -m 0700 "$STAGING_ROOT"
-  if [[ "$(findmnt -n -o FSTYPE --target "$STAGING_ROOT")" != 'tmpfs' ]]; then
-    printf '%s must be a tmpfs; refusing restore verification.\n' "$STAGING_ROOT" >&2
-    exit 1
-  fi
-
-  exec 9>"$LOCK_FILE"
-  flock 9
-
   write_restore_status() {
     local temporary
     install -d -m 0700 "$(dirname "$RESTORE_STATUS_FILE")"
@@ -983,20 +1017,29 @@ main() {
   }
 
   trap finish EXIT
+  trap 'exit 143' TERM
+  trap 'exit 130' INT
+  trap 'exit 129' HUP
 
-  export BORG_RSH
+  prepare_backup_workspace
+  exec 9>"$LOCK_FILE"
+  bounded_borg_lock 9
+  clean_backup_workspace restore
+
+  bound_borg_ssh
   export BORG_PASSCOMMAND="cat '$BORG_PASSPHRASE_FILE'"
   export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
   prepare_borg_cache "$STAGING_ROOT/borg-cache" "$STAGING_ROOT/borg-config"
 
   select_restore_cluster_identity
-  stage="$(mktemp -d "$STAGING_ROOT/restore.XXXXXX")"
   container="taptime-restore-verify-$(date +%s)"
   if [[ -z "$materialize_volume" && "$rehearsal_only" == 0 ]]; then
     archive="$(select_base_archive weekly)"
   else
     archive="$(select_base_archive)"
   fi
+  plan_restore_space "$archive" "$materialize_volume"
+  stage="$(mktemp -d "$STAGING_ROOT/restore.XXXXXX")"
   printf 'Verifying encrypted physical base archive: %s\n' "$archive"
   borg check --verify-data "$BORG_REPOSITORY::$archive"
   (

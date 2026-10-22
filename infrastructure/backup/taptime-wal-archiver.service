@@ -17,7 +17,7 @@ ProtectHome=yes
 ProtectSystem=strict
 CacheDirectory=taptime-wal-archive taptime-borg
 CacheDirectoryMode=0700
-StateDirectory=taptime-monitor
+StateDirectory=taptime-monitor taptime-borg
 StateDirectoryMode=0700
 ReadWritePaths=/var/cache/taptime-wal-archive /var/lib/taptime-monitor /var/lib/taptime-wal /run/lock /var/run/docker.sock
 

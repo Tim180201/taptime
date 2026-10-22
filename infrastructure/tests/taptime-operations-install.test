@@ -54,6 +54,8 @@ infrastructure/operations/taptime-operator-grant|usr/local/sbin/taptime-operator
 infrastructure/operations/taptime-operator-db-login|usr/local/sbin/taptime-operator-db-login|700
 infrastructure/operations/taptime-runtime-rotate|usr/local/sbin/taptime-runtime-rotate|700
 infrastructure/postgres/server-runtime-logins.sql|opt/taptime/source/infrastructure/postgres/server-runtime-logins.sql|644
+infrastructure/backup/taptime-backup-workspace|usr/local/sbin/taptime-backup-workspace|700
+infrastructure/backup/taptime-backup.tmpfiles.conf|etc/tmpfiles.d/taptime-backup.conf|644
 infrastructure/backup/taptime-backup|usr/local/sbin/taptime-backup|700
 infrastructure/backup/taptime-restore-verify|usr/local/sbin/taptime-restore-verify|700
 infrastructure/backup/taptime-restore-activate|usr/local/sbin/taptime-restore-activate|700

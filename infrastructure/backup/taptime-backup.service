@@ -5,18 +5,18 @@ After=docker.service
 
 [Service]
 Type=oneshot
+TimeoutStartSec=70min
+TimeoutStopSec=30s
 ExecStart=/usr/local/sbin/taptime-backup
 User=root
 Group=root
 UMask=0077
-RuntimeDirectory=taptime-backup
-RuntimeDirectoryMode=0700
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=yes
 ProtectSystem=strict
 CacheDirectory=taptime-borg
 CacheDirectoryMode=0700
-StateDirectory=taptime-monitor
+StateDirectory=taptime-monitor taptime-borg taptime-backup
 StateDirectoryMode=0700
-ReadWritePaths=/run/taptime-backup /run/lock /opt/taptime/admin-web
+ReadWritePaths=/var/lib/taptime-backup /run/lock /opt/taptime/admin-web

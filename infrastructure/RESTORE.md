@@ -70,24 +70,64 @@ gemeldet und lassen einen erfolgreichen WAL-Durchlauf erfolgreich bleiben. Beim 
 Archivierungsdienste samt Timern an und entfernt beide Zustandsdateien; keine davon ist ein
 Archivnachweis. Bei fehlender Zustandsdatei beginnt die Tagesplanung neu.
 
-Alle drei Skripte verwenden `/var/cache/taptime-borg/cache` und `/var/cache/taptime-borg/config`.
-Sie legen die Verzeichnisse bei Bedarf root-eigen mit 0700 an; Borg verwaltet den Inhalt.
-Sämtliche Borg-Aufrufe und die Cache-Umstellung liegen unter derselben
-`/run/lock/taptime-borg.lock`. Sicherung und Prüfung entfernen ihre bisherigen
-`/run/taptime-backup/borg-cache` und `borg-config`, der Archivierer nur `cache` und `config`
-unter seinem bisherigen Cache-Verzeichnis; sein `reconcile-state` bleibt getrennt erhalten.
-Enthält ein altes Config-Verzeichnis Schlüsseldateien, bricht die Umstellung vor dem Entfernen
-ab. Beim vollständigen Rückbau entfernt root nach dem Anhalten aller drei Dienste und Timer
-das gemeinsame Verzeichnis. Borg-Schlüssel und Passphrase bleiben unabhängig davon verwahrt.
-Die gemeinsamen Funktionen liegen im bereits ausgelieferten `taptime-restore-verify`; Sicherung
-und Archivierer laden sie aus dem gleichen Installationsverzeichnis. Damit bleibt die
-Wiederherstellungsprüfung auf dem Ersatzserver eigenständig ausführbar.
+Sicherung, Prüfung und Deploy-Probe verwenden `/var/lib/taptime-backup` auf dem
+Root-Dateisystem (D-150). systemd legt den Ordner als `StateDirectory` an, der Deploy und der
+manuelle Verifier bei Bedarf über denselben Wächter. Vor dem ersten Schreiben muss der Pfad
+root:root, 0700, ohne Symlink und ohne für andere beschreibbare Eltern sein. Bestehende unsichere
+Pfade werden abgewiesen. Jeder Lauf erzeugt einen eigenen Ordner `backup.*`, `restore.*` oder
+`deploy-hook.*`; EXIT, TERM, INT und HUP entfernen ihn. Unter der jeweiligen Sperre entfernt der
+nächste Lauf ausschließlich Reste seines Präfixes. `/etc/tmpfiles.d/taptime-backup.conf` leert
+den Ordner nur beim Systemstart (`D!`); niemals während des Betriebs mit `--boot --remove` ausführen.
+Der Ordner selbst bleibt. Rückbau: alle drei Borg-Dienste und die Sicherungs-/Prüftimer anhalten,
+keinen Deploy oder manuellen Restore laufen lassen, dann Arbeitsordner und tmpfiles-Regel entfernen.
+Die Datenbank und diese kurzzeitige Arbeitskopie liegen auf derselben unverschlüsselten Platte.
+
+Vor dem Schreiben von Basis oder WAL gilt eine abgeleitete Platzprüfung gegen
+`DISK_USAGE_THRESHOLD_PERCENT` aus dem installierten Tagesmonitor: Basis zweifach (Tar und entpackt),
+ausgewählte WAL-Dateien, deren zusätzliche Kopie während Recovery und 20 Prozent Reserve. Bei
+Materialisierung kommt eine weitere Basis-/WAL-Kopie für das Docker-Volume hinzu. Für die Sicherung
+wird die Größe des gesamten PGDATA einschließlich WAL mit `du -sk` ermittelt; für Restore stammen
+die unkomprimierten Größen aus `borg list --format '{size}{NL}'`. Die geprüfte WAL-Auswahl wird
+unter derselben Borg-Sperre extrahiert; ohne externes Start-WAL beginnt kein Entpacken. Fehlender
+Platz bricht ab und schreibt einen Fehlerstatus (historische Proben ändern wie bisher keinen
+kanonischen Status). Wachstum und andere Schreiber nach der Messung bleiben möglich; die Reserve
+ist keine Quota. Die regulären Alarm- und Fehlerwege bleiben deshalb erforderlich.
+
+Alle Borg-Aufrufe teilen `/run/lock/taptime-borg.lock`. Sicherung und Wochenprobe warten höchstens
+zehn Minuten; der Archivierer wartet bis zu zwei Stunden, damit eine lange Wochenprobe keinen
+falschen Archivierungsfehler erzeugt. Die oneshot-Grenzen betragen 70 Minuten für die Sicherung
+und 110 Minuten für die Probe, danach jeweils 30 Sekunden zum Beenden. Bedingungstests verlangen:
+Unit-Grenze mindestens Monitorgrenze plus Sperrwartezeit; Archivierer-Wartezeit größer als
+Start- und Stoppgrenze jedes legitimen oneshot-Sperrhalters, mit Reserve. Nach bestätigter
+Basissicherung ändert ein Abbruch der anschließenden Aufbewahrung deren Status nicht zurück auf Fehler. Direkte manuelle Restores behalten die konfigurierte Recovery-Frist (vier Stunden).
+Borgs SSH erhält vor den vorhandenen Optionen `ConnectTimeout=30`, `ServerAliveInterval=30` und
+`ServerAliveCountMax=4`; die vorhandene Konfiguration muss dafür nicht geändert werden.
+
+Nur `/var/cache/taptime-borg/cache` ist Cache. Konfiguration, Schlüssel und Borg-Sicherheitszustand
+liegen dauerhaft in `/var/lib/taptime-borg/config`, der Sicherheitszustand ausdrücklich in dessen
+`security`-Unterordner. systemd verwaltet `/var/lib/taptime-borg` als `StateDirectory`, root:root,
+0700. Beim ersten Lauf unter der Borg-Sperre wird der alte Config-Inhalt vollständig kopiert und
+am Ziel atomar umbenannt, erst danach wird die alte Kopie entfernt. Unterschiedliche vorhandene
+Kopien führen zum Abbruch, niemals zum Verwerfen von Nonce oder Manifest-Zeitstempel. Borg pflegt
+den Inhalt; beim vollständigen Rückbau entfernt root nach dem Anhalten aller Borg-Dienste Cache
+und Zustand, nachdem Schlüssel und Passphrase unabhängig verwahrt sind.
+Die gemeinsamen Funktionen liegen in `taptime-restore-verify` und `taptime-backup-workspace`;
+beide müssen auch auf dem Ersatzserver aus demselben Operations-Abbild installiert sein.
 
 Nicht enthalten sind `/opt/taptime/.env`, Server- und Storage-Box-SSH-Schlüssel,
 Borg-Passphrase sowie die geheimen Monitoring-Curl-Dateien. Borg-Schlüssel, Passphrase und
 `.env` liegen beim Product Owner getrennt verwahrt. Betriebsskripte, Compose, Caddy und
 Migrationen kommen aus dem unveränderlichen Operations-Abbild, nie aus einem handkopierten
 Checkout.
+
+Zusätzlich bleiben die täglichen **Hetzner Cloud Backups** aktiv (D-151, sieben Plätze,
+Nürnberg). Sie kopieren die ganze Serverplatte einschließlich Datenbank, Einstellungen,
+Zugangsdaten und gegebenenfalls gerade vorhandener Arbeitskopien. Alte Zugangswerte können bis
+zu sieben Tage nach einer Rotation darin verbleiben. Der PO nutzt sie als ergänzenden Rückweg
+für einen beschädigten oder verlorenen Server; sie ersetzen weder die Borg-Kette noch die
+geprüfte Datenbank-Wiederherstellung. Ein direkt aus einer solchen Kopie gestarteter
+Datenbankstand ist kein nachgewiesener PITR- oder RPO-0-Stand. Vor Freigabe des Verkehrs den
+Datenbankstand über den hier beschriebenen Borg-Restore herstellen und prüfen.
 
 Die frühere Sicherung hat logische Archive `taptime-<UTC>` angelegt. T-035 verändert oder
 rotiert sie nicht und löscht beim Cutover keines davon. Sie enthalten personenbezogene Lohndaten:
@@ -169,6 +209,16 @@ docker cp "$restore_holder:/operations/." "$restore_stage/operations/"
 docker rm "$restore_holder"
 test "$(tr -d '\r\n' < "$restore_stage/operations/version.txt")" = "$operations_version"
 
+install -o root -g root -m 0700 \
+  "$restore_stage/operations/usr/local/sbin/taptime-backup-workspace" \
+  /usr/local/sbin/taptime-backup-workspace
+install -o root -g root -m 0755 \
+  "$restore_stage/operations/usr/local/sbin/taptime-daily-monitor" \
+  /usr/local/sbin/taptime-daily-monitor
+install -d -o root -g root -m 0755 /etc/tmpfiles.d
+install -o root -g root -m 0644 \
+  "$restore_stage/operations/etc/tmpfiles.d/taptime-backup.conf" \
+  /etc/tmpfiles.d/taptime-backup.conf
 install -o root -g root -m 0700 \
   "$restore_stage/operations/usr/local/sbin/taptime-restore-verify" \
   /usr/local/sbin/taptime-restore-verify
@@ -254,6 +304,11 @@ zur Reihenfolge über mehrere Installationen und zum neu bewerteten Zeitfenster 
 diese Einzelgeräteprobe belegten Garantien; auch sie sind vor einer Freigabe zu klären.
 
 Für einen Zeitpunkt zwischen zwei Änderungen muss der Zeitpunkt exakt in UTC angegeben werden.
+Quelle ist eine UTC-Zeit aus den Datenbankzeitstempeln (gezielt mit `AT TIME ZONE 'UTC'` lesen)
+oder einem Protokoll mit ausdrücklichem UTC-Bezug. Eine Berliner Uhrzeit allein reicht am Tag
+der Zeitumstellung nicht: erst den belegten Offset (+02:00 oder +01:00) bestimmen. Auf dem Server
+rechnet etwa `date -u -d '2026-10-25T02:30:00+02:00' +%Y-%m-%dT%H:%M:%SZ` eindeutig in UTC um.
+Den Offset niemals aus einer mehrdeutigen Web-Anzeige erraten; bei fehlender Quelle stoppen.
 Auf einem Ersatzserver mit Archiven mehrerer PostgreSQL-Cluster ist zusätzlich die gewünschte
 16-stellige kleingeschriebene hexadezimale System-ID Pflicht; ohne eindeutige Auswahl bricht die
 Prüfung ab:

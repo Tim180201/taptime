@@ -28,6 +28,56 @@ Die Veröffentlichungen laufen nacheinander, damit Bau und Aufräumen verschiede
 überschneiden. Actions sind auf vollständige Commit-SHAs festgelegt; Dependabot schlägt wöchentlich
 Aktualisierungen vor. Diese durchlaufen die übliche Prüfung, keine automatische Übernahme.
 
+## PO-Schritte für Deploy 8: T-132
+
+Vor dem Deploy installiert der PO den neuen Controller nach dem Bootstrap-Ablauf unten.
+Der Controller hält jetzt Sicherungs- und Wochenprüftimer an, wartet begrenzt auf beide Dienste
+und startet beide Timer auch bei einem Abbruch wieder. Die neue Operations-Version liefert den
+Wächter, den Plattenordner als StateDirectory und die Boot-Aufräumregel mit.
+
+Vorher legt der PO in Healthchecks einen **zweiten Check** an (Periode ein Tag, Toleranz eine
+Stunde, Down-Meldung „Tagesprüfung ausgeblieben“ an das vorhandene ntfy-Thema). Seine geheime URL
+kommt nach `MONITORING.md` ausschließlich in `/etc/taptime-monitor/daily-healthchecks.curl`,
+root:root, 0600. Der Deploy prüft nur Metadaten und bricht bei fehlender, verlinkter oder unsicherer
+Datei vor der Vorbereitung ab. Er liest und verändert ihren Inhalt nicht. Der Tagesmonitor meldet
+eine fehlende Einrichtung zusammen mit seinen übrigen Befunden per ntfy und endet ohne Ping mit Fehler.
+Borgs SSH-Grenzen und die Migration des Sicherheitszustands wirken ohne Änderung der Geheimnisse.
+
+Nach erfolgreichem Deploy startet der PO an der Hetzner-Konsole die Wochenprobe einmal selbst.
+Die erste Probe kann wegen des nachzuholenden Prune-/Compact-Rückstands länger dauern.
+Asynchron starten; die Konsole bleibt bedienbar. Später Zustand und Ergebnis abfragen, erst nach
+Ende den frischen Status abnehmen. Jede Zeile einzeln, US-Tastatur wie unten; Status als Foto
+belegen, keine Geheimnisdatei anzeigen:
+
+```sh
+systemctl start --no-block taptime-restore-verify
+```
+
+Später, bis `ActiveState=inactive` und `Result=success`:
+
+```sh
+systemctl show taptime-restore-verify -p ActiveState -p Result
+cat /var/lib/taptime-monitor/restore-status.json
+systemctl start taptime-daily-monitor
+systemctl show taptime-daily-monitor -p Result
+systemctl show taptime-wal-receiver -p NRestarts
+```
+
+Erwartet: Restore `state: ok` mit neuem UTC-Zeitpunkt, Tagesmonitor `Result=success`, der zweite
+Check erhält sein Lebenszeichen. F-123 bleibt eine Prüfung am Server: `NRestarts` darf nicht
+fortlaufend wachsen. Zusätzlich als root kurz prüfen, dass genau der vorgesehene WAL-Empfänger
+am Slot hängt (nur Slot, Aktivität und Anzahl, keine Verbindungsdaten):
+
+```sh
+docker exec -u postgres taptime-prod-database-1 psql -d taptime -c "SELECT slot_name,active FROM pg_replication_slots;"
+docker exec -u postgres taptime-prod-database-1 psql -d taptime -c "SELECT count(*) FROM pg_stat_replication;"
+```
+
+Bei Neustartschleife oder unerwarteter Belegung stoppen und den TL informieren; T-132 ändert den
+WAL-Empfänger nicht. Hetzner Cloud Backups bleiben als ganze Plattenkopien aktiv (sieben Plätze,
+Nürnberg, D-151). Sie enthalten auch alte Zugangswerte bis zu sieben Tage nach Rotation und sind
+kein geprüfter Datenbank-Restore-Weg; Nutzung und Grenzen stehen in `RESTORE.md`.
+
 ## Zugang und Berechtigung
 
 Der Produktionsserver ist `taptime-prod` unter `46.225.58.30`. Ausliefern darf nur der Product
@@ -460,7 +510,7 @@ Backend-Abbild, beide öffentlichen `/version.txt` und die vollständige öffent
 Anmeldekonfiguration in beiden tatsächlich ausgelieferten Anwendungsbündeln gemeinsam das Ziel belegen,
 schreibt das Skript `current-version` fort. Das
 Migrationsabbild bringt die eingefrorenen SQL-Dateien selbst mit; das Skript hält die von T-007
-geprüfte lokale Quelle dazu synchron. Wegwerf-Container sowie die nur im tmpfs entpackte Basis
+geprüfte lokale Quelle dazu synchron. Wegwerf-Container sowie die im geschützten Plattenordner entpackte Basis
 und WAL-Kette existieren nach der Probe nicht mehr.
 
 Basis- und WAL-Upload sowie beide Restore-Proben können minutenlang keine neue Ausgabe

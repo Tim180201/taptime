@@ -29,6 +29,7 @@ readonly WAL_ARCHIVER_COMMAND="${TAPTIME_DEPLOY_WAL_ARCHIVER_COMMAND:-/usr/local
 readonly DEPLOY_LOCK_FILE="${TAPTIME_DEPLOY_LOCK_FILE:-/run/lock/taptime-deploy.lock}"
 readonly BACKUP_WAIT_SECONDS="${TAPTIME_DEPLOY_BACKUP_WAIT_SECONDS:-1200}"
 readonly DAILY_MONITOR_COMMAND="${TAPTIME_DEPLOY_DAILY_MONITOR_COMMAND:-/usr/local/sbin/taptime-daily-monitor}"
+readonly DAILY_HEALTHCHECKS_CURL_CONFIG="${TAPTIME_DEPLOY_DAILY_HEALTHCHECKS_CURL_CONFIG:-/etc/taptime-monitor/daily-healthchecks.curl}"
 
 DESIRED_VERSION=''
 PREVIOUS_VERSION=''
@@ -39,6 +40,7 @@ WAL_ARCHIVE_BOOTSTRAP=0
 ARCHIVE_CUTOVER_ACTIVE=0
 ARCHIVE_CONTRACT_ACTIVE=0
 BACKUP_TIMER_HELD=0
+RESTORE_TIMER_HELD=0
 DEPLOY_SUCCEEDED=0
 DEPLOY_BASE_ARCHIVE=''
 DESIRED_OPERATOR_WEB=0
@@ -243,7 +245,7 @@ run_fresh_oneshot() {
 }
 
 wait_for_running_backup() {
-  local state deadline next_notice now
+  local service="${1:-taptime-backup.service}" state deadline next_notice now
   [[ "$BACKUP_WAIT_SECONDS" =~ ^[1-9][0-9]*$ ]] || {
     fail 'Backup wait must be a positive number of seconds.'; return 1;
   }
@@ -251,16 +253,16 @@ wait_for_running_backup() {
   deadline=$((now + BACKUP_WAIT_SECONDS))
   next_notice=$now
   while true; do
-    state="$(systemctl show taptime-backup.service --property=ActiveState --value)" || return
+    state="$(systemctl show "$service" --property=ActiveState --value)" || return
     case "$state" in
       inactive|failed) return 0;;
       activating|active|deactivating|reloading) ;;
       *) fail 'Unknown backup service state.'; return 1;;
     esac
     now="$(date +%s)"
-    (( now < deadline )) || { fail 'Running backup exceeded the deploy wait deadline.'; return 1; }
+    (( now < deadline )) || { fail "$service exceeded the deploy wait deadline."; return 1; }
     if (( now >= next_notice )); then
-      say "[Vorprüfung] Sicherung läuft; warte noch höchstens $((deadline - now)) Sekunden."
+      say "[Vorprüfung] ${service} läuft; warte noch höchstens $((deadline - now)) Sekunden."
       next_notice=$((now + 60))
     fi
     sleep 1
@@ -278,7 +280,12 @@ hold_backup_timer() {
   trap 'exit 143' TERM
   trap 'exit 129' HUP
   systemctl stop taptime-backup.timer || return
-  wait_for_running_backup
+  state="$(systemctl show taptime-restore-verify.timer --property=ActiveState --value)" || return
+  [[ "$state" == active ]] || { fail 'Restore timer is not active.'; return 1; }
+  RESTORE_TIMER_HELD=1
+  systemctl stop taptime-restore-verify.timer || return
+  wait_for_running_backup || return
+  wait_for_running_backup taptime-restore-verify.service
 }
 
 preflight_deploy() {
@@ -286,12 +293,32 @@ preflight_deploy() {
   local failed=0
   say "[Vorprüfung] Laufende Version: $PREVIOUS_VERSION."
   say "[Vorprüfung] Ziel: $DESIRED_VERSION."
+  # This preflight precedes installation of the new workspace helper. Keep the
+  # command and disk predicates in step with it via the condition tests.
+  if ! (
+    # shellcheck disable=SC1090
+    source "$BACKUP_CONFIG"
+    rsh="${BORG_RSH:-}"; executable="${rsh%% *}"
+    [[ "$rsh" == 'ssh '* || ( "$executable" == /* && "$executable" == */ssh ) ]]
+  ); then
+    fail 'BORG_RSH must begin with ssh or an absolute path ending in /ssh.'
+    return 1
+  fi
+  # Never read the curl configuration here, only file type and metadata.
+  if [[ ! -f "$DAILY_HEALTHCHECKS_CURL_CONFIG" || -L "$DAILY_HEALTHCHECKS_CURL_CONFIG" \
+    || "$(stat -c '%u:%g:%a' "$DAILY_HEALTHCHECKS_CURL_CONFIG")" != 0:0:600 ]]; then
+    fail 'Daily dead-man configuration must be a regular root:root 0600 file without a symlink.'
+    return 1
+  fi
   state="$(systemctl show taptime-backup.service --property=ActiveState --value)" || return
   ended="$(systemctl show taptime-backup.service --property=InactiveEnterTimestamp --value)" || return
   result="$(systemctl show taptime-backup.service --property=Result --value)" || return
   exit_status="$(systemctl show taptime-backup.service --property=ExecMainStatus --value)" || return
   say "[Vorprüfung] Sicherung: Zustand=$state; letztes Ende=${ended:-unbekannt}; Ergebnis=$result/$exit_status."
   [[ "$state" == inactive && -n "$ended" && "$result" == success && "$exit_status" == 0 ]] || failed=1
+  state="$(systemctl show taptime-restore-verify.service --property=ActiveState --value)" || return
+  say "[Vorprüfung] Wiederherstellungsprobe: $state."
+  [[ "$state" == inactive || "$state" == failed ]] || failed=1
   for unit in taptime-wal-archiver.service taptime-wal-receiver.service; do
     state="$(systemctl show "$unit" --property=ActiveState --value)" || return
     say "[Vorprüfung] $unit: $state."
@@ -299,13 +326,13 @@ preflight_deploy() {
     [[ "$state" == active || "$WAL_ARCHIVE_BOOTSTRAP" == 1 ]] || failed=1
   done
   disk_limit="$(sed -n 's/^readonly DISK_USAGE_THRESHOLD_PERCENT=\([0-9][0-9]*\)$/\1/p' "$DAILY_MONITOR_COMMAND")" || return
-  read -r total available used < <(df -Pk / | awk 'NR == 2 {gsub(/%/, "", $5); print $2, $4, $5}')
-  say "[Vorprüfung] Plattenplatz: ${available:-unbekannt} KiB frei von ${total:-unbekannt} KiB."
-  [[ "$total" =~ ^[1-9][0-9]*$ && "$available" =~ ^[0-9]+$ \
-    && "$used" =~ ^[0-9]+$ && "$disk_limit" =~ ^[1-9][0-9]*$ ]] || failed=1
+  read -r total used available < <(df -B1 --output=size,used,avail / | tail -n 1)
+  say "[Vorprüfung] Plattenplatz: ${available:-unbekannt} Bytes frei von ${total:-unbekannt} Bytes."
+  [[ "$total" =~ ^[1-9][0-9]{0,15}$ && "$available" =~ ^[0-9]{1,15}$ \
+    && "$used" =~ ^[0-9]{1,15}$ && "$disk_limit" =~ ^[1-9][0-9]?$ ]] || failed=1
   if (( failed == 0 )); then
-    # Derive the existing red condition from the installed daily monitor, without running it.
-    (( used < disk_limit )) || failed=1
+    # Exactly check_backup_space 0 0: its one-byte reserve and df rounding.
+    (( 1 <= available && (used + 1) * 100 <= (disk_limit - 1) * (used + available) )) || failed=1
   fi
   (( failed == 0 )) || { fail 'Deploy preflight failed before preparation.'; return 1; }
 }
@@ -334,6 +361,8 @@ operations_paths() {
     'usr/local/sbin/taptime-operator-grant' \
     'usr/local/sbin/taptime-operator-db-login' \
     'usr/local/sbin/taptime-runtime-rotate' \
+    'usr/local/sbin/taptime-backup-workspace' \
+    'etc/tmpfiles.d/taptime-backup.conf' \
     'usr/local/sbin/taptime-backup' \
     'usr/local/sbin/taptime-restore-verify' \
     'usr/local/sbin/taptime-restore-activate' \
@@ -459,6 +488,7 @@ validate_operations_scripts() {
     taptime-operator-grant \
     taptime-operator-db-login \
     taptime-runtime-rotate \
+    taptime-backup-workspace \
     taptime-backup \
     taptime-restore-verify \
     taptime-restore-activate \
@@ -518,6 +548,8 @@ validate_operations_release() {
 700 usr/local/sbin/taptime-runtime-rotate
 644 opt/taptime/source/infrastructure/postgres/server-runtime-logins.sql
 700 usr/local/sbin/taptime-backup
+700 usr/local/sbin/taptime-backup-workspace
+644 etc/tmpfiles.d/taptime-backup.conf
 700 usr/local/sbin/taptime-restore-verify
 700 usr/local/sbin/taptime-restore-activate
 700 usr/local/sbin/taptime-wal-receiver
@@ -964,39 +996,62 @@ run_restore_verification() (
   local image="$1"
   local rehearsal_only="${2:-0}"
   local base_archive="${3:?A deployment must pin its own physical base}"
-  local restore_status hook_directory hook_status hook_log before after real_docker script_path
+  local hook_status hook_log after real_docker script_path
+  hook_directory=''
+  workspace_root=''
   local verify_status=0 hook_state duration_ms
 
   # shellcheck disable=SC1090
   source "$BACKUP_CONFIG"
   restore_status="${RESTORE_STATUS_FILE:-$RESTORE_STATUS_FILE_DEFAULT}"
+  restore_verifier_started=0
+  restore_status_before="$(status_fingerprint "$restore_status")"
   : "${DATABASE_NAME:?DATABASE_NAME must be configured}"
   [[ "$rehearsal_only" == '0' || "$rehearsal_only" == '1' ]] ||
     fail 'Restore rehearsal mode must be 0 or 1.'
   require_file "$RESTORE_VERIFY_COMMAND"
-  install -d -m 0700 /run/taptime-backup
-  [[ "$(findmnt -n -o FSTYPE --target /run/taptime-backup)" == 'tmpfs' ]] ||
-    fail '/run/taptime-backup must be a tmpfs; refusing migration rehearsal.'
-
-  hook_directory="$(mktemp -d /run/taptime-backup/deploy-hook.XXXXXX)"
+  # shellcheck disable=SC1090
+  source "${TAPTIME_BACKUP_WORKSPACE_LIBRARY:-$(dirname "$RESTORE_VERIFY_COMMAND")/taptime-backup-workspace}"
+  workspace_root="$(backup_workspace_root)"
+  # Trap state lives in this subshell, including after the function returns.
+  # shellcheck disable=SC2317,SC2329
+  cleanup_hook() {
+    local result=$? temporary
+    if [[ "$hook_directory" == "$workspace_root"/deploy-hook.* && -d "$hook_directory" ]]; then
+      rm -rf -- "$hook_directory"
+    fi
+    if (( result != 0 )) && { (( restore_verifier_started == 0 )) \
+      || [[ "$(status_fingerprint "$restore_status")" == "$restore_status_before" ]]; }; then
+      install -d -m 0700 "$(dirname "$restore_status")"
+      temporary="$(mktemp "${restore_status}.XXXXXX")"
+      printf '{"state":"failed","last_attempt_at_utc":"%s"}\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$temporary"
+      chmod 0644 "$temporary"
+      mv "$temporary" "$restore_status"
+    fi
+    return "$result"
+  }
+  trap cleanup_hook EXIT
+  trap 'exit 143' TERM
+  trap 'exit 130' INT
+  trap 'exit 129' HUP
+  prepare_backup_workspace
+  clean_backup_workspace deploy-hook
+  # This directory contains only the small migration hook. The verifier checks
+  # base/WAL capacity separately before extracting any database payload.
+  TAPTIME_BACKUP_DAILY_MONITOR_COMMAND="$DAILY_MONITOR_COMMAND" check_backup_space 0 0
+  hook_directory="$(mktemp -d "$workspace_root/deploy-hook.XXXXXX")"
   hook_status="$hook_directory/status"
   hook_log="$hook_directory/migration.log"
   script_path="$(readlink -f "${BASH_SOURCE[0]}")"
   real_docker="$(command -v docker)"
   ln -s "$script_path" "$hook_directory/docker"
-  # Invoked by the EXIT trap below.
-  # shellcheck disable=SC2317,SC2329
-  cleanup_hook() {
-    if [[ "$hook_directory" == /run/taptime-backup/deploy-hook.* && -d "$hook_directory" ]]; then
-      rm -rf -- "$hook_directory"
-    fi
-  }
-  trap cleanup_hook EXIT
-
-  before="$(status_fingerprint "$restore_status")"
+  restore_status_before="$(status_fingerprint "$restore_status")"
   say "[1/7] T-007 stellt die eigene Basis $base_archive wieder her; Migrationen laufen vor deren Cleanup."
   set +e
+  restore_verifier_started=1
   PATH="$hook_directory:$PATH" \
+    TAPTIME_BACKUP_DAILY_MONITOR_COMMAND="$DAILY_MONITOR_COMMAND" \
     TAPTIME_REAL_DOCKER="$real_docker" \
     TAPTIME_HOOK_DATABASE_NAME="$DATABASE_NAME" \
     TAPTIME_HOOK_MIGRATION_IMAGE="$image" \
@@ -1011,7 +1066,7 @@ run_restore_verification() (
   (( verify_status == 0 )) || fail 'T-007 restore verification failed.'
 
   after="$(status_fingerprint "$restore_status")"
-  [[ "$after" != "$before" ]] || fail 'T-007 did not produce a fresh status record.'
+  [[ "$after" != "$restore_status_before" ]] || fail 'T-007 did not produce a fresh status record.'
   grep --quiet '"state":"ok"' "$restore_status" || fail 'T-007 did not finish successfully.'
   require_file "$hook_status"
   read -r hook_state duration_ms < "$hook_status"
@@ -1732,6 +1787,13 @@ finish_deploy() {
   trap - EXIT INT TERM HUP
   if (( CADDY_SWITCH_STARTED == 1 )); then
     recover_caddy_edge || true
+  fi
+  if (( RESTORE_TIMER_HELD == 1 )); then
+    if ! systemctl start taptime-restore-verify.timer; then
+      say 'ERROR: Could not restart restore verification timer.' >&2
+      status=1
+    fi
+    RESTORE_TIMER_HELD=0
   fi
   if (( BACKUP_TIMER_HELD == 1 )); then
     if ! systemctl start taptime-backup.timer; then

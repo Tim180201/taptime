@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+TimeoutStartSec=5min
 ExecStart=/usr/local/sbin/taptime-daily-monitor
 User=root
 Group=root

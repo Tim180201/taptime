@@ -2,7 +2,7 @@
 # It contains no password; BORG_PASSPHRASE is read from the separate root-only file below.
 
 BORG_REPOSITORY='ssh://u000000-sub0@u000000-sub0.your-storagebox.de:23/./taptime-production'
-BORG_RSH='ssh -p 23 -i /etc/taptime-backup/ssh/storage-box_ed25519 -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/taptime-backup/storage-box-known_hosts -o StrictHostKeyChecking=yes'
+BORG_RSH='ssh -o ConnectTimeout=30 -o ServerAliveInterval=30 -o ServerAliveCountMax=4 -p 23 -i /etc/taptime-backup/ssh/storage-box_ed25519 -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/etc/taptime-backup/storage-box-known_hosts -o StrictHostKeyChecking=yes'
 BORG_PASSPHRASE_FILE='/etc/taptime-backup/borg-passphrase'
 BASE_BACKUP_KEEP_HOURLY='24'
 BASE_BACKUP_KEEP_DAILY='14'

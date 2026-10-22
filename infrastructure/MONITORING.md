@@ -193,8 +193,9 @@ Sicherung, Archivierer und Wächter wirken sofort mit dem Deploy (siehe `DEPLOY.
 
 ## Geheimnisse und Telefon
 
-`/etc/taptime-monitor/ntfy.curl` und `/etc/taptime-monitor/healthchecks.curl` gehören `root`,
-haben Modus `0600` und enthalten die beiden geheimen URLs. Die Skripte übergeben nur den
+`/etc/taptime-monitor/ntfy.curl`, `/etc/taptime-monitor/healthchecks.curl` und
+`/etc/taptime-monitor/daily-healthchecks.curl` gehören `root`, haben Modus `0600` und enthalten
+die drei geheimen URLs. Die Skripte übergeben nur den
 Dateipfad an curl; das ntfy-Thema und die Healthchecks-UUID erscheinen dadurch nicht in `argv`.
 Auch ntfy-Antwortkörper werden verworfen, weil die erfolgreiche Serverantwort den geheimen
 Themennamen wiederholt und sonst in stdout beziehungsweise journald landen würde.
@@ -261,13 +262,43 @@ personenbezogenen Daten im Auftrag von TapTim.e; die vom Product Owner selbst an
 Accountdaten verarbeitet der Anbieter nach seiner eigenen Datenschutzerklärung in eigener
 Verantwortung.
 
+### Totmannschalter des Tagesmonitors (T-132)
+
+Fehlt die private Datei oder sind ihre Metadaten unsicher, prüft der Tagesmonitor trotzdem alle
+Betriebsbedingungen. Er ergänzt dieselbe ntfy-Meldung um „Totmann der Tagesprüfung nicht eingerichtet“
+(auch als alleinigen Befund), sendet keinen Ping und endet mit Fehler. Der Deploy weist diesen
+Zustand bereits in seiner Vorprüfung anhand der Metadaten zurück.
+
+Der PO legt einen eigenen Healthchecks-Check mit Periode **ein Tag** und Toleranz **eine Stunde**
+an. Down-Webhook an das vorhandene ntfy-Thema: „Tagesprüfung ausgeblieben“, Titel „TapTim.e Betrieb“,
+Priorität 5, kein Up-Webhook. Als Vorlage dient `healthchecks.curl.example`; der PO trägt die
+zweite UUID nur in `/etc/taptime-monitor/daily-healthchecks.curl` ein (root:root, 0600), niemals in
+Befehlsargumente, Chat oder Foto. Nach dem Deploy einmal `systemctl start taptime-daily-monitor`
+und `systemctl show taptime-daily-monitor -p Result` prüfen und den Eingang des Pings im Dashboard
+belegen. Der Code erstellt und entfernt den externen Check nicht; beim Rückbau entfernt der PO
+Check und Datei nach dem Anhalten des Tagesmonitors.
+
+Der Tagesmonitor pingt erst nach allen Prüfungen und gegebenenfalls erfolgreicher Zustellung der
+gebündelten Meldung. curl hat je Versuch zehn Sekunden und zwei Wiederholungen; die Einheit endet
+spätestens nach fünf Minuten. Ein Zustellfehler oder fehlender/unsicherer Konfigurationspfad lässt
+den Lauf scheitern und sendet kein Erfolgssignal. Das bisherige minütliche Lebenszeichen bleibt
+ein eigener Check. Beide Checks übertragen nur ein leeres Lebenszeichen.
+
+Die Sicherung und die Wiederherstellungsprobe prüfen ihren Arbeitsbedarf jetzt vor dem Schreiben
+gegen dieselbe Plattenschwelle wie der Tagesmonitor. Platzmangel setzt den jeweiligen Status auf
+Fehler und nutzt dessen bestehende Meldung. Der Arbeitsordner liegt geschützt auf der Platte;
+Lebenszyklus, Reserve und Rückbau stehen in `RESTORE.md`. Hetzners zusätzliche tägliche
+Plattenkopien (sieben Plätze) können Arbeitskopien und alte Zugangswerte enthalten; auch nach einer
+Rotation bis zu sieben Tage. Sie ersetzen keine grüne Borg-Wiederherstellungsprobe (D-151).
+
 ## Installation und Prüfung
 
 Die beiden Skripte unter `/usr/local/sbin`, ihre Services und Timer unter
 `/etc/systemd/system` sowie die journald-Konfiguration kommen aus dem Operations-Abbild der
 ausgelieferten Version. Der Deploy validiert sie vor Generalprobe und Sicherung, wechselt sie
 gemeinsam und liest geänderte Einheiten neu ein. Nur die geheimen Dateien
-`/etc/taptime-monitor/ntfy.curl` und `/etc/taptime-monitor/healthchecks.curl` werden getrennt
+`/etc/taptime-monitor/ntfy.curl`, `/etc/taptime-monitor/healthchecks.curl` und
+`/etc/taptime-monitor/daily-healthchecks.curl` werden getrennt
 eingerichtet und vom Deploy nicht verändert. Der Restore-Dienst schreibt seinen dauerhaften
 Status nach `/var/lib/taptime-monitor/restore-status.json`; das Verzeichnis ist root-only.
 Auf dem bestehenden Produktionsserver sind alle Timer bereits aktiviert. WAL-Empfänger und
