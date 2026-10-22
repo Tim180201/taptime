@@ -110,7 +110,11 @@ den normalen Deploy-Controller ausführen und ist kein Restore-Zugang; seine Rec
 Störfall nicht erweitert. Direkter Root-Login über SSH ist ebenfalls kein Betriebsweg.
 
 Die Console hat US-Tastaturbelegung. Das Server-Root-Passwort liegt im Passwortmanager; seine
-Eingabe bleibt unsichtbar. Die Einfügefunktion der Console vermeidet das Tippen langer Befehle.
+Eingabe bleibt unsichtbar. Einfügen ist möglich, aber unzuverlässig: Mehrere Zeilen können zu
+einer verschmelzen, Leerzeichen können fehlen. Jede Zeile einzeln tippen oder einfügen, vor
+Enter vollständig lesen und die geheimnisfreie Abschlusszeile als Foto sichern. Nie
+Strg+Alt+Entf drücken. Die Tastentabelle steht in
+[DEPLOY.md unter „Zugang und Berechtigung“](DEPLOY.md#zugang-und-berechtigung).
 
 ## Voraussetzungen vor dem Restore
 

@@ -47,13 +47,82 @@ ssh taptime-deploy@46.225.58.30 'sudo -n /usr/local/sbin/taptime-status'
 Der unabhängige Rückweg ist die **Hetzner Console**: Projekt *Taptime* → Server
 *taptime-prod* → *Aktionen* → *Konsole*. Mit `root` und dem im Passwortmanager verwahrten
 Server-Root-Passwort anmelden. Diese Konsole verwendet eine **US-Tastaturbelegung**; die
-Passworteingabe bleibt vollständig unsichtbar. Auf einer deutschen Tastatur erzeugt
-`Shift` + `Ö` den Doppelpunkt `:`, die Taste `-` unten rechts neben dem Punkt den Schrägstrich
-`/` und die Taste `ß` oben rechts neben der `0` den Bindestrich `-`; außerdem sind `y` und `z`
-vertauscht. **Es gibt keine Einfügefunktion.** Jeden Befehl von Hand tippen, vor Enter lesen
-und die Abschlussmeldung als Foto sichern. Für den kurzen Block unten außerdem: `=` liegt auf
-der deutschen Taste `´`, `$` auf `Shift` + `4`. Keine Tilde erforderlich. Dieser Weg umgeht SSH
-und wurde vor dem Sperren des Root-SSH-Logins praktisch geprüft.
+Passworteingabe bleibt vollständig unsichtbar. **Einfügen ist möglich, aber unzuverlässig:**
+Mehrere Zeilen können zu einer verschmelzen, Leerzeichen können fehlen. Deshalb jede Zeile
+einzeln tippen oder einfügen, vor Enter vollständig lesen und die geheimnisfreie Abschlusszeile
+als Foto sichern. **Nie Strg+Alt+Entf drücken.** Auf einer deutschen Tastatur gelten diese Tasten:
+
+| Gewünschtes Zeichen | Deutsche Taste bei US-Belegung |
+|---|---|
+| `-` | `ß` |
+| `_` | `Shift` + `ß` |
+| `/` | Minus-Taste rechts neben dem Punkt |
+| `=` | `´` |
+| `:` | `Shift` + `Ö` |
+| `"` | `Shift` + `Ä` |
+| `$` | `Shift` + `4` |
+| `{` | `Shift` + `Ü` |
+| `}` | `Shift` + `+` |
+| `>` | `Shift` + Punkt |
+| `\|` | `Shift` + `#` |
+| `y`, `z` | `z`, `y` (vertauscht) |
+
+Dieser Weg umgeht SSH und wurde vor dem Sperren des Root-SSH-Logins praktisch geprüft.
+
+## `.env` verschlüsselt im Passwortmanager verwahren
+
+Diesen Ablauf führt ausschließlich der PO nach separater Freigabe aus, vor einer Rotation und
+nach jeder Änderung der vollständigen `/opt/taptime/.env`. Root liest die Datei nur zur
+Verschlüsselung; über SSH wird allein die verschlüsselte Transportdatei übertragen. Keine Werte
+in Chat, Fotos, Befehlsargumente oder Protokolle übernehmen. Bei einem Befehlsfehler stoppen.
+
+1. **Root an der Hetzner-Konsole.** Die Transport-Passphrase im Passwortmanager unter
+   **„Taptura env-Transport“** verwahren; nur Kleinbuchstaben außer `y`/`z` sowie Ziffern verwenden.
+   Sie wird ausschließlich in die beiden Passphrase-Abfragen von `openssl` getippt. Jede Zeile
+   einzeln ausführen:
+
+   ```sh
+   cd /home/taptime-deploy
+   umask 077
+   openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -salt -in /opt/taptime/.env >env.enc
+   chown taptime-deploy env.enc
+   ```
+
+   Die Ausgabeumleitung `>` verwenden, kein `-out`: Ein fehlendes Leerzeichen an der Option
+   führte an der Konsole zu „Unknown cipher“. Die neue Datei hat durch `umask 077` Modus 0600;
+   nach `chown` kann `taptime-deploy` sie lesen, ohne Leserecht auf der ursprünglichen `.env`.
+
+2. **Am Mac im eigenen Terminal.** Der Deploy-Schlüssel muss im SSH-Agenten geladen sein
+   (siehe „Ausliefern“). Die verschlüsselte Datei landet im Benutzerverzeichnis, außerhalb des
+   Repositorys:
+
+   ```sh
+   umask 077
+   ssh taptime-deploy@46.225.58.30 'cat env.enc' > ~/env.enc
+   set -o pipefail
+   openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -md sha256 -in ~/env.enc | pbcopy
+   ```
+
+   Die Passphrase nur in die `openssl`-Abfrage eingeben. Nach erfolgreichem Entschlüsseln
+   **sofort** in den Passwortmanager einfügen und speichern; dazwischen nichts anderes kopieren.
+   Die verwahrte Kopie nur anhand der Schlüsselnamen auf Vollständigkeit prüfen, nie Werte
+   ausgeben. Danach Zwischenablage leeren und die lokale Transportdatei entfernen:
+
+   ```sh
+   pbcopy < /dev/null
+   rm ~/env.enc
+   ```
+
+3. **Zurück an der Root-Konsole.** Nach erfolgreicher Verwahrung die Server-Transportdatei
+   entfernen:
+
+   ```sh
+   shred -u /home/taptime-deploy/env.enc
+   ```
+
+Der PO erzeugt die Transportdateien bei jeder erneuten Verwahrung neu und entfernt sie danach
+auf beiden Rechnern. Die vollständige Kopie im Passwortmanager ersetzt er nach jeder Änderung;
+bei endgültiger Stilllegung entfernt er Kopie und Transport-Passphrase nach Freigabe.
 
 ## Einmalige Einrichtung
 
@@ -145,9 +214,23 @@ Docker kann vor der Abschlussmeldung mehrere Ladezeilen ausgeben; für die Bedie
 ausführende Person vergleicht die dort genannte Revision mit dem technisch freigegebenen Commit, aus dem
 die zugehörigen Abbilder gebaut wurden, und fährt nur bei Gleichheit fort — nicht mit der Spitze von `main`, auf der inzwischen
 ein `[skip ci]`-Dokumentations-Commit liegen kann. Die gesuchte Revision steht im erfolgreichen
-GitHub-Actions-Lauf *Release container images* oben beim Commit; eindeutig auslesen lässt sie
-sich mit der Run-ID aus dessen URL über
-`gh run view <run-id> --json headSha --jq '.headSha[0:7]'`. Dieser menschliche Vergleich ist die
+**Push-CI-Lauf des freigegebenen Commits** (Workflow *CI*, Zweig `main`). Dessen Run-ID aus
+der URL am Mac verwenden:
+
+```sh
+gh run view <ci-run-id> --repo Tim180201/taptime \
+  --json workflowName,event,headBranch,conclusion,headSha \
+  --jq 'select(.workflowName == "CI" and .event == "push" and .headBranch == "main" and .conclusion == "success") | .headSha'
+```
+
+Ohne Ausgabe stoppen. Die vollständige SHA muss mit dem vom TL freigegebenen Commit
+übereinstimmen; dessen erste sieben Zeichen sind die Revision für den Konsolenblock.
+Der zugehörige erfolgreiche Image-Lauf muss dieselbe Quellrevision gebaut haben: Sein Schritt
+*Check out the exact tested commit* verwendet `github.event.workflow_run.head_sha`, und seine
+Build-Schritte setzen `org.opencontainers.image.revision` auf diese vollständige Quell-SHA.
+**`headSha` des Image-Laufs ist kein Nachweis des gebauten Commits:** Bei `workflow_run`
+bezeichnet es die Spitze von `main` beim Start des Image-Laufs und kann bereits einen späteren
+Dokumentationscommit nennen. Dieser menschliche Vergleich ist die
 Freigabeprüfung, die der bewegliche Tag selbst nicht leisten kann. Bei einer abgewiesenen Nutzlast
 lautet die letzte Zeile
 `FEHLER: Bootstrap abgebrochen; nichts wurde veraendert.`; dann bleibt die Konsole offen und die
@@ -274,6 +357,11 @@ RESTORE_RECOVERY_POLL_SECONDS='5'
 ```
 
 ## Ausliefern
+
+Vor jedem Deploy geht der TL mit dem PO die PO-Schritte aller enthaltenen Aufgaben durch.
+Wurde `.env` geändert, verwahrt der PO die vollständige aktuelle Datei nach
+[„`.env` verschlüsselt im Passwortmanager verwahren“](#env-verschlüsselt-im-passwortmanager-verwahren)
+und bestätigt die Vollständigkeit anhand der Schlüsselnamen, bevor der Deploy beginnt.
 
 Der folgende Ablauf läuft in einer **interaktiven Terminalsitzung des Product Owners** auf
 seinem Mac. Codex startet keinen Deploy; seine Werkzeugumgebung kann Hintergrundprozesse
@@ -613,8 +701,9 @@ gleich markierten Abbilder.
 **Teil A ist das Werkzeug und dieses Runbook. Es kommt erst mit Deploy 7 nach dem
 Implementierungs-Commit, nicht mit Deploy 6.** Teil B führt ausschließlich der PO nach separater
 Produktionsfreigabe aus, begleitet vom TL. Codex liest keine Server-Geheimnisse und führt diese
-Schritte nicht aus. Vorher die alte vollständige `.env` getrennt im Passwortmanager verwahren;
-keine Geheimnisse in Chat, Fotos, Befehlsargumente oder Deploy-Protokolle übernehmen.
+Schritte nicht aus. Vorher die alte vollständige `.env` nach
+[„`.env` verschlüsselt im Passwortmanager verwahren“](#env-verschlüsselt-im-passwortmanager-verwahren)
+sichern; keine Geheimnisse in Chat, Fotos, Befehlsargumente oder Deploy-Protokolle übernehmen.
 
 1. **Neuer Deploy-Schlüssel am Mac.** Mit `ssh-keygen` interaktiv eine Passphrase setzen und
    im Passwortmanager verwahren. Den öffentlichen Teil dem eigenen GitHub-Konto hinzufügen
@@ -626,7 +715,8 @@ keine Geheimnisse in Chat, Fotos, Befehlsargumente oder Deploy-Protokolle übern
    ssh-add ~/.ssh/taptime-deploy-new
    ```
 
-2. **Root an der Hetzner-Konsole.** Befehle einzeln tippen (US-Tastatur, kein Einfügen).
+2. **Root an der Hetzner-Konsole.** Jede Zeile einzeln tippen oder einfügen und vor Enter lesen
+   (US-Tastatur und unzuverlässiges Einfügen, siehe „Zugang und Berechtigung“).
    `Tim180201` ist das GitHub-Konto des PO; bei einem anderen Konto entsprechend ersetzen.
    Alle geladenen Fingerabdrücke mit der Ausgabe am Mac vergleichen. Erst danach die Zeile
    des neuen Schlüssels auswählen: `n` auf deren tatsächliche Zeilennummer setzen, nicht raten.
@@ -715,8 +805,10 @@ keine Geheimnisse in Chat, Fotos, Befehlsargumente oder Deploy-Protokolle übern
 
    Bei einem Fehler stoppen und dem TL die geheimnisfreie Fehlermeldung geben. Danach im Web
    anmelden, eigene Zeiten laden und den Betreiber-Bereich prüfen. Die neue vollständige `.env`
-   getrennt neu verwahren, einschließlich `SUPABASE_PUBLISHABLE_KEY`; die verwahrte Kopie anhand
-   der Schlüsselnamen auf Vollständigkeit prüfen. Erst danach die überholte Server-Kopie löschen:
+   einschließlich `SUPABASE_PUBLISHABLE_KEY` nach
+   [„`.env` verschlüsselt im Passwortmanager verwahren“](#env-verschlüsselt-im-passwortmanager-verwahren)
+   neu sichern; die verwahrte Kopie anhand der Schlüsselnamen auf Vollständigkeit prüfen.
+   Erst danach die überholte Server-Kopie löschen:
 
    ```sh
    shred -u /root/env-0410.bak
