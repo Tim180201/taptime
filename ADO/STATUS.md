@@ -16,7 +16,9 @@ braucht die Anmeldedaten der neuen Erweiterung, Ablauf im README der App). Prüf
 nachgezogen: `.env` verschlüsselt verwahren, Image-Revision über den CI-Lauf des freigegebenen Commits, Tastentabelle
 der Konsole (DEPLOY.md). T-134 (`5f65fc3`) hat Verzeichnis, AVV-Anlagen, Aushang nach Art. 13 und
 Store-Datenschutzangaben auf den gebauten Stand gebracht; offen beim PO: AVV mit Hetzner, Supabase und Brevo (noch
-keiner abgeschlossen), Drittlandfrage (D-006), Anschrift und Kontakt. Jetzt T-132, danach T-099a (D-149).
+keiner abgeschlossen), Drittlandfrage (D-006), Anschrift und Kontakt. T-132 (`81f55b7`): Arbeitsbereich der Sicherung
+auf der Platte mit Wächter, Platzprüfung und Aufräumen, begrenzte Borg-Wartezeiten, Totmannschalter der Tagesprüfung,
+Hetzner Cloud Backups im Runbook; zwei TL-Runden, CI und Image-Lauf grün. Jetzt T-099a; parallel Deploy 8.
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -31,8 +33,8 @@ on device“: Basis und WAL-Kette werden im tmpfs `/run/taptime-backup` entpackt
 wachsender Datenbank droht aber auch die Sicherung zu scheitern. Am 18.10. scheiterte die Sonntagsprobe erneut; seitdem
 meldet die Tagesprüfung um 08:00 jeden Morgen „Wiederherstellungsprüfung fehlgeschlagen“ (PO 22.10., erwartet bis zur
 nächsten grünen Probe). Messwerte 22.10.: `/run` 382 MB, RAM 3,8 GB, Datenbank 125 MB, WAL-Puffer 17 MB, Platte 29 GB
-frei; die Probe vom 18.10. scheiterte beim Kopieren der vierten WAL-Datei. Entscheidung D-150: Arbeitsbereich auf die
-Platte, Auftrag T-132 mit B12.
+frei; die Probe vom 18.10. scheiterte beim Kopieren der vierten WAL-Datei. Behoben mit T-132 (D-150), wirksam ab
+Deploy 8; bis dahin kommt die Morgenmeldung weiter.
 **GHCR-Vorfall 15.10. (T-130, T-130b):** Der Image-Lauf zu `7e36c58` räumte um 18:47 UTC auf, während Deploy 6
 noch lief; `fb28166` stand noch nicht im Schutzsatz, und der Zusatzschutz „neueste zwanzig“ zählte einzelne
 Paketversionen. Gelöscht wurden neun Versionen der Produktionsabbilder (Backend, Admin-Web, Operator-Web). Die Produktion
@@ -44,9 +46,9 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-133 ✓, T-134 ✓, T-132 (mit B12),
-T-099a (D-149) → Deploy 8 (mit T-127a/b und T-104a) und neue App-Builds (T-104b bis T-104d) →
-restliche Geräteabnahme → Pilot. Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
+**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) → Deploy 8 (T-127a/b, T-104a, T-132; vorher Healthchecks-Check
+und Controller nach DEPLOY.md; parallel T-099a) → neue App-Builds (T-104b bis T-104d) → restliche Geräteabnahme →
+Pilot. Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
 `review/<aufgabe>` ab, Fotos auf einem verwaisten Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
@@ -65,12 +67,10 @@ Entwurf), und der Balken scrollt weg, während die Seitenleiste 56 px tiefer ste
 Fehlergrenze; T-122c); Zeiten des Administrators ohne Namen, weil sein Zugang von vor T-107 keinen Namen hat und
 niemand einen Namen ändern kann (T-126). Wunsch PO: Gelöschte und Ehemalige nur bei Monatszahlen und im Archiv
 (T-127, D-143); dabei gefunden: „Gerade aktiv“ zeigt Ausgeschiedene, Mitarbeiter → Zeiten lässt sie in älteren
-Monaten weg. App-Rückfragen zum Archiv kommen mit dem nächsten App-Build. Nach Deploy 7 im Web prüfen: Balken in
-beiden Themen fest oben, ein Monatsschalter, Lohnexport startet mit dem Vormonat, „Name ändern“ (zuerst den eigenen
-Namen setzen; danach steht er im Balken und im Lohnexport, „Name fehlt“ verschwindet), Startseite „Stempelpunkte“.
-Am Mac in Safari:
-bis zum Seitenende scrollen und nachfedern lassen; Balken und Seitenleiste bleiben stehen (in T-122c nicht
-automatisierbar, Safari-Fernsteuerung aus). Android mit
+Monaten weg. App-Rückfragen zum Archiv kommen mit dem nächsten App-Build. **Web-Abnahme Deploy 7 bestanden (PO 22.10.):** Balken in
+beiden Themen fest oben, auch beim Nachfedern in Safari; eigener Name gesetzt und im Balken; Lohnexport mit Vormonat,
+Monatsschalter mit Monatsübersicht; Startseite „Stempelpunkte“. P3: „Name · Rolle“ im Balken ist so blass, dass der PO
+ihn zuerst übersah. Android mit
 dem Build zu `ad4cd29`: Die Karte wird ohne Antippen erfasst (PO 15.10.); die übrigen Fälle des Nachtests stehen in
 der Prüfliste.
 
