@@ -1894,6 +1894,17 @@ geleakten Passwörtern ab Supabase Pro (D-130); eine klare Meldung „Zu viele V
 Ausweitung neu bewerten. Umsetzung in T-119, Dashboard-Schritte durch den PO.
 **Warum:** Ausreichender Schutz gegen Durchprobieren für den Pilot, ohne zusätzliche Datenwege und ohne zusätzliche Hürde
 für Lehrer.
+**Nachtrag 22.10. (TL):** Die Anmeldung mit Passwort zählt bei Supabase nicht unter „Rate limit for sign-ups and
+sign-ins“, sondern unter dem Token-Weg, im Dashboard „Rate limit for token refreshes“ (Standard 150 je 5 Minuten und IP,
+Spitze 30, zusammen mit den Sitzungserneuerungen; geprüft im Quellcode von supabase/auth, `token.go` und
+`apilimiter.go`). Dieser Wert liegt schon über 100 und wird nicht gesenkt. Der Weg über den Einladungs- oder
+Rücksetzlink zählt zweimal: das Prüfen des Links unter „Rate limit for token verifications“ (Standard 30), das Setzen
+des Passworts unter „Rate limit for sign-ups and sign-ins“ (Standard 30, zählt auch Registrierung, Zurücksetzen und
+Codes). Beide werden auf 100 je 5 Minuten und IP gesetzt, damit ein Standort hinter einer gemeinsamen Internetadresse am
+Einführungstag seine Passwörter setzen kann. Bestehende kürzere Passwörter melden sich nach der neuen Mindestlänge
+weiter an; Supabase gibt dann nur den Hinweis `weak_password` zurück, den die Clients nicht auswerten. Offen für T-099:
+30 Mails je Stunde reichen für eine Einladung aller 200 Lehrer an einem Tag nicht (knapp sieben Stunden); vor einem
+Start mit allen anheben oder die Einladungen staffeln.
 
 ## D-140 · Verwaltung im Browser und App mit hellem und dunklem Thema · 14.10.2026 · Tim (PO)
 Web und App bekommen zwei Themen mit demselben Aufbau: dunkel wie heute und hell. Die Wahl folgt dem System, ein
@@ -1992,3 +2003,14 @@ eigenes Layout. iPhone: Live-Aktivität und Dynamic Island ganz im Taptura-Desig
 eine stille Anzeige: keine weiteren Mitteilungen, kein Ton, keine Vibration (PO 21.10.). T-104d, T-104c.
 **Warum:** Eigene Layouts beschneidet Android und zeigt sie je Hersteller anders, ein Live Update ginge damit nicht; die
 Standard-Meldung bleibt verlässlich und trägt trotzdem Zeichen, Farbe und Wortlaut der App.
+
+## D-149 · Rechtstexte und Pilotgröße vor den Pilot ziehen · 22.10.2026 · Tim (PO), Claude (TL)
+Solange T-132 auf die Messwerte des PO wartet, kommen zwei Aufgaben vor den Pilot: T-134 (B15) gleicht Verzeichnis,
+AVV-Anlagen, Art.-13-Vorlage und Store-Datenschutzangaben an den gebauten Stand an; T-099a misst in frogs-Größe, ohne zu
+reparieren, Behebungen folgen als T-099b. B12 (Zeitgrenzen und Totmannschalter der Sicherung) geht in T-132 ein, weil es
+dieselben Skripte sind. Reihenfolge: T-134, dann T-099a; T-132 geht vor, sobald die Messwerte vorliegen. Codex arbeitet
+an einer Aufgabe zur Zeit. Nicht vorgezogen: T-123 und T-124 (Antworten von frogs), T-125 (erst mit dem Fall), T-048 und
+T-050 (D-063), T-073 (Chips mit frogs).
+**Warum:** Das Recht ist die längste Uhr des PO; der Anwalt soll den gebauten Stand prüfen, nicht den von Migration 016.
+Ob Lohnexport (fester Abbruch über 10.000 Zeilen), Antwortgrenzen und Zeitgrenzen bei frogs-Größe halten, ist nicht
+belegt; das soll vor echten Daten feststehen, unabhängig davon, wie groß frogs startet.

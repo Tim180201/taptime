@@ -816,8 +816,9 @@ sichern; keine Geheimnisse in Chat, Fotos, Befehlsargumente oder Deploy-Protokol
 
 6. **Alarmziel und Supabase.** ntfy-Thema nach „T-024: ntfy-Thema erneuern“ in
    `MONITORING.md` erneuern, Telefon und Healthchecks-Down-Webhook umstellen und eine Testmeldung
-   empfangen. Im Supabase-Dashboard die Mindestlänge 10 und 100 Anmeldungen je fünf Minuten und
-   IP-Adresse nach D-139 setzen (Details unten). Mit Supabase Pro zusätzlich den Schutz vor
+   empfangen. Im Supabase-Dashboard nach D-139 die Mindestlänge 10 setzen, „Rate limit for
+   sign-ups and sign-ins“ und „Rate limit for token verifications“ je auf 100; „Rate limit for
+   token refreshes“ bleibt 150 (Details unten). Mit Supabase Pro zusätzlich den Schutz vor
    geleakten Passwörtern einschalten. Der PO bestätigt diese Schritte dem TL.
 
 ## Supabase-Einladungen und Wiederherstellung (T-094, T-094b)
@@ -825,11 +826,18 @@ sichern; keine Geheimnisse in Chat, Fotos, Befehlsargumente oder Deploy-Protokol
 Vor der separat freigegebenen Auslieferung prüft der Product Owner: Selbstregistrierung aus, E-Mail-Bestätigung an, „Email OTP Expiration“ **3600 s**. Site URL `https://admin.tb-infra.de` ohne abschließenden Schrägstrich; Einladungs-Redirect `https://admin.tb-infra.de/willkommen`, ohne Wildcard. App und Web setzen Passwörter über dieselbe Site URL; keine Recovery-App-Schemata. Der PO legt diese Einstellungen und die Redirect-Liste an, pflegt sie bei Domain-/Projektwechsel und entfernt obsolete Einträge nach Ablösung. Deutsche Vorlage und vollständiger Ablauf: `docs/T-047-Inbetriebnahme.md`, `docs/T-047-Einladungsvorlage.md`.
 
 **T-119 / D-139, vor den ersten echten Konten, zusammen mit T-024:** Der Product Owner
-setzt im Supabase-Dashboard die Passwort-Mindestlänge auf **10 Zeichen**, gleich der gemeinsamen
+setzt im Supabase-Dashboard unter Authentication → Sign In / Providers → Email die
+Passwort-Mindestlänge („Minimum password length“) auf **10 Zeichen**, gleich der gemeinsamen
 Quelle `shared/authPolicy.ts`. Sie gilt beim Setzen und Ändern eines Passworts; bestehende
-kürzere Passwörter werden bei der Anmeldung weiterhin geprüft. Der PO setzt die
-**Anmeldegrenze je IP-Adresse auf 100 in 5 Minuten**, damit sich Mitarbeiter eines Standorts
-über dieselbe Internetadresse anmelden können. Mit der Gewerbeanmeldung stellt der PO auf
+kürzere Passwörter melden sich weiter an (Supabase liefert dann nur den Hinweis `weak_password`).
+Unter Authentication → Rate Limits setzt der PO **„Rate limit for sign-ups and sign-ins“** und
+**„Rate limit for token verifications“** je **auf 100** je 5 Minuten und IP-Adresse (Standard
+jeweils 30). Ein Einladungs- oder Rücksetzlink zählt in beiden: Prüfen des Links unter „token
+verifications“, Setzen des Passworts unter „sign-ups and sign-ins“. So wird ein Standort hinter
+einer gemeinsamen Internetadresse am Einführungstag nicht ausgebremst. Die Anmeldung mit Passwort
+zählt dagegen unter **„Rate limit for token refreshes“** (Standard 150 je 5 Minuten und IP,
+zusammen mit den Sitzungserneuerungen); diesen Wert nicht senken (D-139, Nachtrag 22.10.). Sonst
+bleibt auf beiden Seiten alles unverändert. Mit der Gewerbeanmeldung stellt der PO auf
 **Supabase Pro** um (D-130) und aktiviert unmittelbar danach den **Schutz vor bekannten
 geleakten Passwörtern**, ebenfalls vor den ersten echten Konten. Der PO prüft und pflegt diese
 Einstellungen bei späteren Richtlinien- oder Projektwechseln und entfernt die alten

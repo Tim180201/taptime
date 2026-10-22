@@ -5,7 +5,7 @@
 **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
 **Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007), mit getrennten Uhren für
 reine Wartezeiten (D-011). Grundlage: Anforderungsprüfung gegen den Code (D-012) und Code-Analyse 28.09. (D-103).
-**Stand 21.10.2026:** Produktion und Auslieferungsstand siehe STATUS. Erledigte Aufgaben stehen in Git und DECISIONS;
+**Stand 22.10.2026:** Produktion und Auslieferungsstand siehe STATUS. Erledigte Aufgaben stehen in Git und DECISIONS;
 die vollständige Aufgabentabelle bis 05.10. mit allen Begründungen: `git show 1043011:ADO/PLAN.md`.
 
 ---
@@ -53,12 +53,13 @@ die vollständige Aufgabentabelle bis 05.10. mit allen Begründungen: `git show 
 | **T-104b ✓** | Sperrbildschirm Android (D-146) — abgeschlossen `c332b91` | Laufende Benachrichtigung mit Ziel (D-147), Dauer und Knöpfen, Aktionen nativ ohne App; ohne Netz „Nicht gesendet“ mit „Erneut senden“, Antippen öffnet „Erfassen“; die App liest ihre Zeit beim Öffnen neu und zeigt nach eigener Erfassung „Wird übertragen …“. Zwei Review-Runden, Schlussänderung vom TL vorgegeben. Neuer App-Build. | Codex |
 | **T-104d ✓** | Android-Meldung im Taptura-Look (D-148) — abgeschlossen `a76630c` | Eigenes Symbol aus dem Funk-Zifferblatt (aus `mark.json` erzeugt), Akzent Mint, Ziel als Titel und Zustand darunter, Knöpfe mit den Worten der App; ab Android 16 als Live Update (AndroidX Core 1.17 aus Expo, keine neue Abhängigkeit). Nur Anzeige. | Codex |
 | **T-104c ✓** | Sperrbildschirm iPhone (D-146, D-148) — abgeschlossen `5c15d81` | Live-Aktivität (Sperrbildschirm, Dynamic Island) im Taptura-Design mit Knöpfen ab iOS 17 als `LiveActivityIntent` im App-Prozess, Aktion nativ ohne Entsperren; ein Hintergrundstart hält React zurück und schreibt nichts in den Schlüsselbund (D-133). iOS 16 und ohne Netz öffnet die App. Eigenes Config-Plugin, Erweiterung lokal gebaut. Zwei Review-Runden, Schlusskorrektur vom TL. Neuer App-Build. | Codex |
-| **T-132** | Sicherung und Wiederherstellungsprobe brauchen mehr Platz (Befund 17.10.) | Wöchentliche Probe scheiterte am tmpfs (`No space left on device`); die stündliche Sicherung baut ihre Basis im selben tmpfs. Erst Messwerte an der Konsole, dann Lösungsvorlage für den PO (u. a. größerer Server), dann Auftrag. Vor dem Pilot. | Codex, TL, PO |
-| **T-133** | Runbook nachziehen (DEPLOY.md) | `.env` verschlüsselt sichern (Weg vom 17.10.), Image-Revision nicht über `headSha` des Image-Laufs, Konsole: jede Zeile einzeln. | Codex |
+| **T-132** | Sicherung und Wiederherstellungsprobe brauchen mehr Platz (Befund 17.10.) | Wöchentliche Probe scheiterte am tmpfs (`No space left on device`); die stündliche Sicherung baut ihre Basis im selben tmpfs. Erst Messwerte an der Konsole, dann Lösungsvorlage für den PO (u. a. größerer Server), dann Auftrag. Mit B12 (Zeitgrenzen, Totmannschalter, D-149); die Datenbankgröße in frogs-Größe kommt aus T-099a. Vor dem Pilot. | Codex, TL, PO |
+| **T-133 ✓** | Runbook nachziehen (DEPLOY.md) — abgeschlossen `b29bbaa` | `.env` verschlüsselt sichern (Weg vom 17.10.), Image-Revision über den CI-Lauf des freigegebenen Commits statt `headSha` des Image-Laufs, Konsole: jede Zeile einzeln, Tastentabelle. | Codex |
+| **T-134** | Rechtstexte an den Code angleichen (B15, vorgezogen nach D-149) | Verzeichnis, AVV-Anlagen (TOM), Art.-13-Vorlage und Store-Datenschutzangaben auf den gebauten Stand (Migration 062, T-104c): Kunden als Betroffene, Rollen und Betreiber, Anzeige auf dem Sperrbildschirm (D-147), Protokollfelder, Löschung und Sicherungen ehrlich, Unterauftragsverarbeiter, Lücken. Vorlage für den Anwalt. Brief in TASK. | Codex (Sol) |
 | **T-024** | Geheimnisse rotieren | Teil A (Codex) abgeschlossen `7e36c58`: Werkzeug `taptime-runtime-rotate` für alle Laufzeit-Logins aus `server-runtime-logins.sql` und den Cursor-HMAC-Schlüssel, transaktional mit Rückweg, Runbook in DEPLOY.md und MONITORING.md; kommt mit Deploy 7. Teil B (PO an der Konsole, TL begleitet, nach dem Runbook): verwahren; neuer passphrasegeschützter Deploy-Schlüssel, durch Deploy 7 belegt, dann alten entfernen; rotieren (auch Betreiber-Zugang); neu verwahren mit `SUPABASE_PUBLISHABLE_KEY`; `/root/env-0410.bak` entfernen; neues ntfy-Thema; Supabase nach D-139. Stand 17.10.: bis Deploy 7 erledigt, ab Schritt 7 offen (STATUS). | Codex, PO, TL |
 | **Deploy 7 ✓** | T-024 Teil A, T-122c, T-122d, T-129, T-131, T-126 ausliefern — ausgeliefert 17.10. (`fb28166` → `1918d5a`) | Migration 060; neuer Deploy-Schlüssel vor dem Deploy. Belege aus dem Log, T-024 Teil B ab Schritt 7 und Web-Abnahme offen (STATUS). | PO, TL |
-| **Deploy 8** | T-127a, T-127b, T-104a, T-132, T-133 ausliefern; neue App-Builds mit T-104b, T-104d und T-104c | Migration 061 und folgende; Archiv, Sperrbildschirm, Sicherung. | PO, TL |
-| **T-099** | Pilotgröße | Test in frogs-Größe (5 Standorte, 200 Personen, 500 Kunden und Tags, ein voller Monat) über jede Ansicht in App, Web, Betreiber-Bereich und den Lohnexport, was scheitert wird behoben (u. a. F-018, F-043); Die Suche ist in T-117; Supabase-Grenzen anheben. Vor dem Start nur, falls frogs mit allen beginnt (CEO-Termin), sonst vor der Ausweitung. | Codex |
+| **Deploy 8** | T-127a, T-127b, T-104a, T-132 ausliefern (nach dem Runbook aus T-133); neue App-Builds mit T-104b, T-104d und T-104c | Migration 061 und folgende; Archiv, Sperrbildschirm, Sicherung. | PO, TL |
+| **T-099** | Pilotgröße | **T-099a** (vorgezogen nach D-149, Brief in TASK): nur messen, mit Generator und Messwerkzeug im Repository; **T-099b**: Behebung nach dem Befund. Ursprünglicher Umfang: Test in frogs-Größe (5 Standorte, 200 Personen, 500 Kunden und Tags, ein voller Monat) über jede Ansicht in App, Web, Betreiber-Bereich und den Lohnexport, was scheitert wird behoben (u. a. F-018, F-043); Die Suche ist in T-117; Supabase-Grenzen anheben. Vor dem Start nur, falls frogs mit allen beginnt (CEO-Termin), sonst vor der Ausweitung. | Codex |
 | **Pilot** | Betrieb frogs | Betrieb anlegen, Standortleitungen einladen, Tags verteilen. Voraussetzung: Gewerbeanmeldung, AVV/TOM nach B15, Haftpflicht mit Cyber-Baustein (D-116), Supabase Pro mit der Gewerbeanmeldung (D-130), Aussperr-Test bestanden. | PO |
 
 ---
@@ -149,10 +150,10 @@ Paket, wenn es startet; große Pakete werden dann geteilt.
 | B09 | Engine: Duplikatfenster, Verwaltungs-Trigger | F-022, F-138, F-139 | Monat 2 |
 | B10 | Cursor für Ziele und Projekte | F-019, F-096 | Monat 2 |
 | B11 | Deploy-Controller: Fehlersemantik, Protokoll, Tests unter errexit | F-036, F-037, F-059, F-077, F-108, F-128, F-184 | vor dem Deploy danach |
-| B12 | Sicherung und Monitoring: Zeitgrenzen, Totmannschalter | F-049, F-055, F-056, F-084, F-120, F-122, F-123 | Monat 1 |
+| B12 | Sicherung und Monitoring: Zeitgrenzen, Totmannschalter | F-049, F-055, F-056, F-084, F-120, F-122, F-123 | mit T-132 (D-149) |
 | B13 | Sicherung vereinfachen, PITR-Reichweite (PO/TL) | F-053, F-060, F-125, F-182 | Monat 2–3 |
 | B14 | CI und Migrationen | F-109, F-126, F-127, F-129, F-130, F-131, F-132 | Monat 2 |
-| B15 | Rechtstexte an den Code angleichen | F-025, F-026, F-050, F-082, F-083, F-102, F-163 | vor AVV |
+| B15 | Rechtstexte an den Code angleichen | F-025, F-026, F-050, F-082, F-083, F-102, F-163 | vorgezogen als T-134 (D-149) |
 | B16 | Doku straffen | F-064, F-065, F-135, F-142, F-144, F-151, F-152 | Monat 1 |
 | B17 | Linter, Formatter, Tests mit Verhalten | F-164, F-165, F-166 | nach Pilotstart |
 | B18 | HTTP-Schicht: Routentabelle, Transaktionshülle | F-157, F-158, F-162, F-173, F-174 | nach Pilotstart |
