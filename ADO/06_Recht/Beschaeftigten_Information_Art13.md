@@ -1,142 +1,172 @@
-# Information für Beschäftigte zur elektronischen Arbeitszeiterfassung
-
-**Vorlage nach Art. 13 DSGVO** — auszufüllen und auszugeben vom **Arbeitgeber**
-
-> **Für Tim:** Diese Information schuldet der **Pilotbetrieb** seinen Lehrkräften, nicht du.
-> Er muss sie **vor der ersten Erfassung** aushändigen. Du lieferst ihm den Text, weil du als
-> Einziger genau weißt, was das System tut — und weil du ihm damit die Hürde abnimmst, an der
-> Pilotprojekte am häufigsten hängenbleiben.
+> **Hinweise für den Arbeitgeber (nicht mit ausgeben)**
 >
-> Platzhalter in `[eckigen Klammern]` füllt der Arbeitgeber aus. Vor der Ausgabe von einem
-> Fachanwalt prüfen lassen — insbesondere die Rechtsgrundlage.
+> **Entwurf des Technical Lead, keine Rechtsberatung.** Vor Ausgabe fachanwaltlich prüfen lassen.
+> **Stand 22.10.2026 · Systemstand: Migration 062, bis T-104c**
 >
-> **Entwurf des Technical Lead, keine Rechtsberatung.** Stand 25.08.2026.
+> Die Vorlage umfasst noch auszuliefernde Funktionen von Deploy 8 und neuen App-Builds.
+> Vor Ausgabe mit dem tatsächlich eingesetzten Stand abgleichen und nur den Aushang unterhalb
+> dieses Kastens ausgeben. Alle Platzhalter vervollständigen. Datenschutzkontakt entsprechend
+> der Bestellung benennen. Rechtsgrundlagen für den Betrieb prüfen und konkret eintragen,
+> insbesondere Art. 6 Abs. 1 DSGVO, gegebenenfalls § 26 BDSG, Aufzeichnungspflichten und
+> Betriebsvereinbarung. Pflichtangaben, Folgen fehlender Angaben, gegebenenfalls berechtigte
+> Interessen sowie Widerspruchs- und Widerrufsrechte ergänzen. Eine pauschale Aussage zur
+> Einwilligung ersetzt diese Prüfung nicht. Empfänger, Fristen und Meldeweg festlegen.
+>
+> **Vor echten Daten offen:** AVV mit dem Softwareanbieter vervollständigen; für Hetzner,
+> Supabase und Brevo gilt jeweils: AVV noch nicht abgeschlossen (PO, 22.10.2026).
+> Drittlandfrage zu Supabase mit US-Mutter (D-006), tatsächliche Zugriffe, Garantien und deren
+> Bezugsmöglichkeit fachanwaltlich klären. Es gibt noch keinen allgemeinen Lösch-/Auskunftsweg
+> und keine automatische Löschung fachlicher Daten (T-016). Fristen, Löschaufträge, Umgang
+> nach Vertragsende und erneute Löschung nach Wiederherstellung bleiben offene Aufgaben.
+> Die fehlende Umsetzung hebt Betroffenenrechte nicht auf. Die mindestens zweijährige Frist
+> bestimmter Arbeitszeitnachweise ist keine technische Löschfrist; weitere Pflichten prüfen.
+>
+> Die Anzeige von Zielnamen auf dem gesperrten Handy ist bewusst vorgesehen (D-147).
+> Bewertung und Einsatz erläutern, insbesondere bei minderjährigen Kunden. Kunden brauchen
+> eine eigene Information; dieses Blatt richtet sich an Beschäftigte. Das Produkt bleibt
+> branchenunabhängig. Namen und Freitext können sensible Angaben enthalten.
+>
+> Technische Einzelheiten zur Vollständigkeit: Anmeldestand bedeutet erste/letzte erfolgreiche
+> Sitzungsabfrage, auch beim Öffnen; kein vollständiges Passwort-Anmeldeprotokoll. Offline-Belege
+> umfassen Installation, Sequenz, Geräteuhr/Bootbeleg, Karten-/Ereigniskennungen und Übertragungs-/
+> Sicherungsstatus. SQLCipher verschlüsselt die Offline-Datenbank. Anmeldedaten liegen
+> gerätegebunden geschützt, auf iOS nur entsperrt zugänglich. Für Sperrbildschirm-Aktionen
+> speichert der Server nur einen Hash; die gesonderte Berechtigung gilt höchstens 24 Stunden
+> und nur für die laufende Zeit. Android schützt sie mit dem Keystore, iOS im Schlüsselbund
+> nach erstem Entsperren; der iOS-Anzeigezustand liegt zusätzlich in einer geschützten Datei
+> ohne Backup. Betreiberprotokolle erfassen Akteur, Betrieb, Aktion, Zeitpunkt und gegebenenfalls
+> Grund/Paketänderung. Auch kleine Aggregate können Personen erkennen lassen.
+>
+> Sicherungen: aktive Cloud-Tageskopien der gesamten Serverplatte in Nürnberg einschließlich
+> Datenbank, Konfiguration und Zugangsdaten, derzeit gegen 10:45 UTC; sieben Plätze, die älteste
+> Kopie wird bei einer neuen entfernt. Höchstens sieben Tage bei fortlaufend täglicher Rotation;
+> kein davon unabhängiger Ablauf. Keine Cloud Snapshots laut PO. Gesonderte verschlüsselte
+> Borg-Sicherungen auf der Storage Box in Falkenstein mit geschützter geprüfter Basis;
+> manuelle Storage-Box-Schnappschüsse und logische Alt-Archive ohne automatische Höchstfrist.
+> Kein belegter allgemeiner Ablauf nach sechs Monaten. Diagnoseaufbewahrung in journald:
+> 14 Tage und Speicherobergrenze; Datenbank-Audits separat. Quellen:
+> [Hetzner-FAQ](https://docs.hetzner.com/cloud/servers/backups-snapshots/faq/),
+> [§ 16 Abs. 2 ArbZG](https://www.gesetze-im-internet.de/arbzg/__16.html).
+> Ausgabe: [Ort, Datum] · [Arbeitgeber].
 
 ---
 
-## Liebe Kolleginnen und Kollegen,
+# Deine Arbeitszeit: Was wir speichern und wer es sieht
 
-ab dem `[Datum]` erfassen wir die Arbeitszeit elektronisch. Dieses Blatt erklärt, was dabei
-gespeichert wird, warum, und was **nicht** passiert.
+Ab [Datum] erfassen wir deine Arbeitszeit mit [Produktname]. Verantwortlich: [Firma, Anschrift].
+Kontakt für Fragen: [Name, E-Mail, Telefon].
+Datenschutzkontakt: [Name, Kontakt].
 
----
+## Warum wir die Daten brauchen
 
-## 1 · Wer ist dafür verantwortlich
+Wir erfassen und prüfen deine Arbeitszeit. Wir ordnen Einsätze zu und bereiten die
+Lohnabrechnung vor. Angaben zur Anmeldung und zu deinem Handy helfen bei Zugang und Fehlern.
+Zugänge zählen wir zur Verwaltung unseres gebuchten Pakets.
+Rechtsgrundlagen: [für unseren Betrieb geltende Vorschriften und Vereinbarungen].
+Es gibt keine automatische Rangliste oder Benotung deiner Arbeit.
 
-`[Firma, Anschrift]`
-Ansprechpartner: `[Name, E-Mail, Telefon]`
+## Was gespeichert wird
 
-`[Falls vorhanden: Datenschutzbeauftragte Person mit Kontakt]`
+- Dein Name, deine dienstliche E-Mail und Kennungen deines Zugangs. Dazu gehören Betrieb,
+  Rolle, Standorte, Berechtigungen sowie Beginn und Ende deines Zugangs.
+- Beginn, Ende und Pausen deiner Arbeit. Dazu: Kunde, Projekt oder allgemeine Tätigkeit,
+  zugeordneter Standort und wie die Zeit erfasst wurde: per Karte, von Hand, nachträglich,
+  durch die Verwaltung oder vom Sperrbildschirm.
+- Kommentare, Änderungen, gelöschte Zeiten und ungeklärte Erfassungen: was geändert wurde,
+  von wem und wann. Frühere Fassungen bleiben erhalten, auch ein früherer Name.
+- Wann du dich zuerst und zuletzt angemeldet hast. Auch das erneute Öffnen der App kann
+  diesen Stand aktualisieren. Nicht jede Passworteingabe wird einzeln aufgezeichnet.
+- Angaben deines Handys, damit Zeiten auch ohne Internet richtig ankommen: eine zufällige
+  Gerätekennung, Reihenfolge und Uhrzeit der Erfassungen, Neustarts, die verwendete Karte
+  und ob die Angaben angekommen und gesichert sind.
 
----
+Für Kunden speichern wir Namen, vereinbarte Stunden, zuständige Mitarbeiter und geleistete
+Zeiten. Kunden können auch Schüler und Minderjährige sein. Schreibe in Kommentare und Gründe
+nur nötige Angaben. Sensible Inhalte werden nicht automatisch erkannt oder ausgeschlossen.
 
-## 2 · Was gespeichert wird
+Die App verschlüsselt gespeicherte Zeiten und schützt deine Anmeldedaten.
+Für die Knöpfe auf dem Sperrbildschirm merkt sich das Handy eine eigene Berechtigung und den
+Stand der laufenden Zeit. Diese Berechtigung gilt höchstens 24 Stunden und nur für diese Zeit.
 
-- Dein **Name** und deine **dienstliche E-Mail-Adresse**
-- **Beginn und Ende** deiner Arbeitszeit
-- **Pausen**
-- Wofür du gearbeitet hast — also `[Schüler / Kurs / allgemeine Tätigkeit]`
-- **Wie** die Zeit entstanden ist: durch Scannen eines NFC-Etiketts oder von Hand eingetragen
-- **Korrekturen**: wer sie vorgenommen hat, wann, und mit welcher Begründung
+## Achtung: Dein Sperrbildschirm zeigt Namen
 
----
+**Auf dem gesperrten Handy sind Zielname, Zustand und Dauer sichtbar. Wer dein Handy sieht,
+kann den Namen des Kunden oder Schülers lesen.** Android zeigt eine laufende Mitteilung;
+das iPhone zeigt die Angaben auf dem Sperrbildschirm und gegebenenfalls oben neben der Kamera.
+**Pause, Weiter und Beenden sind ohne Entsperren möglich.** Die Herkunft der Aktion wird gespeichert.
 
-## 3 · Warum wir das tun
+Die App verfolgt deinen Standort nicht laufend und nutzt kein GPS. Aus Karte, Arbeitsziel und
+betrieblichem Standort kann sich trotzdem dein Einsatzort ergeben. Eine Kartenkennung allein
+ist kein sicherer Beweis, dass du vor Ort warst.
 
-Arbeitgeber sind verpflichtet, Beginn, Ende und Dauer der täglichen Arbeitszeit aufzuzeichnen.
-Das folgt aus dem Arbeitsschutzgesetz in der Auslegung des Bundesarbeitsgerichts vom 13.09.2022
-sowie aus § 16 Absatz 2 Arbeitszeitgesetz und § 17 Mindestlohngesetz.
+## Wer was sehen darf
 
-Außerdem brauchen wir die Daten, um deinen Lohn korrekt abzurechnen — das gehört zur Erfüllung
-deines Arbeitsvertrags.
+- **Du:** deine Zeiten, frühere Fassungen, erlaubte Arbeitsziele und deine Stunden je Kunde.
+  Eine Kundenzuteilung schränkt andere erlaubte Ziele nicht zusätzlich ein.
+- **Standortleitung:** Personen, Zeiten, ungeklärte Erfassungen und Zuordnungen im zugewiesenen
+  Bereich, auch die Zeiten anderer Führungskräfte.
+- **Administrator:** Zeiten, Zugänge samt Anmeldestand, Einrichtung und aufbewahrte ältere
+  Angaben im ganzen Betrieb. Er kann Daten für die Abrechnung ausgeben.
+- **Lohnbuchhaltung oder Steuerberatung:** die von uns übergebenen Abrechnungsdaten.
+  Empfänger: [Name und Kontakt].
+- **Softwareanbieter:** Betriebsname, Status, Anzahlen, letzte Erfassung, gebuchtes Paket, genutzte Zugänge und
+  Zustand der Software. Sein Verwaltungsbereich zeigt keine Liste deiner Einzelzeiten oder
+  bestehender Mitarbeiternamen und E-Mails. Bei der Einrichtung verarbeitet er Name und
+  E-Mail des ersten Administrators. Kleine Anzahlen können Personen erkennen lassen.
+  Seine Aktionen werden aufgezeichnet. Für Wartung und Fehlerbehebung können befugte
+  Personen außerdem auf Daten zugreifen.
 
-Rechtsgrundlagen: Art. 6 Abs. 1 lit. c DSGVO (rechtliche Verpflichtung) und Art. 6 Abs. 1 lit. b
-DSGVO (Erfüllung des Arbeitsvertrags).
+Kollegen ohne Verwaltungsrolle sehen deine Einzelzeiten nicht. Maßgeblich ist die Berechtigung,
+nicht die Stellenbezeichnung „Geschäftsführung“.
 
-**Deine Einwilligung ist dafür weder nötig noch möglich** — die Aufzeichnung ist Pflicht, nicht
-freiwillig. Das bedeutet zugleich: Du musst nichts unterschreiben und kannst nichts falsch
-machen, indem du etwas nicht unterschreibst.
+## Wer die Software und die Speicherung betreibt
 
----
+Anbieter: Einzelunternehmen Tim Bartz, [Geschäftsbezeichnung, Anschrift, Kontakt].
+Er verarbeitet die Daten in unserem Auftrag.
 
-## 4 · Was ausdrücklich **nicht** passiert
+Hetzner betreibt Anwendung und Datenbank in **Nürnberg, Deutschland**. Dort liegen auch tägliche
+Kopien der ganzen Serverplatte, meist in einem anderen Rechenzentrum am selben Standort.
+Diese Kopien enthalten Datenbank, Einstellungen und Zugangsdaten für den Betrieb der Software.
+Weitere **verschlüsselte Sicherungskopien liegen bei Hetzner in Falkenstein, Deutschland**.
 
-Das ist uns wichtig, deshalb steht es hier so deutlich:
+**Supabase in Frankfurt** übernimmt die Anmeldung. Das Unternehmen hat eine US-Mutter.
+**Brevo** versendet darüber Anmelde-, Einladungs- und E-Mails zum Zurücksetzen des Passworts.
+Zugriffe außerhalb der EU: [Empfänger, Schutzmaßnahmen, Bezugsquelle].
 
-**Es findet keine Standortverfolgung statt.** Das System weiß nicht, wo du bist. Ein NFC-Etikett
-funktioniert nur, wenn ein Telefon es direkt berührt — es sendet nichts und empfängt nichts,
-wenn niemand davorsteht. Zwischen zwei Scans existiert kein Signal, das dich ortet.
+ntfy.sh erhält feste Störungsmeldungen, healthchecks.io ein Lebenszeichen. Sie erhalten
+keine Arbeitszeiten oder Kundeninhalte, aber Angaben zur Verbindung und zum Empfang der Meldung.
+Bei Einladungen werden Angaben zum Betrieb und den beteiligten Zugängen zur Fehlerklärung gespeichert.
+GitHub und GHCR liefern die Software und erhalten dabei keine Daten von Mitarbeitern oder Kunden.
 
-**Es findet keine Leistungsbewertung statt.** Es gibt keine Punkte, keine Rangliste, keinen
-Vergleich zwischen Kolleginnen und Kollegen, keine automatische Bewertung deiner Arbeit.
+## Wie lange Angaben bleiben
 
-**Es findet keine heimliche Überwachung statt.** Jede Zeit, die dich betrifft, kannst du selbst
-in der App einsehen. Änderungen an deinen Zeiten sind nachvollziehbar protokolliert — mit
-Begründung. Niemand kann eine Zeit heimlich verändern.
+Fristen für unseren Betrieb: [Aufbewahrungsfristen je Datenart]. Bestimmte
+Arbeitszeitnachweise müssen mindestens zwei Jahre aufbewahrt werden.
 
-**Es werden keine Inhalte erfasst.** Keine Nachrichten, keine Kontakte, keine anderen Apps, kein
-Zugriff auf dein privates Telefon über die Zeiterfassung hinaus.
+**Deine Zeiten und andere Betriebsdaten werden heute noch nicht automatisch gelöscht.**
+Auch wenn ein Zugang entzogen, ein Kunde entfernt oder eine Zeit gelöscht wird, bleibt die
+frühere Aufzeichnung erhalten. Ehemalige Mitarbeiter und entfernte Ziele bleiben für die
+Verwaltung lesbar. Einladungsbelege und Anmeldekonto bleiben auch erhalten.
 
----
+Technische Fehlerprotokolle sind auf 14 Tage und eine begrenzte Datenmenge beschränkt.
+Aufzeichnungen über Änderungen bleiben erhalten. Die täglichen Gesamtkopien in Nürnberg
+bleiben bei täglicher Erneuerung **höchstens sieben Tage**. Das setzt neue tägliche Kopien voraus.
+Bei den verschlüsselten Sicherungen in Falkenstein werden stündliche, tägliche, wöchentliche und
+monatliche Stände aufbewahrt. Gelöscht wird erst, wenn eine geprüfte Sicherung erhalten bleibt.
+Zusätzliche Einzelkopien und ältere Sicherungen haben derzeit keine automatische Höchstfrist.
+Eine allgemeine Löschung nach sechs Monaten wird deshalb nicht zugesagt.
+Unser Ablauf für Löschwünsche und Daten nach einer Wiederherstellung: [vereinbarter Ablauf].
 
-## 5 · Wer was sieht
+## Deine Rechte und Hilfe bei Fehlern
 
-| | Sieht |
-|---|---|
-| **Du** | deine eigenen Zeiten, jederzeit in der App |
-| **`[Standortleitung]`** | die Zeiten der Beschäftigten am eigenen Standort |
-| **Geschäftsführung** | alle Zeiten des Betriebs |
-| **Lohnbuchhaltung / Steuerberatung** | die für die Abrechnung nötigen Zeiten |
+Du kannst Auskunft, Berichtigung, Löschung, eingeschränkte Nutzung und die Herausgabe deiner
+Daten verlangen. Wir prüfen Voraussetzungen und Aufbewahrungspflichten im Einzelfall.
+Deine Rechte gelten auch, wenn die technische Umsetzung noch fehlt. Wende dich an den Kontakt oben.
+Wann du der Nutzung widersprechen oder eine Einwilligung zurücknehmen kannst: [Angaben].
+Du kannst dich bei [Datenschutz-Aufsichtsbehörde, Kontakt] beschweren.
 
-Kolleginnen und Kollegen sehen **deine** Zeiten nicht.
-
----
-
-## 6 · Wie lange gespeichert wird
-
-Arbeitszeitaufzeichnungen: **zwei Jahre** (§ 16 Abs. 2 ArbZG, § 17 MiLoG).
-Lohnrelevante Unterlagen unterliegen längeren steuerrechtlichen Fristen `[vom Steuerberater
-ergänzen]`.
-
-Danach werden die Daten gelöscht. In verschlüsselten Sicherungskopien können sie noch bis zu
-sechs Monate weiterbestehen; diese Kopien werden nicht ausgewertet und laufen automatisch ab.
-
----
-
-## 7 · Wer die Daten in unserem Auftrag verarbeitet
-
-Die Software stellt `[Anbieter, Anschrift]` bereit. Mit dem Anbieter besteht ein Vertrag zur
-Auftragsverarbeitung nach Art. 28 DSGVO. Der Anbieter darf die Daten ausschließlich nach unserer
-Weisung verarbeiten und nicht für eigene Zwecke nutzen.
-
-Sämtliche Daten werden auf Servern **in Deutschland** gespeichert. Eine Übermittlung in
-Drittländer findet nicht statt.
-
----
-
-## 8 · Deine Rechte
-
-Du hast das Recht auf **Auskunft** über die zu dir gespeicherten Daten (Art. 15),
-**Berichtigung** unrichtiger Daten (Art. 16), **Löschung** (Art. 17), **Einschränkung der
-Verarbeitung** (Art. 18) und **Datenübertragbarkeit** (Art. 20).
-
-Du hast außerdem das Recht, dich bei einer **Datenschutz-Aufsichtsbehörde** zu beschweren. Für
-uns zuständig ist `[zuständige Landesbehörde]`.
-
-Wende dich für alles Weitere an `[Ansprechpartner aus Abschnitt 1]`.
-
----
-
-## 9 · Wenn etwas falsch ist
-
-Wenn eine Zeit nicht stimmt, sag Bescheid. Sie wird korrigiert — mit Begründung und für dich
-sichtbar. Der ursprüngliche Wert bleibt dabei erhalten, damit nachvollziehbar bleibt, was
-geändert wurde und warum.
-
-**Es ist kein Fehler, wenn du das Scannen vergisst.** Die Zeit wird dann von Hand nachgetragen
-und `[von der Standortleitung / von der Geschäftsführung]` bestätigt. Das ist ein vorgesehener
-Vorgang, kein Vorwurf.
-
----
-
-`[Ort, Datum]` · `[Unterschrift Geschäftsführung]`
+Fehlt eine Zeit oder stimmt sie nicht, kannst du sie im vorgesehenen Zeitraum selbst nachtragen
+oder ändern. Eigene Änderungen brauchen keinen Grund. Bei fremden Zeiten muss die Standortleitung
+einen Grund nennen; der Administrator kann ihn weglassen. Zum Löschen ist kein Grund nötig.
+Ungeklärte Erfassungen prüft die zuständige Verwaltung nach eigenen Begründungsregeln.
+Normale Nachträge müssen nicht zusätzlich freigegeben werden.

@@ -1,10 +1,21 @@
 # Betriebssichtbarkeit
 
-Das Backend schreibt ausschließlich JSON-Diagnosen nach stderr; Docker leitet sie mit dem Tag
-`taptime-backend-api` an journald weiter. Jeder Eintrag enthält nur `timestamp`, `error_class`,
-`route` und `correlation_id`. Die Route stammt aus der geschlossenen Backend-Routenmenge. Namen,
-E-Mail-Adressen, Kundenbezeichnungen, Arbeitszeiten, Token, Anfrageinhalte und
-Organisationskennungen sind nicht Teil des Diagnosevertrags.
+> **Stand 22.10.2026 · Systemstand: Migration 062, bis T-104c**
+> Datenschutzbeschreibung: Entwurf des Technical Lead, keine Rechtsberatung.
+
+Die Backend-Diagnosen gehen als JSON nach stderr; Docker leitet sie mit dem Tag
+`taptime-backend-api` an journald weiter. Der eigene Logschreiber erzeugt `timestamp`,
+`error_class`, `correlation_id` und optional `route` aus dem Diagnosevertrag. Auf den
+Einladungswegen `account_invitation_provider_request` und `account_invitation_needs_attention`
+können `organization_id`, `administrator_membership_id`, `operator_id`, `target_account`
+und `reason` hinzukommen. Kennungen werden nur als gültige UUID, Gründe nur aus der festen
+Auswahl übernommen; ein E-Mail-Fingerabdruck wird nicht ausgegeben. `target_account` kann
+die Kennung des Anbieterkontos enthalten. Diese Angaben sind zu Personen zuordenbar.
+Zweck ist neben der Störungsbehebung der Nachweis von Anbieteraufrufen beim Einladen und
+Fällen mit Handlungsbedarf. Namen, E-Mail im Klartext, Kundenbezeichnungen, Zeitinhalte,
+Token und Anfragekörper übernimmt dieser Logschreiber nicht. Das ist keine Aussage über
+sämtliche Dienst- oder Anbieterprotokolle. Datenbank-Audits, Namensänderungshistorie und
+Anmeldestand sind getrennte Datenbestände; die journald-Frist löscht sie nicht.
 
 ```sh
 journalctl CONTAINER_TAG=taptime-backend-api --since today --output=cat
