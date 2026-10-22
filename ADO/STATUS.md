@@ -14,21 +14,25 @@ iPhone: Live-Aktivität und Dynamic Island im Taptura-Look, Knöpfe ab iOS 17, D
 braucht die Anmeldedaten der neuen Erweiterung, Ablauf im README der App). Prüflisten für das Gerät:
 `.t104b-review/`, `.t104c-review/` und `.t104d-review/`, je `pruefliste.md` (lokal). T-133 (`b29bbaa`) hat das Runbook
 nachgezogen: `.env` verschlüsselt verwahren, Image-Revision über den CI-Lauf des freigegebenen Commits, Tastentabelle
-der Konsole (DEPLOY.md). Vorgezogen nach D-149: T-134 (B15, Rechtstexte), danach T-099a (Pilotgröße messen).
+der Konsole (DEPLOY.md). T-134 (`5f65fc3`) hat Verzeichnis, AVV-Anlagen, Aushang nach Art. 13 und
+Store-Datenschutzangaben auf den gebauten Stand gebracht; offen beim PO: AVV mit Hetzner, Supabase und Brevo (noch
+keiner abgeschlossen), Drittlandfrage (D-006), Anschrift und Kontakt. Jetzt T-132, danach T-099a (D-149).
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
 **T-024 Teil B, Stand 17.10.:** `.env` verschlüsselt geholt und im Passwortmanager verwahrt (neuer Weg, seit T-133
 in DEPLOY.md); neuer Deploy-Schlüssel eingetragen und mit `taptime-status` belegt; Controller `1918d5a` installiert;
 Deploy 7 mit dem neuen Schlüssel. **Offen ab Schritt 7:** alten Schlüssel entfernen, `taptime-runtime-rotate`,
-Betreiber-Zugang rotieren, neue `.env` verwahren, `/root/env-0410.bak` entfernen, neues ntfy-Thema, Supabase nach D-139.
+Betreiber-Zugang rotieren, neue `.env` verwahren, `/root/env-0410.bak` entfernen, neues ntfy-Thema. Supabase nach D-139
+am 22.10. gesetzt (PO): Mindestlänge 10, „sign-ups and sign-ins“ und „token verifications“ je 100.
 **Befund 17.10. (T-132):** Die wöchentliche Wiederherstellungsprobe scheiterte am 11.10. um 03:43 UTC mit „No space left
 on device“: Basis und WAL-Kette werden im tmpfs `/run/taptime-backup` entpackt, der zu klein ist. Die Probe beim Deploy
 (frische Basis) war am 15.10. grün; die stündliche Sicherung baut ihre Basis im selben tmpfs. Sicherungen laufen; mit
 wachsender Datenbank droht aber auch die Sicherung zu scheitern. Am 18.10. scheiterte die Sonntagsprobe erneut; seitdem
 meldet die Tagesprüfung um 08:00 jeden Morgen „Wiederherstellungsprüfung fehlgeschlagen“ (PO 22.10., erwartet bis zur
-nächsten grünen Probe). Messwerte (`/run`, RAM, Datenbankgröße) folgen an der Konsole, dann Auftrag T-132 mit B12
-(D-149); die Datenbankgröße in frogs-Größe liefert T-099a.
+nächsten grünen Probe). Messwerte 22.10.: `/run` 382 MB, RAM 3,8 GB, Datenbank 125 MB, WAL-Puffer 17 MB, Platte 29 GB
+frei; die Probe vom 18.10. scheiterte beim Kopieren der vierten WAL-Datei. Entscheidung D-150: Arbeitsbereich auf die
+Platte, Auftrag T-132 mit B12.
 **GHCR-Vorfall 15.10. (T-130, T-130b):** Der Image-Lauf zu `7e36c58` räumte um 18:47 UTC auf, während Deploy 6
 noch lief; `fb28166` stand noch nicht im Schutzsatz, und der Zusatzschutz „neueste zwanzig“ zählte einzelne
 Paketversionen. Gelöscht wurden neun Versionen der Produktionsabbilder (Backend, Admin-Web, Operator-Web). Die Produktion
@@ -40,8 +44,8 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-133 ✓, T-132 (mit B12),
-vorgezogen T-134 und T-099a (D-149) → Deploy 8 (mit T-127a/b und T-104a) und neue App-Builds (T-104b bis T-104d) →
+**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) und Web-Abnahme von Deploy 7 → T-133 ✓, T-134 ✓, T-132 (mit B12),
+T-099a (D-149) → Deploy 8 (mit T-127a/b und T-104a) und neue App-Builds (T-104b bis T-104d) →
 restliche Geräteabnahme → Pilot. Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
 `review/<aufgabe>` ab, Fotos auf einem verwaisten Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
@@ -96,13 +100,14 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 2. **Store-Links:** Der PO liefert TestFlight- und Play-Test-Link; Development trägt sie in
    `apps/landing-web/src/appLinks.json` ein (kleiner Auftrag, danach regulärer Deploy). Mit Google Play kommt der
    Fingerabdruck der Play-App-Signatur in `assetlinks.json` hinzu; das 512-px-Symbol liegt in `shared/brand/store/`.
-3. **Supabase nach D-139** (mit T-024): Mindestlänge 10, „Rate limit for sign-ups and sign-ins“ und „Rate limit for
-   token verifications“ je 100 je 5 min und IP, „Rate limit for token refreshes“ bleibt 150 (nicht senken, Nachtrag
-   22.10.), nach Pro der Schutz vor
-   geleakten Passwörtern (`infrastructure/DEPLOY.md`).
+3. **Supabase nach D-139:** am 22.10. gesetzt (PO). Offen bleibt nach Pro der Schutz vor geleakten Passwörtern
+   (D-130, `infrastructure/DEPLOY.md`).
 
 ## Fakten für den Betrieb
 
+- Orte (PO 22.10.): Server `taptime-prod` (CX23) in Nürnberg, Storage Box in Falkenstein, Supabase Central EU
+  (Frankfurt). Hetzner Cloud Backups aktiv: täglich gegen 10:45 UTC, sieben Plätze, je etwa 2,5 GB, ganze Platte samt
+  Zugangsdaten (D-151); keine Hetzner Cloud Snapshots. AVV mit Hetzner, Supabase und Brevo noch nicht abgeschlossen.
 - Mac des PO (21.10.): Xcode 26.5 (die aktive Auswahl zeigt auf die Command Line Tools, deshalb je Befehl
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`), CocoaPods 1.17.0 über Homebrew, iOS-26.5-Simulator
   (8,5 GB, von Codex ohne Rückfrage geladen; in Xcode unter Einstellungen → Components entfernbar). Damit baut Codex die
@@ -213,4 +218,5 @@ bei der eigenen Zeile unter Zugänge) und „gelöscht“ doppelt bei gelöschte
 - **Sicherheit:** in T-119 (CSP, SECURITY DEFINER, Policies, Anmeldung nach D-139).
 - **Entwicklung:** Root-Build mit veralteten Workspace-Deklarationen (Reihenfolge Identity → Administration → API) ·
   Swift-Tests der iOS-Uhr nur auf macOS · Landing-Workflow-Tests nur unter Linux · PostgreSQL-Suiten seriell · PITR-Test braucht Linux-Werkzeuge und
-  Linux-Dateirechte (T-116b).
+  Linux-Dateirechte (T-116b) · der Codex-Zweitprüfer verlangt laut `.codex/agents/taptime_reviewer.toml` eine technisch
+  schreibgeschützte Umgebung, die Codex nicht bietet, und meldet deshalb formal CHANGES REQUIRED ohne Befund (T-134, P3).

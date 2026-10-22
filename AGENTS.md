@@ -87,6 +87,8 @@ Annahmen ersetzt.
   Warnsignal, wird untersucht und bei nicht blockierenden Ursachen als P2 festgehalten.
 - **`[skip ci]` ist bei Code-Änderungen verboten.** Nur bei reinen Dokumentänderungen erlaubt.
 - Nicht ausgeführte Prüfungen werden mit Grund gemeldet.
+- „Dokumentation: kein Testlauf“ gilt nur, wenn kein Test die geänderte Datei liest. Vorher mit `grep` nach Lesern
+  suchen; gefundene Tests laufen (T-134: `T109DeliverySources.test.ts` liest `docs/store/`).
 - Nachgebaute Fremdwerkzeuge in Tests (Borg, Docker, tar) folgen der dokumentierten Semantik
   der produktiv installierten Version. Ein Test, der dem Skript sein eigenes falsches Muster
   bestätigt, prüft nichts — am 18.09. hat genau das drei Produktions-Deploys gekostet.

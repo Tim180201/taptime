@@ -2014,3 +2014,21 @@ T-050 (D-063), T-073 (Chips mit frogs).
 **Warum:** Das Recht ist die längste Uhr des PO; der Anwalt soll den gebauten Stand prüfen, nicht den von Migration 016.
 Ob Lohnexport (fester Abbruch über 10.000 Zeilen), Antwortgrenzen und Zeitgrenzen bei frogs-Größe halten, ist nicht
 belegt; das soll vor echten Daten feststehen, unabhängig davon, wie groß frogs startet.
+
+## D-150 · Arbeitsbereich der Sicherung auf der Platte statt im RAM · 22.10.2026 · Tim (PO), Claude (TL)
+Sicherung, Wochen- und Deploy-Probe und Wiederherstellung arbeiten in einem root-eigenen Ordner (0700) auf der Platte
+statt im tmpfs `/run/taptime-backup` (382 MB). Jeder Lauf prüft vorher den Platz gegen die Alarmschwelle der Platte und
+entfernt seinen Unterordner auch im Fehlerfall; Reste entfernen der nächste Lauf und der Systemstart. Verworfen: ein
+größerer Server (Mehrkosten, der Bereich wächst nur mit dem RAM) und ein größerer RAM-Bereich (konkurriert mit der
+Datenbank). Ersetzt die tmpfs-Pflicht aus der ersten Fassung der Sicherung (24.08.). T-132.
+**Warum:** Die Probe am 18.10. brauchte für Basis, entpackte Basis und gut vier Stunden WAL mehr als 382 MB; mit
+wachsender Datenbank scheitert auch die stündliche Sicherung. Auf der Platte sind 29 GB frei. Die Datenbank liegt
+unverschlüsselt auf derselben Platte; eine kurzzeitige, root-eigene Arbeitskopie dort ist kein neuer Schutzbedarf.
+
+## D-151 · Hetzner Cloud Backups bleiben an · 22.10.2026 · Claude (TL), Tim (PO)
+Die täglichen Hetzner-Kopien der ganzen Serverplatte (sieben Plätze, Nürnberg) bleiben aktiv: ein schneller Rückweg für
+den ganzen Server samt Einstellungen, ergänzend zur Borg-Sicherung der Datenbank. Sie enthalten Datenbank und
+Zugangsdaten; alte Werte bleiben dort bis zu sieben Tage nach einer Rotation. Sie sind kein geprüfter Weg für einen
+Datenbank-Restore. Rechtstexte (T-134) und Runbook (T-132) nennen sie. Empfehlung des TL, der PO hat am 22.10. nicht
+widersprochen; Abschalten wäre ein PO-Schritt in der Hetzner-Konsole.
+**Warum:** Bis zum 22.10. waren sie aktiv, aber nirgends dokumentiert (Fund des TL). Kosten: 20 % des Servertarifs.
