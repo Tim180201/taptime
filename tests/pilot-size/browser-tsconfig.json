@@ -1,0 +1,4 @@
+{
+  "extends": "../../apps/admin-web/tsconfig.json",
+  "include": ["admin-entry.tsx", "operator-entry.tsx", "fixture-fetch.ts"]
+}
