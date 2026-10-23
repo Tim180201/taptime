@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand 22.10.2026.** Produktion läuft auf `1918d5a` (Deploy 7 am 17.10., Migration 060, laut `version.txt`; der PO
+**Stand 23.10.2026.** Produktion läuft auf `1918d5a` (Deploy 7 am 17.10., Migration 060, laut `version.txt`; der PO
 reicht die Belege aus dem Deploy-Log nach). Damit ausgeliefert: T-024 Teil A (Werkzeug `taptime-runtime-rotate`),
 T-122c (Kopfbalken in beiden Themen fest oben, ein Monatsschalter, Lohnexport startet mit dem Vormonat), T-122d,
 T-129 (Startseite „Stempelpunkte“, D-144), T-131 (GHCR behält ganze Releases, Deploy reserviert sein Ziel, D-145) und
@@ -18,15 +18,28 @@ der Konsole (DEPLOY.md). T-134 (`5f65fc3`) hat Verzeichnis, AVV-Anlagen, Aushang
 Store-Datenschutzangaben auf den gebauten Stand gebracht; offen beim PO: AVV mit Hetzner, Supabase und Brevo (noch
 keiner abgeschlossen), Drittlandfrage (D-006), Anschrift und Kontakt. T-132 (`81f55b7`): Arbeitsbereich der Sicherung
 auf der Platte mit Wächter, Platzprüfung und Aufräumen, begrenzte Borg-Wartezeiten, Totmannschalter der Tagesprüfung,
-Hetzner Cloud Backups im Runbook; zwei TL-Runden, CI und Image-Lauf grün. Jetzt T-099a; parallel Deploy 8.
+Hetzner Cloud Backups im Runbook; zwei TL-Runden, CI und Image-Lauf grün. T-099a (`e577fa8`, Messwerkzeug
+`tests/pilot-size/`) fand Pilotblocker (Absatz unten). Jetzt Deploy 8, danach T-099b (D-152).
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
-**T-024 Teil B, Stand 17.10.:** `.env` verschlüsselt geholt und im Passwortmanager verwahrt (neuer Weg, seit T-133
-in DEPLOY.md); neuer Deploy-Schlüssel eingetragen und mit `taptime-status` belegt; Controller `1918d5a` installiert;
-Deploy 7 mit dem neuen Schlüssel. **Offen ab Schritt 7:** alten Schlüssel entfernen, `taptime-runtime-rotate`,
-Betreiber-Zugang rotieren, neue `.env` verwahren, `/root/env-0410.bak` entfernen, neues ntfy-Thema. Supabase nach D-139
-am 22.10. gesetzt (PO): Mindestlänge 10, „sign-ups and sign-ins“ und „token verifications“ je 100.
+**T-024 Teil B erledigt (23.10.):** alter Deploy-Schlüssel entfernt, Laufzeit-Logins und Betreiber-Zugang rotiert,
+neue `.env` verschlüsselt im Passwortmanager, `/root/env-0410.bak` vernichtet, neues ntfy-Thema am Server, im Telefon
+und in beiden Healthchecks-Webhooks; Test vom Server und beide Webhook-Tests kamen an. Das erste neue Thema geriet über
+ein Konsolenfoto (`cat`-Ausgabe im Verlauf) in den TL-Chat und wurde am selben Tag nochmals gewechselt; vor jedem
+Konsolenfoto `clear`. Supabase nach D-139 am 22.10. gesetzt (PO). Zweiter Healthchecks-Check „Tagesprüfung“ (ein Tag,
+eine Stunde, Webhook „Tagesprüfung ausgeblieben“) angelegt, `/etc/taptime-monitor/daily-healthchecks.curl` (root, 0600,
+112 B) eingerichtet, Test-Ping grün; der Check ist bis Deploy 8 pausiert, der erste Ping danach hebt die Pause auf.
+**Befund T-099a (22.10., Bericht lokal `.t099a-review/report.md`):** synthetischer Betrieb in frogs-Größe (200 Personen,
+5 Standorte, 500 Kunden; je Monat 10.400–11.790 Zeitdatensätze im Profil „erwartet“, 26.400–29.010 in der „Spitze“).
+Stempeln hält: 200 Starts in zehn Minuten und 20 Geräte offline gleichzeitig ohne Fehler (p95 20 bzw. 112 ms).
+**Pilotblocker (P1):** Kalender der eigenen Zeiten (alle Rollen) und der Personenzeiten in der App liefern schon im
+Profil „erwartet“ 503 (Kalenderfunktion 15,8 s für 22 Datensätze bei 9,2 Mio. Buffer-Treffern, vom TL am Plan
+nachgeprüft); der Lohnexport scheitert in allen Monaten beider Profile (Grenze 10.000 Datensätze, über 8 s schon bei
+7.420); die Standort-Einrichtung im Web liefert 503 (F018); in der Spitze zusätzlich Kundenmonat, Kontingentwarnungen
+und die Zeitdatensuche der Standortleitung; drei verschiedene Fristen beim Export (F043). P2: Kundenmonat 3–4 s,
+„Zeiten prüfen“ lädt 20 Personen einzeln. Datenbank nach einem Jahr linear etwa 1 GB („erwartet“) bis 2,1 GB
+(„Spitze“). Behebung in T-099b vor dem Pilot (D-152).
 **Befund 17.10. (T-132):** Die wöchentliche Wiederherstellungsprobe scheiterte am 11.10. um 03:43 UTC mit „No space left
 on device“: Basis und WAL-Kette werden im tmpfs `/run/taptime-backup` entpackt, der zu klein ist. Die Probe beim Deploy
 (frische Basis) war am 15.10. grün; die stündliche Sicherung baut ihre Basis im selben tmpfs. Sicherungen laufen; mit
@@ -46,9 +59,9 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-024 Teil B zu Ende (ab Schritt 7) → Deploy 8 (T-127a/b, T-104a, T-132; vorher Healthchecks-Check
-und Controller nach DEPLOY.md; parallel T-099a) → neue App-Builds (T-104b bis T-104d) → restliche Geräteabnahme →
-Pilot. Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
+**Weg zum Pilot:** Deploy 8 (T-127a/b, T-104a, T-132; Ziel `e577fa8`, vorher Controller nach DEPLOY.md) → T-099b
+(Codex), parallel neue App-Builds (T-104b bis T-104d) und restliche Geräteabnahme → Deploy 9 → Wiederholungsmessung mit
+dem T-099a-Werkzeug grün → Pilot (D-152). Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
 `review/<aufgabe>` ab, Fotos auf einem verwaisten Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
@@ -123,10 +136,8 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
   womöglich mit wenigen Lehrern. Offene Fragen für den CEO-Termin stehen im PLAN.
 - Apps ohne Versionskopf (vor T-096) werden weiter angenommen; Pflicht erst, wenn alle Pilotgeräte einen Build ab T-096
   haben.
-- Die getrennt verwahrte `.env`-Kopie des PO stammt eventuell von vor dem 04.10. (ohne `SUPABASE_PUBLISHABLE_KEY`);
-  mit T-024 ohnehin neu verwahren. Auf dem Server liegt seit 04.10. `/root/env-0410.bak`; mit T-024 entfernen.
 - ntfy am Telefon ist an (PO 06.10.). Letzte Meldungen „WAL-Archivierung steht“ (Phase base, einmal lock) am 29.09.
-  und 04.10. um 01:20 und 03:45 UTC, also vor dem Deploy von T-093b; seitdem keine. Das ntfy-Thema mit T-024 erneuern.
+  und 04.10. um 01:20 und 03:45 UTC, also vor dem Deploy von T-093b; seitdem keine. Thema am 23.10. erneuert (T-024).
 - Supabase Pro mit der Gewerbeanmeldung, vor den ersten echten Konten (D-130): der kostenlose Tarif pausiert das
   Projekt und sichert die Konten nicht.
 - Android: Prüf-APK (`com.tim180201.mobile.productionvalidation`) und Store-App (`com.tim180201.mobile`, EAS-Profil
@@ -217,7 +228,9 @@ bei der eigenen Zeile unter Zugänge) und „gelöscht“ doppelt bei gelöschte
   schließt die Backend-Gesundheit ein (T-031) · `taptime-landing-password` ohne Eingabeaufforderung · systemd meldet
   „unit file changed“ beim Ordnerwechsel · `registered_chain_watermark` liest direkt statt über eine Lesefunktion ·
   Health ohne Cache, alte Caddy-Assets · Caddy-Negativprüfung: EXIT-Trap verliert `holder` · Monitoring-Test braucht
-  GNU-Werkzeuge · ShellCheck CI 0.9 gegen lokal 0.11 · DNS-Wildcard nach dem Pilot verengen.
+  GNU-Werkzeuge · ShellCheck CI 0.9 gegen lokal 0.11 · DNS-Wildcard nach dem Pilot verengen · MONITORING.md: nach
+  `cat ntfy.new` gleich `clear`; für `daily-healthchecks.curl` fehlt eine Befehlsfolge, bewährt hat sich `grep -v '^url'
+  healthchecks.curl >`, `read -rs u` und `printf … >>` (T-024, P3, mit der nächsten Runbook-Änderung).
 - **Sicherheit:** in T-119 (CSP, SECURITY DEFINER, Policies, Anmeldung nach D-139).
 - **Entwicklung:** Root-Build mit veralteten Workspace-Deklarationen (Reihenfolge Identity → Administration → API) ·
   Swift-Tests der iOS-Uhr nur auf macOS · Landing-Workflow-Tests nur unter Linux · PostgreSQL-Suiten seriell · PITR-Test braucht Linux-Werkzeuge und

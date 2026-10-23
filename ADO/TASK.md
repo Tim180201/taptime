@@ -1,61 +1,63 @@
 # Aktuelle Aufgabe
 
-> **Stand 22.10.2026:** T-132 fertig (`81f55b7`). Jetzt **T-099a** (D-149). Parallel bereitet der PO Deploy 8 vor; der
-> Deploy läuft aus seinem Terminal und berührt den Arbeitsbaum nicht. Ohne Verbindung des TL zum Mac legt Codex den
-> geprüften Stand nach PO-Freigabe als Zweig `review/<aufgabe>` ab (STATUS).
+> **Stand 23.10.2026:** T-099a fertig (`e577fa8`, Messwerkzeug `tests/pilot-size/`, Bericht lokal
+> `.t099a-review/report.md`). Jetzt **T-099b** (D-152). Parallel liefert der PO Deploy 8 aus; der Deploy läuft aus
+> seinem Terminal und berührt den Arbeitsbaum nicht.
 
-## T-099a · Pilotgröße messen (T-099, D-149)
+## T-099b · Pilotgröße: Lesewege und Lohnexport bei frogs-Größe reparieren
 
-**Für:** Development (Astra, High) · **Risiko:** für die Produktion niedrig (nur lokal, synthetische Daten, kein
-Produktcode); für den Pilot hoch, es nicht zu wissen · **Zeitbox:** eine bis zwei Sitzungen.
+**Für:** Development (Astra, Extra High) · **Risiko:** hoch: SQL-Funktionen mit Berechtigung (SECURITY DEFINER, RLS,
+Standortbereich, Austritt) und eine neue Migration, deshalb unabhängiges Review durch einen zweiten Agenten (AGENTS 4) ·
+**Zeitbox:** drei Sitzungen. Reißt sie, wird von hinten geschnitten (erst 7, dann 6), nie die Punkte 1 bis 5.
 
-**Ziel:** Mit Zahlen belegen, ob App-Wege, Verwaltung, Betreiber-Bereich und Lohnexport bei frogs-Größe halten. Nur
-messen; jede Behebung kommt als T-099b nach dem Bericht.
+**Befund (T-099a):**
+- Kalender `read_time_record_calendar_v1`: 15,8 s für 22 Datensätze, 9,2 Mio. Buffer-Treffer. Eigene Zeiten (alle
+  Rollen) und Personenzeiten in der App liefern 503, schon im Profil „erwartet“.
+- Lohnexport v3 und v4: alle 320 Aufrufe 503. Monate mit 10.400 bis 29.010 Datensätzen liegen über
+  `TIME_ENTRY_EXPORT_MAXIMUM_ROWS` (10.000); schon 7.420 brauchen über 8 s (Exportfunktion: 10.001 Zeilen in 11,6 s).
+- Kundenmonat `read_customer_hours_v2` und Kontingentwarnungen 3,9 bis 4,3 s, in der Spitze 503; v2 baut zuerst die
+  volle v1-Projektion.
+- Zeitdatensuche der Standortleitung in der Spitze 503 nach 10 s; die Seitensuche prüft
+  `has_time_management_authority_v1` je Kandidat.
+- F018: Die Standort-Einrichtung fordert 100 Mitgliedschaften bzw. Ziele an, die Antwort überschreitet 16 KiB → 503.
+- F043: Pool 5 s, Coordinator 8 s, HTTP 10 s; der Client-Abbruch beendet die SQL-Abfrage nicht, ROLLBACK wartet.
 
-### Datenbild (synthetisch, erkennbar künstliche Namen)
+**Hypothese des TL, zuerst prüfen, nicht voraussetzen:** `effective_time_records_v2` (038) ist `security_barrier` und
+bildet `latest_revision` als CTE mit `DISTINCT ON` über alle Revisionen aller Betriebe; zweimal referenziert, wird sie
+materialisiert. Jede Abfrage darüber rechnet so den Gesamtbestand, in Schleifen je Datensatz vielfach. Dasselbe Muster
+in `effective_time_records_v1` und den Export- und Stundenfunktionen prüfen.
 
-- Ein Betrieb, 5 Standorte: 1 Administrator, 5 Standortleitungen, 194 Mitarbeiter; dazu 10 Ehemalige und 20 gelöschte
-  Kunden und Projekte.
-- 500 Kunden mit Kontingent, je Mitarbeiter 3 bis 15 zugeordnet; 500 Karten, 10 Projekte.
-- Drei abgeschlossene Monate und der laufende Monat.
-- Profil „Erwartet“: je Mitarbeiter 3 Tage je Woche, 4 Einheiten am Tag, mit Pausen. Profil „Spitze“: 5 Tage, 6
-  Einheiten, mit Pausen. In beiden ein kleiner Anteil Nachträge, Korrekturen mit Grund, Prüffälle und
-  Offline-Erfassungen, dazu laufende Zeiten am Messzeitpunkt. Zeilenzahl je Monat und Profil im Bericht.
+### Umfang
 
-### Weg
+1. **Ursache belegen:** innere Pläne der SECURITY-DEFINER-Funktionen mit `auto_explain` (`log_nested_statements`,
+   `log_analyze`, `log_buffers`) im lokalen Lauf des Werkzeugs; je P1-Befund Ursache und Plan im Bericht.
+2. **Aufwand folgt der angefragten Menge, nicht dem Bestand:** effektive Zeiten schlüsselgetrieben lesen (etwa jüngste
+   Revision je Datensatz über einen passenden Index) für Kalender, Personenzeiten, Export, Kundenstunden,
+   Kontingentwarnungen und Zeitdatensuche. Neue Migration, alte bleiben unverändert. Fachlich identisch: Revisionen,
+   Voids, „recovered“, Pausen, Monatsgrenzen in Europe/Berlin, Berechtigung je Rolle, Standortbereich, Ausgeschiedene,
+   Mandantentrennung.
+3. **Lohnexport ganzer Monat (D-152):** Grenze aus der Pilotgröße ableiten, mindestens 58.020 Datensätze; die Antwort
+   puffert nicht den ganzen Monat. Eine gemeinsame Frist für SQL, Verbindung und HTTP; ein Abbruch beendet die Abfrage
+   auf dem Server und verwirft die Verbindung (F043). Über der Grenze eine schnelle, verständliche Ablehnung mit Text in
+   der Verwaltung statt 503.
+4. **F018:** Standort-Einrichtung auf bytebegrenzte Seiten mit Cursor wie D-138; die Verwaltung lädt seitenweise.
+5. **Zeitdatensuche der Standortleitung:** Berechtigung mengenbasiert statt je Kandidat.
+6. P2 „Zeiten prüfen“: Kontext der Prüffälle gebündelt laden statt 20 Einzelabfragen.
+7. P2-Richtwerte (Kundenmonat, Personenübersicht, Einrichtung), soweit sie aus Punkt 2 folgen.
 
-- **Datenbank:** vorhandene lokale PostgreSQL-Testinstanz, frisch migriert bis 062. Fachdaten über die echten
-  Schreibwege (SQL-Funktionen und Coordinators wie in der App), keine direkten INSERTs in Fachtabellen; Stammdaten
-  dürfen über vorhandene Fixture-Helfer entstehen. Fester Startwert, damit der Lauf wiederholbar ist.
-- **Server:** jeden Lesepfad von App, Verwaltung und Betreiber-Bereich über die HTTP-Schicht je 20-mal messen, mit der
-  Produktionskonfiguration (Pools, Zeit- und Antwortgrenzen aus `runtime.ts` und `BackendHttpServer.ts`). p50, p95,
-  Antwortgröße, Fehler; Administrator und Standortleitung getrennt. Die lokalen Befunde F-018 (Antwortgrenze) und
-  F-043 (Pool-Zeitgrenze beim Export) ausdrücklich prüfen.
-- **Lohnexport:** ganzer Monat je Profil in jeder Fassung, die die Verwaltung anbietet: Zeilen, Bytes, Dauer gegen den
-  festen Abbruch über 10.000 Zeilen (`TIME_ENTRY_EXPORT_MAXIMUM_ROWS`) und das Budget von 8 s im Coordinator.
-- **Schreibspitze:** 200 Starts in 10 Minuten und ein Offline-Abgleich von 20 Geräten gleichzeitig; Fehler und
-  Sperrwartezeiten zählen.
-- **Web:** die größten gemessenen Antworten über den Fixture-Weg der Browser-Prüfstrecke rendern (Übersicht,
-  Mitarbeiter mit Zeiten und Zugängen, Kunden, Zeiten prüfen, Lohnexport, Archiv, Einrichtung, Betreiber-Bereich): Zeit
-  bis zur fertigen Seite, Zahl der Anfragen je Seite.
-- **Datenbankgröße** nach jedem Profil (`pg_database_size`, größte Tabellen und Indizes) und Hochrechnung auf ein
-  Jahr, als Eingang für den Platzbedarf der Sicherung (D-150). Die fünf langsamsten Abfragen mit
-  `EXPLAIN (ANALYZE, BUFFERS)`.
+### Tests und Nachweis
 
-**Richtwerte (TL):** Lesepfade p95 unter 300 ms; Monatsübersicht und Personenzeiten unter 1 s; Seiten höchstens 14 KiB
-(D-138); Lohnexport unter 8 s und unter der Zeilengrenze; keine Fehler unter der Schreibspitze. Ein Richtwert ist kein
-Test: Überschreitungen sind Befunde mit P1/P2/P3 und Ursache, keine Reparatur.
-
-### Ergebnis
-
-- Generator und Messung als Werkzeug im Repository (etwa `tests/pilot-size/`): nur mit eigener Umgebungsvariable, nicht
-  in der CI, nur synthetische Daten. Es bleibt für T-099b und spätere Ausweitungen.
-- Bericht in `.t099a-review/report.md`: Datenbild mit Zeilenzahlen; Tabelle Weg · Rolle · Profil · p50 · p95 · Größe ·
-  Richtwert · Befund; Lohnexport, Schreibspitze, Web; Datenbankgröße mit Jahreshochrechnung; Befundliste mit Vorschlag
-  für T-099b; Rechnerangaben (Mac-Modell, PostgreSQL-Version).
+- Je geänderter Funktion ein Gleichheitstest alt gegen neu auf Fixture-Daten mit Revisionen, Voids, „recovered“,
+  Pausen, Monatsgrenze, Ausgeschiedenen und Standortbereichen; die bestehenden Berechtigungstests bleiben grün.
+- Ein CI-tauglicher Rückfallschutz, der die Art des Aufwands prüft (etwa: Buffer-Treffer wachsen nicht mit fremden
+  oder älteren Daten), ohne flackernde Zeitgrenzen.
+- **Wiederholungsmessung** mit dem Werkzeug, beide Profile: alle Lesewege mit erwartetem Status, alle Exporte
+  erfolgreich; Lohnexport der Spitze p95 höchstens 3 s auf dem Mac (Reserve für den langsameren Server, Budget 8 s);
+  übrige Richtwerte wie T-099a, Überschreitungen als Befund. Bericht `.t099b-review/report.md` mit Vorher-Nachher-Tabelle.
+  Das Werkzeug darf an neue Verträge und die neue Migrations-Baseline angepasst werden, Mess- und Prüflogik bleiben.
 
 ### Grenzen
 
-Kein Produktcode, keine Migration, keine Änderung an bestehenden Tests, kein Zugriff auf Produktion oder Supabase, keine
-echten Namen, nichts installieren (AGENTS 3), kein Docker-Socket in Containern. Die vorhandene Prüfstrecke bleibt grün;
-Tests, die vom Werkzeug berührte Dateien lesen, laufen mit (AGENTS 4). Kein Commit vor `APPROVED`.
+Kein Server- oder Supabase-Zugriff, kein Deploy, keine GHCR-Paketaktion, nichts installieren (AGENTS 3), keine Änderung
+alter Migrationen. Fristen und Antwortgrenzen nicht als Lösung hochsetzen; die Exportgrenze folgt Punkt 3. Die ganze CI
+lokal nachbauen. Kein Commit vor `APPROVED`.

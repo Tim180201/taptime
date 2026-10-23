@@ -2032,3 +2032,16 @@ Zugangsdaten; alte Werte bleiben dort bis zu sieben Tage nach einer Rotation. Si
 Datenbank-Restore. Rechtstexte (T-134) und Runbook (T-132) nennen sie. Empfehlung des TL, der PO hat am 22.10. nicht
 widersprochen; Abschalten wäre ein PO-Schritt in der Hetzner-Konsole.
 **Warum:** Bis zum 22.10. waren sie aktiv, aber nirgends dokumentiert (Fund des TL). Kosten: 20 % des Servertarifs.
+
+## D-152 · Pilot erst nach T-099b; der Lohnexport liefert den ganzen Monat · 23.10.2026 · Claude (TL), Tim (PO)
+Der Pilot startet erst, wenn T-099b ausgeliefert ist und das Werkzeug aus T-099a beide Profile ohne unerwartete Fehler
+misst: alle Lesewege mit dem erwarteten Status, alle Exporte erfolgreich. Das gilt auch, wenn frogs mit wenigen Lehrern
+beginnt. Der Lohnexport liefert einen ganzen Monat in einem Abruf; seine Grenze folgt aus der Pilotgröße und deckt
+mindestens die doppelte frogs-Spitze (2 × 29.010 Zeitdatensätze). Alle Fristen eines Exports enden gemeinsam (F043);
+über der Grenze kommt eine schnelle, verständliche Ablehnung statt 503. Fristen und Antwortgrenzen werden nicht als
+Lösung hochgesetzt. Ändert die Einschränkung „vor dem Start nur, falls frogs mit allen beginnt“ in PLAN (T-099).
+**Warum:** T-099a zeigt Ausfälle schon im erwarteten Profil, darunter den Kalender in der App für jede Rolle und den
+Lohnexport in jedem Monat. Die Kalenderfunktion brauchte 15,8 s für 22 Datensätze; ihr Aufwand folgt nach erstem
+Befund dem Gesamtbestand, nicht der angefragten Menge (in T-099b zu belegen). Ein kleiner Start wüchse also von Monat zu
+Monat in den Fehler hinein. Fertig ist das Produkt erst,
+wenn es einen vollständigen Monatsabschluss übersteht; ohne Lohnexport gelingt keiner.
