@@ -9,8 +9,8 @@ noch aus. App-Builds zu `e577fa8` beim PO (EAS 23.10.: Android Version 17, iPhon
 bis T-104d; Prüflisten `.t104b-review/` bis `.t104d-review/` (lokal). Erster iPhone-Test: Live-Aktivität gefällt
 optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, noch nicht ausgeliefert: T-099b (`eebe736`,
 `1edb047`, Migration 063). Davor Deploy 7 (`1918d5a`, 17.10.). T-134 (`5f65fc3`): Rechtstexte auf dem gebauten Stand;
-offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. Jetzt **T-104e** (D-153,
-D-154), danach Deploy 9.
+offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. T-104e auf main
+(`c84dfc9`); jetzt App-Builds aus `c84dfc9`, danach Deploy 9 (Ziel `c84dfc9`). Parallel **T-135** für Deploy 10.
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -171,7 +171,7 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
 
 - **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliches Prune löscht künftig tausende WAL-Archive einzeln (B13).
 
-- **Pilotgröße (T-099b, P2):** „Zeiten prüfen“ lädt weiter 20 Personen-Kontexte einzeln (Browser-p95 1,59 s);
+- **Pilotgröße (T-099b, P2):** „Zeiten prüfen“ lädt weiter 20 Personen-Kontexte einzeln (Browser-p95 1,59 s; → T-135);
   Spitzen-Richtwerte überschritten bei Administrator-Kundenmonat/Kontingenten (bis 702 ms), Standortleitungs-Einrichtung,
   Kartensuche und Archivstatus (bis 688 ms); alle Antworten erfolgreich. Kein weiterer Ausbau von Punkt 6/7 in der Zeitbox.
 - **Export (T-099b, TL-R1, P3):** Fehler vor dem ersten Exportbyte führen zum Verbindungsabbruch statt 503.
