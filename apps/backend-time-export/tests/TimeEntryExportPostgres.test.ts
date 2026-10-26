@@ -1,3 +1,4 @@
+import { exportConnection } from '../src/ExportConnection.js';
 import {AdminWriteSessionCoordinator} from '@taptime/backend-administration';
 import {MembershipId} from '@taptime/core';
 import {randomUUID} from 'node:crypto';
@@ -207,22 +208,19 @@ describe('DA2 PostgreSQL export security and truth', () => {
   });
 
   registerExportTest('T-066 v4 fails closed without audit when one metadata row is missing', async () => {
-    const droppingPool = new Proxy(runtimePool, {get(target, key) {
-      if (key === 'connect') return async () => {
-        const client = await target.connect();
-        return new Proxy(client, {get(target, key) {
-          if (key === 'query') return async (...args: unknown[]) => {
-            const result = await Reflect.apply(target.query, target, args);
-            return typeof args[0] === 'string' && args[0].includes('read_time_record_export_details_v1')
-              ? {...result,rows:result.rows.slice(1)} : result;
-          };
-          const value = Reflect.get(target,key,target);
-          return typeof value === 'function' ? value.bind(target) : value;
-        }});
-      };
-      return Reflect.get(target,key,target);
-    }});
-    const incomplete = new TimeEntryExportCoordinator(droppingPool,verifier);
+    const incomplete = new TimeEntryExportCoordinator(runtimePool,verifier,async (pool,signal) => {
+      const session = await exportConnection(pool,signal);
+      const client = new Proxy(session.client, {get(target,key) {
+        if (key === 'query') return async (...args: unknown[]) => {
+          const result = await Reflect.apply(target.query,target,args);
+          return typeof args[0] === 'string' && args[0].startsWith('FETCH ')
+            ? {...result,rows:result.rows.map((row: Record<string,unknown>,index: number) => index === 0 ? {...row,origin:null} : row)} : result;
+        };
+        const value = Reflect.get(target,key,target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      }});
+      return {...session,client};
+    });
     expect(await incomplete.exportTimeEntriesV4(command(tokens.adminA,request))).toEqual({status:'service_unavailable'});
     expect(await exportAuditCount()).toBe(0);
     expect((await coordinator.exportTimeEntriesV4(command(tokens.adminA,request))).status).toBe('succeeded');
@@ -732,7 +730,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
     expect((await exportAs(tokens.adminA)).status).toBe('unauthorized');
   });
 
-  registerExportTest('does not leak tenant or role context when the one-connection pool is reused', async () => {
+  registerExportTest('does not leak tenant or role context between exports using the same connection capacity', async () => {
     const first = await exportAs(tokens.adminA);
     expect(first.status).toBe('succeeded');
     const second = await exportAs(tokens.adminB, {
@@ -748,7 +746,7 @@ describe('DA2 PostgreSQL export security and truth', () => {
 
     const context = await runtimePool.query<{ role_name: string; organization_id: string }>(
       `SELECT current_user AS role_name,
-        pg_catalog.current_setting('app.organization_id', true) AS organization_id`,
+        COALESCE(pg_catalog.current_setting('app.organization_id', true),'') AS organization_id`,
     );
     expect(context.rows[0]).toEqual({ role_name: DA2_RUNTIME_LOGIN, organization_id: '' });
   });

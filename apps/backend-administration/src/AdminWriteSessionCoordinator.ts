@@ -619,23 +619,31 @@ export class AdminWriteSessionCoordinator {
           [actor.organization_id],
         );
         if (feature.rowCount !== 1) throw new Error('Location setup Organization disappeared');
+        const limit = Math.min(command.limit, 50);
         const projected = await readLocationSetupPage(
           client,
           actor.organization_id,
           actor.membership_id,
           command.kind,
           parsedCursor,
-          command.limit,
+          limit + 1,
         );
         return {
           disposition: 'commit',
-          value: {
-            status: 'succeeded',
+          value: boundedSearchPage(projected.items, limit, (items, nextCursor) => ({
+            status: 'succeeded' as const,
             locationsEnabled: feature.rows[0]!.locations_enabled,
             kind: command.kind,
-            items: projected.items,
-            nextCursor: projected.nextCursor,
-          },
+            items,
+            nextCursor,
+          }), item => {
+            if ('targetType' in item) return `v1:w:${item.targetType}:${item.targetId}`;
+            if ('kind' in item) {
+              const rank = { membership: 0, customer: 1, project: 2, work_target: 3, nfc_assignment: 4 };
+              return `v1:g:${rank[item.kind]}:${item.id}`;
+            }
+            return `v1:${command.kind === 'memberships' ? 'm' : 'l'}:${item.id}`;
+          }),
         };
       },
     );

@@ -341,14 +341,14 @@ export async function truncateDa2DataTables(installerPool: Pool): Promise<void> 
 export async function insertBulkStoppedEntries(
   installerPool: Pool,
   count: number,
+  startEpochMilliseconds = Date.parse('2026-07-22T00:00:00Z'),
 ): Promise<void> {
   const entryIds: string[] = [];
   const startEventIds: string[] = [];
   const stopEventIds: string[] = [];
   const startedAts: string[] = [];
   const stoppedAts: string[] = [];
-  const startEpochMilliseconds = Date.parse('2026-07-22T00:00:00Z');
-  const stopEpochMilliseconds = Date.parse('2026-07-22T00:30:00Z');
+  const stopEpochMilliseconds = startEpochMilliseconds + 30 * 60_000;
   for (let value = 1; value <= count; value += 1) {
     const suffix = String(value).padStart(12, '0');
     entryIds.push(`61000000-0000-4000-8000-${suffix}`);
@@ -434,6 +434,9 @@ export async function insertBulkStoppedEntries(
       FROM bulk_rows
     `, [entryIds, startEventIds, stopEventIds,
       ids.organizationA, ids.employeeA, ids.customerA]);
+    // D-152 fixtures exceed fifty thousand rows. Give the verification join real
+    // cardinalities; empty-table statistics otherwise produce a quadratic plan.
+    await client.query('ANALYZE taptime_server.work_events; ANALYZE taptime_server.time_entries; ANALYZE taptime_server.canonical_decisions');
     const inserted = await client.query<{
       work_event_count: number;
       time_entry_count: number;

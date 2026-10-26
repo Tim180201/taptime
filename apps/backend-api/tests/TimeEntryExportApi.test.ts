@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import type { TimeEntryExporter } from '@taptime/backend-time-export';
@@ -21,6 +22,19 @@ afterAll(async () => {
 });
 
 describe('DA2 TimeEntry export API', () => {
+  it('fails the download if a stream breaks after its HTTP headers were sent', async () => {
+    const origin = await start({async exportTimeEntries(_command,controls) {
+      expect(controls?.streamResponse).toBe(true);
+      return {status:'streaming',filename:'taptime-time-entries_20260701T000000000Z_20260801T000000000Z.csv',stream:Readable.from((async function*() {
+        yield Buffer.from('schema_version\r\n');
+        await new Promise(resolve=>setTimeout(resolve,10));
+        throw new Error('Synthetic late SQL failure');
+      })())};
+    }});
+    const response = await post(origin,validBody);
+    expect(response.status).toBe(200);
+    await expect(response.arrayBuffer()).rejects.toThrow();
+  });
   it('returns exact committed CSV bytes and fixed download headers', async () => {
     const bytes = new TextEncoder().encode('\uFEFF"schema_version"\r\n');
     const exportTimeEntries = vi.fn<TimeEntryExporter['exportTimeEntries']>(async (command) => {

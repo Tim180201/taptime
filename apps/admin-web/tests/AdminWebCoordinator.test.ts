@@ -1450,6 +1450,14 @@ describe('AdminWebCoordinator', () => {
     });
   });
 
+  it('explains an oversized month instead of presenting a transport failure', async () => {
+    const {api,coordinator}=setup();
+    await coordinator.signIn('administrator@example.test','secret');
+    api.exportTimeEntries.mockResolvedValueOnce({status:'conflict',code:'export_limit_exceeded'});
+    await coordinator.exportTimeRecords();
+    expect(JSON.stringify(coordinator.getState())).toContain('Dieser Monat überschreitet die Exportgrenze');
+  });
+
   it('passes the complete Berlin October unchanged to time records and payroll export', async () => {
     const { api, coordinator } = setup();
     await coordinator.signIn('administrator@example.test', 'secret');

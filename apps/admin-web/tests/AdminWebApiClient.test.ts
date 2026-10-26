@@ -1,3 +1,4 @@
+import { TIME_ENTRY_EXPORT_MAXIMUM_BYTES } from '@taptime/time-entry-export-contract';
 import { describe, expect, it, vi } from 'vitest';
 import { AdminWebApiClient } from '../src/AdminWebApiClient';
 
@@ -61,6 +62,11 @@ function employeeMemberships(start: number, count: number) {
 }
 
 describe('AdminWebApiClient', () => {
+  it('surfaces the export bound as an actionable conflict', async () => {
+    const client = new AdminWebApiClient(vi.fn<typeof fetch>(async () => new Response(JSON.stringify({error:{code:'export_limit_exceeded'}}), {status:422,headers:{'content-type':'application/json'}})));
+    await expect(client.exportTimeEntries('token',ids.membership,'2026-07-01T00:00:00.000Z','2026-07-21T00:00:00.000Z'))
+      .resolves.toEqual({status:'conflict',code:'export_limit_exceeded'});
+  });
   it('parses named Location setup pages and sends lifecycle mutations as closed DTOs', async () => {
     const fetchRequest = vi.fn<typeof fetch>()
       .mockResolvedValueOnce(json({
@@ -96,7 +102,7 @@ describe('AdminWebApiClient', () => {
       expectedMembershipId: ids.membership,
       kind: 'activation_gaps',
       cursor: null,
-      limit: 100,
+      limit: 50,
     });
     expect(JSON.parse(String(fetchRequest.mock.calls[1]?.[1]?.body))).toEqual({
       expectedMembershipId: ids.membership,
@@ -821,7 +827,8 @@ describe('AdminWebApiClient', () => {
 
   it('rejects an oversized CSV stream before returning a browser Blob', async () => {
     let chunkIndex = 0;
-    const chunks = [new Uint8Array(8 * 1024 * 1024), new Uint8Array(1)];
+    const chunk = new Uint8Array(1024 * 1024);
+    const chunks = Array(Math.ceil(TIME_ENTRY_EXPORT_MAXIMUM_BYTES / chunk.length) + 1).fill(chunk);
     const response = new Response(new ReadableStream<Uint8Array>({
       pull(controller) {
         const chunk = chunks[chunkIndex++];

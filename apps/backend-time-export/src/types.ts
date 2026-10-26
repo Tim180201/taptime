@@ -1,4 +1,5 @@
 import type { TimeEntryExportRequest } from '@taptime/time-entry-export-contract';
+import type { Readable } from 'node:stream';
 
 export interface TimeEntryExportCommand {
   readonly accessToken: string;
@@ -7,6 +8,7 @@ export interface TimeEntryExportCommand {
 }
 
 export type TimeEntryExportResult =
+  | { readonly status: 'streaming'; readonly stream: Readable; readonly filename: string }
   | {
       readonly status: 'succeeded';
       readonly bytes: Uint8Array;
@@ -24,6 +26,8 @@ export type TimeEntryExportResult =
 
 export interface TimeEntryExportCoordinatorControls {
   readonly deadlineEpochMilliseconds?: number;
+  readonly signal?: AbortSignal;
+  readonly streamResponse?: boolean;
   readonly afterAuthorityLocked?: () => Promise<void> | void;
   readonly afterSnapshotRead?: () => Promise<void> | void;
   readonly beforeAudit?: () => Promise<void> | void;

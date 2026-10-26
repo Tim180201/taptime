@@ -1,10 +1,12 @@
 import { Client, type Pool } from 'pg';
 
 // Observes real node-pg SELECT/WITH calls, including rejected promises, with
-// the SET LOCAL context needed for EXPLAIN.
+// the SET LOCAL context needed for EXPLAIN. Export FETCH work is attributed to
+// its declared SELECT so the streaming contract remains visible in the same ranking.
 export function observeSql(save: (path:string,value:unknown)=>Promise<void>) {
   const original=Client.prototype.query;
   const contexts=new WeakMap<object,{role?:string;settings:{text:string;values:unknown[]}[]}>();
+  const exportCursors=new WeakMap<object,{text:string;values:unknown[];role?:string;settings:{text:string;values:unknown[]}[]}>();
   const queries=new Map<string,{text:string;values:unknown[];role?:string;settings:{text:string;values:unknown[]}[];ms:number;calls:number}>();
   let enabled=false;
   (Client.prototype as any).query=function(...args:any[]) {
@@ -14,14 +16,19 @@ export function observeSql(save: (path:string,value:unknown)=>Promise<void>) {
     if (/^BEGIN\b/.test(text??'')) { context={settings:[]}; contexts.set(this,context); }
     if (context && /^SET LOCAL ROLE /.test(text??'')) context.role=text;
     if (context && /set_config\('app\./.test(text??'')) context.settings.push({text,values:Array.isArray(values)?values:[]});
+    const declared=text?.match(/^DECLARE time_export NO SCROLL CURSOR FOR ([\s\S]+)$/i);
+    if(declared)exportCursors.set(this,{text:declared[1],values:Array.isArray(values)?values:[],role:context?.role,settings:[...(context?.settings??[])]});
+    const observed=/^FETCH FORWARD \d+ FROM time_export$/i.test(text??'') ? exportCursors.get(this)
+      : {text,values:Array.isArray(values)?values:[],role:context?.role,settings:[...(context?.settings??[])]};
     const start=performance.now();
     const result=(original as any).apply(this,args);
-    if (enabled && /^\s*(?:SELECT|WITH)\b/i.test(text??'') && !/set_config|pg_catalog\.transaction_timestamp|clock_timestamp/.test(text)
+    if (enabled && observed && /^\s*(?:SELECT|WITH)\b/i.test(observed.text??'') && !/set_config|pg_catalog\.transaction_timestamp|clock_timestamp/.test(observed.text)
         && result?.then && typeof args.at(-1)!=='function') {
-      const captured={text,values:Array.isArray(values)?values:[],role:context?.role,settings:[...(context?.settings??[])]};
+      const captured=observed;
+      const observedText=observed.text;
       const record=(queryError?:string)=>{
-        const ms=performance.now()-start,old=queries.get(text);
-        queries.set(text,ms>(old?.ms??-1)?{...captured,ms,calls:(old?.calls??0)+1,...(queryError?{queryError}: {})}:{...old!,calls:old!.calls+1});
+        const ms=performance.now()-start,old=queries.get(observedText);
+        queries.set(observedText,ms>(old?.ms??-1)?{...captured,ms,calls:(old?.calls??0)+1,...(queryError?{queryError}: {})}:{...old!,calls:old!.calls+1});
       };
       return result.then((value:unknown)=>{record();return value;},(error:unknown)=>{record(String(error));throw error;});
     }

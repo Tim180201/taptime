@@ -2203,6 +2203,8 @@ export class AdminWebCoordinator implements AdminWebCapability {
       } catch {
         this.setState({ ...latest, timeReviewBusy: false, notice: { kind: 'error', text: 'Die CSV-Datei konnte nicht vollständig geladen werden. Ihre Arbeitszeiten bleiben erhalten; versuchen Sie den Download erneut.' } });
       }
+    } else if (result?.status === 'conflict' && result.code === 'export_limit_exceeded') {
+      this.setState({ ...latest, timeReviewBusy: false, notice: { kind: 'error', text: 'Dieser Monat überschreitet die Exportgrenze. Ihre Arbeitszeiten sind vollständig gespeichert. Bitte wenden Sie sich an den Support.' } });
     } else if (result === null || result.status === 'rejected') {
       await this.rejectOutsideAuthentication(generation, 'Ihre Sitzung ist abgelaufen. Melden Sie sich erneut an, um weiterzuarbeiten.');
     } else {
@@ -2679,6 +2681,7 @@ async function loadAllLocationSetupItems(
 }
 
 function locationMutationNotice(code:
+  | 'export_limit_exceeded'
   | 'location_required' | 'forbidden' | 'invalid_request'
   | 'command_id_conflict'
   | 'assignment_conflict'

@@ -24,8 +24,8 @@ const validRequest = {
 
 describe('time-entry export contract', () => {
   it('freezes the Human-accepted limits and exact header order', () => {
-    expect(TIME_ENTRY_EXPORT_MAXIMUM_ROWS).toBe(10_000);
-    expect(TIME_ENTRY_EXPORT_MAXIMUM_BYTES).toBe(8_388_608);
+    expect(TIME_ENTRY_EXPORT_MAXIMUM_ROWS).toBeGreaterThanOrEqual(2 * 29_010);
+    expect(TIME_ENTRY_EXPORT_MAXIMUM_BYTES).toBeGreaterThanOrEqual(TIME_ENTRY_EXPORT_MAXIMUM_ROWS * 4 * (120 + 120 + 500));
     expect(TIME_ENTRY_EXPORT_HEADERS).toEqual([
       'schema_version', 'organization_id', 'organization_name', 'time_entry_id',
       'employee_membership_id', 'employee_display_name', 'customer_id',

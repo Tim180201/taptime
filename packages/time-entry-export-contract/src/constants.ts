@@ -4,8 +4,12 @@ export const TIME_ENTRY_EXPORT_SCHEMA_VERSION = '1' as const;
 export const TIME_ENTRY_EXPORT_SCHEMA_VERSION_V2 = '2' as const;
 export const TIME_ENTRY_EXPORT_SCHEMA_VERSION_V3 = '3' as const;
 export const TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS = LONGEST_BERLIN_CALENDAR_MONTH_MILLISECONDS;
-export const TIME_ENTRY_EXPORT_MAXIMUM_ROWS = 10_000;
-export const TIME_ENTRY_EXPORT_MAXIMUM_BYTES = 8 * 1_024 * 1_024;
+// D-152: two complete months at the measured frogs peak, including former members.
+export const TIME_ENTRY_EXPORT_MAXIMUM_ROWS = 2 * 29_010;
+// Maximum UTF-8 fields (two 120-character names and a 500-character comment),
+// plus identifiers, timestamps, quoting and fixed columns. Shared with SQL 063.
+export const TIME_ENTRY_EXPORT_MAXIMUM_BYTES = TIME_ENTRY_EXPORT_MAXIMUM_ROWS * (4 * (120 + 120 + 500) + 512) + 1024;
+export const TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS = 8_000;
 
 export const TIME_ENTRY_EXPORT_HEADERS = Object.freeze([
   'schema_version',

@@ -1,3 +1,4 @@
+import { TIME_ENTRY_EXPORT_MAXIMUM_BYTES } from '@taptime/time-entry-export-contract';
 import { parseArchiveRequest, isArchiveResponse, type ArchiveKind, type ArchiveRequests, type ArchiveResponses } from '@taptime/mobile-work-contract';
 import {parseQuotaAlertsResponse,parseTargetAssignmentsResponse} from '../../mobile/src/search/search';
 import {parseQuotaAlertsQuery,parseTargetAssignmentQuery,isTargetAssignmentChangeRequest,type QuotaAlertsQueryRequest,type QuotaAlertsQueryResponse,type TargetAssignmentQueryRequest,type TargetAssignmentQueryResponse,type TargetAssignmentChangeRequest,type TargetAssignmentChangeResult} from '@taptime/mobile-work-contract';
@@ -45,7 +46,7 @@ const maximumJsonBodyBytes = 16 * 1024;
 const maximumEmployeeProjectionBytes = 64 * 1024;
 const maximumSessionBodyBytes = 256 * 1024;
 const maximumTimeReviewBodyBytes = 256 * 1024;
-const maximumCsvBodyBytes = 8 * 1024 * 1024;
+const maximumCsvBodyBytes = TIME_ENTRY_EXPORT_MAXIMUM_BYTES;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const cursor = /^v1:[ct]:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const employeeCursor = /^v1:m:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -80,6 +81,7 @@ export type ApiResult<Value> =
         | 'assignment_target_unavailable'
         | 'invitation_created_token_unavailable'
         | 'invitation_limit_reached'
+        | 'export_limit_exceeded'
         | 'time_review_conflict'
         | 'reason_required' | 'invalid_interval' | 'not_adjustable'
         | 'invalid_evidence'
@@ -665,6 +667,13 @@ export class AdminWebApiClient implements AdminWebApiPort {
         cache: 'no-store', credentials: 'omit', redirect: 'manual', signal: controller.signal,
       });
       if (response.status === 401 || response.status === 403) return { status: 'rejected' };
+      if (response.status === 422 && !response.redirected && isJsonContentType(response.headers.get('content-type'))) {
+        const text = await readBoundedResponseText(response, maximumJsonBodyBytes);
+        if (text !== null && JSON.parse(text)?.error?.code === 'export_limit_exceeded') {
+          return { status: 'conflict', code: 'export_limit_exceeded' };
+        }
+        return { status: 'invalid_response' };
+      }
       const disposition = response.headers.get('content-disposition');
       const match = new RegExp(`^attachment; filename="(taptime-time-entries_v${version}_[0-9TZ]+_[0-9TZ]+\\.csv)"$`).exec(
         disposition ?? '',
@@ -763,7 +772,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     }
     return this.request(
       '/v1/administration/location-setup/query', token, 'POST',
-      { expectedMembershipId: membershipId, kind, cursor: nextCursor, limit: 100 },
+      { expectedMembershipId: membershipId, kind, cursor: nextCursor, limit: 50 },
       (value) => parseLocationSetupPage(value, kind),
       false, false, false, maximumTimeReviewBodyBytes,
     );

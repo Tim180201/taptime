@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { Pool } from 'pg';
-import type { TimeEntryExportRequest } from '@taptime/time-entry-export-contract';
+import { TIME_ENTRY_EXPORT_MAXIMUM_ROWS, TIME_ENTRY_EXPORT_MAXIMUM_BYTES, type TimeEntryExportRequest } from '@taptime/time-entry-export-contract';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { TimeEntryExportCoordinator } from '../src/index.js';
 import {
@@ -56,44 +56,82 @@ afterAll(async () => {
 });
 
 describe('DA2 export size boundaries in an isolated database run', () => {
-  it('fails closed above 10,000 rows without truncation or audit', async () => {
-    await insertBulkStoppedEntries(installerPool, 9_999);
+  it('fails closed above the D-152 row bound without truncation or audit', async () => {
+    const existing = Number((await installerPool.query('SELECT count(*) FROM taptime_server.effective_time_records_v2 WHERE organization_id=$1', [ids.organizationA])).rows[0].count);
+    await insertBulkStoppedEntries(installerPool, TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1 - existing);
     expect((await exportV1()).status).toBe('export_limit_exceeded');
     expect(await exportAuditCount()).toBe(0);
   }, 120_000);
 
-  it('fails closed above 8 MiB without truncation or audit', async () => {
+  it('streams the complete maximum-sized payroll month and audits its exact bytes', async () => {
+    const existing = Number((await installerPool.query('SELECT count(*) FROM taptime_server.effective_time_records_v2 WHERE organization_id=$1', [ids.organizationA])).rows[0].count);
+    await insertBulkStoppedEntries(installerPool, TIME_ENTRY_EXPORT_MAXIMUM_ROWS - existing);
+    const result = await coordinator.exportTimeEntriesV4(command(), {streamResponse:true});
+    expect(result.status).toBe('streaming');
+    if (result.status !== 'streaming') throw new Error(result.status);
+    const hash = createHash('sha256');
+    let bytes = 0, largestChunk = 0, lines = 0;
+    for await (const chunk of result.stream) {
+      const buffer = Buffer.from(chunk);
+      hash.update(buffer); bytes += buffer.length; largestChunk = Math.max(largestChunk,buffer.length);
+      lines += buffer.toString('utf8').split('\r\n').length - 1;
+    }
+    expect(lines - 1).toBe(TIME_ENTRY_EXPORT_MAXIMUM_ROWS);
+    expect(largestChunk).toBeLessThan(bytes / 2);
+    const audit = (await installerPool.query("SELECT payload FROM taptime_server.audit_events WHERE event_type='TimeEntryExportGenerated'")).rows;
+    expect(audit).toHaveLength(1);
+    expect(audit[0].payload).toMatchObject({rowCount:TIME_ENTRY_EXPORT_MAXIMUM_ROWS,byteCount:bytes,sha256:hash.digest('hex')});
+  }, 120_000);
+
+  it('exports the formerly rejected wide CSV completely within the derived byte bound', async () => {
     await truncateDa2DataTables(installerPool);
     await seedDa2(installerPool, true);
     await insertBulkStoppedEntries(installerPool, 5_998);
-    expect((await exportV1()).status).toBe('export_limit_exceeded');
-    expect(await exportAuditCount()).toBe(0);
+    const result = await exportV1();
+    expect(result.status).toBe('succeeded');
+    if (result.status !== 'succeeded') throw new Error(result.status);
+    expect(result.byteCount).toBeGreaterThan(8 * 1024 * 1024);
+    expect(result.byteCount).toBeLessThanOrEqual(TIME_ENTRY_EXPORT_MAXIMUM_BYTES);
+    expect(await exportAuditCount()).toBe(1);
   }, 120_000);
 
-  it('serves v4 within 1.3x the same-run v3 export of 7,500 rows', async () => {
+  it('serves v4 within 1.3x the same-run v3 median for 7,500 rows', async () => {
     await insertBulkStoppedEntries(installerPool, REFERENCE_ROWS);
-    const v3Started = performance.now();
-    const v3 = await exportV3({
-      deadlineEpochMilliseconds: Date.now() + BOUNDARY_EXPORT_DEADLINE_MILLISECONDS,
-    });
-    const v3Milliseconds = performance.now() - v3Started;
-    const v4Started = performance.now();
-    const v4 = await coordinator.exportTimeEntriesV4(command(), {
-      deadlineEpochMilliseconds: Date.now() + BOUNDARY_EXPORT_DEADLINE_MILLISECONDS,
-    });
-    const v4Milliseconds = performance.now() - v4Started;
+    const run = async (version: 3 | 4) => {
+      const started = performance.now();
+      const controls = {
+        deadlineEpochMilliseconds: Date.now() + BOUNDARY_EXPORT_DEADLINE_MILLISECONDS,
+      };
+      const result = version === 3 ? await exportV3(controls)
+        : await coordinator.exportTimeEntriesV4(command(), controls);
+      const milliseconds = performance.now() - started;
+      expect(result.status).toBe('succeeded');
+      if (result.status !== 'succeeded') throw new Error(result.status);
+      expect(result.rowCount).toBe(REFERENCE_ROWS + 2);
+      return milliseconds;
+    };
+    // Warm both paths once. Alternating samples spread runner drift across both
+    // versions; a median prevents one GC/scheduling pause deciding the budget.
+    await run(3);
+    await run(4);
+    const v3Samples: number[] = [], v4Samples: number[] = [];
+    for (let sample = 0; sample < 3; sample++) {
+      v3Samples.push(await run(3));
+      v4Samples.push(await run(4));
+    }
+    const median = (values: number[]) => [...values].sort((a, b) => a - b)[1]!;
+    const v3Milliseconds = median(v3Samples), v4Milliseconds = median(v4Samples);
     const ratio = v4Milliseconds / v3Milliseconds;
-    console.info(`[T-066 v4 boundary] v3=${format(v3Milliseconds)}ms status=${v3.status} `
-      + `v4=${format(v4Milliseconds)}ms status=${v4.status} ratio=${ratio.toFixed(2)}x budget=1.30x`);
+    console.info('[T-066 v4 boundary] ' + JSON.stringify({
+      v3Samples, v4Samples, v3Median: v3Milliseconds, v4Median: v4Milliseconds, ratio, budget: 1.30,
+    }));
     if (Math.max(v3Milliseconds, v4Milliseconds) > 8_000) {
       console.warn('[T-066 v4 boundary warning] absolute export runtime exceeds 8000ms; the relative result remains authoritative');
     }
-    expect(v3.status).toBe('succeeded');
-    expect(v4.status).toBe('succeeded');
-    expect(ratio, `v4 export took ${ratio.toFixed(2)}x its same-run v3 export`).toBeLessThanOrEqual(1.3);
+    expect(ratio, `v4 median took ${ratio.toFixed(2)}x its same-run v3 median`).toBeLessThanOrEqual(1.3);
   }, 2 * BOUNDARY_EXPORT_DEADLINE_MILLISECONDS + 60_000);
 
-  it('fails payroll v3 closed above 8 MiB within a runner-relative budget', async () => {
+  it('exports wide payroll v3 above the former byte bound within a runner-relative budget', async () => {
     await truncateDa2DataTables(installerPool);
     await seedDa2(installerPool, true);
 
@@ -135,8 +173,11 @@ describe('DA2 export size boundaries in an isolated database run', () => {
       );
     }
 
-    expect(result.status).toBe('export_limit_exceeded');
-    expect(await exportAuditCount()).toBe(0);
+    expect(result.status).toBe('succeeded');
+    if (result.status !== 'succeeded') throw new Error(result.status);
+    expect(result.rowCount).toBe(REFERENCE_ROWS + 2);
+    expect(result.byteCount).toBeGreaterThan(8 * 1024 * 1024);
+    expect(await exportAuditCount()).toBe(1);
     expect(
       ratio,
       `payroll-v3 export took ${ratio.toFixed(2)}x its same-run PostgreSQL reference`,

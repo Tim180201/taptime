@@ -173,7 +173,9 @@ export function createBackendApiRuntime(
   const offlineReconciliationPool = createRuntimePool(
     offlineReconciliationDatabase.connectionString,
   );
-  const timeEntryExportPool = createRuntimePool(timeEntryExportDatabase.connectionString);
+  // Exports borrow this configuration and capacity; their request owns an
+  // abortable socket from startup through streaming and audit.
+  const timeEntryExportPool = createRuntimePool(timeEntryExportDatabase.connectionString, true);
   const timeReviewReadPool = createRuntimePool(timeReviewReadDatabase.connectionString);
   const timeReviewWritePool = createRuntimePool(timeReviewWriteDatabase.connectionString);
   const manualLifecyclePool = createOptionalPool(manualLifecycleDatabase);
@@ -343,14 +345,14 @@ function createOptionalPool(database: ValidatedDatabaseUrl | undefined): Pool | 
   return database === undefined ? undefined : createRuntimePool(database.connectionString);
 }
 
-function createRuntimePool(connectionString: string): Pool {
+function createRuntimePool(connectionString: string, exportDeadline = false): Pool {
   const pool = new Pool({
     connectionString,
     max: 10,
-    connectionTimeoutMillis: 5_000,
+    connectionTimeoutMillis: exportDeadline ? 0 : 5_000,
     idleTimeoutMillis: 30_000,
-    query_timeout: 5_000,
-    statement_timeout: 5_000,
+    query_timeout: exportDeadline ? 0 : 5_000,
+    statement_timeout: exportDeadline ? 0 : 5_000,
   });
   pool.on('error', () => {
     // Idle-client errors have neither route nor correlation ID. Keep the process alive so the

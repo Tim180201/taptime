@@ -44,7 +44,8 @@ import {
   validateProjectCreateRequest,
   validateProjectDeactivateRequest,
 } from '@taptime/mobile-work-contract';
-import { validateTimeEntryExportRequest } from '@taptime/time-entry-export-contract';
+import { validateTimeEntryExportRequest, TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS } from '@taptime/time-entry-export-contract';
+import { pipeline } from 'node:stream/promises';
 import {
   serializeAdministrationSetupProjectionV1,
   serializeAdministrationSetupProjectionV2,
@@ -2069,6 +2070,11 @@ async function handleTimeEntryExport(
     respondError(response, 503, 'service_unavailable');
     return;
   }
+  timeoutMilliseconds = Math.min(timeoutMilliseconds, TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS);
+  const controller = new AbortController();
+  const onClose = () => controller.abort();
+  response.once('close', onClose);
+  const deadlineTimer = setTimeout(() => controller.abort(), timeoutMilliseconds);
   try {
     const deadlineEpochMilliseconds = Date.now() + timeoutMilliseconds;
     const coordinatorRequest = Object.freeze({
@@ -2077,7 +2083,7 @@ async function handleTimeEntryExport(
       toExclusive: validation.request.toExclusive,
     });
     const exportCommand = { accessToken, correlationId, request: coordinatorRequest };
-    const controls = { deadlineEpochMilliseconds };
+    const controls = { deadlineEpochMilliseconds, signal: controller.signal, streamResponse: true };
     const result = schemaVersion === 4
       ? await withTimeout(dependencies.timeEntryExporter.exportTimeEntriesV4!(exportCommand, controls),timeoutMilliseconds)
       : schemaVersion === 3
@@ -2095,6 +2101,12 @@ async function handleTimeEntryExport(
           timeoutMilliseconds,
         );
     switch (result.status) {
+      case 'streaming':
+        if (!csvHeaders(response, result.filename, schemaVersion, options, correlationId)) {
+          result.stream.destroy(); return;
+        }
+        await pipeline(result.stream, response, { signal: controller.signal });
+        return;
       case 'succeeded':
         respondCsv(response, result.bytes, result.filename, schemaVersion, options, correlationId);
         return;
@@ -2125,7 +2137,10 @@ async function handleTimeEntryExport(
       code: 'time_entry_export_failed',
       correlationId,
     });
-    respondError(response, 503, 'service_unavailable');
+    if (response.headersSent) response.destroy();
+    else respondError(response, 503, 'service_unavailable');
+  } finally {
+    clearTimeout(deadlineTimer); response.off('close', onClose); controller.abort();
   }
 }
 
@@ -4243,31 +4258,35 @@ function applyResponseHeaders(response: ServerResponse, correlationId: string): 
   response.setHeader('X-Request-Id', correlationId);
 }
 
-function respondCsv(
+function csvHeaders(
   response: ServerResponse,
-  bytes: Uint8Array,
   filename: string,
   schemaVersion: 1 | 2 | 3 | 4,
   options: BackendHttpServerOptions,
   correlationId: string,
-): void {
+): boolean {
   if (response.writableEnded || response.destroyed) {
-    return;
+    return false;
   }
   const versionSuffix = schemaVersion === 1 ? '' : `_v${schemaVersion}`;
   const expected = new RegExp(`^taptime-time-entries${versionSuffix}_[0-9TZ]+_[0-9TZ]+\\.csv$`);
   if (!expected.test(filename)) {
     emitDiagnostic(options.onDiagnostic, { code: 'invalid_export_filename', correlationId });
     respondError(response, 503, 'service_unavailable');
-    return;
+    return false;
   }
-  const payload = Buffer.from(bytes);
   response.statusCode = 200;
   response.setHeader('Content-Type', 'text/csv; charset=utf-8');
   response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   response.setHeader('Pragma', 'no-cache');
-  response.setHeader('Content-Length', String(payload.byteLength));
-  response.end(payload);
+  return true;
+}
+
+function respondCsv(response: ServerResponse, bytes: Uint8Array, filename: string,
+  schemaVersion: 1 | 2 | 3 | 4, options: BackendHttpServerOptions, correlationId: string): void {
+  if (!csvHeaders(response, filename, schemaVersion, options, correlationId)) return;
+  response.setHeader('Content-Length', String(bytes.byteLength));
+  response.end(Buffer.from(bytes));
 }
 
 function respondError(response: ServerResponse, statusCode: number, code: ErrorCode): void {

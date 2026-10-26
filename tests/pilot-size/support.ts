@@ -61,7 +61,7 @@ export async function environment(profile: string) {
     await installer.query(`CREATE DATABASE "${databaseName}" TEMPLATE template0 ENCODING 'UTF8'`); created = true;
     await save(`${profile}/resources.json`,{databaseName,logins,cleaned:false});
     const migrations = await loadMigrations(resolve('apps/backend-schema/migrations'));
-    if (migrations.at(-1)?.version !== '062') throw new Error('Migration baseline changed; review the T-099a dataset before running');
+    if (migrations.at(-1)?.version !== '063') throw new Error('Migration baseline changed; review the T-099a dataset before running');
     await applyMigrationSet(db, migrations);
     jwks = await startSyntheticJwks();
     // Derive the actual privilege graph from the production login source.

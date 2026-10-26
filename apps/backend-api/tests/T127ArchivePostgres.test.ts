@@ -30,6 +30,7 @@ let from: string, to: string, began: string, departed: string;
 const bulkPeople: string[] = [], bulkTargets: string[] = [];
 const duplicateTarget = randomUUID(), unboundTarget = randomUUID(), movedTarget = randomUUID(), reviewTarget = randomUUID();
 let oldRecord: string;
+let archiveFunctions: Awaited<ReturnType<typeof catalog>>;
 let beforeFunctions: { proname: string; args: string }[];
 const catalog = async () => (await db.query(`SELECT proname,pg_get_function_identity_arguments(oid) AS args,prosrc,proowner,prosecdef,proconfig,proacl::text
   FROM pg_proc WHERE pronamespace='taptime_server'::regnamespace ORDER BY proname,args`)).rows;
@@ -104,7 +105,12 @@ beforeAll(async () => {
   await db.query("UPDATE taptime_server.customers SET active=false,deactivated_at=clock_timestamp(),row_version=row_version+1");
   await db.query("UPDATE taptime_server.projects SET active=false,deactivated_at=clock_timestamp(),row_version=row_version+1");
   await db.query('UPDATE taptime_server.organizations SET locations_enabled=true,row_version=row_version+1 WHERE id=$1', [org]);
-  if (!legacy) await applyMigrationSet(db, migrations.filter(m => m.version >= '061'));
+  if (!legacy) {
+    // This invariant concerns migration 061; later migrations may deliberately replace predecessors.
+    await applyMigrationSet(db, migrations.filter(m => m.version === '061'));
+    archiveFunctions = await catalog();
+    await applyMigrationSet(db, migrations.filter(m => m.version > '061'));
+  }
 });
 afterAll(async () => {
   if (created) await closePoolAndDropTestDatabase({ targetPool: db, installerPool: installer, databaseName }); else await db.end();
@@ -244,7 +250,7 @@ current('T127 rechecks live grants and rejects stale cursors instead of authoriz
 });
 current('T127 catalog is hardened and every predecessor function remains unchanged', async () => {
   const added = new Set(['read_archive_people_v1', 'read_archive_targets_v1', 'read_archive_status_v1', 'read_managed_active_summary_v6', 'read_managed_person_time_v2']);
-  const after = await catalog();
+  const after = archiveFunctions;
   // Later migrations may add functions; every predecessor must still exist unchanged.
   const identity = (row: { proname: string; args: string }) => JSON.stringify([row.proname, row.args]);
   const predecessors = new Set(beforeFunctions.map(identity));

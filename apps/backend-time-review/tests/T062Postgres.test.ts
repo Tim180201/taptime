@@ -174,10 +174,15 @@ beforeAll(async () => {
         definition: row.definition.replace(/^ SET search_path TO .+$/m, " SET search_path TO 'pg_catalog'"),
       }),
     ));
-    await applyMigrationSet(pool,migration.filter(m => m.version >= '058'));
+    await applyMigrationSet(pool,migration.filter(m => m.version >= '058' && m.version < '063'));
     await assertMigrationDataUnchanged(pool,dataBefore);
     expect({definitions:await fixedDefinitions(),responses:await adminResponses()})
       .toEqual({definitions:hardenedDefinitions,responses:before.responses});
+    // T-099b deliberately replaces export definitions; its predecessor equality is
+    // checked separately. Keep this migration's definition invariant at its boundary.
+    await applyMigrationSet(pool,migration.filter(m => m.version >= '063'));
+    await assertMigrationDataUnchanged(pool,dataBefore);
+    expect(await adminResponses()).toEqual(before.responses);
     expect((await applyMigrationSet(pool,migration)).applied).toEqual([]);
   }
 

@@ -1,9 +1,13 @@
+import { Readable } from 'node:stream';
+import { exportConnection } from './ExportConnection.js';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import { createHash, randomUUID } from 'node:crypto';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   TIME_ENTRY_EXPORT_MAXIMUM_ROWS,
+  TIME_ENTRY_EXPORT_MAXIMUM_BYTES,
+  TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS,
   TimeEntryExportLimitError,
   serializeTimeEntryExportCsv,
   serializeTimeEntryExportCsvV2,
@@ -14,7 +18,7 @@ import {
   type TimeEntryExportRowV2,
   type TimeEntryExportRowV3,
 } from '@taptime/time-entry-export-contract';
-import type { Pool, PoolClient, QueryResultRow } from 'pg';
+import type { Pool, Client, QueryResultRow } from 'pg';
 import type {
   TimeEntryExportCommand,
   TimeEntryExportCoordinatorControls,
@@ -27,8 +31,8 @@ export const DA2_TIME_EXPORTER_ROLE = 'taptime_time_exporter';
 
 const canonicalUuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-const DEFAULT_INTERNAL_DEADLINE_MILLISECONDS = 8_000;
-const DEADLINE_SAFETY_MILLISECONDS = 100;
+const DEFAULT_INTERNAL_DEADLINE_MILLISECONDS = TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS;
+const EXPORT_BATCH_ROWS = 1_000;
 
 interface ResolvedActorRow extends QueryResultRow {
   readonly user_id: string;
@@ -93,6 +97,7 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
   constructor(
     private readonly pool: Pool,
     private readonly accessTokenVerifier: AccessTokenVerifier,
+    private readonly connect = exportConnection,
   ) {}
 
   async exportTimeEntries(
@@ -126,219 +131,135 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
     schemaVersion: 1 | 2 | 3 | 4,
   ): Promise<TimeEntryExportResult> {
     const validation = validateTimeEntryExportRequest(command.request);
-    if (
-      validation.status === 'invalid_request'
-      || typeof command.accessToken !== 'string'
-      || command.accessToken.length === 0
-      || !canonicalUuidPattern.test(command.correlationId)
-    ) {
+    if (validation.status === 'invalid_request' || typeof command.accessToken !== 'string'
+      || command.accessToken.length === 0 || !canonicalUuidPattern.test(command.correlationId)) {
       return { status: 'invalid_request' };
     }
-    const deadline = controls.deadlineEpochMilliseconds
-      ?? Date.now() + DEFAULT_INTERNAL_DEADLINE_MILLISECONDS;
-    if (!isBeforeDeadline(deadline)) {
-      return { status: 'service_unavailable' };
-    }
-
-    let verification;
+    const request = validation.request;
+    const deadline = Math.min(controls.deadlineEpochMilliseconds ?? Infinity,
+      Date.now() + DEFAULT_INTERNAL_DEADLINE_MILLISECONDS);
+    if (!isBeforeDeadline(deadline) || controls.signal?.aborted) return { status: 'service_unavailable' };
+    const cancelled = new AbortController();
+    const signal = AbortSignal.any([cancelled.signal, AbortSignal.timeout(Math.max(0, deadline - Date.now())),
+      ...(controls.signal ? [controls.signal] : [])]);
+    let session: Awaited<ReturnType<typeof exportConnection>> | undefined;
+    let transactionOpen = false, transferred = false;
+    let closing: Promise<void> | undefined;
+    const close = () => closing ??= session?.close(transactionOpen) ?? Promise.resolve();
     try {
-      verification = await this.accessTokenVerifier.verify(command.accessToken);
-    } catch {
-      return { status: 'service_unavailable' };
-    }
-    if (verification.status === 'rejected') {
-      return { status: 'unauthorized' };
-    }
-    if (!isBeforeDeadline(deadline)) {
-      return { status: 'service_unavailable' };
-    }
-
-    let client: PoolClient;
-    try {
-      client = await this.pool.connect();
-    } catch {
-      return { status: 'service_unavailable' };
-    }
-    let connectionFailure: Error | undefined;
-    const recordConnectionFailure = (error: Error): void => {
-      connectionFailure ??= error;
-    };
-    const assertActive = (): void => {
-      if (!isBeforeDeadline(deadline) || connectionFailure !== undefined) {
-        throw connectionFailure ?? new Error('DA2 export deadline exceeded');
-      }
-    };
-    client.on('error', recordConnectionFailure);
-    let transactionOpen = false;
-    try {
-      assertActive();
-      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ WRITE');
-      transactionOpen = true;
+      const verification = await this.accessTokenVerifier.verify(command.accessToken);
+      if (verification.status === 'rejected') return { status: 'unauthorized' };
+      if (signal.aborted) return { status: 'service_unavailable' };
+      session = await this.connect(this.pool, signal);
+      const { client, assertActive } = session;
+      await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ WRITE'); transactionOpen = true;
       await setDatabaseDeadlines(client, deadline);
       await client.query(`SET LOCAL ROLE ${DA2_IDENTITY_RESOLVER_ROLE}`);
       const authority = await client.query<ResolvedActorRow>(
         `SELECT user_id, organization_id, membership_id, membership_role
          FROM taptime_server.lock_request_actor($1, $2)`,
-        [verification.identity.issuer, verification.identity.subject],
-      );
-      if (authority.rows.length > 1) {
-        throw new Error('Locked identity resolver returned more than one active Membership');
-      }
+        [verification.identity.issuer, verification.identity.subject]);
+      if (authority.rows.length > 1) throw new Error('Ambiguous export authority');
       const actor = authority.rows[0];
-      if (actor === undefined) {
-        await client.query('ROLLBACK');
-        transactionOpen = false;
-        return { status: 'unauthorized' };
-      }
-      if (
-        actor.membership_role !== 'administrator'
-        || actor.membership_id !== validation.request.expectedMembershipId
-      ) {
-        await client.query('ROLLBACK');
-        transactionOpen = false;
+      if (!actor) return { status: 'unauthorized' };
+      if (actor.membership_role !== 'administrator' || actor.membership_id !== request.expectedMembershipId) {
         return { status: 'forbidden' };
       }
-      await controls.afterAuthorityLocked?.();
-      assertActive();
-
-      await client.query(
-        `SELECT
-           set_config('app.user_id', $1, true),
-           set_config('app.organization_id', $2, true),
-           set_config('app.membership_id', $3, true),
-           set_config('app.membership_role', 'administrator', true),
-           set_config('app.correlation_id', $4, true)`,
-        [actor.user_id, actor.organization_id, actor.membership_id, command.correlationId],
-      );
+      await controls.afterAuthorityLocked?.(); assertActive();
+      await client.query(`SELECT set_config('app.user_id',$1,true),set_config('app.organization_id',$2,true),
+        set_config('app.membership_id',$3,true),set_config('app.membership_role','administrator',true),set_config('app.correlation_id',$4,true)`,
+      [actor.user_id, actor.organization_id, actor.membership_id, command.correlationId]);
       await client.query(`SET LOCAL ROLE ${DA2_TIME_EXPORTER_ROLE}`);
-
-      let serialized;
-      try {
-        if (schemaVersion === 1) {
-          const compatibility = await client.query<{ compatible: boolean }>(
-            `SELECT taptime_server.time_entry_export_v1_is_compatible(
-               $1::uuid, $2::timestamptz, $3::timestamptz
-             ) AS compatible`,
-            [
-              actor.organization_id,
-              validation.request.fromInclusive,
-              validation.request.toExclusive,
-            ],
-          );
-          if (compatibility.rows[0]?.compatible !== true) {
-            await client.query('ROLLBACK');
-            transactionOpen = false;
-            return { status: 'export_schema_incompatible' };
-          }
-          const snapshot = await readV1Snapshot(client, actor, validation.request);
-          await controls.afterSnapshotRead?.();
-          assertActive();
-          if (snapshot.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
-            await client.query('ROLLBACK');
-            transactionOpen = false;
-            return { status: 'export_limit_exceeded' };
-          }
-          serialized = serializeTimeEntryExportCsv(
-            snapshot.map((row): TimeEntryExportRow => mapExportRow(row, actor)),
-          );
-        } else if (schemaVersion === 2) {
-          const snapshot = await readV2Snapshot(client, actor, validation.request);
-          await controls.afterSnapshotRead?.();
-          assertActive();
-          if (snapshot.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
-            await client.query('ROLLBACK');
-            transactionOpen = false;
-            return { status: 'export_limit_exceeded' };
-          }
-          serialized = serializeTimeEntryExportCsvV2(
-            snapshot.map((row): TimeEntryExportRowV2 => mapExportRowV2(row, actor)),
-          );
-        } else {
-          const snapshot = await readV3Snapshot(client, actor, validation.request);
-          await controls.afterSnapshotRead?.();
-          assertActive();
-          if (snapshot.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) {
-            await client.query('ROLLBACK');
-            transactionOpen = false;
-            return { status: 'export_limit_exceeded' };
-          }
-          if (schemaVersion === 4) {
-            const details = (await client.query<{time_record_id:string;details:{origin:'nfc'|'manual'|'backfilled'|'recovered';changed:boolean;comment:string|null}}>(
-              'SELECT * FROM taptime_server.read_time_record_export_details_v1($1::uuid[])', [snapshot.map(row=>row.time_entry_id)])).rows;
-            const detailsById = new Map(details.map(row => [row.time_record_id, row.details]));
-            serialized = serializeTimeEntryExportCsvV4(snapshot.map(row=> {
-              const extra = detailsById.get(row.time_entry_id);
-              if (!extra) throw new Error('Missing export details');
-              return {...mapExportRowV3(row,actor),...extra};
-            }));
-          } else {
-          serialized = serializeTimeEntryExportCsvV3(
-            snapshot.map((row): TimeEntryExportRowV3 => mapExportRowV3(row, actor)),
-          );
-          }
-        }
-      } catch (error) {
-        if (error instanceof TimeEntryExportLimitError) {
-          await client.query('ROLLBACK');
-          transactionOpen = false;
-          return { status: 'export_limit_exceeded' };
-        }
-        throw error;
+      if (schemaVersion === 1) {
+        const compatible = await client.query<{ compatible: boolean }>(
+          'SELECT taptime_server.time_entry_export_v1_is_compatible($1,$2,$3) compatible',
+          [actor.organization_id, request.fromInclusive, request.toExclusive]);
+        if (!compatible.rows[0]?.compatible) return { status: 'export_schema_incompatible' };
       }
-      const sha256 = createHash('sha256').update(serialized.bytes).digest('hex');
-      await controls.beforeAudit?.();
-      assertActive();
-      await client.query(
-        `SELECT taptime_server.append_time_entry_export_audit_v${schemaVersion}(
-           $1, $2, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8, $9
-         )`,
-        [
-          randomUUID(),
-          actor.organization_id,
-          actor.user_id,
-          command.correlationId,
-          validation.request.fromInclusive,
-          validation.request.toExclusive,
-          serialized.rowCount,
-          serialized.byteCount,
-          sha256,
-        ],
-      );
-      await controls.beforeCommit?.();
-      assertActive();
-      await client.query('COMMIT');
-      transactionOpen = false;
-      return Object.freeze({
-        status: 'succeeded',
-        bytes: serialized.bytes,
-        byteCount: serialized.byteCount,
-        rowCount: serialized.rowCount,
-        sha256,
-        filename: exportFilename(
-          validation.request.fromInclusive,
-          validation.request.toExclusive,
-          schemaVersion,
-        ),
-      });
+      const count = (await client.query<{ count: number }>(
+        'SELECT taptime_server.read_time_entry_export_size_v1($1,$2,$3) AS count',
+        [actor.organization_id, request.fromInclusive, request.toExclusive])).rows[0]!.count;
+      if (count > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) return { status: 'export_limit_exceeded' };
+      const query = schemaVersion === 1 ? readV1Query(actor, request)
+        : schemaVersion === 2 ? readV2Query(actor, request) : readV3Query(actor, request, schemaVersion);
+      await client.query('DECLARE time_export NO SCROLL CURSOR FOR ' + query.text, query.values);
+      await controls.afterSnapshotRead?.(); assertActive();
+      const filename = exportFilename(request.fromInclusive, request.toExclusive, schemaVersion);
+      const empty = schemaVersion === 1 ? serializeTimeEntryExportCsv([]) : schemaVersion === 2
+        ? serializeTimeEntryExportCsvV2([]) : schemaVersion === 3 ? serializeTimeEntryExportCsvV3([]) : serializeTimeEntryExportCsvV4([]);
+      const hash = createHash('sha256');
+      let rowCount = 0, byteCount = 0, sha256 = '';
+      // Keep only bounded batches. The final batch is released after the audit
+      // commits, so a failed transaction cannot look like a completed CSV download.
+      async function* chunks() {
+        let pending = empty.bytes;
+        try {
+          for (;;) {
+            assertActive();
+            const rows = (await client.query(`FETCH FORWARD ${EXPORT_BATCH_ROWS} FROM time_export`)).rows;
+            if (!rows.length) break;
+            let serialized;
+            if (schemaVersion === 1) serialized = serializeTimeEntryExportCsv(rows.map(row => mapExportRow(row as ExportRow, actor!)));
+            else if (schemaVersion === 2) serialized = serializeTimeEntryExportCsvV2(rows.map(row => mapExportRowV2(row as ExportRowV2, actor!)));
+            else if (schemaVersion === 3) serialized = serializeTimeEntryExportCsvV3(rows.map(row => mapExportRowV3(row as ExportRowV3, actor!)));
+            else {
+              serialized = serializeTimeEntryExportCsvV4(rows.map(row => {
+                if (!['nfc','manual','backfilled','recovered'].includes(row.origin)
+                  || typeof row.changed !== 'boolean'
+                  || (row.comment !== null && typeof row.comment !== 'string')) throw new Error('Missing export details');
+                return { ...mapExportRowV3(row as ExportRowV3, actor!),
+                  origin: row.origin as 'nfc'|'manual'|'backfilled'|'recovered', changed: row.changed, comment: row.comment };
+              }));
+            }
+            const bytes = serialized.bytes.subarray(empty.byteCount);
+            rowCount += rows.length;
+            if (rowCount > TIME_ENTRY_EXPORT_MAXIMUM_ROWS || byteCount + pending.byteLength + bytes.byteLength > TIME_ENTRY_EXPORT_MAXIMUM_BYTES) {
+              throw new TimeEntryExportLimitError('bytes');
+            }
+            hash.update(pending); byteCount += pending.byteLength;
+            yield pending;
+            pending = bytes;
+          }
+          assertActive();
+          if (rowCount !== count) throw new Error('Export snapshot count changed');
+          hash.update(pending); byteCount += pending.byteLength; sha256 = hash.digest('hex');
+          await controls.beforeAudit?.(); assertActive();
+          await client.query(`SELECT taptime_server.append_time_entry_export_audit_v${schemaVersion}($1,$2,$3,$4,$5::timestamptz,$6::timestamptz,$7,$8,$9)`,
+            [randomUUID(), actor!.organization_id, actor!.user_id, command.correlationId,
+              request.fromInclusive, request.toExclusive, rowCount, byteCount, sha256]);
+          await controls.beforeCommit?.(); assertActive();
+          await client.query('COMMIT'); transactionOpen = false;
+          yield pending;
+        } finally { await close(); }
+      }
+      if (controls.streamResponse) {
+        const stream = Readable.from(chunks(), { objectMode: false, highWaterMark: 64 * 1024, signal });
+        // A deadline can win before HTTP attaches its pipeline. Preserve cleanup
+        // without an unhandled error; consumers still receive the stream error.
+        stream.on('error', () => {});
+        // Also covers a response destroyed before the generator's first next().
+        stream.once('close', () => { if (transactionOpen) cancelled.abort(); void close(); });
+        transferred = true;
+        return { status: 'streaming', stream, filename };
+      }
+      // Existing in-process consumers retain their byte result. HTTP always opts
+      // into the bounded stream; no month-sized array or CSV exists on that path.
+      const buffers: Uint8Array[] = [];
+      for await (const bytes of chunks()) buffers.push(bytes);
+      return Object.freeze({ status: 'succeeded', bytes: Buffer.concat(buffers), byteCount, rowCount, sha256, filename });
     } catch (error) {
-      if (transactionOpen) {
-        await rollbackPreservingOriginalError(client);
-      }
       if (isOrganizationPausedError(error)) throw error;
+      if (error instanceof TimeEntryExportLimitError) return { status: 'export_limit_exceeded' };
       return { status: 'service_unavailable' };
-    } finally {
-      client.off('error', recordConnectionFailure);
-      client.release(connectionFailure);
-    }
+    } finally { if (!transferred) await close(); }
   }
 }
 
-async function readV1Snapshot(
-  client: PoolClient,
+function readV1Query(
   actor: ResolvedActorRow,
   request: { readonly fromInclusive: string; readonly toExclusive: string },
-): Promise<readonly ExportRow[]> {
-  const snapshot = await client.query<ExportRow>(
+): { text: string; values: unknown[] } {
+  return { text:
     `SELECT
        entry.organization_id,
        entry.organization_name,
@@ -362,22 +283,20 @@ async function readV1Snapshot(
      FROM taptime_server.read_effective_time_entry_export_v1(
        $1, $2::timestamptz, $3::timestamptz, $4
      ) AS entry`,
-    [
+    values: [
       actor.organization_id,
       request.fromInclusive,
       request.toExclusive,
       TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1,
     ],
-  );
-  return snapshot.rows;
+  };
 }
 
-async function readV2Snapshot(
-  client: PoolClient,
+function readV2Query(
   actor: ResolvedActorRow,
   request: { readonly fromInclusive: string; readonly toExclusive: string },
-): Promise<readonly ExportRowV2[]> {
-  const snapshot = await client.query<ExportRowV2>(
+): { text: string; values: unknown[] } {
+  return { text:
     `SELECT
        entry.organization_id,
        entry.organization_name,
@@ -405,22 +324,21 @@ async function readV2Snapshot(
      FROM taptime_server.read_effective_time_entry_export_v2(
        $1, $2::timestamptz, $3::timestamptz, $4
      ) AS entry`,
-    [
+    values: [
       actor.organization_id,
       request.fromInclusive,
       request.toExclusive,
       TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1,
     ],
-  );
-  return snapshot.rows;
+  };
 }
 
-async function readV3Snapshot(
-  client: PoolClient,
+function readV3Query(
   actor: ResolvedActorRow,
   request: { readonly fromInclusive: string; readonly toExclusive: string },
-): Promise<readonly ExportRowV3[]> {
-  const snapshot = await client.query<ExportRowV3>(
+  version: 3 | 4,
+): { text: string; values: unknown[] } {
+  return { text:
     `SELECT
        entry.organization_id,
        entry.time_entry_id,
@@ -448,19 +366,18 @@ async function readV3Snapshot(
        ) END AS stopped_at_utc,
        entry.break_duration_seconds::text,
        entry.effective_work_duration_seconds::text,
-       entry.effective_revision_number::text
-     FROM taptime_server.read_effective_time_entry_export_v3(
+       entry.effective_revision_number::text${version === 4 ? ', entry.origin, entry.changed, entry.comment' : ''}
+     FROM taptime_server.read_effective_time_entry_export_v${version}(
        $1, $2::timestamptz, $3::timestamptz, $4
      ) AS entry`,
-    [
+    values: [
       actor.organization_id,
       request.fromInclusive,
       request.toExclusive,
       TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1,
       BUSINESS_TIME_ZONE,
     ],
-  );
-  return snapshot.rows;
+  };
 }
 
 function mapExportRow(row: ExportRow, actor: ResolvedActorRow): TimeEntryExportRow {
@@ -568,10 +485,10 @@ function isBeforeDeadline(deadlineEpochMilliseconds: number): boolean {
 }
 
 async function setDatabaseDeadlines(
-  client: PoolClient,
+  client: Client,
   deadlineEpochMilliseconds: number,
 ): Promise<void> {
-  const remaining = deadlineEpochMilliseconds - Date.now() - DEADLINE_SAFETY_MILLISECONDS;
+  const remaining = deadlineEpochMilliseconds - Date.now();
   if (remaining < 1) {
     throw new Error('DA2 export deadline exceeded');
   }
@@ -583,12 +500,4 @@ async function setDatabaseDeadlines(
        set_config('transaction_timeout', $1, true)`,
     [milliseconds],
   );
-}
-
-async function rollbackPreservingOriginalError(client: PoolClient): Promise<void> {
-  try {
-    await client.query('ROLLBACK');
-  } catch {
-    // Preserve the original authorization, database, deadline or serialization failure.
-  }
 }

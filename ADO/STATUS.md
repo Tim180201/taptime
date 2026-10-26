@@ -19,7 +19,7 @@ Store-Datenschutzangaben auf den gebauten Stand gebracht; offen beim PO: AVV mit
 keiner abgeschlossen), Drittlandfrage (D-006), Anschrift und Kontakt. T-132 (`81f55b7`): Arbeitsbereich der Sicherung
 auf der Platte mit Wächter, Platzprüfung und Aufräumen, begrenzte Borg-Wartezeiten, Totmannschalter der Tagesprüfung,
 Hetzner Cloud Backups im Runbook; zwei TL-Runden, CI und Image-Lauf grün. T-099a (`e577fa8`, Messwerkzeug
-`tests/pilot-size/`) fand Pilotblocker (Absatz unten). Jetzt Deploy 8, danach T-099b (D-152).
+`tests/pilot-size/`) fand Pilotblocker (Absatz unten). Parallel Deploy 8 durch den PO; T-099b: TL-R1-Nacharbeit geprüft, technische Abnahme offen (D-152).
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -30,16 +30,18 @@ ein Konsolenfoto (`cat`-Ausgabe im Verlauf) in den TL-Chat und wurde am selben T
 Konsolenfoto `clear`. Supabase nach D-139 am 22.10. gesetzt (PO). Zweiter Healthchecks-Check „Tagesprüfung“ (ein Tag,
 eine Stunde, Webhook „Tagesprüfung ausgeblieben“) angelegt, `/etc/taptime-monitor/daily-healthchecks.curl` (root, 0600,
 112 B) eingerichtet, Test-Ping grün; der Check ist bis Deploy 8 pausiert, der erste Ping danach hebt die Pause auf.
-**Befund T-099a (22.10., Bericht lokal `.t099a-review/report.md`):** synthetischer Betrieb in frogs-Größe (200 Personen,
-5 Standorte, 500 Kunden; je Monat 10.400–11.790 Zeitdatensätze im Profil „erwartet“, 26.400–29.010 in der „Spitze“).
-Stempeln hält: 200 Starts in zehn Minuten und 20 Geräte offline gleichzeitig ohne Fehler (p95 20 bzw. 112 ms).
-**Pilotblocker (P1):** Kalender der eigenen Zeiten (alle Rollen) und der Personenzeiten in der App liefern schon im
-Profil „erwartet“ 503 (Kalenderfunktion 15,8 s für 22 Datensätze bei 9,2 Mio. Buffer-Treffern, vom TL am Plan
-nachgeprüft); der Lohnexport scheitert in allen Monaten beider Profile (Grenze 10.000 Datensätze, über 8 s schon bei
-7.420); die Standort-Einrichtung im Web liefert 503 (F018); in der Spitze zusätzlich Kundenmonat, Kontingentwarnungen
-und die Zeitdatensuche der Standortleitung; drei verschiedene Fristen beim Export (F043). P2: Kundenmonat 3–4 s,
-„Zeiten prüfen“ lädt 20 Personen einzeln. Datenbank nach einem Jahr linear etwa 1 GB („erwartet“) bis 2,1 GB
-(„Spitze“). Behebung in T-099b vor dem Pilot (D-152).
+**Pilotgröße T-099a/b (26.10.):** T-099a fand bei 200 Personen, 5 Standorten und 500 Kunden Ausfälle bei eigenen
+und Personenzeiten, Export, Kundenmonat/Kontingenten, Standortsuche und Einrichtung. T-099b lokal umgesetzt mit neuer
+Migration 063: schlüsselbezogene Zeiten/Pausen, mengenbasierter Standortumfang, begrenzte Einrichtungsseiten und
+CSV-Streaming bis 58.020 Zeilen mit gemeinsamer 8-s-Frist und echtem Abbruch. Beide Vollprofile des Messwerkzeugs:
+alle Lesewege mit erwartetem Status, alle 320 Exporte vollständig; größtes Export-p95 316 ms bei 29.010 Zeilen.
+Unbenutzter Kundenstunden-Altvertrag v1 bleibt gemäß TL unverändert; erwartete Größenablehnung separat ausgewiesen.
+Gleichheitstests und ganzer lokaler CI-Nachbau grün, unabhängiges Review Runde 2 APPROVED. TL-Runde 1 meldete einen
+instabilen v4/v3-Vergleich: SQL-Mehraufwand belegt und reduziert, CSV bytegleich, warme alternierende Mediane;
+zehn vollständige Boundary-Jobs grün (Faktoren 1,12250–1,17118, Grenze unverändert 1,30), alle 320 Exporte beider
+Profile erneut erfolgreich (höchstes p95 269 ms). Nacharbeit unabhängig APPROVED,
+TL-Gesamtfreigabe offen; kein Commit/Push/Deploy. Bericht: `.t099b-review/report.md` (lokal). Zeitbox-Schnitt:
+keine weitere Optimierung unter Punkt 7, gebündelter Prüffall-Kontext (Punkt 6) bleibt offen; P2 unten.
 **Befund 17.10. (T-132):** Die wöchentliche Wiederherstellungsprobe scheiterte am 11.10. um 03:43 UTC mit „No space left
 on device“: Basis und WAL-Kette werden im tmpfs `/run/taptime-backup` entpackt, der zu klein ist. Die Probe beim Deploy
 (frische Basis) war am 15.10. grün; die stündliche Sicherung baut ihre Basis im selben tmpfs. Sicherungen laufen; mit
@@ -165,6 +167,19 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
 
 - **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliches Prune löscht künftig tausende WAL-Archive einzeln (B13).
+
+- **Pilotgröße (T-099b, P2):** „Zeiten prüfen“ lädt weiter 20 Personen-Kontexte einzeln (Browser-p95 1,59 s);
+  Spitzen-Richtwerte überschritten bei Administrator-Kundenmonat/Kontingenten (bis 702 ms), Standortleitungs-Einrichtung,
+  Kartensuche und Archivstatus (bis 688 ms); alle Antworten erfolgreich. Kein weiterer Ausbau von Punkt 6/7 in der Zeitbox.
+- **Export (T-099b, TL-R1, P3):** Fehler vor dem ersten Exportbyte führen zum Verbindungsabbruch statt 503.
+- **Export (T-099b, TL-R1, P3):** FOR-SHARE-Sperren auf Akteur, Mitgliedschaft und Betrieb bleiben während des Downloads bestehen (bis 8 s).
+- **Export (T-099b, TL-R1, P3):** `ExportConnection.close()` wartet ohne Zeitgrenze auf `client.end()`.
+- **Export (T-099b, TL-R1, P3):** Der Abbruch nutzt eine neue Verbindung außerhalb der zehn Plätze.
+- **Export (T-099b, TL-R1, P3):** Die Vorab-Zählung zählt die View ohne die Joins von v2 bis v4.
+- **Migration (T-099b, TL-R1, P3):** Die Indizes in 063 werden ohne `CONCURRENTLY` angelegt.
+- **Export (T-099b, TL-R1, P3):** Ein voller Spitzenmonat braucht beim Client etwa 10 Mbit/s innerhalb der 8-s-Frist.
+- **Lokale CI (T-099b, P2):** ShellCheck-Sammellauf vom lokalen VM-OOM-Killer beendet; gleicher Dateisatz mit gleicher
+  Linux-Version einzeln grün. Host-v0.11 meldet bestehende SC2329-Hinweise; CI-v0.9 grün, Infrastruktur unverändert.
 
 - **Lokale CI (T-132, P2):** der T-092-Offlinetest mischt Host- und Datenbankuhr; mit PostgreSQL in Colima trat ein ungültiges Zeitdelta auf. Uhrabweichung belegt; kompletter C2-Lauf mit PostgreSQL auf demselben Host grün, Details in `.t132-review/`.
 - **Sperrbildschirm iPhone (T-104c):** ein Link, der nach einem Hintergrundstart ankommt, geht verloren (der Start

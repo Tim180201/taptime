@@ -1,3 +1,4 @@
+import { SEARCH_PAGE_MAXIMUM_BYTES } from '@taptime/mobile-work-contract';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   createCustomerCommandDigestV1,
@@ -1869,6 +1870,35 @@ describe('setup projection, paging, isolation and session cleanup', () => {
 });
 
 describe('Location setup administration workflow', () => {
+  it('T099 pages wide location-setup envelopes losslessly within the byte bound, including legacy limit 100', async () => {
+    const expectedMembers = new Set<string>(), expectedTargets = new Set<string>();
+    for (let index = 0; index < 65; index++) {
+      const user = randomUUID(), member = randomUUID(), target = randomUUID();
+      const name = `${'界'.repeat(110)}${index}`;
+      await installerPool.query('INSERT INTO taptime_server.users(id) VALUES($1)', [user]);
+      await installerPool.query("INSERT INTO taptime_server.memberships(id,organization_id,user_id,role,display_name) VALUES($1,$2,$3,'employee',$4)", [member,ids.organizationA,user,name]);
+      await installerPool.query("INSERT INTO taptime_server.customers(id,organization_id,display_name,active,activated_at) VALUES($1,$2,$3,true,transaction_timestamp())", [target,ids.organizationA,name]);
+      expectedMembers.add(member); expectedTargets.add(target);
+    }
+    for (const kind of ['memberships','work_targets','activation_gaps'] as const) {
+      let cursor: string | null = null;
+      const found: string[] = [];
+      do {
+        const page = await coordinator.readLocationSetupProjection({accessToken:fixtureTokens.adminA,expectedMembershipId:membershipIds.adminA,kind,cursor,limit:100});
+        expect(page.status).toBe('succeeded');
+        if (page.status !== 'succeeded') throw new Error(page.status);
+        expect(Buffer.byteLength(JSON.stringify(page))).toBeLessThanOrEqual(SEARCH_PAGE_MAXIMUM_BYTES);
+        expect(page.items.length).toBeGreaterThan(0);
+        expect(page.items.length).toBeLessThanOrEqual(50);
+        found.push(...page.items.map(item => 'targetId' in item ? item.targetId : item.id));
+        expect(page.nextCursor).not.toBe(cursor);
+        cursor = page.nextCursor;
+      } while (cursor);
+      expect(new Set(found).size).toBe(found.length);
+      const expected = kind === 'memberships' ? expectedMembers : kind === 'work_targets' ? expectedTargets : new Set([...expectedMembers,...expectedTargets]);
+      for (const id of expected) expect(found).toContain(id);
+    }
+  });
   it('names every missing binding before activation', async () => {
     const projectId = '21000000-0000-4000-8000-000000000001';
     await installerPool.query(

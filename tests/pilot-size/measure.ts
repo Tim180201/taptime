@@ -3,14 +3,14 @@ import { observeSql as createSqlObserver } from './sql-observer.js';
 import { dayStart, shiftMonth } from '@taptime/core';
 import { TIME_CALENDAR_ACCEPT_V2, TIME_CALENDAR_ACCEPT, TIME_DETAILS_ACCEPT_V3, MANAGED_PEOPLE_ACCEPT_V6, SEARCH_PAGE_MAXIMUM_BYTES } from '@taptime/mobile-work-contract';
 import { OFFLINE_LEASE_PAGE_MAXIMUM_ITEMS } from '@taptime/offline-sync-contract';
-import { TIME_ENTRY_EXPORT_MAXIMUM_ROWS } from '@taptime/time-entry-export-contract';
+import { TIME_ENTRY_EXPORT_MAXIMUM_ROWS, TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS } from '@taptime/time-entry-export-contract';
 import { readFile } from 'node:fs/promises';
 import { people, customers, workCards, organization, type Person } from './dataset.js';
 import { id, iso, proxyHeaders, save, type Environment } from './support.js';
 
 export type Body = Record<string, unknown>;
 export interface Reading { name:string; path:string; role:'administrator'|'standortleitung'|'employee'|'operator';
-  body?:Body; accept?:string; paginated?:boolean; targetMs:number; targetBytes?:number; expectedStatus?:number }
+  body?:Body; accept?:string; paginated?:boolean; targetMs:number; targetBytes?:number; expectedStatus?:number; legacy?:boolean }
 export interface Reply { status:number; text:string; bytes:number; milliseconds:number; headers:Record<string,string> }
 export const quantile = (values:number[], p:number) => [...values].sort((a,b)=>a-b)[Math.max(0,Math.ceil(values.length*p)-1)] ?? 0;
 export const monthWindow = (month:string) => ({ fromInclusive:iso(dayStart(month+'-01')),toExclusive:iso(dayStart(shiftMonth(month,1)+'-01')) });
@@ -51,7 +51,7 @@ export function readCases(reference:string):Reading[] {
     add('work-targets','/v2/mobile/work-targets/query',search,{paginated:true,targetBytes:SEARCH_PAGE_MAXIMUM_BYTES});
     add('assigned-work-targets','/v2/mobile/work-targets/query',{...search,assignedOnly:true},{paginated:true,targetBytes:SEARCH_PAGE_MAXIMUM_BYTES});
     add('customer-month','/v2/customers/hours/query',{...search,...month},{paginated:true,targetBytes:SEARCH_PAGE_MAXIMUM_BYTES});
-    add('customer-hours-v1','/v1/customers/hours/query',{expectedMembershipId:person.member,...month,responseVersion:'customer-hours.v2'});
+    add('customer-hours-v1','/v1/customers/hours/query',{expectedMembershipId:person.member,...month,responseVersion:'customer-hours.v2'},{legacy:true});
     add('customer-detail','/v2/customers/hours/detail',{...base,...month,customerId:customers[0]!.id},{paginated:true,targetBytes:SEARCH_PAGE_MAXIMUM_BYTES});
     add('quota-alerts','/v2/customers/quota-alerts/query',{...base,...month},{paginated:true,targetBytes:SEARCH_PAGE_MAXIMUM_BYTES});
     add('backfill-targets','/v2/administration/time-records/backfill-targets/query',{...search,targetMembershipId:person.member},{paginated:true,targetBytes:SEARCH_PAGE_MAXIMUM_BYTES,expectedStatus:role==='employee'?403:200});
@@ -90,6 +90,27 @@ export async function measureReads(http:Http, reference:string, profile:string, 
   const results:unknown[]=[];
   const fixtures:Record<string,unknown>={};
   const cases=readCases(reference);
+  // TL decision for T-099b: the unused v1 contract keeps its full result and
+  // existing response bound. Derive its expected rejection from actual bytes,
+  // independently of the measured HTTP status (never hide an unexpected 503).
+  const serverSource=await readFile('apps/backend-api/src/BackendHttpServer.ts','utf8');
+  const bound=serverSource.match(/TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES = (\d+) \* 1024/);
+  if(!bound)throw new Error('Legacy response bound changed; review the expectation probe');
+  const responseLimitBytes=Number(bound[1])*1024;
+  const legacy=[];
+  for(const item of cases.filter(item=>item.legacy)) {
+    const actor=actorFor(item.role) as Person, client=await http.env.db.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role',$4,true)",[organization,actor.user,actor.member,item.role]);
+      await client.query('SET LOCAL ROLE taptime_mobile_own_time_reader');
+      const value=(await client.query('SELECT taptime_server.read_customer_hours_v2($1,$2) AS result',[item.body!.fromInclusive,item.body!.toExclusive])).rows[0].result;
+      const encodedBytes=Buffer.byteLength(JSON.stringify(value));
+      item.expectedStatus=encodedBytes>responseLimitBytes?503:200;
+      legacy.push({role:item.role,encodedBytes,responseLimitBytes,expectedStatus:item.expectedStatus});
+    } finally {await client.query('ROLLBACK');client.release();}
+  }
+  await save(`${profile}/legacy-customer-hours-expectations.json`,legacy);
   for (const role of ['administrator','standortleitung','employee'] as const) {
     const actor=actorFor(role) as Person;
     const running=(await http.env.db.query('SELECT id FROM taptime_server.time_entries WHERE user_id=$1 AND stopped_at IS NULL',[actor.user])).rows[0];
@@ -148,13 +169,14 @@ export async function timeoutProbe(http:Http,reference:string,profile:string) {
   const runtime=await readFile('apps/backend-api/src/runtime.ts','utf8');
   const server=await readFile('apps/backend-api/src/BackendHttpServer.ts','utf8');
   const coordinator=await readFile('apps/backend-time-export/src/TimeEntryExportCoordinator.ts','utf8');
-  const value=(source:string,pattern:RegExp)=>{
-    const match=source.match(pattern);if(!match)throw new Error('Runtime budget source changed');
-    return Number(match[1]!.replaceAll('_',''));
-  };
-  const budgets={poolQueryMs:value(runtime,/query_timeout:\s*([\d_]+)/),
-    httpOperationMs:value(server,/DEFAULT_OPERATION_TIMEOUT_MILLISECONDS = ([\d_]+)/),
-    coordinatorDefaultMs:value(coordinator,/DEFAULT_INTERNAL_DEADLINE_MILLISECONDS = ([\d_]+)/)};
+  if (!/createRuntimePool\(timeEntryExportDatabase.connectionString, true\)/.test(runtime)
+    || !/query_timeout: exportDeadline \? 0 :/.test(runtime)
+    || !server.includes('Math.min(timeoutMilliseconds, TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS)')
+    || !coordinator.includes('DEFAULT_INTERNAL_DEADLINE_MILLISECONDS = TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS')) {
+    throw new Error('Export deadline composition changed; review the F043 probe');
+  }
+  const budgets={poolQueryMs:0,httpOperationMs:TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS,
+    coordinatorDefaultMs:TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS};
   const blocker=await http.env.db.connect();
   try {
     await blocker.query('BEGIN');
