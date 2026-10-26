@@ -871,3 +871,16 @@ it('T116 posts a closed removal request and preserves conflict status',async()=>
  expect(await client.removeTag('token',request)).toEqual({status:'succeeded',value:{status:'command_id_conflict'}});
  expect(fetchRequest.mock.calls[0]![0]).toBe('/v1/administration/nfc-tags/remove');
 });
+
+it('T135 uses the additive day endpoint and enforces the exact IDs and byte boundary',async()=>{
+ const request={expectedMembershipId:ids.membership,reviewItemIds:[ids.command],cursor:null};
+ const fetchRequest=vi.fn<typeof fetch>().mockResolvedValueOnce(json({status:'ready',days:[],nextCursor:null}))
+  .mockResolvedValueOnce(json({status:'ready',days:[],nextCursor:null,unexpected:ids.employeeMembership}))
+  .mockResolvedValueOnce(new Response(' '.repeat(14*1024)+JSON.stringify({status:'ready',days:[],nextCursor:null}),{headers:{'content-type':'application/json'}}));
+ const client=new AdminWebApiClient(fetchRequest);
+ expect(await client.queryReviewDays('token',request)).toEqual({status:'succeeded',value:{status:'ready',days:[],nextCursor:null}});
+ expect(fetchRequest.mock.calls[0]![0]).toBe('/v1/administration/review-days/query');
+ expect(JSON.parse(fetchRequest.mock.calls[0]![1]!.body as string)).toEqual(request);
+ expect(await client.queryReviewDays('token',request)).toEqual({status:'invalid_response'});
+ expect(await client.queryReviewDays('token',request)).toEqual({status:'invalid_response'});
+});

@@ -228,9 +228,8 @@ class FakeCapability implements AdminWebCapability {
   state: AdminWebState;
   private readonly listeners = new Set<() => void>();
   constructor(state: AdminWebState) { this.state = state; }
-  loadReviewDay = async (reviewItemId:string) => {
-    if(this.state.status==='ready')this.emit({...this.state,reviewDay:{reviewItemId,status:'ready',value:{activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}});
-  };
+  loadReviewDays: NonNullable<AdminWebCapability['loadReviewDays']> = async ids => Object.fromEntries(ids.map(reviewItemId => [reviewItemId, {reviewItemId,status:'ready',value:{activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}]));
+
   getState = () => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);

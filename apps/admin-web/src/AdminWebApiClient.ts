@@ -1,3 +1,4 @@
+import { parseReviewDaysRequest, parseReviewDaysResponse, REVIEW_DAYS_MAXIMUM_BYTES, type ReviewDaysRequest, type ReviewDaysResponse } from '@taptime/time-review-contract';
 import { TIME_ENTRY_EXPORT_MAXIMUM_BYTES } from '@taptime/time-entry-export-contract';
 import { parseArchiveRequest, isArchiveResponse, type ArchiveKind, type ArchiveRequests, type ArchiveResponses } from '@taptime/mobile-work-contract';
 import {parseQuotaAlertsResponse,parseTargetAssignmentsResponse} from '../../mobile/src/search/search';
@@ -102,6 +103,7 @@ export type ApiResult<Value> =
     };
 
 export interface AdminWebApiPort {
+  queryReviewDays?(token: string, request: ReviewDaysRequest): Promise<ApiResult<ReviewDaysResponse>>;
   queryArchive?<K extends ArchiveKind>(token: string, kind: K, request: ArchiveRequests[K]): Promise<ApiResult<ArchiveResponses[K]>>;
   quotaAlerts?(token:string,request:QuotaAlertsQueryRequest):Promise<ApiResult<QuotaAlertsQueryResponse>>;
   targetAssignments?(token:string,request:TargetAssignmentQueryRequest):Promise<ApiResult<TargetAssignmentQueryResponse>>;
@@ -374,6 +376,12 @@ export class AdminWebApiClient implements AdminWebApiPort {
       }
       return value;
     }, false, false, false, kind === 'person_time' ? maximumTimeReviewBodyBytes : kind === 'status' ? 32 * 1024 : maximumJsonBodyBytes);
+  }
+  async queryReviewDays(token: string, request: ReviewDaysRequest): Promise<ApiResult<ReviewDaysResponse>> {
+    const input = parseReviewDaysRequest(request);
+    if (!input) return { status: 'invalid_response' };
+    return this.request('/v1/administration/review-days/query', token, 'POST', input,
+      value => parseReviewDaysResponse(value, input), false, false, false, REVIEW_DAYS_MAXIMUM_BYTES);
   }
   async managedPersonTime(token: string, request: ManagedPersonTimeRequest): Promise<ApiResult<ArchiveResponses['person_time']>> {
     return this.queryArchive(token, 'person_time', request);

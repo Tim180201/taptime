@@ -1,3 +1,5 @@
+import { parseReviewDaysResponse, REVIEW_DAYS_MAXIMUM_CASES, type ReviewDay, type ReviewDaysRequest } from '@taptime/time-review-contract';
+import type { ReviewDayState } from './contracts';
 import type { ArchiveRequests, ArchiveResponses } from '@taptime/mobile-work-contract';
 import type { WebArchiveKind, WebArchiveRequest } from './contracts';
 import { MIN_PASSWORD_LENGTH, AUTH_RATE_LIMIT_MESSAGE } from '../../../shared/authPolicy';
@@ -1951,6 +1953,52 @@ export class AdminWebCoordinator implements AdminWebCapability {
         notice: { kind: 'error', text: 'Die Bestätigung für die Korrektur fehlt. Bestätigen Sie erneut; dabei entsteht keine doppelte Korrektur.' },
       });
     }
+  }
+
+  async loadReviewDays(reviewItemIds: readonly string[]): Promise<Readonly<Record<string, ReviewDayState>>> {
+    const current = this.state, session = this.session;
+    if (current.status !== 'ready' || !session || !current.availableSections.includes('review_items')
+      || !reviewItemIds.length || reviewItemIds.length > REVIEW_DAYS_MAXIMUM_CASES || new Set(reviewItemIds).size !== reviewItemIds.length) return {};
+    const items = reviewItemIds.map(id => current.reviewItems.find(item => item.reviewItemId === id));
+    if (items.some(item => !item)) return {};
+    const generation = this.generation, refreshEpoch = this.refreshEpoch;
+    const values: Record<string, ReviewDayState> = Object.fromEntries(reviewItemIds.map(reviewItemId => [reviewItemId,
+      { reviewItemId, status: 'unavailable', value: null, message: 'Die Tageszeiten konnten nicht vollständig geladen werden. Bitte versuchen Sie es erneut.' }]));
+    const partial = new Map<string, ReviewDay>();
+    const seen = new Set<string>();
+    let cursor: string | null = null;
+    do {
+      const request: ReviewDaysRequest = { expectedMembershipId: session.membershipId, reviewItemIds, cursor };
+      const result = await this.safeSectionRead(() => this.auth.withAccessToken(token => this.api.queryReviewDays?.(token, request)
+        ?? Promise.resolve({ status: 'unreachable' })));
+      if (generation !== this.generation || refreshEpoch !== this.refreshEpoch || session !== this.session || this.state.status !== 'ready'
+        || !items.every(item => this.state.status === 'ready' && this.state.reviewItems.includes(item!))) return {};
+      if (result.status === 'rejected') {
+        await this.rejectOutsideAuthentication(generation, 'Ihre Berechtigung wurde nicht bestätigt. Melden Sie sich erneut an.'); return {};
+      }
+      if (result.status !== 'succeeded') break;
+      const page = parseReviewDaysResponse(result.value, request);
+      if (!page || page.nextCursor !== null && seen.has(page.nextCursor)) break;
+      let valid = true;
+      for (const day of page.days) {
+        const item = items.find(item => item!.reviewItemId === day.reviewItemId)!;
+        const date = businessDay(item!.occurredAt), previous = partial.get(day.reviewItemId);
+        const records = [...(previous?.records ?? []), ...day.records];
+        const activeRecord = day.activeRecord ?? previous?.activeRecord ?? null;
+        const ids = [...records.map(row => row.timeRecordId), ...(activeRecord ? [activeRecord.timeRecordId] : [])];
+        if (values[day.reviewItemId]?.status === 'ready' || previous?.activeRecord && day.activeRecord
+          || day.windowStartedAt !== new Date(dayStart(date)).toISOString()
+          || day.windowEndedAt !== new Date(dayStart(shiftDay(date, 1))).toISOString()
+          || new Set(ids).size !== ids.length) { valid = false; break; }
+        const value = { ...day, records, activeRecord };
+        partial.set(day.reviewItemId, value);
+        if (day.complete) values[day.reviewItemId] = { reviewItemId: day.reviewItemId, status: 'ready', value: { ...value, nextCursor: null } };
+      }
+      if (!valid) break;
+      cursor = page.nextCursor;
+      if (cursor !== null) seen.add(cursor);
+    } while (cursor !== null);
+    return values;
   }
 
   async loadReviewDay(reviewItemId:string):Promise<void> {

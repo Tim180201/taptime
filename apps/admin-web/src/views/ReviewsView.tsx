@@ -1,3 +1,4 @@
+import { useReviewDays } from '../reviewDays';
 import { useArchiveStatus } from '../archiveStatus';
 import {MissingNameNotice, MissingNameLink} from './MissingName';
 import type {AdminRoute} from '../navigation';
@@ -28,31 +29,7 @@ export default function ReviewsView({state,administration,navigate}: {readonly s
   const archive=useArchiveStatus(administration,state.reviewItems.map(item=>item.employeeMembershipId),state.reviewItems.flatMap(item=>item.targetId && (item.targetType==='customer'||item.targetType==='project')?[{targetType:item.targetType,targetId:item.targetId}]:[]));
   const retry=useRef<HTMLButtonElement>(null);
   const [selectedCase,setSelectedCase]=useState<string|null>(state.adjudicationIntent?.reviewItem.reviewItemId??null);
-  const authority=JSON.stringify([state.membershipId,state.role,state.managementScope,state.selectedLocation?.id]);
-  const [days,setDays]=useState<{authority:string;items:ReadyState['reviewItems'];values:Record<string,NonNullable<ReadyState['reviewDay']>>}>({authority,items:state.reviewItems,values:{}});
-  const [reload,setReload]=useState(0);
-  useEffect(()=>{
-    let current=true;
-    setDays({authority,items:state.reviewItems,values:{}});
-    if(state.sections.reviewItems.status!=='ready'||!administration.loadReviewDay)return;
-    // The existing capability has one result slot. Read serially and retain only this view's responses.
-    void (async()=>{
-      for(const item of state.reviewItems){
-        if(!current)return;
-        let failed=false;
-        try {await administration.loadReviewDay?.(item.reviewItemId);} catch {failed=true;}
-        if(!current)return;
-        const latest=administration.getState();
-        if(latest.status!=='ready'||JSON.stringify([latest.membershipId,latest.role,latest.managementScope,latest.selectedLocation?.id])!==authority)return;
-        const response=latest.reviewDay;
-        const day:NonNullable<ReadyState['reviewDay']>=!failed&&response?.reviewItemId===item.reviewItemId&&response.status!=='loading'
-          ?response:{reviewItemId:item.reviewItemId,status:'unavailable',value:null,message:'Die Tageszeiten konnten nicht vollständig geladen werden. Bitte versuchen Sie es erneut.'};
-        setDays(previous=>({...previous,values:{...previous.values,[item.reviewItemId]:day}}));
-      }
-    })();
-    return()=>{current=false;};
-  },[administration,authority,state.reviewItems,state.sections.reviewItems.status,reload]);
-  const visibleDays=days.authority===authority && days.items===state.reviewItems ? days.values : {};
+  const days=useReviewDays(state,administration);
 
   const focusFallback=useRef<HTMLElement>(null);
   const lastIntent=useRef(state.adjudicationIntent?.reviewItem.reviewItemId ?? null);
@@ -72,8 +49,8 @@ export default function ReviewsView({state,administration,navigate}: {readonly s
       {archive.notice}
       <ul className="review-list">{state.reviewItems.map(item=><ReviewDecisionRow key={item.reviewItemId}
         archive={archive} navigate={navigate} item={item} state={state} administration={administration} open={selectedCase===item.reviewItemId}
-        setOpen={open=>setSelectedCase(open?item.reviewItemId:null)} day={visibleDays[item.reviewItemId] ?? (state.reviewDay?.reviewItemId===item.reviewItemId?state.reviewDay:undefined)}
-        retryDay={()=>setReload(n=>n+1)}/>)}</ul>
+        setOpen={open=>setSelectedCase(open?item.reviewItemId:null)} day={days.day(item)}
+        retryDay={()=>days.retry(item.reviewItemId)}/>)}</ul>
       {state.reviewItems.length === 0 && state.reviewItemsNextCursor === null ? <p className="empty">Keine ungeklärten Erfassungen.</p> : null}
       {state.reviewItemsNextCursor === null ? null : <button className="secondary" onClick={()=>void administration.loadMoreReviewItems()}>Weitere Erfassungen laden</button>}
   </SectionBoundary></section></>;
@@ -134,11 +111,13 @@ function ReviewDecisionRow({archive,item,state,administration,day,open,setOpen,r
   </div></div>
   {open ? <div className="row-decision">
     <p className="supporting">{resolutionLabel(resolution)}. Bitte begründen Sie Ihre Entscheidung.</p>
+    {day?.status!=='ready' && resolution==='no_time_record_change' ? <p role="note">Die Tageszeiten fehlen. Sie schließen den Fall mit Ihrer Notiz, ohne Arbeitszeiten zu ändern.</p> : null}
       <RequiredForm className="form-grid" onKeyDown={advanceTimeField} onSubmit={(event) => {
         event.preventDefault();
         let canonicalStart: string | null = null;
         let canonicalStop: string | null = null;
         if (resolution !== 'no_time_record_change') {
+          if (day?.status !== 'ready') return;
           ({startedAt:canonicalStart,stoppedAt:canonicalStop}=resolveTimeFields({date,start:startedAt,end:stoppedAt,originalStart:resolution==='adjust_existing_time_record'?originalStart:null,originalEnd:resolution==='adjust_existing_time_record'?originalStop:null}));
           if (canonicalStart === null || canonicalStop === null) {
             setTimeError('Die Uhrzeit ist wegen der Zeitumstellung ungültig oder nicht eindeutig. Ihre Eingaben bleiben erhalten; prüfen Sie Beginn und Ende.');
@@ -199,7 +178,7 @@ function ReviewDecisionRow({archive,item,state,administration,day,open,setOpen,r
             disabled={state.timeReviewBusy || state.adjudicationIntent !== null}
             onChange={(event) => setReason(event.target.value)} />
         </label>
-        <button ref={prepareButton} disabled={day?.status!=='ready' || state.timeReviewBusy || state.adjudicationIntent !== null}>
+        <button ref={prepareButton} disabled={(resolution!=='no_time_record_change' && day?.status!=='ready') || state.timeReviewBusy || state.adjudicationIntent !== null}>
           Änderung prüfen
         </button>
       </RequiredForm>

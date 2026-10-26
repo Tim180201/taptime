@@ -341,6 +341,7 @@ export type BackendApiRoute =
   | 'admin_review_item_query_v2'
   | 'admin_review_item_query_v3'
   | 'admin_review_item_query_v4'
+  | 'admin_review_days_query'
   | 'admin_review_adjudication'
   | 'admin_project_query'
   | 'admin_project_query_v2'

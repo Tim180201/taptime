@@ -1,3 +1,4 @@
+import { parseReviewDaysRequest, REVIEW_DAYS_MAXIMUM_BYTES } from '@taptime/time-review-contract';
 import { isLockScreenCapability, isLockScreenCapabilityRequest, isLockScreenActionRequest, isLockScreenCapabilityResult, isLockScreenActionResult,
   LOCK_SCREEN_V2_ACCEPT, isLockScreenCapabilityResultV2, isLockScreenActionResultV2 } from '@taptime/mobile-work-contract';
 import { parseArchiveRequest, type ArchiveKind } from '@taptime/mobile-work-contract';
@@ -114,6 +115,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v2/administration/projects/query': 'admin_project_query_v2',
 
   '/v1/lifecycle-events/offline/skip': 'offline_sequence_skip',
+  '/v1/administration/review-days/query': 'admin_review_days_query',
   '/v4/administration/review-items/query': 'admin_review_item_query_v4',
   '/v3/administration/review-items/query': 'admin_review_item_query_v3',
   '/v1/administration/employee-account-invitations/resend': 'admin_resend_employee_account_invitation',
@@ -1082,6 +1084,15 @@ async function handleRequest(
   if (route === 'admin_review_item_query') {
     await handleReviewItemQuery(response, accessToken, body, dependencies, options,
       correlationId, timeoutMilliseconds);
+    return;
+  }
+  if (route === 'admin_review_days_query') {
+    const input = parseReviewDaysRequest(body);
+    if (!input) { respondError(response, 400, 'invalid_request'); return; }
+    if (!dependencies.timeReview.queryReviewDays) { respondError(response, 503, 'service_unavailable'); return; }
+    await handleTimeReviewRead(response, options, correlationId, timeoutMilliseconds,
+      deadlineEpochMilliseconds => dependencies.timeReview.queryReviewDays!({ accessToken, request: input }, { deadlineEpochMilliseconds }),
+      REVIEW_DAYS_MAXIMUM_BYTES);
     return;
   }
   if (route === 'admin_review_item_query_v4') {
@@ -2277,8 +2288,9 @@ async function handleTimeReviewRead<Value>(
   timeoutMilliseconds: number,
   operation: (deadlineEpochMilliseconds: number) => Promise<
     | { readonly status: 'ready'; readonly value: Value }
-    | { readonly status: 'authority_rejected' | 'unavailable' }
+    | { readonly status: 'authority_rejected' | 'unavailable' | 'invalid_request' }
   >,
+  maximumBytes = TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES,
 ): Promise<void> {
   try {
     const result = await withTimeout(
@@ -2291,9 +2303,10 @@ async function handleTimeReviewRead<Value>(
           response,
           200,
           { status: 'ready', ...result.value },
-          TIME_REVIEW_READ_RESPONSE_MAXIMUM_BYTES,
+          maximumBytes,
         );
         return;
+      case 'invalid_request': respondError(response, 400, 'invalid_request'); return;
       case 'authority_rejected': respondError(response, 403, 'forbidden'); return;
       case 'unavailable': respondError(response, 503, 'service_unavailable'); return;
       default: return result satisfies never;
@@ -3147,6 +3160,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_time_record_correction':
     case 'admin_review_item_query':
     case 'admin_review_item_query_v2':
+    case 'admin_review_days_query':
     case 'admin_review_item_query_v4':
     case 'admin_review_item_query_v3':
     case 'admin_review_adjudication':
@@ -3232,6 +3246,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_time_record_correction'
     || route === 'admin_review_item_query'
     || route === 'admin_review_item_query_v2'
+    || route === 'admin_review_days_query'
     || route === 'admin_review_item_query_v4'
     || route === 'admin_review_item_query_v3'
     || route === 'admin_review_adjudication'

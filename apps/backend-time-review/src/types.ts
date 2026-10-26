@@ -28,6 +28,11 @@ export interface TimeReviewCoordinatorControls {
 }
 
 export interface TimeReviewPort {
+  readonly queryReviewDays?: (
+    command: AuthenticatedTimeReviewCommand<import('@taptime/time-review-contract').ReviewDaysRequest>,
+    controls?: TimeReviewCoordinatorControls,
+  ) => Promise<TimeReviewReadResult<import('@taptime/time-review-contract').ReviewDaysResponse> | { readonly status: 'invalid_request' }>;
+
   readonly querySearch?: import('@taptime/mobile-work-contract').SearchReader<'backfill_targets'>['querySearch'];
   readonly queryBackfillTargets?: (
     command: AuthenticatedTimeReviewCommand<BackfillTargetQueryRequest>,

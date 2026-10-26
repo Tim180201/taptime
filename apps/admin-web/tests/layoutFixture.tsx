@@ -155,9 +155,8 @@ class FakeCapability implements AdminWebCapability {
   state: AdminWebState;
   private readonly listeners = new Set<() => void>();
   constructor(state: AdminWebState) { this.state = state; }
-  loadReviewDay = async (reviewItemId:string) => {
-    if(this.state.status==='ready')this.emit({...this.state,reviewDay:{reviewItemId,status:'ready',value:{activeRecord:null,records:variant==='reviews-human'?[{...entry,startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-20T10:00:00.000Z',calendar:{asOf:'2026-07-20T11:00:00.000Z',workDurationSeconds:7200,breakDurationSeconds:0,breakIntervals:[]}}]:[],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}});
-  };
+  loadReviewDays: NonNullable<AdminWebCapability['loadReviewDays']> = async ids => Object.fromEntries(ids.map(reviewItemId => [reviewItemId, {reviewItemId,status:'ready',value:{activeRecord:null,records:variant==='reviews-human'?[{timeRecordId:entry.timeRecordId,targetDisplayName:entry.targetDisplayName,startedAt:'2026-07-20T08:00:00.000Z',stoppedAt:'2026-07-20T10:00:00.000Z'}]:[],nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}]));
+
   getState = () => this.state;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);

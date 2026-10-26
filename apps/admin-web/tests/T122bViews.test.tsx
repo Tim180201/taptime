@@ -9,7 +9,7 @@ import EmployeesView from '../src/views/EmployeesView';
 import {TimeEditingProvider,AddTimeControl,TimeRecordControls} from '../src/TimeEditingControls';
 import {defaultRoute} from '../src/navigation';
 import {stateSearch} from './searchFixtures';
-import type {AdminWebCapability,AdminWebState,SafeReviewItem} from '../src/contracts';
+import type {AdminWebCapability,AdminWebState,ReviewDayState,SafeReviewItem} from '../src/contracts';
 type Ready=Extract<AdminWebState,{status:'ready'}>;
 const org={id:'30000000-0000-4000-8000-000000000001',name:'Beispielbetrieb'};
 const target={targetType:'customer' as const,targetId:'40000000-0000-4000-8000-000000000001',displayName:'Werkstatt'};
@@ -19,6 +19,48 @@ function capability(s:Ready){return {getState:()=>s,subscribe:()=>()=>{},selectL
 afterEach(()=>{cleanup();window.history.replaceState(null,'','/');vi.useRealTimers();});
 beforeAll(()=>{HTMLDialogElement.prototype.showModal=function(){this.open=true;};HTMLDialogElement.prototype.close=function(){this.open=false;};});
 const item:SafeReviewItem={reviewItemId:'review',employeeMembershipId:'member',source:'offline_v2',employeeDisplayName:'Alex Berger',targetType:'customer',targetDisplayName:'Werkstatt',triggerType:'nfc',occurredAt:'2026-07-20T09:00:00.000Z',reviewReason:'future_reason',deviceSequence:1,predecessorBlocked:false};
+it.each([20,100])('T135: loads %i cases in batches of at most twenty, without a read per person',async count=>{
+ const items=Array.from({length:count},(_,index)=>({...item,reviewItemId:`review-${index}`,employeeMembershipId:`member-${index}`,employeeDisplayName:`Person ${index}`}));
+ let s=state({reviewItems:items});
+ const ready=(id:string)=>({reviewItemId:id,status:'ready' as const,value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}});
+ const single=vi.fn(async(id:string)=>{s={...s,reviewDay:ready(id)};});
+ const batch=vi.fn(async(ids:readonly string[])=>Object.fromEntries(ids.map(id=>[id,ready(id)])));
+ render(<ReviewsView state={s} administration={{...capability(s),getState:()=>s,loadReviewDay:single,loadReviewDays:batch} as AdminWebCapability}/>);
+ await waitFor(()=>expect(screen.getAllByText('Keine Arbeitszeiten an diesem Tag.')).toHaveLength(count));
+ // Network work follows the batch boundary, not the number of people in the page.
+ expect(single.mock.calls.length+batch.mock.calls.length).toBeLessThanOrEqual(Math.ceil(count/20));
+ expect(single).not.toHaveBeenCalled();
+ expect(batch.mock.calls.flatMap(([ids])=>ids)).toEqual(items.map(row=>row.reviewItemId));
+ expect(batch.mock.calls.every(([ids])=>ids.length<=20)).toBe(true);
+});
+it.each(['offline_v2','offline_skip','break'] as const)('T135: closes %s with a note when day times are unreadable',source=>{
+ const row={...item,...(source==='break'?{targetType:'break' as const}:{source})};
+ const s=state({reviewItems:[row],reviewDay:{reviewItemId:row.reviewItemId,status:'unavailable',value:null,message:'Die Tageszeiten konnten nicht vollständig geladen werden. Bitte versuchen Sie es erneut.'}});
+ const prepareAdjudication=vi.fn();
+ render(<ReviewsView state={s} administration={{...capability(s),prepareAdjudication}}/>);
+ fireEvent.click(screen.getByRole('button',{name:'So lassen'}));
+ expect(screen.getByText(/Tageszeiten konnten nicht vollständig geladen werden/)).toBeVisible();
+ fireEvent.change(screen.getByRole('textbox',{name:'Begründung'}),{target:{value:'Mit der Person geklärt.'}});
+ const prepare=screen.getByRole('button',{name:'Änderung prüfen'});
+ expect(prepare).toBeEnabled();fireEvent.click(prepare);
+ expect(prepareAdjudication).toHaveBeenCalledWith(row.reviewItemId,'no_time_record_change',null,null,null,'Mit der Person geklärt.');
+});
+it('T135: appending cases loads only new days and retry reloads only the failed case',async()=>{
+ const first={...item,reviewItemId:'first'},second={...item,reviewItemId:'second'};
+ let s=state({reviewItems:[first]});
+ const ready=(id:string)=>({reviewItemId:id,status:'ready' as const,value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}});
+ const batch=vi.fn<NonNullable<AdminWebCapability['loadReviewDays']>>(async ids=>Object.fromEntries(ids.map(id=>[id,ready(id)])))
+  .mockResolvedValueOnce({first:{reviewItemId:'first',status:'unavailable',value:null,message:'Tageszeiten fehlen.'}});
+ const cap={...capability(s),getState:()=>s,loadReviewDays:batch};
+ const view=render(<ReviewsView state={s} administration={cap}/>);
+ await screen.findByText('Tageszeiten fehlen.');
+ s={...s,reviewItems:[first,second]};view.rerender(<ReviewsView state={s} administration={cap}/>);
+ await screen.findByText('Keine Arbeitszeiten an diesem Tag.');
+ expect(batch.mock.calls.map(([ids])=>ids)).toEqual([['first'],['second']]);
+ fireEvent.click(screen.getByRole('button',{name:'Tageszeiten erneut laden'}));
+ await waitFor(()=>expect(screen.getAllByText('Keine Arbeitszeiten an diesem Tag.')).toHaveLength(2));
+ expect(batch.mock.calls.map(([ids])=>ids)).toEqual([['first'],['second'],['first']]);
+});
 it('renders human cases and unknown-only support code, with outcomes and no repeated decision select',()=>{
  const s=state({reviewItems:[item],reviewDay:{reviewItemId:'review',status:'ready',value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-07-19T22:00:00Z',windowEndedAt:'2026-07-20T22:00:00Z'}}});
  const cap=capability(s);const view=render(<ReviewsView state={s} administration={cap}/>);
@@ -57,28 +99,30 @@ it('backfill uses one searchable list, no duplicate select',async()=>{
  fireEvent.change(screen.getByLabelText('Bis'),{target:{value:'07:00'}});
  expect(screen.getByText('Endet am 16.10.2026.')).toBeVisible();
 });
-it('keeps each automatically loaded review day and retries a failed read',async()=>{
- const second={...item,reviewItemId:'second',employeeDisplayName:'Bea'};
- let s=state({reviewItems:[item,second]});
- const emptyDay=(id:string)=>({reviewItemId:id,status:'ready' as const,value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-07-19T22:00:00Z',windowEndedAt:'2026-07-20T22:00:00Z'}});
- const load=vi.fn(async(id:string)=>{s={...s,reviewDay:emptyDay(id)};}).mockRejectedValueOnce(new Error('offline'));
- const cap={...capability(s),getState:()=>s,loadReviewDay:load};
- render(<ReviewsView state={s} administration={cap}/>);
- expect(await screen.findByRole('button',{name:'Tageszeiten erneut laden'})).toBeEnabled();
- await waitFor(()=>expect(screen.getAllByText('Keine Arbeitszeiten an diesem Tag.')).toHaveLength(1));
- fireEvent.click(screen.getByRole('button',{name:'Tageszeiten erneut laden'}));
- await waitFor(()=>expect(screen.getAllByText('Keine Arbeitszeiten an diesem Tag.')).toHaveLength(s.reviewItems.length));
- expect(load.mock.calls.map(([id])=>id)).toEqual(['review','second','review','second']);
-});
-it('discards a review day that finishes after the authority changes',async()=>{
- let finish!:()=>void;
+it('discards a batch that finishes after the location changes, even if the case IDs stay equal',async()=>{
+ let finish!:(value:Readonly<Record<string,ReviewDayState>>)=>void;
  let s=state({reviewItems:[item]});
- const load=vi.fn().mockImplementationOnce(()=>new Promise<void>(resolve=>{finish=()=>{s={...s,reviewDay:{reviewItemId:'review',status:'ready',value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-07-19T22:00:00Z',windowEndedAt:'2026-07-20T22:00:00Z'}}};resolve();};}));
- const cap={...capability(s),getState:()=>s,loadReviewDay:load};
+ const load=vi.fn<NonNullable<AdminWebCapability['loadReviewDays']>>()
+  .mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;})).mockResolvedValue({});
+ const cap={...capability(s),getState:()=>s,loadReviewDays:load};
  const view=render(<ReviewsView state={s} administration={cap}/>);
- s={...s,membershipId:'other',reviewItems:[]};view.rerender(<ReviewsView state={s} administration={cap}/>);
- finish();await waitFor(()=>expect(screen.queryByText('Keine Arbeitszeiten an diesem Tag.')).toBeNull());
- expect(screen.getByText('Keine ungeklärten Erfassungen.')).toBeVisible();
+ s={...s,selectedLocation:{id:'other',name:'Süd'}};view.rerender(<ReviewsView state={s} administration={cap}/>);
+ finish({review:{reviewItemId:'review',status:'ready',value:{records:[],activeRecord:null,nextCursor:null,windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z'}}});
+ await screen.findByRole('button',{name:'Tageszeiten erneut laden'});
+ expect(screen.queryByText('Keine Arbeitszeiten an diesem Tag.')).toBeNull();expect(load).toHaveBeenCalledTimes(2);
+});
+it.each(['Zeit ändern','Ende nachtragen'])('T135: %s still requires day times and rejects a direct form submission',label=>{
+ const s=state({reviewItems:[item]}),prepareAdjudication=vi.fn();
+ render(<ReviewsView state={s} administration={{...capability(s),prepareAdjudication}}/>);
+ fireEvent.click(screen.getByRole('button',{name:label}));
+ const button=screen.getByRole('button',{name:'Änderung prüfen'});
+ expect(button).toBeDisabled();fireEvent.submit(button.closest('form')!);expect(prepareAdjudication).not.toHaveBeenCalled();
+});
+it('T135: a note-only decision warns while day times are still loading',()=>{
+ const s=state({reviewItems:[item]});render(<ReviewsView state={s} administration={capability(s)}/>);
+ fireEvent.click(screen.getByRole('button',{name:'So lassen'}));
+ expect(screen.getByRole('note')).toHaveTextContent('Die Tageszeiten fehlen.');
+ expect(screen.getByRole('button',{name:'Änderung prüfen'})).toBeEnabled();
 });
 it('exports only the selected complete month, with format choice independent of display filters',()=>{
  const month='2026-10',route={...defaultRoute('lohnexport'),month,status:'laufend' as const,captureType:'gescannt' as const};

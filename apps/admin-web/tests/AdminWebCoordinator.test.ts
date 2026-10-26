@@ -2075,3 +2075,40 @@ it('T118 review: a favorite on page one still starts after retrying page two',as
  await coordinator.querySearch('work_targets',{search:null,cursor:'next',assignedOnly:true});
  await coordinator.captureManual(favorite);expect(manualLifecycle).toHaveBeenCalledOnce();
 });
+
+const reviewDayPage = (complete = true) => ({reviewItemId:reviewItem.reviewItemId,
+  windowStartedAt:'2026-07-19T22:00:00.000Z',windowEndedAt:'2026-07-20T22:00:00.000Z',complete,activeRecord:null,
+  records:[{timeRecordId:stoppedRecord.timeRecordId,targetDisplayName:stoppedRecord.targetDisplayName,startedAt:stoppedRecord.startedAt,stoppedAt:stoppedRecord.stoppedAt}]});
+it('T135 batches only review IDs, assembles bounded pages and leaves omitted cases retryable',async()=>{
+ const {api,coordinator}=setup(),missing={...reviewItem,reviewItemId:'90000000-0000-4000-8000-000000000099'};
+ api.reviewItems.mockResolvedValue({status:'succeeded',value:{items:[reviewItem,missing],nextCursor:null}});
+ const query=vi.fn<NonNullable<AdminWebApiPort['queryReviewDays']>>()
+  .mockResolvedValueOnce({status:'succeeded',value:{status:'ready',days:[reviewDayPage(false)],nextCursor:'d1:cGFnZTI'}})
+  .mockResolvedValueOnce({status:'succeeded',value:{status:'ready',days:[{...reviewDayPage(),records:[{...reviewDayPage().records[0]!,timeRecordId:'90000000-0000-4000-8000-000000000003'}]}],nextCursor:null}});
+ Object.assign(api,{queryReviewDays:query});await coordinator.signIn('admin@example.test','secret');
+ const ids=[reviewItem.reviewItemId,missing.reviewItemId],result=await coordinator.loadReviewDays(ids);
+ expect(query.mock.calls.map(([,body])=>body)).toEqual([{expectedMembershipId:membershipId,reviewItemIds:ids,cursor:null},{expectedMembershipId:membershipId,reviewItemIds:ids,cursor:'d1:cGFnZTI'}]);
+ expect(result[reviewItem.reviewItemId]).toMatchObject({status:'ready',value:{records:[{timeRecordId:stoppedRecord.timeRecordId},{timeRecordId:'90000000-0000-4000-8000-000000000003'}]}});
+ expect(result[missing.reviewItemId]).toMatchObject({status:'unavailable',value:null});
+});
+it.each(['repeat-cursor','repeat-record','unreachable'] as const)('T135 retains no partial day on %s',async failure=>{
+ const {api,coordinator}=setup();api.reviewItems.mockResolvedValue({status:'succeeded',value:{items:[reviewItem],nextCursor:null}});
+ const first={status:'succeeded' as const,value:{status:'ready' as const,days:[reviewDayPage(false)],nextCursor:'d1:cGFnZTI'}};
+ const query=vi.fn<NonNullable<AdminWebApiPort['queryReviewDays']>>().mockResolvedValueOnce(first)
+  .mockResolvedValueOnce(failure==='unreachable'?{status:'unreachable'}:failure==='repeat-cursor'?first:
+    {status:'succeeded',value:{status:'ready',days:[reviewDayPage()],nextCursor:null}});
+ Object.assign(api,{queryReviewDays:query});await coordinator.signIn('admin@example.test','secret');
+ expect((await coordinator.loadReviewDays([reviewItem.reviewItemId]))[reviewItem.reviewItemId]).toMatchObject({status:'unavailable',value:null});
+ expect(query).toHaveBeenCalledTimes(2);
+});
+it('T135 discards a late batch after sign-out and permits closing with a note without fetching days',async()=>{
+ const {api,coordinator}=setup();api.reviewItems.mockResolvedValue({status:'succeeded',value:{items:[reviewItem],nextCursor:null}});
+ const pending=deferred<Awaited<ReturnType<NonNullable<AdminWebApiPort['queryReviewDays']>>>>();
+ const query=vi.fn<NonNullable<AdminWebApiPort['queryReviewDays']>>().mockReturnValue(pending.promise);Object.assign(api,{queryReviewDays:query});
+ await coordinator.signIn('admin@example.test','secret');
+ coordinator.prepareAdjudication(reviewItem.reviewItemId,'no_time_record_change',null,null,null,'Mit der Person geklärt.');
+ expect(coordinator.getState()).toMatchObject({adjudicationIntent:{resolution:'no_time_record_change'}});
+ const read=coordinator.loadReviewDays([reviewItem.reviewItemId]);await coordinator.signOut();
+ pending.resolve({status:'succeeded',value:{status:'ready',days:[reviewDayPage()],nextCursor:null}});
+ expect(await read).toEqual({});expect(coordinator.getState()).toMatchObject({status:'signed_out'});
+});

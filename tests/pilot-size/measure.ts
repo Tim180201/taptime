@@ -90,6 +90,16 @@ export async function measureReads(http:Http, reference:string, profile:string, 
   const results:unknown[]=[];
   const fixtures:Record<string,unknown>={};
   const cases=readCases(reference);
+  for (const role of ['administrator','standortleitung'] as const) {
+    const actor=actorFor(role) as Person;
+    const response=await http.request('/v4/administration/review-items/query',{expectedMembershipId:actor.member,cursor:null,limit:20},actor);
+    if(response.status!==200)throw new Error('Cannot discover review-day measurement cases');
+    const reviewItemIds=(JSON.parse(response.text).items as {reviewItemId:string}[]).map(item=>item.reviewItemId);
+    if(!reviewItemIds.length)throw new Error('Missing synthetic review cases');
+    cases.push({name:'review-days',path:'/v1/administration/review-days/query',role,
+      body:{expectedMembershipId:actor.member,reviewItemIds,cursor:null},paginated:true,targetMs:300,targetBytes:14*1024});
+  }
+
   // TL decision for T-099b: the unused v1 contract keeps its full result and
   // existing response bound. Derive its expected rejection from actual bytes,
   // independently of the measured HTTP status (never hide an unexpected 503).

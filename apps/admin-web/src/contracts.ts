@@ -1,3 +1,4 @@
+import type { ReviewDay } from '@taptime/time-review-contract';
 import type { ArchiveRequests, ArchiveResponses } from '@taptime/mobile-work-contract';
 import type { PageResult } from '../../mobile/src/search/search';
 import type {AssignmentCapability} from './targetAssignments';
@@ -151,6 +152,7 @@ export type RemoteValue<T> =
   | { readonly status: 'loading'; readonly value: null }
   | { readonly status: 'ready'; readonly value: T }
   | { readonly status: 'unavailable'; readonly value: null; readonly message: string };
+export type ReviewDayState = RemoteValue<Pick<ReviewDay, 'records' | 'activeRecord' | 'windowStartedAt' | 'windowEndedAt'> & { readonly nextCursor: string | null }> & { readonly reviewItemId: string };
 export type ManagedPeopleState = RemoteValue<ManagedActiveSummary> & { readonly isRunning: boolean | null; readonly month?: string; readonly search?:string|null; readonly busy?:boolean; readonly failed?:boolean };
 export type CalendarState = RemoteValue<MobileOwnTimeQueryResponse> & { readonly targetMembershipId: string | null; readonly month: string; readonly canManageTime?: boolean };
 export interface ReviewCorrectionRecords {
@@ -178,7 +180,7 @@ export type AdminWebState =
       readonly roleAssignmentMembershipId?: string;
       readonly membershipId?: string;
       readonly timeEditBusy?: boolean;
-      readonly reviewDay?: RemoteValue<MobileOwnTimeQueryResponse> & {readonly reviewItemId:string};
+      readonly reviewDay?: ReviewDayState;
       readonly reviewCorrectionRecords?: ReviewCorrectionRecords;
       readonly role: 'administrator' | 'standortleitung' | 'employee';
       readonly calendar?: CalendarState;
@@ -275,6 +277,7 @@ export interface AdminWebCapability extends ClientSearchCapability, QuotaAlertsC
   exportTimeRecords(version?: 3 | 4): Promise<void>;
   loadMoreTimeRecords(): Promise<void>;
   loadMoreReviewItems(): Promise<void>;
+  readonly loadReviewDays?: (reviewItemIds: readonly string[]) => Promise<Readonly<Record<string, ReviewDayState>>>;
   readonly loadReviewDay?: (reviewItemId: string) => Promise<void>;
   readonly loadReviewCorrectionRecords?: (reviewItemId: string, month: string, append?: boolean) => Promise<void>;
   readonly refreshProjects?: () => Promise<void>;

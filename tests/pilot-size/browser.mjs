@@ -121,7 +121,7 @@ export async function measureBrowser({http,profile,reference,people,output,smoke
           const [path,body,accept]=JSON.parse(key);
           // These coordinators assemble every page and validate identity/cursor
           // continuity. Their exact page chain already contains the largest page.
-          if(!body||body.cursor!=null||/\/(?:managed-person-time|own-time\/query|archive\/person-time)$/.test(path)||initial.status!==200)continue;
+          if(!body||body.cursor!=null||/\/(?:managed-person-time|own-time\/query|archive\/person-time|review-days\/query)$/.test(path)||initial.status!==200)continue;
           const measuredKey=JSON.stringify([isOperator,key]);
           if(largestBrowserPages.has(measuredKey)){fixture.set(key,largestBrowserPages.get(measuredKey));continue;}
           const comparable=value=>JSON.stringify(Object.entries(value??{}).filter(([key])=>!['cursor','limit'].includes(key)).sort(([a],[b])=>a.localeCompare(b)));

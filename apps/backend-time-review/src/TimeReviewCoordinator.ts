@@ -1,3 +1,5 @@
+import { parseReviewDaysRequest, REVIEW_DAYS_MAXIMUM_ROWS, type ReviewDaysRequest } from '@taptime/time-review-contract';
+import { reviewDaysPosition, reviewDaysPage, type ReviewDayRow } from './reviewDays.js';
 import { boundedSearchPage, createSearchContext, searchTargetRank } from '@taptime/mobile-work-contract/server-search';
 import type { SearchRequests, SearchReadResult } from '@taptime/mobile-work-contract';
 import { isOrganizationPausedError } from '@taptime/backend-identity';
@@ -191,6 +193,21 @@ export class TimeReviewCoordinator implements TimeReviewPort {
           nextCursor:rows.length>request.limit && last
             ? Buffer.from(JSON.stringify([request.targetMembershipId,last.target_type,last.target_id])).toString('base64url') : null,
         }};
+      });
+  }
+
+  async queryReviewDays(command: AuthenticatedTimeReviewCommand<ReviewDaysRequest>, controls: TimeReviewCoordinatorControls = {}): ReturnType<NonNullable<TimeReviewPort['queryReviewDays']>> {
+    const request = parseReviewDaysRequest(command.request);
+    if (!request) return { status: 'invalid_request' };
+    const position = reviewDaysPosition(request);
+    if (position === undefined) return { status: 'invalid_request' };
+    return this.withTimeManager(this.readPool, command.accessToken, request.expectedMembershipId, TIME_REVIEW_READER_ROLE, controls,
+      async client => {
+        const rows = (await client.query<ReviewDayRow>(
+          'SELECT * FROM taptime_server.read_review_days_v1($1,$2,$3,$4,$5,$6)',
+          [request.reviewItemIds, ...(position ?? [null, null, null, null]), REVIEW_DAYS_MAXIMUM_ROWS + 1],
+        )).rows;
+        return { status: 'ready' as const, value: reviewDaysPage(request, rows) };
       });
   }
 
