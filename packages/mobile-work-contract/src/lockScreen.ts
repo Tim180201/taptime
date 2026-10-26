@@ -1,6 +1,9 @@
 import { isIsoTimestamp } from '@taptime/core';
 
 export type LockScreenAction = 'pause' | 'resume' | 'stop';
+export const LOCK_SCREEN_V2_ACCEPT = 'application/vnd.taptime.lock-screen.v2+json';
+export type LockScreenResponseVersion = 'lock-screen-action.v1' | 'lock-screen-action.v2';
+export type LockScreenArchiveStatus = 'pending' | 'archived';
 export interface LockScreenCapabilityRequest {
   readonly expectedMembershipId: string;
   readonly timeEntryId: string;
@@ -33,6 +36,12 @@ export type LockScreenActionResult = {
   readonly idempotentRetry: boolean;
 } | { readonly status: 'unauthorized' | 'command_id_conflict' }
   | { readonly status: 'rate_limited'; readonly retryAfterSeconds: number };
+export type LockScreenCapabilityResultV2 =
+  | (Extract<LockScreenCapabilityResult, { status: 'issued' }> & { readonly archiveStatus: LockScreenArchiveStatus })
+  | Extract<LockScreenCapabilityResult, { status: 'unauthorized' }>;
+export type LockScreenActionResultV2 =
+  | (Extract<LockScreenActionResult, { state: LockScreenState }> & { readonly archiveStatus: LockScreenArchiveStatus })
+  | Exclude<LockScreenActionResult, { state: LockScreenState }>;
 export interface LockScreenHistoryEvent {
   readonly workEventId: string;
   readonly action: LockScreenAction;
@@ -80,6 +89,16 @@ export function isLockScreenActionResult(value: unknown): value is LockScreenAct
     : value.status === 'rate_limited'
       ? keys(value, ['status', 'retryAfterSeconds']) && Number.isSafeInteger(value.retryAfterSeconds) && Number(value.retryAfterSeconds) > 0
       : keys(value, ['status']) && (value.status === 'unauthorized' || value.status === 'command_id_conflict'));
+}
+export function isLockScreenCapabilityResultV2(value: unknown): value is LockScreenCapabilityResultV2 {
+  if (!object(value) || value.status !== 'issued') return isLockScreenCapabilityResult(value);
+  const { archiveStatus, ...legacy } = value;
+  return (archiveStatus === 'pending' || archiveStatus === 'archived') && isLockScreenCapabilityResult(legacy);
+}
+export function isLockScreenActionResultV2(value: unknown): value is LockScreenActionResultV2 {
+  if (!object(value) || (value.status !== 'applied' && value.status !== 'state_changed')) return isLockScreenActionResult(value);
+  const { archiveStatus, ...legacy } = value;
+  return (archiveStatus === 'pending' || archiveStatus === 'archived') && isLockScreenActionResult(legacy);
 }
 export function isLockScreenHistory(value: unknown): value is readonly LockScreenHistoryEvent[] {
   return Array.isArray(value) && value.every(event => object(event) && keys(event, ['workEventId', 'action', 'at'])

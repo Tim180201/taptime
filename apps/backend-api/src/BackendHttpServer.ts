@@ -1,4 +1,5 @@
-import { isLockScreenCapability, isLockScreenCapabilityRequest, isLockScreenActionRequest, isLockScreenCapabilityResult, isLockScreenActionResult } from '@taptime/mobile-work-contract';
+import { isLockScreenCapability, isLockScreenCapabilityRequest, isLockScreenActionRequest, isLockScreenCapabilityResult, isLockScreenActionResult,
+  LOCK_SCREEN_V2_ACCEPT, isLockScreenCapabilityResultV2, isLockScreenActionResultV2 } from '@taptime/mobile-work-contract';
 import { parseArchiveRequest, type ArchiveKind } from '@taptime/mobile-work-contract';
 import { MANAGED_PEOPLE_ACCEPT_V6, parseSearchRequest, type SearchKind, type SearchReader } from '@taptime/mobile-work-contract';
 import { isTargetAssignmentChangeRequest, parseTargetAssignmentQuery, parseQuotaAlertsQuery } from '@taptime/mobile-work-contract';
@@ -526,20 +527,24 @@ async function handleRequest(
   }
 
   if (route === 'lock_screen_capability' || route === 'lock_screen_action') {
+    const version = request.headers.accept === LOCK_SCREEN_V2_ACCEPT ? 'lock-screen-action.v2' : undefined;
+    response.setHeader('Vary', 'Accept');
     if (route === 'lock_screen_action' && !isLockScreenCapability(accessToken)) {
       respondError(response, 401, 'unauthorized'); return;
     }
     if (!dependencies.lockScreen) { respondError(response, 503, 'service_unavailable'); return; }
     if (route === 'lock_screen_capability') {
       if (!isLockScreenCapabilityRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
-      const result = await withTimeout(dependencies.lockScreen.issue(accessToken, body), timeoutMilliseconds);
-      if (!isLockScreenCapabilityResult(result)) throw new Error('Invalid lock screen response');
+      const result = await withTimeout(version ? dependencies.lockScreen.issue(accessToken, body, version)
+        : dependencies.lockScreen.issue(accessToken, body), timeoutMilliseconds);
+      if (!(version ? isLockScreenCapabilityResultV2(result) : isLockScreenCapabilityResult(result))) throw new Error('Invalid lock screen response');
       if (result.status === 'unauthorized') respondError(response, 401, 'unauthorized');
       else respondJson(response, 200, result);
     } else {
       if (!isLockScreenActionRequest(body)) { respondError(response, 400, 'invalid_request'); return; }
-      const result = await withTimeout(dependencies.lockScreen.perform(accessToken, body), timeoutMilliseconds);
-      if (!isLockScreenActionResult(result)) throw new Error('Invalid lock screen response');
+      const result = await withTimeout(version ? dependencies.lockScreen.perform(accessToken, body, version)
+        : dependencies.lockScreen.perform(accessToken, body), timeoutMilliseconds);
+      if (!(version ? isLockScreenActionResultV2(result) : isLockScreenActionResult(result))) throw new Error('Invalid lock screen response');
       if (result.status === 'unauthorized') respondError(response, 401, 'unauthorized');
       else if (result.status === 'command_id_conflict') respondError(response, 409, 'command_id_conflict');
       else if (result.status === 'rate_limited') {

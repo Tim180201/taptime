@@ -29,11 +29,15 @@ echtem Abbruch (F043). Wiederholungsmessung beider Profile: alle Lesewege mit er
 vollständig, Export der Spitze p95 269 ms. Zwei TL-Runden, unabhängiges Review, CI-Nachbau des TL; die GitHub-CI
 scheiterte zuerst an der v4/v3-Grenze 1,30 (Faktor 1,33), TL-Patch `1edb047` setzt 1,50 (D-155). Wirkt mit Deploy 9.
 Bericht lokal `.t099b-review/report.md`.
-**Befund iPhone (PO 23.10., T-104e):** Die Knöpfe auf dem Sperrbildschirm zeigen „Noch nicht bestätigt“; „Erneut
-senden“ bestätigt erst Minuten später. Der Server bucht die Aktion, antwortet aber 503, solange ihr WAL nicht extern
-bestätigt ist (Code, TL). „Meine Zeiten“ springt im Sekundentakt zwischen leer und gefüllt, auch ohne laufende Zeit;
-vermutlich eine Leseschleife zwischen Sperrbildschirm-Abgleich und Nachladen weiterer Seiten (TL). Beides P1 vor dem
-Pilot (D-153, D-154). Android noch nicht geprüft.
+**T-104e auf main, wirkt mit Deploy 9 (26.10.):** Beide iPhone-Befunde rot belegt: Aktion nach COMMIT trotz Buchung als Fehler,
+Kalender-Leseschleife durch nachgeladene Seiten. V2 zeigt Zustand mit „wird gesichert“, alte Builds bleiben bei V1;
+Kalenderwechsel erst mit vollständigen Seiten, native Anzeige endet sofort und Android stellt Weggewischtes wieder her.
+TL-R1: verlorener Kaltstart-Abgleich (P1-1), stumme Lesefehler (P2-1) und Rollback-Fehler (P3-3) in Runde 2 mit
+Rot/Grün korrigiert; Capability-HTTP-Test ergänzt. Quality, vollständiges C2, Android-Release und iOS-JS-Export erneut
+grün; kurzer unabhängiger R2-Check und TL-Runde 2 APPROVED. Bericht `.t104e-review/bericht-r2.md`, Prüfliste im selben Ordner.
+iOS-Entscheidung TL: kein weiterer lokaler Pod-/Xcode-Versuch, keine Netzfreigabe. Den Gesamtbuild belegt der PO per
+EAS aus einer sauberen Kopie des freigegebenen Commits nach grüner CI. Deploy 9 erst nach beiden grünen App-Builds;
+scheitert iOS, vorher nachbessern. Geräteabnahme steht aus.
 **Befund 17.10. (T-132):** Die wöchentliche Wiederherstellungsprobe scheiterte am 11.10. um 03:43 UTC mit „No space left
 on device“: Basis und WAL-Kette werden im tmpfs `/run/taptime-backup` entpackt, der zu klein ist. Die Probe beim Deploy
 (frische Basis) war am 15.10. grün; die stündliche Sicherung baut ihre Basis im selben tmpfs. Sicherungen laufen; mit
@@ -53,7 +57,7 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-104e (Codex) → Deploy 9 (T-099b, T-104e) → neue App-Builds und restliche Geräteabnahme →
+**Weg zum Pilot:** T-104e (Codex) → freigegebener Commit, CI und beide App-Builds grün → Deploy 9 (T-099b, T-104e) → restliche Geräteabnahme →
 Pilot (D-152; die Wiederholungsmessung mit 063 ist grün). Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
 `review/<aufgabe>` ab, Fotos auf einem verwaisten Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
@@ -158,6 +162,12 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 ## Bekannte Kleinigkeiten (P2/P3, offen)
 
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
+
+- **T-104e, TL-R1 P3-1:** Fehlt die Archiv-Anforderungszeile nach Prozessende zwischen COMMIT und Registrierung, bleibt `archiveStatus` pending; erneutes Senden derselben Befehls-ID behebt das.
+- **T-104e, TL-R1 P3-2:** Passender Index auf `sync_receipts` nach Organisation, Person und Eintrag fehlt; Archivabfrage später bei Pilotgröße messen.
+- **T-104e, TL-R1 P3-5:** `reloadAfterCapture` veröffentlicht nur die erste Seite; danach kurz „Zeitraum nicht vollständig geladen“.
+- **T-104e, TL-R1 P3-6:** Android-Wiederherstellen nach Wegwischen und SAVING in `project` nur durch Quelltext-Tests abgedeckt; Nachweis per Geräteabnahme.
+- **Test, TL-R1 T-104e (P2):** admin-web `T108Experience` („loads the named person from a later page …“) wackelt unter Last; lokaler R2-Quality-Lauf grün.
 
 - **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliches Prune löscht künftig tausende WAL-Archive einzeln (B13).
 

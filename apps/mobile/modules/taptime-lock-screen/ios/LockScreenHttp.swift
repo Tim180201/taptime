@@ -21,7 +21,7 @@ final class LockHttp: NSObject, URLSessionDataDelegate, @unchecked Sendable {
       var request = URLRequest(url: url); request.httpMethod = "POST"; request.httpBody = body
       request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-      request.setValue("application/json", forHTTPHeaderField: "Accept")
+      request.setValue("application/vnd.taptime.lock-screen.v2+json", forHTTPHeaderField: "Accept")
       request.setValue(version, forHTTPHeaderField: "X-TapTime-App")
       session.dataTask(with: request).resume()
     }

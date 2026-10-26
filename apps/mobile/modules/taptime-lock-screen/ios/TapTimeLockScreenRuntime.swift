@@ -41,9 +41,9 @@ import UIKit
     let matching = activities.first { $0.attributes.instanceID == stand.instanceID &&
       ($0.activityState == .active || (state.status == "stopped" && $0.activityState == .ended)) }
     for activity in activities where activity.id != matching?.id { await activity.end(nil, dismissalPolicy: .immediate) }
-    if state.status == "stopped", stand.display == .STATE {
-      // System dismissal survives process suspension/death; never create a finished activity.
-      if let matching { await matching.end(content, dismissalPolicy: .after(stand.stoppedNoticeUntil ?? Date())) }
+    if state.status == "stopped", LockLogic.settled(stand.display) {
+      // End immediately, including a booked stop whose archive confirmation is still pending.
+      if let matching { await matching.end(content, dismissalPolicy: .immediate) }
       return
     }
     if let matching { await matching.update(content) }

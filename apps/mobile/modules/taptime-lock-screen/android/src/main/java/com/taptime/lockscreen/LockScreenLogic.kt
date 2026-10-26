@@ -6,19 +6,15 @@ import java.util.Locale
 import java.util.TimeZone
 
 /** Pure policy shared by the receiver, rendering and the JVM tests. No Android imports. */
-internal enum class Display { STATE, TRANSFERRING, SENDING, NOT_SENT, UNCONFIRMED, OPEN_APP, UPDATE_APP }
-internal enum class StoppedProjection { REPLACE, KEEP, CLEAR }
+internal enum class Display { STATE, SAVING, TRANSFERRING, SENDING, NOT_SENT, UNCONFIRMED, OPEN_APP, UPDATE_APP }
 internal enum class Failure { CONNECT, RESPONSE }
 internal data class Outcome(val display: Display, val deleteKey: Boolean = false, val keepCommand: Boolean = false)
 internal data class Command(val commandId: String, val action: String)
 internal data class NotificationText(val title: String, val text: String)
 internal object LockScreenLogic {
-  const val FINISHED_NOTICE_MILLIS = 10_000L
-  fun stoppedProjection(previousId: String?, previousStatus: String?, nextId: String?, nextStatus: String?, until: Long, now: Long): StoppedProjection {
-    if (previousStatus != "stopped" || nextId != null && (nextId != previousId || nextStatus != "stopped")) return StoppedProjection.REPLACE
-    return if (until > now) StoppedProjection.KEEP else StoppedProjection.CLEAR
-  }
-  fun clockRuns(status: String?, display: Display) = status == "running" && display == Display.STATE
+  fun settled(display: Display) = display == Display.STATE || display == Display.SAVING
+  fun visible(status: String?, display: Display) = status != null && !(status == "stopped" && settled(display))
+  fun clockRuns(status: String?, display: Display) = status == "running" && settled(display)
   fun canSend(action: String, appBlocked: Boolean, ownCapturePending: Boolean, hasKey: Boolean) =
     hasKey && !ownCapturePending && (!appBlocked || action == "retry")
   fun receiverDeadline(received: Long, confirmedColdStart: Long?) = (confirmedColdStart ?: received) + 6500
@@ -28,10 +24,10 @@ internal object LockScreenLogic {
     if (pending != null || !allowed(status, action)) return null
     return Command(createId(), action)
   }
-  fun response(code: Int, validState: Boolean = false, stopped: Boolean = false, failure: Failure? = null): Outcome = when {
+  fun response(code: Int, validState: Boolean = false, stopped: Boolean = false, failure: Failure? = null, archivePending: Boolean = false): Outcome = when {
     failure == Failure.CONNECT -> Outcome(Display.NOT_SENT, keepCommand = true)
     failure == Failure.RESPONSE -> Outcome(Display.UNCONFIRMED, keepCommand = true)
-    code == 200 && validState -> Outcome(Display.STATE, deleteKey = stopped)
+    code == 200 && validState -> Outcome(if (archivePending) Display.SAVING else Display.STATE, deleteKey = stopped)
     code == 401 -> Outcome(Display.OPEN_APP, deleteKey = true)
     code == 426 -> Outcome(Display.UPDATE_APP)
     code in listOf(400, 403, 409, 429) -> Outcome(Display.OPEN_APP)
@@ -50,13 +46,14 @@ internal object LockScreenLogic {
     timeZone = TimeZone.getTimeZone("Europe/Berlin")
   }.format(Date(at))
   fun notificationText(target: String, status: String?, display: Display, seconds: Long, startedAt: Long?, breakStartedAt: Long?): NotificationText {
-    if (display != Display.STATE) return NotificationText(target, message(display))
-    return when (status) {
+    if (!settled(display)) return NotificationText(target, message(display))
+    val content = when (status) {
       "stopped" -> NotificationText("Zeit beendet · ${duration(seconds)}", target)
       "paused" -> NotificationText(target, "Pause seit ${berlin(requireNotNull(breakStartedAt))} · ${duration(seconds)} gearbeitet")
       "running" -> NotificationText(target, "Läuft seit ${berlin(requireNotNull(startedAt))}")
       else -> NotificationText(target, duration(seconds))
     }
+    return if (display == Display.SAVING) content.copy(text = content.text + " · wird gesichert") else content
   }
   fun actionLabel(action: String): String = when (action) {
     "pause" -> "Pause starten"
@@ -67,6 +64,7 @@ internal object LockScreenLogic {
   }
   fun message(display: Display): String = when (display) {
     Display.STATE -> ""
+    Display.SAVING -> "wird gesichert"
     Display.TRANSFERRING -> "Wird übertragen …"
     Display.SENDING -> "Wird gesendet …"
     Display.NOT_SENT -> "Nicht gesendet · kein Netz"

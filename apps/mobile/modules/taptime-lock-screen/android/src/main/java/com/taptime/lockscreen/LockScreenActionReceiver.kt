@@ -24,6 +24,15 @@ class LockScreenActionReceiver : BroadcastReceiver() {
   }
   override fun onReceive(context: Context, intent: Intent) {
     val action = intent.action ?: return
+    if (action == "dismiss") {
+      val pending = goAsync()
+      LockScreenIo.execute {
+        try { LockScreenRuntime.restoreNotification(context.applicationContext) }
+        catch (_: Exception) { /* No sensitive state in diagnostics. */ }
+        finally { pending.finish() }
+      }
+      return
+    }
     if (action !in listOf("pause", "resume", "stop", "retry")) return
     val parts = intent.data?.schemeSpecificPart?.split(':') ?: return
     if (parts.size != 2 || parts[1] != action) return

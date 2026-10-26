@@ -8,7 +8,8 @@ import { applyManualLifecycleEvent, PostgresLifecycleArchiveDurability, Lifecycl
   type LifecycleArchiveDurabilityPort } from '@taptime/backend-lifecycle';
 import { isLockScreenCapability, isLockScreenCapabilityRequest, isLockScreenCapabilityResult, isLockScreenActionRequest,
   isLockScreenActionResult, isLockScreenState, type LockScreenCapabilityRequest, type LockScreenCapabilityResult,
-  type LockScreenActionRequest, type LockScreenActionResult, type LockScreenState } from '@taptime/mobile-work-contract';
+  type LockScreenActionRequest, type LockScreenActionResult, type LockScreenState,
+  type LockScreenResponseVersion, type LockScreenActionResultV2, type LockScreenCapabilityResultV2 } from '@taptime/mobile-work-contract';
 
 type Actor = { organization_id: string; user_id: string; membership_id: string; membership_role: 'employee' | 'standortleitung' | 'administrator' };
 type EventReceipt = { workEventId: string; receiptId: string };
@@ -19,7 +20,8 @@ export class LockScreenCoordinator {
   constructor(private readonly pool: Pool, private readonly verifier: AccessTokenVerifier,
     private readonly archive: LifecycleArchiveDurabilityPort = new PostgresLifecycleArchiveDurability()) {}
 
-  async issue(accessToken: string, request: LockScreenCapabilityRequest): Promise<LockScreenCapabilityResult> {
+  async issue(accessToken: string, request: LockScreenCapabilityRequest,
+    version: LockScreenResponseVersion = 'lock-screen-action.v1'): Promise<LockScreenCapabilityResult | LockScreenCapabilityResultV2> {
     if (!isLockScreenCapabilityRequest(request)) return { status: 'unauthorized' };
     const identity = await this.verifier.verify(accessToken);
     if (identity.status !== 'verified') return { status: 'unauthorized' };
@@ -35,17 +37,27 @@ export class LockScreenCoordinator {
       const value: unknown = (await client.query('SELECT taptime_server.issue_lock_screen_capability_v1($1,$2) AS value',
         [request.timeEntryId, request.installationId])).rows[0]?.value;
       if (!isLockScreenCapabilityResult(value)) throw new Error('Invalid lock screen issue result');
+      if (value.status === 'issued' && version === 'lock-screen-action.v2') {
+        // Read the existing archive evidence; never replay an action during app reconciliation.
+        const archived: unknown = (await client.query('SELECT taptime_server.lock_screen_archive_status_v1($1) AS archived',
+          [request.timeEntryId])).rows[0]?.archived;
+        if (typeof archived !== 'boolean') throw new Error('Invalid lock screen archive status');
+        return { ...value, archiveStatus: archived ? 'archived' : 'pending' };
+      }
       return value;
     });
   }
 
-  async perform(capability: string, request: LockScreenActionRequest): Promise<LockScreenActionResult> {
+  async perform(capability: string, request: LockScreenActionRequest,
+    version: LockScreenResponseVersion = 'lock-screen-action.v1'): Promise<LockScreenActionResult | LockScreenActionResultV2> {
     if (!isLockScreenCapability(capability) || !isLockScreenActionRequest(request)) return { status: 'unauthorized' };
     // Never hand plaintext to pg: even parameter/error logging can only see the digest.
     const digest = createHash('sha256').update(Buffer.from(capability, 'base64url')).digest();
     let receipts: EventReceipt[] = [];
     let archiveActor: Actor | undefined;
-    return this.transaction(async client => {
+    let entryId: string | undefined;
+    let archived = true;
+    const result = await this.transaction(async client => {
       await client.query('SET LOCAL ROLE taptime_server_lifecycle');
       const prepared: PreparedAction | Exclude<LockScreenActionResult, { state: LockScreenState }> =
         (await client.query('SELECT taptime_server.perform_lock_screen_action_v1($1,$2,$3) AS value',
@@ -56,6 +68,7 @@ export class LockScreenCoordinator {
       }
       if (!isLockScreenState(prepared.state)) throw new Error('Invalid lock screen action state');
       archiveActor = prepared.actor;
+      entryId = prepared.state.timeEntryId;
       receipts = prepared.events;
       if (prepared.status !== 'prepared') return { status: prepared.status, state: prepared.state, idempotentRetry: prepared.idempotentRetry };
       const state = prepared.state;
@@ -80,19 +93,40 @@ export class LockScreenCoordinator {
         [request.commandId, JSON.stringify(receipts)])).rows[0]?.value;
       if (!isLockScreenActionResult(value)) throw new Error('Invalid lock screen completion');
       return value;
-    }, async client => {
+    }, async (client,discardClient) => {
       if (!archiveActor) return;
       for (const receipt of receipts) {
         const result = await this.archive.requireOffsiteArchive(client, {
           organizationId: archiveActor.organization_id, userId: archiveActor.user_id,
           membershipId: archiveActor.membership_id, membershipRole: archiveActor.membership_role,
         }, receipt);
-        if (!result.offsiteArchived) throw new LifecycleArchivePendingError();
+        archived &&= result.offsiteArchived;
+        if (!archived && version === 'lock-screen-action.v1') throw new LifecycleArchivePendingError();
+      }
+      if (version === 'lock-screen-action.v2' && entryId) {
+        // A stale/replayed command returns today's state, not necessarily its own event's state.
+        // Check that entry's complete archive evidence also when this command created no event.
+        await client.query('BEGIN ISOLATION LEVEL READ COMMITTED');
+        try {
+          await client.query('SET LOCAL ROLE taptime_server_lifecycle');
+          await client.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),
+            set_config('app.membership_id',$3,true),set_config('app.membership_role',$4,true)`,
+          [archiveActor.organization_id, archiveActor.user_id, archiveActor.membership_id, archiveActor.membership_role]);
+          const evidence: unknown = (await client.query('SELECT taptime_server.lock_screen_archive_status_v1($1) AS archived', [entryId])).rows[0]?.archived;
+          if (typeof evidence !== 'boolean') throw new Error('Invalid lock screen archive status');
+          archived = evidence;
+          await client.query('COMMIT');
+        } catch (error) {
+          await client.query('ROLLBACK').catch(discardClient);
+          throw error;
+        }
       }
     });
+    return version === 'lock-screen-action.v2' && 'state' in result
+      ? { ...result, archiveStatus: archived ? 'archived' : 'pending' } : result;
   }
 
-  private async transaction<T>(work: (client: PoolClient) => Promise<T>, afterCommit?: (client: PoolClient) => Promise<void>): Promise<T> {
+  private async transaction<T>(work: (client: PoolClient) => Promise<T>, afterCommit?: (client: PoolClient, discard: () => void) => Promise<void>): Promise<T> {
     const client = await this.pool.connect();
     let open = false;
     let discard = false;
@@ -100,7 +134,7 @@ export class LockScreenCoordinator {
       await client.query('BEGIN ISOLATION LEVEL READ COMMITTED'); open = true;
       const value = await work(client);
       await client.query('COMMIT'); open = false;
-      await afterCommit?.(client);
+      await afterCommit?.(client,()=>{discard=true;});
       return value;
     } catch (error) {
       if (open) await client.query('ROLLBACK').catch(() => { discard = true; });

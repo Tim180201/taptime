@@ -5,6 +5,7 @@ import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { OfflineActiveCapture } from '../work/OfflineActiveCapture';
 import { OfflineActiveTimeCard } from './OfflineActiveTimeCard';
 import { ActiveTimeCard } from './ActiveTimeCard';
+import { WorkRefreshNotice } from './WorkRefreshNotice';
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -65,7 +66,7 @@ export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = fal
   const [afterHeight, setAfterHeight] = useState(0);
   const hasBefore = !!(offline && offlineActive && confirmedOwnTime?.activeRecord
     || !offline && work && workState?.status === 'ready' && workState.ownTime.activeRecord
-    || workState?.status === 'ready' && workState.feedback);
+    || workState?.status === 'ready' && (workState.feedback || workState.refreshError));
   const hasAfter = !!(workState?.status === 'ready' && workState.capturePending && !state.transmissionPaused
     || state.updateRequired || state.untransferred?.length || onManualCapture || !embedded);
   // Measure text and controls independently of the ring. More text can exceed this
@@ -86,6 +87,7 @@ export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = fal
         disabledReason={workState.captureBlockedReason??(scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':workState.capturePending?'Deine letzte Erfassung wartet noch auf Bestätigung.':undefined)}
         onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : null}
       {workState?.status==='ready' && workState.feedback ? <Text accessibilityLiveRegion="polite">{workState.feedback}</Text> : null}
+      {work && workState?.status==='ready' ? <WorkRefreshNotice message={workState.refreshError} onRetry={()=>work.refresh()}/> : null}
       </View> : null}
       <View style={styles.scene} accessibilityLiveRegion="polite" testID="scan-status">
         <TouchTarget accessibilityRole="button" accessibilityLabel="Karte scannen"

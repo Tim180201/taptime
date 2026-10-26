@@ -5,7 +5,7 @@ export interface LockScreenStand {
   readonly revision?: string;
   readonly state?: LockScreenState;
   readonly pending?: {readonly commandId: string; readonly action: LockScreenAction};
-  readonly display?: 'STATE'|'TRANSFERRING'|'SENDING'|'NOT_SENT'|'UNCONFIRMED'|'OPEN_APP'|'UPDATE_APP';
+  readonly display?: 'STATE'|'SAVING'|'TRANSFERRING'|'SENDING'|'NOT_SENT'|'UNCONFIRMED'|'OPEN_APP'|'UPDATE_APP';
   readonly ownCapturePending?: boolean;
   readonly permissionGranted: boolean;
   readonly permissionAsked: boolean;

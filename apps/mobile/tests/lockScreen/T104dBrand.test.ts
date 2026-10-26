@@ -44,8 +44,11 @@ it('T-104d uses the generated resources in a silent standard notification with t
   expect(notification).toContain('.setShowWhen(running).setUsesChronometer(running)');
   expect(notification).toContain('builder.setWhen(now - elapsed * 1000)');
   expect(notification).toContain('NotificationCompat.Builder(context, CHANNEL)');
-  expect(notification).toContain('if (Build.VERSION.SDK_INT >= 36 && !stopped && manager.canPostPromotedNotifications()) {\n      builder.setRequestPromotedOngoing(true)');
-  expect(notification).toContain('if (status == "paused" && display == Display.STATE) builder.setShortCriticalText(LockScreenLogic.duration(seconds))');
+  expect(notification).toContain('if (Build.VERSION.SDK_INT >= 36 && manager.canPostPromotedNotifications()) {\n      builder.setRequestPromotedOngoing(true)');
+  expect(notification).toContain('if (status == "paused" && LockScreenLogic.settled(display)) builder.setShortCriticalText(LockScreenLogic.duration(seconds))');
+  expect(notification).toContain('.setOngoing(true)');
+  expect(notification).toContain('.setDeleteIntent(');
+  expect(notification).toContain('LockScreenLogic.visible(');
   expect(notification).toContain('setSound(null, null); enableVibration(false)');
   expect(notification).toContain('.setSound(null).setVibrate(longArrayOf()).setDefaults(0)');
   expect(notification).not.toMatch(/ic_lock_idle_alarm|setColorized|RemoteViews|setCustom\w*View|startForeground/);

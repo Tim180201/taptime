@@ -4,6 +4,7 @@ import { useDebouncedSearch } from '../search/useSearchPages';
 import { SearchField } from '../search/SearchControls';
 import {manualCaptureOutcome} from '../work/manualCaptureFeedback';
 import { ActiveTimeCard } from './ActiveTimeCard';
+import { WorkRefreshNotice } from './WorkRefreshNotice';
 import { useRequiredForm, RequiredField } from '../design/RequiredField';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
@@ -57,6 +58,7 @@ export function ManualCaptureScreen({ work }: { readonly work: MobileWorkCapabil
 
   return <Screen title="Manuell erfassen" eyebrow="ARBEITSZEIT">
     <ScrollView style={{flex: 1}} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
+      <WorkRefreshNotice message={state.refreshError} onRetry={()=>work.refresh()}/>
       {state.capturePending ? <Text accessibilityLiveRegion="polite">Wird übertragen … Deine Erfassung ist gespeichert, wird übertragen.</Text> : null}
       {state.ownTime.activeRecord ? <ActiveTimeCard record={state.ownTime.activeRecord}
         disabled={!!state.captureBlockedReason || state.submitting || !!state.capturePending} disabledReason={state.captureBlockedReason??undefined} onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : <>

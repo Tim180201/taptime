@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BACKEND_HTTP_ROUTES, createBackendHttpServer, requestRateLimitScope } from '../src/BackendHttpServer.js';
 import { createBackendApiDiagnosticLogSink } from '../src/diagnosticLog.js';
 import type { BackendApiDependencies } from '../src/types.js';
-import type { LockScreenActionResult, LockScreenCapabilityResult } from '@taptime/mobile-work-contract';
+import { LOCK_SCREEN_V2_ACCEPT, type LockScreenActionResult, type LockScreenActionResultV2, type LockScreenCapabilityResult, type LockScreenCapabilityResultV2 } from '@taptime/mobile-work-contract';
 import { closeServer, listen } from './fixtures.js';
 
 const key = randomBytes(32).toString('base64url'), id = randomUUID();
@@ -14,9 +14,9 @@ const state = { timeEntryId: id, status: 'running' as const, startedAt: '2026-10
   target: { targetType: 'customer' as const, targetId: id, displayName: 'Testkunde' } };
 const servers: Server[] = [];
 afterEach(async () => { for (const server of servers.splice(0)) await closeServer(server); });
-async function start(result: LockScreenActionResult = { status: 'applied', state, idempotentRetry: false }, failure = false) {
+async function start(result: LockScreenActionResult | LockScreenActionResultV2 = { status: 'applied', state, idempotentRetry: false }, failure = false) {
   const logs: string[] = [];
-  const issue = vi.fn(async (): Promise<LockScreenCapabilityResult> => ({ status: 'issued', capability: key, expiresAt: '2026-10-22T06:00:00.000Z', state }));
+  const issue = vi.fn(async (): Promise<LockScreenCapabilityResult | LockScreenCapabilityResultV2> => ({ status: 'issued', capability: key, expiresAt: '2026-10-22T06:00:00.000Z', state }));
   const perform = vi.fn(async () => { if (failure) throw new Error(`SQL diagnostic containing ${key}`); return result; });
   const checkTenantAccess = vi.fn(async () => {});
   const server = createBackendHttpServer({ lockScreen: { issue, perform }, checkTenantAccess } as unknown as BackendApiDependencies,
@@ -29,6 +29,31 @@ async function start(result: LockScreenActionResult = { status: 'applied', state
 }
 const command = { action: 'pause', commandId: id };
 describe('T104a HTTP', () => {
+  it('T104e R2: opts into v2 for capabilities while the default capability response stays exactly v1',async()=>{
+    const test=await start();
+    const request={expectedMembershipId:id,timeEntryId:id,installationId:null};
+    const v1={status:'issued',capability:key,expiresAt:'2026-10-22T06:00:00.000Z',state} as const;
+    const v2={...v1,archiveStatus:'pending'} as const;
+    test.issue.mockResolvedValueOnce(v2);
+    const optedIn=await test.post('/v1/lock-screen/capability',request,'Bearer header.payload.signature',{accept:LOCK_SCREEN_V2_ACCEPT});
+    expect(optedIn.status).toBe(200);expect(optedIn.headers.get('vary')).toBe('Accept');
+    expect(await optedIn.json()).toEqual(v2);
+    expect(test.issue).toHaveBeenNthCalledWith(1,'header.payload.signature',request,'lock-screen-action.v2');
+    const legacy=await test.post('/v1/lock-screen/capability',request,'Bearer header.payload.signature');
+    expect(legacy.status).toBe(200);expect(await legacy.json()).toEqual(v1);
+    expect(test.issue).toHaveBeenNthCalledWith(2,'header.payload.signature',request);
+  });
+  it('T104e opts in explicitly; installed builds still require their exact original response', async () => {
+    const result: LockScreenActionResultV2 = {status:'applied',state,idempotentRetry:false,archiveStatus:'pending'};
+    const test = await start(result);
+    const response = await test.post('/v1/lock-screen/action', command, `Bearer ${key}`, {accept:LOCK_SCREEN_V2_ACCEPT});
+    expect(response.status).toBe(200); expect(response.headers.get('vary')).toBe('Accept');
+    expect(await response.json()).toEqual(result);
+    expect(test.perform).toHaveBeenCalledWith(key,command,'lock-screen-action.v2');
+    expect((await test.post('/v1/lock-screen/action',command)).status).toBe(503);
+    test.perform.mockResolvedValueOnce({status:'applied',state,idempotentRetry:false});
+    expect((await test.post('/v1/lock-screen/action',command)).status).toBe(200);
+  });
   it('issues with the existing JWT authentication; actions use only the capability, without a session lookup', async () => {
     const test = await start();
     const request = { expectedMembershipId: id, timeEntryId: id, installationId: null };

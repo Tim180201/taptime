@@ -36,11 +36,11 @@ internal object LockScreenNotification {
       }
       manager.createNotificationChannel(channel)
     }
+    if (!LockScreenLogic.visible(state?.optString("status"), display)) { cancel(context); return }
     if (!allowed(context)) return
     val now = System.currentTimeMillis()
     val status = state?.optString("status")
     val running = LockScreenLogic.clockRuns(status, display)
-    val stopped = status == "stopped" && display == Display.STATE
     val seconds = state?.optLong("workDurationSeconds") ?: 0
     val elapsed = LockScreenLogic.elapsed(seconds, timestamp(state?.optString("asOf").orEmpty()) ?: now, now, running)
     val target = state?.optJSONObject("target")?.optString("displayName") ?: "Laufende Zeit"
@@ -51,21 +51,20 @@ internal object LockScreenNotification {
       .setContentTitle(content.title).setContentText(content.text)
       .setVisibility(Notification.VISIBILITY_PUBLIC).setOnlyAlertOnce(true)
       .setSound(null).setVibrate(longArrayOf()).setDefaults(0)
-      .setOngoing(!stopped).setAutoCancel(false).setContentIntent(open(context, 1040))
+      .setOngoing(true).setAutoCancel(false).setContentIntent(open(context, 1040))
+      .setDeleteIntent(PendingIntent.getBroadcast(context, 1045,
+        Intent(context, LockScreenActionReceiver::class.java).setAction("dismiss"),
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
       .setShowWhen(running).setUsesChronometer(running)
     if (running) builder.setWhen(now - elapsed * 1000)
     // Expo already supplies AndroidX Core 1.17; its official API works with compileSdk 36.
     // The platform Builder method itself requires 36.1. Never prompt or change system settings here.
-    if (Build.VERSION.SDK_INT >= 36 && !stopped && manager.canPostPromotedNotifications()) {
+    if (Build.VERSION.SDK_INT >= 36 && manager.canPostPromotedNotifications()) {
       builder.setRequestPromotedOngoing(true)
-      if (status == "paused" && display == Display.STATE) builder.setShortCriticalText(LockScreenLogic.duration(seconds))
-    }
-    if (stopped && Build.VERSION.SDK_INT >= 26) builder.setTimeoutAfter((session.optLong("stoppedNoticeUntil") - now).coerceAtLeast(1))
-    else if (Build.VERSION.SDK_INT >= 26 && session.has("expiresAt")) {
-      builder.setTimeoutAfter(((timestamp(session.getString("expiresAt")) ?: now) - now).coerceAtLeast(1))
+      if (status == "paused" && LockScreenLogic.settled(display)) builder.setShortCriticalText(LockScreenLogic.duration(seconds))
     }
     val actions = when (display) {
-      Display.STATE -> if (stopped) emptyList() else listOf(if (status == "paused") "resume" else "pause", "stop")
+      Display.STATE, Display.SAVING -> listOf(if (status == "paused") "resume" else "pause", "stop")
       Display.NOT_SENT, Display.UNCONFIRMED -> listOf("retry")
       else -> emptyList()
     }

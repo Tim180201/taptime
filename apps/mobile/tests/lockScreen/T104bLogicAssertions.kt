@@ -10,14 +10,19 @@ fun main() {
   LockScreenIo.execute { check(Thread.currentThread() !== caller); entered.countDown(); release.await(); finished.countDown() }
   check(entered.await(2, java.util.concurrent.TimeUnit.SECONDS))
   release.countDown(); check(finished.await(2, java.util.concurrent.TimeUnit.SECONDS))
-  val shownAt = 100_000L
-  val until = shownAt + LockScreenLogic.FINISHED_NOTICE_MILLIS
-  check(LockScreenLogic.stoppedProjection("entry", "running", "entry", "stopped", 0, shownAt) == StoppedProjection.REPLACE)
-  // Opening/suspending cannot create another completion or extend its deadline.
-  check(LockScreenLogic.stoppedProjection("entry", "stopped", null, null, until, shownAt + 1000) == StoppedProjection.KEEP)
-  check(LockScreenLogic.stoppedProjection("entry", "stopped", "entry", "stopped", until, shownAt + 2000) == StoppedProjection.KEEP)
-  check(LockScreenLogic.stoppedProjection("entry", "stopped", null, null, until, until) == StoppedProjection.CLEAR)
-  check(LockScreenLogic.stoppedProjection("entry", "stopped", "next", "running", until, shownAt + 1000) == StoppedProjection.REPLACE)
+  for (display in listOf(Display.STATE, Display.SAVING)) {
+    check(LockScreenLogic.visible("running", display))
+    check(LockScreenLogic.visible("paused", display))
+    check(!LockScreenLogic.visible("stopped", display))
+    check(!LockScreenLogic.visible(null, display))
+  }
+  for (display in listOf(Display.UNCONFIRMED, Display.NOT_SENT, Display.OPEN_APP, Display.UPDATE_APP)) {
+    check(LockScreenLogic.visible("running", display))
+    check(LockScreenLogic.visible("stopped", display))
+  }
+  check(LockScreenLogic.response(200, true, archivePending = true) == Outcome(Display.SAVING))
+  check(LockScreenLogic.response(200, true, true, archivePending = true) == Outcome(Display.SAVING, deleteKey = true))
+  check(LockScreenLogic.clockRuns("running", Display.SAVING))
   check(!LockScreenLogic.clockRuns("running", Display.TRANSFERRING))
   check(LockScreenLogic.message(Display.TRANSFERRING) == "Wird übertragen …")
   for (action in listOf("pause", "resume", "stop", "retry")) {

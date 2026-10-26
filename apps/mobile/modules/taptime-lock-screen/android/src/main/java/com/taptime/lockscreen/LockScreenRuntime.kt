@@ -4,39 +4,20 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.SystemClock
-import android.os.Handler
-import android.os.Looper
 import org.json.JSONObject
 import java.util.UUID
 
 /** All storage transitions are serialized, network calls never hold the lock. Late responses use CAS. */
 internal object LockScreenRuntime {
   @Volatile var changed: (() -> Unit)? = null
-  private val expiryHandler = Handler(Looper.getMainLooper())
   private val inFlight = mutableSetOf<String>()
   private fun id() = UUID.randomUUID().toString()
   private fun session(root: JSONObject) = root.optJSONObject("session")
   private fun save(context: Context, root: JSONObject, notify: Boolean = false) {
     val current = session(root)
-    if (current?.optJSONObject("state")?.optString("status") == "stopped" && current.optString("display") == Display.STATE.name) {
-      if (!current.has("stoppedNoticeUntil")) current.put("stoppedNoticeUntil", System.currentTimeMillis() + LockScreenLogic.FINISHED_NOTICE_MILLIS)
-      val stamp = current.getString("sessionId")
-      expiryHandler.postDelayed({ runCatching { synchronized(this) {
-        val saved = LockScreenStore(context).read()
-        if (session(saved)?.optString("sessionId") == stamp) expireStopped(context, saved)
-      } } }, (current.getLong("stoppedNoticeUntil") - System.currentTimeMillis()).coerceAtLeast(1))
-    }
     LockScreenStore(context).write(root)
     current?.let { LockScreenNotification.show(context, it) } ?: LockScreenNotification.cancel(context)
     if (notify) changed?.invoke()
-  }
-  private fun expireStopped(context: Context, root: JSONObject) {
-    val current = session(root) ?: return
-    if (current.optJSONObject("state")?.optString("status") != "stopped"
-      || current.optString("display") != Display.STATE.name || current.optLong("stoppedNoticeUntil") > System.currentTimeMillis()) return
-    current.remove("state"); current.remove("stoppedNoticeUntil")
-    current.put("revision", id())
-    LockScreenStore(context).write(root); LockScreenNotification.cancel(context)
   }
   @Synchronized fun bind(context: Context, owner: String) {
     val root = LockScreenStore(context).read()
@@ -45,6 +26,11 @@ internal object LockScreenRuntime {
       .put("nonce", id()).put("display", Display.OPEN_APP.name).put("appBlocked", true))
     LockScreenStore(context).write(root)
     LockScreenNotification.cancel(context)
+  }
+  @Synchronized fun restoreNotification(context: Context) {
+    // Re-render the latest stored state under the same lock as stop/sign-out. No request, booking or sound.
+    val current = session(LockScreenStore(context).read())
+    if (current != null) LockScreenNotification.show(context, current) else LockScreenNotification.cancel(context)
   }
   @Synchronized fun clear(context: Context) {
     val root = LockScreenStore(context).read(); root.remove("session")
@@ -60,7 +46,6 @@ internal object LockScreenRuntime {
   }
   @Synchronized fun snapshot(context: Context): String {
     val root = LockScreenStore(context).read()
-    expireStopped(context, root)
     val current = session(root)
     if (current == null) LockScreenNotification.cancel(context)
     if (current?.has("capability") == true && expired(current)) {
@@ -88,10 +73,7 @@ internal object LockScreenRuntime {
     val root = LockScreenStore(context).read(); val current = session(root) ?: return
     current.put("appBlocked", true).put("nonce", id())
     if (!current.has("pending") && current.optJSONObject("state")?.optString("status") != "stopped") current.put("sessionId", id())
-    if (current.optJSONObject("state")?.optString("status") == "stopped") {
-      expireStopped(context, root)
-      LockScreenStore(context).write(root) // Never render or extend the completed notice from suspend().
-    } else if (current.has("state")) save(context, root) else LockScreenStore(context).write(root)
+    if (current.has("state")) save(context, root) else LockScreenStore(context).write(root)
   }
   @Synchronized fun awaitOwnCapture(context: Context) {
     val root = LockScreenStore(context).read(); val current = session(root) ?: return
@@ -108,19 +90,12 @@ internal object LockScreenRuntime {
     val state = stateText?.let { JSONObject(it) }
     if (state != null && !validState(state)) return false
     val previous = current.optJSONObject("state")
-    if (!current.optBoolean("ownCapturePending")) {
-      when (LockScreenLogic.stoppedProjection(previous?.optString("timeEntryId"), previous?.optString("status"),
-        state?.optString("timeEntryId"), state?.optString("status"), current.optLong("stoppedNoticeUntil"), System.currentTimeMillis())) {
-        StoppedProjection.KEEP -> return true
-        StoppedProjection.CLEAR -> { expireStopped(context, root); return true }
-        StoppedProjection.REPLACE -> Unit
-      }
-    }
+    val saving = current.optString("display") == Display.SAVING.name && previous?.optString("timeEntryId") == state?.optString("timeEntryId")
     current.remove("stoppedNoticeUntil"); current.put("ownCapturePending", false)
     current.remove("pending"); current.remove("capability"); current.remove("expiresAt")
     current.put("sessionId", id()).put("nonce", id()).put("appBlocked", true)
     if (state == null) { current.remove("state"); LockScreenStore(context).write(root); LockScreenNotification.cancel(context) }
-    else { current.put("state", state).put("display", Display.STATE.name); save(context, root) }
+    else { current.put("state", state).put("display", if (saving) Display.SAVING.name else Display.STATE.name); save(context, root) }
     return true
   }
   fun issue(context: Context, owner: String, token: String, body: String, baseUrl: String, appVersion: String, revision: String): String {
@@ -144,17 +119,19 @@ internal object LockScreenRuntime {
       val request = JSONObject(body)
       if (response.code != 200 || parsed?.optString("status") != "issued" || !validState(state)
         || state!!.optString("status") == "stopped" || state.optString("timeEntryId") != request.optString("timeEntryId")
+        || !validArchiveStatus(parsed)
         || !Regex("[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]").matches(capability)
         || (timestamp(parsed.optString("expiresAt")) ?: 0) <= System.currentTimeMillis()) {
         return@synchronized if (response.code == 426) "update_required" else "unavailable"
       }
       current.put("capability", capability).put("expiresAt", parsed.getString("expiresAt"))
-        .put("state", state).put("display", Display.STATE.name).put("appBlocked", false)
+        .put("state", state).put("display", if (parsed.optString("archiveStatus") == "pending") Display.SAVING.name else Display.STATE.name).put("appBlocked", false)
         .put("baseUrl", baseUrl).put("appVersion", appVersion).put("nonce", id())
       save(context, root)
       "issued"
     }
   }
+  private fun validArchiveStatus(value: JSONObject?) = value != null && (!value.has("archiveStatus") || value.opt("archiveStatus") in listOf("pending", "archived"))
   private fun connected(context: Context): Boolean {
     val manager = context.getSystemService(ConnectivityManager::class.java)
     val capabilities = manager.getNetworkCapabilities(manager.activeNetwork) ?: return false
@@ -191,9 +168,9 @@ internal object LockScreenRuntime {
       val parsed = runCatching { JSONObject(response.body ?: "") }.getOrNull()
       val state = parsed?.optJSONObject("state")
       val valid = validState(state) && state!!.optString("timeEntryId") == operation.getJSONObject("state").optString("timeEntryId")
-        && parsed!!.optString("status") in listOf("applied", "state_changed") && parsed.opt("idempotentRetry") is Boolean
-      val outcome = LockScreenLogic.response(response.code, valid, state?.optString("status") == "stopped", response.failure)
-      if (valid && outcome.display == Display.STATE) current.put("state", state)
+        && validArchiveStatus(parsed) && parsed!!.optString("status") in listOf("applied", "state_changed") && parsed.opt("idempotentRetry") is Boolean
+      val outcome = LockScreenLogic.response(response.code, valid, state?.optString("status") == "stopped", response.failure, parsed?.optString("archiveStatus") == "pending")
+      if (valid && LockScreenLogic.settled(outcome.display)) current.put("state", state)
       if (outcome.deleteKey) { current.remove("capability"); current.remove("expiresAt") }
       if (!outcome.keepCommand) current.remove("pending")
       current.put("display", outcome.display.name).put("revision", id()).put("nonce", id())

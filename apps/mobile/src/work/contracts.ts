@@ -39,6 +39,7 @@ export type MobileWorkState =
       readonly loadingMore: boolean;
       readonly outcome: ManualTriggerOutcome | null;
       readonly feedback?: string | null;
+      readonly refreshError?: string | null;
     };
 
 export interface MobileWorkCapability extends ClientSearchCapability, importQuotaAlertsCapability {

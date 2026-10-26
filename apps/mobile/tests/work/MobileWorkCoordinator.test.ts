@@ -73,6 +73,45 @@ it('T117 manual search retries an explicit page and rejects stale results and st
 });
 
 describe('MobileWorkCoordinator', () => {
+  it.each(['first','continuation'] as const)('T104e R2: an authority rejection on the %s refresh page invalidates ready',async page=>{
+    const api:MobileWorkApiPort={read:vi.fn(async()=>readyRead),
+      readOwnTimePage:vi.fn(async()=>({status:'authority_rejected' as const})),triggerManual:vi.fn()};
+    const work=new MobileWorkCoordinator(sessionReader(()=>true),api);
+    await work.refresh();
+    vi.mocked(api.read).mockResolvedValueOnce(page==='first'?{status:'authority_rejected'}:
+      {...readyRead,ownTime:{...readyRead.ownTime,nextCursor:'next'}});
+    await work.refresh();
+    expect(work.getState()).toEqual({status:'unavailable',message:'Die Sitzung ist nicht mehr gültig.'});
+  });
+
+  it('T104e R2: a successful refresh clears old capture feedback',async()=>{
+    const work=new MobileWorkCoordinator(sessionReader(()=>true),{
+      read:async()=>readyRead,readOwnTimePage:vi.fn(),triggerManual:vi.fn()});
+    await work.refresh();work.setCaptureFeedback('Der Stand hat sich geändert. Prüfe ihn und tippe erneut.');
+    await work.refresh();
+    expect(work.getState()).toMatchObject({status:'ready',feedback:null,refreshError:null});
+  });
+
+  it.each(['refresh','refreshPreservingActive'] as const)('T104e R2: an obsolete %s failure remains silent',async method=>{
+    const api:MobileWorkApiPort={read:vi.fn(async()=>readyRead),readOwnTimePage:vi.fn(),triggerManual:vi.fn()};
+    const work=new MobileWorkCoordinator(sessionReader(()=>true),api);
+    await work.refresh();
+    let finish!:(value:{status:'authority_rejected'})=>void;
+    vi.mocked(api.read).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
+    const old=work[method]();
+    await work.refresh();const current=work.getState();
+    finish({status:'authority_rejected'});await old;
+    expect(work.getState()).toBe(current);
+  });
+
+  it.each(['unavailable','authority_rejected'] as const)('T104e R2: a lock-screen-only %s read stays silent',async status=>{
+    const api:MobileWorkApiPort={read:vi.fn(async()=>readyRead),readOwnTimePage:vi.fn(),triggerManual:vi.fn()};
+    const work=new MobileWorkCoordinator(sessionReader(()=>true),api);
+    await work.refresh();work.setCaptureFeedback('Rückmeldung zur Erfassung');const before=work.getState();
+    vi.mocked(api.read).mockResolvedValueOnce({status});
+    expect(await work.refreshPreservingActive()).toBe(false);expect(work.getState()).toBe(before);
+  });
+
   it('T084 derives the Berlin month and drops customer hours after a session change', async () => {
     let current = true;
     let resolveRead!: (value: import('@taptime/mobile-work-contract').CustomerHoursResult) => void;

@@ -26,6 +26,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
   private listeners=new Set<()=>void>();
   private unsubscribers:(()=>void)[]=[];
   private owner:string|null=null;
+  private sessionGeneration:number|undefined;
   private readRevision:string|undefined;
   private epoch=0;
   private started=false;
@@ -35,7 +36,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
   private requested=false;
   private discardPendingRequested=false;
   private scanBusy=false;
-  private lastOwnTime:MobileOwnTimeQueryResponse|null=null;
+  private lastOwnState:string|undefined;
   constructor(private readonly native:LockScreenNativePort,
     private readonly session:MobileWorkSessionReader & {getState():MobileSessionState},
     private readonly auth:AuthenticatedRequestCapability & {refresh():Promise<void>},
@@ -57,9 +58,15 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     }),this.work.subscribe(()=>{
       const state=this.work.getState();
       if(state.status==='ready' && (state.submitting||state.capturePending))this.native.awaitOwnCapture();
-      if(state.status==='ready' && state.ownTime!==this.lastOwnTime){
-        this.lastOwnTime=state.ownTime;
-        if(!this.refreshing&&!this.appCapture)void this.refresh();
+      // History pages and the advancing calendar timestamp do not change lock-screen authority.
+      const active=state.status==='ready'?state.ownTime.activeRecord:null;
+      const ownState=JSON.stringify([active?.timeRecordId,active?.startedAt,active?.stoppedAt,
+        active?.breakStartedAt,active?.targetType,active?.targetId,active?.targetDisplayName,
+        state.status==='ready'&&state.capturePending]);
+      if(state.status==='ready' && ownState!==this.lastOwnState){
+        this.lastOwnState=ownState;
+        // refresh() coalesces changes during a read; mayRefresh()/afterCapture own capture exclusion.
+        void this.refresh();
       }
     }),this.scan.subscribe(()=>this.onScan()),this.connectivity.subscribe(online=>{if(online)void this.refresh();else this.updateUi(true);})];
     let previous=this.appState.currentState;
@@ -92,11 +99,12 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     const snapshot=this.session.capture();
     if(snapshot){
       const owner=`${snapshot.session.organizationId}/${snapshot.session.membershipId}/${snapshot.session.userId}`;
-      if(owner!==this.owner){this.owner=owner;this.epoch++;this.readRevision=undefined;this.native.bind(owner);
+      if(owner!==this.owner||snapshot.generation!==this.sessionGeneration){
+        this.owner=owner;this.sessionGeneration=snapshot.generation;this.epoch++;this.readRevision=undefined;this.lastOwnState=undefined;this.native.bind(owner);
         if(['saved_locally','synchronizing'].includes(this.scan.getState().status))this.native.awaitOwnCapture();
         void this.refresh();}
     }else if(['signed_out','unauthenticated','signing_in','enrollment_only'].includes(this.session.getState().status)){
-      this.owner=null;this.epoch++;this.readRevision=undefined;this.native.clear();this.updateUi();
+      this.owner=null;this.sessionGeneration=undefined;this.epoch++;this.readRevision=undefined;this.native.clear();this.updateUi();
     }
   }
   private updateUi(offline=false){

@@ -32,7 +32,7 @@ internal object LockScreenHttp {
         http.useCaches = false
         http.setRequestProperty("Authorization", "Bearer $bearer")
         http.setRequestProperty("Content-Type", "application/json")
-        http.setRequestProperty("Accept", "application/json")
+        http.setRequestProperty("Accept", "application/vnd.taptime.lock-screen.v2+json")
         http.setRequestProperty("X-TapTime-App", appVersion)
         val bytes = body.toByteArray(Charsets.UTF_8)
         http.setFixedLengthStreamingMode(bytes.size)

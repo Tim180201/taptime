@@ -1179,6 +1179,8 @@ describe('B3 least-privilege roles and request context', () => {
           configuration: ['search_path=pg_catalog'] },
         { name: 'current_offsite_archive_cluster_identifier_v1', security_definer: true,
           configuration: ['search_path=pg_catalog'] },
+        { name: 'lock_screen_archive_status_v1', security_definer: true,
+          configuration: ['search_path=pg_catalog'] },
         { name: 'offline_wal_requirement_is_archived_v1', security_definer: true,
           configuration: ['search_path=pg_catalog'] },
         { name: 'read_offsite_base_backup_receipt_v1', security_definer: true,
@@ -1243,6 +1245,7 @@ describe('B3 least-privilege roles and request context', () => {
       expect(callable.rows).toEqual([
         { role_name: 'taptime_offline_event_ingestor',
           name: 'offline_wal_requirement_is_archived_v1' },
+        { role_name: 'taptime_server_lifecycle', name: 'lock_screen_archive_status_v1' },
         { role_name: 'taptime_server_lifecycle',
           name: 'record_lifecycle_event_archive_requirement_v1' },
         { role_name: 'taptime_time_review_writer',

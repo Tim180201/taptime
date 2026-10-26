@@ -1,12 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import { isLockScreenActionRequest, isLockScreenCapabilityRequest, isLockScreenCapability, isLockScreenState,
-  isLockScreenCapabilityResult, isLockScreenActionResult, isLockScreenHistory } from '../src/lockScreen.js';
+  isLockScreenCapabilityResult, isLockScreenActionResult, isLockScreenHistory,
+  isLockScreenActionResultV2, isLockScreenCapabilityResultV2 } from '../src/lockScreen.js';
 
 const id = '10000000-0000-4000-8000-000000000001';
 const state = { timeEntryId: id, status: 'running', startedAt: '2026-10-21T06:00:00.000Z', breakStartedAt: null,
   stoppedAt: null, asOf: '2026-10-21T06:01:00.000Z', workDurationSeconds: 60, breakDurationSeconds: 0,
   target: { targetType: 'general_work', targetId: id, displayName: 'Allgemeine Arbeitszeit' } };
 describe('T104a additive lock screen contract', () => {
+  it('T104e keeps v1 exact and requires a known archive status in the opt-in response', () => {
+    const action = {status:'applied',state,idempotentRetry:false};
+    const capability = {status:'issued',state,capability:'A'.repeat(43),expiresAt:'2026-10-22T06:00:00.000Z'};
+    for (const [base, oldValidator, newValidator] of [[action,isLockScreenActionResult,isLockScreenActionResultV2],
+      [capability,isLockScreenCapabilityResult,isLockScreenCapabilityResultV2]] as const) {
+      expect(newValidator(base)).toBe(false);
+      for (const archiveStatus of ['pending','archived']) {
+        expect(newValidator({...base,archiveStatus})).toBe(true);
+        expect(oldValidator({...base,archiveStatus})).toBe(false);
+        expect(newValidator({...base,archiveStatus,secret:'private'})).toBe(false);
+      }
+      for (const archiveStatus of [null,true,'unknown']) expect(newValidator({...base,archiveStatus})).toBe(false);
+    }
+  });
   it('accepts only explicit actions with canonical command IDs and no extra authority', () => {
     for (const action of ['pause', 'resume', 'stop']) expect(isLockScreenActionRequest({ action, commandId: id })).toBe(true);
     for (const action of ['toggle', 'start', '', null]) expect(isLockScreenActionRequest({ action, commandId: id })).toBe(false);

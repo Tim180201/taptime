@@ -98,7 +98,7 @@ import Foundation
     precondition(sends.count == count, "A stale pause button must not resume")
     response = .init(code:401)
     _ = await engine.action("stop", nonce:store.stand!.nonce)
-    precondition(store.stand?.state == nil && store.stand?.keyID == nil)
+    precondition(store.stand?.state == paused && store.stand?.display == .OPEN_APP && store.stand?.keyID == nil)
     precondition(keys.writes == writes && keys.deletes == deletes, "D-133: even 401 must never mutate Keychain in background")
     let boundInBackground = try engine.bind("another-account"); precondition(!boundInBackground)
     _ = try engine.clear()
@@ -109,7 +109,7 @@ import Foundation
     active = false; let expiryDeletes = keys.deletes
     now = now.addingTimeInterval(24 * 3600 + 1)
     _ = try engine.snapshot()
-    precondition(store.stand?.state == nil && store.stand?.keyID == nil && keys.deletes == expiryDeletes)
+    precondition(store.stand?.state == state && store.stand?.display == .OPEN_APP && store.stand?.keyID == nil && keys.deletes == expiryDeletes)
     now = LockLogic.date(state.asOf)!
     try await prepare()
     _ = try engine.suspend(ownCapture:true); active = false
@@ -128,8 +128,7 @@ import Foundation
     active = false
     response = .init(code:200, body:try JSONSerialization.data(withJSONObject:["status":"applied", "state":stoppedJSON, "idempotentRetry":false]))
     _ = await engine.action("stop", nonce:store.stand!.nonce)
-    precondition(store.stand?.state == stopped && store.stand?.stoppedNoticeUntil == now.addingTimeInterval(10))
-    now = now.addingTimeInterval(11); _ = try engine.snapshot(); precondition(store.stand?.state == nil)
+    precondition(store.stand?.state == stopped && store.stand?.stoppedNoticeUntil == nil)
     print("T-104c Swift response, texts, buttons, stable retry ID, expiry, own capture and late-issue scenarios passed")
 
     try await prepare()
@@ -148,6 +147,38 @@ import Foundation
       baseURL:"https://example.invalid", appVersion:"test-version", revision:store.stand!.revision)
     precondition(mismatch == "unavailable" && keys.writes == writesBeforeMismatch)
     print("Capability 401 renewal uses the requested entry; mismatched entry cannot replace its key")
+
+    // T-104e: the booked pause permits the next explicit action while its WAL is pending.
+    try await prepare(); active = false
+    response = .init(code:200, body:try JSONSerialization.data(withJSONObject:["status":"applied", "state":pausedJSON,
+      "idempotentRetry":false, "archiveStatus":"pending"]))
+    let pendingBefore = sends.count
+    _ = await engine.action("pause", nonce:store.stand!.nonce)
+    precondition(sends.count == pendingBefore + 1 && store.stand?.pending == nil && store.stand?.display == .SAVING)
+    precondition(LockLogic.actions(paused, .SAVING) == ["resume", "stop"] && LockLogic.showsDuration(paused, .SAVING))
+    precondition(LockLogic.subtitle(paused, .SAVING) == "Pause seit 08:30 · wird gesichert")
+    active = true
+    let pendingRevision = store.stand!.revision
+    _ = try engine.project(owner:store.stand!.owner, state:paused, revision:pendingRevision, discard:false)
+    precondition(store.stand?.display == .SAVING, "Reading a calendar alone cannot confirm the archive")
+    var pendingIssue = LockLogic.object(issued.body)!; pendingIssue["state"] = pausedJSON; pendingIssue["archiveStatus"] = "pending"
+    issueResponse = .init(code:200, body:try JSONSerialization.data(withJSONObject:pendingIssue))
+    _ = await engine.issue(owner:store.stand!.owner, token:"login-only-in-foreground", body:issueBody,
+      baseURL:"https://example.invalid", appVersion:"test-version", revision:pendingRevision)
+    precondition(store.stand?.display == .SAVING && sends.count == pendingBefore + 1)
+    pendingIssue["archiveStatus"] = "archived"
+    issueResponse = .init(code:200, body:try JSONSerialization.data(withJSONObject:pendingIssue))
+    _ = await engine.issue(owner:store.stand!.owner, token:"login-only-in-foreground", body:issueBody,
+      baseURL:"https://example.invalid", appVersion:"test-version", revision:pendingRevision)
+    precondition(store.stand?.display == .STATE && sends.count == pendingBefore + 1)
+    active = false
+    response = .init(code:200, body:try JSONSerialization.data(withJSONObject:["status":"applied", "state":stoppedJSON,
+      "idempotentRetry":false, "archiveStatus":"pending"]))
+    _ = await engine.action("stop", nonce:store.stand!.nonce)
+    precondition(store.stand?.state == stopped && store.stand?.display == .SAVING && store.stand?.pending == nil && store.stand?.keyID == nil)
+    precondition(store.stand?.stoppedNoticeUntil == nil && LockLogic.actions(stopped, .SAVING).isEmpty)
+    issueResponse = issued
+    print("T-104e booked state, pending archive, read-only reconciliation and immediate stop verified")
 
     let actionReply = LockHttpResult(code:200, body:try JSONSerialization.data(withJSONObject:["status":"applied", "state":pausedJSON, "idempotentRetry":false]))
     for interruption in ["open", "own-capture", "account-change"] {

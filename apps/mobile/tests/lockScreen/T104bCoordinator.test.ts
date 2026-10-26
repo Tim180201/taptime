@@ -11,6 +11,35 @@ import type { ProductScanState } from '../../src/scan/contracts';
 
 import { harness, ready, initial } from './lockScreenHarness';
 
+it('T104e R2: queues the ready change when AppNavigator supersedes the cold-start lock-screen read',async()=>{
+  const h=harness();
+  const read=h.api.read;
+  let finishFirst!:()=>void;
+  vi.mocked(h.api.read).mockImplementationOnce(async(...args)=>{
+    await new Promise<void>(resolve=>{finishFirst=resolve;});
+    return read(...args);
+  });
+  // Use the real coordinators; suspend/project model the native appBlocked boundary.
+  let appBlocked=false;
+  vi.mocked(h.native.suspend).mockImplementation(()=>{appBlocked=true;return true;});
+  const project=vi.mocked(h.native.project).getMockImplementation()!;
+  vi.mocked(h.native.project).mockImplementation((...args)=>{
+    const published=project(...args);if(published)appBlocked=false;return published;
+  });
+  try {
+    h.controller.start(); // onSession starts refreshOnce, which suspends native actions.
+    await vi.waitFor(()=>expect(finishFirst).toBeDefined());
+    expect(appBlocked).toBe(true);
+    await h.work.refresh(); // AppNavigator's read increases generation and publishes ready.
+    expect(h.work.getState().status).toBe('ready');
+    expect(h.native.project).not.toHaveBeenCalled();
+    finishFirst(); // The lock-screen read is now obsolete; the ready change must run next.
+    await vi.waitFor(()=>expect(h.native.issue).toHaveBeenCalled());
+    expect(h.native.project).toHaveBeenCalled();expect(appBlocked).toBe(false);
+    expect(h.api.triggerManual).not.toHaveBeenCalled();expect(h.native.retry).not.toHaveBeenCalled();
+  }finally{h.controller.stop();}
+});
+
 it('capability 401 is completed, renews once and never enters the rejecting executor path',async()=>{
   const values:IssueStatus[]=['unauthorized','unauthorized'];const callbacks:string[]=[];
   const auth:AuthenticatedRequestCapability & {refresh():Promise<void>}={executeAuthenticatedRequest:async attempt=>{const result=await attempt(()=> 'access');callbacks.push(result.status);return result;},refresh:vi.fn(async()=>{})};

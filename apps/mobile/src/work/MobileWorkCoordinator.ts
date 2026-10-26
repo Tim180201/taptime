@@ -153,6 +153,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
 
   async refresh(): Promise<void> {
     if (this.state.status === 'ready' && this.state.submitting) return;
+    if (this.state.status === 'ready') { await this.readPreservingActive(true); return; }
     const snapshot = this.session.capture();
     if (snapshot === null) {
       this.setState({ status: 'inactive' });
@@ -206,21 +207,56 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     if(this.state.status==='ready' && this.state.feedback!==message)this.setState({...this.state,feedback:message});
   }
 
-  /** Android foreground refresh retains the active card even when the network is unavailable. */
+  /** Replace an already visible calendar only when its new frame is complete. */
   async refreshPreservingActive(): Promise<boolean> {
+    return this.readPreservingActive(false);
+  }
+
+  private async readPreservingActive(reportFailure: boolean): Promise<boolean> {
     const snapshot = this.session.capture(), previous = this.state;
     if (!snapshot || previous.status === 'ready' && previous.submitting) return false;
     const generation = this.generation, preservingEpoch = ++this.preservingEpoch;
     this.boundSessionGeneration = snapshot.generation;
-    const capturePending = await this.hasUnconfirmedCapture();
+    const current=()=>generation===this.generation && preservingEpoch===this.preservingEpoch && this.session.isCurrent(snapshot);
+    const failed=async(status:'authority_rejected'|'unavailable'='unavailable'):Promise<false>=>{
+      if(!reportFailure || !current())return false;
+      if(status==='authority_rejected') {
+        this.setState({status:'unavailable',message:'Die Sitzung ist nicht mehr gültig.'});
+        return false;
+      }
+      // A failed server read must not keep an already confirmed local capture "transferring".
+      const capturePending=await this.hasUnconfirmedCapture();
+      if(current() && this.state.status==='ready')this.setState({...this.state,capturePending,
+        outcome:capturePending?'pending':null,refreshError:'Arbeitsdaten sind derzeit nicht erreichbar.'});
+      return false;
+    };
+    const capturePending = this.offlineCapture?.hasUnconfirmedCapture
+      ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
     const result = await this.api.read(snapshot.session.membershipId,
       previous.status === 'ready' ? previous.targetsSearch : null).catch(() => ({status:'unavailable' as const}));
-    if (generation !== this.generation || preservingEpoch !== this.preservingEpoch || !this.session.isCurrent(snapshot)
-      || result.status !== 'ready' || !validOwnTimeProjection(result.ownTime)) return false;
+    if (!current()) return false;
+    if (result.status !== 'ready') return failed(result.status);
+    if (!validOwnTimeProjection(result.ownTime)) return failed();
+    let ownTime=result.ownTime;
+    if(previous.status==='ready') {
+      const cursors=new Set<string>();
+      while(ownTime.nextCursor!==null) {
+        const cursor=ownTime.nextCursor;
+        if(cursors.has(cursor))return failed();
+        cursors.add(cursor);
+        const next=await this.api.readOwnTimePage(snapshot.session.membershipId,cursor)
+          .catch(()=>({status:'unavailable' as const}));
+        if(!current())return false;
+        if(next.status!=='ready')return failed(next.status);
+        if(!sameOwnTimeFrame(ownTime,next.ownTime) || !validOwnTimeContinuation(ownTime,next.ownTime))return failed();
+        ownTime={...next.ownTime,records:[...ownTime.records,...next.ownTime.records]};
+      }
+    }
     this.generation++; // Failed reads never supersede an ordinary refresh.
     this.ownTimeCursors.clear();
     this.setState({...(previous.status === 'ready' ? previous : {}),status:'ready',
-      ownTime:freezeOwnTime(result.ownTime),targets:result.targets,targetsBusy:false,targetsFailed:false,
+      ...(reportFailure?{feedback:null}:{}),refreshError:null,
+      ownTime:freezeOwnTime(ownTime),targets:result.targets,targetsBusy:false,targetsFailed:false,
       submitting:false,loadingMore:false,capturePending,outcome:capturePending?'pending':null});
     return true;
   }

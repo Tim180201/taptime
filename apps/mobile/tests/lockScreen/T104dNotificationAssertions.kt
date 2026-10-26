@@ -17,6 +17,10 @@ fun verifyNotificationPresentation() {
       NotificationText(target, "Pause seit 08:30 · 1:06 h gearbeitet"))
     check(LockScreenLogic.notificationText(target, "stopped", Display.STATE, 13320, start, null) ==
       NotificationText("Zeit beendet · 3:42 h", target))
+    check(LockScreenLogic.notificationText(target, "paused", Display.SAVING, 3960, start, pause).text ==
+      "Pause seit 08:30 · 1:06 h gearbeitet · wird gesichert")
+    check(LockScreenLogic.notificationText(target, "running", Display.SAVING, 3960, start, null).text ==
+      "Läuft seit 07:24 · wird gesichert")
     val winter = Instant.parse("2026-12-21T06:24:00Z").toEpochMilli()
     check(LockScreenLogic.notificationText(target, "running", Display.STATE, 0, winter, null).text == "Läuft seit 07:24")
   } finally { TimeZone.setDefault(previousZone) }
@@ -29,7 +33,7 @@ fun verifyNotificationPresentation() {
     Display.OPEN_APP to "Bitte App öffnen",
     Display.UPDATE_APP to "Bitte App aktualisieren",
   )
-  check(notices.keys == Display.values().toSet() - Display.STATE)
+  check(notices.keys == Display.values().toSet() - setOf(Display.STATE, Display.SAVING))
   // A hint always belongs below the target, even if the last confirmed state was stopped.
   for ((display, text) in notices) for (status in listOf("running", "paused", "stopped", null)) {
     check(LockScreenLogic.notificationText(target, status, display, 3960, null, null) == NotificationText(target, text))

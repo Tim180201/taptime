@@ -4,6 +4,7 @@ import { Pool, type PoolClient } from 'pg';
 import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { MembershipId, WorkEventId, CustomerId, customerAssignmentTarget } from '@taptime/core';
 import { ManualLifecycleIngestionCoordinator } from '../../backend-lifecycle/src/ManualLifecycleIngestionCoordinator.js';
+import { PostgresLifecycleArchiveDurability } from '@taptime/backend-lifecycle';
 import { AdministrationStopCoordinator } from '../../backend-time-review/src/AdministrationStopCoordinator.js';
 import { readManagedPerson } from '../../backend-administration/src/ManagedPeopleReader.js';
 import { ids, tokens, verifier as fixtureVerifier, resetMigratePrepareAndSeed } from '../../backend-time-review/tests/fixtures.js';
@@ -58,6 +59,18 @@ async function issue(p: Person, patch: Partial<LockScreenCapabilityRequest> = {}
 const hash = (key: string) => createHash('sha256').update(Buffer.from(key, 'base64url')).digest();
 const action = (key: string, action: LockScreenAction, commandId = randomUUID()) => lockScreen.perform(key, { action, commandId });
 async function eventCount(p: Person) { return Number((await installer.query('SELECT count(*) FROM taptime_server.work_events WHERE organization_id=$1 AND triggered_by_user_id=$2', [p.organization, p.user])).rows[0].count); }
+let baseSequence=0;
+async function confirmCurrentArchive() {
+  const proof = (await installer.query(`SELECT lpad(to_hex(system_identifier),16,'0') AS cluster,
+    pg_current_wal_insert_lsn()::text AS lsn,pg_walfile_name(pg_current_wal_insert_lsn()) AS wal FROM pg_control_system()`)).rows[0];
+  const client = await installer.connect();
+  try {
+    await client.query('BEGIN'); await client.query('SET LOCAL ROLE taptime_wal_archiver');
+    await client.query('SELECT taptime_server.record_offsite_base_backup_v1($1,$2::pg_lsn,$3)',
+      [`base-${proof.cluster}-20990102T${String(++baseSequence).padStart(6,'0')}Z`,proof.lsn,proof.wal]);
+    await client.query('COMMIT');
+  } finally { client.release(); }
+}
 async function context(client: PoolClient, role: string, p: { organization: string; user: string; member: string }, memberRole = 'employee') {
   await client.query(`SELECT set_config('app.organization_id',$1,true),set_config('app.user_id',$2,true),set_config('app.membership_id',$3,true),set_config('app.membership_role',$4,true)`,
     [p.organization, p.user, p.member, memberRole]);
@@ -260,4 +273,74 @@ it('does not acknowledge an unarchived action; retry archives the same events wi
   expect(await eventCount(p)).toBe(before + 1);
   expect(await action(capability, 'pause', commandId)).toMatchObject({ status: 'applied', idempotentRetry: true });
   expect(await eventCount(p)).toBe(before + 1);
+});
+
+it('T104e A: a new client sees the booked state while the archive confirms later, without another event', async () => {
+  const p = await person(), { capability } = await issue(p), commandId = randomUUID();
+  const delayed = new PostgresLifecycleArchiveDurability();
+  vi.spyOn(delayed,'requireOffsiteArchive');
+  const coordinator = new LockScreenCoordinator(runtime, verifier, delayed);
+  const before = await eventCount(p);
+  const result = await coordinator.perform(capability, { action: 'pause', commandId }, 'lock-screen-action.v2')
+    .catch(error => ({ error: error.message }));
+  // The COMMIT has already happened even when the original implementation rejects its response.
+  expect(await eventCount(p)).toBe(before + 1);
+  expect(delayed.requireOffsiteArchive).toHaveBeenCalledOnce();
+  expect(result).toMatchObject({ status: 'applied', state: { status: 'paused' }, archiveStatus: 'pending', idempotentRetry: false });
+  await confirmCurrentArchive();
+  expect(await coordinator.perform(capability, { action: 'pause', commandId }, 'lock-screen-action.v2'))
+    .toMatchObject({ status: 'applied', archiveStatus: 'archived', idempotentRetry: true });
+  expect(await eventCount(p)).toBe(before + 1);
+});
+
+it('T104e: pending pause, resume and stop retain command IDs and archive every event, including stop from pause', async () => {
+  const p = await person(), { capability } = await issue(p);
+  const pending = { requireOffsiteArchive: vi.fn(async () => ({ requiredWalFile: '000000010000000000000001', offsiteArchived: false })) };
+  const coordinator = new LockScreenCoordinator(runtime, verifier, pending);
+  for (const [name, next, eventDelta] of [['pause','paused',1], ['resume','running',1], ['pause','paused',1], ['stop','stopped',2]] as const) {
+    const before = await eventCount(p), commandId = randomUUID();
+    pending.requireOffsiteArchive.mockClear();
+    expect(await coordinator.perform(capability, {action:name,commandId}, 'lock-screen-action.v2'))
+      .toMatchObject({status:'applied',state:{status:next},archiveStatus:'pending',idempotentRetry:false});
+    expect(pending.requireOffsiteArchive).toHaveBeenCalledTimes(eventDelta);
+    expect(await eventCount(p)).toBe(before + eventDelta);
+    expect(await coordinator.perform(capability, {action:name,commandId}, 'lock-screen-action.v2'))
+      .toMatchObject({status:'applied',state:{status:next},archiveStatus:'pending',idempotentRetry:true});
+    expect(await eventCount(p)).toBe(before + eventDelta);
+  }
+});
+
+it('T104e: foreground issue reads real pending/late archive proof without another event or command, keeping old replies unchanged', async () => {
+  const p = await person(), other = await person(ids.organizationB), coordinator = new LockScreenCoordinator(runtime, verifier);
+  const issued = await issue(p);
+  await coordinator.perform(issued.capability, {action:'pause',commandId:randomUUID()}, 'lock-screen-action.v2');
+  const before = await eventCount(p);
+  const commands = async () => (await installer.query('SELECT command_id FROM taptime_server.lock_screen_commands WHERE user_id=$1', [p.user])).rows;
+  const beforeCommands = await commands();
+  expect(await coordinator.issue(p.token,request(p),'lock-screen-action.v2')).toMatchObject({status:'issued',archiveStatus:'pending',state:{status:'paused'}});
+  const legacy = await coordinator.issue(p.token,request(p));
+  expect(Object.keys(legacy).sort()).toEqual(['capability','expiresAt','state','status']);
+  expect(await coordinator.issue(p.token,request(other),'lock-screen-action.v2')).toEqual({status:'unauthorized'});
+  // Synthetic local backup evidence covering the event, using the same archive functions as production.
+  await confirmCurrentArchive();
+  expect(await coordinator.issue(p.token,request(p),'lock-screen-action.v2')).toMatchObject({status:'issued',archiveStatus:'archived',state:{status:'paused'}});
+  expect(await eventCount(p)).toBe(before); expect(await commands()).toEqual(beforeCommands);
+});
+
+it('T104e R1: stale commands and older archived replays cannot confirm a newer unarchived state', async () => {
+  const p=await person(), coordinator=new LockScreenCoordinator(runtime,verifier);
+  const first=await issue(p), second=await issue(p,{installationId:null});
+  const pause={action:'pause' as const,commandId:randomUUID()};
+  expect(await coordinator.perform(first.capability,pause,'lock-screen-action.v2')).toMatchObject({archiveStatus:'pending',state:{status:'paused'}});
+  const before=await eventCount(p);
+  expect(await coordinator.perform(second.capability,{action:'pause',commandId:randomUUID()},'lock-screen-action.v2'))
+    .toMatchObject({status:'state_changed',archiveStatus:'pending',state:{status:'paused'}});
+  expect(await eventCount(p)).toBe(before);
+  await confirmCurrentArchive();
+  expect(await coordinator.perform(first.capability,pause,'lock-screen-action.v2')).toMatchObject({archiveStatus:'archived',idempotentRetry:true});
+  expect(await coordinator.perform(first.capability,{action:'resume',commandId:randomUUID()},'lock-screen-action.v2'))
+    .toMatchObject({archiveStatus:'pending',state:{status:'running'}});
+  expect(await coordinator.perform(first.capability,pause,'lock-screen-action.v2'))
+    .toMatchObject({archiveStatus:'pending',idempotentRetry:true,state:{status:'running'}});
+  expect(await eventCount(p)).toBe(before+1);
 });

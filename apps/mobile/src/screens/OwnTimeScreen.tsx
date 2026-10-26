@@ -3,6 +3,7 @@ import type { MobileWorkCapability } from '../work/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
 import { ActionButton, AppText as Text, Card, Screen } from '../design/primitives';
 import { TimeCalendar } from './TimeCalendar';
+import { WorkRefreshNotice } from './WorkRefreshNotice';
 export { formatOwnTimeTimestamp, resolveDisplayTimeZone, ownTimeLoadStatus } from './TimeCalendar';
 export function OwnTimeScreen({ work, scan }: { readonly work: MobileWorkCapability; readonly scan?:ProductScanCapability }) {
   const scanState = useSyncExternalStore(listener => scan?.subscribe(listener) ?? (()=>{}), () => scan?.getState() ?? null, () => scan?.getState() ?? null);
@@ -26,5 +27,7 @@ export function OwnTimeScreen({ work, scan }: { readonly work: MobileWorkCapabil
       {state.status === 'unavailable' ? state.message : 'Arbeitszeiten werden geladen …'}</Text>
     <ActionButton title="Aktualisieren" onPress={() => work.refresh()} />
   </Card></Screen>;
-  return <Screen title="Meine Zeiten">{untransferred}<TimeCalendar value={state.ownTime} onRefresh={()=>work.refresh()} /></Screen>;
+  return <Screen title="Meine Zeiten">{untransferred}
+    <WorkRefreshNotice message={state.refreshError} onRetry={()=>work.refresh()}/>
+    <TimeCalendar value={state.ownTime} onRefresh={()=>work.refresh()} /></Screen>;
 }

@@ -1,7 +1,7 @@
 import Foundation
 import CoreFoundation
 
-enum LockDisplay: String, Codable { case STATE, TRANSFERRING, SENDING, NOT_SENT, UNCONFIRMED, OPEN_APP, UPDATE_APP }
+enum LockDisplay: String, Codable { case STATE, SAVING, TRANSFERRING, SENDING, NOT_SENT, UNCONFIRMED, OPEN_APP, UPDATE_APP }
 struct LockCommand: Codable, Equatable { let commandId: String; let action: String }
 struct LockState: Codable, Hashable {
   struct Target: Codable, Hashable { let targetType: String; let targetId: String; let displayName: String }
@@ -79,7 +79,8 @@ enum LockLogic {
   static func object(_ data: Data?) -> [String: Any]? { data.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] } }
   static func actionState(_ result: LockHttpResult, entryID: String) -> LockState? {
     guard result.code == 200, result.failure == nil, let v = object(result.body),
-      Set(v.keys) == Set(["status", "state", "idempotentRetry"]),
+      (Set(v.keys) == Set(["status", "state", "idempotentRetry"]) ||
+        Set(v.keys) == Set(["status", "state", "idempotentRetry", "archiveStatus"]) && ["pending", "archived"].contains(v["archiveStatus"] as? String ?? "")),
       ["applied", "state_changed"].contains(v["status"] as? String ?? ""),
       let retry = v["idempotentRetry"] as? NSNumber, CFGetTypeID(retry) == CFBooleanGetTypeID(),
       let state = LockState.parse(v["state"]), state.timeEntryId == entryID else { return nil }
@@ -88,7 +89,7 @@ enum LockLogic {
   static func outcome(_ r: LockHttpResult, state: LockState?) -> LockOutcome {
     if r.failure == .connect { return .init(display: .NOT_SENT, keepCommand: true) }
     if r.failure == .response { return .init(display: .UNCONFIRMED, keepCommand: true) }
-    if r.code == 200, let state { return .init(display: .STATE, invalidateKey: state.status == "stopped") }
+    if r.code == 200, let state { return .init(display: object(r.body)?["archiveStatus"] as? String == "pending" ? .SAVING : .STATE, invalidateKey: state.status == "stopped") }
     if r.code == 401 { return .init(display: .OPEN_APP, invalidateKey: true) }
     if r.code == 426 { return .init(display: .UPDATE_APP) }
     if [400, 403, 409, 429].contains(r.code) { return .init(display: .OPEN_APP) }
@@ -107,6 +108,7 @@ enum LockLogic {
   static func message(_ display: LockDisplay) -> String {
     switch display {
     case .STATE: return ""
+    case .SAVING: return "wird gesichert"
     case .TRANSFERRING: return "Wird übertragen …"
     case .SENDING: return "Wird gesendet …"
     case .NOT_SENT: return "Nicht gesendet · kein Netz"
@@ -118,21 +120,23 @@ enum LockLogic {
   static func label(_ action: String) -> String {
     switch action { case "pause": return "Pause starten"; case "resume": return "Pause beenden"; case "stop": return "Zeit beenden"; case "retry": return "Erneut senden"; default: return "Bitte App öffnen" }
   }
+  static func settled(_ display: LockDisplay) -> Bool { display == .STATE || display == .SAVING }
   static func actions(_ state: LockState, _ display: LockDisplay) -> [String] {
     if display == .NOT_SENT || display == .UNCONFIRMED { return ["retry"] }
-    guard display == .STATE, state.status != "stopped" else { return [] }
+    guard settled(display), state.status != "stopped" else { return [] }
     return [state.status == "paused" ? "resume" : "pause", "stop"]
   }
   static func showsDuration(_ state: LockState, _ display: LockDisplay) -> Bool {
-    display == .STATE && state.status != "stopped"
+    settled(display) && state.status != "stopped"
   }
   static func title(_ state: LockState, _ display: LockDisplay) -> String {
-    display == .STATE && state.status == "stopped" ? "Zeit beendet · \(duration(state.workDurationSeconds))" : state.target.displayName
+    settled(display) && state.status == "stopped" ? "Zeit beendet · \(duration(state.workDurationSeconds))" : state.target.displayName
   }
   static func subtitle(_ state: LockState, _ display: LockDisplay) -> String {
-    guard display == .STATE else { return message(display) }
+    guard settled(display) else { return message(display) }
     if state.status == "stopped" { return state.target.displayName }
-    if let at = state.breakStartedAt { return "Pause seit \(berlin(at))" }
-    return "Läuft seit \(berlin(state.startedAt))"
+    let suffix = display == .SAVING ? " · wird gesichert" : ""
+    if let at = state.breakStartedAt { return "Pause seit \(berlin(at))\(suffix)" }
+    return "Läuft seit \(berlin(state.startedAt))\(suffix)"
   }
 }

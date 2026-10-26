@@ -34,7 +34,7 @@ import Foundation
       s.state = nil; s.stoppedNoticeUntil = nil; s.changed(); try save(s)
     }
     if let expiry = s.expiresAt, expiry <= now() {
-      s.invalidateKey(); s.state = nil; s.pending = nil; s.changed(); try save(s); try cleanKeyIfForeground()
+      s.invalidateKey(); s.pending = nil; s.display = .OPEN_APP; s.changed(); try save(s); try cleanKeyIfForeground()
     }
     if s.display == .SENDING, let command = s.pending, !inFlight.contains(command.commandId) {
       s.display = .UNCONFIRMED; s.changed(); try save(s)
@@ -60,10 +60,10 @@ import Foundation
   func project(owner: String, state: LockState?, revision: String, discard: Bool) throws -> Bool {
     guard foreground(), var s = try snapshot(), s.owner == owner, s.revision == revision,
       s.pending == nil || discard else { return false }
-    if !s.ownCapturePending, s.state?.status == "stopped", state == nil || (state?.timeEntryId == s.state?.timeEntryId && state?.status == "stopped") { return true }
+    let saving = s.display == .SAVING && s.state?.timeEntryId == state?.timeEntryId
     s.state = state; s.pending = nil; s.ownCapturePending = false; s.appBlocked = true
-    s.invalidateKey(); s.nonce = UUID().uuidString.lowercased(); s.display = .STATE
-    s.stoppedNoticeUntil = state?.status == "stopped" ? now().addingTimeInterval(10) : nil
+    s.invalidateKey(); s.nonce = UUID().uuidString.lowercased(); s.display = saving ? .SAVING : .STATE
+    s.stoppedNoticeUntil = nil
     try save(s); try keys.remove(); return true
   }
   func issue(owner: String, token: String, body: Data, baseURL: String, appVersion: String, revision: String) async -> String {
@@ -78,7 +78,8 @@ import Foundation
         s.invalidateKey(); s.state = nil; try save(s); try keys.remove(); return "unauthorized"
       }
       guard result.code == 200, result.failure == nil, let v = LockLogic.object(result.body),
-        Set(v.keys) == Set(["status", "capability", "expiresAt", "state"]), v["status"] as? String == "issued",
+        (Set(v.keys) == Set(["status", "capability", "expiresAt", "state"]) ||
+          Set(v.keys) == Set(["status", "capability", "expiresAt", "state", "archiveStatus"]) && ["pending", "archived"].contains(v["archiveStatus"] as? String ?? "")), v["status"] as? String == "issued",
         // A 401 removes the visible state. The explicit retry still belongs to the same request.
         let state = LockState.parse(v["state"]), state.status != "stopped", state.timeEntryId == entryID,
         let capability = v["capability"] as? String, capability.range(of: "^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$", options: .regularExpression) != nil,
@@ -88,7 +89,7 @@ import Foundation
       let id = UUID().uuidString.lowercased()
       // No suspension point between foreground check and the only credential write.
       try keys.replace(id: id, capability: capability)
-      s.keyID = id; s.expiresAt = expiry; s.state = state; s.display = .STATE; s.appBlocked = false
+      s.keyID = id; s.expiresAt = expiry; s.state = state; s.display = v["archiveStatus"] as? String == "pending" ? .SAVING : .STATE; s.appBlocked = false
       s.baseURL = baseURL; s.appVersion = appVersion; s.nonce = UUID().uuidString.lowercased()
       try save(s); return "issued"
     } catch { return "unavailable" }
@@ -114,12 +115,11 @@ import Foundation
         current.pending == command, !current.ownCapturePending else { return false }
       let next = LockLogic.actionState(response, entryID: state.timeEntryId)
       let outcome = LockLogic.outcome(response, state: next)
-      if outcome.display == .STATE { current.state = next }
+      if LockLogic.settled(outcome.display) { current.state = next }
       if outcome.invalidateKey { current.invalidateKey() }
       if !outcome.keepCommand { current.pending = nil }
       current.display = outcome.display; current.changed()
-      if response.code == 401 { current.state = nil }
-      if next?.status == "stopped", outcome.display == .STATE { current.stoppedNoticeUntil = now().addingTimeInterval(10) }
+      if next?.status == "stopped", LockLogic.settled(outcome.display) { current.stoppedNoticeUntil = nil }
       try save(current, notify: true)
       if outcome.invalidateKey { try cleanKeyIfForeground() }
       return [.NOT_SENT, .OPEN_APP, .UPDATE_APP].contains(outcome.display)
