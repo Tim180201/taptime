@@ -1,25 +1,16 @@
 # TapTim.e — Status
 
-**Stand 23.10.2026.** Produktion läuft auf `1918d5a` (Deploy 7 am 17.10., Migration 060, laut `version.txt`; der PO
-reicht die Belege aus dem Deploy-Log nach). Damit ausgeliefert: T-024 Teil A (Werkzeug `taptime-runtime-rotate`),
-T-122c (Kopfbalken in beiden Themen fest oben, ein Monatsschalter, Lohnexport startet mit dem Vormonat), T-122d,
-T-129 (Startseite „Stempelpunkte“, D-144), T-131 (GHCR behält ganze Releases, Deploy reserviert sein Ziel, D-145) und
-T-126 (Namen ändern, D-142). Davor Deploy 6 (`fb28166`, 15.10.). App-Builds zu `ad4cd29` beim PO. Auf main, noch nicht
-ausgeliefert: T-127a (`6b0c867`, Archiv auf dem Server, Migration 061), T-127b (`c41fc2c`, Archiv im Browser, D-143) und
-T-104a (`90fadc3`, `873cbfd`, Sperrbildschirm-Schlüssel und -Aktionen auf dem Server, Migration 062, D-146) und T-104b
-(`c332b91`, Android: laufende Benachrichtigung mit Pause, Weiter und Beenden ohne Entsperren, neuer App-Build). Die
-Knöpfe senden erst nach Deploy 8; vorher öffnen sie die App. Dazu T-104d (`a76630c`, Android-Meldung im Taptura-Look
-mit eigenem Symbol, Mint, Texten und Knöpfen wie in der App, Live Update ab Android 16, D-148) und T-104c (`5c15d81`,
-iPhone: Live-Aktivität und Dynamic Island im Taptura-Look, Knöpfe ab iOS 17, D-133 unverändert; der erste iPhone-Build
-braucht die Anmeldedaten der neuen Erweiterung, Ablauf im README der App). Prüflisten für das Gerät:
-`.t104b-review/`, `.t104c-review/` und `.t104d-review/`, je `pruefliste.md` (lokal). T-133 (`b29bbaa`) hat das Runbook
-nachgezogen: `.env` verschlüsselt verwahren, Image-Revision über den CI-Lauf des freigegebenen Commits, Tastentabelle
-der Konsole (DEPLOY.md). T-134 (`5f65fc3`) hat Verzeichnis, AVV-Anlagen, Aushang nach Art. 13 und
-Store-Datenschutzangaben auf den gebauten Stand gebracht; offen beim PO: AVV mit Hetzner, Supabase und Brevo (noch
-keiner abgeschlossen), Drittlandfrage (D-006), Anschrift und Kontakt. T-132 (`81f55b7`): Arbeitsbereich der Sicherung
-auf der Platte mit Wächter, Platzprüfung und Aufräumen, begrenzte Borg-Wartezeiten, Totmannschalter der Tagesprüfung,
-Hetzner Cloud Backups im Runbook; zwei TL-Runden, CI und Image-Lauf grün. T-099a (`e577fa8`, Messwerkzeug
-`tests/pilot-size/`) fand Pilotblocker (Absatz unten). Parallel Deploy 8 durch den PO; T-099b: TL-R1-Nacharbeit geprüft, technische Abnahme offen (D-152).
+**Stand 26.10.2026.** Produktion läuft auf `e577fa8` (Deploy 8 am 23.10.: Migrationen 061 und 062, zwei
+Wiederherstellungsproben im neuen Plattenordner grün, Versionsbelege im Log, vom TL geprüft). Damit ausgeliefert: T-127a/b
+(Archiv, D-143), T-104a (Sperrbildschirm-Schlüssel und -Aktionen, D-146) und T-132 (Sicherung auf der Platte,
+Totmannschalter der Tagesprüfung, D-150, D-151). Wochenprobe am 23.10. von Hand gestartet; seither keine Morgenmeldung
+mehr, beide Healthchecks-Checks grün (PO 26.10.); der Konsolenbeleg (Status, Tagesmonitor, `NRestarts`, Slots) steht
+noch aus. App-Builds zu `e577fa8` beim PO (EAS 23.10.: Android Version 17, iPhone Build 10 über TestFlight) mit T-104b
+bis T-104d; Prüflisten `.t104b-review/` bis `.t104d-review/` (lokal). Erster iPhone-Test: Live-Aktivität gefällt
+optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, noch nicht ausgeliefert: T-099b (`eebe736`,
+`1edb047`, Migration 063). Davor Deploy 7 (`1918d5a`, 17.10.). T-134 (`5f65fc3`): Rechtstexte auf dem gebauten Stand;
+offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. Jetzt **T-104e** (D-153,
+D-154), danach Deploy 9.
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -30,18 +21,19 @@ ein Konsolenfoto (`cat`-Ausgabe im Verlauf) in den TL-Chat und wurde am selben T
 Konsolenfoto `clear`. Supabase nach D-139 am 22.10. gesetzt (PO). Zweiter Healthchecks-Check „Tagesprüfung“ (ein Tag,
 eine Stunde, Webhook „Tagesprüfung ausgeblieben“) angelegt, `/etc/taptime-monitor/daily-healthchecks.curl` (root, 0600,
 112 B) eingerichtet, Test-Ping grün; der Check ist bis Deploy 8 pausiert, der erste Ping danach hebt die Pause auf.
-**Pilotgröße T-099a/b (26.10.):** T-099a fand bei 200 Personen, 5 Standorten und 500 Kunden Ausfälle bei eigenen
-und Personenzeiten, Export, Kundenmonat/Kontingenten, Standortsuche und Einrichtung. T-099b lokal umgesetzt mit neuer
-Migration 063: schlüsselbezogene Zeiten/Pausen, mengenbasierter Standortumfang, begrenzte Einrichtungsseiten und
-CSV-Streaming bis 58.020 Zeilen mit gemeinsamer 8-s-Frist und echtem Abbruch. Beide Vollprofile des Messwerkzeugs:
-alle Lesewege mit erwartetem Status, alle 320 Exporte vollständig; größtes Export-p95 316 ms bei 29.010 Zeilen.
-Unbenutzter Kundenstunden-Altvertrag v1 bleibt gemäß TL unverändert; erwartete Größenablehnung separat ausgewiesen.
-Gleichheitstests und ganzer lokaler CI-Nachbau grün, unabhängiges Review Runde 2 APPROVED. TL-Runde 1 meldete einen
-instabilen v4/v3-Vergleich: SQL-Mehraufwand belegt und reduziert, CSV bytegleich, warme alternierende Mediane;
-zehn vollständige Boundary-Jobs grün (Faktoren 1,12250–1,17118, Grenze unverändert 1,30), alle 320 Exporte beider
-Profile erneut erfolgreich (höchstes p95 269 ms). Nacharbeit unabhängig APPROVED,
-TL-Gesamtfreigabe offen; kein Commit/Push/Deploy. Bericht: `.t099b-review/report.md` (lokal). Zeitbox-Schnitt:
-keine weitere Optimierung unter Punkt 7, gebündelter Prüffall-Kontext (Punkt 6) bleibt offen; P2 unten.
+**Pilotgröße T-099a/b:** T-099a (`e577fa8`) fand in frogs-Größe Ausfälle bei eigenen und Personenzeiten, Export,
+Kundenmonat, Kontingenten, Standortsuche und Einrichtung. T-099b (`eebe736`, Migration 063) behebt sie; Hauptursache war
+die Pausenberechnung über alle Pausen des Betriebs je Zeit. Dazu schlüsselbezogene effektive Zeiten, Standortumfang
+einmal je Seite, begrenzte Einrichtungsseiten (F018) und CSV-Streaming bis 58.020 Zeilen mit gemeinsamer 8-s-Frist und
+echtem Abbruch (F043). Wiederholungsmessung beider Profile: alle Lesewege mit erwartetem Status, alle 320 Exporte
+vollständig, Export der Spitze p95 269 ms. Zwei TL-Runden, unabhängiges Review, CI-Nachbau des TL; die GitHub-CI
+scheiterte zuerst an der v4/v3-Grenze 1,30 (Faktor 1,33), TL-Patch `1edb047` setzt 1,50 (D-155). Wirkt mit Deploy 9.
+Bericht lokal `.t099b-review/report.md`.
+**Befund iPhone (PO 23.10., T-104e):** Die Knöpfe auf dem Sperrbildschirm zeigen „Noch nicht bestätigt“; „Erneut
+senden“ bestätigt erst Minuten später. Der Server bucht die Aktion, antwortet aber 503, solange ihr WAL nicht extern
+bestätigt ist (Code, TL). „Meine Zeiten“ springt im Sekundentakt zwischen leer und gefüllt, auch ohne laufende Zeit;
+vermutlich eine Leseschleife zwischen Sperrbildschirm-Abgleich und Nachladen weiterer Seiten (TL). Beides P1 vor dem
+Pilot (D-153, D-154). Android noch nicht geprüft.
 **Befund 17.10. (T-132):** Die wöchentliche Wiederherstellungsprobe scheiterte am 11.10. um 03:43 UTC mit „No space left
 on device“: Basis und WAL-Kette werden im tmpfs `/run/taptime-backup` entpackt, der zu klein ist. Die Probe beim Deploy
 (frische Basis) war am 15.10. grün; die stündliche Sicherung baut ihre Basis im selben tmpfs. Sicherungen laufen; mit
@@ -61,9 +53,8 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** Deploy 8 (T-127a/b, T-104a, T-132; Ziel `e577fa8`, vorher Controller nach DEPLOY.md) → T-099b
-(Codex), parallel neue App-Builds (T-104b bis T-104d) und restliche Geräteabnahme → Deploy 9 → Wiederholungsmessung mit
-dem T-099a-Werkzeug grün → Pilot (D-152). Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
+**Weg zum Pilot:** T-104e (Codex) → Deploy 9 (T-099b, T-104e) → neue App-Builds und restliche Geräteabnahme →
+Pilot (D-152; die Wiederholungsmessung mit 063 ist grün). Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
 `review/<aufgabe>` ab, Fotos auf einem verwaisten Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
 Pilot als Einzelunternehmer (D-116): Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S, AVV und Haftpflicht vor echten
@@ -122,7 +113,8 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 
 - Orte (PO 22.10.): Server `taptime-prod` (CX23) in Nürnberg, Storage Box in Falkenstein, Supabase Central EU
   (Frankfurt). Hetzner Cloud Backups aktiv: täglich gegen 10:45 UTC, sieben Plätze, je etwa 2,5 GB, ganze Platte samt
-  Zugangsdaten (D-151); keine Hetzner Cloud Snapshots. AVV mit Hetzner, Supabase und Brevo noch nicht abgeschlossen.
+  Zugangsdaten (D-151); keine Hetzner Cloud Snapshots. AVV mit Hetzner und Brevo offen; bei Supabase ist der Vertrag zur
+  Auftragsverarbeitung mit EU-Standardvertragsklauseln Teil der Nutzungsbedingungen (TL 26.10.), eine Kopie verwahren.
 - Mac des PO (21.10.): Xcode 26.5 (die aktive Auswahl zeigt auf die Command Line Tools, deshalb je Befehl
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`), CocoaPods 1.17.0 über Homebrew, iOS-26.5-Simulator
   (8,5 GB, von Codex ohne Rückfrage geladen; in Xcode unter Einstellungen → Components entfernbar). Damit baut Codex die
@@ -132,8 +124,9 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 - Supabase (PO): Registrierung aus, E-Mail-Bestätigung an, Linkdauer 1 h (D-113), Site URL `https://admin.tb-infra.de`.
   Grenzen je 5 min und IP: „sign-ups and sign-ins“ 30 (Passwort setzen, Zurücksetzen, Codes) und „token
   verifications“ 30 (Einladungs- und Rücksetzlinks), beide hebt D-139 auf 100; die Anmeldung mit Passwort zählt unter
-  „token refreshes“, 150 samt Sitzungserneuerungen (Quellcode supabase/auth, TL 22.10.). Dazu 30 Mails je Stunde; für
-  eine Einladung aller Lehrer an einem Tag zu wenig, vor einem Start mit allen anheben oder staffeln (T-099).
+  „token refreshes“, 150 samt Sitzungserneuerungen (Quellcode supabase/auth, TL 22.10.). Dazu 30 Mails je Stunde; mit eigenem
+  SMTP (Brevo, D-057) ist die Grenze in Supabase einstellbar, Brevo kostenlos 300 Mails am Tag (TL 26.10.); vor dem
+  Einladen aller anheben.
 - frogs (PO 28.09.): etwa 200 Lehrer, 5 Standorte mit je einer Standortleitung, 400–500 Schüler als Kunden; Start
   womöglich mit wenigen Lehrern. Offene Fragen für den CEO-Termin stehen im PLAN.
 - Apps ohne Versionskopf (vor T-096) werden weiter angenommen; Pflicht erst, wenn alle Pilotgeräte einen Build ab T-096

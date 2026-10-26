@@ -5,7 +5,7 @@
 **Team:** Tim (Product Owner) · Claude (Technical Lead) · Codex (Development)
 **Leitentscheidung:** Erst das System vollständig fertig, dann Firma, Recht und Store (D-007), mit getrennten Uhren für
 reine Wartezeiten (D-011). Grundlage: Anforderungsprüfung gegen den Code (D-012) und Code-Analyse 28.09. (D-103).
-**Stand 23.10.2026:** Produktion und Auslieferungsstand siehe STATUS. Erledigte Aufgaben stehen in Git und DECISIONS;
+**Stand 26.10.2026:** Produktion und Auslieferungsstand siehe STATUS. Erledigte Aufgaben stehen in Git und DECISIONS;
 die vollständige Aufgabentabelle bis 05.10. mit allen Begründungen: `git show 1043011:ADO/PLAN.md`.
 
 ---
@@ -58,10 +58,11 @@ die vollständige Aufgabentabelle bis 05.10. mit allen Begründungen: `git show 
 | **T-134 ✓** | Rechtstexte an den Code angleichen (B15, D-149) — abgeschlossen `5f65fc3` | Verzeichnis, AVV-Anlagen (TOM), Aushang nach Art. 13 und Store-Datenschutzangaben auf dem gebauten Stand (Migration 062, T-104c): Kunden als Betroffene, Rollen und Betreiber, Sperrbildschirm (D-147), Protokollfelder, Löschung und Sicherungen ehrlich, Orte vom PO bestätigt, Hetzner Cloud Backups. Offen beim PO: AVV mit Hetzner, Supabase und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt, Höchstdauer manueller Storage-Box-Schnappschüsse. | Codex (Sol) |
 | **T-024 ✓** | Geheimnisse rotieren — abgeschlossen 23.10. (Teil A `7e36c58`, Teil B PO an der Konsole) | Teil A: Werkzeug `taptime-runtime-rotate` für alle Laufzeit-Logins und den Cursor-HMAC-Schlüssel, Runbook in DEPLOY.md und MONITORING.md. Teil B: neuer Deploy-Schlüssel (Deploy 7), alter entfernt; Laufzeit- und Betreiber-Zugänge rotiert; `.env` neu verwahrt; `/root/env-0410.bak` vernichtet; neues ntfy-Thema (zweimal, STATUS); Supabase nach D-139. | Codex, PO, TL |
 | **Deploy 7 ✓** | T-024 Teil A, T-122c, T-122d, T-129, T-131, T-126 ausliefern — ausgeliefert 17.10. (`fb28166` → `1918d5a`) | Migration 060; neuer Deploy-Schlüssel vor dem Deploy. Belege aus dem Log, T-024 Teil B ab Schritt 7 und Web-Abnahme offen (STATUS). | PO, TL |
-| **Deploy 8** | T-127a, T-127b, T-104a, T-132 ausliefern (Ziel `e577fa8`, Runbook aus T-133) | Migrationen 061 und 062; Archiv, Sperrbildschirm, Sicherung. Vorher Controller installieren; der Tagesprüfungs-Check steht (pausiert bis zum ersten Ping). Danach Wochenprobe von Hand, neue App-Builds mit T-104b, T-104d und T-104c. | PO, TL |
-| **T-099** | Pilotgröße (D-149, D-152) | **T-099a ✓** `e577fa8`: Messwerkzeug `tests/pilot-size/` (lokal, Opt-in), Bericht lokal; P1-Pilotblocker in STATUS. **T-099b** (Brief in TASK): Kalender, Lohnexport, Kundenmonat, Kontingentwarnungen, Zeitdatensuche der Standortleitung, F018 und F043 beheben, danach beide Profile neu messen. Supabase-Grenzen vor dem Einladen aller anheben oder staffeln. | Codex |
-| **Deploy 9** | T-099b ausliefern | Danach Wiederholungsmessung mit dem T-099a-Werkzeug; erst wenn sie grün ist, Pilot (D-152). | PO, TL |
-| **Pilot** | Betrieb frogs | Betrieb anlegen, Standortleitungen einladen, Tags verteilen. Voraussetzung: T-099b ausgeliefert und Wiederholungsmessung grün (D-152), Gewerbeanmeldung, AVV/TOM nach B15, Haftpflicht mit Cyber-Baustein (D-116), Supabase Pro mit der Gewerbeanmeldung (D-130), Aussperr-Test bestanden. | PO |
+| **Deploy 8 ✓** | T-127a, T-127b, T-104a, T-132 ausliefern — ausgeliefert 23.10. (`1918d5a` → `e577fa8`) | Migrationen 061 und 062, zwei Wiederherstellungsproben grün, Tagesprüfung grün. App-Builds Android 17 und iPhone 10 (EAS). Konsolenbeleg der Wochenprobe offen (STATUS). | PO, TL |
+| **T-099 ✓** | Pilotgröße (D-149, D-152) — abgeschlossen `e577fa8` (T-099a), `eebe736` und `1edb047` (T-099b) | Messwerkzeug `tests/pilot-size/`; Migration 063 behebt die Pilotblocker, Wiederholungsmessung grün; wirkt mit Deploy 9. P2 offen: gebündelter Prüffall-Kontext, Spitzen-Richtwerte. Supabase-Mailgrenze vor dem Einladen aller anheben (STATUS). | Codex |
+| **T-104e** | Sperrbildschirm: Bestätigung trotz laufender Sicherung, keine Leseschleife, Anzeige bleibt bis zum Ende (D-153, D-154) | Brief in TASK. Neuer App-Build. | Codex |
+| **Deploy 9** | T-099b und T-104e ausliefern | Migration 063 und folgende; danach neue App-Builds und Geräteabnahme, dann Pilot (D-152). | PO, TL |
+| **Pilot** | Betrieb frogs | Betrieb anlegen, Standortleitungen einladen, Tags verteilen. Voraussetzung: T-099b und T-104e ausgeliefert (D-152), Gewerbeanmeldung, AVV/TOM nach B15, Haftpflicht mit Cyber-Baustein (D-116), Supabase Pro mit der Gewerbeanmeldung (D-130), Aussperr-Test bestanden. | PO |
 
 ---
 

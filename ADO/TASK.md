@@ -1,63 +1,51 @@
 # Aktuelle Aufgabe
 
-> **Stand 23.10.2026:** T-099a fertig (`e577fa8`, Messwerkzeug `tests/pilot-size/`, Bericht lokal
-> `.t099a-review/report.md`). Jetzt **T-099b** (D-152). Parallel liefert der PO Deploy 8 aus; der Deploy läuft aus
-> seinem Terminal und berührt den Arbeitsbaum nicht.
+> **Stand 26.10.2026:** T-099b fertig (`eebe736`, `1edb047`). Jetzt **T-104e** (D-153, D-154), danach Deploy 9 mit
+> T-099b und T-104e. Neue App-Builds macht der PO aus einer sauberen Kopie des freigegebenen Commits.
 
-## T-099b · Pilotgröße: Lesewege und Lohnexport bei frogs-Größe reparieren
+## T-104e · Sperrbildschirm: Bestätigung trotz laufender Sicherung, keine Leseschleife
 
-**Für:** Development (Astra, Extra High) · **Risiko:** hoch: SQL-Funktionen mit Berechtigung (SECURITY DEFINER, RLS,
-Standortbereich, Austritt) und eine neue Migration, deshalb unabhängiges Review durch einen zweiten Agenten (AGENTS 4) ·
-**Zeitbox:** drei Sitzungen. Reißt sie, wird von hinten geschnitten (erst 7, dann 6), nie die Punkte 1 bis 5.
+**Für:** Development (Astra, Extra High) · **Risiko:** hoch: Sperrbildschirm-Schlüssel, Dauerhaftigkeit gebuchter
+Ereignisse, native Module auf beiden Systemen; unabhängiges Review durch einen zweiten Agenten (AGENTS 4) ·
+**Zeitbox:** zwei Sitzungen. Reißt sie, wird Punkt 4 geschnitten, nie 1 bis 3 und 5.
 
-**Befund (T-099a):**
-- Kalender `read_time_record_calendar_v1`: 15,8 s für 22 Datensätze, 9,2 Mio. Buffer-Treffer. Eigene Zeiten (alle
-  Rollen) und Personenzeiten in der App liefern 503, schon im Profil „erwartet“.
-- Lohnexport v3 und v4: alle 320 Aufrufe 503. Monate mit 10.400 bis 29.010 Datensätzen liegen über
-  `TIME_ENTRY_EXPORT_MAXIMUM_ROWS` (10.000); schon 7.420 brauchen über 8 s (Exportfunktion: 10.001 Zeilen in 11,6 s).
-- Kundenmonat `read_customer_hours_v2` und Kontingentwarnungen 3,9 bis 4,3 s, in der Spitze 503; v2 baut zuerst die
-  volle v1-Projektion.
-- Zeitdatensuche der Standortleitung in der Spitze 503 nach 10 s; die Seitensuche prüft
-  `has_time_management_authority_v1` je Kandidat.
-- F018: Die Standort-Einrichtung fordert 100 Mitgliedschaften bzw. Ziele an, die Antwort überschreitet 16 KiB → 503.
-- F043: Pool 5 s, Coordinator 8 s, HTTP 10 s; der Client-Abbruch beendet die SQL-Abfrage nicht, ROLLBACK wartet.
-
-**Hypothese des TL, zuerst prüfen, nicht voraussetzen:** `effective_time_records_v2` (038) ist `security_barrier` und
-bildet `latest_revision` als CTE mit `DISTINCT ON` über alle Revisionen aller Betriebe; zweimal referenziert, wird sie
-materialisiert. Jede Abfrage darüber rechnet so den Gesamtbestand, in Schleifen je Datensatz vielfach. Dasselbe Muster
-in `effective_time_records_v1` und den Export- und Stundenfunktionen prüfen.
+**Befund (PO, iPhone, Build 10 zu `e577fa8`, 23.10.):**
+- **A:** „Pause starten“ bzw. „Zeit beenden“ auf dem Sperrbildschirm zeigt „Noch nicht bestätigt“ mit „Erneut senden“;
+  einige Minuten später bestätigt „Erneut senden“, und die Zeit ist beendet. Code: `LockScreenCoordinator.perform`
+  (Backend) prüft nach dem COMMIT einmal `requireOffsiteArchive`; ist das WAL noch nicht extern bestätigt, wirft es
+  `LifecycleArchivePendingError`, der Server antwortet 503, der Client zeigt `UNCONFIRMED`. In den Tests bestätigt der
+  Archiv-Adapter sofort, deshalb blieb das unentdeckt. In der Produktion dauert die Bestätigung Minuten.
+- **B:** „Meine Zeiten“ springt im Sekundentakt zwischen „Zeitraum nicht vollständig geladen“ und den Summen, auch ohne
+  laufende Zeit. Hypothese des TL, zuerst belegen: `LockScreenCoordinator` (App) ruft bei jeder neuen
+  `ownTime`-Instanz `refresh()`, das `work.refreshPreservingActive()` lädt nur die erste Seite; die Effekt-Schleife in
+  `OwnTimeScreen` lädt weitere Seiten, die neue Instanz löst wieder `refresh()` aus. Jeder Durchlauf liest den Server.
 
 ### Umfang
 
-1. **Ursache belegen:** innere Pläne der SECURITY-DEFINER-Funktionen mit `auto_explain` (`log_nested_statements`,
-   `log_analyze`, `log_buffers`) im lokalen Lauf des Werkzeugs; je P1-Befund Ursache und Plan im Bericht.
-2. **Aufwand folgt der angefragten Menge, nicht dem Bestand:** effektive Zeiten schlüsselgetrieben lesen (etwa jüngste
-   Revision je Datensatz über einen passenden Index) für Kalender, Personenzeiten, Export, Kundenstunden,
-   Kontingentwarnungen und Zeitdatensuche. Neue Migration, alte bleiben unverändert. Fachlich identisch: Revisionen,
-   Voids, „recovered“, Pausen, Monatsgrenzen in Europe/Berlin, Berechtigung je Rolle, Standortbereich, Ausgeschiedene,
-   Mandantentrennung.
-3. **Lohnexport ganzer Monat (D-152):** Grenze aus der Pilotgröße ableiten, mindestens 58.020 Datensätze; die Antwort
-   puffert nicht den ganzen Monat. Eine gemeinsame Frist für SQL, Verbindung und HTTP; ein Abbruch beendet die Abfrage
-   auf dem Server und verwirft die Verbindung (F043). Über der Grenze eine schnelle, verständliche Ablehnung mit Text in
-   der Verwaltung statt 503.
-4. **F018:** Standort-Einrichtung auf bytebegrenzte Seiten mit Cursor wie D-138; die Verwaltung lädt seitenweise.
-5. **Zeitdatensuche der Standortleitung:** Berechtigung mengenbasiert statt je Kandidat.
-6. P2 „Zeiten prüfen“: Kontext der Prüffälle gebündelt laden statt 20 Einzelabfragen.
-7. P2-Richtwerte (Kundenmonat, Personenübersicht, Einrichtung), soweit sie aus Punkt 2 folgen.
+1. **Ursachen belegen:** je Befund ein Test, der heute rot ist (A: Archiv-Adapter zuerst nicht, dann bestätigt;
+   B: mehrseitige eigene Zeiten mit geöffneter Ansicht, Zählung der Serverlesungen).
+2. **A, Antwort bei ausstehender Sicherung (D-153):** Die Aktion bleibt gebucht, der Server antwortet mit Zustand und
+   dem Hinweis „Sicherung ausstehend“ statt 503. Der Sperrbildschirm zeigt sofort den neuen Zustand mit dem Zusatz
+   „wird gesichert“; die Knöpfe für den nächsten Schritt bleiben nutzbar. Nach „Zeit beenden“ verschwindet die Anzeige
+   sofort (D-154). Die Bestätigung holt der nächste Abgleich der App nach, ohne neue Buchung. Installierte Builds behalten ihr
+   heutiges Verhalten (Vertragsfassung oder Fähigkeitsmerkmal), Idempotenz und Befehls-ID bleiben.
+3. **B, keine Leseschleife:** Der Sperrbildschirm reagiert nur auf Änderungen, die ihn betreffen (aktive Zeit, Pause,
+   Ende, Verwaltungsstopp, eigene Erfassung, Sitzung), nicht auf nachgeladene Seiten. Eine offene App ohne Änderung
+   liest den Server nicht wiederholt. Beim Neuladen bleibt der geladene Kalender sichtbar, bis der neue vollständig ist.
+4. **Anzeige bleibt und geht mit dem Ende (D-154):** Android: laufende Meldung; wird sie ab Android 14 entsperrt
+   weggewischt, stellt die App sie sofort wieder her (ohne Ton, ohne neue Mitteilung). iPhone: nach einem Entfernen
+   zeigt die App sie beim nächsten Öffnen wieder (bestehender Weg nach acht Stunden). Ende der Zeit entfernt die Anzeige
+   sofort statt nach zehn Sekunden; Fehlerzustände bleiben sichtbar.
+5. Android auf dieselben Muster wie A und B prüfen (gleiches Serverprotokoll, gleicher App-Koordinator) und mitbeheben.
 
 ### Tests und Nachweis
-
-- Je geänderter Funktion ein Gleichheitstest alt gegen neu auf Fixture-Daten mit Revisionen, Voids, „recovered“,
-  Pausen, Monatsgrenze, Ausgeschiedenen und Standortbereichen; die bestehenden Berechtigungstests bleiben grün.
-- Ein CI-tauglicher Rückfallschutz, der die Art des Aufwands prüft (etwa: Buffer-Treffer wachsen nicht mit fremden
-  oder älteren Daten), ohne flackernde Zeitgrenzen.
-- **Wiederholungsmessung** mit dem Werkzeug, beide Profile: alle Lesewege mit erwartetem Status, alle Exporte
-  erfolgreich; Lohnexport der Spitze p95 höchstens 3 s auf dem Mac (Reserve für den langsameren Server, Budget 8 s);
-  übrige Richtwerte wie T-099a, Überschreitungen als Befund. Bericht `.t099b-review/report.md` mit Vorher-Nachher-Tabelle.
-  Das Werkzeug darf an neue Verträge und die neue Migrations-Baseline angepasst werden, Mess- und Prüflogik bleiben.
+- Rot/Grün für beide Befunde; die bestehenden Prüflisten-Fälle aus T-104b bis T-104d bleiben grün (Flugmodus „Nicht
+  gesendet“, 401, 426, Verwaltungsstopp, eigene Erfassung, Kontowechsel).
+- Server: ausstehende Sicherung, späte Bestätigung, Wiederholung derselben Befehls-ID, alter App-Build.
+- Native Logik auf beiden Systemen; iOS unsigniert lokal bauen wie T-104c. Prüfliste für die Geräteabnahme in
+  `.t104e-review/pruefliste.md`.
 
 ### Grenzen
-
-Kein Server- oder Supabase-Zugriff, kein Deploy, keine GHCR-Paketaktion, nichts installieren (AGENTS 3), keine Änderung
-alter Migrationen. Fristen und Antwortgrenzen nicht als Lösung hochsetzen; die Exportgrenze folgt Punkt 3. Die ganze CI
-lokal nachbauen. Kein Commit vor `APPROVED`.
+D-133, D-146 bis D-148 bleiben: keine Hintergrundstarts, keine neue Zeit von außen, kein Ton, keine weitere Mitteilung.
+Kein Server- oder Supabase-Zugriff, kein Deploy, keine EAS-Builds, keine GHCR-Paketaktion, nichts installieren
+(AGENTS 3). Die ganze CI lokal nachbauen. Kein Commit vor `APPROVED`.

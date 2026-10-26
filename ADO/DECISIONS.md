@@ -2045,3 +2045,29 @@ Lohnexport in jedem Monat. Die Kalenderfunktion brauchte 15,8 s für 22 Datensä
 Befund dem Gesamtbestand, nicht der angefragten Menge (in T-099b zu belegen). Ein kleiner Start wüchse also von Monat zu
 Monat in den Fehler hinein. Fertig ist das Produkt erst,
 wenn es einen vollständigen Monatsabschluss übersteht; ohne Lohnexport gelingt keiner.
+
+## D-153 · Sperrbildschirm zeigt den neuen Zustand, solange die Sicherung aussteht · 26.10.2026 · Tim (PO), Claude (TL)
+Ergänzt D-146: Ist eine Aktion vom Sperrbildschirm gebucht, aber ihr WAL noch nicht extern bestätigt, zeigt die Anzeige
+sofort den neuen Zustand mit dem Zusatz „wird gesichert“ (etwa „Pause seit 16:49 · wird gesichert“); nach „Zeit
+beenden“ verschwindet sie sofort (D-154). Die Knöpfe für den nächsten Schritt bleiben nutzbar; den Hinweis entfernt der
+nächste Abgleich der App. Keine neue Buchung, keine automatische Wiederholung. Installierte Builds behalten ihr Verhalten. T-104e.
+**Warum:** Am 23.10. zeigte der Sperrbildschirm nach jedem Tipp „Noch nicht bestätigt“, weil die externe Bestätigung in
+der Produktion Minuten dauert; die Aktion war längst gebucht. Ein minutenlanges „Wird gesendet …“ verunsichert mehr, als
+der Hinweis auf die laufende Sicherung (PO 26.10.).
+
+## D-154 · Anzeige bleibt, solange eine Zeit läuft, und geht mit dem Ende · 26.10.2026 · Tim (PO), Claude (TL)
+Ergänzt D-146 und D-148: Solange eine eigene Zeit läuft oder pausiert, lässt sich die Anzeige außerhalb der App so weit
+wie die Systeme es erlauben nicht entfernen. Android: laufende Meldung; ab Android 14 kann man sie entsperrt
+wegwischen, die App stellt sie dann sofort wieder her. iPhone: Apple lässt eine Live-Aktivität immer entfernen; die App
+zeigt sie beim nächsten Öffnen wieder. Ist die Zeit beendet, verschwindet die Anzeige sofort (ersetzt die zehn Sekunden
+„Zeit beendet“); nur bei einem Fehler bleibt sie mit „Erneut senden“ bzw. „Bitte App öffnen“. Wird die Zeit anderswo
+beendet, merkt es das Handy erst beim nächsten Öffnen oder Tippen (keine Push-Nachrichten, D-133). T-104e.
+**Warum:** Wunsch des PO am 26.10.: Die Anzeige soll zeigen, dass eine Zeit läuft, und nicht verschwinden, bevor sie endet.
+
+## D-155 · Grenze v4/v3 im Export-Grenztest 1,50 · 26.10.2026 · Claude (TL)
+Der Grenztest aus T-066 vergleicht Lohnexport v4 mit v3 auf 7.500 Zeilen. Seit Migration 063 sind beide etwa zehnmal
+schneller; die drei Zusatzspalten von v4 (Herkunft, geändert, Kommentar) wiegen jetzt 2 bis 35 % je nach Rechner. Grenze
+1,50 statt 1,30, Median aus fünf abwechselnden Läufen nach Aufwärmen (`1edb047`). Die krankhaften Pläne, für die der Test
+entstand (Überschneidungssuche, Berechtigung je Zeile), kosten ein Vielfaches und scheitern weiter.
+**Warum:** Nach zwei Review-Runden war die GitHub-CI rot (1,33), lokal lagen die Faktoren bei 1,02 bis 1,17. Die alte
+Zahl beschrieb die Kostenverteilung vor 063, nicht das Risiko, das der Test abwehren soll.
