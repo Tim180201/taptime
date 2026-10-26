@@ -95,7 +95,11 @@ describe('DA2 export size boundaries in an isolated database run', () => {
     expect(await exportAuditCount()).toBe(1);
   }, 120_000);
 
-  it('serves v4 within 1.3x the same-run v3 median for 7,500 rows', async () => {
+  // TL decision T-099b (26.10.2026): budget 1.50 instead of 1.30. Migration 063 made the shared export work several
+  // times faster, so v4's inherent extra columns (origin, changed, comment) now weigh 2-35 % depending on the runner
+  // (GitHub median 1.33 at about 100 ms). The pathological v4 plans this guard was written for (T-066: overlap
+  // search, per-row authority) cost multiples of v3 and still fail at 1.50.
+  it('serves v4 within 1.5x the same-run v3 median for 7,500 rows', async () => {
     await insertBulkStoppedEntries(installerPool, REFERENCE_ROWS);
     const run = async (version: 3 | 4) => {
       const started = performance.now();
@@ -115,20 +119,20 @@ describe('DA2 export size boundaries in an isolated database run', () => {
     await run(3);
     await run(4);
     const v3Samples: number[] = [], v4Samples: number[] = [];
-    for (let sample = 0; sample < 3; sample++) {
+    for (let sample = 0; sample < 5; sample++) {
       v3Samples.push(await run(3));
       v4Samples.push(await run(4));
     }
-    const median = (values: number[]) => [...values].sort((a, b) => a - b)[1]!;
+    const median = (values: number[]) => [...values].sort((a, b) => a - b)[2]!;
     const v3Milliseconds = median(v3Samples), v4Milliseconds = median(v4Samples);
     const ratio = v4Milliseconds / v3Milliseconds;
     console.info('[T-066 v4 boundary] ' + JSON.stringify({
-      v3Samples, v4Samples, v3Median: v3Milliseconds, v4Median: v4Milliseconds, ratio, budget: 1.30,
+      v3Samples, v4Samples, v3Median: v3Milliseconds, v4Median: v4Milliseconds, ratio, budget: 1.50,
     }));
     if (Math.max(v3Milliseconds, v4Milliseconds) > 8_000) {
       console.warn('[T-066 v4 boundary warning] absolute export runtime exceeds 8000ms; the relative result remains authoritative');
     }
-    expect(ratio, `v4 median took ${ratio.toFixed(2)}x its same-run v3 median`).toBeLessThanOrEqual(1.3);
+    expect(ratio, `v4 median took ${ratio.toFixed(2)}x its same-run v3 median`).toBeLessThanOrEqual(1.5);
   }, 2 * BOUNDARY_EXPORT_DEADLINE_MILLISECONDS + 60_000);
 
   it('exports wide payroll v3 above the former byte bound within a runner-relative budget', async () => {
