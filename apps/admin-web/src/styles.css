@@ -975,3 +975,13 @@ button.warning-action.primary-action { background: var(--color-notice); color: v
   .organization-eyebrow { display: block; }
   .month-switch { display: none; }
 }
+
+/* T-138: destructive actions are separated and cancellation is the default. */
+.customer-management { display:block; }
+.customer-danger-zone { margin-top:2.5rem; padding-top:1.5rem; border-top:1px solid var(--color-line); }
+.mobile-sheet.safe-confirmation { height:90dvh; max-height:90dvh; display:flex; flex-direction:column; gap:1rem; }
+.safe-confirmation .time-edit-form { display:flex; flex-direction:column; min-height:0; height:100%; overflow:auto; }
+.safe-confirmation [data-confirm-actions] { display:flex; flex-direction:column; gap:.75rem; flex-shrink:0; margin-top:auto; padding-top:1rem; }
+.safe-confirmation[data-actions-at="start"] [data-confirm-actions] { order:-1; margin-top:0; margin-bottom:auto; padding-top:0; padding-bottom:1rem; }
+.confirmation button.warning-action { background:transparent; color:var(--color-text); border-color:var(--color-notice); }
+.confirmation button.warning-action:hover:not(:disabled) { background:var(--color-surface-raised); }

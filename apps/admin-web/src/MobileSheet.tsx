@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 
 export function useCompactLayout() {
   const [compact, setCompact] = useState(() => window.matchMedia?.('(max-width: 1023px)').matches ?? false);
@@ -14,7 +14,9 @@ export function useCompactLayout() {
 }
 
 /** Native modal semantics provide focus containment and an inert background. */
-export function MobileSheet({ label, children, onCancel, busy = false, role = 'dialog', className = '' }: {
+export function MobileSheet({ label, children, onCancel, busy = false, role = 'dialog', className = '', safeConfirmation = false, trigger }: {
+  trigger?: HTMLElement | null;
+  safeConfirmation?: boolean;
   label: string;
   children: ReactNode;
   onCancel: () => void;
@@ -23,16 +25,21 @@ export function MobileSheet({ label, children, onCancel, busy = false, role = 'd
   className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = ref.current!;
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = trigger ?? document.activeElement as HTMLElement | null;
+    if (safeConfirmation) {
+      const box=previous?.getBoundingClientRect();
+      dialog.dataset.actionsAt=box&&box.height>0&&box.top+box.height/2>window.innerHeight/2?'start':'end';
+    }
     dialog.showModal();
+    if (safeConfirmation) dialog.querySelector<HTMLButtonElement>('[data-cancel]')?.focus();
     return () => {
       dialog.close();
-      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      queueMicrotask(() => { if (previous?.isConnected) previous.focus({ preventScroll: true }); });
     };
   }, []);
-  return <dialog ref={ref} className={`mobile-sheet ${className}`} role={role}
+  return <dialog ref={ref} className={`mobile-sheet ${safeConfirmation?'safe-confirmation':''} ${className}`} role={role}
     aria-label={label} aria-modal="true" onKeyDown={event => {
       if (event.key !== 'Tab') return;
       const controls = Array.from(ref.current?.querySelectorAll<HTMLElement>(

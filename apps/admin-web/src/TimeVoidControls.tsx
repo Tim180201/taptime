@@ -6,7 +6,7 @@ import {TimeEditingContext} from './TimeEditingControls';
 import {MobileSheet} from './MobileSheet';
 import {timeEditMessages} from './timeEditing';
 
-export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:()=>void}) {
+export function VoidTimeForm({record,onClose,trigger}:{record:SafeOwnTimeRecord;onClose:()=>void;trigger?:HTMLElement|null}) {
   const context=useContext(TimeEditingContext)!;
   const [code,setCode]=useState<VoidReasonCode|''>(''),[text,setText]=useState(''),[error,setError]=useState(''),[saving,setSaving]=useState(false);
   const mounted=useRef(true);
@@ -24,19 +24,21 @@ export function VoidTimeForm({record,onClose}:{record:SafeOwnTimeRecord;onClose:
     }catch{if(mounted.current)setError(timeEditMessages.unavailable);}
     finally{if(mounted.current)setSaving(false);}
   };
-  return <MobileSheet className="right-sheet" label="Zeit löschen" onCancel={onClose} busy={saving}>
-    <RequiredForm className="form-grid time-edit-form" aria-label="Zeit löschen" onSubmit={event=>{event.preventDefault();void save();}}>
+  return <MobileSheet safeConfirmation trigger={trigger} role="alertdialog" className="confirmation" label="Zeit löschen" onCancel={onClose} busy={saving}>
+    <RequiredForm className="form-grid time-edit-form" aria-label="Zeit löschen" onSubmit={event=>{event.preventDefault();}}>
       <h3 className="full-field">Zeit löschen?</h3>
       <p className="full-field">{context.personLabel ?? 'Sie selbst'} · {record.targetDisplayName} · {formatZonedDateTime(record.startedAt)} – {record.stoppedAt ? formatZonedDateTime(record.stoppedAt) : 'läuft'}</p>
       <p className="full-field">Der Eintrag zählt danach nicht mehr. Er bleibt in der Historie sichtbar. Das Löschen kann nicht rückgängig gemacht werden.</p>
-      <label className="full-field">Grund (freiwillig)<select aria-label="Grund (freiwillig)" autoFocus value={code} disabled={saving} onChange={e=>setCode(e.target.value as VoidReasonCode|'')}>
+      <label className="full-field">Grund (freiwillig)<select aria-label="Grund (freiwillig)" value={code} disabled={saving} onChange={e=>setCode(e.target.value as VoidReasonCode|'')}>
         <option value="">Kein Grund angegeben</option>{Object.entries(VOID_REASONS).map(([value,label])=><option key={value} value={value}>{label}</option>)}
       </select></label>
       {code==='other'?<label className="full-field">Kurze Begründung<textarea required maxLength={500} aria-label="Kurze Begründung" value={text} disabled={saving} onChange={e=>setText(e.target.value)}/><small>1 bis 500 Zeichen</small></label>:null}
       {error?<p className="full-field field-error" role="alert">{error}</p>:null}
       {!context.online?<p role="status">Löschen geht nur online. Ihre Eingaben bleiben erhalten.</p>:null}
-      <button className="warning-action primary-action" disabled={saving} aria-busy={saving}>{saving?'Wird gelöscht …':'Löschen'}</button>
-      <button type="button" className="quiet" disabled={saving} onClick={onClose}>Abbrechen</button>
+      <div className="confirmation-actions" data-confirm-actions>
+        <button type="button" className="primary-action" data-cancel disabled={saving} onClick={onClose}>Abbrechen</button>
+        <button type="button" className="warning-action" disabled={saving} aria-busy={saving} onClick={()=>void save()}>{saving?'Wird gelöscht …':'Löschen'}</button>
+      </div>
     </RequiredForm>
   </MobileSheet>;
 }

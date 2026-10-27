@@ -31,6 +31,7 @@ export default function SetupView({
   const customers=useSearchPages((search,cursor)=>administration.querySearch?.('setup_customers',{kind:'customers',search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.customers,item=>item.id,[administration,state.membershipId,state.selectedLocation?.id]);
   const tags=useSearchPages((search,cursor)=>administration.querySearch?.('setup_tags',{kind:'nfc_tags',search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.nfcTags,item=>item.id,[administration,state.membershipId,state.selectedLocation?.id]);
   const [deletingProject,setDeletingProject]=useState<{id:string;name:string}|null>(null);
+  const projectDeleteTrigger=useRef<HTMLButtonElement>(null);
   const projects=useSearchPages((search,cursor)=>administration.querySearch?.('projects',{search,cursor})??Promise.resolve({status:'unavailable'} as const),value=>value.projects,item=>item.projectId,[administration,state.membershipId,state.selectedLocation?.id]);
   const customerControls=<><SearchField value={customers.input} onChange={customers.setSearch} disabled={state.reassigning||state.reassignmentIntent!==null}/><SearchStatus state={customers.state} onRetry={customers.pager.retry} onClear={()=>customers.setSearch('')}/></>;
   const tagControls=<><SearchField value={tags.input} onChange={tags.setSearch} disabled={state.reassigning||state.reassignmentIntent!==null}/><SearchStatus state={tags.state} onRetry={tags.pager.retry} onClear={()=>tags.setSearch('')}/></>;
@@ -133,7 +134,7 @@ export default function SetupView({
   const explanation=tab==='standorte'?'Standorte bilden die Arbeitsorte Ihres Betriebs ab.':tab==='mitarbeiter'?'Ordnen Sie Personen ihre Arbeits- und Verwaltungsstandorte zu.':tab==='arbeitsziele'?'Kunden und Projekte erhalten hier ihren Standort.':'Karten werden mit dem Handy zugeordnet; hier ändern Sie Zuordnungen.';
   return <>
     <PageHeader organization={state.projection.organization.name} title="Einrichtung" subtitle="Standorte, Kunden und Projekte Ihres Betriebs." onRefresh={()=>{void administration.refresh();void administration.refreshLocationSetup?.();void customers.pager.refresh();void projects.pager.refresh();void tags.pager.refresh();}} actions={tab==='standorte'||tab==='arbeitsziele'?<button className={createOpen?'secondary':'primary-action'} onClick={()=>setCreateOpen(true)}>{tab==='standorte'?'+ Standort':'+ Projekt'}</button>:undefined}/>
-    {deletingProject ? <Confirmation label="Projekt löschen" busyLabel="Wird gelöscht …" title={`Projekt ${deletingProject.name} löschen?`} confirmLabel="Projekt löschen" busy={state.projectBusy ?? false}
+    {deletingProject ? <Confirmation warning trigger={projectDeleteTrigger.current} label="Projekt löschen" busyLabel="Wird gelöscht …" title={`Projekt ${deletingProject.name} löschen?`} confirmLabel="Projekt löschen" busy={state.projectBusy ?? false}
       onCancel={()=>setDeletingProject(null)} onConfirm={()=>{void administration.deactivateProject?.(deletingProject.id).then(()=>{setDeletingProject(null);void projects.pager.refresh();void administration.refreshLocationSetup?.();});}}>
       <p>Danach steht {deletingProject.name} im Archiv. Die Zeiten bleiben im Lohnexport erhalten. Das lässt sich nicht rückgängig machen.</p>
     </Confirmation> : null}
@@ -155,7 +156,7 @@ export default function SetupView({
             {setupRows.map(item=>{const binding=state.locationSetup?.workTargets.find(t=>t.targetId===item.id&&t.targetType===item.type);return <tr key={`${item.type}:${item.id}`} id={`setup-${item.type}-${item.id}`} tabIndex={-1}>
               <td><strong>{item.name}</strong>{item.active===false?<small> · inaktiv</small>:null}</td><td>{item.type==='customer'?'Kunde':'Projekt'}</td>
               <td>{binding?<select aria-label={`Standort für ${item.name}`} value={binding.locationId??''} disabled={state.locationSetupBusy} onChange={event=>{if(event.target.value)void administration.setWorkTargetLocation?.(item.type,item.id,event.target.value);}}><option value="">Noch nicht zugewiesen</option>{state.locationSetup?.locations.filter(l=>l.active).map(l=><option key={l.id} value={l.id}>{l.displayName}</option>)}</select>:<span className="muted">–</span>}</td>
-              <td>{item.type==='project'&&item.active?<button className="text-button" disabled={state.projectBusy} onClick={()=>setDeletingProject({id:item.id,name:item.name})}>Projekt löschen</button>:null}</td>
+              <td>{item.type==='project'&&item.active?<button className="warning-action" disabled={state.projectBusy} onClick={event=>{projectDeleteTrigger.current=event.currentTarget;setDeletingProject({id:item.id,name:item.name});}}>Projekt löschen</button>:null}</td>
             </tr>;})}
           </DataTable>
           {moreCustomers}{projects.state.nextCursor?<button className="text-button" disabled={projects.state.busy} onClick={()=>void projects.pager.loadMore()}>Weitere Projekte laden</button>:null}
@@ -176,7 +177,7 @@ export default function SetupView({
               {state.role==='administrator'&&tag.activeAssignmentId!==null?<button className="warning-action" aria-label={`Karte ${tag.displayName} entfernen`} disabled={removing||state.reassignmentIntent!==null} onClick={event=>{removalButton.current=event.currentTarget;setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}>Entfernen</button>:null}</div></td>
           </tr>)}</DataTable>{moreTags}
           {tags.state.status==='ready'&&!tags.state.items.length&&!tags.state.search?<EmptyState>Karten werden mit dem Handy zugeordnet. Keine Karten registriert.</EmptyState>:null}
-          {removal?<Confirmation label="Karte entfernen" title={`Karte „${removal.name}“ entfernen?`} confirmLabel="Entfernen bestätigen" busyLabel="Wird entfernt …" busy={removing} warning onConfirm={()=>void confirmRemoval()} onCancel={()=>setRemoval(null)}><p>{NFC_TAG_REMOVAL_EXPLANATION}</p></Confirmation>:null}
+          {removal?<Confirmation trigger={removalButton.current} label="Karte entfernen" title={`Karte „${removal.name}“ entfernen?`} confirmLabel="Entfernen bestätigen" busyLabel="Wird entfernt …" busy={removing} warning onConfirm={()=>void confirmRemoval()} onCancel={()=>setRemoval(null)}><p>{NFC_TAG_REMOVAL_EXPLANATION}</p></Confirmation>:null}
           {removalMessage?<p role="status">{removalMessage}</p>:null}
           {selectedTag?<MobileSheet label="Zuordnung ändern" className="right-sheet" busy={state.reassigning} onCancel={()=>{administration.cancelReassignment();setTagId('');}}><h2>Zuordnung ändern</h2>{state.notice?<FeedbackBand message={state.notice}/>:null}<p>{selectedTag.displayName} · {selectedTag.validationFingerprint}</p><p>Eine laufende Arbeitszeit blockiert die Änderung.</p>
             <RequiredForm id="setup-reassignment" className="form-grid" onSubmit={event=>{event.preventDefault();administration.prepareReassignment(tagId,targetId);}}>

@@ -1,14 +1,15 @@
 // @vitest-environment jsdom
 import axe from 'axe-core';
-import { act, createElement, type ReactNode } from 'react';
+import { act, createElement, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 vi.mock('../../src/design/LineIcon',()=>({LineIcon:()=>null}));
 vi.mock('react-native',()=>({
   BackHandler:{addEventListener:()=>({remove(){}})},
+  Modal:({children}:{children?:ReactNode})=>createElement('div',null,children),
   findNodeHandle:()=>null,
-  View:({children,ref,style,focusable}:{children?:ReactNode;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children),
+  View:({children,ref,style,focusable,onLayout}:{children?:ReactNode;onLayout?:(event:unknown)=>void;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>{useEffect(()=>{onLayout?.({nativeEvent:{layout:{height:844}}});},[]);return createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children);},
   ScrollView:({children,ref,style,focusable}:{children?:ReactNode;ref?:React.Ref<HTMLDivElement>;style?:unknown;focusable?:boolean})=>createElement('div',{ref,tabIndex:focusable?0:undefined,'data-style':JSON.stringify(style)},children),
   AccessibilityInfo: { isReduceMotionEnabled: async () => true, addEventListener: () => ({ remove() {} }) },
     Keyboard: { dismiss: vi.fn() }, StyleSheet:{create:(v:unknown)=>v},

@@ -29,6 +29,7 @@ export interface AdminRoute {
   readonly setupMembershipId?: string;
   readonly personId?: string;
   readonly customerId?: string;
+  readonly customerPersonId?: string;
   readonly locationId: string | null;
   readonly month: string | null;
   readonly status: TimeRecordStatusFilter;
@@ -42,7 +43,7 @@ export function routeFromLocation(pathname: string, search: string): AdminRoute 
   const view = allowedViews.has(candidate) ? candidate as AdminView : 'uebersicht';
   const parameters = new URLSearchParams(search);
   const locationId = validLocationId(parameters.get('standort'));
-  if (view !== 'lohnexport') return { ...(view==='archiv' ? {archiveTab:parameters.get('bereich')==='ziele' ? 'ziele' as const : 'mitarbeiter' as const} : {}), ...(view==='einrichtung' ? {setupTab:parameters.get('bereich')==='standorte' ? 'standorte' as const : parameters.get('bereich')==='tags' ? 'tags' as const : undefined,setupMembershipId:validLocationId(parameters.get('mitarbeiter')) ?? undefined} : {}), ...defaultRoute(view, locationId), month: validMonth(parameters.get('monat')), ...(personId === null ? {} : {personId}), ...(view==='kunden' && validLocationId(parameters.get('kunde')) ? {customerId:validLocationId(parameters.get('kunde'))!} : {}) };
+  if (view !== 'lohnexport') return { ...(view==='archiv' ? {archiveTab:parameters.get('bereich')==='ziele' ? 'ziele' as const : 'mitarbeiter' as const} : {}), ...(view==='einrichtung' ? {setupTab:parameters.get('bereich')==='standorte' ? 'standorte' as const : parameters.get('bereich')==='tags' ? 'tags' as const : undefined,setupMembershipId:validLocationId(parameters.get('mitarbeiter')) ?? undefined} : {}), ...defaultRoute(view, locationId), month: validMonth(parameters.get('monat')), ...(personId === null ? {} : {personId}), ...(view==='kunden' && validLocationId(parameters.get('kunde')) ? {customerId:validLocationId(parameters.get('kunde'))!,customerPersonId:validLocationId(parameters.get('person'))??undefined} : {}) };
   const month = validMonth(parameters.get('monat'));
   const statusCandidate = parameters.get('status') ?? 'alle';
   const captureCandidate = parameters.get('erfassungsart') ?? 'alle';
@@ -65,7 +66,7 @@ export function canonicalRoutePath(route: AdminRoute): string {
   const parameters = new URLSearchParams();
   if (route.locationId !== null) parameters.set('standort', route.locationId);
   if (route.month !== null) parameters.set('monat', route.month);
-  if (route.view==='kunden' && route.customerId) parameters.set('kunde',route.customerId);
+  if (route.view==='kunden' && route.customerId) {parameters.set('kunde',route.customerId);if(route.customerPersonId)parameters.set('person',route.customerPersonId);}
   if (route.view==='archiv' && route.archiveTab) parameters.set('bereich',route.archiveTab);
   if (route.view==='einrichtung') {
     if (route.setupTab) parameters.set('bereich',route.setupTab);

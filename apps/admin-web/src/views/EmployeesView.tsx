@@ -164,6 +164,7 @@ export default function EmployeesView({ state, administration, accountInvitation
           </form>
         </MobileSheet> : null}
       {revocationIntent === null ? null : <Confirmation
+        trigger={revocationTrigger.current}
         label="Zugangsentzug ausdrücklich bestätigen"
         title={`Zugang für ${revocationIntent.displayName} wirklich entziehen?`}
         warning

@@ -11,11 +11,11 @@ vi.mock('react-native', () => {
   type Props = { children?: ReactNode; onPress?: () => void; disabled?: boolean; accessibilityRole?: string;
     accessibilityLabel?: string; accessibilityState?: { selected?: boolean }; onLayout?: (event: unknown) => void };
   const element = ({ children, onPress, disabled, accessibilityRole, accessibilityLabel, accessibilityState, onLayout }: Props) => {
-    useEffect(() => { onLayout?.({ nativeEvent: { layout: { y: native.headingY } } }); }, []);
+    useEffect(() => { onLayout?.({ nativeEvent: { layout: { y: native.headingY, height: 844 } } }); }, []);
     return createElement(onPress ? 'button' : 'div', { onClick: onPress, disabled, role: accessibilityRole,
       'aria-label': accessibilityLabel, 'aria-selected': accessibilityState?.selected }, children);
   };
-  return { RefreshControl: () => null, View: element, Text: element, Pressable: element,
+  return { Modal: element, RefreshControl: () => null, View: element, Text: element, Pressable: element,
     ScrollView: ({ ref, children }: { ref?: Ref<unknown>; children?: ReactNode }) => {
       useImperativeHandle(ref, () => ({ scrollTo: native.scroll })); return createElement('div', {}, children);
     },

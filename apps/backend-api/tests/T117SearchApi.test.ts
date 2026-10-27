@@ -11,6 +11,7 @@ const month = { fromInclusive: '2026-09-30T22:00:00.000Z', toExclusive: '2026-10
 const entries = [
   ['/v2/customers/hours/query', 'customer_hours', month],
   ['/v2/customers/hours/detail', 'customer_detail', { ...month, customerId: id }],
+  ['/v1/customers/hours/person-days', 'customer_person_days', { ...month, customerId: id, targetMembershipId: id }],
   ['/v1/administration/managed-active-summary', 'managed_people', { ...month, locationId: null, isRunning: null }],
   ['/v3/administration/employee-memberships-projection', 'memberships', { locationId: null }],
   ['/v4/administration/employee-memberships-projection', 'memberships', { locationId: null, active: null }],
@@ -34,7 +35,7 @@ describe.each(entries)('T117 HTTP %s (%s)', (path, kind, fields) => {
     const server = createBackendHttpServer(deps, { onDiagnostic: createBackendApiDiagnosticLogSink({ output: { write: value => { log.push(String(value)); return true; } } }) });
     servers.push(server); await listen(server);
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-    const body = { expectedMembershipId: id, cursor: null, limit: 50, ...(kind === 'customer_detail' ? {} : { search: 'private-search-term' }), ...fields };
+    const body = { expectedMembershipId: id, cursor: null, limit: 50, ...(['customer_detail','customer_person_days'].includes(kind) ? {} : { search: 'private-search-term' }), ...fields };
     const headers = { authorization: 'Bearer header.payload.signature', 'content-type': 'application/json', ...(kind === 'managed_people' ? { accept: 'application/vnd.taptime.managed-people.v6+json' } : {}) };
     return { querySearch, log, body, post: (patch = {}, extraHeaders = {}) => fetch(origin + path, { method: 'POST', headers: { ...headers, ...extraHeaders }, body: JSON.stringify({ ...body, ...patch }) }) };
   }

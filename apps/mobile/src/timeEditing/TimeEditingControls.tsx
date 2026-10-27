@@ -61,6 +61,7 @@ export function AddTimeControl({day,targetMembershipId,onSaved}:{day:string;targ
 }
 export function TimeRecordControls({record,targetMembershipId,onSaved,directStop=false,personName}:{directStop?:boolean;personName?:string;record:SafeOwnTimeRecord;targetMembershipId?:string;onSaved:()=>Promise<void>}) {
   const context=useContext(TimeEditingContext);
+  const [voidY,setVoidY]=useState<number>();
   const [form,setForm]=useState<'comment'|'correct'|'stop'|'void'|null>(null);
   const details=record.details;
   const own=context && (targetMembershipId===undefined || targetMembershipId===context.membershipId);
@@ -79,10 +80,10 @@ export function TimeRecordControls({record,targetMembershipId,onSaved,directStop
     {context && canEdit && details ? record.status==='stopped'
       ? <ActionButton title="Ändern" tone="quiet" disabled={!context.online || context.busy} onPress={()=>setForm('correct')} />
       : canStop ? <ActionButton title="Beenden" tone="quiet" disabled={!context.online || context.busy} onPress={()=>setForm('stop')} /> : null : null}
-    {context && (own||canEdit) && record.status==='stopped'?<ActionButton title="Zeiteintrag löschen" tone="warning" disabled={context.busy} onPress={()=>setForm('void')}/>:null}
+    {context && (own||canEdit) && record.status==='stopped'?<ActionButton title="Zeiteintrag löschen" tone="warning" disabled={context.busy} onPress={event=>{setVoidY(event.nativeEvent?.pageY);setForm('void');}}/>:null}
     {record.status==='started' && own && !canStop?<Text>Läuft noch — erst beenden, dann ändern</Text>:null}
     {record.status==='started' && context && canStop && !context.online?<Text>Nur online möglich. Verbinde dich mit dem Internet, um die Zeit zu beenden.</Text>:null}
-    {form==='void' && context?<VoidTimeForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} record={record} onSaved={onSaved} onClose={()=>setForm(null)}/>:form && form!=='void' && context?<TimeEditForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} kind={form} record={record} targetMembershipId={targetMembershipId??context.membershipId} onSaved={onSaved} onClose={()=>setForm(null)} />:null}
+    {form==='void' && context?<VoidTimeForm triggerY={voidY} key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} record={record} onSaved={onSaved} onClose={()=>setForm(null)}/>:form && form!=='void' && context?<TimeEditForm key={`${context.membershipId}/${targetMembershipId??context.membershipId}/${context.role}/${record.timeRecordId}`} kind={form} record={record} targetMembershipId={targetMembershipId??context.membershipId} onSaved={onSaved} onClose={()=>setForm(null)} />:null}
   </View>;
 }
 function TimeEditForm({kind,day,record,targetMembershipId,onSaved,onClose,personName}:{personName?:string;kind:Exclude<TimeEditKind,'void'>;day?:string;record?:SafeOwnTimeRecord;targetMembershipId:string;onSaved:()=>Promise<void>;onClose:()=>void}) {

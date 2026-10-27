@@ -4263,3 +4263,11 @@ it('T135 exposes the bounded day reader only through the existing review capabil
   const grants=(await installerPool.query("SELECT r.rolname,has_function_privilege(r.oid,$1,'EXECUTE') allowed FROM pg_roles r WHERE r.rolname LIKE 'taptime_%' AND r.rolname NOT LIKE '%function_owner' AND NOT r.rolsuper",[signature])).rows;
   for(const grant of grants) expect(grant.allowed,grant.rolname).toBe(grant.rolname==='taptime_time_review_reader');
 });
+
+it('T138 exposes customer person days only to the existing customer reader',async()=>{
+  const signature='taptime_server.read_customer_person_days_v1(timestamptz,timestamptz,uuid,uuid)';
+  const row=(await installerPool.query('SELECT pg_get_userbyid(proowner) owner,prosecdef,proconfig FROM pg_proc WHERE oid=$1::regprocedure',[signature])).rows[0];
+  expect(row).toEqual({owner:'taptime_time_review_read_function_owner',prosecdef:true,proconfig:['search_path=pg_catalog']});
+  const grants=(await installerPool.query("SELECT r.rolname,has_function_privilege(r.oid,$1,'EXECUTE') allowed FROM pg_roles r WHERE r.rolname LIKE 'taptime_%' AND r.rolname NOT LIKE '%function_owner' AND NOT r.rolsuper",[signature])).rows;
+  for(const grant of grants)expect(grant.allowed,grant.rolname).toBe(grant.rolname==='taptime_mobile_own_time_reader');
+});

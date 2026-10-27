@@ -1,3 +1,4 @@
+import {DestructiveDialog} from '../design/DestructiveDialog';
 import {useSubviewBack} from '../navigation/SubviewBack';
 import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import {useContext,useEffect,useRef,useState} from 'react';
@@ -8,7 +9,7 @@ import {TimeEditingContext,timeEditMessages} from './TimeEditingControls';
 import {ActionButton,AppText as Text,Card} from '../design/primitives';
 import { useMobileTokens } from '../design/useMobileTheme';
 
-export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;onSaved:()=>Promise<void>;onClose:()=>void}) {
+export function VoidTimeForm({record,onSaved,onClose,triggerY}:{triggerY?:number;record:SafeOwnTimeRecord;onSaved:()=>Promise<void>;onClose:()=>void}) {
   const form = useRequiredForm();
   const context=useContext(TimeEditingContext)!;
   const [code,setCode]=useState<VoidReasonCode|null>(null),[text,setText]=useState(''),[error,setError]=useState(''),[saving,setSaving]=useState(false);
@@ -28,7 +29,7 @@ export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;
     }catch{if(mounted.current)setError(timeEditMessages.unavailable);}
     finally{if(mounted.current)setSaving(false);}
   };
-  return <Card><Text accessibilityRole="header">Zeiteintrag löschen?</Text>
+  return <DestructiveDialog title="Zeiteintrag löschen?" triggerY={triggerY} confirmLabel={saving?'Wird gelöscht …':'Löschen bestätigen'} busy={saving} onConfirm={()=>void save()} onCancel={onClose}>
     <Text>Der Eintrag zählt danach nicht mehr. Er bleibt in der Historie sichtbar. Du kannst das Löschen nicht rückgängig machen.</Text>
     <View><Text>Grund (freiwillig)</Text>
     {Object.entries(VOID_REASONS).map(([value,label])=><ActionButton key={value} title={`${code===value?'✓ ':''}${label}`} tone="quiet" disabled={saving}
@@ -36,9 +37,7 @@ export function VoidTimeForm({record,onSaved,onClose}:{record:SafeOwnTimeRecord;
     {code==='other'?<><Text>Kurze Begründung (1 bis 500 Zeichen)</Text><RequiredTextField form={form} error={!hasVisibleText(text) || Array.from(text).length>500 ? "Bitte gib eine Begründung mit 1 bis 500 Zeichen ein." : null} accessibilityLabel="Kurze Begründung" value={text} onChangeText={setText} editable={!saving} multiline/></>:null}
     {error?<Text accessibilityRole="alert">{error}</Text>:null}
     {!context.online?<Text>Löschen geht nur online. Deine Eingaben bleiben erhalten.</Text>:null}
-    <ActionButton title={saving?'Wird gelöscht …':'Löschen bestätigen'} tone="warning" disabled={saving} onPress={()=>void save()}/>
-    <ActionButton title="Abbrechen" tone="quiet" disabled={saving} onPress={onClose}/>
-  </Card>;
+  </DestructiveDialog>;
 }
 
 export function VoidedTimeRows({day,value,targetMembershipId}:{day:string;value:MobileOwnTimeQueryResponse;targetMembershipId?:string}) {

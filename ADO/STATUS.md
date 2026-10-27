@@ -11,7 +11,8 @@ optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, no
 `1edb047`, Migration 063). Davor Deploy 7 (`1918d5a`, 17.10.). T-134 (`5f65fc3`): Rechtstexte auf dem gebauten Stand;
 offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. T-104e auf main
 (`c84dfc9`); jetzt App-Builds aus `c84dfc9`, danach Deploy 9 (Ziel `c84dfc9`). T-135 auf main
-(`f384279`), wirkt mit Deploy 10 (Migration 065). Jetzt **T-138**, danach T-137.
+(`f384279`), wirkt mit Deploy 10 (Migration 065). T-138 auf main, wirkt mit Deploy 10 (Migration 066) und dem nächsten
+App-Build. Jetzt **T-137**.
 **T-136 gemessen (27.10.):** 20.000 echte WAL-Archive (Borg 1.2.8): monatliche Aufbewahrung einzeln 992 s, gesammelt
 28 s. P1: Die Belegprüfung liest `SET\nt` statt `t`, die Aufbewahrung wird immer zurückgestellt, Wochenproben werden
 rot. T-136b auf main, wirkt mit Deploy 10; vorher den Controller-Konsolenschritt
@@ -178,7 +179,7 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
 - **Lokale CI (T-135, P2):** `T104cNative` erreichte beim parallelen Prüf-/Messaufbau das 60-s-Swift-Compilerlimit; unverändert separat in 45 s grün. Ursache Last wird vermutet; Erstfehler bleibt in `.t135-review/ci/ci-quality-10.log`.
 - **Test, TL-R1 T-104e (P2):** admin-web `T108Experience` („loads the named person from a later page …“) wackelt unter Last; lokaler R2-Quality-Lauf grün.
 
-- **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliches Prune löscht künftig tausende WAL-Archive einzeln (B13; die letzten beiden vom TL am 27.10. höher eingestuft → T-136).
+- **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliche Einzellöschung mit T-136b durch Sammellöschung ersetzt (wirkt mit Deploy 10).
 
 - **Pilotgröße (T-099b, P2):** Prüffall-Tageszeiten mit T-135 gebündelt, lokal Browser-p95 322 ms statt 1.442 ms (wirkt mit Deploy 10);
   Spitzen-Richtwerte überschritten bei Administrator-Kundenmonat/Kontingenten (bis 702 ms), Standortleitungs-Einrichtung,

@@ -93,5 +93,5 @@ it('customer rows open from their hours cell and detail uses metrics and a perso
  view.rerender(<CustomersView administration={cap} route={{...defaultRoute('kunden'),customerId:'one'}} navigate={navigate}/>);
  expect(await screen.findByRole('table',{name:'Stunden je Person'})).toBeVisible();
  expect(view.container.querySelectorAll('.metric-card')).toHaveLength(2);
- expect(within(screen.getByRole('banner')).getByRole('button',{name:'Kunde umbenennen'})).toBeVisible();
+ expect(screen.getByRole('button',{name:'Kunde umbenennen'})).toBeVisible();
 });

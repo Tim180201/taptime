@@ -1,3 +1,4 @@
+import {CustomerPersonDays} from './CustomerPersonDays';
 import { useCustomerSearch } from '../search/useCustomerSearch';
 import { SearchField, SearchStatus } from '../search/SearchControls';
 import {SubviewBack} from '../navigation/SubviewBack';
@@ -20,6 +21,7 @@ export function CustomersScreen({work, authorityContext, openCustomer, administr
 
   const current=businessDay(Date.now()).slice(0,7),months=Array.from({length:24},(_,i)=>shiftMonth(current,-i));
   const [month,setMonth]=useState(openCustomer?.month??current),[choose,setChoose]=useState(false),[selected,setSelected]=useState<string|null>(openCustomer?.customerId??null);
+  const [personId,setPersonId]=useState<string|null>(null);
   const [refresh,setRefresh]=useState(0);
   const [editing,setEditing]=useState({creation:false,management:false,quota:false});
   const [dirty,setDirty]=useState(false);
@@ -29,38 +31,42 @@ export function CustomersScreen({work, authorityContext, openCustomer, administr
   const quotaEditing=useCallback((open:boolean)=>setEditing(value=>({...value,quota:open})),[]);
   useEffect(()=>{if(dirty&&!formOpen){setDirty(false);setRefresh(n=>n+1);}},[dirty,formOpen]);
   useEffect(()=>{
-    if(openCustomer){setMonth(openCustomer.month);setSelected(openCustomer.customerId);setChoose(false);}
+    if(openCustomer){setPersonId(null);setMonth(openCustomer.month);setSelected(openCustomer.customerId);setChoose(false);}
   },[openCustomer]);
-  const {list,detail,value,customer,active}=useCustomerSearch(work,month,selected,authorityContext,refresh);
+  const {list,detail,value,customer,active}=useCustomerSearch(work,month,selected,authorityContext,refresh,personId===null);
   const loading=active.state.status==='loading';
-  return <Screen title="Kunden"><ScrollView refreshControl={<RefreshControl refreshing={loading} enabled={!formOpen} onRefresh={()=>{if(!formOpen&&!loading)setRefresh(n=>n+1);}}/>} contentContainerStyle={styles.content}>
-    {selected!==null?<SubviewBack label="Kunden" disabled={formOpen} onBack={()=>setSelected(null)}/>:null}
-    {selected===null && administration && ['administrator','standortleitung'].includes((authorityContext as {role?:string}).role ?? '') ? <CustomerCreation key={JSON.stringify(authorityContext)} administration={administration} onEditingChange={creationEditing} onCreated={()=>setDirty(true)}/> : null}
-    <View style={styles.month}>
+  const monthControl=<><View style={styles.month}>
       <TouchTarget accessibilityRole="button" accessibilityLabel="Voriger Monat" accessibilityState={{disabled:month===months.at(-1)}} disabled={formOpen||month===months.at(-1)} style={styles.arrow} onPress={()=>setMonth(shiftMonth(month,-1))}><Text>←</Text></TouchTarget>
       <TouchTarget accessibilityRole="button" accessibilityLabel={`Monat auswählen: ${label(month)}`} accessibilityState={{expanded:choose}} disabled={formOpen} style={styles.monthTitle} onPress={()=>setChoose(!choose)}><Text style={styles.bold}>{label(month)} ▾</Text></TouchTarget>
       <TouchTarget accessibilityRole="button" accessibilityLabel="Nächster Monat" accessibilityState={{disabled:month===current}} disabled={formOpen||month===current} style={styles.arrow} onPress={()=>setMonth(shiftMonth(month,1))}><Text>→</Text></TouchTarget>
     </View>
-    {choose ? <Card>{months.map(m=><ActionButton key={m} tone="quiet" title={label(m)} disabled={formOpen} onPress={()=>{setMonth(m);setChoose(false);}}/>)}</Card> : null}
+    {choose ? <Card>{months.map(m=><ActionButton key={m} tone="quiet" title={label(m)} disabled={formOpen} onPress={()=>{setMonth(m);setChoose(false);}}/>)}</Card> : null}</>;
+  const customerDetails=customer?<>        {'quotaStage' in customer?<CustomerQuota key={`${month}/${customer.customerId}`} customer={customer} work={work} editable={month===current && (authorityContext as {role?:string}).role!=='employee' && (customer.active || (authorityContext as {role?:string}).role==='administrator')} onEditingChange={quotaEditing} onSaved={()=>setDirty(true)}/>:null}
+        <Text style={styles.bold}>{'people' in customer?'Stunden je Person':'Deine Stunden je Tag'}</Text>
+        {('people' in customer?customer.people.map(p=>({key:p.membershipId,label:p.displayName,...p})):customer.days.map(d=>({key:d.date,label:d.date.split('-').reverse().join('.'),...d}))).map(p=>'people' in customer?<TouchTarget key={p.key} accessibilityRole="button" accessibilityLabel={`Tage von ${p.label}, ${formatHours(p.workDurationSeconds*1000)} Stunden${p.running?', läuft':''}`} disabled={formOpen} onPress={()=>setPersonId(p.key)} style={styles.row}><Text style={styles.name}>{p.label}{p.running?' · läuft':''}</Text><Text style={styles.bold}>{formatHours(p.workDurationSeconds*1000)} h →</Text></TouchTarget>:<View key={p.key} style={styles.row}><Text style={styles.name}>{p.label}{p.running?' · läuft':''}</Text><Text style={styles.bold}>{formatHours(p.workDurationSeconds*1000)} h</Text></View>)}
+        {detail.state.nextCursor!==null?<ActionButton title="Weitere Personen laden" disabled={formOpen||detail.state.busy} onPress={()=>void detail.pager.loadMore()}/>:null}
+        {customer.workDurationSeconds===0?<Text>In diesem Monat noch keine Stunden.</Text>:null}
+        {'days' in customer?<Text style={styles.muted}>Zuordnung nach dem Tag, an dem der Eintrag beginnt.</Text>:null}
+</>:null;
+  if(personId&&selected)return <CustomerPersonDays work={work} month={month} monthLabel={label(month)} monthControl={monthControl} customerId={selected} personId={personId} authority={authorityContext} refresh={refresh} onRefresh={()=>setRefresh(n=>n+1)} onBack={()=>setPersonId(null)}/>;
+  return <Screen title="Kunden"><ScrollView refreshControl={<RefreshControl refreshing={loading} enabled={!formOpen} onRefresh={()=>{if(!formOpen&&!loading)setRefresh(n=>n+1);}}/>} contentContainerStyle={styles.content}>
+    {selected!==null?<SubviewBack label="Kunden" disabled={formOpen} onBack={()=>setSelected(null)}/>:null}
+    {selected===null && administration && ['administrator','standortleitung'].includes((authorityContext as {role?:string}).role ?? '') ? <CustomerCreation key={JSON.stringify(authorityContext)} administration={administration} onEditingChange={creationEditing} onCreated={()=>setDirty(true)}/> : null}
+    {monthControl}
     {selected===null?<SearchField value={list.input} onChange={list.setSearch} disabled={formOpen}/>:null}
     <SearchStatus state={active.state} onRetry={()=>void active.pager.retry()} onClear={()=>list.setSearch('')}/>
     {value ? <>
       <Text style={styles.muted}>{value.scope==='self'?'Deine eigenen Stunden je Kunde.':'Geleistete Stunden je Kunde und Person.'} Stand {new Intl.DateTimeFormat('de-DE',{timeZone:BUSINESS_TIME_ZONE,hour:'2-digit',minute:'2-digit'}).format(new Date(value.asOf))}</Text>
+      {selected!==null?<ActionButton title="Kundenstunden aktualisieren" tone="quiet" disabled={formOpen} onPress={()=>{if(!formOpen)setRefresh(n=>n+1);}}/>:null}
       {customer ? <Card><Text accessibilityRole="header" style={styles.title}>{customer.displayName}</Text>
         {!customer.active?<Text>inaktiv</Text>:null}<Text style={styles.total}>{formatHours(customer.workDurationSeconds*1000)} h</Text>{customer.running?<Text>läuft</Text>:null}
-        {customer.active && administration && ['administrator','standortleitung'].includes((authorityContext as {role?:string}).role??'')?<CustomerManagement key={`${JSON.stringify(authorityContext)}/${customer.customerId}`} customer={customer} administration={administration} onEditingChange={managementEditing} onSaved={()=>setDirty(true)}/>:null}
-        {'quotaStage' in customer?<CustomerQuota key={`${month}/${customer.customerId}`} customer={customer} work={work} editable={month===current && (authorityContext as {role?:string}).role!=='employee' && (customer.active || (authorityContext as {role?:string}).role==='administrator')} onEditingChange={quotaEditing} onSaved={()=>setDirty(true)}/>:null}
-        <Text style={styles.bold}>{'people' in customer?'Stunden je Person':'Deine Stunden je Tag'}</Text>
-        {('people' in customer?customer.people.map(p=>({key:p.membershipId,label:p.displayName,...p})):customer.days.map(d=>({key:d.date,label:d.date.split('-').reverse().join('.'),...d}))).map(p=><View key={p.key} style={styles.row}><Text style={styles.name}>{p.label}{p.running?' · läuft':''}</Text><Text style={styles.bold}>{formatHours(p.workDurationSeconds*1000)} h</Text></View>)}
-        {detail.state.nextCursor!==null?<ActionButton title="Weitere Personen laden" disabled={formOpen||detail.state.busy} onPress={()=>void detail.pager.loadMore()}/>:null}
-        {customer.workDurationSeconds===0?<Text>In diesem Monat noch keine Stunden.</Text>:null}
-        {'days' in customer?<Text style={styles.muted}>Zuordnung nach dem Tag, an dem der Eintrag beginnt.</Text>:null}
+        {customer.active && administration && ['administrator','standortleitung'].includes((authorityContext as {role?:string}).role??'')?<CustomerManagement key={`${JSON.stringify(authorityContext)}/${customer.customerId}`} customer={customer} administration={administration} onEditingChange={managementEditing} onSaved={()=>setDirty(true)}>{customerDetails}</CustomerManagement>:customerDetails}
       </Card> : list.state.items.length===0 && !list.state.search ? <Card><Text accessibilityRole="header" style={styles.title}>Keine Kunden in diesem Monat</Text><Text>Für deinen Bereich sind noch keine Kunden mit einer aktiven Zuordnung oder Stunden vorhanden.</Text></Card>
         : <View accessibilityRole="list" style={{gap:16}}>{list.state.items.map(c=><View key={c.customerId} role="listitem"><TouchTarget accessibilityRole="button" accessibilityLabel={`${c.displayName}, ${formatHours(c.workDurationSeconds*1000)} Stunden${c.active?'':', inaktiv'}${c.running?', läuft':''}`} disabled={formOpen} onPress={()=>setSelected(c.customerId)} style={styles.customer}>
           <View style={styles.name}><Text style={styles.bold}>{c.displayName}</Text>{!c.active?<Text style={styles.muted}>inaktiv</Text>:null}{c.running?<Text>läuft</Text>:null}</View>{'quotaStage' in c && c.quotaSeconds!=null?<QuotaProgress customer={c}/>:<Text style={styles.bold}>{formatHours(c.workDurationSeconds*1000)} h</Text>}<Text>→</Text>
         </TouchTarget></View>)}</View>}
       {selected===null&&list.state.nextCursor!==null?<ActionButton title="Weitere laden" disabled={formOpen||list.state.busy} onPress={()=>void list.pager.loadMore()}/>:null}
-      <ActionButton title="Kundenstunden aktualisieren" tone="quiet" disabled={formOpen} onPress={()=>{if(!formOpen)setRefresh(n=>n+1);}}/>
+      {selected===null?<ActionButton title="Kundenstunden aktualisieren" tone="quiet" disabled={formOpen} onPress={()=>{if(!formOpen)setRefresh(n=>n+1);}}/>:null}
     </>:null}
   </ScrollView></Screen>;
 }

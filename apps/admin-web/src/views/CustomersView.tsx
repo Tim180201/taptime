@@ -1,3 +1,4 @@
+import {CustomerPersonDays} from './CustomerPersonDays';
 import { Fragment } from 'react';
 import { useArchiveStatus } from '../archiveStatus';
 import {MonthSwitch} from '../MonthSwitch';
@@ -25,6 +26,7 @@ export default function CustomersView({ administration, route, navigate, authori
   const current = businessDay(Date.now()).slice(0,7);
   const month = selectedMonth(route.month,'kunden');
   const selected=route.customerId??null;
+  const personId=route.customerPersonId??null;
   const lastSelected=useRef<string|null>(null);
   const cards=useRef(new Map<string,HTMLButtonElement>());
   const [refresh,setRefresh] = useState(0);
@@ -55,7 +57,7 @@ export default function CustomersView({ administration, route, navigate, authori
     setCreating(false);setName('');list.setSearch('');setRefresh(n=>n+1);
   };
 
-  const {list,detail,value,customer,active}=useCustomerSearch(administration,month,selected,authorityContext,refresh);
+  const {list,detail,value,customer,active}=useCustomerSearch(administration,month,selected,authorityContext,refresh,personId===null);
   const archive=useArchiveStatus(administration,customer && 'people' in customer ? customer.people.map(person=>person.membershipId) : [],[],`${month}/${selected}`);
   const result=active.state.status;
   const shownCustomers=created&&!list.state.search?[list.state.items.find(c=>c.customerId===created.customerId)??created,...list.state.items.filter(c=>c.customerId!==created.customerId)]:list.state.items;
@@ -67,8 +69,24 @@ export default function CustomersView({ administration, route, navigate, authori
   const changeMonth = (next: string) => {navigate({...route,month:next});};
   const monthControl=<MonthSwitch value={month} {...monthRange()} onChange={changeMonth}/>;
   const onSaved=()=>{setCreated(null);setRefresh(n=>n+1);};
+  const customerDetails=customer?<>          {!customer.active ? <Pill>gelöscht</Pill> : null}
+          <div className="customer-metrics">
+            <Metric label="Stunden im Monat" value={`${formatHours(customer.workDurationSeconds*1000)} h`} action={customer.running?<Pill kind="running">läuft</Pill>:undefined}/>
+            {'quotaStage' in customer?<CustomerQuota key={`${month}/${customer.customerId}`} customer={customer} administration={administration} editable={month===current && administration.getState().status==='ready' && (administration.getState() as {role:string}).role!=='employee' && customer.active} onSaved={onSaved}/>:null}
+          </div>
+          {customer.active&&value?.scope==='people'?<TargetAssignments administration={administration} selector={{targetType:'customer',targetId:customer.customerId}} targetName={customer.displayName}/>:null}
+          {archive.notice}
+          <h3>{'people' in customer ? 'Stunden je Person' : 'Ihre Stunden je Tag'}</h3>
+          <DataTable label={'people' in customer?'Stunden je Person':'Ihre Stunden je Tag'} headers={['people' in customer?'Person':'Datum',{label:'Stunden',numeric:true},'Status']}>
+            {('people' in customer?customer.people.map(p=>({key:p.membershipId,label:p.displayName,...p})):customer.days.map(d=>({key:d.date,label:d.date.split('-').reverse().join('.'),...d}))).map(p=><tr key={p.key}><td>{'people' in customer?<><button className="text-button" aria-label={`Tage von ${p.label}, ${formatHours(p.workDurationSeconds*1000)} Stunden${p.running?', läuft':''}`} onClick={()=>navigate({...route,customerPersonId:p.key})}><Person name={p.label}/></button>{archive.person(p.key)?<Pill>ehemalig</Pill>:null}</>:p.label}</td><td className="numeric">{formatHours(p.workDurationSeconds*1000)} h</td><td>{p.running?<Pill kind="running">läuft</Pill>:<span className="muted">–</span>}</td></tr>)}
+          </DataTable>
+          {detail.state.nextCursor!==null?<button disabled={detail.state.busy} onClick={()=>void detail.pager.loadMore()}>Weitere Personen laden</button>:null}
+          {customer.workDurationSeconds===0 ? <p>In diesem Monat noch keine Stunden.</p> : null}
+          {'days' in customer ? <p className="supporting">Zuordnung nach dem Tag, an dem der Eintrag beginnt.</p> : null}
+</>:null;
+  if(personId&&selected)return <CustomerPersonDays administration={administration} month={month} monthControl={monthControl} customerId={selected} personId={personId} authority={authorityContext} refresh={refresh} onRefresh={onSaved} onBack={()=>navigate({...route,customerPersonId:undefined})}/>;
   return <div className="customers-view">
-    <PageHeader organization={ready?.status==='ready'?ready.projection?.organization.name:undefined} title={customer?.displayName??'Kunden'} subtitle={selected?<div className="customer-navigation">{monthControl}<button className="secondary" onClick={()=>navigate({...route,customerId:undefined})}>Zur Kundenliste</button></div>:monthLabel(month)} onRefresh={()=>{onSaved();void administration.refresh();}} actions={selected?<>{customer?.active&&value?.scope==='people'?<CustomerManagement key={`${authorityContext}/${customer.customerId}`} customer={customer} administration={administration} onSaved={onSaved}/>:null}</>:<>
+    <PageHeader organization={ready?.status==='ready'?ready.projection?.organization.name:undefined} title={customer?.displayName??'Kunden'} subtitle={selected?<div className="customer-navigation">{monthControl}<button className="secondary" onClick={()=>navigate({...route,customerId:undefined})}>Zur Kundenliste</button></div>:monthLabel(month)} onRefresh={()=>{onSaved();void administration.refresh();}} actions={selected?null:<>
       {monthControl}{canCreate?<button className={creating?'secondary':'primary-action'} onClick={()=>setCreating(true)}>+ Kunde anlegen</button>:null}
     </>}/>
     <div className="customer-search-tools">{selected===null?<SearchField value={list.input} onChange={list.setSearch}/>:null}
@@ -76,20 +94,7 @@ export default function CustomersView({ administration, route, navigate, authori
     {value ? <>
         <p className="supporting">{value.scope==='self' ? 'Ihre eigenen Stunden je Kunde.' : 'Geleistete Stunden je Kunde und Person.'} Stand {new Intl.DateTimeFormat('de-DE',{timeZone:'Europe/Berlin',hour:'2-digit',minute:'2-digit'}).format(new Date(value.asOf))}</p>
         {customer ? <section className="panel" aria-label="Kundendetails">
-          {!customer.active ? <Pill>gelöscht</Pill> : null}
-          <div className="customer-metrics">
-            <Metric label="Stunden im Monat" value={`${formatHours(customer.workDurationSeconds*1000)} h`} action={customer.running?<Pill kind="running">läuft</Pill>:undefined}/>
-            {'quotaStage' in customer?<CustomerQuota key={`${month}/${customer.customerId}`} customer={customer} administration={administration} editable={month===current && administration.getState().status==='ready' && (administration.getState() as {role:string}).role!=='employee' && customer.active} onSaved={onSaved}/>:null}
-          </div>
-          {customer.active&&value.scope==='people'?<TargetAssignments administration={administration} selector={{targetType:'customer',targetId:customer.customerId}} targetName={customer.displayName}/>:null}
-          {archive.notice}
-          <h3>{'people' in customer ? 'Stunden je Person' : 'Ihre Stunden je Tag'}</h3>
-          <DataTable label={'people' in customer?'Stunden je Person':'Ihre Stunden je Tag'} headers={['people' in customer?'Person':'Datum',{label:'Stunden',numeric:true},'Status']}>
-            {('people' in customer?customer.people.map(p=>({key:p.membershipId,label:p.displayName,...p})):customer.days.map(d=>({key:d.date,label:d.date.split('-').reverse().join('.'),...d}))).map(p=><tr key={p.key}><td>{'people' in customer?<><Person name={p.label}/>{archive.person(p.key)?<Pill>ehemalig</Pill>:null}</>:p.label}</td><td className="numeric">{formatHours(p.workDurationSeconds*1000)} h</td><td>{p.running?<Pill kind="running">läuft</Pill>:<span className="muted">–</span>}</td></tr>)}
-          </DataTable>
-          {detail.state.nextCursor!==null?<button disabled={detail.state.busy} onClick={()=>void detail.pager.loadMore()}>Weitere Personen laden</button>:null}
-          {customer.workDurationSeconds===0 ? <p>In diesem Monat noch keine Stunden.</p> : null}
-          {'days' in customer ? <p className="supporting">Zuordnung nach dem Tag, an dem der Eintrag beginnt.</p> : null}
+          {customer.active&&value?.scope==='people'?<CustomerManagement key={`${authorityContext}/${customer.customerId}`} customer={customer} administration={administration} onSaved={onSaved}>{customerDetails}</CustomerManagement>:customerDetails}
         </section> : selected ? <Panel title="Kunde nicht gefunden"><p>Für diesen Monat ist der Kunde nicht verfügbar.</p><button onClick={()=>navigate({...route,customerId:undefined})}>Zur Kundenliste</button></Panel> : shownCustomers.length===0 && !list.state.search ? <EmptyState action={canCreate?<button className="text-button" onClick={()=>setCreating(true)}>Kunde anlegen</button>:undefined}>Für Ihren Bereich sind noch keine Kunden mit einer aktiven Zuordnung oder Stunden vorhanden.</EmptyState>
           : <>{[{title:null,customers:shownCustomers.filter(c=>c.active)},{title:'Gelöschte Kunden · Zeiten in diesem Monat',customers:shownCustomers.filter(c=>!c.active)}].filter(group=>group.customers.length).map(group=><Fragment key={group.title??'active'}>{group.title?<h2>{group.title}</h2>:null}<DataTable label={group.title??'Kunden'} headers={['Kunde','Kontingent',{label:'Stunden',numeric:true},'Zustand']}>
             {group.customers.map(c=><tr key={c.customerId} className="customer-row" onClick={event=>{if(!(event.target as HTMLElement).closest('button,a,input,select'))navigate({...route,customerId:c.customerId});}}>

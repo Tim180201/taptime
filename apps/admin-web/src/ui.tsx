@@ -95,6 +95,7 @@ export function Confirmation({
   busy,
   confirmDisabled = false,
   warning = false,
+  trigger,
   onConfirm,
   onCancel,
 }: {
@@ -106,6 +107,7 @@ export function Confirmation({
   readonly busy: boolean;
   readonly confirmDisabled?: boolean;
   readonly warning?: boolean;
+  readonly trigger?: HTMLElement | null;
   readonly onConfirm: () => void;
   readonly onCancel: () => void;
 }) {
@@ -113,14 +115,15 @@ export function Confirmation({
   const content = <>
     <strong>{title}</strong>
     {children}
-    <div className="confirmation-actions">
-      <button className={warning?'warning-action':undefined} autoFocus disabled={busy || confirmDisabled} aria-busy={busy} onClick={onConfirm}>
+    <div className="confirmation-actions" data-confirm-actions>
+      {warning?<button type="button" className="primary-action" data-cancel disabled={busy} onClick={onCancel}>Abbrechen</button>:null}
+      <button type="button" className={warning?'warning-action':undefined} autoFocus={!warning} disabled={busy || confirmDisabled} aria-busy={busy} onClick={onConfirm}>
         {busy ? busyLabel : confirmLabel}
       </button>
-      <button className="secondary" disabled={busy} onClick={onCancel}>Abbrechen</button>
+      {!warning?<button className="secondary" disabled={busy} onClick={onCancel}>Abbrechen</button>:null}
     </div>
   </>;
-  return compact ? <MobileSheet label={label} role="alertdialog" className="confirmation"
+  return compact || warning ? <MobileSheet safeConfirmation={warning} trigger={trigger} label={label} role="alertdialog" className="confirmation"
     busy={busy} onCancel={onCancel}>{content}</MobileSheet>
     : <aside className="confirmation" role="alertdialog" aria-label={label} aria-modal="false">{content}</aside>;
 }

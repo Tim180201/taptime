@@ -108,6 +108,16 @@ const readyState: Extract<AdminWebState, { readonly status: 'ready' }> = {
 };
 class FakeCapability implements AdminWebCapability {
   querySearch:NonNullable<AdminWebCapability['querySearch']>=async(kind,request)=>{
+    if(kind==='customer_person_days') {
+      const month=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit'}).format(new Date((request as any).fromInclusive));
+      const days=month==='2026-09'?[
+        {date:'2026-09-22',workDurationSeconds:28800,running:false},
+        {date:'2026-09-23',workDurationSeconds:86400,running:true},
+      ]:[];
+      return {status:'ready',value:{version:'customer-hours.person-days.v1',asOf:'2026-09-23T12:00:00.000Z',nextCursor:null,
+        customer:{customerId:customer.id,displayName:'Werkstatt am Park'},
+        person:{membershipId:(request as any).targetMembershipId,displayName:'Alex Beispiel',workDurationSeconds:days.reduce((sum,d)=>sum+d.workDurationSeconds,0),running:days.some(d=>d.running)},days}} as any;
+    }
     if(variant.startsWith('t118-')&&(kind==='work_targets'||kind==='backfill_targets')) {
       const marker=kind==='work_targets'?'assignedToMe':'assignedToPerson';
       const targets=variant==='t118-person'?[
@@ -340,6 +350,10 @@ if (variant === 't122c-old-review') ready = {...ready,reviewItems:ready.reviewIt
 if (variant === 't122c-render-error') ready = {...ready,timeRecords:null as never};
 const stateful = new FakeCapability(authStates[variant] ?? ready);
 const capability: AdminWebCapability = Object.assign(stateful, { loadBackfillTargets: async () => ({ status: 'ready' as const, targets: [{targetType:'customer' as const,targetId:customer.id,displayName:'Werkstatt am Beispielweg'}] }), saveTimeEdit: async () => ({ status: 'unavailable' as const }) });
+if(variant==='t138')Object.assign(capability,{manageCustomer:async()=>{
+  const probe=window as unknown as {t138Mutations:number};probe.t138Mutations=(probe.t138Mutations??0)+1;
+  return {status:'unavailable' as const};
+}});
 if(variant.endsWith('-void')) {
   const history:import('@taptime/mobile-work-contract').VoidedTimeRecord[]=[];
   Object.assign(capability,{loadVoidedTime:async()=>({status:'ready',records:[...history]}),

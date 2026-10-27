@@ -78,7 +78,7 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
     this.ownTimeCursorHmacKey = parseOwnTimeCursorHmacKey(ownTimeCursorHmacKey);
   }
 
-  async querySearch<K extends Extract<SearchKind, 'customer_hours' | 'customer_detail' | 'work_targets'>>(
+  async querySearch<K extends Extract<SearchKind, 'customer_hours' | 'customer_detail' | 'customer_person_days' | 'work_targets'>>(
     kind: K, command: MobileReadCommand<SearchRequests[K]>,
   ): Promise<SearchReadResult<K>> {
     const context = createSearchContext(kind, command.request);
@@ -96,6 +96,15 @@ export class MobileWorkReadCoordinator implements MobileWorkReader {
             return { status: 'succeeded', response: boundedSearchPage(rows, request.limit,
               (page, nextCursor) => ({ targets: page.map(row => ({ targetType: row.target_type, targetId: row.target_id, displayName: row.display_name, assignedToMe: row.assigned })), nextCursor }),
               row => context.cursor({ name: row.display_name, id: row.target_id, rank: searchTargetRank(row.target_type) })) };
+          }
+          if (kind === 'customer_person_days') {
+            const input = request as SearchRequests['customer_person_days'];
+            const value = (await client.query<{result: import('@taptime/mobile-work-contract').CustomerPersonDaysResponse | {status:'not_found'}}>(
+              'SELECT taptime_server.read_customer_person_days_v1($1,$2,$3,$4) AS result',
+              [input.fromInclusive,input.toExclusive,input.customerId,input.targetMembershipId])).rows[0]!.result;
+            if ('status' in value) return {status:'succeeded',response:value};
+            return {status:'succeeded',response:boundedSearchPage(value.days.filter(day=>after===null || day.date>after.name),request.limit,
+              (days,nextCursor)=>({...value,days,nextCursor}),day=>context.cursor({name:day.date,id:input.targetMembershipId}))};
           }
           const hoursRequest = request as SearchRequests['customer_hours'] | SearchRequests['customer_detail'];
           const value = (await client.query<{ result: CustomerHoursPageResponse | CustomerHoursDetailResponse | { status: 'not_found' } }>(

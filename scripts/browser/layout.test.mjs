@@ -7,6 +7,7 @@ import { adminScenarios, operatorScenarios } from './scenarios.mjs';
 import { verifyT122c } from './t122c.mjs';
 import { verifyT127b } from './t127b.mjs';
 import { verifyT126 } from './t126.mjs';
+import { verifyT138 } from './t138.mjs';
 import { createLayoutShard } from './sharding.mjs';
 import { build as buildJavaScript } from 'esbuild';
 import mark from '../../shared/brand/mark.json' with { type: 'json' };
@@ -34,6 +35,9 @@ layoutTest('admin-web', 'T126 membership rename, current names and payroll notic
 });
 layoutTest('admin-web', 'T122c fixed shell, month controls and rendering recovery', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
   await verifyT122c(browser, webs['admin-web'], artifacts ? join(artifacts, 't122c') : undefined);
+});
+layoutTest('admin-web', 'T138 safe destructive dialogs and customer person days', { skip: !!process.env.TAPTIME_LAYOUT_SOURCE }, async () => {
+  await verifyT138(browser, webs['admin-web'], artifacts ? join(artifacts, 't138') : undefined);
 });
 for (const app of Object.keys(apps)) for (const width of [390, 1440]) for (const variant of ['login', 'overview']) {
   layoutTest(app, `T120 ${app}/${variant}/${width}: source mark, favicons and doubled text`, async () => {

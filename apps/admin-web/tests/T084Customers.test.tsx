@@ -54,7 +54,7 @@ it('T100 allows rename and requires explicit deletion confirmation, preserving t
  render(<CustomersView administration={{getState:()=>({status:'ready',role:'administrator'}),readCustomerHours,querySearch:customerSearch(readCustomerHours),manageCustomer} as unknown as AdminWebCapability} route={defaultRoute('kunden')} navigate={()=>{}}/>);
  fireEvent.click(await screen.findByRole('button',{name:/Werkstatt/}));
  fireEvent.click(await screen.findByText('Kunde löschen'));
- expect(screen.getByRole('alertdialog',{name:'Kunde löschen'})).toHaveTextContent('Kunde Werkstatt löschen?Danach steht Werkstatt im Archiv. Die Zeiten bleiben im Lohnexport und bei den Kundenzeiten. Zugeordnete Karten werden frei. Das lässt sich nicht rückgängig machen.');
+ expect(screen.getByRole('alertdialog',{name:'Kunde löschen'})).toHaveTextContent('Kunde Werkstatt löschen?Stunden bleiben erhalten. Danach steht Werkstatt im Archiv. Die Zeiten bleiben im Lohnexport und bei den Kundenzeiten. Zugeordnete Karten werden frei. Das lässt sich nicht rückgängig machen.');
  expect(manageCustomer).not.toHaveBeenCalled();
  fireEvent.click(screen.getByText('Löschen bestätigen'));
  expect(await screen.findByText('Erst die laufende Zeit beenden')).toBeInTheDocument();

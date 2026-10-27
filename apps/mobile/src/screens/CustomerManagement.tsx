@@ -1,3 +1,6 @@
+import type {ReactNode} from 'react';
+import {DestructiveDialog} from '../design/DestructiveDialog';
+import {useMobileTokens} from '../design/useMobileTheme';
 import {useSubviewBack} from '../navigation/SubviewBack';
 import { useRequiredForm, RequiredTextField } from '../design/RequiredField';
 import {useEffect,useRef,useState} from 'react';
@@ -5,7 +8,9 @@ import {View} from 'react-native';
 import {customerManagementMessage,type CustomerManagementChange} from '@taptime/mobile-work-contract';
 import type {AdminSetupCapability} from '../administration/contracts';
 import {ActionButton,AppText as Text} from '../design/primitives';
-export function CustomerManagement({customer,administration,onSaved,onEditingChange}:{readonly customer:{customerId:string;displayName:string};readonly administration:AdminSetupCapability;readonly onSaved:()=>void;readonly onEditingChange?:(open:boolean)=>void}){
+export function CustomerManagement({customer,administration,onSaved,onEditingChange,children}:{readonly children?:ReactNode;readonly customer:{customerId:string;displayName:string};readonly administration:AdminSetupCapability;readonly onSaved:()=>void;readonly onEditingChange?:(open:boolean)=>void}){
+  const tokens=useMobileTokens();
+  const [triggerY,setTriggerY]=useState<number>();
   const form = useRequiredForm();
   const [mode,setMode]=useState<'rename'|'delete'|null>(null),[name,setName]=useState(customer.displayName),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   useEffect(()=>{onEditingChange?.(mode!==null);return()=>onEditingChange?.(false);},[mode,onEditingChange]);
@@ -19,11 +24,19 @@ export function CustomerManagement({customer,administration,onSaved,onEditingCha
     if(result.status==='succeeded'){setMode(null);onSaved();}
   };
   return <View style={{gap:8}}>
-    {mode===null?<><ActionButton title="Kunde umbenennen" tone="quiet" onPress={()=>{setName(customer.displayName);setMode('rename');form.reset();setMessage('');}}/><ActionButton title="Kunde löschen" tone="warning" onPress={()=>{setMode('delete');setMessage('');}}/></>:mode==='rename'?<>
+    {mode!=='rename'?<><ActionButton title="Kunde umbenennen" tone="quiet" onPress={()=>{setName(customer.displayName);setMode('rename');form.reset();setMessage('');}}/></>:mode==='rename'?<>
       <RequiredTextField form={form} error={!name.trim() ? "Bitte Kundenname eingeben." : null} accessibilityLabel="Neuer Kundenname" value={name} onChangeText={setName} editable={!busy}/>
       <ActionButton title="Namen speichern" disabled={busy} onPress={()=>void save({action:'rename',displayName:name})}/>
-    </>:<><Text>Kunde {customer.displayName} löschen? Stunden bleiben erhalten.</Text><ActionButton title="Löschen bestätigen" tone="warning" disabled={busy} onPress={()=>void save({action:'deactivate'})}/></>}
-    {mode!==null?<ActionButton title="Abbrechen" tone="quiet" disabled={busy} onPress={()=>{setMode(null);setMessage('');}}/>:null}
-    {message?<Text accessibilityLiveRegion="polite">{message}</Text>:null}
+    </>:null}
+    {mode==='rename'?<ActionButton title="Abbrechen" tone="quiet" disabled={busy} onPress={()=>{setMode(null);setMessage('');}}/>:null}
+    {children}
+    <View style={{marginTop:32,paddingTop:24,borderTopWidth:1,borderTopColor:tokens.color.border}}>
+      <ActionButton title="Kunde löschen" tone="warning" disabled={mode!==null} onPress={event=>{setTriggerY(event.nativeEvent?.pageY);setMode('delete');setMessage('');}}/>
+    </View>
+    {mode==='delete'?<DestructiveDialog title={`Kunde ${customer.displayName} löschen?`} triggerY={triggerY} confirmLabel="Löschen bestätigen" busy={busy} onConfirm={()=>void save({action:'deactivate'})} onCancel={()=>{setMode(null);setMessage('');}}>
+      <Text>Stunden bleiben erhalten. Zugeordnete Karten werden frei.</Text>
+      {message?<Text accessibilityRole="alert">{message}</Text>:null}
+    </DestructiveDialog>:null}
+    {message&&mode!=='delete'?<Text accessibilityLiveRegion="polite">{message}</Text>:null}
   </View>;
 }

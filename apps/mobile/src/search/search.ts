@@ -10,6 +10,7 @@ export interface ClientSearchCapability<K extends SearchKind=SearchKind> {
 
 // Client-only code, also used by the web client. Never import the server search entry point.
 export const searchPaths: Record<SearchKind, string> = {
+  customer_person_days:'/v1/customers/hours/person-days',
   customer_hours:'/v2/customers/hours/query', customer_detail:'/v2/customers/hours/detail',
   managed_people:'/v1/administration/managed-active-summary', memberships:'/v3/administration/employee-memberships-projection',
   setup_customers:'/v3/administration/setup-projection', setup_tags:'/v3/administration/setup-projection',
@@ -50,6 +51,24 @@ export function parseSearchResponse<K extends SearchKind>(kind:K,value:unknown,r
       &&rows(value.targets,value.nextCursor,t=>`${t.targetType}:${t.targetId}`)
       &&value.targets.every(t=>keys(t,['targetType','targetId','displayName',marker])&&typeof t[marker]==='boolean')
       &&validateWorkTargetResponse({targets:value.targets.map(({targetType,targetId,displayName})=>({targetType,targetId,displayName})),nextCursor:null});
+  }
+  else if(kind==='customer_person_days') {
+    valid=value.version==='customer-hours.person-days.v1'&&keys(value,['version','asOf','customer','person','days','nextCursor'])&&date(value.asOf)
+      &&object(value.customer)&&keys(value.customer,['customerId','displayName'])&&isCanonicalUuid(value.customer.customerId)&&name(value.customer.displayName)
+      &&object(value.person)&&keys(value.person,['membershipId','displayName','workDurationSeconds','running'])
+      &&isCanonicalUuid(value.person.membershipId)&&name(value.person.displayName)&&duration(value.person)
+      &&rows(value.days,value.nextCursor,d=>d.date)&&value.days.every(d=>keys(d,['date','workDurationSeconds','running'])&&duration(d)
+        &&typeof d.date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d.date)&&Number.isFinite(Date.parse(d.date+'T12:00:00Z'))&&new Date(d.date+'T12:00:00Z').toISOString().slice(0,10)===d.date);
+    if(valid&&request){
+      const expected=request as SearchRequests['customer_person_days'];
+      const page=value as unknown as SearchResponses['customer_person_days'];
+      const month=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Berlin',year:'numeric',month:'2-digit'}).format(new Date(expected.fromInclusive));
+      const total=page.days.reduce((sum,day)=>sum+day.workDurationSeconds,0);
+      valid=page.customer.customerId===expected.customerId&&page.person.membershipId===expected.targetMembershipId
+        &&page.days.every((day,index)=>day.date.startsWith(month+'-')&&(index===0||day.date>page.days[index-1]!.date)&&(!day.running||page.person.running))
+        &&total<=page.person.workDurationSeconds
+        &&(expected.cursor!==null||page.nextCursor!==null||total===page.person.workDurationSeconds);
+    }
   }
   else if(kind==='customer_hours'||kind==='customer_detail') {
     const people=value.scope==='people', detail=kind==='customer_detail';
@@ -122,6 +141,7 @@ function sameContext(previous:unknown,next:unknown):boolean {
   if(!object(previous)||!object(next))return true;
   if(previous.scope!==next.scope)return false;
   if(object(previous.customer)&&object(next.customer)&&previous.customer.customerId!==next.customer.customerId)return false;
+  if(object(previous.person)&&object(next.person)&&previous.person.membershipId!==next.person.membershipId)return false;
   if(object(previous.organization)&&object(next.organization)&&previous.organization.id!==next.organization.id)return false;
   return true;
 }

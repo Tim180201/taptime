@@ -357,6 +357,7 @@ export type BackendApiRoute =
   | 'manual_break_lifecycle'
   | 'customer_hours'
   | 'customer_hours_detail'
+  | 'customer_person_days'
   | 'customer_hours_page'
   | 'admin_customer_manage' | 'admin_tag_inspect' | 'admin_tag_inspect_v2' | 'admin_tag_remove' | 'admin_tag_reuse'
   | 'admin_customer_quota'

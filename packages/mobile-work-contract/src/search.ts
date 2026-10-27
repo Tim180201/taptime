@@ -7,7 +7,7 @@ import type { AssignedTargetResponse } from './targetAssignments.js';
 
 export const SEARCH_PAGE_MAXIMUM_BYTES = 14_336;
 export const MANAGED_PEOPLE_ACCEPT_V6 = 'application/vnd.taptime.managed-people.v6+json';
-export type SearchKind = 'customer_hours' | 'customer_detail' | 'managed_people' | 'memberships'
+export type SearchKind = 'customer_hours' | 'customer_detail' | 'customer_person_days' | 'managed_people' | 'memberships'
   | 'setup_customers' | 'setup_tags' | 'work_targets' | 'backfill_targets' | 'projects';
 export interface SearchPageRequest { readonly expectedMembershipId: string; readonly cursor: string | null; readonly limit: number }
 export interface SearchListRequest extends SearchPageRequest { readonly search: string | null }
@@ -15,6 +15,7 @@ interface Month { readonly fromInclusive: string; readonly toExclusive: string }
 export interface SearchRequests {
   customer_hours: SearchListRequest & Month;
   customer_detail: SearchPageRequest & Month & { readonly customerId: string };
+  customer_person_days: SearchPageRequest & Month & { readonly customerId: string; readonly targetMembershipId: string };
   managed_people: SearchListRequest & Month & { readonly locationId: string | null; readonly isRunning: boolean | null };
   memberships: SearchListRequest & { readonly locationId: string | null; readonly active?: boolean | null };
   setup_customers: SearchListRequest & { readonly kind: 'customers' };
@@ -34,6 +35,11 @@ export type CustomerHoursPageResponse = { readonly version: 'customer-hours.v3';
 export type CustomerHoursDetailResponse = { readonly version: 'customer-hours.detail.v1'; readonly asOf: string; readonly nextCursor: string | null } & (
   { readonly scope: 'self'; readonly customer: CustomerHoursSummary; readonly days: readonly CustomerDay[] }
   | { readonly scope: 'people'; readonly customer: CustomerHoursQuotaSummary; readonly people: readonly CustomerPerson[] });
+export interface CustomerPersonDaysResponse {
+  readonly version: 'customer-hours.person-days.v1'; readonly asOf: string; readonly nextCursor: string | null;
+  readonly customer: { readonly customerId: string; readonly displayName: string };
+  readonly person: CustomerPerson; readonly days: readonly CustomerDay[];
+}
 export interface SearchSetupResponse {
   readonly status: 'succeeded'; readonly organization: AdministrationSetupOrganization;
   readonly customers: readonly AdministrationSetupCustomer[];
@@ -77,6 +83,7 @@ export function parseMembershipSearchResponse(value: unknown): SearchMembershipR
 export interface SearchResponses {
   customer_hours: CustomerHoursPageResponse;
   customer_detail: CustomerHoursDetailResponse;
+  customer_person_days: CustomerPersonDaysResponse;
   managed_people: ManagedActiveSummaryV4;
   memberships: SearchMembershipResponse;
   setup_customers: SearchSetupResponse;
@@ -93,16 +100,27 @@ export interface SearchReader<K extends SearchKind> {
 const object = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const fields: Record<SearchKind, readonly string[]> = {
   customer_hours: ['fromInclusive', 'toExclusive'], customer_detail: ['customerId', 'fromInclusive', 'toExclusive'],
+  customer_person_days: ['customerId', 'targetMembershipId', 'fromInclusive', 'toExclusive'],
   managed_people: ['fromInclusive', 'toExclusive', 'locationId', 'isRunning'], memberships: ['locationId'],
   setup_customers: ['kind'], setup_tags: ['kind'], work_targets: [], backfill_targets: ['targetMembershipId'], projects: [],
 };
 export function isSearchCursor(value: unknown): value is string | null {
   return value === null || typeof value === 'string' && /^[\x21-\x7e]{1,2048}$/.test(value);
 }
+function isBerlinMonth(from: string, to: string): boolean {
+  const formatter = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+  const parts = (value: string) => Object.fromEntries(formatter.formatToParts(new Date(value)).map(part => [part.type, part.value]));
+  const start = parts(from), end = parts(to);
+  const midnight = (value: ReturnType<typeof parts>, iso: string) => value.day === '01' && value.hour === '00'
+    && value.minute === '00' && value.second === '00' && Date.parse(iso) % 1000 === 0;
+  return midnight(start, from) && midnight(end, to)
+    && Number(end.year) * 12 + Number(end.month) === Number(start.year) * 12 + Number(start.month) + 1;
+}
 /** New paths have closed request shapes. Normalization never relaxes old parsers. */
 export function parseSearchRequest<K extends SearchKind>(kind: K, value: unknown): SearchRequests[K] | null {
   if (!object(value) || !Object.hasOwn(fields, kind)) return null;
-  const expected = ['expectedMembershipId', 'cursor', 'limit', ...(kind === 'customer_detail' ? [] : ['search']), ...fields[kind],
+  const expected = ['expectedMembershipId', 'cursor', 'limit', ...((kind === 'customer_detail' || kind === 'customer_person_days') ? [] : ['search']), ...fields[kind],
     ...(kind === 'memberships' && Object.hasOwn(value, 'active') ? ['active'] : []),
     ...((kind === 'work_targets' || kind === 'backfill_targets') && Object.hasOwn(value, 'assignedOnly') ? ['assignedOnly'] : []),
     ...(kind === 'work_targets' && Object.hasOwn(value, 'targetType') ? ['targetType'] : [])];
@@ -110,16 +128,18 @@ export function parseSearchRequest<K extends SearchKind>(kind: K, value: unknown
     || !isCanonicalUuid(value.expectedMembershipId) || !isSearchCursor(value.cursor)
     || !Number.isSafeInteger(value.limit) || Number(value.limit) < 1 || Number(value.limit) > 50) return null;
   let search: string | null = null;
-  if (kind !== 'customer_detail' && value.search !== null) {
+  if (kind !== 'customer_detail' && kind !== 'customer_person_days' && value.search !== null) {
     if (typeof value.search !== 'string') return null;
     const normalized = normalizeTapTimeNameV1(value.search, 'tag');
     if (normalized.status !== 'valid') return null;
     search = normalized.canonicalName;
   }
-  if (kind === 'customer_hours' || kind === 'customer_detail') {
+  if (kind === 'customer_hours' || kind === 'customer_detail' || kind === 'customer_person_days') {
     if (!isCustomerHoursRequest({ expectedMembershipId: value.expectedMembershipId, fromInclusive: value.fromInclusive, toExclusive: value.toExclusive })) return null;
   }
-  if (kind === 'customer_detail' && !isCanonicalUuid(value.customerId)) return null;
+  if ((kind === 'customer_detail' || kind === 'customer_person_days') && !isCanonicalUuid(value.customerId)) return null;
+  if (kind === 'customer_person_days' && (!isCanonicalUuid(value.targetMembershipId)
+    || !isBerlinMonth(value.fromInclusive as string, value.toExclusive as string))) return null;
   if (kind === 'managed_people' && !isManagedActiveSummaryRequestV5({ expectedMembershipId: value.expectedMembershipId, cursor: null, limit: 1,
     locationId: value.locationId, isRunning: value.isRunning, fromInclusive: value.fromInclusive, toExclusive: value.toExclusive })) return null;
   if (kind === 'memberships' && value.locationId !== null && !isCanonicalUuid(value.locationId)) return null;
@@ -128,7 +148,7 @@ export function parseSearchRequest<K extends SearchKind>(kind: K, value: unknown
   if (kind === 'backfill_targets' && !isCanonicalUuid(value.targetMembershipId)) return null;
   if ((kind === 'work_targets' || kind === 'backfill_targets') && Object.hasOwn(value, 'assignedOnly') && typeof value.assignedOnly !== 'boolean') return null;
   if (kind === 'work_targets' && Object.hasOwn(value, 'targetType') && !isWorkTargetType(value.targetType)) return null;
-  return Object.freeze({ ...value, ...(kind === 'customer_detail' ? {} : { search }) }) as unknown as SearchRequests[K];
+  return Object.freeze({ ...value, ...((kind === 'customer_detail' || kind === 'customer_person_days') ? {} : { search }) }) as unknown as SearchRequests[K];
 }
 export function isManagedActiveSummaryV6(value: unknown): value is ManagedActiveSummaryV4 {
   if (!object(value) || !Array.isArray(value.people) || value.people.length > 50 || !isSearchCursor(value.nextCursor)) return false;

@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { act, createElement, useState, type ReactNode } from 'react';
+import { act, createElement, useEffect, useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 vi.mock('react-native',()=>{
-  const element=({children,onPress,accessibilityLabel,accessibilityRole,role,disabled}:any)=>createElement(onPress?'button':'div',{onClick:onPress,'aria-label':accessibilityLabel,role:role??accessibilityRole,disabled},children);
-  return {View:element,Text:element,Pressable:element,ScrollView:element,RefreshControl:()=>null,
+  const element=({children,onPress,accessibilityLabel,accessibilityRole,role,disabled,onLayout}:any)=>{useEffect(()=>{onLayout?.({nativeEvent:{layout:{height:844}}});},[]);return createElement(onPress?'button':'div',{onClick:onPress,'aria-label':accessibilityLabel,role:role??accessibilityRole,disabled},children);};
+  return {Modal:element,View:element,Text:element,Pressable:element,ScrollView:element,RefreshControl:()=>null,
     TextInput:({value,onChangeText,accessibilityLabel}:any)=>createElement('input',{value,'aria-label':accessibilityLabel,onChange:(e:any)=>onChangeText(e.target.value)}),
     StyleSheet:{create:(v:unknown)=>v},Platform:{OS:'android'},BackHandler:{addEventListener:()=>({remove(){}})},AccessibilityInfo:{announceForAccessibility(){},isReduceMotionEnabled:async()=>false,addEventListener:()=>({remove(){}})}};
 });

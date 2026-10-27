@@ -1,6 +1,6 @@
 import {setupSearch} from '../search/fixtures';
 // @vitest-environment jsdom
-import { act, createElement as h, type ReactNode, type Ref } from 'react';
+import { act, createElement as h, useEffect, type ReactNode, type Ref } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { AdminSetupCapability } from '../../src/administration/contracts';
@@ -8,8 +8,8 @@ import type { MobileWorkCapability } from '../../src/work/contracts';
 import type { OfflineManualCaptureCapability } from '../../src/offline/OfflineCaptureCoordinator';
 const native=vi.hoisted(()=>({announce:vi.fn(),focus:vi.fn()}));
 vi.mock('react-native',()=>{
- const view=({children,ref,style,focusable,accessible,accessibilityLabel}:{children?:ReactNode;ref?:Ref<HTMLDivElement>;style?:unknown;focusable?:boolean;accessible?:boolean;accessibilityLabel?:string})=>h('div',{ref,tabIndex:focusable?0:undefined,'aria-label':accessibilityLabel,'data-accessible':accessible,'data-style':JSON.stringify(style)},children);
- return {RefreshControl:()=>null,View:view,ScrollView:(props:Parameters<typeof view>[0])=>h('div',{'data-scroll':true},view(props)),Keyboard: { dismiss: vi.fn() }, StyleSheet:{create:(v:unknown)=>v},Platform:{OS:'android'},BackHandler:{addEventListener:()=>({remove(){}})},findNodeHandle:(node:unknown)=>node,AccessibilityInfo:{isReduceMotionEnabled:async()=>true,addEventListener:()=>({remove(){}}),announceForAccessibility:native.announce,setAccessibilityFocus:native.focus}};
+ const view=({children,ref,style,focusable,accessible,accessibilityLabel,onLayout}:{children?:ReactNode;onLayout?:(event:unknown)=>void;ref?:Ref<HTMLDivElement>;style?:unknown;focusable?:boolean;accessible?:boolean;accessibilityLabel?:string})=>{useEffect(()=>{onLayout?.({nativeEvent:{layout:{height:844}}});},[]);return h('div',{ref,tabIndex:focusable?0:undefined,'aria-label':accessibilityLabel,'data-accessible':accessible,'data-style':JSON.stringify(style)},children);};
+ return {Modal:view,RefreshControl:()=>null,View:view,ScrollView:(props:Parameters<typeof view>[0])=>h('div',{'data-scroll':true},view(props)),Keyboard: { dismiss: vi.fn() }, StyleSheet:{create:(v:unknown)=>v},Platform:{OS:'android'},BackHandler:{addEventListener:()=>({remove(){}})},findNodeHandle:(node:unknown)=>node,AccessibilityInfo:{isReduceMotionEnabled:async()=>true,addEventListener:()=>({remove(){}}),announceForAccessibility:native.announce,setAccessibilityFocus:native.focus}};
 });
 vi.mock('../../src/design/LineIcon',()=>({LineIcon:()=>null}));
 vi.mock('../../src/design/AppBuildIdentity',()=>({AppBuildIdentity:()=>null}));

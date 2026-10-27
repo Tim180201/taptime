@@ -104,6 +104,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/lock-screen/action': 'lock_screen_action',
   '/v2/customers/hours/query': 'customer_hours_page',
   '/v2/customers/hours/detail': 'customer_hours_detail',
+  '/v1/customers/hours/person-days': 'customer_person_days',
   '/v1/administration/target-assignments/change': 'admin_target_assignment_change',
   '/v1/administration/target-assignments/query': 'admin_target_assignment_query',
   '/v2/customers/quota-alerts/query': 'customer_quota_alerts',
@@ -437,6 +438,7 @@ async function handleRequest(
       || route === 'time_void'
       || route === 'time_voided_query'
       || route === 'customer_hours_detail'
+      || route === 'customer_person_days'
       || route === 'customer_hours_page'
       || route === 'customer_quota_alerts'
       || route === 'customer_hours'
@@ -713,6 +715,7 @@ async function handleRequest(
     else respondError(response, 403, 'forbidden');
   };
   if (route === 'customer_hours_page') { await searchRead('customer_hours', dependencies.mobileWorkReader); return; }
+  if (route === 'customer_person_days') { await searchRead('customer_person_days', dependencies.mobileWorkReader); return; }
   if (route === 'customer_hours_detail') { await searchRead('customer_detail', dependencies.mobileWorkReader); return; }
   if (route === 'mobile_work_targets_v2') { await searchRead('work_targets', dependencies.mobileWorkReader); return; }
   if (route === 'admin_project_query_v2') { await searchRead('projects', dependencies.projectAdministration); return; }
@@ -3182,6 +3185,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'manual_break_lifecycle':
       return 'lifecycle_ingestion_failed';
     case 'customer_hours_detail':
+    case 'customer_person_days':
     case 'customer_hours_page':
     case 'customer_hours':
     case 'mobile_own_time':

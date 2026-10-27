@@ -1,3 +1,4 @@
+import {DestructiveDialog} from '../design/DestructiveDialog';
 import {useSearchPages} from '../search/useSearchPages';
 import {SearchField,SearchStatus} from '../search/SearchControls';
 import {nfcTagRemovalMessage,NFC_TAG_REMOVAL_EXPLANATION} from '@taptime/mobile-work-contract';
@@ -13,6 +14,7 @@ import { useMobileTokens, useThemedStyles } from '../design/useMobileTheme';
 import type { MobileTokens } from '../design/tokens';
 
 export function AdminSetupScreen({ administration }: { readonly administration: AdminSetupCapability }) {
+  const [removalY,setRemovalY]=useState<number>();
   const mobileTokens = useMobileTokens();
   const styles = useThemedStyles(createStyles);
 
@@ -119,14 +121,13 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
       {busy?<ActionButton title="Scan abbrechen" tone="quiet" onPress={()=>void administration.cancel()}/>:null}
     </>}
     {state.status==='ready'&&state.outcome?.status==='tag_checked'&&state.outcome.nfcTagId!==null&&state.outcome.activeAssignmentId!==null?
-      <ActionButton title="Karte entfernen" tone="warning" disabled={removing} onPress={()=>{
+      <ActionButton title="Karte entfernen" tone="warning" disabled={removing} onPress={event=>{
+        setRemovalY(event.nativeEvent?.pageY);
         if(state.outcome?.status!=='tag_checked'||!state.outcome.nfcTagId||!state.outcome.activeAssignmentId)return;
         const inspected=state.outcome;const tag=tags.state.items.find(tag=>tag.id===inspected.nfcTagId);
         setRemovalMessage(null);setRemoval({id:inspected.nfcTagId!,assignmentId:inspected.activeAssignmentId!,name:tag?.displayName??'diese Karte'});
       }}/>:null}
-    {removal?<Card><Text accessibilityRole="header" style={styles.label}>{`Karte „${removal.name}“ entfernen?`}</Text><Text>{NFC_TAG_REMOVAL_EXPLANATION}</Text>
-      <ActionButton title="Entfernen bestätigen" tone="warning" disabled={removing} onPress={()=>void confirmRemoval()}/>
-      <ActionButton title="Abbrechen" tone="quiet" disabled={removing} onPress={()=>setRemoval(null)}/></Card>:null}
+    {removal?<DestructiveDialog title={`Karte „${removal.name}“ entfernen?`} triggerY={removalY} confirmLabel="Entfernen bestätigen" busy={removing} onConfirm={()=>void confirmRemoval()} onCancel={()=>setRemoval(null)}><Text>{NFC_TAG_REMOVAL_EXPLANATION}</Text></DestructiveDialog>:null}
     {removalMessage?<Text accessibilityLiveRegion="polite">{removalMessage}</Text>:null}
     {state.status !== 'ready' || state.outcome !== null ? <Card>
       <Text accessibilityLiveRegion="polite" style={styles.label}>{presentation.title}</Text>
@@ -139,7 +140,7 @@ export function AdminSetupScreen({ administration }: { readonly administration: 
             <Text style={styles.muted}>{tag.customerDisplayName
               ?? presentAssignment(tag.assignmentState, tag.assignmentType)}</Text></View></View>
         {tag.assignmentState==='assigned'&&tag.activeAssignmentId!==null?<ActionButton title="Entfernen" accessibilityLabel={`Karte ${tag.displayName} entfernen`} tone="warning" disabled={busy||removing}
-          onPress={()=>{setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}/>:null}
+          onPress={event=>{setRemovalY(event.nativeEvent?.pageY);setRemovalMessage(null);setRemoval({id:tag.id,assignmentId:tag.activeAssignmentId!,name:tag.displayName});}}/>:null}
       </Card>)}
       </View>{tags.state.status==='ready' && tags.state.items.length === 0 && !tags.state.search ? <Card><Text>Noch keine Karten. Ordne deine erste Karte einem Arbeitsziel zu.</Text></Card> : null}
       {tags.state.nextCursor !== null ? <ActionButton title="Weitere laden" tone="secondary" disabled={busy}
