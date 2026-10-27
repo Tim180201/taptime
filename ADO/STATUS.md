@@ -11,7 +11,12 @@ optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, no
 `1edb047`, Migration 063). Davor Deploy 7 (`1918d5a`, 17.10.). T-134 (`5f65fc3`): Rechtstexte auf dem gebauten Stand;
 offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. T-104e auf main
 (`c84dfc9`); jetzt App-Builds aus `c84dfc9`, danach Deploy 9 (Ziel `c84dfc9`). T-135 auf main
-(`f384279`), wirkt mit Deploy 10 (Migration 065). Jetzt **T-136** (Messung der Sicherung), danach T-137.
+(`f384279`), wirkt mit Deploy 10 (Migration 065). Jetzt **T-136b**, danach T-137.
+**T-136 gemessen (27.10.):** 20.000 echte WAL-Archive (Borg 1.2.8): monatliche Aufbewahrung einzeln 992 s, gesammelt
+28 s. P1: Die Belegprüfung liest `SET\nt` statt `t`, die Aufbewahrung wird immer zurückgestellt, Wochenproben werden
+rot. Behebung T-136b mit Deploy 10. Werkzeug `tests/backup-scale/`, Bericht lokal `.t136-review/bericht.md`.
+**Befund 27.10. (PO, ntfy):** 03:19 „WAL-Archivierung steht: Sicherung läuft seit 14 min“ (stündliche Sicherung um
+02:05 UTC), 08:00 „Wiederherstellungsprüfung fehlgeschlagen“. Ursache an der Konsole klären, vor Deploy 9.
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -164,6 +169,7 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
 
+- **T-136, Messaufbau/Review (P2):** Erstfehler bei Borg-API-Parametern, verschwundener temporärer Datei während `du`, Monatsauswahl und fehlender Receiver-Clusterkennung protokolliert; Aufbau korrigiert. Cleanup-/Timeout- und Ergebnisordner-Hinweise berücksichtigt. Befehlsliste der Basis im Bericht nach Review berichtigt, Aufrufzahl unverändert. Keine Produktionskorrektur.
 - **T-104e, TL-R1 P3-1:** Fehlt die Archiv-Anforderungszeile nach Prozessende zwischen COMMIT und Registrierung, bleibt `archiveStatus` pending; erneutes Senden derselben Befehls-ID behebt das.
 - **T-104e, TL-R1 P3-2:** Passender Index auf `sync_receipts` nach Organisation, Person und Eintrag fehlt (→ T-137).
 - **T-104e, TL-R1 P3-5:** `reloadAfterCapture` veröffentlicht nur die erste Seite; danach kurz „Zeitraum nicht vollständig geladen“ (→ T-137).
