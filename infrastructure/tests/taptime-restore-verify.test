@@ -5,7 +5,7 @@ set -euo pipefail
 readonly TEST_CONTAINER="taptime-restore-rls-proof-$$"
 TEST_ROOT="$(mktemp -d)"
 readonly TEST_ROOT
-trap 'docker rm --force "$TEST_CONTAINER" >/dev/null 2>&1 || true; rm -rf -- "$TEST_ROOT"' EXIT
+trap 'docker rm --force --volumes "$TEST_CONTAINER" >/dev/null 2>&1 || true; rm -rf -- "$TEST_ROOT"' EXIT
 
 # shellcheck source=../backup/taptime-restore-verify
 source "$(dirname "$0")/../backup/taptime-restore-verify"
@@ -151,3 +151,27 @@ if check_restored_migrations \
   exit 1
 fi
 printf 'Unknown migration-ledger row: rejected.\n'
+
+# T-136b: real PostgreSQL output, real versioned receipt functions. No SQL mock.
+export DATABASE_CONTAINER="$TEST_CONTAINER"
+DATABASE_NAME=t136b_registration
+docker exec --user postgres "$TEST_CONTAINER" createdb "$DATABASE_NAME"
+registration_cluster="$(docker exec --user postgres "$TEST_CONTAINER" psql -XqAt --dbname="$DATABASE_NAME" \
+  --command "SELECT lpad(to_hex(system_identifier),16,'0') FROM pg_control_system();")"
+registered_archive="base-$registration_cluster-20261027T000000Z"
+if production_base_is_registered "$registered_archive"; then
+  printf 'Accepted a base without the receipt capability.\n' >&2; exit 1
+fi
+repository="$(cd "$(dirname "$0")/../.." && pwd)"
+for migration in "$repository"/apps/backend-schema/migrations/*.sql; do
+  docker exec --interactive --user postgres "$TEST_CONTAINER" psql --no-psqlrc --quiet \
+    --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" < "$migration" > /dev/null
+done
+if production_base_is_registered "$registered_archive"; then
+  printf 'Accepted an absent base receipt.\n' >&2; exit 1
+fi
+register_verified_base "$registered_archive" '0/5000028' '000000010000000000000005'
+production_base_is_registered "$registered_archive" || {
+  printf 'Rejected an existing base receipt from real PostgreSQL output.\n' >&2; exit 1;
+}
+printf 'Real PostgreSQL receipt: missing function and absent receipt rejected; registered receipt accepted.\n'

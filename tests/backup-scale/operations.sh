@@ -1,10 +1,27 @@
 #!/usr/bin/env bash
 # Measurement adapters only; no copy or edit of the production algorithms.
+# The selected production script/config are runtime inputs; their functions read
+# the globals initialized by the operation cases below.
+# shellcheck disable=SC1090,SC2034
 set -euo pipefail
 source "$T136_SOURCE/infrastructure/backup/taptime-${1:?operation}"
-operation="$1"
 shift
 source "$TAPTIME_BACKUP_CONFIG"
+
+# Preserve the production deadline and return codes across the local transport.
+# The Borg timeout runs inside its offline container, not around docker exec.
+retention_command() {
+  local remaining="$1" executable="$2" grace="${RETENTION_INTERRUPT_GRACE_SECONDS:-5}" result=0 began=$SECONDS
+  shift 2
+  (( remaining > grace )) || return 124
+  case "$executable" in
+    borg) T136_BORG_TIMEOUT_SECONDS="$remaining" T136_BORG_GRACE_SECONDS="$grace" python3 "$T136_SOURCE/tests/backup-scale/borg-call.py" "$@" || result=$?;;
+    docker) timeout --signal=INT --kill-after="$grace" "$((remaining-grace))" docker --host unix:///var/run/docker.sock "$@" || result=$?;;
+    *) return 64;;
+  esac
+  if (( result == 137 && SECONDS - began >= remaining )); then return 124; fi
+  return "$result"
+}
 
 bulk_names=()
 borg() {
@@ -82,6 +99,19 @@ if [[ "${T136_ISOLATED_RETENTION:-0}" == 1 ]]; then
   }
 fi
 
+if [[ "${T136_ASSERT_PITR:-0}" == 1 ]]; then
+  # Keep the original RLS proof, then inspect actual restored application rows.
+  eval "$(declare -f check_restored_rls | sed '1s/check_restored_rls/original_check_restored_rls/')"
+  check_restored_rls() {
+    original_check_restored_rls "$@" || return
+    local evidence
+    evidence="$(docker exec --user postgres "$1" psql -XqAt --dbname="$2" --set ON_ERROR_STOP=on \
+      --command "SELECT count(*) FILTER (WHERE id=1000001) || '|' || count(*) FILTER (WHERE id=1000002) FROM public.synthetic_wal_payload;")" || return
+    printf '%s\n' "$evidence" > "$T136_ROOT/logs/pitr-restored-rows.txt"
+    [[ "$evidence" == '1|0' ]]
+  }
+fi
+
 case "${T136_MODE:-main}" in
   main) main "$@";;
   retention)
@@ -89,6 +119,11 @@ case "${T136_MODE:-main}" in
     bounded_borg_lock 9
     RESTORE_ARCHIVE_IDENTIFIER="$T136_CLUSTER"
     prune_after_verified_restore
+    ;;
+  retention-run)
+    exec 9>"$TAPTIME_BORG_LOCK_FILE"
+    bounded_borg_lock 9
+    run_backup_retention "${T136_RETENTION_MODE:-weekly}" "$T136_CLUSTER"
     ;;
   archive-file)
     exec 9>"$TAPTIME_BORG_LOCK_FILE"

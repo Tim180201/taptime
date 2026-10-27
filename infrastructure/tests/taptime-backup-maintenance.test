@@ -70,6 +70,7 @@ validate_offsite_borg_repository() { :; }
 prepare_backup_workspace() { chmod 0700 "$TAPTIME_BACKUP_STAGING_ROOT"; }
 check_backup_workspace_path() { :; }
 check_backup_space() { :; }
+retention_command() { shift; "$@"; }
 fixture_registered=1
 fake_failure=''
 fixture_now="$(command date -d '2026-09-25T12:00:00Z' +%s)"
@@ -125,7 +126,13 @@ borg() {
     prune)
       if [[ " $* " != *' --dry-run '* && "$fake_failure" == prune ]]; then return 1; fi
       node "$REPO/infrastructure/tests/fake-borg-retention.mjs" "$root/archives" prune "$@";;
-    delete) rm -rf -- "$root/archives/$target";;
+    delete)
+      [[ "$1" == --checkpoint-interval && "$2" == 15 ]] || return 1
+      shift 2
+      [[ "$1" == "$BORG_REPOSITORY" ]] || return 1
+      shift
+      (( $# > 0 )) || return 1
+      for arg in "$@"; do rm -rf -- "$root/archives/$arg"; done;;
     compact) [[ "$fake_failure" != compact ]];;
     *) return 1;;
   esac
@@ -187,7 +194,7 @@ grep -q 'Retention failed' "$root/output"
 if grep -Eq '^(prune|compact|delete) ' "$root/calls"; then exit 1; fi
 fixture_now=$((fixture_now + 86400)); fake_failure=''; fixture_registered=0
 : > "$root/calls"; run_backup
-if grep -Eq '^(compact|delete) |^prune --list' "$root/calls"; then exit 1; fi
+if grep -Eq '^(compact|delete) |^prune --checkpoint-interval 15 --list' "$root/calls"; then exit 1; fi
 grep -q '^unregistered|' "$root/state/retention-status"
 # Only an interior archive has a marker: actual period rules now defer cleanup.
 fixture_registered=1; fixture_now=$((fixture_now + 86400))

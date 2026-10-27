@@ -69,6 +69,10 @@ grep -q 'Archive: Basis=7 WAL=123 Marker=2' "$TEST_ROOT/maintenance"
 grep -q 'Aufräumen: ok' "$TEST_ROOT/maintenance"
 grep -q 'Wächter-Toleranz: 3000 s' "$TEST_ROOT/maintenance"
 grep -q 'Letztes erfolgreiches Aufräumen:' "$TEST_ROOT/maintenance"
+printf 'partial|1800000000|1799999999|500|1500\n' > "$TEST_ROOT/state/retention-status"
+show_backup_maintenance "$TEST_ROOT/state" > "$TEST_ROOT/maintenance"
+grep -q 'Aufräumen: teilweise' "$TEST_ROOT/maintenance"
+grep -q '500 Archive, Rest=1500' "$TEST_ROOT/maintenance"
 for file in retention-status archive-counts backup-pause-max-seconds; do
   printf 'ssh://private/path secret@example.test\n' > "$TEST_ROOT/state/$file"
 done

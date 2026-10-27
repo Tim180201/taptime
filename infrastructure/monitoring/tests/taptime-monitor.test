@@ -429,10 +429,24 @@ export TAPTIME_RESTORE_STATUS_FILE="$RESTORE_STATUS"
 export TAPTIME_MONITOR_NOW_EPOCH
 TAPTIME_MONITOR_NOW_EPOCH="$(epoch_for '2026-08-24T12:00:00Z')"
 export FAKE_DISK_PERCENT=79
+printf 'ok|%s|%s|0|0\n' "$TAPTIME_MONITOR_NOW_EPOCH" "$TAPTIME_MONITOR_NOW_EPOCH" > "$test_root/state/retention-status"
+chmod 0600 "$test_root/state/retention-status"
 
 "$DAILY_MONITOR"
 assert_equals '0' "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
   'healthy daily checks must stay silent'
+
+# A partial cleanup never replaces the last fully completed timestamp.
+for age in 7 9; do
+  success=$((TAPTIME_MONITOR_NOW_EPOCH-age*86400))
+  printf 'partial|%s|%s|100|200\n' "$TAPTIME_MONITOR_NOW_EPOCH" "$success" > "$test_root/state/retention-status"
+  rm -f "$test_root/messages"/*
+  "$DAILY_MONITOR"
+  expected=0; (( age <= 8 )) || expected=1
+  assert_equals "$expected" "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" 'partial retention age'
+done
+printf 'ok|%s|%s|0|0\n' "$TAPTIME_MONITOR_NOW_EPOCH" "$TAPTIME_MONITOR_NOW_EPOCH" > "$test_root/state/retention-status"
+rm -f "$test_root/messages"/*
 
 printf '%s\n' '{"state":"ok","last_attempt_at_utc":"2026-08-15T03:40:00Z"}' > "$RESTORE_STATUS"
 "$DAILY_MONITOR"
@@ -532,6 +546,21 @@ FAKE_BACKUP_STATE=activating
 rm "$WAL_ARCHIVE_STATUS"
 check_backup_alert "$((backup_start + 599))" 0 'a waiting backup pauses missing status at 9:59'
 check_backup_alert "$((backup_start + 601))" 1 'a backup that never acquired the lock alarms at 10:01'
+
+# Only the current retention start adds its bounded budget, never progress updates.
+printf 'running|%s|0|0|20000\n' "$((backup_start+120))" > "$test_root/state/retention-status"
+chmod 0600 "$test_root/state/retention-status"
+check_backup_alert "$((backup_start+720))" 0 'current retention budget reaches its exact boundary'
+printf 'running|%s|0|1000|19000\n' "$((backup_start+120))" > "$test_root/state/retention-status"
+check_backup_alert "$((backup_start+721))" 1 'partial counters cannot extend the retention deadline'
+for retention_state in ok partial; do
+  printf '%s|%s|0|20000|0\n' "$retention_state" "$((backup_start+120))" > "$test_root/state/retention-status"
+  check_backup_alert "$((backup_start+670))" 0 'completed retention keeps its fixed deadline during backup cleanup'
+  check_backup_alert "$((backup_start+721))" 1 'completed retention cannot extend its deadline'
+done
+printf 'running|%s|0|0|20000\n' "$((backup_start-1))" > "$test_root/state/retention-status"
+check_backup_alert "$((backup_start+601))" 1 'old retention start cannot extend this backup'
+rm "$test_root/state/retention-status"
 
 backup_end=$((backup_start + 120))
 FAKE_BACKUP_STATE=inactive

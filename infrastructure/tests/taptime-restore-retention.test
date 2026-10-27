@@ -38,6 +38,7 @@ reset_archives() {
   done
 }
 
+retention_command() { shift; "$@"; }
 production_base_is_registered() { return 0; }
 
 # Guard against re-introducing a literal "sh:" prefix: Borg 1.2 and 1.4 document
@@ -98,7 +99,13 @@ borg() {
     extract)
       [[ "$RETENTION_FAILURE" != base-extract ]] || return 1
       cat "$TEST_ROOT/archives/$target/${*: -1}";;
-    delete) rm -rf -- "$TEST_ROOT/archives/$target";;
+    delete)
+      [[ "$1" == --checkpoint-interval && "$2" == 15 ]] || return 1
+      shift 2
+      [[ "$1" == "$BORG_REPOSITORY" ]] || return 1
+      shift
+      (( $# > 0 )) || return 1
+      for arg in "$@"; do rm -rf -- "$TEST_ROOT/archives/$arg"; done;;
     *) return 1;;
   esac
 }
@@ -106,7 +113,7 @@ borg() {
 reset_archives
 : > "$CALL_LOG"
 prune_after_verified_restore
-deleted_archives="$(sed -n 's/^delete synthetic-repository:://p' "$CALL_LOG" | sort)"
+deleted_archives="$(sed -n 's/^delete --checkpoint-interval 15 synthetic-repository //p' "$CALL_LOG" | tr ' ' '\n' | sort)"
 expected="$(printf '%s\n' "verified-$obsolete" "wal-$CLUSTER_IDENTIFIER-000000010000000000000004" "wal-$CLUSTER_IDENTIFIER-000000020000000000000002" | sort)"
 [[ "$deleted_archives" == "$expected" ]]
 [[ -d "$TEST_ROOT/archives/verified-$previous" && -d "$TEST_ROOT/archives/verified-$newest" ]]
@@ -127,10 +134,13 @@ for RETENTION_FAILURE in preview-empty preview-failed preview-unknown preview-ma
   reset_archives
   : > "$CALL_LOG"
   if prune_after_verified_restore > "$TEST_ROOT/preview.log" 2>&1; then exit 1; fi
-  if grep -Eq '^(delete|compact) |^prune --list' "$CALL_LOG"; then exit 1; fi
+  if grep -Eq '^(delete|compact) |^prune --checkpoint-interval 15 --list' "$CALL_LOG"; then exit 1; fi
   [[ -d "$TEST_ROOT/archives/$obsolete" ]]
 done
 printf 'Empty, failed or unrecognized previews: no destructive operation.\n'
 
 # The existing CI entry point includes the chronological T-093 regression matrix.
 bash "$REPO/infrastructure/tests/taptime-retention-week.test"
+
+# T-136b: exact deletion blocks, deadlines and honest partial status.
+bash "$REPO/infrastructure/tests/taptime-retention-blocks.test"

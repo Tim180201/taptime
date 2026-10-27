@@ -564,31 +564,35 @@ record_archive_counts() {
   write_backup_state archive-counts "$(date +%s)|$base|$wal|$markers"
 }
 
-# Both callers retain the same safety checks; backup is throttled by attempts,
-# including failed/deferred attempts. Weekly and pinned restore bypass the gate.
+# A partial run is retried by the next hourly backup. Failures/deferrals retain
+# the daily backoff. Only a fully completed run advances the last-success time.
 run_backup_retention() {
   local mode="$1" cluster="$2"
   local state_file="${TAPTIME_BACKUP_STATE_DIRECTORY:-/var/lib/taptime-monitor}/retention-status"
-  local prior='' attempt=0 success=0 now result state checked
+  local prior='' prior_state='' attempt=0 success=0 now result state checked retry_after=86400 _ignored
   now="$(date +%s)" || return 1
   if [[ -f "$state_file" ]]; then prior="$(< "$state_file")"; fi
-  if [[ "$prior" =~ ^(ok|running|failed|protected|unregistered)\|([0-9]{1,12})\|([0-9]{1,12})$ ]]; then
-    IFS='|' read -r _ attempt success <<< "$prior"
+  if [[ "$prior" =~ ^(ok|running|partial|failed|protected|unregistered)\|[0-9]{1,12}\|[0-9]{1,12}(\|[0-9]{1,12}\|(-1|[0-9]{1,12}))?$ ]]; then
+    IFS='|' read -r prior_state attempt success _ignored <<< "$prior"
   fi
-  if [[ "$mode" == daily ]] && (( now < attempt || now - attempt < 86400 )); then return 0; fi
-  # Persist before fallible work; a killed process must not retry once per hour.
-  write_backup_state retention-status "running|$now|$success" || return 1
+  [[ "$prior_state" != partial ]] || retry_after=3600
+  if [[ "$mode" == daily ]] && (( now < attempt || now - attempt < retry_after )); then return 0; fi
+  RETENTION_STATUS_ATTEMPT="$now"
+  RETENTION_STATUS_SUCCESS="$success"
+  RETENTION_DELETED=0
+  RETENTION_REMAINING=-1
+  write_backup_state retention-status "running|$now|$success|0|-1" || return 1
   RESTORE_ARCHIVE_IDENTIFIER="$cluster"
   if prune_after_verified_restore; then result=0; else result=$?; fi
   case "$result" in
     0) state=ok; success="$(date +%s)";;
     2) state=unregistered; printf 'Retention deferred: no registered verified base.\n';;
     3) state=protected;;
+    4) state=partial; printf 'Retention partial: deleted=%s remaining=%s; next hourly backup resumes.\n' "$RETENTION_DELETED" "$RETENTION_REMAINING";;
     *) state=failed; printf 'Retention failed.\n' >&2;;
   esac
-  write_backup_state retention-status "$state|$now|$success" || return 1
-  # Daily backup success is independent of cleanup. Weekly verification also
-  # certifies maintenance; an error or no recent successful cleanup is a failure.
+  write_backup_state retention-status "$state|$now|$success|$RETENTION_DELETED|$RETENTION_REMAINING" || return 1
+  unset RETENTION_STATUS_ATTEMPT RETENTION_STATUS_SUCCESS
   if [[ "$mode" == weekly ]]; then
     [[ "$state" != failed ]] || return 1
     checked="$(date +%s)" || return 1
@@ -599,6 +603,96 @@ run_backup_retention() {
   fi
 }
 
+# At most ten minutes, including preparation and compact. Old configurations get
+# the same default. Reserve part of the budget for compact and forced cleanup.
+retention_budget_seconds() {
+  local budget="${BACKUP_RETENTION_BUDGET_SECONDS:-600}"
+  if [[ ! "$budget" =~ ^[1-9][0-9]{1,2}$ ]] || (( budget < 90 || budget > 600 )); then
+    printf 'BACKUP_RETENTION_BUDGET_SECONDS must be between 90 and 600.\n' >&2; return 1
+  fi
+  printf '%s\n' "$budget"
+}
+
+retention_remaining_seconds() {
+  local remaining=$((RETENTION_DEADLINE_SECONDS - SECONDS))
+  (( remaining > ${RETENTION_INTERRUPT_GRACE_SECONDS:-5} )) || return 4
+  printf '%s\n' "$remaining"
+}
+
+# The deadline includes the SIGINT grace. Borg finishes the current archive and
+# commits its manifest/index/cache on SIGINT; periodic checkpoints also bound lost
+# work if that final commit cannot finish. Timeout is partial, never block success.
+retention_command() {
+  local remaining="$1" grace="${RETENTION_INTERRUPT_GRACE_SECONDS:-5}" began=$SECONDS result=0
+  shift
+  (( remaining > grace )) || return 124
+  timeout --signal=INT --kill-after="$grace" "$((remaining - grace))" "$@" || result=$?
+  # GNU timeout returns 137 if its grace expires. An early SIGKILL (e.g. OOM)
+  # remains a genuine failure rather than being mislabeled as a budget stop.
+  if (( result == 137 && SECONDS - began >= remaining )); then return 124; fi
+  return "$result"
+}
+
+retention_borg() {
+  local remaining result
+  remaining="$(retention_remaining_seconds)" || return 4
+  if retention_command "$remaining" borg "$@"; then return 0; else result=$?; fi
+  (( result != 124 )) || return 4
+  return 1
+}
+
+retention_argument_budget() {
+  local limit environment_bytes available
+  limit="$(getconf ARG_MAX)" || return 1
+  environment_bytes="$(env -0 | wc -c)" || return 1
+  [[ "$limit" =~ ^[0-9]+$ && "$environment_bytes" =~ ^[[:space:]]*[0-9]+[[:space:]]*$ ]] || return 1
+  # Leave half the remaining argv/environ space plus 8 KiB for executable,
+  # repository, interpreter and alignment. Charge 16 bytes per argv pointer below.
+  available=$(( (limit - environment_bytes - 8192 - ${#BORG_REPOSITORY}) / 2 ))
+  # Smaller transactions allow budget checks between commits, even with a large ARG_MAX.
+  (( available <= 32768 )) || available=32768
+  (( available >= 128 )) || { printf 'Insufficient argument space for safe deletion.\n' >&2; return 1; }
+  printf '%s\n' "$available"
+}
+
+retention_delete_block() {
+  (( $# > 0 )) || return 0 # Never invoke repository-wide delete with an empty list.
+  local remaining began=$SECONDS
+  remaining="$(retention_remaining_seconds)" || return 4
+  # Finish a whole block before admitting another. Measured prior cost is only an
+  # admission margin; the command deadline also covers a suddenly slower block.
+  (( remaining > RETENTION_LAST_BLOCK_SECONDS * 2 + ${RETENTION_INTERRUPT_GRACE_SECONDS:-5} )) || return 4
+  RETENTION_MUTATED=1
+  retention_borg delete --checkpoint-interval 15 "$BORG_REPOSITORY" "$@" || return
+  RETENTION_LAST_BLOCK_SECONDS=$((SECONDS - began))
+  RETENTION_DELETED=$((RETENTION_DELETED + $#))
+  RETENTION_REMAINING=$((RETENTION_REMAINING - $#))
+  if [[ -n "${RETENTION_STATUS_ATTEMPT:-}" ]]; then
+    write_backup_state retention-status "running|$RETENTION_STATUS_ATTEMPT|$RETENTION_STATUS_SUCCESS|$RETENTION_DELETED|$RETENTION_REMAINING" || return 1
+  fi
+}
+
+delete_retention_archives() {
+  local limit name bytes used=0
+  local -a block=()
+  limit="$(retention_argument_budget)" || return 1
+  # Validate the complete selection before the first deletion. All names are ASCII.
+  for name in "$@"; do
+    [[ "$name" =~ ^wal-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9A-F]{24}$       || "$name" =~ ^verified-base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || return 1
+    (( ${#name} + 17 <= limit )) || return 1
+  done
+  RETENTION_REMAINING=$#
+  for name in "$@"; do
+    bytes=$((${#name} + 17))
+    if (( used + bytes > limit )); then
+      retention_delete_block "${block[@]}" || return
+      block=(); used=0
+    fi
+    block+=("$name"); used=$((used + bytes))
+  done
+  retention_delete_block "${block[@]}"
+}
+
 refresh_archive_counts() {
   local inventory
   inventory="$(borg list --format '{archive}{NL}' "$BORG_REPOSITORY")" || return 1
@@ -606,21 +700,26 @@ refresh_archive_counts() {
 }
 
 production_base_is_registered() {
-  local archive_name="$1"
-  local capability registered
-
-  capability="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
-    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
+  local archive_name="$1" capability registered remaining=30
+  [[ "$archive_name" =~ ^base-[0-9a-f]{16}-[0-9]{8}T[0-9]{6}Z$ ]] || return 1
+  if [[ -n "${RETENTION_DEADLINE_SECONDS:-}" ]]; then
+    remaining="$(retention_remaining_seconds)" || return 4
+  fi
+  capability="$(retention_command "$remaining" docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --no-psqlrc --quiet --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" \
     --command "SELECT pg_catalog.to_regprocedure(
       'taptime_server.read_offsite_base_backup_receipt_v1(text)'
-    ) IS NOT NULL;")" || return 1
+    ) IS NOT NULL;")" || { local result=$?; (( result != 124 )) || return 4; return 1; }
   [[ "$capability" == 't' ]] || return 1
-  registered="$(docker exec --user postgres "$DATABASE_CONTAINER" psql \
-    --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" --command \
+  if [[ -n "${RETENTION_DEADLINE_SECONDS:-}" ]]; then
+    remaining="$(retention_remaining_seconds)" || return 4
+  fi
+  registered="$(retention_command "$remaining" docker exec --user postgres "$DATABASE_CONTAINER" psql \
+    --no-psqlrc --quiet --tuples-only --no-align --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" --command \
     "SET ROLE taptime_wal_archiver;
      SELECT EXISTS (
        SELECT FROM taptime_server.read_offsite_base_backup_receipt_v1('$archive_name')
-     );")" || return 1
+     );")" || { local result=$?; (( result != 124 )) || return 4; return 1; }
   [[ "$registered" == 't' ]]
 }
 
@@ -629,12 +728,14 @@ retained_base_wal_floors() {
   local retained_archive wal_file timeline floor_records=''
 
   while IFS= read -r retained_archive; do
+    (( SECONDS < RETENTION_DEADLINE_SECONDS )) || return 4
     [[ -n "$retained_archive" ]] || continue
-    wal_file="$(borg extract --stdout \
+    wal_file="$(retention_borg extract --stdout \
       "$BORG_REPOSITORY::$retained_archive" manifest/base-start-wal-file | tr -d '\r\n')" || {
+        local result=$?
         printf 'Could not read the WAL floor from retained base %s.\n' \
           "$retained_archive" >&2
-        return 1
+        return "$result"
       }
     [[ "$wal_file" =~ ^[0-9A-F]{24}$ ]] || {
       printf 'Retained base %s has no valid start WAL file.\n' "$retained_archive" >&2
@@ -651,10 +752,12 @@ retained_base_wal_floors() {
   printf '%s' "$floor_records" | sort | awk -F '|' '!seen[$1]++'
 }
 
-prune_after_verified_restore() {
+prune_retention_archives() {
   local verified_archive=''
   local wal_archive wal_file timeline floor_record floor_records wal_archives markers
-  local retained_bases
+  local retained_bases result marker base_archive
+  local -a obsolete=()
+  local -A floors=()
   local floor_count=0
 
   local keep
@@ -663,20 +766,21 @@ prune_after_verified_restore() {
     "${BASE_BACKUP_KEEP_WEEKLY:-}" "${BASE_BACKUP_KEEP_MONTHLY:-}"; do
     [[ "$keep" =~ ^[1-9][0-9]*$ ]] || return 1
   done
-  markers="$(borg list --glob-archives "verified-base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
-    --format '{archive}{NL}' "$BORG_REPOSITORY")" || return 1
+  markers="$(retention_borg list --glob-archives "verified-base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
+    --format '{archive}{NL}' "$BORG_REPOSITORY")" || return
   [[ -n "$markers" ]] || return 2
-  local preview line candidate kept_bases='' seen='' marker
-  local -a prune_arguments=(--list
+  local preview line candidate kept_bases='' seen=''
+  local -a prune_arguments=(--checkpoint-interval 15 --list
     --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" "$BORG_REPOSITORY"
     --keep-hourly "$BASE_BACKUP_KEEP_HOURLY" --keep-daily "$BASE_BACKUP_KEEP_DAILY"
     --keep-weekly "$BASE_BACKUP_KEEP_WEEKLY" --keep-monthly "$BASE_BACKUP_KEEP_MONTHLY")
   # Borg 1.2/1.4 writes its list to stderr (40/44-column padding). Use standard
   # logging and recognize decisions, not fixed columns. No parseable plan => no prune.
-  preview="$(BORG_LOGGING_CONF='' borg prune --dry-run "${prune_arguments[@]}" 2>&1)" || {
-    printf 'Retention preview failed; no archives removed.\n' >&2; return 1;
+  preview="$(BORG_LOGGING_CONF='' retention_borg prune --dry-run "${prune_arguments[@]}" 2>&1)" || {
+    result=$?; printf 'Retention preview failed; no archives removed.\n' >&2; return "$result";
   }
   while IFS= read -r line; do
+    (( SECONDS < RETENTION_DEADLINE_SECONDS )) || return 4
     if [[ "$line" =~ ^Would\ prune:[[:space:]]+([^[:space:]]+)[[:space:]] ]]; then
       candidate="${BASH_REMATCH[1]}"
       [[ "$candidate" =~ ^base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z(\.checkpoint(\.[0-9]+)?)?$ ]] || return 1
@@ -708,31 +812,36 @@ prune_after_verified_restore() {
     printf 'Retention deferred: no protected verified base would be retained.\n' >&2
     return 3
   }
-  if ! production_base_is_registered "$verified_archive"; then
+  if production_base_is_registered "$verified_archive"; then :; else
+    result=$?; (( result != 4 )) || return 4
     printf 'Deferring retention until the archiver registered the verified base.\n'
     return 2
   fi
-  borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
+  retention_borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
+    result=$?
     printf 'Verified physical base is unavailable before retention.\n' >&2
-    return 1
+    return "$result"
   }
   printf 'Applying retention with protected verified base: %s\n' "$verified_archive"
-  borg prune "${prune_arguments[@]}" || return 1
-  borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
+  # Mark before starting: a timeout can still have committed checkpoints.
+  RETENTION_MUTATED=1
+  retention_borg prune "${prune_arguments[@]}" || return
+  retention_borg info "$BORG_REPOSITORY::$verified_archive" >/dev/null || {
+    result=$?
     printf 'Retention removed or cannot re-read the verified physical base.\n' >&2
-    return 1
+    return "$result"
   }
-  retained_bases="$(borg list \
+  retained_bases="$(retention_borg list \
     --glob-archives "base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
-      printf 'Could not inventory retained physical bases.\n' >&2
-      return 1
+      result=$?; printf 'Could not inventory retained physical bases.\n' >&2
+      return "$result"
     }
   grep --fixed-strings --line-regexp --quiet "$verified_archive" <<< "$retained_bases" || {
     printf 'Retained-base inventory omits the protected base; no WAL or marker removed.\n' >&2
     return 1
   }
-  floor_records="$(retained_base_wal_floors "$retained_bases")" || return 1
+  floor_records="$(retained_base_wal_floors "$retained_bases")" || return
   [[ -n "$floor_records" ]] || {
     printf 'No complete retained-base WAL inventory is available.\n' >&2
     return 1
@@ -743,56 +852,70 @@ prune_after_verified_restore() {
         printf 'Retained-base WAL inventory is invalid.\n' >&2
         return 1
       }
+    floors["$timeline"]="$floor_record"
     floor_count=$((floor_count + 1))
   done <<< "$floor_records"
   (( floor_count > 0 )) || {
     printf 'Retained-base WAL inventory contains no timeline floor.\n' >&2
     return 1
   }
-  wal_archives="$(borg list \
+  wal_archives="$(retention_borg list \
     --glob-archives "wal-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
-      printf 'Could not inventory WAL archives before retention.\n' >&2
-      return 1
+      result=$?; printf 'Could not inventory WAL archives before retention.\n' >&2
+      return "$result"
     }
-  markers="$(borg list \
+  markers="$(retention_borg list \
     --glob-archives "verified-base-$RESTORE_ARCHIVE_IDENTIFIER-*" \
     --format '{archive}{NL}' "$BORG_REPOSITORY")" || {
-      printf 'Could not inventory restore-verification markers before retention.\n' >&2
-      return 1
+      result=$?; printf 'Could not inventory restore-verification markers before retention.\n' >&2
+      return "$result"
     }
-  remove_obsolete_verified_base_markers "$markers" "$retained_bases" || return 1
+  while IFS= read -r marker; do
+    (( SECONDS < RETENTION_DEADLINE_SECONDS )) || return 4
+    [[ "$marker" =~ ^verified-base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || continue
+    base_archive="${marker#verified-}"
+    if ! grep --fixed-strings --line-regexp --quiet "$base_archive" <<< "$retained_bases"; then
+      obsolete+=("$marker")
+    fi
+  done <<< "$markers"
   while IFS= read -r wal_archive; do
+    (( SECONDS < RETENTION_DEADLINE_SECONDS )) || return 4
     [[ -n "$wal_archive" ]] || continue
     wal_file="${wal_archive#wal-"$RESTORE_ARCHIVE_IDENTIFIER"-}"
     [[ "$wal_file" =~ ^[0-9A-F]{24}$ ]] || continue
     timeline="${wal_file:0:8}"
-    floor_record="$(awk -F '|' -v selected_timeline="$timeline" \
-      '$1 == selected_timeline { print $2; exit }' <<< "$floor_records")"
+    floor_record="${floors[$timeline]:-}"
     if [[ -z "$floor_record" || "$wal_file" < "$floor_record" ]]; then
-      printf 'Removing WAL archive made obsolete by every verified retained base: %s\n' \
-        "$wal_archive"
-      borg delete "$BORG_REPOSITORY::$wal_archive" || return 1
+      obsolete+=("$wal_archive")
     fi
   done <<< "$wal_archives"
-  borg compact "$BORG_REPOSITORY" || return 1
+  delete_retention_archives "${obsolete[@]}"
 }
 
-remove_obsolete_verified_base_markers() {
-  local markers="$1"
-  local retained_bases="$2"
-  local marker base_archive
-
-  while IFS= read -r marker; do
-    [[ "$marker" =~ ^verified-base-${RESTORE_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] \
-      || continue
-    base_archive="${marker#verified-}"
-    if ! grep --fixed-strings --line-regexp --quiet \
-      "$base_archive" <<< "$retained_bases"; then
-      printf 'Removing verification marker for pruned base: %s\n' "$marker"
-      borg delete "$BORG_REPOSITORY::$marker" || return 1
-    fi
-  done <<< "$markers"
+prune_after_verified_restore() {
+  local budget reserve deadline result
+  budget="$(retention_budget_seconds)" || return 1
+  deadline=$((SECONDS + budget))
+  RETENTION_INTERRUPT_GRACE_SECONDS=$((budget / 4))
+  (( RETENTION_INTERRUPT_GRACE_SECONDS >= 30 )) || RETENTION_INTERRUPT_GRACE_SECONDS=30
+  (( RETENTION_INTERRUPT_GRACE_SECONDS <= 60 )) || RETENTION_INTERRUPT_GRACE_SECONDS=60
+  # Compact gets its own bounded opportunity, including a full interrupt grace.
+  reserve=$((RETENTION_INTERRUPT_GRACE_SECONDS + 5))
+  RETENTION_DEADLINE_SECONDS=$((deadline - reserve))
+  RETENTION_LAST_BLOCK_SECONDS=0
+  RETENTION_DELETED=0
+  RETENTION_REMAINING=-1
+  RETENTION_MUTATED=0
+  if prune_retention_archives; then result=0; else result=$?; fi
+  # No extra block/compact after a failed Borg command. Partial committed work
+  # remains safe; the next run reconstructs its plan from the current manifest.
+  if (( (result == 0 || result == 4) && RETENTION_MUTATED )); then
+    RETENTION_DEADLINE_SECONDS="$deadline"
+    if retention_borg compact "$BORG_REPOSITORY"; then :; else result=$?; fi
+  fi
+  unset RETENTION_DEADLINE_SECONDS RETENTION_INTERRUPT_GRACE_SECONDS
+  return "$result"
 }
 
 register_verified_base() {

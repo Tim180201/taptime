@@ -34,7 +34,8 @@ WAL ab dem Startpunkt ihrer jeweils ältesten noch aufbewahrten Basis; ein unvol
 Borg-Inventar führt zu keiner WAL- oder Marker-Löschung.
 
 Nach erfolgreicher stündlicher Sicherung und `borg check` wird höchstens einmal je 24 Stunden
-aufgeräumt. Die Sonntagsprüfung ruft dieselbe Funktion nach erfolgreichem Restore weiterhin
+aufgeräumt. Ein zeitlich begrenzter Teillauf wird schon mit der nächsten stündlichen Sicherung
+fortgesetzt (mindestens eine Stunde seit seinem Beginn). Die Sonntagsprüfung ruft dieselbe Funktion nach erfolgreichem Restore weiterhin
 unabhängig von dieser Tagesgrenze auf. Maßgeblich sind die vier `BASE_BACKUP_KEEP_*`-Werte.
 Die Wochenprüfung ohne Zeitpunkt und ohne Pin wählt die jüngste Basis vor Beginn des heutigen
 Tages; fehlt eine solche Basis, nimmt sie die neueste. Dafür zählt Borgs Archivstart, nicht der
@@ -48,12 +49,41 @@ Registrierung und Existenz werden vor dem Löschen geprüft. Würde keine geprü
 entfällt der gesamte Aufräumlauf (`protected`). Eine leere oder unbekannte Vorschau erlaubt
 ebenfalls keine Löschung. Ausschließlich `borg prune` löscht Basen; danach wird die geschützte
 Basis erneut geprüft. Es folgen die bisherigen Timeline-Untergrenzen aus allen behaltenen
-Basen, verwaiste Marker und veraltetes WAL; `borg compact` gibt den entfernten Speicher frei.
+Basen, verwaiste Marker und veraltetes WAL. WAL und Marker werden mit exakt benannten Archiven
+blockweise gelöscht, niemals mit einem Lösch-Glob. Die Argumentgröße folgt aus `ARG_MAX` abzüglich
+Umgebung, Repository und Reserve, höchstens 32 KiB einschließlich Zeigerreserve je Block.
+Nach einem fehlgeschlagenen Block folgt kein weiterer Block. Am Ende eines vollständigen oder
+planmäßig angehaltenen Teillaufs gibt einmal `borg compact` den entfernten Speicher frei.
 Historische Restore-Proben und Materialisierung räumen weiterhin nicht auf.
 
+`BACKUP_RETENTION_BUDGET_SECONDS` begrenzt die Aufbewahrung einschließlich Inventur und Compact
+auf standardmäßig 600 Sekunden (auch ohne neuen Konfigurationseintrag; zulässig 90–600).
+`prune` und `delete` erhalten `--checkpoint-interval 15`: Borg 1.2.8 schreibt zwischen Archiven
+regelmäßig Manifest, Repository-Index und Cache dauerhaft. Bei SIGINT beendet Borg das gerade
+laufende Archiv und schreibt einen weiteren Checkpoint. Dafür bleiben innerhalb der Frist ein
+Viertel des Budgets, mindestens 30 und höchstens 60 Sekunden Kulanz; erst danach folgt SIGKILL.
+Kulanz plus fünf Sekunden bleiben außerdem für den einmaligen Compact-Aufruf reserviert
+(beim Standardbudget 65 Sekunden). Das Mindestbudget lässt Platz für diese beiden Abschlussphasen.
+Zwischen vollständigen Blöcken wird das Restbudget einschließlich Kulanz erneut geprüft.
+
+Ein **Budgetstopp ist `partial`**, auch nach sauberem SIGINT-Checkpoint oder nach erzwungenem
+Abbruch am Ende der Kulanz. Er ist kein vollständig bestätigter Löschblock. Andere Borg-Fehler
+bleiben `failed`; ein vorzeitiges SIGKILL wird nicht als Budgetstopp umgedeutet. Nach einem
+Budgetstopp folgt der nächste stündliche Versuch mit neuer Inventur, die auch bereits dauerhaft
+gelöschte Basen und Teile eines Blocks berücksichtigt. Alte Löschlisten werden nie fortgesetzt.
+Die bisherigen Timeline-Untergrenzen gelten weiter. Kann selbst ein Checkpoint nicht innerhalb
+der Kulanz fertig werden, bleibt nur der letzte abgeschlossene Checkpoint erhalten; fehlender
+Fortschritt erfordert die im Deploy-Ablauf beschriebene Diagnose.
+
 Ein Aufräumfehler macht die abgeschlossene Sicherung nicht ungültig. Die Skripte schreiben
-Versuch, Ergebnis und letzten Erfolg atomar nach `/var/lib/taptime-monitor/retention-status`
-(root, 0600); auch fehlgeschlagene oder ausgesetzte Versuche unterliegen der 24-Stunden-Grenze.
+Versuch, Ergebnis und letzten vollständigen Erfolg atomar nach `/var/lib/taptime-monitor/retention-status`
+(root, 0600). Das Format lautet `Zustand|Versuch-Epoch|Erfolg-Epoch|gelöschte-WAL/Marker|Rest-WAL/Marker`;
+alte dreifeldrige Zustände bleiben lesbar. `-1` bedeutet noch nicht vollständig ermittelter Rest.
+Die Zähler gelten für bestätigte ganze WAL-/Marker-Blöcke dieses Laufs, bei Budgetstopp oder
+Befehlsfehler nur als letzter bekannter Stand. Basen und nur teilweise bestätigte Blöcke sind darin
+nicht enthalten; die nächste Inventur berücksichtigt ihre tatsächliche Löschung.
+`partial` aktualisiert niemals den Erfolg. Fehlgeschlagene oder ausgesetzte
+Versuche behalten die 24-Stunden-Grenze; nur `partial` wird stündlich fortgesetzt.
 Ein abgebrochener Lauf bleibt als begonnen sichtbar. Nur die geplante Sonntagsprüfung ohne
 Pin, Zielzeitpunkt, Migrationsprobe oder Materialisierung scheitert, wenn ihr eigener
 Aufräumlauf fehlschlägt oder danach kein Erfolg innerhalb der letzten acht Tage belegt ist
@@ -63,7 +93,8 @@ Aufräumfehler; die Acht-Tage-Regel gilt auf dem Sonntagsweg trotzdem. Bei gepin
 Ergebnis, lässt die erfolgreiche Restore-Prüfung aber nicht scheitern. Das gilt auch bei
 noch fehlender Registrierung oder einem Aufräumfehler. Der Tagesmonitor meldet eine
 gescheiterte Sonntagsprüfung über die bestehende „Wiederherstellungsprüfung fehlgeschlagen“.
-Tägliche Aufräumfehler erzeugen keinen eigenen Push. `archive-counts` im selben Verzeichnis
+Der Tagesmonitor meldet außerdem fehlgeschlagene Aufbewahrung oder fehlenden vollständigen Erfolg
+innerhalb von acht Tagen, auch während eines Teilabbaus. `archive-counts` im selben Verzeichnis
 enthält Erhebungszeitpunkt und Anzahlen, keine Archivnamen oder Adressen. Sicherung und voller
 Archivierer-Abgleich ersetzen diese Datei. Schreibfehler dieser Anzeigezahl werden auf stderr
 gemeldet und lassen einen erfolgreichen WAL-Durchlauf erfolgreich bleiben. Beim Rückbau hält root die Sicherungs-, Prüf- und

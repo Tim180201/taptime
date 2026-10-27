@@ -8,6 +8,9 @@ BASE_BACKUP_KEEP_HOURLY='24'
 BASE_BACKUP_KEEP_DAILY='14'
 BASE_BACKUP_KEEP_WEEKLY='8'
 BASE_BACKUP_KEEP_MONTHLY='6'
+# Includes inventory, deletion blocks and one compact. Partial runs resume hourly.
+# Old installations use 600 by default; accepted range 90..600 seconds.
+BACKUP_RETENTION_BUDGET_SECONDS='600'
 
 DATABASE_CONTAINER='taptime-prod-database-1'
 DATABASE_NAME='taptime'

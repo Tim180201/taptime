@@ -108,10 +108,15 @@ def initialize():
     os.chown(ROOT / 'spool', 999, 999)
     for image in [IMAGE, PG_IMAGE]:
         docker('image', 'inspect', image)
-    docker('run', '-d', '--pull=never', '--network=none', '--name', BORG,
+    # Reap orphaned children after a deliberately forced Borg timeout, just as
+    # the production init does. A zombie PID would look like a live Borg lock.
+    docker('run', '-d', '--init', '--pull=never', '--network=none', '--name', BORG,
            '--label', f't136-owner={state["ownerToken"]}',
            '--mount', f'type=volume,source=t136-scale-data,target={ROOT}',
            '--mount', f'type=bind,source={SOURCE},target=/src,readonly',
+           # --network none has no stable MAC for uuid.getnode(). Give Borg a
+           # stable identity so it can recognize its own dead lock holders.
+           '-e', f'BORG_HOST_ID=t136-synthetic-{state["ownerToken"]}',
            *[arg for k, v in ENV.items() if k.startswith('BORG_') for arg in ['-e', f'{k}={v}']],
            IMAGE, 'sleep', 'infinity')
     state['ownedContainers'][BORG] = json.loads(docker('inspect', BORG).stdout)[0]['Id']

@@ -32,6 +32,7 @@ date() {
     *) command date "$@";;
   esac
 }
+retention_command() { shift; "$@"; }
 production_base_is_registered() { [[ "$fault" != unregistered ]]; }
 add_hours() {
   node - "$root/archives" "$cluster" "$1" "$2" <<'JS'
@@ -62,7 +63,13 @@ borg() {
         if [[ "${*: -1}" == manifest/base-created-at-utc ]]; then cat "$root/archives/$target/timestamp"
         else cat "$root/archives/$target/${*: -1}"; fi
       else cp -R "$root/restore-manifest" manifest; touch base.tar; fi;;
-    delete) rm -rf -- "$root/archives/$target";;
+    delete)
+      [[ "$1" == --checkpoint-interval && "$2" == 15 ]] || return 1
+      shift 2
+      [[ "$1" == "$BORG_REPOSITORY" ]] || return 1
+      shift
+      (( $# > 0 )) || return 1
+      for arg in "$@"; do rm -rf -- "$root/archives/$arg"; done;;
     compact) fixture_now=$((fixture_now + 1)); [[ "$fault" != compact ]];;
     check) return 0;;
     *) fail "unexpected borg $op";;
@@ -125,7 +132,7 @@ case "${T093_CASE:-week}" in
     else
       grep -q '^protected|' "$root/state/retention-status" || fail 'unretained verified base not protected'
       [[ -d "$root/archives/$sunday" && -d "$root/archives/verified-$sunday" ]] || fail 'protected archives removed'
-      if grep -E '^(delete|compact) |^prune --list' "$root/calls"; then fail 'mutation on protected'; fi
+      if grep -E '^(delete|compact) |^prune --checkpoint-interval 15 --list' "$root/calls"; then fail 'mutation on protected'; fi
     fi
     ;;
   weekly-*|deploy-*)
@@ -182,6 +189,7 @@ CONFIG
     check_backup_workspace_path() { :; }
     check_backup_space() { :; }
     plan_restore_space() { :; }
+    # shellcheck disable=SC2034 # Read by the dynamically sourced production main.
     select_restore_cluster_identity() { RESTORE_SYSTEM_IDENTIFIER=123; RESTORE_ARCHIVE_IDENTIFIER="$cluster"; }
     extract_relevant_wal() { mkdir -p "$2"; }
     validate_wal_chain() { printf '000000010000000000000005\n'; }
@@ -214,7 +222,7 @@ CONFIG
       {
         printf '#!/usr/bin/env bash\nset -euo pipefail\nsource %q\n' "$REPO/infrastructure/backup/taptime-restore-verify"
         declare -p root cluster fault fixture_now REPO
-        declare -f date production_base_is_registered borg validate_offsite_borg_repository prepare_borg_cache prepare_backup_workspace check_backup_workspace_path check_backup_space plan_restore_space select_restore_cluster_identity extract_relevant_wal validate_wal_chain latest_wal_record_lsn configure_point_in_time_recovery check_restored_migrations check_restored_rls register_verified_base record_verified_base_marker tar chown
+        declare -f date production_base_is_registered retention_command borg validate_offsite_borg_repository prepare_borg_cache prepare_backup_workspace check_backup_workspace_path check_backup_space plan_restore_space select_restore_cluster_identity extract_relevant_wal validate_wal_chain latest_wal_record_lsn configure_point_in_time_recovery check_restored_migrations check_restored_rls register_verified_base record_verified_base_marker tar chown
         printf 'main "$@"\n'
       } > "$root/restore-runner"
       chmod 0755 "$root/bin/docker" "$root/restore-runner"

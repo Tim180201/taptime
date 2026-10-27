@@ -50,7 +50,7 @@ show_service() {
 # or loads credentials, and stays responsive while a long backup is running.
 show_backup_maintenance() {
   local directory="$1" counts='' retention='' tolerance='' observed base wal markers
-  local state attempt success timestamp
+  local state attempt success timestamp deleted remaining
   [[ ! -f "$directory/archive-counts" ]] || counts="$(< "$directory/archive-counts")"
   if [[ "$counts" =~ ^[0-9]{1,12}\|[0-9]{1,12}\|[0-9]{1,12}\|[0-9]{1,12}$ ]]; then
     IFS='|' read -r observed base wal markers <<< "$counts"
@@ -59,15 +59,20 @@ show_backup_maintenance() {
     printf 'Archivzählung Stand: %s\n' "$timestamp"
   else printf 'Archive: unbekannt\n'; fi
   [[ ! -f "$directory/retention-status" ]] || retention="$(< "$directory/retention-status")"
-  if [[ "$retention" =~ ^(ok|running|failed|protected|unregistered)\|[0-9]{1,12}\|[0-9]{1,12}$ ]]; then
-    IFS='|' read -r state attempt success <<< "$retention"
+  if [[ "$retention" =~ ^(ok|running|partial|failed|protected|unregistered)\|[0-9]{1,12}\|[0-9]{1,12}(\|[0-9]{1,12}\|(-1|[0-9]{1,12}))?$ ]]; then
+    IFS='|' read -r state attempt success deleted remaining <<< "$retention"
     case "$state" in
       ok) printf 'Aufräumen: ok\n';;
       running) printf 'Aufräumen: begonnen, noch kein Abschluss gespeichert\n';;
+      partial) printf 'Aufräumen: teilweise, Fortsetzung mit der nächsten stündlichen Sicherung\n';;
       failed) printf 'Aufräumen: fehlgeschlagen\n';;
       protected) printf 'Aufräumen: ausgesetzt zum Schutz der geprüften Basis oder ihres Markers\n';;
       unregistered) printf 'Aufräumen: wartet auf registrierte, geprüfte Basis\n';;
     esac
+    if [[ -n "$deleted" ]]; then
+      [[ "$remaining" != -1 ]] || remaining=unbekannt
+      printf 'WAL/Marker im Lauf: vollständig gelöschte Blöcke=%s Archive, Rest=%s\n' "$deleted" "$remaining"
+    fi
     timestamp="$(date -u --date="@$attempt" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)" || timestamp=unbekannt
     printf 'Letzter Aufräumversuch: %s\n' "$timestamp"
     timestamp=unbekannt

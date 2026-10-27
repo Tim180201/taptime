@@ -136,7 +136,15 @@ Tage zurückliegt bzw. nicht belegt ist. Der Tagesmonitor meldet dies über die 
 Wiederherstellungsmeldung. Eine gepinnte Deploy-Probe bleibt bei erfolgreicher Wiederherstellung
 `ok`, auch bei altem Aufräumerfolg, `unregistered` oder Aufräumfehler; das Aufräumergebnis
 bleibt in `retention-status` sichtbar. `unregistered` allein ist kein Fehler, hebt aber
-die Acht-Tage-Regel der Sonntagsprüfung nicht auf. Tägliches Aufräumen erhält keinen eigenen Push. Ein Schreibfehler
+die Acht-Tage-Regel der Sonntagsprüfung nicht auf. `partial` bedeutet einen Budgetstopp, auch
+wenn Borg nach SIGINT noch einen Checkpoint geschrieben hat; der nächste stündliche Lauf
+inventarisiert den tatsächlichen Bestand neu. Ein echter Borg-Fehler bleibt `failed` mit
+24 Stunden Abstand zum nächsten Versuch. Die 30–60 Sekunden SIGINT-Kulanz und Compact sind
+bereits im Aufbewahrungsbudget enthalten und verlängern keine Alarmfrist.
+erst `ok` setzt den letzten vollständigen Erfolg. Der Tagesmonitor meldet
+„Sicherungsaufbewahrung fehlgeschlagen oder seit acht Tagen nicht vollständig“ bei `failed`,
+fehlendem/ungültigem Status oder fehlendem vollständigen Erfolg der letzten acht Tage. Eine neue
+Teilmenge setzt diese Frist nicht zurück. Ein Schreibfehler
 von `archive-counts` erscheint nur auf stderr und macht den WAL-Durchlauf nicht ungültig.
 
 Basissicherung und Archivierer halten dieselbe Borg-Sperre. Solange die Sicherung läuft oder
@@ -144,7 +152,12 @@ auf diese Sperre wartet, pausiert der Wächter die WAL-Altersprüfung für die d
 letzten abgeschlossenen Sicherung, mindestens 600 und höchstens 3300 Sekunden. Ohne gültige
 gemerkte Dauer gelten 600 Sekunden. Bei inaktiver Sicherungseinheit merkt der Wächter
 `InactiveEnterTimestamp − InactiveExitTimestamp`; die laufende Sicherung verlängert ihre
-Toleranz niemals selbst. Danach meldet er `WAL-Archivierung steht`, auch
+Toleranz niemals selbst. Ein gültiger Aufbewahrungsstatus (`running`, `ok` oder `partial`) aus genau dieser Sicherung
+gewährt zusätzlich bis zu `BACKUP_RETENTION_BUDGET_SECONDS` ab Aufbewahrungsbeginn (Standard 600 s,
+zulässig 90–600 s), insgesamt weiterhin höchstens 3300 s ab Sicherungsbeginn. Blockfortschritte
+ändern diesen Beginn nicht; auch die Abschlussarbeiten behalten dieselbe feste Frist.
+Alte, zukünftige oder unsichere Statusdateien verlängern nichts.
+Danach meldet er `WAL-Archivierung steht`, auch
 bei frischem Status ohne offene Anforderung. Der Beginn folgt dem Verlassen des inaktiven
 Zustands der Sicherungseinheit (`InactiveExitTimestamp`); ein `oneshot` ist während
 `ExecStart` einschließlich Sperrwartezeit noch `activating`. Nach dem Ende
@@ -183,7 +196,12 @@ Dateien; fehlende Dateien stellen beim nächsten Start den Standard wieder her.
 
 `taptime-status` zeigt zusätzlich lokal gespeicherte Archivzahlen (Basis, WAL, Marker) mit
 Erhebungszeitpunkt, den letzten Aufräumversuch, dessen Ergebnis, den letzten erfolgreichen
-Aufräumzeitpunkt und die Wächter-Toleranz. Er liest weder Backup-Konfiguration noch Borg und
+Aufräumzeitpunkt, `partial` mit bestätigter Löschmenge/Rest und die Wächter-Toleranz. Die Zähler
+betreffen WAL/Marker des aktuellen Laufs; Basen stehen in der gesonderten Archivzählung.
+Beim ersten Lauf nach Deploy 10 kann der alte Rückstand mehrere stündliche Teilläufe erfordern.
+Solange acht Tage kein vollständiger Erfolg vorliegt, bleiben Tagesalarm und Wochenprobe rot.
+`failed` verlangt Prüfung des lokalen Journals; nicht in einer schnellen manuellen Schleife wiederholen.
+Er liest weder Backup-Konfiguration noch Borg und
 bleibt während einer Sicherung aufrufbar. Fehlende oder ungültige Zustände erscheinen als
 „unbekannt“. Die Archivzahlen stammen von Sicherung und vollem Archivierer-Abgleich; im
 Leerlauf können sie bis zum nächsten Vollabgleich unverändert bleiben. Fehler beim Aufräumen

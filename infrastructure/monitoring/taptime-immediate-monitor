@@ -119,6 +119,7 @@ wal_archive_is_current() {
   local cycle_running=0 restore_properties restore_state='' restore_loaded=''
   local restore_started='' restore_ended='' restore_start_epoch=0 restore_end_epoch=0
   local cycle_start_epoch
+  local retention='' _retention_state retention_attempt _retention_ignored backup_deadline
 
   WAL_ARCHIVE_FAILURE_REASON='Status nicht ok'
   # Type=oneshot stays activating throughout ExecStart, including flock. ActiveEnter
@@ -172,7 +173,24 @@ wal_archive_is_current() {
   case "$backup_state" in
     activating|active|deactivating)
       (( backup_start_epoch > 0 )) || return 1
-      if (( now_epoch - backup_start_epoch > BACKUP_PAUSE_MAX_SECONDS )); then
+      backup_deadline=$((backup_start_epoch + BACKUP_PAUSE_MAX_SECONDS))
+      # Only this backup's persisted retention start adds its finite budget.
+      # Progress updates preserve that start; old/forged/future states add no time.
+      if [[ -f "$STATE_DIRECTORY/retention-status" && ! -L "$STATE_DIRECTORY/retention-status" \
+        && -O "$STATE_DIRECTORY/retention-status" && "$(file_mode "$STATE_DIRECTORY/retention-status")" == 600 ]]; then
+        retention="$(< "$STATE_DIRECTORY/retention-status")"
+      fi
+      if [[ "$retention" =~ ^(running|ok|partial)\|[0-9]{1,12}\|[0-9]{1,12}\|[0-9]{1,12}\|(-1|[0-9]{1,12})$ ]]; then
+        IFS='|' read -r _retention_state retention_attempt _retention_ignored <<< "$retention"
+        if (( retention_attempt >= backup_start_epoch && retention_attempt <= now_epoch \
+          && retention_attempt + BACKUP_RETENTION_BUDGET_SECONDS > backup_deadline )); then
+          backup_deadline=$((retention_attempt + BACKUP_RETENTION_BUDGET_SECONDS))
+          if (( backup_deadline > backup_start_epoch + BACKUP_PAUSE_CEILING_SECONDS )); then
+            backup_deadline=$((backup_start_epoch + BACKUP_PAUSE_CEILING_SECONDS))
+          fi
+        fi
+      fi
+      if (( now_epoch > backup_deadline )); then
         WAL_ARCHIVE_FAILURE_REASON="Sicherung läuft seit $(((now_epoch - backup_start_epoch) / 60)) min"
         return 1
       fi
@@ -256,6 +274,12 @@ require_private_file "$HEALTHCHECKS_CURL_CONFIG"
 require_private_file "$BACKUP_CONFIG"
 # shellcheck source=/etc/taptime-backup/config
 source "$BACKUP_CONFIG"
+BACKUP_RETENTION_BUDGET_SECONDS="${BACKUP_RETENTION_BUDGET_SECONDS:-600}"
+if [[ ! "$BACKUP_RETENTION_BUDGET_SECONDS" =~ ^[1-9][0-9]{1,2}$ ]] \
+  || (( BACKUP_RETENTION_BUDGET_SECONDS < 90 || BACKUP_RETENTION_BUDGET_SECONDS > 600 )); then
+  printf 'BACKUP_RETENTION_BUDGET_SECONDS must be between 90 and 600.\n' >&2
+  exit 1
+fi
 : "${WAL_ARCHIVE_STATUS_FILE:?WAL_ARCHIVE_STATUS_FILE must be configured}"
 : "${WAL_ARCHIVE_INTERVAL_SECONDS:?WAL_ARCHIVE_INTERVAL_SECONDS must be configured}"
 : "${WAL_ARCHIVE_MISSED_CYCLES:?WAL_ARCHIVE_MISSED_CYCLES must be configured}"

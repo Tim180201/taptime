@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+# Whole blocks, failure boundaries, budget/status semantics; no production data.
+# The dynamically sourced production functions consume these globals and call
+# the scoped command overrides; static analysis cannot follow those references.
+# shellcheck disable=SC2329,SC2034,SC2317
+set -euo pipefail
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$REPO/infrastructure/backup/taptime-restore-verify"
+root="$(mktemp -d)"
+trap 'rm -rf -- "$root"' EXIT
+export BORG_REPOSITORY=synthetic
+RESTORE_ARCHIVE_IDENTIFIER=0123456789abcdef
+export TAPTIME_BACKUP_STATE_DIRECTORY="$root/state"
+fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
+original_transport="$(declare -f retention_command)"
+retention_command() { shift; "$@"; }
+block_calls=0
+block_failure=0
+expire_after=0
+deleted_names=()
+borg() {
+  [[ "$1" == delete && "$2" == --checkpoint-interval && "$3" == 15 && "$4" == "$BORG_REPOSITORY" ]] || fail 'unexpected Borg command'
+  shift 4
+  (( $# > 0 )) || fail 'repository-wide deletion'
+  block_calls=$((block_calls + 1))
+  (( block_calls != block_failure )) || return 2
+  deleted_names+=("$@")
+  if (( expire_after == block_calls )); then SECONDS=$RETENTION_DEADLINE_SECONDS; fi
+}
+reset_case() {
+  block_calls=0; block_failure=0; expire_after=0; deleted_names=()
+  RETENTION_DEADLINE_SECONDS=$((SECONDS + 600))
+  RETENTION_LAST_BLOCK_SECONDS=0; RETENTION_DELETED=0; RETENTION_REMAINING=-1
+}
+names=()
+for segment in 1 2 3 4 5; do
+  printf -v name 'wal-%s-%024X' "$RESTORE_ARCHIVE_IDENTIFIER" "$segment"
+  names+=("$name")
+done
+names+=("verified-base-$RESTORE_ARCHIVE_IDENTIFIER-20261027T000000Z")
+# Deliberately small argument allowance; charge bytes and argv-pointer margin.
+allowance=$(( (${#names[0]} + 17) * 2 ))
+retention_argument_budget() { printf '%s\n' "$allowance"; }
+reset_case
+delete_retention_archives
+(( block_calls == 0 )) || fail 'empty selection invoked Borg'
+delete_retention_archives "${names[@]}"
+[[ "${deleted_names[*]}" == "${names[*]}" ]] || fail 'changed exact archive selection'
+(( RETENTION_REMAINING == 0 && RETENTION_DELETED == ${#names[@]} )) || fail 'wrong complete counters'
+expected_calls=0; bytes=0
+for name in "${names[@]}"; do
+  size=$((${#name}+17))
+  if (( bytes + size > allowance )); then expected_calls=$((expected_calls+1)); bytes=0; fi
+  bytes=$((bytes+size))
+done
+(( bytes == 0 )) || expected_calls=$((expected_calls+1))
+(( block_calls == expected_calls )) || fail 'argument-derived block sizing'
+reset_case
+if delete_retention_archives "${names[@]}" 'wal-other-*'; then fail 'accepted unsafe trailing name'; fi
+(( block_calls == 0 )) || fail 'deletion before complete validation'
+reset_case
+block_failure=2
+if delete_retention_archives "${names[@]}"; then fail 'ignored failed block'; fi
+(( block_calls == block_failure && RETENTION_DELETED < ${#names[@]} )) || fail 'continued after failed block'
+reset_case
+expire_after=1
+result=0
+delete_retention_archives "${names[@]}" || result=$?
+(( result == 4 && block_calls == 1 && RETENTION_REMAINING > 0 )) || fail 'budget did not stop between whole blocks'
+printf 'Deletion: exact names, empty/invalid selection, byte boundaries, failed block and partial budget passed.\n'
+
+# A genuine budget timeout is resumable, whereas a Borg error keeps the daily
+# failure backoff. Neither may be counted as a completed deletion block.
+(
+  reset_case
+  retention_command() { return 124; }
+  result=0
+  retention_borg prune "$BORG_REPOSITORY" || result=$?
+  (( result == 4 )) || fail "budget interruption became failure (rc=$result)"
+  retention_command() { return 2; }
+  result=0
+  retention_borg delete "$BORG_REPOSITORY" "${names[0]}" || result=$?
+  (( result == 1 )) || fail 'genuine Borg failure became partial'
+  retention_command() { return 137; }
+  result=0
+  retention_borg delete "$BORG_REPOSITORY" "${names[0]}" || result=$?
+  (( result == 1 )) || fail 'early process kill became partial'
+)
+
+# Test the actual subprocess timeout, independently of the in-process Borg double.
+(
+  eval "$original_transport"
+  began=$SECONDS; result=0
+  retention_command 6 bash -c 'sleep 60' || result=$?
+  (( result == 124 && SECONDS - began <= 7 )) || fail 'external command escaped its deadline'
+  RETENTION_INTERRUPT_GRACE_SECONDS=1
+  began=$SECONDS; result=0
+  retention_command 2 bash -c 'trap "" INT; sleep 60' || result=$?
+  (( result == 124 && SECONDS - began <= 3 )) || fail 'forced budget kill was not partial'
+  result=0
+  retention_command 10 bash -c 'kill -KILL $$' || result=$?
+  (( result == 137 )) || fail 'early SIGKILL was mislabeled as budget stop'
+)
+printf 'Real external deadline: graceful/forced budget stop distinguished from early SIGKILL.\n'
+
+# Partial prune/checkpoints must still get one bounded compact, and compact may
+# not erase partial or turn a budget stop into the 24-hour failure backoff.
+(
+  compact_calls=0; compact_result=0
+  prune_retention_archives() { RETENTION_MUTATED=1; return 4; }
+  borg() { [[ "$1" == compact ]] || fail 'unexpected command after partial prune'; compact_calls=$((compact_calls+1)); return "$compact_result"; }
+  result=0; prune_after_verified_restore || result=$?
+  (( result == 4 && compact_calls == 1 )) || fail 'compact lost partial prune status'
+  compact_calls=0; compact_result=124
+  result=0; prune_after_verified_restore || result=$?
+  (( result == 4 && compact_calls == 1 )) || fail 'compact budget stop became failed'
+  compact_calls=0; compact_result=2
+  result=0; prune_after_verified_restore || result=$?
+  (( result == 1 && compact_calls == 1 )) || fail 'real compact failure became partial'
+)
+
+unset RETENTION_DEADLINE_SECONDS
+fixture_now=1800000000
+prune_calls=0
+prune_result=4
+date() { if [[ "$*" == +%s ]]; then printf '%s\n' "$fixture_now"; else command date "$@"; fi; }
+prune_after_verified_restore() {
+  prune_calls=$((prune_calls+1)); RETENTION_DELETED=2; RETENTION_REMAINING=4
+  if (( prune_result == 0 )); then RETENTION_REMAINING=0; fi
+  return "$prune_result"
+}
+run_backup_retention daily "$RESTORE_ARCHIVE_IDENTIFIER"
+[[ "$(cat "$root/state/retention-status")" == "partial|$fixture_now|0|2|4" ]] || fail 'partial was success'
+fixture_now=$((fixture_now+3599)); run_backup_retention daily "$RESTORE_ARCHIVE_IDENTIFIER"
+(( prune_calls == 1 )) || fail 'partial retried before next hour'
+fixture_now=$((fixture_now+1)); run_backup_retention daily "$RESTORE_ARCHIVE_IDENTIFIER"
+(( prune_calls == 2 )) || fail 'partial did not resume hourly'
+for age in 7 9; do
+  prior_success=$((fixture_now-age*86400))
+  printf 'ok|%s|%s\n' "$((fixture_now-86400))" "$prior_success" > "$root/state/retention-status"
+  result=0; run_backup_retention weekly "$RESTORE_ARCHIVE_IDENTIFIER" || result=$?
+  if (( age > 8 )); then (( result != 0 )) || fail 'old partial week passed'
+  else (( result == 0 )) || fail 'recent completed success was discarded'; fi
+  [[ "$(cut -d '|' -f 3 "$root/state/retention-status")" == "$prior_success" ]] || fail 'partial advanced success'
+done
+prune_result=0; run_backup_retention weekly "$RESTORE_ARCHIVE_IDENTIFIER"
+[[ "$(cat "$root/state/retention-status")" == "ok|$fixture_now|$fixture_now|2|0" ]] || fail 'full completion not recorded'
+printf 'Partial status: hourly resume, preserved success and eight-day weekly rule passed.\n'
+prune_result=1; fixture_now=$((fixture_now+86400))
+run_backup_retention daily "$RESTORE_ARCHIVE_IDENTIFIER"
+calls_after_failure=$prune_calls
+fixture_now=$((fixture_now+3600)); run_backup_retention daily "$RESTORE_ARCHIVE_IDENTIFIER"
+(( prune_calls == calls_after_failure )) || fail 'genuine failure lost daily backoff'
+fixture_now=$((fixture_now+82800)); run_backup_retention daily "$RESTORE_ARCHIVE_IDENTIFIER"
+(( prune_calls == calls_after_failure+1 )) || fail 'genuine failure did not resume daily'
+printf 'Genuine Borg failures retain the daily backoff.\n'

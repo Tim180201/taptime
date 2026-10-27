@@ -28,6 +28,49 @@ Die Veröffentlichungen laufen nacheinander, damit Bau und Aufräumen verschiede
 überschneiden. Actions sind auf vollständige Commit-SHAs festgelegt; Dependabot schlägt wöchentlich
 Aktualisierungen vor. Diese durchlaufen die übliche Prüfung, keine automatische Übernahme.
 
+## PO-Schritte für Deploy 10: T-135 und T-136b
+
+Separat durch den PO freizugeben; Deploy 9 bleibt bei `c84dfc9`. Vor Deploy 10 klärt der TL mit
+dem PO zuerst die Meldungen vom 27.10. (Sicherung läuft seit 14 Minuten, Wiederherstellungsprobe
+fehlgeschlagen). An der Konsole nur `taptime-status`, `borg --version` und die unten genannten
+Dienstmetadaten anzeigen. Die Borg-Version an den TL geben; der lokale Nachweis gilt bis dahin
+für 1.2.8. Keine Konfiguration, Schlüssel, Passphrase, ntfy- oder Healthchecks-URL ausgeben.
+
+Vorher mit `taptime-status` die gespeicherten Zahlen für Basen, WAL und Marker samt Erhebungszeit
+und letzten vollständigen Aufräumerfolg festhalten. Das ist eine Bestandszählung, keine exakte
+Löschmenge. Ist die Zählung alt oder unbekannt, erst den nächsten vollständigen Archivierer-Abgleich
+abwarten und erneut lesen. Der Lauf meldet die bereits ermittelte Restmenge; während des
+Basis-Prune kann sie noch unbekannt sein. Die Löschzähler zählen nur vollständig bestätigte
+WAL-/Marker-Blöcke. Bei `partial` mit Zähler null deshalb auch die frische Basenzahl vergleichen:
+ein Checkpoint kann bereits Basen entfernt haben. Die Bestandszahlen erneuert der anschließende
+Basis-/Archiviererlauf; Erhebungszeit beachten.
+Kein manuelles `borg delete`, kein `prune` außerhalb des geschützten Ablaufs.
+
+Danach gilt zwingend diese Reihenfolge:
+
+1. Nach TL-Freigabe sowie grüner CI und grünem Image-Lauf **vor Deploy 10** an der Root-Konsole
+   den vollständigen Block unter [„Deploy-Controller installieren oder aktualisieren“](#deploy-controller-installieren-oder-aktualisieren)
+   mit dem exakten Operations-Abbild des freigegebenen T-136b-Commits ausführen. Abschlussmeldung
+   und `operations-version` müssen diese Revision nennen; bei Abweichung stoppen. Dieser gemeinsame
+   Installer ersetzt `taptime-status`, dessen argumentlose sudoers-Regel **und den Controller**.
+   T-136b ändert den Controller-Code nicht; er wird wegen der gemeinsamen Installation dennoch
+   aus demselben geprüften Abbild installiert. Kein einzelnes Heraus-Kopieren von `taptime-status`.
+2. Den Diagnosezugang in der zweiten Sitzung wie im Bootstrap-Abschnitt prüfen, anschließend
+   Deploy 10 aus der interaktiven PO-Terminalsitzung ausführen. Der normale Deploy allein
+   aktualisiert `taptime-status` nicht; ohne Schritt 1 würde der neue Aufbewahrungsstatus als
+   unbekannt erscheinen.
+3. Die erste Aufbewahrung und anschließend die Wochenprobe wie unten abnehmen.
+
+Deploy 10 enthält Migration 065 und die Sicherungsskripte. Kein neues Geheimnis nötig;
+das Aufbewahrungsbudget gilt ohne Konfigurationsänderung mit 600 Sekunden. Nach dem freigegebenen
+Deploy beobachtet der PO die erste Aufbewahrung mit dem aktualisierten `taptime-status` und
+`systemctl show taptime-backup -p ActiveState -p Result`. `partial` ist kein Erfolg: beim nächsten
+stündlichen Lauf geht es weiter, ohne alte Löschlisten. Nach `ok` die Wochenprobe einmal über
+`systemctl start --no-block taptime-restore-verify` starten und danach deren `Result=success`,
+den frischen Restore-Status sowie den nächsten Tagesmonitor prüfen. Bei `failed`, fehlendem
+Fortschritt oder Alarm über der begrenzten Laufzeit: Journal durch TL prüfen, keine schnelle
+manuelle Wiederholung. Fotos zeigen nur diese Metadaten, keine Geheimnisdateien.
+
 ## PO-Schritte für Deploy 8: T-132
 
 Vor dem Deploy installiert der PO den neuen Controller nach dem Bootstrap-Ablauf unten.
