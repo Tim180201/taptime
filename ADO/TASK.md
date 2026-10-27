@@ -1,66 +1,57 @@
 # Aktuelle Aufgabe
 
-> **Stand 27.10.2026:** T-136b freigegeben, mit Deploy 10 (Konsolenschritt vorher). Jetzt **T-138** (Rückmeldung einer Testerin), danach T-137. Beide kommen in den
-> nächsten App-Build. Die Builds aus `c84dfc9` für die Abnahme von T-104e bleiben unverändert.
+> **Stand 27.10.2026:** T-138 freigegeben, mit Deploy 10 und dem nächsten App-Build. Jetzt **T-137**. Sein App-Teil kommt mit T-138 in den nächsten App-Build.
 
-## T-138 · Kunden: Löschen abgesetzt, Tage je Person
+## T-137 · Restliche Ladezeiten und kleine Restpunkte
 
-**Für:** Development (Astra; Extra High für Server und Vertrag, sonst High) · **Risiko:** mittel. Es gibt einen neuen
-Leseweg mit Berechtigung je Person, und die Löschbedienung in App und Web ändert sich · **Zeitbox:** zwei Sitzungen.
-Reißt sie, wird Punkt 3 geschnitten, nie 1 und 2.
+**Für:** Development (Astra; Extra High für Server und Migrationen, sonst High) · **Risiko:** mittel. Leseabfragen und
+Indizes ändern sich, der Inhalt der Antworten bleibt gleich · **Zeitbox:** zwei Sitzungen. Reißt sie, werden die
+Punkte am Ende von 1 geschnitten, nie 2 und 3.
 
-**Befund (Testerin, PO 27.10.):**
-- **Löschen zu nah:** In der App stehen „Kunde umbenennen“ und „Kunde löschen“ direkt untereinander unter Name und
-  Stunden (`CustomerManagement.tsx`). Die Rückfrage „Löschen bestätigen“ erscheint fast an derselben Stelle, ein
-  schneller Doppeltipp genügt. Im Web stehen beide Knöpfe nebeneinander.
-- **Tage je Person fehlen:** Beim Kunden sieht man „Stunden je Person“ für den Monat, aber nicht, an welchen Tagen
-  diese Person wie viele Stunden bei diesem Kunden gearbeitet hat. Für die eigenen Stunden gibt es diese Ansicht schon
-  („Deine Stunden je Tag“, `scope: 'self'` mit `days`).
+**Befund (T-099b, Spitze und erwartet, Richtwert p95 300 ms; `.t099b-review/report.md`):**
+
+| Profil | Weg | Rolle | p95 |
+|---|---|---|---:|
+| Spitze | `quota-alerts` | Administrator | 701,5 ms |
+| Spitze | `customer-month` | Administrator | 692,8 ms |
+| Spitze | `archive-status` | Standortleitung | 688,3 ms |
+| Spitze | `setup-initial` | Standortleitung | 510,1 ms |
+| Spitze | `quota-alerts-current` | Administrator | 409,2 ms |
+| erwartet | `setup-initial` | Standortleitung | 507,6 ms |
+| beide | `setup-nfc_tags` | Standortleitung | 315 bis 316 ms, knapp an der 14-KiB-Grenze |
+
+Dazu kommen zwei Restpunkte aus T-104e:
+- **P3-2:** Die Archivabfrage des Sperrbildschirms (`lock_screen_archive_status_v1`) findet keinen passenden Index
+  auf `sync_receipts` nach Organisation, Person und Eintrag.
+- **P3-5:** `reloadAfterCapture` veröffentlicht nur die erste Seite. Danach steht kurz „Zeitraum nicht vollständig
+  geladen“.
 
 ### Umfang
 
-1. **Löschen abgesetzt (App und Web):**
-   - „Kunde löschen“ steht unten auf der Kundenseite, mit deutlichem Abstand und von den übrigen Aktionen getrennt.
-     Es ist als Warnaktion erkennbar, aber nicht die Hauptaktion.
-   - Die Rückfrage ist ein eigener Dialog. Darin ist „Abbrechen“ die hervorgehobene Wahl, „Löschen“ steht nie an der
-     Stelle des auslösenden Knopfs, und es gibt keinen Fokus und keine Vorauswahl auf „Löschen“.
-   - Text wie heute: „Stunden bleiben erhalten.“
-   - Dasselbe Muster prüfen bei „Projekt löschen“, „Karte entfernen“, „Zugang entziehen“ und beim Löschen einer Zeit.
-     Stellen, an denen Auslöser und Bestätigung ebenso eng liegen, mitkorrigieren und im Bericht auflisten.
-2. **Tage je Person (Server, Vertrag):**
-   - Neuer additiver Leseweg „Tage einer Person bei einem Kunden in einem Monat“: je Tag die Stunden, „läuft“ und die
-     Summe.
-   - Tageszuordnung wie bei `days`: nach dem Berliner Tag, an dem der Eintrag beginnt.
-   - Die Summe stimmt exakt mit der Zeile in „Stunden je Person“ überein, das ist ein Test.
-   - Berechtigung genau wie die Personenliste des Kunden: Administrator im Betrieb, Standortleitung nur in ihrem
-     Bereich, Ehemalige nach D-143. Mitarbeiter bekommen nur ihre eigenen Tage.
-   - Fremde oder unberechtigte Person oder fremder Kunde: dieselbe Antwort wie „nicht gefunden“, ohne Hinweis.
-   - Antwort höchstens 14 KiB (D-138). Bestehende Wege bleiben unverändert.
-3. **Tage je Person (App und Web):**
-   - In „Stunden je Person“ ist jede Person antippbar beziehungsweise anklickbar.
-   - Darunter erscheint eine Unteransicht „Person · Kunde · Monat“ mit den Tagen (Datum, Stunden, „läuft“), der Summe
-     und dem Zurück-Weg wie bei den übrigen Unteransichten.
-   - Monatswechsel bleibt in der Unteransicht. Laden, Fehler, „Erneut versuchen“ und leere Tage wie in den bestehenden
-     Ansichten. Barrierefrei: Rolle und Beschriftung je Zeile.
+1. **Ladezeiten:**
+   - Je Weg zuerst die Ursache am Plan belegen (`EXPLAIN (ANALYZE, BUFFERS)` auf den Daten des Pilotwerkzeugs), dann
+     beheben.
+   - Erlaubt sind Abfrageform, gemeinsame Vorberechnung im selben Aufruf und additive Indizes.
+   - Inhalt, Reihenfolge, Berechtigung und Seitenverträge bleiben exakt gleich, belegt durch Alt-Neu-Gleichheitstests
+     auf denselben Daten.
+   - Keine Grenze und keine Frist wird hochgesetzt (D-152). Alte Vertragsfassungen bleiben.
+   - Reihenfolge nach Wirkung: `quota-alerts`, `customer-month`, `archive-status`, `setup-initial`, `setup-nfc_tags`.
+2. **Index für die Archivabfrage des Sperrbildschirms:**
+   - Nötig ist ein passender Index für die Abfrage; Plan vorher und nachher.
+   - Schreibkosten des Index beim Sync messen und im Bericht nennen.
+3. **App: vollständiger Kalender nach einer Erfassung:**
+   - `reloadAfterCapture` ersetzt den Kalender erst, wenn alle Seiten geladen sind, wie `readPreservingActive` seit
+     T-104e.
+   - Rot-Test zuerst.
+   - Rückmeldungen zur Erfassung und das Verhalten bei `capturePending` bleiben unverändert.
 
 ### Tests und Nachweis
 
-- **Zuerst rot:**
-  - Rückfrage an der Stelle des Auslösers;
-  - fehlende Tagesansicht.
-- **Server:** gegen PostgreSQL 17:
-  - Mandantentrennung;
-  - Standortleitung außerhalb ihres Bereichs;
-  - Ehemalige;
-  - Monatsgrenzen bei Sommer- und Winterzeit;
-  - laufende Zeit;
-  - Summe gleich Personenzeile;
-  - Größengrenze.
-- **B3:** Inventar ergänzen, falls neue Funktionen oder Rechte entstehen.
-- **Browser-Layout und Barrierefreiheit:** neue Ansichten in beiden Themen und bei 390 px.
-- **App:** Fotos der neuen Ansichten für den PO, im Bericht.
-- **Prüfliste** `.t138-review/pruefliste.md` für den PO am Gerät.
-- **Bericht** `.t138-review/bericht.md`. Die ganze CI lokal nachbauen.
+- **Messung** mit `tests/pilot-size/` vorher und nachher, beide Profile. Vorher-Nachher-Tabelle je Weg im Bericht,
+  Ziel unter 300 ms. Wo das Ziel verfehlt wird, steht die Ursache mit Plan im Bericht.
+- **Server:** gegen PostgreSQL 17 Alt-Neu-Gleichheit für jeden geänderten Weg und Rolle.
+- **B3** und Migrationsprüfung grün. Neue Migrationen nur additiv.
+- **Bericht** `.t137-review/bericht.md`. Die ganze CI lokal nachbauen.
 
 ### Grenzen
 
