@@ -1,68 +1,69 @@
 # Aktuelle Aufgabe
 
-> **Stand 27.10.2026:** T-136 gemessen (Werkzeug `tests/backup-scale/`). Jetzt **T-136b**, mit Deploy 10 zusammen
-> mit T-135. Deploy 9 bleibt bei `c84dfc9`. Danach T-137 (PLAN).
+> **Stand 27.10.2026:** T-136b freigegeben, mit Deploy 10 (Konsolenschritt vorher). Jetzt **T-138** (Rückmeldung einer Testerin), danach T-137. Beide kommen in den
+> nächsten App-Build. Die Builds aus `c84dfc9` für die Abnahme von T-104e bleiben unverändert.
 
-## T-136b · Sicherung: Belegprüfung reparieren, veraltete Archive gesammelt löschen
+## T-138 · Kunden: Löschen abgesetzt, Tage je Person
 
-**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Sicherung und Wiederherstellung sind betroffen, und
-in der Produktion läuft dann zum ersten Mal seit Wochen die Aufbewahrung mit einem großen Rückstand.
-Unabhängiges Review (AGENTS 4) · **Zeitbox:** zwei Sitzungen, nichts wird geschnitten.
+**Für:** Development (Astra; Extra High für Server und Vertrag, sonst High) · **Risiko:** mittel. Es gibt einen neuen
+Leseweg mit Berechtigung je Person, und die Löschbedienung in App und Web ändert sich · **Zeitbox:** zwei Sitzungen.
+Reißt sie, wird Punkt 3 geschnitten, nie 1 und 2.
 
-**Befund (T-136, vom TL mit PostgreSQL 17.10 bestätigt):**
-- `production_base_is_registered` (`taptime-restore-verify`) ruft `psql --tuples-only --no-align` mit
-  `SET ROLE …; SELECT EXISTS …` ohne `--quiet` auf. Seit PostgreSQL 15 lautet die Ausgabe `SET\nt`, verlangt wird `t`.
-- Deshalb wird die Aufbewahrung immer zurückgestellt. Die Wochenprobe scheitert, sobald acht Tage lang keine
-  Aufbewahrung gelungen ist.
-- Die Tests verdecken das, weil sie die SQL-Ausgabe nachbilden.
-- **Folge:** In der Produktion wachsen vermutlich Basen und WAL-Archive ohne Aufbewahrung. Der Rückstand wird beim
-  Deploy 10 an der Konsole gezählt.
-- Die erste gelungene Aufbewahrung löscht heute jedes WAL-Archiv einzeln, unter der gemeinsamen Sperre. Lokal dauerte
-  das für 4.089 Archive 992 s, an der Storage Box ist es langsamer. In dieser Zeit warten Archivierer und stündliche
-  Basis.
+**Befund (Testerin, PO 27.10.):**
+- **Löschen zu nah:** In der App stehen „Kunde umbenennen“ und „Kunde löschen“ direkt untereinander unter Name und
+  Stunden (`CustomerManagement.tsx`). Die Rückfrage „Löschen bestätigen“ erscheint fast an derselben Stelle, ein
+  schneller Doppeltipp genügt. Im Web stehen beide Knöpfe nebeneinander.
+- **Tage je Person fehlen:** Beim Kunden sieht man „Stunden je Person“ für den Monat, aber nicht, an welchen Tagen
+  diese Person wie viele Stunden bei diesem Kunden gearbeitet hat. Für die eigenen Stunden gibt es diese Ansicht schon
+  („Deine Stunden je Tag“, `scope: 'self'` mit `days`).
 
 ### Umfang
 
-1. **P1 beheben:**
-   - Die Belegprüfung liest genau einen Wert.
-   - Alle `psql`-Auswertungen in `infrastructure/backup/` und `infrastructure/monitoring/` werden auf dasselbe Muster
-     geprüft: mehrere Befehle in `--command` und ausgewertete Ausgabe. Betroffene Stellen werden mitkorrigiert und im
-     Bericht aufgelistet.
-   - Regressionstest mit echtem PostgreSQL 17 und echter `psql`-Ausgabe, ohne nachgebildete SQL-Ausgabe: Beleg
-     vorhanden, Beleg fehlt, Funktion fehlt.
-2. **Gesammelt löschen:**
-   - Dieselbe Auswahl und dieselben Timeline-Untergrenzen wie heute.
-   - Ein `borg delete` je Block mit exakt benannten Archiven, kein Glob. Die Blockgröße richtet sich nach der
-     Argumentgrenze und ist begründet.
-   - Prüfmarker ebenso. Am Ende einmal `compact`.
-   - Bei einem Fehler stoppen, ohne einen weiteren Block.
-   - Syntax und Fehlerverhalten mit der Produktionsversion von Borg belegen. Der PO liest `borg --version` an der
-     Konsole ab; bis dahin gilt 1.2.8.
-3. **Rückstand sicher abbauen:**
-   - Die Arbeit unter der Sperre ist je Lauf zeitlich begrenzt. Vorschlag: 10 min; nur ganze Blöcke; der Rest folgt im
-     nächsten Lauf.
-   - Der Aufbewahrungsstatus zeigt Teilfortschritt ehrlich an. „Erfolg“ heißt vollständig.
-   - Überwachung und Wochenprobe bleiben konsistent: Ein Teilfortschritt ist kein Erfolg. Ohne Erfolg in acht Tagen
-     bleibt die Wochenprobe rot.
-   - Die Alarmgrenzen für „Sicherung läuft seit …“ passen zur Begrenzung.
-4. **Runbook:**
-   - RESTORE.md und MONITORING.md beschreiben das Verhalten beim ersten Lauf nach dem Deploy und wie man den Fortschritt
-     liest.
-   - DEPLOY.md nennt die PO-Schritte für Deploy 10: Rückstand vorher zählen, erste Aufbewahrung beobachten, keine
-     Geheimnisse anzeigen.
+1. **Löschen abgesetzt (App und Web):**
+   - „Kunde löschen“ steht unten auf der Kundenseite, mit deutlichem Abstand und von den übrigen Aktionen getrennt.
+     Es ist als Warnaktion erkennbar, aber nicht die Hauptaktion.
+   - Die Rückfrage ist ein eigener Dialog. Darin ist „Abbrechen“ die hervorgehobene Wahl, „Löschen“ steht nie an der
+     Stelle des auslösenden Knopfs, und es gibt keinen Fokus und keine Vorauswahl auf „Löschen“.
+   - Text wie heute: „Stunden bleiben erhalten.“
+   - Dasselbe Muster prüfen bei „Projekt löschen“, „Karte entfernen“, „Zugang entziehen“ und beim Löschen einer Zeit.
+     Stellen, an denen Auslöser und Bestätigung ebenso eng liegen, mitkorrigieren und im Bericht auflisten.
+2. **Tage je Person (Server, Vertrag):**
+   - Neuer additiver Leseweg „Tage einer Person bei einem Kunden in einem Monat“: je Tag die Stunden, „läuft“ und die
+     Summe.
+   - Tageszuordnung wie bei `days`: nach dem Berliner Tag, an dem der Eintrag beginnt.
+   - Die Summe stimmt exakt mit der Zeile in „Stunden je Person“ überein, das ist ein Test.
+   - Berechtigung genau wie die Personenliste des Kunden: Administrator im Betrieb, Standortleitung nur in ihrem
+     Bereich, Ehemalige nach D-143. Mitarbeiter bekommen nur ihre eigenen Tage.
+   - Fremde oder unberechtigte Person oder fremder Kunde: dieselbe Antwort wie „nicht gefunden“, ohne Hinweis.
+   - Antwort höchstens 14 KiB (D-138). Bestehende Wege bleiben unverändert.
+3. **Tage je Person (App und Web):**
+   - In „Stunden je Person“ ist jede Person antippbar beziehungsweise anklickbar.
+   - Darunter erscheint eine Unteransicht „Person · Kunde · Monat“ mit den Tagen (Datum, Stunden, „läuft“), der Summe
+     und dem Zurück-Weg wie bei den übrigen Unteransichten.
+   - Monatswechsel bleibt in der Unteransicht. Laden, Fehler, „Erneut versuchen“ und leere Tage wie in den bestehenden
+     Ansichten. Barrierefrei: Rolle und Beschriftung je Zeile.
 
-### Nachweis
+### Tests und Nachweis
 
-- Bestehende Betriebstests grün. Wo Tests die SQL-Ausgabe nachbilden, kommt mindestens ein echter Pfad dazu.
-- Messung mit `tests/backup-scale/` und Borg im Wegwerf-Container (PO-Freigabe wie in T-136):
-  - Wochenprobe bei 20.000 WAL-Archiven grün und unter 110 min;
-  - Rückstand mit mindestens 20.000 zu löschenden WAL-Archiven und 300 Basen: Dauer je Lauf, Zahl der Läufe bis
-    „vollständig“, Wartezeit von Archivierer und stündlicher Basis;
-  - eine Wiederherstellung (PITR) nach dem Abbau grün.
-- Die ganze CI lokal nachbauen. Bericht `.t136b-review/bericht.md`.
+- **Zuerst rot:**
+  - Rückfrage an der Stelle des Auslösers;
+  - fehlende Tagesansicht.
+- **Server:** gegen PostgreSQL 17:
+  - Mandantentrennung;
+  - Standortleitung außerhalb ihres Bereichs;
+  - Ehemalige;
+  - Monatsgrenzen bei Sommer- und Winterzeit;
+  - laufende Zeit;
+  - Summe gleich Personenzeile;
+  - Größengrenze.
+- **B3:** Inventar ergänzen, falls neue Funktionen oder Rechte entstehen.
+- **Browser-Layout und Barrierefreiheit:** neue Ansichten in beiden Themen und bei 390 px.
+- **App:** Fotos der neuen Ansichten für den PO, im Bericht.
+- **Prüfliste** `.t138-review/pruefliste.md` für den PO am Gerät.
+- **Bericht** `.t138-review/bericht.md`. Die ganze CI lokal nachbauen.
 
 ### Grenzen
 
-- Kein Server, keine Storage Box, kein Supabase, kein Deploy, keine EAS-Builds, keine GHCR-Paketaktion.
-- Nichts installieren außer im freigegebenen Wegwerf-Container.
+- Kein Server- oder Supabase-Zugriff, kein Deploy, keine EAS-Builds, keine GHCR-Paketaktion, nichts installieren
+  (AGENTS 3).
 - Kein Commit vor `APPROVED`.
