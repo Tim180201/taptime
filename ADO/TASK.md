@@ -1,71 +1,68 @@
 # Aktuelle Aufgabe
 
-> **Stand 27.10.2026:** T-135 auf main (`f384279`, mit Deploy 10). Der PO baut die Apps aus `c84dfc9`, danach
-> Deploy 9 (Ziel `c84dfc9`) und Geräteabnahme. Jetzt **T-136**, danach T-137 (PLAN).
+> **Stand 27.10.2026:** T-136 gemessen (Werkzeug `tests/backup-scale/`). Jetzt **T-136b**, mit Deploy 10 zusammen
+> mit T-135. Deploy 9 bleibt bei `c84dfc9`. Danach T-137 (PLAN).
 
-## T-136 · Sicherung unter Pilotlast messen (B13), ohne zu reparieren
+## T-136b · Sicherung: Belegprüfung reparieren, veraltete Archive gesammelt löschen
 
-**Für:** Development (Astra, Extra High) · **Risiko:** niedrig für die Produktion, weil nur lokal gemessen und nichts
-am Produkt geändert wird. Inhaltlich zählt aber jede Zahl, auf ihr baut der Umbau auf · **Zeitbox:** zwei
-Sitzungen. Reißt sie, gelten die bis dahin gemessenen Stufen, ehrlich gekennzeichnet.
+**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Sicherung und Wiederherstellung sind betroffen, und
+in der Produktion läuft dann zum ersten Mal seit Wochen die Aufbewahrung mit einem großen Rückstand.
+Unabhängiges Review (AGENTS 4) · **Zeitbox:** zwei Sitzungen, nichts wird geschnitten.
 
-**Anlass (TL-Lesung, nicht gemessen):**
-- **Archiv je Datei:** Jede WAL-Datei wird ein eigenes Borg-Archiv `wal-<id>-<datei>`. Ohne `archive_timeout`
-  (D-066) wechselt das Segment, sobald eine Archivanforderung offen ist. Im Pilot sind das Tausende Archive im Monat.
-- **WAL bleibt lange liegen:** `retained_base_wal_floors` hält alle WAL ab der ältesten behaltenen Basis. Mit
-  `BASE_BACKUP_KEEP_MONTHLY=6` ist das bis zu sechs Monate.
-- **Viele Einzelaufrufe:**
-  - `plan_restore_space` ruft `borg list` einmal je WAL-Archiv auf.
-  - Die Aufbewahrung löscht jedes veraltete WAL-Archiv mit einem eigenen `borg delete`.
-- **Zeitgrenze:** Die Wochenprobe darf höchstens 110 min laufen (`TimeoutStartSec`). Hält sie die Repository-Sperre,
-  wartet der WAL-Archivierer. Damit verzögert sich die Archivbestätigung (D-153: „wird gesichert“).
+**Befund (T-136, vom TL mit PostgreSQL 17.10 bestätigt):**
+- `production_base_is_registered` (`taptime-restore-verify`) ruft `psql --tuples-only --no-align` mit
+  `SET ROLE …; SELECT EXISTS …` ohne `--quiet` auf. Seit PostgreSQL 15 lautet die Ausgabe `SET\nt`, verlangt wird `t`.
+- Deshalb wird die Aufbewahrung immer zurückgestellt. Die Wochenprobe scheitert, sobald acht Tage lang keine
+  Aufbewahrung gelungen ist.
+- Die Tests verdecken das, weil sie die SQL-Ausgabe nachbilden.
+- **Folge:** In der Produktion wachsen vermutlich Basen und WAL-Archive ohne Aufbewahrung. Der Rückstand wird beim
+  Deploy 10 an der Konsole gezählt.
+- Die erste gelungene Aufbewahrung löscht heute jedes WAL-Archiv einzeln, unter der gemeinsamen Sperre. Lokal dauerte
+  das für 4.089 Archive 992 s, an der Storage Box ist es langsamer. In dieser Zeit warten Archivierer und stündliche
+  Basis.
 
 ### Umfang
 
-1. **Lastmodell aus dem Code.** Wann entsteht ein Segment? Dafür zählen:
-   - der Archivierer-Durchlauf;
-   - die Wechselregeln;
-   - die stündliche Basis;
-   - Checkpoints.
-
-   Daraus Segmente je Tag für die Profile „erwartet“ und „Spitze“ aus `tests/pilot-size/`, also frogs mit 200
-   Lehrkräften. Annahmen offen nennen.
-2. **Messen** mit lokalem, synthetischem Borg-Repository und den vorhandenen Werkzeugen aus dem Operations-Abbild:
-   - Stufen 1, 3, 6 und 12 Monate nach Modell. Mindestens bis 20.000 WAL-Archive echt messen, darüber extrapolieren
-     und die Extrapolation kenntlich machen.
-   - Je Stufe:
-     - Archivzahl;
-     - Größe von Manifest und Repository;
-     - Dauer je `borg create` für eine WAL-Datei;
-     - `borg list`;
-     - `plan_restore_space`, WAL-Extraktion, Aufbewahrung und `compact`;
-     - Gesamtdauer der Wochenprobe gegen 110 min;
-     - Zahl der Borg-Aufrufe je Lauf. Die Aufrufzahl ist der Hauptwert, weil die Storage Box je Aufruf langsamer ist
-       als lokal.
-   - Dazu Sperrkonflikte: Archivierer und stündliche Basis gleichzeitig mit Wochenprobe beziehungsweise Aufbewahrung.
-     Gemessen wird die Wartezeit bis zur Archivbestätigung.
-   - Den monatlichen Fall extra messen: die älteste Monatsbasis fällt weg, ein Monat WAL wird gelöscht.
-3. **Befunde mit Vorschlag,** noch ohne Umsetzung. Zum Beispiel:
-   - mehrere Archive in einem `borg delete`;
-   - Größen aus einer Liste statt je Archiv;
-   - WAL gebündelt;
-   - kürzere WAL-Aufbewahrung.
-
-   Je Vorschlag die Folgen für die Wiederherstellung (RESTORE.md, PITR) und den Aufwand. Der TL entscheidet danach
-   über T-136b.
+1. **P1 beheben:**
+   - Die Belegprüfung liest genau einen Wert.
+   - Alle `psql`-Auswertungen in `infrastructure/backup/` und `infrastructure/monitoring/` werden auf dasselbe Muster
+     geprüft: mehrere Befehle in `--command` und ausgewertete Ausgabe. Betroffene Stellen werden mitkorrigiert und im
+     Bericht aufgelistet.
+   - Regressionstest mit echtem PostgreSQL 17 und echter `psql`-Ausgabe, ohne nachgebildete SQL-Ausgabe: Beleg
+     vorhanden, Beleg fehlt, Funktion fehlt.
+2. **Gesammelt löschen:**
+   - Dieselbe Auswahl und dieselben Timeline-Untergrenzen wie heute.
+   - Ein `borg delete` je Block mit exakt benannten Archiven, kein Glob. Die Blockgröße richtet sich nach der
+     Argumentgrenze und ist begründet.
+   - Prüfmarker ebenso. Am Ende einmal `compact`.
+   - Bei einem Fehler stoppen, ohne einen weiteren Block.
+   - Syntax und Fehlerverhalten mit der Produktionsversion von Borg belegen. Der PO liest `borg --version` an der
+     Konsole ab; bis dahin gilt 1.2.8.
+3. **Rückstand sicher abbauen:**
+   - Die Arbeit unter der Sperre ist je Lauf zeitlich begrenzt. Vorschlag: 10 min; nur ganze Blöcke; der Rest folgt im
+     nächsten Lauf.
+   - Der Aufbewahrungsstatus zeigt Teilfortschritt ehrlich an. „Erfolg“ heißt vollständig.
+   - Überwachung und Wochenprobe bleiben konsistent: Ein Teilfortschritt ist kein Erfolg. Ohne Erfolg in acht Tagen
+     bleibt die Wochenprobe rot.
+   - Die Alarmgrenzen für „Sicherung läuft seit …“ passen zur Begrenzung.
+4. **Runbook:**
+   - RESTORE.md und MONITORING.md beschreiben das Verhalten beim ersten Lauf nach dem Deploy und wie man den Fortschritt
+     liest.
+   - DEPLOY.md nennt die PO-Schritte für Deploy 10: Rückstand vorher zählen, erste Aufbewahrung beobachten, keine
+     Geheimnisse anzeigen.
 
 ### Nachweis
 
-- Messwerkzeug unter `tests/backup-scale/`: wiederholbar, räumt seine eigenen Daten auf, ohne Netz, mit README. Es
-  wird nach `APPROVED` committet, wie `tests/pilot-size/`.
-- Bericht `.t136-review/bericht.md` mit Lastmodell, Tabelle je Stufe, Sperrkonflikten, Befunden, Vorschlägen und den
-  Grenzen der Messung (lokal statt Storage Box).
-- Unabhängiges Review durch einen zweiten Agenten (AGENTS 4). Die bestehenden Betriebstests bleiben grün.
+- Bestehende Betriebstests grün. Wo Tests die SQL-Ausgabe nachbilden, kommt mindestens ein echter Pfad dazu.
+- Messung mit `tests/backup-scale/` und Borg im Wegwerf-Container (PO-Freigabe wie in T-136):
+  - Wochenprobe bei 20.000 WAL-Archiven grün und unter 110 min;
+  - Rückstand mit mindestens 20.000 zu löschenden WAL-Archiven und 300 Basen: Dauer je Lauf, Zahl der Läufe bis
+    „vollständig“, Wartezeit von Archivierer und stündlicher Basis;
+  - eine Wiederherstellung (PITR) nach dem Abbau grün.
+- Die ganze CI lokal nachbauen. Bericht `.t136b-review/bericht.md`.
 
 ### Grenzen
 
-- Nur lokal und nur synthetische Daten: kein Server, keine Storage Box, kein Supabase, keine Produktionsdaten.
-- Kein Deploy, keine EAS-Builds, keine GHCR-Paketaktion. Nichts installieren und nichts ziehen (AGENTS 3), nur
-  vorhandene Abbilder und Werkzeuge.
-- Keine Änderung an `infrastructure/`.
+- Kein Server, keine Storage Box, kein Supabase, kein Deploy, keine EAS-Builds, keine GHCR-Paketaktion.
+- Nichts installieren außer im freigegebenen Wegwerf-Container.
 - Kein Commit vor `APPROVED`.
