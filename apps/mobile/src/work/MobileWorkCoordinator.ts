@@ -416,8 +416,24 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     if(generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready')return;
     this.ownTimeCursors.clear();
     if(result.status==='ready' && validOwnTimeProjection(result.ownTime)) {
-      this.setState({...this.state,ownTime:freezeOwnTime(result.ownTime),targets:result.targets,targetsSearch,targetsBusy:false,targetsFailed:false,
-        submitting:false,capturePending,loadingMore:false,outcome:capturePending?'pending':outcome,feedback:capturePending?null:captureFeedback(outcome,before,result.ownTime)});
+      // Keep the visible calendar until every page of the capture's new frame is ready,
+      // with the same continuation checks as readPreservingActive.
+      let ownTime=result.ownTime;
+      const cursors=new Set<string>();
+      const failed=()=>this.setState({status:'unavailable',message:'Bestätigte Zeiten konnten nicht neu geladen werden. Bitte erneut laden.'});
+      while(ownTime.nextCursor!==null) {
+        const cursor=ownTime.nextCursor;
+        if(cursors.has(cursor)){failed();return;}
+        cursors.add(cursor);
+        const next=await this.api.readOwnTimePage(snapshot.session.membershipId,cursor)
+          .catch(()=>({status:'unavailable' as const}));
+        if(generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready')return;
+        if(next.status!=='ready' || !sameOwnTimeFrame(ownTime,next.ownTime)
+          || !validOwnTimeContinuation(ownTime,next.ownTime)){failed();return;}
+        ownTime={...next.ownTime,records:[...ownTime.records,...next.ownTime.records]};
+      }
+      this.setState({...this.state,ownTime:freezeOwnTime(ownTime),targets:result.targets,targetsSearch,targetsBusy:false,targetsFailed:false,
+        submitting:false,capturePending,loadingMore:false,outcome:capturePending?'pending':outcome,feedback:capturePending?null:captureFeedback(outcome,before,ownTime)});
     } else this.setState({status:'unavailable',message:'Bestätigte Zeiten konnten nicht neu geladen werden. Bitte erneut laden.'});
   }
 
