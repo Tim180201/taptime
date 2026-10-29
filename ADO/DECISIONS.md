@@ -2082,3 +2082,12 @@ vermutlich DATEV (T-123b).
 **Warum:** Alle Programme importieren im Kern Personalnummer, Monat, Lohnart und Wert. Ein ungetesteter Import ist
 wertlos, DATEV hat allein zwei Formate (LODAS, Lohn und Gehalt). Formate je Kunde wären für einen Einzelgründer nicht
 wartbar (PO 28.10.).
+
+## D-157 · Fehlende Personalnummer bei Ehemaligen darf nachgetragen werden · 29.10.2026 · Tim (PO), Claude (TL)
+Lockert D-141 für genau eine Angabe: Hat ein entzogener Zugang keine Personalnummer, darf der Administrator sie einmal
+eintragen, mit demselben Protokoll wie bei Aktiven. Ändern und Entfernen bleiben bei Ehemaligen gesperrt (sie behalten
+ihre Nummer, D-143); alles andere am entzogenen Zugang bleibt unverändert. Umsetzung mit T-123b, weil erst ein
+Lohnprogramm-Import an einer fehlenden Nummer scheitert; bis dahin ordnet das Lohnbüro die Monatsübersicht selbst zu.
+**Warum:** Wer kurz arbeitet und geht, bevor jemand seine Nummer pflegt, stünde sonst dauerhaft ohne Nummer in der
+Lohnabrechnung (TL im Review T-123a). Die Personalnummer ist reine Lohnangabe; Offline-Berechtigungen, Belege und
+Archive, für die D-141 gilt, hängen nicht an ihr.
