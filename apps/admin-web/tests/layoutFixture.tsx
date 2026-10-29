@@ -1,4 +1,5 @@
 import {createArchiveCapability} from './T127Capability';
+import {createPayrollCapability} from './T123Capability';
 import {createRenameCapability} from './T126Capability';
 import {createMonthRaceCapability} from './T122cCapability';
 import {customerSearch,stateSearch} from './searchFixtures';
@@ -371,6 +372,7 @@ capability.cancelAdjudication = () => stateful.emit({ ...ready, adjudicationInte
 capability.cancelReassignment = () => stateful.emit({ ...ready, reassignmentIntent: null });
 const root = createRoot(document.getElementById('root')!);
 if(variant.startsWith('t127-'))void createArchiveCapability(variant.includes('manager')?'standortleitung':'administrator',variant.includes('empty')).then(({coordinator,requests})=>{Object.assign(window,{t127Requests:requests});root.render(<App administration={coordinator}/>);});
+else if(variant==='t123-admin')void createPayrollCapability().then(({coordinator})=>root.render(<App administration={coordinator}/>));
 else if(variant.startsWith('t126-'))void createRenameCapability(variant==='t126-manager'?'standortleitung':'administrator').then(({coordinator})=>root.render(<App administration={coordinator}/>));
 else if(variant==='t122c-month-race')void createMonthRaceCapability(entry).then(administration=>root.render(<App administration={administration}/>));
 else root.render(variant === 'configuration' ? createApplicationPage(null) : variant.startsWith('welcome')

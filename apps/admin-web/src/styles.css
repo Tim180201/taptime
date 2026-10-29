@@ -985,3 +985,7 @@ button.warning-action.primary-action { background: var(--color-notice); color: v
 .safe-confirmation[data-actions-at="start"] [data-confirm-actions] { order:-1; margin-top:0; margin-bottom:auto; padding-top:0; padding-bottom:1rem; }
 .confirmation button.warning-action { background:transparent; color:var(--color-text); border-color:var(--color-notice); }
 .confirmation button.warning-action:hover:not(:disabled) { background:var(--color-surface-raised); }
+
+.payroll-settings { margin-bottom: 16px; }
+.payroll-wage, .payroll-export-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+.payroll-export-actions select { max-width: 100%; }

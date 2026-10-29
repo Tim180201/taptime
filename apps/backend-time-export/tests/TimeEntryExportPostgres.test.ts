@@ -277,8 +277,8 @@ describe('DA2 PostgreSQL export security and truth', () => {
     const milliseconds = limit.rows[0]!.milliseconds;
     expect(milliseconds).toBe(TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS);
     // Discover versions in the running database: a future v4 must pass the same seam.
-    const functions = await installerPool.query<{ name: string }>(
-      `SELECT p.proname AS name FROM pg_catalog.pg_proc p
+    const functions = await installerPool.query<{ name: string; arguments: number }>(
+      `SELECT p.proname AS name, p.pronargs AS arguments FROM pg_catalog.pg_proc p
        JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
        WHERE n.nspname = 'taptime_server' AND (
          p.proname ~ '^(read_effective_time_entry_export|append_time_entry_export_audit)_v[0-9]+$'
@@ -297,13 +297,13 @@ describe('DA2 PostgreSQL export security and truth', () => {
         set_config('app.membership_role', 'administrator', true)`,
       [ids.adminA, ids.organizationA, ids.membershipAdminA]);
       await client.query('SET LOCAL ROLE taptime_time_exporter');
-      for (const { name } of functions.rows) {
+      for (const { name, arguments: argumentCount } of functions.rows) {
         for (const excess of [0, 1]) {
           const to = new Date(Date.parse(from) + milliseconds + excess).toISOString();
           const values = name.startsWith('append_')
             ? ['90000000-0000-4000-8000-000000000036', ids.organizationA, ids.adminA,
               '90000000-0000-4000-8000-000000000036', from, to, 0, 1, 'a'.repeat(64)]
-            : name.startsWith('read_') ? [ids.organizationA, from, to, 1]
+            : name.startsWith('read_') ? [ids.organizationA, from, to, 1].slice(0, argumentCount)
               : [ids.organizationA, from, to];
           const placeholders = values.map((_, index) => `$${index + 1}`).join(', ');
           await client.query('SAVEPOINT limit_probe');

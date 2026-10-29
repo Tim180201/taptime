@@ -35,6 +35,7 @@ export interface TimeEntryExportCoordinatorControls {
 }
 
 export interface TimeEntryExporter {
+  readonly exportTimeEntriesV5?: (command: TimeEntryExportCommand, controls?: TimeEntryExportCoordinatorControls) => Promise<TimeEntryExportResult>;
   exportTimeEntries(
     command: TimeEntryExportCommand,
     controls?: TimeEntryExportCoordinatorControls,

@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": { "target": "ES2024", "noEmit": true, "declaration": false, "declarationMap": false },
-  "include": ["main.ts", "support.ts", "dataset.ts", "measure.ts", "load.ts"]
+  "include": ["main.ts", "payroll.ts", "support.ts", "dataset.ts", "measure.ts", "load.ts"]
 }

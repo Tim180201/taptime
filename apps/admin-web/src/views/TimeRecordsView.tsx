@@ -1,3 +1,4 @@
+import { PayrollExportSettings } from './PayrollFields';
 import { useArchiveStatus } from '../archiveStatus';
 import {MissingNameNotice} from './MissingName';
 import {MonthSwitch} from '../MonthSwitch';
@@ -10,7 +11,7 @@ import {captureLabel,navigateFromLink} from '../viewHelpers';
 import {PageHeader} from '../PageHeader';
 type ReadyState=Extract<ReturnType<AdminWebCapability['getState']>,{status:'ready'}>;
 export default function TimeRecordsView({state,administration,route,navigate}:{readonly state:ReadyState;readonly administration:AdminWebCapability;readonly route:AdminRoute;readonly navigate:(route:AdminRoute)=>void}) {
-  const [exportVersion,setExportVersion]=useState<3|4>(4);
+  const [exportVersion,setExportVersion]=useState<3|4|5>(5);
   const month=selectedMonth(route.month,'lohnexport');
   const range=monthRange();
   const expectedWindow=monthTimeWindow(month);
@@ -21,11 +22,13 @@ export default function TimeRecordsView({state,administration,route,navigate}:{r
   const archive = useArchiveStatus(administration, records.flatMap(row => row.employeeMembershipId ? [row.employeeMembershipId] : []), records.flatMap(row => row.targetId && (row.targetType === 'customer' || row.targetType === 'project') ? [{targetType:row.targetType,targetId:row.targetId}] : []), month);
   const openCases=state.availableSections.includes('review_items')&&state.sections.reviewItems.status==='ready'&&state.reviewItems.length>0
     ?<a href={canonicalRoutePath(reviewRoute)} onClick={e=>navigateFromLink(e,reviewRoute,navigate)}>{state.reviewItemsNextCursor?'Mindestens ':''}{state.reviewItems.length} {state.reviewItems.length===1?'offener Fall':'offene Fälle'} · Zeiten prüfen</a>:null;
-  const exportAction=state.availableSections.includes('time_export')?<><label><span className="sr-only">Datei</span><select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4)}><option value={4}>Einzelzeiten · Standard</option><option value={3}>Einzelzeiten · Früheres Format</option></select></label><button className="primary-action" disabled={!windowReady||state.timeReviewBusy||state.sections.timeRecords.status==='loading'} aria-busy={state.timeReviewBusy} onClick={()=>void administration.exportTimeRecords(exportVersion)}>CSV herunterladen</button></>:null;
+  const exportAction=state.availableSections.includes('time_export')?<><label><span className="sr-only">Datei</span><select value={exportVersion} disabled={state.timeReviewBusy} onChange={e=>setExportVersion(Number(e.target.value) as 3|4|5)}><option value={5}>Monatsübersicht</option><option value={4}>Einzelzeiten · Standard</option><option value={3}>Einzelzeiten · Früheres Format</option></select></label><button className="primary-action" disabled={!windowReady||state.timeReviewBusy||state.sections.timeRecords.status==='loading'} aria-busy={state.timeReviewBusy} onClick={()=>void administration.exportTimeRecords(exportVersion)}>CSV herunterladen</button></>:null;
   return <><PageHeader organization={state.projection.organization.name} title="Lohnexport" subtitle={<>{monthLabel(month)} · {month>=range.max?'läuft noch':'abgeschlossen'}{openCases?<> · {openCases}</>:null}</>}
-    actions={<><MonthSwitch value={month} {...range} onChange={month=>navigate({...route,month})}/>{exportAction}</>}
+    actions={<><MonthSwitch value={month} {...range} onChange={month=>navigate({...route,month})}/></>}
     onRefresh={()=>void administration.refresh()}/>
-    <p className="supporting">Einzelzeiten (CSV): alle Einträge des Monats, unabhängig von den Filtern.</p>
+    {state.role === 'administrator' && expectedWindow && administration.readPayrollSettings && administration.setWorkWageType ? <PayrollExportSettings key={month} administration={administration} {...expectedWindow} refreshKey={state.timeRecords} navigate={navigate} /> : null}
+    {exportAction ? <div className="payroll-export-actions">{exportAction}</div> : null}
+    <p className="supporting">{exportVersion === 5 ? 'Monatsübersicht (CSV): eine Zeile je Person, nur abgeschlossene Zeiten; Pausen abgezogen. Laufende Zeiten werden als Hinweis ausgewiesen.' : 'Einzelzeiten (CSV): alle Einträge des Monats, unabhängig von den Filtern.'}</p>
     {!state.availableSections.includes('time_records')?null:<SectionBoundary state={windowReady?state.sections.timeRecords:{status:'loading'}} onRetry={()=>void administration.retrySection('timeRecords')}>
       <div className="payroll-filters">
         <div className="filter-chips" role="group" aria-label="Status"><span className="filter-group-label">Status</span>{([['alle','Alle'],['laufend','Laufend'],['abgeschlossen','Abgeschlossen']] as const).map(([value,label])=><button className="secondary" key={value} aria-pressed={route.status===value} onClick={()=>navigate({...route,month,status:value})}>{label}</button>)}</div>

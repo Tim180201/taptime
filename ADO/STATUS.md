@@ -12,8 +12,8 @@ optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, no
 offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. T-104e auf main
 (`c84dfc9`); jetzt App-Builds aus `c84dfc9`, danach Deploy 9 (Ziel `c84dfc9`). T-135 auf main
 (`f384279`), wirkt mit Deploy 10 (Migration 065). T-138 auf main, wirkt mit Deploy 10 (Migration 066) und dem nächsten
-App-Build. T-137 auf main, wirkt mit Deploy 10 (Migration 067) und dem nächsten App-Build. Jetzt **T-123a**
-(Personalnummer und Monatsübersicht, D-156); danach T-123b mit den Antworten von frogs.
+App-Build. T-137 auf main, wirkt mit Deploy 10 (Migration 067) und dem nächsten App-Build. T-123a auf main, wirkt mit Deploy 10 (Migration 068). Vor dem Pilot ist keine Entwicklungsaufgabe offen; T-123b
+folgt mit den Antworten von frogs (D-157).
 **T-136 gemessen (27.10.):** 20.000 echte WAL-Archive (Borg 1.2.8): monatliche Aufbewahrung einzeln 992 s, gesammelt
 28 s. P1: Die Belegprüfung liest `SET\nt` statt `t`, die Aufbewahrung wird immer zurückgestellt, Wochenproben werden
 rot. T-136b auf main, wirkt mit Deploy 10; vorher den Controller-Konsolenschritt
@@ -177,6 +177,7 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
 - **T-135, unabhängiges Review R1 (P2):** Beginnt eine laufende Zeit während einer Cursor-Seitenfolge der Tageszeiten, fehlt sie gegebenenfalls bis zum Aktualisieren; der neue Leser vergleicht den laufenden Stand nicht auf jeder Folgeseite. Schreibprüfung unverändert.
 - **Lokale CI (T-135, P2):** `T104cNative` erreichte beim parallelen Prüf-/Messaufbau das 60-s-Swift-Compilerlimit; unverändert separat in 45 s grün. Ursache Last wird vermutet; Erstfehler bleibt in `.t135-review/ci/ci-quality-10.log`.
 - **Test, TL-R1 T-104e (P2):** admin-web `T108Experience` („loads the named person from a later page …“) wackelt unter Last; lokaler R2-Quality-Lauf grün.
+- **Lohnexport (T-123a, TL-R1):** Personalnummer mit führendem Bindestrich erscheint wegen des Formelschutzes als `'-…` (P2, Ursache im Brief, mit T-123b) · Zahl „ohne Personalnummer“ in Pilotgröße nicht gemessen (P3) · Monatsübersicht sortiert Umlaute nach Z (P3).
 
 - **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliche Einzellöschung mit T-136b durch Sammellöschung ersetzt (wirkt mit Deploy 10).
 

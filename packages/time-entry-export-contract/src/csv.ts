@@ -13,6 +13,7 @@ import type {
   TimeEntryExportRowV2,
   TimeEntryExportRowV3,
   TimeEntryExportRowV4,
+  TimeEntryExportRowV5,
 } from './types.js';
 import { isCanonicalTimeEntryExportUuid } from './validation.js';
 
@@ -187,6 +188,29 @@ export function serializeTimeEntryExportCsvV4(
 
 export function neutralizeSpreadsheetFormula(value: string): string {
   return formulaPrefixPattern.test(value) ? `'${value}` : value;
+}
+
+/** D-156: sum whole seconds in SQL; round only this final sum, without floating point. */
+export function serializeTimeEntryExportCsvV5(rows: readonly TimeEntryExportRowV5[]): SerializedTimeEntryExport {
+  if (rows.length > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) throw new TimeEntryExportLimitError('rows');
+  const lines = [serializeCells(['Personalnummer', 'Name', 'Monat', 'Stunden', 'Lohnart', 'Hinweis'])];
+  for (const row of rows) {
+    if (!isCanonicalTimeEntryExportUuid(row.personIdentifier)
+      || !wholeSecondsPattern.test(row.workDurationSeconds)
+      || typeof row.employeeDisplayName !== 'string'
+      || !/^(0[1-9]|1[0-2])\.[0-9]{4}$/.test(row.month)
+      || !(row.personnelNumber === null || /^[0-9A-Za-z-]{1,20}$/.test(row.personnelNumber))
+      || !(row.workWageType === null || /^[0-9]{1,6}$/.test(row.workWageType))
+      || typeof row.hasRunningTime !== 'boolean') throw new InvalidTimeEntryExportRowError();
+    const hundredths = (BigInt(row.workDurationSeconds) * 100n + 1800n) / 3600n;
+    const hours = `${hundredths / 100n},${String(hundredths % 100n).padStart(2, '0')}`;
+    const notice = [row.hasRunningTime ? 'Zeit läuft noch' : '', row.personnelNumber === null ? 'Personalnummer fehlt' : ''].filter(Boolean).join('; ');
+    lines.push(serializeCells([neutralizeSpreadsheetFormula(row.personnelNumber ?? ''),
+      neutralizeSpreadsheetFormula(row.employeeDisplayName), row.month, hours, row.workWageType ?? '', notice]));
+  }
+  const bytes = new TextEncoder().encode(`\uFEFF${lines.join('\r\n')}\r\n`);
+  if (bytes.byteLength > TIME_ENTRY_EXPORT_MAXIMUM_BYTES) throw new TimeEntryExportLimitError('bytes');
+  return Object.freeze({ bytes, byteCount: bytes.byteLength, rowCount: rows.length });
 }
 
 function serializeCells(cells: readonly string[]): string {

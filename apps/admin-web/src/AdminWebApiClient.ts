@@ -1,3 +1,4 @@
+import { isPersonnelNumber, isWorkWageType, type MembershipPayroll, type PayrollSettings } from '@taptime/administration-contract/payroll';
 import { parseReviewDaysRequest, parseReviewDaysResponse, REVIEW_DAYS_MAXIMUM_BYTES, type ReviewDaysRequest, type ReviewDaysResponse } from '@taptime/time-review-contract';
 import { TIME_ENTRY_EXPORT_MAXIMUM_BYTES } from '@taptime/time-entry-export-contract';
 import { parseArchiveRequest, isArchiveResponse, type ArchiveKind, type ArchiveRequests, type ArchiveResponses } from '@taptime/mobile-work-contract';
@@ -88,6 +89,7 @@ export type ApiResult<Value> =
         | 'invalid_evidence'
         | 'project_in_use'
         | 'project_unavailable'
+        | 'personnel_number_conflict'
         | 'stale_row_version'
         | 'already_departed' | 'running_time_active' | 'running_time_too_long' | 'stop_awaiting_archive' | 'after_departure'
         | 'last_administrator'
@@ -154,6 +156,10 @@ export interface AdminWebApiPort {
     token: string, membershipId: string, commandId: string,
     targetMembershipId: string, expectedRowVersion: number,
   ): Promise<ApiResult<true>>;
+  readMembershipPayroll?(token: string, membershipId: string, targetMembershipId: string): Promise<ApiResult<MembershipPayroll>>;
+  setPersonnelNumber?(token: string, membershipId: string, commandId: string, targetMembershipId: string, expectedRowVersion: number, personnelNumber: string | null): Promise<ApiResult<true>>;
+  readPayrollSettings?(token: string, membershipId: string, fromInclusive: string, toExclusive: string): Promise<ApiResult<PayrollSettings>>;
+  setWorkWageType?(token: string, membershipId: string, commandId: string, expectedRowVersion: number, workWageType: string | null): Promise<ApiResult<true>>;
   readMembershipName?(token: string, membershipId: string, targetMembershipId: string): Promise<ApiResult<{ displayName: string | null; rowVersion: number }>>;
   renameMembership?(token: string, membershipId: string, commandId: string, targetMembershipId: string,
     expectedRowVersion: number, displayName: string): Promise<ApiResult<true>>;
@@ -204,7 +210,7 @@ export interface AdminWebApiPort {
     membershipId: string,
     fromInclusive: string,
     toExclusive: string,
-    version?: 3 | 4,
+    version?: 3 | 4 | 5,
   ): Promise<ApiResult<{ readonly blob: Blob; readonly filename: string }>>;
   readonly projects?: (
     token: string,
@@ -518,6 +524,32 @@ export class AdminWebApiClient implements AdminWebApiPort {
       expectedMembershipId: membershipId, commandId, targetMembershipId, expectedRowVersion,
     });
   }
+  async readMembershipPayroll(token: string, membershipId: string, targetMembershipId: string): Promise<ApiResult<MembershipPayroll>> {
+    return this.request('/v1/administration/memberships/payroll',token,'POST',{expectedMembershipId:membershipId,targetMembershipId}, value =>
+      isRecord(value) && exact(value,['status','personnelNumber','rowVersion']) && value.status === 'succeeded'
+        && isPersonnelNumber(value.personnelNumber) && Number.isSafeInteger(value.rowVersion) && (value.rowVersion as number) > 0
+        ? {personnelNumber:value.personnelNumber,rowVersion:value.rowVersion as number} : null);
+  }
+  async readPayrollSettings(token: string, membershipId: string, fromInclusive: string, toExclusive: string): Promise<ApiResult<PayrollSettings>> {
+    return this.request('/v1/administration/payroll/query',token,'POST',{expectedMembershipId:membershipId,fromInclusive,toExclusive}, value =>
+      isRecord(value) && exact(value,['status','workWageType','rowVersion','missingPersonnelNumberCount']) && value.status === 'succeeded'
+        && isWorkWageType(value.workWageType) && Number.isSafeInteger(value.rowVersion) && (value.rowVersion as number) > 0
+        && Number.isSafeInteger(value.missingPersonnelNumberCount) && (value.missingPersonnelNumberCount as number) >= 0
+        ? {workWageType:value.workWageType,rowVersion:value.rowVersion as number,missingPersonnelNumberCount:value.missingPersonnelNumberCount as number} : null);
+  }
+  async setPersonnelNumber(token: string, membershipId: string, commandId: string, targetMembershipId: string, expectedRowVersion: number, personnelNumber: string | null): Promise<ApiResult<true>> {
+    return this.payrollMutation('/v1/administration/memberships/personnel-number',token,
+      {expectedMembershipId:membershipId,commandId,targetMembershipId,expectedRowVersion,personnelNumber});
+  }
+  async setWorkWageType(token: string, membershipId: string, commandId: string, expectedRowVersion: number, workWageType: string | null): Promise<ApiResult<true>> {
+    return this.payrollMutation('/v1/administration/payroll/work-wage-type',token,
+      {expectedMembershipId:membershipId,commandId,expectedRowVersion,workWageType});
+  }
+  private payrollMutation(path: string, token: string, body: object): Promise<ApiResult<true>> {
+    return this.request(path,token,'POST',body,value => isRecord(value) && exact(value,['status','rowVersion','idempotentRetry'])
+      && value.status === 'succeeded' && Number.isSafeInteger(value.rowVersion) && (value.rowVersion as number) > 0
+      && typeof value.idempotentRetry === 'boolean' ? true : null, false,false,false,maximumJsonBodyBytes,false,true);
+  }
   async readMembershipName(token: string, membershipId: string, targetMembershipId: string): Promise<ApiResult<{ displayName: string | null; rowVersion: number }>> {
     return this.request('/v1/administration/memberships/name', token, 'POST', { expectedMembershipId: membershipId, targetMembershipId }, value =>
       isRecord(value) && exact(value, ['status', 'displayName', 'rowVersion']) && value.status === 'succeeded'
@@ -660,7 +692,7 @@ export class AdminWebApiClient implements AdminWebApiPort {
     membershipId: string,
     fromInclusive: string,
     toExclusive: string,
-    version: 3 | 4 = 3,
+    version: 3 | 4 | 5 = 3,
   ): Promise<ApiResult<{ readonly blob: Blob; readonly filename: string }>> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -1363,10 +1395,12 @@ function parseProjectError(
 function parseMembershipError(
   value: unknown,
 ): 'already_departed' | 'running_time_active' | 'running_time_too_long' | 'stop_awaiting_archive' | 'command_id_conflict' | 'last_administrator' | 'self_revocation_forbidden'
+  | 'personnel_number_conflict'
   | 'stale_row_version' | 'target_unavailable' | null {
   if (!isRecord(value) || !exact(value, ['error']) || !isRecord(value.error)
     || !exact(value.error, ['code'])) return null;
   return value.error.code === 'already_departed' || value.error.code === 'running_time_active' || value.error.code === 'running_time_too_long' || value.error.code === 'stop_awaiting_archive'
+    || value.error.code === 'personnel_number_conflict'
     || value.error.code === 'command_id_conflict'
     || value.error.code === 'last_administrator'
     || value.error.code === 'self_revocation_forbidden'

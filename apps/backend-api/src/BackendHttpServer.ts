@@ -1,3 +1,4 @@
+import { isPersonnelNumber, isWorkWageType } from '@taptime/administration-contract';
 import { parseReviewDaysRequest, REVIEW_DAYS_MAXIMUM_BYTES } from '@taptime/time-review-contract';
 import { isLockScreenCapability, isLockScreenCapabilityRequest, isLockScreenActionRequest, isLockScreenCapabilityResult, isLockScreenActionResult,
   LOCK_SCREEN_V2_ACCEPT, isLockScreenCapabilityResultV2, isLockScreenActionResultV2 } from '@taptime/mobile-work-contract';
@@ -46,7 +47,7 @@ import {
   validateProjectCreateRequest,
   validateProjectDeactivateRequest,
 } from '@taptime/mobile-work-contract';
-import { validateTimeEntryExportRequest, TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS } from '@taptime/time-entry-export-contract';
+import { validateMonthlyExportRequest, validateTimeEntryExportRequest, TIME_ENTRY_EXPORT_DEADLINE_MILLISECONDS } from '@taptime/time-entry-export-contract';
 import { pipeline } from 'node:stream/promises';
 import {
   serializeAdministrationSetupProjectionV1,
@@ -132,6 +133,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/time-records/comment': 'time_comment',
   '/v1/time-records/void': 'time_void',
   '/v1/time-records/voided/query': 'time_voided_query',
+  '/v5/time-entries/export': 'time_entry_export_v5',
   '/v4/time-entries/export': 'time_entry_export_v4',
   '/v1/customers/hours/query': 'customer_hours',
   '/v1/administration/nfc-tags/inspect':'admin_tag_inspect',
@@ -174,6 +176,10 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v2/administration/employee-memberships-projection': 'admin_employee_memberships_projection_v2',
   '/v1/administration/memberships/revoke': 'admin_revoke_membership',
   '/v1/administration/memberships/change-role': 'admin_change_membership_role',
+  '/v1/administration/memberships/payroll': 'admin_personnel_query',
+  '/v1/administration/memberships/personnel-number': 'admin_personnel_change',
+  '/v1/administration/payroll/query': 'admin_payroll_query',
+  '/v1/administration/payroll/work-wage-type': 'admin_wage_change',
   '/v1/administration/memberships/rename': 'admin_rename_membership',
   '/v1/administration/memberships/name': 'admin_read_membership_name',
   '/v1/auth/password-reset/audit': 'auth_password_reset_audit',
@@ -265,6 +271,7 @@ type ErrorCode =
   | 'self_revocation_forbidden'
   | 'target_unavailable'
   | 'tag_payload_already_registered'
+  | 'personnel_number_conflict'
   | 'stale_row_version'
   | 'unauthorized';
 
@@ -917,6 +924,42 @@ async function handleRequest(
     );
     return;
   }
+  if (route === 'admin_personnel_query') {
+    if (!isRecord(body) || !hasExactKeys(body, ['expectedMembershipId','targetMembershipId'])
+      || !isCanonicalUuid(body.expectedMembershipId) || !isCanonicalUuid(body.targetMembershipId)) {
+      respondError(response,400,'invalid_request'); return;
+    }
+    const command = { accessToken, expectedMembershipId: MembershipId(body.expectedMembershipId), targetMembershipId: MembershipId(body.targetMembershipId) };
+    await handleAdministrationOperation(response,options,correlationId,timeoutMilliseconds,
+      deadlineEpochMilliseconds => dependencies.employeeEnrollment.readMembershipPayroll!(command,{deadlineEpochMilliseconds}), result => result);
+    return;
+  }
+  if (route === 'admin_payroll_query') {
+    const validation = validateMonthlyExportRequest(body);
+    if (validation.status !== 'valid') { respondError(response,400,'invalid_request'); return; }
+    const { expectedMembershipId, fromInclusive, toExclusive } = validation.request;
+    await handleAdministrationOperation(response,options,correlationId,timeoutMilliseconds,
+      deadlineEpochMilliseconds => dependencies.employeeEnrollment.readPayrollSettings!({accessToken,
+        expectedMembershipId: MembershipId(expectedMembershipId),fromInclusive,toExclusive},{deadlineEpochMilliseconds}), result => result);
+    return;
+  }
+  if (route === 'admin_personnel_change' || route === 'admin_wage_change') {
+    const personal = route === 'admin_personnel_change';
+    const fields = personal ? ['targetMembershipId','personnelNumber'] : ['workWageType'];
+    if (!isRecord(body) || !hasExactKeys(body,['expectedMembershipId','commandId','expectedRowVersion',...fields])
+      || !isCanonicalUuid(body.expectedMembershipId) || !isCanonicalUuid(body.commandId)
+      || !Number.isSafeInteger(body.expectedRowVersion) || (body.expectedRowVersion as number) < 1
+      || (personal ? !isCanonicalUuid(body.targetMembershipId) || !isPersonnelNumber(body.personnelNumber) : !isWorkWageType(body.workWageType))) {
+      respondError(response,400,'invalid_request'); return;
+    }
+    const command = { accessToken, expectedMembershipId: MembershipId(body.expectedMembershipId), commandId: body.commandId,
+      expectedRowVersion: body.expectedRowVersion as number };
+    await handleAdministrationOperation(response,options,correlationId,timeoutMilliseconds,
+      deadlineEpochMilliseconds => personal
+        ? dependencies.employeeEnrollment.setPersonnelNumber!({...command,targetMembershipId:MembershipId(body.targetMembershipId as string),personnelNumber:body.personnelNumber as string|null},{deadlineEpochMilliseconds})
+        : dependencies.employeeEnrollment.setWorkWageType!({...command,workWageType:body.workWageType as string|null},{deadlineEpochMilliseconds}), result => result);
+    return;
+  }
   if (route === 'admin_read_membership_name') {
     if (!isRecord(body) || !hasExactKeys(body, ['expectedMembershipId', 'targetMembershipId'])
       || !isCanonicalUuid(body.expectedMembershipId) || !isCanonicalUuid(body.targetMembershipId)) {
@@ -1044,6 +1087,9 @@ async function handleRequest(
       2,
     );
     return;
+  }
+  if (route === 'time_entry_export_v5') {
+    await handleTimeEntryExport(response,accessToken,body,dependencies,options,correlationId,timeoutMilliseconds,5); return;
   }
   if (route === 'time_entry_export_v4') {
     await handleTimeEntryExport(response,accessToken,body,dependencies,options,correlationId,timeoutMilliseconds,4); return;
@@ -2074,15 +2120,16 @@ async function handleTimeEntryExport(
   options: BackendHttpServerOptions,
   correlationId: string,
   timeoutMilliseconds: number,
-  schemaVersion: 1 | 2 | 3 | 4 = 1,
+  schemaVersion: 1 | 2 | 3 | 4 | 5 = 1,
 ): Promise<void> {
-  const validation = validateTimeEntryExportRequest(body);
+  const validation = schemaVersion === 5 ? validateMonthlyExportRequest(body) : validateTimeEntryExportRequest(body);
   if (validation.status === 'invalid_request') {
     respondError(response, 400, 'invalid_request');
     return;
   }
   if (
-    (schemaVersion === 4 && dependencies.timeEntryExporter.exportTimeEntriesV4 === undefined)
+    (schemaVersion === 5 && dependencies.timeEntryExporter.exportTimeEntriesV5 === undefined)
+    || (schemaVersion === 4 && dependencies.timeEntryExporter.exportTimeEntriesV4 === undefined)
     || (schemaVersion === 2 && dependencies.timeEntryExporter.exportTimeEntriesV2 === undefined)
     || (schemaVersion === 3 && dependencies.timeEntryExporter.exportTimeEntriesV3 === undefined)
   ) {
@@ -2103,7 +2150,9 @@ async function handleTimeEntryExport(
     });
     const exportCommand = { accessToken, correlationId, request: coordinatorRequest };
     const controls = { deadlineEpochMilliseconds, signal: controller.signal, streamResponse: true };
-    const result = schemaVersion === 4
+    const result = schemaVersion === 5
+      ? await withTimeout(dependencies.timeEntryExporter.exportTimeEntriesV5!(exportCommand, controls),timeoutMilliseconds)
+      : schemaVersion === 4
       ? await withTimeout(dependencies.timeEntryExporter.exportTimeEntriesV4!(exportCommand, controls),timeoutMilliseconds)
       : schemaVersion === 3
       ? await withTimeout(
@@ -2652,6 +2701,7 @@ async function handleAdministrationOperation<Result extends { readonly status: s
       case 'self_revocation_forbidden':
         respondError(response, 409, 'self_revocation_forbidden');
         return;
+      case 'personnel_number_conflict': respondError(response, 409, result.status); return;
       case 'stale_row_version':
         respondError(response, 409, 'stale_row_version');
         return;
@@ -3130,6 +3180,10 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'admin_revoke_membership':
     case 'admin_change_membership_role':
     case 'admin_rename_membership':
+    case 'admin_personnel_query':
+    case 'admin_personnel_change':
+    case 'admin_payroll_query':
+    case 'admin_wage_change':
     case 'admin_read_membership_name':
     case 'auth_password_reset_audit':
     case 'admin_provision_nfc_tag':
@@ -3148,6 +3202,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
       return 'administration_failed';
     case 'admin_time_entry_export':
     case 'time_entry_export_v2':
+    case 'time_entry_export_v5':
     case 'time_entry_export_v4':
     case 'time_entry_export_v3':
       return 'time_entry_export_failed';
@@ -3231,6 +3286,10 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_revoke_membership'
     || route === 'admin_change_membership_role'
     || route === 'admin_rename_membership'
+    || route === 'admin_personnel_query'
+    || route === 'admin_personnel_change'
+    || route === 'admin_payroll_query'
+    || route === 'admin_wage_change'
     || route === 'admin_read_membership_name'
     || route === 'auth_password_reset_audit'
     || route === 'admin_provision_nfc_tag'
@@ -3241,6 +3300,7 @@ function isAdministrationRoute(route: Route): boolean {
     || route === 'admin_setup_projection_v2'
     || route === 'admin_time_entry_export'
     || route === 'time_entry_export_v2'
+    || route === 'time_entry_export_v5'
     || route === 'time_entry_export_v4'
     || route === 'time_entry_export_v3'
     || route === 'admin_time_backfill_targets_v2'
@@ -4285,7 +4345,7 @@ function applyResponseHeaders(response: ServerResponse, correlationId: string): 
 function csvHeaders(
   response: ServerResponse,
   filename: string,
-  schemaVersion: 1 | 2 | 3 | 4,
+  schemaVersion: 1 | 2 | 3 | 4 | 5,
   options: BackendHttpServerOptions,
   correlationId: string,
 ): boolean {
@@ -4307,7 +4367,7 @@ function csvHeaders(
 }
 
 function respondCsv(response: ServerResponse, bytes: Uint8Array, filename: string,
-  schemaVersion: 1 | 2 | 3 | 4, options: BackendHttpServerOptions, correlationId: string): void {
+  schemaVersion: 1 | 2 | 3 | 4 | 5, options: BackendHttpServerOptions, correlationId: string): void {
   if (!csvHeaders(response, filename, schemaVersion, options, correlationId)) return;
   response.setHeader('Content-Length', String(bytes.byteLength));
   response.end(Buffer.from(bytes));

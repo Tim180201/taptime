@@ -83,6 +83,8 @@ it('payroll has a selected month, honest file name, outcomes links and no correc
  const s=state({availableSections:['time_records','time_export','review_items'],reviewItems:[item]});
  render(<TimeRecordsView state={s} administration={capability(s)} route={defaultRoute('lohnexport')} navigate={vi.fn()}/>);
  expect(screen.getByRole('button',{name:/^Monat: /})).toBeVisible();
+ expect(screen.getByText(/^Monatsübersicht \(CSV\):/)).toBeVisible();
+ fireEvent.change(screen.getByLabelText('Datei'),{target:{value:'4'}});
  expect(screen.getByText('Einzelzeiten (CSV): alle Einträge des Monats, unabhängig von den Filtern.')).toBeVisible();
  expect(screen.getByRole('button',{name:'CSV herunterladen'})).toBeVisible();
  expect(screen.queryByText('Abgeschlossene Arbeitszeit korrigieren')).toBeNull();
@@ -132,6 +134,8 @@ it('exports only the selected complete month, with format choice independent of 
  expect(screen.getByRole('button',{name:'CSV herunterladen'})).toBeDisabled();
  s={...s,timeWindow:{fromInclusive:'2026-09-30T22:00:00.000Z',toExclusive:'2026-10-31T23:00:00.000Z'}};
  view.rerender(<TimeRecordsView state={s} administration={cap} route={route} navigate={vi.fn()}/>);
+ fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(exportTimeRecords).toHaveBeenLastCalledWith(5);
+ fireEvent.change(screen.getByLabelText('Datei'),{target:{value:'4'}});
  fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(exportTimeRecords).toHaveBeenLastCalledWith(4);
  fireEvent.change(screen.getByLabelText('Datei'),{target:{value:'3'}});
  fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(exportTimeRecords).toHaveBeenLastCalledWith(3);
@@ -153,5 +157,5 @@ it('PO: header fields keep hidden labels and the export format explains its valu
  render(<TimeRecordsView state={s} administration={capability(s)} route={defaultRoute('lohnexport')} navigate={vi.fn()}/>);
  expect(screen.getByRole('button',{name:/^Monat: /})).toHaveAttribute('aria-haspopup','dialog');
  expect(screen.getByLabelText('Datei').closest('label')?.querySelector('.sr-only')).toHaveTextContent('Datei');
- expect(within(screen.getByLabelText('Datei')).getAllByRole('option').map(option=>option.textContent)).toEqual(['Einzelzeiten · Standard','Einzelzeiten · Früheres Format']);
+ expect(within(screen.getByLabelText('Datei')).getAllByRole('option').map(option=>option.textContent)).toEqual(['Monatsübersicht','Einzelzeiten · Standard','Einzelzeiten · Früheres Format']);
 });

@@ -1,3 +1,5 @@
+import { isPersonnelNumber, isWorkWageType, type MembershipPayroll, type PayrollSettings } from '@taptime/administration-contract/payroll';
+import type { PayrollReadResult } from './contracts';
 import { parseReviewDaysResponse, REVIEW_DAYS_MAXIMUM_CASES, type ReviewDay, type ReviewDaysRequest } from '@taptime/time-review-contract';
 import type { ReviewDayState } from './contracts';
 import type { ArchiveRequests, ArchiveResponses } from '@taptime/mobile-work-contract';
@@ -1576,6 +1578,55 @@ export class AdminWebCoordinator implements AdminWebCapability {
     await this.mutateMembership(targetMembershipId, expectedRowVersion, null);
   }
 
+  async readMembershipPayroll(targetMembershipId: string): Promise<PayrollReadResult<MembershipPayroll>> {
+    return this.readPayrollValue((token, member) => this.api.readMembershipPayroll!(token,member,targetMembershipId));
+  }
+  async readPayrollSettings(fromInclusive: string, toExclusive: string): Promise<PayrollReadResult<PayrollSettings>> {
+    return this.readPayrollValue((token, member) => this.api.readPayrollSettings!(token,member,fromInclusive,toExclusive));
+  }
+  private async readPayrollValue<T>(operation: (token: string, member: string) => Promise<import('./AdminWebApiClient').ApiResult<T>>): Promise<PayrollReadResult<T>> {
+    const generation = this.generation, epoch = this.refreshEpoch, membershipId = this.membershipId;
+    const failure = {status:'error' as const,message:'Die Lohnangaben konnten nicht geladen werden. Bitte versuchen Sie es erneut.'};
+    if (this.state.status !== 'ready' || this.state.role !== 'administrator' || !membershipId) return failure;
+    try {
+      const result = await this.auth.withAccessToken(token => operation(token,membershipId));
+      if (generation !== this.generation || epoch !== this.refreshEpoch || this.state.status !== 'ready') return failure;
+      if (result?.status === 'succeeded') return {status:'ready',...result.value};
+      if (result === null || result.status === 'rejected') await this.rejectOutsideAuthentication(generation,'Ihre Berechtigung wurde nicht bestätigt. Melden Sie sich erneut an.');
+    } catch { /* The field remains recoverable and never invents a stored value. */ }
+    return failure;
+  }
+  async setPersonnelNumber(targetMembershipId: string, expectedRowVersion: number, personnelNumber: string | null, commandId: string): Promise<RenameMembershipResult> {
+    if (!isPersonnelNumber(personnelNumber)) return {status:'error',message:'Bitte verwenden Sie 1 bis 20 Zeichen: Buchstaben A–Z, Ziffern oder Bindestrich. Leer entfernt die Nummer.'};
+    return this.savePayrollValue((token,member) => this.api.setPersonnelNumber!(token,member,commandId,targetMembershipId,expectedRowVersion,personnelNumber),'Personalnummer gespeichert.');
+  }
+  async setWorkWageType(expectedRowVersion: number, workWageType: string | null, commandId: string): Promise<RenameMembershipResult> {
+    if (!isWorkWageType(workWageType)) return {status:'error',message:'Bitte geben Sie 1 bis 6 Ziffern ein. Leer entfernt die Lohnart.'};
+    return this.savePayrollValue((token,member) => this.api.setWorkWageType!(token,member,commandId,expectedRowVersion,workWageType),'Lohnart gespeichert.');
+  }
+  private async savePayrollValue(operation: (token: string, member: string) => Promise<import('./AdminWebApiClient').ApiResult<true>>, success: string): Promise<RenameMembershipResult> {
+    const generation = this.generation, epoch = this.refreshEpoch, membershipId = this.membershipId;
+    const failure = {status:'error' as const,message:'Ob die Angabe gespeichert wurde, ist noch unklar. Bitte versuchen Sie es erneut.'};
+    if (this.state.status !== 'ready' || this.state.role !== 'administrator' || !membershipId) return failure;
+    let result;
+    try {result = await this.auth.withAccessToken(token => operation(token,membershipId));} catch {return failure;}
+    if (generation !== this.generation || epoch !== this.refreshEpoch || this.state.status !== 'ready') return failure;
+    if (result === null || result.status === 'rejected') {
+      await this.rejectOutsideAuthentication(generation,'Ihre Berechtigung wurde nicht bestätigt. Melden Sie sich erneut an.');
+      return {status:'error',message:'Nur Administratoren dürfen Lohnangaben ändern.'};
+    }
+    if (result.status === 'succeeded') {
+      this.setState({...this.state,notice:{kind:'success',text:success}});
+      return {status:'saved'};
+    }
+    if (result.status === 'conflict') return {status:'error',message: result.code === 'personnel_number_conflict'
+      ? 'Diese Personalnummer ist bereits vergeben, möglicherweise an einen ehemaligen Mitarbeiter. Bitte verwenden Sie eine andere Nummer.'
+      : result.code === 'stale_row_version' ? 'Die Angaben wurden inzwischen geändert. Bitte schließen Sie das Blatt und öffnen Sie es erneut.'
+      : result.code === 'already_departed' ? 'Der Zugang ist bereits entzogen. Seine Personalnummer bleibt unverändert.'
+      : 'Die Angabe konnte nicht gespeichert werden. Bitte schließen Sie das Blatt und prüfen Sie den aktuellen Stand.'};
+    return failure;
+  }
+
   async readMembershipName(targetMembershipId: string): Promise<MembershipNameResult> {
     const generation = this.generation, epoch = this.refreshEpoch, membershipId = this.membershipId;
     const failure = { status: 'error' as const, message: 'Der Name konnte nicht geladen werden. Bitte schließen Sie das Blatt und öffnen Sie es erneut.' };
@@ -2212,7 +2263,7 @@ export class AdminWebCoordinator implements AdminWebCapability {
     await this.loadMoreCursorSection('reviewItems');
   }
 
-  async exportTimeRecords(version: 3 | 4 = 3): Promise<void> {
+  async exportTimeRecords(version: 3 | 4 | 5 = 3): Promise<void> {
     const current = this.state;
     const membershipId = this.membershipId;
     if (
@@ -2742,6 +2793,7 @@ function locationMutationNotice(code:
   | 'invalid_evidence'
   | 'project_in_use'
   | 'project_unavailable'
+  | 'personnel_number_conflict'
   | 'stale_row_version'
   | 'already_departed' | 'running_time_active' | 'running_time_too_long' | 'stop_awaiting_archive' | 'after_departure'
   | 'last_administrator'

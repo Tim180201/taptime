@@ -1,4 +1,5 @@
 import { TIME_ENTRY_EXPORT_MAXIMUM_RANGE_MILLISECONDS } from './constants.js';
+import { businessDay, dayStart, shiftMonth } from '@taptime/core';
 import type {
   TimeEntryExportRequestValidation,
   ValidatedTimeEntryExportRequest,
@@ -64,4 +65,15 @@ export function validateTimeEntryExportRequest(
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+export function validateMonthlyExportRequest(value: unknown): TimeEntryExportRequestValidation {
+  const result = validateTimeEntryExportRequest(value);
+  if (result.status !== 'valid') return result;
+  const request = result.request;
+  try {
+    const month = businessDay(request.fromInclusive).slice(0, 7);
+    if (request.fromEpochMilliseconds !== dayStart(`${month}-01`)
+      || request.toEpochMilliseconds !== dayStart(`${shiftMonth(month, 1)}-01`)) return { status: 'invalid_request' };
+  } catch { return { status: 'invalid_request' }; }
+  return result;
 }

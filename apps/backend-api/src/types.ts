@@ -202,6 +202,11 @@ export interface AdministrationCoordinator {
 }
 
 export interface EmployeeMembershipEnrollmentCoordinator {
+  readMembershipPayroll?: import('@taptime/backend-administration').EmployeeMembershipEnrollmentCoordinator['readMembershipPayroll'];
+  readPayrollSettings?: import('@taptime/backend-administration').EmployeeMembershipEnrollmentCoordinator['readPayrollSettings'];
+  setPersonnelNumber?: import('@taptime/backend-administration').EmployeeMembershipEnrollmentCoordinator['setPersonnelNumber'];
+  setWorkWageType?: import('@taptime/backend-administration').EmployeeMembershipEnrollmentCoordinator['setWorkWageType'];
+
   queryArchive?: import('@taptime/mobile-work-contract').ArchiveReader['queryArchive'];
   querySearch?: import('@taptime/mobile-work-contract').SearchReader<'managed_people' | 'memberships'>['querySearch'];
   readManagedPersonTime?(command: ManagedPersonTimeCommand, controls?: EmployeeEnrollmentCoordinatorControls): Promise<ManagedPersonTimeResult>;
@@ -314,6 +319,10 @@ export type BackendApiRoute =
   | 'admin_managed_active_summary'
   | 'admin_revoke_membership'
   | 'admin_change_membership_role'
+  | 'admin_personnel_query'
+  | 'admin_personnel_change'
+  | 'admin_payroll_query'
+  | 'admin_wage_change'
   | 'admin_rename_membership'
   | 'admin_read_membership_name'
   | 'auth_password_reset_audit'
@@ -325,6 +334,7 @@ export type BackendApiRoute =
   | 'admin_setup_projection_v3'
   | 'admin_time_entry_export'
   | 'time_entry_export_v2'
+  | 'time_entry_export_v5'
   | 'time_entry_export_v4'
   | 'time_entry_export_v3'
   | 'administration_stop'

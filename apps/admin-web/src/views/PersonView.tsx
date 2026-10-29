@@ -1,3 +1,4 @@
+import { PersonnelNumberChange } from './PayrollFields';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
 import { Pill } from '../ui';
 import {MembershipNameChange} from './MembershipNameChange';
@@ -83,7 +84,7 @@ export default function PersonView({state,administration,route,navigate,accountI
   const calendar=state.calendar;
   const canRename = !person.departedAt && (state.role === 'administrator' || person.role === 'employee' && state.managementScope.kind === 'locations'
     && state.managementScope.locations.some(location => location.id === person.location?.id));
-  const actions=<>{back}{canRename && administration.renameMembership && administration.readMembershipName
+  const actions=<>{back}{state.role === 'administrator' && !person.departedAt && administration.readMembershipPayroll && administration.setPersonnelNumber ? <PersonnelNumberChange key={personId + authority + '-payroll'} administration={administration} membershipId={personId} /> : null}{canRename && administration.renameMembership && administration.readMembershipName
     ? <MembershipNameChange key={personId + authority} administration={administration} membershipId={personId} onSaved={() => setRetry(n => n + 1)} /> : null}</>;
   const resendAction=!person.departedAt && accountInvitations?.resend ? <button className="text-button" disabled={resending} onClick={async()=>{
       setResending(true);

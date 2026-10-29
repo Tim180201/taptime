@@ -1230,10 +1230,12 @@ it('T049 review: locks prepared decisions and retains keyboard focus after the r
  expect(screen.getByRole('region',{name:'Ungeklärte Erfassungen'})).toHaveFocus();
 });
 
-it('T066 keeps both export formats reachable from the payroll view',async()=>{
+it('T123 defaults to the monthly summary and keeps both individual export formats reachable',async()=>{
  window.history.replaceState(null,'','/lohnexport');const capability=new FakeCapability(readyState);
  await render(<App administration={capability}/>);
- expect(await screen.findByLabelText('Datei')).toHaveValue('4');
+ expect(await screen.findByLabelText('Datei')).toHaveValue('5');
+ fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(5);
+ fireEvent.change(screen.getByLabelText('Datei'),{target:{value:'4'}});
  fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(4);
  fireEvent.change(screen.getByLabelText('Datei'),{target:{value:'3'}});fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(capability.exportTimeRecords).toHaveBeenLastCalledWith(3);
 });

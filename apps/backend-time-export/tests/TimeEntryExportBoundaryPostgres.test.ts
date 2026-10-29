@@ -61,6 +61,9 @@ describe('DA2 export size boundaries in an isolated database run', () => {
     await insertBulkStoppedEntries(installerPool, TIME_ENTRY_EXPORT_MAXIMUM_ROWS + 1 - existing);
     expect((await exportV1()).status).toBe('export_limit_exceeded');
     expect(await exportAuditCount()).toBe(0);
+    expect(await coordinator.exportTimeEntriesV5({ ...command(), request: { ...request,
+      fromInclusive:'2026-06-30T22:00:00.000Z',toExclusive:'2026-07-31T22:00:00.000Z' } })).toEqual({status:'export_limit_exceeded'});
+    expect(await exportAuditCount()).toBe(0);
   }, 120_000);
 
   it('streams the complete maximum-sized payroll month and audits its exact bytes', async () => {
@@ -81,6 +84,14 @@ describe('DA2 export size boundaries in an isolated database run', () => {
     const audit = (await installerPool.query("SELECT payload FROM taptime_server.audit_events WHERE event_type='TimeEntryExportGenerated'")).rows;
     expect(audit).toHaveLength(1);
     expect(audit[0].payload).toMatchObject({rowCount:TIME_ENTRY_EXPORT_MAXIMUM_ROWS,byteCount:bytes,sha256:hash.digest('hex')});
+    const monthly = await coordinator.exportTimeEntriesV5({ ...command(), request: { ...request,
+      fromInclusive:'2026-06-30T22:00:00.000Z',toExclusive:'2026-07-31T22:00:00.000Z' } });
+    expect(monthly.status).toBe('succeeded');
+    if (monthly.status !== 'succeeded') throw Error(monthly.status);
+    const people = (await installerPool.query('SELECT count(DISTINCT user_id)::int AS count FROM taptime_server.effective_time_records_v2 WHERE organization_id=$1',[ids.organizationA])).rows[0].count;
+    expect(monthly.rowCount).toBe(people);
+    expect((await installerPool.query("SELECT payload FROM taptime_server.audit_events WHERE event_type='TimeEntryExportGenerated' AND payload->>'schemaVersion'='5'")).rows)
+      .toEqual([{payload:expect.objectContaining({rowCount:people,byteCount:monthly.byteCount,sha256:monthly.sha256})}]);
   }, 120_000);
 
   it('exports the formerly rejected wide CSV completely within the derived byte bound', async () => {

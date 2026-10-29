@@ -75,3 +75,13 @@ export interface TimeEntryExportRowV4 extends TimeEntryExportRowV3 {
   readonly origin: 'nfc'|'manual'|'backfilled'|'recovered';
   readonly changed: boolean; readonly comment: string|null;
 }
+
+export interface TimeEntryExportRowV5 {
+  readonly personIdentifier: string;
+  readonly personnelNumber: string | null;
+  readonly employeeDisplayName: string;
+  readonly month: string;
+  readonly workDurationSeconds: string;
+  readonly workWageType: string | null;
+  readonly hasRunningTime: boolean;
+}

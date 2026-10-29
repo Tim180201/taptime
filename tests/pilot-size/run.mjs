@@ -20,7 +20,7 @@ for (const parent of ['apps', 'packages']) for (const name of await readdir(pare
 }
 try {
   const entry = resolve(temporary, 'main.mjs');
-  await build({ entryPoints: ['tests/pilot-size/main.ts'], outfile: entry, bundle: true,
+  await build({ entryPoints: [process.argv.includes('--payroll') ? 'tests/pilot-size/payroll.ts' : 'tests/pilot-size/main.ts'], outfile: entry, bundle: true,
     platform: 'node', target: 'node24', format: 'esm', packages: 'external', sourcemap: 'inline',
     plugins: [{ name: 'current-workspace-source', setup(builder) {
       builder.onResolve({ filter: /^@taptime\// }, args => {

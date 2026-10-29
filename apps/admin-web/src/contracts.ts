@@ -1,3 +1,4 @@
+import type { MembershipPayroll, PayrollSettings } from '@taptime/administration-contract/payroll';
 import type { ReviewDay } from '@taptime/time-review-contract';
 import type { ArchiveRequests, ArchiveResponses } from '@taptime/mobile-work-contract';
 import type { PageResult } from '../../mobile/src/search/search';
@@ -5,6 +6,7 @@ import type {AssignmentCapability} from './targetAssignments';
 import type {QuotaAlertsCapability} from '../../mobile/src/search/search';
 import type { ClientSearchCapability } from '../../mobile/src/search/search';
 export type MembershipNameResult = { readonly status: 'ready'; readonly displayName: string | null; readonly rowVersion: number } | { readonly status: 'error'; readonly message: string };
+export type PayrollReadResult<T> = ({ readonly status: 'ready' } & T) | { readonly status: 'error'; readonly message: string };
 export type RenameMembershipResult = { readonly status: 'saved' } | { readonly status: 'error'; readonly message: string };
 export interface Notice { readonly kind: 'success' | 'info' | 'error'; readonly text: string; }
 import type { TimeEditInput,TimeEditResult } from './timeEditing';
@@ -249,6 +251,10 @@ export interface AdminWebCapability extends ClientSearchCapability, QuotaAlertsC
     locationId?: string | null,
   ): Promise<void>;
   revokeMembership(membershipId: string, expectedRowVersion: number): Promise<void>;
+  readMembershipPayroll?(targetMembershipId: string): Promise<PayrollReadResult<MembershipPayroll>>;
+  setPersonnelNumber?(targetMembershipId: string, expectedRowVersion: number, personnelNumber: string | null, commandId: string): Promise<RenameMembershipResult>;
+  readPayrollSettings?(fromInclusive: string, toExclusive: string): Promise<PayrollReadResult<PayrollSettings>>;
+  setWorkWageType?(expectedRowVersion: number, workWageType: string | null, commandId: string): Promise<RenameMembershipResult>;
   readMembershipName?(targetMembershipId: string): Promise<MembershipNameResult>;
   renameMembership?(targetMembershipId: string, expectedRowVersion: number, displayName: string, commandId: string): Promise<RenameMembershipResult>;
   changeMembershipRole(
@@ -274,7 +280,7 @@ export interface AdminWebCapability extends ClientSearchCapability, QuotaAlertsC
   ): void;
   cancelAdjudication(): void;
   confirmAdjudication(): Promise<void>;
-  exportTimeRecords(version?: 3 | 4): Promise<void>;
+  exportTimeRecords(version?: 3 | 4 | 5): Promise<void>;
   loadMoreTimeRecords(): Promise<void>;
   loadMoreReviewItems(): Promise<void>;
   readonly loadReviewDays?: (reviewItemIds: readonly string[]) => Promise<Readonly<Record<string, ReviewDayState>>>;

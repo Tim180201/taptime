@@ -1,0 +1,81 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
+import { afterEach, beforeAll, expect, it, vi } from 'vitest';
+import { createPayrollCapability } from './T123Capability';
+import { renameSelf, renameEmployee } from './T126Capability';
+import { App } from '../src/App';
+import { AdminWebApiClient } from '../src/AdminWebApiClient';
+import { PersonnelNumberChange, PayrollExportSettings } from '../src/views/PayrollFields';
+import TimeRecordsView from '../src/views/TimeRecordsView';
+import { defaultRoute, monthTimeWindow } from '../src/navigation';
+import type { AdminWebState } from '../src/contracts';
+beforeAll(()=>{
+  HTMLDialogElement.prototype.showModal=function(){this.open=true;};
+  HTMLDialogElement.prototype.close=function(){this.open=false;};
+  window.matchMedia=vi.fn().mockImplementation(()=>({matches:false,addEventListener(){},removeEventListener(){}}));
+});
+afterEach(()=>{cleanup();vi.restoreAllMocks();window.history.replaceState(null,'','/');});
+it('T123 carries a duplicate-number HTTP conflict through the real client to its actionable field message',async()=>{
+  const cap=await createPayrollCapability();
+  const client=new AdminWebApiClient(vi.fn<typeof fetch>(async()=>Response.json({error:{code:'personnel_number_conflict'}},{status:409})));
+  vi.spyOn(cap.api,'setPersonnelNumber').mockImplementation((...args)=>client.setPersonnelNumber(...args) as ReturnType<typeof cap.api.setPersonnelNumber>);
+  render(<PersonnelNumberChange administration={cap.coordinator} membershipId={renameEmployee}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Personalnummer pflegen'}));
+  const input=await screen.findByRole('textbox',{name:'Personalnummer'});fireEvent.change(input,{target:{value:'FORMER-001'}});
+  fireEvent.click(screen.getByRole('button',{name:'Personalnummer speichern'}));
+  await screen.findByText('Diese Personalnummer ist bereits vergeben, möglicherweise an einen ehemaligen Mitarbeiter. Bitte verwenden Sie eine andere Nummer.');
+  expect(input).toHaveValue('FORMER-001');expect(input).toHaveAttribute('aria-invalid','true');
+});
+it('T123 validates without a request, preserves leading zeroes, reuses uncertain requests and clears to null',async()=>{
+  const cap=await createPayrollCapability();
+  const save=vi.spyOn(cap.coordinator,'setPersonnelNumber').mockResolvedValueOnce({status:'error',message:'Bitte erneut versuchen.'});
+  render(<PersonnelNumberChange administration={cap.coordinator} membershipId={renameEmployee}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Personalnummer pflegen'}));
+  const input=await screen.findByRole('textbox',{name:'Personalnummer'});expect(input).toHaveValue('0002');
+  fireEvent.change(input,{target:{value:'A_1'}});fireEvent.click(screen.getByRole('button',{name:'Personalnummer speichern'}));
+  expect(input).toHaveAttribute('aria-invalid','true');expect(save).not.toHaveBeenCalled();
+  fireEvent.change(input,{target:{value:'0003-A'}});fireEvent.click(screen.getByRole('button',{name:'Personalnummer speichern'}));
+  await screen.findByText('Bitte erneut versuchen.');fireEvent.click(screen.getByRole('button',{name:'Personalnummer speichern'}));
+  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());expect(save.mock.calls[0]).toEqual(save.mock.calls[1]);
+  expect(cap.numbers.get(renameEmployee)).toBe('0003-A');
+  fireEvent.click(screen.getByRole('button',{name:'Personalnummer pflegen'}));
+  fireEvent.change(await screen.findByRole('textbox',{name:'Personalnummer'}),{target:{value:''}});
+  fireEvent.click(screen.getByRole('button',{name:'Personalnummer speichern'}));
+  await waitFor(()=>expect(screen.queryByRole('dialog')).toBeNull());expect(cap.numbers.get(renameEmployee)).toBeNull();
+});
+it('T123 defaults to the monthly export and exposes the missing-number count and maintenance link',async()=>{
+  const cap=await createPayrollCapability(); const exportCsv=vi.spyOn(cap.coordinator,'exportTimeRecords').mockResolvedValue();
+  const state={...cap.coordinator.getState(),timeWindow:monthTimeWindow('2026-09')!} as Extract<AdminWebState,{status:'ready'}>;
+  render(<TimeRecordsView state={state} administration={cap.coordinator} route={{...defaultRoute('lohnexport'),month:'2026-09'}} navigate={vi.fn()}/>);
+  expect(screen.getByRole('combobox',{name:'Datei'})).toHaveValue('5');
+  await screen.findByText(/1 Person ohne Personalnummer/);
+  expect(screen.getByRole('link',{name:'Personalnummern bei den Mitarbeitern pflegen'})).toHaveAttribute('href','/beschaeftigte');
+  fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(exportCsv).toHaveBeenCalledWith(5);
+  fireEvent.change(screen.getByRole('combobox',{name:'Datei'}),{target:{value:'4'}});
+  fireEvent.click(screen.getByRole('button',{name:'CSV herunterladen'}));expect(exportCsv).toHaveBeenLastCalledWith(4);
+});
+it('T123 changes and clears the optional wage type without changing its leading zeroes',async()=>{
+  const cap=await createPayrollCapability();
+  render(<PayrollExportSettings administration={cap.coordinator} {...monthTimeWindow('2026-09')!} refreshKey={null} navigate={vi.fn()}/>);
+  fireEvent.click(await screen.findByRole('button',{name:'Lohnart pflegen'}));
+  const input=await screen.findByRole('textbox',{name:'Lohnart für Arbeitsstunden'});
+  fireEvent.change(input,{target:{value:'-1'}});fireEvent.click(screen.getByRole('button',{name:'Lohnart speichern'}));
+  expect(cap.payrollCommands).toHaveLength(0);
+  fireEvent.change(input,{target:{value:'001'}});fireEvent.click(screen.getByRole('button',{name:'Lohnart speichern'}));
+  await screen.findByText('001');expect(cap.payrollCommands[0]?.value).toBe('001');
+  fireEvent.click(screen.getByRole('button',{name:'Lohnart pflegen'}));
+  fireEvent.change(await screen.findByRole('textbox',{name:'Lohnart für Arbeitsstunden'}),{target:{value:''}});
+  fireEvent.click(screen.getByRole('button',{name:'Lohnart speichern'}));await screen.findByText('Nicht angegeben');
+  expect(cap.payrollCommands.at(-1)?.value).toBeNull();
+});
+it('T123 hides payroll actions from location managers and ignores late session results',async()=>{
+  window.history.replaceState(null,'','/beschaeftigte');const manager=await createPayrollCapability('standortleitung');
+  render(<App administration={manager.coordinator}/>);fireEvent.click(await screen.findByRole('tab',{name:'Zugänge'}));
+  await screen.findByRole('table',{name:'Zugänge'});expect(screen.queryByRole('button',{name:'Personalnummer pflegen'})).toBeNull();
+  expect((await manager.coordinator.readMembershipPayroll(renameSelf)).status).toBe('error');
+  const cap=await createPayrollCapability();let finish!:()=>void;
+  vi.spyOn(cap.api,'readMembershipPayroll').mockImplementationOnce(()=>new Promise(resolve=>{finish=()=>resolve({status:'succeeded',value:{personnelNumber:'late',rowVersion:1}});}));
+  const pending=cap.coordinator.readMembershipPayroll(renameSelf);await cap.coordinator.signOut();finish();
+  expect((await pending).status).toBe('error');expect(cap.coordinator.getState().status).toBe('signed_out');
+});

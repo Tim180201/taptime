@@ -6,12 +6,15 @@ import { isOrganizationPausedError } from '@taptime/backend-identity';
 import { readManagedPerson, readManagedSummary, validPersonCommand, validSummaryCommand, type ManagedPersonTimeCommand, type ManagedActiveSummaryCommand, type ManagedPersonTimeResult, type ManagedActiveSummaryResult } from './ManagedPeopleReader.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
+  isPersonnelNumber, isWorkWageType,
+  type MembershipPayroll, type PayrollSettings, type PayrollMutationResult, type PayrollMutationStatus,
   normalizeCustomerNameV1,
   normalizeOrganizationNameV1,
 } from '@taptime/administration-contract';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import {
   BusinessEngine, WorkEventId, createTimestamp,
+  businessDay, dayStart, shiftMonth,
   MembershipId,
   OrganizationId,
   isMembershipRole,
@@ -798,12 +801,72 @@ export class EmployeeMembershipEnrollmentCoordinator {
     );
   }
 
+  async readMembershipPayroll(command: { accessToken: string; expectedMembershipId: MembershipId; targetMembershipId: MembershipId },
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<({ status: 'succeeded' } & MembershipPayroll) | { status: 'invalid_request' | 'unauthorized' | 'forbidden' }> {
+    if (!validAccessToken(command.accessToken) || !isCanonicalUuid(command.expectedMembershipId)
+      || !isCanonicalUuid(command.targetMembershipId)) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority(command.accessToken, command.expectedMembershipId, randomUUID(), controls, async client => {
+      const row = (await client.query('SELECT * FROM taptime_server.read_membership_payroll_v1($1)', [command.targetMembershipId])).rows[0];
+      if (!row) return { status: 'forbidden' } as const;
+      if (!isPersonnelNumber(row.personnel_number) || !validRowVersion(Number(row.row_version))) throw new Error('Invalid personnel number projection');
+      return { status: 'succeeded', personnelNumber: row.personnel_number, rowVersion: Number(row.row_version) } as const;
+    }, true);
+  }
+
+  async readPayrollSettings(command: { accessToken: string; expectedMembershipId: MembershipId; fromInclusive: string; toExclusive: string },
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<({ status: 'succeeded' } & PayrollSettings) | { status: 'invalid_request' | 'unauthorized' | 'forbidden' }> {
+    if (!validAccessToken(command.accessToken) || !isCanonicalUuid(command.expectedMembershipId)
+      || !validPayrollMonth(command.fromInclusive, command.toExclusive)) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority(command.accessToken, command.expectedMembershipId, randomUUID(), controls, async client => {
+      const row = (await client.query('SELECT * FROM taptime_server.read_payroll_settings_v1($1,$2)', [command.fromInclusive, command.toExclusive])).rows[0];
+      if (!row) return { status: 'forbidden' } as const;
+      const count = Number(row.missing_personnel_number_count);
+      if (!isWorkWageType(row.work_wage_type) || !validRowVersion(Number(row.row_version))
+        || !Number.isSafeInteger(count) || count < 0) throw new Error('Invalid payroll settings');
+      return { status: 'succeeded', workWageType: row.work_wage_type, rowVersion: Number(row.row_version), missingPersonnelNumberCount: count } as const;
+    }, true);
+  }
+
+  async setPersonnelNumber(command: RevokeMembershipCommand & { personnelNumber: string | null },
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<PayrollMutationResult> {
+    if (!isCanonicalUuid(command.targetMembershipId) || !isPersonnelNumber(command.personnelNumber)) return { status: 'invalid_request' };
+    return this.setPayrollValue(command, command.targetMembershipId, command.personnelNumber, controls);
+  }
+
+  async setWorkWageType(command: { accessToken: string; expectedMembershipId: MembershipId; commandId: string; expectedRowVersion: number; workWageType: string | null },
+    controls: EmployeeEnrollmentCoordinatorControls = {},
+  ): Promise<PayrollMutationResult> {
+    if (!isWorkWageType(command.workWageType)) return { status: 'invalid_request' };
+    return this.setPayrollValue(command, null, command.workWageType, controls);
+  }
+
+  private async setPayrollValue(command: { accessToken: string; expectedMembershipId: MembershipId; commandId: string; expectedRowVersion: number },
+    target: string | null, value: string | null, controls: EmployeeEnrollmentCoordinatorControls,
+  ): Promise<PayrollMutationResult> {
+    if (!validAccessToken(command.accessToken) || !isCanonicalUuid(command.expectedMembershipId)
+      || !isCanonicalUuid(command.commandId) || !validRowVersion(command.expectedRowVersion)) return { status: 'invalid_request' };
+    return this.withMembershipManagementAuthority(command.accessToken, command.expectedMembershipId, command.commandId, controls, async client => {
+      const row = (await client.query('SELECT * FROM taptime_server.set_payroll_value_v1($1,$2,$3,$4)',
+        [command.commandId, target, command.expectedRowVersion, value])).rows[0];
+      if (row?.result_status === 'succeeded' && validRowVersion(Number(row.row_version)) && typeof row.idempotent_retry === 'boolean') {
+        return { status: 'succeeded', rowVersion: Number(row.row_version), idempotentRetry: row.idempotent_retry } as const;
+      }
+      const failures: Exclude<PayrollMutationStatus, 'succeeded'>[] = ['invalid_request','forbidden','target_unavailable','already_departed','stale_row_version','command_id_conflict','personnel_number_conflict'];
+      if (!failures.includes(row?.result_status)) throw new Error('Invalid payroll mutation result');
+      return { status: row.result_status as Exclude<PayrollMutationStatus, 'succeeded'> };
+    }, true);
+  }
+
   private async withMembershipManagementAuthority<Value>(
     accessToken: string,
     expectedMembershipId: MembershipId,
     correlationId: string,
     controls: EmployeeEnrollmentCoordinatorControls,
     operation: (client: PoolClient) => Promise<Value>,
+    administratorOnly = false,
   ): Promise<Value | { readonly status: 'unauthorized' } | { readonly status: 'forbidden' }> {
     const deadline = controls.deadlineEpochMilliseconds
       ?? Date.now() + DEFAULT_INTERNAL_DEADLINE_MILLISECONDS;
@@ -831,6 +894,7 @@ export class EmployeeMembershipEnrollmentCoordinator {
       if (actor.membership_id !== expectedMembershipId) {
         return { status: 'forbidden' } as const;
       }
+      if (administratorOnly && actor.membership_role !== 'administrator') return { status: 'forbidden' } as const;
       if (!isMembershipRole(actor.membership_role)) {
         throw new Error('Membership-management resolver returned an invalid role');
       }
@@ -848,6 +912,15 @@ export class EmployeeMembershipEnrollmentCoordinator {
       return operation(client);
     });
   }
+}
+
+function validRowVersion(value: number): boolean { return Number.isSafeInteger(value) && value > 0; }
+function validPayrollMonth(from: string, to: string): boolean {
+  if (typeof from !== 'string' || typeof to !== 'string' || !Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to))) return false;
+  try {
+    const month = businessDay(from).slice(0, 7);
+    return new Date(dayStart(`${month}-01`)).toISOString() === from && new Date(dayStart(`${shiftMonth(month,1)}-01`)).toISOString() === to;
+  } catch { return false; }
 }
 
 async function withTransaction<Value>(

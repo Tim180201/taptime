@@ -22,6 +22,26 @@ afterAll(async () => {
 });
 
 describe('DA2 TimeEntry export API', () => {
+  it('T123 dispatches only complete Berlin months to v5, preserving BOM and the v5 filename', async () => {
+    const bytes = new TextEncoder().encode('\uFEFF"Personalnummer";"Name";"Monat";"Stunden";"Lohnart";"Hinweis"\r\n');
+    const filename = 'taptime-time-entries_v5_20260930T220000000Z_20261031T230000000Z.csv';
+    const exportTimeEntriesV5 = vi.fn<NonNullable<TimeEntryExporter['exportTimeEntriesV5']>>(async () => ({
+      status: 'succeeded', filename, bytes, byteCount: bytes.length, rowCount: 0, sha256: 'a'.repeat(64),
+    }));
+    const origin = await start({ async exportTimeEntries() { return {status:'service_unavailable'}; }, exportTimeEntriesV5 });
+    const send = (body: object) => fetch(`${origin}/v5/time-entries/export`, {
+      method:'POST', headers:{authorization:'Bearer aaa.bbb.ccc','content-type':'application/json'}, body:JSON.stringify(body),
+    });
+    expect((await send(validBody)).status).toBe(400); expect(exportTimeEntriesV5).not.toHaveBeenCalled();
+    const month = {...validBody,fromInclusive:'2026-09-30T22:00:00.000Z',toExclusive:'2026-10-31T23:00:00.000Z'};
+    const response = await send(month); expect(response.status).toBe(200);
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(Buffer.from(bytes));
+    expect(response.headers.get('content-disposition')).toBe(`attachment; filename="${filename}"`);
+    expect(exportTimeEntriesV5.mock.calls[0]?.[0].request).toEqual(month);
+    expect(exportTimeEntriesV5.mock.calls[0]?.[1]).toMatchObject({streamResponse:true});
+    expect((await send({...month, columns:['Stunden']})).status).toBe(400);
+    expect(exportTimeEntriesV5).toHaveBeenCalledOnce();
+  });
   it('fails the download if a stream breaks after its HTTP headers were sent', async () => {
     const origin = await start({async exportTimeEntries(_command,controls) {
       expect(controls?.streamResponse).toBe(true);

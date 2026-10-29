@@ -13,6 +13,8 @@ import {
   serializeTimeEntryExportCsvV2,
   serializeTimeEntryExportCsvV3,
   serializeTimeEntryExportCsvV4,
+  serializeTimeEntryExportCsvV5,
+  validateMonthlyExportRequest,
   validateTimeEntryExportRequest,
   type TimeEntryExportRow,
   type TimeEntryExportRowV2,
@@ -125,12 +127,16 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
     return this.exportVersion(command, controls, 4);
   }
 
+  async exportTimeEntriesV5(command: TimeEntryExportCommand, controls: TimeEntryExportCoordinatorControls = {}): Promise<TimeEntryExportResult> {
+    return this.exportVersion(command, controls, 5);
+  }
+
   private async exportVersion(
     command: TimeEntryExportCommand,
     controls: TimeEntryExportCoordinatorControls,
-    schemaVersion: 1 | 2 | 3 | 4,
+    schemaVersion: 1 | 2 | 3 | 4 | 5,
   ): Promise<TimeEntryExportResult> {
-    const validation = validateTimeEntryExportRequest(command.request);
+    const validation = schemaVersion === 5 ? validateMonthlyExportRequest(command.request) : validateTimeEntryExportRequest(command.request);
     if (validation.status === 'invalid_request' || typeof command.accessToken !== 'string'
       || command.accessToken.length === 0 || !canonicalUuidPattern.test(command.correlationId)) {
       return { status: 'invalid_request' };
@@ -180,15 +186,19 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
         'SELECT taptime_server.read_time_entry_export_size_v1($1,$2,$3) AS count',
         [actor.organization_id, request.fromInclusive, request.toExclusive])).rows[0]!.count;
       if (count > TIME_ENTRY_EXPORT_MAXIMUM_ROWS) return { status: 'export_limit_exceeded' };
-      const query = schemaVersion === 1 ? readV1Query(actor, request)
+      const query = schemaVersion === 5 ? {
+        text: 'SELECT * FROM taptime_server.read_effective_time_entry_export_v5($1,$2,$3)',
+        values: [actor.organization_id, request.fromInclusive, request.toExclusive],
+      } : schemaVersion === 1 ? readV1Query(actor, request)
         : schemaVersion === 2 ? readV2Query(actor, request) : readV3Query(actor, request, schemaVersion);
       await client.query('DECLARE time_export NO SCROLL CURSOR FOR ' + query.text, query.values);
       await controls.afterSnapshotRead?.(); assertActive();
       const filename = exportFilename(request.fromInclusive, request.toExclusive, schemaVersion);
       const empty = schemaVersion === 1 ? serializeTimeEntryExportCsv([]) : schemaVersion === 2
-        ? serializeTimeEntryExportCsvV2([]) : schemaVersion === 3 ? serializeTimeEntryExportCsvV3([]) : serializeTimeEntryExportCsvV4([]);
+        ? serializeTimeEntryExportCsvV2([]) : schemaVersion === 3 ? serializeTimeEntryExportCsvV3([])
+          : schemaVersion === 4 ? serializeTimeEntryExportCsvV4([]) : serializeTimeEntryExportCsvV5([]);
       const hash = createHash('sha256');
-      let rowCount = 0, byteCount = 0, sha256 = '';
+      let rowCount = 0, sourceRowCount = 0, byteCount = 0, sha256 = '';
       // Keep only bounded batches. The final batch is released after the audit
       // commits, so a failed transaction cannot look like a completed CSV download.
       async function* chunks() {
@@ -202,7 +212,18 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
             if (schemaVersion === 1) serialized = serializeTimeEntryExportCsv(rows.map(row => mapExportRow(row as ExportRow, actor!)));
             else if (schemaVersion === 2) serialized = serializeTimeEntryExportCsvV2(rows.map(row => mapExportRowV2(row as ExportRowV2, actor!)));
             else if (schemaVersion === 3) serialized = serializeTimeEntryExportCsvV3(rows.map(row => mapExportRowV3(row as ExportRowV3, actor!)));
-            else {
+            else if (schemaVersion === 5) {
+              serialized = serializeTimeEntryExportCsvV5(rows.map(row => {
+                const sourceCount = Number(row.source_row_count);
+                if (row.organization_id !== actor!.organization_id || !Number.isSafeInteger(sourceCount) || sourceCount < 1) {
+                  throw new Error('Monthly export violates tenant or source integrity');
+                }
+                sourceRowCount += sourceCount;
+                return { personIdentifier: row.employee_membership_id, personnelNumber: row.personnel_number,
+                  employeeDisplayName: row.employee_display_name, month: row.payroll_month,
+                  workDurationSeconds: row.work_duration_seconds, workWageType: row.work_wage_type, hasRunningTime: row.has_running_time };
+              }));
+            } else {
               serialized = serializeTimeEntryExportCsvV4(rows.map(row => {
                 if (!['nfc','manual','backfilled','recovered'].includes(row.origin)
                   || typeof row.changed !== 'boolean'
@@ -221,7 +242,7 @@ export class TimeEntryExportCoordinator implements TimeEntryExporter {
             pending = bytes;
           }
           assertActive();
-          if (rowCount !== count) throw new Error('Export snapshot count changed');
+          if ((schemaVersion === 5 ? sourceRowCount : rowCount) !== count) throw new Error('Export snapshot count changed');
           hash.update(pending); byteCount += pending.byteLength; sha256 = hash.digest('hex');
           await controls.beforeAudit?.(); assertActive();
           await client.query(`SELECT taptime_server.append_time_entry_export_audit_v${schemaVersion}($1,$2,$3,$4,$5::timestamptz,$6::timestamptz,$7,$8,$9)`,
@@ -472,7 +493,7 @@ function mapExportRowV3(
 function exportFilename(
   fromInclusive: string,
   toExclusive: string,
-  schemaVersion: 1 | 2 | 3 | 4,
+  schemaVersion: 1 | 2 | 3 | 4 | 5,
 ): string {
   const sanitize = (value: string): string => value.replaceAll(/[-:.]/g, '');
   const version = schemaVersion === 1 ? '' : `_v${schemaVersion}`;
