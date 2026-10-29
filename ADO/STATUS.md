@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand 26.10.2026.** Produktion läuft auf `e577fa8` (Deploy 8 am 23.10.: Migrationen 061 und 062, zwei
+**Stand 29.10.2026.** Produktion läuft auf `e577fa8` (Deploy 8 am 23.10.: Migrationen 061 und 062, zwei
 Wiederherstellungsproben im neuen Plattenordner grün, Versionsbelege im Log, vom TL geprüft). Damit ausgeliefert: T-127a/b
 (Archiv, D-143), T-104a (Sperrbildschirm-Schlüssel und -Aktionen, D-146) und T-132 (Sicherung auf der Platte,
 Totmannschalter der Tagesprüfung, D-150, D-151). Wochenprobe am 23.10. von Hand gestartet; seither keine Morgenmeldung
@@ -10,16 +10,18 @@ bis T-104d; Prüflisten `.t104b-review/` bis `.t104d-review/` (lokal). Erster iP
 optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, noch nicht ausgeliefert: T-099b (`eebe736`,
 `1edb047`, Migration 063). Davor Deploy 7 (`1918d5a`, 17.10.). T-134 (`5f65fc3`): Rechtstexte auf dem gebauten Stand;
 offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. T-104e auf main
-(`c84dfc9`); jetzt App-Builds aus `c84dfc9`, danach Deploy 9 (Ziel `c84dfc9`). T-135 auf main
-(`f384279`), wirkt mit Deploy 10 (Migration 065). T-138 auf main, wirkt mit Deploy 10 (Migration 066) und dem nächsten
-App-Build. T-137 auf main, wirkt mit Deploy 10 (Migration 067) und dem nächsten App-Build. T-123a auf main, wirkt mit Deploy 10 (Migration 068). Vor dem Pilot ist keine Entwicklungsaufgabe offen; T-123b
-folgt mit den Antworten von frogs (D-157).
+(`c84dfc9`). T-135, T-138, T-137 und T-123a auf main (Migrationen 065 bis 068). **Gemeinsamer Deploy** (Deploy 9 und 10,
+PO 29.10.) aus `05bcf51`, CI und Image grün; App-Builds aus `05bcf51` grün (iPhone Build 11, Android
+Version 18; Apple-Lizenzvereinbarung am 29.10. vom PO angenommen). Jetzt **T-139** (Android: Karte bei geschlossener App,
+P1, Gerätetest 29.10.); T-123b folgt mit den Antworten von frogs (D-157).
 **T-136 gemessen (27.10.):** 20.000 echte WAL-Archive (Borg 1.2.8): monatliche Aufbewahrung einzeln 992 s, gesammelt
 28 s. P1: Die Belegprüfung liest `SET\nt` statt `t`, die Aufbewahrung wird immer zurückgestellt, Wochenproben werden
-rot. T-136b auf main, wirkt mit Deploy 10; vorher den Controller-Konsolenschritt
+rot. T-136b auf main, wirkt mit dem gemeinsamen Deploy; vorher den Controller-Konsolenschritt
 ausführen (DEPLOY.md). Werkzeug `tests/backup-scale/`, Bericht lokal `.t136-review/bericht.md`.
 **Befund 27.10. (PO, ntfy):** 03:19 „WAL-Archivierung steht: Sicherung läuft seit 14 min“ (stündliche Sicherung um
-02:05 UTC), 08:00 „Wiederherstellungsprüfung fehlgeschlagen“. Ursache an der Konsole klären, vor Deploy 9.
+02:05 UTC), 08:00 „Wiederherstellungsprüfung fehlgeschlagen“. Am 29.10. per `taptime-status`
+geklärt: Aufräumen lief nie (1.029 Basen, 7.954 WAL), Wochenprobe rot, alle Sicherungen erfolgreich, einzelne Nachtläufe
+bis 40 min. Behebung T-136b mit dem gemeinsamen Deploy.
 **CI 21.10. (T-104a):** Zwei Migrationsvergleiche aus T-116 verglichen ganze Zeilen und scheiterten an der neuen leeren
 Spalte `lock_screen_action`; als Test korrigiert (`873cbfd`), danach CI und Image-Lauf grün. Der TL hatte im Review den
 Job DA3 nicht nachgebaut; seitdem baut er bei jedem Code-Review die ganze CI nach.
@@ -36,17 +38,17 @@ die Pausenberechnung über alle Pausen des Betriebs je Zeit. Dazu schlüsselbezo
 einmal je Seite, begrenzte Einrichtungsseiten (F018) und CSV-Streaming bis 58.020 Zeilen mit gemeinsamer 8-s-Frist und
 echtem Abbruch (F043). Wiederholungsmessung beider Profile: alle Lesewege mit erwartetem Status, alle 320 Exporte
 vollständig, Export der Spitze p95 269 ms. Zwei TL-Runden, unabhängiges Review, CI-Nachbau des TL; die GitHub-CI
-scheiterte zuerst an der v4/v3-Grenze 1,30 (Faktor 1,33), TL-Patch `1edb047` setzt 1,50 (D-155). Wirkt mit Deploy 9.
+scheiterte zuerst an der v4/v3-Grenze 1,30 (Faktor 1,33), TL-Patch `1edb047` setzt 1,50 (D-155). Wirkt mit dem gemeinsamen Deploy.
 Bericht lokal `.t099b-review/report.md`.
-**T-104e auf main, wirkt mit Deploy 9 (26.10.):** Beide iPhone-Befunde rot belegt: Aktion nach COMMIT trotz Buchung als Fehler,
+**T-104e auf main, wirkt mit dem gemeinsamen Deploy (26.10.):** Beide iPhone-Befunde rot belegt: Aktion nach COMMIT trotz Buchung als Fehler,
 Kalender-Leseschleife durch nachgeladene Seiten. V2 zeigt Zustand mit „wird gesichert“, alte Builds bleiben bei V1;
 Kalenderwechsel erst mit vollständigen Seiten, native Anzeige endet sofort und Android stellt Weggewischtes wieder her.
 TL-R1: verlorener Kaltstart-Abgleich (P1-1), stumme Lesefehler (P2-1) und Rollback-Fehler (P3-3) in Runde 2 mit
 Rot/Grün korrigiert; Capability-HTTP-Test ergänzt. Quality, vollständiges C2, Android-Release und iOS-JS-Export erneut
 grün; kurzer unabhängiger R2-Check und TL-Runde 2 APPROVED. Bericht `.t104e-review/bericht-r2.md`, Prüfliste im selben Ordner.
 iOS-Entscheidung TL: kein weiterer lokaler Pod-/Xcode-Versuch, keine Netzfreigabe. Den Gesamtbuild belegt der PO per
-EAS aus einer sauberen Kopie des freigegebenen Commits nach grüner CI. Deploy 9 erst nach beiden grünen App-Builds;
-scheitert iOS, vorher nachbessern. Geräteabnahme steht aus.
+EAS aus einer sauberen Kopie des freigegebenen Commits nach grüner CI: beide App-Builds aus `05bcf51` grün (29.10.).
+Geräteabnahme steht aus.
 **Befund 17.10. (T-132):** Die wöchentliche Wiederherstellungsprobe scheiterte am 11.10. um 03:43 UTC mit „No space left
 on device“: Basis und WAL-Kette werden im tmpfs `/run/taptime-backup` entpackt, der zu klein ist. Die Probe beim Deploy
 (frische Basis) war am 15.10. grün; die stündliche Sicherung baut ihre Basis im selben tmpfs. Sicherungen laufen; mit
@@ -66,7 +68,7 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-104e (Codex) → freigegebener Commit, CI und beide App-Builds grün → Deploy 9 (T-099b, T-104e) → restliche Geräteabnahme →
+**Weg zum Pilot:** gemeinsamer Deploy (`05bcf51`) → Kurztest mit den neuen Builds → T-139 und neuer Android-Build → restliche Geräteabnahme →
 Pilot (D-152; die Wiederholungsmessung mit 063 ist grün). Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
 `review/<aufgabe>` ab, Fotos auf einem verwaisten Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
@@ -179,7 +181,7 @@ Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-P
 - **Test, TL-R1 T-104e (P2):** admin-web `T108Experience` („loads the named person from a later page …“) wackelt unter Last; lokaler R2-Quality-Lauf grün.
 - **Lohnexport (T-123a, TL-R1):** Personalnummer mit führendem Bindestrich erscheint wegen des Formelschutzes als `'-…` (P2, Ursache im Brief, mit T-123b) · Zahl „ohne Personalnummer“ in Pilotgröße nicht gemessen (P3) · Monatsübersicht sortiert Umlaute nach Z (P3).
 
-- **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliche Einzellöschung mit T-136b durch Sammellöschung ersetzt (wirkt mit Deploy 10).
+- **Betrieb (T-132, TL-R1, offen):** Borg-Altkonfiguration vor dem Löschen beiseite schieben statt `rm` (Konfliktfall); `Persistent=true` kann nach Neustart Sicherung und Probe zugleich nachholen; `plan_restore_space` ruft für jedes WAL-Archiv `borg list` auf (PITR-Laufzeit); monatliche Einzellöschung mit T-136b durch Sammellöschung ersetzt (wirkt mit dem gemeinsamen Deploy).
 
 - **Export (T-099b, TL-R1, P3):** Fehler vor dem ersten Exportbyte führen zum Verbindungsabbruch statt 503.
 - **Export (T-099b, TL-R1, P3):** FOR-SHARE-Sperren auf Akteur, Mitgliedschaft und Betrieb bleiben während des Downloads bestehen (bis 8 s).

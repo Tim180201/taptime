@@ -1,66 +1,60 @@
 # Aktuelle Aufgabe
 
-> **Stand 28.10.2026:** T-137 auf main (`9f584ff`, mit Deploy 10). Jetzt **T-123a**, die Grundlage des Lohnexports
-> nach D-156. Das erste Programmformat (T-123b, vermutlich DATEV) folgt mit der Antwort von frogs und einer
-> Beispiel-Importdatei.
+> **Stand 29.10.2026:** `05bcf51` ist der Stand für den gemeinsamen Deploy (Deploy 9 und 10 zusammen, PO 29.10.).
+> App-Builds grün: iPhone Build 11, Android Version 18. Beim ersten Gerätetest gefunden: T-139.
 
-## T-123a · Lohnexport: Personalnummer und Monatsübersicht
+## T-139 · Android: Karte startet die Zeit bei geschlossener App nicht
 
-**Für:** Development (Astra, Extra High) · **Risiko:** hoch, weil die Zahlen direkt in die Lohnabrechnung gehen. Jede
-Stunde muss mit den Einzelzeiten übereinstimmen. Unabhängiges Review (AGENTS 4) · **Zeitbox:** zwei Sitzungen. Reißt
-sie, wird Punkt 3 geschnitten, nie 1 und 2.
+**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Eine geschlossene App ist im Pilot der Normalfall (P1).
+Die Prüfung, die hier greift, schützt die Zuordnung einer Karte zur richtigen Sitzung (D-043). Deshalb ist ein
+unabhängiges Review nötig (AGENTS 4) · **Zeitbox:** eine Sitzung.
 
-**Hintergrund:**
-- Der heutige Export „Einzelzeiten (CSV)“ (v4, eine Zeile je Zeit) ist vollständig, aber ein Rohdatenexport: englische
-  Spalten, Sekunden, interne Kennungen. Lohnbüros brauchen je Person die Summe des Monats unter ihrer Personalnummer.
-- Alle verbreiteten Lohnprogramme importieren im Kern dasselbe: Personalnummer, Monat, Lohnartnummer und Wert.
-  Programmformate kommen nach D-156 erst mit dem ersten Kunden.
+**Befund (PO 29.10.):**
+- Gerät: Android, Version 18 aus `05bcf51`, noch gegen den Server `e577fa8`.
+- Die App ist aus den zuletzt genutzten Apps weggewischt. Beim Antippen der Karte öffnet sich „Erfassen“ ohne Meldung,
+  und es startet keine Zeit.
+- Ein zweites Antippen bei offener App startet die Zeit. Das war bei jedem Versuch so.
+
+**Vermutung TL (nicht belegt):**
+- `NativeNfcIngressLifecycle.tick()` verwirft die Karte still mit `clear()`, wenn `captureNativeNfcIngressAuthority`
+  `null` liefert.
+- Beim Kaltstart gilt die Karte nur über `startedCurrentRuntime`. Das verlangt
+  `authority.generation === nativeNfcIngressRuntimeStartGeneration`.
+- Die Startgeneration wird beim Start des Lebenszyklus gebunden. Jede spätere Sitzungsänderung erhöht `generation`
+  (Wiederherstellung, Token-Erneuerung, nach T-104e womöglich auch der Abgleich des Sperrbildschirms beim Start). Neu
+  gebunden wird nur in `renewOfflineGrant`.
+- Siehe auch den P3 aus T-121 in STATUS: Ein Token-Refresh verschiebt die Zeitgrenze.
 
 ### Umfang
 
-1. **Personalnummer an der Person:**
-   - Neues Feld an der Mitgliedschaft, Zeichen `0-9A-Za-z-` und 1 bis 20 Zeichen lang, im Betrieb eindeutig über alle
-     Mitgliedschaften einschließlich ehemaliger.
-   - Nur der Administrator setzt, ändert und entfernt sie: im Web bei der Person und unter „Zugänge“.
-   - Jede Änderung wird protokolliert, mit alter und neuer Nummer, wie „Name ändern“ (D-142). Eine Nummer, die schon
-     vergeben ist, wird mit einer verständlichen Meldung abgelehnt.
-   - Entstehen, Ändern und Entfernen nach AGENTS 1.5.
-   - Ehemalige behalten ihre Nummer (D-143).
-2. **Lohnart für Arbeitsstunden:**
-   - Eine Angabe je Betrieb (Ziffern, 1 bis 6 Stellen, darf leer bleiben). Nur der Administrator pflegt sie, am
-     Lohnexport. Änderungen werden protokolliert.
-   - Berater- und Mandantennummer für DATEV gehören nicht hierher, sondern kommen mit T-123b.
-3. **Monatsübersicht (CSV), neue additive Exportfassung:**
-   - **Zeilen:** Eine Zeile je Person mit Zeit im Monat, Ehemalige eingeschlossen.
-   - **Spalten:** `Personalnummer;Name;Monat;Stunden;Lohnart;Hinweis`.
-   - **Monat:** `MM.JJJJ`.
-   - **Stunden:** Sekunden der abgeschlossenen Zeiten je Person summieren, danach einmal auf zwei Nachkommastellen
-     kaufmännisch runden; Dezimalkomma, kein Tausendertrennzeichen.
-   - **Zuordnung:** nach dem Berliner Tag des Beginns, wie bei den Einzelzeiten und D-152.
-   - **Hinweis-Spalte:** „Zeit läuft noch“ bei einer laufenden Zeit dieser Person im Monat (sie zählt nicht mit),
-     „Personalnummer fehlt“ bei einer Person ohne Nummer.
-   - **Technik:** UTF-8 mit BOM, Semikolon, CRLF, Formelschutz wie bei den Einzelzeiten.
-   - Berechtigung, Frist und Grenzen wie bei den Einzelzeiten. Ein ganzer Monat in einem Abruf.
-   - **Web:** Die Auswahl am Lohnexport bekommt „Monatsübersicht“ als neue erste Option. Darüber steht ein Hinweis mit
-     der Zahl der Personen ohne Personalnummer und einem Link zur Pflege. „Einzelzeiten“ bleibt unverändert.
+1. **Ursache belegen, zuerst rot:**
+   - Ein Test stellt den Kaltstart in der tatsächlichen Reihenfolge nach: Prozessstart mit Karte, Wiederherstellung der
+     Sitzung, gegebenenfalls Token- und Freigabe-Erneuerung, dann die Verarbeitung.
+   - Ist `adb` vorhanden und schließt der PO das Handy per USB an, darf `logcat` gelesen werden. Nichts installieren.
+2. **Beheben, ohne D-043 aufzuweichen.** Eine Karte aus dem Prozessstart gilt, wenn alles davon stimmt: derselbe
+   Prozess, derselbe Boot, dieselbe Sitzung (Konto, Mitgliedschaft, Betrieb) und keine Abmeldung dazwischen. Eine
+   reine Erneuerung von Token oder Freigabe in derselben Sitzung verwirft sie nicht mehr. Ein Konto- oder
+   Sitzungswechsel, eine Abmeldung und ein anderer Boot verwerfen sie weiterhin.
+3. **Nie mehr still verwerfen:** Wird eine Karte verworfen, zeigt „Erfassen“ einen kurzen Hinweis mit der Bitte, die
+   Karte noch einmal anzutippen. Es wird nichts gebucht.
+4. **Gegenprobe:** Die App im Hintergrund (`activity_delivery_intent`) und die geöffnete App funktionieren unverändert.
+   Keine Serveränderung, iOS unverändert.
 
 ### Tests und Nachweis
 
-- **Zuerst rot:** Monatsübersicht und Personalnummer fehlen.
-- **Summen-Gleichheit (Hauptnachweis):** Für jede Person und jeden Monat stimmen die Stunden mit der Summe der
-  abgeschlossenen Einzelzeiten v4 aus derselben Transaktion überein, bis auf die eine dokumentierte Rundung.
-  - Gegen PostgreSQL 17 und auf beiden Profilen des Pilotwerkzeugs, für alle Monate.
-  - Abgedeckt: Pausen, Nachträge, Korrekturen, Storno, Verwaltungsstopp, Ehemalige, Sommer- und Winterzeit, Monatsgrenze
-    und laufende Zeit.
-- **Personalnummer:** Eindeutigkeit (auch gegen Ehemalige), Rechte (Standortleitung und Mitarbeiter abgewiesen),
-  Protokoll und Mandantentrennung.
-- **Weiteres:** B3-Inventar; Browser-Layout und Barrierefreiheit der neuen Felder in beiden Themen und bei 390 px.
-- **Messung:** Monatsübersicht der Spitze mit `tests/pilot-size/`, p95 unter 1 s.
-- **Bericht:** `.t123a-review/bericht.md` mit einer Beispieldatei aus synthetischen Daten. Die ganze CI lokal nachbauen.
+- Rot zuerst, dann grün. Abgedeckte Kaltstarts:
+  - mit Wiederherstellung;
+  - mit Token-Erneuerung;
+  - mit Freigabe-Erneuerung;
+  - mit Abgleich des Sperrbildschirms;
+  - mit Kontowechsel (verwirft, mit Hinweis);
+  - mit anderem Boot (verwirft);
+  - ohne Netz mit gültiger Offline-Freigabe.
+- Android-Release-Build lokal, die ganze CI lokal nachgebaut.
+- Bericht `.t139-review/bericht.md` mit kurzer Prüfliste für den PO: geschlossene App, App im Hintergrund, nach
+  Neustart, morgens als Erstes.
 
 ### Grenzen
 
-- Keine Spaltenwähler, keine Vorlagen, kein Programmformat (D-156).
-- Kein Server- oder Supabase-Zugriff, kein Deploy, keine EAS-Builds, keine GHCR-Paketaktion, nichts installieren
-  (AGENTS 3).
+- Kein Deploy, keine EAS-Builds, kein Server, kein Supabase, keine GHCR-Paketaktion, nichts installieren (AGENTS 3).
 - Kein Commit vor `APPROVED`.
