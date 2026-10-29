@@ -65,8 +65,11 @@ it('puts the server-confirmed new customer first even beyond the first alphabeti
  fireEvent.change(screen.getByLabelText('Name'),{target:{value:'Zweiter Kunde'}});
  fireEvent.click(screen.getByRole('button',{name:'Kunde anlegen'}));
  await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Kunde anlegen'})).toBeNull());
- const rows=within(screen.getByRole('table')).getAllByRole('row');
- expect(rows[1]).toHaveTextContent('Zweiter Kunde');expect(rows[2]).toHaveTextContent('Alpha');
+ // TL (CI 40878555121): the list reloads after the sheet closes; under load the table is not back yet. Wait for it.
+ await waitFor(()=>{
+  const rows=within(screen.getByRole('table')).getAllByRole('row');
+  expect(rows[1]).toHaveTextContent('Zweiter Kunde');expect(rows[2]).toHaveTextContent('Alpha');
+ });
 });
 it('manual search failures leave retry and refresh reachable',()=>{
  const s=state({workTargets:{status:'ready',value:[target],failed:true}}),cap=capability(s);
