@@ -1,60 +1,66 @@
 # Aktuelle Aufgabe
 
-> **Stand 27.10.2026:** T-138 freigegeben, mit Deploy 10 und dem nächsten App-Build. Jetzt **T-137**. Sein App-Teil kommt mit T-138 in den nächsten App-Build.
+> **Stand 28.10.2026:** T-137 auf main (`9f584ff`, mit Deploy 10). Jetzt **T-123a**, die Grundlage des Lohnexports
+> nach D-156. Das erste Programmformat (T-123b, vermutlich DATEV) folgt mit der Antwort von frogs und einer
+> Beispiel-Importdatei.
 
-## T-137 · Restliche Ladezeiten und kleine Restpunkte
+## T-123a · Lohnexport: Personalnummer und Monatsübersicht
 
-**Für:** Development (Astra; Extra High für Server und Migrationen, sonst High) · **Risiko:** mittel. Leseabfragen und
-Indizes ändern sich, der Inhalt der Antworten bleibt gleich · **Zeitbox:** zwei Sitzungen. Reißt sie, werden die
-Punkte am Ende von 1 geschnitten, nie 2 und 3.
+**Für:** Development (Astra, Extra High) · **Risiko:** hoch, weil die Zahlen direkt in die Lohnabrechnung gehen. Jede
+Stunde muss mit den Einzelzeiten übereinstimmen. Unabhängiges Review (AGENTS 4) · **Zeitbox:** zwei Sitzungen. Reißt
+sie, wird Punkt 3 geschnitten, nie 1 und 2.
 
-**Befund (T-099b, Spitze und erwartet, Richtwert p95 300 ms; `.t099b-review/report.md`):**
-
-| Profil | Weg | Rolle | p95 |
-|---|---|---|---:|
-| Spitze | `quota-alerts` | Administrator | 701,5 ms |
-| Spitze | `customer-month` | Administrator | 692,8 ms |
-| Spitze | `archive-status` | Standortleitung | 688,3 ms |
-| Spitze | `setup-initial` | Standortleitung | 510,1 ms |
-| Spitze | `quota-alerts-current` | Administrator | 409,2 ms |
-| erwartet | `setup-initial` | Standortleitung | 507,6 ms |
-| beide | `setup-nfc_tags` | Standortleitung | 315 bis 316 ms, knapp an der 14-KiB-Grenze |
-
-Dazu kommen zwei Restpunkte aus T-104e:
-- **P3-2:** Die Archivabfrage des Sperrbildschirms (`lock_screen_archive_status_v1`) findet keinen passenden Index
-  auf `sync_receipts` nach Organisation, Person und Eintrag.
-- **P3-5:** `reloadAfterCapture` veröffentlicht nur die erste Seite. Danach steht kurz „Zeitraum nicht vollständig
-  geladen“.
+**Hintergrund:**
+- Der heutige Export „Einzelzeiten (CSV)“ (v4, eine Zeile je Zeit) ist vollständig, aber ein Rohdatenexport: englische
+  Spalten, Sekunden, interne Kennungen. Lohnbüros brauchen je Person die Summe des Monats unter ihrer Personalnummer.
+- Alle verbreiteten Lohnprogramme importieren im Kern dasselbe: Personalnummer, Monat, Lohnartnummer und Wert.
+  Programmformate kommen nach D-156 erst mit dem ersten Kunden.
 
 ### Umfang
 
-1. **Ladezeiten:**
-   - Je Weg zuerst die Ursache am Plan belegen (`EXPLAIN (ANALYZE, BUFFERS)` auf den Daten des Pilotwerkzeugs), dann
-     beheben.
-   - Erlaubt sind Abfrageform, gemeinsame Vorberechnung im selben Aufruf und additive Indizes.
-   - Inhalt, Reihenfolge, Berechtigung und Seitenverträge bleiben exakt gleich, belegt durch Alt-Neu-Gleichheitstests
-     auf denselben Daten.
-   - Keine Grenze und keine Frist wird hochgesetzt (D-152). Alte Vertragsfassungen bleiben.
-   - Reihenfolge nach Wirkung: `quota-alerts`, `customer-month`, `archive-status`, `setup-initial`, `setup-nfc_tags`.
-2. **Index für die Archivabfrage des Sperrbildschirms:**
-   - Nötig ist ein passender Index für die Abfrage; Plan vorher und nachher.
-   - Schreibkosten des Index beim Sync messen und im Bericht nennen.
-3. **App: vollständiger Kalender nach einer Erfassung:**
-   - `reloadAfterCapture` ersetzt den Kalender erst, wenn alle Seiten geladen sind, wie `readPreservingActive` seit
-     T-104e.
-   - Rot-Test zuerst.
-   - Rückmeldungen zur Erfassung und das Verhalten bei `capturePending` bleiben unverändert.
+1. **Personalnummer an der Person:**
+   - Neues Feld an der Mitgliedschaft, Zeichen `0-9A-Za-z-` und 1 bis 20 Zeichen lang, im Betrieb eindeutig über alle
+     Mitgliedschaften einschließlich ehemaliger.
+   - Nur der Administrator setzt, ändert und entfernt sie: im Web bei der Person und unter „Zugänge“.
+   - Jede Änderung wird protokolliert, mit alter und neuer Nummer, wie „Name ändern“ (D-142). Eine Nummer, die schon
+     vergeben ist, wird mit einer verständlichen Meldung abgelehnt.
+   - Entstehen, Ändern und Entfernen nach AGENTS 1.5.
+   - Ehemalige behalten ihre Nummer (D-143).
+2. **Lohnart für Arbeitsstunden:**
+   - Eine Angabe je Betrieb (Ziffern, 1 bis 6 Stellen, darf leer bleiben). Nur der Administrator pflegt sie, am
+     Lohnexport. Änderungen werden protokolliert.
+   - Berater- und Mandantennummer für DATEV gehören nicht hierher, sondern kommen mit T-123b.
+3. **Monatsübersicht (CSV), neue additive Exportfassung:**
+   - **Zeilen:** Eine Zeile je Person mit Zeit im Monat, Ehemalige eingeschlossen.
+   - **Spalten:** `Personalnummer;Name;Monat;Stunden;Lohnart;Hinweis`.
+   - **Monat:** `MM.JJJJ`.
+   - **Stunden:** Sekunden der abgeschlossenen Zeiten je Person summieren, danach einmal auf zwei Nachkommastellen
+     kaufmännisch runden; Dezimalkomma, kein Tausendertrennzeichen.
+   - **Zuordnung:** nach dem Berliner Tag des Beginns, wie bei den Einzelzeiten und D-152.
+   - **Hinweis-Spalte:** „Zeit läuft noch“ bei einer laufenden Zeit dieser Person im Monat (sie zählt nicht mit),
+     „Personalnummer fehlt“ bei einer Person ohne Nummer.
+   - **Technik:** UTF-8 mit BOM, Semikolon, CRLF, Formelschutz wie bei den Einzelzeiten.
+   - Berechtigung, Frist und Grenzen wie bei den Einzelzeiten. Ein ganzer Monat in einem Abruf.
+   - **Web:** Die Auswahl am Lohnexport bekommt „Monatsübersicht“ als neue erste Option. Darüber steht ein Hinweis mit
+     der Zahl der Personen ohne Personalnummer und einem Link zur Pflege. „Einzelzeiten“ bleibt unverändert.
 
 ### Tests und Nachweis
 
-- **Messung** mit `tests/pilot-size/` vorher und nachher, beide Profile. Vorher-Nachher-Tabelle je Weg im Bericht,
-  Ziel unter 300 ms. Wo das Ziel verfehlt wird, steht die Ursache mit Plan im Bericht.
-- **Server:** gegen PostgreSQL 17 Alt-Neu-Gleichheit für jeden geänderten Weg und Rolle.
-- **B3** und Migrationsprüfung grün. Neue Migrationen nur additiv.
-- **Bericht** `.t137-review/bericht.md`. Die ganze CI lokal nachbauen.
+- **Zuerst rot:** Monatsübersicht und Personalnummer fehlen.
+- **Summen-Gleichheit (Hauptnachweis):** Für jede Person und jeden Monat stimmen die Stunden mit der Summe der
+  abgeschlossenen Einzelzeiten v4 aus derselben Transaktion überein, bis auf die eine dokumentierte Rundung.
+  - Gegen PostgreSQL 17 und auf beiden Profilen des Pilotwerkzeugs, für alle Monate.
+  - Abgedeckt: Pausen, Nachträge, Korrekturen, Storno, Verwaltungsstopp, Ehemalige, Sommer- und Winterzeit, Monatsgrenze
+    und laufende Zeit.
+- **Personalnummer:** Eindeutigkeit (auch gegen Ehemalige), Rechte (Standortleitung und Mitarbeiter abgewiesen),
+  Protokoll und Mandantentrennung.
+- **Weiteres:** B3-Inventar; Browser-Layout und Barrierefreiheit der neuen Felder in beiden Themen und bei 390 px.
+- **Messung:** Monatsübersicht der Spitze mit `tests/pilot-size/`, p95 unter 1 s.
+- **Bericht:** `.t123a-review/bericht.md` mit einer Beispieldatei aus synthetischen Daten. Die ganze CI lokal nachbauen.
 
 ### Grenzen
 
+- Keine Spaltenwähler, keine Vorlagen, kein Programmformat (D-156).
 - Kein Server- oder Supabase-Zugriff, kein Deploy, keine EAS-Builds, keine GHCR-Paketaktion, nichts installieren
   (AGENTS 3).
 - Kein Commit vor `APPROVED`.

@@ -12,8 +12,8 @@ optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, no
 offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. T-104e auf main
 (`c84dfc9`); jetzt App-Builds aus `c84dfc9`, danach Deploy 9 (Ziel `c84dfc9`). T-135 auf main
 (`f384279`), wirkt mit Deploy 10 (Migration 065). T-138 auf main, wirkt mit Deploy 10 (Migration 066) und dem nächsten
-App-Build. T-137 auf main, wirkt mit Deploy 10 (Migration 067) und dem nächsten App-Build. Vor dem
-Pilot ist keine weitere Entwicklungsaufgabe offen (PLAN).
+App-Build. T-137 auf main, wirkt mit Deploy 10 (Migration 067) und dem nächsten App-Build. Jetzt **T-123a**
+(Personalnummer und Monatsübersicht, D-156); danach T-123b mit den Antworten von frogs.
 **T-136 gemessen (27.10.):** 20.000 echte WAL-Archive (Borg 1.2.8): monatliche Aufbewahrung einzeln 992 s, gesammelt
 28 s. P1: Die Belegprüfung liest `SET\nt` statt `t`, die Aufbewahrung wird immer zurückgestellt, Wochenproben werden
 rot. T-136b auf main, wirkt mit Deploy 10; vorher den Controller-Konsolenschritt

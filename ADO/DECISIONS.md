@@ -2071,3 +2071,14 @@ schneller; die drei Zusatzspalten von v4 (Herkunft, geändert, Kommentar) wiegen
 entstand (Überschneidungssuche, Berechtigung je Zeile), kosten ein Vielfaches und scheitern weiter.
 **Warum:** Nach zwei Review-Runden war die GitHub-CI rot (1,33), lokal lagen die Faktoren bei 1,02 bis 1,17. Die alte
 Zahl beschrieb die Kostenverteilung vor 063, nicht das Risiko, das der Test abwehren soll.
+
+## D-156 · Lohnexport: feste Formate für alle, nur Pflichtangaben statt Einstellungen · 28.10.2026 · Tim (PO), Claude (TL)
+Lockert D-017 gezielt: Der Betrieb pflegt genau die Angaben, ohne die kein Lohnprogramm importiert, nämlich Personalnummer
+je Person, Lohnart für Arbeitsstunden und für DATEV Berater- und Mandantennummer (mit T-123b). Weiter keine
+Spaltenwähler, Vorlagen oder kundenspezifischen Formate. Feste Formate für alle Kunden: Einzelzeiten (bleibt),
+Monatsübersicht (je Person und Monat, Stunden mit Dezimalkomma, deutsche Spalten) und je Lohnprogramm ein Importformat,
+das erst mit dem ersten Kunden dieses Programms entsteht und mit einem echten Testimport abgenommen wird; zuerst
+vermutlich DATEV (T-123b).
+**Warum:** Alle Programme importieren im Kern Personalnummer, Monat, Lohnart und Wert. Ein ungetesteter Import ist
+wertlos, DATEV hat allein zwei Formate (LODAS, Lohn und Gehalt). Formate je Kunde wären für einen Einzelgründer nicht
+wartbar (PO 28.10.).
