@@ -2091,3 +2091,13 @@ Lohnprogramm-Import an einer fehlenden Nummer scheitert; bis dahin ordnet das Lo
 **Warum:** Wer kurz arbeitet und geht, bevor jemand seine Nummer pflegt, stünde sonst dauerhaft ohne Nummer in der
 Lohnabrechnung (TL im Review T-123a). Die Personalnummer ist reine Lohnangabe; Offline-Berechtigungen, Belege und
 Archive, für die D-141 gilt, hängen nicht an ihr.
+
+## D-158 · Ohne Netz wie mit Netz: vorläufige Anzeige aus derselben Entscheidungslogik · 29.10.2026 · Tim (PO), Claude (TL)
+Ohne Netz zeigt die App eine eigene Erfassung künftig wie mit Netz: laufende Zeit mit Uhr, Pause und Ende, in der App
+und auf dem Sperrbildschirm. Der vorläufige Stand entsteht aus dem zuletzt bestätigten eigenen Stand und den noch nicht
+übertragenen eigenen Erfassungen, ausgewertet mit derselben Business Engine wie auf dem Server, ohne zweite Logik. Ein
+kleines Offline-Zeichen bleibt, bis der Server bestätigt; entscheidet er anders, zeigt die App das als Hinweis.
+Verbindlich bleibt der Server; Verwaltung und Exporte zeigen nur seine Entscheidung. Stufe 1 (Anzeige) vor dem Pilot
+(T-140), Stufe 2 (Sperrbildschirm-Knöpfe ohne Netz, T-140b) nach dem Pilot.
+**Warum:** Offline sah eine gestartete Zeit aus wie nicht gestartet (PO-Test 29.10.). Lehrkräfte sollen nicht merken
+müssen, ob Netz da ist; „One Tap. One Decision.“ bleibt, weil weiter der Server entscheidet.

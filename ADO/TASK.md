@@ -1,60 +1,60 @@
 # Aktuelle Aufgabe
 
-> **Stand 29.10.2026:** `05bcf51` ist der Stand für den gemeinsamen Deploy (Deploy 9 und 10 zusammen, PO 29.10.).
-> App-Builds grün: iPhone Build 11, Android Version 18. Beim ersten Gerätetest gefunden: T-139.
+> **Stand 29.10.2026:**
+> - Der gemeinsame Deploy ist ausgeliefert (`e577fa8` → `05bcf51`).
+> - Der Kurztest mit iPhone Build 11 und Android Version 18 ist bestanden, außer dem Fall T-139.
+> - T-139 ist auf main (`09ac588`).
+> - Jetzt T-140, danach ein gemeinsamer App-Build mit T-139 und T-140 (PO 29.10.).
 
-## T-139 · Android: Karte startet die Zeit bei geschlossener App nicht
+## T-140 · Ohne Netz wie mit Netz, Stufe 1: vorläufige Anzeige (D-158)
 
-**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Eine geschlossene App ist im Pilot der Normalfall (P1).
-Die Prüfung, die hier greift, schützt die Zuordnung einer Karte zur richtigen Sitzung (D-043). Deshalb ist ein
-unabhängiges Review nötig (AGENTS 4) · **Zeitbox:** eine Sitzung.
+**Für:** Development (Astra, Extra High) · **Risiko:** mittel bis hoch. Die Anzeige darf nichts als bestätigt
+zeigen, was der Server noch nicht entschieden hat, und sie bucht nichts. Unabhängiges Review (AGENTS 4) ·
+**Zeitbox:** zwei Sitzungen. Reißt sie, wird Punkt 3 (Sperrbildschirm) geschnitten, nie 1 und 2.
 
-**Befund (PO 29.10.):**
-- Gerät: Android, Version 18 aus `05bcf51`, noch gegen den Server `e577fa8`.
-- Die App ist aus den zuletzt genutzten Apps weggewischt. Beim Antippen der Karte öffnet sich „Erfassen“ ohne Meldung,
-  und es startet keine Zeit.
-- Ein zweites Antippen bei offener App startet die Zeit. Das war bei jedem Versuch so.
-
-**Vermutung TL (nicht belegt):**
-- `NativeNfcIngressLifecycle.tick()` verwirft die Karte still mit `clear()`, wenn `captureNativeNfcIngressAuthority`
-  `null` liefert.
-- Beim Kaltstart gilt die Karte nur über `startedCurrentRuntime`. Das verlangt
-  `authority.generation === nativeNfcIngressRuntimeStartGeneration`.
-- Die Startgeneration wird beim Start des Lebenszyklus gebunden. Jede spätere Sitzungsänderung erhöht `generation`
-  (Wiederherstellung, Token-Erneuerung, nach T-104e womöglich auch der Abgleich des Sperrbildschirms beim Start). Neu
-  gebunden wird nur in `renewOfflineGrant`.
-- Siehe auch den P3 aus T-121 in STATUS: Ein Token-Refresh verschiebt die Zeitgrenze.
+**Befund (PO 29.10.):** Wird ohne Netz per Karte oder manuell eine Zeit gestartet, zeigt die App keine laufende Zeit.
+Auch der Sperrbildschirm zeigt keine laufende Uhr. Mit Netz läuft beides sofort.
 
 ### Umfang
 
-1. **Ursache belegen, zuerst rot:**
-   - Ein Test stellt den Kaltstart in der tatsächlichen Reihenfolge nach: Prozessstart mit Karte, Wiederherstellung der
-     Sitzung, gegebenenfalls Token- und Freigabe-Erneuerung, dann die Verarbeitung.
-   - Ist `adb` vorhanden und schließt der PO das Handy per USB an, darf `logcat` gelesen werden. Nichts installieren.
-2. **Beheben, ohne D-043 aufzuweichen.** Eine Karte aus dem Prozessstart gilt, wenn alles davon stimmt: derselbe
-   Prozess, derselbe Boot, dieselbe Sitzung (Konto, Mitgliedschaft, Betrieb) und keine Abmeldung dazwischen. Eine
-   reine Erneuerung von Token oder Freigabe in derselben Sitzung verwirft sie nicht mehr. Ein Konto- oder
-   Sitzungswechsel, eine Abmeldung und ein anderer Boot verwerfen sie weiterhin.
-3. **Nie mehr still verwerfen:** Wird eine Karte verworfen, zeigt „Erfassen“ einen kurzen Hinweis mit der Bitte, die
-   Karte noch einmal anzutippen. Es wird nichts gebucht.
-4. **Gegenprobe:** Die App im Hintergrund (`activity_delivery_intent`) und die geöffnete App funktionieren unverändert.
-   Keine Serveränderung, iOS unverändert.
+1. **Vorläufiger eigener Stand:**
+   - Grundlage ist der zuletzt vom Server bestätigte eigene Stand (aktive Zeit, Pause) zusammen mit den eigenen, noch
+     nicht bestätigten Erfassungen dieses Geräts in der Reihenfolge ihrer Erfassung.
+   - Ausgewertet wird mit der `BusinessEngine` aus `@taptime/core`. Es gibt keine zweite Entscheidungslogik.
+   - Der Stand liegt nur im Speicher, ohne neue Tabelle. Ein Wechsel von Konto, Mitgliedschaft oder Betrieb und das
+     Abmelden verwerfen ihn.
+2. **Anzeige in der App:**
+   - „Erfassen“ und „Meine Zeiten“ zeigen ohne Netz dieselbe Karte wie mit Netz: laufende Zeit mit Uhr,
+     „Pause seit …“, beendet.
+   - Dazu kommt ein kleines, zugängliches Zeichen „offline gespeichert“, als Text und nicht nur als Farbe.
+   - Bestätigt der Server dasselbe, verschwindet das Zeichen still.
+   - Entscheidet er anders (Ablehnung, Prüffall, andere Zeit), erscheint ein kurzer Hinweis mit seiner Entscheidung.
+     Dann gilt der Server.
+3. **Sperrbildschirm** (Android-Benachrichtigung, iPhone-Live-Aktivität):
+   - Er zeigt den vorläufigen Stand mit laufender Uhr und demselben Offline-Zeichen.
+   - Ohne Netz buchen die Knöpfe weiterhin nichts selbst; das ist Stufe 2 nach dem Pilot. Sie öffnen die App oder
+     zeigen wie heute „Nicht gesendet · kein Netz“.
+4. **Keine Änderung an Server oder Vertrag.** Verwaltung, Exporte und Prüffälle bleiben unverändert.
 
 ### Tests und Nachweis
 
-- Rot zuerst, dann grün. Abgedeckte Kaltstarts:
-  - mit Wiederherstellung;
-  - mit Token-Erneuerung;
-  - mit Freigabe-Erneuerung;
-  - mit Abgleich des Sperrbildschirms;
-  - mit Kontowechsel (verwirft, mit Hinweis);
-  - mit anderem Boot (verwirft);
-  - ohne Netz mit gültiger Offline-Freigabe.
-- Android-Release-Build lokal, die ganze CI lokal nachgebaut.
-- Bericht `.t139-review/bericht.md` mit kurzer Prüfliste für den PO: geschlossene App, App im Hintergrund, nach
-  Neustart, morgens als Erstes.
+- **Zuerst rot:** Eine ohne Netz gestartete Zeit zeigt heute keine laufende Zeit.
+- **Abgedeckte Fälle:**
+  - Start, Pause, Pause beenden und Ende ohne Netz;
+  - mehrere Erfassungen hintereinander;
+  - Neustart der App ohne Netz;
+  - Netz kommt zurück, und der Server entscheidet gleich (das Zeichen verschwindet);
+  - Netz kommt zurück, und der Server entscheidet anders (Hinweis, der Server gilt);
+  - Kontowechsel und Abmelden;
+  - abgelaufene Offline-Freigabe;
+  - Kaltstart per Karte ohne Netz zusammen mit T-139.
+- **Gleiche Entscheidung wie auf dem Server:** Die Auswertung im Client wird gegen dieselben Fälle geprüft wie auf dem
+  Server, also gleiche Eingaben und gleiche Entscheidung.
+- **Builds:** Android-Release-Build und iOS-JS-Export lokal, die ganze CI lokal nachgebaut.
+- **Bericht:** `.t140-review/bericht.md` mit einer kurzen Geräteprüfliste für beide Telefone.
 
 ### Grenzen
 
 - Kein Deploy, keine EAS-Builds, kein Server, kein Supabase, keine GHCR-Paketaktion, nichts installieren (AGENTS 3).
+- Ohne Netz keine Buchung vom Sperrbildschirm (Stufe 2).
 - Kein Commit vor `APPROVED`.

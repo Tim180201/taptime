@@ -1,20 +1,16 @@
 # TapTim.e — Status
 
-**Stand 29.10.2026.** Produktion läuft auf `e577fa8` (Deploy 8 am 23.10.: Migrationen 061 und 062, zwei
-Wiederherstellungsproben im neuen Plattenordner grün, Versionsbelege im Log, vom TL geprüft). Damit ausgeliefert: T-127a/b
-(Archiv, D-143), T-104a (Sperrbildschirm-Schlüssel und -Aktionen, D-146) und T-132 (Sicherung auf der Platte,
-Totmannschalter der Tagesprüfung, D-150, D-151). Wochenprobe am 23.10. von Hand gestartet; seither keine Morgenmeldung
-mehr, beide Healthchecks-Checks grün (PO 26.10.); der Konsolenbeleg (Status, Tagesmonitor, `NRestarts`, Slots) steht
-noch aus. App-Builds zu `e577fa8` beim PO (EAS 23.10.: Android Version 17, iPhone Build 10 über TestFlight) mit T-104b
-bis T-104d; Prüflisten `.t104b-review/` bis `.t104d-review/` (lokal). Erster iPhone-Test: Live-Aktivität gefällt
-optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, noch nicht ausgeliefert: T-099b (`eebe736`,
-`1edb047`, Migration 063). Davor Deploy 7 (`1918d5a`, 17.10.). T-134 (`5f65fc3`): Rechtstexte auf dem gebauten Stand;
-offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. T-104e auf main
-(`c84dfc9`). T-135, T-138, T-137 und T-123a auf main (Migrationen 065 bis 068). **Gemeinsamer Deploy** (Deploy 9 und 10,
-PO 29.10.) aus `05bcf51`, CI und Image grün; App-Builds aus `05bcf51` grün (iPhone Build 11, Android
-Version 18; Apple-Lizenzvereinbarung am 29.10. vom PO angenommen). T-139 auf main (Android: Karte bei geschlossener App,
-P1), wirkt mit dem nächsten Android-Build; Geräteprüfung nach `.t139-review/bericht.md`.
-T-123b folgt mit den Antworten von frogs (D-157).
+**Stand 29.10.2026.** Produktion läuft auf `05bcf51` (gemeinsamer Deploy am 29.10., Deploy 9 und 10: Migrationen 063 bis
+068, Controller vorher an der Konsole installiert, Generalprobe und zwei Wiederherstellungsproben grün, vom TL im Log
+geprüft). Damit ausgeliefert: T-099b, T-104e, T-135, T-136b, T-137, T-138 und T-123a. Bestand der Sicherung vor dem
+Deploy: 1.030 Basen, 7.963 WAL, 26 Marker, noch nie erfolgreich aufgeräumt; die erste Aufbewahrung läuft mit der
+stündlichen Sicherung nach 05:25 UTC am 30.10. (Tagesrhythmus), danach stündlich bis `ok`; dann Wochenprobe. Bis zur
+ersten grünen Probe kommt die Morgenmeldung weiter. App-Builds aus `05bcf51` (iPhone Build 11 über TestFlight, Android
+Version 18): Kurztest am 29.10. bestanden, Lohnexport-Monatsübersicht am echten Download geprüft. Gefunden: T-139
+(Android-Karte bei geschlossener App, auf main `09ac588`) und offline keine laufende Anzeige (D-158). Jetzt **T-140**,
+danach ein App-Build mit T-139 und T-140 und dessen Geräteprüfung. Davor Deploy 8 (`e577fa8`, 23.10.). T-134
+(`5f65fc3`): Rechtstexte auf dem gebauten Stand; offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006),
+Anschrift und Kontakt. T-123b folgt mit den Antworten von frogs (D-157).
 **T-136 gemessen (27.10.):** 20.000 echte WAL-Archive (Borg 1.2.8): monatliche Aufbewahrung einzeln 992 s, gesammelt
 28 s. P1: Die Belegprüfung liest `SET\nt` statt `t`, die Aufbewahrung wird immer zurückgestellt, Wochenproben werden
 rot. T-136b auf main, wirkt mit dem gemeinsamen Deploy; vorher den Controller-Konsolenschritt
@@ -69,7 +65,7 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** gemeinsamer Deploy (`05bcf51`) → Kurztest mit den neuen Builds → T-139 und neuer Android-Build → restliche Geräteabnahme →
+**Weg zum Pilot:** T-140 → App-Build mit T-139 und T-140 → Geräteprüfung → Aufbewahrung `ok` und grüne Wochenprobe → restliche Geräteabnahme →
 Pilot (D-152; die Wiederholungsmessung mit 063 ist grün). Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
 `review/<aufgabe>` ab, Fotos auf einem verwaisten Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
