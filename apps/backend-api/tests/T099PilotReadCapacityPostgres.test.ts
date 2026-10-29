@@ -16,6 +16,16 @@ const db = new Pool({ connectionString: url.href, max: 2 });
 const login = `t099b_export_${randomUUID().replaceAll('-', '')}`;
 const runtimeUrl = new URL(url); runtimeUrl.username = login; runtimeUrl.password = randomUUID();
 const runtime = new Pool({ connectionString: runtimeUrl.href, max: 1, application_name: login });
+// TL (CI 40659685011): a discarded connection leaves pg_stat_activity only after its server process
+// has exited, which is asynchronous to client.end(). Wait a bounded time; a real leak still fails.
+async function remainingRuntimeBackends(timeoutMilliseconds = 2_000) {
+  const deadline = Date.now() + timeoutMilliseconds;
+  for (;;) {
+    const { rows } = await db.query('SELECT pid, state, backend_type FROM pg_stat_activity WHERE application_name=$1', [login]);
+    if (rows.length === 0 || Date.now() >= deadline) return rows;
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+}
 const exporter = new TimeEntryExportCoordinator(runtime, verifier);
 let created = false;
 const north = randomUUID(), south = randomUUID(), recovered = randomUUID(), voided = randomUUID();
@@ -263,7 +273,7 @@ it('releases an abandoned CSV stream on abort before its first read', async () =
     expectedMembershipId:ids.membershipAdminA,fromInclusive:from,toExclusive:to,
   }});
   expect(next.status).toBe('succeeded');
-  expect((await db.query('SELECT pid FROM pg_stat_activity WHERE application_name=$1',[login])).rows).toEqual([]);
+  expect(await remainingRuntimeBackends()).toEqual([]);
 });
 
 it.each(['preflight','stream'] as const)('cancels the server query and discards its connection on client abort during %s', async stage => {
@@ -292,6 +302,6 @@ it.each(['preflight','stream'] as const)('cancels the server query and discards 
     abort.abort();
     expect(await pending).toEqual({ status: 'service_unavailable' });
     expect(runtime.totalCount).toBe(0);
-    expect((await db.query('SELECT pid FROM pg_stat_activity WHERE application_name=$1', [login])).rows).toEqual([]);
+    expect(await remainingRuntimeBackends()).toEqual([]);
   } finally { await blocker.query('ROLLBACK'); blocker.release(); }
 });
