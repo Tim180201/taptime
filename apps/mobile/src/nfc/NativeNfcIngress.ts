@@ -83,6 +83,8 @@ export class NativeNfcIngressCapturePort {
 
 export interface NativeNfcIngressScanCapability {
   scan(): Promise<void>;
+  scanNativeNfcIngress?(): Promise<void>;
+  nativeNfcIngressDiscarded?(): void;
 }
 
 export interface NativeNfcIngressAuthorityReader {
@@ -134,7 +136,7 @@ export class NativeNfcIngressLifecycle {
     try {
       const evidence = this.ingress.readPendingEvidence();
       if (evidence === null) {
-        this.ingress.clear();
+        this.discard();
         return;
       }
       const authority = await this.authority.captureNativeNfcIngressAuthority(evidence);
@@ -150,13 +152,19 @@ export class NativeNfcIngressLifecycle {
         || currentEvidence.elapsedRealtimeMilliseconds
           !== evidence.elapsedRealtimeMilliseconds
       ) {
-        this.ingress.clear();
+        this.discard();
         return;
       }
-      await this.scan.scan();
-      if (this.ingress.hasPending()) this.ingress.clear();
+      if (this.scan.scanNativeNfcIngress) await this.scan.scanNativeNfcIngress();
+      else await this.scan.scan();
+      if (this.ingress.hasPending()) this.discard();
     } finally {
       this.checking = false;
     }
+  }
+
+  private discard(): void {
+    this.ingress.clear();
+    this.scan.nativeNfcIngressDiscarded?.();
   }
 }

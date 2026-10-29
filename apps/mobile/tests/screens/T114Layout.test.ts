@@ -84,6 +84,16 @@ async function layout(id: string, width: number, measuredHeight: number) {
 afterEach(() => { cleanup(); native.layouts.clear(); native.textLayouts.clear(); });
 
 describe('T-114 height and navigation', () => {
+  it('T139 shows the discarded-card notice on Erfassen and removes it after the next scan', () => {
+    const getState = vi.spyOn(scan, 'getState').mockReturnValue({ ...scanState, nativeNfcRetryRequired: true });
+    try {
+      const view = render(shell(null));
+      expect(screen.getByText('Karte nicht erfasst. Bitte tippe die Karte noch einmal an.')).toBeDefined();
+      getState.mockReturnValue(scanState);
+      view.rerender(shell(null));
+      expect(screen.queryByText('Karte nicht erfasst. Bitte tippe die Karte noch einmal an.')).toBeNull();
+    } finally { getState.mockRestore(); }
+  });
   it.each(['ready', 'running', 'pause'] as const)('fits %s in the 360 × 568 dp area using the rendered styles', async state => {
     render(shell(state === 'ready' ? null : { ...active, breakStartedAt: state === 'pause' ? '2026-10-08T08:30:00.000Z' : null }));
     const header = screen.getByRole('heading', { name: 'Erfassen' }).parentElement!.parentElement!;

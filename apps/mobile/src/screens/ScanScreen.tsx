@@ -64,7 +64,7 @@ export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = fal
   const [beforeHeight, setBeforeHeight] = useState(0);
   const [copyHeight, setCopyHeight] = useState(0);
   const [afterHeight, setAfterHeight] = useState(0);
-  const hasBefore = !!(offline && offlineActive && confirmedOwnTime?.activeRecord
+  const hasBefore = !!(state.nativeNfcRetryRequired || offline && offlineActive && confirmedOwnTime?.activeRecord
     || !offline && work && workState?.status === 'ready' && workState.ownTime.activeRecord
     || workState?.status === 'ready' && (workState.feedback || workState.refreshError));
   const hasAfter = !!(workState?.status === 'ready' && workState.capturePending && !state.transmissionPaused
@@ -81,6 +81,7 @@ export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = fal
       onLayout={({ nativeEvent: { layout } }) => setViewport(previous => previous.width === layout.width && previous.height === layout.height
         ? previous : { width: layout.width, height: layout.height })}>
       {hasBefore ? <View style={styles.group} testID="scan-before" onLayout={({ nativeEvent: { layout } }) => setBeforeHeight(layout.height)}>
+      {state.nativeNfcRetryRequired ? <Text accessibilityLiveRegion="polite">Karte nicht erfasst. Bitte tippe die Karte noch einmal an.</Text> : null}
       {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard compact capture={offlineActive} value={confirmedOwnTime} disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':'Deine letzte Erfassung wartet noch auf Bestätigung.'} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
       {!offline && work && workState?.status==='ready' && workState.ownTime.activeRecord ? <ActiveTimeCard compact record={workState.ownTime.activeRecord}
         disabled={!!workState.captureBlockedReason || scanBusy || workState.submitting || !!workState.capturePending || !!state.transmissionPaused || !!state.updateRequired}

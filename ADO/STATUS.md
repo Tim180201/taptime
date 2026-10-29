@@ -12,8 +12,9 @@ optisch, Knöpfe und „Meine Zeiten“ fehlerhaft (T-104e, unten). Auf main, no
 offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006), Anschrift und Kontakt. T-104e auf main
 (`c84dfc9`). T-135, T-138, T-137 und T-123a auf main (Migrationen 065 bis 068). **Gemeinsamer Deploy** (Deploy 9 und 10,
 PO 29.10.) aus `05bcf51`, CI und Image grün; App-Builds aus `05bcf51` grün (iPhone Build 11, Android
-Version 18; Apple-Lizenzvereinbarung am 29.10. vom PO angenommen). Jetzt **T-139** (Android: Karte bei geschlossener App,
-P1, Gerätetest 29.10.); T-123b folgt mit den Antworten von frogs (D-157).
+Version 18; Apple-Lizenzvereinbarung am 29.10. vom PO angenommen). T-139 auf main (Android: Karte bei geschlossener App,
+P1), wirkt mit dem nächsten Android-Build; Geräteprüfung nach `.t139-review/bericht.md`.
+T-123b folgt mit den Antworten von frogs (D-157).
 **T-136 gemessen (27.10.):** 20.000 echte WAL-Archive (Borg 1.2.8): monatliche Aufbewahrung einzeln 992 s, gesammelt
 28 s. P1: Die Belegprüfung liest `SET\nt` statt `t`, die Aufbewahrung wird immer zurückgestellt, Wochenproben werden
 rot. T-136b auf main, wirkt mit dem gemeinsamen Deploy; vorher den Controller-Konsolenschritt
@@ -173,6 +174,8 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 ## Bekannte Kleinigkeiten (P2/P3, offen)
 
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
+
+- **Android-Karte (T-139, unabhängiges Review R2, P2):** Nach einer geworfenen DB-Leseoperation vor dem Speichern erscheint der Wiederholungshinweis, der Scan bleibt aber bis zur nächsten Sitzungserneuerung gesperrt.
 
 - **T-104e, TL-R1 P3-1:** Fehlt die Archiv-Anforderungszeile nach Prozessende zwischen COMMIT und Registrierung, bleibt `archiveStatus` pending; erneutes Senden derselben Befehls-ID behebt das.
 - **T-104e, TL-R1 P3-6:** Android-Wiederherstellen nach Wegwischen und SAVING in `project` nur durch Quelltext-Tests abgedeckt; Nachweis per Geräteabnahme.

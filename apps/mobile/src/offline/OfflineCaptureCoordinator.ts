@@ -107,6 +107,11 @@ interface SessionTransitionFlight {
   readonly promise: Promise<void>;
 }
 
+type NativeNfcSessionBinding =
+  | { readonly authenticated: ProductScanSessionSnapshot }
+  | { readonly restoration: InternalOfflineRestorationSnapshot;
+      readonly owner: Pick<OfflineDatabaseOwner, 'organizationId' | 'userId' | 'membershipId'> | null };
+
 export type ManualOfflineCaptureResult =
   | { readonly status: 'saved'; readonly workEventId: string }
   | { readonly status: 'full' | 'protected' | 'unavailable' };
@@ -166,7 +171,15 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   private offlineRestorationSnapshot: InternalOfflineRestorationSnapshot | null = null;
   private offlineCaptureContext: ActiveOfflineCaptureContext | null = null;
   private nativeNfcIngressAuthority: NativeNfcIngressAuthoritySnapshot | null = null;
-  private nativeNfcIngressRuntimeStartGeneration: number | null = null;
+  private nativeNfcIngressRuntimeStartSession: NativeNfcSessionBinding | null = null;
+  private nativeNfcIngressWindow: {
+    readonly session: NativeNfcSessionBinding;
+    readonly authority: NativeNfcIngressAuthoritySnapshot;
+  } | null = null;
+  private nativeNfcRetryRequired = false;
+  private nativeNfcInitialOwner: OfflineDatabaseOwner | null = null;
+  private nativeNfcScanSession: NativeNfcSessionBinding | null = null;
+  private nativeNfcSessionTransitionPending = false;
   private visibleWorkEventId: string | null = null;
   private visibleTerminalOutcome: ProductScanOutcome | null = null;
   private protectedLegacy = false;
@@ -256,6 +269,15 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     const ready = await this.initializeInfrastructure();
     if (!this.isCurrent(generation) || !ready) return;
     this.unsubscribeSession = this.session.subscribe(() => {
+      // Revoke synchronously: leaving and returning to the same account must not
+      // revive a launch card. Token refresh retains the authenticated generation.
+      this.revokeChangedNativeNfcSession();
+      if (this.operationFlight !== null && this.nativeNfcScanSession !== null) {
+        // Finish an already consumed card under its unchanged owner before renewing
+        // the lease. Account changes revoke the binding above and still abort immediately.
+        this.nativeNfcSessionTransitionPending = true;
+        return;
+      }
       const snapshot = this.session.capture();
       if (this.logoutOwner && snapshot && sameAccount(snapshot, this.logoutOwner)) {
         this.ownerSession = snapshot;
@@ -291,7 +313,12 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
     this.nativeNfcIngressAuthority = null;
-    this.nativeNfcIngressRuntimeStartGeneration = null;
+    this.nativeNfcIngressRuntimeStartSession = null;
+    this.nativeNfcIngressWindow = null;
+    this.nativeNfcRetryRequired = false;
+    this.nativeNfcInitialOwner = null;
+    this.nativeNfcScanSession = null;
+    this.nativeNfcSessionTransitionPending = false;
     this.visibleTerminalOutcome = null;
     this.visibleWorkEventId = null;
     const transition = this.sessionTransitionFlight?.promise;
@@ -313,24 +340,49 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   scan(): Promise<void> {
+    return this.startScan(false);
+  }
+
+  scanNativeNfcIngress(): Promise<void> {
+    return this.startScan(true);
+  }
+
+  private startScan(nativeIngress: boolean): Promise<void> {
     if (this.operationFlight !== null || !canStartScan(this.state)) {
       return this.operationFlight ?? Promise.resolve();
     }
-    const operation = this.performScan(this.generation);
+    this.nativeNfcRetryRequired = false;
+    this.nativeNfcScanSession = nativeIngress ? this.readNativeNfcSession() : null;
+    const operation = this.performScan(this.generation, nativeIngress);
     let flight!: Promise<void>;
     flight = operation.finally(() => {
       if (this.operationFlight === flight) this.operationFlight = null;
+      this.nativeNfcScanSession = null;
+      if (this.nativeNfcSessionTransitionPending) {
+        this.nativeNfcSessionTransitionPending = false;
+        if (this.started) {
+          this.pauseSynchronization();
+          this.captureMode = null;
+          void this.scheduleSessionTransition(++this.generation);
+        }
+      }
     });
     this.operationFlight = flight;
     return flight;
   }
 
   bindNativeNfcIngressRuntimeStart(): void {
-    this.nativeNfcIngressRuntimeStartGeneration = this.started ? this.generation : null;
+    this.nativeNfcIngressRuntimeStartSession = this.started ? this.readNativeNfcSession() : null;
   }
 
   unbindNativeNfcIngressRuntimeStart(): void {
-    this.nativeNfcIngressRuntimeStartGeneration = null;
+    this.nativeNfcIngressRuntimeStartSession = null;
+  }
+
+  nativeNfcIngressDiscarded(): void {
+    if (!this.started) return;
+    this.nativeNfcRetryRequired = true;
+    this.setState(this.state);
   }
 
   async captureNativeNfcIngressAuthority(
@@ -338,20 +390,21 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   ): Promise<object | null> {
     // A delivered Intent waits for grant renewal, without moving the runtime's
     // evidence boundary forward. Never bind a morning tap to yesterday's lease.
-    if (this.grantRefreshFlight !== null) await this.grantRefreshFlight.catch(() => undefined);
-    const generation = this.generation;
-    const transition = this.sessionTransitionFlight;
-    if (transition !== null && transition.generation === generation) {
-      await transition.promise.catch(() => undefined);
+    while (this.started) {
+      const generation = this.generation;
+      await this.grantRefreshFlight?.catch(() => undefined);
+      await this.sessionTransitionFlight?.promise.catch(() => undefined);
+      if (generation === this.generation) break;
     }
-    if (generation !== this.generation) return null;
+    this.revokeChangedNativeNfcSession();
     const authority = this.nativeNfcIngressAuthority;
     const followsPublishedAuthority = authority !== null
       && evidence.elapsedRealtimeMilliseconds
         > authority.validFromElapsedRealtimeMilliseconds;
     const startedCurrentRuntime = authority !== null
       && evidence.intentOrigin === 'process_start_intent'
-      && authority.generation === this.nativeNfcIngressRuntimeStartGeneration
+      && this.nativeNfcIngressRuntimeStartSession !== null
+      && this.isNativeNfcSessionCurrent(this.nativeNfcIngressRuntimeStartSession)
       && evidence.processStartElapsedRealtimeMilliseconds
         === authority.processStartElapsedRealtimeMilliseconds
       && evidence.processStartElapsedRealtimeMilliseconds
@@ -362,7 +415,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       && this.operationFlight === null
       && canStartScan(this.state)
       && evidence.bootMarker === authority.validFromBootMarker
-      && (followsPublishedAuthority || startedCurrentRuntime)
+      && (evidence.intentOrigin === 'process_start_intent' ? startedCurrentRuntime : followsPublishedAuthority)
       && this.isNativeNfcIngressAuthorityCurrent(authority)
       ? authority
       : null;
@@ -482,28 +535,8 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     await Promise.all([this.operationFlight, ...this.manualFlights].map(flight=>flight?.catch(()=>undefined)));
     const session = this.session.capture();
     if (!this.started || session === null || this.database === null) return;
-    const previous = this.nativeNfcIngressAuthority !== null
-      && this.canSynchronize()
-      && this.isNativeNfcIngressAuthorityCurrent(this.nativeNfcIngressAuthority)
-      ? this.nativeNfcIngressAuthority : null;
-    const runtimeStartBound = previous !== null
-      && this.nativeNfcIngressRuntimeStartGeneration === previous.generation;
     const generation = ++this.generation;
     await this.scheduleSessionTransition(generation);
-    const current = this.nativeNfcIngressAuthority;
-    if (previous !== null && current !== null && this.isCurrent(generation)
-      && this.session.isCurrent(session)
-      && previous.mode === 'authenticated' && current.mode === 'authenticated'
-      && previous.validFromBootMarker === current.validFromBootMarker
-      && previous.processStartElapsedRealtimeMilliseconds === current.processStartElapsedRealtimeMilliseconds) {
-      // Renewing a grant in the SAME live session is not a new runtime. Keep its
-      // original lower bound; session/owner transitions and stop still revoke it.
-      // The new snapshot retains the new generation, so old in-flight authority
-      // objects cannot become valid again (D-043).
-      this.nativeNfcIngressAuthority = Object.freeze({ ...current,
-        validFromElapsedRealtimeMilliseconds: previous.validFromElapsedRealtimeMilliseconds });
-      if (runtimeStartBound) this.nativeNfcIngressRuntimeStartGeneration = generation;
-    }
   }
 
   private async refreshTransferIssues(): Promise<void> {
@@ -607,6 +640,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       return false;
     }
     this.database = database;
+    // Retain the owner before any restoration can replace it. An offline→online
+    // continuation must prove all three IDs as well as the auth generation.
+    try { this.nativeNfcInitialOwner = await database.readOwner(); }
+    catch { this.nativeNfcInitialOwner = null; }
     let imported;
     try {
       imported = await new LegacyLifecycleEvidenceImporter(
@@ -679,7 +716,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
     this.nativeNfcIngressAuthority = null;
-    this.nativeNfcIngressRuntimeStartGeneration = null;
+    this.revokeChangedNativeNfcSession();
     await this.nfcLifecycle.cancelCapture();
     if (!this.isCurrent(generation)) return;
     if (this.protectedLegacy) {
@@ -923,7 +960,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       : classifiedScanState({ status: 'unavailable' }, readinessProtection));
   }
 
-  private async performScan(generation: number): Promise<void> {
+  private async performScan(generation: number, nativeIngress = false): Promise<void> {
     const database = this.database;
     const secrets = this.secrets;
     const mode = this.captureMode;
@@ -946,7 +983,15 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     } catch {
       capture = { status: 'unavailable' };
     }
-    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
+    const isCurrentCapture = () => {
+      const current = nativeIngress
+        ? this.isCurrent(generation) && this.captureMode === mode && this.logoutOwner === null
+          && this.nativeNfcScanSession !== null && this.isNativeNfcSessionCurrent(this.nativeNfcScanSession)
+        : this.isCaptureCurrent(generation, mode, restorationSnapshot);
+      if (!current && nativeIngress && capture.status === 'captured') this.nativeNfcIngressDiscarded();
+      return current;
+    };
+    if (!isCurrentCapture()) return;
     if (capture.status !== 'captured') {
       await this.publishReady(mode, captureOutcome(capture.status));
       return;
@@ -955,10 +1000,15 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       await this.publishReady(mode, { status: 'unreadable' });
       return;
     }
-    const item = await database.lookupActiveItem(
-      mobileLookupHmac(secrets.lookupKey, capture.payload),
-    );
-    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
+    let item;
+    try {
+      item = await database.lookupActiveItem(mobileLookupHmac(secrets.lookupKey, capture.payload));
+    } catch (error) {
+      if (!nativeIngress) throw error;
+      this.nativeNfcIngressDiscarded();
+      return;
+    }
+    if (!isCurrentCapture()) return;
     if (item === null || item.itemType !== 'nfc_assignment') {
       await this.publishReady(mode, { status: 'tag_not_assigned' });
       return;
@@ -989,8 +1039,14 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       await this.publishReady(mode, { status: 'nfc_unavailable' });
       return;
     }
-    const context = await database.readActiveCaptureContext();
-    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
+    let context;
+    try { context = await database.readActiveCaptureContext(); }
+    catch (error) {
+      if (!nativeIngress) throw error;
+      this.nativeNfcIngressDiscarded();
+      return;
+    }
+    if (!isCurrentCapture()) return;
     if (
       context === null
       || context.leaseId !== item.leaseId
@@ -1041,7 +1097,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         }),
       }),
     });
-    if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return;
+    if (!isCurrentCapture()) return;
     const appended = await database.appendEvent(draft);
     if (!this.isCurrent(generation)) return;
     if (appended.status === 'full') {
@@ -1461,7 +1517,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
     this.nativeNfcIngressAuthority = null;
-    this.nativeNfcIngressRuntimeStartGeneration = null;
+    this.nativeNfcIngressRuntimeStartSession = null;
+    this.nativeNfcIngressWindow = null;
+    this.nativeNfcScanSession = null;
     if (removeLookupKey) {
       this.manualAcknowledgements.clear();
       this.visibleTerminalOutcome = null;
@@ -1566,6 +1624,13 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       this.nativeNfcIngressAuthority = null;
       return;
     }
+    this.revokeChangedNativeNfcSession();
+    const previous = this.nativeNfcIngressWindow?.authority;
+    const sameProcess = previous !== undefined
+      && previous.validFromBootMarker === validFrom.bootMarker
+      && previous.processStartElapsedRealtimeMilliseconds === (validFrom.processStartElapsedRealtimeMilliseconds ?? null);
+    // Capture generations invalidate in-flight work; the evidence window instead
+    // belongs to the uninterrupted session. Renewals cannot move its lower bound.
     this.nativeNfcIngressAuthority = Object.freeze({
       generation,
       mode,
@@ -1575,8 +1640,40 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       processStartElapsedRealtimeMilliseconds:
         validFrom.processStartElapsedRealtimeMilliseconds ?? null,
       validFromElapsedRealtimeMilliseconds:
-        validFrom.elapsedRealtimeMilliseconds,
+        sameProcess ? previous.validFromElapsedRealtimeMilliseconds : validFrom.elapsedRealtimeMilliseconds,
     });
+    const session = this.readNativeNfcSession();
+    this.nativeNfcIngressWindow = session === null ? null : { session, authority: this.nativeNfcIngressAuthority };
+  }
+
+  private readNativeNfcSession(): NativeNfcSessionBinding | null {
+    const authenticated = this.session.capture();
+    if (authenticated !== null) return { authenticated };
+    const restoration = this.session.captureOfflineRestorationSnapshot();
+    return restoration === null ? null : { restoration, owner: this.offlineCaptureContext ?? this.nativeNfcInitialOwner };
+  }
+
+  private isNativeNfcSessionCurrent(binding: NativeNfcSessionBinding): boolean {
+    return 'authenticated' in binding
+      ? this.session.isCurrent(binding.authenticated)
+      : this.session.isOfflineRestorationSnapshotCurrent(binding.restoration);
+  }
+
+  private revokeChangedNativeNfcSession(): void {
+    this.nativeNfcIngressRuntimeStartSession = this.continueNativeNfcSession(this.nativeNfcIngressRuntimeStartSession);
+    this.nativeNfcScanSession = this.continueNativeNfcSession(this.nativeNfcScanSession);
+    if (this.nativeNfcIngressWindow !== null) {
+      const session = this.continueNativeNfcSession(this.nativeNfcIngressWindow.session);
+      this.nativeNfcIngressWindow = session === null ? null : { ...this.nativeNfcIngressWindow, session };
+    }
+  }
+
+  private continueNativeNfcSession(binding: NativeNfcSessionBinding | null): NativeNfcSessionBinding | null {
+    if (binding === null || this.isNativeNfcSessionCurrent(binding)) return binding;
+    const current = this.session.capture();
+    return 'restoration' in binding && current !== null && binding.owner !== null
+      && current.generation === binding.restoration.generation && sameAccount(current, binding.owner)
+      ? { authenticated: current } : null;
   }
 
   private setReady(outcome: ProductScanOutcome): void {
@@ -1588,8 +1685,9 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private setState(state: ProductScanState): void {
-    const {untransferred,updateRequired,transmissionPaused,transmissionRetryAvailable,...value} = state;
+    const {untransferred,updateRequired,transmissionPaused,transmissionRetryAvailable,nativeNfcRetryRequired,...value} = state;
     const next = {...(this.logoutWaiting ? {status:'archive_signout_pending' as const} : value),
+      ...(this.nativeNfcRetryRequired ? { nativeNfcRetryRequired: true as const } : {}),
       ...(this.untransferred.length ? {untransferred:this.untransferred} : {}), ...(this.updateRequired ? {updateRequired:true} : {}),
       ...(this.transmissionPaused && (this.canSynchronize() || this.captureMode==='offline')
         ? {transmissionPaused:true,...(this.transmissionRetryAvailable ? {transmissionRetryAvailable:true} : {})} : {})};
@@ -1730,7 +1828,7 @@ function captureOutcome(
   }
 }
 
-function sameAccount(left: ProductScanSessionSnapshot, right: OfflineDatabaseOwner): boolean {
+function sameAccount(left: ProductScanSessionSnapshot, right: Pick<OfflineDatabaseOwner, 'organizationId' | 'userId' | 'membershipId'>): boolean {
   return left.session.organizationId === right.organizationId && left.session.userId === right.userId
     && left.session.membershipId === right.membershipId;
 }

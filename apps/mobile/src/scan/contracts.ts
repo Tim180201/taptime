@@ -89,6 +89,7 @@ type ProductScanStateValue =
     };
 
 export type ProductScanState = ProductScanStateValue & {
+  readonly nativeNfcRetryRequired?: true;
   readonly protection?: ProductScanProtectionClassification;
   /** Set only for a rejected native SecureStore read/write; P01 alone also covers integrity. */
   readonly identityRecovery?: 'secure_store';
