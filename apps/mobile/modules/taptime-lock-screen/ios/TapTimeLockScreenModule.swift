@@ -13,16 +13,23 @@ public class TapTimeLockScreenModule: Module {
     Events("onStandChanged")
     OnCreate { onLockMain { TapTimeLockScreenRuntime.onChange = { [weak self] in self?.sendEvent("onStandChanged") } } }
     OnDestroy { onLockMain { TapTimeLockScreenRuntime.onChange = nil } }
+    Function("preview") { (owner: String, json: String?, until: String?) in onLockMain { () -> Bool in
+      let state = json.flatMap { LockState.parse(LockLogic.object(Data($0.utf8))) }
+      if json != nil && state == nil { return false }
+      return TapTimeLockScreenRuntime.preview(owner: owner, state: state, until: until)
+    } }
     Function("read") { onLockMain { TapTimeLockScreenRuntime.read() } }
     Function("bind") { (owner: String) in onLockMain { (try? TapTimeLockScreenRuntime.engine.bind(owner)) ?? false } }
-    Function("clear") { onLockMain { (try? TapTimeLockScreenRuntime.engine.clear()) ?? false } }
+    Function("clear") { onLockMain { TapTimeLockScreenRuntime.clearPreview(); return (try? TapTimeLockScreenRuntime.engine.clear()) ?? false } }
     Function("suspend") { onLockMain { (try? TapTimeLockScreenRuntime.engine.suspend()) ?? false } }
     Function("awaitOwnCapture") { onLockMain { (try? TapTimeLockScreenRuntime.engine.suspend(ownCapture: true)) ?? false } }
     Function("project") { (owner: String, json: String?, revision: String, discard: Bool) in
       onLockMain { () -> Bool in
         let state = json.flatMap { LockState.parse(LockLogic.object(Data($0.utf8))) }
         if json != nil && state == nil { return false }
-        return (try? TapTimeLockScreenRuntime.engine.project(owner: owner, state: state, revision: revision, discard: discard)) ?? false
+        let applied = (try? TapTimeLockScreenRuntime.engine.project(owner: owner, state: state, revision: revision, discard: discard)) ?? false
+        if applied { TapTimeLockScreenRuntime.clearPreview(); TapTimeLockScreenRuntime.scheduleRender() }
+        return applied
       }
     }
     AsyncFunction("issue") { (owner: String, token: String, body: String, baseURL: String, version: String, revision: String) async -> String in

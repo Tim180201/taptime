@@ -2,7 +2,7 @@ import type { MobileSessionState } from '../auth/contracts';
 import type { ProductScanState } from '../scan/contracts';
 
 export const OFFLINE_PRODUCT_DESTINATIONS = Object.freeze([
-  'capture',
+  'capture','times',
 ] as const);
 
 export function canPresentOfflineCaptureShell(

@@ -56,6 +56,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     return () => this.listeners.delete(listener);
   }
 
+  private unsubscribeOwnTimeConfirmation:(()=>void)|null=null;
+
   start(): void {
     if (this.unsubscribe !== null) return;
     this.unsubscribe = this.session.subscribe(() => {
@@ -77,6 +79,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         this.setState({ status: 'inactive' });
       }
     });
+    this.unsubscribeOwnTimeConfirmation=this.offlineCapture?.subscribeOwnTimeConfirmationRequests?.(()=>{void this.refreshPreservingActive().catch(()=>undefined);})??null;
     this.unsubscribeManualAcknowledgements =
       this.offlineCapture?.subscribeManualAcknowledgements?.(
         () => { void this.handleManualAcknowledgement(); },
@@ -85,6 +88,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   }
 
   stop(): void {
+    this.unsubscribeOwnTimeConfirmation?.();this.unsubscribeOwnTimeConfirmation=null;
     if(this.pendingTimer!==null)clearTimeout(this.pendingTimer);
     this.pendingTimer=null;
     this.unsubscribeConnectivity?.();this.unsubscribeConnectivity=null;
@@ -165,6 +169,9 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     this.setState({ status: 'loading' });
     const capturePending = this.offlineCapture?.hasUnconfirmedCapture
       ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
+    const ownFence=this.offlineCapture?.ownTimeReadFence?.()??0;
+    const confirmedAt=this.offlineCapture?.ownTimeReadStartedAt
+      ? await this.offlineCapture.ownTimeReadStartedAt().catch(()=>null) : null;
     const result = await this.api.read(snapshot.session.membershipId);
     if (
       generation !== this.generation
@@ -178,6 +185,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         });
         return;
       }
+      if(!capturePending)await this.offlineCapture?.confirmOwnTime?.(snapshot.session,result.ownTime,ownFence,confirmedAt).catch(()=>undefined);
+      if(generation!==this.generation||!this.session.isCurrent(snapshot))return;
       this.setState({
         status: 'ready',
         ownTime: freezeOwnTime(result.ownTime),
@@ -232,6 +241,9 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     };
     const capturePending = this.offlineCapture?.hasUnconfirmedCapture
       ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
+    const ownFence=this.offlineCapture?.ownTimeReadFence?.()??0;
+    const confirmedAt=this.offlineCapture?.ownTimeReadStartedAt
+      ? await this.offlineCapture.ownTimeReadStartedAt().catch(()=>null) : null;
     const result = await this.api.read(snapshot.session.membershipId,
       previous.status === 'ready' ? previous.targetsSearch : null).catch(() => ({status:'unavailable' as const}));
     if (!current()) return false;
@@ -252,6 +264,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         ownTime={...next.ownTime,records:[...ownTime.records,...next.ownTime.records]};
       }
     }
+    if(!capturePending)await this.offlineCapture?.confirmOwnTime?.(snapshot.session,ownTime,ownFence,confirmedAt).catch(()=>undefined);
+    if(!current())return false;
     this.generation++; // Failed reads never supersede an ordinary refresh.
     this.ownTimeCursors.clear();
     this.setState({...(previous.status === 'ready' ? previous : {}),status:'ready',
@@ -412,6 +426,9 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     const targetsSearch=this.state.status==='ready'?this.state.targetsSearch??null:null;
     const capturePending=this.offlineCapture?.hasUnconfirmedCapture
       ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
+    const ownFence=this.offlineCapture?.ownTimeReadFence?.()??0;
+    const confirmedAt=this.offlineCapture?.ownTimeReadStartedAt
+      ? await this.offlineCapture.ownTimeReadStartedAt().catch(()=>null) : null;
     const result=await this.api.read(snapshot.session.membershipId,targetsSearch).catch(()=>({status:'unavailable' as const}));
     if(generation!==this.generation || !this.session.isCurrent(snapshot) || this.state.status!=='ready')return;
     this.ownTimeCursors.clear();
@@ -432,6 +449,8 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
           || !validOwnTimeContinuation(ownTime,next.ownTime)){failed();return;}
         ownTime={...next.ownTime,records:[...ownTime.records,...next.ownTime.records]};
       }
+      if(!capturePending)await this.offlineCapture?.confirmOwnTime?.(snapshot.session,ownTime,ownFence,confirmedAt).catch(()=>undefined);
+      if(generation!==this.generation||!this.session.isCurrent(snapshot)||this.state.status!=='ready')return;
       this.setState({...this.state,ownTime:freezeOwnTime(ownTime),targets:result.targets,targetsSearch,targetsBusy:false,targetsFailed:false,
         submitting:false,capturePending,loadingMore:false,outcome:capturePending?'pending':outcome,feedback:capturePending?null:captureFeedback(outcome,before,ownTime)});
     } else this.setState({status:'unavailable',message:'Bestätigte Zeiten konnten nicht neu geladen werden. Bitte erneut laden.'});

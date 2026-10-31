@@ -12,6 +12,9 @@ class TapTimeLockScreenModule : Module() {
     Events("onStandChanged")
     OnCreate { LockScreenRuntime.changed = { runCatching { sendEvent("onStandChanged", emptyMap<String, Any>()) }; Unit } }
     OnDestroy { LockScreenRuntime.changed = null }
+    Function("preview") { owner: String, state: String?, validUntil: String? ->
+      runCatching { LockScreenRuntime.preview(context(), owner, state, validUntil) }.getOrDefault(false)
+    }
     Function("read") { runCatching { LockScreenRuntime.snapshot(context()) }.getOrDefault("{}") }
     Function("bind") { owner: String -> runCatching { LockScreenRuntime.bind(context(), owner); true }.getOrDefault(false) }
     Function("clear") { runCatching { LockScreenRuntime.clear(context()); true }.getOrDefault(false) }

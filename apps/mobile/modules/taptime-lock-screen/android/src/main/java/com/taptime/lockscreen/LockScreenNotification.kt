@@ -64,7 +64,7 @@ internal object LockScreenNotification {
       if (status == "paused" && LockScreenLogic.settled(display)) builder.setShortCriticalText(LockScreenLogic.duration(seconds))
     }
     val actions = when (display) {
-      Display.STATE, Display.SAVING -> listOf(if (status == "paused") "resume" else "pause", "stop")
+      Display.STATE, Display.SAVING, Display.OFFLINE -> listOf(if (status == "paused") "resume" else "pause", "stop")
       Display.NOT_SENT, Display.UNCONFIRMED -> listOf("retry")
       else -> emptyList()
     }

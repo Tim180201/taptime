@@ -502,7 +502,7 @@ it.each(['background','read-failure'] as const)('T-115 restores the actual offli
   locked=false;emit('active');await starting;
   await vi.waitFor(()=>expect(next.runtime.session.getState().status).toBe('authenticated'));
   await vi.waitFor(()=>expect(next.runtime.scan.getState().status).toBe('ready'));
-  expect(secure.values).toEqual(keys);expect(db.owner).toEqual(owner);expect(db.leases).toEqual(leases);
+  expect(secure.values).toEqual(keys);expect(db.owner).toEqual({...owner,confirmed_own_time_json:null});expect(db.leases).toEqual(leases);
   next.runtime.stop();
 });
 

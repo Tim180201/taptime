@@ -45,9 +45,9 @@ describe('offline capture shell', () => {
     },
   );
 
-  it('defines only the Capture tab for the offline shell', () => {
-    expect(OFFLINE_PRODUCT_DESTINATIONS).toEqual(['capture']);
-    expect(OFFLINE_PRODUCT_DESTINATIONS).not.toContain('times');
+  it('defines capture and own times for the offline shell', () => {
+    expect(OFFLINE_PRODUCT_DESTINATIONS).toEqual(['capture','times']);
+    expect(OFFLINE_PRODUCT_DESTINATIONS).toContain('times');
     expect(OFFLINE_PRODUCT_DESTINATIONS).not.toContain('setup');
   });
 });

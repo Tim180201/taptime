@@ -21,7 +21,9 @@ private struct DurationView: View {
     if LockLogic.showsDuration(state.state, state.display) {
       VStack(alignment: .trailing, spacing: 0) {
         Group {
-          if state.state.status == "running", let at = LockLogic.date(state.state.asOf) {
+          if state.display == .OFFLINE, let at = LockLogic.date(state.state.breakStartedAt ?? state.state.startedAt) {
+            Text(timerInterval: at...Date.distantFuture, countsDown: false, showsHours: true).monospacedDigit().multilineTextAlignment(.trailing)
+          } else if state.state.status == "running", let at = LockLogic.date(state.state.asOf) {
             // SwiftUI's system timer keeps running while the app and extension are suspended.
             Text(timerInterval: at.addingTimeInterval(-Double(state.state.workDurationSeconds))...Date.distantFuture,
               countsDown: false, showsHours: true).monospacedDigit().multilineTextAlignment(.trailing)
@@ -29,7 +31,9 @@ private struct DurationView: View {
         }.font(.custom(compact ? "Manrope-SemiBold" : "Manrope-ExtraBold", fixedSize: compact ? 15 : 28))
           .foregroundStyle(state.state.status == "paused" ? Palette.text : Palette.lime)
           .lineLimit(1).minimumScaleFactor(0.6)
-        if state.state.status == "paused", !compact {
+        if state.display == .OFFLINE, !compact {
+          Text(state.state.status == "paused" ? "seit Pausenbeginn" : "seit Beginn").font(.custom("Manrope-Regular", fixedSize: 10)).foregroundStyle(Palette.muted)
+        } else if state.state.status == "paused", !compact {
           Text("gearbeitet").font(.custom("Manrope-Regular", fixedSize: 10)).foregroundStyle(Palette.muted)
             .lineLimit(1)
         }

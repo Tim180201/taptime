@@ -1,3 +1,6 @@
+import {ProvisionalTimePanel,useOwnTimeDisplay} from './ProvisionalTimePanel';
+import type {OfflineActiveCapture} from '../work/OfflineActiveCapture';
+import type {ManualOfflineCapturePort} from '../offline/OfflineCaptureCoordinator';
 import { useEffect, useSyncExternalStore } from 'react';
 import type { MobileWorkCapability } from '../work/contracts';
 import type { ProductScanCapability } from '../scan/contracts';
@@ -5,7 +8,9 @@ import { ActionButton, AppText as Text, Card, Screen } from '../design/primitive
 import { TimeCalendar } from './TimeCalendar';
 import { WorkRefreshNotice } from './WorkRefreshNotice';
 export { formatOwnTimeTimestamp, resolveDisplayTimeZone, ownTimeLoadStatus } from './TimeCalendar';
-export function OwnTimeScreen({ work, scan }: { readonly work: MobileWorkCapability; readonly scan?:ProductScanCapability }) {
+export function OwnTimeScreen({ work, scan,offlineManual,offlineActive }: { readonly work: MobileWorkCapability; readonly scan?:ProductScanCapability;readonly offlineManual?:ManualOfflineCapturePort;readonly offlineActive?:OfflineActiveCapture }) {
+  const ownDisplay=useOwnTimeDisplay(offlineManual);
+  const provisional=offlineManual&&offlineActive&&(ownDisplay.pending||ownDisplay.notice)?<ProvisionalTimePanel manual={offlineManual} capture={offlineActive}/>:null;
   const scanState = useSyncExternalStore(listener => scan?.subscribe(listener) ?? (()=>{}), () => scan?.getState() ?? null, () => scan?.getState() ?? null);
   const state = useSyncExternalStore((listener) => work.subscribe(listener), () => work.getState(), () => work.getState());
   useEffect(() => {
@@ -22,12 +27,13 @@ export function OwnTimeScreen({ work, scan }: { readonly work: MobileWorkCapabil
     {scanState.untransferred.map(entry => <Text key={entry.workEventId}>{entry.displayName} · {new Date(entry.occurredAt).toLocaleString('de-DE',{timeZone:'Europe/Berlin'})} · {entry.reported ? 'Wird von der Verwaltung geprüft' : 'nicht übertragen'}</Text>)}
     <Text>Prüfe die gespeicherten Zeiten. Fehlende Zeit kannst du über „Zeit hinzufügen“ ergänzen. Der Originalbeleg bleibt erhalten. Nicht gemeldete Belege sperren den Kontowechsel.</Text>
   </Card> : null;
-  if (state.status !== 'ready') return <Screen title="Meine Zeiten">{untransferred}<Card>
+  if (state.status !== 'ready') return <Screen title="Meine Zeiten">{provisional}{untransferred}<Card>
     <Text accessibilityRole={state.status === 'unavailable' ? 'alert' : undefined}>
       {state.status === 'unavailable' ? state.message : 'Arbeitszeiten werden geladen …'}</Text>
     <ActionButton title="Aktualisieren" onPress={() => work.refresh()} />
   </Card></Screen>;
-  return <Screen title="Meine Zeiten">{untransferred}
+  return <Screen title="Meine Zeiten">{provisional}{untransferred}
     <WorkRefreshNotice message={state.refreshError} onRetry={()=>work.refresh()}/>
+    {ownDisplay.pending?<Text>Bestätigter Kalenderstand · noch ohne die offline gespeicherten Erfassungen</Text>:null}
     <TimeCalendar value={state.ownTime} onRefresh={()=>work.refresh()} /></Screen>;
 }

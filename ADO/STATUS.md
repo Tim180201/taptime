@@ -7,8 +7,8 @@ Deploy: 1.030 Basen, 7.963 WAL, 26 Marker, noch nie erfolgreich aufgeräumt; die
 stündlichen Sicherung nach 05:25 UTC am 30.10. (Tagesrhythmus), danach stündlich bis `ok`; dann Wochenprobe. Bis zur
 ersten grünen Probe kommt die Morgenmeldung weiter. App-Builds aus `05bcf51` (iPhone Build 11 über TestFlight, Android
 Version 18): Kurztest am 29.10. bestanden, Lohnexport-Monatsübersicht am echten Download geprüft. Gefunden: T-139
-(Android-Karte bei geschlossener App, auf main `09ac588`) und offline keine laufende Anzeige (D-158). Jetzt **T-140**,
-danach ein App-Build mit T-139 und T-140 und dessen Geräteprüfung. Davor Deploy 8 (`e577fa8`, 23.10.). T-134
+(Android-Karte bei geschlossener App, auf main `09ac588`) und offline keine laufende Anzeige (D-158). T-140 auf main (ohne Netz Anzeige wie mit Netz, D-158/D-159). Jetzt ein App-Build mit T-139 und T-140
+und dessen Geräteprüfung nach `.t140-review/bericht.md`. Davor Deploy 8 (`e577fa8`, 23.10.). T-134
 (`5f65fc3`): Rechtstexte auf dem gebauten Stand; offen beim PO: AVV mit Hetzner und Brevo, Drittlandfrage (D-006),
 Anschrift und Kontakt. T-123b folgt mit den Antworten von frogs (D-157).
 **T-136 gemessen (27.10.):** 20.000 echte WAL-Archive (Borg 1.2.8): monatliche Aufbewahrung einzeln 992 s, gesammelt
@@ -65,7 +65,7 @@ Schutz vor geleakten Passwörtern, der mit Pro kommt (D-130, D-139).
 „Taptura“ ist der Arbeitsname; Code, Pakete und Abbilder heißen weiter `taptime`, der sichtbare Name kommt aus `shared/product.json`.
 T-098b ist mit T-098c abgeschlossen. UI/UX-Durchsicht und Persona-Walkthrough vom 06.10. liegen nur lokal in
 `.audit-ux-2026-10/` (nie committen).
-**Weg zum Pilot:** T-140 → App-Build mit T-139 und T-140 → Geräteprüfung → Aufbewahrung `ok` und grüne Wochenprobe → restliche Geräteabnahme →
+**Weg zum Pilot:** App-Build mit T-139 und T-140 → Geräteprüfung → Aufbewahrung `ok` und grüne Wochenprobe → restliche Geräteabnahme →
 Pilot (D-152; die Wiederholungsmessung mit 063 ist grün). Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig
 `review/<aufgabe>` ab, Fotos auf einem verwaisten Zweig `review/<aufgabe>-fotos`; nach APPROVED Fast-forward auf main und beide Zweige löschen. Lohnexport und Business Central: erst
 die Antworten von frogs (PLAN, CEO-Termin), dann T-123 und T-124.
@@ -170,6 +170,10 @@ der Haken, oder schwankt nur Größe/Helligkeit; zusammen mit Scan oder Abgleich
 ## Bekannte Kleinigkeiten (P2/P3, offen)
 
 Kurzform; Herkunft in Klammern, Einzelheiten in Git. Einordnung in die Analyse-Pakete mit B16.
+
+- **T-140, TL-R1 (P2/P3):** Ohne bekannte Grundlage zeigt „Erfassen“ offline nur den Hinweis statt der früheren Karte (P2); „offline gespeichert“ erscheint auch mit Netz bis zur Bestätigung in App und Sperrbildschirm (P3).
+- **T-140, unabhängiges Review R1 (P2):** Bei lokalem Ende von A und serverseitigem Ende von B mit gleichem Ergebnisstatus und anschließend leerem Aktivstand fehlt der Abweichungshinweis; betroffene Stop-Zeit-ID künftig mitvergleichen.
+- **Lokale CI (T-140, P2):** Host-Node 26 überschattet JSDOM-`localStorage`; Webtests scheitern. Workflow-Node 24.17.0 ist installiert und wird für den CI-Nachbau explizit im PATH gewählt. Erstfehler bleibt in `.t140-review/ci/ci-quality-final-10.log`. TL-R1: Sandbox-Zugriffe auf Build-/Compiler-Caches und lokale Testdienste waren gesperrt; nach Freigabe grün. Ein 5-s-Timeout im unveränderten Konfigurationstest unter Parallelbetrieb trat einzeln und im vollständigen Quality-Lauf nicht erneut auf (`tl-r1-mobile.log`, `tl-r1-regressionen.log`).
 
 - **Android-Karte (T-139, unabhängiges Review R2, P2):** Nach einer geworfenen DB-Leseoperation vor dem Speichern erscheint der Wiederholungshinweis, der Scan bleibt aber bis zur nächsten Sitzungserneuerung gesperrt.
 

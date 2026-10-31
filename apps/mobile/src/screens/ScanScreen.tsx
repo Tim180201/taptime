@@ -1,3 +1,5 @@
+import {ProvisionalTimePanel,useOwnTimeDisplay} from './ProvisionalTimePanel';
+import type {ManualOfflineCapturePort} from '../offline/OfflineCaptureCoordinator';
 import { isRecoverableIdentityProtection } from '../navigation/offlineCaptureShell';
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { APP_NAME } from '../../../../shared/product';
@@ -22,6 +24,7 @@ import {
 } from '../scan/contracts';
 
 interface ScanScreenProps {
+  readonly offlineManual?:ManualOfflineCapturePort;
   readonly offline?:boolean;
   readonly offlineActive?:OfflineActiveCapture;
   readonly confirmedOwnTime?:MobileOwnTimeQueryResponse|null;
@@ -40,11 +43,13 @@ export interface ScanScreenPresentation {
   readonly tone: 'neutral' | 'success' | 'warning' | 'error';
 }
 
-export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = false, work, onManualCapture, offline=false,offlineActive,confirmedOwnTime }: ScanScreenProps) {
+export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = false, work, onManualCapture, offline=false,offlineActive,confirmedOwnTime,offlineManual }: ScanScreenProps) {
   const mobileTokens = useMobileTokens();
   const styles = useThemedStyles(createStyles);
 
   const workState = useSyncExternalStore(listener=>work?.subscribe(listener)??(()=>{}),()=>work?.getState()??null,()=>work?.getState()??null);
+  const ownDisplay=useOwnTimeDisplay(offlineManual);
+  const showProvisional=ownDisplay.known&&(ownDisplay.pending||offline);
   const ios = Platform.OS === 'ios';
   const state = useSyncExternalStore((listener) => scan.subscribe(listener),
     () => scan.getState(), () => scan.getState());
@@ -64,7 +69,7 @@ export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = fal
   const [beforeHeight, setBeforeHeight] = useState(0);
   const [copyHeight, setCopyHeight] = useState(0);
   const [afterHeight, setAfterHeight] = useState(0);
-  const hasBefore = !!(state.nativeNfcRetryRequired || offline && offlineActive && confirmedOwnTime?.activeRecord
+  const hasBefore = !!(offline && offlineManual?.getOwnTimeDisplay && !ownDisplay.known || showProvisional || ownDisplay.notice || state.nativeNfcRetryRequired || offline && offlineActive && confirmedOwnTime?.activeRecord
     || !offline && work && workState?.status === 'ready' && workState.ownTime.activeRecord
     || workState?.status === 'ready' && (workState.feedback || workState.refreshError));
   const hasAfter = !!(workState?.status === 'ready' && workState.capturePending && !state.transmissionPaused
@@ -81,9 +86,11 @@ export function ScanScreen({ actor, scan, signOut, retryRecovery, embedded = fal
       onLayout={({ nativeEvent: { layout } }) => setViewport(previous => previous.width === layout.width && previous.height === layout.height
         ? previous : { width: layout.width, height: layout.height })}>
       {hasBefore ? <View style={styles.group} testID="scan-before" onLayout={({ nativeEvent: { layout } }) => setBeforeHeight(layout.height)}>
+      {offline&&offlineManual?.getOwnTimeDisplay&&!ownDisplay.known?<Text>Ohne bestätigten Ausgangsstand ist keine vorläufige Uhr verfügbar.</Text>:null}
       {state.nativeNfcRetryRequired ? <Text accessibilityLiveRegion="polite">Karte nicht erfasst. Bitte tippe die Karte noch einmal an.</Text> : null}
-      {offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard compact capture={offlineActive} value={confirmedOwnTime} disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':'Deine letzte Erfassung wartet noch auf Bestätigung.'} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
-      {!offline && work && workState?.status==='ready' && workState.ownTime.activeRecord ? <ActiveTimeCard compact record={workState.ownTime.activeRecord}
+      {offlineManual&&offlineActive&&(showProvisional||ownDisplay.notice)?<ProvisionalTimePanel compact manual={offlineManual} capture={offlineActive} disabled={scanBusy||!!state.updateRequired||!!state.transmissionPaused}/>:null}
+      {!offlineManual?.getOwnTimeDisplay && !showProvisional && offline && offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard compact capture={offlineActive} value={confirmedOwnTime} disabledReason={scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':'Deine letzte Erfassung wartet noch auf Bestätigung.'} disabled={scanBusy || !!state.transmissionPaused || !!state.updateRequired || ('queueCount' in state && state.queueCount>0)}/> : null}
+      {!showProvisional && !offline && work && workState?.status==='ready' && workState.ownTime.activeRecord ? <ActiveTimeCard compact record={workState.ownTime.activeRecord}
         disabled={!!workState.captureBlockedReason || scanBusy || workState.submitting || !!workState.capturePending || !!state.transmissionPaused || !!state.updateRequired}
         disabledReason={workState.captureBlockedReason??(scanBusy?'Der Scan läuft. Beende ihn oder brich ihn ab.':state.updateRequired?'Bitte App aktualisieren':state.transmissionPaused?'Die Übertragung ist angehalten. Öffne „Übertragung“.':workState.capturePending?'Deine letzte Erfassung wartet noch auf Bestätigung.':undefined)}
         onStop={()=>void work.stopActiveTime()} onBreak={()=>void work.triggerBreak()}/> : null}

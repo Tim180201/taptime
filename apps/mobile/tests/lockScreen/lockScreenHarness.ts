@@ -1,3 +1,4 @@
+import {EMPTY_OWN_TIME_DISPLAY,type OwnTimeDisplay} from '../../src/work/ProvisionalOwnTime';
 import { expect, vi } from 'vitest';
 import { LockScreenCoordinator } from '../../src/lockScreen/LockScreenCoordinator';
 import { MobileWorkCoordinator } from '../../src/work/MobileWorkCoordinator';
@@ -12,6 +13,7 @@ export const snapshot={generation:1,session:{userId:'10000000-0000-4000-8000-000
 export const owner=`${snapshot.session.organizationId}/${snapshot.session.membershipId}/${snapshot.session.userId}`;
 export const initial:LockScreenState={timeEntryId:'60000000-0000-4000-8000-000000000001',status:'running',startedAt:'2026-10-21T06:00:00.000Z',stoppedAt:null,breakStartedAt:null,asOf:'2026-10-21T07:00:00.000Z',workDurationSeconds:3600,breakDurationSeconds:0,target:{targetType:'customer',targetId:'20000000-0000-4000-8000-000000000001',displayName:'Testziel'}};
 export function harness(options:{queued?:boolean}={}){
+  let ownDisplay:OwnTimeDisplay=EMPTY_OWN_TIME_DISPLAY,ownDisplayListener=()=>{};
   let stand:LockScreenStand={owner,revision:'initial',state:initial,permissionGranted:true,permissionAsked:true};
   let server={...initial},online=true,unconfirmed=false,sessionState:MobileSessionState={status:'authenticated',session:snapshot.session};
   let nativeListener=()=>{},sessionListener=()=>{},connectivityListener=(online:boolean)=>{},scanListener=()=>{};
@@ -19,7 +21,7 @@ export function harness(options:{queued?:boolean}={}){
   let appStatus:AppStatePort['currentState']='active',appListener=(state:AppStatePort['currentState'])=>{};
   const session={capture:()=>sessionState.status==='authenticated'?snapshot:null,isCurrent:()=>sessionState.status==='authenticated',subscribe:(fn:()=>void)=>{sessionListener=fn;return()=>{};},getState:()=>sessionState};
   const auth:AuthenticatedRequestCapability & {refresh():Promise<void>}={executeAuthenticatedRequest:async attempt=>attempt(()=> 'test-access'),refresh:vi.fn(async()=>{})};
-  const native:LockScreenNativePort={read:()=>stand,bind:vi.fn(()=>true),clear:vi.fn(()=>{stand={permissionGranted:true,permissionAsked:true};return true;}),suspend:vi.fn(()=>true),
+  const native:LockScreenNativePort={preview:vi.fn(()=>true),read:()=>stand,bind:vi.fn(()=>true),clear:vi.fn(()=>{stand={permissionGranted:true,permissionAsked:true};return true;}),suspend:vi.fn(()=>true),
     awaitOwnCapture:vi.fn(()=>{stand={...stand,ownCapturePending:true,pending:undefined,display:'TRANSFERRING'};return true;}),
     project:vi.fn((bound,state,revision,discard)=>{if(bound!==stand.owner||revision!==stand.revision||stand.pending&&!discard)return false;stand={...stand,state:state??undefined,pending:undefined,display:state?'STATE':undefined,ownCapturePending:false};return true;}),
     issue:vi.fn(async()=> 'issued' as const),retry:vi.fn(async()=>{server={...server,status:'paused',breakStartedAt:server.asOf};stand={...stand,pending:undefined,revision:'retry-confirmed',state:server};nativeListener();}),
@@ -36,11 +38,11 @@ export function harness(options:{queued?:boolean}={}){
     captureBreak:vi.fn(async()=>{unconfirmed=true;return {status:'saved' as const,workEventId:'99000000-0000-4000-8000-000000000005'};}),
     hasUnconfirmedCapture:async()=>unconfirmed};
   const work=new MobileWorkCoordinator(session,api,options.queued?queue:null);
-  const controller=new LockScreenCoordinator(native,session,auth,work,{hasUnconfirmedCapture:async()=>unconfirmed,lockScreenInstallationId:async()=>null},
+  const controller=new LockScreenCoordinator(native,session,auth,work,{hasUnconfirmedCapture:async()=>unconfirmed,lockScreenInstallationId:async()=>null,getOwnTimeDisplay:()=>ownDisplay,subscribeOwnTimeDisplay:listener=>{ownDisplayListener=listener;return()=>{};}},
     {getState:()=>scanState,subscribe:fn=>{scanListener=fn;return()=>{};},scan:async()=>{},cancel:async()=>{},retry:async()=>{}},
     {get:async()=>online,subscribe:fn=>{connectivityListener=fn;return()=>{};}},{get currentState(){return appStatus;},addEventListener:(_type,listener)=>{appListener=listener;return {remove(){}};}});
   work.lockScreenBoundary=controller;
-  return {native,api,work,controller,auth,queue,getStand:()=>stand,setStand:(value:Partial<LockScreenStand>,notify=false)=>{stand={...stand,...value};if(notify)nativeListener();},
+  return {native,api,work,controller,auth,queue,setOwnTimeDisplay:(value:OwnTimeDisplay)=>{ownDisplay=value;ownDisplayListener();},getStand:()=>stand,setStand:(value:Partial<LockScreenStand>,notify=false)=>{stand={...stand,...value};if(notify)nativeListener();},
     setOnline:(value:boolean)=>{online=value;connectivityListener(value);},setServer:(value:Partial<LockScreenState>)=>{server={...server,...value};},
     setAppState:(state:AppStatePort['currentState'])=>{appStatus=state;appListener(state);},
     setUnconfirmed:(value:boolean)=>{unconfirmed=value;},signOut:()=>{sessionState={status:'signed_out'};sessionListener();},setScan:(state:ProductScanState)=>{scanState=state;scanListener();}};

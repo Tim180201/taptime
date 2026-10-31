@@ -1,5 +1,6 @@
+import { MobileWorkCoordinator } from '../../src/work/MobileWorkCoordinator';
 import {OfflineActiveCapture} from '../../src/work/OfflineActiveCapture';
-import { OFFLINE_LOCAL_SCHEMA_VERSION_V7 } from '@taptime/offline-sync-contract';
+import { OFFLINE_LOCAL_SCHEMA_VERSION_V8 } from '../../src/offline/OfflineCaptureDatabase';
 import { legacyOfflineSchemas } from '../support/LegacyOfflineSchemas';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -68,6 +69,225 @@ const session: ProductSessionContext = {
 };
 const snapshot: ProductScanSessionSnapshot = { generation: 1, session };
 const binding = encodeBase64Url(new Uint8Array(32).fill(6));
+
+
+describe('T140 confirmed baseline and RAM projection with the real queue',()=>{
+  const target={targetType:'customer' as const,targetId:ids.customer};
+  const idle={activeRecord:null,records:[],nextCursor:null,windowStartedAt:'2026-07-01T00:00:00.000Z',windowEndedAt:'2026-08-01T00:00:00.000Z'};
+  async function confirm(h:Awaited<ReturnType<typeof accountHarness>>,value:import('@taptime/mobile-work-contract').MobileOwnTimeQueryResponse=idle){
+    await h.coordinator.confirmOwnTime(session,value,h.coordinator.ownTimeReadFence(),h.now());
+  }
+  it('replays start, pause, resume and stop in capture order, retaining only the confirmed idle baseline',async()=>{
+    const h=await accountHarness(false,true);
+    try{
+      await confirm(h);h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      const base=await h.database().readConfirmedOwnTime(session);
+      const start=await h.coordinator.captureManual(target);
+      expect(start.status).toBe('saved');expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:true,pending:true,activeRecord:{status:'started',targetId:ids.customer}});
+      h.tick();await h.coordinator.captureBreak();expect(h.coordinator.getOwnTimeDisplay().activeRecord?.breakStartedAt).toBe(h.now());
+      h.tick();await h.coordinator.captureBreak();expect(h.coordinator.getOwnTimeDisplay().activeRecord?.breakStartedAt).toBeNull();
+      h.tick();await h.coordinator.captureManual(target);
+      expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({activeRecord:null,records:[{status:'stopped',stoppedAt:h.now()}],pending:true});
+      expect([...h.coordinator.getOwnTimeDisplay().decisions.values()]).toEqual(['time_entry_started','break_started','break_stopped','time_entry_stopped']);
+      expect(await h.database().readConfirmedOwnTime(session)).toEqual(base);
+      expect(await h.database().queueCount()).toBe(4);expect(h.sent).toEqual([]);
+    }finally{await h.close();}
+  });
+  it.each([true,false])('offline restart with a persisted baseline=%s never guesses idle',async(persisted)=>{
+    const h=await accountHarness();
+    try{
+      if(persisted)await confirm(h);h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      await h.coordinator.captureManual(target);await h.coordinator.stop();await h.coordinator.start();
+      await vi.waitFor(()=>expect(h.coordinator.getOwnTimeDisplay().known).toBe(persisted));
+      if(persisted)expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({pending:true,activeRecord:{targetId:ids.customer,status:'started'}});
+      else expect(h.coordinator.getOwnTimeDisplay().activeRecord).toBeNull();
+    }finally{await h.close();}
+  });
+  it('TL: process restart offline in production order (session still initializing) keeps the persisted baseline',async()=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      await h.coordinator.captureManual(target);
+      expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:true,pending:true});
+      await h.coordinator.stop();
+      h.initializing(true);await h.coordinator.start();
+      h.initializing(false);
+      await vi.waitFor(()=>expect(['offline_ready','saved_locally']).toContain(h.coordinator.getState().status));
+      expect(await h.database().readConfirmedOwnTime(session)).not.toBeNull();
+      await vi.waitFor(()=>expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:true,pending:true,activeRecord:{targetId:ids.customer,status:'started'}}),{timeout:3000});
+    }finally{await h.close();}
+  });
+  it('T139 cold NFC ingress without network uses the persisted baseline and keeps the real capture chain',async()=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);await h.coordinator.stop();h.suspend();h.initializing(true);await h.coordinator.start();
+      h.coordinator.bindNativeNfcIngressRuntimeStart();h.initializing(false);
+      await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      const authority=await h.coordinator.captureNativeNfcIngressAuthority({bootMarker:'boot-1',intentOrigin:'process_start_intent',processStartElapsedRealtimeMilliseconds:0,elapsedRealtimeMilliseconds:1});
+      expect(authority).not.toBeNull();
+      await h.coordinator.scanNativeNfcIngress();
+      expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:true,pending:true,activeRecord:{targetId:ids.customer,startedVia:'nfc'}});
+      expect(await h.database().queueCount()).toBe(1);expect(h.sent).toEqual([]);
+    }finally{await h.close();}
+  });
+  it.each([
+    {status:'initializing'}, {status:'signing_in'}, {status:'context_unavailable'},
+    {status:'recovery_required',reason:'token_persistence'},
+    {status:'runtime_unavailable',reason:'runtime_start_failed'},
+    {status:'enrollment_only',notice:null},
+    ...(['not_signed_in','invalid_credentials','sign_in_unavailable','rate_limited'] as const)
+      .map(reason=>({status:'unauthenticated' as const,reason})),
+  ] satisfies MobileSessionState[])('TL: transient session $status retains the persisted baseline',async(state)=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);const base=await h.database().readConfirmedOwnTime(session);expect(base).not.toBeNull();
+      h.setSessionState(state);
+      await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('inactive'));
+      expect(h.coordinator.getOwnTimeDisplay().known).toBe(false);
+      expect(await h.database().readConfirmedOwnTime(session)).toEqual(base);
+    }finally{await h.close();}
+  });
+  it('TL: rejected session authority still removes the persisted baseline',async()=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);h.setSessionState({status:'unauthenticated',reason:'authority_rejected'});
+      await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('inactive'));
+      expect(await h.database().readConfirmedOwnTime(session)).toBeNull();
+    }finally{await h.close();}
+  });
+  function workReader(h:Awaited<ReturnType<typeof accountHarness>>,read=async()=>({status:'ready' as const,ownTime:idle,targets:{targets:[],nextCursor:null}})){
+    return new MobileWorkCoordinator(h.reader,{
+      read,readOwnTimePage:async()=>({status:'unavailable'}),triggerManual:async()=>({status:'unavailable'}),
+    },h.coordinator);
+  }
+  it.each([5000,4*60*1000])('TL P1-2: an idle server read with the device clock %s ms behind supports offline capture',async(behind)=>{
+    const h=await accountHarness();const work=workReader(h);
+    vi.useFakeTimers({toFake:['Date']});h.setClockSkew(-behind);h.elapseMonotonic(250);
+    vi.setSystemTime(new Date(h.now()));
+    try{
+      await work.refresh();
+      const context=await h.database().readActiveCaptureContext();
+      expect(await h.database().readConfirmedOwnTime(session)).toMatchObject({confirmedAt:new Date(Date.parse(context!.issuedAt)+250).toISOString()});
+      h.elapseMonotonic(250);await work.refresh();
+      expect(await h.database().readConfirmedOwnTime(session)).toMatchObject({confirmedAt:new Date(Date.parse(context!.issuedAt)+500).toISOString()});
+      h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      expect(await h.coordinator.captureManual(target)).toMatchObject({status:'saved'});
+      expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:true,pending:true,activeRecord:{targetId:ids.customer}});
+    }finally{work.stop();vi.useRealTimers();await h.close();}
+  });
+  it('TL P1-2: an ahead device clock cannot carry an earlier read across a newer grant',async()=>{
+    const h=await accountHarness();const response=deferred<void>();const started=deferred<void>();
+    const work=workReader(h,async()=>{started.resolve();await response.promise;return {status:'ready',ownTime:idle,targets:{targets:[],nextCursor:null}};});
+    vi.useFakeTimers({toFake:['Date']});h.setClockSkew(4*60*1000);vi.setSystemTime(new Date(h.now()));
+    try{
+      const reading=work.refresh();await started.promise;
+      h.tick(1000);h.renewLeaseClock=true;const oldLease=(await h.database().readActiveCaptureContext())!.leaseId;
+      h.coordinator.triggerForeground();
+      await vi.waitFor(async()=>expect((await h.database().readActiveCaptureContext())!.leaseId).not.toBe(oldLease));
+      response.resolve();await reading;
+      h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      expect(await h.coordinator.captureManual(target)).toMatchObject({status:'saved'});
+      expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:false,activeRecord:null});
+    }finally{response.resolve();work.stop();vi.useRealTimers();await h.close();}
+  });
+  it.each([-60*60*1000,60*60*1000])('TL P1-2: %s ms of clock drift has no valid grant, persisted baseline or clock',async(skew)=>{
+    const h=await accountHarness();const work=workReader(h);
+    vi.useFakeTimers({toFake:['Date']});h.setClockSkew(skew);vi.setSystemTime(new Date(h.now()));
+    try{
+      await work.refresh();
+      expect(await h.database().readConfirmedOwnTime(session)).toBeNull();
+      h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('inactive'));
+      expect(await h.coordinator.captureManual(target)).toMatchObject({status:'unavailable'});
+      expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:false,activeRecord:null});
+    }finally{work.stop();vi.useRealTimers();await h.close();}
+  });
+  it('TL P1-2: a grant becoming valid during the server read cannot supply its start timestamp',async()=>{
+    const h=await accountHarness();h.setClockSkew(60*60*1000);
+    const work=workReader(h,async()=>{h.setClockSkew(0);return {status:'ready',ownTime:idle,targets:{targets:[],nextCursor:null}};});
+    try{
+      await work.refresh();expect(work.getState().status).toBe('ready');
+      expect(await h.database().readConfirmedOwnTime(session)).toBeNull();
+      expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:false,activeRecord:null});
+    }finally{work.stop();await h.close();}
+  });
+  it.each(['userId','membershipId','organizationId'] as const)('changing %s discards the former owner baseline even when queue evidence blocks switching',async(field)=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);h.mode='unconfirmed';await h.coordinator.captureManual(target);await h.scheduler().whenIdle();
+      const previous=h.database();h.change({...session,[field]:ids.event});
+      expect(h.coordinator.getOwnTimeDisplay().known).toBe(false);
+      await vi.waitFor(async()=>expect(await previous.readConfirmedOwnTime(session)).toBeNull());
+      expect(h.coordinator.getOwnTimeDisplay().activeRecord).toBeNull();
+    }finally{await h.close();}
+  });
+  it('logout removes the baseline, while stopping the process alone retains it',async()=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);expect(await h.database().readConfirmedOwnTime(session)).not.toBeNull();
+      h.logout();expect(h.coordinator.getOwnTimeDisplay().known).toBe(false);
+      await vi.waitFor(async()=>expect(await h.database().readConfirmedOwnTime(session)).toBeNull());
+    }finally{await h.close();}
+  });
+  it('an expired grant and a baseline older than the grant both suppress the provisional clock',async()=>{
+    const h=await accountHarness();
+    try{
+      await h.coordinator.confirmOwnTime(session,idle,h.coordinator.ownTimeReadFence(),'2026-07-18T09:59:59.000Z');
+      expect(h.coordinator.getOwnTimeDisplay().known).toBe(false);
+      await confirm(h);h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      await h.coordinator.captureManual(target);h.tick(13*60*60*1000);
+      await h.coordinator.stop();await h.coordinator.start();
+      expect(h.coordinator.getOwnTimeDisplay().known).toBe(false);expect(h.coordinator.getOwnTimeDisplay().activeRecord).toBeNull();
+    }finally{await h.close();}
+  });
+  it.each(['same','different','review_pending'])('server reconciliation %s removes prediction or reports divergence',async(mode)=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      await h.coordinator.captureManual(target);const predicted=h.coordinator.getOwnTimeDisplay().activeRecord!;
+      h.mode=mode==='review_pending'?'review_pending':'archived';h.tick();h.renewLeaseClock=true;h.change(session);
+      await vi.waitFor(async()=>expect(await h.database().queueCount()).toBe(0));await h.scheduler().whenIdle();
+      // The persisted old baseline is invalidated atomically with the receipt.
+      expect(await h.database().readConfirmedOwnTime(session)).toBeNull();
+      if(mode==='review_pending'){
+        expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:false,activeRecord:null,notice:expect.stringContaining('Prüfung')});return;
+      }
+      const active=mode==='same'?{...predicted,timeRecordId:ids.event,calendar:{asOf:h.now(),workDurationSeconds:0,breakDurationSeconds:0,breakIntervals:[]}}:null;
+      await confirm(h,{...idle,activeRecord:active} as import('@taptime/mobile-work-contract').MobileOwnTimeQueryResponse);
+      expect(h.coordinator.getOwnTimeDisplay().pending).toBe(false);
+      if(mode==='same')expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({activeRecord:{timeRecordId:ids.event},notice:null});
+      else expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({activeRecord:null,notice:expect.stringContaining('Server')});
+    }finally{await h.close();}
+  });
+  it('stopping during a provisional pause enqueues pause end then stop without awaiting the network',async()=>{
+    const h=await accountHarness(false,true);const controls=new OfflineActiveCapture(h.coordinator);controls.start();
+    try{
+      await confirm(h);h.suspend();await vi.waitFor(()=>expect(h.coordinator.getState().status).toBe('offline_ready'));
+      await h.coordinator.captureManual(target);h.tick();await h.coordinator.captureBreak();h.tick();
+      await controls.stop(h.coordinator.getOwnTimeDisplay().activeRecord!);
+      expect([...h.coordinator.getOwnTimeDisplay().decisions.values()]).toEqual(['time_entry_started','break_started','break_stopped','time_entry_stopped']);
+      expect(h.coordinator.getOwnTimeDisplay().activeRecord).toBeNull();expect(await h.database().queueCount()).toBe(4);
+    }finally{controls.dispose();await h.close();}
+  });
+  it('archive completion preserves a newer confirmed baseline',async()=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);h.mode='unarchived';await h.coordinator.captureManual(target);await h.scheduler().whenIdle();
+      expect(await h.database().readConfirmedOwnTime(session)).toBeNull();
+      await confirm(h);const saved=await h.database().readConfirmedOwnTime(session);expect(saved).not.toBeNull();
+      h.mode='archived';h.advance();await h.scheduler().trigger('manual');await h.scheduler().whenIdle();
+      expect(await h.database().readConfirmedOwnTime(session)).toEqual(saved);
+    }finally{await h.close();}
+  });
+  it('a server read started before another capture cannot replace or persist the new provisional state',async()=>{
+    const h=await accountHarness();
+    try{
+      await confirm(h);const fence=h.coordinator.ownTimeReadFence();h.mode='unconfirmed';await h.coordinator.captureManual(target);
+      await h.coordinator.confirmOwnTime(session,idle,fence,h.now());
+      expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({pending:true,activeRecord:{status:'started'}});
+      expect(await h.database().readConfirmedOwnTime(session)).toMatchObject({activeTimeId:null});
+    }finally{await h.close();}
+  });
+});
 
 describe('OfflineCaptureCoordinator', () => {
   it('T104b reads the installation ID from the active database context while online',async()=>{
@@ -299,7 +519,7 @@ describe('OfflineCaptureCoordinator', () => {
       let database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
       try {
         await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
-        expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V7 });
+        expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V8 });
         expect(await connection.getAllAsync('PRAGMA foreign_key_check')).toEqual([]);
         if (version !== 0) expect(await connection.getFirstAsync(`SELECT membership_role,
           generation_state, lease_schema_version, manifest_version FROM offline_lease_generations`))
@@ -339,9 +559,9 @@ describe('OfflineCaptureCoordinator', () => {
     const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
     try {
       await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
-      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V7 });
+      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V8 });
       const after=await sqliteSnapshot(connection);
-      for(const [table,rows] of Object.entries(before)) expect(after[table]).toEqual(rows);
+      for(const [table,rows] of Object.entries(before)) expect(after[table]).toEqual(table==='offline_owner'?rows.map(row=>({...row as Record<string,unknown>,confirmed_own_time_json:null})):rows);
       expect(after.offline_quarantine_reports).toEqual([]);
       expect(await connection.getAllAsync('PRAGMA foreign_key_check')).toEqual([]);
       await expect(connection.runAsync("UPDATE offline_lease_generations SET membership_role = 'standortleitung'", []))
@@ -378,7 +598,7 @@ describe('OfflineCaptureCoordinator', () => {
       installationBinding: binding, lookupKey: encodeBase64Url(new Uint8Array(32).fill(7)) });
     if (lease.status !== 'ready') throw new Error('Invalid fixture');
     await seedV5PendingRoleChange(setup, lease.page);
-    if (mode === 'future_version') await setup.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V7 + 1};`);
+    if (mode === 'future_version') await setup.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V8 + 1};`);
     const before = await sqliteSnapshot(setup);
     const schemaBefore = await setup.getAllAsync('SELECT * FROM sqlite_master ORDER BY name');
     await setup.closeAsync();
@@ -400,7 +620,7 @@ describe('OfflineCaptureCoordinator', () => {
       try {
         expect(await sqliteSnapshot(reopened)).toEqual(before);
         expect(await reopened.getAllAsync('SELECT * FROM sqlite_master ORDER BY name')).toEqual(schemaBefore);
-        expect(await reopened.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: mode === 'rollback' ? 5 : OFFLINE_LOCAL_SCHEMA_VERSION_V7 + 1 });
+        expect(await reopened.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: mode === 'rollback' ? 5 : OFFLINE_LOCAL_SCHEMA_VERSION_V8 + 1 });
       } finally { await reopened.closeAsync(); }
     } finally { await database.close(); rmSync(root, { recursive: true, force: true }); }
   });
@@ -1714,6 +1934,10 @@ function databaseFake(
   methods: Record<string, ReturnType<typeof vi.fn>>,
 ): OfflineCaptureDatabase & Record<string, ReturnType<typeof vi.fn>> {
   return {
+    readConfirmedOwnTime:vi.fn(async()=>null),
+    readOwnTimeEvidence:vi.fn(async()=>[]),
+    clearConfirmedOwnTime:vi.fn(async()=>{}),
+    readOwner:vi.fn(async()=>null),
     readUntransferredCaptures: vi.fn(async()=>[]),
     readReviewPendingSequence: vi.fn(async () => null),
     ...methods,
@@ -1901,14 +2125,16 @@ async function accountHarness(newBusiness=false,withBreak=false) {
   const root = mkdtempSync(join(tmpdir(), 't076-coordinator-'));
   const values = new Map<string, string>();
   const listeners = new Set<() => void>();
-  let offline=false;
+  let offline=false,signedOut=false,initializing=false;
+  let stateOverride:MobileSessionState|null=null;
+  let clockSkew=0,elapsed=100;
   const restoration:InternalOfflineRestorationSnapshot={generation:1,restorationRevision:1,source:"backend_context_unavailable"};
   let active: ProductScanSessionSnapshot = { generation: 1, session:newBusiness ? {...session,role:'administrator'} : session };
   const reader: OfflineCaptureSessionReader = {
     ...sessionReader({ status: 'authenticated', session }, active),
-    capture: () => offline ? null : active, isCurrent: candidate => !offline && candidate === active,
-    getState: () => offline ? {status:'context_unavailable'} : { status: 'authenticated', session: active.session },
-    isOfflineCaptureRestorationAllowed:()=>offline,
+    capture: () => stateOverride||initializing||offline||signedOut ? null : active, isCurrent: candidate => !stateOverride&&!initializing&&!offline&&!signedOut && candidate === active,
+    getState: () => stateOverride ?? (initializing ? {status:'initializing'} : signedOut ? {status:'signed_out'} : offline ? {status:'context_unavailable'} : { status: 'authenticated', session: active.session }),
+    isOfflineCaptureRestorationAllowed:()=>!initializing&&offline,
     captureOfflineRestorationSnapshot:()=>offline ? restoration : null,
     isOfflineRestorationSnapshotCurrent:candidate=>offline && candidate===restoration,
     subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener); },
@@ -1931,9 +2157,16 @@ async function accountHarness(newBusiness=false,withBreak=false) {
   const bindings: string[] = [];
   const sent: Array<Pick<import('@taptime/offline-sync-contract').OfflineLifecycleEventCommandV3,'deviceSequence'|'expectedMembershipId'|'workEvent'>> = [];
   const records = new Map<string, {workEventId: string; receiptId: string; deviceSequence: number; decision?: {status:'break_stopped';timeEntryId:string;breakIntervalId:string}|{status:'time_entry_stopped';timeEntryId:string}}>();
-  const h = { hasTag: !newBusiness, mode: 'archived', bindings, sent, legacyBlocked: false, ingestGate: null as Promise<void> | null, reconcileGate: null as Promise<void> | null, reconcileWaiting: false, sampleGate: null as Promise<void> | null, sampleWaiting: false,
+  const h = { renewLeaseClock:false, hasTag: !newBusiness, mode: 'archived', bindings, sent, legacyBlocked: false, ingestGate: null as Promise<void> | null, reconcileGate: null as Promise<void> | null, reconcileWaiting: false, sampleGate: null as Promise<void> | null, sampleWaiting: false,
     advance: () => { time += OFFLINE_ARCHIVE_POLL_MILLISECONDS; },
+    tick:(milliseconds=10000)=>{time+=milliseconds;},
+    now:()=>new Date(time+clockSkew).toISOString(),
+    setClockSkew:(milliseconds:number)=>{clockSkew=milliseconds;},
+    elapseMonotonic:(milliseconds:number)=>{elapsed+=milliseconds;},
+    setSessionState:(state:MobileSessionState)=>{stateOverride=state;for(const l of listeners)l();},
+    logout:()=>{signedOut=true;for(const l of listeners)l();},
     suspend:()=>{offline=true;for(const l of listeners)l();},
+    initializing:(value:boolean)=>{initializing=value;if(!value)for(const l of listeners)l();},
     change: (next: ProductSessionContext) => { offline=false;active = { generation: active.generation + 1, session: next }; for (const l of listeners) l(); },
     database: () => currentDb, scheduler: () => scheduler };
   const decision = { status: 'time_entry_started' as const, timeEntryId: ids.event };
@@ -1964,19 +2197,19 @@ async function accountHarness(newBusiness=false,withBreak=false) {
   };
   const lifecycle = nfcLifecycle();
   const coordinator = new OfflineCaptureCoordinator({ async scan() { return { status: 'captured',
-    payload: createCanonicalNfcUidPayload('04AABBCC'), capturedAt: createTimestamp('2026-07-18T10:00:00.000Z') }; } }, lifecycle, reader,
+    payload: createCanonicalNfcUidPayload('04AABBCC'), capturedAt: createTimestamp(new Date(time).toISOString()) }; } }, lifecycle, reader,
     storage, factory, { async issueCompleteV3(request) {
       bindings.push(request.installationBinding);
       const result = await leaseClient(true,withBreak).issueCompleteV3!(request);
       if (result.status !== 'ready') throw new Error('Invalid fixture');
       const items = (h.hasTag ? result.page.items : []).map(item => item.itemType === 'nfc_assignment'
         ? { ...item, lookup: mobileLookupHmac(decodeBase64Url32(request.lookupKey)!, 'nfc:uid:v1:04AABBCC') } : item);
-      return { ...result, page: { ...result.page, organizationId: active.session.organizationId, userId: active.session.userId, membershipId: active.session.membershipId, role:active.session.role,
+      return { ...result, page: { ...result.page, ...(h.renewLeaseClock?{issuedAt:new Date(time).toISOString(),expiresAt:new Date(time+Date.parse(result.page.expiresAt)-Date.parse(result.page.issuedAt)).toISOString()}:{}), organizationId: active.session.organizationId, userId: active.session.userId, membershipId: active.session.membershipId, role:active.session.role,
         leaseId: `70000000-0000-4000-8000-${String(bindings.length).padStart(12, '0')}`,
         items, itemCount:items.length, manifestDigest: mobileManifestDigestV3(items), serializedBytes: new TextEncoder().encode(JSON.stringify(items)).byteLength } };
     } }, new AndroidMonotonicClock({ async sample() {
       if (h.sampleGate) { h.sampleWaiting = true; await h.sampleGate; h.sampleGate = null; }
-      return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: 100, wallClockMilliseconds: time };
+      return { bootMarker: 'boot-1', elapsedRealtimeMilliseconds: elapsed, processStartElapsedRealtimeMilliseconds:0, wallClockMilliseconds: time+clockSkew };
     } }), (db, authority) => {
       currentDb = db;
       scheduler = new OfflineSyncScheduler(db, client as import('../../src/offline/OfflineLifecycleClient').OfflineLifecycleApiPort,
@@ -1985,7 +2218,7 @@ async function accountHarness(newBusiness=false,withBreak=false) {
     }, { ...emptyOutbox(), async read() {
       return h.legacyBlocked ? { kind: 'protected_v1', binding: {organizationId: ids.organization, userId: ids.user}, command: {} } as unknown as import('../../src/scan/LifecycleEvidenceOutbox').StoredLifecycleEvidence : null;
     } }, (() => { let id = 0; return () => `f0000000-0000-4000-8000-${String(++id).padStart(12, '0')}`; })(),
-    { bind() {} }, () => new Date(time), storage);
+    { bind() {} }, () => new Date(time+clockSkew), storage);
   await coordinator.start(); await scheduler.whenIdle();
   return { ...h, get mode() { return h.mode; }, set mode(value: string) { h.mode = value; },
     get legacyBlocked() { return h.legacyBlocked; }, set legacyBlocked(value: boolean) { h.legacyBlocked = value; },
@@ -1993,7 +2226,7 @@ async function accountHarness(newBusiness=false,withBreak=false) {
     get reconcileGate() { return h.reconcileGate; }, set reconcileGate(value: Promise<void> | null) { h.reconcileGate = value; },
     get reconcileWaiting() { return h.reconcileWaiting; },
     get sampleWaiting() { return h.sampleWaiting; }, get sampleGate() { return h.sampleGate; }, set sampleGate(value: Promise<void> | null) { h.sampleGate = value; },
-    get hasTag(){return h.hasTag;},set hasTag(value:boolean){h.hasTag=value;},coordinator, lifecycle, async close() { await coordinator.stop(); for (const db of databases) await db.close(); rmSync(root, {recursive: true, force: true}); } };
+    get renewLeaseClock(){return h.renewLeaseClock;},set renewLeaseClock(value:boolean){h.renewLeaseClock=value;},get hasTag(){return h.hasTag;},set hasTag(value:boolean){h.hasTag=value;},coordinator, reader, lifecycle, async close() { await coordinator.stop(); for (const db of databases) await db.close(); rmSync(root, {recursive: true, force: true}); } };
 }
 
 // Real V5 file as shipped before T-080, including an unsent employee event.

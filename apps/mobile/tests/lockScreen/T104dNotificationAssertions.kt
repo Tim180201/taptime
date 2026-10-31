@@ -33,12 +33,17 @@ fun verifyNotificationPresentation() {
     Display.OPEN_APP to "Bitte App öffnen",
     Display.UPDATE_APP to "Bitte App aktualisieren",
   )
-  check(notices.keys == Display.values().toSet() - setOf(Display.STATE, Display.SAVING))
+  check(notices.keys == Display.values().toSet() - setOf(Display.STATE, Display.SAVING, Display.OFFLINE))
   // A hint always belongs below the target, even if the last confirmed state was stopped.
   for ((display, text) in notices) for (status in listOf("running", "paused", "stopped", null)) {
     check(LockScreenLogic.notificationText(target, status, display, 3960, null, null) == NotificationText(target, text))
     check(!LockScreenLogic.clockRuns(status, display))
   }
+  check(LockScreenLogic.notificationText(target, "running", Display.OFFLINE, 3960, start, null).text == "Läuft seit 07:24 · offline gespeichert")
+  check(LockScreenLogic.notificationText(target, "paused", Display.OFFLINE, 3960, start, pause).text == "Pause seit 08:30 · offline gespeichert")
+  check(LockScreenLogic.clockRuns("running", Display.OFFLINE))
+  check(LockScreenLogic.clockRuns("paused", Display.OFFLINE))
+  check(!LockScreenLogic.canSend("pause", true, true, false))
   check(LockScreenLogic.clockRuns("running", Display.STATE))
   check(!LockScreenLogic.clockRuns("paused", Display.STATE))
   check(!LockScreenLogic.clockRuns("stopped", Display.STATE))

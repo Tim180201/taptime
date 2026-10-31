@@ -6,7 +6,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 /** Pure policy shared by the receiver, rendering and the JVM tests. No Android imports. */
-internal enum class Display { STATE, SAVING, TRANSFERRING, SENDING, NOT_SENT, UNCONFIRMED, OPEN_APP, UPDATE_APP }
+internal enum class Display { STATE, SAVING, OFFLINE, TRANSFERRING, SENDING, NOT_SENT, UNCONFIRMED, OPEN_APP, UPDATE_APP }
 internal enum class Failure { CONNECT, RESPONSE }
 internal data class Outcome(val display: Display, val deleteKey: Boolean = false, val keepCommand: Boolean = false)
 internal data class Command(val commandId: String, val action: String)
@@ -14,7 +14,7 @@ internal data class NotificationText(val title: String, val text: String)
 internal object LockScreenLogic {
   fun settled(display: Display) = display == Display.STATE || display == Display.SAVING
   fun visible(status: String?, display: Display) = status != null && !(status == "stopped" && settled(display))
-  fun clockRuns(status: String?, display: Display) = status == "running" && settled(display)
+  fun clockRuns(status: String?, display: Display) = display == Display.OFFLINE && status in listOf("running", "paused") || status == "running" && settled(display)
   fun canSend(action: String, appBlocked: Boolean, ownCapturePending: Boolean, hasKey: Boolean) =
     hasKey && !ownCapturePending && (!appBlocked || action == "retry")
   fun receiverDeadline(received: Long, confirmedColdStart: Long?) = (confirmedColdStart ?: received) + 6500
@@ -46,6 +46,8 @@ internal object LockScreenLogic {
     timeZone = TimeZone.getTimeZone("Europe/Berlin")
   }.format(Date(at))
   fun notificationText(target: String, status: String?, display: Display, seconds: Long, startedAt: Long?, breakStartedAt: Long?): NotificationText {
+    if (display == Display.OFFLINE) return NotificationText(target,
+      (if(status == "paused") "Pause seit ${berlin(requireNotNull(breakStartedAt))}" else "Läuft seit ${berlin(requireNotNull(startedAt))}") + " · offline gespeichert")
     if (!settled(display)) return NotificationText(target, message(display))
     val content = when (status) {
       "stopped" -> NotificationText("Zeit beendet · ${duration(seconds)}", target)
@@ -65,6 +67,7 @@ internal object LockScreenLogic {
   fun message(display: Display): String = when (display) {
     Display.STATE -> ""
     Display.SAVING -> "wird gesichert"
+    Display.OFFLINE -> "offline gespeichert"
     Display.TRANSFERRING -> "Wird übertragen …"
     Display.SENDING -> "Wird gesendet …"
     Display.NOT_SENT -> "Nicht gesendet · kein Netz"

@@ -1,4 +1,4 @@
-import { OFFLINE_LOCAL_SCHEMA_VERSION_V7 } from '@taptime/offline-sync-contract';
+import { OFFLINE_LOCAL_SCHEMA_VERSION_V8 } from '../../src/offline/OfflineCaptureDatabase';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -879,7 +879,7 @@ describe('Mobile FIFO scheduler and legacy migration', () => {
     const database = new OfflineCaptureDatabase(async () => connection, new Uint8Array(32).fill(8));
     try {
       await expect(database.initialize()).resolves.toEqual({ status: 'ready' });
-      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V7 });
+      expect(await connection.getFirstAsync('PRAGMA user_version')).toEqual({ user_version: OFFLINE_LOCAL_SCHEMA_VERSION_V8 });
       expect(await database.claimHead(100)).toMatchObject({ command, attemptCount: 2 });
       await database.confirmHead({ workEventId: ids.event, receiptId: ids.receipt, deviceSequence: 1 }, 'synchronized');
       expect(await connection.getFirstAsync('SELECT command_json FROM offline_event_queue')).toEqual({ command_json: evidence });

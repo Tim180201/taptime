@@ -29,6 +29,7 @@ export function memorySecureStore(initial: Record<string, string> = {}) {
 }
 
 export interface MemoryOwner {
+  confirmed_own_time_json?:string|null;
   organization_id: string;
   user_id: string;
   membership_id: string;
@@ -98,6 +99,10 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
 
   async runAsync(source: string, params: OfflineSqlParams) {
     const values = asArray(params);
+    if(source.startsWith('UPDATE offline_owner SET confirmed_own_time_json=NULL')) {
+      if(this.owner)this.owner.confirmed_own_time_json=null;
+      return {changes:this.owner?1:0};
+    }
     if(source.includes('SET next_attempt_at = min(next_attempt_at, ?)')) {
       if(source.includes('offline_legacy_queue'))return {changes:0};
       let changes=0;
@@ -118,6 +123,7 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
     }
     if (source.includes('INSERT INTO offline_owner')) {
       this.owner = {
+        confirmed_own_time_json:null,
         organization_id: String(values[0]),
         user_id: String(values[1]),
         membership_id: String(values[2]),
@@ -288,6 +294,7 @@ export class MemoryOfflineDatabase implements OfflineDatabaseConnection {
         activation_monotonic_milliseconds: lease.monotonic,
       } as Row;
     }
+    if(source.includes('SELECT confirmed_own_time_json'))return (this.owner?{confirmed_own_time_json:this.owner.confirmed_own_time_json??null}:null) as Row|null;
     if (source.includes('FROM offline_owner')) return this.owner as Row | null;
     if (source.includes('count(*) AS item_count')) {
       return {

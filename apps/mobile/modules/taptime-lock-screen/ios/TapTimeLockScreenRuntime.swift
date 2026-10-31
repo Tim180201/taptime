@@ -3,6 +3,16 @@ import Foundation
 import UIKit
 
 @MainActor public enum TapTimeLockScreenRuntime {
+  private static var previewOwner: String?
+  private static var previewState: LockState?
+  private static var previewUntil: Date?
+  static func preview(owner: String, state: LockState?, until: String?) -> Bool {
+    guard UIApplication.shared.applicationState == .active, let stand = try? engine.snapshot(), stand.owner == owner else { return false }
+    if until == nil { previewOwner = nil; previewState = nil; previewUntil = nil; scheduleRender(); return true }
+    guard let until, let expiry = LockLogic.date(until), expiry > Date() else { return false }
+    previewOwner = owner; previewState = state; previewUntil = expiry; scheduleRender(); return true
+  }
+  static func clearPreview() { previewOwner = nil; previewState = nil; previewUntil = nil }
   static var onChange: (() -> Void)?
   private static var renderTask: Task<Void, Never>?
   private static var expiryTask: Task<Void, Never>?
@@ -29,7 +39,11 @@ import UIKit
   }
   static func render() async {
     // Store reads do not touch authentication. A damaged file removes the visible activity.
-    let stand = try? engine.snapshot()
+    var stand = try? engine.snapshot()
+    if let until = previewUntil, until > Date(), stand?.owner == previewOwner {
+      stand?.state = previewState; stand?.display = .OFFLINE; stand?.appBlocked = true; stand?.ownCapturePending = false
+      stand?.keyID = nil; stand?.expiresAt = until
+    } else { clearPreview() }
     let activities = Activity<TapTimeActivityAttributes>.activities
     guard let stand, let state = stand.state, let captureURL else {
       for activity in activities { await activity.end(nil, dismissalPolicy: .immediate) }
@@ -57,6 +71,7 @@ import UIKit
       expiryTask = Task {
         do { try await Task.sleep(nanoseconds: UInt64(max(0, expires.timeIntervalSinceNow) * 1_000_000_000)) }
         catch { return }
+        if let until = previewUntil, until <= Date() { clearPreview(); scheduleRender() }
         _ = try? engine.snapshot() // Also checked at every foreground read and action.
       }
     }

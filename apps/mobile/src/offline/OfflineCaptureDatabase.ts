@@ -1,3 +1,4 @@
+import type { ConfirmedOwnTime, OwnTimeOwner } from '../work/ProvisionalOwnTime';
 import type { OfflineSequenceSkipCommand } from '@taptime/offline-sync-contract';
 import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import {
@@ -284,6 +285,8 @@ export interface UntransferredCapture {
   readonly reason: string;
 }
 
+export const OFFLINE_LOCAL_SCHEMA_VERSION_V8 = 8;
+
 export const OFFLINE_DATABASE_NAME = 'taptime-offline-v1.db';
 const lowercaseSha256Pattern = /^[0-9a-f]{64}$/;
 
@@ -327,18 +330,18 @@ export class OfflineCaptureDatabase {
           await database.closeAsync().catch(() => undefined);
           return this.protect('corrupt_row');
         }
-        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V7) {
+        if (version.user_version > OFFLINE_LOCAL_SCHEMA_VERSION_V8) {
           await database.closeAsync().catch(() => undefined);
           return this.protect('unknown_schema');
         }
-        if (version.user_version < OFFLINE_LOCAL_SCHEMA_VERSION_V7) {
+        if (version.user_version < OFFLINE_LOCAL_SCHEMA_VERSION_V8) {
           try {
             // Parent-table replacement requires FK enforcement off before BEGIN, not inside it.
             // Validate the complete graph before committing and re-enable enforcement below.
             await database.execAsync('PRAGMA foreign_keys = OFF;');
             await database.withExclusiveTransactionAsync(async (transaction) => {
               if (version.user_version === 0) {
-                await transaction.execAsync(OFFLINE_SCHEMA_V7);
+                await transaction.execAsync(OFFLINE_SCHEMA_V8);
               } else {
                 if (version.user_version === 1) await transaction.execAsync(OFFLINE_SCHEMA_V1_TO_V2);
                 if (version.user_version <= 2) await transaction.execAsync(OFFLINE_SCHEMA_V2_TO_V3);
@@ -346,11 +349,12 @@ export class OfflineCaptureDatabase {
                 if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V4) await transaction.execAsync(OFFLINE_SCHEMA_V4_TO_V5);
                 if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V5) await transaction.execAsync(OFFLINE_SCHEMA_V5_TO_V6);
                 if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V6) await transaction.execAsync(OFFLINE_SCHEMA_V6_TO_V7);
+                if (version.user_version <= OFFLINE_LOCAL_SCHEMA_VERSION_V7) await transaction.execAsync(OFFLINE_SCHEMA_V7_TO_V8);
               }
               if ((await transaction.getAllAsync('PRAGMA foreign_key_check')).length !== 0) {
                 throw new Error('Offline migration foreign key check failed');
               }
-              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V7}`);
+              await transaction.execAsync(`PRAGMA user_version = ${OFFLINE_LOCAL_SCHEMA_VERSION_V8}`);
             });
           } catch (error) {
             await database.closeAsync().catch(() => undefined);
@@ -394,6 +398,48 @@ export class OfflineCaptureDatabase {
         organizationId: row.organization_id, userId: row.user_id, membershipId: row.membership_id,
         installationBindingDigest: row.installation_binding_digest,
       };
+    });
+  }
+
+  readConfirmedOwnTime(owner: OwnTimeOwner): Promise<ConfirmedOwnTime | null> {
+    return this.serialized(async () => {
+      const row = await this.requireReady().getFirstAsync<{confirmed_own_time_json:string|null}>(
+        `SELECT confirmed_own_time_json FROM offline_owner WHERE singleton_id=1 AND organization_id=? AND user_id=? AND membership_id=? AND capture_invalidated=0`,
+        [owner.organizationId,owner.userId,owner.membershipId]);
+      if (!row?.confirmed_own_time_json) return null;
+      const value:unknown=JSON.parse(row.confirmed_own_time_json);
+      if (!validConfirmedOwnTime(value)) throw Error('Invalid confirmed own-time checkpoint');
+      return value;
+    });
+  }
+
+  saveConfirmedOwnTime(owner:OwnTimeOwner,value:ConfirmedOwnTime,current:()=>boolean=()=>true):Promise<boolean> {
+    return this.serialized(async()=>{
+      if(!current())return false;
+      if(!validConfirmedOwnTime(value))throw Error('Invalid confirmed own-time checkpoint');
+      // An already submitted but unacknowledged event may be present in a server read.
+      // Never combine such a read with the queue a second time.
+      const result=await this.requireReady().runAsync(`UPDATE offline_owner SET confirmed_own_time_json=?
+        WHERE singleton_id=1 AND organization_id=? AND user_id=? AND membership_id=? AND capture_invalidated=0
+        AND review_pending_sequence IS NULL
+        AND NOT EXISTS (SELECT 1 FROM offline_event_queue WHERE queue_state <> 'confirmed_awaiting_archive')
+        AND NOT EXISTS (SELECT 1 FROM offline_legacy_queue)`,
+        [JSON.stringify(value),owner.organizationId,owner.userId,owner.membershipId]);
+      return result.changes===1;
+    });
+  }
+
+  clearConfirmedOwnTime():Promise<void> {
+    return this.serialized(async()=>{await this.requireReady().runAsync('UPDATE offline_owner SET confirmed_own_time_json=NULL',[]);});
+  }
+
+  readOwnTimeEvidence():Promise<readonly {command:OfflineQueueHead['command'];displayName:string}[]> {
+    return this.serialized(async()=>{
+      const rows=await this.requireReady().getAllAsync<{command_json:string;display_name:string|null}>(`SELECT q.command_json,i.display_name
+        FROM offline_event_queue q LEFT JOIN offline_lease_items i ON i.lease_id=q.lease_id AND i.item_id=q.lease_item_id
+        WHERE q.queue_state IN ('pending','retry_wait','in_flight') ORDER BY q.device_sequence`);
+      return rows.map(row=>{const command=parseOfflineCommand(row.command_json);if(!command)throw Error('Invalid own-time evidence');
+        return {command,displayName:row.display_name??'Arbeitsziel'};});
     });
   }
 
@@ -1469,6 +1515,10 @@ export class OfflineCaptureDatabase {
     return this.serialized(async () => {
       const database = this.requireReady();
       await database.withExclusiveTransactionAsync(async (transaction) => {
+        // A receipt changes confirmed truth; atomically discard the older checkpoint.
+        await transaction.runAsync(`UPDATE offline_owner SET confirmed_own_time_json=NULL
+          WHERE EXISTS (SELECT 1 FROM offline_event_queue WHERE work_event_id=? AND receipt_id=? AND device_sequence=?
+            AND queue_state <> 'confirmed_awaiting_archive')`,[identity.workEventId,identity.receiptId,identity.deviceSequence]);
         if (durableStatus === 'review_pending') {
           const marked = await transaction.runAsync(
             `UPDATE offline_owner
@@ -1592,7 +1642,7 @@ export class OfflineCaptureDatabase {
       const database = this.requireReady();
       await database.withExclusiveTransactionAsync(async (transaction) => {
         await transaction.runAsync(
-          'UPDATE offline_owner SET capture_invalidated = 1 WHERE singleton_id = 1',
+          'UPDATE offline_owner SET capture_invalidated = 1, confirmed_own_time_json = NULL WHERE singleton_id = 1',
           [],
         );
         await transaction.runAsync(
@@ -2647,3 +2697,19 @@ CREATE TRIGGER offline_quarantine_reports_delete_rejected BEFORE DELETE ON offli
 BEGIN SELECT RAISE(ABORT,'Reported evidence is immutable'); END;
 `;
 export const OFFLINE_SCHEMA_V7 = OFFLINE_SCHEMA_V6 + OFFLINE_SCHEMA_V6_TO_V7;
+
+// D-159 adds no table or history. The existing installation owner has one nullable checkpoint.
+export const OFFLINE_SCHEMA_V7_TO_V8 = `ALTER TABLE offline_owner ADD COLUMN confirmed_own_time_json TEXT;`;
+export const OFFLINE_SCHEMA_V8 = OFFLINE_SCHEMA_V7 + OFFLINE_SCHEMA_V7_TO_V8;
+
+function validConfirmedOwnTime(value:unknown):value is ConfirmedOwnTime {
+  if(!isRecord(value)||Object.keys(value).sort().join(',')!=='activeTimeId,breakStartedAt,confirmedAt,startedAt,target'
+    ||!isOfflineIsoTimestamp(value.confirmedAt))return false;
+  if(value.activeTimeId===null)return value.target===null&&value.startedAt===null&&value.breakStartedAt===null;
+  if(!isCanonicalOfflineUuid(value.activeTimeId)||!isOfflineIsoTimestamp(value.startedAt)||Date.parse(value.startedAt)>Date.parse(value.confirmedAt)
+    ||!(value.breakStartedAt===null||isOfflineIsoTimestamp(value.breakStartedAt)&&Date.parse(value.breakStartedAt)>=Date.parse(value.startedAt)&&Date.parse(value.breakStartedAt)<=Date.parse(value.confirmedAt)))return false;
+  const target=value.target;
+  return isRecord(target)&&Object.keys(target).sort().join(',')==='displayName,targetId,targetType'
+    &&['customer','project','general_work'].includes(String(target.targetType))&&isCanonicalOfflineUuid(target.targetId)
+    &&typeof target.displayName==='string'&&target.displayName.length>0;
+}

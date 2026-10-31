@@ -1,3 +1,7 @@
+import {manualCaptureOutcome} from '../work/manualCaptureFeedback';
+import { projectOwnTime, ownTimeOwnerKey, EMPTY_OWN_TIME_DISPLAY, type ConfirmedOwnTime, type OwnTimeDisplay, type OwnTimeEvidence, type OwnTimeOwner } from '../work/ProvisionalOwnTime';
+import { OrganizationId, UserId, WorkEventId, createTimestamp, type WorkEvent } from '@taptime/core';
+import type { MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import { OfflineSecureStoreError } from './OfflineSecureStoreError';
 import { alwaysForeground, type SessionActivity } from '../runtime/MobileAppActivity';
 import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
@@ -134,6 +138,13 @@ export type ManualOfflineAcknowledgement =
     };
 
 export interface ManualOfflineCapturePort {
+  getOwnTimeDisplay?():OwnTimeDisplay;
+  subscribeOwnTimeDisplay?(listener:()=>void):()=>void;
+  subscribeOwnTimeConfirmationRequests?(listener:()=>void):()=>void;
+  ownTimeReadFence?():number;
+  ownTimeReadStartedAt?():Promise<string|null>;
+  confirmOwnTime?(owner:OwnTimeOwner,value:MobileOwnTimeQueryResponse,fence:number,readStartedAt:string|null):Promise<void>;
+
   prepareActiveCapture?(): Promise<boolean>;
   activeCaptureRejection?(): import('../lockScreen/contracts').CaptureRejection|null;
   finishActiveCapture?(): Promise<void>;
@@ -155,6 +166,108 @@ export interface OfflineManualCaptureCapability extends ManualOfflineCapturePort
 }
 
 export class OfflineCaptureCoordinator implements ProductScanCapability {
+  private ownTimeDisplay:OwnTimeDisplay=EMPTY_OWN_TIME_DISPLAY;
+  private ownTimeListeners=new Set<()=>void>();
+  private ownTimeExpiry:ReturnType<typeof setTimeout>|null=null;
+  private confirmationListeners=new Set<()=>void>();
+  subscribeOwnTimeConfirmationRequests=(listener:()=>void)=>{this.confirmationListeners.add(listener);return()=>{this.confirmationListeners.delete(listener);};};
+  private requestOwnTimeConfirmation(){for(const listener of this.confirmationListeners)listener();}
+  private ownTimeRevision=0;
+  private ownTimeRefresh:Promise<void>|null=null;
+  private ownTimeRefreshRequested=false;
+  private ownTimeBase:ConfirmedOwnTime|null=null;
+  private ownTimeBaseOwner:string|null=null;
+  private ownTimeEvidence=new Map<string,OwnTimeEvidence>();
+  private ownTimeDiverged=false;
+  private lastPrediction:OwnTimeDisplay|null=null;
+  private ownTimeServerIds=new Map<string,string>();
+  getOwnTimeDisplay=()=>this.ownTimeDisplay;
+  subscribeOwnTimeDisplay=(listener:()=>void)=>{this.ownTimeListeners.add(listener);return()=>{this.ownTimeListeners.delete(listener);};};
+  ownTimeReadFence=()=>this.ownTimeRevision;
+  async ownTimeReadStartedAt():Promise<string|null>{
+    const database=this.database,generation=this.generation,revision=this.ownTimeRevision,snapshot=this.session.capture();
+    if(!this.started||!database||!snapshot)return null;
+    const clock=await this.readValidOfflineClock();
+    if(!clock||database!==this.database||generation!==this.generation||revision!==this.ownTimeRevision
+      ||!this.started||!this.session.isCurrent(snapshot)
+      ||ownTimeOwnerKey(clock.context)!==ownTimeOwnerKey(snapshot.session)||clock.context.role!==snapshot.session.role)return null;
+    return new Date(clock.estimatedServerTime).toISOString();
+  }
+  private clearOwnTimeMemory(){
+    if(this.ownTimeExpiry)clearTimeout(this.ownTimeExpiry);this.ownTimeExpiry=null;
+    this.ownTimeRevision++;this.ownTimeBase=null;this.ownTimeBaseOwner=null;this.ownTimeEvidence.clear();this.ownTimeDiverged=false;this.lastPrediction=null;this.ownTimeServerIds.clear();
+    this.publishOwnTime(EMPTY_OWN_TIME_DISPLAY);
+  }
+  private publishOwnTime(value:OwnTimeDisplay){if(value.known&&value.pending)this.lastPrediction=value;this.ownTimeDisplay=Object.freeze(value);for(const listener of this.ownTimeListeners)listener();}
+  async confirmOwnTime(owner:OwnTimeOwner,value:MobileOwnTimeQueryResponse,fence:number,readStartedAt:string|null):Promise<void>{
+    const database=this.database,generation=this.generation,snapshot=this.session.capture();
+    const current=()=>this.started&&database===this.database&&generation===this.generation&&fence===this.ownTimeRevision
+      &&snapshot!==null&&this.session.isCurrent(snapshot)&&ownTimeOwnerKey(snapshot.session)===ownTimeOwnerKey(owner);
+    if(!database||!current()||readStartedAt===null)return;
+    const active=value.activeRecord;
+    if(active&&(!active.targetId||!active.calendar))return;
+    const base:ConfirmedOwnTime={activeTimeId:active?.timeRecordId??null,
+      target:active?{targetType:active.targetType,targetId:active.targetId!,displayName:active.targetDisplayName}:null,
+      startedAt:active?.startedAt??null,breakStartedAt:active?.breakStartedAt??null,confirmedAt:active?.calendar?.asOf??readStartedAt};
+    if(!await database.saveConfirmedOwnTime(owner,base,current)||!current())return;
+    const expected=this.lastPrediction??this.ownTimeDisplay;
+    const signature=(r:OwnTimeDisplay['activeRecord'])=>JSON.stringify(r?[r.targetType,r.targetId,r.startedAt,r.breakStartedAt??null]:null);
+    const actual=projectOwnTime(base,owner,[]);
+    const expectedId=expected.activeRecord?(this.ownTimeServerIds.get(expected.activeRecord.timeRecordId)
+      ??(expected.activeRecord.timeRecordId===this.ownTimeBase?.activeTimeId?expected.activeRecord.timeRecordId:null)):null;
+    const changed=expected.pending&&(signature(expected.activeRecord)!==signature(actual.activeRecord)
+      ||expectedId!==null&&expectedId!==actual.activeRecord?.timeRecordId);
+    this.ownTimeBase=base;this.ownTimeBaseOwner=ownTimeOwnerKey(owner);this.ownTimeEvidence.clear();this.ownTimeDiverged=false;this.lastPrediction=null;this.ownTimeServerIds.clear();
+    this.publishOwnTime({...actual,notice:changed?'Der Server hat einen anderen Stand bestätigt. Es gilt der angezeigte Serverstand.':this.ownTimeDisplay.notice});
+    await this.refreshOwnTimeDisplay();
+  }
+  private refreshOwnTimeDisplay():Promise<void>{
+    if(this.ownTimeRefresh){this.ownTimeRefreshRequested=true;return this.ownTimeRefresh;}
+    this.ownTimeRefresh=(async()=>{do{this.ownTimeRefreshRequested=false;await this.readOwnTimeDisplay();}while(this.ownTimeRefreshRequested);})()
+      .catch(()=>this.publishOwnTime({...EMPTY_OWN_TIME_DISPLAY,notice:'Der Offline-Stand ist gerade nicht verfügbar.'}))
+      .finally(()=>{this.ownTimeRefresh=null;});
+    return this.ownTimeRefresh;
+  }
+  private async readOwnTimeDisplay(){
+    const database=this.database,generation=this.generation,snapshot=this.session.capture(),restoration=this.offlineRestorationSnapshot;
+    if(!this.started||!database||!this.captureMode)return;
+    // Without a persisted or in-memory baseline there is nothing to replay. Do not
+    // consume clock samples or infer an idle state merely because the queue is empty.
+    const ownerHint=snapshot?.session??this.offlineCaptureContext;
+    if(!ownerHint)return;
+    const cached=await database.readConfirmedOwnTime(ownerHint);
+    if(!cached&&!this.ownTimeBase)return;
+    const context=snapshot?await this.readValidAuthenticatedContext(snapshot):await this.readValidOfflineContext();
+    const current=()=>this.started&&database===this.database&&generation===this.generation&&(snapshot?this.session.isCurrent(snapshot):this.isCaptureCurrent(generation,'offline',restoration));
+    if(!current())return;
+    if(!context){this.clearOwnTimeMemory();await database.clearConfirmedOwnTime();return;}
+    const owner=ownTimeOwnerKey(context);
+    if(this.ownTimeBaseOwner!==owner){this.clearOwnTimeMemory();this.ownTimeBaseOwner=owner;}
+    const base=cached;
+    const rows=await database.readOwnTimeEvidence();
+    if(!current())return;
+    if(base&&!this.ownTimeEvidence.size)this.ownTimeBase=base;
+    const initial=this.ownTimeBase;
+    if(!initial||Date.parse(initial.confirmedAt)<Date.parse(context.issuedAt)||this.ownTimeDiverged){
+      this.publishOwnTime({...EMPTY_OWN_TIME_DISPLAY,owner,notice:this.ownTimeDisplay.notice});return;
+    }
+    for(const {command,displayName} of rows){
+      if(command.organizationId!==context.organizationId||command.expectedMembershipId!==context.membershipId)throw Error('Foreign display evidence');
+      const event=command.workEvent;
+      // Legacy evidence cannot be interpreted with a guessed subject or identity.
+      if(command.provenanceVersion!==3){this.publishOwnTime({...EMPTY_OWN_TIME_DISPLAY,owner});return;}
+      if(!('trigger' in event)||!event.trigger){this.publishOwnTime({...EMPTY_OWN_TIME_DISPLAY,owner});return;}
+      const trigger=event.trigger;
+      const resolved={...event,id:WorkEventId(event.id),organizationId:OrganizationId(context.organizationId),triggeredBy:UserId(context.userId),
+        occurredAt:createTimestamp(event.occurredAt),...(trigger.type==='nfc'?{assignmentId:trigger.assignmentId,nfcTagId:trigger.nfcTagId}:{})} as WorkEvent;
+      this.ownTimeEvidence.set(event.id,{sequence:command.deviceSequence,event:resolved,displayName});
+    }
+    const projected=projectOwnTime(initial,context,[...this.ownTimeEvidence.values()]);
+    if(this.ownTimeExpiry)clearTimeout(this.ownTimeExpiry);
+    this.ownTimeExpiry=setTimeout(()=>{this.ownTimeExpiry=null;void this.refreshOwnTimeDisplay();},Math.max(1,Date.parse(context.expiresAt)-this.now().getTime()+1));
+    this.publishOwnTime({...projected,validUntil:context.expiresAt,notice:this.ownTimeDisplay.notice});
+  }
+
   private state: ProductScanState = Object.freeze({ status: 'inactive' });
   private readonly listeners = new Set<() => void>();
   private started = false;
@@ -269,6 +382,14 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     const ready = await this.initializeInfrastructure();
     if (!this.isCurrent(generation) || !ready) return;
     this.unsubscribeSession = this.session.subscribe(() => {
+      const next=this.session.capture()?.session;
+      const state=this.session.getState();
+      if(next&&this.ownTimeBaseOwner&&ownTimeOwnerKey(next)!==this.ownTimeBaseOwner
+        ||state.status==='signed_out'||state.status==='unauthenticated'&&state.reason==='authority_rejected') {
+        this.clearOwnTimeMemory();void this.database?.clearConfirmedOwnTime().catch(()=>undefined);
+      } else if(!next&&state.status!=='context_unavailable') {
+        this.clearOwnTimeMemory();
+      }
       // Revoke synchronously: leaving and returning to the same account must not
       // revive a launch card. Token refresh retains the authenticated generation.
       this.revokeChangedNativeNfcSession();
@@ -323,6 +444,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.visibleWorkEventId = null;
     const transition = this.sessionTransitionFlight?.promise;
     this.sessionTransitionFlight = null;
+    this.clearOwnTimeMemory();
     this.manualAcknowledgements.clear();
     this.unsubscribeSession?.();
     this.unsubscribeSession = null;
@@ -712,6 +834,12 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
 
   private async transitionToSession(generation: number): Promise<void> {
     if (!this.isCurrent(generation) || this.database === null) return;
+    const nextOwner=this.session.capture()?.session;
+    const storedOwner=await this.database.readOwner();
+    if(!this.isCurrent(generation))return;
+    if(nextOwner&&storedOwner&&ownTimeOwnerKey(nextOwner)!==ownTimeOwnerKey(storedOwner)){
+      this.clearOwnTimeMemory();await this.database.clearConfirmedOwnTime();
+    }
     this.captureMode = null;
     this.offlineRestorationSnapshot = null;
     this.offlineCaptureContext = null;
@@ -761,7 +889,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     ) {
       await this.invalidateCapture(sessionState.status === 'signed_out');
     }
-    if (this.isCurrent(generation)) this.setState({ status: 'inactive' });
+    if(this.isCurrent(generation)){this.clearOwnTimeMemory();this.setState({ status: 'inactive' });}
   }
 
   private async prepareAuthenticatedCapture(
@@ -914,6 +1042,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
         if (activated.status === 'ready') {
           this.captureMode = 'authenticated';
           await this.publishReady('authenticated');
+          this.requestOwnTimeConfirmation();
           void this.scheduler?.trigger('session_restored');
           return;
         }
@@ -945,9 +1074,12 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (fallback !== null) {
       this.captureMode = 'authenticated';
       await this.publishReady('authenticated');
+      this.requestOwnTimeConfirmation();
       void this.scheduler?.trigger('session_restored');
       return;
     }
+    this.clearOwnTimeMemory();
+    await database.clearConfirmedOwnTime();
     if (result.status === 'incomplete_or_oversize') {
       this.setState(protectedScanState(
         'local_evidence_protected',
@@ -961,6 +1093,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private async performScan(generation: number, nativeIngress = false): Promise<void> {
+    this.ownTimeRevision++;
     const database = this.database;
     const secrets = this.secrets;
     const mode = this.captureMode;
@@ -1117,10 +1250,12 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     this.setState(mode === 'offline'
       ? { status: 'saved_locally', queueCount }
       : { status: 'synchronizing', queueCount });
+    await this.refreshOwnTimeDisplay();
     void this.scheduler?.trigger('event_append');
   }
 
   captureManual(target: { readonly targetType: 'customer' | 'project' | 'general_work'; readonly targetId: string }): Promise<ManualOfflineCaptureResult> {
+    this.ownTimeRevision++;
     return this.trackManual(() => this.performManual(target));
   }
 
@@ -1213,11 +1348,13 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return {status:'saved',workEventId};
     this.visibleWorkEventId = workEventId;
     this.setManualAcknowledgement(workEventId, { status: 'pending' });
+    await this.refreshOwnTimeDisplay();
     void this.scheduler?.trigger('event_append');
     return { status: 'saved', workEventId };
   }
 
   captureBreak(): Promise<ManualOfflineCaptureResult> {
+    this.ownTimeRevision++;
     return this.trackManual(() => this.performBreak());
   }
 
@@ -1271,6 +1408,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
     if (!this.isCaptureCurrent(generation, mode, restorationSnapshot)) return {status:'saved',workEventId};
     this.visibleWorkEventId = workEventId;
     this.setManualAcknowledgement(workEventId, { status: 'pending' });
+    await this.refreshOwnTimeDisplay();
     void this.scheduler?.trigger('event_append');
     return { status: 'saved', workEventId };
   }
@@ -1388,6 +1526,10 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private async readValidOfflineContext(): Promise<ActiveOfflineCaptureContext | null> {
+    return (await this.readValidOfflineClock())?.context??null;
+  }
+
+  private async readValidOfflineClock():Promise<{context:ActiveOfflineCaptureContext;estimatedServerTime:number}|null>{
     const context = await this.database?.readActiveCaptureContext() ?? null;
     if (context === null) return null;
     let sample;
@@ -1409,13 +1551,28 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
       || estimatedServerTime > Date.parse(context.expiresAt)
       || Math.abs(wallTime - estimatedServerTime) > OFFLINE_CLOCK_TOLERANCE_MILLISECONDS
     ) return null;
-    return context;
+    return {context,estimatedServerTime};
   }
 
   private onSchedulerState(): void {
     if (!this.canSynchronize()) return;
     const schedulerState = this.scheduler?.getState();
     if (schedulerState === undefined) return;
+    if(['server_decision','review_pending','quarantined','authority_rejected'].includes(schedulerState.status)) {
+      this.ownTimeRevision++;
+      if('workEventId' in schedulerState){
+        const expected=(this.lastPrediction??this.ownTimeDisplay).decisions.get(schedulerState.workEventId??'');
+        if(schedulerState.status==='server_decision'&&schedulerState.decision.status==='time_entry_started')this.ownTimeServerIds.set(schedulerState.workEventId,schedulerState.decision.timeEntryId);
+        const actual=schedulerState.status==='server_decision'?schedulerState.decision.status:schedulerState.status;
+        if(expected&&expected!==actual){this.ownTimeDiverged=true;
+          this.publishOwnTime({...EMPTY_OWN_TIME_DISPLAY,owner:this.ownTimeBaseOwner,notice:actual==='review_pending'
+            ?'Der Server hat die Erfassung zur Prüfung vorgemerkt. Es gilt der Serverstand.'
+            :schedulerState.status==='server_decision'?`Server: ${manualCaptureOutcome(decisionOutcome(schedulerState.decision).status as Extract<ManualOfflineAcknowledgement,{status:'server_decision'}>['outcome'])} Es gilt der Serverstand.`
+            :'Die Erfassung konnte nicht übertragen werden. Bitte prüfe deine Zeiten.'});}
+      }
+    }
+    if((this.ownTimeDisplay.pending||this.ownTimeDisplay.notice)
+      &&['idle','server_decision','review_pending','quarantined'].includes(schedulerState.status))this.requestOwnTimeConfirmation();
     const wasPaused = this.transmissionPaused;
     this.transmissionPaused = schedulerState.status === 'transmission_paused';
     this.transmissionRetryAvailable = schedulerState.status === 'transmission_paused';
@@ -1508,6 +1665,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private async invalidateCapture(removeLookupKey: boolean): Promise<void> {
+    this.clearOwnTimeMemory();
     this.logoutOwner=null;this.logoutWaiting=false;this.transmissionPaused=false;
     this.untransferred = [];
     const generation = this.generation;
@@ -1685,6 +1843,7 @@ export class OfflineCaptureCoordinator implements ProductScanCapability {
   }
 
   private setState(state: ProductScanState): void {
+    void this.refreshOwnTimeDisplay();
     const {untransferred,updateRequired,transmissionPaused,transmissionRetryAvailable,nativeNfcRetryRequired,...value} = state;
     const next = {...(this.logoutWaiting ? {status:'archive_signout_pending' as const} : value),
       ...(this.nativeNfcRetryRequired ? { nativeNfcRetryRequired: true as const } : {}),

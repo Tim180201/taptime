@@ -21,6 +21,10 @@ import Foundation
     let paused = LockState.parse(pausedJSON)!
     var stoppedJSON = json; stoppedJSON["status"] = "stopped"; stoppedJSON["stoppedAt"] = state.asOf
     let stopped = LockState.parse(stoppedJSON)!
+    precondition(LockLogic.subtitle(paused, .OFFLINE) == "Pause seit 08:30 · offline gespeichert")
+    precondition(LockLogic.subtitle(state, .OFFLINE) == "Läuft seit 08:00 · offline gespeichert")
+    precondition(LockLogic.showsDuration(state, .OFFLINE) && LockLogic.showsDuration(paused, .OFFLINE))
+    precondition(LockLogic.actions(paused, .OFFLINE) == ["resume", "stop"])
     precondition(LockLogic.subtitle(paused, .STATE) == "Pause seit 08:30")
     precondition(LockLogic.duration(3960) == "1:06 h")
     precondition(LockLogic.title(stopped, .STATE) == "Zeit beendet · 1:06 h")

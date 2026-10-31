@@ -1,3 +1,4 @@
+import {projectOwnTime,type OwnTimeEvidence} from '../../src/work/ProvisionalOwnTime';
 import {customerSearch} from '../search/fixtures';
 // @vitest-environment jsdom
 import { act, createElement, type ReactNode } from 'react';
@@ -109,6 +110,37 @@ const selected = () => container.querySelector('[role="tablist"] [aria-selected=
 const writeActions = () => buttons().map(node => node.textContent).filter(text => ['Zeit hinzufügen', 'Ändern', 'Kommentar schreiben', 'Beenden'].includes(text!));
 
 describe('T-077 own times through the product navigation', () => {
+  it('T140: a successful offline start immediately shows the running card', async () => {
+    const h = harness('employee');
+    const saved: Array<{ targetType: string; targetId: string }> = [];
+    const evidence:OwnTimeEvidence[]=[];
+    const baseline={activeTimeId:null,target:null,startedAt:null,breakStartedAt:null,confirmedAt:'2026-09-30T10:00:00.000Z'};
+    const display=store(projectOwnTime(baseline,sessionContext('employee'),evidence));
+    h.props.offlineManual.getOwnTimeDisplay=display.getState;
+    h.props.offlineManual.subscribeOwnTimeDisplay=display.subscribe;
+    h.props.offlineManual.captureManual = async selected => {
+      saved.push(selected);
+      evidence.push({sequence:1,displayName:target.displayName,event:{id:'50000000-0000-4000-8000-000000000140',
+        organizationId:'business',triggeredBy:'user',occurredAt:'2026-09-30T10:01:00.000Z',subject:{type:'work'},trigger:{type:'manual'},target:selected} as OwnTimeEvidence['event']});
+      display.publish(projectOwnTime(baseline,sessionContext('employee'),evidence));
+      return { status: 'saved', workEventId: '50000000-0000-4000-8000-000000000140' };
+    };
+    // The latest confirmed state is idle. Losing connectivity must not require a
+    // server decision before showing a provisional clock (D-158, T-140).
+    await act(async () => root.render(createElement(AppNavigator, h.props)));
+    await act(async () => h.sessionStore.publish({ status: 'context_unavailable' }));
+    await press('Manuell erfassen');
+    await press(target.displayName);
+    await press('Jetzt erfassen');
+    expect(saved).toEqual([target]);
+    await press('Erfassen');
+    expect(button('Zeit beenden'), 'saved offline start must be visible as a running time').toBeDefined();
+    expect(container.textContent).toContain('offline gespeichert');
+    await press('Meine Zeiten');
+    expect(button('Zeit beenden')).toBeDefined();
+    expect(container.textContent).toContain('offline gespeichert');
+  });
+
   it('T108 Android back closes the most recently opened equal-priority time form first',async()=>{
     const h=harness('administrator');const previous=h.workStore.getState();
     if(previous.status!=='ready')throw new Error('Ready fixture required');
@@ -145,7 +177,7 @@ describe('T-077 own times through the product navigation', () => {
     ['standortleitung', true, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter', 'Karten']],
     ['administrator', false, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter']],
     ['administrator', true, ['Erfassen', 'Meine Zeiten', 'Kunden', 'Mitarbeiter', 'Karten']],
-    ['offline', false, ['Erfassen']],
+    ['offline', false, ['Erfassen', 'Meine Zeiten']],
   ] as const)('orders destinations for %s with tags=%s', async (role, tagsAvailable, expected) => {
     const h = harness(role, tagsAvailable);
     await act(async () => root.render(createElement(AppNavigator, h.props)));
@@ -204,7 +236,7 @@ describe('T-077 own times through the product navigation', () => {
     expect(selected()).toBe('Erfassen');
     await press('Meine Zeiten');
     await act(async () => h.sessionStore.publish({ status: 'context_unavailable' }));
-    expect(tabs()).toEqual(['Erfassen']); expect(selected()).toBe('Erfassen');
+    expect(tabs()).toEqual(['Erfassen','Meine Zeiten']); expect(selected()).toBe('Erfassen');
     expect(container.textContent).not.toContain('Eigene Notiz');
   });
 

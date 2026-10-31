@@ -138,6 +138,8 @@ export class OfflineAccountStorage {
       const state = await this.read();
       this.checkFiles(await this.files.list(), state);
       if (state?.prepared) throw protectedStorage();
+      // A retired generation must never retain the display baseline of another account.
+      await database.clearConfirmedOwnTime();
       const oldOwner = await database.readOwner();
       if (!oldOwner || oldOwner.installationBindingDigest !== digest(secrets)) throw protectedStorage();
       if (!await allowed() || !await database.canReleaseOwner(oldOwner)) return null;

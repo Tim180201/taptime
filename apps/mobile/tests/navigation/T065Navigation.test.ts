@@ -193,7 +193,7 @@ describe('T-065 rendered navigation and manual lifecycle', () => {
     const tabs = [...container.querySelectorAll('[role="tab"]')].map(node => node.getAttribute('aria-label'));
     expect(tabs).not.toContain('Manuell');
     if (role === 'offline') {
-      expect(tabs).toEqual(['Erfassen']);
+      expect(tabs).toEqual(['Erfassen','Meine Zeiten']);
       expect(h.props.work.refresh).not.toHaveBeenCalled();
       expect(h.props.administration.refresh).not.toHaveBeenCalled();
     }

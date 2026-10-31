@@ -148,21 +148,21 @@ describe('C1 Mobile composition boundary', () => {
     );
   });
 
-  it('keeps lifecycle decisions out of Mobile orchestration and delegates only to the server result', async () => {
+  it('keeps booking decisions server-owned and delegates provisional replay to the core engine', async () => {
     const orchestratorSource = await readFile(
       fileURLToPath(new URL('../../src/offline/OfflineCaptureCoordinator.ts', import.meta.url)),
       'utf8',
     );
     for (const forbidden of [
       'BusinessEngine',
-      'startedAt',
-      'stoppedAt',
       'activeTimeEntry',
       'findActive',
       'duplicateWindow',
     ]) {
       expect(orchestratorSource).not.toContain(forbidden);
     }
+    expect(orchestratorSource).toContain('projectOwnTime(initial,context');
+    expect(orchestratorSource).not.toContain('new BusinessEngine');
     expect(orchestratorSource).toContain('database.appendEvent(draft)');
     expect(orchestratorSource).toContain("this.scheduler?.trigger('event_append')");
     expect(orchestratorSource).toContain('this.nfcScan.scan()');

@@ -10,18 +10,39 @@ import java.util.UUID
 /** All storage transitions are serialized, network calls never hold the lock. Late responses use CAS. */
 internal object LockScreenRuntime {
   @Volatile var changed: (() -> Unit)? = null
+  private var previewOwner: String? = null
+  private var previewState: JSONObject? = null
+  private var previewUntil: Long? = null
+  private fun clearPreview() { previewOwner = null; previewState = null; previewUntil = null }
+  @Synchronized fun preview(context: Context, owner: String, stateText: String?, validUntil: String?): Boolean {
+    val current = session(LockScreenStore(context).read()) ?: return false
+    if (current.optString("owner") != owner) return false
+    if (validUntil == null) { clearPreview(); LockScreenNotification.show(context, current); return true }
+    val until = timestamp(validUntil) ?: return false
+    if (until <= System.currentTimeMillis()) return false
+    val state = stateText?.let { JSONObject(it) }
+    if (state != null && !validState(state)) return false
+    previewOwner = owner; previewState = state; previewUntil = until
+    restoreNotification(context)
+    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ synchronized(this) {
+      if (previewUntil == until) { clearPreview(); LockScreenNotification.cancel(context) }
+    } }, until - System.currentTimeMillis())
+    return true
+  }
   private val inFlight = mutableSetOf<String>()
   private fun id() = UUID.randomUUID().toString()
   private fun session(root: JSONObject) = root.optJSONObject("session")
   private fun save(context: Context, root: JSONObject, notify: Boolean = false) {
     val current = session(root)
     LockScreenStore(context).write(root)
+    if(previewOwner != null) { restoreNotification(context); if(notify) changed?.invoke(); return }
     current?.let { LockScreenNotification.show(context, it) } ?: LockScreenNotification.cancel(context)
     if (notify) changed?.invoke()
   }
   @Synchronized fun bind(context: Context, owner: String) {
     val root = LockScreenStore(context).read()
     if (session(root)?.optString("owner") == owner) return
+    clearPreview()
     root.put("session", JSONObject().put("owner", owner).put("sessionId", id()).put("revision", id())
       .put("nonce", id()).put("display", Display.OPEN_APP.name).put("appBlocked", true))
     LockScreenStore(context).write(root)
@@ -30,9 +51,17 @@ internal object LockScreenRuntime {
   @Synchronized fun restoreNotification(context: Context) {
     // Re-render the latest stored state under the same lock as stop/sign-out. No request, booking or sound.
     val current = session(LockScreenStore(context).read())
+    if (previewOwner != null && current?.optString("owner") == previewOwner && (previewUntil ?: 0) > System.currentTimeMillis()) {
+      val state = previewState
+      if (state == null) { LockScreenNotification.cancel(context); return }
+      val copy = JSONObject(current.toString()).put("state", state).put("display", Display.OFFLINE.name)
+        .put("appBlocked", true).put("ownCapturePending", true)
+      copy.remove("capability"); LockScreenNotification.show(context, copy); return
+    }
     if (current != null) LockScreenNotification.show(context, current) else LockScreenNotification.cancel(context)
   }
   @Synchronized fun clear(context: Context) {
+    clearPreview()
     val root = LockScreenStore(context).read(); root.remove("session")
     try { save(context, root, true) }
     catch (_: Exception) {
@@ -89,6 +118,7 @@ internal object LockScreenRuntime {
     if (current.has("pending") && !discardPending) return false
     val state = stateText?.let { JSONObject(it) }
     if (state != null && !validState(state)) return false
+    clearPreview()
     val previous = current.optJSONObject("state")
     val saving = current.optString("display") == Display.SAVING.name && previous?.optString("timeEntryId") == state?.optString("timeEntryId")
     current.remove("stoppedNoticeUntil"); current.put("ownCapturePending", false)

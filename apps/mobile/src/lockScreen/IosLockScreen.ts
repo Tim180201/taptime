@@ -5,6 +5,7 @@ import type { IssueStatus, LockScreenNativePort, LockScreenStand } from './contr
 import { isLockScreenCaptureLink } from './captureLink';
 
 interface IosModule {
+  preview(owner:string,state:string|null,validUntil:string|null):boolean;
   read():string;
   bind(owner:string):boolean;
   clear():boolean;
@@ -20,6 +21,7 @@ export function createIosLockScreen(baseUrl:string,version:string,scheme:string|
   const native=requireOptionalNativeModule<IosModule>('TapTimeIosLockScreen');
   if (!native) return null;
   return {
+    preview:(owner,state,until)=>native.preview(owner,state?JSON.stringify(state):null,until),
     foregroundOnly:true,
     isCaptureUrl:url=>isLockScreenCaptureLink(url,'ios',scheme),
     read:():LockScreenStand|null=>{

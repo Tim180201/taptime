@@ -1,7 +1,7 @@
 import Foundation
 import CoreFoundation
 
-enum LockDisplay: String, Codable { case STATE, SAVING, TRANSFERRING, SENDING, NOT_SENT, UNCONFIRMED, OPEN_APP, UPDATE_APP }
+enum LockDisplay: String, Codable { case STATE, SAVING, OFFLINE, TRANSFERRING, SENDING, NOT_SENT, UNCONFIRMED, OPEN_APP, UPDATE_APP }
 struct LockCommand: Codable, Equatable { let commandId: String; let action: String }
 struct LockState: Codable, Hashable {
   struct Target: Codable, Hashable { let targetType: String; let targetId: String; let displayName: String }
@@ -109,6 +109,7 @@ enum LockLogic {
     switch display {
     case .STATE: return ""
     case .SAVING: return "wird gesichert"
+    case .OFFLINE: return "offline gespeichert"
     case .TRANSFERRING: return "Wird übertragen …"
     case .SENDING: return "Wird gesendet …"
     case .NOT_SENT: return "Nicht gesendet · kein Netz"
@@ -123,19 +124,19 @@ enum LockLogic {
   static func settled(_ display: LockDisplay) -> Bool { display == .STATE || display == .SAVING }
   static func actions(_ state: LockState, _ display: LockDisplay) -> [String] {
     if display == .NOT_SENT || display == .UNCONFIRMED { return ["retry"] }
-    guard settled(display), state.status != "stopped" else { return [] }
+    guard settled(display) || display == .OFFLINE, state.status != "stopped" else { return [] }
     return [state.status == "paused" ? "resume" : "pause", "stop"]
   }
   static func showsDuration(_ state: LockState, _ display: LockDisplay) -> Bool {
-    settled(display) && state.status != "stopped"
+    (settled(display) || display == .OFFLINE) && state.status != "stopped"
   }
   static func title(_ state: LockState, _ display: LockDisplay) -> String {
     settled(display) && state.status == "stopped" ? "Zeit beendet · \(duration(state.workDurationSeconds))" : state.target.displayName
   }
   static func subtitle(_ state: LockState, _ display: LockDisplay) -> String {
-    guard settled(display) else { return message(display) }
+    guard settled(display) || display == .OFFLINE else { return message(display) }
     if state.status == "stopped" { return state.target.displayName }
-    let suffix = display == .SAVING ? " · wird gesichert" : ""
+    let suffix = display == .SAVING ? " · wird gesichert" : display == .OFFLINE ? " · offline gespeichert" : ""
     if let at = state.breakStartedAt { return "Pause seit \(berlin(at))\(suffix)" }
     return "Läuft seit \(berlin(state.startedAt))\(suffix)"
   }

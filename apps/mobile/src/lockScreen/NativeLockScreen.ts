@@ -4,6 +4,7 @@ import { isLockScreenState, isLockScreenActionRequest, type LockScreenCapability
 import type { IssueStatus, LockScreenNativePort, LockScreenStand } from './contracts';
 
 interface NativeModule {
+  preview(owner:string,state:string|null,validUntil:string|null):boolean;
   read():string;
   bind(owner:string):boolean;
   clear():boolean;
@@ -32,6 +33,7 @@ export function createNativeLockScreen(baseUrl:string,appVersion:string):LockScr
     } catch {return null;}
   };
   return {
+    preview:(owner,state,until)=>native.preview(owner,state?JSON.stringify(state):null,until),
     read,bind:owner=>native.bind(owner),clear:()=>native.clear(),suspend:()=>native.suspend(),awaitOwnCapture:()=>native.awaitOwnCapture(),
     project:(owner,state,revision,discard)=>native.project(owner,state?JSON.stringify(state):null,revision,discard),
     issue:(owner,token,request:LockScreenCapabilityRequest,revision)=>native.issue(owner,token,JSON.stringify(request),baseUrl,appVersion,revision),

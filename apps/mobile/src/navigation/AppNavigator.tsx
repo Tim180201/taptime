@@ -1,3 +1,4 @@
+import {ProvisionalTimePanel,useOwnTimeDisplay} from '../screens/ProvisionalTimePanel';
 import type { LockScreenCapability } from '../lockScreen/contracts';
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { APP_NAME } from '../../../../shared/product';
@@ -178,6 +179,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
   const mobileTokens = useMobileTokens();
   const styles = useThemedStyles(createStyles);
 
+  const ownDisplay=useOwnTimeDisplay(offlineManual);
   const insets = useSafeAreaInsets();
   const workState = useSyncExternalStore(listener=>work?.subscribe(listener) ?? (()=>{}),()=>work?.getState() ?? null,()=>work?.getState() ?? null);
   const [destination, setDestination] = useState<ProductDestination>('capture');
@@ -256,7 +258,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
           importantForAccessibility={showSync || destination !== 'capture' ? 'no-hide-descendants' : 'auto'}>
           {role==='offline'?<View><ActionButton title="Zeit hinzufügen" disabled onPress={()=>{}} /><Text>Nachtragen ist nur online möglich.</Text></View>:null}
           <ScanScreen actor={role} scan={scan} work={work} retryRecovery={() => session.retryContext()} signOut={() => session.signOut()} onManualCapture={() => navigate('manual')} embedded
-            offlineActive={offlineActive} confirmedOwnTime={workState?.status==='ready'?workState.ownTime:confirmedOwnTime}
+            offlineManual={offlineManual} offlineActive={offlineActive} confirmedOwnTime={workState?.status==='ready'?workState.ownTime:confirmedOwnTime}
             offline={role==='offline' || !!scanState.transmissionPaused || !!(workState?.status==='ready' && workState.capturePending && !workState.submitting)} />
         </View>
         {showSync || destination==='manual' ? <View style={{paddingHorizontal:20,paddingBottom:8}}><SubviewBack label={destinationLabels[showSync?syncReturn.current:'capture']} onBack={()=>navigate(showSync?syncReturn.current:'capture')}/></View>:null}
@@ -267,8 +269,8 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
               : work ? <ManualCaptureScreen work={work} /> : <MessageScreen title="Arbeitsziele sind derzeit nicht verfügbar." />
           : destination === 'customers' ? work && customerAuthority ? <CustomersScreen administration={nfcSetupAvailable ? administration : undefined} work={work} authorityContext={customerAuthority} openCustomer={quotaCustomer}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
           : destination === 'employees' ? managementScope && employees ? <EmployeesScreen employees={employees} scope={managementScope} locationsEnabled={locationsEnabled} /> : null
-          : destination === 'times' ? work ? <OwnTimeScreen work={work} scan={scan} />
-              : <MessageScreen title="Deine Zeiten sind derzeit nicht verfügbar." />
+          : destination === 'times' ? work ? <OwnTimeScreen work={work} scan={scan} offlineManual={offlineManual} offlineActive={offlineActive}/>
+              : <Screen title="Meine Zeiten"><ProvisionalTimePanel manual={offlineManual} capture={offlineActive}/><Text>{ownDisplay.known?'Bestätigte Kalenderzeiten sind wieder mit Netz verfügbar.':'Ohne bestätigten Ausgangsstand ist keine vorläufige Uhr verfügbar.'}</Text></Screen>
           : nfcSetupAvailable ? <AdminSetupScreen administration={administration} /> : null}
       </View>
     </EmbeddedScreenContext.Provider></SubviewBackContext.Provider>

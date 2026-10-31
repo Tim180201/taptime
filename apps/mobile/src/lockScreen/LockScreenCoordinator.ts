@@ -1,3 +1,4 @@
+import type {OwnTimeDisplay} from '../work/ProvisionalOwnTime';
 import type { LockScreenState, MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { AuthenticatedRequestCapability, MobileSessionState } from '../auth/contracts';
 import type { MobileWorkSessionReader, MobileWorkState } from '../work/contracts';
@@ -17,6 +18,8 @@ interface Work {
   setCaptureFeedback(message:string|null):void;
 }
 interface Offline {
+  getOwnTimeDisplay?():OwnTimeDisplay;
+  subscribeOwnTimeDisplay?(listener:()=>void):()=>void;
   hasUnconfirmedCapture():Promise<boolean>;
   lockScreenInstallationId():Promise<string|null>;
 }
@@ -73,11 +76,39 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     const subscription=this.appState.addEventListener('change',state=>{
       const returning=state==='active'&&previous!=='active';previous=state;
       if(this.native.foregroundOnly&&state!=='active')this.epoch++;
-      if(returning)void this.refresh();
+      if(returning){this.publishPreview();void this.refresh();}
     });this.unsubscribers.push(()=>subscription.remove());
-    this.onSession();
+    if(this.offline.subscribeOwnTimeDisplay)this.unsubscribers.push(this.offline.subscribeOwnTimeDisplay(()=>this.publishPreview()));
+    this.onSession();this.publishPreview();
   }
-  stop(){this.started=false;this.epoch++;this.unsubscribers.forEach(unsubscribe=>unsubscribe());this.unsubscribers=[];}
+  stop(){if(this.previewOwner)this.native.preview?.(this.previewOwner,null,null);this.previewOwner=null;this.previewRevision=undefined;this.started=false;this.epoch++;this.unsubscribers.forEach(unsubscribe=>unsubscribe());this.unsubscribers=[];}
+  private previewOwner:string|null=null;
+  private previewRevision:string|undefined;
+  private publishPreview(){
+    if(!this.started||this.native.foregroundOnly&&this.appState.currentState!=='active')return;
+    const display=this.offline.getOwnTimeDisplay?.();
+    if(!display?.known||!display.pending||!display.owner||!display.validUntil){
+      if(this.previewOwner){this.native.preview?.(this.previewOwner,null,null);this.previewOwner=null;this.previewRevision=undefined;}
+      return;
+    }
+    const record=display.activeRecord;
+    if(this.native.read()?.pending)return; // A native command with unknown outcome requires reconciliation.
+    if(!this.native.bind(display.owner))return;
+    const revision=this.native.read()?.revision;
+    if(this.previewOwner===display.owner&&revision!==this.previewRevision){
+      // A native booking superseded this preview. Keep its old revision as a fence
+      // until confirmed data replaces it; publishing again must not bless the stale state.
+      this.native.preview?.(display.owner,null,null);return;
+    }
+    this.native.awaitOwnCapture();
+    const now=new Date().toISOString();
+    const state:LockScreenState|null=record&&record.targetId?{timeEntryId:record.timeRecordId,
+      status:record.breakStartedAt?'paused':'running',startedAt:record.startedAt,stoppedAt:null,breakStartedAt:record.breakStartedAt??null,
+      asOf:now,workDurationSeconds:Math.max(0,Math.floor((Date.parse(now)-Date.parse(record.breakStartedAt??record.startedAt))/1000)),
+      breakDurationSeconds:0,target:{targetType:record.targetType,targetId:record.targetId,displayName:record.targetDisplayName}}:null;
+    if(this.native.preview?.(display.owner,state,display.validUntil)){this.previewOwner=display.owner;this.previewRevision=revision;
+      if(this.appState.currentState==='active'&&state)void this.native.ensurePermission();}
+  }
   private isScanBusy(){
     return ['scanning','submitting','saved_locally','synchronizing'].includes(this.scan.getState().status);
   }
@@ -189,6 +220,21 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
   }
   beforeCapture=async():Promise<boolean>=>{
     this.rejection=null;
+    const display=this.offline.getOwnTimeDisplay?.();
+    const nativeStand=this.native.read();
+    const record=display?.activeRecord, nativeState=nativeStand?.state;
+    const matchingBaseline=!!record&&!!nativeState&&record.timeRecordId===nativeState.timeEntryId
+      &&record.startedAt===nativeState.startedAt&&record.targetType===nativeState.target.targetType
+      &&record.targetId===nativeState.target.targetId&&nativeState.status===(record.breakStartedAt?'paused':'running')
+      &&(record.breakStartedAt??null)===nativeState.breakStartedAt;
+    const matchingPreview=display?.pending&&this.previewOwner===display.owner
+      &&this.previewRevision!==undefined&&nativeStand?.revision===this.previewRevision&&nativeStand.ownCapturePending;
+    if(display?.known&&display.owner&&nativeStand?.owner===display.owner&&!nativeStand.pending
+      &&(matchingPreview||!display.pending&&matchingBaseline&&!nativeStand.ownCapturePending)
+      &&!['scanning','submitting'].includes(this.scan.getState().status)&&!this.appCapture&&(!this.native.foregroundOnly||this.appState.currentState==='active')){
+      if(!this.native.suspend())return this.reject('Der Stand ist gerade nicht verfügbar. Bitte erneut versuchen.');
+      this.appCapture=true;return true;
+    }
     if(this.native.foregroundOnly&&this.appState.currentState!=='active')return this.reject(WAIT,true);
     if(this.appCapture)return this.reject('Eine Erfassung läuft bereits. Bitte kurz warten.');
     if(this.scanBusy)return this.reject('Der Scan läuft. Beende ihn oder brich ihn ab.');
@@ -224,7 +270,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
   afterCapture=async():Promise<void>=>{
     this.appCapture=false;
     if(!this.started)return;
-    this.native.awaitOwnCapture();
+    this.native.awaitOwnCapture();this.publishPreview();
     // A queued event is not a confirmed clock. Only a new successful read can replace this notice.
     await this.refresh(true);
     this.updateUi();

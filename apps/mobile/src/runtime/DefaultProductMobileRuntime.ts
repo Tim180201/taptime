@@ -1,3 +1,4 @@
+import { EMPTY_OWN_TIME_DISPLAY } from '../work/ProvisionalOwnTime';
 import type { LockScreenCapability, CaptureBoundary } from '../lockScreen/contracts';
 import type { MobileAppActivity } from './MobileAppActivity';
 import { isRecoverableIdentityProtection } from '../navigation/offlineCaptureShell';
@@ -234,6 +235,8 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       stopActiveTime: () => this.mobileWorkCoordinator.stopActiveTime(),
     });
     this.offlineManualCapability = Object.freeze({
+      getOwnTimeDisplay:()=>offlineManualCapture.getOwnTimeDisplay?.()??EMPTY_OWN_TIME_DISPLAY,
+      subscribeOwnTimeDisplay:(listener:()=>void)=>offlineManualCapture.subscribeOwnTimeDisplay?.(listener)??(()=>{}),
       ...(this.lockScreenOwner ? {prepareActiveCapture:()=>this.lockScreenOwner!.beforeCapture(),activeCaptureRejection:()=>this.lockScreenOwner!.getCaptureRejection?.()??null,finishActiveCapture:()=>this.lockScreenOwner!.afterCapture()} : {}),
       readOfflineManualTargets: () => offlineManualCapture.readOfflineManualTargets(),
       hasUnconfirmedCapture: () => offlineManualCapture.hasUnconfirmedCapture?.() ?? Promise.resolve(true),

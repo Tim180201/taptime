@@ -14,6 +14,7 @@ export type IssueStatus = 'issued'|'unauthorized'|'unavailable'|'superseded'|'up
 export interface LockScreenNativePort {
   readonly foregroundOnly?: boolean;
   isCaptureUrl?(url:string|null):boolean;
+  preview?(owner:string,state:LockScreenState|null,validUntil:string|null):boolean;
   read(): LockScreenStand | null;
   bind(owner: string): boolean;
   clear(): boolean;

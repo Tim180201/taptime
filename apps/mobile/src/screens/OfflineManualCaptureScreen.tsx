@@ -1,3 +1,4 @@
+import {ProvisionalTimePanel,useOwnTimeDisplay} from './ProvisionalTimePanel';
 import type {OfflineActiveCapture} from '../work/OfflineActiveCapture';
 import {OfflineActiveTimeCard} from './OfflineActiveTimeCard';
 import { useRequiredForm, RequiredField } from '../design/RequiredField';
@@ -42,6 +43,7 @@ export function OfflineManualCaptureScreen({
   readonly transmissionRetryAvailable?: boolean;
   readonly restorationKey: string;
 }) {
+  const ownDisplay=useOwnTimeDisplay(manual);
   const styles = useThemedStyles(createStyles);
 
   const [projection, setProjection] = useState<ProjectionState>({ status: 'loading' });
@@ -131,17 +133,19 @@ export function OfflineManualCaptureScreen({
 
   return <Screen title="Manuell erfassen" eyebrow="OFFLINE">
     <ScrollView contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled">
-      {offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard capture={offlineActive} value={confirmedOwnTime} disabled={capturePending||transmissionPaused||pendingWorkEventId!==null}/> : null}
+      {offlineActive&&(ownDisplay.known||ownDisplay.notice)?<ProvisionalTimePanel manual={manual} capture={offlineActive} disabled={submitting||transmissionPaused}/>:null}
+      {!manual.getOwnTimeDisplay&&!ownDisplay.known&&offlineActive && confirmedOwnTime ? <OfflineActiveTimeCard capture={offlineActive} value={confirmedOwnTime} disabled={capturePending||transmissionPaused||pendingWorkEventId!==null}/> : null}
+      {manual.getOwnTimeDisplay&&!ownDisplay.known?<Text>Ohne bestätigten Ausgangsstand ist keine vorläufige Uhr verfügbar.</Text>:null}
       <Card>
         {transmissionPaused ? <Text accessibilityRole="alert">{transmissionRetryAvailable
           ? 'Übertragung angehalten. Bitte versuche es erneut.' : 'Übertragung angehalten. Bitte wende dich an deine Verwaltung.'}</Text>
           : capturePending || pendingWorkEventId!==null ? <Text accessibilityLiveRegion="polite">Wird übertragen …</Text> : null}
-        <Text>{confirmedOwnTime?.activeRecord ? captureStatus(confirmedOwnTime.activeRecord)
+        <Text>{ownDisplay.known ? ownDisplay.activeRecord?captureStatus(ownDisplay.activeRecord):'Keine laufende Zeit' : !manual.getOwnTimeDisplay&&confirmedOwnTime?.activeRecord ? captureStatus(confirmedOwnTime.activeRecord)
           : confirmedOwnTime ? 'Keine laufende Zeit bestätigt' : 'Noch kein bestätigter Stand verfügbar'}</Text>
         <Text>{confirmedOwnTime ? `Stand ${captureClock(confirmedOwnTime.activeRecord?.calendar?.asOf ?? confirmedOwnTime.windowEndedAt)}, offline` : 'Offline'}</Text>
       </Card>
       <Text style={styles.explanation}>
-        Kunde, Projekt oder allgemeine Arbeit. Deine Erfassung bleibt auf dem Handy gespeichert und startet oder stoppt die Arbeitszeit nach der Übertragung.
+        Kunde, Projekt oder allgemeine Arbeit. Deine Erfassung bleibt auf dem Handy gespeichert. Die Anzeige ist vorläufig, bis der Server sie bestätigt.
       </Text>
       <RequiredField form={form} error={selected===null && !pause ? "Bitte ein Arbeitsziel oder Pause wählen." : null}><Text style={styles.group}>Wofür arbeitest du?</Text>
       <TextField
