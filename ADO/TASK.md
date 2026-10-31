@@ -1,60 +1,72 @@
 # Aktuelle Aufgabe
 
-> **Stand 29.10.2026:**
-> - Der gemeinsame Deploy ist ausgeliefert (`e577fa8` → `05bcf51`).
-> - Der Kurztest mit iPhone Build 11 und Android Version 18 ist bestanden, außer dem Fall T-139.
-> - T-139 ist auf main (`09ac588`).
-> - Jetzt T-140, danach ein gemeinsamer App-Build mit T-139 und T-140 (PO 29.10.).
+> **Stand 31.10.2026:**
+> - T-139 und T-140 sind auf main (`b50e85a`).
+> - Die Apps aus diesem Stand sind auf beiden Handys geprüft und bestanden (PO 31.10.).
+> - Jetzt T-141, danach ein gemeinsamer App-Build.
 
-## T-140 · Ohne Netz wie mit Netz, Stufe 1: vorläufige Anzeige (D-158)
+## T-141 · Sperrbildschirm mit Initialen (D-160), „Erfassen“ nur mit aktuellem Stand (T-140c)
 
-**Für:** Development (Astra, Extra High) · **Risiko:** mittel bis hoch. Die Anzeige darf nichts als bestätigt
-zeigen, was der Server noch nicht entschieden hat, und sie bucht nichts. Unabhängiges Review (AGENTS 4) ·
-**Zeitbox:** zwei Sitzungen. Reißt sie, wird Punkt 3 (Sperrbildschirm) geschnitten, nie 1 und 2.
+**Für:** Development (Astra, Extra High) · **Risiko:** niedrig bis mittel. Es geht um personenbezogene Daten
+Minderjähriger, deshalb ein unabhängiges Review (AGENTS 4) · **Zeitbox:** eine Sitzung. Reißt sie, wird Teil 2
+geschnitten, nie Teil 1.
 
-**Befund (PO 29.10.):** Wird ohne Netz per Karte oder manuell eine Zeit gestartet, zeigt die App keine laufende Zeit.
-Auch der Sperrbildschirm zeigt keine laufende Uhr. Mit Netz läuft beides sofort.
+### Teil 1 · Initialen außerhalb der App (D-160)
 
-### Umfang
+- Android-Benachrichtigung und iPhone-Live-Aktivität (Sperrbildschirm, Dynamic Island) zeigen einen **Kunden** nur mit
+  Initialen.
+- Projekte und allgemeine Arbeit behalten ihren Namen. In der App bleibt überall der volle Name.
+- **Regel:** Je der erste Buchstabe des ersten und des letzten Wortes, großgeschrieben, jeweils mit Punkt. Wörter trennen
+  Leerzeichen und Komma, ein Bindestrich nicht.
+  - „Max Kunde“ → „M. K.“
+  - „Anna-Lena Schmidt“ → „A. S.“
+  - „Müller, Max“ → „M. M.“
+  - „Özil Ünal“ → „Ö. Ü.“
+  - „Max“ → „M.“
+  - Kein Buchstabe im Namen → „Kunde“
+- **Ort:** je Plattform genau eine Funktion, unmittelbar bevor die Anzeige an das System geht. Kotlin und Swift folgen
+  derselben Regel.
+- **Gilt für alle Wege:** Server-Antworten der nativen Knöpfe, Projektion aus der App und die Offline-Vorschau (T-140).
+- **Der volle Name erreicht das System nie:**
+  - Android: kein Feld der Benachrichtigung enthält ihn (Titel, Text, Ticker, Zusatztext).
+  - iOS: der Inhaltszustand der Live-Aktivität enthält ihn nicht.
+- **Was bleibt:** Die Benachrichtigung bleibt öffentlich sichtbar und behält ihre Knöpfe. Speicher und Server bleiben
+  unverändert.
+- **Rechtstexte im selben Commit anpassen**, weil sie Verhalten beschreiben (AGENTS 7):
+  - `ADO/06_Recht/Verzeichnis_Verarbeitungstaetigkeiten.md` (2.5);
+  - `ADO/06_Recht/Beschaeftigten_Information_Art13.md` („Achtung: Dein Sperrbildschirm zeigt Namen“);
+  - `docs/store/privacy.md`, falls dort der Name genannt ist.
+  - Leser mit `grep` suchen (T-134).
 
-1. **Vorläufiger eigener Stand:**
-   - Grundlage ist der zuletzt vom Server bestätigte eigene Stand (aktive Zeit, Pause) zusammen mit den eigenen, noch
-     nicht bestätigten Erfassungen dieses Geräts in der Reihenfolge ihrer Erfassung.
-   - Ausgewertet wird mit der `BusinessEngine` aus `@taptime/core`. Es gibt keine zweite Entscheidungslogik.
-   - Der Stand liegt nur im Speicher, ohne neue Tabelle. Ein Wechsel von Konto, Mitgliedschaft oder Betrieb und das
-     Abmelden verwerfen ihn.
-2. **Anzeige in der App:**
-   - „Erfassen“ und „Meine Zeiten“ zeigen ohne Netz dieselbe Karte wie mit Netz: laufende Zeit mit Uhr,
-     „Pause seit …“, beendet.
-   - Dazu kommt ein kleines, zugängliches Zeichen „offline gespeichert“, als Text und nicht nur als Farbe.
-   - Bestätigt der Server dasselbe, verschwindet das Zeichen still.
-   - Entscheidet er anders (Ablehnung, Prüffall, andere Zeit), erscheint ein kurzer Hinweis mit seiner Entscheidung.
-     Dann gilt der Server.
-3. **Sperrbildschirm** (Android-Benachrichtigung, iPhone-Live-Aktivität):
-   - Er zeigt den vorläufigen Stand mit laufender Uhr und demselben Offline-Zeichen.
-   - Ohne Netz buchen die Knöpfe weiterhin nichts selbst; das ist Stufe 2 nach dem Pilot. Sie öffnen die App oder
-     zeigen wie heute „Nicht gesendet · kein Netz“.
-4. **Keine Änderung an Server oder Vertrag.** Verwaltung, Exporte und Prüffälle bleiben unverändert.
+### Teil 2 · „Erfassen“ wie mit Netz (T-140c, PO 31.10.)
+
+- „Erfassen“ und „Manuell erfassen“ zeigen ohne Netz nur noch eins von drei Dingen:
+  - die laufende Zeit mit Uhr;
+  - die Pause;
+  - direkt nach dem Beenden die gerade beendete Zeit als eine Zeile, bis zur nächsten Erfassung.
+- Die Liste früherer beendeter Offline-Zeiten erscheint dort nicht mehr.
+- „Meine Zeiten“ behält die beendeten Offline-Zeiten mit „offline gespeichert“, bis der Server bestätigt.
+- Projektion, Speicherung und Sperrbildschirm-Logik aus T-140 bleiben unverändert.
 
 ### Tests und Nachweis
 
-- **Zuerst rot:** Eine ohne Netz gestartete Zeit zeigt heute keine laufende Zeit.
-- **Abgedeckte Fälle:**
-  - Start, Pause, Pause beenden und Ende ohne Netz;
-  - mehrere Erfassungen hintereinander;
-  - Neustart der App ohne Netz;
-  - Netz kommt zurück, und der Server entscheidet gleich (das Zeichen verschwindet);
-  - Netz kommt zurück, und der Server entscheidet anders (Hinweis, der Server gilt);
-  - Kontowechsel und Abmelden;
-  - abgelaufene Offline-Freigabe;
-  - Kaltstart per Karte ohne Netz zusammen mit T-139.
-- **Gleiche Entscheidung wie auf dem Server:** Die Auswertung im Client wird gegen dieselben Fälle geprüft wie auf dem
-  Server, also gleiche Eingaben und gleiche Entscheidung.
-- **Builds:** Android-Release-Build und iOS-JS-Export lokal, die ganze CI lokal nachgebaut.
-- **Bericht:** `.t140-review/bericht.md` mit einer kurzen Geräteprüfliste für beide Telefone.
+- **Zuerst rot:**
+  - Ein Kunde erscheint heute mit vollem Namen auf dem Sperrbildschirm.
+  - „Erfassen“ zeigt heute nach zwei Offline-Zeiten beide Zeiten.
+- **Gleiche Tabelle in Kotlin und Swift:** alle Beispiele oben, dazu Leerzeichen am Rand, ein Projekt und allgemeine
+  Arbeit.
+- **Android:** Für einen Kunden enthält die gebaute Benachrichtigung in keinem Textfeld den vollen Namen, auch nicht bei
+  „Zeit beendet“ und in der Offline-Vorschau.
+- **iOS:** Der Inhaltszustand der Live-Aktivität enthält für einen Kunden nur die Initialen.
+- **App:**
+  - „Erfassen“: laufend, Pause und gerade beendet.
+  - „Meine Zeiten“: Liste bleibt.
+  - Der volle Name in der App bleibt.
+- **Builds und CI:** Sperrbildschirm-Suite, Swift-Typecheck der nativen Laufzeit samt Widget, Android-Release-Build,
+  iOS-JS-Export, ganze CI lokal nachgebaut.
+- **Bericht:** `.t141-review/bericht.md` mit einer kurzen Geräteprüfliste für beide Telefone.
 
 ### Grenzen
 
 - Kein Deploy, keine EAS-Builds, kein Server, kein Supabase, keine GHCR-Paketaktion, nichts installieren (AGENTS 3).
-- Ohne Netz keine Buchung vom Sperrbildschirm (Stufe 2).
 - Kein Commit vor `APPROVED`.

@@ -101,8 +101,8 @@ Zulässige Ergebnisse: `APPROVED` oder `CHANGES REQUIRED`.
 
 - **Blockieren darf nur P0 und P1.** P0 = kaputt, Datenverlust, Sicherheitsloch.
   P1 = falsches Verhalten im Normalfall.
-- **P2 und P3 werden notiert, nicht wiederholt.** Sie landen als Zeile in `ADO/STATUS.md`
-  unter „Bekannte Kleinigkeiten" und blockieren nichts.
+- **P2 und P3 werden notiert, nicht wiederholt.** Sie landen als Zeile in
+  `ADO/BEKANNTE_KLEINIGKEITEN.md` und blockieren nichts.
 - **Maximal zwei Review-Runden pro Aufgabe.** Danach entscheidet der Technical Lead:
   liefern oder Scope schneiden. Es gibt keine dritte Runde.
 - Die Zwei-Runden-Regel gilt ausschließlich für Review-Befunde. Eine rote Prüfstrecke wird
@@ -121,6 +121,7 @@ stoppen den Kreislauf und gehen an den Product Owner.
 | Datei | Max | Regel |
 |---|---|---|
 | `ADO/STATUS.md` | 1 Seite | **Überschreiben, nie anhängen.** |
+| `ADO/BEKANNTE_KLEINIGKEITEN.md` | keine | Je Befund eine Zeile, erledigte entfernen. |
 | `ADO/PLAN.md` | 2 Seiten | Überschreiben. |
 | `ADO/ARCHITECTURE.md` | 3 Seiten | Überschreiben. |
 | `ADO/TASK.md` | 1 Seite | Pro Aufgabe überschreiben. |
@@ -163,6 +164,8 @@ Alles unter `ADO/99_Archive/` ist Historie und wird nicht gelesen.
   `patch -p1` einspielen (nicht `git apply`), nur die betroffenen Dateien committen, `[skip ci]`,
   pushen, Patch-Datei löschen.
 - Prüf- und Analyseordner (`.tXXX-review/`, `.audit-*`) werden nie committet.
+- Review ohne Verbindung zum Mac (19.10.): Codex legt den geprüften Stand als Zweig `review/<aufgabe>` ab, Fotos auf
+  einem verwaisten Zweig `review/<aufgabe>-fotos`; nach `APPROVED` Fast-forward auf `main` und beide Zweige löschen.
 - Nach dem Push wird ein roter CI- oder Image-Lauf gemeldet. Eine Nachbesserung wird erst nach
   Rückfrage beim Technical Lead committet, auch eine reine Test- oder Stilkorrektur (04.10.).
 - Vor jedem Deploy fragt der Technical Lead den Product Owner die PO-Schritte aus

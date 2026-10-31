@@ -2101,3 +2101,22 @@ Verbindlich bleibt der Server; Verwaltung und Exporte zeigen nur seine Entscheid
 (T-140), Stufe 2 (Sperrbildschirm-Knöpfe ohne Netz, T-140b) nach dem Pilot.
 **Warum:** Offline sah eine gestartete Zeit aus wie nicht gestartet (PO-Test 29.10.). Lehrkräfte sollen nicht merken
 müssen, ob Netz da ist; „One Tap. One Decision.“ bleibt, weil weiter der Server entscheidet.
+
+## D-159 · Der bestätigte eigene Stand wird auf dem Gerät gespeichert · 29.10.2026 · Claude (TL)
+Präzisiert D-158 und den T-140-Brief („nur im Speicher“): Damit die vorläufige Anzeige einen Neustart ohne Netz übersteht,
+speichert die App den zuletzt vom Server bestätigten eigenen Stand (aktive Zeit-ID, Ziel mit Typ, ID und Anzeigename,
+Beginn, Pausenbeginn, Bestätigungszeit). Er liegt als eine Spalte am vorhandenen Installationsbesitzer der verschlüsselten
+Offline-Datenbank (lokales Schema 8), gebunden an Betrieb, Benutzer und Mitgliedschaft. Angelegt und überschrieben nur
+nach einem Serverabruf ohne offene Erfassungen, mit Serverzeit als Bestätigungszeit. Entfernt bei Abmeldung, abgelehnter
+Berechtigung, Wechsel von Konto, Mitgliedschaft oder Betrieb, Verwerfen des Offline-Kontexts und mit jeder neuen Quittung.
+Unbekannt, fremd, abgelaufen oder älter als die Freigabe: keine vorläufige Uhr. T-140.
+**Warum:** Rückfrage von Codex in T-140. Android beendet Apps im Hintergrund, ein Neustart ohne Netz ist also der
+Normalfall. Kein Verlauf, keine neue Tabelle; den Namen enthält die Offline-Freigabe ohnehin.
+
+## D-160 · Sperrbildschirm zeigt Kunden nur mit Initialen · 31.10.2026 · Tim (PO), Claude (TL)
+Ersetzt D-147: Außerhalb der App (Android-Benachrichtigung, iPhone-Live-Aktivität samt Dynamic Island) erscheint ein Kunde
+nur mit Initialen, zum Beispiel „M. K.“. Projekte und allgemeine Arbeit behalten ihren Namen, in der App bleibt der volle
+Name. Das Gerät bildet die Initialen, bevor die Anzeige an das System geht; der volle Name erreicht das System nie. Die
+Android-Benachrichtigung bleibt öffentlich sichtbar und behält ihre Knöpfe. T-141.
+**Warum:** Kunden sind bei frogs Schüler, oft minderjährig, und den Sperrbildschirm sieht jeder, der das Handy sieht
+(externes Review 30.10., P1). Initialen reichen der Lehrkraft, um die laufende Stunde zu erkennen (PO 31.10.).
