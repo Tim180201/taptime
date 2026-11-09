@@ -36,10 +36,14 @@ inaktive Ziele; Zugangsentzug und Stornierung löschen die Historie nicht.
 
 ## Sperrbildschirm und lokaler Speicher
 
-**Zielname, Zustand und Dauer sind auf dem gesperrten Handy sichtbar:** Android verwendet eine
-öffentliche Benachrichtigung, iOS eine Live-Aktivität/Dynamic Island. Wer das Handy sieht, kann
-Kunden-/Schülernamen lesen und die angebotenen Pause-/Stoppaktionen ohne Entsperren auslösen.
-Die Anzeige ist nach D-147 bewusst vorgesehen; Betroffeneninformation und Bewertung durch den
+**Kundeninitialen, Zustand und Dauer sind auf dem gesperrten Handy sichtbar; Projekte und allgemeine
+Arbeit behalten ihren Namen:** Android verwendet eine öffentliche Benachrichtigung, iOS eine
+Live-Aktivität/Dynamic Island. Kunden-/Schülernamen werden auf dem Gerät vor der Übergabe an das
+System gekürzt, etwa zu „M. K.“. Kein Textfeld der Benachrichtigung und kein Inhaltszustand der
+Live-Aktivität enthält den vollen Kundennamen. In der App und im Speicher bleibt er vollständig.
+Initialen können im Zusammenhang weiterhin eine Person erkennbar machen. Wer das Handy sieht,
+kann die angebotenen Pause-/Stoppaktionen ohne Entsperren auslösen.
+Die Anzeige folgt D-160; Betroffeneninformation und Bewertung durch den
 Verantwortlichen gehören dazu. Die Live-Aktivität nutzt lokale Aktualisierung ohne Push-Dienst.
 
 Refresh-Token und bestätigte Identität liegen im gerätegebundenen SecureStore; die Offline-Datenbank

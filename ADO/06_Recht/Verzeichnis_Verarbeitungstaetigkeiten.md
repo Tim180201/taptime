@@ -109,11 +109,15 @@ Root-Zugriff für den Betrieb kann Daten erreichen und ist von dieser Oberfläch
 ### 2.5 Anzeige und Aktionen auf dem Sperrbildschirm
 
 Android zeigt eine öffentlich sichtbare laufende Benachrichtigung, das iPhone eine Live-Aktivität
-auf Sperrbildschirm und gegebenenfalls Dynamic Island: **Zielname, Zustand und Dauer** sind
-außerhalb der App lesbar. Wer das Handy sieht, kann damit beispielsweise den Namen eines Kunden
-oder Schülers sehen. Pause, Fortsetzen und Beenden können ohne Entsperren ausgelöst werden;
+auf Sperrbildschirm und gegebenenfalls Dynamic Island: **Kundeninitialen bzw. Projektname oder
+Bezeichnung allgemeiner Arbeit, Zustand und Dauer** sind außerhalb der App lesbar. Kunden, auch
+Schüler, erscheinen nur mit Initialen (beispielsweise „M. K.“). Das Gerät kürzt den Kundennamen
+vor der Übergabe an das System; kein Textfeld der Benachrichtigung und kein Inhaltszustand der
+Live-Aktivität enthält den vollen Kundennamen. In der App und im Speicher bleibt er vollständig.
+Initialen können im jeweiligen Zusammenhang weiterhin eine Person erkennbar machen.
+Pause, Fortsetzen und Beenden können ohne Entsperren ausgelöst werden;
 der Verlauf kennzeichnet die Herkunft. Es gibt darüber keinen Start einer neuen Arbeitszeit.
-Diese Sichtbarkeit ist die bewusste Produktentscheidung D-147 und vom Verantwortlichen für
+Diese Sichtbarkeit folgt D-160 und ist vom Verantwortlichen für
 seinen Einsatz zu bewerten und den Betroffenen mitzuteilen.
 
 Der Server speichert nur den Hash des Sperrbildschirm-Schlüssels samt Bindung an Betrieb,

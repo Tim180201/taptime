@@ -12,12 +12,12 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
   grünen Probe kommt die Morgenmeldung „Wiederherstellungsprüfung fehlgeschlagen“.
 - **Apps:** Builds aus `b50e85a` (T-139, T-140). Die Geräteprüfung auf beiden Handys hat der PO am 31.10. bestanden.
   Lokales Schema 8: keine ältere App darüber installieren.
-- **Aufgabe:** T-141, Initialen auf dem Sperrbildschirm (D-160) und „Erfassen“ nur mit aktuellem Stand (T-140c).
-  Danach T-142, weil „Meine Zeiten“ bei jedem Öffnen langsam lädt (PO 31.10.).
+- **Aufgabe:** T-141 auf main (Initialen auf dem Sperrbildschirm, D-160; „Erfassen“ nur mit aktuellem Stand, T-140c).
+  Jetzt T-142, weil „Meine Zeiten“ bei jedem Öffnen langsam lädt (PO 31.10.); der Brief folgt vom TL.
 
 ## Weg zum Pilot
 
-T-141 und T-142 („Meine Zeiten“ schnell) → App-Build → T-055 (vorgezogen, mit Deploy) → grüne Wochenprobe → restliche
+T-142 („Meine Zeiten“ schnell) → App-Build → T-055 (vorgezogen, mit Deploy) → grüne Wochenprobe → restliche
 Geräteabnahme → Pilot (D-152). Braucht T-142 eine Serveränderung, kommt der App-Build nach dem Deploy.
 
 **Vor echten Daten (D-116):**

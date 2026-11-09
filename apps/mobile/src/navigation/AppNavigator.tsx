@@ -270,7 +270,7 @@ function ProductShell({ identityLabel, role, nfcSetupAvailable = false, manageme
           : destination === 'customers' ? work && customerAuthority ? <CustomersScreen administration={nfcSetupAvailable ? administration : undefined} work={work} authorityContext={customerAuthority} openCustomer={quotaCustomer}/> : <MessageScreen title="Kundenstunden sind derzeit nicht verfügbar."/>
           : destination === 'employees' ? managementScope && employees ? <EmployeesScreen employees={employees} scope={managementScope} locationsEnabled={locationsEnabled} /> : null
           : destination === 'times' ? work ? <OwnTimeScreen work={work} scan={scan} offlineManual={offlineManual} offlineActive={offlineActive}/>
-              : <Screen title="Meine Zeiten"><ProvisionalTimePanel manual={offlineManual} capture={offlineActive}/><Text>{ownDisplay.known?'Bestätigte Kalenderzeiten sind wieder mit Netz verfügbar.':'Ohne bestätigten Ausgangsstand ist keine vorläufige Uhr verfügbar.'}</Text></Screen>
+              : <Screen title="Meine Zeiten"><ProvisionalTimePanel history manual={offlineManual} capture={offlineActive}/><Text>{ownDisplay.known?'Bestätigte Kalenderzeiten sind wieder mit Netz verfügbar.':'Ohne bestätigten Ausgangsstand ist keine vorläufige Uhr verfügbar.'}</Text></Screen>
           : nfcSetupAvailable ? <AdminSetupScreen administration={administration} /> : null}
       </View>
     </EmbeddedScreenContext.Provider></SubviewBackContext.Provider>

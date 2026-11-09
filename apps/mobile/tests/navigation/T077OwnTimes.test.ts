@@ -110,6 +110,49 @@ const selected = () => container.querySelector('[role="tablist"] [aria-selected=
 const writeActions = () => buttons().map(node => node.textContent).filter(text => ['Zeit hinzufügen', 'Ändern', 'Kommentar schreiben', 'Beenden'].includes(text!));
 
 describe('T-077 own times through the product navigation', () => {
+  it.each(['offline','employee'] as const)('T141: capture shows only the current offline state while own times retains the history and full names (%s)', async role => {
+    const h = harness(role);
+    const workState=h.workStore.getState();
+    if(workState.status==='ready') h.workStore.publish({...workState,capturePending:true});
+    const baseline={activeTimeId:null,target:null,startedAt:null,breakStartedAt:null,confirmedAt:'2026-09-30T10:00:00.000Z'};
+    const evidence:OwnTimeEvidence[]=[];
+    const display=store(projectOwnTime(baseline,sessionContext('employee'),evidence));
+    h.props.offlineManual.getOwnTimeDisplay=display.getState;
+    h.props.offlineManual.subscribeOwnTimeDisplay=display.subscribe;
+    const capture=async(kind:'work'|'break',name='Max Kunde')=>act(async()=>{
+      const sequence=evidence.length+1;
+      evidence.push({sequence,displayName:name,event:{id:`event-${sequence}`,organizationId:'business',triggeredBy:'user',
+        occurredAt:`2026-09-30T10:${String(sequence).padStart(2,'0')}:00.000Z`,subject:{type:kind},trigger:{type:'manual'},
+        ...(kind==='work'?{target:{...target,targetId:name}}:{})} as OwnTimeEvidence['event']});
+      display.publish(projectOwnTime(baseline,sessionContext('employee'),evidence));
+    });
+    const ended=()=>[...container.querySelectorAll('div')].filter(node=>visible(node)&&node.childElementCount===0&&node.textContent?.startsWith('Zeit beendet ·'));
+    await act(async()=>root.render(createElement(AppNavigator,h.props)));
+    await capture('work'); await capture('work');
+    await capture('work','Anna-Lena Schmidt'); await capture('work','Anna-Lena Schmidt');
+    // Two completed captures belong in the calendar, not on the next-tap screen (T-140c).
+    expect(ended().map(node=>node.textContent)).toEqual([expect.stringContaining('Zeit beendet · Anna-Lena Schmidt')]);
+    expect(ended()[0]?.dataset.lines).toBe('1');
+    await press('Manuell erfassen');
+    expect(ended()).toHaveLength(1);
+    await press('Erfassen');
+    await capture('work');
+    expect(ended()).toHaveLength(0); expect(button('Zeit beenden')).toBeDefined();
+    expect(container.textContent).toContain('Max Kunde'); expect(container.textContent).toContain('seit Beginn');
+    await capture('break');
+    expect(ended()).toHaveLength(0); expect(button('Pause beenden')).toBeDefined();
+    expect(container.textContent).toContain('seit Pausenbeginn');
+    await capture('break'); await capture('work');
+    expect(ended()).toHaveLength(1);
+    await capture('break'); // Rejected capture still ends the previous stop's transient notice.
+    expect(ended()).toHaveLength(0);
+    await press('Meine Zeiten');
+    expect(ended()).toHaveLength(3);
+    expect(container.textContent).toContain('Max Kunde');
+    expect(container.textContent).toContain('Anna-Lena Schmidt');
+    expect(container.textContent).toContain('offline gespeichert');
+  });
+
   it('T140: a successful offline start immediately shows the running card', async () => {
     const h = harness('employee');
     const saved: Array<{ targetType: string; targetId: string }> = [];

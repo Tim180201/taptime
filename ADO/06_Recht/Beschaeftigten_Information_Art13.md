@@ -21,7 +21,8 @@
 > Die fehlende Umsetzung hebt Betroffenenrechte nicht auf. Die mindestens zweijährige Frist
 > bestimmter Arbeitszeitnachweise ist keine technische Löschfrist; weitere Pflichten prüfen.
 >
-> Die Anzeige von Zielnamen auf dem gesperrten Handy ist bewusst vorgesehen (D-147).
+> Auf dem gesperrten Handy erscheinen Kunden nur mit Initialen; Projekte und allgemeine Arbeit
+> behalten ihren Namen (D-160). Auch Initialen können im Zusammenhang eine Person erkennbar machen.
 > Bewertung und Einsatz erläutern, insbesondere bei minderjährigen Kunden. Kunden brauchen
 > eine eigene Information; dieses Blatt richtet sich an Beschäftigte. Das Produkt bleibt
 > branchenunabhängig. Namen und Freitext können sensible Angaben enthalten.
@@ -88,10 +89,13 @@ Die App verschlüsselt gespeicherte Zeiten und schützt deine Anmeldedaten.
 Für die Knöpfe auf dem Sperrbildschirm merkt sich das Handy eine eigene Berechtigung und den
 Stand der laufenden Zeit. Diese Berechtigung gilt höchstens 24 Stunden und nur für diese Zeit.
 
-## Achtung: Dein Sperrbildschirm zeigt Namen
+## Achtung: Dein Sperrbildschirm zeigt Initialen und Arbeitsziele
 
-**Auf dem gesperrten Handy sind Zielname, Zustand und Dauer sichtbar. Wer dein Handy sieht,
-kann den Namen des Kunden oder Schülers lesen.** Android zeigt eine laufende Mitteilung;
+**Auf dem gesperrten Handy sind Zustand und Dauer sichtbar. Kunden oder Schüler erscheinen nur
+mit Initialen, etwa „M. K.“; Projekte und allgemeine Arbeit behalten ihren Namen.** Dein Handy
+bildet die Initialen vor der Übergabe an die Systemanzeige. In der App steht der volle Name.
+Wer dein Handy sieht, kann aus dem Zusammenhang möglicherweise trotzdem erkennen, um wen es geht.
+Android zeigt eine laufende Mitteilung;
 das iPhone zeigt die Angaben auf dem Sperrbildschirm und gegebenenfalls oben neben der Kamera.
 **Pause, Weiter und Beenden sind ohne Entsperren möglich.** Die Herkunft der Aktion wird gespeichert.
 

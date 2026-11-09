@@ -10,10 +10,23 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import org.json.JSONObject
+import java.text.Normalizer
+import java.util.Locale
 
 internal object LockScreenNotification {
   private const val CHANNEL = "taptime_running_time_v1"
   private const val ID = 104
+  // D-160: redact only at the system boundary; the session keeps the full name.
+  private fun targetName(target: JSONObject?): String {
+    val name = target?.optString("displayName") ?: return "Laufende Zeit"
+    if (target.optString("targetType") != "customer") return name
+    val letters = Normalizer.normalize(name, Normalizer.Form.NFC)
+      .map { if (it.isWhitespace() || it == '\u0085') ' ' else it }.joinToString("").split(' ', ',')
+      .mapNotNull { word -> word.codePoints().toArray().firstOrNull { Character.isLetter(it) } }
+    if (letters.isEmpty()) return "Kunde"
+    val initials = if (letters.size == 1) letters else listOf(letters.first(), letters.last())
+    return initials.joinToString(" ") { String(Character.toChars(it)).uppercase(Locale.ROOT) + "." }
+  }
   fun cancel(context: Context) { context.getSystemService(NotificationManager::class.java).cancel(ID) }
   fun allowed(context: Context): Boolean {
     val manager = context.getSystemService(NotificationManager::class.java)
@@ -43,7 +56,7 @@ internal object LockScreenNotification {
     val running = LockScreenLogic.clockRuns(status, display)
     val seconds = state?.optLong("workDurationSeconds") ?: 0
     val elapsed = LockScreenLogic.elapsed(seconds, timestamp(state?.optString("asOf").orEmpty()) ?: now, now, running)
-    val target = state?.optJSONObject("target")?.optString("displayName") ?: "Laufende Zeit"
+    val target = targetName(state?.optJSONObject("target"))
     val content = LockScreenLogic.notificationText(target, status, display, seconds,
       timestamp(state?.optString("startedAt").orEmpty()), timestamp(state?.optString("breakStartedAt").orEmpty()))
     val builder = NotificationCompat.Builder(context, CHANNEL)

@@ -10,7 +10,7 @@ import { WorkRefreshNotice } from './WorkRefreshNotice';
 export { formatOwnTimeTimestamp, resolveDisplayTimeZone, ownTimeLoadStatus } from './TimeCalendar';
 export function OwnTimeScreen({ work, scan,offlineManual,offlineActive }: { readonly work: MobileWorkCapability; readonly scan?:ProductScanCapability;readonly offlineManual?:ManualOfflineCapturePort;readonly offlineActive?:OfflineActiveCapture }) {
   const ownDisplay=useOwnTimeDisplay(offlineManual);
-  const provisional=offlineManual&&offlineActive&&(ownDisplay.pending||ownDisplay.notice)?<ProvisionalTimePanel manual={offlineManual} capture={offlineActive}/>:null;
+  const provisional=offlineManual&&offlineActive&&(ownDisplay.pending||ownDisplay.notice)?<ProvisionalTimePanel history manual={offlineManual} capture={offlineActive}/>:null;
   const scanState = useSyncExternalStore(listener => scan?.subscribe(listener) ?? (()=>{}), () => scan?.getState() ?? null, () => scan?.getState() ?? null);
   const state = useSyncExternalStore((listener) => work.subscribe(listener), () => work.getState(), () => work.getState());
   useEffect(() => {
