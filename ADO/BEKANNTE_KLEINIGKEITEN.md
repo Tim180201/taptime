@@ -4,6 +4,7 @@ Hierher gehören die nicht blockierenden Befunde aus Reviews und Tests (AGENTS 5
 Klammern, Einzelheiten in Git. Erledigte Zeilen werden entfernt, nicht durchgestrichen. Keine Seitengrenze, aber nichts
 als diese Liste. Einordnung in die Analyse-Pakete mit B16. Stand bis 31.10.: aus `ADO/STATUS.md` hierher verschoben.
 
+- **Tests mit festem Monatsfenster (TL 09.11., P3):** `T085QuotaPostgres` „removes“ und „employees receive no quota fields“ (Oktober) sowie `TimeEntryExportPostgres` (Juli) setzen mit heutiger Zeit und lesen einen festen vergangenen Monat; sie können seitdem ohne Aussage bestehen. Beim nächsten Anfassen auf eine Zeit im Fenster stellen (Muster `011e67e`).
 - **T-141, TL (P3):** Die nativen Namenstests (Kotlin, Swift) laufen nur mit lokalem Gradle-Cache bzw. unter macOS; in der GitHub-CI werden sie übersprungen, wie bei T-104b.
 - **T-141, unabhängiges Review (P2):** Swift nimmt den ersten Graphemcluster, Kotlin den ersten Unicode-Codepoint; bei nicht vorkomponierbaren Zeichenfolgen etwa „किरण शर्मा“ entstehen `कि. श.` bzw. `क. श.`. Keine Offenlegung des vollen Namens; die vereinbarten Beispiele stimmen überein.
 - **T-141, lokale Prüfstrecke (P2):** Zusatzrunner zunächst ohne Log-Verzeichnis (`ENOENT`, vor jedem Test), nach eigener Verzeichnisanlage grün. Zusätzlicher Mobile-Lauf in der Sandbox scheiterte in zwei unveränderten Swift-Tests am gesperrten Compiler-Cache (`Operation not permitted`); CI mit Cache-Zugriff grün. Erstfehler und Abschlusslauf im lokalen Bericht.

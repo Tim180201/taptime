@@ -1,24 +1,26 @@
 # TapTim.e — Status
 
-**Stand 31.10.2026.** Höchstens eine Seite, überschreiben statt anhängen (AGENTS 6). Frühere Fassung mit allen
+**Stand 09.11.2026.** Höchstens eine Seite, überschreiben statt anhängen (AGENTS 6). Frühere Fassung mit allen
 Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
 
 ## Jetzt
 
 - **Produktion:** `05bcf51` seit dem gemeinsamen Deploy am 29.10. (Migrationen bis 068). Seither nur App-Änderungen,
   also kein Deploy nötig.
-- **Sicherung:** Aufräumen `ok` seit 30.10. 16:12 UTC (Basen 1.030 → 65, Marker 26 → 1). WAL wächst weiter bis zur
-  ältesten aufbewahrten Basis, das ist gewollt. Die Wochenprobe läuft am Sonntag, 1.11., um 03:35 UTC. Bis zur ersten
-  grünen Probe kommt die Morgenmeldung „Wiederherstellungsprüfung fehlgeschlagen“.
+- **Sicherung:** Aufräumen täglich `ok` (09.11.: 53 Basen, 2 Marker). WAL wächst weiter bis zur ältesten
+  aufbewahrten Basis, das ist gewollt. Die Wochenprobe ist grün, seit dem 01.11. kommt keine Morgenmeldung mehr.
+  Am 09.11. um 13:48 UTC kam ein Fehlalarm „WAL-Segment wartet seit 2 min“ ohne Datenverlust; der Status war danach
+  wieder `ok` (T-144).
 - **Apps:** Builds aus `b50e85a` (T-139, T-140). Die Geräteprüfung auf beiden Handys hat der PO am 31.10. bestanden.
-  Lokales Schema 8: keine ältere App darüber installieren.
-- **Aufgabe:** T-141 auf main (Initialen auf dem Sperrbildschirm, D-160; „Erfassen“ nur mit aktuellem Stand, T-140c).
-  Jetzt T-142, weil „Meine Zeiten“ bei jedem Öffnen langsam lädt (PO 31.10.); der Brief folgt vom TL.
+  Ausnahme: Die iPhone-Sperrbildschirm-Knöpfe öffnen mit Netz nur die App (T-143). Lokales Schema 8: keine ältere App
+  darüber installieren.
+- **Aufgabe:** T-141 auf main (`8363511`); die CI ist nach einem Datums-Test mit `011e67e` wieder grün. Jetzt T-143
+  (iPhone-Sperrbildschirm), danach T-142 („Meine Zeiten“ lädt bei jedem Öffnen langsam, PO 31.10.).
 
 ## Weg zum Pilot
 
-T-142 („Meine Zeiten“ schnell) → App-Build → T-055 (vorgezogen, mit Deploy) → grüne Wochenprobe → restliche
-Geräteabnahme → Pilot (D-152). Braucht T-142 eine Serveränderung, kommt der App-Build nach dem Deploy.
+T-143 → T-142 → App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
+Braucht T-142 eine Serveränderung, kommt der App-Build nach dem Deploy.
 
 **Vor echten Daten (D-116):**
 - Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S;
