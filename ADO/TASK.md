@@ -1,71 +1,71 @@
 # Aktuelle Aufgabe
 
 > **Stand 09.11.2026:**
-> - T-141 ist auf main (`8363511`).
-> - Die CI war wegen eines Datums-Tests rot (Kontingent, seit 01.11.). Mit `011e67e` ist sie wieder grün.
-> - Jetzt T-143, danach T-142, dann ein gemeinsamer App-Build.
+> - T-143 ist auf main (`2f37db2`). CI und Image sind grün.
+> - Jetzt T-142, danach ein gemeinsamer App-Build mit T-141, T-143 und T-142.
 
-## T-143 · iPhone: Sperrbildschirm-Knöpfe öffnen seit Build 12 nur die App (P1, Rückschritt)
+## T-142 · „Meine Zeiten“ schnell
 
-**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Es geht um die Sperrbildschirm-Berechtigung (Auth),
-deshalb ein unabhängiges Review (AGENTS 4) · **Zeitbox:** eine Sitzung. Ohne belegte Ursache wird nichts geändert;
-dann stoppen und melden.
+**Für:** Development (Astra, Extra High) · **Risiko:** mittel. Die Abrufe hängen mit dem Sperrbildschirm zusammen
+(T-143). Berührt die Änderung dessen Weg, gibt es ein unabhängiges Review (AGENTS 4) · **Zeitbox:** zwei Sitzungen.
+Reißt sie, wird Hebel 4 geschnitten.
 
 ### Befund (PO 31.10. und 09.11.)
 
-- **Auf dem iPhone,** Build aus `b50e85a` mit T-139 und T-140, mit Netz:
-  - Zeit in der App starten, die App mindestens 10 s offen lassen, dann sperren.
-  - Die Live-Aktivität zeigt „Läuft seit …“ ohne Zusatz.
-  - Pause und Beenden öffnen nur die App und buchen nichts, egal wie lange man wartet.
-- **Mit Build 11** (`05bcf51`) wirkten die Knöpfe direkt (D-146).
-- **Android** ist nicht betroffen.
+„Meine Zeiten“ braucht bei jedem Öffnen spürbar lange, bis alles da ist: am iPhone 1–3 s, am Android 3–5 s, mit gutem
+Netz.
 
-Die Knöpfe sind dann Links statt Intents. `canSend` ist also falsch: Es fehlt der Schlüssel, `appBlocked` ist gesetzt
-oder `ownCapturePending` ist gesetzt.
+### Was der TL im Code sieht (zu prüfen)
 
-### Spuren des TL (nicht bewiesen)
-
-1. **Offline-Vorschau aus T-140:** `LockScreenCoordinator.publishPreview` ruft bei jeder vorläufigen Anzeige
-   `awaitOwnCapture()` auf. Die RAM-Vorhersage bleibt nach der Quittung vorläufig, bis `confirmOwnTime` gelaufen ist.
-   - Unter iOS setzt `suspend(ownCapture:)` jedes Mal eine neue Nonce und verwirft den Schlüssel, auch wenn schon
-     gewartet wird.
-   - Android kehrt in diesem Fall früh zurück.
-   - `issue` unter iOS gilt nur bei gleicher Nonce und ohne `ownCapturePending`.
-2. **Neue Serverabrufe aus T-140:** `requestOwnTimeConfirmation` startet zusätzliche `refreshPreservingActive`-Läufe.
-   Ein neuerer Lauf verdrängt den laufenden (`preservingEpoch`).
-   - `LockScreenCoordinator.refreshOnce` gibt dann ohne neuen Versuch auf.
-   - Folge: kein `project` und kein `issue`.
+- **Seiten:** Eigene Zeiten kommen in Seiten zu 20 Einträgen, einschließlich Details und Kalender je Eintrag, und zwar
+  eine nach der anderen für diesen und den letzten Monat. Das Höchstmaß 20 legt der Vertrag fest
+  (`MOBILE_OWN_TIME_LIMIT_MAXIMUM`).
+- **Öffnen:** Jedes Öffnen ruft `refresh()` auf und liest damit alle Seiten neu (`readPreservingActive`). Jedes `read`
+  holt dazu die Arbeitsziele.
+- **Zusätzliche Abrufe:** Bestätigungsabrufe aus T-140 und der neue Durchlauf aus T-143 lösen weitere vollständige
+  Abrufe aus. Diese verdrängen sich gegenseitig.
+- **Seit T-140:** Vor und nach jedem Abruf liest und schreibt die App die Offline-Datenbank.
 
 ### Umfang
 
-1. **Zuerst nachstellen, rot:** Ein Integrationstest mit dem echten `LockScreenCoordinator`, `MobileWorkCoordinator`
-   und `OfflineCaptureCoordinator` (wie in T-140). Die native Seite folgt der dokumentierten iOS-Semantik von
-   `LockScreenEngine.swift`: `foregroundOnly`, Nonce und Schlüssel bei `suspend` und `issue`.
-   - Ablauf: online in der App erfassen, Server bestätigt, die App bleibt im Vordergrund.
-   - Erwartung: Danach gibt es einen gültigen Schlüssel, `appBlocked` und `ownCapturePending` sind falsch, und
-     `canSend` ist wahr.
-   - Belegen, welche Änderung aus T-140 den Unterschied macht, zum Beispiel mit abgeschalteter Vorschau.
-   - Spur 1 oder 2 bestätigen oder verwerfen.
-2. **Ursache beheben, so klein wie möglich.** Diese Schutzregeln bleiben unverändert:
-   - Ein veralteter Tipp bucht nie.
-   - Der P1-Schutz aus T-140 R1 (neuere native Pause oder neueres Ende) bleibt.
-   - D-043, D-146 und D-160 bleiben.
-   - Ohne Netz bleibt alles wie in T-140: Die Knöpfe öffnen die App.
-   - Kein neuer Weg, einen Schlüssel auszustellen.
-3. **Wird ein Abgleich des Sperrbildschirms verdrängt,** darf er nicht still verloren gehen.
+1. **Zuerst messen**, mit den Pilotgrößen aus `tests/pilot-size/`: eine Lehrkraft mit zwei vollen Monaten und eine
+   Standortleitung. Je Öffnen erfassen:
+   - die Zahl der Anfragen;
+   - die Serverzeit je Anfrage;
+   - die Datenmenge;
+   - die Rechenzeit in der App bis zur vollständigen Anzeige, getrennt nach Netz, Server, Offline-Datenbank und Rendern;
+   - was die Nutzerin in jedem Moment sieht: beim ersten Öffnen nach dem App-Start und bei jedem weiteren Öffnen.
+2. **Dann die größten Hebel umsetzen**, belegt durch die Messung:
+   1. **Sofort zeigen:** Ein bekannter, bestätigter Kalender bleibt beim Öffnen sichtbar und wird still ersetzt, sobald
+      der neue vollständig ist. Kein Lade-Bildschirm, wenn schon Daten da sind.
+   2. **Abrufe bündeln:** Gleichzeitige Anstöße teilen sich einen laufenden Abruf, danach folgt höchstens einer. Für den
+      Sperrbildschirm muss weiter gelten, was T-143 sichert: Er bekommt nach seinem `suspend` einen gültigen Abgleich.
+   3. **Nicht unnötig neu laden:** Beim Öffnen nur neu laden, wenn sich etwas geändert haben kann. Den Auslöser legt
+      Codex vor und begründet ihn.
+   4. **Größere Seiten:** Nur wenn die Messung es verlangt. Das braucht eine Server- und Vertragsänderung; alte
+      App-Builds mit 20 Einträgen müssen weiter funktionieren. Dann kommt der App-Build erst nach dem Deploy.
+3. **Keine neue Speicherung eigener Zeiten auf dem Gerät** ohne Rückfrage beim TL (AGENTS 1.5).
+4. **Ziel:**
+   - Bekannte Inhalte sind sofort da.
+   - Bei Pilotgröße und gutem Netz ist „Meine Zeiten“ in unter 1 s aktuell.
+   - Je Öffnen höchstens ein vollständiger Abruf.
 
 ### Tests und Nachweis
 
-- **iOS- und Android-Semantik**, jeweils:
-  - Erfassung in der App, per Karte und per Sperrbildschirm-Knopf;
-  - Rückkehr in den Vordergrund;
-  - Pause, Fortsetzen und Beenden in Folge.
-- **Die Offline-Vorschau** und die R1-Regressionen aus T-140 bleiben grün.
-- **Builds und CI:** Swift-Engine-Tests und Typecheck von Laufzeit und Widget, Android-Release-Build, iOS-JS-Export,
-  ganze CI lokal nachgebaut.
-- **Bericht:** `.t143-review/bericht.md` mit einer kurzen Geräteprüfliste für beide Telefone.
+- **Messung vorher und nachher** mit demselben Werkzeug, als Tabelle im Bericht.
+- **Anfragezählung:**
+  - Zweimal öffnen ergibt höchstens einen vollständigen Abruf.
+  - Mehrere gleichzeitige Anstöße ergeben einen Abruf und höchstens einen Folgeabruf.
+- **Grün bleiben:**
+  - die Regressionen aus T-140, darunter R1 und die Bestätigung;
+  - die Regressionen aus T-143 (verdrängter Abgleich, veralteter Tipp, Netzfehler);
+  - T-104e (keine Leseschleife, Kalenderwechsel nur mit vollständigen Seiten).
+- **Bei Hebel 4:** API- und Vertragstests und der Nachweis, dass Anfragen mit 20 weiter angenommen werden.
+- **Builds und CI:** Android-Release-Build, iOS-JS-Export, ganze CI lokal nachgebaut.
+- **Bericht:** `.t142-review/bericht.md` mit einer kurzen Geräteprüfliste für beide Telefone.
 
 ### Grenzen
 
-- Kein Deploy, keine EAS-Builds, kein Server, kein Supabase, keine GHCR-Paketaktion, nichts installieren (AGENTS 3).
+- Kein Deploy, keine EAS-Builds, kein Server-, Supabase- oder Produktionszugriff, keine GHCR-Paketaktion, nichts
+  installieren (AGENTS 3).
 - Kein Commit vor `APPROVED`.

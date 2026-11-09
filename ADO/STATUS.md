@@ -15,7 +15,7 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
   Ausnahme: Die iPhone-Sperrbildschirm-Knöpfe öffnen mit Netz nur die App (T-143, auf main, wirkt mit dem nächsten App-Build).
   Lokales Schema 8: keine ältere App darüber installieren.
 - **Aufgabe:** T-143 auf main (verlorener Sperrbildschirm-Abgleich). Jetzt T-142 („Meine Zeiten“ lädt bei jedem Öffnen
-  langsam, PO 31.10.); der Brief folgt vom TL.
+  langsam, PO 31.10. und 09.11.; Brief in TASK).
 
 ## Weg zum Pilot
 
