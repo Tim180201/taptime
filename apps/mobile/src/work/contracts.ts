@@ -50,6 +50,7 @@ export interface MobileWorkCapability extends ClientSearchCapability, importQuot
   getState(): MobileWorkState;
   subscribe(listener: () => void): () => void;
   refresh(): Promise<void>;
+  ensureOwnTime?(): Promise<void>;
   loadMoreOwnTime(): Promise<void>;
   triggerManual(target: SafeWorkTarget): Promise<void>;
   triggerBreak(): Promise<void>;

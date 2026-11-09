@@ -1,7 +1,8 @@
+import { indexCalendarDays } from '../../src/screens/indexCalendarDays';
 import { describe, expect, it } from 'vitest';
 import type { MobileOwnTimeQueryResponse, SafeOwnTimeRecord } from '@taptime/mobile-work-contract';
 import { businessDay, dayStart, formatDuration, intervalMilliseconds, monthDays,
-  provenance, rangeSummary, recordsForDay, shiftMonth, weekStart } from '../../src/screens/ownTimeCalendar';
+  provenance, rangeSummary, recordsForDay, shiftDay, shiftMonth, weekStart } from '../../src/screens/ownTimeCalendar';
 
 const record: SafeOwnTimeRecord = { calendar:{asOf:'2026-10-02T00:00:00Z',workDurationSeconds:7200,breakDurationSeconds:0,breakIntervals:[]}, timeRecordId: 'record', source: 'canonical', targetType: 'customer',
   targetDisplayName: 'Werkstatt', status: 'stopped', startedAt: '2026-09-30T21:00:00Z',
@@ -11,6 +12,26 @@ function projection(overrides: Partial<MobileOwnTimeQueryResponse> = {}): Mobile
     windowStartedAt: '2026-09-01T00:00:00Z', windowEndedAt: '2026-10-02T00:00:00Z', ...overrides };
 }
 describe('Berlin calendar', () => {
+  it('T142: an indexed frame retains Core seconds across DST, month boundaries, pauses and incomplete data', () => {
+    const autumn = {...record,timeRecordId:'autumn',startedAt:'2026-10-24T21:30:00Z',stoppedAt:'2026-10-26T00:30:00Z',
+      calendar:{asOf:'2026-10-26T01:00:00Z',workDurationSeconds:90_001,breakDurationSeconds:7_199,
+        breakIntervals:[{startedAt:'2026-10-25T00:30:00Z',stoppedAt:'2026-10-25T02:30:00Z'}]}};
+    const spring = {...autumn,timeRecordId:'spring',startedAt:'2026-03-28T22:30:00Z',stoppedAt:'2026-03-30T00:30:00Z',
+      calendar:{...autumn.calendar,breakIntervals:[],workDurationSeconds:93_600,breakDurationSeconds:0}};
+    for (const extra of [{}, {nextCursor:'more'}, {records:[record,{...autumn,calendar:undefined}]},
+      {activeRecord:{...spring,status:'started' as const,stoppedAt:null,calendar:{...spring.calendar,asOf:spring.stoppedAt!}}}]) {
+      const value=projection({records:[record,autumn,spring],windowStartedAt:'2026-03-01T00:00:00Z',windowEndedAt:'2026-11-01T00:00:00Z',...extra});
+      const summary=indexCalendarDays(value);
+      for(const month of ['2026-03','2026-09','2026-10','2026-11'])for(const day of monthDays(month))if(day){
+        expect(summary(day,shiftDay(day,1))).toEqual(rangeSummary(value,day,shiftDay(day,1)));
+        expect(summary(weekStart(day),shiftDay(weekStart(day),7))).toEqual(rangeSummary(value,weekStart(day),shiftDay(weekStart(day),7)));
+      }
+    }
+    const old=indexCalendarDays(projection());
+    const corrected=indexCalendarDays(projection({records:[{...record,calendar:{...record.calendar!,workDurationSeconds:3600}}]}));
+    expect(old('2026-09-30','2026-10-02').milliseconds).toBe(7_200_000);
+    expect(corrected('2026-09-30','2026-10-02').milliseconds).toBe(3_600_000);
+  });
   it('assigns the same UTC instant to the Berlin month and week, independently of device time', () => {
     expect(businessDay('2026-09-30T22:30:00Z')).toBe('2026-10-01');
     expect(weekStart('2026-10-01')).toBe('2026-09-28');

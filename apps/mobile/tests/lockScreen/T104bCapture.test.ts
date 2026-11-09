@@ -58,11 +58,12 @@ it('RED P1-2: offline active card stop also marks its own capture as transferrin
 });
 it('P2-b: a failed preserving read does not leave a parallel normal refresh in loading',async()=>{
   const h=harness();let release!:(value:Awaited<ReturnType<typeof h.api.read>>)=>void;
-  const original=h.api.read;
+  const original=vi.mocked(h.api.read).getMockImplementation()!;
   vi.mocked(h.api.read).mockImplementationOnce(()=>new Promise(resolve=>{release=resolve;})).mockResolvedValueOnce({status:'unavailable'});
   const normal=h.work.refresh();await vi.waitFor(()=>expect(release).toBeDefined());
-  expect(await h.work.refreshPreservingActive()).toBe(false);
+  const preserving=h.work.refreshPreservingActive();
   release(await original('test-membership'));await normal;
+  expect(await preserving).toBe(false);
   expect(h.work.getState().status).toBe('ready');
 });
 

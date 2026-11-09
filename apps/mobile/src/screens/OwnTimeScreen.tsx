@@ -14,11 +14,11 @@ export function OwnTimeScreen({ work, scan,offlineManual,offlineActive }: { read
   const scanState = useSyncExternalStore(listener => scan?.subscribe(listener) ?? (()=>{}), () => scan?.getState() ?? null, () => scan?.getState() ?? null);
   const state = useSyncExternalStore((listener) => work.subscribe(listener), () => work.getState(), () => work.getState());
   useEffect(() => {
-    // Pick up changes under Mitarbeiter without replacing a manual capture/acknowledgement.
+    // Reuse the current complete frame; mutations invalidate it in the runtime.
     const current = work.getState();
     if (current.status === 'loading' || current.status === 'ready'
       && (current.submitting || current.outcome === 'pending')) return;
-    void work.refresh();
+    void (work.ensureOwnTime?.() ?? work.refresh());
   }, [work]);
   useEffect(() => {
     if (state.status === 'ready' && state.ownTime.nextCursor !== null && !state.loadingMore) void work.loadMoreOwnTime();

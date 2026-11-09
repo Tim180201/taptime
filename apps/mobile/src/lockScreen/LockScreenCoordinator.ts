@@ -36,6 +36,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
   private appCapture=false;
   private rejection:CaptureRejection|null=null;
   private refreshing:Promise<void>|null=null;
+  private readingOwnTime=false;
   private requested=false;
   private discardPendingRequested=false;
   private scanBusy=false;
@@ -68,8 +69,9 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
         state.status==='ready'&&state.capturePending]);
       if(state.status==='ready' && ownState!==this.lastOwnState){
         this.lastOwnState=ownState;
-        // refresh() coalesces changes during a read; mayRefresh()/afterCapture own capture exclusion.
-        void this.refresh();
+        // The pending read already feeds publishOwnState below. Do not request
+        // another full calendar just because that same read published its result.
+        if(!this.readingOwnTime)void this.refresh();
       }
     }),this.scan.subscribe(()=>this.onScan()),this.connectivity.subscribe(online=>{if(online)void this.refresh();else this.updateUi(true);})];
     let previous=this.appState.currentState;
@@ -183,7 +185,10 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     if(!stand || stand.owner!==owner || !this.native.suspend())return;
     if(!await this.connectivity.get()){this.updateUi(true);return;}
     if(this.native.foregroundOnly&&!current())return;
-    const refreshed=await this.work.refreshPreservingActive();
+    this.readingOwnTime=true;
+    let refreshed:PreservingRefreshResult;
+    try{refreshed=await this.work.refreshPreservingActive();}
+    finally{this.readingOwnTime=false;}
     if(!current())return;
     // T140 confirmation reads can supersede this read without changing the active
     // time. No work-state notification will then request the projection we still owe.

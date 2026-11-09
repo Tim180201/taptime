@@ -72,12 +72,13 @@ it('keeps every action locked until confirmation and the refreshed read finish',
  release();await flight;expect(work.getState()).toMatchObject({submitting:false});
 });
 it('blocks pagination during capture and discards a page started before capture after the confirmed reload',async()=>{
- const {api,work}=setup(false);
+ const {api,work}=setup(false);await work.refresh();
  const initial={...ownTime,nextCursor:'old-page'};
  api.read=vi.fn(async()=>({status:'ready' as const,ownTime:initial,targets:{targets:[],nextCursor:null}}));
  let releasePage!:()=>void;
  api.readOwnTimePage=vi.fn(()=>new Promise<import('../../src/work/contracts').MobileOwnTimePageResult>(resolve=>{releasePage=()=>resolve({status:'ready',ownTime:{...ownTime,records:[]}});}));
- await work.refresh();const oldPage=work.loadMoreOwnTime();
+ const oldPage=work.refresh();
+ await vi.waitFor(()=>expect(releasePage).toBeDefined());
  let releaseStop!:()=>void;
  api.triggerManual=vi.fn(()=>new Promise<ManualTriggerResult>(resolve=>{releaseStop=()=>resolve({status:'accepted',outcome:'time_entry_stopped'});}));
  api.read=vi.fn(async()=>({status:'ready' as const,ownTime:{...ownTime,activeRecord:null},targets:{targets:[],nextCursor:null}}));

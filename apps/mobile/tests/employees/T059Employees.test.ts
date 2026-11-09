@@ -4,6 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { productDestinations } from '../../src/navigation/presentation';
 import { TapTimeSessionApiClient } from '../../src/auth/TapTimeSessionApiClient';
 import * as calendar from '../../src/screens/ownTimeCalendar';
+import * as indexedCalendar from '../../src/screens/indexCalendarDays';
 
 vi.mock('react-native', () => {
   const element = ({ children, accessibilityLabel }: {children?: ReactNode; accessibilityLabel?: string}) => createElement('div', {'aria-label':accessibilityLabel},children);
@@ -48,7 +49,7 @@ describe('T059 Mobile red proofs',()=>{
   });
   it('h: foreign person calendar uses the own-time helpers and prints an em dash for unloaded days',async()=>{
     const {PersonTimeScreen}=await import('../../src/screens/PersonTimeScreen');
-    const range=vi.spyOn(calendar,'rangeSummary');
+    const range=vi.spyOn(indexedCalendar,'indexCalendarDays');
     const person={membershipId:id,displayName:'Anna',role:'employee' as const,location:{id:locationId,name:'Nord'},
       isRunning:false,runningSince:null,runningTargetDisplayName:null};
     const html=renderToStaticMarkup(createElement(PersonTimeScreen,{person,value,onBack:()=>{},onRefresh:async()=>{}}));

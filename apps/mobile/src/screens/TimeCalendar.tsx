@@ -1,6 +1,7 @@
+import { indexCalendarDays } from './indexCalendarDays';
 import {VoidedTimeRows} from '../timeEditing/TimeVoidControls';
 import { AddTimeControl, TimeRecordControls } from '../timeEditing/TimeEditingControls';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from '../design/useReducedMotion';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { BUSINESS_TIME_ZONE } from '@taptime/core';
@@ -10,7 +11,7 @@ import { LineIcon } from '../design/LineIcon';
 import { useThemedStyles } from '../design/useMobileTheme';
 import type { MobileTokens } from '../design/tokens';
 import { businessDay, dayStart, formatClock, formatDuration, formatHours, intervalMilliseconds,
-  monthDays, provenance, rangeSummary, monthTimeSummary, recordDaySummary, recordDaySectionLabels, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
+  monthDays, provenance, monthTimeSummary, recordDaySummary, recordDaySectionLabels, recordsForDay, shiftDay, shiftMonth, weekStart } from './ownTimeCalendar';
 
 export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembershipId}: {readonly targetMembershipId?: string; readonly value: MobileOwnTimeQueryResponse; readonly onRefresh: ()=>Promise<void>; readonly onMonthChange?: (month: string)=>void}) {
   const styles = useThemedStyles(createStyles);
@@ -22,9 +23,10 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
   const [month,setMonth]=useState(()=>selected.slice(0,7));
   const today = businessDay(Date.parse(ownTime.windowEndedAt)-1);
   const thisWeek = weekStart(today);
+  const summarizeRange = useMemo(() => indexCalendarDays(ownTime), [ownTime]);
   const monthSummary = monthTimeSummary(ownTime,month);
-  const weekSummary = rangeSummary(ownTime, thisWeek, shiftDay(thisWeek, 7));
-  const daily = rangeSummary(ownTime, selected, shiftDay(selected, 1));
+  const weekSummary = summarizeRange(thisWeek, shiftDay(thisWeek, 7));
+  const daily = summarizeRange(selected, shiftDay(selected, 1));
   const records = recordsForDay(ownTime, selected);
   const monthTitle = new Intl.DateTimeFormat('de-DE', { timeZone: BUSINESS_TIME_ZONE, month: 'long', year: 'numeric' })
     .format(new Date(`${month}-15T12:00:00Z`));
@@ -49,7 +51,7 @@ export function TimeCalendar({value: ownTime,onRefresh,onMonthChange,targetMembe
         <Text key={day} numberOfLines={1} adjustsFontSizeToFit style={styles.weekday}>{day}</Text>)}</View>
       {Array.from({length:Math.ceil(monthDays(month).length/7)},(_,week)=><View key={week} testID="calendar-week" style={styles.grid}>{Array.from({length:7},(_,column)=>monthDays(month)[week*7+column]??null).map((day, index) => {
         if (day === null) return <View key={`space-${index}`} style={styles.daySpace} />;
-        const summary = rangeSummary(ownTime, day, shiftDay(day, 1));
+        const summary = summarizeRange(day, shiftDay(day, 1));
         return <TouchTarget key={day} accessibilityRole="button"
           accessibilityLabel={`${day.split('-').reverse().join('.')}, ${summary.complete ? `${formatHours(summary.milliseconds)} Stunden` : 'nicht vollständig geladen'}`}
           accessibilityState={{ selected: day === selected }} onPress={() => { setSelected(day); scroll.current?.scrollTo({ y: dayHeadingY.current, animated: !reducedMotion }); }}

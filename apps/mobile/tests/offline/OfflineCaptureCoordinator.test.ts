@@ -350,7 +350,7 @@ describe('T143 online capture restores native authority',()=>{
       await work.triggerManual(target);await actionable(t);
       expect(h.sent).toHaveLength(1);expect(await h.coordinator.hasUnconfirmedCapture()).toBe(false);
       // The foreground lease refresh requests a second own-time read (introduced in T140).
-      // Hold the lock-screen response until that newer read publishes the unchanged active time.
+      // Hold the lock-screen response while the foreground read is requested; T142 queues it.
       const started=deferred<void>(),read=apiRead.getMockImplementation()!;
       apiRead.mockImplementationOnce(async()=>{const result=await read();started.resolve();await response.promise;return result;});
       const workReads=vi.spyOn(work,'refreshPreservingActive');
@@ -360,9 +360,10 @@ describe('T143 online capture restores native authority',()=>{
       await h.scheduler().whenIdle();
       if(confirmation){
         await vi.waitFor(()=>expect(workReads.mock.calls.length).toBeGreaterThan(1));
-        await workReads.mock.results[1]!.value;
+        expect(apiRead).toHaveBeenCalled(); // The confirmation now waits for the shared read.
       }
       response.resolve();await refreshing;
+      if(confirmation)await workReads.mock.results[1]!.value;
       expect(n.inspect()).toMatchObject({key:true,appBlocked:false,ownCapturePending:false,canSend:true});
       expect(n.trace).toContain('project');expect(n.trace).toContain('issue:issued');
       expect(h.sent).toHaveLength(1); // Reconciliation never repeats the booking.

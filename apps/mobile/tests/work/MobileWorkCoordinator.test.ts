@@ -92,13 +92,15 @@ describe('MobileWorkCoordinator', () => {
     expect(work.getState()).toMatchObject({status:'ready',feedback:null,refreshError:null});
   });
 
-  it.each(['refresh','refreshPreservingActive'] as const)('T104e R2: an obsolete %s failure remains silent',async method=>{
+  it.each(['refresh','refreshPreservingActive'] as const)('T104e R2: an obsolete %s failure after a runtime change remains silent',async method=>{
     const api:MobileWorkApiPort={read:vi.fn(async()=>readyRead),readOwnTimePage:vi.fn(),triggerManual:vi.fn()};
     const work=new MobileWorkCoordinator(sessionReader(()=>true),api);
     await work.refresh();
     let finish!:(value:{status:'authority_rejected'})=>void;
     vi.mocked(api.read).mockImplementationOnce(()=>new Promise(resolve=>{finish=resolve;}));
     const old=work[method]();
+    await vi.waitFor(()=>expect(finish).toBeDefined());
+    work.stop(); // A replaced runtime, unlike a concurrent reader, invalidates this flight.
     await work.refresh();const current=work.getState();
     finish({status:'authority_rejected'});await old;
     expect(work.getState()).toBe(current);
@@ -255,7 +257,7 @@ describe('MobileWorkCoordinator', () => {
     });
   });
 
-  it('loads own-time pages on demand while preserving the immutable active/window frame', async () => {
+  it('loads all own-time pages atomically while preserving the immutable active/window frame', async () => {
     const first = {
       ...readyRead,
       ownTime: { ...readyRead.ownTime, nextCursor: 'v1:next' },
@@ -358,15 +360,13 @@ describe('MobileWorkCoordinator', () => {
       triggerManual: vi.fn(async () => ({ status: 'unavailable' as const })),
     };
     const coordinator = new MobileWorkCoordinator(sessionReader(() => current), api);
-    await coordinator.refresh();
-    const loading = coordinator.loadMoreOwnTime();
+    const loading = coordinator.refresh();
+    await vi.waitFor(()=>expect(resolvePage).toBeDefined());
     current = false;
     resolvePage({ status: 'ready', ownTime: readyRead.ownTime });
     await loading;
     expect(coordinator.getState()).toMatchObject({
-      status: 'ready',
-      loadingMore: true,
-      ownTime: { records: [] },
+      status: 'loading',
     });
   });
 

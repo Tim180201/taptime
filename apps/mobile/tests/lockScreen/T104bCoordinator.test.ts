@@ -11,7 +11,7 @@ import type { ProductScanState } from '../../src/scan/contracts';
 
 import { harness, ready, initial } from './lockScreenHarness';
 
-it('T104e R2: queues the ready change when AppNavigator supersedes the cold-start lock-screen read',async()=>{
+it('T104e R2: publishes authority when AppNavigator shares the cold-start lock-screen read',async()=>{
   const h=harness();
   const read=h.api.read;
   let finishFirst!:()=>void;
@@ -30,10 +30,11 @@ it('T104e R2: queues the ready change when AppNavigator supersedes the cold-star
     h.controller.start(); // onSession starts refreshOnce, which suspends native actions.
     await vi.waitFor(()=>expect(finishFirst).toBeDefined());
     expect(appBlocked).toBe(true);
-    await h.work.refresh(); // AppNavigator's read increases generation and publishes ready.
-    expect(h.work.getState().status).toBe('ready');
+    const shared=h.work.refresh(); // AppNavigator joins the cold-start read.
+    expect(appBlocked).toBe(true);
     expect(h.native.project).not.toHaveBeenCalled();
-    finishFirst(); // The lock-screen read is now obsolete; the ready change must run next.
+    finishFirst();await shared;
+    expect(h.work.getState().status).toBe('ready');
     await vi.waitFor(()=>expect(h.native.issue).toHaveBeenCalled());
     expect(h.native.project).toHaveBeenCalled();expect(appBlocked).toBe(false);
     expect(h.api.triggerManual).not.toHaveBeenCalled();expect(h.native.retry).not.toHaveBeenCalled();

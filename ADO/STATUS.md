@@ -14,13 +14,12 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
 - **Apps:** Builds aus `b50e85a` (T-139, T-140). Die Geräteprüfung auf beiden Handys hat der PO am 31.10. bestanden.
   Ausnahme: Die iPhone-Sperrbildschirm-Knöpfe öffnen mit Netz nur die App (T-143, auf main, wirkt mit dem nächsten App-Build).
   Lokales Schema 8: keine ältere App darüber installieren.
-- **Aufgabe:** T-143 auf main (verlorener Sperrbildschirm-Abgleich). Jetzt T-142 („Meine Zeiten“ lädt bei jedem Öffnen
-  langsam, PO 31.10. und 09.11.; Brief in TASK).
+- **Aufgabe:** T-142 auf main („Meine Zeiten“ schnell, ohne Serveränderung). Jetzt der gemeinsame App-Build mit
+  T-141, T-143 und T-142 und dessen Geräteprüfung.
 
 ## Weg zum Pilot
 
-T-142 → App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
-Braucht T-142 eine Serveränderung, kommt der App-Build nach dem Deploy.
+App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
 
 **Vor echten Daten (D-116):**
 - Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S;

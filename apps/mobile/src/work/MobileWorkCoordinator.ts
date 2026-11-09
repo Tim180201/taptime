@@ -2,7 +2,7 @@ import type { CaptureBoundary } from '../lockScreen/contracts';
 import { normalizeSearch } from '../search/search';
 import type { SearchKind, SearchResponses, SearchRequests } from '@taptime/mobile-work-contract';
 import type { ClientSearchRequest, PageResult } from '../search/search';
-import { dayStart, shiftMonth } from '@taptime/core';
+import { businessDay, dayStart, shiftMonth } from '@taptime/core';
 import { captureFeedback, type MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { CustomerHoursResult } from '@taptime/mobile-work-contract';
 import type { SafeWorkTarget } from '@taptime/mobile-work-contract';
@@ -22,10 +22,25 @@ export interface CaptureConnectivityPort {
 /** A newer read is distinct from a failed read: callers may still owe a native projection. */
 export type PreservingRefreshResult = boolean | 'superseded';
 
+// Reopening a tab may reuse RAM data briefly. Mutations, reconnects and the
+// existing foreground/lock-screen reads bypass this age check; there is no timer.
+const OWN_TIME_FRESH_MILLISECONDS = 30_000;
+interface OwnTimeReadFlight {
+  generation: number;
+  sessionGeneration: number;
+  invalidation: number;
+  reportFailure: boolean;
+  started: boolean;
+  promise: Promise<PreservingRefreshResult>;
+  next?: { reportFailure: boolean; promise: Promise<PreservingRefreshResult> };
+}
+
 export class MobileWorkCoordinator implements MobileWorkCapability {
   lockScreenBoundary?: CaptureBoundary;
   private checkingLockScreen = false;
-  private preservingEpoch = 0;
+  private ownTimeRead: OwnTimeReadFlight | null = null;
+  private ownTimeInvalidation = 0;
+  private ownTimeFreshAt: number | null = null;
   private state: MobileWorkState = Object.freeze({ status: 'inactive' });
   private readonly listeners = new Set<() => void>();
   private unsubscribe: (() => void) | null = null;
@@ -73,6 +88,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         )
       ) {
         this.generation += 1;
+        this.invalidateOwnTime();
         this.ownTimeCursors.clear();
         this.boundSessionGeneration = snapshot?.generation ?? null;
         this.pendingManualEventIds = [];
@@ -82,12 +98,12 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         this.setState({ status: 'inactive' });
       }
     });
-    this.unsubscribeOwnTimeConfirmation=this.offlineCapture?.subscribeOwnTimeConfirmationRequests?.(()=>{void this.refreshPreservingActive().catch(()=>undefined);})??null;
+    this.unsubscribeOwnTimeConfirmation=this.offlineCapture?.subscribeOwnTimeConfirmationRequests?.(()=>{this.invalidateOwnTime();void this.refreshPreservingActive().catch(()=>undefined);})??null;
     this.unsubscribeManualAcknowledgements =
       this.offlineCapture?.subscribeManualAcknowledgements?.(
         () => { void this.handleManualAcknowledgement(); },
       ) ?? null;
-    this.unsubscribeConnectivity = this.connectivity?.subscribe(online => {if(!online)this.releasePendingScreen();}) ?? null;
+    this.unsubscribeConnectivity = this.connectivity?.subscribe(online => {this.invalidateOwnTime();if(!online)this.releasePendingScreen();}) ?? null;
   }
 
   stop(): void {
@@ -100,6 +116,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     this.unsubscribeManualAcknowledgements?.();
     this.unsubscribeManualAcknowledgements = null;
     this.generation += 1;
+    this.invalidateOwnTime();
     this.ownTimeCursors.clear();
     this.boundSessionGeneration = null;
     this.pendingManualEventIds = [];
@@ -158,56 +175,56 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     } catch { return {status:'unavailable'}; }
   }
 
+  invalidateOwnTime(): void {
+    this.ownTimeInvalidation++;
+    this.ownTimeFreshAt = null;
+  }
+
+  /** Tab entry reuses only a complete confirmed frame belonging to this session. */
+  async ensureOwnTime(): Promise<void> {
+    const state = this.state, snapshot = this.session.capture(), now = Date.now();
+    if (snapshot && snapshot.generation === this.boundSessionGeneration && state.status === 'ready'
+      && !state.capturePending && !state.refreshError && state.ownTime.nextCursor === null
+      && this.ownTimeFreshAt !== null && now >= this.ownTimeFreshAt
+      && now - this.ownTimeFreshAt < OWN_TIME_FRESH_MILLISECONDS
+      && businessDay(Date.parse(state.ownTime.windowEndedAt) - 1) === businessDay(now)) return;
+    await this.requestOwnTimeRead(true, false);
+  }
+
   async refresh(): Promise<void> {
-    if (this.state.status === 'ready' && this.state.submitting) return;
-    if (this.state.status === 'ready') { await this.readPreservingActive(true); return; }
+    await this.requestOwnTimeRead(true, false);
+  }
+
+  /** Concurrent readers share one flight. Authority needs a read begun after its suspend. */
+  private requestOwnTimeRead(reportFailure: boolean, afterStart: boolean): Promise<PreservingRefreshResult> {
     const snapshot = this.session.capture();
-    if (snapshot === null) {
-      this.setState({ status: 'inactive' });
-      return;
+    if (!snapshot) {
+      if (reportFailure) this.setState({ status: 'inactive' });
+      return Promise.resolve(false);
     }
-    this.boundSessionGeneration = snapshot.generation;
-    const generation = ++this.generation;
-    this.ownTimeCursors.clear();
-    this.setState({ status: 'loading' });
-    const capturePending = this.offlineCapture?.hasUnconfirmedCapture
-      ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
-    const ownFence=this.offlineCapture?.ownTimeReadFence?.()??0;
-    const confirmedAt=this.offlineCapture?.ownTimeReadStartedAt
-      ? await this.offlineCapture.ownTimeReadStartedAt().catch(()=>null) : null;
-    const result = await this.api.read(snapshot.session.membershipId);
-    if (
-      generation !== this.generation
-      || !this.session.isCurrent(snapshot)
-    ) return;
-    if (result.status === 'ready') {
-      if (!validOwnTimeProjection(result.ownTime)) {
-        this.setState({
-          status: 'unavailable',
-          message: 'Arbeitsdaten sind derzeit nicht erreichbar.',
-        });
-        return;
+    if (this.state.status === 'ready' && this.state.submitting) return Promise.resolve(false);
+    const running = this.ownTimeRead;
+    if (running && running.generation === this.generation && running.sessionGeneration === snapshot.generation) {
+      if (running.started && (afterStart || running.invalidation !== this.ownTimeInvalidation)) {
+        if (!running.next) {
+          const next = { reportFailure, promise: Promise.resolve(false) as Promise<PreservingRefreshResult> };
+          next.promise = running.promise.then(() => this.session.isCurrent(snapshot) && running.generation === this.generation
+            ? this.requestOwnTimeRead(next.reportFailure, false) : 'superseded');
+          running.next = next;
+        }
+        running.next.reportFailure ||= reportFailure;
+        return running.next.promise;
       }
-      if(!capturePending)await this.offlineCapture?.confirmOwnTime?.(snapshot.session,result.ownTime,ownFence,confirmedAt).catch(()=>undefined);
-      if(generation!==this.generation||!this.session.isCurrent(snapshot))return;
-      this.setState({
-        status: 'ready',
-        ownTime: freezeOwnTime(result.ownTime),
-        targets: result.targets,
-        targetsSearch:null,targetsBusy:false,targetsFailed:false,
-        submitting: false,
-        loadingMore: false,
-        outcome: capturePending ? 'pending' : null,
-        capturePending,
-      });
-      return;
+      running.reportFailure ||= reportFailure;
+      return running.promise;
     }
-    this.setState({
-      status: 'unavailable',
-      message: result.status === 'authority_rejected'
-        ? 'Die Sitzung ist nicht mehr gültig.'
-        : 'Arbeitsdaten sind derzeit nicht erreichbar.',
+    const flight: OwnTimeReadFlight = { generation: this.generation, sessionGeneration: snapshot.generation,
+      invalidation: this.ownTimeInvalidation, reportFailure, started: false, promise: Promise.resolve(false) };
+    this.ownTimeRead = flight;
+    flight.promise = Promise.resolve().then(() => this.readPreservingActive(flight)).finally(() => {
+      if (this.ownTimeRead === flight) this.ownTimeRead = null;
     });
+    return flight.promise;
   }
 
   setCaptureBlockedReason(reason: string | null): void {
@@ -221,19 +238,26 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
 
   /** Replace an already visible calendar only when its new frame is complete. */
   async refreshPreservingActive(): Promise<PreservingRefreshResult> {
-    return this.readPreservingActive(false);
+    return this.requestOwnTimeRead(false, true);
   }
 
-  private async readPreservingActive(reportFailure: boolean): Promise<PreservingRefreshResult> {
+  private async readPreservingActive(flight: OwnTimeReadFlight): Promise<PreservingRefreshResult> {
     const snapshot = this.session.capture(), previous = this.state;
     if (!snapshot || previous.status === 'ready' && previous.submitting) return false;
-    const generation = this.generation, preservingEpoch = ++this.preservingEpoch;
+    const generation = flight.generation;
+    if (generation !== this.generation || snapshot.generation !== flight.sessionGeneration) return 'superseded';
+    flight.started = true;
+    if (previous.status !== 'ready' && flight.reportFailure) this.setState({ status: 'loading' });
     this.boundSessionGeneration = snapshot.generation;
-    const current=()=>generation===this.generation && preservingEpoch===this.preservingEpoch && this.session.isCurrent(snapshot);
+    const current=()=>generation===this.generation && this.session.isCurrent(snapshot);
     const failed=async(status:'authority_rejected'|'unavailable'='unavailable'):Promise<false>=>{
-      if(!reportFailure || !current())return false;
+      if(!flight.reportFailure || !current())return false;
       if(status==='authority_rejected') {
         this.setState({status:'unavailable',message:'Die Sitzung ist nicht mehr gültig.'});
+        return false;
+      }
+      if (this.state.status !== 'ready') {
+        this.setState({status:'unavailable',message:'Arbeitsdaten sind derzeit nicht erreichbar.'});
         return false;
       }
       // A failed server read must not keep an already confirmed local capture "transferring".
@@ -253,7 +277,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     if (result.status !== 'ready') return failed(result.status);
     if (!validOwnTimeProjection(result.ownTime)) return failed();
     let ownTime=result.ownTime;
-    if(previous.status==='ready') {
+    {
       const cursors=new Set<string>();
       while(ownTime.nextCursor!==null) {
         const cursor=ownTime.nextCursor;
@@ -269,11 +293,13 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
     }
     if(!capturePending)await this.offlineCapture?.confirmOwnTime?.(snapshot.session,ownTime,ownFence,confirmedAt).catch(()=>undefined);
     if(!current())return 'superseded';
-    this.generation++; // Failed reads never supersede an ordinary refresh.
+    this.generation++; // An old pagination/capture result cannot replace this complete frame.
+    flight.generation = this.generation;
+    if (!capturePending && flight.invalidation === this.ownTimeInvalidation) this.ownTimeFreshAt = Date.now();
     this.ownTimeCursors.clear();
     this.setState({...(previous.status === 'ready' ? previous : {}),status:'ready',
-      ...(reportFailure?{feedback:null}:{}),refreshError:null,
-      ownTime:freezeOwnTime(ownTime),targets:result.targets,targetsBusy:false,targetsFailed:false,
+      ...(flight.reportFailure?{feedback:null}:{}),refreshError:null,
+      ownTime:freezeOwnTime(ownTime),targets:result.targets,targetsSearch:previous.status==='ready'?previous.targetsSearch??null:null,targetsBusy:false,targetsFailed:false,
       submitting:false,loadingMore:false,capturePending,outcome:capturePending?'pending':null});
     return true;
   }
@@ -426,6 +452,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
 
   private async reloadAfterCapture(outcome:import('./contracts').ManualTriggerOutcome, before:MobileOwnTimeQueryResponse, generation:number):Promise<void> {
     const snapshot=this.session.capture();if(!snapshot)return;
+    const invalidation=this.ownTimeInvalidation;
     const targetsSearch=this.state.status==='ready'?this.state.targetsSearch??null:null;
     const capturePending=this.offlineCapture?.hasUnconfirmedCapture
       ? await this.hasUnconfirmedCapture() : this.pendingManualEventIds.length>0;
@@ -454,6 +481,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
       }
       if(!capturePending)await this.offlineCapture?.confirmOwnTime?.(snapshot.session,ownTime,ownFence,confirmedAt).catch(()=>undefined);
       if(generation!==this.generation||!this.session.isCurrent(snapshot)||this.state.status!=='ready')return;
+      if (!capturePending && invalidation===this.ownTimeInvalidation) this.ownTimeFreshAt = Date.now();
       this.setState({...this.state,ownTime:freezeOwnTime(ownTime),targets:result.targets,targetsSearch,targetsBusy:false,targetsFailed:false,
         submitting:false,capturePending,loadingMore:false,outcome:capturePending?'pending':outcome,feedback:capturePending?null:captureFeedback(outcome,before,ownTime)});
     } else this.setState({status:'unavailable',message:'Bestätigte Zeiten konnten nicht neu geladen werden. Bitte erneut laden.'});

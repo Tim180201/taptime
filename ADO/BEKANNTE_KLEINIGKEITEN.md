@@ -4,6 +4,8 @@ Hierher gehören die nicht blockierenden Befunde aus Reviews und Tests (AGENTS 5
 Klammern, Einzelheiten in Git. Erledigte Zeilen werden entfernt, nicht durchgestrichen. Keine Seitengrenze, aber nichts
 als diese Liste. Einordnung in die Analyse-Pakete mit B16. Stand bis 31.10.: aus `ADO/STATUS.md` hierher verschoben.
 
+- **T-142, TL (P3):** Beim schnellen Tabwechsel nutzt „Meine Zeiten“ einen bestätigten Stand bis 30 s weiter; fremde Änderungen (Verwaltung, anderes Gerät) erscheinen erst danach oder mit „Aktualisieren“.
+- **T-142, lokale Messstrecke (P2):** Erster Browser-Vorlauf begann vor dem fertigen Spitzenprofil-Export und brach mit `ENOENT` ab; vollständige Vergleichsserien erst nach dem Export und ohne parallele Prüf-/Buildlast. Ein Testaufruf vom Repository-Root fand wegen des Workspace-Filters keine Tests; im Mobile-Workspace korrekt ausgeführt. Werkzeugfehler und getrennte Abschlussnachweise in `.t142-review/bericht.md`.
 - **Tests mit festem Monatsfenster (TL 09.11., P3):** `T085QuotaPostgres` „removes“ und „employees receive no quota fields“ (Oktober) sowie `TimeEntryExportPostgres` (Juli) setzen mit heutiger Zeit und lesen einen festen vergangenen Monat; sie können seitdem ohne Aussage bestehen. Beim nächsten Anfassen auf eine Zeit im Fenster stellen (Muster `011e67e`).
 - **T-141, TL (P3):** Die nativen Namenstests (Kotlin, Swift) laufen nur mit lokalem Gradle-Cache bzw. unter macOS; in der GitHub-CI werden sie übersprungen, wie bei T-104b.
 - **T-141, unabhängiges Review (P2):** Swift nimmt den ersten Graphemcluster, Kotlin den ersten Unicode-Codepoint; bei nicht vorkomponierbaren Zeichenfolgen etwa „किरण शर्मा“ entstehen `कि. श.` bzw. `क. श.`. Keine Offenlegung des vollen Namens; die vereinbarten Beispiele stimmen überein.

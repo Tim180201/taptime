@@ -68,6 +68,7 @@ export interface ProductOfflineSchedulingRuntimeOwner {
 export interface ProductMobileWorkRuntimeOwner extends MobileWorkCapability {
   start(): void;
   stop(): void;
+  invalidateOwnTime?(): void;
 }
 export interface ProductNativeIngressRuntimeOwner {
   start(): void;
@@ -229,6 +230,7 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
       getState: () => this.mobileWorkCoordinator.getState(),
       subscribe: (listener: () => void) => this.mobileWorkCoordinator.subscribe(listener),
       refresh: () => this.mobileWorkCoordinator.refresh(),
+      ensureOwnTime: () => this.mobileWorkCoordinator.ensureOwnTime?.() ?? this.mobileWorkCoordinator.refresh(),
       loadMoreOwnTime: () => this.mobileWorkCoordinator.loadMoreOwnTime(),
       triggerManual: (target: SafeWorkTarget) => this.mobileWorkCoordinator.triggerManual(target),
       triggerBreak: () => this.mobileWorkCoordinator.triggerBreak(),
@@ -257,7 +259,12 @@ export class DefaultProductMobileRuntime implements ProductMobileRuntime {
 
   get timeEditing(): TimeEditingCapability | undefined {
     const c=this.timeEditingCoordinator;
-    return c ? this.timeEditingFacade ??= Object.freeze({querySearch:c.querySearch.bind(c),getState:c.getState,subscribe:c.subscribe,save:(kind:import('../timeEditing/TimeEditingCoordinator').TimeEditKind,input:Record<string,unknown>)=>c.save(kind,input)}) : undefined;
+    return c ? this.timeEditingFacade ??= Object.freeze({querySearch:c.querySearch.bind(c),getState:c.getState,subscribe:c.subscribe,
+      save:async(kind:import('../timeEditing/TimeEditingCoordinator').TimeEditKind,input:Record<string,unknown>)=>{
+        const result=await c.save(kind,input);
+        if(result.status==='committed')this.mobileWorkCoordinator.invalidateOwnTime?.();
+        return result;
+      }}) : undefined;
   }
   private timeEditingFacade: TimeEditingCapability | undefined;
 

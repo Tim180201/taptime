@@ -79,6 +79,7 @@ describe('tap scene lifecycle', () => {
     const presenter = new TapMomentPresenter();
     work.start();
     const initialRead = work.refresh();
+    await vi.waitFor(()=>expect(reads).toHaveLength(1));
     reads.shift()!(projection);
     await initialRead;
     const disconnect = connectTapMoment(scan, presenter, work);
@@ -89,14 +90,14 @@ describe('tap scene lifecycle', () => {
       acknowledgement = { status: 'server_decision', outcome: 'time_entry_started' };
       for (const listener of acknowledgementListeners) listener();
       publish({ status: 'server_decision', queueCount: 0, outcome: { status: 'time_entry_started' } });
-      expect(reads).toHaveLength(1);
+      await vi.waitFor(()=>expect(reads).toHaveLength(1));
       reads.shift()!(projection);
       await vi.waitFor(() => expect(work.getState()).toMatchObject({ status: 'ready', outcome: 'time_entry_started' }));
       expect(read).toHaveBeenCalledTimes(2);
 
       publish({ status: 'scanning' });
       publish({ status: 'server_decision', queueCount: 0, outcome: { status: 'time_entry_stopped' } });
-      expect(reads).toHaveLength(1);
+      await vi.waitFor(()=>expect(reads).toHaveLength(1));
       reads.shift()!(projection);
       await vi.waitFor(() => expect(work.getState().status).toBe('ready'));
       expect(read).toHaveBeenCalledTimes(3);
