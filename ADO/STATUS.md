@@ -12,14 +12,14 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
   Am 09.11. um 13:48 UTC kam ein Fehlalarm „WAL-Segment wartet seit 2 min“ ohne Datenverlust; der Status war danach
   wieder `ok` (T-144).
 - **Apps:** Builds aus `b50e85a` (T-139, T-140). Die Geräteprüfung auf beiden Handys hat der PO am 31.10. bestanden.
-  Ausnahme: Die iPhone-Sperrbildschirm-Knöpfe öffnen mit Netz nur die App (T-143). Lokales Schema 8: keine ältere App
-  darüber installieren.
-- **Aufgabe:** T-141 auf main (`8363511`); die CI ist nach einem Datums-Test mit `011e67e` wieder grün. Jetzt T-143
-  (iPhone-Sperrbildschirm), danach T-142 („Meine Zeiten“ lädt bei jedem Öffnen langsam, PO 31.10.).
+  Ausnahme: Die iPhone-Sperrbildschirm-Knöpfe öffnen mit Netz nur die App (T-143, auf main, wirkt mit dem nächsten App-Build).
+  Lokales Schema 8: keine ältere App darüber installieren.
+- **Aufgabe:** T-143 auf main (verlorener Sperrbildschirm-Abgleich). Jetzt T-142 („Meine Zeiten“ lädt bei jedem Öffnen
+  langsam, PO 31.10.); der Brief folgt vom TL.
 
 ## Weg zum Pilot
 
-T-143 → T-142 → App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
+T-142 → App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
 Braucht T-142 eine Serveränderung, kommt der App-Build nach dem Deploy.
 
 **Vor echten Daten (D-116):**

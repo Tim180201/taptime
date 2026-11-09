@@ -2,7 +2,7 @@ import type {OwnTimeDisplay} from '../work/ProvisionalOwnTime';
 import type { LockScreenState, MobileOwnTimeQueryResponse } from '@taptime/mobile-work-contract';
 import type { AuthenticatedRequestCapability, MobileSessionState } from '../auth/contracts';
 import type { MobileWorkSessionReader, MobileWorkState } from '../work/contracts';
-import type { CaptureConnectivityPort } from '../work/MobileWorkCoordinator';
+import type { CaptureConnectivityPort, PreservingRefreshResult } from '../work/MobileWorkCoordinator';
 import type { AppStatePort } from '../runtime/AppStateAutoRefreshLifecycle';
 import type { ProductScanCapability } from '../scan/contracts';
 import type { CaptureBoundary, CaptureRejection, LockScreenNativePort, LockScreenCapability, LockScreenUiState } from './contracts';
@@ -13,7 +13,7 @@ const CHANGED='Der Stand hat sich geändert. Prüfe ihn und tippe erneut.';
 interface Work {
   getState():MobileWorkState;
   subscribe(listener:()=>void):()=>void;
-  refreshPreservingActive():Promise<boolean>;
+  refreshPreservingActive():Promise<PreservingRefreshResult>;
   setCaptureBlockedReason(reason:string|null):void;
   setCaptureFeedback(message:string|null):void;
 }
@@ -183,7 +183,12 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     if(!stand || stand.owner!==owner || !this.native.suspend())return;
     if(!await this.connectivity.get()){this.updateUi(true);return;}
     if(this.native.foregroundOnly&&!current())return;
-    if(!await this.work.refreshPreservingActive() || !current())return;
+    const refreshed=await this.work.refreshPreservingActive();
+    if(!current())return;
+    // T140 confirmation reads can supersede this read without changing the active
+    // time. No work-state notification will then request the projection we still owe.
+    if(refreshed==='superseded'){this.requested=true;return;}
+    if(!refreshed)return;
     const after=this.native.read();
     if(!after || after.revision!==stand.revision)return; // A receiver result raced the read.
     if(after.pending&&!discardPending){this.updateUi();return;} // Opening the app never executes a pending command.
@@ -255,7 +260,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
       if(stand.pending && !stand.ownCapturePending)await this.native.retry();
       if(this.native.foregroundOnly&&(this.appState.currentState!=='active'||epoch!==this.epoch))return this.reject(WAIT,true);
       const after=this.native.read();
-      if(after?.pending || !await this.work.refreshPreservingActive() || epoch!==this.epoch)return this.reject(WAIT,true);
+      if(after?.pending || await this.work.refreshPreservingActive()!==true || epoch!==this.epoch)return this.reject(WAIT,true);
       const final=this.native.read();
       if(!final || final.revision!==after?.revision)return this.reject(WAIT,true);
       this.readRevision=final.revision;

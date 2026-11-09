@@ -1,4 +1,8 @@
 import { MobileWorkCoordinator } from '../../src/work/MobileWorkCoordinator';
+import {LockScreenCoordinator,ownLockScreenState} from '../../src/lockScreen/LockScreenCoordinator';
+import {nativeAuthorityHarness} from '../lockScreen/nativeAuthorityHarness';
+import type {MobileOwnTimeQueryResponse} from '@taptime/mobile-work-contract';
+import type {OfflineCanonicalDecision,OfflineLifecycleEventCommandV3} from '@taptime/offline-sync-contract';
 import {OfflineActiveCapture} from '../../src/work/OfflineActiveCapture';
 import { OFFLINE_LOCAL_SCHEMA_VERSION_V8 } from '../../src/offline/OfflineCaptureDatabase';
 import { legacyOfflineSchemas } from '../support/LegacyOfflineSchemas';
@@ -286,6 +290,121 @@ describe('T140 confirmed baseline and RAM projection with the real queue',()=>{
       expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({pending:true,activeRecord:{status:'started'}});
       expect(await h.database().readConfirmedOwnTime(session)).toMatchObject({activeTimeId:null});
     }finally{await h.close();}
+  });
+});
+
+describe('T143 online capture restores native authority',()=>{
+  const target={targetType:'customer' as const,targetId:ids.customer,displayName:'Kunde'};
+  async function integrated(platform:'ios'|'android',confirmation=true){
+    let record:MobileOwnTimeQueryResponse['activeRecord']=null;
+    // HTTP fixtures describe the server's accepted transitions; queue, acknowledgements,
+    // preview replay and all three coordinating owners are production code.
+    const change=(action:'start'|'pause'|'resume'|'stop',at:string)=>{
+      if(action==='start')record={...t107ActiveRecord,startedAt:at};
+      else if(!record)throw Error('No active fixture');
+      else record={...record,breakStartedAt:action==='pause'?at:null,
+        ...(action==='stop'?{status:'stopped',stoppedAt:at,stoppedVia:'manual'}:{})};
+    };
+    const h=await accountHarness(false,true,command=>{
+      const action=command.workEvent.subject.type==='break'?(record?.breakStartedAt?'resume':'pause'):record?.status==='started'?'stop':'start';
+      change(action,command.workEvent.occurredAt);
+      return action==='pause'||action==='resume'
+        ?{status:action==='pause'?'break_started':'break_stopped',timeEntryId:ids.event,breakIntervalId:ids.receipt}
+        :{status:action==='start'?'time_entry_started':'time_entry_stopped',timeEntryId:ids.event};
+    });
+    vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date(h.now()));
+    const own=():MobileOwnTimeQueryResponse=>{
+      const value=record?{...record,calendar:{asOf:h.now(),workDurationSeconds:0,breakDurationSeconds:0,breakIntervals:[]}}:null;
+      return {activeRecord:value?.status==='started'?value:null,records:value?.status==='stopped'?[value]:[],nextCursor:null,
+        windowStartedAt:'2026-07-01T00:00:00.000Z',windowEndedAt:'2026-08-01T00:00:00.000Z'};
+    };
+    const n=nativeAuthorityHarness(platform,()=>ownLockScreenState(own()));
+    if(!confirmation)vi.spyOn(h.coordinator,'subscribeOwnTimeConfirmationRequests').mockImplementation(()=>()=>{});
+    const apiRead=vi.fn(async()=>({status:'ready' as const,ownTime:own(),targets:{targets:[target],nextCursor:null}}));
+    let online=true;
+    const connectivity={get:async()=>online,subscribe:()=>()=>{}};
+    const work=new MobileWorkCoordinator(h.reader,{read:apiRead,
+      readOwnTimePage:async()=>({status:'unavailable'}),triggerManual:async()=>({status:'unavailable'})},h.coordinator,connectivity);
+    const lock=new LockScreenCoordinator(n.native,h.reader,{executeAuthenticatedRequest:async attempt=>attempt(()=> 'test-access'),refresh:async()=>{}},
+      work,h.coordinator,h.coordinator,connectivity,n.app);
+    work.lockScreenBoundary=lock;
+    work.start();lock.start();await lock.refresh();await work.refresh();await lock.refresh();
+    expect(h.coordinator.getOwnTimeDisplay()).toMatchObject({known:true,pending:false});
+    n.trace.length=0;h.mode='unarchived';
+    return {h,n,work,lock,apiRead,change,own,
+      tick:()=>{h.tick();h.elapseMonotonic(10000);vi.setSystemTime(new Date(h.now()));},
+      offline:()=>{online=false;h.mode='unconfirmed';},
+      close:async()=>{lock.stop();work.stop();await h.close();vi.useRealTimers();},
+    };
+  }
+  async function actionable(t:Awaited<ReturnType<typeof integrated>>,paused=false){
+    await t.h.scheduler().whenIdle();
+    await vi.waitFor(()=>expect(t.work.getState()).toMatchObject({status:'ready',capturePending:false,submitting:false}));
+    // D-146: no extra foreground event/manual refresh may rescue a completed capture.
+    await vi.waitFor(()=>expect(t.n.inspect()).toMatchObject({key:true,appBlocked:false,ownCapturePending:false,canSend:true,state:{status:paused?'paused':'running'}}));
+  }
+  it.each([['ios',true],['ios',false],['android',true],['android',false]] as const)('%s: foreground start and overlapping confirmation (T140 confirmation=%s)',async(platform,confirmation)=>{
+    const t=await integrated(platform,confirmation),{h,n,work,lock,apiRead}=t;
+    const response=deferred<void>();let refreshing:Promise<void>|undefined;
+    try{
+      await work.triggerManual(target);await actionable(t);
+      expect(h.sent).toHaveLength(1);expect(await h.coordinator.hasUnconfirmedCapture()).toBe(false);
+      // The foreground lease refresh requests a second own-time read (introduced in T140).
+      // Hold the lock-screen response until that newer read publishes the unchanged active time.
+      const started=deferred<void>(),read=apiRead.getMockImplementation()!;
+      apiRead.mockImplementationOnce(async()=>{const result=await read();started.resolve();await response.promise;return result;});
+      const workReads=vi.spyOn(work,'refreshPreservingActive');
+      n.trace.length=0;refreshing=lock.refresh();await started.promise;
+      h.coordinator.triggerForeground();
+      await vi.waitFor(()=>expect(h.bindings.length).toBeGreaterThan(1));
+      await h.scheduler().whenIdle();
+      if(confirmation){
+        await vi.waitFor(()=>expect(workReads.mock.calls.length).toBeGreaterThan(1));
+        await workReads.mock.results[1]!.value;
+      }
+      response.resolve();await refreshing;
+      expect(n.inspect()).toMatchObject({key:true,appBlocked:false,ownCapturePending:false,canSend:true});
+      expect(n.trace).toContain('project');expect(n.trace).toContain('issue:issued');
+      expect(h.sent).toHaveLength(1); // Reconciliation never repeats the booking.
+    }finally{response.resolve();await refreshing;await t.close();}
+  });
+  it.each([['ios','app'],['ios','card'],['ios','lock-screen'],['android','app'],['android','card'],['android','lock-screen']] as const)(
+    '%s: start, pause, resume, stop and foreground return via %s',async(platform,path)=>{
+    const t=await integrated(platform),{h,n,work}=t;
+    try{
+      if(path==='card')await h.coordinator.scan();else await work.triggerManual(target);
+      await actionable(t);expect(h.sent).toHaveLength(1);
+      if(path==='lock-screen'){
+        n.setAppState('background');
+        for(const action of ['pause','resume','stop'] as const){
+          t.tick();const oldNonce=n.inspect().nonce;
+          const reply=()=>{t.change(action,h.now());return ownLockScreenState(t.own(),n.native.read()?.state)!;};
+          expect(await n.tap(action,oldNonce,reply)).toBe(true);
+          // D-043: the same old button must never submit a second command.
+          expect(await n.tap(action,oldNonce,()=>{throw Error('Stale tap booked');})).toBe(false);
+        }
+        expect(h.sent).toHaveLength(1);
+      }else{
+        t.tick();await work.triggerBreak();await actionable(t,true);
+        t.tick();await work.triggerBreak();await actionable(t);
+        n.setAppState('background');n.setAppState('active');await actionable(t);
+        t.tick();if(path==='card')await h.coordinator.scan();else await work.stopActiveTime();
+        await h.scheduler().whenIdle();
+        expect(h.sent.map(event=>event.workEvent.subject.type)).toEqual(['work','break','break','work']);
+      }
+      n.setAppState('background');n.setAppState('active');
+      await vi.waitFor(()=>expect(work.getState()).toMatchObject({status:'ready',ownTime:{activeRecord:null}}));
+      await vi.waitFor(()=>expect(n.inspect()).toMatchObject({key:false,canSend:false}));
+    }finally{await t.close();}
+  });
+  it.each(['ios','android'] as const)('%s: unconfirmed offline capture keeps the native buttons closed',async platform=>{
+    const t=await integrated(platform);
+    try{
+      t.offline();await t.work.triggerManual(target);await t.h.scheduler().whenIdle();
+      await vi.waitFor(()=>expect(t.h.coordinator.getOwnTimeDisplay()).toMatchObject({known:true,pending:true,activeRecord:{status:'started'}}));
+      expect(t.n.inspect()).toMatchObject({key:false,appBlocked:true,ownCapturePending:true,canSend:false});
+      expect(await t.h.coordinator.hasUnconfirmedCapture()).toBe(true);
+    }finally{await t.close();}
   });
 });
 
@@ -2121,7 +2240,7 @@ function activeContext() {
   };
 }
 
-async function accountHarness(newBusiness=false,withBreak=false) {
+async function accountHarness(newBusiness=false,withBreak=false,decide?:(command:OfflineLifecycleEventCommandV3)=>OfflineCanonicalDecision) {
   const root = mkdtempSync(join(tmpdir(), 't076-coordinator-'));
   const values = new Map<string, string>();
   const listeners = new Set<() => void>();
@@ -2156,7 +2275,7 @@ async function accountHarness(newBusiness=false,withBreak=false) {
   });
   const bindings: string[] = [];
   const sent: Array<Pick<import('@taptime/offline-sync-contract').OfflineLifecycleEventCommandV3,'deviceSequence'|'expectedMembershipId'|'workEvent'>> = [];
-  const records = new Map<string, {workEventId: string; receiptId: string; deviceSequence: number; decision?: {status:'break_stopped';timeEntryId:string;breakIntervalId:string}|{status:'time_entry_stopped';timeEntryId:string}}>();
+  const records = new Map<string, {workEventId: string; receiptId: string; deviceSequence: number; decision?: OfflineCanonicalDecision}>();
   const h = { renewLeaseClock:false, hasTag: !newBusiness, mode: 'archived', bindings, sent, legacyBlocked: false, ingestGate: null as Promise<void> | null, reconcileGate: null as Promise<void> | null, reconcileWaiting: false, sampleGate: null as Promise<void> | null, sampleWaiting: false,
     advance: () => { time += OFFLINE_ARCHIVE_POLL_MILLISECONDS; },
     tick:(milliseconds=10000)=>{time+=milliseconds;},
@@ -2185,9 +2304,9 @@ async function accountHarness(newBusiness=false,withBreak=false) {
         ? {status:'conflict' as const,reason:'event_content_conflict' as const}
         : {status:'pending' as const,reason:'sequence_gap' as const};
       const identity = { workEventId: command.workEvent.id, receiptId: command.receipt.id, deviceSequence: command.deviceSequence };
-      const override=h.mode==='t107_stop_after_pause' ? command.workEvent.subject.type==='break'
+      const override=decide?.(command)??(h.mode==='t107_stop_after_pause' ? command.workEvent.subject.type==='break'
         ? {status:'break_stopped' as const,timeEntryId:ids.event,breakIntervalId:ids.receipt}
-        : {status:'time_entry_stopped' as const,timeEntryId:ids.event} : undefined;
+        : {status:'time_entry_stopped' as const,timeEntryId:ids.event} : undefined);
       records.set(identity.workEventId, {...identity,decision:override});
       return h.mode === 'review_pending'
         ? { ...identity, status: 'review_pending' as const, idempotentRetry: false, archiveStatus: 'offsite_archived' as const, reason: 'capture_clock_unverified' as const }

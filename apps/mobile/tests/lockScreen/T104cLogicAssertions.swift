@@ -121,6 +121,29 @@ import Foundation
     _ = await engine.action("stop", nonce:store.stand!.nonce)
     precondition(sends.count == beforeCapture && store.stand?.display == .TRANSFERRING)
 
+    // T143's JS integration boundary follows these exact iOS authority semantics.
+    active = true
+    let pendingNonce = store.stand!.nonce
+    _ = try engine.suspend(ownCapture:true)
+    precondition(store.stand!.nonce != pendingNonce && store.stand!.keyID == nil && store.stand!.appBlocked)
+    let pendingIssueResult = await engine.issue(owner:store.stand!.owner, token:"login-only-in-foreground", body:issueBody,
+      baseURL:"https://example.invalid", appVersion:"test-version", revision:store.stand!.revision)
+    precondition(pendingIssueResult == "superseded", "Pending own capture must never receive authority")
+
+    try await prepare(); delayIssue = true; suspendIssue = nil
+    let nonceRevision = store.stand!.revision, nonceWrites = keys.writes
+    let nonceIssue = Task { await engine.issue(owner:"organization/member/user", token:"login-only-in-foreground", body:issueBody,
+      baseURL:"https://example.invalid", appVersion:"test-version", revision:nonceRevision) }
+    while suspendIssue == nil { await Task.yield() }
+    let oldNonce = store.stand!.nonce
+    _ = try engine.suspend()
+    precondition(store.stand!.nonce != oldNonce && store.stand!.appBlocked)
+    suspendIssue!.resume(returning:issued)
+    let nonceResult = await nonceIssue.value
+    precondition(nonceResult == "superseded" && keys.writes == nonceWrites, "A rotated nonce rejects a late key even in foreground")
+    delayIssue = false; suspendIssue = nil
+    print("T143: repeated suspension, pending capture and late nonce keep their authority fences")
+
     try await prepare(); delayIssue = true
     let revision = store.stand!.revision, lateWrites = keys.writes
     let issue = Task { await engine.issue(owner:"organization/member/user", token:"login-only-in-foreground", body:issueBody, baseURL:"https://example.invalid", appVersion:"test-version", revision:revision) }

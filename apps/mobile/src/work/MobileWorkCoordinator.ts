@@ -19,6 +19,9 @@ export interface CaptureConnectivityPort {
   subscribe(listener: (online:boolean) => void): () => void;
 }
 
+/** A newer read is distinct from a failed read: callers may still owe a native projection. */
+export type PreservingRefreshResult = boolean | 'superseded';
+
 export class MobileWorkCoordinator implements MobileWorkCapability {
   lockScreenBoundary?: CaptureBoundary;
   private checkingLockScreen = false;
@@ -217,11 +220,11 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
   }
 
   /** Replace an already visible calendar only when its new frame is complete. */
-  async refreshPreservingActive(): Promise<boolean> {
+  async refreshPreservingActive(): Promise<PreservingRefreshResult> {
     return this.readPreservingActive(false);
   }
 
-  private async readPreservingActive(reportFailure: boolean): Promise<boolean> {
+  private async readPreservingActive(reportFailure: boolean): Promise<PreservingRefreshResult> {
     const snapshot = this.session.capture(), previous = this.state;
     if (!snapshot || previous.status === 'ready' && previous.submitting) return false;
     const generation = this.generation, preservingEpoch = ++this.preservingEpoch;
@@ -246,7 +249,7 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
       ? await this.offlineCapture.ownTimeReadStartedAt().catch(()=>null) : null;
     const result = await this.api.read(snapshot.session.membershipId,
       previous.status === 'ready' ? previous.targetsSearch : null).catch(() => ({status:'unavailable' as const}));
-    if (!current()) return false;
+    if (!current()) return 'superseded';
     if (result.status !== 'ready') return failed(result.status);
     if (!validOwnTimeProjection(result.ownTime)) return failed();
     let ownTime=result.ownTime;
@@ -258,14 +261,14 @@ export class MobileWorkCoordinator implements MobileWorkCapability {
         cursors.add(cursor);
         const next=await this.api.readOwnTimePage(snapshot.session.membershipId,cursor)
           .catch(()=>({status:'unavailable' as const}));
-        if(!current())return false;
+        if(!current())return 'superseded';
         if(next.status!=='ready')return failed(next.status);
         if(!sameOwnTimeFrame(ownTime,next.ownTime) || !validOwnTimeContinuation(ownTime,next.ownTime))return failed();
         ownTime={...next.ownTime,records:[...ownTime.records,...next.ownTime.records]};
       }
     }
     if(!capturePending)await this.offlineCapture?.confirmOwnTime?.(snapshot.session,ownTime,ownFence,confirmedAt).catch(()=>undefined);
-    if(!current())return false;
+    if(!current())return 'superseded';
     this.generation++; // Failed reads never supersede an ordinary refresh.
     this.ownTimeCursors.clear();
     this.setState({...(previous.status === 'ready' ? previous : {}),status:'ready',
