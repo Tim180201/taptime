@@ -113,7 +113,8 @@ it('month history uses latest setting before exclusive Berlin end, removal retai
     expect((await read(c,admin,String(from),String(to))).customers.find((r:any)=>r.customerId===ids.customerA).quotaSeconds).toBe(seconds);
 }));
 it.each([[323964,'ok'],[324000,'warning'],[360000,'exceeded']])('exact threshold at %s seconds', (seconds,stage)=>transaction(async c=>{
-  await set(c,admin,empty,6000);
+  await c.query(`INSERT INTO taptime_server.customer_quota_settings(organization_id,customer_id,minutes,set_at,actor_membership_id,actor_role,command_id)
+    VALUES($1,$2,6000,'2026-09-30T22:00Z',$3,'administrator',$4)`,[admin.org,empty,admin.member,randomUUID()]);
   await c.query('RESET ROLE');
   await record(employee,empty,'2026-10-10T00:00Z',new Date(Date.parse('2026-10-10T00:00Z')+Number(seconds)*1000).toISOString(),c);
   expect((await read(c)).customers.find((r:any)=>r.customerId===empty)).toMatchObject({quotaSeconds:360000,quotaStage:stage});
