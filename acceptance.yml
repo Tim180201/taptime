@@ -1,0 +1,153 @@
+# Taptura – Abnahmekriterien für den Pilotstart (Format 0.2)
+#
+# IDs nach Bereich: LK = Lehrkraft · SL = Standortleitung · GR = Grundregeln
+# DS = Datenschutz (Technik) · DOK = Unterlagen
+#
+# verification: automatic → ein Test mit dieser ID muss am abgenommenen Commit bestehen
+# verification: manual    → die zuständige Partei bestätigt ausdrücklich:
+#   confirmedBy: client     → Kunde (frogs) bei der Pilot-Abnahme
+#   confirmedBy: contractor → Anbieter (Taptura) in der Bereitstellungserklärung
+#
+# In Commits referenzieren: "feat: Pause vom Sperrbildschirm (LK-8)"
+
+version: "0.2"
+project: "Taptura – Pilotstart bei frogs (Go-live-Protokoll)"
+relationship: pilot
+client: "frogs (Pilotkunde)"
+contractor: "Taptura (Anbieter, Tim Bartz)"
+
+criteria:
+
+  # ---------------------------------------------------------------- Lehrkraft
+  - id: LK-1
+    title: "Lehrkraft kann Einladung per E-Mail annehmen, die App laden, sich anmelden, angemeldet bleiben und abmelden"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Gerät: Einladung öffnen, Konto anlegen, App schließen und erneut öffnen (ohne erneute Anmeldung), abmelden."
+  - id: LK-2
+    title: "Zeit lässt sich per NFC-Karte starten und stoppen"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Gerät mit einer eingerichteten Karte: Auflegen startet, erneutes Auflegen stoppt. Die Buchung erscheint in „Meine Zeiten“."
+  - id: LK-3
+    title: "Android: Karte funktioniert auch, wenn die App im Hintergrund oder geschlossen ist"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Android-Gerät: App geschlossen, Karte auflegen, Buchung entsteht."
+  - id: LK-4
+    title: "Zeiten lassen sich manuell erfassen: für einen Kunden, ein Projekt oder als allgemeine Arbeit"
+    description: "Alle drei Arten sind erfassbar und werden korrekt zugeordnet gespeichert."
+  - id: LK-5
+    title: "Pause lässt sich starten und beenden; Pausenzeit wird nicht als Arbeitszeit gezählt"
+  - id: LK-6
+    title: "Erfassung ohne Netz: Anzeige wie mit Netz, automatische Übertragung sobald Netz da ist"
+    description: "Offline erfasste Buchungen werden vollständig und ohne Doppelung übertragen, auch nach App-Neustart."
+  - id: LK-7
+    title: "Laufende Zeit ist auf dem Sperrbildschirm sichtbar (Android-Benachrichtigung, iPhone-Live-Aktivität)"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung je Plattform am Gerät."
+  - id: LK-8
+    title: "Pause, Weiter und Beenden funktionieren direkt vom Sperrbildschirm, ohne Entsperren"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung je Plattform am Gerät; die Aktion ist anschließend in „Meine Zeiten“ sichtbar."
+  - id: LK-9
+    title: "„Meine Zeiten“ zeigt Kalender mit Tages-, Wochen- und Monatssummen und lädt schnell"
+    description: "Summen stimmen mit den Einzelbuchungen überein. Ladezeit bei einem Monat mit 200 Buchungen unter 2 Sekunden."
+  - id: LK-10
+    title: "Lehrkraft kann eigene Zeiten nachtragen, ändern und löschen"
+
+  # ---------------------------------------------------------- Standortleitung
+  - id: SL-1
+    title: "Standortleitung sieht Mitarbeiter und Kunden des eigenen Standorts – und nur diese"
+  - id: SL-2
+    title: "Standortleitung kann NFC-Karten einrichten, prüfen und entfernen"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Gerät: Karte zuordnen, Zuordnung prüfen, Karte entfernen; entfernte Karte löst keine Buchung mehr aus."
+  - id: SL-3
+    title: "Standortleitung kann Zeiten der Mitarbeiter korrigieren; ein Grund ist Pflicht"
+  - id: SL-4
+    title: "Kundenstunden und Kontingente sind sichtbar; Hinweis erscheint bei 90 % und bei 100 %"
+
+  # ---------------------------------------------------------------- Grundregeln
+  - id: GR-1
+    title: "Ein Tippen ergibt genau eine Buchung; der Server entscheidet"
+    description: "Mehrfaches schnelles Tippen oder Wiederholen einer Anfrage erzeugt keine zweite Buchung."
+  - id: GR-2
+    title: "Doppelte Scans werden erkannt und nicht doppelt gebucht"
+  - id: GR-3
+    title: "Korrekturen überschreiben nie das Original; jede Änderung bleibt nachvollziehbar"
+    description: "Nach einer Korrektur sind Originalwert, neuer Wert, Zeitpunkt, Person und Grund abrufbar."
+
+  # ----------------------------------------------------- Datenschutz (Technik)
+  - id: DS-1
+    title: "Daten jedes Betriebs sind strikt getrennt"
+    description: "Kein Zugriff auf Daten eines anderen Betriebs, auch nicht über direkte Anfragen an den Server."
+  - id: DS-2
+    title: "Rollen greifen: Lehrkraft sieht nur eigene Zeiten, Standortleitung nur ihren Standort, Verwaltung den eigenen Betrieb"
+  - id: DS-3
+    title: "Server in Deutschland (Hetzner Nürnberg), Sicherung in Falkenstein, Anmeldung über Supabase EU (Frankfurt)"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter; Nachweis durch Konfiguration und Anbieterunterlagen."
+  - id: DS-4
+    title: "Übertragung ausschließlich verschlüsselt (HTTPS)"
+    description: "Unverschlüsselte Verbindungen werden abgewiesen."
+  - id: DS-5
+    title: "Offline-Daten auf dem Handy sind verschlüsselt und an das Konto gebunden; Abmelden oder Kontowechsel entfernt den lokalen Stand"
+  - id: DS-6
+    title: "Sperrbildschirm zeigt Kunden nur mit Initialen (z. B. „M. K.“); der volle Name steht nur in der App"
+  - id: DS-7
+    title: "Sperrbildschirm-Knöpfe nutzen einen eigenen Schlüssel: höchstens 24 Stunden gültig, nur für die laufende Zeit"
+    description: "Mit diesem Schlüssel ist keine andere Aktion möglich; nach Ablauf wird er abgewiesen."
+  - id: DS-8
+    title: "Keine Standortdaten (GPS), keine Werbung, kein Tracking"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter; Nachweis über App-Berechtigungen und eingebundene Bibliotheken."
+  - id: DS-9
+    title: "Sicherungen sind verschlüsselt; die Wiederherstellung wird wöchentlich geprüft"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter; Nachweis durch Protokoll der letzten Wiederherstellungsprüfung."
+  - id: DS-10
+    title: "Jede Änderung wird protokolliert: wer, wann, was"
+
+  # ------------------------------------------------------------------ Unterlagen
+  - id: DOK-1
+    title: "Verzeichnis der Verarbeitungstätigkeiten liegt vor"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter (Taptura)."
+  - id: DOK-2
+    title: "Technische und organisatorische Maßnahmen (TOM) liegen als Anlage zum AVV vor"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter (Taptura)."
+  - id: DOK-3
+    title: "Information für Beschäftigte nach Art. 13 DSGVO liegt vor"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter (Taptura)."
+  - id: DOK-4
+    title: "AVV zwischen frogs und Taptura ist geschlossen"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter (Taptura)."
+  - id: DOK-5
+    title: "AVV mit Hetzner und Brevo liegen vor; Supabase über Nutzungsbedingungen abgedeckt"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter (Taptura)."
+  - id: DOK-6
+    title: "Information für Schüler und Eltern ist erstellt (Aufgabe von frogs)"
+    verification: manual
+    confirmedBy: client
+    description: "Liegt in der Verantwortung von frogs; Bestätigung durch den Pilotkunden."
+  - id: DOK-7
+    title: "Aufbewahrungs- und Löschfristen sind festgelegt"
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter (Taptura)."
