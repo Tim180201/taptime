@@ -2120,3 +2120,12 @@ Name. Das Gerät bildet die Initialen, bevor die Anzeige an das System geht; der
 Android-Benachrichtigung bleibt öffentlich sichtbar und behält ihre Knöpfe. T-141.
 **Warum:** Kunden sind bei frogs Schüler, oft minderjährig, und den Sperrbildschirm sieht jeder, der das Handy sieht
 (externes Review 30.10., P1). Initialen reichen der Lehrkraft, um die laufende Stunde zu erkennen (PO 31.10.).
+
+## D-161 · iPhone: Sperrbildschirm-Knöpfe nur bei entsperrtem Gerät · 10.11.2026 · Tim (PO), Claude (TL)
+Präzisiert D-146 für das iPhone: Pause, Weiter und Beenden in der Live-Aktivität wirken, sobald das iPhone entsperrt ist
+(Face ID oder Code), auch auf dem Sperrbildschirm und bei geschlossener App; die App öffnet sich dabei nie. Ist das iPhone
+gesperrt, verlangt iOS zuerst die Entsperrung. Android bleibt ohne Entsperren. Der Aktions-Intent läuft nur im
+Hintergrund und holt nie etwas beim Öffnen der App nach (T-145).
+**Warum:** Apple: Auf einem gesperrten Gerät sind Knöpfe in Widgets und Live-Aktivitäten inaktiv, bis man sich
+authentifiziert (WidgetKit-Dokumentation, geprüft 10.11.). Am Gerät bestätigt (PO 10.11., iOS 26.5): Mit Face ID
+wirken die Knöpfe sofort; wer auf das iPhone schaut, entsperrt es ohnehin.

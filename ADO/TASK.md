@@ -1,72 +1,66 @@
 # Aktuelle Aufgabe
 
 > **Stand 10.11.2026:**
-> - Die Apps sind aus `5ba70b8` gebaut (T-141, T-143, T-142). Am iPhone erscheinen die Initialen.
-> - Am gesperrten iPhone öffnen die Sperrbildschirm-Knöpfe aber weiter nur die App. Jetzt T-145, danach ein App-Build.
+> - T-141 bis T-145 sind auf main (`62266b4`). Die Geräteprüfung hat der PO am 10.11. bestanden:
+>   - Initialen auf dem Sperrbildschirm;
+>   - iPhone-Knöpfe nach Face ID, auch bei geschlossener App (D-161);
+>   - „Meine Zeiten“ am iPhone sofort, am Android 0,85–1,5 s.
+> - Jetzt T-144, danach T-055. Beide kommen zusammen in einen Deploy.
 
-## T-145 · iPhone gesperrt: Sperrbildschirm-Knöpfe verlangen Face ID und buchen nichts (P1)
+## T-144 · WAL-Fehlalarm bei Wiederanlauf, Rechtstexte zu D-160 und D-161
 
-**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Es geht um die Sperrbildschirm-Berechtigung (Auth),
-deshalb ein unabhängiges Review (AGENTS 4) · **Zeitbox:** eine Sitzung.
+**Für:** Development (Astra, Extra High) · **Risiko:** mittel. Es geht um Sicherung und Überwachung. Beides darf nicht
+blinder werden · **Zeitbox:** eine Sitzung.
 
-### Befund (PO 09.11. und 10.11., iPhone mit iOS 26.5, Build aus `5ba70b8`, mit Netz)
+### Teil 1 · WAL-Fehlalarm (PO 09.11.)
 
-- **Gesperrt,** Pause oder Beenden in der Live-Aktivität tippen: Das iPhone verlangt Face ID, danach öffnet sich die
-  App. Gebucht wird nichts, die Zeit läuft weiter. Das passiert immer, egal wie lange das iPhone schon gesperrt ist.
-- **Entsperrt,** dieselbe Live-Aktivität über die Mitteilungszentrale: Die Aktion wirkt.
-- **Android** ist nicht betroffen.
-- **Folgerung:** Der Knopf ist ein Intent (`canSend`), Schlüssel und Nonce sind da. Speicher und Schlüsselbund nutzen
-  `AfterFirstUnlock`.
+**Befund:**
+- Am 09.11. um 13:48 UTC kam „WAL-Archivierung steht: WAL-Segment wartet seit 2 min“, kurz nach der ersten Erfassung
+  seit Tagen. Danach war der Status wieder `ok`, es gingen keine Daten verloren.
+- Durchläufe mit Upload dauern 60–61 s, davon `base_seconds` 47–48. Am 31.10. waren es 55–57 s.
+- Die Wartegrenze ist `WAL_ARCHIVE_INTERVAL_SECONDS` × `WAL_ARCHIVE_MISSED_CYCLES` = 2 × 60 s.
 
-### Spuren des TL (nicht bewiesen)
+**Spur des TL:** Nach jedem Upload ruft `taptime-wal-archiver` `latest_base_has_offsite_start_wal` auf. Das macht drei
+`borg extract --stdout` aus der neuesten Basis und ein `borg info`, jeweils über die Storage Box. Die Werte einer Basis
+ändern sich nie, werden aber in jedem Durchlauf neu gelesen.
 
-1. **iOS verlangt das Entsperren, bevor `perform` läuft.** Möglicher Auslöser:
-   - `LockScreenActionIntent` ist zusätzlich `ForegroundContinuableIntent` und ruft `requestToContinueInForeground()`
-     auf. Beides hat Apple in iOS 26 abgekündigt, an seine Stelle tritt `supportedModes`.
-   - T-104c hat das als P3 „am Gerät prüfen“ notiert.
-2. **`perform` läuft, kehrt aber mit „App öffnen“ zurück.** Nach Face ID wird die App aktiv, und ihr Abgleich
-   (`suspend`) dreht die Nonce, bevor die Aktion gelesen wird. Oder ein anderer Zweig in `LockScreenEngine.action`
-   liefert `true`, darunter `catch`.
+**Umfang:**
+1. **Messen:** Die Basisphase in einen Zeitanteil je Borg-Aufruf zerlegen, mit dem vorhandenen Werkzeug
+   `tests/backup-scale/` oder einem gleichwertigen lokalen Aufbau.
+2. **Die Basisphase verkürzen, ohne Prüfungen wegzulassen.** Die Werte einer unveränderlichen Basis werden einmal je
+   Basis gelesen und an ihren Archivnamen gebunden. Erst eine neue Basis liest neu. Wo dieser Wert liegt und wer ihn
+   anlegt, ändert und entfernt, benennt Codex (AGENTS 1.5). Was falsch oder fremd ist, löst wie bisher einen Fehler aus.
+3. **Reicht das nicht** für einen Durchlauf deutlich unter dem Intervall, wird die Grenze des Monitors aus Intervall und
+   gemessener Durchlaufdauer abgeleitet, nicht aus einer neuen festen Zahl (AGENTS 1.6). Ein echter Stillstand meldet
+   weiter.
+4. **`infrastructure/MONITORING.md`** und, falls nötig, **`RESTORE.md`** werden im selben Commit angepasst (AGENTS 7).
 
-### Umfang
+### Teil 2 · Rechtstexte an D-160 und D-161 angleichen
 
-1. **Apple-Dokumentation zu iOS 26 prüfen:**
-   - App Intents: `supportedModes` und `IntentModes`;
-   - `LiveActivityIntent`, `authenticationPolicy`;
-   - die Abkündigung von `ForegroundContinuableIntent`;
-   - interaktive Live-Aktivitäten auf dem gesperrten Gerät.
+Betroffen sind `ADO/06_Recht/Beschaeftigten_Information_Art13.md`, `Verzeichnis_Verarbeitungstaetigkeiten.md`,
+`AVV_Anlagen.md`, `docs/store/privacy.md` und in `acceptance.yml` nur das Kriterium LK-8:
+- **Android:** Pause, Weiter und Beenden vom Sperrbildschirm ohne Entsperren.
+- **iPhone:** nur bei entsperrtem Gerät (Face ID oder Code). Die App öffnet sich dabei nicht.
+- **`AVV_Anlagen.md`:** Hier stehen noch Kundennamen auf dem Sperrbildschirm. Das wird nach D-160 korrigiert: Kunden
+  nur mit Initialen.
+- **`acceptance.yml`** (Abnahmekriterien des PO, 10.11.): LK-8 verspricht „ohne Entsperren“ für beide Systeme. Titel und
+  Beschreibung nach D-161 je System fassen. ID, `verification` und `confirmedBy` bleiben, alle anderen Kriterien auch.
 
-   Die Quellen gehören in den Bericht.
-2. **Die belegte Korrektur umsetzen.** Der Aktions-Intent läuft nur im Hintergrund: unter iOS 26 über `supportedModes`,
-   ab iOS 17 ohne Vordergrund-Fortsetzung. Muss eine Aktion in die App, zeigt die Live-Aktivität „Bitte App öffnen“ als
-   Link, statt mitten im Intent in den Vordergrund zu wechseln. Diese Regeln bleiben:
-   - Eine Aktion wird beim Öffnen der App nie nachgeholt.
-   - Ein veralteter Tipp bucht nie.
-   - D-146 und D-160 bleiben.
-   - Das Verhalten ohne Netz bleibt wie in T-140.
-3. **Diagnose ohne Kabel.** Die native Seite merkt sich nur den letzten Sperrbildschirm-Tipp:
-   - Uhrzeit;
-   - ob `perform` lief;
-   - App-Zustand;
-   - ob geschützte Daten verfügbar waren;
-   - das Ergebnis als feste Kennung, etwa `executed`, `no_key`, `nonce_changed`, `blocked`, `storage`, `network`,
-     `continued`.
-
-   Keine Namen, Schlüssel oder Antworttexte. Angelegt wird der Eintrag beim Tipp, überschrieben beim nächsten, gelöscht
-   beim Abmelden (AGENTS 1.5). Die App zeigt ihn als eine kleine Zeile unter „Übertragung“. Kommt ein Tipp gar nicht an,
-   bleibt der frühere Eintrag stehen, und die Uhrzeit zeigt das.
+Leser mit `grep` suchen und ausführen (T-134).
 
 ### Tests und Nachweis
 
-- **Swift-Engine-Tests:** für jede Ergebniskennung und dafür, dass eine Aktion nie nachgeholt wird.
-- **Intent-Metadaten:** Was der Intent erklärt (`supportedModes`, Vordergrund, `authenticationPolicy`), muss im
-  iOS-26.5-SDK-Typecheck der Laufzeit, des Widgets und des AppIntent sichtbar sein.
-- **Grün bleiben:** Android unverändert, die Regressionen aus T-140, T-143 und T-142.
-- **Builds und CI:** Android-Release-Build, iOS-JS-Export, ganze CI lokal nachgebaut.
-- **Bericht:** `.t145-review/bericht.md` mit einer kurzen Geräteprüfliste. Sie enthält, wie der PO die Diagnosezeile
-  abliest.
+- **Zuerst rot:** Ein Test belegt, dass heute jeder Durchlauf mit Upload die drei Extrakte erneut liest.
+- **Danach:** Gleiche Basis bedeutet keine Extrakte. Eine neue Basis liest einmal neu. Sind die Werte falsch, beschädigt
+  oder fremd, gibt es einen Fehler wie bisher.
+- **Monitor-Tests:** Ein gesunder Durchlauf mit Upload meldet nicht. Stillstand, fehlendes Lebenszeichen und Lücke
+  melden wie bisher.
+- **Messung vorher und nachher** im Bericht.
+- **Builds und CI:** Betriebsskripte, ShellCheck und PITR grün, ganze CI lokal nachgebaut.
+- **Bericht:** `.t144-review/bericht.md` mit den PO-Schritten für den Deploy nach `infrastructure/DEPLOY.md`, zum
+  Beispiel ob der Controller vorher an der Konsole installiert werden muss.
 
 ### Grenzen
 
-- Kein Deploy, keine EAS-Builds, kein Server, kein Supabase, keine GHCR-Paketaktion, nichts installieren (AGENTS 3).
+- Kein Deploy, kein Server, kein Supabase, keine GHCR-Paketaktion, nichts installieren (AGENTS 3).
 - Kein Commit vor `APPROVED`.

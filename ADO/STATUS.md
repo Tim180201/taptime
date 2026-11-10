@@ -11,16 +11,19 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
   aufbewahrten Basis, das ist gewollt. Die Wochenprobe ist grün, seit dem 01.11. kommt keine Morgenmeldung mehr.
   Am 09.11. um 13:48 UTC kam ein Fehlalarm „WAL-Segment wartet seit 2 min“ ohne Datenverlust; der Status war danach
   wieder `ok` (T-144).
-- **Apps:** Builds aus `5ba70b8` (T-141, T-143, T-142), iPhone mit iOS 26.5. Initialen auf dem Sperrbildschirm
-  bestätigt (PO 10.11.). Am gesperrten iPhone verlangen die Sperrbildschirm-Knöpfe weiter Face ID, öffnen die App und
-  buchen nichts; entsperrt über die Mitteilungszentrale wirken sie (T-145). Lokales Schema 8: keine ältere App darüber
-  installieren.
-- **Aufgabe:** T-145 auf main (Hintergrund-Intent, Diagnose unter „Übertragung“). Jetzt ein App-Build und die
-  Geräteprüfung von T-141 bis T-145.
+- **Apps:** iPhone aus `62266b4` (Build 14, iOS 26.5), Android aus `5ba70b8`. Geräteprüfung PO 10.11. bestanden:
+  - Initialen auf dem Sperrbildschirm;
+  - iPhone-Knöpfe wirken nach Face ID, auch bei geschlossener App (D-161);
+  - „Meine Zeiten“ am iPhone sofort, am Android 0,85–1,5 s.
+
+  Lokales Schema 8: keine ältere App darüber installieren.
+- **Aufgabe:** T-144 (WAL-Fehlalarm, Rechtstexte zu D-160 und D-161; Brief in TASK), danach T-055. Beide gehen in einen
+  Deploy.
 
 ## Weg zum Pilot
 
-App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
+T-144 → T-055 (vorgezogen) → ein Deploy → T-146 (Abnahme-IDs an Tests) und restliche Geräteabnahme → Pilot
+(D-152).
 
 **Vor echten Daten (D-116):**
 - Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S;

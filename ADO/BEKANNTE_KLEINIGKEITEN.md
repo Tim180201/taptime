@@ -4,6 +4,7 @@ Hierher gehören die nicht blockierenden Befunde aus Reviews und Tests (AGENTS 5
 Klammern, Einzelheiten in Git. Erledigte Zeilen werden entfernt, nicht durchgestrichen. Keine Seitengrenze, aber nichts
 als diese Liste. Einordnung in die Analyse-Pakete mit B16. Stand bis 31.10.: aus `ADO/STATUS.md` hierher verschoben.
 
+- **T-142, Gerät (PO 10.11., P3):** Android braucht beim ersten Öffnen von „Meine Zeiten“ 0,85–1,5 s, das Ziel unter 1 s ist knapp verfehlt; das iPhone zeigt es sofort. Bei Bedarf später mit einem Hermes-Profil am Gerät nachmessen.
 - **T-145, unabhängiges Review R1 (P2):** Läuft eine native Aktion von A über einen Kontowechsel zu B hinweg und scheitert das erste Lesen nach der Antwort vorübergehend, kann der `catch`-Fallback bei erneut erfolgreichem Lesen B auf `OPEN_APP` setzen und dessen Nonce drehen. Keine Buchung oder Datenoffenlegung; erneuter Abgleich erforderlich.
 - **T-145, lokale Prüfstrecke (P2):** Neuer SDK-Test zunächst mit iOS-16.1-Ziel statt der tatsächlichen Pod-Mindestversion 16.4; Availability-Fehler vor der Intent-Prüfung. Der Test leitet das Ziel jetzt aus der Podspec ab; Erstfehler bleibt in `.t145-review/focused.log`.
 - **T-142, TL (P3):** Beim schnellen Tabwechsel nutzt „Meine Zeiten“ einen bestätigten Stand bis 30 s weiter; fremde Änderungen (Verwaltung, anderes Gerät) erscheinen erst danach oder mit „Aktualisieren“.
