@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand 09.11.2026.** Höchstens eine Seite, überschreiben statt anhängen (AGENTS 6). Frühere Fassung mit allen
+**Stand 10.11.2026.** Höchstens eine Seite, überschreiben statt anhängen (AGENTS 6). Frühere Fassung mit allen
 Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
 
 ## Jetzt
@@ -11,15 +11,16 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
   aufbewahrten Basis, das ist gewollt. Die Wochenprobe ist grün, seit dem 01.11. kommt keine Morgenmeldung mehr.
   Am 09.11. um 13:48 UTC kam ein Fehlalarm „WAL-Segment wartet seit 2 min“ ohne Datenverlust; der Status war danach
   wieder `ok` (T-144).
-- **Apps:** Builds aus `b50e85a` (T-139, T-140). Die Geräteprüfung auf beiden Handys hat der PO am 31.10. bestanden.
-  Ausnahme: Die iPhone-Sperrbildschirm-Knöpfe öffnen mit Netz nur die App (T-143, auf main, wirkt mit dem nächsten App-Build).
-  Lokales Schema 8: keine ältere App darüber installieren.
-- **Aufgabe:** T-142 auf main („Meine Zeiten“ schnell, ohne Serveränderung). Jetzt der gemeinsame App-Build mit
-  T-141, T-143 und T-142 und dessen Geräteprüfung.
+- **Apps:** Builds aus `5ba70b8` (T-141, T-143, T-142), iPhone mit iOS 26.5. Initialen auf dem Sperrbildschirm
+  bestätigt (PO 10.11.). Am gesperrten iPhone verlangen die Sperrbildschirm-Knöpfe weiter Face ID, öffnen die App und
+  buchen nichts; entsperrt über die Mitteilungszentrale wirken sie (T-145). Lokales Schema 8: keine ältere App darüber
+  installieren.
+- **Aufgabe:** T-145 (gesperrtes iPhone, Brief in TASK), danach ein App-Build und die restliche Geräteprüfung von
+  T-141 bis T-145.
 
 ## Weg zum Pilot
 
-App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
+T-145 → App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
 
 **Vor echten Daten (D-116):**
 - Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S;

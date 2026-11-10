@@ -1,71 +1,72 @@
 # Aktuelle Aufgabe
 
-> **Stand 09.11.2026:**
-> - T-143 ist auf main (`2f37db2`). CI und Image sind grün.
-> - Jetzt T-142, danach ein gemeinsamer App-Build mit T-141, T-143 und T-142.
+> **Stand 10.11.2026:**
+> - Die Apps sind aus `5ba70b8` gebaut (T-141, T-143, T-142). Am iPhone erscheinen die Initialen.
+> - Am gesperrten iPhone öffnen die Sperrbildschirm-Knöpfe aber weiter nur die App. Jetzt T-145, danach ein App-Build.
 
-## T-142 · „Meine Zeiten“ schnell
+## T-145 · iPhone gesperrt: Sperrbildschirm-Knöpfe verlangen Face ID und buchen nichts (P1)
 
-**Für:** Development (Astra, Extra High) · **Risiko:** mittel. Die Abrufe hängen mit dem Sperrbildschirm zusammen
-(T-143). Berührt die Änderung dessen Weg, gibt es ein unabhängiges Review (AGENTS 4) · **Zeitbox:** zwei Sitzungen.
-Reißt sie, wird Hebel 4 geschnitten.
+**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Es geht um die Sperrbildschirm-Berechtigung (Auth),
+deshalb ein unabhängiges Review (AGENTS 4) · **Zeitbox:** eine Sitzung.
 
-### Befund (PO 31.10. und 09.11.)
+### Befund (PO 09.11. und 10.11., iPhone mit iOS 26.5, Build aus `5ba70b8`, mit Netz)
 
-„Meine Zeiten“ braucht bei jedem Öffnen spürbar lange, bis alles da ist: am iPhone 1–3 s, am Android 3–5 s, mit gutem
-Netz.
+- **Gesperrt,** Pause oder Beenden in der Live-Aktivität tippen: Das iPhone verlangt Face ID, danach öffnet sich die
+  App. Gebucht wird nichts, die Zeit läuft weiter. Das passiert immer, egal wie lange das iPhone schon gesperrt ist.
+- **Entsperrt,** dieselbe Live-Aktivität über die Mitteilungszentrale: Die Aktion wirkt.
+- **Android** ist nicht betroffen.
+- **Folgerung:** Der Knopf ist ein Intent (`canSend`), Schlüssel und Nonce sind da. Speicher und Schlüsselbund nutzen
+  `AfterFirstUnlock`.
 
-### Was der TL im Code sieht (zu prüfen)
+### Spuren des TL (nicht bewiesen)
 
-- **Seiten:** Eigene Zeiten kommen in Seiten zu 20 Einträgen, einschließlich Details und Kalender je Eintrag, und zwar
-  eine nach der anderen für diesen und den letzten Monat. Das Höchstmaß 20 legt der Vertrag fest
-  (`MOBILE_OWN_TIME_LIMIT_MAXIMUM`).
-- **Öffnen:** Jedes Öffnen ruft `refresh()` auf und liest damit alle Seiten neu (`readPreservingActive`). Jedes `read`
-  holt dazu die Arbeitsziele.
-- **Zusätzliche Abrufe:** Bestätigungsabrufe aus T-140 und der neue Durchlauf aus T-143 lösen weitere vollständige
-  Abrufe aus. Diese verdrängen sich gegenseitig.
-- **Seit T-140:** Vor und nach jedem Abruf liest und schreibt die App die Offline-Datenbank.
+1. **iOS verlangt das Entsperren, bevor `perform` läuft.** Möglicher Auslöser:
+   - `LockScreenActionIntent` ist zusätzlich `ForegroundContinuableIntent` und ruft `requestToContinueInForeground()`
+     auf. Beides hat Apple in iOS 26 abgekündigt, an seine Stelle tritt `supportedModes`.
+   - T-104c hat das als P3 „am Gerät prüfen“ notiert.
+2. **`perform` läuft, kehrt aber mit „App öffnen“ zurück.** Nach Face ID wird die App aktiv, und ihr Abgleich
+   (`suspend`) dreht die Nonce, bevor die Aktion gelesen wird. Oder ein anderer Zweig in `LockScreenEngine.action`
+   liefert `true`, darunter `catch`.
 
 ### Umfang
 
-1. **Zuerst messen**, mit den Pilotgrößen aus `tests/pilot-size/`: eine Lehrkraft mit zwei vollen Monaten und eine
-   Standortleitung. Je Öffnen erfassen:
-   - die Zahl der Anfragen;
-   - die Serverzeit je Anfrage;
-   - die Datenmenge;
-   - die Rechenzeit in der App bis zur vollständigen Anzeige, getrennt nach Netz, Server, Offline-Datenbank und Rendern;
-   - was die Nutzerin in jedem Moment sieht: beim ersten Öffnen nach dem App-Start und bei jedem weiteren Öffnen.
-2. **Dann die größten Hebel umsetzen**, belegt durch die Messung:
-   1. **Sofort zeigen:** Ein bekannter, bestätigter Kalender bleibt beim Öffnen sichtbar und wird still ersetzt, sobald
-      der neue vollständig ist. Kein Lade-Bildschirm, wenn schon Daten da sind.
-   2. **Abrufe bündeln:** Gleichzeitige Anstöße teilen sich einen laufenden Abruf, danach folgt höchstens einer. Für den
-      Sperrbildschirm muss weiter gelten, was T-143 sichert: Er bekommt nach seinem `suspend` einen gültigen Abgleich.
-   3. **Nicht unnötig neu laden:** Beim Öffnen nur neu laden, wenn sich etwas geändert haben kann. Den Auslöser legt
-      Codex vor und begründet ihn.
-   4. **Größere Seiten:** Nur wenn die Messung es verlangt. Das braucht eine Server- und Vertragsänderung; alte
-      App-Builds mit 20 Einträgen müssen weiter funktionieren. Dann kommt der App-Build erst nach dem Deploy.
-3. **Keine neue Speicherung eigener Zeiten auf dem Gerät** ohne Rückfrage beim TL (AGENTS 1.5).
-4. **Ziel:**
-   - Bekannte Inhalte sind sofort da.
-   - Bei Pilotgröße und gutem Netz ist „Meine Zeiten“ in unter 1 s aktuell.
-   - Je Öffnen höchstens ein vollständiger Abruf.
+1. **Apple-Dokumentation zu iOS 26 prüfen:**
+   - App Intents: `supportedModes` und `IntentModes`;
+   - `LiveActivityIntent`, `authenticationPolicy`;
+   - die Abkündigung von `ForegroundContinuableIntent`;
+   - interaktive Live-Aktivitäten auf dem gesperrten Gerät.
+
+   Die Quellen gehören in den Bericht.
+2. **Die belegte Korrektur umsetzen.** Der Aktions-Intent läuft nur im Hintergrund: unter iOS 26 über `supportedModes`,
+   ab iOS 17 ohne Vordergrund-Fortsetzung. Muss eine Aktion in die App, zeigt die Live-Aktivität „Bitte App öffnen“ als
+   Link, statt mitten im Intent in den Vordergrund zu wechseln. Diese Regeln bleiben:
+   - Eine Aktion wird beim Öffnen der App nie nachgeholt.
+   - Ein veralteter Tipp bucht nie.
+   - D-146 und D-160 bleiben.
+   - Das Verhalten ohne Netz bleibt wie in T-140.
+3. **Diagnose ohne Kabel.** Die native Seite merkt sich nur den letzten Sperrbildschirm-Tipp:
+   - Uhrzeit;
+   - ob `perform` lief;
+   - App-Zustand;
+   - ob geschützte Daten verfügbar waren;
+   - das Ergebnis als feste Kennung, etwa `executed`, `no_key`, `nonce_changed`, `blocked`, `storage`, `network`,
+     `continued`.
+
+   Keine Namen, Schlüssel oder Antworttexte. Angelegt wird der Eintrag beim Tipp, überschrieben beim nächsten, gelöscht
+   beim Abmelden (AGENTS 1.5). Die App zeigt ihn als eine kleine Zeile unter „Übertragung“. Kommt ein Tipp gar nicht an,
+   bleibt der frühere Eintrag stehen, und die Uhrzeit zeigt das.
 
 ### Tests und Nachweis
 
-- **Messung vorher und nachher** mit demselben Werkzeug, als Tabelle im Bericht.
-- **Anfragezählung:**
-  - Zweimal öffnen ergibt höchstens einen vollständigen Abruf.
-  - Mehrere gleichzeitige Anstöße ergeben einen Abruf und höchstens einen Folgeabruf.
-- **Grün bleiben:**
-  - die Regressionen aus T-140, darunter R1 und die Bestätigung;
-  - die Regressionen aus T-143 (verdrängter Abgleich, veralteter Tipp, Netzfehler);
-  - T-104e (keine Leseschleife, Kalenderwechsel nur mit vollständigen Seiten).
-- **Bei Hebel 4:** API- und Vertragstests und der Nachweis, dass Anfragen mit 20 weiter angenommen werden.
+- **Swift-Engine-Tests:** für jede Ergebniskennung und dafür, dass eine Aktion nie nachgeholt wird.
+- **Intent-Metadaten:** Was der Intent erklärt (`supportedModes`, Vordergrund, `authenticationPolicy`), muss im
+  iOS-26.5-SDK-Typecheck der Laufzeit, des Widgets und des AppIntent sichtbar sein.
+- **Grün bleiben:** Android unverändert, die Regressionen aus T-140, T-143 und T-142.
 - **Builds und CI:** Android-Release-Build, iOS-JS-Export, ganze CI lokal nachgebaut.
-- **Bericht:** `.t142-review/bericht.md` mit einer kurzen Geräteprüfliste für beide Telefone.
+- **Bericht:** `.t145-review/bericht.md` mit einer kurzen Geräteprüfliste. Sie enthält, wie der PO die Diagnosezeile
+  abliest.
 
 ### Grenzen
 
-- Kein Deploy, keine EAS-Builds, kein Server-, Supabase- oder Produktionszugriff, keine GHCR-Paketaktion, nichts
-  installieren (AGENTS 3).
+- Kein Deploy, keine EAS-Builds, kein Server, kein Supabase, keine GHCR-Paketaktion, nichts installieren (AGENTS 3).
 - Kein Commit vor `APPROVED`.
