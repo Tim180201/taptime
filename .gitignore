@@ -43,3 +43,6 @@ firebase-debug.log
 
 # Abnahme-Dossier (lokale Ausgaben des Werkzeugs)
 .dossier/
+
+# Lokale Claude-Ausgaben
+Claude outputs/
