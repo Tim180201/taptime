@@ -1,6 +1,15 @@
 import type { LockScreenAction, LockScreenState, LockScreenCapabilityRequest } from '@taptime/mobile-work-contract';
 
+export interface LockScreenTapDiagnostic {
+  readonly at: string;
+  readonly performRan: boolean;
+  readonly appState: 'active'|'inactive'|'background';
+  readonly protectedDataAvailable: boolean;
+  readonly result: 'started'|'executed'|'state_changed'|'no_key'|'nonce_changed'|'blocked'|'storage'|'network'
+    |'unconfirmed'|'rejected'|'update_required'|'superseded';
+}
 export interface LockScreenStand {
+  readonly lastTap?: LockScreenTapDiagnostic;
   readonly owner?: string;
   readonly revision?: string;
   readonly state?: LockScreenState;
@@ -33,7 +42,7 @@ export interface CaptureBoundary {
   beforeCapture(): Promise<boolean>;
   afterCapture(): Promise<void>;
 }
-export interface LockScreenUiState {readonly notificationsDenied:boolean;readonly blockedReason:string|null}
+export interface LockScreenUiState {readonly lastTap?:LockScreenTapDiagnostic;readonly notificationsDenied:boolean;readonly blockedReason:string|null}
 export interface LockScreenCapability {
   isCaptureUrl?(url:string|null):boolean;
   getState():LockScreenUiState;

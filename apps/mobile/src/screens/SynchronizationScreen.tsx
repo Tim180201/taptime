@@ -1,4 +1,4 @@
-import type { LockScreenCapability } from '../lockScreen/contracts';
+import type { LockScreenCapability, LockScreenTapDiagnostic } from '../lockScreen/contracts';
 import { ThemeSwitch } from '../design/ThemeSwitch';
 import { AppUpdateButton } from '../design/AppUpdateButton';
 import { useSyncExternalStore } from 'react';
@@ -9,6 +9,13 @@ import { ActionButton, AppText as Text, Card, Screen } from '../design/primitive
 import { useMobileTokens } from '../design/useMobileTheme';
 import { syncIndicator, type SyncIndicator } from '../navigation/presentation';
 import { presentScanState } from './ScanScreen';
+
+function presentLockScreenTap(tap:LockScreenTapDiagnostic):string {
+  const at=new Date(tap.at).toLocaleString('de-DE',{timeZone:'Europe/Berlin',day:'2-digit',month:'2-digit',
+    year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const app={active:'Vordergrund',inactive:'inaktiv',background:'Hintergrund'}[tap.appState];
+  return `Letzter Sperrbildschirm-Tipp: ${at} · Aufruf angekommen: ${tap.performRan?'ja':'nein'} · App: ${app} · Geschützte Daten: ${tap.protectedDataAvailable?'verfügbar':'gesperrt'} · Ergebnis: ${tap.result}`;
+}
 
 export function SynchronizationScreen({ scan, indicator, signOut, lockScreen }: {
   readonly lockScreen?: LockScreenCapability;
@@ -52,6 +59,9 @@ export function SynchronizationScreen({ scan, indicator, signOut, lockScreen }: 
     {lockScreenState?.notificationsDenied ? <Card><Text>{Platform.OS==='ios'
       ? 'Die laufende Zeit kann auf deinem Sperrbildschirm erscheinen. Erlaube dafür Live-Aktivitäten in den Einstellungen.'
       : 'Die laufende Zeit kann auf deinem Sperrbildschirm erscheinen. Erlaube dafür Benachrichtigungen in den Einstellungen.'}</Text><ActionButton title="Einstellungen öffnen" onPress={()=>lockScreen?.openSettings()}/></Card> : null}
+    {lockScreenState?.lastTap ? <Text style={{color:mobileTokens.color.textMuted,fontSize:13}}>
+      {presentLockScreenTap(lockScreenState.lastTap)}
+    </Text> : null}
     <ThemeSwitch />
     <AppBuildIdentity />
   </ScrollView></Screen>;

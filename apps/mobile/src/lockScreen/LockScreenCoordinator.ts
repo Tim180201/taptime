@@ -78,7 +78,7 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     const subscription=this.appState.addEventListener('change',state=>{
       const returning=state==='active'&&previous!=='active';previous=state;
       if(this.native.foregroundOnly&&state!=='active')this.epoch++;
-      if(returning){this.publishPreview();void this.refresh();}
+      if(returning){this.updateUi();this.publishPreview();void this.refresh();}
     });this.unsubscribers.push(()=>subscription.remove());
     if(this.offline.subscribeOwnTimeDisplay)this.unsubscribers.push(this.offline.subscribeOwnTimeDisplay(()=>this.publishPreview()));
     this.onSession();this.publishPreview();
@@ -145,8 +145,10 @@ export class LockScreenCoordinator implements LockScreenCapability, CaptureBound
     const stale=stand?.revision!==this.readRevision || !!stand?.pending;
     const blockedReason=stale&&offline?WAIT:null;
     const notificationsDenied=!!stand?.permissionAsked&&!stand.permissionGranted;
-    if(this.state.blockedReason===blockedReason&&this.state.notificationsDenied===notificationsDenied)return;
-    this.state={notificationsDenied,blockedReason};this.work.setCaptureBlockedReason(blockedReason);
+    const lastTap=stand?.lastTap;
+    if(this.state.blockedReason===blockedReason&&this.state.notificationsDenied===notificationsDenied
+      &&JSON.stringify(this.state.lastTap)===JSON.stringify(lastTap))return;
+    this.state={notificationsDenied,blockedReason,...(lastTap?{lastTap}:{})};this.work.setCaptureBlockedReason(blockedReason);
     this.listeners.forEach(listener=>listener());
   }
   /** In the background only an own capture awaiting its result is reconciled; otherwise suspend() would turn live lock-screen buttons into "open app". */

@@ -15,12 +15,12 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
   bestätigt (PO 10.11.). Am gesperrten iPhone verlangen die Sperrbildschirm-Knöpfe weiter Face ID, öffnen die App und
   buchen nichts; entsperrt über die Mitteilungszentrale wirken sie (T-145). Lokales Schema 8: keine ältere App darüber
   installieren.
-- **Aufgabe:** T-145 (gesperrtes iPhone, Brief in TASK), danach ein App-Build und die restliche Geräteprüfung von
-  T-141 bis T-145.
+- **Aufgabe:** T-145 auf main (Hintergrund-Intent, Diagnose unter „Übertragung“). Jetzt ein App-Build und die
+  Geräteprüfung von T-141 bis T-145.
 
 ## Weg zum Pilot
 
-T-145 → App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
+App-Build → T-055 (vorgezogen) und T-144 mit einem Deploy → restliche Geräteabnahme → Pilot (D-152).
 
 **Vor echten Daten (D-116):**
 - Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S;

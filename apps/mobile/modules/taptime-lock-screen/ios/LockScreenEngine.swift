@@ -10,6 +10,24 @@ import Foundation
   func remove() throws
 }
 
+// One local diagnostic, never a command or an account identifier.
+enum LockTapResult: String, Codable, CaseIterable {
+  case started, executed, state_changed, no_key, nonce_changed, blocked, storage, network
+  case unconfirmed, rejected, update_required, superseded
+}
+enum LockTapAppState: String, Codable { case active, inactive, background }
+struct LockTapDiagnostic: Codable, Equatable {
+  let at: String
+  let performRan: Bool
+  let appState: LockTapAppState
+  let protectedDataAvailable: Bool
+  var result: LockTapResult
+}
+@MainActor protocol LockTapStorage {
+  func read() throws -> LockTapDiagnostic?
+  func write(_ value: LockTapDiagnostic?) throws
+}
+
 /** Same server protocol as Android. No login store, JS, auth refresh or automatic command replay. */
 @MainActor final class LockScreenEngine {
   let store: LockStandStorage
@@ -17,13 +35,19 @@ import Foundation
   let foreground: () -> Bool
   let now: () -> Date
   let post: (String, String, String, String, Data) async -> LockHttpResult
+  let diagnostics: LockTapStorage?
+  let tapContext: () -> (LockTapAppState, Bool)
+  private var diagnosticGeneration = UUID()
   var changed: () -> Void = {}
   var actionChanged: () -> Void = {}
   private var inFlight = Set<String>()
   init(store: LockStandStorage, keys: LockCapabilityStorage, foreground: @escaping () -> Bool,
        now: @escaping () -> Date = Date.init,
+       diagnostics: LockTapStorage? = nil,
+       tapContext: @escaping () -> (LockTapAppState, Bool) = { (.inactive, false) },
        post: @escaping (String, String, String, String, Data) async -> LockHttpResult) {
     self.store = store; self.keys = keys; self.foreground = foreground; self.now = now; self.post = post
+    self.diagnostics = diagnostics; self.tapContext = tapContext
   }
   private func save(_ stand: LockStand?, notify: Bool = false) throws { try store.write(stand); changed(); if notify { actionChanged() } }
   // Background removal invalidates the reference in the file. Even SecItemDelete is deferred.
@@ -44,9 +68,15 @@ import Foundation
   func bind(_ owner: String) throws -> Bool {
     guard foreground() else { return false }
     if try snapshot()?.owner == owner { return true }
+    clearDiagnostic()
     try save(LockStand(owner: owner)); try keys.remove(); return true
   }
+  private func clearDiagnostic() {
+    diagnosticGeneration = UUID() // An in-flight completion cannot recreate a signed-out diagnostic.
+    try? diagnostics?.write(nil) // Diagnostic I/O must never prevent revoking lock-screen authority.
+  }
   func clear() throws -> Bool {
+    clearDiagnostic()
     try save(nil); try cleanKeyIfForeground(); return true
   }
   func suspend(ownCapture: Bool = false) throws -> Bool {
@@ -94,14 +124,30 @@ import Foundation
       try save(s); return "issued"
     } catch { return "unavailable" }
   }
-  /// Returns whether the caller should open Erfassen. Retrying always requires another explicit tap.
+  /// Returns whether Erfassen is needed. The intent never opens it; the activity offers a Link.
+  /// Retrying always requires another explicit tap.
   func action(_ action: String, nonce: String?, fromApp: Bool = false) async -> Bool {
+    let generation = UUID()
+    let context = tapContext()
+    let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    var diagnostic = LockTapDiagnostic(at: formatter.string(from: now()), performRan: true,
+      appState: context.0, protectedDataAvailable: context.1, result: .started)
+    if !fromApp { diagnosticGeneration = generation; try? diagnostics?.write(diagnostic) }
+    var result: LockTapResult = .blocked
+    defer {
+      if !fromApp && diagnosticGeneration == generation {
+        diagnostic.result = result; try? diagnostics?.write(diagnostic); actionChanged()
+      }
+    }
     do {
       if fromApp && !foreground() { return true }
       guard var s = try snapshot(), let state = s.state, !s.ownCapturePending else { return true }
-      guard fromApp || (s.nonce == nonce && (!s.appBlocked || action == "retry")) else { return true }
+      guard fromApp || s.nonce == nonce else { result = .nonce_changed; return true }
+      guard fromApp || !s.appBlocked || action == "retry" else { return true }
       guard let keyID = s.keyID, let expiry = s.expiresAt, expiry > now(), let key = try keys.read(id: keyID),
-        let baseURL = s.baseURL, let appVersion = s.appVersion else { return true }
+        let baseURL = s.baseURL, let appVersion = s.appVersion else {
+        result = .no_key; s.display = .OPEN_APP; try save(s); return true
+      }
       guard let command = LockLogic.command(status: state.status, pending: s.pending, action: action),
         !inFlight.contains(command.commandId) else { return false }
       s.pending = command; s.display = .SENDING; s.changed()
@@ -112,9 +158,16 @@ import Foundation
       let response = await post(baseURL, "/v1/lock-screen/action", key, appVersion, try JSONEncoder().encode(command))
       // suspend() rotates button nonces when the app opens, but does not cancel an accepted command.
       guard var current = try store.read(), current.instanceID == instance,
-        current.pending == command, !current.ownCapturePending else { return false }
+        current.pending == command, !current.ownCapturePending else { result = .superseded; return false }
       let next = LockLogic.actionState(response, entryID: state.timeEntryId)
       let outcome = LockLogic.outcome(response, state: next)
+      switch outcome.display {
+      case .STATE, .SAVING: result = LockLogic.object(response.body)?["status"] as? String == "applied" ? .executed : .state_changed
+      case .NOT_SENT: result = .network
+      case .UNCONFIRMED: result = .unconfirmed
+      case .UPDATE_APP: result = .update_required
+      default: result = .rejected
+      }
       if LockLogic.settled(outcome.display) { current.state = next }
       if outcome.invalidateKey { current.invalidateKey() }
       if !outcome.keepCommand { current.pending = nil }
@@ -123,6 +176,12 @@ import Foundation
       try save(current, notify: true)
       if outcome.invalidateKey { try cleanKeyIfForeground() }
       return [.NOT_SENT, .OPEN_APP, .UPDATE_APP].contains(outcome.display)
-    } catch { return true }
+    } catch {
+      result = .storage
+      if var current = try? store.read() {
+        current.display = .OPEN_APP; current.changed(); try? save(current)
+      }
+      return true
+    }
   }
 }

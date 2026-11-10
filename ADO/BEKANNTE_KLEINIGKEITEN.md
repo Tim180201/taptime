@@ -4,6 +4,8 @@ Hierher gehören die nicht blockierenden Befunde aus Reviews und Tests (AGENTS 5
 Klammern, Einzelheiten in Git. Erledigte Zeilen werden entfernt, nicht durchgestrichen. Keine Seitengrenze, aber nichts
 als diese Liste. Einordnung in die Analyse-Pakete mit B16. Stand bis 31.10.: aus `ADO/STATUS.md` hierher verschoben.
 
+- **T-145, unabhängiges Review R1 (P2):** Läuft eine native Aktion von A über einen Kontowechsel zu B hinweg und scheitert das erste Lesen nach der Antwort vorübergehend, kann der `catch`-Fallback bei erneut erfolgreichem Lesen B auf `OPEN_APP` setzen und dessen Nonce drehen. Keine Buchung oder Datenoffenlegung; erneuter Abgleich erforderlich.
+- **T-145, lokale Prüfstrecke (P2):** Neuer SDK-Test zunächst mit iOS-16.1-Ziel statt der tatsächlichen Pod-Mindestversion 16.4; Availability-Fehler vor der Intent-Prüfung. Der Test leitet das Ziel jetzt aus der Podspec ab; Erstfehler bleibt in `.t145-review/focused.log`.
 - **T-142, TL (P3):** Beim schnellen Tabwechsel nutzt „Meine Zeiten“ einen bestätigten Stand bis 30 s weiter; fremde Änderungen (Verwaltung, anderes Gerät) erscheinen erst danach oder mit „Aktualisieren“.
 - **T-142, lokale Messstrecke (P2):** Erster Browser-Vorlauf begann vor dem fertigen Spitzenprofil-Export und brach mit `ENOENT` ab; vollständige Vergleichsserien erst nach dem Export und ohne parallele Prüf-/Buildlast. Ein Testaufruf vom Repository-Root fand wegen des Workspace-Filters keine Tests; im Mobile-Workspace korrekt ausgeführt. Werkzeugfehler und getrennte Abschlussnachweise in `.t142-review/bericht.md`.
 - **Tests mit festem Monatsfenster (TL 09.11., P3):** `T085QuotaPostgres` „removes“ und „employees receive no quota fields“ (Oktober) sowie `TimeEntryExportPostgres` (Juli) setzen mit heutiger Zeit und lesen einen festen vergangenen Monat; sie können seitdem ohne Aussage bestehen. Beim nächsten Anfassen auf eine Zeit im Fenster stellen (Muster `011e67e`).
@@ -33,8 +35,7 @@ als diese Liste. Einordnung in die Analyse-Pakete mit B16. Stand bis 31.10.: aus
 - **Lokale CI (T-132, P2):** der T-092-Offlinetest mischt Host- und Datenbankuhr; mit PostgreSQL in Colima trat ein ungültiges Zeitdelta auf. Uhrabweichung belegt; kompletter C2-Lauf mit PostgreSQL auf demselben Host grün, Details in `.t132-review/`.
 - **Sperrbildschirm iPhone (T-104c):** ein Link, der nach einem Hintergrundstart ankommt, geht verloren (der Start
   landet ohnehin auf „Erfassen“) · das Plugin übernimmt `ios.version` nicht (heute ungenutzt) · Zeitüberschreitung und
-  TLS-Fehler gelten als „Noch nicht bestätigt“ statt „Nicht gesendet“ · `requestToContinueInForeground` ist in iOS 26
-  abgekündigt, am Gerät prüfen · nach der 8-Stunden-Grenze von iOS erst beim nächsten Öffnen wieder sichtbar ·
+  TLS-Fehler gelten als „Noch nicht bestätigt“ statt „Nicht gesendet“ · nach der 8-Stunden-Grenze von iOS erst beim nächsten Öffnen wieder sichtbar ·
   `@expo/plist` ist nur indirekt vorhanden (alle P3).
 - **Sperrbildschirm Android (T-104b):** ein 401 beim Ausstellen entfernt Stand und Meldung vor dem zweiten Versuch;
   scheitert dieser, fehlt die Meldung bis zum nächsten Öffnen (P2) · „Wird gesendet …“ bleibt nach Prozesstod bis zum

@@ -2,23 +2,24 @@ import Foundation
 import Security
 import UIKit
 
+private func lockScreenFile(_ name: String) throws -> URL {
+  var directory = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+    .appendingPathComponent("TapTimeLockScreen", isDirectory: true)
+  try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
+    attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
+  var values = URLResourceValues(); values.isExcludedFromBackup = true
+  try directory.setResourceValues(values)
+  return directory.appendingPathComponent(name)
+}
+
 @MainActor final class LockFileStore: LockStandStorage {
-  private func file() throws -> URL {
-    var directory = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-      .appendingPathComponent("TapTimeLockScreen", isDirectory: true)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
-      attributes: [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication])
-    var values = URLResourceValues(); values.isExcludedFromBackup = true
-    try directory.setResourceValues(values)
-    return directory.appendingPathComponent("state.json")
-  }
   func read() throws -> LockStand? {
-    let url = try file()
+    let url = try lockScreenFile("state.json")
     guard FileManager.default.fileExists(atPath: url.path) else { return nil }
     return try JSONDecoder().decode(LockStand.self, from: Data(contentsOf: url))
   }
   func write(_ stand: LockStand?) throws {
-    var url = try file()
+    var url = try lockScreenFile("state.json")
     if let stand {
       try JSONEncoder().encode(stand).write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
       var values = URLResourceValues(); values.isExcludedFromBackup = true; try url.setResourceValues(values)
@@ -54,5 +55,21 @@ struct LockStorageUnavailable: Error {}
     guard UIApplication.shared.applicationState == .active else { throw LockStorageUnavailable() }
     let status = SecItemDelete(query as CFDictionary)
     guard status == errSecSuccess || status == errSecItemNotFound else { throw LockStorageUnavailable() }
+  }
+}
+
+// Same on-device protection as the stand, excluded from backup, no shared app group.
+@MainActor final class LockTapFileStore: LockTapStorage {
+  func read() throws -> LockTapDiagnostic? {
+    let url = try lockScreenFile("last-tap.json")
+    guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+    return try JSONDecoder().decode(LockTapDiagnostic.self, from: Data(contentsOf: url))
+  }
+  func write(_ value: LockTapDiagnostic?) throws {
+    var url = try lockScreenFile("last-tap.json")
+    if let value {
+      try JSONEncoder().encode(value).write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+      var attributes = URLResourceValues(); attributes.isExcludedFromBackup = true; try url.setResourceValues(attributes)
+    } else if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
   }
 }

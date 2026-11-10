@@ -58,3 +58,14 @@ it.each(['taptime','taptime-validation','taptime-production-validation'])('opens
   expect(isLockScreenCaptureLink(`${scheme}://different`,'ios',scheme)).toBe(false);
   expect(isLockScreenCaptureLink('taptime://lock-screen/capture','android',scheme)).toBe(true);
 });
+it('reads the last iOS tap on foreground even offline, preserves its time, and clears it on sign-out',async()=>{
+  const h=ios();try {
+    await ready(h);h.setAppState('background');h.setOnline(false);
+    const lastTap={at:'2026-11-10T07:00:00.000Z',performRan:true,appState:'background' as const,protectedDataAvailable:false,result:'nonce_changed' as const};
+    h.setStand({lastTap});h.setAppState('active');await h.controller.refresh();
+    expect(h.controller.getState().lastTap).toEqual(lastTap);
+    await h.controller.refresh();expect(h.controller.getState().lastTap).toEqual(lastTap);
+    expect(h.native.retry).not.toHaveBeenCalled();
+    h.signOut();expect(h.controller.getState().lastTap).toBeUndefined();
+  }finally{h.controller.stop();}
+});

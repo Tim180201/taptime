@@ -85,3 +85,15 @@ it.each(['dark', 'light'] as const)('keeps the capture disc dark and the signal 
   expect(Array.from(ring.querySelectorAll('*')).some(e => getComputedStyle(e).backgroundColor === rgb(mobileThemes[theme].color.scanDisc))).toBe(true);
   expect(ring.querySelector('svg')?.getAttribute('color')).toBe(mobileThemes[theme].color.scanAccent);
 });
+it('shows the last lock-screen diagnostic under Übertragung and removes it when native state is cleared',()=>{
+  let state={notificationsDenied:false,blockedReason:null,lastTap:{at:'2026-11-10T07:12:34.000Z',performRan:true,
+    appState:'background' as const,protectedDataAvailable:false,result:'nonce_changed' as const}} as import('../../src/lockScreen/contracts').LockScreenUiState;
+  const lockScreen={getState:()=>state,subscribe,openSettings(){}};
+  const view=render(themed('dark',h(SynchronizationScreen,{scan,lockScreen})));
+  const line=screen.getByText(/Letzter Sperrbildschirm-Tipp:/);
+  expect(line.textContent).toContain('10.11.2026, 08:12:34');
+  expect(line.textContent).toContain('Aufruf angekommen: ja · App: Hintergrund · Geschützte Daten: gesperrt · Ergebnis: nonce_changed');
+  state={notificationsDenied:false,blockedReason:null};
+  view.rerender(themed('dark',h(SynchronizationScreen,{scan,lockScreen})));
+  expect(screen.queryByText(/Letzter Sperrbildschirm-Tipp:/)).toBeNull();
+});

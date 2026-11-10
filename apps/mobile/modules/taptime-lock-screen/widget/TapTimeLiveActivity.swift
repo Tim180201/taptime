@@ -44,7 +44,10 @@ private struct DurationView: View {
 private struct ActionsView: View {
   let context: ActivityViewContext<TapTimeActivityAttributes>
   var body: some View {
-    if #available(iOS 17.0, *), !context.isStale {
+    if context.isStale || [.OPEN_APP, .UPDATE_APP].contains(context.state.display)
+      || (!context.state.canSend && context.state.display != .OFFLINE && context.state.display != .SENDING && context.state.display != .UNCONFIRMED && context.state.display != .NOT_SENT) {
+      openApp
+    } else if #available(iOS 17.0, *) {
       HStack(spacing: 8) {
         ForEach(LockLogic.actions(context.state.state, context.state.display), id: \.self) { action in
           if context.state.canSend || (action == "retry" && context.state.expiresAt != nil) {
@@ -53,8 +56,12 @@ private struct ActionsView: View {
             Link(destination: url) { label(action) }
           }
         }
+        if context.state.display == .NOT_SENT { openApp }
       }
     }
+  }
+  @ViewBuilder private var openApp: some View {
+    if let url = URL(string: context.attributes.captureURL) { Link(destination: url) { label("open") } }
   }
   private func label(_ action: String) -> some View {
     Text(LockLogic.label(action)).font(.custom("Manrope-SemiBold", fixedSize: 14)).lineLimit(1).minimumScaleFactor(0.75)

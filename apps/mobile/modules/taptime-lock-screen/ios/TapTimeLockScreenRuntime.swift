@@ -16,9 +16,15 @@ import UIKit
   static var onChange: (() -> Void)?
   private static var renderTask: Task<Void, Never>?
   private static var expiryTask: Task<Void, Never>?
+  static let diagnostics = LockTapFileStore()
   static let engine: LockScreenEngine = {
     let engine = LockScreenEngine(store: LockFileStore(), keys: LockKeychain(),
-      foreground: { UIApplication.shared.applicationState == .active }, post: { base, path, bearer, version, body in
+      foreground: { UIApplication.shared.applicationState == .active }, diagnostics: diagnostics,
+      tapContext: {
+        let app = UIApplication.shared
+        let state: LockTapAppState = app.applicationState == .active ? .active : app.applicationState == .background ? .background : .inactive
+        return (state, app.isProtectedDataAvailable)
+      }, post: { base, path, bearer, version, body in
         await LockHttp.post(baseURL: base, path: path, bearer: bearer, version: version, body: body)
       })
     engine.changed = { scheduleRender() }
@@ -28,10 +34,9 @@ import UIKit
   public static var captureURL: URL? {
     (Bundle.main.object(forInfoDictionaryKey: "TapTimeLockScreenScheme") as? String).flatMap { URL(string: "\($0)://lock-screen/capture") }
   }
-  public static func action(_ action: String, nonce: String) async -> Bool {
-    let open = await engine.action(action, nonce: nonce)
+  public static func action(_ action: String, nonce: String) async {
+    _ = await engine.action(action, nonce: nonce)
     await renderTask?.value
-    return open
   }
   static func scheduleRender() {
     let previous = renderTask
@@ -77,17 +82,21 @@ import UIKit
     }
   }
   static func read() -> String {
+    // The diagnostic remains readable even if the separate stand is damaged.
+    var safe: [String: Any] = ["permissionGranted": ActivityAuthorizationInfo().areActivitiesEnabled, "permissionAsked": true]
+    if let diagnostic = try? diagnostics.read(), let data = try? JSONEncoder().encode(diagnostic) {
+      safe["lastTap"] = try? JSONSerialization.jsonObject(with: data)
+    }
     do {
       let stand = try engine.snapshot()
       // Secrets, endpoint and key references never cross the JS/ActivityKit boundary.
-      var safe: [String: Any] = ["permissionGranted": ActivityAuthorizationInfo().areActivitiesEnabled, "permissionAsked": true]
       if let stand {
         safe["owner"] = stand.owner; safe["revision"] = stand.revision; safe["display"] = stand.display.rawValue
         safe["ownCapturePending"] = stand.ownCapturePending
         if let state = stand.state { safe["state"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(state)) }
         if let pending = stand.pending { safe["pending"] = try JSONSerialization.jsonObject(with: JSONEncoder().encode(pending)) }
       }
-      return String(decoding: try JSONSerialization.data(withJSONObject: safe), as: UTF8.self)
-    } catch { scheduleRender(); return "{}" }
+    } catch { scheduleRender() }
+    return (try? JSONSerialization.data(withJSONObject: safe)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
   }
 }
