@@ -190,6 +190,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/administration/nfc-tags/reassign': 'admin_reassign_nfc_tag',
   '/v1/administration/setup-projection': 'admin_setup_projection',
   '/v2/administration/setup-projection': 'admin_setup_projection_v2',
+  '/v1/restore-recovery': 'restore_recovery',
   '/v1/session': 'session',
   '/v2/session': 'session_v2',
   '/v1/scan-context/resolve': 'scan_context',
@@ -415,7 +416,7 @@ async function handleRequest(
   }
   options = optionsWithDiagnosticRoute(options, route);
 
-  const expectedMethod = route === 'health' || route === 'operator_session' || route === 'session' || route === 'session_v2'
+  const expectedMethod = route === 'health' || route === 'operator_session' || route === 'session' || route === 'session_v2' || route === 'restore_recovery'
     ? 'GET'
     : 'POST';
   if (request.method !== expectedMethod) {
@@ -460,13 +461,13 @@ async function handleRequest(
     return;
   }
 
-  if ((route === 'health' || route === 'operator_session' || route === 'session' || route === 'session_v2')
+  if ((route === 'health' || route === 'operator_session' || route === 'session' || route === 'session_v2' || route === 'restore_recovery')
     && requestHasBody(request)) {
     request.resume();
     respondError(response, 400, 'invalid_request');
     return;
   }
-  if (route !== 'health' && route !== 'operator_session' && route !== 'session' && route !== 'session_v2'
+  if (route !== 'health' && route !== 'operator_session' && route !== 'session' && route !== 'session_v2' && route !== 'restore_recovery'
     && !hasValidJsonBodyHeaders(request)) {
     response.setHeader('Connection', 'close');
     request.resume();
@@ -493,6 +494,14 @@ async function handleRequest(
   // Uniform gate also covers legacy routes that reject their payload before resolving authority.
   // Each operation still resolves/locks its own authority inside its database transaction.
   if (!route.startsWith('operator_') && route !== 'lock_screen_action') await dependencies.checkTenantAccess?.(accessToken);
+  if (route === 'restore_recovery') {
+    const resolution = await withTimeout(dependencies.sessionAuthority.resolve(accessToken), timeoutMilliseconds);
+    if (resolution.status === 'rejected') { respondError(response, 401, 'unauthorized'); return; }
+    if (!dependencies.restoreRecoveryReader) { respondError(response, 503, 'service_unavailable'); return; }
+    const state = await withTimeout(dependencies.restoreRecoveryReader(resolution.session), timeoutMilliseconds);
+    respondJson(response, 200, state);
+    return;
+  }
   if (route === 'session') {
     await handleSession(
       response,
@@ -3227,6 +3236,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
       return 'employee_enrollment_failed';
     case 'session':
     case 'session_v2':
+    case 'restore_recovery':
       return 'session_resolution_failed';
     case 'scan_context':
     case 'scan_context_v2':

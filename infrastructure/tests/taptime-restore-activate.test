@@ -8,6 +8,7 @@ readonly CALL_LOG="$TEST_ROOT/calls.log"
 readonly TEST_CONFIG_FILE="$TEST_ROOT/backup.conf"
 readonly TEST_COMPOSE_FILE="$TEST_ROOT/docker-compose.yml"
 readonly VERSION_FILE="$TEST_ROOT/current-version"
+readonly OPERATIONS_VERSION_FILE="$TEST_ROOT/operations-version"
 readonly VOLUME_FILE="$TEST_ROOT/postgres-volume"
 readonly DEPLOY_STUB="$TEST_ROOT/taptime-deploy"
 readonly TEST_WAL_SPOOL_DIRECTORY="$TEST_ROOT/wal-spool"
@@ -25,6 +26,7 @@ printf '%s\n' \
   "RESTORE_RECOVERY_POLL_SECONDS=1" > "$TEST_CONFIG_FILE"
 printf 'services: {}\n' > "$TEST_COMPOSE_FILE"
 printf 'abcdef0\n' > "$VERSION_FILE"
+printf 'abcdef0\n' > "$OPERATIONS_VERSION_FILE"
 printf 'taptime-postgres-data\n' > "$VOLUME_FILE"
 install -d -m 0700 "$TEST_WAL_SPOOL_DIRECTORY"
 printf '%s\n' "$CLUSTER_IDENTIFIER" > \
@@ -34,6 +36,7 @@ printf 'future timeline WAL\n' > \
 cat > "$DEPLOY_STUB" <<'EOF_DEPLOY'
 #!/usr/bin/env bash
 set -euo pipefail
+test -f "$TAPTIME_RESTORE_OPERATION_FILE"
 printf 'deploy %s|%s\n' "$1" "$(< "$TAPTIME_RESTORE_VOLUME_STATE_FILE")" \
   >> "$TAPTIME_RESTORE_CALL_LOG"
 EOF_DEPLOY
@@ -43,11 +46,13 @@ chmod 0700 "$DEPLOY_STUB"
 export TAPTIME_BACKUP_CONFIG="$TEST_CONFIG_FILE"
 export TAPTIME_RESTORE_COMPOSE_FILE="$TEST_COMPOSE_FILE"
 export TAPTIME_RESTORE_VERSION_STATE_FILE="$VERSION_FILE"
+export TAPTIME_RESTORE_OPERATIONS_VERSION_STATE_FILE="$OPERATIONS_VERSION_FILE"
 export TAPTIME_RESTORE_VOLUME_STATE_FILE="$VOLUME_FILE"
 export TAPTIME_RESTORE_DEPLOY_COMMAND="$DEPLOY_STUB"
 export TAPTIME_RESTORE_ACTIVATE_LOCK_FILE="$TEST_ROOT/activate.lock"
 export TAPTIME_DEPLOY_LOCK_FILE="$TEST_ROOT/deploy.lock"
 export TAPTIME_RESTORE_CALL_LOG="$CALL_LOG"
+export TAPTIME_RESTORE_OPERATION_FILE="$TEST_ROOT/operation"
 export TAPTIME_RESTORE_EXPECTED_WAL_SPOOL_DIRECTORY="$TEST_WAL_SPOOL_DIRECTORY"
 
 TEST_POSTGRES_UID="$(id -u)"
@@ -80,8 +85,9 @@ docker() {
   fi
   if [[ "$1" == 'run' && "$*" == *'.taptime-restore-complete'* ]]; then
     [[ "${FAKE_MARKER_PRESENT:-1}" == '1' ]] || return 1
-    printf 'format=1\ncluster=%s\narchive=base-%s-20260916T110000Z\ntarget=latest\n' \
-      "$CLUSTER_IDENTIFIER" "$CLUSTER_IDENTIFIER"
+    printf 'format=%s\ncluster=%s\narchive=base-%s-20260916T110000Z\ntarget=latest\n' \
+      "${FAKE_MARKER_VERSION:-2}" "$CLUSTER_IDENTIFIER" "$CLUSTER_IDENTIFIER"
+    printf 'operation=10000000-0000-4000-8000-000000000001\ntimeline=2\nreplay_lsn=0/3000028\nreplayed_at=2026-09-16T11:59:58.123456Z\n'
     return 0
   fi
   if [[ "$1" == 'run' && "${*: -3}" == 'id -u postgres' ]]; then
@@ -91,6 +97,11 @@ docker() {
   if [[ "$1" == 'run' && "${*: -3}" == 'id -g postgres' ]]; then
     printf '%s\n' "$TEST_POSTGRES_GID"
     return 0
+  fi
+  if [[ "$1" == 'run' && "${*: -2}" == '-f /app/schema/migrate.js' ]]; then
+    [[ "$*" == *'--entrypoint test ghcr.io/tim180201/taptime-backend-api:abcdef0 '* ]] || return 1
+    [[ "${FAKE_MIGRATOR_PRESENT:-1}" == 1 ]]
+    return
   fi
   if [[ "$1" == 'inspect' ]]; then
     if [[ "$3" == *'.Mounts'* ]]; then
@@ -112,8 +123,32 @@ docker() {
     fi
     return 0
   fi
+  if [[ "$1" == 'compose' && "$*" == *'record_restore_recovery_v1'* ]]; then
+    [[ "${FAKE_RECORD_FAILURE:-0}" != 1 ]] || return 1
+    [[ -f "$TEST_ROOT/schema-current" ]] || return 1
+    [[ "$*" == *'SET LOCAL ROLE taptime_restore_activator'* ]] || return 1
+    printf 'record\n' >> "$CALL_LOG"
+    touch "$TAPTIME_RESTORE_OPERATION_FILE"
+    printf '10000000-0000-4000-8000-000000000001\n'
+    return 0
+  fi
   if [[ "$1" == 'compose' && "$*" == *' exec --no-tty '* ]]; then
+    printf 'cluster\n' >> "$CALL_LOG"
     printf '%s\n' "${FAKE_LIVE_CLUSTER_IDENTIFIER:-$CLUSTER_IDENTIFIER}"
+    return 0
+  fi
+  if [[ "$1" == 'compose' && "$*" == *' migration' ]]; then
+    [[ "$*" == *'--profile deployment run --rm --no-deps migration' ]] || return 1
+    [[ "$TAPTIME_VERSION" == 'abcdef0' && "$TAPTIME_POSTGRES_VOLUME" == "$TARGET_VOLUME" ]] || return 1
+    [[ "$(< "$TEST_ROOT/running-volume")" == "$TARGET_VOLUME" ]] || return 1
+    printf 'migration\n' >> "$CALL_LOG"
+    [[ "${FAKE_MIGRATION_FAILURE:-0}" != 1 ]] || return 1
+    if [[ -f "$TEST_ROOT/schema-current" ]]; then
+      printf 'migration no-op\n' >> "$CALL_LOG"
+    else
+      printf 'migration applied\n' >> "$CALL_LOG"
+      touch "$TEST_ROOT/schema-current"
+    fi
     return 0
   fi
   return 0
@@ -165,7 +200,50 @@ set -e
 grep --quiet 'differs from the materialized restore evidence' \
   "$TEST_ROOT/wrong-cluster.log"
 
+# Migrator absence and migration failure stop the candidate before any operation,
+# volume selection or deployment. They cannot silently use the old schema.
+for failure in missing-migrator migration-failed; do
+  : > "$CALL_LOG"
+  set +e
+  if [[ "$failure" == missing-migrator ]]; then
+    FAKE_MIGRATOR_PRESENT=0 main "$TARGET_VOLUME" > "$TEST_ROOT/$failure.log" 2>&1
+  else
+    FAKE_MIGRATION_FAILURE=1 main "$TARGET_VOLUME" > "$TEST_ROOT/$failure.log" 2>&1
+  fi
+  migration_status=$?
+  set -e
+  (( migration_status != 0 ))
+  [[ "$(< "$VOLUME_FILE")" == 'taptime-postgres-data' ]]
+  [[ ! -f "$TAPTIME_RESTORE_OPERATION_FILE" && ! -f "$TEST_ROOT/schema-current" ]]
+  if grep --quiet -E '^(record|deploy) ' "$CALL_LOG"; then exit 1; fi
+  grep --quiet 'stop backend-api database' "$CALL_LOG"
+  grep --quiet 'Candidate migration failed; previous volume selection is unchanged' "$TEST_ROOT/$failure.log"
+done
+grep --quiet 'has no migration runner' "$TEST_ROOT/missing-migrator.log"
+
+# A committed operation is required before selection or deploy. SQL failure closes both.
+set +e
+FAKE_RECORD_FAILURE=1 main "$TARGET_VOLUME" > "$TEST_ROOT/record-failure.log" 2>&1
+record_status=$?
+set -e
+(( record_status != 0 ))
+[[ "$(< "$VOLUME_FILE")" == 'taptime-postgres-data' ]]
+if grep --quiet '^deploy ' "$CALL_LOG"; then exit 1; fi
+grep --quiet 'Could not persist recovery operation' "$TEST_ROOT/record-failure.log"
+
+set +e
+FAKE_MARKER_VERSION=1 main "$TARGET_VOLUME" > "$TEST_ROOT/old-marker.log" 2>&1
+marker_status=$?
+set -e
+(( marker_status != 0 ))
+if grep --quiet '^deploy ' "$CALL_LOG"; then exit 1; fi
+
+# A pre-069 target is upgraded before recording and selecting it.
+rm "$TEST_ROOT/schema-current"
+: > "$CALL_LOG"
 main "$TARGET_VOLUME" > "$TEST_ROOT/success.log"
+[[ "$(grep -E '^(cluster|migration applied|record|deploy )' "$CALL_LOG")" == \
+  $'cluster\nmigration applied\nrecord\ndeploy abcdef0|'"$TARGET_VOLUME" ]]
 [[ "$(tr -d '[:space:]' < "$VOLUME_FILE")" == "$TARGET_VOLUME" ]]
 grep --fixed-strings --line-regexp --quiet \
   "deploy abcdef0|$TARGET_VOLUME" "$CALL_LOG"
@@ -174,6 +252,22 @@ grep --quiet 'systemctl stop taptime-wal-archiver.service taptime-wal-receiver.s
 grep --fixed-strings --quiet \
   "Previous WAL spool preserved at $PRESERVED_WAL_SPOOL_DIRECTORY." \
   "$TEST_ROOT/success.log"
+
+# Retrying a selected candidate keeps its fresh WAL spool and original operation.
+printf 'new WAL\n' > "$TEST_WAL_SPOOL_DIRECTORY/new-wal"
+main "$TARGET_VOLUME" > "$TEST_ROOT/retry.log"
+[[ -f "$TEST_WAL_SPOOL_DIRECTORY/new-wal" ]]
+grep --quiet '^migration no-op$' "$CALL_LOG"
+
+# A known rollback keeps the installed operations release (deploy's policy).
+# Its matching migrator upgrades even an old target; the old app is still deployed.
+printf '1234567\n' > "$VERSION_FILE"
+printf 'taptime-postgres-data\n' > "$VOLUME_FILE"
+rm "$TEST_ROOT/schema-current" "$TAPTIME_RESTORE_OPERATION_FILE" "$TEST_WAL_SPOOL_DIRECTORY/new-wal"
+: > "$CALL_LOG"
+main "$TARGET_VOLUME" > "$TEST_ROOT/rollback.log"
+[[ "$(grep -E '^(cluster|migration applied|record|deploy )' "$CALL_LOG")" == \
+  $'cluster\nmigration applied\nrecord\ndeploy 1234567|'"$TARGET_VOLUME" ]]
 
 printf 'taptime-postgres-data\n' > "$VOLUME_FILE"
 set +e

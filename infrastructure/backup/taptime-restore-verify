@@ -992,10 +992,28 @@ record_verified_base_marker() {
   borg check --verify-data "$BORG_REPOSITORY::$marker_archive"
 }
 
+capture_recovery_evidence() {
+  # Read before stopping this post-recovery instance: replay values are not durable
+  # across a clean restart. The transaction timestamp is a basis, not the time of
+  # every WAL record (and can legitimately be absent).
+  docker exec --user postgres "$1" psql --no-psqlrc --quiet --tuples-only --no-align \
+    --set ON_ERROR_STOP=on --dbname="$DATABASE_NAME" --command "
+      SELECT 'operation=' || pg_catalog.gen_random_uuid()::text || E'\n' ||
+        'timeline=' || control.timeline_id::text || E'\n' ||
+        'replay_lsn=' || pg_catalog.pg_last_wal_replay_lsn()::text || E'\n' ||
+        'replayed_at=' || COALESCE(pg_catalog.to_char(
+          pg_catalog.pg_last_xact_replay_timestamp() AT TIME ZONE 'UTC',
+          'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"'), 'none')
+      FROM pg_catalog.pg_control_checkpoint() AS control
+      WHERE NOT pg_catalog.pg_is_in_recovery()
+        AND pg_catalog.pg_last_wal_replay_lsn() IS NOT NULL;"
+}
+
 materialize_verified_restore() {
   local data_directory="$1"
   local volume_name="$2"
   local archive_name="$3"
+  local recovery_evidence="$4"
   local recovery_target="${TAPTIME_RESTORE_TARGET_TIME:-latest}"
   local copied_system_identifier
 
@@ -1037,13 +1055,13 @@ materialize_verified_restore() {
   docker run --rm --user root --network none \
     --volume "$volume_name:/data" "$RESTORE_IMAGE" sh -euc '
       temporary=/data/.taptime-restore-complete.tmp
-      printf "format=1\ncluster=%s\narchive=%s\ntarget=%s\n" \
-        "$1" "$2" "$3" > "$temporary"
+      printf "format=2\ncluster=%s\narchive=%s\ntarget=%s\n%s\n" \
+        "$1" "$2" "$3" "$4" > "$temporary"
       chown 999:999 "$temporary"
       chmod 0400 "$temporary"
       mv "$temporary" /data/.taptime-restore-complete
       sync -f /data
-    ' sh "$RESTORE_ARCHIVE_IDENTIFIER" "$archive_name" "$recovery_target"
+    ' sh "$RESTORE_ARCHIVE_IDENTIFIER" "$archive_name" "$recovery_target" "$recovery_evidence"
   MATERIALIZED_VOLUME_IN_PROGRESS=''
   printf 'Verified restore materialized in new Docker volume: %s\n' "$volume_name"
 }
@@ -1268,10 +1286,13 @@ main() {
 
   printf 'Physical restore verification completed: %s\n' "$archive"
   if [[ -n "$materialize_volume" ]]; then
+    local recovery_evidence
+    recovery_evidence="$(capture_recovery_evidence "$container")"
+    [[ -n "$recovery_evidence" ]] || { printf 'No recovery point evidence.\n' >&2; exit 1; }
     docker stop "$container" >/dev/null
     docker rm "$container" >/dev/null
     container=''
-    materialize_verified_restore "$stage/data" "$materialize_volume" "$archive"
+    materialize_verified_restore "$stage/data" "$materialize_volume" "$archive" "$recovery_evidence"
     printf 'Materialization leaves base markers and retention unchanged until activation.\n'
   elif [[ "$rehearsal_only" == '1' ]]; then
     printf 'Migration rehearsal leaves base markers and retention unchanged.\n'

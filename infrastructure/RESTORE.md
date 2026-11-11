@@ -398,23 +398,87 @@ env \
 ```
 
 Für den neuesten Stand werden die beiden `TAPTIME_RESTORE_*`-Variablen weggelassen, sofern der
-Cluster eindeutig ist. Erst der vollständig wiederhergestellte und gestoppte Kandidat erhält
-seinen Abschlussmarker. Dann wird er mit demselben exakten Namen aktiviert:
+Cluster eindeutig ist. Der Verifier liest vor dem Stoppen die tatsächlich wiedergegebene
+WAL-Position (`pg_last_wal_replay_lsn`), die Timeline nach Promotion und den Zeitpunkt der letzten
+wiedergegebenen Transaktion (`pg_last_xact_replay_timestamp`) aus PostgreSQL. Dieser Zeitpunkt
+ist die Commit-/Abort-Zeit der letzten wiedergegebenen Transaktion, nicht eine geschätzte Zeit
+des letzten WAL-Records und nicht der angeforderte Zielzeitpunkt. Wurde seit der Basis keine
+Transaktion wiedergegeben, bleibt er ausdrücklich unbekannt (`no_replayed_transaction`).
+Nach einem Neustart werden diese Werte nicht neu gemessen.
+
+Erst der vollständig wiederhergestellte und gestoppte Kandidat erhält seinen Abschlussmarker
+im Format 2: Cluster, Basis, Ziel, eigene Wiederaufnahme-ID, Timeline, WAL-Position und Zeitgrundlage.
+Jede neue Materialisierung erzeugt eine eigene ID; Wiederholung derselben Aktivierung behält sie.
+Format 1 wird abgewiesen: einen alten Kandidaten aus seinen Archiven neu materialisieren, den
+Marker niemals von Hand ergänzen. Dann wird er mit demselben exakten Namen aktiviert:
 
 ```sh
 /usr/local/sbin/taptime-restore-activate "$restore_volume"
 ```
 
-Die Aktivierung belegt Labels, Abschlussmarker, tatsächlichen Datenbank-Mount und Cluster-ID,
-bevor sie `/var/lib/taptime-deploy/postgres-volume` atomar umschaltet. Vor dem Kandidatenstart
+Die Reihenfolge ist **Kandidat → Clusterprüfung → Migration → Vorgang → Volumenauswahl → Deploy**.
+Die Aktivierung belegt Labels, Abschlussmarker, tatsächlichen Datenbank-Mount und Cluster-ID.
+Dann führt sie den vorhandenen Compose-Dienst `migration` mit Profil `deployment` gegen den
+Kandidaten aus, ohne andere Dienste zu starten. Sie verwendet das Backend-Abbild der in
+`/var/lib/taptime-deploy/operations-version` belegten Operations-Version, mit demselben
+Migrator und denselben eingefrorenen Migrationen wie beim Deploy. Es gibt keinen gesonderten
+SQL-Pfad im Aktivator. Damit erhält auch ein Ziel vor Migration 069 das benötigte Schema.
+Das Abbild muss lokal vorhanden sein und `/app/schema/migrate.js` enthalten. Fehlt es oder
+scheitert die Migration, stoppt der Kandidat: kein Vorgang, keine Änderung der bisherigen
+Volumenauswahl, kein Deploy. Die Meldung nennt den fehlenden Migrator oder den Migrationsfehler.
+
+Danach legt sie über `record_restore_recovery_v1` mit der separaten NOLOGIN-Rolle
+`taptime_restore_activator` den Wiederaufnahmevorgang in der Datenbank an. Die Funktion prüft
+Cluster, Timeline und WAL-Position gegen die laufende Datenbank, schreibt die Aktivierungszeit
+selbst und bestätigt dieselbe ID. Erst nach dem Commit schaltet die Aktivierung
+`/var/lib/taptime-deploy/postgres-volume` atomar um und ruft den Deploy auf. Fehler beim Schreiben
+oder eine abweichende Bestätigung stoppen Backend und Kandidaten; kein Deploy startet.
+
+Vor dem Kandidatenstart
 stoppt sie beide WAL-Dienste und verschiebt den bisherigen Spool atomar nach
 `/var/lib/taptime-wal.pre-restore-<Kandidatenzeit>`. Der Kandidat erhält einen neuen, leeren Spool;
 damit kann ein vollständiges Segment seiner alten Zukunfts-Timeline den Empfänger nach der
 Promotion nicht blockieren. Danach ruft die Aktivierung den normalen Deploy der belegten
-Anwendungsversion auf. Fehlt in einem historischen Stand der neue Archivvertrag, bleibt das alte
-Backend gestoppt; der WAL-Weg läuft zunächst ausschließlich im Upload-Modus. Erst nach der
-versionierten Migration startet der normale Archivierer und erst ein archivfähiges Backend nimmt
-wieder Verkehr an.
+Anwendungsversion auf. Die vorgezogene Migration stellt dabei auch einen im historischen Stand
+fehlenden Archivvertrag her. Der spätere Migrationslauf im Deploy prüft den Ledger und seine
+Prüfsummen erneut; bereits angewendete Migrationen werden nicht nochmals ausgeführt.
+
+**Nach einem Rollback-Deploy:** Der vorhandene Deploy behält bei einer bekannten Rücknahmeversion
+die installierte Operations-Version, damit auch diesen Verifier und Aktivator. Nur die
+Anwendungsversion wird zurückgesetzt. Deshalb richtet sich die vorgezogene Migration nach der
+Operations-Version: Der ältere Anwendungsmigrator allein könnte 069 noch nicht anlegen. So
+funktioniert auch nach einer Rücknahme auf eine Version vor 069 ein Restore eines alten Ziels.
+Der nachfolgende Deploy startet die zurückgenommene Anwendung; ihr Migrator lässt bereits
+angewendete sowie ihm unbekannte neuere Migrationen und Wiederaufnahmevorgänge unverändert.
+Ein Downgrade der Betriebsskripte von Hand ist kein Rollback-Deploy.
+
+Ein erneuter Aktivierungsaufruf für das schon ausgewählte Volume prüft denselben Vorgang und
+wiederholt den Deploy. Er erzeugt keine zweite Aktivierungszeit und setzt den neuen WAL-Spool
+nicht zurück. Bereits in der wiederhergestellten Datenbank vorhandene frühere Vorgänge bleiben
+unverändert; ein bewusster Rücksprung kann auch später angelegte Betriebsmetadaten verlieren.
+
+`restore_recovery_operations` enthält ausschließlich Betriebsmetadaten, keine Nutzerdaten,
+mit ENABLE/FORCE RLS und ohne direkte App-Tabellenrechte. Nur die Aktivierung legt Vorgänge an;
+niemand ändert sie, spätere Teile ergänzen separate Statusereignisse. Vor T-016 gibt es keinen
+produktiven Löschweg. Die Migration legt die NOLOGIN-Rollen an; spätere Migrationen pflegen sie
+und entfernen sie erst beim Rückbau ihrer Funktionen und Tabelle.
+
+Angemeldete aktive Mitglieder lesen über `GET /v1/restore-recovery` den neuen Vertrag
+`contractVersion: 1`: `operation: null` vor dem ersten Vorgang, sonst ID, Ziel (`latest` oder
+`point_in_time` mit UTC-Zeit) und Aktivierungszeit. Cluster, Timeline und WAL-Position werden
+nicht an die App gegeben. Bestehende Sitzungs-, Erfassungs- und Abgleichsverträge bleiben gleich.
+T-055a ändert noch keine Buchungsentscheidung und bietet keine Telefonbelege erneut an;
+die Wiederaufnahme nach D-162 folgt mit T-055b–d.
+
+Verifier und Aktivator kommen gemeinsam mit dem normalen Operations-Deploy auf den Server;
+ein vorgeschalteter Konsolentausch des Deploy-Controllers ist für T-055a nicht erforderlich.
+Vor einem Restore auf einem Ersatzserver müssen beide Skripte aus demselben freigegebenen
+Operations-Stand installiert sein. Keine neue `.env`-Angabe, kein neues Passwort; die
+Aktivierung verwendet für die Migration das vorhandene `postgres_installer_password`-Secret
+des Compose-Dienstes und für den Vorgang die lokale PostgreSQL-Verbindung als
+Betriebssystembenutzer `postgres`; sie setzt die eigene Rolle nur für ihre Transaktion.
+Das zur Operations-Version gehörende Backend-Abbild muss lokal vorliegen, auf einem
+Ersatzserver also zusammen mit den freigegebenen Operations-Dateien bereitgestellt werden.
 
 Nach der Wiederherstellung eines Stands mit Migration 032 gleicht root den Betreiber-Zugang
 mit `/usr/local/sbin/taptime-operator-db-login --rotate` ab. Das erzeugt das Passwort neu,

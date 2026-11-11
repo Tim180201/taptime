@@ -4,6 +4,7 @@ set -euo pipefail
 readonly CONFIG_FILE="${TAPTIME_BACKUP_CONFIG:-/etc/taptime-backup/config}"
 readonly COMPOSE_FILE="${TAPTIME_RESTORE_COMPOSE_FILE:-/opt/taptime/source/infrastructure/docker-compose.server.yml}"
 readonly VERSION_STATE_FILE="${TAPTIME_RESTORE_VERSION_STATE_FILE:-/var/lib/taptime-deploy/current-version}"
+readonly OPERATIONS_VERSION_STATE_FILE="${TAPTIME_RESTORE_OPERATIONS_VERSION_STATE_FILE:-/var/lib/taptime-deploy/operations-version}"
 readonly VOLUME_STATE_FILE="${TAPTIME_RESTORE_VOLUME_STATE_FILE:-/var/lib/taptime-deploy/postgres-volume}"
 readonly DEPLOY_COMMAND="${TAPTIME_RESTORE_DEPLOY_COMMAND:-/usr/local/sbin/taptime-deploy}"
 readonly LOCK_FILE="${TAPTIME_RESTORE_ACTIVATE_LOCK_FILE:-/run/lock/taptime-restore-activate.lock}"
@@ -204,10 +205,47 @@ prepare_fresh_wal_spool() {
   PRESERVED_WAL_SPOOL="$quarantine"
 }
 
+migrate_candidate_database() {
+  local version="$1" volume="$2"
+  local image="ghcr.io/tim180201/taptime-backend-api:$version"
+
+  # Same capability check and Compose migrator as deploy. A rollback retains
+  # current operations, so their matching image supplies the recovery schema.
+  if ! docker run --rm --pull never --network none --entrypoint test "$image" \
+    -f /app/schema/migrate.js; then
+    fail "Recovery image $image is unavailable or has no migration runner."
+    return 1
+  fi
+  compose_with_volume "$version" "$volume" --profile deployment \
+    run --rm --no-deps migration
+}
+
+record_recovery_operation() {
+  local version="$1" volume="$2" cluster="$3" target="$4"
+  local operation="$5" timeline="$6" replay_lsn="$7" replayed_at="$8"
+  local target_kind='latest' target_time='NULL' transaction_time='NULL'
+  if [[ "$target" != 'latest' ]]; then
+    target_kind='point_in_time'
+    target_time="'$target'::timestamptz"
+  fi
+  [[ "$replayed_at" == 'none' ]] || transaction_time="'$replayed_at'::timestamptz"
+  # Values are validated against the exact marker grammar before this call.
+  # The local root connection assumes a NOLOGIN capability, never an app login.
+  compose_with_volume "$version" "$volume" exec --no-tty --user postgres database \
+    psql --no-psqlrc --quiet --tuples-only --no-align --set ON_ERROR_STOP=on \
+    --dbname="$DATABASE_NAME" --command "BEGIN;
+      SET LOCAL ROLE taptime_restore_activator;
+      SELECT taptime_server.record_restore_recovery_v1('$operation'::uuid,
+        '$cluster', $timeline, '$target_kind', $target_time,
+        '$replay_lsn'::pg_lsn, $transaction_time);
+      COMMIT;"
+}
+
 main() {
   local target_volume="${1:-}"
-  local current_volume version candidate_label cluster_label archive_label target_label
+  local current_volume version migration_version candidate_label cluster_label archive_label target_label
   local completion_evidence expected_completion live_cluster
+  local operation timeline replay_lsn replayed_at recorded_operation
 
   if (( $# != 1 )); then
     printf 'Usage: %s taptime-postgres-restored-YYYYMMDDTHHMMSSZ\n' "${0##*/}" >&2
@@ -225,6 +263,7 @@ main() {
   require_file "$CONFIG_FILE" || return 1
   require_file "$COMPOSE_FILE" || return 1
   require_file "$VERSION_STATE_FILE" || return 1
+  require_file "$OPERATIONS_VERSION_STATE_FILE" || return 1
   [[ -x "$DEPLOY_COMMAND" ]] || {
     fail "Deploy command is unavailable: $DEPLOY_COMMAND"
     return 1
@@ -262,13 +301,12 @@ main() {
     fail 'Current application version is invalid.'
     return 1
   }
+  migration_version="$(tr -d '[:space:]' < "$OPERATIONS_VERSION_STATE_FILE")"
+  [[ "$migration_version" =~ ^[0-9a-f]{7}$ ]] || {
+    fail 'Installed operations version is invalid.'
+    return 1
+  }
   current_volume="$(selected_postgres_volume)" || return 1
-  [[ "$target_volume" != "$current_volume" ]] ||
-    {
-      fail 'Restore volume is already active.'
-      return 1
-    }
-
   candidate_label="$(volume_label "$target_volume" com.taptime.restore.candidate)" || {
     fail 'Could not read restore-candidate evidence.'
     return 1
@@ -301,8 +339,20 @@ main() {
       fail 'Target volume has no completed restore marker.'
       return 1
     }
-  printf -v expected_completion 'format=1\ncluster=%s\narchive=%s\ntarget=%s' \
-    "$cluster_label" "$archive_label" "$target_label"
+  operation="$(printf '%s\n' "$completion_evidence" | sed -n 's/^operation=//p')"
+  timeline="$(printf '%s\n' "$completion_evidence" | sed -n 's/^timeline=//p')"
+  replay_lsn="$(printf '%s\n' "$completion_evidence" | sed -n 's/^replay_lsn=//p')"
+  replayed_at="$(printf '%s\n' "$completion_evidence" | sed -n 's/^replayed_at=//p')"
+  [[ "$operation" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ \
+    && "$timeline" =~ ^[1-9][0-9]{0,9}$ \
+    && "$replay_lsn" =~ ^[0-9A-F]{1,8}/[0-9A-F]{1,8}$ \
+    && ( "$replayed_at" == 'none' \
+      || "$replayed_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}Z$ ) ]] || {
+    fail 'Target volume has no valid recovery point evidence; materialize it with the current verifier.'
+    return 1
+  }
+  printf -v expected_completion 'format=2\ncluster=%s\narchive=%s\ntarget=%s\noperation=%s\ntimeline=%s\nreplay_lsn=%s\nreplayed_at=%s' \
+    "$cluster_label" "$archive_label" "$target_label" "$operation" "$timeline" "$replay_lsn" "$replayed_at"
   [[ "$completion_evidence" == "$expected_completion" ]] ||
     {
       fail 'Target volume completion marker differs from its archive evidence.'
@@ -319,20 +369,22 @@ main() {
     fail 'A deployment is already running.'
     return 1
   }
-  systemctl stop taptime-wal-archiver.service taptime-wal-receiver.service || {
-    fail 'Could not stop WAL archiving before restore activation.'
-    return 1
-  }
-  compose_with_volume "$version" "$current_volume" stop backend-api database || {
-    fail 'Could not stop the currently selected application and database.'
-    return 1
-  }
-  prepare_fresh_wal_spool "$target_volume" || return 1
-  compose_with_volume "$version" "$target_volume" \
-    up --detach --no-deps --force-recreate database || {
-      fail 'Could not start the restored database candidate.'
+  if [[ "$target_volume" != "$current_volume" ]]; then
+    systemctl stop taptime-wal-archiver.service taptime-wal-receiver.service || {
+      fail 'Could not stop WAL archiving before restore activation.'
       return 1
     }
+    compose_with_volume "$version" "$current_volume" stop backend-api database || {
+      fail 'Could not stop the currently selected application and database.'
+      return 1
+    }
+    prepare_fresh_wal_spool "$target_volume" || return 1
+    compose_with_volume "$version" "$target_volume" \
+      up --detach --no-deps --force-recreate database || {
+        fail 'Could not start the restored database candidate.'
+        return 1
+      }
+  fi
   if ! verify_candidate_database_mount "$version" "$target_volume"; then
     compose_with_volume "$version" "$target_volume" stop database || true
     fail 'Candidate volume remains inactive; the previous volume selection is unchanged.'
@@ -355,6 +407,24 @@ main() {
   [[ "$live_cluster" == "$cluster_label" ]] || {
     compose_with_volume "$version" "$target_volume" stop database || true
     fail 'Running candidate cluster differs from the materialized restore evidence.'
+    return 1
+  }
+
+  if ! migrate_candidate_database "$migration_version" "$target_volume"; then
+    compose_with_volume "$version" "$target_volume" stop backend-api database || true
+    fail 'Candidate migration failed; previous volume selection is unchanged, no recovery operation or deployment started.'
+    return 1
+  fi
+
+  recorded_operation="$(record_recovery_operation "$version" "$target_volume" \
+    "$cluster_label" "$target_label" "$operation" "$timeline" "$replay_lsn" "$replayed_at")" || {
+    compose_with_volume "$version" "$target_volume" stop backend-api database || true
+    fail 'Could not persist recovery operation; no deployment started.'
+    return 1
+  }
+  [[ "$recorded_operation" == "$operation" ]] || {
+    compose_with_volume "$version" "$target_volume" stop backend-api database || true
+    fail 'Recovery operation acknowledgement differs; no deployment started.'
     return 1
   }
 

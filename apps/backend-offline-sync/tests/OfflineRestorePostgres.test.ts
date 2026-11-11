@@ -1,9 +1,14 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { Pool } from 'pg';
 import { expect, it } from 'vitest';
-import { migrate } from '@taptime/backend-schema';
+import { build } from 'esbuild';
+import YAML from 'yaml';
+import { applyMigrationSet, loadMigrations, migrate } from '@taptime/backend-schema';
 import type { AccessTokenVerifier } from '@taptime/backend-identity';
 import type { OfflineCaptureLeasePage, OfflineLifecycleEventCommand } from '@taptime/offline-sync-contract';
 import { OfflineCaptureLeaseCoordinator, OfflineLifecycleIngestionCoordinator } from '../src/index.js';
@@ -25,6 +30,14 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
   const containers: string[] = [];
   const volumes: string[] = [];
   const pools: Pool[] = [];
+  const directories: string[] = [];
+  const migrationVersion = randomUUID().replaceAll('-', '').slice(0, 7);
+  const migrationImage = `ghcr.io/tim180201/taptime-backend-api:${migrationVersion}`;
+  const network = `${prefix}-migration`;
+  const migrations = await loadMigrations();
+  const recoveryMigration = migrations.find(item => item.name === 'restore_recovery_operations')!;
+  const beforeRecovery = migrations.filter(item => item.version < recoveryMigration.version);
+  let migrationCompose: string;
   async function docker(...args: string[]) {
     return (await execute('docker', args, { maxBuffer: 16 * 1024 * 1024 })).stdout.trim();
   }
@@ -35,7 +48,11 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
     return name;
   }
   async function connect(container: string) {
-    const address = await docker('port', container, '5432/tcp');
+    const address = await docker('port', container, '5432/tcp').catch(async error => {
+      const logs = await execute('docker', ['logs', container]).catch(() => null);
+      console.error(logs ? logs.stdout + logs.stderr : 'Container log unavailable');
+      throw error;
+    });
     const port = address.split(':').at(-1)!;
     const pool = new Pool({ connectionString: `postgresql://postgres@127.0.0.1:${port}/postgres`, max: 2 });
     pools.push(pool);
@@ -44,6 +61,90 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
       catch { return false; }
     }, { timeout: 60_000, interval: 200 }).toBe(true);
     return pool;
+  }
+  // Exercise the production SQL and shell functions, not a recreation of their SQL.
+  const verifyScript = fileURLToPath(new URL('../../../infrastructure/backup/taptime-restore-verify', import.meta.url));
+  const activateScript = fileURLToPath(new URL('../../../infrastructure/backup/taptime-restore-activate', import.meta.url));
+  async function activate(pool: Pool, container: string, target: string) {
+    const measured = (await pool.query(`SELECT pg_last_wal_replay_lsn()::text AS lsn,
+      pg_last_xact_replay_timestamp() AS replayed_at, timeline_id FROM pg_control_checkpoint()`)).rows[0];
+    const captured = (await execute('bash', ['-c', 'source "$1"; DATABASE_NAME=postgres; capture_recovery_evidence "$2"',
+      'recovery-test', verifyScript, container])).stdout.trim();
+    const evidence = Object.fromEntries(captured.split('\n').map(line => line.split('=')));
+    expect(evidence.replay_lsn).toBe(measured.lsn);
+    expect(Number(evidence.timeline)).toBe(measured.timeline_id);
+    expect(evidence.replayed_at === 'none' ? null : new Date(evidence.replayed_at!).toISOString())
+      .toBe(measured.replayed_at?.toISOString() ?? null);
+    const clusterId = (await pool.query("SELECT lpad(to_hex(system_identifier),16,'0') AS id FROM pg_control_system()")).rows[0].id;
+    const decimalCluster = (await pool.query('SELECT system_identifier::text AS id FROM pg_control_system()')).rows[0].id;
+    const targetLabel = target;
+    const baseArchive = `base-${clusterId}-20260917T000000Z`;
+    const directory = await mkdtemp(join(process.cwd(), '.t055a-restore-'));
+    directories.push(directory);
+    const archivedMigrations = target === 'latest' ? migrations : beforeRecovery;
+    const manifest = join(directory, 'source-migration-checksums.tsv');
+    await writeFile(manifest, archivedMigrations.map(item => `${item.checksum}  ./${item.version}_${item.name}.sql\n`).join(''));
+    await execute('bash', ['-c', `source "$1"
+      check_restored_migrations "$2" postgres "$3"
+      check_restored_rls "$2" postgres`, 'restore-check-test', verifyScript, container, manifest]);
+    await rm(manifest);
+    await pool.end(); pools.splice(pools.indexOf(pool), 1);
+    await docker('stop', container);
+    await docker('cp', `${container}:/var/lib/postgresql/data/.`, directory);
+    const stamp = new Date(Date.now() + volumes.length * 1_000).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const materialized = `taptime-postgres-restored-${stamp}`;
+    volumes.push(materialized);
+    await execute('bash', ['-c', `source "$1"
+      RESTORE_SYSTEM_IDENTIFIER="$5"; RESTORE_ARCHIVE_IDENTIFIER="$6"
+      materialize_verified_restore "$2" "$3" "$4" "$7"`,
+    'materialization-test', verifyScript, directory, materialized, baseArchive, decimalCluster, clusterId, captured],
+    { env: { ...process.env, RESTORE_IMAGE: image, TAPTIME_RESTORE_TARGET_TIME: targetLabel === 'latest' ? '' : targetLabel } });
+    await docker('rm', container);
+    await docker('run', '-d', '--name', container, '-p', '127.0.0.1::5432',
+      '-v', `${materialized}:/var/lib/postgresql/data`, image);
+    pool = await connect(container);
+    const marker = await docker('exec', container, 'cat', '/var/lib/postgresql/data/.taptime-restore-complete');
+    expect(marker).toBe(`format=2\ncluster=${clusterId}\narchive=${baseArchive}\ntarget=${targetLabel}\n${captured}`);
+    expect(await docker('volume', 'inspect', '--format', '{{index .Labels "com.taptime.restore.target"}}', materialized)).toBe(targetLabel);
+    const ledger = async () => (await pool.query('SELECT * FROM public.taptime_server_schema_migrations ORDER BY version')).rows;
+    const priorLedger = await ledger();
+    expect(priorLedger.map(row => row.version)).toEqual(
+      archivedMigrations.map(item => item.version));
+    await docker('network', 'connect', '--alias', 'database', network, container);
+    const runMigration = async () => (await execute('bash', ['-c',
+      'source "$1"; migrate_candidate_database "$2" "$3"',
+      'migration-test', activateScript, migrationVersion, materialized],
+    { env: { ...process.env, TAPTIME_RESTORE_COMPOSE_FILE: migrationCompose } })).stdout;
+    const migrationOutput = await runMigration();
+    expect(migrationOutput).toContain(target === 'latest' ? 'applied=none' : `applied=${recoveryMigration.version}`);
+    const migratedLedger = await ledger();
+    expect(migratedLedger.map(row => row.version)).toEqual(migrations.map(item => item.version));
+    expect(migratedLedger.filter(row => priorLedger.some(prior => prior.version === row.version))).toEqual(priorLedger);
+    const record = async () => (await execute('bash', ['-c', `source "$1"
+      DATABASE_NAME=postgres
+      compose_with_volume() { shift 2; shift; command docker exec --user postgres "$TEST_CANDIDATE" "\${@:5}"; }
+      record_recovery_operation test test "$2" "$3" "$4" "$5" "$6" "$7"`,
+    'activation-test', activateScript, clusterId, targetLabel, evidence.operation!, evidence.timeline!, evidence.replay_lsn!, evidence.replayed_at!],
+    { env: { ...process.env, TEST_CANDIDATE: container } })).stdout.trim();
+    expect(await record()).toBe(evidence.operation);
+    const originalOperation = (await pool.query('SELECT * FROM taptime_server.restore_recovery_operations WHERE id=$1', [evidence.operation])).rows[0];
+    expect(await record()).toBe(evidence.operation);
+    expect((await pool.query('SELECT * FROM taptime_server.restore_recovery_operations WHERE id=$1', [evidence.operation])).rows).toEqual([originalOperation]);
+    expect(originalOperation).toMatchObject({ cluster_identifier: clusterId, timeline_id: String(measured.timeline_id),
+      replay_lsn: measured.lsn, replayed_transaction_at: measured.replayed_at,
+      time_basis: measured.replayed_at === null ? 'no_replayed_transaction' : 'last_replayed_transaction',
+      target_kind: target === 'latest' ? 'latest' : 'point_in_time', target_time: targetLabel === 'latest' ? null : new Date(targetLabel) });
+    if (measured.replayed_at !== null) expect(originalOperation.activated_at.getTime()).toBeGreaterThan(measured.replayed_at.getTime());
+    // The later deploy uses this same Compose service/CLI: it has nothing left to apply.
+    expect(await runMigration()).toContain('applied=none');
+    expect(await ledger()).toEqual(migratedLedger);
+    // A rolled-back pre-069 app's migrator also preserves the additive schema/history.
+    expect((await applyMigrationSet(pool, beforeRecovery)).applied).toEqual([]);
+    expect(await ledger()).toEqual(migratedLedger);
+    expect((await pool.query('SELECT * FROM taptime_server.restore_recovery_operations WHERE id=$1', [evidence.operation])).rows)
+      .toEqual([originalOperation]);
+    await docker('network', 'disconnect', network, container);
+    return { pool, operation: originalOperation };
   }
   const ingest = (pool: Pool, command: OfflineLifecycleEventCommand) =>
     new OfflineLifecycleIngestionCoordinator(pool, verifier).ingest({ accessToken: 'valid', command });
@@ -55,19 +156,52 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
     return result.page;
   }
   try {
+    // Package the production migrator exactly as the backend Dockerfile does,
+    // using installed dependencies and a local Node base; no npm install or pull.
+    const migrationDirectory = await mkdtemp(join(process.cwd(), '.t055a-migrator-'));
+    directories.push(migrationDirectory);
+    await build({
+      entryPoints: [fileURLToPath(new URL('../../backend-schema/src/cli.ts', import.meta.url))],
+      bundle: true, platform: 'node', target: 'node24', format: 'esm', external: ['pg-native'],
+      banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
+      outfile: join(migrationDirectory, 'schema/migrate.js'),
+    });
+    await cp(fileURLToPath(new URL('../../backend-schema/migrations/', import.meta.url)), join(migrationDirectory, 'migrations'), { recursive: true });
+    await writeFile(join(migrationDirectory, 'Dockerfile'), `FROM node:24.17.0-bookworm-slim
+WORKDIR /app
+COPY schema/ ./schema/
+COPY migrations/ ./migrations/
+USER node
+`);
+    await docker('build', '--network', 'none', '--pull=false', '--tag', migrationImage, migrationDirectory);
+    await docker('network', 'create', '--internal', network);
+    const compose = YAML.parse(await readFile(fileURLToPath(new URL('../../../infrastructure/docker-compose.server.yml', import.meta.url)), 'utf8'));
+    const service = compose.services.migration;
+    // Keep the actual service image, command, profile, secret and security options.
+    // Only connect it to this disposable candidate instead of production's database.
+    delete service.depends_on;
+    service.environment.B3_DATABASE_URL = 'postgresql://postgres@database:5432/postgres';
+    const secret = join(migrationDirectory, 'synthetic-password');
+    await writeFile(secret, 'restore-test');
+    migrationCompose = join(migrationDirectory, 'compose.yml');
+    await writeFile(migrationCompose, YAML.stringify({ name: prefix, services: { migration: service },
+      networks: { 'taptime-internal': { external: true, name: network } },
+      secrets: { postgres_installer_password: { file: secret } } }));
     const data = await volume('data');
     const base = await volume('base');
+    const currentBase = await volume('base-current');
     const wal = await volume('wal');
-    await docker('run', '--rm', '--network', 'none', '-v', `${base}:/base`, '-v', `${wal}:/archive`,
-      image, 'chown', '-R', 'postgres:postgres', '/base', '/archive');
+    await docker('run', '--rm', '--network', 'none', '-v', `${base}:/base`, '-v', `${currentBase}:/base-current`, '-v', `${wal}:/archive`,
+      image, 'chown', '-R', 'postgres:postgres', '/base', '/base-current', '/archive');
     containers.push(source);
     await docker('run', '-d', '--name', source, '-p', '127.0.0.1::5432',
       '-e', 'POSTGRES_HOST_AUTH_METHOD=trust', '-v', `${data}:/var/lib/postgresql/data`,
-      '-v', `${base}:/base`, '-v', `${wal}:/archive`, image, 'postgres',
+      '-v', `${base}:/base`, '-v', `${currentBase}:/base-current`, '-v', `${wal}:/archive`, image, 'postgres',
       '-c', 'wal_level=replica', '-c', 'archive_mode=on',
       '-c', 'archive_command=test ! -f /archive/%f && cp %p /archive/%f');
     const original = await connect(source);
-    await migrate(original);
+    // The base and historical target precede recovery metadata; latest WAL includes it.
+    await applyMigrationSet(original, beforeRecovery);
     await original.query(`
       INSERT INTO taptime_server.users (id) VALUES ('${ids.user}');
       INSERT INTO taptime_server.identity_bindings (id,user_id,issuer,subject)
@@ -86,12 +220,18 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
     const archivedLease = await lease(original);
     await docker('exec', '-u', 'postgres', source, 'pg_basebackup', '-D', '/base', '-Fp', '-Xs', '-c', 'fast');
     await docker('exec', '-u', 'postgres', source, 'pg_verifybackup', '/base');
-    const historicalTarget = (await original.query('SELECT clock_timestamp()::text AS target')).rows[0].target;
+    const historicalTarget = (await original.query(`SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC',
+      'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS target`)).rows[0].target;
     const first = command(archivedLease, 1, 1_000);
     const phone = [first];
     const firstDecision = await ingest(original, first);
     expect(firstDecision).toMatchObject({ status: 'synchronized', archiveStatus: 'archive_pending',
       decision: { status: 'time_entry_started' } });
+    expect((await migrate(original)).applied).toContain(recoveryMigration.version);
+    // Deploy establishes a new verified base for the migrated source set.
+    // Preserve the old base for the pre-069 historical target.
+    await docker('exec', '-u', 'postgres', source, 'pg_basebackup', '-D', '/base-current', '-Fp', '-Xs', '-c', 'fast');
+    await docker('exec', '-u', 'postgres', source, 'pg_verifybackup', '/base-current');
     const requiredWal = (await original.query(`SELECT required_wal_file FROM
       taptime_server.offline_event_archive_requirements WHERE work_event_id=$1`, [first.workEvent.id])).rows[0].required_wal_file;
     await original.query('SELECT pg_switch_wal()');
@@ -152,7 +292,7 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
     await docker('volume', 'rm', data); volumes.splice(volumes.indexOf(data), 1);
     async function restore(suffix: string, target: string) {
       const restoredData = await volume(suffix);
-      await docker('run', '--rm', '--network', 'none', '-v', `${base}:/base:ro`,
+      await docker('run', '--rm', '--network', 'none', '-v', `${suffix === 'latest' ? currentBase : base}:/base:ro`,
         '-v', `${restoredData}:/restore`, image, 'sh', '-c',
         `cp -a /base/. /restore/ && printf "%s\\n" "restore_command = 'cp /archive/%f %p'" "${target}" "recovery_target_action = 'promote'" >> /restore/postgresql.auto.conf && touch /restore/recovery.signal && chown -R postgres:postgres /restore`);
       const name = `${prefix}-${suffix}`;
@@ -161,11 +301,13 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
         '-v', `${restoredData}:/var/lib/postgresql/data`, '-v', `${wal}:/archive:ro`, image);
       return connect(name);
     }
-    const latest = await restore('latest', `recovery_target_lsn = '${latestLsn}'`);
+    let latest = await restore('latest', `recovery_target_lsn = '${latestLsn}'`);
     expect((await latest.query('SELECT id FROM taptime_server.work_events ORDER BY occurred_at')).rows)
       .toEqual([{ id: first.workEvent.id }]);
     expect((await latest.query('SELECT id FROM taptime_server.offline_capture_leases WHERE id=$1', [lostLease.leaseId])).rows)
       .toEqual([]);
+    const activatedLatest = await activate(latest, `${prefix}-latest`, 'latest');
+    latest = activatedLatest.pool;
     const replayedSecond = await ingest(latest, phone[0]!);
     expect(replayedSecond).toMatchObject({ status: 'synchronized',
       decision: secondDecision.status === 'synchronized' ? secondDecision.decision : undefined });
@@ -173,7 +315,10 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
     // Finding, not a claim of correctness: retained event alone cannot reconstruct its lost lease.
     expect(replayedThird).toEqual({ status: 'conflict', reason: 'lease_binding_conflict' });
     console.info('LATEST: deleted event present; retained event with archived lease replays same stop; retained event with lost lease changes start -> lease_binding_conflict.');
-    const historical = await restore('historical', `recovery_target_time = '${historicalTarget}'`);
+    let historical = await restore('historical', `recovery_target_time = '${historicalTarget.replace('T', ' ').replace(/Z$/, '+00')}'`);
+    const activatedHistorical = await activate(historical, `${prefix}-historical`, historicalTarget);
+    historical = activatedHistorical.pool;
+    expect(activatedHistorical.operation.id).not.toBe(activatedLatest.operation.id);
     expect((await historical.query('SELECT id FROM taptime_server.work_events')).rows).toEqual([]);
     expect(await ingest(historical, phone[0]!)).toMatchObject({ status: 'pending', reason: 'sequence_gap' });
     console.info('HISTORICAL: deleted event absent; retained successor cannot fill missing sequence.');
@@ -181,6 +326,9 @@ it('proves latest/historical recovery and exposes a lost unarchived lease on rep
     await Promise.allSettled(pools.map((pool) => pool.end()));
     for (const name of containers) await docker('rm', '-f', name).catch(() => undefined);
     for (const name of volumes) await docker('volume', 'rm', name).catch(() => undefined);
+    await docker('network', 'rm', network).catch(() => undefined);
+    await docker('image', 'rm', migrationImage).catch(() => undefined);
+    for (const directory of directories) await rm(directory, { recursive: true, force: true });
   }
 }, 180_000);
 

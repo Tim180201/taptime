@@ -318,6 +318,9 @@ export async function truncateDa2DataTables(installerPool: Pool): Promise<void> 
      FROM pg_catalog.pg_tables
      WHERE schemaname = $1
        AND (schemaname, tablename) <> ($2, $3)
+       -- Global immutable restore history has no export fixtures or domain FKs.
+       -- Keep its production TRUNCATE guard effective, including in tests.
+       AND tablename <> 'restore_recovery_operations'
      ORDER BY tablename`,
     [B3_SCHEMA, migrationSchema, migrationTable],
   );

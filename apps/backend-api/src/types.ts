@@ -280,6 +280,7 @@ export interface BackendApiDependencies {
   readonly timeSupplement?: Pick<import('@taptime/backend-time-review').TimeSupplementCoordinator, 'execute'>;
   readonly healthCheck?: () => Promise<void>;
   readonly sessionAuthority: SessionAuthorityResolver;
+  readonly restoreRecoveryReader?: (session: { readonly organizationId: string; readonly userId: string; readonly membershipId: string }) => Promise<import('@taptime/offline-sync-contract').RestoreRecoveryStateV1>;
   readonly recordMembershipSignIn?: (session: { readonly organizationId: string; readonly userId: string; readonly membershipId: string }) => Promise<void>;
   readonly administrationSessionAuthority?: AdministrationSessionAuthorityResolver;
   readonly scanContextResolver: ScanContextResolver;
@@ -391,7 +392,8 @@ export type BackendApiRoute =
   | 'scan_context'
   | 'scan_context_v2'
   | 'session'
-  | 'session_v2';
+  | 'session_v2'
+  | 'restore_recovery';
 
 export interface BackendApiDiagnostic {
   readonly code:

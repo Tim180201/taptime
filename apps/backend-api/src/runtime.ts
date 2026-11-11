@@ -1,4 +1,5 @@
 import { LockScreenCoordinator } from './LockScreenCoordinator.js';
+import { readRestoreRecovery } from './RestoreRecoveryReader.js';
 import { OperatorCoordinator } from './OperatorCoordinator.js';
 import { AdministrationStopCoordinator, TimeSupplementCoordinator, TimeVoidCoordinator } from '@taptime/backend-time-review';
 import {
@@ -214,6 +215,7 @@ export function createBackendApiRuntime(
       healthCheck: async () => {
         await healthPool.query('SELECT 1');
       },
+      restoreRecoveryReader: session => readRestoreRecovery(sessionPool, session),
       recordMembershipSignIn: session => sessionMembershipResolver.recordSignIn(session),
       sessionAuthority: new B4SessionAuthorityResolver(
         verifier,

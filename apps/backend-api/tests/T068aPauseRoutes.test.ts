@@ -15,7 +15,7 @@ it('returns the same transient pause response on every registered JWT tenant rou
   for (const [path, route] of Object.entries(BACKEND_HTTP_ROUTES)) {
     // Capability actions have no JWT: their transaction checks the key-bound organization.
     if (route === 'health' || route === 'lock_screen_action' || route.startsWith('operator_')) continue;
-    const method = route === 'session' || route === 'session_v2' ? 'GET' : 'POST';
+    const method = route === 'session' || route === 'session_v2' || route === 'restore_recovery' ? 'GET' : 'POST';
     const response = await fetch(`http://127.0.0.1:${address.port}${path}`, { method,
       headers: { authorization: 'Bearer a.b.c', 'content-type': 'application/json' },
       ...(method === 'POST' ? { body: '{}' } : {}) });
