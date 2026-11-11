@@ -97,7 +97,9 @@ bildet die Initialen vor der Übergabe an die Systemanzeige. In der App steht de
 Wer dein Handy sieht, kann aus dem Zusammenhang möglicherweise trotzdem erkennen, um wen es geht.
 Android zeigt eine laufende Mitteilung;
 das iPhone zeigt die Angaben auf dem Sperrbildschirm und gegebenenfalls oben neben der Kamera.
-**Pause, Weiter und Beenden sind ohne Entsperren möglich.** Die Herkunft der Aktion wird gespeichert.
+**Auf Android sind Pause, Weiter und Beenden ohne Entsperren möglich. Am iPhone muss das Gerät
+mit Face ID oder Code entsperrt sein. Die App öffnet sich dabei nicht.** Die Herkunft der Aktion
+wird gespeichert.
 
 Die App verfolgt deinen Standort nicht laufend und nutzt kein GPS. Aus Karte, Arbeitsziel und
 betrieblichem Standort kann sich trotzdem dein Einsatzort ergeben. Eine Kartenkennung allein

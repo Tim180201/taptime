@@ -79,6 +79,23 @@ Vollabgleich. Er lädt genau eine Archivliste für Basis, Marker und WAL-Kette. 
 `failed`, bis ein Vollabgleich wieder erfolgreich ist; fehlende Basis/Verifizierung behält
 weiterhin den eigenen Wartezustand.
 
+Die drei unveränderlichen Manifestwerte der neuesten Basis (Systemkennung, Archiv-Clusterkennung,
+Start-WAL-Datei) liest der Archivierer einmal je Basis und Dienstlauf. Unter derselben Borg-Sperre
+legt er `latest-base-manifest` im vorhandenen `WAL_ARCHIVE_CACHE_DIRECTORY` an. Eigentümer ist der
+effektive Benutzer, produktiv root; Datei 0600, Verzeichnis 0700. Der Cache ist an den exakten
+Basisnamen und das konfigurierte Repository gebunden. Eine neue
+Basis wird neu gelesen und ersetzt die Datei atomar, erst nach gültiger Clusterbindung und
+erfolgreicher Start-WAL-Prüfung. Ungültige, fremde, verlinkte oder unsicher berechtigte Cache-Dateien
+lassen den Durchlauf scheitern; sie werden nicht als Erfolg gewertet. Bei jedem Dienststart
+entfernt der Archivierer den Cache und Reste unter `latest-base-manifest.*`, auch nach Restore
+oder unterbrochenem Schreiben. Beim Rückbau entfernt root diese Dateien nach dem Anhalten des
+Dienstes. Es entsteht keine Archivquittung: Die exakte Existenz des Start-WAL wird in jedem
+Vollabgleich im frisch unter Sperre geladenen Inventar geprüft; ein fehlender Name bleibt ein
+Fehler. `borg info` berechnet dafür keine zusätzlichen Archivstatistiken mehr. Upload-Read-back
+und lückenlose Kettenprüfung bleiben unverändert. Die tiefe
+Wiederherstellungsprüfung liest weiterhin selbst aus Borg. Ein gelöschter Cache wird beim
+nächsten Vollabgleich neu aufgebaut.
+
 Zu Beginn jedes Durchlaufs und bei jedem Phasenwechsel ersetzt der Archivierer atomar
 `wal-archive-progress` neben seiner konfigurierten Statusdatei (Eigentümer ist der effektive
 Benutzer, produktiv root; Modus 0600, kein Symlink).
@@ -185,8 +202,9 @@ Leerlauf kann eine neue externe Störung erst beim nächsten Vollabgleich auffal
 bis zu 15 Minuten zuzüglich Laufzeit); neuer Archivbedarf löst die Prüfung sofort aus.
 Bei bereits registrierter Basis mit gebundener Wassermarke beweist die unter derselben
 Borg-Sperre geladene Archivliste deren exakte Existenz; fehlt ihr Name, scheitert der Durchlauf.
-Die dafür bisher verwendete `borg info`-Statistik entfällt. Die übrigen Aufrufe für Start-WAL,
-Basis-Erstprüfung/Neuprüfung und noch nicht quittierte Uploads bleiben unverändert.
+Die dafür bisher verwendete `borg info`-Statistik entfällt. Dasselbe gilt für die reine
+Existenzprüfung des Start-WAL der neuesten physischen Basis. Basis-Erstprüfung/Neuprüfung
+und noch nicht quittierte Uploads behalten ihre übrigen Aufrufe.
 
 Der Wächter erzeugt und ersetzt `backup-duration-seconds` und `backup-pause-max-seconds` unter
 `/var/lib/taptime-monitor` atomar als root mit Modus 0600. Die erste Datei enthält die zuletzt

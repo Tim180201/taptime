@@ -115,8 +115,9 @@ Schüler, erscheinen nur mit Initialen (beispielsweise „M. K.“). Das Gerät 
 vor der Übergabe an das System; kein Textfeld der Benachrichtigung und kein Inhaltszustand der
 Live-Aktivität enthält den vollen Kundennamen. In der App und im Speicher bleibt er vollständig.
 Initialen können im jeweiligen Zusammenhang weiterhin eine Person erkennbar machen.
-Pause, Fortsetzen und Beenden können ohne Entsperren ausgelöst werden;
-der Verlauf kennzeichnet die Herkunft. Es gibt darüber keinen Start einer neuen Arbeitszeit.
+Pause, Weiter und Beenden können auf Android ohne Entsperren ausgelöst werden. Am iPhone muss
+das Gerät mit Face ID oder Code entsperrt sein; die App öffnet sich dabei nicht (D-161).
+Der Verlauf kennzeichnet die Herkunft. Es gibt darüber keinen Start einer neuen Arbeitszeit.
 Diese Sichtbarkeit folgt D-160 und ist vom Verantwortlichen für
 seinen Einsatz zu bewerten und den Betroffenen mitzuteilen.
 

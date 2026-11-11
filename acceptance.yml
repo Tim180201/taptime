@@ -48,10 +48,10 @@ criteria:
     confirmedBy: client
     description: "Prüfung je Plattform am Gerät."
   - id: LK-8
-    title: "Pause, Weiter und Beenden funktionieren direkt vom Sperrbildschirm, ohne Entsperren"
+    title: "Pause, Weiter und Beenden vom Sperrbildschirm: Android ohne Entsperren, iPhone entsperrt"
     verification: manual
     confirmedBy: client
-    description: "Prüfung je Plattform am Gerät; die Aktion ist anschließend in „Meine Zeiten“ sichtbar."
+    description: "Android: ohne Entsperren. iPhone: Gerät mit Face ID oder Code entsperrt. Die App öffnet sich dabei nicht; die Aktion ist anschließend in „Meine Zeiten“ sichtbar. Prüfung je Plattform am Gerät (D-161)."
   - id: LK-9
     title: "„Meine Zeiten“ zeigt Kalender mit Tages-, Wochen- und Monatssummen und lädt schnell"
     description: "Summen stimmen mit den Einzelbuchungen überein. Ladezeit bei einem Monat mit 200 Buchungen unter 2 Sekunden."

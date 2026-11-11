@@ -24,7 +24,7 @@ Kein Werbe-SDK oder Datenverkaufs-/Werbeverknüpfungsweg ist im Produktablauf ei
 | Arbeitsereignisse, Zeiten, Pausen, Herkunft, betrieblicher Standort, Kommentare, Änderungen, Stornierungen, Prüffälle | Fachliche Verarbeitung mit unverändertem Original; Kommentare freiwillig, Grund bei fremden Zeiten durch Standortleitung Pflicht, beim Administrator freiwillig; kein Grund beim Stornieren |
 | Namensänderung mit altem/neuem Namen; erste/letzte erfolgreiche Sitzungsabfrage als Anmeldestand | Historie bzw. Zugangsverwaltung; erste/letzte Sitzung ist kein vollständiges Passwort-Anmeldeprotokoll |
 | Installation, Sequenz, Geräteuhr/Bootbeleg, Freigaben, Übertragungs-, Archivierungs-/Quarantänestatus | Offline-Zuordnung und Plausibilität, erforderlich auf diesem Weg; keine Werbe-ID |
-| Sperrbildschirm-Schlüssel, Bindung an laufende Zeit, Zustand und Nutzungsdaten | Pause/Weiter/Beenden ohne Entsperren; Server speichert nur Schlüsselhash, höchstens 24 Stunden nutzbar und an aktive Zeit/Berechtigung gebunden |
+| Sperrbildschirm-Schlüssel, Bindung an laufende Zeit, Zustand und Nutzungsdaten | Pause/Weiter/Beenden auf Android ohne Entsperren, am iPhone nur bei entsperrtem Gerät (Face ID oder Code), ohne Öffnen der App; Server speichert nur Schlüsselhash, höchstens 24 Stunden nutzbar und an aktive Zeit/Berechtigung gebunden |
 | Zeitpunkt, Fehlerklasse, optionale Route, Korrelation; auf Einladungswegen zusätzlich erlaubte Betriebs-/Akteur-/Kontokennungen und Grund | Eigene Diagnose und Nachweis von Anbieteraufrufen/Klärfällen; gegebenenfalls personenbezogen |
 
 Eigene Anmeldedaten gehen über HTTPS direkt an Supabase. Die API verarbeitet keine
@@ -41,8 +41,9 @@ Arbeit behalten ihren Namen:** Android verwendet eine öffentliche Benachrichtig
 Live-Aktivität/Dynamic Island. Kunden-/Schülernamen werden auf dem Gerät vor der Übergabe an das
 System gekürzt, etwa zu „M. K.“. Kein Textfeld der Benachrichtigung und kein Inhaltszustand der
 Live-Aktivität enthält den vollen Kundennamen. In der App und im Speicher bleibt er vollständig.
-Initialen können im Zusammenhang weiterhin eine Person erkennbar machen. Wer das Handy sieht,
-kann die angebotenen Pause-/Stoppaktionen ohne Entsperren auslösen.
+Initialen können im Zusammenhang weiterhin eine Person erkennbar machen. Auf Android können
+Pause, Weiter und Beenden ohne Entsperren ausgelöst werden. Am iPhone muss das Gerät mit Face ID
+oder Code entsperrt sein; die App öffnet sich dabei nicht (D-161).
 Die Anzeige folgt D-160; Betroffeneninformation und Bewertung durch den
 Verantwortlichen gehören dazu. Die Live-Aktivität nutzt lokale Aktualisierung ohne Push-Dienst.
 

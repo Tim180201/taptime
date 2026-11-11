@@ -342,31 +342,75 @@ latest_physical_base_archive() {
 
 latest_base_has_offsite_start_wal() {
   local base_archive start_wal_file manifest_system_identifier manifest_archive_identifier
+  local cache_file="$WAL_ARCHIVE_CACHE_DIRECTORY/latest-base-manifest" temporary
+  local cached=0
+  local -a manifest=()
 
   base_archive="$(latest_physical_base_archive)"
   [[ "$base_archive" =~ ^base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ ]] || {
     printf 'No physical base is available for WAL bootstrap.\n' >&2
     return 1
   }
-  manifest_system_identifier="$(borg extract --stdout \
-    "$BORG_REPOSITORY::$base_archive" manifest/cluster-system-identifier \
-    | tr -d '\r\n')"
-  manifest_archive_identifier="$(borg extract --stdout \
-    "$BORG_REPOSITORY::$base_archive" manifest/cluster-archive-identifier \
-    | tr -d '\r\n')"
-  start_wal_file="$(borg extract --stdout \
-    "$BORG_REPOSITORY::$base_archive" manifest/base-start-wal-file | tr -d '\r\n')"
+  # Only immutable manifest values are remembered, never existence or WAL progress.
+  # archive_once holds the Borg lock; main discards this cache at every service start.
+  [[ ! -L "$WAL_ARCHIVE_CACHE_DIRECTORY" && ! -L "$cache_file" ]] || {
+    printf 'Physical base manifest cache must not use symbolic links.\n' >&2
+    return 1
+  }
+  if [[ -e "$cache_file" ]]; then
+    [[ -f "$cache_file" && "$(stat -c '%u:%a' "$cache_file" 2>/dev/null)" == "$EUID:600" ]] || {
+      printf 'Physical base manifest cache has invalid file type, owner or mode.\n' >&2
+      return 1
+    }
+    mapfile -t manifest < "$cache_file" || return 1
+    [[ "${#manifest[@]}" == 5 \
+      && "${manifest[0]}" =~ ^base-${CLUSTER_ARCHIVE_IDENTIFIER}-[0-9]{8}T[0-9]{6}Z$ \
+      && "${manifest[1]}" == "$BORG_REPOSITORY" \
+      && "${manifest[2]}" == "$CLUSTER_SYSTEM_IDENTIFIER" \
+      && "${manifest[3]}" == "$CLUSTER_ARCHIVE_IDENTIFIER" \
+      && "${manifest[4]}" =~ ^[0-9A-F]{24}$ ]] || {
+      printf 'Cached physical base manifest is invalid or belongs to another repository/cluster.\n' >&2
+      return 1
+    }
+    if [[ "${manifest[0]}" == "$base_archive" ]]; then
+      manifest_system_identifier="${manifest[2]}"
+      manifest_archive_identifier="${manifest[3]}"
+      start_wal_file="${manifest[4]}"
+      cached=1
+    fi
+  fi
+  if (( cached == 0 )); then
+    manifest_system_identifier="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$base_archive" manifest/cluster-system-identifier \
+      | tr -d '\r\n')" || return 1
+    manifest_archive_identifier="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$base_archive" manifest/cluster-archive-identifier \
+      | tr -d '\r\n')" || return 1
+    start_wal_file="$(borg extract --stdout \
+      "$BORG_REPOSITORY::$base_archive" manifest/base-start-wal-file | tr -d '\r\n')" || return 1
+  fi
   [[ "$manifest_system_identifier" == "$CLUSTER_SYSTEM_IDENTIFIER" \
     && "$manifest_archive_identifier" == "$CLUSTER_ARCHIVE_IDENTIFIER" \
     && "$start_wal_file" =~ ^[0-9A-F]{24}$ ]] || {
     printf 'Latest physical base has no valid cluster-bound start WAL file.\n' >&2
     return 1
   }
-  borg info "$BORG_REPOSITORY::wal-$CLUSTER_ARCHIVE_IDENTIFIER-$start_wal_file" \
-    >/dev/null 2>&1 || {
+  # The current locked inventory proves existence without computing remote archive statistics.
+  # It is refreshed every full cycle, including after restart/PITR; it is never cached here.
+  grep --fixed-strings --line-regexp --quiet \
+    "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$start_wal_file" <<< "$archive_inventory" || {
     printf 'The physical base start WAL is not yet offsite: %s\n' "$start_wal_file" >&2
     return 1
   }
+  if (( cached == 0 )); then
+    install -d -m 0700 "$WAL_ARCHIVE_CACHE_DIRECTORY" || return 1
+    temporary="$(mktemp "$cache_file.XXXXXX")" || return 1
+    if ! { printf '%s\n' "$base_archive" "$BORG_REPOSITORY" "$manifest_system_identifier" \
+        "$manifest_archive_identifier" "$start_wal_file" > "$temporary" \
+        && chmod 0600 "$temporary" && mv -f -- "$temporary" "$cache_file"; }; then
+      rm -f -- "$temporary"; return 1
+    fi
+  fi
 }
 
 ensure_base_evidence() {
@@ -744,6 +788,9 @@ main() {
   export BORG_UNKNOWN_UNENCRYPTED_REPO_ACCESS_IS_OK=no
   install -d -m 0700 "$WAL_ARCHIVE_CACHE_DIRECTORY"
   rm -f -- "$WAL_ARCHIVE_CACHE_DIRECTORY/reconcile-state"
+  # No cache survives restart/restore/configuration changes; interrupted writes are disposable.
+  rm -f -- "$WAL_ARCHIVE_CACHE_DIRECTORY/latest-base-manifest" \
+    "$WAL_ARCHIVE_CACHE_DIRECTORY"/latest-base-manifest.*
   rm -f -- "$(dirname "$WAL_ARCHIVE_STATUS_FILE")/wal-archive-progress"
   load_cluster_identity
 

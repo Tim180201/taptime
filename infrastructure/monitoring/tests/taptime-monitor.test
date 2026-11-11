@@ -8,6 +8,7 @@ readonly DAILY_MONITOR="$REPOSITORY_ROOT/infrastructure/monitoring/taptime-daily
 # Use the same isolated root fixture from an ordinary CI runner or developer shell.
 if [[ "$(id -u)" != 0 ]]; then
   tar -C "$REPOSITORY_ROOT" -cf - infrastructure/backup \
+    infrastructure/tests/taptime-wal-idle.test \
     infrastructure/docker-compose.server.yml infrastructure/docker-compose.local.yml \
     infrastructure/monitoring/taptime-immediate-monitor.service \
     infrastructure/monitoring/taptime-daily-monitor infrastructure/monitoring/tests/taptime-monitor.test | \
@@ -370,6 +371,14 @@ printf '{"state":"ok","observed_at_utc":"%s","oldest_required_at_utc":null,"olde
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$WAL_ARCHIVE_STATUS"
 FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
 rm -f "$test_root/messages"/*
+
+# T-144: consume the actual status written by a successful same-base upload cycle.
+# External Borg/SQL are synthetic in that fixture; archiver and monitor are real scripts.
+TAPTIME_TEST_CASE=base-cache TAPTIME_TEST_HEALTHY_STATUS_FILE="$WAL_ARCHIVE_STATUS" \
+  bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-idle.test" > "$test_root/healthy-upload.log" 2>&1
+FAKE_API_EXIT_STATUS=0 "$IMMEDIATE_MONITOR"
+assert_equals 0 "$(find "$test_root/messages" -type f | wc -l | tr -d ' ')" \
+  'a healthy same-base upload must not raise a monitor alert'
 
 # Fresh status must not hide an overdue requirement, and an old archive timestamp must
 # not alarm on a new requirement. Derive the boundary from the monitor's actual config.

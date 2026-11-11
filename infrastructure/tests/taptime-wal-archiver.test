@@ -371,7 +371,12 @@ WAL_REPLICATION_SLOT='synthetic'
 CONFIG
       export TAPTIME_WAL_ARCHIVE_RUN_ONCE="$run_once"
       sleep_count=0
+      mkdir -p "$root/cache"
+      printf 'old process\n' > "$root/cache/latest-base-manifest"
+      printf 'interrupted write\n' > "$root/cache/latest-base-manifest.interrupted"
       ( main ) > "$root/cycles"
+      [[ ! -e "$root/cache/latest-base-manifest" && ! -e "$root/cache/latest-base-manifest.interrupted" ]] \
+        || fail 'service start must discard cached manifests and interrupted writes'
       node - "$trace" "$root/statuses" "$run_once" "$fault_wal" "$scenario" "$root/cycles" <<'ASSERT'
 const fs = require('node:fs');
 const [tracePath, statusesPath, once, fault, scenario, cyclesPath] = process.argv.slice(2);
@@ -497,3 +502,5 @@ bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-progress.test"
 
 # A display write failure must leave the actual WAL cycle successful (T-093).
 TAPTIME_TEST_CASE=archive-counts bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-idle.test"
+
+TAPTIME_TEST_CASE=base-cache bash "$REPOSITORY_ROOT/infrastructure/tests/taptime-wal-idle.test"

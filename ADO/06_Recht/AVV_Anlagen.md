@@ -79,12 +79,16 @@ Technischer Root-Zugriff ist von den Grenzen dieser Oberfläche zu unterscheiden
   dauert höchstens 24 Stunden und endet nicht in der Zukunft. Doppelte Befehle werden
   serverseitig idempotent behandelt.
 
-### 1.3 Anzeige außerhalb der App — bewusste Abwägung (D-147)
+### 1.3 Anzeige außerhalb der App — bewusste Abwägung (D-160, D-161)
 
-Die öffentlich sichtbare Android-Benachrichtigung bzw. die iPhone-Live-Aktivität zeigt Zielname,
-Zustand und Dauer auf dem gesperrten Gerät; am iPhone auch in der Dynamic Island.
-Umstehende können Kunden-/Schülernamen lesen. Pause, Weiter und Beenden sind ohne Entsperren
-möglich und werden als manuelle Ereignisse mit Sperrbildschirm-Herkunft verarbeitet.
+Die öffentlich sichtbare Android-Benachrichtigung bzw. die iPhone-Live-Aktivität zeigt
+Kundeninitialen, Zustand und Dauer auf dem gesperrten Gerät; am iPhone auch in der Dynamic Island.
+Kunden und Schüler erscheinen nur mit Initialen, etwa „M. K.“; Projekte und allgemeine Arbeit
+behalten ihren Namen. Das Gerät bildet die Initialen vor der Übergabe an das System; der volle
+Kundenname bleibt in der App und im Speicher. Initialen können im Zusammenhang weiterhin eine
+Person erkennbar machen. Auf Android sind Pause, Weiter und Beenden ohne Entsperren möglich;
+am iPhone muss das Gerät mit Face ID oder Code entsperrt sein. Die App öffnet sich dabei nicht.
+Die Aktionen werden als manuelle Ereignisse mit Sperrbildschirm-Herkunft verarbeitet.
 Diese Sichtbarkeit ist bewusst vorgesehen, keine als Fehler behandelte Lücke. Der Verantwortliche
 muss sie bei seiner Einsatzentscheidung berücksichtigen und Betroffene informieren.
 

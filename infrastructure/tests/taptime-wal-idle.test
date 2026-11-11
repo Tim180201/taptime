@@ -9,7 +9,7 @@ export TAPTIME_BACKUP_STATE_DIRECTORY="$root/maintenance-state"
 # The override runs these exact regression assertions against the pre-change script.
 # shellcheck source=../backup/taptime-wal-archiver
 source "${TAPTIME_TEST_ARCHIVER:-$REPOSITORY_ROOT/infrastructure/backup/taptime-wal-archiver}"
-# This suite measures Borg cadence; root cache ownership has its own isolated proof.
+# Borg's repository-cache ownership has its own isolated proof; manifest ownership is checked below.
 prepare_borg_cache() { :; }
 WAL_SPOOL_DIRECTORY="$root/spool"
 WAL_ARCHIVE_CACHE_DIRECTORY="$root/cache"
@@ -56,7 +56,7 @@ advance_watermark() {
 }
 record_archive_receipt() { :; }
 borg() {
-  printf '%s %s\n' "$1" "${2:-}" >> "$trace"
+  printf '%s\n' "$*" >> "$trace"
   case "$1" in
     list)
       [[ "$fault" != list ]] || return 1
@@ -68,10 +68,11 @@ borg() {
     info) [[ "$fault" != info ]] && grep -Fxq "${2#*::}" "$inventory" ;;
     create) printf '%s\n' "${4#*::}" >> "$inventory" ;;
     extract)
+      [[ "$fault" != extract ]] || return 2
       case "${4:-}" in
-        manifest/cluster-system-identifier) printf '%s\n' "$CLUSTER_SYSTEM_IDENTIFIER" ;;
-        manifest/cluster-archive-identifier) printf '%s\n' "$CLUSTER_ARCHIVE_IDENTIFIER" ;;
-        manifest/base-start-wal-file) printf '%s\n' "$first" ;;
+        manifest/cluster-system-identifier) printf '%s\n' "${manifest_system:-$CLUSTER_SYSTEM_IDENTIFIER}" ;;
+        manifest/cluster-archive-identifier) printf '%s\n' "${manifest_archive:-$CLUSTER_ARCHIVE_IDENTIFIER}" ;;
+        manifest/base-start-wal-file) printf '%s\n' "${manifest_wal:-$first}" ;;
         *) printf 'known bytes\n' ;;
       esac ;;
     *) fail "unexpected Borg command: $1" ;;
@@ -102,6 +103,98 @@ fi
 
 cycle
 [[ "$result" == 0 ]] || { cat "$root/journal"; fail 'initial reconciliation'; }
+if [[ "${TAPTIME_TEST_CASE:-all}" == base-cache ]]; then
+  manifest_fields=(cluster-system-identifier cluster-archive-identifier base-start-wal-file)
+  manifest_reads() { grep -c ' manifest/' "$trace" || true; }
+  [[ "$(manifest_reads)" == "${#manifest_fields[@]}" ]] || fail 'first base must read every manifest value'
+  for field in "${manifest_fields[@]}"; do
+    grep -Fxq "extract --stdout $BORG_REPOSITORY::$base manifest/$field" "$trace" || fail "missing $field"
+  done
+  printf 'Initial base: %s manifest extracts.\n' "$(manifest_reads)"
+  printf 'known bytes\n' > "$WAL_SPOOL_DIRECTORY/$second"
+  cycle
+  [[ "$result" == 0 ]] || { cat "$root/journal"; fail 'same-base upload'; }
+  grep -q 'uploaded_segments=1' "$root/journal" || fail 'fixture did not upload'
+  printf 'Same-base upload: %s manifest extracts.\n' "$(manifest_reads)"
+  [[ "$(manifest_reads)" == 0 ]] || fail 'same immutable base must not repeat its three extracts'
+  if grep -Fxq "info $BORG_REPOSITORY::wal-$CLUSTER_ARCHIVE_IDENTIFIER-$first" "$trace"; then
+    fail 'start WAL existence must use the current locked inventory, not remote statistics'
+  fi
+  if [[ -n "${TAPTIME_TEST_HEALTHY_STATUS_FILE:-}" ]]; then
+    cp "$WAL_ARCHIVE_STATUS_FILE" "$TAPTIME_TEST_HEALTHY_STATUS_FILE"
+  fi
+
+  base="base-$CLUSTER_ARCHIVE_IDENTIFIER-20260920T010000Z"
+  printf '%s\n' "$base" >> "$inventory"
+  printf 'known bytes\n' > "$WAL_SPOOL_DIRECTORY/$third"
+  cycle
+  [[ "$result" == 0 && "$(manifest_reads)" == "${#manifest_fields[@]}" ]] || fail 'new base must read every value once'
+  pending=1; cycle
+  [[ "$result" == 0 && "$(manifest_reads)" == 0 ]] || fail 'new base must then reuse its values'
+
+  # A cached manifest never hides a missing start WAL, base or broken remote call.
+  fault=list; cycle
+  [[ "$result" != 0 ]] || fail 'cached base hid inventory failure'
+  fault=''
+  cp "$inventory" "$root/complete-inventory"
+  for missing in "$base" "wal-$CLUSTER_ARCHIVE_IDENTIFIER-$first"; do
+    # Remove all physical bases in the first case; otherwise an older valid base is allowed.
+    if [[ "$missing" == "$base" ]]; then
+      sed '/^base-/d' "$root/complete-inventory" > "$inventory"
+    else
+      grep -Fvx "$missing" "$root/complete-inventory" > "$inventory"
+      printf '%s\n' "$missing-extra" >> "$inventory"
+    fi
+    cycle
+    [[ "$result" != 0 ]] || fail "cached base hid missing $missing"
+  done
+  cp "$root/complete-inventory" "$inventory"
+  cache="$WAL_ARCHIVE_CACHE_DIRECTORY/latest-base-manifest"
+  bad_cache_values=(invalid foreign-repository foreign-system foreign-archive invalid-wal extra-line unsafe-mode symlink)
+  if (( EUID == 0 )); then bad_cache_values+=(foreign-owner); fi
+  for bad in "${bad_cache_values[@]}"; do
+    rm -f "$cache"; cycle
+    [[ "$result" == 0 ]] || fail 'cache setup'
+    case "$bad" in
+      invalid) printf 'broken\n' > "$cache" ;;
+      foreign-repository) sed -i 's/synthetic-unused/another-repository/' "$cache" ;;
+      foreign-system) sed -i "s/$CLUSTER_SYSTEM_IDENTIFIER/99999999999999999/" "$cache" ;;
+      foreign-archive) sed -i "s/$CLUSTER_ARCHIVE_IDENTIFIER/fedcba9876543210/g" "$cache" ;;
+      invalid-wal) sed -i "s/$first/not-a-wal/" "$cache" ;;
+      extra-line) printf 'extra\n' >> "$cache" ;;
+      unsafe-mode) chmod 0644 "$cache" ;;
+      symlink) mv "$cache" "$root/cache-target"; ln -s "$root/cache-target" "$cache" ;;
+      foreign-owner) chown "$(( EUID + 1 ))" "$cache" ;;
+    esac
+    cycle
+    [[ "$result" != 0 ]] || fail "accepted $bad cached values"
+    case "$bad" in
+      unsafe-mode|foreign-owner)
+        grep -Fxq 'Physical base manifest cache has invalid file type, owner or mode.' "$root/journal" || fail "missing $bad cache diagnostic" ;;
+      symlink)
+        grep -Fxq 'Physical base manifest cache must not use symbolic links.' "$root/journal" || fail 'missing symlink cache diagnostic' ;;
+    esac
+  done
+  if (( EUID == 0 )); then
+    printf 'Base cache ownership: foreign owner rejected with diagnostic.\n'
+  else
+    printf 'Base cache ownership: foreign-owner fixture skipped (changing owner requires root); effective-user cache exercised.\n'
+  fi
+  rm -f "$cache"
+  for bad in foreign-system foreign-archive invalid-wal unreadable; do
+    manifest_system=''; manifest_archive=''; manifest_wal=''; fault=''
+    case "$bad" in
+      foreign-system) manifest_system=99999999999999999 ;;
+      foreign-archive) manifest_archive=fedcba9876543210 ;;
+      invalid-wal) manifest_wal=not-a-wal ;;
+      unreadable) fault=extract ;;
+    esac
+    cycle
+    [[ "$result" != 0 && ! -e "$cache" ]] || fail "accepted/cached $bad remote values"
+  done
+  printf 'Base cache: repeated uploads, base change, missing archives, remote failures and invalid/foreign values proved.\n'
+  exit 0
+fi
 case "${TAPTIME_TEST_CASE:-all}" in
   registered-base|all)
     if grep -Fxq "info $BORG_REPOSITORY::$base" "$trace"; then fail 'registered base must use loaded inventory, not borg info'; fi

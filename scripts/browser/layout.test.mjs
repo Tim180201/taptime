@@ -180,6 +180,8 @@ layoutTest('admin-web', 'mobile navigation, sheet focus, Escape, and responsive 
     assert.deepEqual((await measure(page)).geometry,[]);
     await page.keyboard.press('Escape');
     assert.equal(await invitation.count(),0);
+    // Closing replaces the dialog with its trigger; focus returns on the next animation frame.
+    await page.waitForFunction(() => document.activeElement?.textContent?.trim() === '+ Mitarbeiter einladen');
     assert.equal(await page.getByRole('button',{name:'+ Mitarbeiter einladen',exact:true}).evaluate(el=>el===document.activeElement),true);
   } finally {await page.close();}
 });
