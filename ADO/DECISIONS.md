@@ -2129,3 +2129,14 @@ Hintergrund und holt nie etwas beim Öffnen der App nach (T-145).
 **Warum:** Apple: Auf einem gesperrten Gerät sind Knöpfe in Widgets und Live-Aktivitäten inaktiv, bis man sich
 authentifiziert (WidgetKit-Dokumentation, geprüft 10.11.). Am Gerät bestätigt (PO 10.11., iOS 26.5): Mit Face ID
 wirken die Knöpfe sofort; wer auf das iPhone schaut, entsperrt es ohnehin.
+
+## D-162 · Wiederaufnahme nach einem Restore: prüfen statt neu entscheiden · 11.11.2026 · Tim (PO), Claude (TL)
+Ergänzt D-052 und D-055. Nach einer Wiederherstellung bietet die App ihre erhaltenen Belege unverändert erneut an (gleiche
+IDs, Lease, Sequenz, Uhrbeleg). Kennt der Server das Ergebnis, gilt es unverändert. Fehlt es, weil Ereignis, Lease oder
+Installation nach der Archivgrenze verloren gingen, bucht er nicht neu, sondern legt den Beleg mit benanntem Grund in die
+Prüfung; die Lehrkraft sieht „wird nach Wiederherstellung geprüft“. Solange eine Person so einen Fall offen hat, gehen
+auch ihre neuen Taps zur Prüfung. Abschluss durch Standortleitung (eigener Standort) oder Verwaltung, immer mit Grund; ein
+Gerät, das nie zurückkommt, bleibt als unvollständig sichtbar. Keine neue Lease-ID in alter Evidenz (D-055). T-055a–d.
+**Warum:** Der Entwurf T-055 zeigt, dass eine erneute Bewertung anders entscheiden kann als gezeigt: zwei Geräte, späte
+Übertragung, geänderte Rechte. Ehrliche Prüfung ist sicherer als eine falsche Automatik (PO 11.11.). Lease nach
+Archivnachweis, abgeleitetes Zeitfenster und signierte Kette folgen nach dem Pilotstart (T-055e).

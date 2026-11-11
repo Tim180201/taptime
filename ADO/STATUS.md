@@ -1,6 +1,6 @@
 # TapTim.e — Status
 
-**Stand 10.11.2026.** Höchstens eine Seite, überschreiben statt anhängen (AGENTS 6). Frühere Fassung mit allen
+**Stand 11.11.2026.** Höchstens eine Seite, überschreiben statt anhängen (AGENTS 6). Frühere Fassung mit allen
 Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
 
 ## Jetzt
@@ -17,14 +17,14 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
   - „Meine Zeiten“ am iPhone sofort, am Android 0,85–1,5 s.
 
   Lokales Schema 8: keine ältere App darüber installieren.
-- **Aufgabe:** T-144 auf main (Basiswerte einmal je Basis, Rechtstexte zu D-160 und D-161, LK-8); die Messung vorher
-  und nachher macht der PO. Jetzt T-055: erst ein Entwurf mit Varianten zur TL-Entscheidung, der Brief folgt vom TL.
-  Beide gehen in einen Deploy.
+- **Aufgabe:** T-144 auf main (`ed7e964`); die Messung vorher und nachher macht der PO. Der Entwurf zu T-055 ist
+  abgenommen, entschieden ist D-162 (prüfen statt neu entscheiden). Jetzt T-055a (Wiederaufnahmevorgang, Brief in TASK).
+  T-144 und T-055 gehen zusammen in einen Deploy, mit neuem App-Build (PO 11.11.).
 
 ## Weg zum Pilot
 
-T-055 (vorgezogen) → ein Deploy mit T-144 → T-146 (Abnahme-IDs an Tests) und restliche Geräteabnahme → Pilot
-(D-152).
+T-055a → T-055b → T-055c → T-055d → App-Build und ein Deploy mit T-144 → T-146 (Abnahme-IDs an Tests) und restliche
+Geräteabnahme → Pilot (D-152).
 
 **Vor echten Daten (D-116):**
 - Gewerbeanmeldung, danach Supabase Pro (D-130) und D-U-N-S;

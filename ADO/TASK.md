@@ -1,52 +1,56 @@
 # Aktuelle Aufgabe
 
 > **Stand 11.11.2026:**
-> - T-144 ist APPROVED und auf main. Die Messung vor und nach dem Deploy macht der PO.
-> - Jetzt T-055, zuerst nur der Entwurf. T-055 und T-144 gehen zusammen in einen Deploy.
+> - T-144 ist auf main (`ed7e964`). Der Entwurf T-055 Teil 1 ist abgenommen, entschieden ist D-162: prüfen statt neu
+>   entscheiden.
+> - T-055 kommt in vier Teilen (PLAN): a Vorgang, b Eingang, c Prüfung im Web, d App. Danach App-Build und ein Deploy
+>   mit T-144.
 
-## T-055 · Wiederaufnahme nach einem Restore (D-055), Teil 1: Entwurf mit Varianten
+## T-055a · Wiederaufnahmevorgang nach einem Restore
 
-**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Es geht um Zeiten, ihre Herkunft und die Wiederherstellung
-· **Zeitbox:** eine Sitzung · **Ergebnis:** ein Entwurf, kein Produktcode.
+**Für:** Development (Astra, Extra High) · **Risiko:** hoch. Es geht um Wiederherstellung und Betrieb · **Zeitbox:**
+eine Sitzung.
 
-### Ausgangslage
+**Grundlage:** D-162 und der Entwurf `.t055-review/entwurf.md`, Abschnitt 4, Punkte 1 und 2. Heute schreibt
+`taptime-restore-activate` nur den Abschlussmarker mit Format, Cluster, Basis und Ziel. Eine Wiederaufnahme ist für
+Server und App nicht erkennbar.
 
-- **D-055:** Nach einem Restore auf den letzten Archivpunkt kann eine Lease fehlen, die erst danach ausgestellt wurde.
-  Das erhaltene Ereignis vom Handy endet dann in `lease_binding_conflict`, obwohl der Server den Start vorher bestätigt
-  hatte. Beleg: `OfflineRestorePostgres.test.ts`, Fall 2 in `infrastructure/RESTORE.md`.
-- **Eiserne Grenze:** Niemals eine neue Lease-ID in erhaltene Evidenz schreiben.
-- **Externes Review 30.10. (P1):** drei Befunde derselben Art, „was passiert beim erneuten Einspielen“:
-  1. **Lease-Bindung:** Lease und Installation, die nach der Archivgrenze entstanden, fehlen nach dem Restore.
-  2. **Reihenfolge über Installationen:** Die Ereignisse eines Beschäftigten von mehreren Installationen kommen nach dem
-     Restore in anderer Reihenfolge an als vorher. Die Entscheidung kann sich dadurch ändern.
-  3. **Zeitfenster bei spätem Replay:** Der Zeitpunkt des Replays entscheidet über `automatic_window_elapsed` (72 h nach
-     Lease-Ende) und über den aktuellen Stand von Identität und Mitgliedschaft. Eine schon gezeigte Entscheidung kann so
-     in eine Prüfung kippen.
+### Umfang
 
-### Umfang des Entwurfs (`.t055-review/entwurf.md`)
+1. **Vorgang anlegen:** `taptime-restore-activate` legt nach der Clusterprüfung und **vor** dem Start der Schreibwege
+   (`DEPLOY_COMMAND`) einen Wiederaufnahmevorgang in der wiederhergestellten Datenbank an. Er enthält:
+   - eigene Kennung, Cluster und Timeline;
+   - Ziel: letzter Archivstand oder Zeitpunkt (bewusster Rücksprung);
+   - den tatsächlich erreichten WAL-Punkt mit seiner Zeitgrundlage, aus der Datenbank abgeleitet, nicht geschätzt
+     (AGENTS 1.6);
+   - die Aktivierungszeit.
 
-1. **Belegen:** Für jeden Befund die genaue Code-Spur und, wo möglich, einen roten Test (lokal, uncommittet). Fall 2 ist
-   schon rot. Ist ein Befund nicht nachstellbar oder harmlos, das begründen.
-2. **Je Befund mindestens zwei Varianten**, jeweils mit:
-   - Verhalten für Lehrkraft und Standortleitung;
-   - Einhaltung von D-055 und D-052;
-   - neue Daten mit Lebenszyklus (AGENTS 1.5) und Migration;
-   - App-Änderung ja oder nein, also ob ein App-Build nötig ist;
-   - Deploy-Schritte, Testplan und Aufwand.
-3. **Kandidaten des TL** (bewerten, nicht einfach übernehmen):
-   - Die Lease erst nach externem Archivnachweis aushändigen oder aktivieren. Sie lebt 12 h, die Wartezeit fällt also
-     einmal an, nicht je Tap. Vorher klären: Braucht ein Tap mit Netz überhaupt eine Lease?
-   - Ein benannter Prüfgrund statt `lease_binding_conflict`, falls es doch eintritt.
-   - Das Zeitfenster aus dem Restore selbst ableiten, etwa aus der Ausfalldauer zwischen letztem Archivpunkt und
-     Aktivierung, nicht aus einer neuen festen Zahl (AGENTS 1.6).
-   - Für die Reihenfolge: belegen, wie oft ein Beschäftigter mehrere aktive Installationen hat, und den Fall erkennen und
-     benennen, statt eine Reihenfolge zu raten.
-4. **Empfehlung** mit Begründung. Dazu benennen, welche Punkte eine PO-Entscheidung brauchen (AGENTS 5), zum Beispiel
-   einen neuen sichtbaren Prüfgrund oder eine Wartezeit nach der Anmeldung.
+   Keine Nutzerdaten. Eine wiederholte Aktivierung desselben Volumes ergibt denselben Vorgang. Ein neuer Restore ergibt
+   einen neuen Vorgang, frühere bleiben erhalten.
+2. **Lebenszyklus (AGENTS 1.5):** Wer legt an (nur die Aktivierung, über eine versionierte Funktion mit eigener Rolle),
+   wer ändert (niemand; spätere Teile ergänzen nur Statusereignisse), wer entfernt (kein produktiver Löschweg vor T-016).
+   Tabelle mit ENABLE und FORCE RLS, minimale Rechte.
+3. **Lesevertrag:** Eine angemeldete App kann den neuesten Vorgang (Kennung, Ziel, Aktivierungszeit) in einem neuen,
+   versionierten Vertrag lesen. Bestehende Verträge und alte Apps bleiben unverändert.
+4. **Noch keine geänderte Entscheidung:** Erfassung, Abgleich und Prüfung bleiben wie heute. Das kommt mit T-055b.
+5. **`infrastructure/RESTORE.md`** im selben Commit anpassen (AGENTS 7).
+
+### Tests und Nachweis
+
+- **Physischer Restore** nach dem Vorbild `OfflineRestorePostgres.test.ts` (echte Basis, echtes WAL, zerstörter
+  Quelldatenträger):
+  - letzter Stand und früherer Zeitpunkt ergeben je einen Vorgang mit richtigem Ziel und erreichtem Punkt;
+  - eine wiederholte Aktivierung ergibt keinen zweiten Vorgang.
+- **Aktivierung:** Der Vorgang besteht, bevor der Deploy startet. Schlägt das Anlegen fehl, startet nichts. Die Tests
+  von `taptime-restore-activate` gegen die dokumentierte Semantik von Docker und PostgreSQL (AGENTS 4).
+- **Rechte:** Nur die Aktivierungsrolle legt an. App-Rollen lesen nur über die Funktion. Keine Schreibrechte für die App.
+- **Lesevertrag:** mit Vorgang, ohne Vorgang, alte Vertragsversion unverändert.
+- **CI** ganz lokal nachgebaut, die Betriebsskripte auch ohne root.
+- **Bericht:** `.t055a-review/bericht.md` mit den PO-Schritten nach `infrastructure/DEPLOY.md`. Dazu gehört auch, ob die
+  Aktivierung an der Konsole vorher aktualisiert werden muss.
 
 ### Grenzen
 
-- Kein Produktcode, keine Migration, kein Commit. Rote Tests bleiben lokal.
-- Lokales Docker nur mit vorhandenen Abbildern. Keine Pulls, nichts installieren (AGENTS 3).
-- Kein Deploy, kein Server, kein Supabase, kein EAS, keine GHCR-Paketaktion.
-- Ein unabhängiges Review prüft den Entwurf (AGENTS 4). Danach Bericht an den TL nach AGENTS 8.
+- Keine Änderung an Erfassung, Abgleich, Prüfung oder App.
+- Kein Deploy, kein Server, kein Supabase, kein EAS, keine GHCR-Paketaktion, keine Image-Pulls, nichts installieren.
+- Unabhängiges Review (AGENTS 4). Kein Commit vor `APPROVED`.
