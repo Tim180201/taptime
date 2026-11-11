@@ -19,7 +19,7 @@ Befunden und Deploys: `git show b50e85a:ADO/STATUS.md`.
   Lokales Schema 8: keine ältere App darüber installieren.
 - **Aufgabe:** T-144 auf main (`ed7e964`); die Messung vorher und nachher macht der PO. Der Entwurf zu T-055 ist
   abgenommen, entschieden ist D-162 (prüfen statt neu entscheiden). T-055a ist auf main (Wiederaufnahmevorgang,
-  Migration 069). Jetzt T-055b (Belege zur Prüfung), der Brief folgt vom TL.
+  Migration 069). Jetzt T-055b (Belege zur Prüfung, Brief in TASK).
   T-144 und T-055 gehen zusammen in einen Deploy, mit neuem App-Build (PO 11.11.).
 
 ## Weg zum Pilot
