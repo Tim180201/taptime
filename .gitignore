@@ -46,3 +46,4 @@ firebase-debug.log
 
 # Lokale Claude-Ausgaben
 Claude outputs/
+junit*.xml

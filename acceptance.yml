@@ -3,12 +3,14 @@
 # IDs nach Bereich: LK = Lehrkraft · SL = Standortleitung · GR = Grundregeln
 # DS = Datenschutz (Technik) · DOK = Unterlagen
 #
-# verification: automatic → ein Test mit dieser ID muss am abgenommenen Commit bestehen
+# verification: automatic → tests nennt exakte Testnamen (oder IDs); jeder muss am
+#   abgenommenen Commit und Tree bestanden sein (Berichte aus dossier record-tests)
 # verification: manual    → die zuständige Partei bestätigt ausdrücklich:
 #   confirmedBy: client     → Kunde (frogs) bei der Pilot-Abnahme
 #   confirmedBy: contractor → Anbieter (Taptura) in der Bereitstellungserklärung
 #
-# In Commits referenzieren: "feat: Pause vom Sperrbildschirm (LK-8)"
+# Commit-Nennungen wie "feat: Pause vom Sperrbildschirm (LK-8)" sind optional (ADR 0004).
+# Namen finden: dossier map --grep "<regex>" --criterion <ID>; prüfen: dossier map --check
 
 version: "0.2"
 project: "Taptura – Pilotstart bei frogs (Go-live-Protokoll)"
@@ -56,7 +58,12 @@ criteria:
     title: "„Meine Zeiten“ zeigt Kalender mit Tages-, Wochen- und Monatssummen und lädt schnell"
     description: "Summen stimmen mit den Einzelbuchungen überein. Ladezeit bei einem Monat mit 200 Buchungen unter 2 Sekunden."
   - id: LK-10
-    title: "Lehrkraft kann eigene Zeiten nachtragen, ändern und löschen"
+    title: "Lehrkraft kann eigene Zeiten nachtragen und löschen"
+    description: "Ändern bestehender Einträge ist Sache der Standortleitung (SL-3)."
+    tests:
+      - "backfills with optional employee comment and preserves inputs after rejection; cancel closes"
+      - "shows the explicit backfilled provenance as nachgetragen"
+      - "T116 employee confirms deletion without a reason"
 
   # ---------------------------------------------------------- Standortleitung
   - id: SL-1
@@ -68,8 +75,15 @@ criteria:
     description: "Prüfung am Gerät: Karte zuordnen, Zuordnung prüfen, Karte entfernen; entfernte Karte löst keine Buchung mehr aus."
   - id: SL-3
     title: "Standortleitung kann Zeiten der Mitarbeiter korrigieren; ein Grund ist Pflicht"
+    tests:
+      - "T106: required reasons cannot consist only of controls and spaces"
+      - "D134 standortleitung foreign correct reason null"
   - id: SL-4
     title: "Kundenstunden und Kontingente sind sichtbar; Hinweis erscheint bei 90 % und bei 100 %"
+    tests:
+      - "exact threshold at 324000 seconds"
+      - "exact threshold at 360000 seconds"
+      - "quota notice acknowledges each stage, isolates membership and hides pending old reply"
 
   # ---------------------------------------------------------------- Grundregeln
   - id: GR-1
@@ -77,6 +91,9 @@ criteria:
     description: "Mehrfaches schnelles Tippen oder Wiederholen einer Anfrage erzeugt keine zweite Buchung."
   - id: GR-2
     title: "Doppelte Scans werden erkannt und nicht doppelt gebucht"
+    tests:
+      - "server-canonical Core decisions and exact relational mappings > persists Duplicate without TimeEntry mutation or invented Receipt mapping"
+      - "BusinessEngine (F-01 lifecycle) > ignores a scan less than five seconds after the previous accepted scan before evaluating stop"
   - id: GR-3
     title: "Korrekturen überschreiben nie das Original; jede Änderung bleibt nachvollziehbar"
     description: "Nach einer Korrektur sind Originalwert, neuer Wert, Zeitpunkt, Person und Grund abrufbar."
@@ -95,6 +112,10 @@ criteria:
   - id: DS-4
     title: "Übertragung ausschließlich verschlüsselt (HTTPS)"
     description: "Unverschlüsselte Verbindungen werden abgewiesen."
+    tests:
+      - "C1 product runtime configuration > rejects an unsafe Supabase base URL http://auth.example.com/auth/v1"
+      - "C1 product runtime configuration > rejects an unsafe TapTim.e API base URL http://api.example.com"
+      - "C1 product runtime configuration > accepts complete HTTPS configuration on ios"
   - id: DS-5
     title: "Offline-Daten auf dem Handy sind verschlüsselt und an das Konto gebunden; Abmelden oder Kontowechsel entfernt den lokalen Stand"
   - id: DS-6
