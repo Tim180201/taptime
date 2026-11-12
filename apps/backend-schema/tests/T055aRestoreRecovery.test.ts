@@ -65,7 +65,8 @@ it('preserves evidence and activation time on retry, appends a new restore, and 
   expect((await client.query('SELECT * FROM taptime_server.restore_recovery_operations WHERE id=$1', [evidence[0]])).rows).toEqual([first]);
   await denied('UPDATE taptime_server.restore_recovery_operations SET activated_at=now()');
   await denied('DELETE FROM taptime_server.restore_recovery_operations');
-  await denied('TRUNCATE taptime_server.restore_recovery_operations');
+  // CASCADE reaches the immutable guard even with recovery evidence referencing this operation.
+  await denied('TRUNCATE taptime_server.restore_recovery_operations CASCADE');
   await client.query('SET LOCAL ROLE taptime_identity_resolver');
   expect((await client.query(readSql, [organization, user, membership])).rows[0].id).toBe(secondId);
 });

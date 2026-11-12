@@ -5,3 +5,4 @@ export * from './validation.js';
 export * from './vectors.js';
 export * from './sequenceSkip.js';
 export * from './restoreRecovery.js';
+export * from './restoreEvidence.js';

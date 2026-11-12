@@ -1,3 +1,4 @@
+import { encodeRestoreEvidenceV1, isRestoreEvidenceCommandV1, type RestoreEvidenceCommandV1, type RestoreEvidenceResultV1, type RestoreEvidenceReceiptV1 } from '@taptime/offline-sync-contract';
 import { isOfflineSequenceSkipCommand, type OfflineSequenceSkipCommand, type OfflineSequenceSkipResult } from '@taptime/offline-sync-contract';
 import type { OfflineMembershipRole } from '@taptime/offline-sync-contract';
 import { createHash, randomUUID } from 'node:crypto';
@@ -233,6 +234,12 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       await query(client, 'SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
         [`${actor.organization_id}\u001f${actor.user_id}`]);
       const c = request.command;
+      if ((await query(client,`SELECT 1 FROM taptime_server.restore_recovery_evidence
+        WHERE organization_id=$1 AND (claimed_work_event_id=$2 OR claimed_receipt_id=$3
+          OR (binding_digest=$4 AND device_sequence=$5))`,
+      [actor.organization_id,c.workEventId,c.receiptId,createHash('sha256').update(decodeBase64Url32(c.installationBinding)).digest(),c.deviceSequence])).rows.length) {
+        await rollback(client); return { status:'conflict' };
+      }
       const installation = (await query<InstallationRow>(client, `SELECT id, identity_binding_id
         FROM taptime_server.offline_installations WHERE organization_id=$1 AND user_id=$2
         AND membership_id=$3 AND binding_digest=$4`,[actor.organization_id,actor.user_id,actor.membership_id,
@@ -263,6 +270,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       if (collision.rows.length) { await rollback(client); return {status:'conflict'}; }
       await query(client, `INSERT INTO taptime_server.offline_sync_cursors(organization_id,installation_id,user_id,membership_id)
         VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`,[actor.organization_id,installation.id,actor.user_id,actor.membership_id]);
+      await advanceRecoverySequence(client,actor,installation.id);
       const cursor = (await query<CursorRow>(client, `SELECT last_durable_sequence FROM taptime_server.offline_sync_cursors
         WHERE organization_id=$1 AND installation_id=$2 FOR UPDATE`,[actor.organization_id,installation.id])).rows[0]!;
       if (Number(cursor.last_durable_sequence)+1 !== c.deviceSequence) { await rollback(client); return {status:'conflict'}; }
@@ -274,6 +282,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
         c.receiptId,c.leaseId,c.leaseItemId,c.occurredAt,c.reason,c.evidenceSha256,hash]);
       await query(client, `UPDATE taptime_server.offline_sync_cursors SET last_durable_sequence=$3,updated_at=transaction_timestamp()
         WHERE organization_id=$1 AND installation_id=$2`,[actor.organization_id,installation.id,c.deviceSequence]);
+      await advanceRecoverySequence(client,actor,installation.id);
       await query(client,'COMMIT');
       return {status:'reported',workEventId:c.workEventId,receiptId:c.receiptId,deviceSequence:c.deviceSequence,
         evidenceSha256:c.evidenceSha256,idempotentRetry:false};
@@ -284,6 +293,20 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
     request: AuthenticatedOfflineLifecycleEventCommand,
     controls: OfflineLifecycleIngestionControls = {},
   ): Promise<OfflineLifecycleEventResultV4> {
+    const result = await this.process(request, controls);
+    if (result.status === 'recovery_pending' || result.status === 'recovery_rejected') {
+      throw new Error('Recovery result outside recovery contract');
+    }
+    return result;
+  }
+
+  async recover(request: { readonly accessToken: string; readonly command: RestoreEvidenceCommandV1 }): Promise<RestoreEvidenceResultV1> {
+    if (!isRestoreEvidenceCommandV1(request.command)) throw new TypeError('Invalid recovery evidence');
+    return this.process({ accessToken: request.accessToken, command: request.command.evidence }, {}, request.command);
+  }
+
+  private async process(request: AuthenticatedOfflineLifecycleEventCommand,
+    controls: OfflineLifecycleIngestionControls, recovery?: RestoreEvidenceCommandV1): Promise<RestoreEvidenceResultV1> {
     validateCommand(request.command);
     const verification = await this.accessTokenVerifier.verify(request.accessToken);
     if (verification.status === 'rejected') {
@@ -335,6 +358,41 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
       const bindingDigest = createHash('sha256')
         .update(decodeBase64Url32(request.command.installationBinding))
         .digest();
+      if (recovery) {
+        const response = await query<{ value: Exclude<RestoreEvidenceResultV1, RestoreEvidenceReceiptV1>
+          | Omit<RestoreEvidenceReceiptV1, 'archiveStatus'> | { status: 'normal' } }>(client,
+          'SELECT taptime_server.receive_restore_evidence_v1($1::jsonb,$2,$3::bytea,$4) AS value',
+          [JSON.stringify(recovery),requestHash,bindingDigest,createHash('sha256').update(encodeRestoreEvidenceV1(recovery)).digest('hex')]);
+        const value = response.rows[0]?.value;
+        if (!value) throw new Error('Missing recovery result');
+        if (value.status !== 'normal') {
+          if (value.status !== 'recovery_pending') {
+            await rollback(client); transactionOpen = false; return value;
+          }
+          const installed = (await query<InstallationRow>(client, `SELECT id,identity_binding_id
+            FROM taptime_server.offline_installations WHERE organization_id=$1 AND user_id=$2
+              AND membership_id=$3 AND binding_digest=$4`,
+          [actor.organization_id,actor.user_id,actor.membership_id,bindingDigest])).rows[0];
+          if (installed) await advanceRecoverySequence(client,actor,installed.id);
+          await query(client,'COMMIT'); transactionOpen = false;
+          await query(client,'BEGIN'); transactionOpen = true;
+          await query(client,`SET LOCAL ROLE ${OFFLINE_EVENT_ROLE}`);
+          await setOfflineActorContext(client,actor);
+          const archived = (await query<{ archived: boolean }>(client,
+            'SELECT taptime_server.require_restore_evidence_archive_v1($1,$2) AS archived',
+            [value.evidenceId,value.evidenceDigest])).rows[0]?.archived;
+          if (typeof archived !== 'boolean') throw new Error('Missing recovery archive result');
+          await query(client,'COMMIT'); transactionOpen = false;
+          return { ...value,archiveStatus: archived ? 'offsite_archived' : 'archive_pending' };
+        }
+      } else if ((await query(client,`SELECT 1 FROM taptime_server.restore_recovery_evidence
+        WHERE organization_id=$1 AND (claimed_work_event_id=$2 OR claimed_receipt_id=$3
+          OR (binding_digest=$4 AND device_sequence=$5))`,
+      [actor.organization_id,request.command.workEvent.id,request.command.receipt.id,bindingDigest,request.command.deviceSequence])).rows.length) {
+        // An old route can never reinterpret a retained recovery envelope as a new tap.
+        await rollback(client); transactionOpen = false;
+        return { status: 'conflict',reason: 'event_content_conflict' };
+      }
       const installation = await query<InstallationRow>(
         client,
         `SELECT id, identity_binding_id
@@ -448,6 +506,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
          ON CONFLICT DO NOTHING`,
         [actor.organization_id, installationRow.id, actor.user_id, actor.membership_id],
       );
+      await advanceRecoverySequence(client,actor,installationRow.id);
       const cursorResult = await query<CursorRow>(
         client,
         `SELECT last_durable_sequence, review_predecessor_sequence
@@ -597,6 +656,7 @@ export class OfflineLifecycleIngestionCoordinator implements OfflineLifecycleIng
           result.status === 'review_pending',
         ],
       );
+      await advanceRecoverySequence(client,actor,installationRow.id);
       await query(client, 'COMMIT');
       transactionOpen = false;
       return await this.requireOffsiteArchive(client, actor, installationRow.id, result);
@@ -1678,4 +1738,22 @@ function requireGeneratedUuid(value: string): string {
     throw new Error('Secure UUID generator returned a non-canonical UUID');
   }
   return value;
+}
+
+/** Advance only across individually retained evidence, never across an unexplained gap. */
+async function advanceRecoverySequence(client: PoolClient, actor: ActorRow, installationId: string): Promise<void> {
+  await query(client,`INSERT INTO taptime_server.offline_sync_cursors(organization_id,installation_id,user_id,membership_id)
+    VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING`,[actor.organization_id,installationId,actor.user_id,actor.membership_id]);
+  const current = (await query<CursorRow>(client,`SELECT last_durable_sequence,review_predecessor_sequence
+    FROM taptime_server.offline_sync_cursors WHERE organization_id=$1 AND installation_id=$2 FOR UPDATE`,
+  [actor.organization_id,installationId])).rows[0]!;
+  const next = (await query<{ last: string }>(client,`WITH RECURSIVE retained(sequence) AS (
+    SELECT $3::bigint UNION ALL SELECT r.sequence+1 FROM retained r
+    JOIN taptime_server.offline_installations i ON i.organization_id=$1 AND i.id=$2
+    JOIN taptime_server.restore_recovery_evidence e ON e.organization_id=i.organization_id AND e.user_id=i.user_id
+      AND e.membership_id=i.membership_id AND e.binding_digest=i.binding_digest AND e.device_sequence=r.sequence+1
+  ) SELECT max(sequence)::text AS last FROM retained`,[actor.organization_id,installationId,current.last_durable_sequence])).rows[0]!.last;
+  for (let sequence = Number(current.last_durable_sequence)+1; sequence <= Number(next); sequence++) await query(client,`UPDATE taptime_server.offline_sync_cursors
+    SET last_durable_sequence=$3,updated_at=transaction_timestamp() WHERE organization_id=$1 AND installation_id=$2`,
+  [actor.organization_id,installationId,sequence]);
 }

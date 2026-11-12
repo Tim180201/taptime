@@ -304,11 +304,11 @@ externen WAL-Datensatz:
   gezeigte Entscheidung nicht. Eine erst nach der letzten Archivgrenze ausgestellte Lease kann
   zusammen mit ihrem bereits entschiedenen Ereignis fehlen. Beim unveränderten Replay verweigert
   der Server die fehlende Bindung (`lease_binding_conflict`), obwohl er vorher den Start bestätigt
-  hatte. Die laufende Implementierung besitzt keinen Reparaturweg für diese Grundlage. Dies an
-  den Technical Lead eskalieren; niemals eine neue Lease-ID in die erhaltene Evidenz schreiben.
-  Ein erfolgreicher physischer Restore beweist deshalb noch keine vollständige Wiederaufnahme
-  dieser Telefonereignisse. D-052s Zusicherung „vorläufig, nie falsch“ ist bis zur Entscheidung
-  und erneutem Nachweis nicht als Betriebszusage verwendbar.
+  hatte. Ab Migration 070 nimmt der separate Wiederaufnahme-Eingang solche unveränderten Belege
+  ohne neue Buchung zur Prüfung an. Niemals eine neue Lease-ID in die erhaltene Evidenz schreiben.
+  Die erneute Übermittlung durch die App (T-055d) und der begründete Abschluss in der Web-Prüfung
+  (T-055c) fehlen noch. Ein erfolgreicher physischer Restore allein beweist deshalb weiterhin
+  keine vollständige fachliche Wiederaufnahme dieser Telefonereignisse.
 - **Bewusster Rücksprung vor den letzten Archivstand:** Nur mit ausdrücklicher Freigabe des
   Product Owners und dokumentiertem Zielzeitpunkt. Schon vom Telefon gelöschte Ereignisse können
   dann fehlen; automatische Wiederholung kann sie nicht zurückbringen. Den letzten Archivstand
@@ -328,6 +328,12 @@ Borg-Transport werden damit simuliert oder behauptet. Belegt werden:
 2. Derselbe Archivpunkt: der folgende erhaltene Start mit verlorener neuer Lease endet im
    Bindungskonflikt. Dies ist ein reproduzierter Fehlerbeleg, keine Freigabe des Verhaltens.
 3. Früherer Zeitpunkt: gelöschter Start fehlt; der erhaltene Stopp meldet `sequence_gap`.
+
+`T055bRecoveryPostgres.test.ts` ergänzt den physischen Nachweis für den neuen Eingang:
+verlorene Entscheidung, Lease und Installation bleiben als Beleg erhalten; bekannte Ergebnisse
+bleiben gleich. Folgeereignisse gehen zur Prüfung, echte Sequenzlücken bleiben bestehen und
+der separate Archivnachweis quittiert genau den Eingangsbeleg. Der alte Erfassungsweg bleibt
+mit den oben beschriebenen Fehlerfällen als Regressionstest bestehen.
 
 Die Testressourcen legt der Test selbst an, PostgreSQL verändert sie während der Probe, und der
 Test entfernt seine eigenen Container und Volumes im Abschlussblock. Zusätzliche Review-Befunde
@@ -467,8 +473,36 @@ Angemeldete aktive Mitglieder lesen über `GET /v1/restore-recovery` den neuen V
 `contractVersion: 1`: `operation: null` vor dem ersten Vorgang, sonst ID, Ziel (`latest` oder
 `point_in_time` mit UTC-Zeit) und Aktivierungszeit. Cluster, Timeline und WAL-Position werden
 nicht an die App gegeben. Bestehende Sitzungs-, Erfassungs- und Abgleichsverträge bleiben gleich.
-T-055a ändert noch keine Buchungsentscheidung und bietet keine Telefonbelege erneut an;
-die Wiederaufnahme nach D-162 folgt mit T-055b–d.
+Ab Migration 070 nimmt `POST /v1/restore-recovery/evidence` erhaltene Telefonbelege entgegen:
+Vorgangs-ID, lokaler Zustand (`confirmed` oder `pending`) und unverändertes Ereignis einschließlich
+Lease, Item, Installationsbindung, Sequenz, Uhrbeleg und Quittungs-ID. Ohne zugeordneten angemeldeten
+Akteur, vorhandenen Vorgang oder bei einer Erfassung nach dessen Aktivierung wird nichts aufgenommen.
+Bekannte exakte Ergebnisse bleiben erhalten. Unbekannte bestätigte Belege und Belege mit verlorener
+Herkunft gelangen als unveränderlicher Umschlag in `restore_recovery_evidence`; es entstehen dabei
+weder Zeiten noch Ersatz-Leases oder Ersatz-Installationen. Behauptete IDs beweisen keine Herkunft.
+Bekannte fremde oder widersprüchliche IDs werden abgewiesen; vollständig verlorene Herkunft lässt
+sich ohne signierte Belege nicht nachträglich authentifizieren und wird deshalb nur geprüft.
+
+Ein Eingang belegt seine Gerätestelle. Nur lückenlos belegte Stellen bewegen den Cursor weiter.
+Offene Fälle zählen in `has_offline_review_predecessor_v1`: weitere Offline-Taps der Person werden
+Prüffälle, andere Personen bleiben unberührt. Sperrbildschirm-Ausgabe und Aktionen verweigern für
+diese Person die Berechtigung; bestehende Clients zeigen ihren Hinweis zum Öffnen der App.
+Normale Offline-Prüffälle mit Erfassung vor Aktivierung erhalten zusätzlich einen unveränderlichen
+Vorgangsbezug in `offline_review_restore_references`; der ursprüngliche Prüfgrund bleibt gleich.
+
+Die separate Quittung `recovery_pending` enthält Eingangs-ID, Original-IDs, Sequenz, Vorgang und
+SHA-256 des kanonischen Umschlags (`encodeRestoreEvidenceV1`, UTF-8, sortierte Objektschlüssel).
+Der Archivbedarf wird nach dem Commit angelegt und bei exaktem Retry repariert. Archivierer und
+Monitoring lesen ihn mit. Erst `offsite_archived` für exakt diese Eingangsquittung erlaubt später
+das Löschen der Telefonkopie; eine alte Ereignisquittung ersetzt diesen Nachweis nicht.
+Eingang und Prüfbezug werden vom Server angelegt und nie überschrieben. T-055c ergänzt begründete
+Abschlüsse; bis dahin bleiben alle Eingänge offen. Vor T-016 gibt es keinen produktiven Löschweg.
+Alle drei Tabellen haben ENABLE/FORCE RLS, gebundene Eigentümer und minimale Funktionsrechte.
+
+Die App bietet die Belege erst ab T-055d erneut an; T-055b allein stellt keine vollständige
+Wiederaufnahme bereit. Web-Prüfung und beaufsichtigter Abschluss folgen in T-055c. Der Umgang mit
+manueller Web-Erfassung und alten direkten Lifecycle-Routen bei offenem Fall ist im T-055b-Bericht
+als offene TL-Abgrenzung benannt; sie benutzen den Offline-Vorgängerprüfer derzeit nicht.
 
 Verifier und Aktivator kommen gemeinsam mit dem normalen Operations-Deploy auf den Server;
 ein vorgeschalteter Konsolentausch des Deploy-Controllers ist für T-055a nicht erforderlich.
