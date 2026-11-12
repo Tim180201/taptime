@@ -393,7 +393,7 @@ export type BackendApiRoute =
   | 'scan_context_v2'
   | 'session'
   | 'session_v2'
-  | 'restore_recovery';
+  | 'restore_recovery' | 'restore_evidence';
 
 export interface BackendApiDiagnostic {
   readonly code:

@@ -71,6 +71,9 @@ export interface OfflineCaptureLeaseIssuer {
 }
 
 export interface OfflineLifecycleIngestor {
+  readonly recover?: (request: { readonly accessToken: string;
+    readonly command: import('@taptime/offline-sync-contract').RestoreEvidenceCommandV1;
+  }) => Promise<import('@taptime/offline-sync-contract').RestoreEvidenceResultV1>;
   readonly skip?: (request: { readonly accessToken: string; readonly command: OfflineSequenceSkipCommand }) => Promise<OfflineSequenceSkipResult>;
   ingest(
     command: AuthenticatedOfflineLifecycleEventCommand,

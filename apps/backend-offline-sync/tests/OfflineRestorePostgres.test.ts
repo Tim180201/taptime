@@ -224,10 +224,11 @@ USER node
       'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS target`)).rows[0].target;
     const first = command(archivedLease, 1, 1_000);
     const phone = [first];
+    // The historical base stays pre-069; the current server ingests only after its migrations.
+    expect((await migrate(original)).applied).toContain(recoveryMigration.version);
     const firstDecision = await ingest(original, first);
     expect(firstDecision).toMatchObject({ status: 'synchronized', archiveStatus: 'archive_pending',
       decision: { status: 'time_entry_started' } });
-    expect((await migrate(original)).applied).toContain(recoveryMigration.version);
     // Deploy establishes a new verified base for the migrated source set.
     // Preserve the old base for the pre-069 historical target.
     await docker('exec', '-u', 'postgres', source, 'pg_basebackup', '-D', '/base-current', '-Fp', '-Xs', '-c', 'fast');

@@ -1,3 +1,4 @@
+import { isRestoreEvidenceCommandV1 } from '@taptime/offline-sync-contract';
 import { isPersonnelNumber, isWorkWageType } from '@taptime/administration-contract';
 import { parseReviewDaysRequest, REVIEW_DAYS_MAXIMUM_BYTES } from '@taptime/time-review-contract';
 import { isLockScreenCapability, isLockScreenCapabilityRequest, isLockScreenActionRequest, isLockScreenCapabilityResult, isLockScreenActionResult,
@@ -191,6 +192,7 @@ export const BACKEND_HTTP_ROUTES = Object.freeze({
   '/v1/administration/setup-projection': 'admin_setup_projection',
   '/v2/administration/setup-projection': 'admin_setup_projection_v2',
   '/v1/restore-recovery': 'restore_recovery',
+  '/v1/restore-recovery/evidence': 'restore_evidence',
   '/v1/session': 'session',
   '/v2/session': 'session_v2',
   '/v1/scan-context/resolve': 'scan_context',
@@ -1272,6 +1274,20 @@ async function handleRequest(
       correlationId, timeoutMilliseconds, 3, acceptsTimeDetails(request.headers.accept), request.headers.accept === TIME_DETAILS_ACCEPT_V3);
     return;
   }
+  if (route === 'restore_evidence') {
+    if (!isRestoreEvidenceCommandV1(body)) { respondError(response,400,'invalid_request'); return; }
+    if (!dependencies.offlineLifecycleIngestor.recover) { respondError(response,503,'service_unavailable'); return; }
+    try {
+      const result = await withTimeout(dependencies.offlineLifecycleIngestor.recover({accessToken,command:body}),timeoutMilliseconds);
+      respondJson(response,result.status === 'authority_rejected' ? 401 : result.status === 'conflict' ? 409
+        : result.status === 'recovery_rejected' ? 422 : 200,result);
+    } catch (error) {
+      if (isOrganizationPausedError(error)) { respondError(response,403,'organization_paused'); return; }
+      emitOfflineDiagnostic(options.onDiagnostic,correlationId); respondError(response,503,'service_unavailable');
+    }
+    return;
+  }
+
   if (route === 'offline_sequence_skip') {
     if (!isOfflineSequenceSkipCommand(body)) { respondError(response,400,'invalid_request'); return; }
     if (!dependencies.offlineLifecycleIngestor.skip) { respondError(response,503,'service_unavailable'); return; }
@@ -3267,6 +3283,7 @@ function diagnosticCodeForRoute(route: Route | null): BackendApiDiagnostic['code
     case 'offline_lifecycle_v2':
     case 'offline_lifecycle_v3':
     case 'offline_lifecycle_v4':
+    case 'restore_evidence':
     case 'offline_sequence_skip':
     case 'offline_reconciliation':
     case 'offline_reconciliation_v2':
