@@ -8,6 +8,7 @@
 # verification: manual    → die zuständige Partei bestätigt ausdrücklich:
 #   confirmedBy: client     → Kunde (frogs) bei der Pilot-Abnahme
 #   confirmedBy: contractor → Anbieter (Taptura) in der Bereitstellungserklärung
+# Stand 2026-11-12: 5 Kriterien automatisch belegt, 13 vorerst manuell (automatische Prüfung vorgesehen), 16 manuell.
 #
 # Commit-Nennungen wie "feat: Pause vom Sperrbildschirm (LK-8)" sind optional (ADR 0004).
 # Namen finden: dossier map --grep "<regex>" --criterion <ID>; prüfen: dossier map --check
@@ -38,12 +39,19 @@ criteria:
     description: "Prüfung am Android-Gerät: App geschlossen, Karte auflegen, Buchung entsteht."
   - id: LK-4
     title: "Zeiten lassen sich manuell erfassen: für einen Kunden, ein Projekt oder als allgemeine Arbeit"
-    description: "Alle drei Arten sind erfassbar und werden korrekt zugeordnet gespeichert."
+    verification: manual
+    confirmedBy: client
+    description: "Alle drei Arten sind erfassbar und werden korrekt zugeordnet gespeichert. Prüfung am Gerät: alle drei Arten erfassen; Zuordnung in „Meine Zeiten“ prüfen. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: LK-5
     title: "Pause lässt sich starten und beenden; Pausenzeit wird nicht als Arbeitszeit gezählt"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Gerät: Pause starten und beenden; Tagessumme zählt die Pause nicht mit. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: LK-6
     title: "Erfassung ohne Netz: Anzeige wie mit Netz, automatische Übertragung sobald Netz da ist"
-    description: "Offline erfasste Buchungen werden vollständig und ohne Doppelung übertragen, auch nach App-Neustart."
+    verification: manual
+    confirmedBy: client
+    description: "Offline erfasste Buchungen werden vollständig und ohne Doppelung übertragen, auch nach App-Neustart. Prüfung am Gerät im Flugmodus: erfassen, Netz einschalten, Übertragung ohne Doppelung prüfen – auch nach App-Neustart. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: LK-7
     title: "Laufende Zeit ist auf dem Sperrbildschirm sichtbar (Android-Benachrichtigung, iPhone-Live-Aktivität)"
     verification: manual
@@ -56,7 +64,9 @@ criteria:
     description: "Android: ohne Entsperren. iPhone: Gerät mit Face ID oder Code entsperrt. Die App öffnet sich dabei nicht; die Aktion ist anschließend in „Meine Zeiten“ sichtbar. Prüfung je Plattform am Gerät (D-161)."
   - id: LK-9
     title: "„Meine Zeiten“ zeigt Kalender mit Tages-, Wochen- und Monatssummen und lädt schnell"
-    description: "Summen stimmen mit den Einzelbuchungen überein. Ladezeit bei einem Monat mit 200 Buchungen unter 2 Sekunden."
+    verification: manual
+    confirmedBy: client
+    description: "Summen stimmen mit den Einzelbuchungen überein. Ladezeit bei einem Monat mit 200 Buchungen unter 2 Sekunden. Prüfung am Gerät: Summen gegen Einzelbuchungen; Ladezeit eines Monats mit 200 Buchungen unter 2 Sekunden. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: LK-10
     title: "Lehrkraft kann eigene Zeiten nachtragen und löschen"
     description: "Ändern bestehender Einträge ist Sache der Standortleitung (SL-3)."
@@ -68,6 +78,9 @@ criteria:
   # ---------------------------------------------------------- Standortleitung
   - id: SL-1
     title: "Standortleitung sieht Mitarbeiter und Kunden des eigenen Standorts – und nur diese"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Gerät mit Standortleitungs-Konto: nur eigener Standort sichtbar. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: SL-2
     title: "Standortleitung kann NFC-Karten einrichten, prüfen und entfernen"
     verification: manual
@@ -88,7 +101,9 @@ criteria:
   # ---------------------------------------------------------------- Grundregeln
   - id: GR-1
     title: "Ein Tippen ergibt genau eine Buchung; der Server entscheidet"
-    description: "Mehrfaches schnelles Tippen oder Wiederholen einer Anfrage erzeugt keine zweite Buchung."
+    verification: manual
+    confirmedBy: contractor
+    description: "Mehrfaches schnelles Tippen oder Wiederholen einer Anfrage erzeugt keine zweite Buchung. Bestätigung durch den Anbieter nach Prüfung der Server-Idempotenz. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: GR-2
     title: "Doppelte Scans werden erkannt und nicht doppelt gebucht"
     tests:
@@ -96,14 +111,20 @@ criteria:
       - "BusinessEngine (F-01 lifecycle) > ignores a scan less than five seconds after the previous accepted scan before evaluating stop"
   - id: GR-3
     title: "Korrekturen überschreiben nie das Original; jede Änderung bleibt nachvollziehbar"
-    description: "Nach einer Korrektur sind Originalwert, neuer Wert, Zeitpunkt, Person und Grund abrufbar."
-
+    verification: manual
+    confirmedBy: contractor
+    description: "Nach einer Korrektur sind Originalwert, neuer Wert, Zeitpunkt, Person und Grund abrufbar. Bestätigung durch den Anbieter nach Prüfung der Korrekturhistorie in der Datenbank. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   # ----------------------------------------------------- Datenschutz (Technik)
   - id: DS-1
     title: "Daten jedes Betriebs sind strikt getrennt"
-    description: "Kein Zugriff auf Daten eines anderen Betriebs, auch nicht über direkte Anfragen an den Server."
+    verification: manual
+    confirmedBy: contractor
+    description: "Kein Zugriff auf Daten eines anderen Betriebs, auch nicht über direkte Anfragen an den Server. Bestätigung durch den Anbieter nach Prüfung der Mandantentrennung (RLS) am Server. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: DS-2
     title: "Rollen greifen: Lehrkraft sieht nur eigene Zeiten, Standortleitung nur ihren Standort, Verwaltung den eigenen Betrieb"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Gerät mit je einem Konto pro Rolle. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: DS-3
     title: "Server in Deutschland (Hetzner Nürnberg), Sicherung in Falkenstein, Anmeldung über Supabase EU (Frankfurt)"
     verification: manual
@@ -118,11 +139,19 @@ criteria:
       - "C1 product runtime configuration > accepts complete HTTPS configuration on ios"
   - id: DS-5
     title: "Offline-Daten auf dem Handy sind verschlüsselt und an das Konto gebunden; Abmelden oder Kontowechsel entfernt den lokalen Stand"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Gerät: abmelden bzw. Konto wechseln; lokaler Stand ist danach weg. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: DS-6
     title: "Sperrbildschirm zeigt Kunden nur mit Initialen (z. B. „M. K.“); der volle Name steht nur in der App"
+    verification: manual
+    confirmedBy: client
+    description: "Prüfung am Gerät: Sperrbildschirm zeigt nur Initialen. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: DS-7
     title: "Sperrbildschirm-Knöpfe nutzen einen eigenen Schlüssel: höchstens 24 Stunden gültig, nur für die laufende Zeit"
-    description: "Mit diesem Schlüssel ist keine andere Aktion möglich; nach Ablauf wird er abgewiesen."
+    verification: manual
+    confirmedBy: contractor
+    description: "Mit diesem Schlüssel ist keine andere Aktion möglich; nach Ablauf wird er abgewiesen. Bestätigung durch den Anbieter nach Prüfung von Gültigkeit und Umfang des Sperrbildschirm-Schlüssels. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   - id: DS-8
     title: "Keine Standortdaten (GPS), keine Werbung, kein Tracking"
     verification: manual
@@ -135,7 +164,9 @@ criteria:
     description: "Bestätigung durch den Anbieter; Nachweis durch Protokoll der letzten Wiederherstellungsprüfung."
   - id: DS-10
     title: "Jede Änderung wird protokolliert: wer, wann, was"
-
+    verification: manual
+    confirmedBy: contractor
+    description: "Bestätigung durch den Anbieter nach Prüfung des Änderungsprotokolls. Vorerst manuell geprüft; automatische Prüfung über zugeordnete Tests ist vorgesehen."
   # ------------------------------------------------------------------ Unterlagen
   - id: DOK-1
     title: "Verzeichnis der Verarbeitungstätigkeiten liegt vor"
